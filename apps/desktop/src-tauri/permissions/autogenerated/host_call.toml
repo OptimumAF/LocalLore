@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-host-call"
+description = "Enables the host_call command without any pre-configured scope."
+commands.allow = ["host_call"]
+
+[[permission]]
+identifier = "deny-host-call"
+description = "Denies the host_call command without any pre-configured scope."
+commands.deny = ["host_call"]

@@ -1,0 +1,11 @@
+{
+  "name": "locallore-desktop-contract-checks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node check-contract.mjs"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0"
+  }
+}

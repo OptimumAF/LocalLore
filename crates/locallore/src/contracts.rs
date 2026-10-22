@@ -8,6 +8,7 @@ pub const MAX_PROPOSAL_BYTES: usize = 16_384;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "host", derive(schemars::JsonSchema))]
 pub struct Scope {
     pub story: String,
     pub branch: String,
@@ -93,6 +94,7 @@ pub struct Seed {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "host", derive(schemars::JsonSchema))]
 pub enum Command {
     Give {
         item: String,
@@ -144,6 +146,7 @@ pub enum Command {
     rename_all = "snake_case",
     deny_unknown_fields
 )]
+#[cfg_attr(feature = "host", derive(schemars::JsonSchema))]
 pub enum Intent {
     Actions(Vec<Command>),
     Dialogue {
@@ -157,6 +160,7 @@ pub enum Intent {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "host", derive(schemars::JsonSchema))]
 pub struct Request {
     pub version: u16,
     pub scope: Scope,

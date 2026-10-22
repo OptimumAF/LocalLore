@@ -1,0 +1,132 @@
+{
+  "cases": [
+    {
+      "action": "GIVE_POTION",
+      "from_revision": 0,
+      "proposal_json": "{\"version\":1,\"scope\":{\"story\":\"quay\",\"branch\":\"main\"},\"turn\":\"android-0-GIVE_POTION\",\"expected_revision\":0,\"commands\":[{\"op\":\"give\",\"item\":\"potion\",\"to\":\"mira\",\"quantity\":1}]}",
+      "rejected_error": "Agency",
+      "rejected_proposal_json": "{\"version\":1,\"scope\":{\"story\":\"quay\",\"branch\":\"main\"},\"turn\":\"android-0-GIVE_POTION\",\"expected_revision\":0,\"commands\":[{\"op\":\"use_ability\",\"ability\":\"invented-teleport\"}]}",
+      "request_json": "{\"version\":1,\"scope\":{\"story\":\"quay\",\"branch\":\"main\"},\"turn\":\"android-0-GIVE_POTION\",\"expected_revision\":0,\"intent\":{\"kind\":\"actions\",\"value\":[{\"op\":\"give\",\"item\":\"potion\",\"to\":\"mira\",\"quantity\":1}]}}",
+      "resolution": {
+        "kind": "accepted",
+        "narration": "You give 1 potion to mira.",
+        "potion_owner": "Mira",
+        "receipt": {
+          "events": [
+            {
+              "outcome": {
+                "effect": "given",
+                "from": "player",
+                "item": "potion",
+                "quantity": 1,
+                "to": "mira"
+              },
+              "participants": [
+                "mira",
+                "player"
+              ],
+              "rules": "fantasy_v1",
+              "scope": {
+                "branch": "main",
+                "story": "quay"
+              },
+              "seed": "lantern-quay-v1",
+              "sequence": 1,
+              "story_time": 100,
+              "turn": "android-0-GIVE_POTION",
+              "version": 1,
+              "witnesses": [
+                "mira",
+                "player"
+              ]
+            }
+          ],
+          "narration": "You give 1 potion to mira.",
+          "proposal": {
+            "commands": [
+              {
+                "item": "potion",
+                "op": "give",
+                "quantity": 1,
+                "to": "mira"
+              }
+            ],
+            "expected_revision": 0,
+            "scope": {
+              "branch": "main",
+              "story": "quay"
+            },
+            "turn": "android-0-GIVE_POTION",
+            "version": 1
+          },
+          "request": {
+            "expected_revision": 0,
+            "intent": {
+              "kind": "actions",
+              "value": [
+                {
+                  "item": "potion",
+                  "op": "give",
+                  "quantity": 1,
+                  "to": "mira"
+                }
+              ]
+            },
+            "scope": {
+              "branch": "main",
+              "story": "quay"
+            },
+            "turn": "android-0-GIVE_POTION",
+            "version": 1
+          }
+        },
+        "revision": 1
+      }
+    },
+    {
+      "action": "TRY_ABILITY",
+      "from_revision": 0,
+      "proposal_json": "{\"version\":1,\"scope\":{\"story\":\"quay\",\"branch\":\"main\"},\"turn\":\"android-0-TRY_ABILITY\",\"expected_revision\":0,\"commands\":[{\"op\":\"use_ability\",\"ability\":\"blink\"}]}",
+      "rejected_error": "Agency",
+      "rejected_proposal_json": "{\"version\":1,\"scope\":{\"story\":\"quay\",\"branch\":\"main\"},\"turn\":\"android-0-TRY_ABILITY\",\"expected_revision\":0,\"commands\":[{\"op\":\"use_ability\",\"ability\":\"invented-teleport\"}]}",
+      "request_json": "{\"version\":1,\"scope\":{\"story\":\"quay\",\"branch\":\"main\"},\"turn\":\"android-0-TRY_ABILITY\",\"expected_revision\":0,\"intent\":{\"kind\":\"actions\",\"value\":[{\"op\":\"use_ability\",\"ability\":\"blink\"}]}}",
+      "resolution": {
+        "error": "Ability",
+        "kind": "rejected"
+      }
+    },
+    {
+      "action": "GIVE_POTION",
+      "from_revision": 1,
+      "proposal_json": "{\"version\":1,\"scope\":{\"story\":\"quay\",\"branch\":\"main\"},\"turn\":\"android-1-GIVE_POTION\",\"expected_revision\":1,\"commands\":[{\"op\":\"give\",\"item\":\"potion\",\"to\":\"mira\",\"quantity\":1}]}",
+      "rejected_error": "Agency",
+      "rejected_proposal_json": "{\"version\":1,\"scope\":{\"story\":\"quay\",\"branch\":\"main\"},\"turn\":\"android-1-GIVE_POTION\",\"expected_revision\":1,\"commands\":[{\"op\":\"use_ability\",\"ability\":\"invented-teleport\"}]}",
+      "request_json": "{\"version\":1,\"scope\":{\"story\":\"quay\",\"branch\":\"main\"},\"turn\":\"android-1-GIVE_POTION\",\"expected_revision\":1,\"intent\":{\"kind\":\"actions\",\"value\":[{\"op\":\"give\",\"item\":\"potion\",\"to\":\"mira\",\"quantity\":1}]}}",
+      "resolution": {
+        "error": "Inventory",
+        "kind": "rejected"
+      }
+    },
+    {
+      "action": "TRY_ABILITY",
+      "from_revision": 1,
+      "proposal_json": "{\"version\":1,\"scope\":{\"story\":\"quay\",\"branch\":\"main\"},\"turn\":\"android-1-TRY_ABILITY\",\"expected_revision\":1,\"commands\":[{\"op\":\"use_ability\",\"ability\":\"blink\"}]}",
+      "rejected_error": "Agency",
+      "rejected_proposal_json": "{\"version\":1,\"scope\":{\"story\":\"quay\",\"branch\":\"main\"},\"turn\":\"android-1-TRY_ABILITY\",\"expected_revision\":1,\"commands\":[{\"op\":\"use_ability\",\"ability\":\"invented-teleport\"}]}",
+      "request_json": "{\"version\":1,\"scope\":{\"story\":\"quay\",\"branch\":\"main\"},\"turn\":\"android-1-TRY_ABILITY\",\"expected_revision\":1,\"intent\":{\"kind\":\"actions\",\"value\":[{\"op\":\"use_ability\",\"ability\":\"blink\"}]}}",
+      "resolution": {
+        "error": "Ability",
+        "kind": "rejected"
+      }
+    }
+  ],
+  "contract_version": 1,
+  "fixture_version": 1,
+  "initial_potion_owner": "You",
+  "initial_revision": 0,
+  "scope": {
+    "branch": "main",
+    "story": "quay"
+  },
+  "seed": "lantern-quay-v1"
+}

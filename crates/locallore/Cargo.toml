@@ -6,6 +6,10 @@ rust-version.workspace = true
 license.workspace = true
 description = "LocalLore authoritative domain contract and offline host proof"
 
+[[example]]
+name = "runtime_spike"
+test = true
+
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true

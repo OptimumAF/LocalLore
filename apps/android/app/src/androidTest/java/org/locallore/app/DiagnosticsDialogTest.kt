@@ -1,20 +1,22 @@
 /* Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0 */
 package org.locallore.app
 
-import android.content.res.Configuration
 import android.view.KeyEvent
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.WindowInfo
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
-import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -22,6 +24,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -100,13 +104,16 @@ class DiagnosticsDialogTest {
             "{\"phase\":\"prepare\",\"outcome\":\"accepted\",\"elapsed_ms\":100}"
         }
         compose.setContent {
-            val configuration = Configuration(LocalConfiguration.current).apply {
-                screenWidthDp = 320
-                screenHeightDp = 420
-            }
             val density = LocalDensity.current.density
+            val viewport = with(LocalDensity.current) {
+                IntSize(320.dp.roundToPx(), 420.dp.roundToPx())
+            }
+            val windowInfo = object : WindowInfo {
+                override val isWindowFocused = true
+                override val containerSize = viewport
+            }
             CompositionLocalProvider(
-                LocalConfiguration provides configuration,
+                LocalWindowInfo provides windowInfo,
                 LocalDensity provides Density(density, 2f),
             ) {
                 MaterialTheme {
@@ -117,6 +124,8 @@ class DiagnosticsDialogTest {
                 }
             }
         }
+        compose.onNodeWithTag("diagnostics-dialog")
+            .assertWidthIsEqualTo(300.8.dp).assertHeightIsEqualTo(378.dp)
         compose.onNodeWithTag("diagnostics-export").assertIsDisplayed().performClick()
         compose.onNodeWithTag("diagnostics-clear").assertIsDisplayed()
         compose.onNodeWithTag("diagnostics-content").performTouchInput { swipeUp() }

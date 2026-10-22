@@ -18,7 +18,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
@@ -39,16 +40,19 @@ fun DiagnosticsDialog(
     onExport: () -> Unit,
 ) {
     if (!state.visible) return
-    val configuration = LocalConfiguration.current
+    val windowSize = LocalWindowInfo.current.containerSize
+    val density = LocalDensity.current
+    val windowWidth = with(density) { windowSize.width.toDp() }
+    val windowHeight = with(density) { windowSize.height.toDp() }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(
             modifier = Modifier
-                .widthIn(max = minOf(560.dp, (configuration.screenWidthDp * 0.94f).dp))
+                .widthIn(max = minOf(560.dp, windowWidth * 0.94f))
                 .fillMaxWidth()
-                .heightIn(max = (configuration.screenHeightDp * 0.9f).dp)
+                .heightIn(max = windowHeight * 0.9f)
                 .fillMaxHeight()
                 .testTag("diagnostics-dialog"),
             shape = MaterialTheme.shapes.large,

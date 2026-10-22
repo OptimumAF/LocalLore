@@ -6,7 +6,7 @@ The project is at documentation-only bootstrap. There are no supported applicati
 
 ## Reporting
 
-Prefer GitHub's **Security → Advisories → Report a vulnerability** when private vulnerability reporting is visibly enabled for the official repository. Enabling and verifying it is a tracked setup task; this file alone does not enable it.
+Private vulnerability reporting was enabled and verified on 2026-10-22. Use the official repository's **Security → Advisories → Report a vulnerability** action. See [setup evidence](docs/WORK_LOG.md). This channel is for vulnerabilities; conduct concerns follow `CODE_OF_CONDUCT.md`.
 
 If that private action is not available, open a minimal issue asking the owner to establish a private reporting channel. Do not include exploit instructions, credentials, private saves, or affected users' information in the public issue. Do not send sensitive reports to an invented email address. The project makes no response-time guarantee at bootstrap.
 

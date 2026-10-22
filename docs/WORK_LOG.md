@@ -8,7 +8,7 @@ For completion evidence, include date, task, changed paths/PR/commit, exact chec
 
 ## Active claims
 
-None. Publication work is complete; M00.05 is blocked on explicit approval of the prepared ruleset. No implementation agents are running.
+Bootstrap coordinator owns `docs/finish-bootstrap` through integration of the setup evidence. No application implementation agent is active.
 
 ## 2026-10-22 — Documentation preparation
 
@@ -37,3 +37,19 @@ M00.06: **todo**. Private vulnerability reporting, conduct contact, collaborator
 Publication-status follow-up updates README, project status, this log, and the M00.04 checkbox so the live repository does not continue to claim it is unpublished. This is an authorized bootstrap correction, not completion of the application or the full M00 gate.
 
 Next: obtain approval for the prepared branch rules, verify them after submission, finish reporting/access checks, then begin M01/M02 only under an implementation assignment.
+
+## 2026-10-22 — Approved controls and setup closeout
+
+Authorization: the owner explicitly approved the detailed ruleset, then granted permission to finish GitHub and initial-document setup and requested an implementation prompt. This resolves the earlier approval blocker. No application implementation was authorized for this setup session.
+
+M00.05: **done upon integration of this setup PR**. Saved ruleset 25677641 and read it back from the GitHub rulesets API: active, default-branch target, deletion and non-fast-forward restrictions, pull-request rule with one required approval, stale-review dismissal, code-owner approval and conversation resolution. Sole bypass actor: User 88298311 (OptimumAF), mode `pull_request`; no integration/role bypass. Saved UI confirmed “Ruleset created” and applicability to `main`. The effective-branch-rules URL is unsupported by the connector; this limitation was not presented as a GitHub rule failure. The setup-doc PR is used for the owner self-PR merge verification.
+
+The access UI showed 0 collaborators and “You haven't invited any collaborators yet.” The repository's integration inventory showed AWS Amplify (us-east-2), AWS Connector for GitHub, ChatGPT Codex Connector, and GitGuardian. These inherited installations were not added, removed, or exempted from rules. Account-wide permissions remain untouched and cannot be inferred solely from a collaborator count.
+
+M00.06: **done upon integration of this setup PR**. Enabled private vulnerability reporting; saved UI confirmed the setting and provided its configuration link and a Disable control. Enabled dependency graph and Dependabot alerts. Retained existing secret/push protection; left paid AI scanning/fix agents off and Actions disabled. No actual vulnerability/abuse report or outbound message was submitted as a test.
+
+ADR-0002 records the deliberate conduct-reporting adjustment: GitHub abuse tools/Support are the bootstrap route for sensitive abuse, with limits clearly documented; no personal email or dedicated owner inbox is invented. Initial planning defaults and unresolved real-device/runtime decisions are documented in PROJECT_STATUS. This changes the reporting mechanism, not privacy, licensing, or founder authority.
+
+Docs updated: README, plan, project status, setup checklist, conduct/security policies, references, kickoff prompt, ADR-0002, and this work log. Product milestones stay unchecked. Verification uses saved GitHub configuration and remote content hashes; no application/device tests are claimed. The accepted first-session prompt scopes M02 contracts/fixtures and a minimal executable host/fake-provider proof, with independent M01 preparation and honest device blockers.
+
+Next: use AGENT_PROMPT.md in an implementation session. Prepare reviewed CI in M03 before re-enabling Actions; do not recreate the repo or weaken the owner-review rules to begin work.

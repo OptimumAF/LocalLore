@@ -71,6 +71,28 @@ class RequestTests(unittest.TestCase):
             self.assertEqual(completed.stderr, b"")
             self.assertNotIn(b"private", completed.stdout)
 
+    def test_buffered_diagnostics_are_discarded_when_sdk_raises(self):
+        script = """
+import json, sys
+sys.path.insert(0, sys.argv[1])
+import run
+try:
+    with run.quiet_native():
+        print('SYNTHETIC-PRIVATE-STDOUT-731', end='')
+        print('SYNTHETIC-PRIVATE-STDERR-731', end='', file=sys.stderr)
+        raise RuntimeError('SYNTHETIC-PRIVATE-EXCEPTION-731')
+except RuntimeError:
+    print(json.dumps(run.result('generation_failed')))
+"""
+        completed = subprocess.run(
+            [sys.executable, "-c", script, str(Path(worker.__file__).parent)],
+            capture_output=True, timeout=15,
+        )
+        self.assertEqual(completed.returncode, 0)
+        self.assertEqual(json.loads(completed.stdout), worker.result("generation_failed"))
+        self.assertEqual(completed.stderr, b"")
+        self.assertNotIn(b"SYNTHETIC-PRIVATE", completed.stdout)
+
     def configured_fake(self):
         """Only worker ownership/settings tests; never real-model evidence."""
         lm = MagicMock()

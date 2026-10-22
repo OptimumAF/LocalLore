@@ -87,9 +87,17 @@ def quiet_native():
         with open(os.devnull, "wb") as sink:
             os.dup2(sink.fileno(), 1)
             os.dup2(sink.fileno(), 2)
-            yield
-            sys.stdout.flush()
-            sys.stderr.flush()
+            try:
+                yield
+            finally:
+                # Flush Python buffers while both descriptors still point at
+                # the sink, including SDK failures. Restoring first can expose
+                # buffered diagnostics at the next write or interpreter exit.
+                for stream in (sys.stdout, sys.stderr):
+                    try:
+                        stream.flush()
+                    except Exception:
+                        pass
     finally:
         for fd, original in zip((1, 2), saved):
             os.dup2(original, fd)

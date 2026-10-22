@@ -12,14 +12,17 @@ Actual checks in the isolated `research/m01-litert-spike` worktree:
 | `pip install --no-index --no-deps <verified-wheel>` in local venv | Succeeded; API imported |
 | Installed API Python sources versus pinned upstream files | Three files matched byte for byte |
 | `python benchmarks/spike/litert/run.py --help` | Exit 0 |
-| `python -m unittest discover -s benchmarks/spike/litert -p 'test_*.py' -v` | 9 passed |
+| `python -m unittest discover -s benchmarks/spike/litert -p 'test_*.py' -v` | 10 passed |
 | Missing local model using actual installed API worker | Exit 2, `model_missing`, one result JSON, stderr empty |
 | Synthetic 21-byte corrupt `.litertlm` using native `ModelInfo` | Exit 2, `model_invalid`, one result JSON, stderr empty |
 
 The unit suite covers strict input bounds/types/keys, duplicates/nonfinite JSON,
 reasoning-channel omission, unsupported tool/content rejection, native settings
 through a test double, overflow before generation, fixed exception categories,
-and context-manager ownership on success/error. Its fake SDK tests establish
+context-manager ownership on success/error, and subprocess verification that
+buffered Python diagnostics stay discarded when the SDK raises. Independent
+review found that exceptional exits originally skipped the flush; the flush now
+runs before descriptor restoration on every exit. Its fake SDK tests establish
 worker control flow only. They do not establish native resource cleanup,
 inference compatibility or performance.
 

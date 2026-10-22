@@ -1,6 +1,6 @@
 # Public repository setup and verification
 
-Configured for `OptimumAF/LocalLore` on 2026-10-22. Verified actual settings and access inventory are in [project status](PROJECT_STATUS.md) and [the work log](WORK_LOG.md). The procedure below documents the setup and future verification; do not rerun repository creation against the existing project.
+Configured for `OptimumAF/LocalLore` on 2026-10-22. Dated settings and access evidence is in [historical archive #2](https://github.com/OptimumAF/LocalLore/issues/2), with accepted bootstrap scope in [M00 #4](https://github.com/OptimumAF/LocalLore/issues/4). The procedure below documents the setup and future verification; do not rerun repository creation against the existing project. Future verification belongs on the assigned ticket.
 
 ## Publication
 
@@ -56,7 +56,7 @@ A ruleset file in Git is documentation until actually submitted to GitHub and re
 - [x] Actual collaborators, pending invitations, and integration access are audited.
 - [x] Auto-merge is off; Actions state and permissions are recorded.
 - [x] Private vulnerability reporting is enabled (no fabricated report was submitted); private conduct-reporting route is documented (ADR-0002).
-- [x] Setup evidence is added to the work log and M00 tasks updated accurately.
+- [x] Setup evidence is preserved in archive #2 and accepted M00 tasks are recorded in ticket #4.
 
 ## Manual recovery
 

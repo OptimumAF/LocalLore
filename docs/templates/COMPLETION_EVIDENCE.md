@@ -1,10 +1,12 @@
 # Completion evidence — TASK-ID
 
-Status: in progress / in review / done / blocked. Date:
+Copy this format into a comment on the relevant GitHub ticket; do not create a duplicate work log.
+
+Ticket: #N. Stable task IDs: Mxx.yy. Status: todo / in_progress / in_review / done / blocked / deferred / superseded. Date:
 
 ## Scope and criteria
 
-Task ID, owner/agent, exact deliverable, acceptance criteria, dependencies.
+Task ID, owner/agent, branch/worktree, owned paths, exact deliverable, acceptance criteria, interface version, and dependency tickets.
 
 ## Changes
 
@@ -20,6 +22,6 @@ Paths, branch/worktree, PR/commit. Distinguish implementation from documentation
 
 What could not be tested, why, and what is needed. No inferred passes.
 
-## Review and plan update
+## Review and ticket update
 
-Reviewer/owner acceptance reference, checkbox/status update, related ADR, next task. A local implementation pass is not automatic merge approval.
+Reviewer/owner acceptance reference, task status/checklist update, related ADR, next runnable task, and claim release or handoff. A local implementation pass is not automatic acceptance or merge approval. Check tasks only after owner acceptance/merge; close a milestone only after its full exit gate is accepted.

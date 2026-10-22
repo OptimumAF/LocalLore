@@ -1,6 +1,8 @@
 # Plan change — title
 
-Date: YYYY-MM-DD. Affected task IDs: . Proposed by: . Status: proposed / accepted / rejected.
+Copy this format into a comment on the affected GitHub ticket; link an ADR for cross-cutting decisions.
+
+Date: YYYY-MM-DD. Affected tickets and stable task IDs: . Proposed by: . Status: proposed / accepted / rejected.
 
 ## What changed in our understanding
 
@@ -12,7 +14,7 @@ Compare alternatives, including retaining the current plan. Explain why the prop
 
 ## Plan delta
 
-Added/split/reordered/deferred/superseded tasks; preserved original IDs; affected acceptance criteria and dependencies.
+Added/split/reordered/deferred/superseded ticket tasks; preserved original IDs; replacement links; affected acceptance criteria and dependency tickets. Update the milestone/roadmap links as needed and preserve the decision history in comments.
 
 ## Risks, tests, and authority
 

@@ -1,0 +1,948 @@
+{
+  "verified_date": "2026-10-22",
+  "scope": "Exact direct POM metadata only; not AAR/JAR hashes, exhaustive transitive inventory, or redistribution approval",
+  "artifacts": [
+    {
+      "coordinate": "androidx.compose:compose-bom:2025.05.01",
+      "source": "https://dl.google.com/dl/android/maven2/androidx/compose/compose-bom/2025.05.01/compose-bom-2025.05.01.pom",
+      "bytes": 24148,
+      "sha256": "00c14ac373ca3f73dcaa21524ce5f6564656a7485cf096e799449ab968ca57b8",
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt",
+          "distribution": "repo"
+        }
+      ],
+      "dependencies": [
+        {
+          "groupId": null,
+          "artifactId": null,
+          "version": null,
+          "scope": null
+        }
+      ]
+    },
+    {
+      "coordinate": "androidx.compose.ui:ui:1.8.2",
+      "source": "https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui/1.8.2/ui-1.8.2.pom",
+      "bytes": 6682,
+      "sha256": "84634536c74f57ddafbd2ccdacb0f7742ef9de705c845a056d72b9179cdd4ee0",
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt",
+          "distribution": "repo"
+        }
+      ],
+      "dependencies": [
+        {
+          "groupId": "androidx.annotation",
+          "artifactId": "annotation",
+          "version": "1.8.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.compose.runtime",
+          "artifactId": "runtime-saveable",
+          "version": "1.8.2",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.compose.ui",
+          "artifactId": "ui-graphics",
+          "version": "[1.8.2]",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.compose.ui",
+          "artifactId": "ui-text",
+          "version": "[1.8.2]",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.compose.ui",
+          "artifactId": "ui-unit",
+          "version": "[1.8.2]",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.compose.ui",
+          "artifactId": "ui-util",
+          "version": "[1.8.2]",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.lifecycle",
+          "artifactId": "lifecycle-runtime-compose",
+          "version": "2.8.7",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.compose.ui",
+          "artifactId": "ui-android",
+          "version": "1.8.2",
+          "scope": "compile"
+        },
+        {
+          "groupId": "androidx.compose.ui",
+          "artifactId": "ui-geometry",
+          "version": "[1.8.2]",
+          "scope": "runtime"
+        }
+      ]
+    },
+    {
+      "coordinate": "androidx.compose.material3:material3:1.3.2",
+      "source": "https://dl.google.com/dl/android/maven2/androidx/compose/material3/material3/1.3.2/material3-1.3.2.pom",
+      "bytes": 3690,
+      "sha256": "2f338a1aa3a9c029b6e65871387faa8e975426faef1c6f7ab9f758c3955f58e7",
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt",
+          "distribution": "repo"
+        }
+      ],
+      "dependencies": [
+        {
+          "groupId": "androidx.compose.foundation",
+          "artifactId": "foundation",
+          "version": "1.7.0",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.compose.foundation",
+          "artifactId": "foundation-layout",
+          "version": "1.7.0",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.compose.material",
+          "artifactId": "material-icons-core",
+          "version": "1.6.0",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.compose.material",
+          "artifactId": "material-ripple",
+          "version": "1.7.0",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.compose.material3",
+          "artifactId": "material3-android",
+          "version": "1.3.2",
+          "scope": "compile"
+        },
+        {
+          "groupId": "androidx.compose.runtime",
+          "artifactId": "runtime",
+          "version": "1.7.0",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.compose.ui",
+          "artifactId": "ui",
+          "version": "1.6.0",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.compose.ui",
+          "artifactId": "ui-text",
+          "version": "1.6.0",
+          "scope": "runtime"
+        }
+      ]
+    },
+    {
+      "coordinate": "androidx.activity:activity-compose:1.10.1",
+      "source": "https://dl.google.com/dl/android/maven2/androidx/activity/activity-compose/1.10.1/activity-compose-1.10.1.pom",
+      "bytes": 4289,
+      "sha256": "e64db6b7126fb512394bc3cf4332a38828009daa8dd56ecbe6c0c7300b2127f5",
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt",
+          "distribution": "repo"
+        }
+      ],
+      "dependencies": [
+        {
+          "groupId": "androidx.compose.runtime",
+          "artifactId": "runtime-saveable",
+          "version": "1.7.0",
+          "scope": "compile"
+        },
+        {
+          "groupId": "androidx.activity",
+          "artifactId": "activity-ktx",
+          "version": "[1.10.1]",
+          "scope": "compile"
+        },
+        {
+          "groupId": "androidx.compose.runtime",
+          "artifactId": "runtime",
+          "version": "1.7.0",
+          "scope": "compile"
+        },
+        {
+          "groupId": "androidx.compose.ui",
+          "artifactId": "ui",
+          "version": "1.0.1",
+          "scope": "compile"
+        },
+        {
+          "groupId": "androidx.core",
+          "artifactId": "core-ktx",
+          "version": "1.13.0",
+          "scope": "compile"
+        },
+        {
+          "groupId": "org.jetbrains.kotlinx",
+          "artifactId": "kotlinx-coroutines-core",
+          "version": "1.7.3",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.lifecycle",
+          "artifactId": "lifecycle-runtime",
+          "version": "2.6.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.savedstate",
+          "artifactId": "savedstate",
+          "version": "1.2.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.lifecycle",
+          "artifactId": "lifecycle-viewmodel",
+          "version": "2.6.1",
+          "scope": "compile"
+        },
+        {
+          "groupId": "org.jetbrains.kotlin",
+          "artifactId": "kotlin-stdlib",
+          "version": null,
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.lifecycle",
+          "artifactId": "lifecycle-common",
+          "version": "2.6.1",
+          "scope": "runtime"
+        }
+      ]
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7",
+      "source": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-compose/2.8.7/lifecycle-viewmodel-compose-2.8.7.pom",
+      "bytes": 5880,
+      "sha256": "ee141fd1024f8593a7a9e2edec16bc139d2f8f55fefdee314b256f0562e5ab5c",
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt",
+          "distribution": "repo"
+        }
+      ],
+      "dependencies": [
+        {
+          "groupId": "androidx.annotation",
+          "artifactId": "annotation",
+          "version": "1.8.0",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.compose.runtime",
+          "artifactId": "runtime",
+          "version": "1.6.0",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.lifecycle",
+          "artifactId": "lifecycle-common",
+          "version": "[2.8.7]",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.lifecycle",
+          "artifactId": "lifecycle-viewmodel",
+          "version": "[2.8.7]",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.lifecycle",
+          "artifactId": "lifecycle-viewmodel-compose-android",
+          "version": "2.8.7",
+          "scope": "compile"
+        }
+      ]
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-runtime-compose:2.8.7",
+      "source": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-runtime-compose/2.8.7/lifecycle-runtime-compose-2.8.7.pom",
+      "bytes": 5675,
+      "sha256": "cec92fc6604d8eebb9589a6c11d4bbe6362280f63adbf86a9ecdc6cc3d143bab",
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt",
+          "distribution": "repo"
+        }
+      ],
+      "dependencies": [
+        {
+          "groupId": "androidx.annotation",
+          "artifactId": "annotation",
+          "version": "1.8.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.compose.runtime",
+          "artifactId": "runtime",
+          "version": "1.7.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.lifecycle",
+          "artifactId": "lifecycle-runtime",
+          "version": "[2.8.7]",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.lifecycle",
+          "artifactId": "lifecycle-runtime-compose-android",
+          "version": "2.8.7",
+          "scope": "compile"
+        }
+      ]
+    },
+    {
+      "coordinate": "androidx.test:runner:1.6.2",
+      "source": "https://dl.google.com/dl/android/maven2/androidx/test/runner/1.6.2/runner-1.6.2.pom",
+      "bytes": 1922,
+      "sha256": "e6abf0cb643a79f3e120b3d6a03dd8906f8d6a9edb73cfbb7a64048d073a4f16",
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt",
+          "distribution": "repo"
+        }
+      ],
+      "dependencies": [
+        {
+          "groupId": "androidx.annotation",
+          "artifactId": "annotation",
+          "version": "1.7.0-beta01",
+          "scope": "compile"
+        },
+        {
+          "groupId": "androidx.test.services",
+          "artifactId": "storage",
+          "version": "1.5.0",
+          "scope": "compile"
+        },
+        {
+          "groupId": "androidx.test",
+          "artifactId": "monitor",
+          "version": "1.7.2",
+          "scope": "compile"
+        },
+        {
+          "groupId": "androidx.tracing",
+          "artifactId": "tracing",
+          "version": "1.1.0",
+          "scope": "compile"
+        },
+        {
+          "groupId": "junit",
+          "artifactId": "junit",
+          "version": "4.13.2",
+          "scope": "compile"
+        }
+      ]
+    },
+    {
+      "coordinate": "androidx.test.ext:junit:1.2.1",
+      "source": "https://dl.google.com/dl/android/maven2/androidx/test/ext/junit/1.2.1/junit-1.2.1.pom",
+      "bytes": 2107,
+      "sha256": "983e474e47aafea0d078c4bd0b72aab1a292aceac198856371a02e1e1cb51751",
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt",
+          "distribution": "repo"
+        }
+      ],
+      "dependencies": [
+        {
+          "groupId": "androidx.annotation",
+          "artifactId": "annotation",
+          "version": "1.7.0-beta01",
+          "scope": "compile"
+        },
+        {
+          "groupId": "androidx.test.services",
+          "artifactId": "storage",
+          "version": "1.5.0",
+          "scope": "compile"
+        },
+        {
+          "groupId": "androidx.test",
+          "artifactId": "core",
+          "version": "1.6.1",
+          "scope": "compile"
+        },
+        {
+          "groupId": "androidx.test",
+          "artifactId": "monitor",
+          "version": "1.7.1",
+          "scope": "compile"
+        },
+        {
+          "groupId": "junit",
+          "artifactId": "junit",
+          "version": "4.13.2",
+          "scope": "compile"
+        },
+        {
+          "groupId": "org.jetbrains.kotlin",
+          "artifactId": "kotlin-stdlib",
+          "version": "1.8.20",
+          "scope": "compile"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.android.tools.build:gradle:8.10.1",
+      "source": "https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/8.10.1/gradle-8.10.1.pom",
+      "bytes": 11998,
+      "sha256": "b3fd06a4a784f0ea3368bfdbf8c1b688b82d889cf9600da19f02a3a7cd6014ac",
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt",
+          "distribution": "repo"
+        }
+      ],
+      "dependencies": [
+        {
+          "groupId": "com.android.tools.build",
+          "artifactId": "builder",
+          "version": "8.10.1",
+          "scope": "compile"
+        },
+        {
+          "groupId": "com.android.tools.build",
+          "artifactId": "builder-model",
+          "version": "8.10.1",
+          "scope": "compile"
+        },
+        {
+          "groupId": "com.android.tools.build",
+          "artifactId": "gradle-api",
+          "version": "8.10.1",
+          "scope": "compile"
+        },
+        {
+          "groupId": "com.android.tools.build",
+          "artifactId": "gradle-settings-api",
+          "version": "8.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools",
+          "artifactId": "sdk-common",
+          "version": "31.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools",
+          "artifactId": "sdklib",
+          "version": "31.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools",
+          "artifactId": "repository",
+          "version": "31.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.ddms",
+          "artifactId": "ddmlib",
+          "version": "31.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.build",
+          "artifactId": "aapt2-proto",
+          "version": "8.10.1-12782657",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.build",
+          "artifactId": "aaptcompiler",
+          "version": "8.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.analytics-library",
+          "artifactId": "crash",
+          "version": "31.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.analytics-library",
+          "artifactId": "shared",
+          "version": "31.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.lint",
+          "artifactId": "lint-model",
+          "version": "31.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.lint",
+          "artifactId": "lint-typedef-remover",
+          "version": "31.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.databinding",
+          "artifactId": "databinding-compiler-common",
+          "version": "8.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "androidx.databinding",
+          "artifactId": "databinding-common",
+          "version": "8.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.databinding",
+          "artifactId": "baseLibrary",
+          "version": "8.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.build",
+          "artifactId": "builder-test-api",
+          "version": "8.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.layoutlib",
+          "artifactId": "layoutlib-api",
+          "version": "31.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.utp",
+          "artifactId": "android-device-provider-ddmlib-proto",
+          "version": "31.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.utp",
+          "artifactId": "android-device-provider-gradle-proto",
+          "version": "31.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.utp",
+          "artifactId": "android-device-provider-profile-proto",
+          "version": "31.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.utp",
+          "artifactId": "android-test-plugin-host-additional-test-output-proto",
+          "version": "31.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.utp",
+          "artifactId": "android-test-plugin-host-coverage-proto",
+          "version": "31.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.utp",
+          "artifactId": "android-test-plugin-host-emulator-control-proto",
+          "version": "31.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.utp",
+          "artifactId": "android-test-plugin-host-logcat-proto",
+          "version": "31.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.utp",
+          "artifactId": "android-test-plugin-host-apk-installer-proto",
+          "version": "31.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.utp",
+          "artifactId": "android-test-plugin-result-listener-gradle-proto",
+          "version": "31.10.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "org.jetbrains.kotlin",
+          "artifactId": "kotlin-stdlib-jdk8",
+          "version": "2.1.0",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.build",
+          "artifactId": "transform-api",
+          "version": "2.0.0-deprecated-use-gradle-api",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "org.apache.httpcomponents",
+          "artifactId": "httpmime",
+          "version": "4.5.6",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "commons-io",
+          "artifactId": "commons-io",
+          "version": "2.16.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "org.ow2.asm",
+          "artifactId": "asm",
+          "version": "9.7.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "org.ow2.asm",
+          "artifactId": "asm-analysis",
+          "version": "9.7.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "org.ow2.asm",
+          "artifactId": "asm-commons",
+          "version": "9.7.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "org.ow2.asm",
+          "artifactId": "asm-util",
+          "version": "9.7.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "org.bouncycastle",
+          "artifactId": "bcpkix-jdk18on",
+          "version": "1.79",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "org.glassfish.jaxb",
+          "artifactId": "jaxb-runtime",
+          "version": "2.3.2",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "net.sf.jopt-simple",
+          "artifactId": "jopt-simple",
+          "version": "4.9",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.build",
+          "artifactId": "bundletool",
+          "version": "1.18.0",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.build.jetifier",
+          "artifactId": "jetifier-core",
+          "version": "1.0.0-beta10",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.android.tools.build.jetifier",
+          "artifactId": "jetifier-processor",
+          "version": "1.0.0-beta10",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.squareup",
+          "artifactId": "javapoet",
+          "version": "1.10.0",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.google.protobuf",
+          "artifactId": "protobuf-java",
+          "version": "3.25.5",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.google.protobuf",
+          "artifactId": "protobuf-java-util",
+          "version": "3.25.5",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.google.code.gson",
+          "artifactId": "gson",
+          "version": "2.11.0",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "io.grpc",
+          "artifactId": "grpc-core",
+          "version": "1.69.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "io.grpc",
+          "artifactId": "grpc-netty",
+          "version": "1.69.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "io.grpc",
+          "artifactId": "grpc-protobuf",
+          "version": "1.69.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "io.grpc",
+          "artifactId": "grpc-stub",
+          "version": "1.69.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "io.grpc",
+          "artifactId": "grpc-inprocess",
+          "version": "1.69.1",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.google.crypto.tink",
+          "artifactId": "tink",
+          "version": "1.7.0",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.google.testing.platform",
+          "artifactId": "core-proto",
+          "version": "0.0.9-alpha03",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "com.google.flatbuffers",
+          "artifactId": "flatbuffers-java",
+          "version": "1.12.0",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "org.tensorflow",
+          "artifactId": "tensorflow-lite-metadata",
+          "version": "0.2.0",
+          "scope": "runtime"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.21",
+      "source": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin/2.2.21/kotlin-gradle-plugin-2.2.21.pom",
+      "bytes": 13034,
+      "sha256": "e5b59d3c9a46bb7f0f7b49cfc88d698da541a4bd090a5c17d9a00ab47210738c",
+      "licenses": [
+        {
+          "name": "Apache-2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt",
+          "distribution": null
+        }
+      ],
+      "dependencies": [
+        {
+          "groupId": "org.jetbrains.kotlin",
+          "artifactId": "kotlin-gradle-plugin-api",
+          "version": "2.2.21",
+          "scope": "compile"
+        },
+        {
+          "groupId": "org.jetbrains.kotlin",
+          "artifactId": "kotlin-gradle-plugin-model",
+          "version": "2.2.21",
+          "scope": "compile"
+        },
+        {
+          "groupId": "org.jetbrains.kotlin",
+          "artifactId": "fus-statistics-gradle-plugin",
+          "version": "2.2.21",
+          "scope": "compile"
+        },
+        {
+          "groupId": "org.jetbrains.kotlin",
+          "artifactId": "kotlin-gradle-plugin-idea",
+          "version": "2.2.21",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "org.jetbrains.kotlin",
+          "artifactId": "kotlin-gradle-plugin-idea-proto",
+          "version": "2.2.21",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "org.jetbrains.kotlin",
+          "artifactId": "kotlin-klib-commonizer-api",
+          "version": "2.2.21",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "org.jetbrains.kotlin",
+          "artifactId": "kotlin-build-statistics",
+          "version": "2.2.21",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "org.jetbrains.kotlin",
+          "artifactId": "kotlin-util-klib-metadata",
+          "version": "2.2.21",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "org.jetbrains.kotlin",
+          "artifactId": "abi-tools-api",
+          "version": "2.2.21",
+          "scope": "runtime"
+        },
+        {
+          "groupId": "org.jetbrains.kotlin",
+          "artifactId": "kotlin-compiler-runner",
+          "version": "2.2.21",
+          "scope": "runtime"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.jetbrains.kotlin:compose-compiler-gradle-plugin:2.2.21",
+      "source": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/compose-compiler-gradle-plugin/2.2.21/compose-compiler-gradle-plugin-2.2.21.pom",
+      "bytes": 5185,
+      "sha256": "ea1b7f727c5272a9bf315f2174c3718c36c2fbee9801f6d4e32c92f2afea002e",
+      "licenses": [
+        {
+          "name": "Apache-2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt",
+          "distribution": null
+        }
+      ],
+      "dependencies": [
+        {
+          "groupId": "org.jetbrains.kotlin",
+          "artifactId": "kotlin-gradle-plugin-api",
+          "version": "2.2.21",
+          "scope": "compile"
+        },
+        {
+          "groupId": "org.jetbrains.kotlin",
+          "artifactId": "kotlin-gradle-plugin-model",
+          "version": "2.2.21",
+          "scope": "compile"
+        },
+        {
+          "groupId": "org.jetbrains.kotlin",
+          "artifactId": "kotlin-gradle-plugin",
+          "version": "2.2.21",
+          "scope": "compile"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2",
+      "source": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-android/1.10.2/kotlinx-coroutines-android-1.10.2.pom",
+      "bytes": 2193,
+      "sha256": "b92d3672e7f9e8f4c4e2ab187c3e31fecc506496396f4a5f27ee1c957a42b319",
+      "licenses": [
+        {
+          "name": "Apache-2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "distribution": "repo"
+        }
+      ],
+      "dependencies": [
+        {
+          "groupId": "org.jetbrains.kotlinx",
+          "artifactId": "kotlinx-coroutines-core-jvm",
+          "version": "1.10.2",
+          "scope": "compile"
+        },
+        {
+          "groupId": "org.jetbrains.kotlin",
+          "artifactId": "kotlin-stdlib",
+          "version": "2.1.0",
+          "scope": "compile"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2",
+      "source": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-test/1.10.2/kotlinx-coroutines-test-1.10.2.pom",
+      "bytes": 2030,
+      "sha256": "bf25c8df0ec9f3eac7bbee539b601b6019b7e99f5f3f3011e2e8178b140750db",
+      "licenses": [
+        {
+          "name": "Apache-2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "distribution": "repo"
+        }
+      ],
+      "dependencies": [
+        {
+          "groupId": "org.jetbrains.kotlinx",
+          "artifactId": "kotlinx-coroutines-test-jvm",
+          "version": "1.10.2",
+          "scope": "compile"
+        }
+      ]
+    },
+    {
+      "coordinate": "junit:junit:4.13.2",
+      "source": "https://repo.maven.apache.org/maven2/junit/junit/4.13.2/junit-4.13.2.pom",
+      "bytes": 27018,
+      "sha256": "569b6977ee4603c965c1c46c3058fa6e969291b0160eb6964dd092cd89eadd94",
+      "licenses": [
+        {
+          "name": "Eclipse Public License 1.0",
+          "url": "http://www.eclipse.org/legal/epl-v10.html",
+          "distribution": "repo"
+        }
+      ],
+      "dependencies": [
+        {
+          "groupId": "org.hamcrest",
+          "artifactId": "hamcrest-core",
+          "version": "${hamcrestVersion}",
+          "scope": null
+        },
+        {
+          "groupId": "org.hamcrest",
+          "artifactId": "hamcrest-library",
+          "version": "${hamcrestVersion}",
+          "scope": "test"
+        }
+      ]
+    }
+  ]
+}

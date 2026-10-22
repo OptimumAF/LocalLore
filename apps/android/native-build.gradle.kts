@@ -69,17 +69,31 @@ val buildRustAndroid = tasks.register("buildRustAndroid") {
             logger.lifecycle("Building LocalLore Rust JNI: $target -> $abi")
             val process = ProcessBuilder(command)
                 .directory(nativeRepository)
-                .inheritIO()
+                .redirectErrorStream(true)
             process.environment()["CARGO_TARGET_${target.uppercase(Locale.ROOT).replace('-', '_')}_LINKER"] =
                 clang.absolutePath
             process.environment()["CARGO_ENCODED_RUSTFLAGS"] = rustFlags
             val child = process.start()
             val exitCode = try {
+                // Gradle's daemon stdio is not a usable inherited console on all hosts.
+                // Drain the merged pipe while Cargo runs so a full buffer cannot stall it.
+                child.outputStream.close()
+                child.inputStream.bufferedReader().useLines { lines ->
+                    lines.forEach { logger.lifecycle(it) }
+                }
                 child.waitFor()
             } catch (interrupted: InterruptedException) {
                 child.destroyForcibly()
                 Thread.currentThread().interrupt()
                 throw GradleException("Rust Android build interrupted", interrupted)
+            } catch (failure: Exception) {
+                child.destroyForcibly()
+                throw GradleException("Could not read Rust Android build output for $target", failure)
+            } finally {
+                if (child.isAlive) child.destroyForcibly()
+                child.inputStream.close()
+                child.errorStream.close()
+                child.outputStream.close()
             }
             if (exitCode != 0) throw GradleException("Rust Android build failed for $target (exit $exitCode)")
             val library = nativeCargoOutput.get().file("$target/release/liblocallore_android.so").asFile

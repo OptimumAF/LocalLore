@@ -60,7 +60,10 @@ It sets the target-specific Cargo linker to the pinned NDK's real Clang executab
 `-Wl,-z,max-page-size=16384` as individual linker arguments. The encoded Rust flag
 environment uses ASCII unit separators, so spaces in SDK/repository paths do not
 split arguments. No shell, generated command string, Cargo-NDK plugin or CMake
-wrapper is involved.
+wrapper is involved. Cargo's stdout/stderr are merged and drained into Gradle's
+lifecycle log while it runs; inheriting the Gradle daemon's native console can
+stall on Windows. The task closes stdin and releases child streams, terminating
+the child on interruption or output failure.
 
 | Rust target | Packaged ABI | Generated library |
 |---|---|---|

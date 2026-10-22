@@ -12,6 +12,7 @@ local.properties
 .DS_Store
 Thumbs.db
 .gradle/
+.kotlin/
 **/build/
 target/
 *.apk

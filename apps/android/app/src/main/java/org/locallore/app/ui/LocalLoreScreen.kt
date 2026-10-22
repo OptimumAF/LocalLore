@@ -101,12 +101,12 @@ fun LocalLoreScreen(
                                 ) { Text("Reset demo") }
                             }
                             Text(
-                                "Local fixture demo · no real model or native engine",
+                                "Local Rust engine · fake inference",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MutedInk,
                             )
                             Text(
-                                "Sample session · no saved progress",
+                                "In-memory session · no saved progress",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MutedInk,
                             )
@@ -187,7 +187,7 @@ fun LocalLoreScreen(
                                             strokeWidth = 2.dp,
                                         )
                                         Text(
-                                            "Preparing sample response…",
+                                            "Preparing local response…",
                                             style = MaterialTheme.typography.bodyMedium,
                                             modifier = Modifier.testTag("busy-status").semantics {
                                                 liveRegion = LiveRegionMode.Polite
@@ -203,20 +203,20 @@ fun LocalLoreScreen(
                             }
                             Button(
                                 onClick = { onAction(DemoAction.GIVE_POTION) },
-                                enabled = !state.busy,
+                                enabled = !state.busy && !state.recoveryRequired,
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                     .testTag("give-potion"),
                             ) { Text("Give potion to Mira") }
                             OutlinedButton(
                                 onClick = { onAction(DemoAction.TRY_ABILITY) },
-                                enabled = !state.busy,
+                                enabled = !state.busy && !state.recoveryRequired,
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                     .testTag("try-ability"),
                             ) { Text("Try unlearned ability") }
                         }
                     }
                     item(key = "demo-controls") {
-                        DemoResponses(state.mode, state.busy, onMode)
+                        DemoResponses(state.mode, state.busy || state.recoveryRequired, onMode)
                     }
                 }
             }

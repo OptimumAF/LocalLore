@@ -1,0 +1,7 @@
+{
+  "emulator_count": 4,
+  "status": "blocked",
+  "authorized_count": 4,
+  "reason": "exactly_one_authorized_physical_candidate_required",
+  "physical_candidate_count": 0
+}

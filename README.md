@@ -58,13 +58,12 @@ and [host verification evidence](docs/IMPLEMENTATION_EVIDENCE.md). Official-sour
 [runtime preparation](docs/runtime/FEASIBILITY_2026-10-22.md) selects no backend;
 physical-device measurements remain blocked.
 
-## Run the Android fixture shell
+## Run the Android engine demo
 
-The minimal Compose app displays recorded Rust-generated sample outcomes. It
-supports pending, cancel, failure, retry and reset flows without a model or
-account. It is explicitly labeled a fixture demo; the live native engine and
-durable saves remain future work. From `apps/android/`, with Java 17 and Android
-SDK 36 installed:
+The minimal Compose app calls the actual Rust engine through bounded JNI. It
+supports pending, cancel, failure, retry and reset with fake inference and no account.
+Durable saves remain future work. From `apps/android/`, with Java 17 and Android
+SDK 36, NDK 29.0.14206865 and both Rust Android targets installed:
 
 ```powershell
 .\gradlew.bat :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
@@ -72,7 +71,7 @@ SDK 36 installed:
 ```
 
 See [Android build and sample instructions](apps/android/README.md) and
-[dated emulator verification](docs/android/VERIFICATION_2026-10-22.md).
+[dated native/emulator verification](docs/native/VERIFICATION_2026-10-22.md).
 
 ## Initial technical direction
 

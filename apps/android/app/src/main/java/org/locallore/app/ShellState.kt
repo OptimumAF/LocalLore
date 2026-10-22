@@ -11,14 +11,20 @@ data class ShellState(
     val messages: List<SceneMessage> = emptyList(),
     val notice: String? = null,
     val mode: DemoMode = DemoMode.ACCEPTED,
+    val recoveryRequired: Boolean = false,
 )
 
 sealed interface DemoResult {
+    data class Prepared(val session: Long, val operation: Long) : DemoResult
     data class Accepted(val revision: Long, val potionOwner: String, val narration: String) : DemoResult
     data class Rejected(val category: String) : DemoResult
 }
 
-/** UI-facing session boundary; a real Rust/native implementation replaces the sample adapter in M03.03. */
+/** Preparation may suspend. Commit and publication share one non-suspending owner-thread step. */
 fun interface DemoGateway {
     suspend fun respond(action: DemoAction, revision: Long, mode: DemoMode): DemoResult
+    fun commit(result: DemoResult): DemoResult = result
+    fun cancel() {}
+    fun reset() {}
+    fun close() {}
 }

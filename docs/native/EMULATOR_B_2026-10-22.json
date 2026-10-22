@@ -1,0 +1,68 @@
+{
+  "target": "emulator-B",
+  "api": 35,
+  "abi": "x86_64",
+  "apk": "clean",
+  "apk_sha256": "b46b37eff26b2dca6a4f5123eeb333758a56fa376e8a14c6145fb13e3c9d60b7",
+  "tests": "11",
+  "failures": "0",
+  "errors": "0",
+  "skipped": "0",
+  "cases": [
+    {
+      "classname": "org.locallore.app.NativeBoundaryTest",
+      "name": "twentyCancelDestroyCyclesReleaseRetainedSessionsWorkersAndOperations",
+      "time": "0.237"
+    },
+    {
+      "classname": "org.locallore.app.NativeBoundaryTest",
+      "name": "nullOversizedMalformedForeignAndDestroyedInputsFailClosedThroughJni",
+      "time": "0.0"
+    },
+    {
+      "classname": "org.locallore.app.NativeBoundaryTest",
+      "name": "cancelBeforeRunAndAfterPrepareNeverCommits",
+      "time": "0.027"
+    },
+    {
+      "classname": "org.locallore.app.NativeBoundaryTest",
+      "name": "actualEnginePreparesWithoutCommitAndIdempotentlyOwnsEventsAndResources",
+      "time": "0.109"
+    },
+    {
+      "classname": "org.locallore.app.ShellInstrumentedTest",
+      "name": "recreationRetainsAcceptedStateAndCancelsPendingWork",
+      "time": "2.536"
+    },
+    {
+      "classname": "org.locallore.app.ShellInstrumentedTest",
+      "name": "cancelAndResetDuringDelayCannotPublishOldResult",
+      "time": "2.825"
+    },
+    {
+      "classname": "org.locallore.app.ShellInstrumentedTest",
+      "name": "launchShowsHonestFixtureLabelAndNoPlatformCapabilities",
+      "time": "1.198"
+    },
+    {
+      "classname": "org.locallore.app.ShellInstrumentedTest",
+      "name": "giftUsesRustAcceptedResultAndReuseCannotDuplicateIt",
+      "time": "1.57"
+    },
+    {
+      "classname": "org.locallore.app.ShellInstrumentedTest",
+      "name": "activityDisposalCancelsNativeWorkerAndReleasesTheSession",
+      "time": "1.55"
+    },
+    {
+      "classname": "org.locallore.app.ShellInstrumentedTest",
+      "name": "unlearnedAbilityAndBadProviderModesLeaveStateUnchanged",
+      "time": "3.546"
+    },
+    {
+      "classname": "org.locallore.app.ShellLayoutTest",
+      "name": "smallViewportAndDoubleFontScaleKeepControlsReachable",
+      "time": "1.631"
+    }
+  ]
+}

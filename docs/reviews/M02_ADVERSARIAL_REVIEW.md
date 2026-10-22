@@ -2,7 +2,7 @@
 
 Date: 2026-10-22. Tasks: M02.01, M02.03, M02.05, M02.06; supporting M02.02/M02.04 review. Reviewer owns only `docs/reviews/` on `review/m02-fixtures`. The coordinator owns shared contracts, integration, plan, and work log.
 
-Status: independent specification review and original fixture checklist. These cases are acceptance inputs, not claims that an implementation passes them. No phone, model, SQLite, Android, or narrative-quality result is inferred from this document.
+Status: independent specification review, original fixture checklist, and direct host implementation review. The matrix contains acceptance inputs beyond the deliberately limited host slice; it does not assert that every row is implemented. No phone, model, SQLite, Android, or narrative-quality result is inferred from this document.
 
 ## Review inputs and scope
 
@@ -85,6 +85,32 @@ An imported ancestry cycle/bound violation is a required future M08 test; the ho
 
 ## Review evidence and handoff
 
-Executed inspection commands in this worktree: `git status --short` (clean), `git log -3 --oneline` (base `e3551b2`), `rg --files` for repository documents, and PowerShell `Get-Content`/`rg` reads of the inputs above. This report itself adds no dependency or executable code. Implementation review and exact host check results will be appended after coordinator handoff.
+Executed inspection commands in this worktree: `git status --short` (clean), `git log -3 --oneline` (base `e3551b2`), `rg --files` for repository documents, and PowerShell `Get-Content`/`rg` reads of the inputs above. This report itself adds no dependency or executable code.
 
-Next runnable reviewer task: inspect the proposed strict schema, reducers, context compiler, fixture tests, and fake-provider boundary against LR-01 through LR-37; return concrete failing inputs with source locations. Completion of M02 still requires the coordinator's tested implementation, stable contracts, recorded evidence, and owner review.
+## Direct implementation review and corrections
+
+Inspected the coordinator's actual `crates/locallore/src/{contracts,engine,scope,inference,main}.rs`, `crates/locallore/tests/contracts.rs`, and `fixtures/lantern_quay.json` through read-only access to the integration worktree. The host fixture uses ID `player`, energy range 0–100, and cost-only abilities `steady`/`beacon`; these are intentional concrete choices rather than the illustrative `mend` target effect above.
+
+| Finding | Concrete initial behavior | Resolution and independent evidence |
+|---|---|---|
+| NPC false beliefs and initial obligations could not be represented | Initial Seed omitted beliefs, commitments, and fictional time; every actor except player had an empty belief context | Added typed seed beliefs with seed provenance, initial time 100, and return-key commitment. Independent probe observed Mira/Oren/Sable belief counts 1/1/0, and no secret canary in any NPC context |
+| Unbounded input reached inference | A 20,000-byte dialogue was rejected only after the fake provider had been called once | Added bounded request preflight and context budget before inference; same independent probe returns TooLarge with provider calls 0; durable regression `invalid_requests_never_reach_the_provider` |
+| Loan return manufactured a reciprocal debt | Generic Give increased recipient obligation even when returning Oren's own key | Restricted help to an unborrowed healing-item gift; independently returned key and observed Oren obligation 0; durable regression `key_return_and_deadline_have_explicit_evidence_and_boundary` |
+| Fulfillment time confused with return time | Key returned at t119, recognition at t121 rejected despite deadline t120 | Added transfer evidence with sequence/time and checked actual transfer time. The original independent failing probe now accepts recognition; durable regression `on_time_return_can_be_recognized_after_the_deadline` |
+| Duplicate receipt accepted as replay history | Recorded retry path could silently accept the same engine receipt twice | Explicit duplicate-history rejection; independent probe returns CorruptHistory; durable regression `replay_needs_no_provider_and_duplicate_log_entry_is_corrupt` |
+| Invalid child identifier accepted | Engine fork accepted `a b` while seed identifiers forbade spaces | Engine fork validates ID; independent probe returns Rule; durable regression `forks_exclude_later_parent_sibling_and_stale_projection` |
+
+The independent probe was a temporary external Cargo package under this review worktree's `docs/reviews/.probe`, using a path dependency on the coordinator's crate and the synthetic fixture. Exact executed command: `cargo run --manifest-path docs/reviews/.probe/Cargo.toml --offline`. It completed successfully; inputs/results are documented above and retained as named integration regressions. Optional removal of the temporary build directory was rejected by automatic approval review with the stated reason “blocked by policy”; the artifacts remain local and ignored. No integration source was modified by the reviewer.
+
+Final independent integration check from the coordinator's worktree: `cargo test --workspace --locked` on Rust 1.93.1 / Windows. Result: **26 passed, 0 failed**, including the deterministic 10,000-attempt conservation/resource/ownership/replay test. Library, binary, and doc-test targets contained zero separate tests and passed. The test suite checks failed operations leave state, revision, and receipt history unchanged; malformed JSON, unknown fields/operations, stale scopes, counterfeit witnesses, cancellation, fake failures, and exact narration mismatch fail safely.
+
+Remaining limitations are explicit scope, not model/device results:
+
+- The gift proof transfers the potion to Mira and excludes an unwitnessed bystander; it does not yet let Mira consume it, heal her injury, persist it, or survive application restart. Consumption is tested for the player separately. NPC action selection is future work.
+- Replay re-resolves deterministic v1 requests and verifies exact engine-created recorded receipts without inference. It is not a migration-compatible outcome-only reducer, hostile archive validator, or durable branched-save implementation; those remain M04/M08 work.
+- Safe narration is exactly the engine-rendered outcome string. The tests do not establish free-form prose alignment, character voices, meaningful natural-language interpretation, or real-model quality.
+- The fake provider enforces byte limits and bounded polling/cancellation plumbing. Tokenizer-accurate budgets, asynchronous native scheduling, resource release, hardware performance, and Android lifecycle behavior remain unmeasured.
+- Seed truth is immutable in this slice, historical context requires a rebuilt projection, and no summaries/retrieval index/author editor exists. Their contracts must preserve the matrix's temporal, attribution, visibility, and correction constraints when implemented.
+
+No remaining concrete defect was observed in the corrected, exercised host slice. This is an agent review with finite deterministic evidence, not owner approval or completion of full product milestones. Next runnable work is the coordinator's final integration checks and PR handoff; production persistence/outcome reducers remain the next implementation boundary after the scoped PR.
+

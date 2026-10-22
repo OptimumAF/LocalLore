@@ -1,0 +1,123 @@
+{
+  "kind": "host_compatibility_smoke",
+  "runtime_commit": "620d2225cc436ab0b001e3200e590e3b286ef9ab",
+  "model_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+  "checks": [
+    {
+      "case": "schema",
+      "exit_code": 0,
+      "passed": true,
+      "visible_text_bytes": 14,
+      "response": {
+        "error": null,
+        "generation_ms": 296.6927,
+        "input_tokens": 24,
+        "load_ms": 392.5695,
+        "output_tokens": 6,
+        "schema_enforced": true,
+        "status": "completed",
+        "template_applied": true,
+        "thinking_disabled": true,
+        "version": 1
+      }
+    },
+    {
+      "case": "narrator",
+      "exit_code": 0,
+      "passed": true,
+      "visible_text_bytes": 65,
+      "response": {
+        "error": null,
+        "generation_ms": 455.8959,
+        "input_tokens": 35,
+        "load_ms": 377.6208,
+        "output_tokens": 14,
+        "schema_enforced": false,
+        "status": "completed",
+        "template_applied": true,
+        "thinking_disabled": true,
+        "version": 1
+      }
+    },
+    {
+      "case": "reload_schema",
+      "exit_code": 0,
+      "passed": true,
+      "visible_text_bytes": 14,
+      "response": {
+        "error": null,
+        "generation_ms": 278.6769,
+        "input_tokens": 24,
+        "load_ms": 370.4267,
+        "output_tokens": 6,
+        "schema_enforced": true,
+        "status": "completed",
+        "template_applied": true,
+        "thinking_disabled": true,
+        "version": 1
+      }
+    },
+    {
+      "case": "missing",
+      "exit_code": 1,
+      "passed": true,
+      "visible_text_bytes": 0,
+      "response": {
+        "error": "model_load_failed",
+        "generation_ms": null,
+        "input_tokens": null,
+        "load_ms": null,
+        "output_tokens": null,
+        "schema_enforced": false,
+        "status": "error",
+        "template_applied": false,
+        "thinking_disabled": false,
+        "version": 1
+      }
+    },
+    {
+      "case": "corrupt",
+      "exit_code": 1,
+      "passed": true,
+      "visible_text_bytes": 0,
+      "response": {
+        "error": "model_load_failed",
+        "generation_ms": null,
+        "input_tokens": null,
+        "load_ms": null,
+        "output_tokens": null,
+        "schema_enforced": false,
+        "status": "error",
+        "template_applied": false,
+        "thinking_disabled": false,
+        "version": 1
+      }
+    },
+    {
+      "case": "context_limit",
+      "exit_code": 1,
+      "passed": true,
+      "visible_text_bytes": 0,
+      "response": {
+        "error": "context_limit",
+        "generation_ms": null,
+        "input_tokens": null,
+        "load_ms": null,
+        "output_tokens": null,
+        "schema_enforced": false,
+        "status": "error",
+        "template_applied": false,
+        "thinking_disabled": false,
+        "version": 1
+      }
+    },
+    {
+      "case": "terminate_real_native_process",
+      "passed": true,
+      "exit_code": 1,
+      "stdout_bytes": 0,
+      "stderr_bytes": 0
+    }
+  ],
+  "helper_sha256": "7711f91d068445af24ed0edac18ef9995b09131a7ae8bc51514502fa322b7908"
+}

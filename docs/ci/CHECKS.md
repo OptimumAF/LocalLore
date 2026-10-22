@@ -17,6 +17,12 @@ and calculator Python tests, runner tests, and formatting/compiled tests for the
 standalone native linker adapter. Cargo dependency resolution uses `--locked`.
 The linker test executable lives in ignored `target/checks/`.
 
+The M01 host spike adds five Rust example tests and stdlib-only process/worker
+regressions. These use synthetic fake processes and SDK mocks: default host/CI
+checks never install inference packages, build third-party runtimes or load or
+download model weights. Real local calls require the separate explicit commands
+in [the spike instructions](../runtime/spike/README.md).
+
 `android` runs debug app and instrumentation APK assembly, JVM tests, lint and the
 coordinator-owned debug APK packaging/manifest audit (`scripts/audit_apk.py`).
 It does not install APKs or run device tests. `--clean` cleans Android outputs

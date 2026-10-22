@@ -58,6 +58,12 @@ and [host verification evidence](docs/IMPLEMENTATION_EVIDENCE.md). Official-sour
 [runtime preparation](docs/runtime/FEASIBILITY_2026-10-22.md) selects no backend;
 physical-device measurements remain blocked.
 
+A separate [development runtime spike](docs/runtime/spike/README.md) exercises
+verified local model files through actual LiteRT-LM and llama.cpp on Windows
+CPU. It adds no Android inference backend. Host compatibility, strict synthetic
+proposal acceptance and process cleanup do not establish phone support or prose
+quality; those gates remain pending.
+
 ## Run the Android engine demo
 
 The minimal Compose app calls the actual Rust engine through bounded JNI. It

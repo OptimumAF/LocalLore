@@ -1,0 +1,39 @@
+{
+  "helper": {
+    "bytes": 98424480,
+    "sha256": "f0b59c538c211e936f2c556c2b202b28d1a56d19878f9a1bf83fde6af8fd7db0",
+    "elf_class": 64,
+    "machine": 62,
+    "type": "ET_DYN",
+    "pie": true,
+    "interpreter": "/system/bin/linker64",
+    "load_alignments": [
+      16384,
+      16384,
+      16384
+    ],
+    "needed": [
+      "libm.so",
+      "libdl.so",
+      "libc.so"
+    ]
+  },
+  "oracle": {
+    "bytes": 1382376,
+    "sha256": "1b3e12e94470cea37a5ccbddeec568e9cca7c2ac723b620f0a494cd12305d228",
+    "elf_class": 64,
+    "machine": 62,
+    "type": "ET_DYN",
+    "pie": true,
+    "interpreter": "/system/bin/linker64",
+    "load_alignments": [
+      16384,
+      16384,
+      16384
+    ],
+    "needed": [
+      "libdl.so",
+      "libc.so"
+    ]
+  }
+}

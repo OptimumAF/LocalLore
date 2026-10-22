@@ -16,4 +16,3 @@ assert(!validate(envelope({ op: 'capabilities', extra: true })));
 assert(!validate(envelope({ op: 'run_sql', sql: 'DROP TABLE events' })));
 
 console.log(`PASS: ${steps.length} native requests + frontend actions match generated host-v1 schema; hostile transport samples reject.`);
-

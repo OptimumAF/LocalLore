@@ -25,7 +25,7 @@ An unknown turn is unknown, not evidence of durable rollback after process loss.
 | Operation | Input / behavior |
 |---|---|
 | `capabilities` | Typed actions available; free text, durable saves, author actions, snapshot export unavailable; trusted Story Lab grant reported |
-| `create` | Allowlisted `seed: "lantern-quay-v1"`; returns fresh session, story/branch scope and current event revision |
+| `create` | Allowlisted `seed: "lantern-quay-v1"`; returns fresh session, unique story scope (`quay-N`), branch and current event revision |
 | `open` | Session + scope; attach to an existing in-process workspace; cannot reopen after close/process death |
 | `close` | Session + scope; invalidate leases/cancel workers and release history; unknown/closed sessions report `Closed` |
 | `submit` | Session, full domain `request`, fake `mode`; explicit scope, turn ID, expected revision and typed intent; validate mechanics before queueing |
@@ -56,6 +56,9 @@ counted until dropped, including after session close. Cancel, close and revision
 changes fence even a successful late completion. Reset/story switch closes the
 old session before creating/attaching the new one. A window teardown calls
 `close_all`; process death discards this explicitly ephemeral state.
+Each creation is a distinct story. Multiple windows opening one existing
+session share its canonical owner; creating another session cannot create a
+second writer for the same story scope.
 
 Reads serialize a single revision under the host lock. Future snapshot handles,
 pagination and historical revision selection require contract evolution; there

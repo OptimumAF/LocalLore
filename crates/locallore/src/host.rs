@@ -240,9 +240,12 @@ impl Host {
                 };
                 state.next = next;
                 let id = format!("session-{next}");
-                let seed: Seed =
+                let mut seed: Seed =
                     serde_json::from_str(include_str!("../../../fixtures/lantern_quay.json"))
                         .unwrap();
+                // Each creation is a new ephemeral story. Windows sharing a story
+                // must open its existing session, not create a second authority.
+                seed.scope.story = format!("quay-{next}");
                 let engine = Engine::new(seed).unwrap();
                 let data =
                     json!({"session":id,"scope":engine.scope(),"revision":engine.revision()});
@@ -666,8 +669,9 @@ mod tests {
         );
         let committed = op(&h, &id, &scope, "gift", "commit");
         assert_eq!(committed["data"]["phase"], "committed");
-        let seed: Seed =
+        let mut seed: Seed =
             serde_json::from_str(include_str!("../../../fixtures/lantern_quay.json")).unwrap();
+        seed.scope = scope.clone();
         let mut engine = Engine::new(seed).unwrap();
         let receipt = execute(
             &mut engine,
@@ -891,6 +895,32 @@ mod tests {
         assert_eq!(
             submit(&h, &id, &request(&scope, "limit"))["error"],
             "TurnLimit"
+        );
+    }
+    #[test]
+    fn creations_have_distinct_story_scopes_and_open_reuses_one_authority() {
+        let h = Host::default();
+        let (a, scope_a) = session(&h);
+        let (b, scope_b) = session(&h);
+        assert_ne!(scope_a, scope_b);
+        assert_eq!(
+            submit(&h, &b, &request(&scope_a, "foreign"))["error"],
+            "Scope"
+        );
+        assert_eq!(
+            call(&h, json!({"op":"open","session":a,"scope":scope_a}))["data"]["revision"],
+            0
+        );
+        submit(&h, &a, &request(&scope_a, "gift"));
+        op(&h, &a, &scope_a, "gift", "prepare");
+        op(&h, &a, &scope_a, "gift", "commit");
+        assert_eq!(
+            call(&h, json!({"op":"open","session":a,"scope":scope_a}))["data"]["revision"],
+            1
+        );
+        assert_eq!(
+            call(&h, json!({"op":"open","session":b,"scope":scope_b}))["data"]["revision"],
+            0
         );
     }
 }

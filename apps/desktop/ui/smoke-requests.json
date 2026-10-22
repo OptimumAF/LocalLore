@@ -26,7 +26,7 @@
         "expected_revision": 0,
         "scope": {
           "branch": "main",
-          "story": "quay"
+          "story": "quay-1"
         },
         "version": 1
       },
@@ -40,7 +40,7 @@
       "op": "prepare",
       "scope": {
         "branch": "main",
-        "story": "quay"
+        "story": "quay-1"
       },
       "session": "session-1"
     },
@@ -52,7 +52,7 @@
       "op": "commit",
       "scope": {
         "branch": "main",
-        "story": "quay"
+        "story": "quay-1"
       },
       "session": "session-1"
     },
@@ -64,7 +64,7 @@
       "op": "turn_status",
       "scope": {
         "branch": "main",
-        "story": "quay"
+        "story": "quay-1"
       },
       "session": "session-1"
     },
@@ -90,7 +90,7 @@
         "expected_revision": 0,
         "scope": {
           "branch": "main",
-          "story": "quay"
+          "story": "quay-1"
         },
         "version": 1
       },
@@ -105,7 +105,7 @@
       "observer": "omniscient",
       "scope": {
         "branch": "main",
-        "story": "quay"
+        "story": "quay-1"
       },
       "session": "session-1"
     },
@@ -118,7 +118,7 @@
       "observer": "mira",
       "scope": {
         "branch": "main",
-        "story": "quay"
+        "story": "quay-1"
       },
       "session": "session-1"
     },
@@ -131,7 +131,7 @@
       "observer": "sable",
       "scope": {
         "branch": "main",
-        "story": "quay"
+        "story": "quay-1"
       },
       "session": "session-1"
     },
@@ -143,7 +143,7 @@
       "op": "cancel",
       "scope": {
         "branch": "main",
-        "story": "quay"
+        "story": "quay-1"
       },
       "session": "session-1"
     },
@@ -157,7 +157,7 @@
       "request": {
         "version": 1,
         "scope": {
-          "story": "quay",
+          "story": "quay-1",
           "branch": "main"
         },
         "turn": "second-potion",
@@ -185,7 +185,7 @@
       "request": {
         "version": 1,
         "scope": {
-          "story": "quay",
+          "story": "quay-1",
           "branch": "main"
         },
         "turn": "unsupported-ability",
@@ -211,7 +211,7 @@
       "request": {
         "version": 1,
         "scope": {
-          "story": "quay",
+          "story": "quay-1",
           "branch": "main"
         },
         "turn": "cancelled",
@@ -235,7 +235,7 @@
       "op": "cancel",
       "session": "session-1",
       "scope": {
-        "story": "quay",
+        "story": "quay-1",
         "branch": "main"
       },
       "turn": "cancelled"
@@ -247,7 +247,7 @@
       "op": "prepare",
       "session": "session-1",
       "scope": {
-        "story": "quay",
+        "story": "quay-1",
         "branch": "main"
       },
       "turn": "cancelled"
@@ -261,7 +261,7 @@
       "request": {
         "version": 1,
         "scope": {
-          "story": "quay",
+          "story": "quay-1",
           "branch": "main"
         },
         "turn": "malformed-provider",
@@ -285,7 +285,7 @@
       "op": "prepare",
       "session": "session-1",
       "scope": {
-        "story": "quay",
+        "story": "quay-1",
         "branch": "main"
       },
       "turn": "malformed-provider"
@@ -299,7 +299,7 @@
       "request": {
         "version": 1,
         "scope": {
-          "story": "quay",
+          "story": "quay-1",
           "branch": "main"
         },
         "turn": "stale",
@@ -323,7 +323,7 @@
       "op": "prepare",
       "session": "session-1",
       "scope": {
-        "story": "quay",
+        "story": "quay-1",
         "branch": "main"
       },
       "turn": "stale"
@@ -337,7 +337,7 @@
       "request": {
         "version": 1,
         "scope": {
-          "story": "quay",
+          "story": "quay-1",
           "branch": "main"
         },
         "turn": "winner",
@@ -361,7 +361,7 @@
       "op": "prepare",
       "session": "session-1",
       "scope": {
-        "story": "quay",
+        "story": "quay-1",
         "branch": "main"
       },
       "turn": "winner"
@@ -373,7 +373,7 @@
       "op": "commit",
       "session": "session-1",
       "scope": {
-        "story": "quay",
+        "story": "quay-1",
         "branch": "main"
       },
       "turn": "winner"
@@ -385,7 +385,7 @@
       "op": "commit",
       "session": "session-1",
       "scope": {
-        "story": "quay",
+        "story": "quay-1",
         "branch": "main"
       },
       "turn": "stale"
@@ -409,7 +409,7 @@
       "op": "close",
       "scope": {
         "branch": "main",
-        "story": "quay"
+        "story": "quay-1"
       },
       "session": "session-1"
     },

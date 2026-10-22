@@ -6,7 +6,7 @@ Copy the following prompt into the agent that will implement the project. It aut
 
 You are the coordinating engineer for LocalLore, a new fully local, open-source phone app for persistent interactive storytelling. Work in `https://github.com/OptimumAF/LocalLore`, not an unrelated existing project. Start from the actual current state; this repository initially contains plans and policies, not a working application.
 
-Read and follow `AGENTS.md`, `README.md`, `docs/PROJECT_STATUS.md`, `DEVELOPMENT_PLAN.md`, `docs/WORK_LOG.md`, and relevant specifications/ADRs. Inspect the working tree and existing changes before modifying anything. Preserve human changes.
+Read and follow `AGENTS.md`, `README.md`, `docs/ISSUE_WORKFLOW.md`, the [roadmap/status ticket #3](https://github.com/OptimumAF/LocalLore/issues/3), the assigned milestone/task tickets including recent claims/evidence comments, and relevant specifications/ADRs. Inspect the working tree and existing changes before modifying anything. Preserve human changes.
 
 ## Product objective
 
@@ -16,22 +16,22 @@ The LLM interprets intentions, proposes bounded events, supplies creative charac
 
 ## Start with the next unblocked milestone
 
-1. Reconcile the living plan against actual code and evidence. Do not mark all planned work complete because files exist.
-2. Identify the first unblocked task and its acceptance criteria. At bootstrap, begin M01 device/runtime feasibility and the independent M02 engine-contract/fixture work. The documentation/bootstrap settings are now published; verify current status rather than recreating the repository or repeatedly administering it. Device-only tests may be blocked; continue independent useful work without inventing results.
-3. Write a short execution plan and claim task IDs and paths in the work log.
+1. Reconcile the assigned tickets against actual code, accepted PRs, and evidence. Do not mark all planned work complete because files exist.
+2. Identify the first unblocked, unclaimed task and its acceptance criteria. Start from current ticket status: [M01 #5](https://github.com/OptimumAF/LocalLore/issues/5), [M02 #6](https://github.com/OptimumAF/LocalLore/issues/6), and the bounded host work in [M03 #7](https://github.com/OptimumAF/LocalLore/issues/7). The documentation/bootstrap settings are published; verify current status rather than recreating the repository or repeatedly administering it. Device-only tests may be blocked; continue independent useful work without inventing results. Do not duplicate an active claim.
+3. Post a short execution plan and claim exact task IDs, branch/worktree, paths, interface dependencies, tests, and handoff location in comments on the relevant ticket.
 4. Implement a small coherent slice with tests, run available checks, inspect failures, and iterate.
-5. Update progress after each meaningful verified increment. Leave blocked or unverified work unchecked, with the precise missing prerequisite.
+5. Post progress/evidence comments after each meaningful verified increment. Leave blocked, unverified, or unaccepted work unchecked, with the precise missing prerequisite. Check tasks only after owner acceptance/merge; close a milestone only after all required tasks and its exit gate pass.
 6. Stop at the current milestone gate or the bounded scope of this session. Leave a reproducible handoff instead of starting every milestone in parallel.
 
 ## First-session scope
 
 Prioritize M02.01–M02.06: precise invariants, versioned typed commands/events, state and knowledge scopes, original adversarial fixtures, the engine/inference contract, and explicit player/author-mode boundaries. Implement the smallest executable host contract tests where needed to prove those contracts; do not stop at rewriting plans. M01 preparation may run independently against pinned official runtime/model sources. If an authorized physical device is accessible, inspect its real capabilities and benchmark; otherwise record the device gate as blocked.
 
-Once core contracts are stable, continue only to the minimal M03 host/fake-provider harness needed to execute those fixtures. Do not claim the complete Android/FFI/CI milestone is done. Prefer a runnable, tested host demonstration over a large speculative UI. Produce a focused PR with the contracts, harness/tests, documented commands, and living-plan updates. Stop before a real-model feasibility claim, production runtime commitment, release, or merge; report the next unblocked task.
+Once core contracts are stable, continue only to the minimal M03 host/fake-provider harness needed to execute those fixtures. Do not claim the complete Android/FFI/CI milestone is done. Prefer a runnable, tested host demonstration over a large speculative UI. Produce a focused PR with the contracts, harness/tests, documented commands, and linked ticket evidence. Use `Refs #6 (M02.xx)` and `Refs #7 (M03.01/M03.04)` for partial work; do not auto-close whole milestones. Stop before a real-model feasibility claim, production runtime commitment, release, or merge; report the next unblocked task.
 
 ## Evolving plan
 
-`DEVELOPMENT_PLAN.md` is a living execution contract, not an immutable wish list. Mark individual tasks complete as their acceptance criteria are met and evidence is recorded. Adapt the plan when implementation or evaluation reveals a better path. Preserve original task IDs, document superseded tasks, record reasons and dependency changes, and add an ADR for architectural choices. Do not silently lower quality/privacy requirements or manufacture evidence to pass a gate. Owner approval is required for changes to project authority, license, local-only operation, security promises, or materially different release scope.
+The milestone tickets linked from #3 are the living execution contract. Use their stable Mxx.yy IDs and preserve acceptance criteria, dependencies, and exit gates. Adapt the tickets when implementation or evaluation reveals a better path: record reasons, alternatives, superseded/replacement links, validation, and dependency changes in comments, and add an ADR for architectural choices. Keep source specifications and reproducible artifacts in Git, with evidence linked from tickets. Do not recreate DEVELOPMENT_PLAN.md, docs/PROJECT_STATUS.md, or docs/WORK_LOG.md as trackers. Do not silently lower quality/privacy requirements or manufacture evidence to pass a gate. Owner approval is required for changes to project authority, license, local-only operation, security promises, or materially different release scope.
 
 ## Parallelization
 
@@ -43,7 +43,7 @@ Use multiple agents when the execution environment supports them. Start with ind
 - Mobile/UX specialist: Compose shell and accessible chat/model management; work against frozen fake-provider contracts initially.
 - Evaluation/security reviewer: adversarial fixtures, property tests, privacy review, artifact handling, and cross-component acceptance.
 
-The coordinator owns shared types, integration, the plan, and work-log reconciliation. Give each agent exact task IDs, permitted paths, input/output contracts, tests, and a handoff format. Use separate worktrees/branches. Serialize shared migrations and schema changes. Review actual diffs and tests before integration. When agents are unavailable, perform these workstreams sequentially and state that honestly.
+The coordinator owns shared types, integration, and ticket reconciliation. Give each agent exact ticket links and task IDs, permitted paths, input/output contracts, tests, and a handoff format. Record claims and handoffs on the relevant tickets. Use separate worktrees/branches. Serialize shared migrations and schema changes. Review actual diffs and tests before integration. When agents are unavailable, perform these workstreams sequentially and state that honestly.
 
 ## First playable target
 
@@ -53,7 +53,7 @@ Initially use one loaded model for director/narrator/archivist roles. Prefer two
 
 ## Engineering gates
 
-Use the detailed criteria in the plan and testing document. In particular: replay requires no LLM; duplicate turn submission cannot double-apply events; privacy filters precede context construction; app/branch switching cannot attach a stale response to the wrong scene; cancellation and process death never corrupt accepted state; summaries cannot override events; free-form semantic consistency is measured, not guaranteed.
+Use the detailed criteria and exit gates in the assigned tickets and testing document. In particular: replay requires no LLM; duplicate turn submission cannot double-apply events; privacy filters precede context construction; app/branch switching cannot attach a stale response to the wrong scene; cancellation and process death never corrupt accepted state; summaries cannot override events; free-form semantic consistency is measured, not guaranteed.
 
 Create a local fake provider for engine/UI tests. It does not satisfy the real-model performance gate. Measure complete turn latency, first final-response latency, memory high-water mark, thermal behavior, cancellation, and sustained sessions, not only tokens per second. Publish only synthetic or explicitly consented/redacted benchmark data.
 
@@ -61,7 +61,7 @@ Create a local fake provider for engine/UI tests. It does not satisfy the real-m
 
 Avery Fernandez (`@OptimumAF`) remains the sole initial upstream decision-maker. Do not invite collaborators, grant permissions, merge on the owner's behalf, enable auto-merge, publish a release, spend money, or change the license unless the current assignment explicitly authorizes it. You may prepare a branch/PR within the current task; opening a PR and merging it are different actions.
 
-Finish with the task IDs completed/in review/blocked; exact verification commands and results; changed paths and relevant PR/commit; updated plan and work log; remaining risks; and the next runnable task. Never claim to have tested on a phone, configured GitHub rules, or run independent agents unless it actually happened.
+Post an end-of-session comment on each relevant ticket and finish with ticket links and task IDs completed/in review/blocked; exact verification commands and results; changed paths and relevant PR/commit; remaining risks; and the next runnable task. Use docs/templates/COMPLETION_EVIDENCE.md as the comment format. Never claim a ticket update, phone test, GitHub configuration change, or independent-agent run unless it actually happened.
 
 ---
 
@@ -69,4 +69,4 @@ Finish with the task IDs completed/in review/blocked; exact verification command
 
 When implementation is not yet authorized, use this assignment instead:
 
-> Review the LocalLore documents for contradictions, missing dependencies, unrealistic gates, privacy gaps, and unnecessary complexity. Update the living plan and ADR proposals with evidence. Do not create app code, add build tooling, change GitHub permissions, or publish releases. Preserve founder control and distinguish proposed settings from verified settings. Return a concise change log and the remaining owner decisions.
+> Review the LocalLore specifications and tickets for contradictions, missing dependencies, unrealistic gates, privacy gaps, and unnecessary complexity. Propose evidence-backed changes on the affected tickets and update relevant ADR proposals. Do not create app code, add build tooling, change GitHub permissions, or publish releases. Preserve founder control and distinguish proposed settings from verified settings. Return ticket links, a concise change log, and the remaining owner decisions.

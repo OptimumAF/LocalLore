@@ -6,7 +6,7 @@ LocalLore is a proposed open-source phone app for interactive, chat-based storie
 
 > The model proposes. The engine validates. Accepted events establish the history. The narrator tells the story.
 
-**Status: documentation-only bootstrap. No application, runtime integration, device benchmark, or release exists yet.** LocalLore is a working name, not a cleared trademark. The documentation is published at [OptimumAF/LocalLore](https://github.com/OptimumAF/LocalLore). Owner-reviewed pull requests protect `main`; private vulnerability reporting is enabled. See the verified setup details in project status. See [project status](docs/PROJECT_STATUS.md).
+**Development status:** see the [roadmap and status ticket #3](https://github.com/OptimumAF/LocalLore/issues/3) and its linked milestone tickets for accepted work, active implementation, evidence, and blockers. LocalLore is a working name, not a cleared trademark. The project is published at [OptimumAF/LocalLore](https://github.com/OptimumAF/LocalLore). Owner-reviewed pull requests protect `main`; private vulnerability reporting is enabled. Dated setup evidence is preserved in [archive #2](https://github.com/OptimumAF/LocalLore/issues/2).
 
 ## What we are building
 
@@ -23,7 +23,8 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 | Document | Purpose |
 |---|---|
-| [Development plan](DEVELOPMENT_PLAN.md) | Living milestones, task IDs, dependencies, acceptance criteria, and completion rules |
+| [Roadmap and project status](https://github.com/OptimumAF/LocalLore/issues/3) | Authoritative milestone tickets, task IDs, dependencies, acceptance criteria, status, and evidence |
+| [Ticket workflow](docs/ISSUE_WORKFLOW.md) | Claim work, post verification/handoffs, revise tasks, and record owner acceptance |
 | [Agent prompt](AGENT_PROMPT.md) | Paste into an implementation agent when implementation is authorized |
 | [Agent rules](AGENTS.md) | Repository-wide instructions, authority boundaries, and evidence standards |
 | [Product requirements](docs/PRODUCT_REQUIREMENTS.md) | User experience, scope, and non-goals |

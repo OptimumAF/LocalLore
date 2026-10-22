@@ -12,7 +12,7 @@ M00.06 changes from “establish a private conduct contact” to “document a p
 
 ## Setup evidence
 
-Active ruleset 25677641 was created after explicit owner approval. It requires pull requests, one code-owner approval, dismissal of stale reviews, conversation resolution, and no force pushes/deletion. The only bypass is OptimumAF in pull-request context. Settings and access details are recorded in PROJECT_STATUS and WORK_LOG. Existing account integrations were inventoried but not removed or given bypass.
+Active ruleset 25677641 was created after explicit owner approval. It requires pull requests, one code-owner approval, dismissal of stale reviews, conversation resolution, and no force pushes/deletion. The only bypass is OptimumAF in pull-request context. Dated settings and access details are preserved in [historical archive #2](https://github.com/OptimumAF/LocalLore/issues/2); accepted bootstrap tasks are in [M00 #4](https://github.com/OptimumAF/LocalLore/issues/4). Existing account integrations were inventoried but not removed or given bypass.
 
 The initial technical direction remains a revisable planning default. Physical-device/model benchmarks and all application work remain pending. Setup completion does not satisfy M01 or any app gate.
 

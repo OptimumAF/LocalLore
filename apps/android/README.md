@@ -77,6 +77,22 @@ cargo run --locked --offline -p locallore --example android_fixtures -- --check
 The exporter regenerates apps/android/app/src/test/lantern_quay_cases.json;
 preserve UTF-8/LF without BOM after intentional changes.
 
+## Review local diagnostics
+
+Open **Local diagnostics** while the demo is idle to review its frozen JSON.
+The log holds at most 64 enum/numeric timing/error records in memory, without
+story text, identifiers, paths or exception messages. **Clear** empties the log
+without changing accepted events. **Export JSON** opens the system
+document picker and writes exactly that preview (at most 16 KiB).
+
+The export is plaintext; your selected provider may sync outside the device.
+Failure or cancellation can leave an incomplete file. Clearing the log does
+not delete copies you exported. There is no automatic file, issue upload,
+collector, crash-report SDK, new dependency or storage permission. A provider
+that ignores cancellation can delay future exports; provider I/O and its
+cancellation listener remain off the UI thread. See [diagnostic evidence](../../docs/diagnostics/VERIFICATION_2026-10-22.md)
+and [privacy boundaries](../../docs/PRIVACY_AND_THREAT_MODEL.md).
+
 ## Verification and limits
 
 Host tests cover strict bytes, scoped IDs, ownership, idempotency, provider
@@ -86,5 +102,5 @@ actual events/resources, invalid arrays and repeated cancellation/disposal;
 Compose tests cover flows, reset/recreation/disposal and doubled-font layout.
 Exact evidence is in [native verification](../../docs/native/VERIFICATION_2026-10-22.md).
 
-M03.05 CI, M03.06 diagnostics, M04 durability and M01 physical/model feasibility
-remain separate work. No release or merge is part of this packet.
+M04 durability and M01 physical/model feasibility remain separate work.
+Local build checks do not establish hosted CI execution or release readiness.

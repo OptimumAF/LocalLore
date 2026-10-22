@@ -194,4 +194,27 @@ class ShellViewModelTest {
         assertEquals(1, resets)
         assertFalse(model.state.value.recoveryRequired)
     }
+
+    @Test fun diagnosticsContainTypedOutcomesButNeverDialogueOrExceptionText() = runTest(dispatcher) {
+        val accepted = model(object : DemoGateway {
+            override suspend fun respond(action: DemoAction, revision: Long, mode: DemoMode): DemoResult =
+                DemoResult.Accepted(1, "PRIVATE-ACTOR", "SECRET-TIDE-731 private narration")
+        })
+        accepted.submit(DemoAction.GIVE_POTION); advanceUntilIdle()
+        accepted.openDiagnostics()
+        val snapshot = accepted.diagnostics.value.preview
+        assertTrue(snapshot.contains("PREPARE"))
+        assertTrue(snapshot.contains("ACCEPTED"))
+        assertFalse(snapshot.contains("PRIVATE-ACTOR"))
+        assertFalse(snapshot.contains("SECRET"))
+        assertFalse(snapshot.contains("potion"))
+        val rejected = model { _, _, _ -> DemoResult.Rejected("SECRET-TIDE-731 private path") }
+        rejected.submit(DemoAction.GIVE_POTION); advanceUntilIdle(); rejected.openDiagnostics()
+        assertTrue(rejected.diagnostics.value.preview.contains("UNKNOWN"))
+        assertFalse(rejected.diagnostics.value.preview.contains("SECRET"))
+        val failed = model { _, _, _ -> error("SECRET-TIDE-731 private exception") }
+        failed.submit(DemoAction.GIVE_POTION); advanceUntilIdle(); failed.openDiagnostics()
+        assertTrue(failed.diagnostics.value.preview.contains("TRANSPORT"))
+        assertFalse(failed.diagnostics.value.preview.contains("SECRET"))
+    }
 }

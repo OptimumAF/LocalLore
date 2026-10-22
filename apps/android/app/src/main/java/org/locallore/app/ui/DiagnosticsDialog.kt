@@ -77,7 +77,9 @@ fun DiagnosticsDialog(
                     )
                     Text(
                         "Export JSON opens the system document picker. You choose the destination; " +
-                            "a document provider may store your file in the cloud.",
+                            "a document provider may store your file in the cloud. Exports are plaintext. " +
+                            "Cancellation or failure may leave an incomplete file. Clearing diagnostics " +
+                            "does not delete copies you exported.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(

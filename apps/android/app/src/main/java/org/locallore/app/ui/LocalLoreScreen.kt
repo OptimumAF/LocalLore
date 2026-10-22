@@ -57,6 +57,8 @@ fun LocalLoreScreen(
     onMode: (DemoMode) -> Unit,
     onCancel: () -> Unit,
     onReset: () -> Unit,
+    onDiagnostics: () -> Unit = {},
+    overlay: @Composable () -> Unit = {},
 ) {
     MaterialTheme(
         colorScheme = lightColorScheme(
@@ -70,6 +72,7 @@ fun LocalLoreScreen(
             outline = MutedInk,
         ),
     ) {
+        overlay()
         Scaffold(containerColor = Paper) { safePadding ->
             Box(
                 modifier = Modifier.fillMaxSize().padding(safePadding),
@@ -213,6 +216,12 @@ fun LocalLoreScreen(
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                     .testTag("try-ability"),
                             ) { Text("Try unlearned ability") }
+                        }
+                    }
+                    item(key = "diagnostics") {
+                        TextButton(onClick = onDiagnostics, enabled = !state.busy,
+                            modifier = Modifier.heightIn(min = 48.dp).testTag("open-diagnostics")) {
+                            Text("Local diagnostics")
                         }
                     }
                     item(key = "demo-controls") {

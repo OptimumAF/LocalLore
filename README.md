@@ -43,10 +43,10 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 The first implementation provides strict typed proposals, engine validation,
 in-memory accepted history, observer-filtered contexts, branch fixtures and a
-deterministic fake provider. With Rust 1.93.1 installed:
+deterministic fake provider. With Python 3.9+ and Rust 1.93.1 installed:
 
 ```powershell
-cargo test --workspace --locked
+python scripts/check.py host
 cargo run --locked -p locallore
 ```
 
@@ -62,16 +62,19 @@ physical-device measurements remain blocked.
 
 The minimal Compose app calls the actual Rust engine through bounded JNI. It
 supports pending, cancel, failure, retry and reset with fake inference and no account.
-Durable saves remain future work. From `apps/android/`, with Java 17 and Android
+Durable saves remain future work. From the repository root, with Python 3.9+,
+Java 17 and Android
 SDK 36, NDK 29.0.14206865 and both Rust Android targets installed:
 
 ```powershell
-.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
-.\gradlew.bat :app:connectedDebugAndroidTest
+python scripts/check.py android
 ```
 
 See [Android build and sample instructions](apps/android/README.md) and
 [dated native/emulator verification](docs/native/VERIFICATION_2026-10-22.md).
+The [shared check runner/CI instructions](docs/ci/CHECKS.md) document offline
+mode, prerequisites and separate authorized emulator commands. Build/static
+checks do not establish hosted execution or device qualification.
 
 ## Initial technical direction
 

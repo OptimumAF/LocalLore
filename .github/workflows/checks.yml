@@ -1,0 +1,64 @@
+name: Local checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Standard hosted runners only. No environments, secrets, caches or uploads.
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  host:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1; MIT; node24
+        with:
+          persist-credentials: false
+      - name: Provision pinned Rust checks
+        run: rustup toolchain install 1.93.1 --profile minimal --component rustfmt --component clippy
+      - name: Run host checks
+        run: python scripts/check.py host
+
+  android:
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1; MIT; node24
+        with:
+          persist-credentials: false
+      - name: Select image JDK 17
+        run: |
+          if (-not $env:JAVA_HOME_17_X64) { throw 'The hosted image must provide JDK 17.' }
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "JAVA_HOME=$env:JAVA_HOME_17_X64"
+          Add-Content -LiteralPath $env:GITHUB_PATH -Value "$env:JAVA_HOME_17_X64\bin"
+      - name: Provision pinned Rust Android targets
+        run: |
+          rustup toolchain install 1.93.1 --profile minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          rustup target add --toolchain 1.93.1 x86_64-linux-android aarch64-linux-android
+      - name: Provision pinned SDK packages without accepting licenses
+        run: |
+          if (-not $env:ANDROID_HOME) { throw 'The hosted image must provide the Android SDK.' }
+          $sdkManager = Join-Path $env:ANDROID_HOME 'cmdline-tools\latest\bin\sdkmanager.bat'
+          if (-not (Test-Path -LiteralPath $sdkManager)) { throw 'sdkmanager is missing.' }
+          # Image licenses are pre-existing. Any new license prompt is declined.
+          'n' | & $sdkManager "--sdk_root=$env:ANDROID_HOME" '--channel=0' 'platforms;android-36' 'build-tools;35.0.0' 'ndk;29.0.14206865'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          foreach ($relative in @('platforms\android-36\android.jar', 'build-tools\35.0.0\aapt2.exe', 'ndk\29.0.14206865\source.properties')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $env:ANDROID_HOME $relative))) {
+              throw "Missing SDK package after provisioning: $relative. Review SDK licenses explicitly."
+            }
+          }
+      - name: Compile native app and tests, run JVM checks and audit APK
+        run: python scripts/check.py android --clean

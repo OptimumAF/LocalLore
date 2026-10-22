@@ -24,6 +24,15 @@ before these checks and is rejected for `host`. Android checks require Java 17,
 SDK platform 36, Build Tools 35.0.0, NDK 29.0.14206865 and the Rust 1.93.1
 `x86_64-linux-android` and `aarch64-linux-android` targets. `JAVA_HOME` selects an
 existing JDK; otherwise `java` must be on `PATH`.
+The APK audit requires `ANDROID_HOME` or `ANDROID_SDK_ROOT` pointing to the SDK
+with Build Tools 35.0.0, even when standalone Gradle uses `local.properties`.
+
+The audit checks the current debug contract: min26/target36, only the app-owned
+signature receiver permission, exactly the two supported ABI/library sets,
+uncompressed 16 KiB-aligned native ZIP entries, and ELF64 type/machine/bounds/
+LOAD alignment. It rejects duplicate APK entries and the former recorded JSON
+fixture. Intentional dependency/capability/SDK changes require reviewing this
+contract. This is not a general hostile-APK verifier or a device execution test.
 
 Before executing Java, the runner checks the wrapper JAR SHA-256 and the complete
 existing wrapper property configuration, including the pinned Gradle 8.11.1

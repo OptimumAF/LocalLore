@@ -87,5 +87,9 @@ provisioning; gameplay must remain fully local and omit unused permissions.
   their XML, recorded direct dependencies/license declarations and hashed the
   returned bytes. The Compose BOM maps the selected versions listed above.
 - Read current primary compatibility, compiler, SDK and Play documentation.
+- Fetched the [official Gradle 8.11.1 binary distribution checksum](https://services.gradle.org/distributions/gradle-8.11.1-bin.zip.sha256):
+  `f397b287023acdba1e9f6fc5ea72d22dd63669d59ed4a289a29b1a76eee151c6`.
+  It matches the implementation's wrapper property at review time. This checks
+  the configured expected digest, not a clean-checkout build or downloaded ZIP.
 - No phone operation, model download, benchmark, native integration, release,
   merge, permission change or application test is claimed by this research.

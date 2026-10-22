@@ -1,0 +1,77 @@
+{
+  "date": "2026-10-22",
+  "tested_apk_sha256": "b46b37eff26b2dca6a4f5123eeb333758a56fa376e8a14c6145fb13e3c9d60b7",
+  "clean_apk_sha256": "b46b37eff26b2dca6a4f5123eeb333758a56fa376e8a14c6145fb13e3c9d60b7",
+  "zip_entry_payload_differences": [
+    "classes4.dex"
+  ],
+  "libraries": [
+    {
+      "entry": "lib/arm64-v8a/libandroidx.graphics.path.so",
+      "sha256": "41e9a793c43a0f4fddb19e33f346bace464f30f888ba7b9eaf96294ea115bfb6",
+      "elf_load_alignment": [
+        16384,
+        16384,
+        16384
+      ]
+    },
+    {
+      "entry": "lib/arm64-v8a/liblocallore_android.so",
+      "sha256": "85be74d9aae250926cd25c089ad557e33ecf6838e3526bb890781e8b08cab0c1",
+      "elf_load_alignment": [
+        16384,
+        16384,
+        16384
+      ]
+    },
+    {
+      "entry": "lib/x86_64/libandroidx.graphics.path.so",
+      "sha256": "4e56c996f13670e70082658de7880c4020eabf4f25e43387f88ed78a713fc9f0",
+      "elf_load_alignment": [
+        16384,
+        16384,
+        16384
+      ]
+    },
+    {
+      "entry": "lib/x86_64/liblocallore_android.so",
+      "sha256": "bed98b4ce4bf93d4938437040dc0f4653ca789a328e6bfed4ef062d917a7e8cb",
+      "elf_load_alignment": [
+        16384,
+        16384,
+        16384
+      ]
+    }
+  ],
+  "legacy_fixture_packaged": false,
+  "jvm_tests": 11,
+  "host_contract_tests": 26,
+  "host_boundary_tests": 8,
+  "linker_tests": 3,
+  "instrumentation_tests_each": 11,
+  "emulator_targets": 2,
+  "emulator_api": 35,
+  "emulator_abi": "x86_64",
+  "emulator_page_size": 4096,
+  "lint": "No issues found; offline run; not a dependency freshness audit",
+  "clean_offline_build": true,
+  "launches": [
+    {
+      "target": "emulator-A",
+      "install": "passed",
+      "foreground_launch": "verified",
+      "checkjni_positive_startup_log": true,
+      "fatal_or_jni_abort_in_observed_startup_log": false
+    },
+    {
+      "target": "emulator-B",
+      "install": "passed",
+      "foreground_launch": "verified",
+      "checkjni_positive_startup_log": true,
+      "fatal_or_jni_abort_in_observed_startup_log": false
+    }
+  ],
+  "initial_incremental_tested_apk_sha256": "312caf918eaa4aa81ea61d62a2aacc5d01664db4a1a3e5e18f02c9d20d6690f5",
+  "clean_apk_instrumentation_both_targets": "passed",
+  "test_apk_sha256": "c96a5f7d4863158839772fac7ac39ec683d9c067466d5e03ed5ae04dd2b5cc7d"
+}

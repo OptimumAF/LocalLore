@@ -61,7 +61,8 @@ physical-device measurements remain blocked.
 ## Run the Android engine demo
 
 The minimal Compose app calls the actual Rust engine through bounded JNI. It
-supports pending, cancel, failure, retry and reset with fake inference and no account. Durable saves remain future work. From `apps/android/`, with Java 17 and Android
+supports pending, cancel, failure, retry and reset with fake inference and no account.
+Durable saves remain future work. From `apps/android/`, with Java 17 and Android
 SDK 36, NDK 29.0.14206865 and both Rust Android targets installed:
 
 ```powershell

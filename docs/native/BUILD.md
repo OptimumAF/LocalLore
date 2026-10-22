@@ -55,8 +55,10 @@ For each target, the task runs an argument-array process equivalent to:
 cargo +1.93.1 build --locked --release --package locallore-android --lib --target <target> --target-dir <app/build/rust-target> [--offline]
 ```
 
-It sets the target-specific Cargo linker to the pinned NDK's real Clang executable
-(`clang.exe` on Windows), and passes `--target=<target>26`, its sysroot, and
+It compiles the small dependency-free `native-linker.rs` launcher with pinned host
+Rust, sets that launcher as Cargo's target-specific linker, and supplies the pinned
+NDK's real Clang executable (`clang.exe` on Windows) through
+`LOCALLORE_ANDROID_CLANG`. It passes `--target=<target>26`, its sysroot, and
 `-Wl,-z,max-page-size=16384` as individual linker arguments. The encoded Rust flag
 environment uses ASCII unit separators, so spaces in SDK/repository paths do not
 split arguments. No shell, generated command string, Cargo-NDK plugin or CMake
@@ -64,6 +66,28 @@ wrapper is involved. Cargo's stdout/stderr are merged and drained into Gradle's
 lifecycle log while it runs; inheriting the Gradle daemon's native console can
 stall on Windows. The task closes stdin and releases child streams, terminating
 the child on interruption or output failure.
+
+The launcher fixes a demonstrated quoting defect without moving the workspace or
+using short paths. When a Windows linker invocation exceeds its command-length
+limit, [Rust 1.93.1's GNU response writer](https://github.com/rust-lang/rust/blob/1.93.1/compiler/rustc_codegen_ssa/src/back/link.rs#L1606-L1623)
+escapes spaces and backslashes but leaves apostrophes active. Clang then joins
+separate object arguments across the apostrophe in `The Hero's Journey`.
+The launcher reconstructs the pinned writer's newline-delimited arguments,
+double-quotes each argument with escaped backslashes/double quotes, and passes
+`--rsp-quoting=posix` before the corrected response file. Direct arguments remain
+argument arrays. Temporary rewritten files are removed after Clang returns or
+fails to start. This is specifically an adapter for the pinned Rust GNU writer;
+recheck it when changing compilers. See LLVM's original
+[response quoting option change](https://reviews.llvm.org/D19425); the installed
+Clang also documents the switch in `--help-hidden`.
+
+Its standalone tests require only the pinned host toolchain; from repository root
+(use a path under your temporary/build directory for the executable):
+
+```text
+rustc +1.93.1 --edition=2021 --test apps/android/native-linker.rs -o <test-executable>
+<test-executable>
+```
 
 | Rust target | Packaged ABI | Generated library |
 |---|---|---|
@@ -76,7 +100,8 @@ Native build products and Cargo's target directory remain under ignored
 `app/build/`; source control contains no compiled engine. Incremental inputs
 include all crate sources/manifests, fixtures, workspace manifest/lockfile,
 toolchain file, and native script. The task declares both packaged `.so` outputs
-and its NDK/toolchain/minimum-API/target pins.
+and its NDK/toolchain/minimum-API/target pins. The launcher source is also an
+incremental input; its host executable stays in `app/build/native-tools/`.
 
 ## Compatibility and licensing sources
 

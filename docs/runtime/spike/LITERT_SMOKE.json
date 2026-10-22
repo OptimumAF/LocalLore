@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "status": "completed",
+  "error": null,
+  "load_ms": 2297.0,
+  "generation_ms": 5562.0,
+  "output_tokens": 64,
+  "input_tokens": 473,
+  "schema_enforced": true,
+  "thinking_disabled": true,
+  "template_applied": true,
+  "worker_exit": 0,
+  "stdout_bytes": 428,
+  "stderr_bytes": 0,
+  "wall_ms": 12422.0,
+  "text_bytes": 176,
+  "oracle": {
+    "status": "accepted",
+    "error": null,
+    "canonical_unchanged": true
+  },
+  "scope": "single_windows_x64_cpu_compatibility_smoke_not_phone_benchmark",
+  "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+  "model_bytes": 2588147712,
+  "runtime_commit": "bda624851d74be34d4e1f7fac1fc4155939539c7",
+  "runtime_package": "litert-lm-api==0.18.1",
+  "python_version": "3.12.14",
+  "model_metadata": {
+    "model_type": "LLM",
+    "max_context_tokens": 32003,
+    "dynamic_context": true,
+    "minimum_runtime": null,
+    "input_modalities": {
+      "text": true,
+      "vision": true,
+      "audio": true,
+      "video": false
+    },
+    "text_backends": [
+      "cpu",
+      "gpu"
+    ],
+    "thinking_supported": false,
+    "function_calling_supported": false,
+    "speculative_supported": true
+  },
+  "raw_text_persisted": false
+}

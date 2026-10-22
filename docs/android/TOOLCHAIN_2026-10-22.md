@@ -21,6 +21,7 @@ ticket comments; source availability alone does not prove successful execution.
 | Coroutines Android / test | 1.10.2 | Exact Maven Central POMs inventoried below. |
 | JUnit | 4.13.2 | Test-only, exact Maven Central POM inventoried below. |
 | AndroidX test runner / ext JUnit | 1.6.2 / 1.2.1 | Instrumentation-only, exact Google Maven POMs inventoried below. |
+| AndroidX graphics path (transitive) | 1.0.1 | Selected by Compose's resolved runtime graph; bundles native path helpers. Exact Google Maven POM inventoried below. |
 
 The current Compose setup page recommends the latest BOM (2026.09.00 at source
 verification). This bounded shell deliberately uses the smaller established
@@ -48,16 +49,19 @@ and its Maven-integration reference were inspected; no universal model/device
 minimum was established from them. The shell adds no LiteRT-LM dependency.
 
 The official [16 KB page-size guide](https://developer.android.com/guide/practices/page-sizes)
-distinguishes Java/Kotlin-only apps from native-library requirements. Check the
-packaged APK for native `.so` files before making even a shell-only statement;
-M03.03 and any inference runtime introduce a separate native packaging/test
-gate. Do not infer native page compatibility from this shell's SDK numbers.
+distinguishes Java/Kotlin-only apps from native-library requirements. This
+shell's debug APK includes AndroidX graphics-path native helpers even though
+it adds no Rust or inference runtime. See the separately scoped
+[implementation review](REVIEW_2026-10-22.md) for actual APK inspection and
+host alignment checks. M03.03 and any inference runtime introduce a separate
+native packaging/test gate. SDK numbers alone prove no page compatibility.
 
 ## License and provenance inventory
 
 [DEPENDENCY_SOURCES.json](DEPENDENCY_SOURCES.json) records exact source URLs,
 byte counts, SHA-256 hashes, license declarations and direct dependencies for
-14 pinned POMs fetched from Google Maven or Maven Central. These are hashes of
+15 pinned POMs fetched from Google Maven or Maven Central, including the native
+transitive AndroidX graphics-path dependency. These are hashes of
 POM metadata, not downloaded AAR/JAR checksums or a full transitive inventory.
 No dependency source/sample code was copied into the application as part of
 this research. LocalLore's own original code remains Apache-2.0.
@@ -83,7 +87,7 @@ provisioning; gameplay must remain fully local and omit unused permissions.
 
 - Read AGENTS, README, kickoff, issue workflow, #3/#7, initial-direction and
   host-proof ADRs, architecture, privacy, licensing and pinned M01 report.
-- Fetched the 14 exact official POMs in the linked source inventory, parsed
+- Fetched the 15 exact official POMs in the linked source inventory, parsed
   their XML, recorded direct dependencies/license declarations and hashed the
   returned bytes. The Compose BOM maps the selected versions listed above.
 - Read current primary compatibility, compiler, SDK and Play documentation.

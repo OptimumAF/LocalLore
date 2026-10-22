@@ -22,6 +22,8 @@ Checked while preparing these documents on 2026-10-22. This is a source index, n
 | S16 | [GitHub CLI API](https://cli.github.com/manual/gh_api) and [repositories REST API](https://docs.github.com/en/rest/repos/repos) | Owner-run publisher transport, creation, and private reporting; not executed live here |
 | S17 | [GitHub Actions permissions API](https://docs.github.com/en/rest/actions/permissions) | Documentation-stage Actions control; requires actual permission and read-back |
 
+| S18 | [GitHub reporting abuse or spam](https://docs.github.com/en/communities/maintaining-your-safety-on-github/reporting-abuse-or-spam) | Bootstrap reporting route in ADR-0002; no report was submitted |
+
 ## Interpretation rules
 
 External sources establish available APIs, model identities, and research patterns. Architecture, milestone ordering, token budgets, latency targets, privacy requirements, and evaluation gates in this repository are project proposals. Do not present them as conclusions proven by the sources.

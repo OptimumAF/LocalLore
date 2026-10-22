@@ -4,7 +4,7 @@ Copy the following prompt into the agent that will implement the project. It aut
 
 ---
 
-You are the coordinating engineer for LocalLore, a new fully local, open-source phone app for persistent interactive storytelling. Work in this repository, not an unrelated existing project. Start from the actual current state; this repository initially contains plans and policies, not a working application.
+You are the coordinating engineer for LocalLore, a new fully local, open-source phone app for persistent interactive storytelling. Work in `https://github.com/OptimumAF/LocalLore`, not an unrelated existing project. Start from the actual current state; this repository initially contains plans and policies, not a working application.
 
 Read and follow `AGENTS.md`, `README.md`, `docs/PROJECT_STATUS.md`, `DEVELOPMENT_PLAN.md`, `docs/WORK_LOG.md`, and relevant specifications/ADRs. Inspect the working tree and existing changes before modifying anything. Preserve human changes.
 
@@ -17,11 +17,17 @@ The LLM interprets intentions, proposes bounded events, supplies creative charac
 ## Start with the next unblocked milestone
 
 1. Reconcile the living plan against actual code and evidence. Do not mark all planned work complete because files exist.
-2. Identify the first unblocked task and its acceptance criteria. At bootstrap, begin M01 device/runtime feasibility and the independent M02 engine-contract/fixture work. Repository publication or device-only tests may be blocked; continue independent useful work without inventing results.
+2. Identify the first unblocked task and its acceptance criteria. At bootstrap, begin M01 device/runtime feasibility and the independent M02 engine-contract/fixture work. The documentation/bootstrap settings are now published; verify current status rather than recreating the repository or repeatedly administering it. Device-only tests may be blocked; continue independent useful work without inventing results.
 3. Write a short execution plan and claim task IDs and paths in the work log.
 4. Implement a small coherent slice with tests, run available checks, inspect failures, and iterate.
 5. Update progress after each meaningful verified increment. Leave blocked or unverified work unchecked, with the precise missing prerequisite.
 6. Stop at the current milestone gate or the bounded scope of this session. Leave a reproducible handoff instead of starting every milestone in parallel.
+
+## First-session scope
+
+Prioritize M02.01–M02.06: precise invariants, versioned typed commands/events, state and knowledge scopes, original adversarial fixtures, the engine/inference contract, and explicit player/author-mode boundaries. Implement the smallest executable host contract tests where needed to prove those contracts; do not stop at rewriting plans. M01 preparation may run independently against pinned official runtime/model sources. If an authorized physical device is accessible, inspect its real capabilities and benchmark; otherwise record the device gate as blocked.
+
+Once core contracts are stable, continue only to the minimal M03 host/fake-provider harness needed to execute those fixtures. Do not claim the complete Android/FFI/CI milestone is done. Prefer a runnable, tested host demonstration over a large speculative UI. Produce a focused PR with the contracts, harness/tests, documented commands, and living-plan updates. Stop before a real-model feasibility claim, production runtime commitment, release, or merge; report the next unblocked task.
 
 ## Evolving plan
 

@@ -6,7 +6,7 @@ LocalLore is a proposed open-source phone app for interactive, chat-based storie
 
 > The model proposes. The engine validates. Accepted events establish the history. The narrator tells the story.
 
-**Status: documentation-only bootstrap. No application, runtime integration, device benchmark, or release exists yet.** LocalLore is a working name, not a cleared trademark. The documentation is published at [OptimumAF/LocalLore](https://github.com/OptimumAF/LocalLore). Repository review controls remain pending explicit approval; see the verified setup details in project status. See [project status](docs/PROJECT_STATUS.md).
+**Status: documentation-only bootstrap. No application, runtime integration, device benchmark, or release exists yet.** LocalLore is a working name, not a cleared trademark. The documentation is published at [OptimumAF/LocalLore](https://github.com/OptimumAF/LocalLore). Owner-reviewed pull requests protect `main`; private vulnerability reporting is enabled. See the verified setup details in project status. See [project status](docs/PROJECT_STATUS.md).
 
 ## What we are building
 

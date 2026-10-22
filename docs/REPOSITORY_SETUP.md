@@ -1,6 +1,6 @@
 # Public repository setup and verification
 
-Prepared for `OptimumAF/LocalLore`. **These are intended settings, not a claim that a remote repository exists or that any control is active.** See `PROJECT_STATUS.md`.
+Configured for `OptimumAF/LocalLore` on 2026-10-22. Verified actual settings and access inventory are in [project status](PROJECT_STATUS.md) and [the work log](WORK_LOG.md). The procedure below documents the setup and future verification; do not rerun repository creation against the existing project.
 
 ## Publication
 
@@ -36,7 +36,7 @@ The CODEOWNERS file routes review ownership. It is not a permission grant and do
 | CI at docs bootstrap | Actions disabled until reviewed workflows are introduced | Actions permission read-back |
 | Private vulnerability reporting | Enabled and verified if available | Security setting read-back / visible reporting action |
 | Collaborators | No new collaborators invited | Audit all current collaborators and pending invitations |
-| Conduct reporting | Private contact to be established by owner | Do not fabricate an address |
+| Conduct reporting | GitHub abuse tools/Support for sensitive abuse reports; owner threads for nonsensitive concerns | Documented in CODE_OF_CONDUCT and ADR-0002; no dedicated owner inbox is claimed |
 
 Do not configure nonexistent required status checks. Add checks only after real workflows run and their exact names are known. Re-enable Actions deliberately in M03 with read-only defaults, reviewed/pinned actions, and a safe fork policy. Never give untrusted fork PRs access to secrets or privileged runners.
 
@@ -48,15 +48,15 @@ A ruleset file in Git is documentation until actually submitted to GitHub and re
 
 ## Verification checklist
 
-- [ ] Repository exists, is public, and belongs to the intended owner.
-- [ ] Default branch and exact bootstrap commit are recorded.
-- [ ] Remote file tree/hashes match the reviewed starter package.
-- [ ] License and governance documents are present.
-- [ ] CODEOWNERS and active rules agree; owner self-PR workflow is understood.
-- [ ] Actual collaborators, pending invitations, and integration access are audited.
-- [ ] Auto-merge is off; Actions state and permissions are recorded.
-- [ ] Private vulnerability reporting works; private conduct channel is established.
-- [ ] Setup evidence is added to the work log and M00 tasks updated accurately.
+- [x] Repository exists, is public, and belongs to the intended owner.
+- [x] Default branch and exact bootstrap commit are recorded.
+- [x] Remote file tree/hashes match the reviewed starter package.
+- [x] License and governance documents are present.
+- [x] CODEOWNERS and active rules agree; owner self-PR workflow is understood.
+- [x] Actual collaborators, pending invitations, and integration access are audited.
+- [x] Auto-merge is off; Actions state and permissions are recorded.
+- [x] Private vulnerability reporting is enabled (no fabricated report was submitted); private conduct-reporting route is documented (ADR-0002).
+- [x] Setup evidence is added to the work log and M00 tasks updated accurately.
 
 ## Manual recovery
 

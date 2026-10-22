@@ -29,6 +29,18 @@ under app/build; none are checked in. See [native build details](../../docs/nati
 including Windows linker handling. After provisioning, add --offline for cached
 Gradle/Cargo builds. Provisioning can use network; installed gameplay cannot.
 
+For the complete host-independent Android build gate, run from the repository root:
+
+```powershell
+python scripts/check.py android --offline --clean
+```
+
+This checks wrapper integrity, invokes Gradle through Java, disables automatic
+SDK downloads, builds app/test APKs, runs JVM tests/lint, and audits final APK
+permissions/native alignment. Set `ANDROID_HOME` or `ANDROID_SDK_ROOT` for the
+audit even when standalone Gradle uses `local.properties`. No SDK licenses are
+accepted and no device is changed. See [shared check details](../../docs/ci/CHECKS.md).
+
 Connected tests install the app/test APK. Use authorized targets only. Set
 ANDROID_SERIAL to select one, then repeat for the second. Omit transport IDs
 from public reports. This packet executes on two x86_64 API-35 emulators;

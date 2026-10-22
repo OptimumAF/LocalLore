@@ -1,4 +1,4 @@
-# Host development
+# Development checks
 
 This page covers the local Rust contract proof with synthetic data and
 a deterministic fake provider. It does not load a model or implement disk
@@ -12,11 +12,8 @@ prerequisites. `rust-toolchain.toml` pins the compiler; `Cargo.lock` pins all cr
 revisions/checksums. Run from the repository root:
 
 ```powershell
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo test --workspace --locked
+python scripts/check.py host
 cargo run --locked -p locallore
-python -m unittest discover -s benchmarks -p 'test_*.py' -v
 git diff --check
 ```
 
@@ -32,10 +29,21 @@ checks that Mira observed the gift while Sable did not. This is an in-memory
 proof. Successful output is not proof of SQLite durability, phone support,
 native FFI, real narrative quality or offline Android packaging.
 
-No workflow/settings change is part of this packet. Actions stays disabled as
-recorded in project setup; M03.05 must introduce reviewed host/Android CI later.
-There are no migration scripts or user-data upgrades in this PR. Discarding
-the branch removes the proof without touching a user save.
+The Python 3.9+ standard-library runner executes formatting, Clippy, Rust tests,
+fixture parity, Python helper/runner/APK-audit regressions and native-linker tests
+with pinned tools. `python scripts/check.py android --clean` builds both native
+ABIs and app/test APKs, runs JVM tests/lint and audits final APK capabilities and
+alignment. It does not run emulators. See [commands/prerequisites](ci/CHECKS.md),
+[workflow sources](ci/SOURCES_2026-10-22.md) and
+[verification](ci/VERIFICATION_2026-10-22.md).
+
+The M03.05 workflow calls these entrypoints on standard hosted Windows runners
+with read-only permissions and a reviewed SHA-pinned checkout. It uses no
+secrets, persistent credentials, caches, uploads, private runners or model
+downloads. Provisioning is separate; new SDK license prompts are declined and
+Gradle SDK auto-download is disabled. Repository Actions/settings are unchanged.
+Local/static checks do not establish hosted execution; actual status and limits
+belong in the verification report. No migration or save upgrade is introduced.
 
 ## Dependency inventory
 
@@ -56,12 +64,15 @@ API references used. No native inference dependency is added.
 | memchr | 2.8.3 | Unlicense OR MIT |
 | proc-macro2 | 1.0.107 | MIT OR Apache-2.0 |
 | quote | 1.0.47 | MIT OR Apache-2.0 |
-| syn | 3.0.9 | MIT OR Apache-2.0 |
+| syn (host derive dependency) | 3.0.9 | MIT OR Apache-2.0 |
 | unicode-ident | 1.0.27 | (MIT OR Apache-2.0) AND Unicode-3.0 |
 | zmij | 1.0.23 | MIT |
 
 Exact package source/checksums are in `Cargo.lock`; license/notice files reside in
 each installed `${CARGO_HOME}/registry/src/<registry>/<name>-<version>/` package.
+The JNI boundary adds Android-specific and cross-platform packages; its complete
+[registry/source/license inventory](native/DEPENDENCY_SOURCES.json) and
+[JNI rationale](native/SOURCES_2026-10-22.md) supplement this host table.
 First-party additions are Apache-2.0. No dependency source was modified or
 vendored, model weights redistributed, or release binary published. Packaging
 must include the applicable third-party notices before a release (M10.06/M11.02).

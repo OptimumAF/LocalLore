@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "checked_date": "2026-10-22",
+  "scope": "Independent official Android source and metadata integrity review; no SDK binary or model downloaded or executed by reviewer",
+  "runtime_pins": {
+    "litert_lm": "bda624851d74be34d4e1f7fac1fc4155939539c7",
+    "llama_cpp": "620d2225cc436ab0b001e3200e590e3b286ef9ab"
+  },
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/LICENSE",
+      "resolved_url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/LICENSE",
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/docs/getting-started/build-and-run.md",
+      "resolved_url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/docs/getting-started/build-and-run.md",
+      "bytes": 15884,
+      "sha256": "e8bca3f42b06b5c3a6115da8bddcd574f135b21e404f9f4b8964133c9b699e89",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/docs/api/kotlin/getting_started.md",
+      "resolved_url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/docs/api/kotlin/getting_started.md",
+      "bytes": 16540,
+      "sha256": "6ffe62553f9ac2a2be790ac58161c29212590f02e64613f39ae96883c4e08508",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/.bazelrc",
+      "resolved_url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/.bazelrc",
+      "bytes": 22750,
+      "sha256": "0f585dc62934562993848d588018cd5fd4a4e92ff8a01e17c31a5cd63820aa77",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/Engine.kt",
+      "resolved_url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/Engine.kt",
+      "bytes": 8071,
+      "sha256": "fbfbe4abcb64b4bde36ccb9052978f075fb2a290903fbac18538b9fa0a016998",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/Conversation.kt",
+      "resolved_url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/Conversation.kt",
+      "bytes": 32974,
+      "sha256": "b6e3f63a8a8b308f6b726709d778d20944ad25749d4e384c33bcbd7faf895822",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/NativeLibraryLoader.kt",
+      "resolved_url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/NativeLibraryLoader.kt",
+      "bytes": 5677,
+      "sha256": "536a3d1376466c0189dc9b9bbd62f19c6231039ab787f6bf4fd9cee68eec78e5",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/LICENSE",
+      "resolved_url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/LICENSE",
+      "bytes": 1078,
+      "sha256": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/docs/android.md",
+      "resolved_url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/docs/android.md",
+      "bytes": 6431,
+      "sha256": "bc66f29afc8e081714be092363fdc64522933e42bb01f1dfb746aac483a33c32",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/common/chat.cpp",
+      "resolved_url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/common/chat.cpp",
+      "bytes": 74167,
+      "sha256": "ff909135550742869afd69d132d8e123d45b875b950607696fc196e5b15e722b",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/common/chat.h",
+      "resolved_url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/common/chat.h",
+      "bytes": 19667,
+      "sha256": "72efd31e0bc82d653bc28e18bb14299d255623c3be052dafe8f40bb6fa6a9ca5",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/ggml/src/ggml-cpu/CMakeLists.txt",
+      "resolved_url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/ggml/src/ggml-cpu/CMakeLists.txt",
+      "bytes": 33159,
+      "sha256": "d59039d643ab23a6c8b6fc0c986ff3d286159151dc1ffebec72b2fff1c3a640e",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://dl.google.com/dl/android/maven2/com/google/ai/edge/litertlm/litertlm-android/0.18.1/litertlm-android-0.18.1.pom",
+      "resolved_url": "https://dl.google.com/dl/android/maven2/com/google/ai/edge/litertlm/litertlm-android/0.18.1/litertlm-android-0.18.1.pom",
+      "bytes": 1543,
+      "sha256": "3d6ea70f41bc6305c5985a52c5f5d00da97402d6531c9a395f3145cb5c1a89a5",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://dl.google.com/dl/android/maven2/com/google/ai/edge/litertlm/litertlm-android/maven-metadata.xml",
+      "resolved_url": "https://dl.google.com/dl/android/maven2/com/google/ai/edge/litertlm/litertlm-android/maven-metadata.xml",
+      "bytes": 1215,
+      "sha256": "6374def0d2ff570bee0030a9ddbce1fb27cd7c8594e94e5b13d80dffa9f3381f",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://developer.android.com/ndk/guides/abis",
+      "resolved_url": "https://developer.android.com/ndk/guides/abis",
+      "bytes": 299495,
+      "sha256": "dcdfd9c94ff1f1c719da6caa8850caf45dc72107014f1f1e7338fe0b2387c56c",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://developer.android.com/tools/adb",
+      "resolved_url": "https://developer.android.com/tools/adb",
+      "bytes": 368057,
+      "sha256": "c5bb7aab81233348afbcaf95001944c5979ebdac4b5d29721388d19f266324a0",
+      "retrieval": "verified"
+    }
+  ],
+  "limits": [
+    "Source build configs do not establish shipped ABI support",
+    "POM dependencies do not prove Kotlin compiler compatibility",
+    "No phone or model execution by reviewer"
+  ],
+  "independent_local_aar_inspection": {
+    "aar_bytes": 20905360,
+    "aar_sha256": "05c6bdc8acda834efcca12c0ad5d06d2cd8c83e60770f056d8d222f699f3012b",
+    "manifest": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n    package=\"com.google.ai.edge.litertlm\">\n    <uses-sdk android:minSdkVersion=\"24\" />\n    <application>\n    </application>\n</manifest>",
+    "native": [
+      {
+        "name": "jni/arm64-v8a/liblitertlm_jni.so",
+        "bytes": 22155680,
+        "sha256": "cf4c55139c6fc86425ecfe75f8a907e6193ca665ecc19fbabcaba7ab361bdc43",
+        "machine": 183,
+        "load_alignments": [
+          16384,
+          16384,
+          16384
+        ],
+        "android_notes": [
+          {
+            "type": 1,
+            "api": 26
+          }
+        ]
+      },
+      {
+        "name": "jni/x86_64/liblitertlm_jni.so",
+        "bytes": 26353160,
+        "sha256": "ba879b2b46be1f7e08df8c8365a276cfc54c1e21383090e058a24f25e603cdd7",
+        "machine": 62,
+        "load_alignments": [
+          16384,
+          16384,
+          16384
+        ],
+        "android_notes": [
+          {
+            "type": 1,
+            "api": 26
+          }
+        ]
+      }
+    ],
+    "origin": "Already downloaded by runtime agent; reviewer read-only hash/ZIP/ELF parsing, no runtime execution"
+  }
+}

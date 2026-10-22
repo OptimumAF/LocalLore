@@ -87,9 +87,13 @@ Rust toolchain:
 
 ```powershell
 cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --features dev-harness --test harness_contract
+cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --features dev-harness --test harness_contract -- -D warnings
+cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml -- --check
+git diff --check
 ```
 
-Exit 0: **2 tests passed**. Checks reject non-synthetic/missing-revision and
+All four commands exited 0; Clippy reported no warnings. **2 tests passed**.
+Checks reject non-synthetic/missing-revision and
 oversized JSON; require a fresh output leaf; reject traversal labels and
 duplicate labels; refuse overwriting an existing fixed artifact. Test-created
 synthetic temporary files are removed. The source file is also a dedicated
@@ -103,3 +107,67 @@ Normal-feature compilation must separately demonstrate omission of harness
 commands. App-owned native harness runs, visual review of resulting PNGs,
 headless-browser checks and Android compatibility are the coordinator's
 remaining integration evidence. No desktop-control tool was used for this module.
+
+## Independent controller/host review during implementation
+
+Reviewed the coordinator's working `ui/controller.ts`, `ui/model.ts`, shared
+`host.rs` PlaySnapshot/Mode::Delayed extension, and existing inference/contracts
+on 2026-10-22. Findings below describe the inspected working version, not final
+PR disposition. Controller SHA-256 at reproduction:
+`40762634651dfbda8d4cbba9f943ddc70409d52139b3bcddef07b794080cc018`.
+The coordinator owns fixes and integrated regressions. No coordinator source
+file was changed by this reviewer.
+
+Three fault-injection cases were actually executed by bundling that controller
+and model with the installed esbuild into a temporary Node ES module, then
+calling the same Controller actions through synthetic deferred Gateways. The
+temporary bundle was removed. This is frontend/controller evidence, not native
+IPC, a browser render, or direct-engine evidence.
+
+1. **P1: acknowledgement uncertainty could duplicate effects.** The synthetic
+   gateway applied the first commit, then rejected its acknowledgement and the
+   follow-up `turn_status` lookup with `Transport`. The controller reported
+   `failed` / `Transport` despite one authoritative synthetic commit. `retry()`
+   submitted a new ID: `["desktop-1","desktop-2"]`, producing two commits.
+   `run()` assigned `unresolved` only after a successful lookup reporting
+   ready/running. It must retain the original turn as unresolved before lookup,
+   including lookup failure, and block new turn IDs until authoritative outcome
+   recovery. Lost submit acknowledgements need the analogous original-turn
+   reconciliation rather than assuming submission never happened.
+2. **P2: stale recovery errors reached a new session.** After an uncertain
+   commit produced a ready lookup, `retry()` started a deferred recovery
+   `turn_status`. `attach()` switched to session `b`; its visible error was
+   null. Rejecting the old lookup then set session `b`'s error to
+   `TransportUnknown`. `recover()` needs epoch/session guards on error and
+   nonterminal branches, and recovery promises need serialization/tracking for
+   deduplication and disposal. A successful old recovery must likewise be fenced.
+3. **P2: same-session snapshot responses could regress revision.** Held a
+   revision-0 `refresh()` snapshot reply, then published a second refresh at
+   revision 1. Releasing the first reply changed displayed revision from 1 back
+   to 0. Session/epoch checks alone do not fence overlapping reads within one
+   session. Use a refresh sequence and/or monotonic displayed revision check;
+   inspection must stay tied to the winning view revision.
+
+The coordinator already identified property-order-sensitive intent comparison
+and cancellation before submit acknowledgement. Review confirmed that receipt
+validation should compare the complete typed request structurally (including
+version and scope) and events' scope/sequence, rather than JSON property order
+or an incomplete fallback. Runtime receipt parsers should reject malformed
+shapes as `Wire` without publishing partial status. Do not infer complete wire
+validation from a TypeScript cast.
+
+PlaySnapshot source review found the native mutex-protected expected-revision
+check and player-context construction appropriate for this bounded fixture;
+inventory is filtered by player ownership. Receipts are currently only outcomes
+of the player's explicit typed requests. If future NPC/background receipts enter
+that collection, their observer transport must be revisited before reuse.
+No raw omniscient projection enters this view, and controller request building
+does not consume Story Lab inspection. Mode::Delayed uses four 50 ms waits
+outside the canonical lock/native UI thread with cancellation checked by the
+provider; this is synthetic pending behavior, not real-model latency evidence.
+
+Required final disposition: rerun the three cases as durable coordinator
+regressions against fixed source; verify lost-submit and lost-commit recovery,
+duplicate Retry, switching/disposal during recovery, and read-response ordering
+in the integrated journey suite. These findings remain a request for concrete
+fix/test evidence until the coordinator records that disposition.

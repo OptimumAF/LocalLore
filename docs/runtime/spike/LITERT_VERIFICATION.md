@@ -57,6 +57,33 @@ different scopes and cannot support complete-turn latency, sustained throughput,
 memory, Android speed or model quality acceptance. Machine load was not
 controlled as a benchmark. See [sanitized aggregates](LITERT_SMOKE.json).
 
-Native cooperative cancellation and reload are not established by this smoke.
+## Actual cooperative API cancellation and fresh reload
+
+One separate call used `cancel_smoke.py` with the same verified local model,
+Rust `fixture gift` request, CPU/four threads, 4096 total-token capacity,
+350-token-or-lower request budget, no tools, native schema/template and disabled
+thinking. Its outer caller used `subprocess.run(..., timeout=60)` with stdin
+closed after the request. The watchdog was not triggered.
+
+After the first nonempty final-visible stream event, the helper invoked official
+`Conversation.cancel_process()`. The void API returned within the monotonic
+clock's observed resolution (reported 0 ms); the iterator ended 62 ms later.
+One further event was delivered after cancellation. Both conversation and engine
+context-manager exits completed. A fresh engine reload and short original
+synthetic call then completed with 16 native input tokens and two output tokens.
+The helper exited 0 with no stderr and emitted only aggregate JSON. No streamed
+event content, final generated text or thought channel was saved or printed.
+See [sanitized cancellation aggregate](LITERT_CANCEL_SMOKE.json).
+
+The pinned official
+[Python stream implementation](https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/python/litert_lm/conversation.py)
+calls the native cancellation API and ends its iterator upon a cancellation
+status. Cancellation does not promise to retract queued stream events. Here,
+call return and stream completion are separate observations; returning from
+context-manager close is not an RSS measurement. This one cooperative Windows
+CPU result establishes neither all-input termination nor Android/backgrounding,
+memory-pressure or thermal behavior. Parent process containment is tested
+separately and must not be substituted for this native cooperative result.
+
 No emulator or phone was modified or benchmarked. M01 task and physical-device
 exit gates remain unchecked.

@@ -1,0 +1,154 @@
+{
+  "target": "emulator-B",
+  "api": 35,
+  "abi": "x86_64",
+  "page_size": 4096,
+  "app_apk_sha256": "fe44816f9c69cec46c73960afabeee7b419b8ced6561c72195205fc2bc54f141",
+  "test_apk_sha256": "1b169c273ef3a4f6a00b719ff7b20dc6dc3e57fde9b1f92145044c237bf4444c",
+  "tests": 28,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "cases": [
+    {
+      "classname": "org.locallore.app.DiagnosticWriterTest",
+      "name": "exactMaximumByteCountIsAccepted",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.DiagnosticWriterTest",
+      "name": "repeatedWritesDoNotLeaveDescriptorsOwnedByTheWriter",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.DiagnosticWriterTest",
+      "name": "outputFailureStillClosesTheOpenedDescriptor",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.DiagnosticWriterTest",
+      "name": "actualContentResolverWritesExactFrozenBytesTruncatesAndCloses",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.DiagnosticWriterTest",
+      "name": "invalidSchemesAndOversizedPayloadsAreRejectedBeforeProviderAccess",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.DiagnosticWriterTest",
+      "name": "mainDispatcherRemainsResponsiveWhileRemoteOpenIsPendingAndCancellationReleasesIt",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.DiagnosticWriterTest",
+      "name": "synchronousLocalCancellationListenerRunsOffMainAndHoldsTheSingleExportSlot",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.DiagnosticWriterTest",
+      "name": "providerErrorsAndNullDescriptorsFailWithoutLeakingOwnedResources",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.DiagnosticsDialogTest",
+      "name": "hiddenPreviewDoesNotRenderOrInvokeActions",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.DiagnosticsDialogTest",
+      "name": "systemBackRequestsDismissWithoutWriting",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.DiagnosticsDialogTest",
+      "name": "busyExportDisablesClearAndExportButCloseCanCancel",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.DiagnosticsDialogTest",
+      "name": "smallViewportAndDoubleFontKeepActionsAndNoticeReachable",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.DiagnosticsDialogTest",
+      "name": "previewIsExactAndActionsAreExplicitAndStateless",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.DiagnosticsIntegrationTest",
+      "name": "cancelAndMalformedGenerationProduceOnlyFixedDiagnosticCategories",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.DiagnosticsIntegrationTest",
+      "name": "actualNativeOutcomesAreSanitizedAndClearingCannotChangeCanon",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.DiagnosticsIntegrationTest",
+      "name": "reviewedSnapshotAndPendingConsentSurviveActivityRecreation",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.DiagnosticsIntegrationTest",
+      "name": "revokingPickerAndLateResultDoesNotOpenDestination",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.NativeBoundaryTest",
+      "name": "twentyCancelDestroyCyclesReleaseRetainedSessionsWorkersAndOperations",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.NativeBoundaryTest",
+      "name": "nullOversizedMalformedForeignAndDestroyedInputsFailClosedThroughJni",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.NativeBoundaryTest",
+      "name": "cancelBeforeRunAndAfterPrepareNeverCommits",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.NativeBoundaryTest",
+      "name": "actualEnginePreparesWithoutCommitAndIdempotentlyOwnsEventsAndResources",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.ShellInstrumentedTest",
+      "name": "recreationRetainsAcceptedStateAndCancelsPendingWork",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.ShellInstrumentedTest",
+      "name": "cancelAndResetDuringDelayCannotPublishOldResult",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.ShellInstrumentedTest",
+      "name": "launchShowsHonestFixtureLabelAndNoPlatformCapabilities",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.ShellInstrumentedTest",
+      "name": "giftUsesRustAcceptedResultAndReuseCannotDuplicateIt",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.ShellInstrumentedTest",
+      "name": "activityDisposalCancelsNativeWorkerAndReleasesTheSession",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.ShellInstrumentedTest",
+      "name": "unlearnedAbilityAndBadProviderModesLeaveStateUnchanged",
+      "passed": true
+    },
+    {
+      "classname": "org.locallore.app.ShellLayoutTest",
+      "name": "smallViewportAndDoubleFontScaleKeepControlsReachable",
+      "passed": true
+    }
+  ]
+}

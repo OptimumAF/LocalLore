@@ -1,0 +1,23 @@
+{
+  "jvm_tests": 30,
+  "jvm_failures": 0,
+  "jvm_errors": 0,
+  "jvm_skipped": 0,
+  "jvm_classes": [
+    {
+      "name": "org.locallore.app.DiagnosticsControllerTest",
+      "tests": 9
+    },
+    {
+      "name": "org.locallore.app.DiagnosticsTest",
+      "tests": 9
+    },
+    {
+      "name": "org.locallore.app.ShellViewModelTest",
+      "tests": 12
+    }
+  ],
+  "lint_issues": 0,
+  "app_apk_sha256": "fe44816f9c69cec46c73960afabeee7b419b8ced6561c72195205fc2bc54f141",
+  "test_provider_in_application_dex": false
+}

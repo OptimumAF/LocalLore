@@ -1,0 +1,23 @@
+[
+  {
+    "target": "emulator-A",
+    "provider": "system local Downloads",
+    "explicit_create_document": true,
+    "byte_equal_to_visible_preview": true,
+    "bytes": 253,
+    "sha256": "0e4eb6743c8b029812aaf98b2cbc2ebdffdb553fe254380f50feefb60a19b733",
+    "diagnostic_records": 2,
+    "clear_count": 0,
+    "existing_export_survives_clear_byte_identical": true
+  },
+  {
+    "target": "emulator-B",
+    "provider": "system local Downloads",
+    "explicit_create_document": true,
+    "byte_equal_to_visible_preview": true,
+    "bytes": 253,
+    "sha256": "17258e08b6defd253e6602f8b7fb6e97c37f1b8e57b6606dc7192658b2831ee1",
+    "diagnostic_records": 2,
+    "subsequent_system_picker_cancel_notice_observed": true
+  }
+]

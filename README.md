@@ -6,7 +6,7 @@ LocalLore is a proposed open-source phone app for interactive, chat-based storie
 
 > The model proposes. The engine validates. Accepted events establish the history. The narrator tells the story.
 
-**Status: documentation-only bootstrap. No application, runtime integration, device benchmark, or release exists yet.** LocalLore is a working name, not a cleared trademark. The documentation is published at [OptimumAF/LocalLore](https://github.com/OptimumAF/LocalLore). Owner-reviewed pull requests protect `main`; private vulnerability reporting is enabled. See the verified setup details in project status. See [project status](docs/PROJECT_STATUS.md).
+**Development status:** see the [roadmap and status ticket #3](https://github.com/OptimumAF/LocalLore/issues/3) and its linked milestone tickets for accepted work, active implementation, evidence, and blockers. LocalLore is a working name, not a cleared trademark. The project is published at [OptimumAF/LocalLore](https://github.com/OptimumAF/LocalLore). Owner-reviewed pull requests protect `main`; private vulnerability reporting is enabled. Dated setup evidence is preserved in [archive #2](https://github.com/OptimumAF/LocalLore/issues/2).
 
 ## What we are building
 
@@ -37,6 +37,25 @@ These are planned capabilities, not claims about implemented software. Free-form
 | [Contributing](CONTRIBUTING.md) | Contributor workflow and review expectations |
 | [Repository setup](docs/REPOSITORY_SETUP.md) | Publication and GitHub controls; not evidence that settings are enabled |
 | [References](docs/REFERENCES.md) | Primary sources and verification notes |
+
+## Run the host contract proof
+
+The first implementation provides strict typed proposals, engine validation,
+in-memory accepted history, observer-filtered contexts, branch fixtures and a
+deterministic fake provider. With Rust 1.93.1 installed:
+
+```powershell
+cargo test --workspace --locked
+cargo run --locked -p locallore
+```
+
+The original Lantern Quay demo gives the player's sole potion to Mira, verifies
+replay equality, and checks that the absent Sable did not observe the gift.
+It does not implement disk saves, an Android app or real inference. Read
+[development instructions](docs/DEVELOPMENT.md), [contract v1](docs/DOMAIN_CONTRACT_V1.md),
+and [host verification evidence](docs/IMPLEMENTATION_EVIDENCE.md). Official-source
+[runtime preparation](docs/runtime/FEASIBILITY_2026-10-22.md) selects no backend;
+physical-device measurements remain blocked.
 
 ## Initial technical direction
 

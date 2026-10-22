@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "id": "lantern-quay-v1",
+  "scope": {"story": "quay", "branch": "main"},
+  "profile": "fantasy_v1",
+  "player": "player",
+  "locations": ["quay", "pier", "tower", "dry-well", "old-ruins"],
+  "routes": [["quay", "pier"], ["pier", "quay"], ["quay", "dry-well"], ["dry-well", "quay"]],
+  "actors": {
+    "player": {"name": "Rowan", "location": "quay", "alive": true, "energy": 2, "abilities": {"steady": 1}, "attributes": {"resolve": 3}, "injuries": ["cut-hand"], "affiliations": ["quay-keepers"], "goals": ["repair-beacon"]},
+    "mira": {"name": "Mira", "location": "quay", "alive": true, "energy": 2, "abilities": {"steady": 1, "beacon": 1}, "attributes": {}, "injuries": ["sprained-ankle"], "affiliations": ["quay-keepers"], "goals": ["repair-beacon"]},
+    "oren": {"name": "Oren", "location": "pier", "alive": true, "energy": 0, "abilities": {}, "attributes": {}, "injuries": [], "affiliations": [], "goals": ["recover-key"]},
+    "sable": {"name": "Oren", "location": "tower", "alive": true, "energy": 0, "abilities": {}, "attributes": {}, "injuries": [], "affiliations": [], "goals": []}
+  },
+  "items": {
+    "potion": {"owner": "player", "quantity": 1, "return_to": null, "healing": true},
+    "brass-key": {"owner": "player", "quantity": 1, "return_to": "oren", "healing": false}
+  },
+  "abilities": {
+    "steady": {"cost": 2, "prerequisite": null, "teacher": "mira", "max_rank": 1},
+    "beacon": {"cost": 1, "prerequisite": "steady", "teacher": "mira", "max_rank": 1},
+    "blink": {"cost": 5, "prerequisite": "beacon", "teacher": "sable", "max_rank": 1}
+  },
+  "facts": {
+    "relic-location": {"proposition": "Tideglass lies in dry-well: SECRET-TIDE-731.", "discoverable_at": "dry-well", "known_by": ["player"]},
+    "beacon-mark": {"proposition": "An old repair mark is scratched inside the dry well.", "discoverable_at": "dry-well", "known_by": []},
+    "ancestry": {"proposition": "Rowan was born to ordinary quay keepers.", "discoverable_at": null, "known_by": ["player"]}
+  },
+  "relationships": [
+    {"from": "mira", "to": "player", "respect": 4, "trust": -3, "obligation": 0},
+    {"from": "player", "to": "mira", "respect": 1, "trust": 2, "obligation": 0},
+    {"from": "oren", "to": "player", "respect": 0, "trust": 0, "obligation": 0}
+  ],
+  "story_time": 100,
+  "beliefs": [
+    {"believer": "mira", "proposition": "The tideglass relic is in old-ruins.", "source_claim": null, "source": {"kind": "seed", "value": "lantern-quay-v1"}, "confidence": "believed"},
+    {"believer": "oren", "proposition": "Rowan may possess the tideglass relic.", "source_claim": null, "source": {"kind": "seed", "value": "lantern-quay-v1"}, "confidence": "suspected"}
+  ],
+  "commitments": {
+    "return-key": {"from": "player", "to": "oren", "terms": "Return the borrowed brass key by tide tick 120.", "deadline": 120, "source": {"kind": "seed", "value": "lantern-quay-v1"}, "return_item": "brass-key", "completed_by": null}
+  }
+}

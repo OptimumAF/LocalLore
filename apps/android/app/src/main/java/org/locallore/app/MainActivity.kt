@@ -5,14 +5,25 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.locallore.app.ui.LocalLoreScreen
+import org.locallore.app.ui.DiagnosticsDialog
 
 class MainActivity : ComponentActivity() {
     private lateinit var model: ShellViewModel
+    private val documentPicker = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (::model.isInitialized) {
+            if (uri == null) model.completeDiagnosticExport(null)
+            else {
+                val resolver = applicationContext.contentResolver
+                model.completeDiagnosticExport { bytes -> writeDiagnosticDocument(resolver, uri, bytes) }
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,7 +38,16 @@ class MainActivity : ComponentActivity() {
         model = ViewModelProvider(this, factory)[ShellViewModel::class.java]
         setContent {
             val state by model.state.collectAsStateWithLifecycle()
-            LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::reset)
+            val diagnostics by model.diagnostics.collectAsStateWithLifecycle()
+            LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::reset,
+                onDiagnostics = model::openDiagnostics) {
+                DiagnosticsDialog(diagnostics, model::closeDiagnostics, model::clearDiagnostics) {
+                    if (model.beginDiagnosticExport()) {
+                        try { documentPicker.launch("locallore-diagnostics.json") }
+                        catch (_: Exception) { model.diagnosticPickerFailed() }
+                    }
+                }
+            }
         }
     }
 

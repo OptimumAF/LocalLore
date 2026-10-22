@@ -76,6 +76,11 @@ The [shared check runner/CI instructions](docs/ci/CHECKS.md) document offline
 mode, prerequisites and separate authorized emulator commands. Build/static
 checks do not establish hosted execution or device qualification.
 
+**Local diagnostics** previews a bounded memory-only log of timing/error enums;
+explicit export writes exactly the reviewed JSON through the system picker.
+Exports are plaintext and their selected provider may sync them. See
+[diagnostic verification and limits](docs/diagnostics/VERIFICATION_2026-10-22.md).
+
 ## Initial technical direction
 
 The proposed first target is Android, with a Kotlin/Jetpack Compose interface, a portable Rust story engine, and SQLite persistence. One locally loaded model initially performs director, narrator, and archivist roles sequentially. A narrow inference interface allows backend replacement without committing to multiple production integrations.

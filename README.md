@@ -83,6 +83,12 @@ Exports are plaintext and their selected provider may sync them. See
 
 ## Initial technical direction
 
+The [desktop D01 spike](apps/desktop/README.md) adds a native Windows window over
+the same Rust engine, with fake inference, in-memory turns and explicit Story Lab
+inspection. [ADR-0006](docs/adr/0006-desktop-host.md) proposes Tauri for owner review.
+See [desktop epic #21](https://github.com/OptimumAF/LocalLore/issues/21) for the
+staged playable-app plan; the spike does not implement real models or saves.
+
 The proposed first target is Android, with a Kotlin/Jetpack Compose interface, a portable Rust story engine, and SQLite persistence. One locally loaded model initially performs director, narrator, and archivist roles sequentially. A narrow inference interface allows backend replacement without committing to multiple production integrations.
 
 These are starting decisions subject to feasibility work and recorded architecture decisions. No specific phone, RAM capacity, model speed, minimum operating-system version, or production inference backend is confirmed. Android-first is an execution proposal, not a permanent exclusion of iOS.

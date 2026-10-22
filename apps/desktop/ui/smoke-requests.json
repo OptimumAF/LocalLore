@@ -1,0 +1,418 @@
+[
+  {
+    "command": {
+      "seed": "lantern-quay-v1",
+      "op": "create"
+    },
+    "version": 1
+  },
+  {
+    "command": {
+      "mode": "accepted",
+      "op": "submit",
+      "request": {
+        "intent": {
+          "kind": "actions",
+          "value": [
+            {
+              "item": "potion",
+              "quantity": 1,
+              "op": "give",
+              "to": "mira"
+            }
+          ]
+        },
+        "turn": "native-gift",
+        "expected_revision": 0,
+        "scope": {
+          "branch": "main",
+          "story": "quay-1"
+        },
+        "version": 1
+      },
+      "session": "session-1"
+    },
+    "version": 1
+  },
+  {
+    "command": {
+      "turn": "native-gift",
+      "op": "prepare",
+      "scope": {
+        "branch": "main",
+        "story": "quay-1"
+      },
+      "session": "session-1"
+    },
+    "version": 1
+  },
+  {
+    "command": {
+      "turn": "native-gift",
+      "op": "commit",
+      "scope": {
+        "branch": "main",
+        "story": "quay-1"
+      },
+      "session": "session-1"
+    },
+    "version": 1
+  },
+  {
+    "command": {
+      "turn": "native-gift",
+      "op": "turn_status",
+      "scope": {
+        "branch": "main",
+        "story": "quay-1"
+      },
+      "session": "session-1"
+    },
+    "version": 1
+  },
+  {
+    "command": {
+      "mode": "accepted",
+      "op": "submit",
+      "request": {
+        "intent": {
+          "kind": "actions",
+          "value": [
+            {
+              "item": "potion",
+              "quantity": 1,
+              "op": "give",
+              "to": "mira"
+            }
+          ]
+        },
+        "turn": "native-gift",
+        "expected_revision": 0,
+        "scope": {
+          "branch": "main",
+          "story": "quay-1"
+        },
+        "version": 1
+      },
+      "session": "session-1"
+    },
+    "version": 1
+  },
+  {
+    "command": {
+      "expected_revision": 1,
+      "op": "inspect",
+      "observer": "omniscient",
+      "scope": {
+        "branch": "main",
+        "story": "quay-1"
+      },
+      "session": "session-1"
+    },
+    "version": 1
+  },
+  {
+    "command": {
+      "expected_revision": 1,
+      "op": "inspect",
+      "observer": "mira",
+      "scope": {
+        "branch": "main",
+        "story": "quay-1"
+      },
+      "session": "session-1"
+    },
+    "version": 1
+  },
+  {
+    "command": {
+      "expected_revision": 1,
+      "op": "inspect",
+      "observer": "sable",
+      "scope": {
+        "branch": "main",
+        "story": "quay-1"
+      },
+      "session": "session-1"
+    },
+    "version": 1
+  },
+  {
+    "command": {
+      "turn": "native-gift",
+      "op": "cancel",
+      "scope": {
+        "branch": "main",
+        "story": "quay-1"
+      },
+      "session": "session-1"
+    },
+    "version": 1
+  },
+  {
+    "version": 1,
+    "command": {
+      "op": "submit",
+      "session": "session-1",
+      "request": {
+        "version": 1,
+        "scope": {
+          "story": "quay-1",
+          "branch": "main"
+        },
+        "turn": "second-potion",
+        "expected_revision": 1,
+        "intent": {
+          "kind": "actions",
+          "value": [
+            {
+              "op": "give",
+              "item": "potion",
+              "to": "mira",
+              "quantity": 1
+            }
+          ]
+        }
+      },
+      "mode": "accepted"
+    }
+  },
+  {
+    "version": 1,
+    "command": {
+      "op": "submit",
+      "session": "session-1",
+      "request": {
+        "version": 1,
+        "scope": {
+          "story": "quay-1",
+          "branch": "main"
+        },
+        "turn": "unsupported-ability",
+        "expected_revision": 1,
+        "intent": {
+          "kind": "actions",
+          "value": [
+            {
+              "op": "use_ability",
+              "ability": "teleport"
+            }
+          ]
+        }
+      },
+      "mode": "accepted"
+    }
+  },
+  {
+    "version": 1,
+    "command": {
+      "op": "submit",
+      "session": "session-1",
+      "request": {
+        "version": 1,
+        "scope": {
+          "story": "quay-1",
+          "branch": "main"
+        },
+        "turn": "cancelled",
+        "expected_revision": 1,
+        "intent": {
+          "kind": "actions",
+          "value": [
+            {
+              "op": "wait",
+              "ticks": 1
+            }
+          ]
+        }
+      },
+      "mode": "accepted"
+    }
+  },
+  {
+    "version": 1,
+    "command": {
+      "op": "cancel",
+      "session": "session-1",
+      "scope": {
+        "story": "quay-1",
+        "branch": "main"
+      },
+      "turn": "cancelled"
+    }
+  },
+  {
+    "version": 1,
+    "command": {
+      "op": "prepare",
+      "session": "session-1",
+      "scope": {
+        "story": "quay-1",
+        "branch": "main"
+      },
+      "turn": "cancelled"
+    }
+  },
+  {
+    "version": 1,
+    "command": {
+      "op": "submit",
+      "session": "session-1",
+      "request": {
+        "version": 1,
+        "scope": {
+          "story": "quay-1",
+          "branch": "main"
+        },
+        "turn": "malformed-provider",
+        "expected_revision": 1,
+        "intent": {
+          "kind": "actions",
+          "value": [
+            {
+              "op": "wait",
+              "ticks": 1
+            }
+          ]
+        }
+      },
+      "mode": "malformed"
+    }
+  },
+  {
+    "version": 1,
+    "command": {
+      "op": "prepare",
+      "session": "session-1",
+      "scope": {
+        "story": "quay-1",
+        "branch": "main"
+      },
+      "turn": "malformed-provider"
+    }
+  },
+  {
+    "version": 1,
+    "command": {
+      "op": "submit",
+      "session": "session-1",
+      "request": {
+        "version": 1,
+        "scope": {
+          "story": "quay-1",
+          "branch": "main"
+        },
+        "turn": "stale",
+        "expected_revision": 1,
+        "intent": {
+          "kind": "actions",
+          "value": [
+            {
+              "op": "wait",
+              "ticks": 1
+            }
+          ]
+        }
+      },
+      "mode": "accepted"
+    }
+  },
+  {
+    "version": 1,
+    "command": {
+      "op": "prepare",
+      "session": "session-1",
+      "scope": {
+        "story": "quay-1",
+        "branch": "main"
+      },
+      "turn": "stale"
+    }
+  },
+  {
+    "version": 1,
+    "command": {
+      "op": "submit",
+      "session": "session-1",
+      "request": {
+        "version": 1,
+        "scope": {
+          "story": "quay-1",
+          "branch": "main"
+        },
+        "turn": "winner",
+        "expected_revision": 1,
+        "intent": {
+          "kind": "actions",
+          "value": [
+            {
+              "op": "wait",
+              "ticks": 1
+            }
+          ]
+        }
+      },
+      "mode": "accepted"
+    }
+  },
+  {
+    "version": 1,
+    "command": {
+      "op": "prepare",
+      "session": "session-1",
+      "scope": {
+        "story": "quay-1",
+        "branch": "main"
+      },
+      "turn": "winner"
+    }
+  },
+  {
+    "version": 1,
+    "command": {
+      "op": "commit",
+      "session": "session-1",
+      "scope": {
+        "story": "quay-1",
+        "branch": "main"
+      },
+      "turn": "winner"
+    }
+  },
+  {
+    "version": 1,
+    "command": {
+      "op": "commit",
+      "session": "session-1",
+      "scope": {
+        "story": "quay-1",
+        "branch": "main"
+      },
+      "turn": "stale"
+    }
+  },
+  {
+    "version": 1,
+    "command": {
+      "op": "inspect",
+      "session": "session-1",
+      "scope": {
+        "story": "other",
+        "branch": "main"
+      },
+      "observer": "omniscient",
+      "expected_revision": 2
+    }
+  },
+  {
+    "command": {
+      "op": "close",
+      "scope": {
+        "branch": "main",
+        "story": "quay-1"
+      },
+      "session": "session-1"
+    },
+    "version": 1
+  }
+]

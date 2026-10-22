@@ -39,6 +39,25 @@ These are planned capabilities, not claims about implemented software. Free-form
 | [Repository setup](docs/REPOSITORY_SETUP.md) | Publication and GitHub controls; not evidence that settings are enabled |
 | [References](docs/REFERENCES.md) | Primary sources and verification notes |
 
+## Run the host contract proof
+
+The first implementation provides strict typed proposals, engine validation,
+in-memory accepted history, observer-filtered contexts, branch fixtures and a
+deterministic fake provider. With Rust 1.93.1 installed:
+
+```powershell
+cargo test --workspace --locked
+cargo run --locked -p locallore
+```
+
+The original Lantern Quay demo gives the player's sole potion to Mira, verifies
+replay equality, and checks that the absent Sable did not observe the gift.
+It does not implement disk saves, an Android app or real inference. Read
+[development instructions](docs/DEVELOPMENT.md), [contract v1](docs/DOMAIN_CONTRACT_V1.md),
+and [host verification evidence](docs/IMPLEMENTATION_EVIDENCE.md). Official-source
+[runtime preparation](docs/runtime/FEASIBILITY_2026-10-22.md) selects no backend;
+physical-device measurements remain blocked.
+
 ## Initial technical direction
 
 The proposed first target is Android, with a Kotlin/Jetpack Compose interface, a portable Rust story engine, and SQLite persistence. One locally loaded model initially performs director, narrator, and archivist roles sequentially. A narrow inference interface allows backend replacement without committing to multiple production integrations.

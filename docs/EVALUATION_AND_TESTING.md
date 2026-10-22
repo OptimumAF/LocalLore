@@ -1,6 +1,6 @@
 # Evaluation and test strategy
 
-Status: required future work. No application tests have been executed in this documentation-only bootstrap.
+Status: target evaluation strategy. The first [host verification report](IMPLEMENTATION_EVIDENCE.md) records actual deterministic Rust/fake-provider and feasibility-helper checks. Storage, Android, real-model, physical-device and narrative-quality gates below remain unverified.
 
 ## Separate what is being tested
 

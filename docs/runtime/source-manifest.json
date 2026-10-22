@@ -1,0 +1,257 @@
+{
+  "schema_version": 1,
+  "checked_date": "2026-10-22",
+  "status": "research_only_no_runtime_selected",
+  "runtime_release_policy": "Exact stable tags resolved to commits from official GitHub REST API; no dependency introduced",
+  "runtimes": [
+    {
+      "id": "litert-lm",
+      "repository": "google-ai-edge/LiteRT-LM",
+      "tag": "v0.18.1",
+      "commit": "bda624851d74be34d4e1f7fac1fc4155939539c7",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "llama.cpp",
+      "repository": "ggml-org/llama.cpp",
+      "tag": "v0.7.0",
+      "commit": "620d2225cc436ab0b001e3200e590e3b286ef9ab",
+      "license": "MIT"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "gemma4-e2b-litert",
+      "repository": "litert-community/gemma-4-E2B-it-litert-lm",
+      "revision": "a790a852d433991c0c0a41c1154cf9b3850300fa",
+      "upstream_repository": "google/gemma-4-E2B-it",
+      "upstream_revision": "3e22461f65e89153144f8adb70e3b8c2cc9845a7",
+      "artifact": "gemma-4-E2B-it.litertlm",
+      "published_artifact_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+      "published_artifact_bytes": 2588147712,
+      "format": "litertlm",
+      "quantization": "Publisher mixed 2/4/8-bit mobile scheme; inspect actual bundle metadata before loading",
+      "architecture": "Gemma4ForConditionalGeneration / dense gemma4_text",
+      "tokenizer_class": "GemmaTokenizer",
+      "runtime": "litert-lm",
+      "license": "Apache-2.0",
+      "status": "source_verified_not_loaded",
+      "weights_downloaded": false,
+      "device_measured": false
+    },
+    {
+      "id": "gemma4-e4b-litert",
+      "repository": "litert-community/gemma-4-E4B-it-litert-lm",
+      "revision": "e6a3892a8c22cf87ff99583996149cf3cb32452b",
+      "upstream_repository": "google/gemma-4-E4B-it",
+      "upstream_revision": "ee0ef6023621cff504d758262d4e04895a5af4a2",
+      "artifact": "gemma-4-E4B-it.litertlm",
+      "published_artifact_sha256": "0b2a8980ce155fd97673d8e820b4d29d9c7d99b8fa6806f425d969b145bd52e0",
+      "published_artifact_bytes": 3659530240,
+      "format": "litertlm",
+      "quantization": "Not verified for this exact bundle; inspect metadata before loading",
+      "architecture": "Gemma4ForConditionalGeneration / dense gemma4_text",
+      "tokenizer_class": "GemmaTokenizer",
+      "runtime": "litert-lm",
+      "license": "Apache-2.0",
+      "status": "source_verified_not_loaded",
+      "weights_downloaded": false,
+      "device_measured": false
+    },
+    {
+      "id": "qwen35-4b-llama",
+      "repository": "Qwen/Qwen3.5-4B",
+      "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+      "artifact": null,
+      "published_artifact_sha256": null,
+      "format": "Safetensors upstream; local text GGUF conversion pending",
+      "quantization": "Q4_K_M proposed comparison only; conversion and load untested",
+      "architecture": "Qwen3_5ForConditionalGeneration / hybrid qwen3_5_text",
+      "tokenizer_class": "Qwen2Tokenizer",
+      "runtime": "llama.cpp",
+      "license": "Apache-2.0",
+      "status": "source_verified_not_loaded",
+      "weights_downloaded": false,
+      "device_measured": false
+    }
+  ],
+  "sources": [
+    {
+      "owner": "litert-lm",
+      "path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "bytes": 11357
+    },
+    {
+      "owner": "litert-lm",
+      "path": "docs/getting-started/build-and-run.md",
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/docs/getting-started/build-and-run.md",
+      "sha256": "e8bca3f42b06b5c3a6115da8bddcd574f135b21e404f9f4b8964133c9b699e89",
+      "bytes": 15884
+    },
+    {
+      "owner": "litert-lm",
+      "path": "docs/api/cpp/constrained-decoding.md",
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/docs/api/cpp/constrained-decoding.md",
+      "sha256": "3d5b073ff0b68c97e102d31f03a619e57d260e73c0173d3b48ca3495c14095ac",
+      "bytes": 8195
+    },
+    {
+      "owner": "litert-lm",
+      "path": "kotlin/README.md",
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/README.md",
+      "sha256": "98686087659945666edadde0c45489ad126b320f53476cc714f6516a8dfe6f58",
+      "bytes": 104
+    },
+    {
+      "owner": "llama.cpp",
+      "path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/LICENSE",
+      "sha256": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d",
+      "bytes": 1078
+    },
+    {
+      "owner": "llama.cpp",
+      "path": "docs/android.md",
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/docs/android.md",
+      "sha256": "bc66f29afc8e081714be092363fdc64522933e42bb01f1dfb746aac483a33c32",
+      "bytes": 6431
+    },
+    {
+      "owner": "llama.cpp",
+      "path": "src/llama-arch.cpp",
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/src/llama-arch.cpp",
+      "sha256": "c4b9cf539f74a3564922de6edbbd6a921df586fe1d1a0e091233fdabe94c2473",
+      "bytes": 93355
+    },
+    {
+      "owner": "llama.cpp",
+      "path": "conversion/qwen.py",
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/conversion/qwen.py",
+      "sha256": "dde6d81179a077d963f54e99c713ae02bb11d3484fecce4cd5bce85727eb5f4e",
+      "bytes": 49588
+    },
+    {
+      "owner": "llama.cpp",
+      "path": "grammars/README.md",
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/grammars/README.md",
+      "sha256": "e1874c0f08abbcfe45eff0b7b0290faa58f630981bf94274e2d99751ef3b0208",
+      "bytes": 18051
+    },
+    {
+      "owner": "llama.cpp",
+      "path": "tools/quantize/README.md",
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/tools/quantize/README.md",
+      "sha256": "4dcc340a48ea558bb824aeb075d556eb4a1bc4c76f86953be80cb9dd16e976e1",
+      "bytes": 12406
+    },
+    {
+      "owner": "gemma4-e2b-litert",
+      "path": "README.md",
+      "url": "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/raw/a790a852d433991c0c0a41c1154cf9b3850300fa/README.md",
+      "sha256": "b044a20b524e854497d5074e3afee2e7b186eb482b9f0c1f499692d5421ecdc7",
+      "bytes": 17262
+    },
+    {
+      "owner": "gemma4-e2b-litert",
+      "path": "chat_template.jinja",
+      "url": "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/raw/a790a852d433991c0c0a41c1154cf9b3850300fa/chat_template.jinja",
+      "sha256": "02b3091acf53c0b722e3db0c7a1b4980363edcc2d85549dafa339ff5dbfff629",
+      "bytes": 11995
+    },
+    {
+      "owner": "gemma4-e2b-litert-upstream",
+      "path": "config.json",
+      "url": "https://huggingface.co/google/gemma-4-E2B-it/raw/3e22461f65e89153144f8adb70e3b8c2cc9845a7/config.json",
+      "sha256": "1b28f3d2c3100f6c594754b81107428bd7b822a7f48272ca681dae9d2ec38330",
+      "bytes": 4954
+    },
+    {
+      "owner": "gemma4-e2b-litert-upstream",
+      "path": "tokenizer_config.json",
+      "url": "https://huggingface.co/google/gemma-4-E2B-it/raw/3e22461f65e89153144f8adb70e3b8c2cc9845a7/tokenizer_config.json",
+      "sha256": "9f4fec4b1dc6ecddf8f4a92e9caea5971c0e67d81309f3f9066a2bee8c362633",
+      "bytes": 3082
+    },
+    {
+      "owner": "gemma4-e2b-litert-upstream",
+      "path": "chat_template.jinja",
+      "url": "https://huggingface.co/google/gemma-4-E2B-it/raw/3e22461f65e89153144f8adb70e3b8c2cc9845a7/chat_template.jinja",
+      "sha256": "0a2c8073c878ab1da004bee933a998606537bbb62016310352c7285c3f01c5b5",
+      "bytes": 18569
+    },
+    {
+      "owner": "gemma4-e4b-litert",
+      "path": "README.md",
+      "url": "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/raw/e6a3892a8c22cf87ff99583996149cf3cb32452b/README.md",
+      "sha256": "f3ebc499f63a23e1fef97853252bde252997c83f2c828178aacc339276b2008f",
+      "bytes": 13270
+    },
+    {
+      "owner": "gemma4-e4b-litert",
+      "path": "chat_template.jinja",
+      "url": "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/raw/e6a3892a8c22cf87ff99583996149cf3cb32452b/chat_template.jinja",
+      "sha256": "02b3091acf53c0b722e3db0c7a1b4980363edcc2d85549dafa339ff5dbfff629",
+      "bytes": 11995
+    },
+    {
+      "owner": "gemma4-e4b-litert-upstream",
+      "path": "config.json",
+      "url": "https://huggingface.co/google/gemma-4-E4B-it/raw/ee0ef6023621cff504d758262d4e04895a5af4a2/config.json",
+      "sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+      "bytes": 5145
+    },
+    {
+      "owner": "gemma4-e4b-litert-upstream",
+      "path": "tokenizer_config.json",
+      "url": "https://huggingface.co/google/gemma-4-E4B-it/raw/ee0ef6023621cff504d758262d4e04895a5af4a2/tokenizer_config.json",
+      "sha256": "9f4fec4b1dc6ecddf8f4a92e9caea5971c0e67d81309f3f9066a2bee8c362633",
+      "bytes": 3082
+    },
+    {
+      "owner": "gemma4-e4b-litert-upstream",
+      "path": "chat_template.jinja",
+      "url": "https://huggingface.co/google/gemma-4-E4B-it/raw/ee0ef6023621cff504d758262d4e04895a5af4a2/chat_template.jinja",
+      "sha256": "0a2c8073c878ab1da004bee933a998606537bbb62016310352c7285c3f01c5b5",
+      "bytes": 18569
+    },
+    {
+      "owner": "qwen35-4b-llama",
+      "path": "README.md",
+      "url": "https://huggingface.co/Qwen/Qwen3.5-4B/raw/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/README.md",
+      "sha256": "1406be1b6b8fd8a6545870da516912804756593628a1d0fb0a7965211e82a7bb",
+      "bytes": 77661
+    },
+    {
+      "owner": "qwen35-4b-llama",
+      "path": "chat_template.jinja",
+      "url": "https://huggingface.co/Qwen/Qwen3.5-4B/raw/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/chat_template.jinja",
+      "sha256": "a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715",
+      "bytes": 7756
+    },
+    {
+      "owner": "qwen35-4b-llama",
+      "path": "config.json",
+      "url": "https://huggingface.co/Qwen/Qwen3.5-4B/raw/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/config.json",
+      "sha256": "ddc63e1c717afa86c865bb5e01313d89d72bb53b97ad4a8a03ba8510c0621670",
+      "bytes": 3161
+    },
+    {
+      "owner": "qwen35-4b-llama",
+      "path": "tokenizer_config.json",
+      "url": "https://huggingface.co/Qwen/Qwen3.5-4B/raw/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/tokenizer_config.json",
+      "sha256": "316230d6a809701f4db5ea8f8fc862bc3a6f3229c937c174e674ff3ca0a64ac8",
+      "bytes": 16710
+    },
+    {
+      "owner": "qwen35-4b-llama",
+      "path": "LICENSE",
+      "url": "https://huggingface.co/Qwen/Qwen3.5-4B/raw/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/LICENSE",
+      "sha256": "bbedc3fda3305820b977265f01b8619d87570a6739de3a5582c3464840f1e57a",
+      "bytes": 11544
+    }
+  ],
+  "artifact_hash_evidence": "Published SHA256 from pinned Hugging Face tree LFS oid; not locally verified weight bytes",
+  "device_status": "blocked_no_physical_candidate_two_authorized_emulators"
+}

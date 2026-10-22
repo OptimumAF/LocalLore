@@ -1,6 +1,6 @@
 # Data model and state invariants
 
-Status: conceptual contract for M02/M04. Names illustrate intended entities; no SQL migration exists yet.
+Status: target data model for M02/M04. The implemented [v1 host contract](DOMAIN_CONTRACT_V1.md) defines the current typed subset; names below also describe future records. No SQL migration exists yet.
 
 ## 1. Identity, time, and scope
 

@@ -1,6 +1,6 @@
 # System architecture
 
-Status: proposed, 2026-10-22. All module names below describe future code; they are not existing packages.
+Status: target architecture, 2026-10-22. The bounded [v1 host contract](DOMAIN_CONTRACT_V1.md) now implements pure rules and fake-provider coordination in one Rust crate. Mobile, native inference and persistence below remain future work; the proposed module layout is not a list of existing packages.
 
 ## 1. Authority and component boundaries
 

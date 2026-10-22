@@ -21,8 +21,7 @@ class MainActivity : ComponentActivity() {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 require(modelClass == ShellViewModel::class.java)
-                val fixture = assets.open("lantern_quay_cases.json").bufferedReader().use { it.readText() }
-                return ShellViewModel(RecordedDemoGateway.fromJson(fixture)) as T
+                return ShellViewModel(NativeDemoGateway()) as T
             }
         }
         model = ViewModelProvider(this, factory)[ShellViewModel::class.java]

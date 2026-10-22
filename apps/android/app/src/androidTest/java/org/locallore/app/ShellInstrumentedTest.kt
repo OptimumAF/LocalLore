@@ -37,7 +37,7 @@ class ShellInstrumentedTest {
 
     @Suppress("DEPRECATION")
     @Test fun launchShowsHonestFixtureLabelAndNoPlatformCapabilities() {
-        compose.onNodeWithText("Local fixture demo", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Local Rust engine", substring = true).assertIsDisplayed()
         assertInitial()
         @Suppress("DEPRECATION")
         val info = compose.activity.packageManager.getPackageInfo(compose.activity.packageName, PackageManager.GET_PERMISSIONS)
@@ -47,7 +47,7 @@ class ShellInstrumentedTest {
         assertEquals(android.content.pm.PermissionInfo.PROTECTION_SIGNATURE, permission.protectionLevel)
     }
 
-    @Test fun giftUsesRecordedAcceptedResultAndReuseCannotDuplicateIt() {
+    @Test fun giftUsesRustAcceptedResultAndReuseCannotDuplicateIt() {
         give(); idle()
         tag("potion-owner").assertTextEquals("Healing potion · Mira")
         tag("revision").assertTextEquals("Accepted revision · 1")
@@ -95,14 +95,15 @@ class ShellInstrumentedTest {
         tag("notice").assertTextContains("cancelled", substring = true)
     }
 
-    @Test fun packagedFixtureHasVersionedRequestsAndRejectsWrongScope() {
-        val text = compose.activity.assets.open("lantern_quay_cases.json").bufferedReader().use { it.readText() }
-        assertTrue(text.contains("expected_revision"))
-        assertFalse(text.contains("SECRET-TIDE-731"))
-        assertNotNull(RecordedDemoGateway.fromJson(text))
-        try {
-            RecordedDemoGateway.fromJson(text.replace("\"story\": \"quay\"", "\"story\": \"another\""))
-            fail("Foreign fixture scope must fail")
-        } catch (_: IllegalArgumentException) { /* Expected fail-closed fixture validation. */ }
+    @Test fun activityDisposalCancelsNativeWorkerAndReleasesTheSession() {
+        choose(DemoMode.DELAYED); give()
+        fun count(field: String) = NativeBridge.exchange(0, NativeBridge.control("stats")).getInt(field)
+        compose.waitUntil(3_000) { count("workers") == 1 }
+        compose.activityRule.scenario.close()
+        val deadline = android.os.SystemClock.elapsedRealtime() + 3_000
+        while (listOf("live_sessions", "retained_sessions", "operations", "workers").any { count(it) != 0 }) {
+            check(android.os.SystemClock.elapsedRealtime() < deadline)
+            android.os.SystemClock.sleep(5)
+        }
     }
 }

@@ -8,6 +8,8 @@ android {
     namespace = "org.locallore.app"
     compileSdk = 36
     buildToolsVersion = "35.0.0"
+    ndkVersion = "29.0.14206865"
+    sourceSets["main"].jniLibs.srcDir(layout.buildDirectory.dir("generated/rustJniLibs"))
 
     defaultConfig {
         applicationId = "org.locallore.app"
@@ -15,6 +17,7 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0-shell"
+        ndk { abiFilters += listOf("x86_64", "arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     compileOptions {
@@ -24,6 +27,8 @@ android {
     buildFeatures { compose = true }
     lint { abortOnError = true }
 }
+
+apply(from = rootProject.file("native-build.gradle.kts"))
 
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 

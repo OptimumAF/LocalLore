@@ -2,8 +2,8 @@
 
 This page covers the local Rust contract proof with synthetic data and
 a deterministic fake provider. It does not load a model or implement disk
-persistence. The [Compose fixture shell](../apps/android/README.md) has separate
-build/test instructions; a live native engine connection remains M03.03.
+persistence. The [Compose engine demo](../apps/android/README.md) has separate
+build/test instructions and an actual in-memory Rust connection through JNI (M03.03).
 See [contract v1](DOMAIN_CONTRACT_V1.md) and
 [implementation evidence](IMPLEMENTATION_EVIDENCE.md).
 

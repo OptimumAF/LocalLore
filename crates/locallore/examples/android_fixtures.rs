@@ -78,7 +78,7 @@ fn main() {
     let text = format!("{}\n", serde_json::to_string_pretty(&fixture).unwrap());
     if std::env::args().any(|arg| arg == "--check") {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../apps/android/app/src/main/assets/lantern_quay_cases.json");
+            .join("../../apps/android/app/src/test/lantern_quay_cases.json");
         assert_eq!(
             std::fs::read_to_string(path).unwrap().replace("\r\n", "\n"),
             text,

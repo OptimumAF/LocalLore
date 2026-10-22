@@ -348,3 +348,46 @@ fn session_limit_rejects_excess_and_cleanup_restores_capacity() {
     call(&registry, new, json!({"version":1,"op":"destroy"}));
     assert_released(&registry);
 }
+
+#[test]
+fn racing_cancel_and_commit_have_one_observable_outcome() {
+    for index in 0..20 {
+        let registry = Arc::new(Registry::default());
+        let handle = create(&registry);
+        let initial = snapshot(&registry, handle);
+        let op = operation(&registry, handle, &format!("race-{index}"), "accepted");
+        assert_eq!(
+            run(&registry, handle, op).join().unwrap()["status"],
+            "prepared"
+        );
+        let gate = Arc::new(std::sync::Barrier::new(2));
+        let other = registry.clone();
+        let ready = gate.clone();
+        let cancellation = thread::spawn(move || {
+            ready.wait();
+            call(
+                &other,
+                handle,
+                json!({"version":1,"op":"cancel","operation":op}),
+            )
+        });
+        gate.wait();
+        let committed = call(
+            &registry,
+            handle,
+            json!({"version":1,"op":"commit","operation":op}),
+        );
+        let cancelled = cancellation.join().unwrap();
+        if committed["status"] == "accepted" {
+            assert_eq!(cancelled["status"], "already_committed");
+            assert_eq!(snapshot(&registry, handle), committed["snapshot"]);
+            assert_eq!(snapshot(&registry, handle)["potion_owner"], "Mira");
+        } else {
+            assert_eq!(committed["error"], "Cancelled");
+            assert_eq!(cancelled["status"], "cancelled");
+            assert_eq!(snapshot(&registry, handle), initial);
+        }
+        call(&registry, handle, json!({"version":1,"op":"destroy"}));
+        assert_released(&registry);
+    }
+}

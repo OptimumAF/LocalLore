@@ -1,1 +1,5 @@
 blank_issues_enabled: true
+contact_links:
+  - name: Roadmap, project status, and existing tasks
+    url: https://github.com/OptimumAF/LocalLore/issues/3
+    about: Read milestone tickets and active claims before proposing duplicate work.

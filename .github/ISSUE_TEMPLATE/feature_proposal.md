@@ -1,6 +1,6 @@
 ---
 name: Feature or design proposal
-about: Propose a scoped change to the living plan
+about: Propose a scoped change linked to roadmap tickets
 ---
 
 ## User problem
@@ -13,7 +13,9 @@ about: Propose a scoped change to the living plan
 
 ## Acceptance tests
 
-## Related task IDs and dependencies
+## Related tickets, stable task IDs, and dependencies
+
+Link the relevant milestone from [roadmap #3](https://github.com/OptimumAF/LocalLore/issues/3). Preserve existing Mxx.yy IDs and record any superseded/replacement work.
 
 ## Contribution intent
 

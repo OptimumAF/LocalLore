@@ -23,7 +23,8 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 | Document | Purpose |
 |---|---|
-| [Development plan](DEVELOPMENT_PLAN.md) | Living milestones, task IDs, dependencies, acceptance criteria, and completion rules |
+| [Roadmap and project status](https://github.com/OptimumAF/LocalLore/issues/3) | Authoritative milestone tickets, task IDs, dependencies, acceptance criteria, status, and evidence |
+| [Ticket workflow](docs/ISSUE_WORKFLOW.md) | Claim work, post verification/handoffs, revise tasks, and record owner acceptance |
 | [Agent prompt](AGENT_PROMPT.md) | Paste into an implementation agent when implementation is authorized |
 | [Agent rules](AGENTS.md) | Repository-wide instructions, authority boundaries, and evidence standards |
 | [Product requirements](docs/PRODUCT_REQUIREMENTS.md) | User experience, scope, and non-goals |

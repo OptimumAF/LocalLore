@@ -1,6 +1,6 @@
 # Evaluation and test strategy
 
-Status: target evaluation strategy. The first [host verification report](IMPLEMENTATION_EVIDENCE.md) records actual deterministic Rust/fake-provider and feasibility-helper checks. Storage, Android, real-model, physical-device and narrative-quality gates below remain unverified.
+Status: target evaluation strategy. The [host verification report](IMPLEMENTATION_EVIDENCE.md) and [Compose shell report](android/VERIFICATION_2026-10-22.md) record actual host/fake-provider and emulator checks. Storage, native engine/inference, physical-device and narrative-quality gates below remain unverified; the fixture shell does not pass those gates.
 
 ## Separate what is being tested
 

@@ -1,8 +1,10 @@
 # Host development
 
-The first implementation is a local Rust contract proof with synthetic data and
-a deterministic fake provider. It does not load a model or implement Android or
-disk persistence. See [contract v1](DOMAIN_CONTRACT_V1.md) and
+This page covers the local Rust contract proof with synthetic data and
+a deterministic fake provider. It does not load a model or implement disk
+persistence. The [Compose fixture shell](../apps/android/README.md) has separate
+build/test instructions; a live native engine connection remains M03.03.
+See [contract v1](DOMAIN_CONTRACT_V1.md) and
 [implementation evidence](IMPLEMENTATION_EVIDENCE.md).
 
 Install Rust 1.93.1 with rustfmt/clippy and the platform's normal Rust C/C++ linker

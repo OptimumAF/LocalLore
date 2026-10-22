@@ -52,11 +52,27 @@ cargo run --locked -p locallore
 
 The original Lantern Quay demo gives the player's sole potion to Mira, verifies
 replay equality, and checks that the absent Sable did not observe the gift.
-It does not implement disk saves, an Android app or real inference. Read
+The host command does not implement disk saves or real inference. Read
 [development instructions](docs/DEVELOPMENT.md), [contract v1](docs/DOMAIN_CONTRACT_V1.md),
 and [host verification evidence](docs/IMPLEMENTATION_EVIDENCE.md). Official-source
 [runtime preparation](docs/runtime/FEASIBILITY_2026-10-22.md) selects no backend;
 physical-device measurements remain blocked.
+
+## Run the Android fixture shell
+
+The minimal Compose app displays recorded Rust-generated sample outcomes. It
+supports pending, cancel, failure, retry and reset flows without a model or
+account. It is explicitly labeled a fixture demo; the live native engine and
+durable saves remain future work. From `apps/android/`, with Java 17 and Android
+SDK 36 installed:
+
+```powershell
+.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
+.\gradlew.bat :app:connectedDebugAndroidTest
+```
+
+See [Android build and sample instructions](apps/android/README.md) and
+[dated emulator verification](docs/android/VERIFICATION_2026-10-22.md).
 
 ## Initial technical direction
 

@@ -1,6 +1,6 @@
 # System architecture
 
-Status: target architecture, 2026-10-22. The bounded [v1 host contract](DOMAIN_CONTRACT_V1.md) now implements pure rules and fake-provider coordination in one Rust crate. Mobile, native inference and persistence below remain future work; the proposed module layout is not a list of existing packages.
+Status: target architecture, 2026-10-22. The bounded [v1 host contract](DOMAIN_CONTRACT_V1.md) implements pure rules and fake-provider coordination in one Rust crate. The [Compose shell](../apps/android/README.md) displays Rust-generated fixture outcomes through a replaceable sample adapter. Live native engine/inference and persistence remain future work; the proposed module layout is not a list of existing packages.
 
 ## 1. Authority and component boundaries
 

@@ -1,0 +1,7 @@
+# Review ownership; enforcement additionally requires GitHub rules/settings.
+# No contributor receives permissions from this file.
+* @OptimumAF
+/.github/CODEOWNERS @OptimumAF
+/GOVERNANCE.md @OptimumAF
+/LICENSE @OptimumAF
+/AGENTS.md @OptimumAF

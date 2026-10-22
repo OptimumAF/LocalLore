@@ -73,6 +73,19 @@ rather than accept arbitrary extra arguments. An offline flag and source review
 are not a network trace or an OS network sandbox. Hidden reasoning must not be
 retained or published even when a runtime/model ignores a requested mode.
 
+An independent implementation check confirmed a caveat found by the runtime
+agent: the pinned minimal
+[completion tool](https://github.com/ggml-org/llama.cpp/blob/620d2225cc436ab0b001e3200e590e3b286ef9ab/tools/completion/completion.cpp#L242)
+calls `common_chat_format_single`, whose
+[fresh formatting inputs](https://github.com/ggml-org/llama.cpp/blob/620d2225cc436ab0b001e3200e590e3b286ef9ab/common/chat.cpp#L636)
+do not carry the parsed reasoning options. Conversely, disabling conversation
+mode bypasses that formatting path. Merely passing `--reasoning off` is therefore
+insufficient evidence of non-thinking formatting in this tool. A constrained
+adapter must apply the exact inspected template with explicit reasoning settings
+or restrict a verified formatter to the supported artifact and message subset.
+The completion tool also emits a terminal marker; that transport detail must not
+be mistaken for model-generated proposal JSON.
+
 The output, context and process deadline bounds apply independently of grammar
 constraints. The Rust oracle must still validate typed proposals. A successful
 model load alone cannot satisfy M01.03 quality or physical-device gates.

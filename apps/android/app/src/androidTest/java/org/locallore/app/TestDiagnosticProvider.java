@@ -3,6 +3,7 @@ package org.locallore.app;
 
 import android.content.ContentProvider;
 import android.content.ContentValues;
+import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
@@ -42,6 +43,13 @@ public final class TestDiagnosticProvider extends ContentProvider {
 
     @Override public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
         return openFile(uri, mode, null);
+    }
+
+    @Override public AssetFileDescriptor openAssetFile(Uri uri, String mode, CancellationSignal signal)
+            throws FileNotFoundException {
+        // Real ContentResolver file opens take the asset route. The platform default drops signal.
+        ParcelFileDescriptor descriptor = openFile(uri, mode, signal);
+        return descriptor == null ? null : new AssetFileDescriptor(descriptor, 0, AssetFileDescriptor.UNKNOWN_LENGTH);
     }
 
     @Override public ParcelFileDescriptor openFile(Uri uri, String mode, CancellationSignal signal)

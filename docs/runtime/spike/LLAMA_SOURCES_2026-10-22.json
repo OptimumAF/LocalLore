@@ -1,0 +1,73 @@
+{
+  "checked_date": "2026-10-22",
+  "runtime_commit": "620d2225cc436ab0b001e3200e590e3b286ef9ab",
+  "artifact_repository": "Qwen/Qwen3-0.6B-GGUF",
+  "artifact_revision": "23749fefcc72300e3a2ad315e1317431b06b590a",
+  "artifact_file": "Qwen3-0.6B-Q8_0.gguf",
+  "artifact_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+  "artifact_bytes": 639446688,
+  "license": "Apache-2.0",
+  "runtime_license": "MIT",
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/LICENSE",
+      "sha256": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d",
+      "bytes": 1078
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/CMakeLists.txt",
+      "sha256": "90e76c2730386449ccf924b87d974f1862bbda31125249ff34ee1f8947d53818",
+      "bytes": 10918
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/examples/simple/simple.cpp",
+      "sha256": "5f3160b48b5c0adff984dfdc6ad39cf9ee113b4d63600596f2127f9a0b9a869e",
+      "bytes": 7531
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/common/chat.h",
+      "sha256": "72efd31e0bc82d653bc28e18bb14299d255623c3be052dafe8f40bb6fa6a9ca5",
+      "bytes": 19667
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/common/chat.cpp",
+      "sha256": "ff909135550742869afd69d132d8e123d45b875b950607696fc196e5b15e722b",
+      "bytes": 74167
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/common/sampling.h",
+      "sha256": "63faa4ccb76fd466d3b5d86b14bc84a890bafa1f972fc46f66230eeb3384ce29",
+      "bytes": 6443
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/common/json-schema-to-grammar.h",
+      "sha256": "7dc12dd8b3513b97293f22c2f87f0918e476fac3ba8895e8cb9671110401ea07",
+      "bytes": 743
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/tools/completion/completion.cpp",
+      "sha256": "0dde1fed7b17e9b37ad0cf3e125210dd1c316364cf2924f24d0f41c38538677b",
+      "bytes": 38472
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/620d2225cc436ab0b001e3200e590e3b286ef9ab/vendor/cpp-httplib/CMakeLists.txt",
+      "sha256": "5eac4f5b1a08fb6df7b79277131a2280da76ad6767281aebee23e2a675c5389f",
+      "bytes": 6813
+    },
+    {
+      "url": "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/raw/23749fefcc72300e3a2ad315e1317431b06b590a/README.md",
+      "sha256": "44adabae2153c3a7bb741b86fbffd48736bc95118831935fdfc4d3cc1854f2f5",
+      "bytes": 6236
+    },
+    {
+      "url": "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/raw/23749fefcc72300e3a2ad315e1317431b06b590a/LICENSE",
+      "sha256": "5de36594c10839788a8c589443a8ef9d8b8d17c65a1b5807206ae037fc36c6bd",
+      "bytes": 11544
+    },
+    {
+      "url": "https://huggingface.co/Qwen/Qwen3-0.6B/raw/c1899de289a04d12100db370d81485cdf75e47ca/tokenizer_config.json",
+      "sha256": "d5d09f07b48c3086c508b30d1c9114bd1189145b74e982a265350c923acd8101",
+      "bytes": 9732
+    }
+  ]
+}

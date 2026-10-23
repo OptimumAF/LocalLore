@@ -203,6 +203,9 @@ def run_control(device, apk_sha, case, expected_uuid, measure, model_identity, r
             report["model_verified"], report["model_diagnostic"] = _model(value, expected_uuid)
             if not report["model_verified"]:
                 raise _Failure("model_identity_failed")
+            # App-domain verification can leave its instrumentation process alive.
+            # Re-bind the installed bytes/process identity and stop before SDK play.
+            _stop(client, "verified_model")
             profile = base64.b64encode(json.dumps(play.make_profile(apk_sha), separators=(",", ":")).encode("utf-8")).decode("ascii")
             command = shlex.join(["am", "instrument", "-w", "-r", "-e", "operation", "play", "-e", "session", uuid.uuid4().hex,
                 "-e", "volume_uuid", expected_uuid, "-e", "play_case", case, "-e", "profile_base64", profile,

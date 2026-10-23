@@ -126,7 +126,7 @@ class CacheControllerTests(unittest.TestCase):
         self.assertTrue(result["process_absent"])
         self.assertTrue(result["clients_cleaned"])
         self.assertTrue(result["storage_checks_passed"])
-        self.assertEqual((device.launches, device.stops, measure.call_count, identity.call_count), (1, 2, 2, 1))
+        self.assertEqual((device.launches, device.stops, measure.call_count, identity.call_count), (1, 3, 2, 1))
         parser.assert_called_once_with(b"synthetic bounded instrumentation protocol", "gift", UUID)
         sink.assert_called_once()
         for args, _ in device.calls:
@@ -220,7 +220,7 @@ class CacheControllerTests(unittest.TestCase):
         self.assertFalse(result["clients_cleaned"])
         self.assertFalse(result["process_absent"])
         self.assertFalse(result["check_passed"])
-        self.assertEqual((device.stops, measure.call_count), (1, 1))
+        self.assertEqual((device.stops, measure.call_count), (2, 1))
         self.assertEqual(device.events[-1], "play")
         sink.assert_called_once_with(b"bounded terminal")
 
@@ -230,10 +230,10 @@ class CacheControllerTests(unittest.TestCase):
         self.assertEqual(result["result"], decoded()["result"])
         self.assertFalse(result["check_passed"])
         self.assertTrue(result["process_absent"])
-        self.assertEqual((device.launches, device.stops, measure.call_count), (1, 2, 2))
+        self.assertEqual((device.launches, device.stops, measure.call_count), (1, 3, 2))
 
     def test_final_unknown_client_keeps_receipt_and_prevents_post_measure(self):
-        device = FakeDevice(lambda dev, event, _: response(cleaned=False) if event == "stop" and dev.stops == 2 else None)
+        device = FakeDevice(lambda dev, event, _: response(cleaned=False) if event == "stop" and dev.stops == 3 else None)
         result, device, measure, *_ = self.invoke(device=device)
         self.assertEqual(result["result"], decoded()["result"])
         self.assertEqual(result["cleanup_failure_stage"], "final_force_stop")
@@ -335,6 +335,39 @@ class CacheControllerTests(unittest.TestCase):
         self.assertFalse(result["clients_cleaned"])
         self.assertEqual(result["model_diagnostic"], "read_failed")
         self.assertNotIn(PRIVATE, json.dumps(result))
+
+    def test_model_callback_process_is_verified_and_stopped_before_sdk(self):
+        device = FakeDevice()
+        def identity():
+            device.running = True  # A completed verify_model instrumentation process.
+            return model()
+        result, device, *_ = self.invoke(device=device, identity=identity)
+        self.assertTrue(result["check_passed"])
+        play_index = device.events.index("play")
+        self.assertEqual(device.events[:play_index].count("stop"), 2)
+        self.assertEqual(device.events[:play_index].count("cmdline"), 2)
+        self.assertEqual(device.stops, 3)
+
+    def test_callback_cannot_replace_apk_then_launch_sdk_with_stale_identity(self):
+        device = FakeDevice()
+        def identity():
+            device.override = lambda _, event, __: response(("0" * 64 + "  " + INSTALLED + "\n").encode()) if event == "package_hash" else None
+            return model()
+        result, device, measure, *_ = self.invoke(device=device, identity=identity)
+        self.assertEqual(device.launches, 0)
+        self.assertEqual(device.stops, 1)
+        self.assertEqual(result["failure_stage"], "verified_model_package_hash")
+        self.assertFalse(result["check_passed"])
+        self.assertEqual(measure.call_count, 1)
+
+    def test_unknown_pre_sdk_stop_blocks_launch_and_all_dependent_calls(self):
+        device = FakeDevice(lambda dev, event, _: response(cleaned=False) if event == "stop" and dev.stops == 2 else None)
+        result, device, measure, *_ = self.invoke(device=device)
+        self.assertEqual(device.launches, 0)
+        self.assertEqual(device.events[-1], "stop")
+        self.assertEqual(result["failure_stage"], "verified_model_force_stop")
+        self.assertFalse(result["clients_cleaned"])
+        self.assertEqual(measure.call_count, 1)
 
 
 if __name__ == "__main__":

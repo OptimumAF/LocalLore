@@ -79,6 +79,11 @@ unchanged `make_profile` contract. The SDK/Rust budget stays 60 seconds with
 350/220 role tokens; the host request deadline is 110 seconds and the existing
 APK watchdog is 90 seconds. There is no automatic inference retry.
 
+After successful app-domain model verification, a further verified stop checks
+the current APK hash and single-process identity and proves absence before SDK
+play. This handles a verification instrumentation process left alive and rejects
+an APK changed during the trusted callback. It addresses only the new package.
+
 The required coordinator parser is `android_cache_result.parse_result(raw,
 case, expected_uuid)`. Production imports have no missing-parser fallback.
 Raw bytes are offered to the private sink before decoding. Strict accepted
@@ -102,10 +107,14 @@ not proof that model execution started. `phone_qualified` remains false.
 
 ## Verification and limits
 
-The author ran 22 independent controller tests against fake transports and a
-test-only parser mock: exact request/profile, pre-refusal, stale volume, package
+The author ran 25 independent controller tests against fake transports and a
+parser mock: exact request/profile, pre-refusal, stale volume, package
 and process identity failures, one launch, callback/client uncertainty, raw
 retention ordering, malformed output, and accepted-result preservation across
-SDK/cleanup/post-storage failures. No ADB, model read/copy, build, inference,
-device or GitHub mutation was performed by this controller packet. Real parser
-integration and the new model-verification artifact are subsequent gates.
+SDK/cleanup/post-storage failures, verification-process stop, late APK changes,
+and unknown pre-play cleanup. The controller/parser/admission test selection
+passed 60 tests after integrating the coordinator's real parser module; the
+controller tests still intentionally mock parser responses to isolate lifecycle
+behavior. No ADB, model read/copy, build, inference, device or GitHub mutation
+was performed by this controller packet. The new model-verification artifact
+and its explicit pin update remain subsequent gates.

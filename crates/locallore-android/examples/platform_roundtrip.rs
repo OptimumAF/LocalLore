@@ -739,6 +739,22 @@ mod tests {
         input
     }
     #[test]
+    fn generated_engine_oracle_matches_packaged_android_test_assets() {
+        let output = temp().join("generated");
+        assert_eq!(
+            run(args("generate", &output, None, None)),
+            Ok(Mode::Generate)
+        );
+        let assets: [(&str, &[u8]); 3] = [
+            ("windows-origin.json", include_bytes!("../../../apps/android/app/src/androidTest/assets/platform-roundtrip-v1/windows-origin.json")),
+            ("windows-continued.json", include_bytes!("../../../apps/android/app/src/androidTest/assets/platform-roundtrip-v1/windows-continued.json")),
+            ("expectations.json", include_bytes!("../../../apps/android/app/src/androidTest/assets/platform-roundtrip-v1/expectations.json")),
+        ];
+        for (name, golden) in assets {
+            assert_eq!(read(&output, name).unwrap(), golden, "fixture asset drift");
+        }
+    }
+    #[test]
     fn all_three_modes_execute_real_host_retries_and_divergent_store_replay() {
         let root = temp();
         let fixtures = root.join("generated");

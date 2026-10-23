@@ -134,6 +134,13 @@ export function MemoryMaintenancePanel({
                 explicit pruning and a new admission to restart. Model-generated
                 summaries are unavailable.
             </p>
+            {job?.status === "stale" && (
+                <p>
+                    Cancel this stale job first, then read its saved outcome
+                    before pruning. A stale view alone does not mark a pending
+                    job finished.
+                </p>
+            )}
             {s.error && <p role="alert">Memory operation: {s.error}</p>}
             {s.notice && <p role="status">{s.notice}</p>}
             {s.uncertain && (

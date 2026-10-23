@@ -382,11 +382,14 @@ export class MemoryMaintenanceController {
             return false;
         const j = this.state.reply.maintenance.job;
         if (action === "admit") return j === null && this.state.consent;
-        if (action === "step" || action === "cancel")
-            return j?.status === "ready";
+        if (action === "step") return j?.status === "ready";
+        // Stale is a passive view of an earlier basis; the persisted row may
+        // still be Ready. Explicit cancellation establishes a terminal row.
+        if (action === "cancel")
+            return j?.status === "ready" || j?.status === "stale";
         return (
             !!j &&
-            ["complete", "cancelled", "stale", "blocked"].includes(j.status) &&
+            ["complete", "cancelled", "blocked"].includes(j.status) &&
             this.state.consent
         );
     }

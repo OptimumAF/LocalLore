@@ -348,19 +348,39 @@ const c = context();
     );
 }
 {
-    const t = transport(), controller = new Controller(t.invoke);
+    const t = transport(),
+        controller = new Controller(t.invoke);
     controller.contextChanged(c);
-    t.queue.push(done(c, "status", job("stale", { basis_revision: 3, next_from: 1 })));
+    t.queue.push(
+        done(c, "status", job("stale", { basis_revision: 3, next_from: 1 })),
+    );
     await controller.act("status");
     controller.consent(true);
-    check(controller.can("cancel") && !controller.can("prune"), "passively stale Ready row must permit explicit cancel before terminal prune");
-    t.queue.push(done(c, "cancel", job("cancelled", { basis_revision: 3, next_from: 1 }), 2));
+    check(
+        controller.can("cancel") && !controller.can("prune"),
+        "passively stale Ready row must permit explicit cancel before terminal prune",
+    );
+    t.queue.push(
+        done(
+            c,
+            "cancel",
+            job("cancelled", { basis_revision: 3, next_from: 1 }),
+            2,
+        ),
+    );
     await controller.act("cancel");
-    check(!controller.can("prune"), "stale cancellation resets mutation consent");
+    check(
+        !controller.can("prune"),
+        "stale cancellation resets mutation consent",
+    );
     controller.consent(true);
     t.queue.push(done(c, "prune", null, 3));
     await controller.act("prune");
-    check(controller.get().reply.maintenance.job === null && !controller.can("admit"), "stale cancellation and explicit prune do not silently readmit");
+    check(
+        controller.get().reply.maintenance.job === null &&
+            !controller.can("admit"),
+        "stale cancellation and explicit prune do not silently readmit",
+    );
 }
 for (const changed of [
     context({ expected_head: 5 }),

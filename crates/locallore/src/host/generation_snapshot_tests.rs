@@ -167,6 +167,89 @@ fn cancellation_panic_inside_override_is_cancelled_and_host_owner_remains_usable
     assert_eq!(error(result.unwrap()), "Cancelled");
     assert_eq!(calls.load(Ordering::SeqCst), 2);
 }
+
+/// An override that ignores the callback result must not erase cancellation.
+struct IgnoringCallbackPort(Engine);
+impl Persistence for IgnoringCallbackPort {
+    fn location(&self) -> &str {
+        "synthetic-native-ignoring-callback"
+    }
+    fn list(&mut self) -> Result<Vec<WorkspaceSummary>, String> {
+        unreachable!()
+    }
+    fn create(&mut self) -> Result<Engine, String> {
+        unreachable!()
+    }
+    fn resume(&mut self, _: &Scope) -> Result<Engine, String> {
+        unreachable!()
+    }
+    fn generation_snapshot(
+        &mut self,
+        _: &Scope,
+        _: u64,
+        _: &str,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<HostGenerationSnapshot, String> {
+        let _ignored = cancel();
+        Ok(HostGenerationSnapshot {
+            engine: self.0.clone(),
+            coverage: CoverageRead::RawFallback(FallbackReason::Missing),
+        })
+    }
+    fn begin(&mut self, _: &Request) -> Result<SavedTurn, String> {
+        unreachable!()
+    }
+    fn commit(&mut self, _: &Request, _: &Proposal, _: &str) -> Result<Receipt, String> {
+        unreachable!()
+    }
+    fn cancel(&mut self, _: &Request) -> Result<SavedTurn, String> {
+        unreachable!()
+    }
+    fn fail(&mut self, _: &Request) -> Result<SavedTurn, String> {
+        unreachable!()
+    }
+    fn stale(&mut self, _: &Request) -> Result<SavedTurn, String> {
+        unreachable!()
+    }
+    fn status(&mut self, _: &Scope, _: &str) -> Result<SavedTurn, String> {
+        unreachable!()
+    }
+}
+fn ignored_one_shot_cancel_remains_cancelled(panic: bool) {
+    let actual = engine();
+    let host = Host::with_persistence(false, Box::new(IgnoringCallbackPort(actual.clone())));
+    let session = attach(&host, actual.clone());
+    let calls = AtomicUsize::new(0);
+    let result = host.generation_snapshot(&session, actual.scope(), 0, &|| {
+        if calls.fetch_add(1, Ordering::SeqCst) == 1 {
+            assert!(!panic, "synthetic one-shot ignored callback panic");
+            true
+        } else {
+            false
+        }
+    });
+    assert!(host
+        .generation_snapshot(&session, actual.scope(), 0, &|| false)
+        .is_ok());
+    assert_eq!(
+        error(result),
+        "Cancelled",
+        "an observed one-shot cancellation cannot recover at final validation"
+    );
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        2,
+        "once cancelled, final validation must use the retained observation"
+    );
+}
+#[test]
+fn ignored_one_shot_true_stays_cancelled_at_host_return() {
+    ignored_one_shot_cancel_remains_cancelled(false);
+}
+#[test]
+fn ignored_one_shot_panic_stays_cancelled_at_host_return() {
+    ignored_one_shot_cancel_remains_cancelled(true);
+}
 fn engine() -> Engine {
     Engine::new(
         serde_json::from_str(include_str!("../../../../fixtures/lantern_quay.json")).unwrap(),

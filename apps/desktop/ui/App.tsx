@@ -47,15 +47,37 @@ export function App({ controller: c }: { controller: Controller }) {
                     </button>
                 </nav>
                 <span className="limitation">
-                    Local Rust · Fake inference · In-memory only
+                    Local Rust | Fake inference |{" "}
+                    {s.workspace
+                        ? "Saved locally"
+                        : s.starting
+                          ? "Opening storage..."
+                          : "Storage unavailable"}
                 </span>
             </header>
             <div className={`workspace ${s.inspectorOpen ? "" : "collapsed"}`}>
                 <aside className="sidebar" aria-label="Story sessions">
-                    <h2>This window</h2>
+                    <h2>Saved stories</h2>
+                    {s.workspace?.stories.map((story) => (
+                        <button
+                            className="session"
+                            key={`${story.scope.story}/${story.scope.branch}`}
+                            onClick={() => void c.resume(story.scope)}
+                            disabled={s.starting}
+                        >
+                            <span>{story.title}</span>
+                            <small>
+                                {story.scope.story} / {story.scope.branch} |
+                                revision {story.revision}
+                            </small>
+                        </button>
+                    ))}
+                    <h3>Open in this window</h3>
                     <button
                         className="new"
-                        disabled={s.sessions.length >= 4}
+                        disabled={
+                            s.sessions.length >= 4 || s.starting || !s.workspace
+                        }
                         onClick={() => void c.create()}
                     >
                         ＋ New Lantern Quay
@@ -77,13 +99,32 @@ export function App({ controller: c }: { controller: Controller }) {
                         ))}
                     </div>
                     <p>
-                        Up to four original fixture sessions. Closing the app
-                        loses all progress.
+                        Close releases this window's session; the saved story
+                        remains. New and Reset create a separate saved story.
                     </p>
                     <p>
-                        Arbitrary story creation, durable library and model
+                        Unsubmitted composer text stays in this session only.
+                        Fake inference; arbitrary story creation and model
                         import are unavailable.
                     </p>
+                    {s.workspace && (
+                        <details>
+                            <summary>Saved workspace</summary>
+                            <p className="storage-path">
+                                {s.workspace.location}
+                            </p>
+                            <p>
+                                Schema {s.workspace.schema_version} | Rules
+                                domain-v1 | Canonical receipts and validated
+                                replay
+                            </p>
+                        </details>
+                    )}
+                    {!s.workspace && !s.starting && (
+                        <button onClick={() => void c.start()}>
+                            Retry opening saved workspace
+                        </button>
+                    )}
                     <details className="layout-controls">
                         <summary>Layout & text</summary>
                         <label>
@@ -386,7 +427,7 @@ export function App({ controller: c }: { controller: Controller }) {
                                 disabled={!selected}
                                 onClick={() => void c.reset()}
                             >
-                                Reset scene
+                                Reset as new story
                             </button>
                         </div>
                     </form>
@@ -542,7 +583,7 @@ export function App({ controller: c }: { controller: Controller }) {
                             disabled={!selected}
                             onClick={() => void c.closeSession()}
                         >
-                            Close session · discard progress
+                            Close session | keep save
                         </button>
                     </aside>
                 )}

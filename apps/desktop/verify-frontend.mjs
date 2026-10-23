@@ -25,6 +25,8 @@ for (const marker of [
     "harness_finish",
     "uncertain-commit-retry-original-id-once",
     "heldPrepare",
+    "harness:durable",
+    "restart-retry-does-not-double-apply",
     "harness_oracle",
 ])
     assert(

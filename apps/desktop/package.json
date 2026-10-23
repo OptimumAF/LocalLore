@@ -6,6 +6,7 @@
         "build": "node build.mjs",
         "build:harness": "node build.mjs --harness",
         "check": "node verify-frontend.mjs",
+        "harness:durable": "node durable-harness.mjs",
         "harness:native": "node harness.mjs native",
         "harness:headless": "node harness.mjs headless",
         "format:check": "prettier --check \"ui/*.{ts,tsx,html,css}\" \"*.{json,mjs}\""

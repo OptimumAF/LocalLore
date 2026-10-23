@@ -5,6 +5,13 @@ export type HostCommand =
           op: "capabilities";
       }
     | {
+          op: "workspace";
+      }
+    | {
+          op: "resume";
+          scope: Scope;
+      }
+    | {
           op: "create";
           seed: string;
       }

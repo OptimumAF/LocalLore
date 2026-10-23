@@ -12,53 +12,112 @@ use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(feature = "dev-harness")]
 struct Reopen(AtomicBool);
 
+struct WorkspaceState {
+    path: std::path::PathBuf,
+    host: tokio::sync::OnceCell<Arc<Host>>,
+}
+impl WorkspaceState {
+    async fn get(&self) -> Result<Arc<Host>, String> {
+        self.host
+            .get_or_try_init(|| async {
+                let path = self.path.clone();
+                tauri::async_runtime::spawn_blocking(move || {
+                    #[cfg(feature = "dev-harness")]
+                    if harness::active()
+                        && std::env::var("LOCALLORE_TEST_MEMORY").as_deref() == Ok("1")
+                    {
+                        return Ok(Arc::new(Host::new(true)));
+                    }
+                    let parent = path.parent().ok_or_else(|| "InvalidInput".to_owned())?;
+                    std::fs::create_dir_all(parent).map_err(|_| "Io".to_owned())?;
+                    locallore_workspace::open(&path, true).map(Arc::new)
+                })
+                .await
+                .map_err(|_| "StorageUnavailable".to_owned())?
+            })
+            .await
+            .cloned()
+    }
+    fn ready(&self) -> Option<Arc<Host>> {
+        self.host.get().cloned()
+    }
+}
 #[tauri::command]
 async fn host_call(
     window: tauri::WebviewWindow,
-    host: tauri::State<'_, Arc<Host>>,
+    workspace: tauri::State<'_, WorkspaceState>,
     permits: tauri::State<'_, Arc<tokio::sync::Semaphore>>,
     input: String,
-) -> Result<Value, &'static str> {
+) -> Result<Value, String> {
     if window.label() != "main" {
-        return Err("Forbidden");
+        return Err("Forbidden".into());
     }
     if input.len() > locallore::host::MAX_INPUT {
-        return Err("TooLarge");
+        return Err("TooLarge".into());
     }
-    if !matches!(
+    let preparing = matches!(
         serde_json::from_str::<locallore::host::Envelope>(&input),
         Ok(locallore::host::Envelope {
             command: locallore::host::HostCommand::Prepare { .. },
             ..
         })
-    ) {
-        return Ok(host.call(input.as_bytes()));
-    }
-    let permit = permits
-        .inner()
-        .clone()
-        .try_acquire_owned()
-        .map_err(|_| "Busy")?;
-    let host = host.inner().clone();
+    );
+    // Disk/replay/commit and generation all stay outside the UI event thread.
+    // Only generation consumes the bounded permit; cancel/status can still run.
+    let permit = if preparing {
+        Some(
+            permits
+                .inner()
+                .clone()
+                .try_acquire_owned()
+                .map_err(|_| "Busy".to_owned())?,
+        )
+    } else {
+        None
+    };
+    let host = workspace.get().await?;
     tauri::async_runtime::spawn_blocking(move || {
         let _permit = permit;
         host.call(input.as_bytes())
     })
     .await
-    .map_err(|_| "Transport")
+    .map_err(|_| "Transport".to_owned())
 }
 fn build_window(app: &tauri::AppHandle, reopened: bool) -> tauri::Result<()> {
     let testing = cfg!(feature = "dev-harness")
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',stage:'{}'}};",
-            if reopened { "reopened" } else { "initial" }
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},stage:'{}'}};",
+            std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
+            std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
+            if reopened {
+                "reopened"
+            } else if std::env::var("LOCALLORE_TEST_RESTART").as_deref() == Ok("1") {
+                "restart"
+            } else {
+                "initial"
+            }
         )
     } else {
         "window.__LOCALLORE_TEST__=undefined;".into()
     };
-    tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
+    let builder =
+        tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()));
+    #[cfg(feature = "dev-harness")]
+    let builder = if testing {
+        let path = std::path::PathBuf::from(
+            std::env::var_os("LOCALLORE_TEST_WORKSPACE").unwrap_or_default(),
+        );
+        builder.data_directory(
+            path.parent()
+                .unwrap_or_else(|| std::path::Path::new("."))
+                .join("webview-profile"),
+        )
+    } else {
+        builder
+    };
+    builder
         .title("LocalLore · Play & Story Lab")
         .inner_size(1280.0, 900.0)
         .min_inner_size(560.0, 500.0)
@@ -76,14 +135,18 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> tauri::Result<()> {
 }
 #[cfg(feature = "dev-harness")]
 #[tauri::command]
-fn harness_stats(
+async fn harness_stats(
     window: tauri::WebviewWindow,
-    host: tauri::State<'_, Arc<Host>>,
+    workspace: tauri::State<'_, WorkspaceState>,
 ) -> Result<Value, &'static str> {
     if !harness::active() || window.label() != "main" {
         return Err("Forbidden");
     }
-    let (sessions, workers) = host.live_counts();
+    let (sessions, workers) = workspace
+        .get()
+        .await
+        .map_err(|_| "StorageUnavailable")?
+        .live_counts();
     Ok(serde_json::json!({"sessions":sessions,"workers":workers}))
 }
 #[cfg(feature = "dev-harness")]
@@ -109,7 +172,10 @@ fn harness_reopen(
         for _ in 0..40 {
             tokio::time::sleep(std::time::Duration::from_millis(25)).await;
             if app.get_webview_window("main").is_none()
-                && app.state::<Arc<Host>>().live_counts() == (0, 0)
+                && app
+                    .state::<WorkspaceState>()
+                    .ready()
+                    .is_none_or(|h| h.live_counts() == (0, 0))
             {
                 let handle = app.clone();
                 let _ = app.run_on_main_thread(move || {
@@ -130,9 +196,7 @@ fn main() {
         test_bridge::run();
         return;
     }
-    let builder = tauri::Builder::default()
-        .manage(Arc::new(Host::new(true)))
-        .manage(Arc::new(tokio::sync::Semaphore::new(4)));
+    let builder = tauri::Builder::default().manage(Arc::new(tokio::sync::Semaphore::new(4)));
     #[cfg(feature = "dev-harness")]
     let builder = builder
         .manage(Reopen(AtomicBool::new(false)))
@@ -149,6 +213,20 @@ fn main() {
     let builder = builder.invoke_handler(tauri::generate_handler![host_call]);
     builder
         .setup(|app| {
+            let path = app.path().app_local_data_dir()?.join("stories-v1.sqlite");
+            #[cfg(feature = "dev-harness")]
+            let path = if harness::active() {
+                std::path::PathBuf::from(
+                    std::env::var_os("LOCALLORE_TEST_WORKSPACE")
+                        .ok_or_else(|| std::io::Error::other("TestWorkspaceMissing"))?,
+                )
+            } else {
+                path
+            };
+            app.manage(WorkspaceState {
+                path,
+                host: tokio::sync::OnceCell::new(),
+            });
             #[cfg(feature = "dev-harness")]
             if harness::active() {
                 app.manage(harness::HarnessState::from_env().map_err(std::io::Error::other)?);
@@ -164,7 +242,9 @@ fn main() {
         })
         .on_window_event(|window, event| {
             if matches!(event, tauri::WindowEvent::Destroyed) {
-                window.state::<Arc<Host>>().close_all();
+                if let Some(host) = window.state::<WorkspaceState>().ready() {
+                    tauri::async_runtime::spawn_blocking(move || host.close_all());
+                }
             }
         })
         .build(tauri::generate_context!())

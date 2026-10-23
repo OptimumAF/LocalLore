@@ -16,7 +16,9 @@ declare global {
         __LOCALLORE_TEST__?: {
             enabled: boolean;
             backend: "native" | "headless";
-            stage: "initial" | "reopened";
+            stage: "initial" | "reopened" | "restart";
+            durable?: boolean;
+            failure?: boolean;
         };
     }
 }
@@ -45,7 +47,12 @@ const dispose = async () => {
     window.removeEventListener("unhandledrejection", onError);
 };
 if (driver && window.__LOCALLORE_TEST__?.enabled) {
-    await driver.journeys({
+    const durableDriver =
+        __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.durable
+            ? await import("./durable-journeys")
+            : null;
+    const run = durableDriver ? durableDriver.durableJourneys : driver.journeys;
+    await run({
         controller,
         gateway: gateway as InstanceType<typeof driver.FaultGateway>,
         errors,
@@ -54,7 +61,7 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
         config: window.__LOCALLORE_TEST__,
     });
 } else {
-    await controller.create();
+    await controller.start();
 }
 window.addEventListener(
     "pagehide",

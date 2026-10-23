@@ -14,6 +14,16 @@ const MAX_JSON: usize = 256 * 1024;
 const MAX_PNG: usize = 16 * 1024 * 1024;
 const MAX_CHECKPOINTS: usize = 40;
 const LABELS: &[&str] = &[
+    "durable-storage-error",
+    "durable-initial",
+    "durable-accepted",
+    "durable-reopened",
+    "durable-resumed",
+    "durable-new",
+    "durable-cancelled",
+    "durable-stale",
+    "durable-retry",
+    "durable-disposed",
     "initial",
     "play-accepted",
     "play-rejected",

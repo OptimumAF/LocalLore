@@ -58,6 +58,11 @@ if (mode === "native") {
         env: {
             ...process.env,
             LOCALLORE_D02_HARNESS: "1",
+            LOCALLORE_TEST_MEMORY: "1",
+            LOCALLORE_TEST_WORKSPACE: path.join(
+                directory,
+                "legacy-unused.sqlite",
+            ),
             LOCALLORE_D02_ARTIFACT_DIR: directory,
         },
     });
@@ -71,6 +76,7 @@ if (mode === "native") {
             this.child = spawn(executable, ["--host-stdio"], {
                 cwd: root,
                 stdio: ["pipe", "pipe", "ignore"],
+                env: { ...process.env, LOCALLORE_TEST_MEMORY: "1" },
                 shell: false,
             });
             this.closed = new Promise((r) => this.child.once("exit", r));

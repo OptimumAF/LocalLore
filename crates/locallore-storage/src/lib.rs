@@ -16,6 +16,7 @@ use std::{
 pub use turns::{ResumedStory, TurnError, TurnPhase, TurnRecord};
 
 pub const SCHEMA_VERSION: u32 = 1;
+pub const MAX_INSPECTION_DATABASE_BYTES: u64 = 64 * 1024 * 1024;
 const APPLICATION_ID: u32 = 0x4c4c4f52;
 const SCHEMA: &str = include_str!("../migrations/001_initial.sql");
 
@@ -210,6 +211,14 @@ fn initialize(connection: &Connection, sql: &str) -> Result<()> {
 }
 
 impl Store {
+    /// Inspection/backup source only: never create, migrate or expose a writable connection.
+    pub fn open_read_only(path: &Path) -> Result<Self> {
+        let connection = connect(path, true)?;
+        let (application, version) = identity(&connection)?;
+        supported_identity(application, version)?;
+        verify(&connection)?;
+        Ok(Self { connection })
+    }
     /// A new path initializes v1. An existing empty v0 database needs an explicit safety backup.
     /// Foreign/nonempty v0, future versions and altered v1 schemas are refused, never adopted.
     pub fn open(path: &Path, migration_backup: Option<&Path>) -> Result<Self> {
@@ -352,11 +361,60 @@ impl Store {
     pub fn backup_to(&self, destination: &Path) -> Result<()> {
         consistent_backup(&self.connection, destination)
     }
+    /// Bounded explicit private inspection copy. Pin a coherent read snapshot before sizing:
+    /// another writer cannot grow the snapshot between the budget check and SQLite backup.
+    pub fn backup_inspection_to(&self, destination: &Path) -> Result<()> {
+        self.backup_bounded(destination, MAX_INSPECTION_DATABASE_BYTES)
+    }
+    fn backup_bounded(&self, destination: &Path, limit: u64) -> Result<()> {
+        let snapshot = self.connection.unchecked_transaction()?;
+        let _: i64 =
+            snapshot.query_row("SELECT count(*) FROM schema_migrations", [], |r| r.get(0))?;
+        let pages: u32 = snapshot.pragma_query_value(None, "page_count", |r| r.get(0))?;
+        let page_bytes: u32 = snapshot.pragma_query_value(None, "page_size", |r| r.get(0))?;
+        if u64::from(pages)
+            .checked_mul(u64::from(page_bytes))
+            .ok_or(StorageError::InvalidInput)?
+            > limit
+        {
+            return Err(StorageError::InvalidInput);
+        }
+        consistent_backup(&snapshot, destination)?;
+        snapshot.commit()?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inspection_copy_checks_snapshot_budget_before_creating_any_destination() {
+        let path = std::env::temp_dir().join(format!(
+            "locallore-budget-{}-{}.sqlite",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let mut connection = Connection::open_in_memory().unwrap();
+        configure(&connection).unwrap();
+        let tx = connection.transaction().unwrap();
+        initialize(&tx, SCHEMA).unwrap();
+        tx.commit().unwrap();
+        let store = Store { connection };
+        assert_eq!(
+            store.backup_bounded(&path, 1),
+            Err(StorageError::InvalidInput)
+        );
+        assert!(!path.exists());
+        assert!(store
+            .backup_bounded(&path, MAX_INSPECTION_DATABASE_BYTES)
+            .is_ok());
+        std::fs::remove_file(path).unwrap();
+    }
 
     #[test]
     fn failed_migration_rolls_back_ddl_data_and_versions() {

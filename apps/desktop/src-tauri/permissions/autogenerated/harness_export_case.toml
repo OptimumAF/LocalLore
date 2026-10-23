@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-harness-export-case"
+description = "Enables the harness_export_case command without any pre-configured scope."
+commands.allow = ["harness_export_case"]
+
+[[permission]]
+identifier = "deny-harness-export-case"
+description = "Denies the harness_export_case command without any pre-configured scope."
+commands.deny = ["harness_export_case"]

@@ -6,6 +6,7 @@ for (const args of [
     ["build.mjs"],
     ["node_modules/typescript/bin/tsc", "--noEmit"],
     ["check-contract.mjs"],
+    ["check-export-controller.mjs"],
 ]) {
     const code = await new Promise((resolve, reject) => {
         const child = spawn(process.execPath, args, {
@@ -28,6 +29,8 @@ for (const marker of [
     "harness:durable",
     "restart-retry-does-not-double-apply",
     "harness_oracle",
+    "harness_export_case",
+    "export-snapshot-independent-of-later-turn",
 ])
     assert(
         !normal.includes(marker),

@@ -11,6 +11,14 @@ fn main() {
             .windows_attributes(tauri_build::WindowsAttributes::new().window_icon_path(&icon))
             .app_manifest(tauri_build::AppManifest::new().commands(&[
                 "host_call",
+                "inspection_preview",
+                "inspection_database_preview",
+                "inspection_save",
+                "inspection_cancel",
+                "inspection_open",
+                "inspection_storage",
+                "inspection_load",
+                "harness_export_case",
                 "harness_checkpoint",
                 "harness_viewport",
                 "harness_finish",

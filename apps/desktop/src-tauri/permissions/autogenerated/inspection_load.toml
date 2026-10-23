@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-inspection-load"
+description = "Enables the inspection_load command without any pre-configured scope."
+commands.allow = ["inspection_load"]
+
+[[permission]]
+identifier = "deny-inspection-load"
+description = "Denies the inspection_load command without any pre-configured scope."
+commands.deny = ["inspection_load"]

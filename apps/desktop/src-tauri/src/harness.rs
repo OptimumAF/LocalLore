@@ -14,6 +14,19 @@ const MAX_JSON: usize = 256 * 1024;
 const MAX_PNG: usize = 16 * 1024 * 1024;
 const MAX_CHECKPOINTS: usize = 40;
 const LABELS: &[&str] = &[
+    "export-diagnostics-preview",
+    "export-diagnostics-saved",
+    "export-player-preview",
+    "export-full-preview",
+    "export-open-readonly",
+    "export-cancelled",
+    "export-faults",
+    "export-stale",
+    "export-restarted",
+    "export-storage",
+    "export-finished",
+    "export-database",
+    "export-narrow",
     "durable-storage-error",
     "durable-initial",
     "durable-accepted",

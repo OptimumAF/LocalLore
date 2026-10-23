@@ -2,6 +2,7 @@
 
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
+import base64
 import copy
 import hashlib
 from pathlib import Path
@@ -65,11 +66,11 @@ class Device:
             if script == "exit 37":
                 phase, result = "exit", response(code=37)
             elif script.startswith("printf '%b'"):
-                phase, result = "binary", response(transport.BINARY_CONTROL)
+                phase, result = "binary", response(base64.b64encode(transport.BINARY_CONTROL))
             elif "PATH" in script:
                 phase, result = "facts", response(facts())
-            elif script.endswith('cat "$f"'):
-                phase, result = "file", response(DATABASE)
+            elif script.endswith('base64 -w 0 "$f"'):
+                phase, result = "file", response(base64.b64encode(DATABASE))
             else:
                 raise AssertionError("unexpected command")
         if self.override:
@@ -108,11 +109,12 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(observed["absent"], list(transport.NAMES[1:]))
         self.assertEqual(recovery.read_file(transport.NAMES[0], len(DATABASE), DIGEST), DATABASE)
         self.assertEqual([row[0] for row in records], ["001_features", "002_exit_control", "003_binary_control", "004_facts", "005_file_0"])
-        self.assertEqual(records[-1][1], DATABASE)
-        self.assertEqual(records[-1][2]["stdout_sha256"], DIGEST)
+        self.assertEqual(records[-1][1], base64.b64encode(DATABASE))
+        self.assertEqual(records[-1][2]["stdout_sha256"], hashlib.sha256(base64.b64encode(DATABASE)).hexdigest())
         self.assertTrue(recovery.clients_cleaned)
         self.assertEqual(len(device.calls), 5)
-        self.assertTrue(all(kwargs == {"deadline": 20} for _, kwargs in device.calls))
+        self.assertTrue(all(kwargs == {"deadline": 20} for _, kwargs in device.calls[:-1]))
+        self.assertEqual(device.calls[-1][1], {"deadline": 20, "max_output": 262144})
 
     def test_base_device_inserts_no_pty_and_roundtrip_preserves_raw_script_argument(self):
         recovery, _, _ = self.fixture()
@@ -216,9 +218,10 @@ class RecoveryTests(unittest.TestCase):
             self.assert_poisoned(recovery, device)
 
     def test_every_binary_mismatch_retains_raw_then_poison_stops_files(self):
-        for raw in (b"", transport.BINARY_CONTROL[:-1], transport.BINARY_CONTROL+b"x", b"x"*1101, transport.BINARY_CONTROL.replace(b"\r\n", b"\n")):
+        for raw in (b"", base64.b64encode(transport.BINARY_CONTROL[:-1]), base64.b64encode(transport.BINARY_CONTROL+b"x"), b"x"*1101, base64.b64encode(transport.BINARY_CONTROL.replace(b"\r\n", b"\n"))):
             recovery, device, records = self.fixture(lambda phase, old: response(raw) if phase == "binary" else old)
-            self.failure("binary_control_failed", recovery.qualify)
+            with self.assertRaises(transport.RecoveryFailure):
+                recovery.qualify()
             self.assertEqual(records[-1][1], raw)
             self.assert_poisoned(recovery, device)
 
@@ -280,7 +283,8 @@ class RecoveryTests(unittest.TestCase):
                 good.replace(transport.OWNER_SHA256.encode(), b"f"*64),
                 good.replace(b"PATH|base|directory", b"PATH|base|symbolic link"),
                 good.replace(b"|11|20|", b"|11|0|"), good.replace(b"stories.sqlite3-wal", b"foreign"),
-                good.replace(b"/owner-v1\n", b"/foreign\n"), good.replace(b"\n", b"\r\n")):
+                good.replace(b"/owner-v1\n", b"/foreign\n"), good.replace(b"\n", b"\r\n", 1),
+                good.replace(b"\n", b"\r\r\n"), good.replace(b"directory", b"direc\rtory", 1)):
             recovery, device, records = self.fixture(lambda phase, old: response(raw) if phase == "facts" else old)
             recovery.qualify()
             self.failure("facts_invalid", recovery.facts)
@@ -346,20 +350,93 @@ class RecoveryTests(unittest.TestCase):
 
     def test_file_mismatch_and_sqlite_header_failures_preserve_bounded_raw(self):
         for raw in (DATABASE[:-1], DATABASE+b"x", b"x"*len(DATABASE), b"x"*(transport.MAX_FILE+1)):
-            recovery, device, records = self.fixture(lambda phase, old: response(raw) if phase == "file" else old)
+            wire = base64.b64encode(raw)
+            recovery, device, records = self.fixture(lambda phase, old: response(wire) if phase == "file" else old)
             recovery.qualify()
             recovery.facts()
             with self.assertRaises(transport.RecoveryFailure):
                 recovery.read_file(transport.NAMES[0], len(DATABASE), DIGEST)
-            self.assertEqual(records[-1][1], raw)
+            self.assertEqual(records[-1][1], wire)
             self.assert_poisoned(recovery, device)
         raw = b"not-a-database"
-        recovery, device, records = self.fixture(lambda phase, old: response(facts(data=raw)) if phase == "facts" else (response(raw) if phase == "file" else old))
+        recovery, device, records = self.fixture(lambda phase, old: response(facts(data=raw)) if phase == "facts" else (response(base64.b64encode(raw)) if phase == "file" else old))
         recovery.qualify()
         recovery.facts()
         self.failure("sqlite_header_invalid", lambda: recovery.read_file(transport.NAMES[0], len(raw), hashlib.sha256(raw).hexdigest()))
-        self.assertEqual(records[-1][1], raw)
+        self.assertEqual(records[-1][1], base64.b64encode(raw))
         self.assert_poisoned(recovery, device)
+
+    def test_observed_lf_to_crlf_transformation_is_rejected_as_binary_but_safe_with_unwrapped_wire(self):
+        observed = transport.BINARY_CONTROL.replace(b"\n", b"\r\n")
+        self.assertEqual(len(observed), 265)
+        recovery, device, records = self.fixture(lambda phase, old: response(observed) if phase == "binary" else old)
+        self.failure("base64_invalid", recovery.qualify)
+        self.assertEqual(records[-1][1], observed)
+        self.assert_poisoned(recovery, device)
+        recovery, device, records = self.fixture(lambda _, old: response(old.stdout.replace(b"\n", b"\r\n"), code=old.returncode))
+        recovery.qualify()
+        self.assertEqual(recovery.facts()["files"][transport.NAMES[0]]["sha256"], DIGEST)
+        self.assertEqual(recovery.read_file(transport.NAMES[0], len(DATABASE), DIGEST), DATABASE)
+        self.assertNotIn(b"\n", records[-1][1])
+        self.assertEqual(records[-2][1], facts().replace(b"\n", b"\r\n"))
+
+    def test_metadata_control_separators_cannot_substitute_for_lf(self):
+        for separator in (b"\v", b"\f", b"\x1c", b"\x1d", b"\x1e"):
+            raw = facts()[:-1].replace(b"\n", separator) + b"\n"
+            recovery, device, records = self.fixture(lambda phase, old: response(raw) if phase == "facts" else old)
+            recovery.qualify()
+            self.failure("facts_invalid", recovery.facts)
+            self.assertEqual(records[-1][1], raw)
+            self.assert_poisoned(recovery, device)
+
+    def test_canonical_base64_rejects_pad_bits_padding_alphabet_and_decoded_size(self):
+        for wire in (b"Zh==", b"Zg===", b"Zg==\n", b"Zg==\r\n", b"Zg", b"Zg-_", b"%%%%", b"\xff", b" Zg==", b""):
+            recovery, device, records = self.fixture(lambda phase, old: response(facts(sidecars={transport.NAMES[1]: b"f"})) if phase == "facts" else (response(wire) if phase == "file" else old))
+            recovery.qualify()
+            recovery.facts()
+            with self.assertRaises(transport.RecoveryFailure):
+                recovery.read_file(transport.NAMES[1], 1, hashlib.sha256(b"f").hexdigest())
+            self.assertEqual(records[-1][1], wire)
+            self.assert_poisoned(recovery, device)
+
+    def test_base64_decoder_runs_only_after_wire_sink_and_remote_success(self):
+        recovery, device, records = self.fixture()
+        with patch.object(recovery, "_decode_wire", side_effect=lambda *_: (_ for _ in ()).throw(AssertionError("decoder reached"))):
+            with self.assertRaisesRegex(AssertionError, "decoder reached"):
+                recovery.qualify()
+        self.assertEqual(records[-1][1], base64.b64encode(transport.BINARY_CONTROL))
+        recovery, device, records = self.fixture(lambda phase, old: response(base64.b64encode(DATABASE), code=1) if phase == "file" else old)
+        recovery.qualify()
+        recovery.facts()
+        with patch.object(recovery, "_decode_wire", side_effect=AssertionError("decoder must not run")):
+            self.failure("command_failed", lambda: recovery.read_file(transport.NAMES[0], len(DATABASE), DIGEST))
+        self.assertEqual(records[-1][1], base64.b64encode(DATABASE))
+        self.assert_poisoned(recovery, device)
+
+    def test_maximum_file_encoded_bound_and_only_file_larger_runner_budget(self):
+        raw = b"SQLite format 3\x00" + b"\n"*(transport.MAX_FILE-16)
+        wire = base64.b64encode(raw)
+        self.assertEqual(len(wire), 174764)
+        recovery, device, records = self.fixture(lambda phase, old: response(facts(data=raw)) if phase == "facts" else (response(wire) if phase == "file" else old))
+        recovery.qualify()
+        recovery.facts()
+        self.assertEqual(recovery.read_file(transport.NAMES[0], len(raw), hashlib.sha256(raw).hexdigest()), raw)
+        self.assertEqual(records[-1][1], wire)
+        self.assertEqual(device.calls[-1][1], {"deadline": 20, "max_output": 262144})
+        self.assertTrue(all("max_output" not in kwargs for _, kwargs in device.calls[:-1]))
+        script = shlex.split(device.calls[-1][0][-1])[-1]
+        self.assertTrue(script.endswith('base64 -w 0 "$f"'))
+        self.assertNotIn(" | ", script)
+
+    def test_file_wire_output_limit_and_extra_encoded_data_poison_before_decode(self):
+        for result in (response(b"A"*transport.MAX_WIRE, status="output_limit"), response(b"A"*(transport.MAX_WIRE+1))):
+            recovery, device, records = self.fixture(lambda phase, old: result if phase == "file" else old)
+            recovery.qualify()
+            recovery.facts()
+            with patch.object(recovery, "_decode_wire", side_effect=AssertionError("decoder must not run")):
+                self.failure("command_failed", lambda: recovery.read_file(transport.NAMES[0], len(DATABASE), DIGEST))
+            self.assertEqual(records[-1][1], result.stdout)
+            self.assert_poisoned(recovery, device)
 
 
 if __name__ == "__main__":

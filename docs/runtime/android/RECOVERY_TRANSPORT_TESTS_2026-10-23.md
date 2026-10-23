@@ -39,8 +39,9 @@ from source or a mocked device.
 
 The existing host `Device.raw` delegates to `runtime_spike.run_process`: binary
 `Popen` pipes, byte reads and bounded byte accumulation, without text decoding or
-newline normalization. No conversion was found in that host path. The existing
-combined stdout/stderr cap remains unchanged.
+newline normalization. No conversion was found in that host path. Its default
+combined stdout/stderr cap is unchanged; the refinement below uses an explicit
+bounded file-wire allowance within the runner's existing global limit.
 
 ## Narrow interface and caller responsibilities
 
@@ -62,8 +63,9 @@ nor turns a storage sample into permission. No generic shell/script API is
 exposed by its public methods.
 
 Qualification requires bounded shell-v2 features, an empty-output remote exit-37
-control and the exact 262-byte fixture (all 256 byte values, NUL, CRLF and an
-escape-like line). Features admit the installed client's LF/CRLF line-per-token
+control and the exact 262-byte fixture decoded from canonical, unwrapped Base64
+(all 256 byte values, NUL, CRLF and an escape-like line). Features admit the
+installed client's LF/CRLF line-per-token
 shape and a strictly separated comma form; duplicate/malformed/mixed shapes fail.
 The new commands use one explicitly joined shell string with `-e none` and the
 existing Device-inserted `-T`, with no `-x`, terminal or pre-quoted script argv.
@@ -71,7 +73,7 @@ The mandatory real controls verify the actual client/target behavior before any
 source facts or file content may be requested.
 
 `raw_sink(stage, stdout, safe_process_metadata)` must synchronously retain the
-exact available bounded bytes, create-only, or raise. It receives each result
+exact available bounded **wire** bytes, create-only, or raise. It receives each result
 before decoding, status/exit/size/hash validation, including partial failed
 results. Stage labels are deterministic and unique within the helper. Sink
 failure, any transport/control/fact/file failure, or unknown cleanup poisons the
@@ -103,7 +105,7 @@ explicitly absent, with the main database present. Known regular/regular-empty
 stat labels are accepted, the latter only for size zero. Repeated facts must be
 identical or the helper poisons. Returned dictionaries cannot mutate its private
 file admission state. A capture must match the latest size/hash and the main
-file must start with the SQLite header. No SQL is executed on Android.
+decoded file must start with the SQLite header. No SQL is executed on Android.
 
 The coordinator retains pristine captures, checks before/after facts and uses
 the shared strict Rust read-only replay on a separate local working copy. A
@@ -119,7 +121,7 @@ The author ran:
 python -B -m unittest discover -s scripts/tests -p test_android_recovery_transport.py -v
 ```
 
-The final invocation passed **24 tests**. Cases include quote/token roundtrips,
+The initial shell transport's final invocation passed **24 tests**. Cases include quote/token roundtrips,
 raw retention before parser/status rejection, strict remote-exit/features,
 all-byte corruption/short/extra output, exception/sink cleanup fences, metadata
 duplicates/path/owner/ancestor/sidecar changes, exact bounds and filename rules,
@@ -137,6 +139,58 @@ device or model operation was attempted. All three host invocations passed:
 failure state. Private official-source/installed-tool records and every test
 log/exit are retained in the dedicated read-only-recovery
 author D-drive root. The old sealed attempt was neither edited nor retried by
-the author. Actual recovery, strict replay or an explicit unknown outcome remain
-coordinator/device-observer work; full milestone and physical-device gates stay
-unchecked.
+the author.
+
+## Actual-control failure and Base64 refinement
+
+After that source freeze, the coordinator ran one real shell-v2 cohort. Features
+and the exit-37 control passed, but the raw fixture returned 265 bytes: each of its
+three LF bytes had an added CR. The complete raw output was retained. The exact
+comparison correctly failed and prevented database reads. This observation does
+not identify which component performed that transformation. The host tests did
+not establish binary transparency for the actual target; the failed attempt
+remains separate evidence and no canonical outcome is inferred from it.
+
+Refinement comment `6374021698` replaces the binary wire with canonical Base64.
+The fixed control encodes the fixture using `base64 -w 0`; file capture directly
+invokes `base64 -w 0 "$f"`, without a reader pipeline that could hide a failed
+read. Official Android 15
+[Toybox source](https://android.googlesource.com/platform/external/toybox/+/refs/tags/android-15.0.0_r1/toys/other/base64.c)
+documents the no-wrap option and implements it without a trailing newline.
+The author retained that official source and its hash; no dependency was added.
+Actual support still must pass the real byte control before any file is read.
+
+After wire retention and successful remote completion, the decoder uses strict
+Base64 validation and requires exact equality after re-encoding. Whitespace,
+alternate pad bits, extra padding and other noncanonical forms fail. Decoded
+length and full hash must equal the fixed control or captured facts; the main
+header check remains. There is no newline normalization of decoded binary.
+Only ASCII facts may use uniform LF or uniform CRLF framing; mixed, doubled or
+interior CR is rejected after raw retention.
+
+The logical file limit remains 131,072 bytes. Its largest encoding is 174,764
+bytes, so only file exchanges explicitly request a 262,144-byte combined runner
+budget through the coordinator's additive `Device.raw(max_output=...)` adapter.
+Features, exit control, encoded control and metadata preserve the default call
+contract and cap. The global runner maximum is unchanged. Wire-size limits are
+checked before decoding, and failed/overflow wire prefixes remain retained.
+
+The first refinement invocation passed **29 transport tests**. The additional
+cases reproduce the observed 262-to-265 transformation, verify unchanged
+unwrapped wire/decoded bytes through that simulated channel, exercise canonical
+Base64 adversaries, enforce raw-before-decode/status ordering, and test the exact
+128 KiB logical/174,764-byte wire boundary and file-only budget. The coordinator's
+three output-budget tests also passed locally, including a real trusted Python
+child emitting 174,764 encoded bytes: the unchanged default reports output limit,
+while the explicit bounded allowance preserves the complete wire with known
+cleanup. Independent review then found that Python `splitlines()` admitted
+non-LF ASCII separators despite the framing contract. An original regression
+reproduced that defect (30 tests: 29 passed, one failed); replacing that split
+with the explicit validated LF delimiter made the final **30 transport tests
+pass**. The red and green logs are retained separately. These are host checks,
+not actual Android recovery results. All new
+logs/source records live in a separate `v2` evidence subdirectory; the original
+14-file binding and preceding device attempts remain immutable.
+
+Actual recovery, strict replay or an explicit unknown outcome remain coordinator/
+device-observer work. Full milestone and physical-device gates stay unchecked.

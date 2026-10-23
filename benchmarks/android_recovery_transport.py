@@ -2,6 +2,8 @@
 
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
+import base64
+import binascii
 import hashlib
 import re
 import shlex
@@ -9,6 +11,7 @@ import shlex
 PACKAGE = "org.locallore.runtimebench.litert.cacheprobe"
 NAMES = ("stories.sqlite3", "stories.sqlite3-wal", "stories.sqlite3-shm", "stories.sqlite3-journal")
 MAX_FILE = 131072
+MAX_WIRE = ((MAX_FILE + 2) // 3) * 4
 OWNER = b"locallore-explicit-cache-probe-v1\n"
 OWNER_SHA256 = hashlib.sha256(OWNER).hexdigest()
 BINARY_CONTROL = bytes(range(256)) + b"\x00\r\n~.\n"
@@ -85,12 +88,15 @@ class ReadOnlyRecovery:
         if not self.clients_cleaned:
             self._fail("client_cleanup_unknown")
 
-    def _exchange(self, phase, arguments, limit, expected_code=0):
+    def _exchange(self, phase, arguments, limit, expected_code=0, file_output=False):
         self._known()
         self.__sequence += 1
         stage = f"{self.sequence:03d}_{phase}"
         try:
-            result = self.device.raw(arguments, deadline=20)
+            # Only a 128 KiB file's Base64 expansion needs the already-supported
+            # 256 KiB combined runner cap. All other operations keep its default.
+            options = {"max_output": 262144} if file_output else {}
+            result = self.device.raw(arguments, deadline=20, **options)
         except Exception as error:
             self.__clients_cleaned &= getattr(error, "command_cleaned", None) is True
             self.__clients_cleaned &= getattr(self.device, "clients_cleaned", None) is True
@@ -115,7 +121,7 @@ class ReadOnlyRecovery:
             "cleanup_complete": self.clients_cleaned,
             "stdout_bytes": len(raw) if type(raw) is bytes else None,
             "stdout_sha256": hashlib.sha256(raw).hexdigest() if type(raw) is bytes else None,
-            "stderr_bytes": stderr if type(stderr) is int and 0 <= stderr <= MAX_FILE else None}
+            "stderr_bytes": stderr if type(stderr) is int and 0 <= stderr <= (262144 if file_output else MAX_FILE) else None}
         try:
             self.raw_sink(stage, raw if type(raw) is bytes else b"", safe)
         except Exception:
@@ -151,14 +157,28 @@ class ReadOnlyRecovery:
         if self._exchange("exit_control", self._command("exit 37"), 0, expected_code=37) != b"":
             self._fail("exit_control_failed")
         escaped = "".join("\\0%03o" % byte for byte in BINARY_CONTROL)
-        script = "printf '%b' " + shlex.quote(escaped)
-        raw = self._exchange("binary_control", self._command(script), 4096)
+        script = "printf '%b' " + shlex.quote(escaped) + " | base64 -w 0"
+        wire = self._exchange("binary_control", self._command(script), 4096)
+        raw = self._decode_wire(wire, len(BINARY_CONTROL))
         if raw != BINARY_CONTROL:
             self._fail("binary_control_failed")
         self.__qualified = True
         return {"version": 1, "status": "qualified", "shell_v2": True, "remote_exit_verified": True,
             "binary_control_bytes": len(raw), "binary_control_sha256": hashlib.sha256(raw).hexdigest(),
             "clients_cleaned": True}
+
+    def _decode_wire(self, wire, expected_bytes):
+        if len(wire) > ((expected_bytes + 2) // 3) * 4:
+            self._fail("base64_invalid")
+        try:
+            raw = base64.b64decode(wire, validate=True)
+        except (ValueError, binascii.Error):
+            self._fail("base64_invalid")
+        if base64.b64encode(raw) != wire:
+            self._fail("base64_invalid")
+        if len(raw) != expected_bytes:
+            self._fail("decoded_size_mismatch")
+        return raw
 
     def _ready(self):
         self._known()
@@ -207,10 +227,19 @@ class ReadOnlyRecovery:
             "owner": {**facts["owner"], "metadata": list(facts["owner"]["metadata"])}}
 
     def _parse_facts(self, raw):
+        # Metadata is ASCII text only. Accept uniform LF or CRLF after raw
+        # retention; never apply newline conversion to a binary/Base64 payload.
+        if b"\r" in raw:
+            normalized = raw.replace(b"\r\n", b"\n")
+            if b"\r" in normalized or normalized.replace(b"\n", b"\r\n") != raw:
+                raise ValueError("framing")
+            raw = normalized
         text = raw.decode("ascii")
-        if not text.endswith("\n") or "\r" in text or "\x00" in text:
+        if not text.endswith("\n") or "\x00" in text:
             raise ValueError("framing")
-        lines = iter(text.splitlines())
+        # splitlines() also treats VT/FF/record separators as line endings.
+        # Only the already-validated LF delimiter is part of this protocol.
+        lines = iter(text[:-1].split("\n"))
 
         def stat(line, prefix, kind):
             fields = line.split("|")
@@ -271,8 +300,11 @@ class ReadOnlyRecovery:
                 or self._facts["files"][name]["sha256"] != expected_sha256):
             self._fail("facts_required")
         script = self._guards() + f'f={shlex.quote(self.directory + "/" + name)}; '
-        script += self._bounded_file() + 'cat "$f"'
-        raw = self._exchange("file_" + str(NAMES.index(name)), self._command(script), MAX_FILE)
+        # A direct encoder invocation preserves read failures in its exit code.
+        # Never pipe cat into an encoder, which could conceal the reader's exit.
+        script += self._bounded_file() + 'base64 -w 0 "$f"'
+        wire = self._exchange("file_" + str(NAMES.index(name)), self._command(script), MAX_WIRE, file_output=True)
+        raw = self._decode_wire(wire, expected_bytes)
         if len(raw) != expected_bytes or hashlib.sha256(raw).hexdigest() != expected_sha256:
             self._fail("file_mismatch")
         if name == NAMES[0] and not raw.startswith(b"SQLite format 3\x00"):

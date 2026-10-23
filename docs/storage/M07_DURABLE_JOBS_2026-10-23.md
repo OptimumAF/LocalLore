@@ -124,3 +124,20 @@ Final complete results, source revisions, commands, environment and limitations
 will be recorded before this change is proposed for merge. Capacity17/32 schema3
 profiles are not qualified by these unit tests and require separate schema4
 measurement/requalification; their historical reports are not re-labelled.
+
+The schema4 preflight passed seven independent review regressions, seven retained
+branch tests and eight story-deletion tests. Two migration fixture assumptions
+failed: a filename filter still required `before-v3` while the actual owner
+correctly created `before-v4`; the newly added v3 backup test demanded identical
+whole-file bytes. A diagnostic rerun retained the original failing assertion and
+measured equal126,976-byte files differing only at offsets27,43,95. These are
+SQLite header change-counter, schema-cookie and version-valid-for fields, per
+the [official file format](https://www.sqlite.org/fileformat.html#the_database_header).
+The pinned bundled SQLite backup implementation explicitly updates its destination
+schema cookie (`sqlite3.c`, backup step near85131–85142). The test now requires
+every byte outside those three four-byte header fields to match, exact canonical
+and cache SQL rows, literal receipts, historical schema identity and replay.
+No production backup code, historical payload or original migration oracle was
+altered. `semantic-migration-preflight.log`, `schema3-backup-diagnostic.log` and
+`schema3-backup-offsets.log` retain the failed attempts. A mistakenly shortened
+exact-name diagnostic matched zero tests and is not counted as verification.

@@ -333,7 +333,20 @@ fn exact_v3_safety_copy_and_upgrade_preserve_every_canonical_and_cache_row() {
         .map(|(i, _)| i)
         .collect::<Vec<_>>();
     eprintln!("synthetic_v3_backup original_bytes={} saved_bytes={} changed_offset_count={} first_changed_offsets={:?}",original.len(),saved_bytes.len(),changed_offsets.len(),changed_offsets.iter().take(64).collect::<Vec<_>>());
-    assert!(original == saved_bytes, "whole-file backup byte comparison");
+    // The new whole-file assertion exposed only offsets27/43/95. SQLite's
+    // backup API updates destination change counters/schema cookie; these are
+    // not canonical records or user_version. Compare every other byte exactly,
+    // and compare all scoped SQL rows and literal receipts below. No backup
+    // implementation or historical input is changed to satisfy this fixture.
+    assert_eq!(original.len(), saved_bytes.len());
+    assert!(
+        changed_offsets
+            .iter()
+            .all(|offset| matches!(offset,24..=27|40..=43|92..=95)),
+        "backup changed bytes outside SQLite bookkeeping header fields"
+    );
+    same(&data, &rows(&backup, true));
+    same(&receipts, &literal_receipts(&backup));
     same(&states, &state(&backup, &f.scopes));
     drop(upgraded);
     verify_retention_empty(&Store::open(&f.path, None).unwrap(), &f.path, &f.scopes);

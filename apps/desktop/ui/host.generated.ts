@@ -63,6 +63,11 @@ export type HostCommand =
           session: string;
       }
     | {
+          op: "inspection_query";
+          query: Query;
+          session: string;
+      }
+    | {
           op: "model_status";
       }
     | {
@@ -171,6 +176,27 @@ export type Command =
           ticks: number;
       };
 export type PlayInputKind = "action" | "dialogue";
+export type Observer =
+    | {
+          kind: "player";
+      }
+    | {
+          id: string;
+          kind: "character";
+      }
+    | {
+          kind: "omniscient";
+      };
+export type View =
+    | "profiles"
+    | "history"
+    | "relationships"
+    | "knowledge"
+    | "promises"
+    | "provenance"
+    | "turn_diff"
+    | "summaries"
+    | "retrieval_indexes";
 
 /**
  * One source of truth for the generated frontend JSON Schema. No arbitrary seed import.
@@ -189,4 +215,21 @@ export interface Request {
     scope: Scope;
     turn: string;
     version: number;
+}
+export interface Query {
+    at_revision?: number | null;
+    cursor?: string | null;
+    /**
+     * Current authoritative head, even when inspecting a historical completed turn.
+     */
+    expected_head: number;
+    limit: number;
+    observer: Observer;
+    scope: Scope;
+    /**
+     * Literal case-insensitive substring of eligible serialized rows; not SQL/FTS syntax.
+     */
+    search: string;
+    version: number;
+    view: View;
 }

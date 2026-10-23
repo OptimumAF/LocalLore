@@ -117,6 +117,10 @@ pub enum HostCommand {
         observer: String,
         expected_revision: u64,
     },
+    InspectionQuery {
+        session: String,
+        query: crate::inspection_query::Query,
+    },
     ModelStatus {},
     PlaySnapshot {
         session: String,
@@ -318,6 +322,28 @@ impl Host {
         host.state.lock().unwrap().persistence = Some(persistence);
         host
     }
+    /// Read-only derived views use one immutable durable snapshot. The inspection grant
+    /// comes only from trusted Host construction, never from a query or generation context.
+    pub fn inspection_query(
+        &self,
+        session: &str,
+        query: &crate::inspection_query::Query,
+    ) -> Result<crate::inspection_query::Page, String> {
+        let engine = {
+            let mut state = self.state.lock().map_err(|_| "Internal")?;
+            let session = state.sessions.get(session).ok_or("Closed")?;
+            if session.engine.scope() != &query.scope {
+                return Err("Scope".into());
+            }
+            let cached = session.engine.clone();
+            if let Some(port) = state.persistence.as_mut() {
+                port.resume(&query.scope)?
+            } else {
+                cached
+            }
+        };
+        crate::inspection_query::query(&engine, query, self.story_lab).map_err(|e| e.to_string())
+    }
     pub fn new(story_lab: bool) -> Self {
         Self {
             state: Arc::default(),
@@ -342,6 +368,12 @@ impl Host {
             } = envelope.command
             {
                 return self.prepare(&session, &scope, &turn);
+            }
+            if let HostCommand::InspectionQuery { session, query } = &envelope.command {
+                return match self.inspection_query(session, query) {
+                    Ok(page) => ok(json!(page)),
+                    Err(error) => reject(error),
+                };
             }
             let mut state = self.state.lock().unwrap();
             if let HostCommand::FreeText { session, request } = envelope.command {
@@ -671,7 +703,7 @@ impl Host {
                 }
                 reject("Unsupported")
             }
-            HostCommand::Prepare { .. } => unreachable!(),
+            HostCommand::Prepare { .. } | HostCommand::InspectionQuery { .. } => unreachable!(),
         }
     }
 

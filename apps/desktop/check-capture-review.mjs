@@ -34,6 +34,7 @@ const session = {
     revision: 0,
 };
 let captureEnabled = false;
+let revokeError = null;
 let releaseClear, enteredClear;
 const clearHeld = new Promise((resolve) => (releaseClear = resolve));
 const clearEntered = new Promise((resolve) => (enteredClear = resolve));
@@ -91,6 +92,7 @@ const gateway = {
             };
         }
         if (q.op === "trace_capture_revoke") {
+            if (revokeError) throw Error(revokeError);
             captureEnabled = false;
             return { version: 1, scope, revoked: true };
         }
@@ -112,9 +114,7 @@ const gameplay = new Controller(
     gateway,
     undefined,
     "review-private-race",
-    () => {
-        void capture.disable();
-    },
+    (work) => capture.metadataControl(work),
 );
 const capture = new CaptureController(gateway, () => gameplay.readTrace());
 const sync = () => {
@@ -145,16 +145,18 @@ await capture.configure(true);
 assert.equal(captureEnabled, true);
 const clearing = gameplay.controlTrace("clear");
 await clearEntered;
-for (let n = 0; n < 100 && capture.get().controlBusy; n++)
-    await new Promise((resolve) => setImmediate(resolve));
-assert.equal(capture.get().controlBusy, false);
+assert.equal(
+    capture.get().controlBusy,
+    true,
+    "whole metadata effect is fenced",
+);
 assert.equal(
     gameplay.get().trace.controlBusy,
     true,
     "metadata operation remains in flight",
 );
 assert.equal(captureEnabled, false, "private revoke itself completed");
-// A user can currently press the capture panel's Enable button: only its own controlBusy is checked.
+// Exercise the same direct action even while the UI button is disabled.
 const renewing = capture.configure(true);
 for (let n = 0; n < 5; n++)
     await new Promise((resolve) => setImmediate(resolve));
@@ -164,9 +166,6 @@ await clearing;
 await renewing;
 const displayedAfter = capture.get().enabled;
 const nativeAfter = captureEnabled;
-releaseSubscription();
-await capture.dispose();
-await gameplay.dispose();
 assert.equal(
     renewedBeforeOldClear,
     false,
@@ -176,6 +175,66 @@ assert(
     displayedAfter !== true || nativeAfter,
     "UI must not claim enabled after older clear removes native consent",
 );
+assert.equal(capture.get().controlBusy, false);
+await assert.rejects(
+    capture.metadataControl(async () => {
+        throw Error("synthetic-metadata-failure");
+    }),
+    /synthetic-metadata-failure/,
+);
+assert.equal(capture.get().controlBusy, false, "throw releases barrier");
+assert.equal(capture.get().enabled, false);
+revokeError = "TraceUnavailable";
+let metadataRan = false;
+await capture.metadataControl(async () => {
+    metadataRan = true;
+});
+assert.equal(
+    metadataRan,
+    true,
+    "unavailable revoke does not drop metadata work",
+);
+assert.equal(capture.get().controlBusy, false, "unavailable revoke settles");
+assert.equal(capture.get().enabled, null, "unconfirmed revoke is not disabled");
+assert.match(capture.get().cleanup, /TraceUnavailable/);
+revokeError = null;
+let releaseMetadata, enteredMetadata;
+const metadataHeld = new Promise((resolve) => (releaseMetadata = resolve));
+const metadataEntered = new Promise((resolve) => (enteredMetadata = resolve));
+const oldMetadata = capture.metadataControl(async () => {
+    enteredMetadata();
+    await metadataHeld;
+});
+await metadataEntered;
+capture.contextChanged(
+    { ...session, id: "reopened-review-session" },
+    0,
+    true,
+    null,
+);
+assert.equal(capture.get().controlBusy, true);
+const enableCallsBefore = calls.filter(
+    (q) => q.op === "trace_capture_configure",
+).length;
+await capture.configure(true);
+assert.equal(
+    calls.filter((q) => q.op === "trace_capture_configure").length,
+    enableCallsBefore,
+    "switch cannot grant before old metadata and context revocation settle",
+);
+releaseMetadata();
+await oldMetadata;
+for (let n = 0; n < 100 && capture.get().controlBusy; n++)
+    await new Promise((resolve) => setImmediate(resolve));
+assert.equal(capture.get().controlBusy, false);
+assert.equal(
+    capture.get().enabled,
+    null,
+    "old completion cannot label reopened session",
+);
+releaseSubscription();
+await capture.dispose();
+await gameplay.dispose();
 console.log(
-    "PASS: metadata clear and private enable share an ordering barrier; truthful consent survives delayed effects.",
+    "PASS: metadata clear and private enable share an ordering barrier; truthful consent survives delayed effects, thrown metadata, unavailable revocation and session switching.",
 );

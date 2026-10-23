@@ -24,7 +24,12 @@ the shared query. Actual speech remains in an observed Said event.
 The initial view is a table, not a raw JSON dump. Selecting a record opens readable
 detail; exact JSON is a collapsed secondary disclosure. Mutable fields link to
 seed or eligible event sources. Withheld evidence is labelled and cannot be
-followed. **Why is this true?** opens the matching field provenance. Event sources
+followed. **Why is this true?** opens the matching field provenance. Removed fields use
+the prior head, explicitly show absence at the after-head, and offer separate
+observer-filtered completed-turn history. Event/message records route to accepted
+event sources instead of nonexistent field-provenance keys; unavailable evidence
+is labelled, and provenance records already showing sources have no Why loop.
+Event sources
 open accepted history, and **Compare completed turn** resolves the actual receipt
 boundary rather than treating any event sequence as a complete turn. A selected
 chat receipt also offers **Trace turn & evidence**. Before/after detail shows two
@@ -50,7 +55,12 @@ it does not cache private pages across lenses. Every read captures the exact
 session, story, branch, current head, inspected head, observer, view, search, limit,
 cursor, workspace mode and operation epoch. Late success and error responses must
 still match that whole context. Story/lens/head changes synchronously remove old
-rows and selected records. A stale current head shows no old results and offers
+rows and selected records. Story/lens changes also reset derived search, inspected
+revision and change-trace parameters; a private Why key does not linger under a
+new lens. Return to play closes the browser, switches mode/observer to Play/Player
+and clears the legacy private inspection. Source navigation checks its captured
+query epoch again after awaiting, including selection and status text.
+A stale current head shows no old results and offers
 an explicit refresh. Search is a literal substring over permitted serialized
 records, not SQL, semantic search or access to hidden counts.
 
@@ -97,4 +107,5 @@ The inspector uses native form controls, table captions, row/column headers,
 keyboard focus and status announcements. The finite captures verify readable
 selected states, including 150% text at narrow width. They do not replace a full
 assistive-technology audit or long-history performance qualification. See the
-[executed verification record](D05_NATIVE_VERIFICATION_2026-10-22.md).
+[executed verification record](D05_NATIVE_VERIFICATION_2026-10-22.md) and
+[review repair](D05_NATIVE_PROVENANCE_REPAIR_2026-10-22.md).

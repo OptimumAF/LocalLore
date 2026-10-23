@@ -1,6 +1,11 @@
 # D05 native inspection verification - 2026-10-22
 
-D05.01–.07 bounded desktop UI integration is ready for review. The definitive
+The 81-assertion baseline below predates the source-review provenance/context
+repair. The [follow-up verification](D05_NATIVE_PROVENANCE_REPAIR_2026-10-22.md)
+records the definitive repaired run: 93 assertions,14 captures, clean78e55ff,
+including removed-field Why, accepted turn sources and actual Return to Play.
+
+D05.01–.07 bounded desktop UI integration is ready for review. The baseline
 native run passed **81 distinct assertions, 14 app-owned PNG captures and a real
 executable process restart** against one fresh synthetic SQLite workspace. No real
 model was loaded or called. Shared M06/M07 memory/retrieval prerequisites, complete

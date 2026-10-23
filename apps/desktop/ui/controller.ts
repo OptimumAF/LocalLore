@@ -496,14 +496,14 @@ export class Controller {
                 !Number.isSafeInteger(reply.revision)
             )
                 throw new Error("Wire");
-            const saved = this.state.workspace?.stories.find((s) =>
-                sameScope(s.scope, scope),
+            const saved = this.state.workspace?.stories.find(
+                (s) => s.scope.story === scope.story,
             );
             const session = {
                 id: reply.session,
                 scope,
                 revision: reply.revision,
-                name: saved?.title ?? "Lantern Quay",
+                name: saved?.title ?? "Saved story",
             };
             this.patch({
                 sessions: [...this.state.sessions, session],

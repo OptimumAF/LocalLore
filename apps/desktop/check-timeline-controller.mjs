@@ -168,6 +168,20 @@ async function actualChildResume() {
     const gateway = {
         async call(q) {
             calls.push(q);
+            if (q.op === "workspace")
+                return {
+                    persistent: true,
+                    location: "<synthetic-workspace>",
+                    schema_version: 1,
+                    stories: [
+                        {
+                            scope: scope("main"),
+                            title: "Original synthetic story",
+                            revision: 1,
+                            drafts: 0,
+                        },
+                    ],
+                };
             if (q.op === "resume")
                 return {
                     session: "child-session",
@@ -192,6 +206,7 @@ async function actualChildResume() {
         },
     };
     const c = new Controller(gateway);
+    await c.library();
     await c.attach({
         id: "root-session",
         scope: scope("main"),
@@ -203,6 +218,10 @@ async function actualChildResume() {
     check(
         c.selected()?.scope.branch === "child" && c.get().play?.revision === 2,
         "actual-gameplay-child-resume",
+    );
+    check(
+        c.selected()?.name === "Original synthetic story",
+        "child-resume-uses-canonical-story-title",
     );
     check(
         c.get().play.receipts[0].request.scope.branch === "main" &&

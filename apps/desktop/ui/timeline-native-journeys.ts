@@ -48,6 +48,11 @@ export async function timelineNativeJourneys({
     const capture = async (label: string) => {
         await new Promise((r) => setTimeout(r, 100));
         const root = document.getElementById("root")!;
+        check(
+            c.selected()?.name === "Synthetic saved timelines" &&
+                root.textContent?.includes("Synthetic saved timelines"),
+            `${label}-canonical-story-title`,
+        );
         const panel = document.querySelector(".timeline-panel");
         const rows = [
             ...(panel?.querySelectorAll(

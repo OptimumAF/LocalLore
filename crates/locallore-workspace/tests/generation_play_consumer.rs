@@ -273,7 +273,9 @@ fn actual_player_job_reaches_production_compiler_after_npc_inspection_without_ex
                 view: View::Knowledge,
                 cursor: None,
                 limit: 64,
-                search: String::new(),
+                // Literal search selects the permitted fact before pagination;
+                // the unfiltered first page is filled by earlier statement rows.
+                search: "NPC-ONLY-SOURCE-947".into(),
             },
         )
         .unwrap();

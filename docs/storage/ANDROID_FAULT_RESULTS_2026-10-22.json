@@ -1,0 +1,296 @@
+{
+  "version": 1,
+  "date": "2026-10-22",
+  "tasks": [
+    "M04.04"
+  ],
+  "source_revision": "3267aa6",
+  "base_main": "bc6420030b500e7dd0cea5d59ec2f5d2e7e798e6",
+  "synthetic": true,
+  "production_behavior_changed": false,
+  "new_dependencies": false,
+  "source_sha256": {
+    "crates/locallore-storage/src/turns.rs": "ac4ac05b23f8b7aa10c5496707282abba2cdab9632358bc5a345352cd871f9af",
+    "crates/locallore-storage/src/turns/storage_pressure.rs": "0c87561bff5c1391151b6ebce4831a85d92584789fd2ef6943c6afb988d8f58d",
+    "scripts/storage_android_smoke.py": "e0799b67a4b550dcd7db853db7a06b3de3a0eec34a4628ab0fbfd6af26e21a60",
+    "scripts/tests/test_storage_android_smoke.py": "0e690f12c26c5bc294a9678fd05e447022e412c1aa23234cfe1275f2392821a6",
+    "Cargo.lock": "f2106d0f259a105a7287bdccf40fcadb72eaa24c26bc69d4111955c49a7ae832"
+  },
+  "host": {
+    "offline_gate": "passed",
+    "rust_workspace_test_entries": 125,
+    "linker_tests": 3,
+    "python_tests": 198,
+    "python_suites": [
+      116,
+      10,
+      14,
+      20,
+      13,
+      25
+    ],
+    "new_pressure_tests_included": 3,
+    "new_helper_tests_included": 7,
+    "format_clippy_fixtures": "passed"
+  },
+  "builds": [
+    {
+      "abi": "x86_64",
+      "bytes": 4578184,
+      "sha256": "9d998b2f6991764ded0c68c98fc05ae3fe01fe08e561736c4b9e4f3a79c01dc3",
+      "elf_machine": 62,
+      "pie": true,
+      "load_alignments": [
+        16384,
+        16384,
+        16384
+      ],
+      "needed": [
+        "libdl.so",
+        "libm.so",
+        "libc.so"
+      ],
+      "kind": "storage_unit_tests",
+      "artifact": "rust/x86_64-linux-android/release/deps/locallore_storage-738a58859d317434"
+    },
+    {
+      "abi": "arm64-v8a",
+      "bytes": 4646800,
+      "sha256": "cd19d71ba6131e438c757741dd64117971e4959c6af28e83fefb316901ac47a7",
+      "elf_machine": 183,
+      "pie": true,
+      "load_alignments": [
+        16384,
+        16384,
+        16384
+      ],
+      "needed": [
+        "libdl.so",
+        "libm.so",
+        "libc.so"
+      ],
+      "kind": "storage_unit_tests",
+      "artifact": "rust/aarch64-linux-android/release/deps/locallore_storage-8c24e16018607a79"
+    }
+  ],
+  "runtime": {
+    "os": "Android 15",
+    "api": 35,
+    "abi": "x86_64",
+    "targets": 2,
+    "other_emulators_untouched": 3,
+    "arm64_execution": false,
+    "app_apk_or_data_modified": false,
+    "model_loaded": false
+  },
+  "attempts": [
+    {
+      "journal_sha256": "171b883a11239f1d099ff99693e8a645d5d5e5c7f5416dcdbc751c925484b8af",
+      "journal": [
+        {
+          "binary_sha256": "9d998b2f6991764ded0c68c98fc05ae3fe01fe08e561736c4b9e4f3a79c01dc3",
+          "cases": [],
+          "cases_expected": 12,
+          "clients_cleaned": true,
+          "event": "started",
+          "execution": null,
+          "failure_stage": "none",
+          "native_absent_after": false,
+          "native_absent_before": false,
+          "owned_root_removed": false,
+          "status": "failed",
+          "target": "A"
+        },
+        {
+          "binary_sha256": "9d998b2f6991764ded0c68c98fc05ae3fe01fe08e561736c4b9e4f3a79c01dc3",
+          "cases": [
+            {
+              "case": "tests::every_configured_connection_enforces_foreign_keys_and_disables_extensions",
+              "outcome": "ok"
+            },
+            {
+              "case": "tests::failed_migration_rolls_back_ddl_data_and_versions",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::storage_pressure::full_after_insertable_gift_rolls_back_all_rows_then_exact_retry_spends_once",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::storage_pressure::full_then_reopen_preserves_draft_and_exact_retry_spends_potion_once",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::storage_pressure::full_while_creating_draft_leaves_no_turn_and_same_connection_can_retry",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::tests::actual_threads_cancel_against_commit_have_one_durable_winner",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::tests::failures_at_every_commit_boundary_leave_old_or_complete_new_state",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::tests::omitted_receipt_suffix_cannot_hide_a_persisted_head",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::tests::process_exit_without_destructors_recovers_before_and_after_commit",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::tests::projection_is_replaceable_but_canonical_rows_fail_closed",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::tests::sqlite_full_rolls_back_events_projection_response_status_and_head",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::tests::writer_contention_is_bounded_and_draft_phase_releases_the_writer",
+              "outcome": "ok"
+            }
+          ],
+          "cases_expected": 12,
+          "clients_cleaned": true,
+          "event": "finished",
+          "execution": {
+            "client_cleanup": true,
+            "returncode": 0,
+            "status": "completed"
+          },
+          "failure_stage": "none",
+          "native_absent_after": true,
+          "native_absent_before": true,
+          "owned_root_removed": true,
+          "protocol_success": true,
+          "status": "passed",
+          "target": "A"
+        }
+      ]
+    },
+    {
+      "journal_sha256": "427c2987fb7fd69223101202d28c71654b794441ff3e9c78bf016a5b7bab3d0d",
+      "journal": [
+        {
+          "binary_sha256": "9d998b2f6991764ded0c68c98fc05ae3fe01fe08e561736c4b9e4f3a79c01dc3",
+          "cases": [],
+          "cases_expected": 12,
+          "clients_cleaned": true,
+          "event": "started",
+          "execution": null,
+          "failure_stage": "none",
+          "native_absent_after": false,
+          "native_absent_before": false,
+          "owned_root_removed": false,
+          "status": "failed",
+          "target": "B"
+        },
+        {
+          "binary_sha256": "9d998b2f6991764ded0c68c98fc05ae3fe01fe08e561736c4b9e4f3a79c01dc3",
+          "cases": [
+            {
+              "case": "tests::every_configured_connection_enforces_foreign_keys_and_disables_extensions",
+              "outcome": "ok"
+            },
+            {
+              "case": "tests::failed_migration_rolls_back_ddl_data_and_versions",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::storage_pressure::full_after_insertable_gift_rolls_back_all_rows_then_exact_retry_spends_once",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::storage_pressure::full_then_reopen_preserves_draft_and_exact_retry_spends_potion_once",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::storage_pressure::full_while_creating_draft_leaves_no_turn_and_same_connection_can_retry",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::tests::actual_threads_cancel_against_commit_have_one_durable_winner",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::tests::failures_at_every_commit_boundary_leave_old_or_complete_new_state",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::tests::omitted_receipt_suffix_cannot_hide_a_persisted_head",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::tests::process_exit_without_destructors_recovers_before_and_after_commit",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::tests::projection_is_replaceable_but_canonical_rows_fail_closed",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::tests::sqlite_full_rolls_back_events_projection_response_status_and_head",
+              "outcome": "ok"
+            },
+            {
+              "case": "turns::tests::writer_contention_is_bounded_and_draft_phase_releases_the_writer",
+              "outcome": "ok"
+            }
+          ],
+          "cases_expected": 12,
+          "clients_cleaned": true,
+          "event": "finished",
+          "execution": {
+            "client_cleanup": true,
+            "returncode": 0,
+            "status": "completed"
+          },
+          "failure_stage": "none",
+          "native_absent_after": true,
+          "native_absent_before": true,
+          "owned_root_removed": true,
+          "protocol_success": true,
+          "status": "passed",
+          "target": "B"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "attempts_started": 2,
+    "attempts_finished": 2,
+    "attempts_passed": 2,
+    "unique_cases": 12,
+    "case_passes": 24,
+    "case_failures": 0,
+    "case_skips": 0,
+    "auxiliary_child_entry_filtered_per_target": 1,
+    "commit_error_stages_per_target": 7,
+    "abrupt_child_exit_stages_per_target": 7,
+    "all_native_processes_absent": true,
+    "all_owned_roots_removed": true,
+    "all_host_clients_cleaned": true
+  },
+  "retained_development_findings": [
+    {
+      "kind": "coverage_gap",
+      "finding": "Failed sole-potion turn was reopened only after successful retry",
+      "resolution": "Added failure-reopen-original-key retry case in 8a4abad"
+    },
+    {
+      "kind": "fixture_failure",
+      "finding": "Parallel nanosecond-only temporary directory names collided on Windows",
+      "resolution": "Atomic sequence suffix in 8a4abad; targeted three-test suite passed twice afterwards"
+    }
+  ],
+  "limits": [
+    "SQLite page-limit Full, not partition ENOSPC",
+    "Process exit, not hardware power loss",
+    "Native Store tests, not Compose storage-error UI qualification",
+    "No physical phone, ARM64 execution, model, heap profile or hosted-CI result",
+    "Prior graphics watchdog abort remains unexplained and unfixed"
+  ]
+}

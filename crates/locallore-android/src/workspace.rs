@@ -13,7 +13,21 @@ use std::{
 
 #[derive(Default)]
 pub struct WorkspaceRegistry {
-    entries: Mutex<(u64, BTreeMap<u64, Arc<Lease>>)>,
+    entries: Mutex<RegistryState>,
+}
+#[derive(Default)]
+struct RegistryState {
+    next: u64,
+    opening: usize,
+    leases: BTreeMap<u64, Arc<Lease>>,
+}
+struct Opening<'a>(&'a WorkspaceRegistry);
+impl Drop for Opening<'_> {
+    fn drop(&mut self) {
+        if let Ok(mut entries) = self.0.entries.lock() {
+            entries.opening -= 1;
+        }
+    }
 }
 struct Lease {
     host: Host,
@@ -47,18 +61,24 @@ fn rejected(category: &str) -> Value {
 impl WorkspaceRegistry {
     /// The path is supplied by native app construction, never a Host wire command.
     pub fn open(&self, path: &Path) -> Result<u64, String> {
-        let mut entries = self.entries.lock().map_err(|_| "Internal")?;
-        if entries.1.len() >= 4 {
-            return Err("WorkspaceLimit".into());
-        }
+        let id = {
+            let mut entries = self.entries.lock().map_err(|_| "Internal")?;
+            if entries.leases.len() + entries.opening >= 4 {
+                return Err("WorkspaceLimit".into());
+            }
+            let id = entries
+                .next
+                .checked_add(1)
+                .filter(|n| *n <= i64::MAX as u64)
+                .ok_or("WorkspaceLimit")?;
+            entries.next = id;
+            entries.opening += 1;
+            id
+        };
+        let _opening = Opening(self);
+        // Database validation/replay can block. Other owners must still be able to cancel/close.
         let host = locallore_workspace::open(path, false)?;
-        let id = entries
-            .0
-            .checked_add(1)
-            .filter(|n| *n <= i64::MAX as u64)
-            .ok_or("WorkspaceLimit")?;
-        entries.0 = id;
-        entries.1.insert(
+        self.entries.lock().map_err(|_| "Internal")?.leases.insert(
             id,
             Arc::new(Lease {
                 host,
@@ -73,7 +93,7 @@ impl WorkspaceRegistry {
             if bytes.len() > MAX_INPUT {
                 return rejected("TooLarge");
             }
-            let lease = self.entries.lock().unwrap().1.get(&handle).cloned();
+            let lease = self.entries.lock().unwrap().leases.get(&handle).cloned();
             let Some(lease) = lease else {
                 return rejected("InvalidHandle");
             };
@@ -89,7 +109,7 @@ impl WorkspaceRegistry {
     }
     pub fn close(&self, handle: u64) {
         // Remove before waiting for the Host; no new work can acquire this handle.
-        let lease = self.entries.lock().unwrap().1.remove(&handle);
+        let lease = self.entries.lock().unwrap().leases.remove(&handle);
         if let Some(lease) = lease {
             let _control = lease.control.lock().unwrap();
             lease.closed.store(true, Ordering::SeqCst);
@@ -110,7 +130,11 @@ mod tests {
             control: Mutex::new(()),
         });
         let registry = WorkspaceRegistry {
-            entries: Mutex::new((1, BTreeMap::from([(1, lease.clone())]))),
+            entries: Mutex::new(RegistryState {
+                next: 1,
+                opening: 0,
+                leases: BTreeMap::from([(1, lease.clone())]),
+            }),
         };
         let create = br#"{"version":1,"command":{"op":"create","seed":"lantern-quay-v1"}}"#;
         assert_eq!(lease.call(create)["status"], "ok");

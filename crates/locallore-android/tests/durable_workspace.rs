@@ -204,3 +204,26 @@ fn durable_jni_adapter_keeps_bounded_errors_and_rejects_foreign_scope_and_closed
         "InvalidHandle"
     );
 }
+
+#[test]
+fn workspace_open_failures_release_capacity_and_live_owners_remain_bounded() {
+    let files = Synthetic::new();
+    let registry = WorkspaceRegistry::default();
+    for _ in 0..8 {
+        assert!(registry.open(&files.0).is_err());
+    }
+    let handles: Vec<_> = (0..4)
+        .map(|i| {
+            registry
+                .open(&files.0.join(format!("owner-{i}.sqlite3")))
+                .unwrap()
+        })
+        .collect();
+    assert_eq!(registry.open(&files.path()).unwrap_err(), "WorkspaceLimit");
+    registry.close(handles[0]);
+    let replacement = registry.open(&files.path()).unwrap();
+    registry.close(replacement);
+    for handle in handles {
+        registry.close(handle);
+    }
+}

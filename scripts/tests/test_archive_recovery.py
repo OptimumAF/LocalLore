@@ -30,7 +30,8 @@ def wire(code=None):
                 "INSTRUMENTATION_STATUS: test=" + proof.TEST_METHOD + "\n"
                 "INSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS_CODE: " + status + "\n")
     return (block("1") + (block(code) if code is not None else "") +
-            ("OK (1 test)\nINSTRUMENTATION_CODE: -1\n" if code == "0" else "")).encode()
+            ("OK (1 test)\nINSTRUMENTATION_CODE: -1\n" if code == "0" else
+             "INSTRUMENTATION_RESULT: shortMsg=Process crashed.\nINSTRUMENTATION_CODE: 0\n" if code is None else "")).encode()
 
 
 def process(clean=True, data=b"", status="completed"):
@@ -65,6 +66,16 @@ class MarkerAndTerminal(unittest.TestCase):
         for data in (wire(), wire("-2"), wire("0").replace(b"processRecovery", b"unrelated"),
                      wire("0") + b"shortMsg=Process crashed\n", wire("0").replace(b"OK (1 test)", b"FAILURES!!!")):
             with self.subTest(data=data[-40:]), self.assertRaises(proof.Failure):
+                proof.parse_transcript(data)
+
+    def test_terminal_before_start_and_conflicting_runner_codes_are_refused(self):
+        good = wire("0")
+        first, second = good.split(b"INSTRUMENTATION_STATUS_CODE: 1\n", 1)
+        terminal, summary = second.split(b"INSTRUMENTATION_STATUS_CODE: 0\n", 1)
+        reversed_order = terminal + b"INSTRUMENTATION_STATUS_CODE: 0\n" + first + b"INSTRUMENTATION_STATUS_CODE: 1\n" + summary
+        for data in (reversed_order, good + b"INSTRUMENTATION_CODE: 0\n",
+                     b"INSTRUMENTATION_CODE: -1\n" + good.replace(b"INSTRUMENTATION_CODE: -1\n", b"")):
+            with self.subTest(data=data[-60:]), self.assertRaises(proof.Failure):
                 proof.parse_transcript(data)
 
     def test_remote_control_cannot_address_traversal_or_baseline_files(self):
@@ -214,6 +225,23 @@ class Pipeline(unittest.TestCase):
         self.assertEqual(2, len(result["cases"]))
         self.assertFalse(result["prior_packages_preserved"])
         self.assertEqual("failed", result["status"])
+
+    def test_failed_relaunch_preserves_the_already_observed_interruption(self):
+        device = SimpleNamespace(clients_cleaned=True, shell=lambda *a: b"1")
+        def interrupted_then_failed(*args):
+            args[-1].update(interruption_confirmed=True, arm={"intentional_interruptions": 1},
+                            stage="verifying_relaunch")
+            raise proof.Failure("instrumentation_failed")
+        with patch.object(proof.common.process_owner, "run_process", side_effect=self.tools), \
+             patch.object(proof, "OwnedDevice", return_value=device), \
+             patch.object(proof.common, "protected_packages", return_value=self.ids), \
+             patch.object(proof.common, "stop_owned"), \
+             patch.object(proof, "exercise_case", side_effect=interrupted_then_failed) as arm:
+            result = proof.run(self.args)
+        self.assertEqual("failed", result["status"])
+        self.assertEqual(1, arm.call_count)
+        self.assertEqual(1, result["cases"]["preview"]["arm"]["intentional_interruptions"])
+        self.assertEqual("failed", result["cases"]["preview"]["status"])
 
 
 if __name__ == "__main__":

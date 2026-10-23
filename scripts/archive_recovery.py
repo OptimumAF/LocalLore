@@ -145,7 +145,7 @@ def parse_transcript(data, interrupted=False):
         text = data.decode("utf-8", errors="strict")
     except UnicodeError:
         raise Failure("instrumentation_encoding") from None
-    fields, starts, terminals = {}, [], []
+    fields, starts, terminals, runners = {}, [], [], []
     for line in text.splitlines():
         if line.startswith("INSTRUMENTATION_STATUS: "):
             key, sep, value = line[len("INSTRUMENTATION_STATUS: "):].partition("=")
@@ -156,19 +156,27 @@ def parse_transcript(data, interrupted=False):
             require(fields.get("class") == TEST_CLASS and fields.get("test") == TEST_METHOD
                     and fields.get("numtests") == "1", "instrumentation_inventory")
             if code == "1":
+                require(not starts and not terminals and not runners, "instrumentation_order")
                 starts.append(code)
             else:
+                require(starts == ["1"] and not terminals and not runners, "instrumentation_order")
                 terminals.append(code)
             fields = {}
+        elif line.startswith("INSTRUMENTATION_CODE:"):
+            require(starts == ["1"] and not fields and not runners and
+                    (interrupted or terminals == ["0"]), "instrumentation_order")
+            runners.append(line.partition(": ")[2])
     require(starts == ["1"] and not fields, "instrumentation_start")
     if interrupted:
-        require(not terminals and "OK (" not in text and "FAILURES!!!" not in text,
+        require(not terminals and runners == ["0"] and
+                "INSTRUMENTATION_RESULT: shortMsg=Process crashed." in text and
+                "OK (" not in text and "FAILURES!!!" not in text,
                 "arm_unexpected_terminal")
         # Interruption is established by the independently observed live marker,
         # PID and targeted stop, not by treating a runner crash as a passing test.
         return {"started": 1, "passed": 0, "intentional_interruptions": 1,
                 "test_terminal_received": False}
-    require(terminals == ["0"] and text.count("INSTRUMENTATION_CODE: -1") == 1 and
+    require(terminals == ["0"] and runners == ["-1"] and
             "OK (1 test)" in text and not any(token in text for token in
             ("FAILURES!!!", "INSTRUMENTATION_FAILED", "Process crashed", "shortMsg=")),
             "instrumentation_failed")
@@ -183,8 +191,10 @@ def instrument(device, phase, run, cancel=None):
         TEST_PACKAGE + "/androidx.test.runner.AndroidJUnitRunner"], deadline=160, cancel=cancel)
 
 
-def exercise_case(device, mode, output, identities, journal):
+def exercise_case(device, mode, output, identities, journal, progress=None):
     require(mode in ("preview", "committed"), "invalid_mode")
+    progress = progress if progress is not None else {}
+    progress.update(status="failed", stage="arming", interruption_confirmed=False)
     run = "recovery-" + uuid.uuid4().hex
     absent_run(device, run)
     cancel = threading.Event()
@@ -195,11 +205,13 @@ def exercise_case(device, mode, output, identities, journal):
             record, raw_record = await_ready(device, future, run, "arm-" + mode)
             common.write_new(output / (mode + "-ready.json"), raw_record)
             interrupt_live_arm(device, future, record, identities, journal)
+            progress.update(stage="draining_arm", interruption_confirmed=True)
             attempted = future.result(timeout=20)
             common.write_new(output / (mode + "-arm.raw.txt"), attempted.stdout)
             common.require_process(attempted)
             arm = {**parse_transcript(attempted.stdout, interrupted=True),
                    "raw_sha256": common.digest(attempted.stdout)}
+            progress["arm"] = arm
         except FutureTimeout:
             raise Failure("arm_client_drain") from None
         finally:
@@ -213,10 +225,12 @@ def exercise_case(device, mode, output, identities, journal):
             except FutureTimeout:
                 raise Failure("arm_client_cleanup_unknown") from None
     common.stop_owned(device, identities)
+    progress["stage"] = "verifying_relaunch"
     attempted = instrument(device, "verify-" + mode, run)
     common.write_new(output / (mode + "-verify.raw.txt"), attempted.stdout)
     common.require_process(attempted)
     verify = {**parse_transcript(attempted.stdout), "raw_sha256": common.digest(attempted.stdout)}
+    progress["relaunch"] = verify
     require(remote_optional(device, run, "owner-v1") == MARKER, "remote_owner")
     raw = remote_optional(device, run, "verified-v1.json")
     verified = parse_record(raw, run, "verify-" + mode, "verified")
@@ -224,8 +238,9 @@ def exercise_case(device, mode, output, identities, journal):
             "relaunch_binding")
     common.write_new(output / (mode + "-verified.json"), raw)
     common.stop_owned(device, identities)
-    return {"status": "passed", "arm": arm, "relaunch": verify,
-            "archive_sha256": record["archive_sha256"], "different_process_confirmed": True}
+    progress.update(status="passed", stage="verified", archive_sha256=record["archive_sha256"],
+                    different_process_confirmed=True)
+    return progress
 
 
 def run(args):
@@ -269,7 +284,9 @@ def run(args):
             owned_verified = True
             common.stop_owned(device, identities)
             for mode in ("preview", "committed"):
-                result["cases"][mode] = exercise_case(device, mode, output, identities, journal)
+                result["cases"][mode] = {"status": "failed"}
+                result["cases"][mode] = exercise_case(device, mode, output, identities, journal,
+                                                      result["cases"][mode])
             result["status"] = "passed"
         except Failure as failure:
             result["failure"] = failure.category

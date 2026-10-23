@@ -45,6 +45,8 @@ class BranchForkShellTest {
         override val durable = true
         override val storyRecords = true
         var selected = Original
+        var roots = listOf(Original, Other)
+        var onSnapshot: (() -> Unit)? = null
         var closed = false; var ready = false; var pending = false
         var submissions = 0; var snapshots = 0; var creates = 0; var recoveries = 0
         val resumes = mutableListOf<SavedStory>()
@@ -54,10 +56,10 @@ class BranchForkShellTest {
             if (closed || !ready || pending || story != selected || head != selected.revision) null
             else BranchForkContext("session-${selected.story}-${selected.branch}", ForkScope(story.story, story.branch), head, epoch = epoch)
         fun saved() = SavedSnapshot(selected.revision, "You", emptyList(), "synthetic private workspace", 1,
-            listOf(Original, Other), selected, databaseSchemaVersion = 4, textProvider = TextProvider.SCRIPTED,
+            roots, selected, databaseSchemaVersion = 4, textProvider = TextProvider.SCRIPTED,
             timelines = listOf(SavedTimeline(selected.story, selected.branch, null, null, selected.revision, 0)))
         override suspend fun initialize(): SavedSnapshot { initializeGate?.await(); ready = true; return saved() }
-        override suspend fun snapshot(): SavedSnapshot { snapshots++; ready = true; return saved() }
+        override suspend fun snapshot(): SavedSnapshot { snapshots++; onSnapshot?.invoke(); ready = true; return saved() }
         override suspend fun resumeSaved(story: SavedStory): SavedSnapshot { resumes += story; selected = story; ready = true; return saved() }
         override suspend fun createSaved(): SavedSnapshot { creates++; return saved() }
         override suspend fun recoverSaved(): SavedSnapshot { recoveries++; return saved() }
@@ -74,6 +76,7 @@ class BranchForkShellTest {
         val runs = mutableListOf<Long>(); val lookups = mutableListOf<BranchForkInput>(); val cancels = mutableListOf<Long?>()
         var registerGate: CompletableDeferred<Unit>? = null
         var registerFailure = false
+        var lookupResult = BranchForkLookup(false, null)
         override suspend fun register(context: BranchForkContext, input: BranchForkInput, consent: Boolean): BranchForkStatus {
             check(consent); events += "register"; registrations += context to input
             withContext(NonCancellable) { registerGate?.await() }
@@ -88,7 +91,7 @@ class BranchForkShellTest {
                     input.atRevision, input.atRevision, true))
         }
         override suspend fun status(operation: Long): BranchForkStatus = error("Unexpected status")
-        override suspend fun lookup(input: BranchForkInput): BranchForkLookup { lookups += input; return BranchForkLookup(false, null) }
+        override suspend fun lookup(input: BranchForkInput): BranchForkLookup { lookups += input; return lookupResult }
         override fun cancel(operation: Long?) { cancels += operation }
         override fun close() { events += "fork-close" }
     }
@@ -261,6 +264,31 @@ class BranchForkShellTest {
         model.retryFork(true); advanceUntilIdle()
         assertEquals(listOf(input, input), forks.registrations.map { it.second })
         assertEquals(BranchForkRecovery(1, input), hint.value)
+    }
+    @Test fun explicitRecoveredResumeRefreshesCurrentCatalogBeforeSelectingExactConfirmedChild() = runTest(dispatcher) {
+        val events = mutableListOf<String>(); val stories = Stories(events)
+        stories.selected = Other; stories.roots = listOf(Other)
+        val outcome = BranchForkOutcome(1, ForkScope(Recovery.input.parent.story, Recovery.input.childBranch),
+            Recovery.input.parent, Recovery.input.atRevision, 3, false)
+        val forks = Forks(events).also { it.lookupResult = BranchForkLookup(true, outcome) }
+        val hint = Hint(events, Recovery)
+        val model = model(stories, forks, hint); advanceUntilIdle()
+        model.openFork(); model.lookupFork(); advanceUntilIdle()
+        assertSame(outcome, model.fork.value.outcome)
+        assertEquals(listOf(Other), model.state.value.stories)
+        assertEquals(Other, model.state.value.selectedStory)
+        assertTrue(stories.resumes.isEmpty()); assertEquals(0, stories.snapshots)
+        // Another owner has restored the story; only the actual explicit refresh reveals it.
+        stories.onSnapshot = { stories.roots = listOf(Original, Other) }
+        model.resumeFork(outcome.copy()); advanceUntilIdle()
+        assertTrue(stories.resumes.isEmpty()); assertEquals(0, stories.snapshots)
+        model.resumeFork(outcome); advanceUntilIdle()
+        assertEquals(1, stories.snapshots)
+        assertEquals(listOf(Original.copy(branch = Recovery.input.childBranch, revision = 3)), stories.resumes)
+        assertEquals(Recovery.input.childBranch, model.state.value.selectedStory!!.branch)
+        assertEquals(3L, model.state.value.revision)
+        assertTrue(forks.registrations.isEmpty()); assertTrue(forks.runs.isEmpty())
+        assertEquals(Recovery, hint.value)
     }
     private companion object {
         val Original = SavedStory("story", "main", "Original", 1)

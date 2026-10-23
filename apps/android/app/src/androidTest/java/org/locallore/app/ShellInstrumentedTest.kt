@@ -5,6 +5,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
@@ -38,6 +39,13 @@ class ShellInstrumentedTest {
         tag("potion-owner").assertTextEquals("Healing potion · You")
         tag("revision").assertTextEquals("Accepted revision · 0")
     }
+    private fun assertAccepted() {
+        tag("potion-owner").assertTextEquals("Healing potion · Not in your inventory")
+        tag("revision").assertTextEquals("Accepted revision · 1")
+        val state = ViewModelProvider(compose.activity)[ShellViewModel::class.java].state.value
+        assertEquals(2, state.messages.size)
+        assertEquals("You give 1 potion to mira.", state.messages.single { !it.isPlayer }.text)
+    }
 
     @Suppress("DEPRECATION")
     @Test fun launchShowsHonestFixtureLabelAndNoPlatformCapabilities() {
@@ -53,8 +61,7 @@ class ShellInstrumentedTest {
 
     @Test fun giftUsesRustAcceptedResultAndReuseCannotDuplicateIt() {
         give(); idle()
-        tag("potion-owner").assertTextEquals("Healing potion · Mira")
-        tag("revision").assertTextEquals("Accepted revision · 1")
+        assertAccepted()
         compose.onNodeWithTag("story-list").performScrollToNode(hasText("You give 1 potion to mira."))
         compose.onNodeWithText("You give 1 potion to mira.").assertIsDisplayed()
         give(); idle()
@@ -73,26 +80,41 @@ class ShellInstrumentedTest {
             assertInitial()
         }
         choose(DemoMode.ACCEPTED); give(); idle()
-        tag("potion-owner").assertTextEquals("Healing potion · Mira")
+        assertAccepted()
     }
 
     @Test fun cancelAndResetDuringDelayCannotPublishOldResult() {
-        choose(DemoMode.DELAYED); give()
-        tag("cancel-turn").performClick(); idle()
+        // The UI callback itself is covered by ShellLayoutTest. Keep cancellation ahead
+        // of commit on the same Main stack instead of racing a scroll against 200 ms.
+        choose(DemoMode.DELAYED)
+        compose.runOnIdle {
+            val model = ViewModelProvider(compose.activity)[ShellViewModel::class.java]
+            model.submit(DemoAction.GIVE_POTION)
+            assertTrue(model.state.value.busy && model.state.value.preparingResponse)
+            model.cancel()
+        }
+        idle()
         tag("notice").assertTextContains("accepted saved history", substring = true)
         assertInitial()
         tag("reset-demo").performClick(); idle()
         assertInitial()
         give(); idle()
-        tag("potion-owner").assertTextEquals("Healing potion · Mira")
+        assertAccepted()
     }
 
     @Test fun recreationRetainsAcceptedStateAndCancelsPendingWork() {
         give(); idle()
         compose.activityRule.scenario.recreate(); idle()
-        tag("potion-owner").assertTextEquals("Healing potion · Mira")
+        assertAccepted()
         tag("reset-demo").performClick(); idle()
-        choose(DemoMode.DELAYED); give()
+        choose(DemoMode.DELAYED)
+        compose.runOnIdle {
+            val model = ViewModelProvider(compose.activity)[ShellViewModel::class.java]
+            model.submit(DemoAction.GIVE_POTION)
+            assertTrue(model.state.value.preparingResponse)
+            // Invoke the real Activity callback before Main can publish a commit.
+            InstrumentationRegistry.getInstrumentation().callActivityOnStop(compose.activity)
+        }
         compose.activityRule.scenario.recreate(); idle()
         assertInitial()
         tag("notice").assertTextContains("accepted saved history", substring = true)

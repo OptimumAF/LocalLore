@@ -4,13 +4,19 @@ use locallore::{contracts::*, engine::Engine};
 use locallore_android::{archive::ArchiveRegistry, workspace::WorkspaceRegistry};
 use locallore_storage::{ForkRequest, Store};
 use serde_json::{json, Value};
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    sync::atomic::{AtomicU64, Ordering},
+};
+
+static NEXT_FIXTURE: AtomicU64 = AtomicU64::new(0);
 
 // This integration-test allocator is shared by the real fixture and its collision regression.
 fn create_fixture_dir(timestamp: u128) -> std::io::Result<PathBuf> {
     let dir = std::env::temp_dir().join(format!(
-        "locallore-native-retention-{}-{timestamp}",
+        "locallore-native-retention-{}-{timestamp}-{}",
         std::process::id(),
+        NEXT_FIXTURE.fetch_add(1, Ordering::Relaxed),
     ));
     std::fs::create_dir(&dir)?;
     Ok(dir)

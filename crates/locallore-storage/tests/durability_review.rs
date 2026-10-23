@@ -89,6 +89,7 @@ fn canonical_table_tampering_is_refused_without_repairing_evidence() {
         "UPDATE accepted_events SET envelope_json=json_set(envelope_json,'$.outcome.quantity',99)",
         "UPDATE accepted_events SET envelope_json=json_set(envelope_json,'$.unknown','forgery')",
         "INSERT INTO event_witnesses(story_id,branch_id,sequence,observer_id) SELECT story_id,branch_id,sequence,'sable' FROM accepted_events",
+        "INSERT INTO event_witnesses(story_id,branch_id,sequence,observer_id) SELECT story_id,branch_id,999,'sable' FROM accepted_events",
         "UPDATE branches SET head_revision=0",
         "UPDATE turns SET request_json=json_set(request_json,'$.intent.actions[0].give.quantity',2)",
         "DELETE FROM accepted_events",
@@ -103,7 +104,10 @@ fn canonical_table_tampering_is_refused_without_repairing_evidence() {
                 r.get(0)
             })
             .unwrap();
-        let error = store.resume(&request.scope).unwrap_err();
+        let error = match store.resume(&request.scope) {
+            Err(error) => error,
+            Ok(_) => panic!("accepted corrupted canonical rows: {sql}"),
+        };
         assert_eq!(error, TurnError::Integrity, "{sql}");
         assert_eq!(format!("{error:?}"), "Integrity");
         assert!(

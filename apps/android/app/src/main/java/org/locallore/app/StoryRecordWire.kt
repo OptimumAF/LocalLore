@@ -37,6 +37,9 @@ internal object StoryRecordWire {
         val next = if (data.isNull("next_cursor")) null else data.text("next_cursor", 128).also {
             require(it.isNotEmpty() && it != query.cursor && it.all { ch -> ch.code in 33..126 })
             require(entries.isNotEmpty() && total > entries.size)
+            require(Regex("1:[1-9][0-9]{0,4}:[0-9a-f]{64}").matches(it))
+            val offset = it.split(':')[1].toInt()
+            require(offset < total && offset >= entries.size)
         }
         val unsupported = data.getJSONArray("unsupported")
         require(unsupported.length() <= 8)

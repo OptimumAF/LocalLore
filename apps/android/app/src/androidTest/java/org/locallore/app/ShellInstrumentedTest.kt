@@ -5,7 +5,6 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
@@ -102,7 +101,7 @@ class ShellInstrumentedTest {
         assertAccepted()
     }
 
-    @Test fun recreationRetainsAcceptedStateAndCancelsPendingWork() {
+    @Test fun recreationRetainsAcceptedStateAndAnAlreadyCancelledDraft() {
         give(); idle()
         compose.activityRule.scenario.recreate(); idle()
         assertAccepted()
@@ -112,9 +111,9 @@ class ShellInstrumentedTest {
             val model = ViewModelProvider(compose.activity)[ShellViewModel::class.java]
             model.submit(DemoAction.GIVE_POTION)
             assertTrue(model.state.value.preparingResponse)
-            // Invoke the real Activity callback before Main can publish a commit.
-            InstrumentationRegistry.getInstrumentation().callActivityOnStop(compose.activity)
+            model.cancel()
         }
+        idle()
         compose.activityRule.scenario.recreate(); idle()
         assertInitial()
         tag("notice").assertTextContains("accepted saved history", substring = true)

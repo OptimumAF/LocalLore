@@ -49,3 +49,17 @@ At this document's initial freeze no Cargo/test/Clippy has run. The coordinator 
 ## Pending evidence and disposition
 
 F1 is handed to the coordinator immediately. Await explicit portable slot, run unchanged new five-case integration test, preserve exact initial outcome/log before any root fix, then independently inspect/recheck the narrow correction if supplied. Existing author evidence reports272 Core/workspace tests in default/allfeatures,166 portable Core tests and strict Clippy; these remain **author-attributed**, not reviewer pass counts. No favorable-score, full M07/D07 gate or human acceptance is asserted.
+
+## Actual initial RED — unchanged frozen tests
+
+After explicit coordinator resource GO, reviewer executed exactly one focused default cohort at reviewc0e5b24 (doc-only above frozen test8f97b22 and original productione1968eb). Windows x64, rustc `1.93.1 (01f6ddf75 2026-02-11)`, Cargo `1.93.1 (083ac5135 2025-12-15)`, own new D-drive target/TEMP, debug0/incremental0, no ambient `LIBSQLITE3_FLAGS`, no capped compile flags. No other compiler ran concurrently.
+
+```text
+cargo +1.93.1 test -p locallore-workspace --test generation_snapshot_port_review --locked --offline --jobs 1 --target-dir <own-generation-snapshot-review-artifacts>/target -- --test-threads=1
+```
+
+Actual exit **101**: **1 passed /4 failed /0 ignored /0 filtered**. The ordinary exact-prefix other-owner append case passed. All four replacement/rewind/lineage cases failed the intended final line122 Stale assertion: `left:None` versus `right:Some("Stale")`, meaning the port returned success. They first completed their fixture identity/head/projection/parent-chain checks and replacement canonical/receipt nonmutation assertions. This is a semantic RED, not fixture/compilation failure. Build45.14s, test execution0.46s are incidental observations, not a performance qualification.
+
+Log `generation-snapshot-review-artifacts/original-five-red.log` SHA-256 **`3ad93a44e39ad09d109dca5bb99987334ed419047f34c1c392194ff17ba1e1f1`**. Test SHA remains **`b370696a5eff13a0ed2bec7649fa6a1e94bad0dd9c8cbe516daeab908f4b8ecd`** unchanged. No source/oracle correction or repeat has occurred. F1 is now **demonstrated**, not merely source-derived. The resource slot was released immediately after test exit; no reviewer compiler/child remains.
+
+Root owns the narrow integration fix; unchanged five-case GREEN and source recheck remain pending. Current Store/schema4 publication is a separate boundary and this review does not reattribute its checks. No claim release/full gate acceptance follows from this RED-only handoff.

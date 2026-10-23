@@ -228,6 +228,19 @@ mod windows {
 
     #[test]
     #[ignore = "Requires Windows file-symlink privilege or Developer Mode; run explicitly."]
+    fn planted_sidecar_reparse_never_recovers_or_overwrites_another_valid_store() {
+        for suffix in ["-journal", "-wal", "-shm"] {
+            let dir=Temp::new();let outside_path=dir.path("outside.sqlite");let(scope,state)=outside(&outside_path);let before=std::fs::read(&outside_path).unwrap();
+            let path=dir.path("stage.sqlite");let sidecar=dir.path(&format!("stage.sqlite{suffix}"));std::os::windows::fs::symlink_file(&outside_path,&sidecar).unwrap();
+            let result=Store::create_new_pinned(&path);let accepted=result.is_ok();drop(result);
+            let changed=std::fs::read(&outside_path).unwrap()!=before;
+            assert!(!accepted&&!changed,"sidecar={suffix}, accepted={accepted}, outside_bytes_changed={changed}");
+            assert_eq!(Store::open(&outside_path,None).unwrap().resume(&scope).unwrap().engine.canonical_bytes(),state);
+        }
+    }
+
+    #[test]
+    #[ignore = "Requires Windows file-symlink privilege or Developer Mode; run explicitly."]
     fn planted_file_reparse_and_dangling_reparse_never_touch_outside_store() {
         let dir = Temp::new();
         let outside_path = dir.path("outside.sqlite");

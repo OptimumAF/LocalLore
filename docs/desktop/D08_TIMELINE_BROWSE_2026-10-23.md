@@ -119,7 +119,7 @@ other journeys. Do not add normal-build native fixture commands.
 
 ## Fixed actual native fixture/journey interface for next gate
 
-NEW `timelineJourneys({controller,timeline,fixture})` returns check labels or
+NEW `timelineJourneys({controller,timeline,fixture,checkpoint?})` returns check labels or
 throws. It requires an actual persistent workspace, actual selected root and
 passes no model/backend substitute. Its fixture contract is:
 
@@ -142,8 +142,10 @@ Use shared Engine/Store fork/accepted commit/deletion, not a model or a new engi
 Run the actual gateway/controller through catalog read, retired rejection, child
 resume (assert original request/event scopes and excluded later-parent/sibling
 canaries), sibling selection, and root return with unchanged original play.
-The supplied journey performs these checks. Root must add the test-only native
-fixture/IPC/main hook, runtime setup and invocation; none was executed here.
+The supplied journey performs these checks. Root supplies a development-only
+Store fixture at startup before Host initialization, under its fresh own workspace,
+plus the TS main hook and invocation. No new general renderer fixture/file command
+is needed; none was added or executed here.
 Future native gates should also hold a catalog response across session/head/lens
 change, test session-limit/retirement races, reload/restart and normal-hook absence.
 No fake native success, desktop screenshot/control, picker or device evidence is
@@ -184,7 +186,7 @@ existing verifierSHA `0ee3ed76d6806f8bff61b6b0fbd2fae2e7ec99a3c707f006238a149db1
 | timeline-model.ts | `06d8780b61c2be1d81d5880f2d93700743af18828e5104ef65ab580972bca292` |
 | timeline-controller.ts | `3b55ecb690d1bc6fd76b3de3d470ce28b47198c1037d0244f17f1d1c7b65ed2b` |
 | TimelinePanel.tsx | `3b6177d693a6aa80fc59328030ce26cd11d2c47c8b86f1cd5f15690087b79168` |
-| timeline-journeys.ts | `ef7a301844308a3a557fdad1708c24d141184058a9ffba82f7bfa2ff3c0f5600` |
+| timeline-journeys.ts | `6eb20951dc502005262278f491e8fc67b9ca7f9116bd1df6aa48727db0e37f83` |
 | check-timeline-controller.mjs | `22b43b3af2f7693042c4587b726dc3a77674bec52e841fc98ac71bcc4ba02923` |
 
 The requested resource_metrics_review coordination found no live agent; root was
@@ -193,3 +195,25 @@ Next: coordinator independent source review, actual existing gateway integration
 and original native Store fixture journey, then native/frontend/platform checks
 as warranted. This partial packet does not implement shared fork/author ports,
 full timeline editing, cross-device transfer or full D08 acceptance.
+
+## Fixed checkpoint extension for coordinator native harness
+
+Coordinator requested and froze this optional local test-only callback:
+
+```ts
+checkpoint?: (label: "catalog" | "child" | "sibling" | "root") => Promise<void>;
+```
+
+It runs after the validated catalog assertions and before retired selection,
+after child assertions/isolation, after sibling selection assertion, and after
+root restoration assertion. Original assertions/order remain. Callback errors
+propagate so a failed semantic checkpoint fails the journey. This is a trusted
+TS wrapper callback, never a function/bytes/path supplied to native by renderer
+IPC. Root maps the four fixed labels to existing allowlisted harness checkpoints
+and app-owned DOM semantic capture. Fixture creation remains native development-
+only startup before Host init, not a general renderer fixture/file command.
+
+After this narrow extension: strict TypeScript PASS, same81 controller/decoder/
+inert-render checks PASS, journey Prettier PASS and diff check PASS. The new
+callback's actual native execution/semantic captures remain coordinator gates;
+these81 checks are not reclassified as native journey execution.

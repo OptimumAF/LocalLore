@@ -19,10 +19,14 @@ export async function timelineJourneys({
     controller: c,
     timeline: t,
     fixture: f,
+    checkpoint,
 }: {
     controller: Controller;
     timeline: TimelineController;
     fixture: TimelineJourneyFixture;
+    checkpoint?: (
+        label: "catalog" | "child" | "sibling" | "root",
+    ) => Promise<void>;
 }): Promise<string[]> {
     const checks: string[] = [];
     const check = (value: unknown, label: string) => {
@@ -65,6 +69,7 @@ export async function timelineJourneys({
         structural(c.get().play) === before,
         "catalog-read-does-not-change-play",
     );
+    await checkpoint?.("catalog");
     await t.select(f.retired.branch);
     check(
         !!c.selected() &&
@@ -101,6 +106,7 @@ export async function timelineJourneys({
         ),
         "no-future-parent-sibling-prose",
     );
+    await checkpoint?.("child");
     t.contextChanged(timelineContext(c));
     await t.show();
     await t.select(f.sibling.branch);
@@ -108,6 +114,7 @@ export async function timelineJourneys({
         !!c.selected() && sameScope(c.selected()!.scope, f.sibling),
         "actual-sibling-resumed",
     );
+    await checkpoint?.("sibling");
     t.contextChanged(timelineContext(c));
     await t.show();
     await t.select(f.root.branch);
@@ -117,5 +124,6 @@ export async function timelineJourneys({
             structural(c.get().play) === before,
         "root-reopen-preserves-original-play",
     );
+    await checkpoint?.("root");
     return checks;
 }

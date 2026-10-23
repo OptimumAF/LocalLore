@@ -324,7 +324,16 @@ fn exact_v3_safety_copy_and_upgrade_preserve_every_canonical_and_cache_row() {
             .schema_version,
         3
     );
-    same(&original, &fs::read(&backup).unwrap());
+    let saved_bytes = fs::read(&backup).unwrap();
+    let changed_offsets = original
+        .iter()
+        .zip(&saved_bytes)
+        .enumerate()
+        .filter(|(_, (a, b))| a != b)
+        .map(|(i, _)| i)
+        .collect::<Vec<_>>();
+    eprintln!("synthetic_v3_backup original_bytes={} saved_bytes={} changed_offset_count={} first_changed_offsets={:?}",original.len(),saved_bytes.len(),changed_offsets.len(),changed_offsets.iter().take(64).collect::<Vec<_>>());
+    assert!(original == saved_bytes, "whole-file backup byte comparison");
     same(&states, &state(&backup, &f.scopes));
     drop(upgraded);
     verify_retention_empty(&Store::open(&f.path, None).unwrap(), &f.path, &f.scopes);
@@ -512,7 +521,7 @@ fn application_upgrade_creates_one_new_standalone_historical_safety_copy() {
                 .filter(|e| {
                     e.file_name()
                         .to_string_lossy()
-                        .starts_with("historical.sqlite.before-v3-")
+                        .starts_with(&format!("historical.sqlite.before-v{SCHEMA_VERSION}-"))
                 })
                 .map(|e| e.path())
                 .collect::<Vec<_>>()

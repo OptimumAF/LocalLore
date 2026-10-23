@@ -171,3 +171,52 @@ by completion of owned wrapped exchanges. The test still does not expose or
 measure arbitrary internal allocator state. This reviewer made no Kotlin,
 production, device, build or network changes. Final device outcomes must be
 read from the coordinator's verification artifact.
+
+## Unexplained reference-queue crash investigation
+
+The coordinator reported that one emulator-A invocation at unchanged `dd11ab2`
+passed the three new framework cases, then the first subsequent shell case
+terminated with `TimeoutException` from `FinalizerWatchdogDaemon`, naming
+`HardwareRenderer$DestroyContextRunnable`. The other twelve selected cases were
+not reached. The same APK completed all sixteen selected cases on emulator B.
+These are coordinator-reported outcomes, not independent device execution by
+this reviewer. The aborted A invocation remains a failed attempt; B's pass does
+not erase it or explain its cause.
+
+Claim #8 comment 6356342586 authorized read-only public-source research using
+only the public exception/class names, with no diagnostic upload. Official
+Android API-35 source shows two relevant mechanisms:
+
+- `HardwareRenderer` registers a Cleaner action when constructing its native
+  proxy. `DestroyContextRunnable.run` invokes `nDeleteProxy`. Rendering instances
+  share a render thread; a stalled surface consumer can block that thread. These
+  details locate a framework cleanup path, but do not establish which operation
+  stalled this particular run. See the [API-35 HardwareRenderer source](https://android.googlesource.com/platform/prebuilts/fullsdk/sources/+/refs/heads/androidx-swiperefreshlayout-release/android-35/android/graphics/HardwareRenderer.java),
+  inspected blob `940cd93c53f2b37d8903c44fd5647a12ccfe0e21`.
+- The watchdog monitors reference-queue progress and constructs the reported
+  exception after repeated observed timeouts. The exception names the current
+  cleanup target; it is not a LocalLore leak detector or a causal attribution to
+  the most recent test. See the [API-35 Daemons source](https://android.googlesource.com/platform/prebuilts/fullsdk/sources/+/refs/heads/androidx-constraintlayout-release/android-35/java/lang/Daemons.java),
+  inspected blob `36c1c7461946acae5c28b842e6b40f08ed2749a7`.
+
+These official source snapshots explain the public mechanism; they have not
+been matched to every binary or configuration detail of the affected emulator.
+No exact matching official issue or verified upstream fix was found in the
+public searches performed. This is therefore not classified as a known fixed
+Android bug.
+
+An additional read-only `rg` audit found no direct HardwareRenderer, RenderNode,
+SurfaceView, TextureView, SurfaceTexture, EGL or GLES allocation, explicit
+`System.gc`/`runFinalization`, or uncaught-handler suppression in Android app or
+native-crate sources. The fixture retains ViewModels and an Application-backed
+context wrapper, and delegates Activity/Compose rendering teardown to their
+ordinary framework/rule lifecycle. No concrete fixture graphics-owner leak was
+identified. This source audit cannot exclude an indirect framework/library,
+driver, emulator-scheduling or application contribution.
+
+The justified next check is a separately recorded serial run of the unchanged
+APK after the previous live run is terminal, retaining both attempts. A later
+pass would provide additional execution evidence while leaving this cause
+unexplained. No timeout suppression, renderer workaround, dependency change or
+emulator reset follows from the exception alone. Rust owner-slot and transport
+drainage assertions do not qualify graphics cleanup reliability.

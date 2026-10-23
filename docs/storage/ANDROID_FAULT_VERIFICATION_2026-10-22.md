@@ -38,7 +38,7 @@ temporary names collided on Windows; an atomic suffix corrected that fixture.
 The final three targeted tests passed twice, then the integrated full gate passed.
 The [review](ANDROID_FAULT_REVIEW_2026-10-22.md) records source and ownership checks.
 
-## Build and host evidence
+## Initial build and host evidence
 
 ```powershell
 python scripts/check.py host --offline
@@ -75,7 +75,7 @@ failure mechanism; execution below establishes this implementation's behavior.
 | x86_64, executed on both targets |`9d998b2f6991764ded0c68c98fc05ae3fe01fe08e561736c4b9e4f3a79c01dc3` |
 | ARM64, built/audited only |`cd19d71ba6131e438c757741dd64117971e4959c6af28e83fefb316901ac47a7` |
 
-## Actual emulator procedure and results
+## Native procedure and initial emulator results
 
 The coordinator ran A to completion before B, using the same frozen x86_64
 executable. Both selected targets are Android15/API35/x86_64. The production app,
@@ -118,6 +118,44 @@ their entire owned roots. No residual synthetic database or executable remains.
 start/terminal pairs, journal hashes, exact cases and binary/source identities.
 Raw output stays ignored; no device identifier, temporary path, database or player
 content is published. Counts, source hashes, privacy and final diff were checked.
+
+## Accepted-main integration and final cohort
+
+Main advanced independently to `51ec963` when a separate authorized task merged
+D03/#47. Local merge `4be9698` retains those accepted changes; this packet merges
+no PR. D03's read-only open/bounded-backup methods, one additional private storage
+test and accepted optional-host sha2/lockfile changes belong to that prerequisite,
+not a new dependency selection by this packet. No active M05 source was changed.
+
+The first integrated host gate failed in the existing `inspection_review` suite:
+10 cases passed and `default_diagnostics_are_structural_and_do_not_include_seed_or_story_prose`
+failed at temporary-directory creation with `AlreadyExists`. Like the new fixture's
+earlier development failure, its PID/nanosecond-only name collided under parallel
+Windows execution. Narrow claim6356986424 preceded `5710112`, which adds only an
+atomic suffix in that test fixture. All assertions and production code stay unchanged.
+The eleven-case suite then passed twice with16 test threads; the full integrated
+host gate passed with **140 Rust workspace entries plus3 linker tests and198 Python
+tests**, format, strict Clippy and four fixture comparisons. The failed gate remains
+in the results; it is not replaced by a passing rerun.
+
+Both native test PIEs were rebuilt/audited offline from integrated native source
+`4be9698`. The fixture-only workspace correction does not affect those binaries.
+The final host source is `5710112`; their identities are recorded separately.
+
+| Final integrated binary | SHA-256 |
+|---|---|
+| x86_64, executed on both targets |`835e5657d127c6821c6a503de6cf8434730100501006462d80011df880e2600c` |
+| ARM64, built/audited only |`3dd8827d7a8240b5fc569185038c823da1825a0e422c8ab008cd260dce4c89f8` |
+
+The same procedure ran A then B with new unique roots and separate journals.
+Each final cohort includes D03's accepted backup-budget case in addition to the
+twelve initial cases: **13/13 substantive tests passed on each target,26 final
+passes**, zero failures/ignored/retries, with one auxiliary entry filtered. All
+identity, native absence, host-client cleanup and owned-root removal checks passed.
+The original24 passes remain a separate earlier-base cohort:50 native case
+executions across four complete attempts, involving13 unique cases, not50 unique
+scenarios. The artifact preserves all four start/terminal pairs, both binary
+cohorts and the failed host gate. No model, app data or other-device action occurred.
 
 ## Limits and handoff
 

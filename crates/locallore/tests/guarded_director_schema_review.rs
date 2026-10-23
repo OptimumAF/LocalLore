@@ -137,7 +137,7 @@ fn largest_stack_and_case_insensitive_visible_alias_bind_exact_child_attempt() {
     );
     assert_eq!(
         receipt.play().unwrap().prompt_version,
-        "locallore-play-v2.3"
+        "locallore-play-v2.4"
     );
     assert_eq!(child.state().items["potion"].owner, "mira");
     assert_eq!(parent.canonical_bytes(), parent_before);

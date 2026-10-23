@@ -11,6 +11,46 @@ pub struct Engine {
     receipts: Vec<Receipt>,
 }
 
+/// Opaque native identity of an accepted source prefix. No serialized value can
+/// construct this token or grant observer, mutation or persistence authority.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AcceptedHistoryBasis {
+    scope: Scope,
+    revision: u64,
+    digest: [u8; 32],
+}
+impl AcceptedHistoryBasis {
+    /// The fingerprint protects precisely this request's source boundary.
+    pub fn matches_request(&self, request: &Request) -> bool {
+        self.scope == request.scope && self.revision == request.expected_revision
+    }
+    /// Read/cleanup may guard a historical request with a stronger selected head.
+    pub fn covers_request(&self, request: &Request) -> bool {
+        self.scope == request.scope && self.revision >= request.expected_revision
+    }
+}
+
+struct BasisWriter {
+    hash: sha2::Sha256,
+    bytes: usize,
+}
+impl std::io::Write for BasisWriter {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        use sha2::Digest;
+        let total = self
+            .bytes
+            .checked_add(bytes.len())
+            .filter(|n| *n <= 64 * 1024 * 1024)
+            .ok_or_else(|| std::io::Error::other("accepted history basis budget"))?;
+        self.hash.update(bytes);
+        self.bytes = total;
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
 /// Deliberately omits hidden world truth, other actors' sheets and omniscient summaries.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct CharacterContext {
@@ -140,6 +180,68 @@ impl Engine {
 
     pub fn scope(&self) -> &Scope {
         &self.scope
+    }
+    /// Bounded streaming fingerprint of validated native seed, immutable lineage
+    /// and exact original receipts. This never materializes a second history.
+    pub fn accepted_history_basis(&self) -> Result<AcceptedHistoryBasis, Error> {
+        self.history_basis_at(self.revision())
+    }
+    pub fn accepted_history_basis_at(&self, at: u64) -> Result<AcceptedHistoryBasis, Error> {
+        self.history_basis_at(at)
+    }
+    /// Appends retain a basis only when its entire original prefix survives.
+    pub fn matches_accepted_history(&self, basis: &AcceptedHistoryBasis) -> Result<bool, Error> {
+        if self.scope != basis.scope || self.revision() < basis.revision {
+            return Ok(false);
+        }
+        match self.history_basis_at(basis.revision) {
+            Ok(actual) => Ok(actual == *basis),
+            Err(Error::Rule) => Ok(false),
+            Err(error) => Err(error),
+        }
+    }
+    fn history_basis_at(&self, at: u64) -> Result<AcceptedHistoryBasis, Error> {
+        use sha2::Digest;
+        let end = if at == 0 {
+            0
+        } else {
+            self.receipts
+                .iter()
+                .position(|r| r.events.last().is_some_and(|e| e.sequence == at))
+                .ok_or(Error::Rule)?
+                + 1
+        };
+        let mut writer = BasisWriter {
+            hash: sha2::Sha256::new(),
+            bytes: 0,
+        };
+        serde_json::to_writer(
+            &mut writer,
+            &(
+                "locallore-native-accepted-history-v1",
+                &self.scope,
+                at,
+                &self.seed,
+                self.memory_lineage_binding()?,
+                &self.receipts[..end],
+            ),
+        )
+        .map_err(|_| Error::TooLarge)?;
+        Ok(AcceptedHistoryBasis {
+            scope: self.scope.clone(),
+            revision: at,
+            digest: writer.hash.finalize().into(),
+        })
+    }
+    /// Compare two validated native snapshots without granting mutation or
+    /// observer authority. Matching IDs/revisions alone do not identify history.
+    /// Another owner's append is allowed only to the exact immutable prefix.
+    pub fn extends_accepted_history(&self, previous: &Engine) -> Result<bool, Error> {
+        Ok(self.scope == previous.scope
+            && self.seed == previous.seed
+            && self.revision() >= previous.revision()
+            && self.receipts.starts_with(&previous.receipts)
+            && self.memory_lineage_binding()? == previous.memory_lineage_binding()?)
     }
     pub(crate) fn memory_lineage_binding(
         &self,

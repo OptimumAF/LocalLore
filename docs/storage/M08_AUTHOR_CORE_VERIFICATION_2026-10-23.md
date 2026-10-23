@@ -1,7 +1,7 @@
 # M08 pure Core author-correction source freeze — 2026-10-23
 
-Refs #12 (M08.03), #30 (D08.05 prerequisite). Status: implemented source,
-**not compiled or executed yet**. This is neither native authoring acceptance
+Refs #12 (M08.03), #30 (D08.05 prerequisite). Status: implementation under
+Core verification. This is neither native authoring acceptance
 nor permission to expose Domain 2 through the current applications.
 
 ## Binding and ownership
@@ -117,7 +117,43 @@ cargo clippy --locked -p locallore --all-targets --jobs 1 -- -D warnings
 cargo clippy --locked -p locallore --all-targets --all-features --jobs 1 -- -D warnings
 ```
 
-No Cargo, frontend, native app, device, model, package build or download has run
-for this freeze. Coordinator-owned full workspace/Store/compiler compatibility
+Coordinator-owned full workspace/Store/compiler compatibility
 and actual wire/UI authoring remain separate gates. No schema 5 durability,
 Domain 2 compiler support, quality, performance or human acceptance is claimed.
+
+## First execution and preserved failure
+
+The coordinator subsequently granted the exclusive Core slot. Environment:
+Windows, rustc `1.93.1 (01f6ddf75 2026-02-11)`, cargo
+`1.93.1 (083ac5135 2025-12-15)`. Dedicated `author-core-rust` target and
+`author-core-temp-ae16228d-d6b0-4ce6-91dd-137241487fb2` TEMP/TMP are outside the
+repository. Locked/offline, jobs 1, incremental/debug info disabled, ordinary
+`LIBSQLITE3_FLAGS` empty. No dependencies, models or assets were downloaded.
+
+Actual frozen focused command (with `--offline` added to the above command)
+at production `5476e36` / test `326792b`: **16 passed, zero failed/ignored**;
+compile 19.57 s. No compile or fixture correction was needed.
+
+The first full default Core `--all-targets` run then failed in two unchanged
+legacy restore tests: `empty_history_and_alternate_seed_do_not_inherit_other_story_state`
+and `every_recorded_envelope_field_is_checked_including_resolved_effects`.
+Actual mismatch: returned `Scope`, required `CorruptHistory` (restore result
+7 passed / 2 failed; process exit 101). The new restore helper had omitted
+the old `.recorded(...)` error mapping. This was a production compatibility
+defect, not an invalid fixture. The original log `02-core-default.log` is
+retained locally unchanged. No test or expected output was altered.
+
+Narrow production fix `9a9a616` reinstates only the closed `CorruptHistory`
+mapping in `author_correction.rs`. The identical nine existing restore tests
+plus all 16 frozen tests then passed: **25 passed, zero failed/ignored**;
+compile 7.47 s, restore 0.93 s. Log `03-restore-corrected.log` retained.
+Full default/all-feature and strict Clippy reruns remain pending at this
+intermediate report. All commands add `--offline`; no app/device/model check
+has been performed.
+
+Frozen test file SHA-256 (unchanged through this fix):
+
+```text
+m08_author_core.rs    10617971e8029f82baaaeb036225ce32e76ee8175d32970382044fd2eb12c279
+m08_author_legacy.rs  c2151b3ea252777c8c0d815dcb70f0d439f91a64e3c8366ab8f80e2ff8552843
+```

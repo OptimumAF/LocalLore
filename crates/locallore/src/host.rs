@@ -2551,6 +2551,92 @@ mod tests {
         assert_eq!(view["data"]["receipts"].as_array().unwrap().len(), 1);
     }
     #[test]
+    fn branch_invalidation_retires_target_owner_and_preserves_same_story_child() {
+        let h = Host::new(true);
+        let (parent, scope) = session(&h);
+        let (child, target_owner, child_owner) = {
+            let mut state = h.state.lock().unwrap();
+            let engine = state.sessions[&parent]
+                .engine
+                .fork("retained-child", 0)
+                .unwrap();
+            let child = attach_engine(&mut state, engine)["data"]["session"]
+                .as_str()
+                .unwrap()
+                .to_owned();
+            (
+                child.clone(),
+                state.sessions[&parent].trace_owner.clone(),
+                state.sessions[&child].trace_owner.clone(),
+            )
+        };
+        h.invalidate_branches(&scope.story, std::slice::from_ref(&scope.branch));
+        assert!(
+            !target_owner.live(),
+            "removed target must fence late private writes"
+        );
+        assert!(child_owner.live());
+        let state = h.state.lock().unwrap();
+        assert!(!state.sessions.contains_key(&parent));
+        assert!(state.sessions.contains_key(&child));
+    }
+    #[test]
+    fn public_scope_retirement_retires_owner_before_removing_cached_session() {
+        struct AdmissionOnly(&'static str);
+        impl Persistence for AdmissionOnly {
+            fn validate_scope(&mut self, _: &Scope) -> Result<(), String> {
+                Err(self.0.into())
+            }
+            fn location(&self) -> &str {
+                "synthetic-admission-only"
+            }
+            fn list(&mut self) -> Result<Vec<WorkspaceSummary>, String> {
+                unreachable!()
+            }
+            fn create(&mut self) -> Result<Engine, String> {
+                unreachable!()
+            }
+            fn resume(&mut self, _: &Scope) -> Result<Engine, String> {
+                unreachable!()
+            }
+            fn begin(&mut self, _: &Request) -> Result<SavedTurn, String> {
+                unreachable!()
+            }
+            fn commit(&mut self, _: &Request, _: &Proposal, _: &str) -> Result<Receipt, String> {
+                unreachable!()
+            }
+            fn cancel(&mut self, _: &Request) -> Result<SavedTurn, String> {
+                unreachable!()
+            }
+            fn fail(&mut self, _: &Request) -> Result<SavedTurn, String> {
+                unreachable!()
+            }
+            fn stale(&mut self, _: &Request) -> Result<SavedTurn, String> {
+                unreachable!()
+            }
+            fn status(&mut self, _: &Scope, _: &str) -> Result<SavedTurn, String> {
+                unreachable!()
+            }
+        }
+        for error in ["NotFound", "Busy"] {
+            let h = Host::new(true);
+            let (id, scope) = session(&h);
+            let mut state = h.state.lock().unwrap();
+            let owner = state.sessions[&id].trace_owner.clone();
+            state.persistence = Some(Box::new(AdmissionOnly(error)));
+            assert_eq!(
+                get_session(&mut state, &id, &scope).err().unwrap()["error"],
+                error
+            );
+            assert_eq!(state.sessions.contains_key(&id), error != "NotFound");
+            assert_eq!(
+                owner.live(),
+                error != "NotFound",
+                "retired admission must fence late captures; Busy must retain the session"
+            );
+        }
+    }
+    #[test]
     fn private_capture_owner_retires_even_when_trace_lock_is_busy_but_not_on_model_unload() {
         let h = Host::new(true);
         let (id, _) = session(&h);

@@ -72,13 +72,13 @@ pub struct StoreInfo {
 
 /// No connection, SQL executor or deserializer for accepted events crosses this boundary.
 pub struct Store {
-    // Field order is intentional: SQLite closes BEFORE the new-leaf reservation.
+    // Field order is intentional: SQLite closes BEFORE all staging reservations.
     connection: Connection,
-    _new_leaf: Option<std::fs::File>,
+    _staging_guards: Vec<std::fs::File>,
 }
 
 #[cfg(windows)]
-fn reserve_new_leaf(path: &Path) -> Result<std::fs::File> {
+fn reserve_new_leaf(path: &Path, share_mode: u32) -> Result<std::fs::File> {
     use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
     let leaf = path
         .file_name()
@@ -99,7 +99,7 @@ fn reserve_new_leaf(path: &Path) -> Result<std::fs::File> {
         .read(true)
         .write(true)
         .create_new(true)
-        .share_mode(0x1 | 0x2) // FILE_SHARE_READ | FILE_SHARE_WRITE, never DELETE.
+        .share_mode(share_mode) // Main permits READ/WRITE; sidecars READ only. Never DELETE.
         .custom_flags(0x0020_0000) // FILE_FLAG_OPEN_REPARSE_POINT.
         .open(path)
         .map_err(|_| StorageError::Io)?;
@@ -108,6 +108,20 @@ fn reserve_new_leaf(path: &Path) -> Result<std::fs::File> {
         return Err(StorageError::Integrity);
     }
     Ok(file)
+}
+
+#[cfg(windows)]
+fn reserve_new_staging(path: &Path) -> Result<Vec<std::fs::File>> {
+    let mut guards = Vec::with_capacity(4);
+    for suffix in ["", "-journal", "-wal", "-shm"] {
+        let mut name = path.as_os_str().to_owned();
+        name.push(suffix);
+        // Sidecars are zero-length sentinels. Deny WRITE as well as DELETE so
+        // no compatible watcher can install hot-journal/WAL bytes before open.
+        let sharing = if suffix.is_empty() { 0x1 | 0x2 } else { 0x1 };
+        guards.push(reserve_new_leaf(Path::new(&name), sharing)?);
+    }
+    Ok(guards)
 }
 
 #[cfg(all(test, windows))]
@@ -132,12 +146,31 @@ fn configure(connection: &Connection) -> Result<()> {
     Ok(())
 }
 fn connect(path: &Path, read_only: bool) -> Result<Connection> {
+    let connection = connect_unconfigured(path, read_only)?;
+    configure(&connection)?;
+    Ok(connection)
+}
+fn connect_unconfigured(path: &Path, read_only: bool) -> Result<Connection> {
     let flags = if read_only {
         OpenFlags::SQLITE_OPEN_READ_ONLY
     } else {
         OpenFlags::SQLITE_OPEN_READ_WRITE
     };
-    let connection = Connection::open_with_flags(path, flags | OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
+    Ok(Connection::open_with_flags(
+        path,
+        flags | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )?)
+}
+#[cfg(windows)]
+fn connect_staging(path: &Path) -> Result<Connection> {
+    let connection = connect_unconfigured(path, false)?;
+    // Preparing journal_mode can load schema/hot-journal state. ALL exact
+    // sidecars must already be exclusively created and pinned before this call.
+    connection.pragma_update(None, "journal_mode", "MEMORY")?;
+    let mode: String = connection.pragma_query_value(None, "journal_mode", |r| r.get(0))?;
+    if mode != "memory" {
+        return Err(StorageError::Integrity);
+    }
     configure(&connection)?;
     Ok(connection)
 }
@@ -285,14 +318,16 @@ impl Store {
     fn from_connection(connection: Connection) -> Self {
         Self {
             connection,
-            _new_leaf: None,
+            _staging_guards: Vec::new(),
         }
     }
-    /// Atomically create a new Windows staging leaf and retain its no-DELETE
-    /// sharing handle until AFTER SQLite closes. Refuses every existing leaf.
+    /// Create a disposable Windows staging Store, with MEMORY rollback journal.
+    /// Reserve main/-journal/-wal/-shm BEFORE SQLite; retain no-DELETE guards
+    /// (sidecars also deny WRITE) until AFTER SQLite closes. Refuse any existing
+    /// leaf/sidecar. This API is NOT a crash-durable active-workspace opener.
     /// Caller MUST retain a trusted ancestor chain for the entire Store lifetime;
-    /// this is leaf replacement protection, not a same-user/OS security sandbox.
-    /// On failure an exclusively created empty/partial leaf may remain. No path
+    /// this is namespace protection, not a same-user/OS security sandbox.
+    /// On failure exclusively created empty/partial staging files may remain. No path
     /// cleanup is attempted; the trusted staging owner must handle it separately.
     /// Non-Windows callers fail closed with InvalidInput; no weaker fallback.
     pub fn create_new_pinned(path: &Path) -> Result<Self> {
@@ -321,10 +356,10 @@ impl Store {
     }
     #[cfg(windows)]
     fn create_new_pinned_inner(path: &Path, #[cfg(test)] hooks: PinnedNewHooks) -> Result<Self> {
-        let guard = reserve_new_leaf(path)?;
+        let guards = reserve_new_staging(path)?;
         #[cfg(test)]
         (hooks.after_reservation)(path)?;
-        let connection = connect(path, false)?;
+        let connection = connect_staging(path)?;
         #[cfg(test)]
         (hooks.after_connect)(&connection)?;
         // Never adopt a populated database even if someone wrote into this new
@@ -333,7 +368,7 @@ impl Store {
             return Err(StorageError::Integrity);
         }
         let mut store = Self::open_connection(path, None, true, connection)?;
-        store._new_leaf = Some(guard);
+        store._staging_guards = guards;
         Ok(store)
     }
     /// Trusted application-private path only. Upgrade known old databases with a unique,
@@ -689,6 +724,22 @@ mod tests {
             );
             assert_eq!(result.err(), Some(StorageError::Io));
             assert_eq!(std::fs::read(&path).unwrap(), before);
+            for suffix in ["-journal", "-wal", "-shm"] {
+                let main = dir.join(format!("refused{suffix}.sqlite"));
+                let mut name = main.as_os_str().to_owned();
+                name.push(suffix);
+                let sidecar = PathBuf::from(name);
+                std::fs::write(&sidecar, b"foreign sidecar").unwrap();
+                let result = Store::create_new_pinned_inner(
+                    &main,
+                    PinnedNewHooks {
+                        after_reservation: |_| panic!("all reservations must succeed first"),
+                        after_connect: |_| panic!("must not connect to existing sidecar"),
+                    },
+                );
+                assert_eq!(result.err(), Some(StorageError::Io));
+                assert_eq!(std::fs::read(&sidecar).unwrap(), b"foreign sidecar");
+            }
             cleanup(&dir);
         }
         #[test]
@@ -697,26 +748,57 @@ mod tests {
             let path = dir.join("new.sqlite");
             let outside = dir.join("outside.sqlite");
             let before = std::fs::read(&outside).unwrap();
-            let store =
-                Store::create_new_pinned_inner(
-                    &path,
-                    PinnedNewHooks {
-                        after_reservation: |path| {
-                            assert_eq!(std::fs::metadata(path).unwrap().len(), 0);
-                            assert!(std::fs::rename(path, path.with_file_name("stolen.sqlite"))
+            let store = Store::create_new_pinned_inner(
+                &path,
+                PinnedNewHooks {
+                    after_reservation: |path| {
+                        assert_eq!(std::fs::metadata(path).unwrap().len(), 0);
+                        assert!(
+                            std::fs::rename(path, path.with_file_name("stolen.sqlite")).is_err()
+                        );
+                        assert!(std::fs::remove_file(path).is_err());
+                        assert!(
+                            std::fs::rename(path.with_file_name("outside.sqlite"), path).is_err()
+                        );
+                        for suffix in ["-journal", "-wal", "-shm"] {
+                            let mut name = path.as_os_str().to_owned();
+                            name.push(suffix);
+                            let sidecar = PathBuf::from(name);
+                            assert_eq!(std::fs::metadata(&sidecar).unwrap().len(), 0);
+                            assert!(OpenOptions::new().write(true).open(&sidecar).is_err());
+                            assert!(std::fs::remove_file(&sidecar).is_err());
+                            assert!(std::fs::rename(&sidecar, sidecar.with_extension("stolen"))
                                 .is_err());
-                            assert!(std::fs::remove_file(path).is_err());
-                            assert!(std::fs::rename(path.with_file_name("outside.sqlite"), path)
-                                .is_err());
-                            Ok(())
-                        },
-                        after_connect: |_| Ok(()),
+                            assert!(std::fs::rename(
+                                path.with_file_name("outside.sqlite"),
+                                &sidecar
+                            )
+                            .is_err());
+                        }
+                        Ok(())
                     },
-                )
-                .unwrap();
+                    after_connect: |connection| {
+                        let mode: String =
+                            connection.pragma_query_value(None, "journal_mode", |r| r.get(0))?;
+                        assert_eq!(mode, "memory");
+                        Ok(())
+                    },
+                },
+            )
+            .unwrap();
             assert_eq!(store.info().unwrap().schema_version, SCHEMA_VERSION);
             assert_eq!(std::fs::read(&outside).unwrap(), before);
             drop(store);
+            let normal = Store::open(&path, None).unwrap();
+            let mode: String = normal
+                .connection
+                .pragma_query_value(None, "journal_mode", |r| r.get(0))
+                .unwrap();
+            assert_eq!(
+                mode, "delete",
+                "disposable staging journal mode is not inherited by normal reopen"
+            );
+            drop(normal);
             cleanup(&dir);
         }
         #[test]

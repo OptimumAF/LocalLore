@@ -50,3 +50,30 @@ check passed. Logs are local/gitignored `target/package-tests.log`. The tests us
 synthetic MZ-prefixed bytes and never execute an app/worker. No hosted Actions run
 was performed or claimed. Repository settings, signing, public release, model
 downloads, protected work and desktop control remain untouched.
+
+## Current shared-core package integration
+
+Accepted main `228c482c6a3bcfef7bec6a6769ed2207ee054b69` was merged without
+conflict; exact package source is `0b90200f08c6420a7e453becc0772f402bf983d0`.
+The coordinator actually ran the documented build and independent archive verify
+commands with the author's checksum-verified portable Node24.22.1/npm11.19.1 and
+Python3.14.9. The normal frontend/controller/schema/hook checks and normal
+`cargo rustc --no-default-features ... /Brepro` build passed on these integrated
+inputs. Synthetic package tests12/12 and parsed workflow policy passed again
+under the pinned tools. No additional full runtime/native unit suite or model/UI
+journey was claimed by this package build; current shared-core233 passes and
+native/runtime/Android compatibility are separately recorded by #59/#61.
+
+The local folder/ZIP contains446 members, no model weights or private saves:
+
+| Artifact | Bytes | SHA256 |
+|---|---:|---|
+| Normal executable | 19,647,488 | `537fc8bcb7c3c02070908fb5b83bbeab76f352848f67a42b5bd8462edd72e60f` |
+| Developer ZIP | 9,581,401 | `99b87975c02bf328bcc917a9e672917f4c224712da2e65838542b0b280def59b` |
+
+The fixed worker remains `add98cf02249141942c88e2517c2f5a4c9a91dbe9638bf7d3cd30c26916bce87`.
+Outputs remain task-local under `packages/LocalLore 228c482 Δ developer`; logs
+are gitignored `target/integrated-package-{build,tests}.log`. This current source
+was built once, not claimed as a new repeatability comparison. The earlier
+same-path cached repeat belongs to its documented18c5c2f source. No package
+executable, WebView or inference worker was launched and no binary was published.

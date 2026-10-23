@@ -63,8 +63,8 @@ that older attempt emitted or change its timeout/canonical result.
 Owner evidence recorded one Engine opened/closed, one Conversation opened/closed,
 balanced owners, terminal cancellation callback and `owner_drained: true`.
 Process-termination cleanup was not required. The gift check was false.
-The critical child returned 2 after 122,562 ms; its wrapper returned 1 with known
-process cleanup. Its retained closure failure is described below.
+The critical child returned 2 after 122,562 ms with known process cleanup.
+Its retained closure failure is described below.
 
 ## Phase readback and independent canonical outcome
 

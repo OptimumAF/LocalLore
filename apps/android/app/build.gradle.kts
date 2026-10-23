@@ -28,6 +28,8 @@ android {
             "org.locallore.app.archiveverify.test.diagnostics" else "org.locallore.app.test.diagnostics"
         manifestPlaceholders["archiveTestAuthority"] = if (archiveVerification == "true")
             "org.locallore.app.archiveverify.test.archives" else "org.locallore.app.test.archives"
+        manifestPlaceholders["chooserTestAuthority"] = if (archiveVerification == "true")
+            "org.locallore.app.archiveverify.test.chooser" else "org.locallore.app.test.chooser"
         if (archiveVerification == "true") {
             applicationIdSuffix = ".archiveverify"
             versionNameSuffix = "-archive-verification"

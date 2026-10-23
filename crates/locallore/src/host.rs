@@ -1536,6 +1536,7 @@ impl Host {
                     request,
                     mode,
                 } => {
+                    refresh_session(state, session, &request.scope)?;
                     let s = get_session(state, session, &request.scope)?;
                     if let Some(t) = s.turns.get(&request.turn) {
                         if t.request != *request || t.mode != *mode {
@@ -2456,6 +2457,8 @@ fn selected_turn_status(
     scope: &Scope,
     turn: &str,
 ) -> Result<SavedTurn, String> {
+    refresh_session(state, session, scope)
+        .map_err(|reply| reply["error"].as_str().unwrap_or("Internal").to_owned())?;
     let selected = state.sessions.get(session).ok_or("Closed")?;
     let basis = selected
         .engine

@@ -47,10 +47,10 @@ fn scenario(
     profile: &PlayProfile,
     scope: &Scope,
     turn: &str,
-    kind: PlayInputKind,
-    text: &str,
+    input: (PlayInputKind, &str),
     cancel_after_ms: Option<u64>,
 ) -> Value {
+    let (kind, text) = input;
     let engine = store.resume(scope).unwrap().engine;
     let request = engine.request(
         turn,
@@ -150,8 +150,7 @@ fn main() {
         &profile,
         &scope,
         "gift",
-        PlayInputKind::Action,
-        "I give my last potion to Mira.",
+        (PlayInputKind::Action, "I give my last potion to Mira."),
         None,
     ));
     let after_gift = store.resume(&scope).unwrap().engine;
@@ -171,8 +170,7 @@ fn main() {
         &profile,
         &scope,
         "second-potion",
-        PlayInputKind::Action,
-        "I give another potion to Mira.",
+        (PlayInputKind::Action, "I give another potion to Mira."),
         None,
     ));
     results.push(scenario(
@@ -181,8 +179,10 @@ fn main() {
         &profile,
         &scope,
         "invented-power",
-        PlayInputKind::Action,
-        "I use my teleport ability to jump to the tower.",
+        (
+            PlayInputKind::Action,
+            "I use my teleport ability to jump to the tower.",
+        ),
         None,
     ));
     results.push(scenario(
@@ -191,8 +191,10 @@ fn main() {
         &profile,
         &scope,
         "secret",
-        PlayInputKind::Dialogue,
-        "The tideglass relic lies in dry-well: SECRET-TIDE-731.",
+        (
+            PlayInputKind::Dialogue,
+            "The tideglass relic lies in dry-well: SECRET-TIDE-731.",
+        ),
         None,
     ));
     let current = store.resume(&scope).unwrap().engine;
@@ -214,8 +216,7 @@ fn main() {
         &profile,
         &scope,
         "cancel",
-        PlayInputKind::Action,
-        "I wait for one tide tick.",
+        (PlayInputKind::Action, "I wait for one tide tick."),
         Some(50),
     ));
     let final_engine = store.resume(&scope).unwrap().engine;

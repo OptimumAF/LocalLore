@@ -16,6 +16,7 @@ operation, or changes to the protected runtime-control chat/worktree were used.
 | Worker completion ignored another owner's cancellation | A delayed preparation returned `ready` after another real Host had cancelled the same key. | `cbc2baa` checks persisted status and refreshes before worker publication. |
 | Failed cancellation write exposed a local terminal outcome | Injecting `Busy` at the persistence port left a durable draft but preparation claimed `cancelled`. The first fix rejected that response, but a subsequent status lookup still claimed cancellation. | Coordinator `f0030f5` restores provisional queued cache state after failed terminal write; both immediate response and later lookup now avoid false cancellation. |
 | Catalog admission was outside the writer transaction | At 255 synthetic stories, two simultaneous Host creates both succeeded, admitting 257 and making the bounded catalog unreadable. | `cbc2baa` rechecks the cap under the IMMEDIATE insertion transaction. Exactly one final slot is admitted and the library remains readable. |
+| Transient post-generation status error stranded a worker lease | A fixed `Busy` injection left local phase `running` after worker count reached zero, preventing another prepare. | Coordinator `7bf5b7e` resets only an unfinished running cache entry to queued on the failed observation; original-key retry can prepare/commit one effect. |
 
 The cancellation fault adapter delegates all successful calls to the real Store;
 only a fixed acknowledgement/cancel failure is injected. The lost-commit-ack
@@ -25,8 +26,8 @@ filesystem failure. Existing storage crash/disk-full checks remain separate.
 
 ## Executed verification
 
-Final independent tree includes coordinator fixes `cbc2baa`/`f0030f5` (local
-cherry-picks `26cf1e8`/`0d82a88`) and Android handoffs
+Final independent tree includes coordinator fixes `cbc2baa`/`f0030f5`/`7bf5b7e` (local
+cherry-picks `26cf1e8`/`0d82a88`/`5a5bbee`) and Android handoffs
 `0f30185`/`f7d3955`/`2eeacbd`, which align the locked dependency graph. Commands:
 
 ```powershell
@@ -35,7 +36,7 @@ cargo test -p locallore-workspace --locked --offline
 cargo clippy -p locallore-workspace --all-targets --locked --offline -- -D warnings
 ```
 
-Both returned exit 0. The suite passed 3 existing durable-Host tests and 14
+Both returned exit 0. The suite passed 3 existing durable-Host tests and 15
 independent ownership tests. The latter run with the default Rust test runner;
 a fixture mutex serializes expensive database setup across these tests while
 preserving the multiple real Hosts and worker threads raced within each case.
@@ -62,14 +63,34 @@ and preserves cancellation intent during recovery. No additional concrete Androi
 defect was found in this read review. This reviewer did not run Android builds or
 instrumentation; coordinator/app-agent evidence must identify those separately.
 
-Desktop `75a30d5` has a native lifecycle finding handed to the coordinator:
+Desktop `75a30d5` had a native lifecycle finding handed to the coordinator:
 `host_call` awaits lazy initialization and a blocking dispatch without a window
 lease. `Destroyed` skips cleanup while the OnceCell is empty; a pending Create or
 Resume can then allocate after destruction. Even with an initialized Host,
 asynchronous `close_all` alone cannot fence a captured later Create. Required
 resolution is a window lifetime/epoch invalidated synchronously at destruction
-and checked before dispatch, including calls waiting for initialization. This
-report does not treat that initial desktop state as passed.
+and checked before dispatch, including calls waiting for initialization.
+App-agent fix `bddfa0d` now supplies that fence. Initialization and ordinary
+control dispatch run through the same native lease gate; Destroyed invalidates
+the epoch synchronously before cleanup waits on that gate. Captured old calls
+cannot allocate after cleanup, and reopening waits for the closed epoch before
+granting a new window lease. Preparation remains outside the gate and is covered
+by Host close/session fences. Window labels and the Tauri capability pattern
+both use `main-*`; exact epochs are checked natively, not granted by renderer text.
+No further concrete lifecycle defect was found in the final source read review.
+
+The two native lease unit tests were independently compiled and executed from
+the final desktop agent source, with output in this review's dedicated target:
+
+```powershell
+rustc --edition 2021 --test '../LocalLore-desktop-durable/apps/desktop/src-tauri/src/lease.rs' -o target-review/lease-tests.exe
+& ./target-review/lease-tests.exe
+```
+
+Both passed (exit 0): captured Create after destruction cannot dispatch/write;
+delayed initialization is fenced and reopen waits for cleanup. These are native
+lease tests, not a new actual-window or packaged-app execution claim. Coordinator
+and desktop-agent evidence must separately identify full native harness runs.
 
 Both app startup paths currently select the first story in stable opaque-ID order;
 they do not persist a last-selected story preference. Explicit library selection

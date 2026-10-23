@@ -853,6 +853,7 @@ export class Controller {
                           observer: s.inspectionObserver,
                           data: s.inspection,
                       },
+            rules: s.play?.rules ?? null,
             player: s.play?.player ?? null,
             inventory: s.play?.inventory ?? null,
             transcript: {

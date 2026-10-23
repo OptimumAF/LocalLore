@@ -92,7 +92,7 @@ impl HarnessState {
     }
 
     fn authorize(&self, window: &tauri::WebviewWindow) -> Result<(), &'static str> {
-        if !active() || window.label() != "main" {
+        if !active() || !window.label().starts_with("main-") {
             return Err("Forbidden");
         }
         Ok(())

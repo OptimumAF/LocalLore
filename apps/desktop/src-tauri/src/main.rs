@@ -3,6 +3,8 @@ use locallore::host::Host;
 use serde_json::Value;
 use std::sync::Arc;
 use tauri::Manager;
+mod lease;
+use lease::WindowLease;
 #[cfg(feature = "dev-harness")]
 mod harness;
 #[cfg(feature = "dev-harness")]
@@ -14,23 +16,27 @@ struct Reopen(AtomicBool);
 
 struct WorkspaceState {
     path: std::path::PathBuf,
+    lease: Arc<WindowLease>,
     host: tokio::sync::OnceCell<Arc<Host>>,
 }
 impl WorkspaceState {
-    async fn get(&self) -> Result<Arc<Host>, String> {
+    async fn get(&self, epoch: u64) -> Result<Arc<Host>, String> {
         self.host
             .get_or_try_init(|| async {
                 let path = self.path.clone();
+                let lease = self.lease.clone();
                 tauri::async_runtime::spawn_blocking(move || {
-                    #[cfg(feature = "dev-harness")]
-                    if harness::active()
-                        && std::env::var("LOCALLORE_TEST_MEMORY").as_deref() == Ok("1")
-                    {
-                        return Ok(Arc::new(Host::new(true)));
-                    }
-                    let parent = path.parent().ok_or_else(|| "InvalidInput".to_owned())?;
-                    std::fs::create_dir_all(parent).map_err(|_| "Io".to_owned())?;
-                    locallore_workspace::open(&path, true).map(Arc::new)
+                    lease.dispatch(epoch, || {
+                        #[cfg(feature = "dev-harness")]
+                        if harness::active()
+                            && std::env::var("LOCALLORE_TEST_MEMORY").as_deref() == Ok("1")
+                        {
+                            return Ok(Arc::new(Host::new(true)));
+                        }
+                        let parent = path.parent().ok_or_else(|| "InvalidInput".to_owned())?;
+                        std::fs::create_dir_all(parent).map_err(|_| "Io".to_owned())?;
+                        locallore_workspace::open(&path, true).map(Arc::new)
+                    })
                 })
                 .await
                 .map_err(|_| "StorageUnavailable".to_owned())?
@@ -49,9 +55,10 @@ async fn host_call(
     permits: tauri::State<'_, Arc<tokio::sync::Semaphore>>,
     input: String,
 ) -> Result<Value, String> {
-    if window.label() != "main" {
-        return Err("Forbidden".into());
-    }
+    let epoch = workspace
+        .lease
+        .capture(window.label())
+        .map_err(str::to_owned)?;
     if input.len() > locallore::host::MAX_INPUT {
         return Err("TooLarge".into());
     }
@@ -75,15 +82,29 @@ async fn host_call(
     } else {
         None
     };
-    let host = workspace.get().await?;
+    let host = workspace.get(epoch).await?;
+    let lease = workspace.lease.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let _permit = permit;
-        host.call(input.as_bytes())
+        if preparing {
+            if !lease.valid(epoch) {
+                return Err("Closed".into());
+            }
+            Ok(host.call(input.as_bytes()))
+        } else {
+            lease.dispatch(epoch, || Ok(host.call(input.as_bytes())))
+        }
     })
     .await
-    .map_err(|_| "Transport".to_owned())
+    .map_err(|_| "Transport".to_owned())?
 }
-fn build_window(app: &tauri::AppHandle, reopened: bool) -> tauri::Result<()> {
+fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let epoch = app
+        .state::<WorkspaceState>()
+        .lease
+        .begin()
+        .map_err(std::io::Error::other)?;
+    let label = format!("main-{epoch}");
     let testing = cfg!(feature = "dev-harness")
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
@@ -103,7 +124,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> tauri::Result<()> {
         "window.__LOCALLORE_TEST__=undefined;".into()
     };
     let builder =
-        tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()));
+        tauri::WebviewWindowBuilder::new(app, label, tauri::WebviewUrl::App("index.html".into()));
     #[cfg(feature = "dev-harness")]
     let builder = if testing {
         let path = std::path::PathBuf::from(
@@ -139,11 +160,12 @@ async fn harness_stats(
     window: tauri::WebviewWindow,
     workspace: tauri::State<'_, WorkspaceState>,
 ) -> Result<Value, &'static str> {
-    if !harness::active() || window.label() != "main" {
+    if !harness::active() || !window.label().starts_with("main-") {
         return Err("Forbidden");
     }
+    let epoch = workspace.lease.capture(window.label())?;
     let (sessions, workers) = workspace
-        .get()
+        .get(epoch)
         .await
         .map_err(|_| "StorageUnavailable")?
         .live_counts();
@@ -152,7 +174,7 @@ async fn harness_stats(
 #[cfg(feature = "dev-harness")]
 #[tauri::command]
 fn harness_oracle(window: tauri::WebviewWindow, receipts: Value) -> Result<Value, &'static str> {
-    if !harness::active() || window.label() != "main" {
+    if !harness::active() || !window.label().starts_with("main-") {
         return Err("Forbidden");
     }
     Ok(test_bridge::oracle(&receipts))
@@ -164,14 +186,19 @@ fn harness_reopen(
     app: tauri::AppHandle,
     state: tauri::State<'_, Reopen>,
 ) -> Result<(), &'static str> {
-    if !harness::active() || window.label() != "main" || state.0.swap(true, Ordering::SeqCst) {
+    if !harness::active()
+        || !window.label().starts_with("main-")
+        || state.0.swap(true, Ordering::SeqCst)
+    {
         return Err("Forbidden");
     }
+    let old_label = window.label().to_owned();
     window.destroy().map_err(|_| "CloseFailed")?;
     tauri::async_runtime::spawn(async move {
         for _ in 0..40 {
             tokio::time::sleep(std::time::Duration::from_millis(25)).await;
-            if app.get_webview_window("main").is_none()
+            if app.get_webview_window(&old_label).is_none()
+                && app.state::<WorkspaceState>().lease.can_open()
                 && app
                     .state::<WorkspaceState>()
                     .ready()
@@ -225,6 +252,7 @@ fn main() {
             };
             app.manage(WorkspaceState {
                 path,
+                lease: Arc::new(WindowLease::default()),
                 host: tokio::sync::OnceCell::new(),
             });
             #[cfg(feature = "dev-harness")]
@@ -242,8 +270,17 @@ fn main() {
         })
         .on_window_event(|window, event| {
             if matches!(event, tauri::WindowEvent::Destroyed) {
-                if let Some(host) = window.state::<WorkspaceState>().ready() {
-                    tauri::async_runtime::spawn_blocking(move || host.close_all());
+                let state = window.state::<WorkspaceState>();
+                if let Some(closed) = state.lease.invalidate(window.label()) {
+                    let lease = state.lease.clone();
+                    let host = state.ready();
+                    tauri::async_runtime::spawn_blocking(move || {
+                        lease.finish_close(closed, || {
+                            if let Some(host) = host {
+                                host.close_all();
+                            }
+                        })
+                    });
                 }
             }
         })

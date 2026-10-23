@@ -22,6 +22,7 @@ export interface Context {
     beliefs: Json[];
 }
 export interface PlayView {
+    rules?: string;
     revision: number;
     scope: Scope;
     player: Context;
@@ -288,6 +289,7 @@ export function playView(
         view.player?.revision !== revision ||
         view.player.observer !== "player" ||
         !view.player.self_state ||
+        (view.rules !== undefined && typeof view.rules !== "string") ||
         !view.inventory ||
         typeof view.inventory !== "object" ||
         !Array.isArray(view.receipts) ||

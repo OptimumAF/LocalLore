@@ -114,9 +114,10 @@ export function App({ controller: c }: { controller: Controller }) {
                                 {s.workspace.location}
                             </p>
                             <p>
-                                Schema {s.workspace.schema_version} | Rules
-                                domain-v1 | Canonical receipts and validated
-                                replay
+                                Schema {s.workspace.schema_version} | Contract
+                                domain-v1 | Rules{" "}
+                                {s.play?.rules ?? "unavailable"} | Canonical
+                                receipts and validated replay
                             </p>
                         </details>
                     )}

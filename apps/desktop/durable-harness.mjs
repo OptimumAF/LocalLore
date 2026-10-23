@@ -97,6 +97,7 @@ const files = [
     "src-tauri/target/debug/locallore-desktop-spike.exe",
     "src-tauri/src/test_bridge.rs",
     "src-tauri/src/harness.rs",
+    "src-tauri/src/lease.rs",
     "ui/host.generated.ts",
     "durable-harness.mjs",
     "../../crates/locallore/src/host.rs",

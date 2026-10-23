@@ -273,8 +273,8 @@ fn fault_ready(directory: &Path, owner: &str, fault: &str) -> bool {
     value["version"] == 1
         && value["owner"] == owner
         && value["fault"] == fault
-        && value["rows"] == 14
-        && value["insert_attempts"] == 15
+        && value["rows"] == 8
+        && value["insert_attempts"] == 9
         && value["pages"] == 32
         && value["sqlite_full"] == true
 }
@@ -325,8 +325,8 @@ fn run_fault(
         cleanup["status"] == "restored"
             && cleanup["child"]["terminal"] == true
             && cleanup["child"]["reaped"] == true
-            && cleanup["report"]["rows_removed"] == 14
-            && cleanup["report"]["free_pages"] == 15
+            && cleanup["report"]["rows_removed"] == 8
+            && cleanup["report"]["free_pages"] == 9
             && cleanup["report"]["schema_restored"] == true
     };
     let host_calls = HOST_CALLS.load(Ordering::SeqCst) - calls_before;
@@ -349,7 +349,7 @@ fn run_fault(
         json!({"version":1,"scope":"host_synthetic_helper_fault_v1","database_schema_version":4,
         "status":if passed {"passed"} else {"failed"},"fault":fault,"ceiling_pages":32,
         "original_failure":failure.report(),"cleanup":cleanup,"actual_fill_observed":filled,
-        "padding_rows":if filled {Some(14)} else {None},"fill_insert_attempts":if filled {Some(15)} else {None},
+        "padding_rows":if filled {Some(8)} else {None},"fill_insert_attempts":if filled {Some(9)} else {None},
         "post_failure_host_calls":host_calls,"post_failure_workspace_opens":probes,
         "helper_children_started":helpers,"no_gameplay_acceptance_claimed":true,
         "physical_enospc_proven":false,"real_model_proven":false}),
@@ -435,8 +435,8 @@ fn run(
             fill["initial_pages"] == 23
                 && fill["pages"] == 32
                 && fill["free_pages"] == 0
-                && fill["rows"] == 14
-                && fill["insert_attempts"] == 15
+                && fill["rows"] == 8
+                && fill["insert_attempts"] == 9
                 && fill["sqlite_full"] == true,
             "measured_fill_profile",
         )?;
@@ -491,8 +491,8 @@ fn run(
     require(
         removed["initial_pages"] == 32
             && removed["pages"] == 32
-            && removed["free_pages"] == 15
-            && removed["rows_removed"] == 14
+            && removed["free_pages"] == 9
+            && removed["rows_removed"] == 8
             && removed["schema_restored"] == true,
         "measured_relief_profile",
     )?;

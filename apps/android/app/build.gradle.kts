@@ -129,7 +129,7 @@ require(reliefProfile == Properties().apply {
     setProperty("fixture.format", "3")
     setProperty("database.schemaVersion", "4")
     setProperty("fixture.initialPages", "23")
-    setProperty("fixture.paddingRows", "14")
+    setProperty("fixture.paddingRows", "8")
 }) { "Relief profile changed; recalibrate and review the fixed test binary before updating this guard" }
 extra["localloreCapacityTest"] = capacityTest || reliefTest
 extra["localloreCapacityMode"] = when { capacityTest -> "full"; reliefFaultTest -> "faults"; reliefTest -> "relief"; else -> "ordinary" }

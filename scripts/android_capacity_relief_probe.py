@@ -34,7 +34,7 @@ def audit_relief_manifests(badging, tree, test_badging, test_tree, *, faults=Fal
     permissions = audit_apk.audit_manifest(badging, tree, package)
     audit_apk.require("application-label:'" + label + "'" in badging, "Missing capacity relief test label")
     audit_apk.require(re.search(r':testOnly\([^)]*\)=true\b', tree), "Relief app must be testOnly")
-    metadata = {"pages": 32, "format": 3, "schema_version": 4, "initial_pages": 23, "padding_rows": 14}
+    metadata = {"pages": 32, "format": 3, "schema_version": 4, "initial_pages": 23, "padding_rows": 8}
     if faults:
         metadata["faults_format"] = 1
     audit_apk.audit_fixed_metadata(tree, "org.locallore.capacity.relief.", metadata)

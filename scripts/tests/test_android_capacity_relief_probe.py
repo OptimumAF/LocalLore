@@ -35,7 +35,7 @@ TREE = """E: manifest (line=1)
       A: android:value(0x2)=23
     E: meta-data (line=8)
       A: android:name(0x1)="org.locallore.capacity.relief.padding_rows"
-      A: android:value(0x2)=14
+      A: android:value(0x2)=8
 """
 TEST_BADGING = """package: name='org.locallore.app.capacityreliefv4.test' versionCode='1'
 """
@@ -105,7 +105,7 @@ class ReliefAuditTests(unittest.TestCase):
     def test_schema4_relief_counts_and_identity_are_fixed(self):
         for tree in (TREE.replace("=4\n", "=1\n"), TREE.replace("=32\n", "=32.0\n"),
                      TREE.replace("=32\n", "=32!\n"), TREE.replace("=23\n", "=15\n"),
-                     TREE.replace("=14\n", "=16\n"), TREE.replace("=3\n", "=1\n"),
+                     TREE.replace("=8\n", "=14\n"), TREE.replace("=8\n", "=16\n"), TREE.replace("=3\n", "=1\n"),
                      TREE.replace("capacity.relief.padding_rows", "capacity.padding_rows")):
             with self.subTest(tree=tree), self.assertRaises(audit_apk.AuditError):
                 capacity.audit_relief_manifests(BADGING, tree, TEST_BADGING, TEST_TREE)

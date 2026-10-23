@@ -25,9 +25,9 @@ internal object PaddingFormat {
     const val OWNER_FORMAT = "locallore-capacity-padding-v2"
     const val SCHEMA = "e9f19f3b384c52c5c7bd360e23c1db9e76314152f750a5b9f07f7a14071f8362"
     const val INITIAL_PAGES = 23
-    // Retain schema3 counts for the first schema4 measurement; not yet qualified.
-    const val EXPECTED_ROWS = 14
-    const val FREED_PAGES = 15
+    // Actual fixed schema4 Host/helper measurement; Android execution remains separate.
+    const val EXPECTED_ROWS = 8
+    const val FREED_PAGES = 9
     const val TABLE = "locallore_capacity_pad_v1"
     const val CREATE = "CREATE TABLE locallore_capacity_pad_v1 (id INTEGER PRIMARY KEY, owner TEXT NOT NULL, payload BLOB NOT NULL)"
     const val INSERT = "INSERT INTO locallore_capacity_pad_v1 (owner,payload) VALUES (?,zeroblob(3500))"

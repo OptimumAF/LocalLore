@@ -7,6 +7,6 @@
         <meta-data android:name="org.locallore.capacity.relief.format" android:value="3" />
         <meta-data android:name="org.locallore.capacity.relief.schema_version" android:value="4" />
         <meta-data android:name="org.locallore.capacity.relief.initial_pages" android:value="23" />
-        <meta-data android:name="org.locallore.capacity.relief.padding_rows" android:value="14" />
+        <meta-data android:name="org.locallore.capacity.relief.padding_rows" android:value="8" />
     </application>
 </manifest>

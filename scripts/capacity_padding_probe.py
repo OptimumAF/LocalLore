@@ -217,7 +217,7 @@ def execute_fault(directory, owner, action, fault):
     if action == "remove":
         raise Rejected("injected_cleanup_refusal")
     report = execute(directory, owner, action)
-    require(report["rows"] == 14 and report["insert_attempts"] == 15 and report["sqlite_full"], "fault_fill_profile")
+    require(report["rows"] == 8 and report["insert_attempts"] == 9 and report["sqlite_full"], "fault_fill_profile")
     ready = {"version": 1, "owner": owner, "fault": fault, "rows": report["rows"],
              "insert_attempts": report["insert_attempts"], "pages": report["pages"], "sqlite_full": True}
     with (Path(directory) / ".capacity-fault-ready").open("xb") as output:

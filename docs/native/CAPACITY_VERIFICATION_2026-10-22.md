@@ -1,5 +1,10 @@
 # Actual SQLite Full through Compose — 2026-10-22
 
+Current fixture layout/commands: see the
+[lifecycle follow-up](CAPACITY_LIFECYCLE_VERIFICATION_2026-10-22.md). This report
+preserves the original #53 source and three-method class selection; the current
+UI class has one method and the two native methods have their own class.
+
 Scope: bounded M04.04 / [#8](https://github.com/OptimumAF/LocalLore/issues/8),
 stacked on unmerged #50 → #49 → #44. This is an explicitly different test binary
 over the existing production Rust workspace/JNI/gateway and Compose shell.

@@ -91,6 +91,11 @@ builds are rejected. Only debug exists in capacity mode. Ordinary `scripts/check
 uncapped. Unset ambient `LIBSQLITE3_FLAGS` for either build; the reviewed native
 build owns that option. This immutable fixture cannot prove recovery after freeing
 capacity or partition-level exhaustion.
+The [capacity lifecycle follow-up](../../docs/native/CAPACITY_LIFECYCLE_VERIFICATION_2026-10-22.md)
+separates native-only proofs from the single Compose case and adds an explicit
+ordered cohort with Activity-only controls. Default capacity discovery runs the
+original three proofs once; the historical UI-class selector now runs only its
+one UI method. The report explains nested-suite selection and remote-shell quoting.
 Cancellation that reaches Rust before submit exists is reconciled as an uncommitted
 request. A late submit remains a draft; recovery does not regenerate or commit it.
 The earlier [ADR-0004](../../docs/adr/0004-android-engine-boundary.md) remains the

@@ -75,6 +75,14 @@ Node 23.10.0, pinned desktop packages and native Tauri/WebView2 on Windows:
   inputs match the integrated checkout after Git line-ending normalization;
   the core Host SHA matches byte-for-byte. Four desktop files differ only in
   CRLF/LF checkout representation.
+- Final legacy D02 native and headless compatibility runs each pass **119
+  assertions and 21 captures**. The headless fixture uses intercepted HTTPS
+  assets so platform cryptographic UUID creation is available; it starts no
+  server and performs no external fetch. Dev/default native all-target Clippy,
+  native unit tests, formatting and default executable build pass. Normal
+  frontend assets and executable were restored without launching a visible app.
+  [Desktop verification](../desktop/APP_DURABILITY_VERIFICATION_2026-10-22.md)
+  lists exact commands, environment and the synthetic evidence manifest.
 
 Ignored artifact directory: `apps/desktop/artifacts/durable-native-d60a4b4d-d6e6-42d2-9046-66acee3213bd`
 in the dedicated desktop verification checkout. It contains synthetic captures,

@@ -89,3 +89,10 @@ subsequent [device follow-up](APP_DEVICE_VERIFICATION_2026-10-22.md) records act
 execution of these cases, the production transport's Main/IO and async-close
 checks, the reproduced pre-submit cancellation fix, and explicit process restart
 on two selected emulators. Physical-device and real-model gates remain separate.
+
+The subsequent [framework-interruption tests](FRAMEWORK_VERIFICATION_2026-10-22.md)
+exercise actual Activity stop/recreation/destruction, active-native and
+prepared-but-undelivered boundaries, late reply isolation and native reopen.
+They use test-only construction through the normal ViewModel store. The report
+also retains an unexplained Android graphics cleanup abort; successful later
+runs do not establish its cause or qualify graphics reliability.

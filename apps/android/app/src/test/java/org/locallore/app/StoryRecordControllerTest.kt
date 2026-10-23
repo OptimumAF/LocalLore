@@ -119,4 +119,17 @@ class StoryRecordControllerTest {
         assertEquals(listOf("Seed · player"), controller.state.value.entries.single().sources)
         assertEquals(listOf("Bounded view"), controller.state.value.limitations)
     }
+
+    @Test fun laterPagesCannotChangeTheFrozenCountOrStoryClock() = runTest {
+        for (changeTime in listOf(false, true)) {
+            val controller = StoryRecordController({ q ->
+                if (q.cursor == null) page(q, "cursor-1")
+                else if (changeTime) page(q).copy(storyTime = 4) else page(q).copy(total = 3)
+            }, this)
+            controller.open(context); advanceUntilIdle()
+            controller.next(); advanceUntilIdle()
+            assertEquals(StoryRecordProblem.INVALID_RESPONSE, controller.state.value.problem)
+            assertTrue(controller.state.value.entries.isEmpty())
+        }
+    }
 }

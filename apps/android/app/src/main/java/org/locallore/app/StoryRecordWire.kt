@@ -41,6 +41,13 @@ internal object StoryRecordWire {
             val offset = it.split(':')[1].toInt()
             require(offset < total && offset >= entries.size)
         }
+        val offset = query.cursor?.let {
+            require(Regex("1:[1-9][0-9]{0,4}:[0-9a-f]{64}").matches(it))
+            it.split(':')[1].toInt()
+        } ?: 0
+        require(offset <= total)
+        if (next == null) require(offset + entries.size == total)
+        else require(next.split(':')[1].toInt() == offset + entries.size)
         val unsupported = data.getJSONArray("unsupported")
         require(unsupported.length() <= 8)
         for (i in 0 until unsupported.length()) require(unsupported.get(i) is String && unsupported.getString(i).length <= 1024)

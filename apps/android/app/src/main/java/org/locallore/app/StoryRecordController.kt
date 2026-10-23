@@ -45,6 +45,8 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         if (!disposed && !current.loading) load(StoryRecordQuery(context, current.section, current.search, current.cursor))
     }
     private fun load(query: StoryRecordQuery) {
+        val previous = mutable.value.takeIf { query.cursor != null && it.context == query.context &&
+            it.section == query.section && it.search == query.search && it.problem == null && !it.loading }
         val ticket = ++generation
         pending?.cancel()
         mutable.value = StoryRecordState(visible = true, loading = true, context = query.context,
@@ -60,6 +62,7 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
                 check(page.query == query && page.storyTime >= 0 && page.total in 0..65536)
                 check(page.entries.size <= STORY_RECORD_PAGE_ROWS && page.total >= page.entries.size)
                 check(page.entries.map { it.key }.toSet().size == page.entries.size)
+                if (previous != null) check(page.total == previous.total && page.storyTime == previous.storyTime)
                 check(page.nextCursor == null || (page.nextCursor != query.cursor && page.entries.isNotEmpty() &&
                     page.nextCursor.toByteArray(Charsets.UTF_8).size in 1..128))
                 mutable.value = mutable.value.copy(loading = false, storyTime = page.storyTime, total = page.total,

@@ -79,6 +79,11 @@ node apps/desktop/fork-harness.mjs
 Default and dev counts overlap; do not sum them as unique tests. No headless
 browser run is claimed. Mock controller/inert React semantic checks are separate
 from actual Rust Host/SQLite tests, actual native IPC and actual WebView pixels.
+Post-run delivery changes only evidence documentation and line wrapping in the
+updated timeline assertion. That assertion's focused83-check suite passed again.
+Prettier initially flagged its wrapping; after formatting, all declared owned
+frontend files pass Prettier, native files pass rustfmt, and Git whitespace checks
+pass. Production/native/harness/UI bytes remain identical to executed `ed33fd7`.
 
 The actual app cohort covers midturn Rule, stale creation head, accepted boundary,
 parent/canonical preservation, original receipt scopes, explicit fixed-ID retry,

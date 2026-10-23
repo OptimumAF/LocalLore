@@ -428,8 +428,10 @@ export async function archiveJourneys({
             "archive-zero-render-and-unhandled-errors",
         );
         check(
-            config.archiveStage !== "source" || errors.snapshot().length === 2,
-            "archive-only-expected-cancellation-native-errors",
+            // Cancelling before admission skips Prepare, so it need not emit
+            // a native Cancelled error. Keep the category whitelist and bound.
+            config.archiveStage !== "source" || errors.snapshot().length <= 2,
+            "archive-cancellation-native-error-count-bounded",
         );
         check(
             !!document.getElementById("root")?.textContent?.trim(),

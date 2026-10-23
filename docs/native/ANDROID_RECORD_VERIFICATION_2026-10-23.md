@@ -84,7 +84,7 @@ preflight preserved package hashes without stopping processes owned outside this
 packet. Successful cohorts retain strict guards for this packet's own builds.
 
 The four instrumentation methods cover actual Rust pagination, literal no-match
-search, unchanged accepted snapshots and inference/turn call counts during reads,
+search, unchanged accepted snapshots and submit/prepare/commit call counts during reads,
 gift-event provenance and strict reopen, observed claims/beliefs/known truth,
 hidden NPC canaries and forbidden character/omniscient queries, malformed Android
 JSON frames, collected Compose paging/search/section labels/dismissal, accepted

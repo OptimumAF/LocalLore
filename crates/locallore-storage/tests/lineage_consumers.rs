@@ -5,12 +5,12 @@ use locallore::{
     inspection_query::{query, Observer, Query, View, MAX_ROWS, QUERY_VERSION},
 };
 use locallore_storage::{
-    derived_memory::{MemoryError, PrepareRequest, Target},
+    derived_memory::{PrepareRequest, Target},
     ForkRequest, Store,
 };
 
 #[test]
-fn durable_child_restart_feeds_shared_compiler_and_query_without_enabling_derived_cache() {
+fn durable_child_restart_feeds_shared_compiler_query_and_derived_preparation() {
     let path = std::env::temp_dir().join(format!(
         "locallore-lineage-{}-{}.sqlite",
         std::process::id(),
@@ -95,22 +95,19 @@ fn durable_child_restart_feeds_shared_compiler_and_query_without_enabling_derive
         let rows = serde_json::to_string(&page.rows).unwrap();
         assert!(rows.contains("INHERITED-DURABLE") && rows.contains("CHILD-DURABLE"));
         assert!(!rows.contains("PARENT-FUTURE-DURABLE"));
-        assert_eq!(
-            store
-                .prepare_memory(
-                    &PrepareRequest {
-                        scope: child.clone(),
-                        expected_revision: 2,
-                        observer: "mira".into(),
-                        from_exclusive: 0,
-                        through_revision: 2,
-                        target: Target::SceneWindow
-                    },
-                    &|| false
-                )
-                .err(),
-            Some(MemoryError::Unsupported)
-        );
+        assert!(store
+            .prepare_memory(
+                &PrepareRequest {
+                    scope: child.clone(),
+                    expected_revision: 2,
+                    observer: "mira".into(),
+                    from_exclusive: 0,
+                    through_revision: 2,
+                    target: Target::SceneWindow
+                },
+                &|| false
+            )
+            .is_ok());
         assert_eq!(
             store.resume(&child).unwrap().engine.canonical_bytes(),
             before

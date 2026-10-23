@@ -806,8 +806,10 @@ fn range_scope_policy_and_caps_fail_closed_without_inventing_chapters_or_branche
     );
     let fork = engine.fork("child", engine.revision()).unwrap();
     assert_eq!(
-        prepare(&fork, &request(&fork, "player"), &|| false).err(),
-        Some(MemoryError::Unsupported)
+        prepare(&fork, &request(&fork, "player"), &|| false)
+            .unwrap()
+            .scope(),
+        fork.scope()
     );
 }
 

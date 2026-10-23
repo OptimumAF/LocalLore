@@ -47,6 +47,29 @@ export async function timelineNativeJourneys({
     };
     const capture = async (label: string) => {
         await new Promise((r) => setTimeout(r, 100));
+        const root = document.getElementById("root")!;
+        const panel = document.querySelector(".timeline-panel");
+        const rows = [
+            ...(panel?.querySelectorAll(
+                'ul[aria-label="Saved timeline metadata"] > li',
+            ) ?? []),
+        ];
+        check(
+            root.childElementCount > 0 &&
+                panel?.querySelector("#timeline-title")?.textContent ===
+                    "Saved timelines" &&
+                !!t.get().catalog &&
+                rows.length === t.get().catalog!.branches.length &&
+                rows.some(
+                    (row) =>
+                        row.querySelector("h4 code")?.textContent ===
+                            c.selected()?.scope.branch &&
+                        row
+                            .querySelector("h4")
+                            ?.textContent?.includes("selected"),
+                ),
+            `${label}-rendered-selected-timeline`,
+        );
         document
             .querySelector(".timeline-panel")
             ?.scrollIntoView({ block: "start" });
@@ -62,7 +85,7 @@ export async function timelineNativeJourneys({
                 ? { ...c.get().workspace, location: "<synthetic-workspace>" }
                 : null,
         };
-        await invoke("harness_checkpoint", {
+        const rendered = (await invoke("harness_checkpoint", {
             label,
             snapshot: {
                 ...semantic,
@@ -76,7 +99,11 @@ export async function timelineNativeJourneys({
                     viewport: { width: innerWidth, height: innerHeight },
                 },
             },
-        });
+        })) as { rendering?: unknown };
+        check(
+            rendered.rendering === "native-webview2",
+            `${label}-actual-native-render`,
+        );
     };
     try {
         await c.start();

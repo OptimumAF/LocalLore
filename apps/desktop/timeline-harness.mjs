@@ -81,9 +81,12 @@ for (const stage of ["initial", "restart"]) {
             );
             checks.push(...(snapshot.checks ?? []));
         }
-    captures += (await readdir(directory)).filter((f) =>
+    const stageCaptures = (await readdir(directory)).filter((f) =>
         f.endsWith(".png"),
     ).length;
+    if (stageCaptures !== (stage === "initial" ? 11 : 3))
+        throw new Error(`NativeCaptureCount:${stage}`);
+    captures += stageCaptures;
 }
 const files = [
     "ui/TimelinePanel.tsx",

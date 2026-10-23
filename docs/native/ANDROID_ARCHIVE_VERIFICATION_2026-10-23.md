@@ -85,7 +85,7 @@ AVDs. The separate production incremental rebuild/audit also passed (78 tasks,
 2.2.21 were observed. Exact final code is `8c3891700ca5e7dbca3f92e6e6219ccab2527a78`;
 subsequent commits update evidence/documentation only. Across all 14 retained
 device cohorts there are 182 passes and six negative/fixture failures, with zero
-skipped/unfinished records. The latest 38 passes are the final acceptance evidence
+skipped/unfinished records. The latest 38 passes are the final verification evidence
 for this adapter slice; earlier failed attempts are retained, not relabelled.
 
 For reproduction on separately owned, authorized test AVDs, build the isolated

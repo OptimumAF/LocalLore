@@ -173,6 +173,8 @@ pub struct ArchiveBroker {
     before_spawn: Mutex<Option<(Arc<std::sync::Barrier>, Arc<std::sync::Barrier>)>>,
     #[cfg(test)]
     stage_attack: Mutex<Option<(PathBuf, bool)>>,
+    #[cfg(test)]
+    stage_journal: Mutex<Option<PathBuf>>,
 }
 impl Default for ArchiveBroker {
     fn default() -> Self {
@@ -192,6 +194,8 @@ impl Default for ArchiveBroker {
             before_spawn: Mutex::new(None),
             #[cfg(test)]
             stage_attack: Mutex::new(None),
+            #[cfg(test)]
+            stage_journal: Mutex::new(None),
         }
     }
 }
@@ -622,6 +626,11 @@ pub fn import(w: &Work, token: &str, destination: &Path) -> Result<Value> {
         w.check()?;
         let stage_token = validate_archive(&bytes, &|| w.cancelled()).map_err(error)?;
         let stage_path = directory.join("staging.sqlite");
+        #[cfg(all(test, windows))]
+        if let Some(source) = w.broker.stage_journal.lock().unwrap().take() {
+            std::os::windows::fs::symlink_file(source, directory.join("staging.sqlite-journal"))
+                .map_err(|_| "ArchiveIo")?;
+        }
         #[cfg(test)]
         if let Some((source, symlink)) = w.broker.stage_attack.lock().unwrap().take() {
             #[cfg(windows)]
@@ -1242,6 +1251,35 @@ mod tests {
         assert_eq!(
             run(&b, &l, fresh, move |w| import(w, &token, &target))["error"],
             "UnknownArchivePreview"
+        );
+    }
+    #[cfg(windows)]
+    #[test]
+    fn planted_journal_reparse_cannot_write_another_valid_store() {
+        let (root, b, l, e) = setup();
+        let input = root.join("archive.json");
+        fs::write(&input, source(&root.join("source.sqlite"))).unwrap();
+        let outside = root.join("unrelated-journal-target.sqlite");
+        let mut s = Store::open(&outside, None).unwrap();
+        let mut kept = seed();
+        kept.scope.story = "kept-journal-target".into();
+        s.create_story("Unrelated fixture", kept).unwrap();
+        drop(s);
+        let original = fs::read(&outside).unwrap();
+        let target = root.join("target.sqlite");
+        Store::open_application(&target).unwrap();
+        let token = preview(&b, &l, e, input);
+        *b.stage_journal.lock().unwrap() = Some(outside.clone());
+        let r = run(&b, &l, e, move |w| import(w, &token, &target));
+        let before = locallore::inspection::sha256(&original);
+        let after = locallore::inspection::sha256(&fs::read(&outside).unwrap());
+        let evidence = root.join("journal-attack-evidence.json");
+        fs::write(&evidence,serde_json::to_vec_pretty(&json!({"synthetic":true,"attack":"preplanted-staging.sqlite-journal-symlink-to-another-valid-Store","before_sha256":before,"after_sha256":after,"outside_unchanged":before==after,"native_job":r})).unwrap()).unwrap();
+        assert_eq!(
+            before,
+            after,
+            "SQLite journal must never follow a planted link; local synthetic evidence {}",
+            evidence.display()
         );
     }
 }

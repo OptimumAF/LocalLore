@@ -71,3 +71,43 @@ No production defect beyond the concrete legacy instrumentation mismatch was
 found in the examined device-facing paths. This review ran no ADB, emulator,
 phone, network, model, Gradle, JNI or OS-restart action. Coordinator results must
 be read from the integrated device evidence; they are not inferred here.
+
+## Main-based M03.03 verification follow-up
+
+The coordinator subsequently integrated this review and owner-merged main
+`2612001` into its local `LocalLore-m03-reverify` checkout. The following is a
+read-only review of its pending `DurableRestartTest.kt` and
+`ShellInstrumentedTest.assertAccepted` changes. This reviewer performed no
+upstream merge and did not inspect or operate a device.
+
+The `assertAccepted` change addresses the concrete stale-label finding while
+retaining the exact engine narration, accepted revision 1 and two-message
+transcript assertions. No current recipient ownership is inferred from inventory
+absence.
+
+No concrete failure was found in the new restart test. Its two explicit phases
+require a valid coordination token, changed PID or process-start time, exact
+story/branch selection, matching revision, and a length-framed SHA-256 digest
+over message IDs, player flags and UTF-8 text. Resume checks the gift narration,
+repeat-give rejection, an independent new story and the original saved
+transcript again. The checkpoint is bounded to 8192 bytes when read. Cleanup
+removes only the exact checkpoint file and then its empty directory, preserving
+the database and saved stories. Failed phases retain their checkpoint evidence.
+The test requires actual execution with a host process stop between phases;
+compilation or Activity recreation cannot substitute for that evidence.
+
+The remaining production transport coverage gap is distinct from the already
+tested Rust registry. `DurableNativeTest.TestTransport` closes synchronously;
+it does not execute `NativeWorkspaceTransport`'s adapter-owned coroutine cleanup
+scope. Checking that the database file remains after Activity disposal also
+does not establish native handle release. A useful device test should use the
+production transport, establish an actual delayed `prepare` in `running` phase
+with bounded original-key status polling, verify a Main dispatcher pulse,
+cancel/reconcile that key and assert no receipt/revision advancement. Disposal
+should independently demonstrate that native owner capacity recovers. A host
+Rust test alone cannot establish Kotlin IO/Main scheduling or coroutine cleanup.
+
+The earlier scroll/recreation timing concern remains a source-derived risk,
+not a reproduced failure in this review. No additional native test was added
+for a Kotlin scheduling boundary. Integrated emulator results remain owned by
+the coordinator's evidence report.

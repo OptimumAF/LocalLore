@@ -22,6 +22,22 @@ INTEGER_METRICS = COUNTS | {"play_roles", "play_input_tokens", "play_output_toke
 NUMBERS = COUNTS | PLAY_NUMBERS | {"generation_main_pulses", "cancel_call_ms"}
 BOOLS = {"owners_balanced", "cleanup_requires_process_termination", "cancel_called", "terminal_callback",
          "cancel_terminal_callback", "generate_terminal_callback"}
+MODEL_SHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+MODEL_BYTES = 2_588_147_712
+MODEL_KEYS = {"verified", "sha256", "bytes", "diagnostic"}
+MODEL_DIAGNOSTICS = {"verified", "absent", "mismatch", "unstable", "incomplete", "not_regular",
+                     "wrong_volume", "invalid_receipt", "read_failed"}
+
+
+def terminal(raw):
+    if type(raw) is not bytes or len(raw) > 131072:
+        return None
+    codes = list(re.finditer(rb"^INSTRUMENTATION_CODE: (-?\d+)\r?$", raw, re.M))
+    rows = list(re.finditer(rb"^INSTRUMENTATION_RESULT: cache_result=(.*)\r?$", raw, re.M))
+    if (len(codes) != 1 or codes[0].group(1) != b"-1" or len(rows) != 1
+            or rows[0].end() >= codes[0].start() or b"INSTRUMENTATION_FAILED" in raw):
+        return None
+    return strict_json(rows[0].group(1))
 
 
 def integer(value, minimum=0, maximum=storage.MAX_BYTES):
@@ -85,12 +101,7 @@ def parse_result(raw, case, expected_uuid):
         if (type(raw) is not bytes or len(raw) > 131072 or case not in play.CASES
                 or type(expected_uuid) is not str or not storage.UUID.fullmatch(expected_uuid)):
             return None
-        codes = list(re.finditer(rb"^INSTRUMENTATION_CODE: (-?\d+)\r?$", raw, re.M))
-        rows = list(re.finditer(rb"^INSTRUMENTATION_RESULT: cache_result=(.*)\r?$", raw, re.M))
-        if (len(codes) != 1 or codes[0].group(1) != b"-1" or len(rows) != 1
-                or rows[0].end() >= codes[0].start() or b"INSTRUMENTATION_FAILED" in raw):
-            return None
-        value = strict_json(rows[0].group(1))
+        value = terminal(raw)
         if (type(value) is not dict or not BASE <= set(value) or set(value) - (BASE | OPTIONAL)
                 or type(value["version"]) is not int or value["version"] != 1 or value["operation"] != "play"
                 or value["status"] not in ("completed", "error")):
@@ -125,5 +136,45 @@ def parse_result(raw, case, expected_uuid):
             valid_samples = len(matching) == 1 and all(matching[0][k] == value["sample"][k] for k in VOLUME)
         return {"result": result, "sdk": metrics, "status": value["status"], "error": value["error"],
                 "storage_samples_valid": valid_samples}
+    except (ValueError, TypeError, KeyError, UnicodeError, RecursionError, OverflowError):
+        return None
+
+
+def parse_model_identity(raw, expected_uuid):
+    """Bind a completed app-domain full read to the selected framework volume.
+
+    This produces only the trusted control callback shape. Caller still verifies
+    artifact, transport cleanup, actual backing and fresh storage admission.
+    """
+    try:
+        if type(expected_uuid) is not str or not storage.UUID.fullmatch(expected_uuid):
+            return None
+        value = terminal(raw)
+        if (type(value) is not dict or set(value) != BASE | {"volumes", "sample", "post_sample", "model_identity"}
+                or type(value["version"]) is not int or value["version"] != 1
+                or value["operation"] != "verify_model" or value["status"] != "completed" or value["error"] is not None):
+            return None
+        metrics = value["metrics"]
+        if (not metrics_valid(metrics, False)
+                or set(metrics) != COUNTS | {"owners_balanced", "cleanup_requires_process_termination"}
+                or any(metrics[k] != 0 for k in COUNTS - {"main_pulses"})):
+            return None
+        volumes = value["volumes"]
+        if (type(volumes) is not list or len(volumes) > 16 or not all(volume(v) for v in volumes)
+                or not samples_valid(value, expected_uuid)):
+            return None
+        matching = [v for v in volumes if v["volume_uuid"] == expected_uuid]
+        if len(matching) != 1 or any(matching[0][k] != value["sample"][k] for k in VOLUME):
+            return None
+        model = value["model_identity"]
+        if (type(model) is not dict or set(model) != MODEL_KEYS or type(model["verified"]) is not bool
+                or type(model["sha256"]) is not str or not re.fullmatch(r"(?:[0-9a-f]{64})?", model["sha256"])
+                or not integer(model["bytes"]) or type(model["diagnostic"]) is not str
+                or model["diagnostic"] not in MODEL_DIAGNOSTICS):
+            return None
+        exact = model["bytes"] == MODEL_BYTES and model["sha256"] == MODEL_SHA256
+        if model["verified"] != (model["diagnostic"] == "verified") or model["verified"] and not exact:
+            return None
+        return dict(model, volume_uuid=expected_uuid)
     except (ValueError, TypeError, KeyError, UnicodeError, RecursionError, OverflowError):
         return None

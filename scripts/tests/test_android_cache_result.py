@@ -37,6 +37,17 @@ def raw(v=None):
             "\nINSTRUMENTATION_CODE: -1\n").encode()
 
 
+def identity():
+    v = value()
+    del v["play_result"], v["explicit_cache_directory"]
+    v.update(operation="verify_model", model_identity=dict(verified=True, sha256=decoder.MODEL_SHA256,
+                                                          bytes=decoder.MODEL_BYTES, diagnostic="verified"))
+    v["metrics"] = {k: val for k, val in v["metrics"].items() if k not in decoder.PLAY_NUMBERS}
+    for k in decoder.COUNTS - {"main_pulses"}:
+        v["metrics"][k] = 0
+    return v
+
+
 class CacheResultTests(unittest.TestCase):
     def decode(self, v):
         return decoder.parse_result(raw(v), "gift", UUID)
@@ -162,6 +173,49 @@ class CacheResultTests(unittest.TestCase):
         for packet in packets:
             for case in ("gift", "dialogue", "unknown"):
                 self.assertEqual(play.parse_result(packet, case), baseline.parse_result(packet, case))
+
+
+class ModelIdentityTests(unittest.TestCase):
+    def test_exact_complete_read_becomes_callback_without_paths_or_volume_list(self):
+        result = decoder.parse_model_identity(raw(identity()), UUID)
+        self.assertEqual(result, dict(identity()["model_identity"], volume_uuid=UUID))
+        self.assertEqual(set(result), decoder.MODEL_KEYS | {"volume_uuid"})
+
+    def test_clean_negative_observation_is_retained_without_authorizing_model(self):
+        for diagnostic in decoder.MODEL_DIAGNOSTICS - {"verified"}:
+            v = identity(); v["model_identity"].update(verified=False, sha256="", bytes=0, diagnostic=diagnostic)
+            result = decoder.parse_model_identity(raw(v), UUID)
+            self.assertFalse(result["verified"])
+            self.assertEqual(result["diagnostic"], diagnostic)
+
+    def test_full_digest_and_size_cannot_be_replaced_by_claimed_verified_flag(self):
+        for changes in ({"sha256": "a" * 64}, {"sha256": ""}, {"bytes": decoder.MODEL_BYTES - 1},
+                        {"bytes": True}, {"verified": 1}, {"diagnostic": "mismatch"},
+                        {"private_path": "CANARY"}, {"diagnostic": "CANARY"}, {"verified": False}):
+            v = identity(); v["model_identity"].update(changes)
+            self.assertIsNone(decoder.parse_model_identity(raw(v), UUID), changes)
+
+    def test_app_owner_allocation_invalidates_identity_only_operation(self):
+        for changes in ({"engines_opened": 1, "engines_closed": 1},
+                        {"conversations_opened": 1, "conversations_closed": 1},
+                        {"play_roles": 0}, {"owners_balanced": False}, {"cleanup_requires_process_termination": True}):
+            v = identity(); v["metrics"].update(changes)
+            self.assertIsNone(decoder.parse_model_identity(raw(v), UUID), changes)
+
+    def test_wrong_volume_or_missing_post_proof_cannot_authorize_a_model(self):
+        for mutate in (lambda v: v["post_sample"].update(cache_device=21),
+                       lambda v: v.pop("post_sample"), lambda v: v.update(status="error", error="volume_changed"),
+                       lambda v: v["volumes"].append(copy.deepcopy(v["volumes"][0])),
+                       lambda v: v.update(operation="play")):
+            v = identity(); mutate(v)
+            self.assertIsNone(decoder.parse_model_identity(raw(v), UUID))
+        self.assertIsNone(decoder.parse_model_identity(raw(identity()), "FFFF-FFFF"))
+
+    def test_transport_reuses_ordered_unique_strict_terminal(self):
+        packet = raw(identity())
+        for bad in (packet + packet, b"INSTRUMENTATION_CODE: -1\n" + packet.split(b"\nINSTRUMENTATION_CODE:")[0] + b"\n",
+                    packet.replace(b'"bytes": 2588147712', b'"bytes": 2588147712, "bytes": 2588147712')):
+            self.assertIsNone(decoder.parse_model_identity(bad, UUID))
 
 
 if __name__ == "__main__":

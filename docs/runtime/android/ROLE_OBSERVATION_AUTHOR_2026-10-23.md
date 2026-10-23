@@ -181,3 +181,50 @@ modified. This is offline artifact qualification only: the author ran no ADB,
 installation, device operation, model read or SDK inference. Device storage
 admission, app-domain model identity and any actual SDK attempt remain separate
 coordinator-owned gates.
+
+## Pre-installation source-review correction and supersession
+
+The `655de0c5...` build above remains a genuine successful offline qualification,
+but it was **superseded before installation**. Independent source review found
+that optional getters caught Exception only: LinkageError could escape, and an
+unexpected Error in cleanup diagnostics could bypass Conversation closure. A
+second finding identified Error from role/model/native close as uncertain owner
+state that also needed the existing process-termination fence. The prior APK was
+not installed or exercised; its 123-test build and all bytes remain retained.
+It must not be used as the corrected artifact.
+
+Optional output and terminal getters now treat Exception or expected
+LinkageError as unavailable diagnostics. Other Errors are not converted into
+successful gameplay. Cleanup diagnostics are nested inside a finally that still
+closes a known-drained role. The turn preserves the original Throwable, performs
+native cancellation/join and known model cleanup, then rethrows an unexpected
+Error if ownership remains known. Unknown role, model or native-close ownership
+instead produces Undrained with process termination required; original and close
+failures remain privately suppressed. Role/model/native close boundaries now
+handle Exception or Error explicitly. No diagnostic failure changes a generation
+budget, retries a commit or creates canonical authority.
+
+Six new hostile methods exercise output/terminal NoSuchMethodError and
+NoClassDefFoundError, retention of a distinct typed start failure, AssertionError
+propagation only after known role/model close and native worker join, and Error
+from role/model/native close requiring process termination. Uncertain role close
+prevents model/Engine close; uncertain model close still permits native joining.
+The focused run after the first fix passed 44 tests in 2.983 seconds; after the
+close-boundary correction the full selected set passed **47 tests**, no failures
+or skips, in 3.018 seconds. Both corresponding javac invocations exited 0.
+A fresh integrated Android qualification remains required.
+
+An author evidence-location mistake is retained explicitly: the 44-test followup
+added attempt-5 logs and regenerated an unbound compiled-class cache in the
+previous author evidence root, instead of starting in a fresh fix namespace.
+Readback verified all **23 previously indexed source/log files and the prior
+index hash unchanged**. Nothing was deleted or rewritten to hide the additions.
+Those new logs and classes were copied into a fresh fix evidence root, where the
+47-test run and later records were written. Previously qualified APK/build roots
+were untouched. The earlier index binds its listed files; this correction does
+not claim that the entire old directory tree remained immutable.
+
+No author ADB, installation, model read, SDK execution, native rebuild or Android
+build was performed during these source fixes. The coordinator owns the Stream
+first-error correction, integration, new-artifact build and any later device
+admission. The final resource tests are host fakes, not real SDK fault injection.

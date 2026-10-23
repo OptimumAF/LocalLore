@@ -54,6 +54,8 @@ for (const marker of [
     "d06-native-default-disabled",
     "d06-external-wait",
     "d07-native-evaluation-checkpoints",
+    "actual-native-curated-catalog",
+    "lose-curated-start-ack",
     "harness_evaluation_case",
     "harness_archive_case",
     "harness_capture_case",

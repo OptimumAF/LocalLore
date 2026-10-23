@@ -1,3 +1,4 @@
+import { EvaluationEvidencePanel } from "./EvaluationEvidencePanel";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { EvaluationController } from "./evaluation-controller";
 const display = (v: unknown) => {
@@ -38,6 +39,7 @@ export function EvaluationPanel({
             </div>
             {s.shown && (
                 <>
+                    <EvaluationEvidencePanel controller={c} context={context} />
                     <p>
                         Isolated built-in scenarios · deterministic fake
                         inference. No model, semantic quality, human acceptance
@@ -60,13 +62,13 @@ export function EvaluationPanel({
                     </details>
                     <div className="evaluation-actions">
                         <button
-                            disabled={s.busy}
+                            disabled={s.busy || s.curatedBusy}
                             onClick={() => void c.start()}
                         >
                             Run built-in suite
                         </button>
                         <button
-                            disabled={s.busy}
+                            disabled={s.busy || s.curatedBusy}
                             onClick={() => void c.start(null, "one")}
                         >
                             Run one scenario
@@ -78,19 +80,24 @@ export function EvaluationPanel({
                             Stop after current scenario
                         </button>
                         <button
-                            disabled={s.busy || !s.status || s.status.completed}
+                            disabled={
+                                s.busy ||
+                                s.curatedBusy ||
+                                !s.status ||
+                                s.status.completed
+                            }
                             onClick={() => void c.resume()}
                         >
                             Resume remaining scenarios
                         </button>
                         <button
-                            disabled={s.busy || !selected}
+                            disabled={s.busy || s.curatedBusy || !selected}
                             onClick={() => void c.rerun()}
                         >
                             Rerun selected built-in case
                         </button>
                         <button
-                            disabled={!s.report || s.busy}
+                            disabled={!s.report || s.busy || s.curatedBusy}
                             onClick={() => {
                                 const report = s.report,
                                     version = c.presentationVersion();
@@ -149,14 +156,17 @@ export function EvaluationPanel({
                             JSON/HTML report. Changed sources refuse resume.
                             Checksums show consistency, not authorship.
                         </p>
-                        <button disabled={s.busy} onClick={() => void c.show()}>
+                        <button
+                            disabled={s.busy || s.curatedBusy}
+                            onClick={() => void c.show()}
+                        >
                             Refresh run library
                         </button>
                         <ul>
                             {s.catalog?.runs.map((r) => (
                                 <li key={r.run_id}>
                                     <button
-                                        disabled={s.busy}
+                                        disabled={s.busy || s.curatedBusy}
                                         onClick={() => void c.open(r.run_id)}
                                     >
                                         {r.selection ?? "Built-in suite"} ·{" "}

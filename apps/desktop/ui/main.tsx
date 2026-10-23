@@ -34,6 +34,7 @@ declare global {
             capturing?: boolean;
             legacy?: boolean;
             evaluating?: boolean;
+            curated?: boolean;
             archiving?: boolean;
             timelining?: boolean;
             archiveStage?:
@@ -48,7 +49,9 @@ const driver =
     __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.enabled
         ? await import("./journeys")
         : null;
-const evaluation = new EvaluationController(invoke);
+const evaluation = new EvaluationController(invoke, (code) =>
+    errors.add("native", code),
+);
 const base = new IpcGateway(invoke, errors),
     gateway = driver ? new driver.FaultGateway(base) : base;
 const controller = new Controller(gateway, errors, undefined, (work) =>
@@ -156,6 +159,16 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
             controller,
             timeline,
             gateway: gateway as InstanceType<typeof driver.FaultGateway>,
+            errors,
+            invoke,
+            dispose,
+            config: window.__LOCALLORE_TEST__,
+        });
+    } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.curated) {
+        const { curatedJourneys } = await import("./curated-journeys");
+        await curatedJourneys({
+            controller,
+            evaluation,
             errors,
             invoke,
             dispose,

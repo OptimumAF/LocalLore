@@ -129,7 +129,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},archiving:{},timelining:{},archiveStage:'{}',stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},archiving:{},timelining:{},archiveStage:'{}',stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
@@ -139,6 +139,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
             std::env::var("LOCALLORE_D06_CAPTURE_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_M07_LEGACY_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D07_HARNESS").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_D07_CURATED_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_TIMELINE_HARNESS").as_deref() == Ok("1"),
             match std::env::var("LOCALLORE_D08_STAGE").as_deref(){Ok("import")=>"import",Ok("uncertain")=>"uncertain",Ok("retire")=>"retire",Ok("restarted")=>"restarted",_=>"source"},
@@ -281,6 +282,7 @@ fn main() {
             archive_commands::archive_discard,
             archive_commands::harness_archive_case,
             evaluation_commands::evaluation_catalog,
+            evaluation_commands::evaluation_curated,
             evaluation_commands::evaluation_start,
             evaluation_commands::evaluation_open,
             evaluation_commands::evaluation_status,
@@ -325,6 +327,7 @@ fn main() {
         archive_commands::archive_cancel,
         archive_commands::archive_discard,
         evaluation_commands::evaluation_catalog,
+        evaluation_commands::evaluation_curated,
         evaluation_commands::evaluation_start,
         evaluation_commands::evaluation_open,
         evaluation_commands::evaluation_status,

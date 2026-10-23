@@ -49,7 +49,9 @@ export async function archiveJourneys({
                             ? ".archive-panel .storage-path"
                             : ".archive-panel",
                 )
-                ?.scrollIntoView({ block: "start" });
+                ?.scrollIntoView({
+                    block: label === "failed" ? "center" : "start",
+                });
         for (const n of document.querySelectorAll(
             ".archive-panel .storage-path",
         ))

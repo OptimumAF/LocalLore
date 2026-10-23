@@ -770,6 +770,16 @@ mod tests {
         let preview = engine.preview(&req, &proposal).unwrap();
         s.begin_turn(&req).unwrap();
         s.commit_turn(&req, &proposal, preview.narration()).unwrap();
+        s.fork_branch(
+            &locallore_storage::ForkRequest {
+                parent: root.clone(),
+                child_branch: "archive-child".into(),
+                expected_parent_revision: 1,
+                at_revision: 0,
+            },
+            &|| false,
+        )
+        .unwrap();
         s.export_archive(&root.story, &|| false)
             .unwrap()
             .bytes()
@@ -813,6 +823,7 @@ mod tests {
         let path = target.clone();
         let r = run(&b, &l, e, move |w| import(w, &token, &path));
         assert_eq!(r["result"]["status"], "imported");
+        assert_eq!(r["result"]["branches"], 2);
         assert_eq!(r["result"]["staging_cleanup_complete"], true);
         assert_eq!(
             fs::read_dir(root.join("archive-staging-v1"))
@@ -821,6 +832,18 @@ mod tests {
             0
         );
         let mut actual = Store::open_read_only(&target).unwrap();
+        let mut child = seed().scope;
+        child.branch = "archive-child".into();
+        assert_eq!(
+            actual.resume(&child).unwrap().engine.canonical_bytes(),
+            Store::open_read_only(&root.join("source.sqlite"))
+                .unwrap()
+                .resume(&child)
+                .unwrap()
+                .engine
+                .canonical_bytes(),
+            "whole-story import preserves independent child at its original boundary"
+        );
         let snapshot = actual
             .resume(&seed().scope)
             .unwrap()
@@ -1093,6 +1116,10 @@ mod tests {
             );
             assert_eq!(fs::read(actual.join("input.json")).unwrap(), b"{}");
             fs::remove_dir(&junction).unwrap();
+            let leaf = root.join("input-link.json");
+            std::os::windows::fs::symlink_file(actual.join("input.json"), &leaf).unwrap();
+            assert_eq!(read_input(&leaf).unwrap_err(), "UnsafeArchivePath");
+            fs::remove_file(leaf).unwrap();
         }
     }
     fn stage_leaf_attack(symlink: bool) {

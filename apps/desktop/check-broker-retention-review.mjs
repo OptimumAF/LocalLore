@@ -31,7 +31,7 @@ await writeFile(
     JSON.stringify({ backend: "actual-controller-mock-ipc", results }, null, 2),
 );
 console.log(JSON.stringify(results));
-assert.equal(results.length, 6);
+assert.equal(results.length, 7);
 assert(
     results.every((result) => result.passed),
     "broker retention review failures retained",

@@ -142,5 +142,22 @@ export async function brokerRetentionReviewJourneys() {
                 "valid native picker phase retains exact known operation",
             );
         });
+    await test("consumed-memory-status-allows-next-explicit-admission", async () => {
+        let calls = 0;
+        const gate: BrokerRetention = new BrokerRetention(() => controller.get().busy || controller.get().uncertain);
+        const controller: MemoryMaintenanceController = new MemoryMaintenanceController((_command, args) => {
+            const action = (args!.request as { action: string }).action;
+            return gate.start({ ...identity, action }, async () => ({ version: 1, operation_id: ++calls, running: false, phase: "completed", error: null, result: { ...valid(), action, maintenance: { ...valid().maintenance, action, job: action === "admit" ? { status: "ready", basis_revision: 1, next_from: 0, generation: 1, last_error: null } : null } } }));
+        });
+        // The application subscribes its existing controller state to the gate.
+        // Optional call lets the frozen regression execute before that API exists.
+        controller.subscribe(() => (gate as BrokerRetention & { refreshConsumption?: () => void }).refreshConsumption?.());
+        controller.contextChanged(context);
+        await controller.act("status");
+        check(controller.get().reply?.action === "status", "actual status consumed before new action");
+        controller.consent(true);
+        await controller.act("admit");
+        check(calls === 2 && controller.get().reply?.maintenance.job?.status === "ready" && controller.get().error === null, "new pending presentation cannot reclassify old consumed result");
+    });
     return results;
 }

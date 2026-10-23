@@ -71,16 +71,35 @@ export async function modelJourneys({
     };
     const capture = async (label: string, requireRendered = true) => {
         if (label === "model-receipt-context") window.scrollTo({ top: 0 });
-        else
-            document
-                .querySelector(
-                    label.includes("pending")
-                        ? ".compose"
-                        : label.includes("receipt")
-                          ? ".transcript"
-                          : ".model-panel",
+        else {
+            const selector = label.includes("pending")
+                ? ".pending"
+                : label === "model-invalid-action"
+                  ? ".message.error"
+                  : label === "model-cancelled"
+                    ? ".message.notice"
+                    : label.includes("receipt")
+                      ? ".transcript"
+                      : ".model-panel";
+            const target = document.querySelector(selector);
+            target?.scrollIntoView({ block: "start" });
+            if (
+                requireRendered &&
+                [".pending", ".message.error", ".message.notice"].includes(
+                    selector,
                 )
-                ?.scrollIntoView({ block: "start" });
+            ) {
+                const bounds = target?.getBoundingClientRect();
+                check(
+                    !!target?.textContent?.trim() &&
+                        !!bounds &&
+                        bounds.top >= 0 &&
+                        bounds.bottom <= innerHeight &&
+                        bounds.height > 0,
+                    `${label}-status-visible-in-render`,
+                );
+            }
+        }
         await new Promise((r) => setTimeout(r, 100));
         if (requireRendered) checkRendered(label);
         const clean = (value: unknown, key = ""): unknown =>

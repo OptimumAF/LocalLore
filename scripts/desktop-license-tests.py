@@ -260,6 +260,54 @@ class LicenseTests(unittest.TestCase):
                     data = (REAL_ROOT / 'licenses/desktop' / item['path']).read_bytes()
                     self.assertEqual((package.sha(data), len(data)), (item['sha256'], item['bytes']))
 
+    def test_msvc_additional_materials_are_required_after_packet_resealing(self):
+        names = ['MSVC-STL-LICENSE.txt', 'MSVC-STL-NOTICE.txt', 'MSVC-runtime-provenance.json']
+        for name in names:
+            data = (b'{"review_complete":false}' if name.endswith('.json') else b'synthetic MSVC notice ' + name.encode())
+            self.write('licenses/desktop/texts/' + name, data)
+            self.catalog['additional_notices'].append(
+                self.notice('resource', 'texts/' + name, 'NOTICES/native/' + name, data))
+        self.save_catalog()
+        package.validate_files(self.packet(), require_license_audit=True)
+        for name in names:
+            with self.subTest(name=name):
+                path = self.root / 'licenses/desktop/texts' / name
+                original = path.read_bytes(); path.write_bytes(original + b'changed')
+                with self.assertRaisesRegex(ValueError, 'required license material'): self.collected()
+                path.write_bytes(original)
+                for operation in ['change', 'remove']:
+                    files = self.packet(); output = 'NOTICES/native/' + name
+                    if operation == 'change': files[output] += b'changed'
+                    else: del files[output]
+                    self.seal(files)
+                    with self.assertRaisesRegex(ValueError, 'audited license material'):
+                        package.validate_files(files)
+
+    def test_actual_msvc_record_separates_embedded_startup_and_external_dlls(self):
+        with patch.object(package, 'ROOT', REAL_ROOT), patch.object(package, 'WORKER_SHA', REAL_WORKER):
+            c, _ = package.license_catalog()
+            required = package.expected_license_materials(c)
+            for name in ['MSVC-STL-LICENSE.txt', 'MSVC-STL-NOTICE.txt', 'MSVC-runtime-provenance.json']:
+                self.assertIn('NOTICES/native/' + name, required)
+            notices = {n['output']: n for n in c['additional_notices']}
+            for name in ['MSVC-STL-LICENSE.txt', 'MSVC-STL-NOTICE.txt']:
+                self.assertEqual(notices['NOTICES/native/' + name]['provenance']['revision'],
+                                 'af8adfa73b7433d4f902584bc1994c897297e492')
+            p = json.loads((REAL_ROOT / 'licenses/desktop/texts/MSVC-runtime-provenance.json').read_bytes())
+            self.assertEqual(p['schema'], 'locallore-msvc-runtime-provenance-v1')
+            self.assertFalse(p['review_complete']); self.assertFalse(p['distribution_approved'])
+            self.assertFalse(p['new_build']); self.assertFalse(p['app_worker_model_executed'])
+            families = {row['family']: row for row in p['components']}
+            startup = families['MSVC native CRT startup and import glue']
+            self.assertTrue(startup['embedded_object_family'])
+            self.assertTrue(startup['stl_license_does_not_relicense_this_family'])
+            self.assertEqual(startup['license_reference'], 'LicenseRef-Microsoft-Visual-Studio-Community-2022')
+            dlls = families['MSVC STL, VCRuntime and OpenMP DLLs']
+            self.assertFalse(dlls['redistributed'])
+            self.assertEqual(set(dlls['required_worker_imports']),
+                             {'MSVCP140.dll', 'VCOMP140.DLL', 'VCRUNTIME140.dll', 'VCRUNTIME140_1.dll'})
+            self.assertEqual(p['retained_binary_evidence']['worker']['sha256'], REAL_WORKER)
+
 
 if __name__ == '__main__':
     unittest.main()

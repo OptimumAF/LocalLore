@@ -184,6 +184,47 @@
         "source": "actual normal frontend esbuild legal comments from retained clean02 source6e576f4"
       },
       "sha256": "cd7dec749043f2074e9799163f9c46a6ba714fd4889f07150cc1165c816ea1d3"
+    },
+    {
+      "bytes": 12331,
+      "origin": "resource",
+      "output": "NOTICES/native/MSVC-STL-LICENSE.txt",
+      "path": "texts/MSVC-STL-LICENSE.txt",
+      "provenance": {
+        "installed_version": "MSVC14.34.31933; STL143 update202208; exact yvals_core.h and xutility bytes match this tag",
+        "revision": "af8adfa73b7433d4f902584bc1994c897297e492",
+        "source_file_sha256": "1fc6b6db121d4555d8f661937d7f6013693cd8fd67495d5e5d98c1d18fb83eda",
+        "tag": "vs-2022-17.4",
+        "text_normalization": "LF line endings only; original wording, whitespace and attributions retained",
+        "url": "https://github.com/microsoft/STL/blob/af8adfa73b7433d4f902584bc1994c897297e492/LICENSE.txt"
+      },
+      "sha256": "7c68a47568bd633f7a71ee5e2038660a2cc62ce8a5405999e2b69fab3f37469c"
+    },
+    {
+      "bytes": 10534,
+      "origin": "resource",
+      "output": "NOTICES/native/MSVC-STL-NOTICE.txt",
+      "path": "texts/MSVC-STL-NOTICE.txt",
+      "provenance": {
+        "installed_version": "MSVC14.34.31933; STL143 update202208; exact yvals_core.h and xutility bytes match this tag",
+        "revision": "af8adfa73b7433d4f902584bc1994c897297e492",
+        "source_file_sha256": "11dee60b182033b92dfcce5344093eb05e009e2c0339ce551f5667b3838c8223",
+        "tag": "vs-2022-17.4",
+        "text_normalization": "LF line endings only; original wording, whitespace and attributions retained",
+        "url": "https://github.com/microsoft/STL/blob/af8adfa73b7433d4f902584bc1994c897297e492/NOTICE.txt"
+      },
+      "sha256": "e9451ef95cc6e7e41e19da99879f414b978e7e82e5b2f1af08eb8486a3b47410"
+    },
+    {
+      "bytes": 8247,
+      "origin": "resource",
+      "output": "NOTICES/native/MSVC-runtime-provenance.json",
+      "path": "texts/MSVC-runtime-provenance.json",
+      "provenance": {
+        "author": "LocalLore; first-party Apache-2.0 inventory metadata",
+        "evidence": "Read-only installed exact MSVC/SDK files and retained PE/COFF evidence; official texts linked. No proprietary toolchain license text copied."
+      },
+      "sha256": "2329c8e2ffe7c6023d837de5233266dac9ea6ff66cea8b366925b64c84b87820"
     }
   ],
   "distribution_approved": false,
@@ -7502,7 +7543,8 @@
   "remaining_gaps": [
     "Independent review of this exact catalog, texts, source provenance and package rules remains pending.",
     "This is a conservative selected-dependency/component notice inventory, not a complete per-symbol linker attribution or legal/distribution approval.",
-    "No Microsoft WebView2 Runtime or Visual C++ runtime distribution is authorized or bundled; prerequisite/offline-installation and any future redistribution remain separate reviews."
+    "No Microsoft WebView2 Runtime or Visual C++ runtime distribution is authorized or bundled; prerequisite/offline-installation and any future redistribution remain separate reviews.",
+    "MSVC runtime family/terms record is conservative; exact linked object map and producer distribution review remain pending. Historical app imports do not qualify a future build."
   ],
   "review_complete": false,
   "runtime_commit": "620d2225cc436ab0b001e3200e590e3b286ef9ab",

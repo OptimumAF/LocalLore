@@ -6,6 +6,9 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,7 +25,7 @@ public class PlayRunnerTest {
         final JsonArray receipts = new JsonArray();
         JsonObject request, pending;
         Thread preparation;
-        boolean closed, cancelled, answer, malformed, duplicate, changedTerminal, reject, failCommit, rejectSpent;
+        boolean closed, cancelled, answer, malformed, duplicate, changedTerminal, reject, failCommit, rejectSpent, rejectResponse;
         String rejection = "Ability";
         long ticket;
         int commits, modelCloses, conversationsClosed, responses, reopens;
@@ -89,6 +92,7 @@ public class PlayRunnerTest {
             assertEquals("PRIVATE SDK output", new String(text, StandardCharsets.UTF_8));
             assertTrue("Conversation must close before publication", conversationsClosed > responses);
             responses++;
+            if (rejectResponse) { JsonObject rejected = object("status", "rejected", "error", "Agency"); rejected.addProperty("version", 1); return rejected; }
             if (duplicate) return ok(number("accepted", 1));
             answer = true; pending = null;
             notifyAll(); return ok(number("accepted", 1));
@@ -241,6 +245,104 @@ public class PlayRunnerTest {
         assertEquals(1L, result.get("revision_after").getAsLong());
         assertFalse(result.get("canon_unchanged").getAsBoolean());
         assertTrue(result.getAsJsonArray("turns").get(1).getAsJsonObject().get("canon_unchanged").getAsBoolean());
+    }
+    @Test public void checkpointsBracketActualSdkActionsAndNativeCommitWithoutRetainingContent() throws Exception {
+        Probe probe = new Probe(); Model model = new Model(probe);
+        PlayRunner.Checkpoints marks = (phase, role) -> probe.events.add("mark_" + phase + "_" + role);
+        JsonObject result = new PlayRunner(probe, () -> { probe.events.add("model_create"); return model; },
+            new JsonObject(), 3000, 100, marks).run("gift");
+        assertEquals("committed", result.get("outcome").getAsString());
+        assertBracket(probe.events, "model_create", "model_create", "director");
+        assertBracket(probe.events, "engine_initialize", "model_initialize", "director");
+        for (String role : List.of("director", "narrator")) {
+            assertBracket(probe.events, "open_" + role, "role_open", role);
+            assertBracket(probe.events, "start_" + role, "role_start", role);
+            assertBracket(probe.events, "close_" + role, "role_close", role);
+        }
+        assertBracket(probe.events, "engine_close", "model_close", "none");
+        assertBracket(probe.events, "commit", "native_commit", "none");
+        assertTrue(probe.events.indexOf("mark_native_prepare_before_none") < probe.events.indexOf("native_prepare"));
+        assertTrue(probe.events.indexOf("native_finished") < probe.events.indexOf("mark_native_prepare_after_none"));
+        assertFalse(probe.events.stream().filter(value -> value.startsWith("mark_")).anyMatch(value -> value.contains("PRIVATE")));
+    }
+    @Test public void checkpointFailureAtEveryWorkAndCloseBoundaryStillCleansAndNeverCommits() throws Exception {
+        for (String failedPhase : List.of("native_create_before", "native_create_after", "native_submit_before", "native_submit_after",
+                "native_prepare_before", "native_prepare_after", "model_create_before", "model_create_after",
+                "model_initialize_before", "model_initialize_after", "role_open_before", "role_open_after",
+                "role_start_before", "role_start_after", "role_drain_before", "role_drain_after",
+                "role_close_before", "role_close_after", "native_respond_before", "native_respond_after",
+                "model_close_before", "model_close_after", "native_commit_before")) {
+            Probe probe = new Probe(); Model model = new Model(probe); List<String> marks = new CopyOnWriteArrayList<>();
+            PlayRunner.Checkpoints failing = (phase, role) -> {
+                marks.add(phase); if (phase.equals(failedPhase)) throw new IOException("PRIVATE persistence detail");
+            };
+            IOException failure = assertThrows(failedPhase, IOException.class,
+                () -> new PlayRunner(probe, () -> model, new JsonObject(), 3000, 100, failing).run("gift"));
+            assertEquals("phase_checkpoint_failed", failure.getMessage());
+            assertTrue(failedPhase, marks.contains(failedPhase)); assertEquals(0, probe.commits);
+            assertTrue(probe.closed); assertEquals(0, probe.reopens);
+            assertEquals("Every returned Conversation must close", model.opens, probe.conversationsClosed);
+            if (marks.contains("model_create_after")) assertEquals(1, probe.modelCloses);
+            if (probe.preparation != null) assertFalse(probe.preparation.isAlive());
+            assertEquals("No later checkpoint may pass a sticky failure", failedPhase, marks.get(marks.size() - 1));
+        }
+    }
+    @Test public void persistenceFailureDoesNotBypassAnUndrainedSdkOwnershipFence() throws Exception {
+        Probe probe = new Probe(); Model model = new Model(probe); model.neverDrain = true; JsonObject metrics = new JsonObject();
+        PlayRunner.Checkpoints failing = (phase, role) -> { if (phase.equals("role_start_after")) throw new IOException("PRIVATE persistence"); };
+        assertThrows(WarmRunner.Undrained.class, () -> new PlayRunner(probe, () -> model, metrics, 3000, 1, failing).run("gift"));
+        assertEquals(0, probe.commits); assertEquals(0, probe.modelCloses); assertEquals(0, probe.conversationsClosed);
+        assertTrue(metrics.get("cleanup_requires_process_termination").getAsBoolean()); assertTrue(probe.closed);
+    }
+    @Test public void postCommitCheckpointFailureRemainsUncertainInsteadOfClaimingNoCommit() throws Exception {
+        Probe probe = new Probe(); Model model = new Model(probe);
+        PlayRunner.Checkpoints failing = (phase, role) -> { if (phase.equals("native_commit_after")) throw new IOException("PRIVATE persistence"); };
+        assertThrows(IOException.class, () -> new PlayRunner(probe, () -> model, new JsonObject(), 3000, 100, failing).run("gift"));
+        assertEquals(1, probe.commits); assertEquals(1, probe.receipts.size()); assertEquals(0, probe.reopens); assertTrue(probe.closed);
+    }
+    @Test public void cleanupJournalFailureRetainsTheDistinctOriginalRejectionOrCancellationPrivately() throws Exception {
+        for (boolean cancelling : List.of(false, true)) {
+            Probe probe = new Probe(); Model model = new Model(probe);
+            probe.rejectResponse = !cancelling; model.activeOutput = cancelling;
+            PlayRunner.Checkpoints failing = (phase, role) -> { if (phase.equals("model_close_before")) throw new IOException("PRIVATE journal"); };
+            IOException failure = assertThrows(IOException.class, () -> new PlayRunner(probe, () -> model, new JsonObject(), 3000, 100, failing)
+                .run(cancelling ? "cancel" : "gift"));
+            assertEquals(1, failure.getSuppressed().length);
+            assertEquals(cancelling ? "Cancelled" : "HostRejected", failure.getSuppressed()[0].getClass().getSimpleName());
+            assertEquals(0, probe.commits); assertEquals(1, probe.modelCloses); assertEquals(model.opens, probe.conversationsClosed);
+            assertTrue(probe.closed); assertFalse(probe.preparation.isAlive());
+        }
+    }
+    @Test public void engineCloseUncertaintyRetainsOriginalRejectionAndJournalFailure() throws Exception {
+        Probe probe = new Probe(); probe.rejectResponse = true;
+        Model model = new Model(probe); model.failEngineClose = true; JsonObject metrics = new JsonObject();
+        PlayRunner.Checkpoints failing = (phase, role) -> { if (phase.equals("model_close_before")) throw new IOException("PRIVATE journal"); };
+        WarmRunner.Undrained failure = assertThrows(WarmRunner.Undrained.class,
+            () -> new PlayRunner(probe, () -> model, metrics, 3000, 100, failing).run("gift"));
+        assertEquals("HostRejected", failure.getSuppressed()[0].getSuppressed()[0].getClass().getSimpleName());
+        assertEquals("phase_checkpoint_failed", failure.getSuppressed()[1].getMessage());
+        assertTrue(metrics.get("cleanup_requires_process_termination").getAsBoolean());
+        assertEquals(0, probe.commits); assertTrue(probe.closed); assertFalse(probe.preparation.isAlive());
+    }
+    @Test public void maximalTwoTurnThreeRoleTraceAndOuterMarkersFitTheDiagnosticBudget() throws Exception {
+        Probe probe = new Probe(); probe.roles.clear(); probe.roles.addAll(List.of("director", "director", "narrator"));
+        Path parent = PhaseJournalTest.directory(); long large = Long.MAX_VALUE - 1000;
+        PhaseJournal.Identity identity = new PhaseJournal.Identity(Integer.MAX_VALUE, Integer.MAX_VALUE, large, Long.MAX_VALUE, large);
+        PhaseJournal.Clock clock = new PhaseJournal.Clock() { public long elapsedMs() { return large; } public long wallMs() { return Long.MAX_VALUE; } };
+        try (PhaseJournal journal = new PhaseJournal(parent, PhaseJournalTest.SESSION, identity, clock)) {
+            journal.mark("instrumentation_start", "none");
+            JsonObject result = new PlayRunner(probe, () -> new Model(probe), new JsonObject(), 3000, 100, journal).run("spent");
+            journal.mark("terminal", "none");
+            assertEquals("committed", result.get("outcome").getAsString());
+            assertEquals(92, PhaseJournal.read(parent, PhaseJournalTest.SESSION).records.size());
+        }
+        assertTrue(Files.size(parent.resolve(PhaseJournal.FILE)) > 0);
+        assertTrue(Files.size(parent.resolve(PhaseJournal.FILE)) <= PhaseJournal.MAX_BYTES);
+    }
+    private static void assertBracket(List<String> events, String action, String phase, String role) {
+        int before = events.indexOf("mark_" + phase + "_before_" + role), actual = events.indexOf(action),
+            after = events.indexOf("mark_" + phase + "_after_" + role);
+        assertTrue(phase, before >= 0 && before < actual && actual < after);
     }
     private static JsonObject ok(JsonObject data) { JsonObject reply = object("status", "ok"); reply.addProperty("version", 1); reply.add("data", data); return reply; }
     private static JsonObject number(String key, long value) { JsonObject result = new JsonObject(); result.addProperty(key, value); return result; }

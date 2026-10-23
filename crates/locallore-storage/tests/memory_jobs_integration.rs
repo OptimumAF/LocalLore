@@ -220,11 +220,24 @@ fn assert_canon(store: &mut Store, expected: &Engine) {
 fn fingerprint(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
+fn sql_integer(value: u64) -> i64 {
+    i64::try_from(value).expect("public job identity fits the actual SQLite integer range")
+}
+fn sql_unsigned(row: &rusqlite::Row<'_>, index: usize) -> rusqlite::Result<u64> {
+    let value: i64 = row.get(index)?;
+    u64::try_from(value).map_err(|error| {
+        rusqlite::Error::FromSqlConversionFailure(
+            index,
+            rusqlite::types::Type::Integer,
+            Box::new(error),
+        )
+    })
+}
 fn cache_rows(db: &Connection, handle: &MemoryJobHandle) -> Vec<(u64, u64, String)> {
     let mut query = db.prepare("SELECT from_revision,through_revision,packet_json FROM memory_job_packets WHERE job_id=?1 ORDER BY from_revision").unwrap();
     let rows = query
-        .query_map([handle.id()], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        .query_map([sql_integer(handle.id())], |row| {
+            Ok((sql_unsigned(row, 0)?, sql_unsigned(row, 1)?, row.get(2)?))
         })
         .unwrap()
         .map(Result::unwrap)
@@ -232,7 +245,7 @@ fn cache_rows(db: &Connection, handle: &MemoryJobHandle) -> Vec<(u64, u64, Strin
     rows
 }
 fn job_row(db: &Connection, handle: &MemoryJobHandle) -> String {
-    db.query_row("SELECT json_object('id',job_id,'story',story_id,'branch',branch_id,'observer',observer_id,'method',method,'version',summary_version,'basis',basis_revision,'seed',seed_sha256,'lineage',lineage_sha256,'source',source_sha256,'cursor',next_from,'generation',generation,'status',status,'last_error',last_error) FROM memory_jobs WHERE job_id=?1", [handle.id()], |row| row.get(0)).unwrap()
+    db.query_row("SELECT json_object('id',job_id,'story',story_id,'branch',branch_id,'observer',observer_id,'method',method,'version',summary_version,'basis',basis_revision,'seed',seed_sha256,'lineage',lineage_sha256,'source',source_sha256,'cursor',next_from,'generation',generation,'status',status,'last_error',last_error) FROM memory_jobs WHERE job_id=?1", [sql_integer(handle.id())], |row| row.get(0)).unwrap()
 }
 fn verified(
     store: &mut Store,
@@ -1075,7 +1088,7 @@ fn untrusted_packet_schema_actor_and_resealed_sources_never_become_verified() {
         assert_eq!(
             db.execute(
                 "UPDATE memory_job_packets SET packet_json=?1 WHERE job_id=?2 AND from_revision=0",
-                params![packet.to_string(), info.handle.id()]
+                params![packet.to_string(), sql_integer(info.handle.id())]
             )
             .unwrap(),
             1,
@@ -1130,7 +1143,7 @@ fn missing_prefix_resets_and_untrusted_job_binding_never_changes_canon() {
     assert_eq!(
         db.execute(
             "DELETE FROM memory_job_packets WHERE job_id=?1 AND from_revision=0",
-            [info.handle.id()]
+            [sql_integer(info.handle.id())]
         )
         .unwrap(),
         1
@@ -1144,7 +1157,7 @@ fn missing_prefix_resets_and_untrusted_job_binding_never_changes_canon() {
     drain(&mut store, &info.handle);
     db.execute(
         "UPDATE memory_jobs SET source_sha256=?1 WHERE job_id=?2",
-        params!["0".repeat(64), info.handle.id()],
+        params!["0".repeat(64), sql_integer(info.handle.id())],
     )
     .unwrap();
     // Job metadata is not canonical authority. Valid packets may still verify
@@ -1246,7 +1259,7 @@ fn derived_blocked_state_refuses_prepare_and_can_only_be_explicitly_pruned() {
     let db = Connection::open(temp.path("source.sqlite")).unwrap();
     db.execute(
         "UPDATE memory_jobs SET status='blocked',last_error='budget' WHERE job_id=?1",
-        [info.handle.id()],
+        [sql_integer(info.handle.id())],
     )
     .unwrap();
     let blocked = store.memory_job_status(&info.handle, &|| false).unwrap();

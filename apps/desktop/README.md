@@ -17,6 +17,15 @@ Unsubmitted composer text remains session-local; submitted uncommitted requests
 are durable but are never automatically committed or cancelled on resume.
 Storage/replay errors appear explicitly with no temporary-memory fallback.
 
+Memory & evidence opens a read-only typed inspector for profiles, accepted
+history, directed relationships, knowledge, promises and evidence. It supports
+completed historical heads and before/after replay without changing the live
+player. Statement, belief and truth labels remain distinct; NPC lenses exclude
+private player display messages. Story Lab requires a spoiler acknowledgement.
+Summaries, semantic retrieval and alternate-branch history remain explicitly
+unsupported. See [D05 native inspection](../../docs/desktop/D05_NATIVE_INSPECTION.md)
+and [verification](../../docs/desktop/D05_NATIVE_VERIFICATION_2026-10-22.md).
+
 Inspection snapshots now provide structural diagnostics by default, explicit
 private Player/Full readable views, and a separate private consistent SQLite
 copy for deliberate inspection. Preview identifies scope, revision, included

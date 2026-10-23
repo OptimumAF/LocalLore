@@ -9,6 +9,7 @@ for (const args of [
     ["check-export-controller.mjs"],
     ["check-model-controller.mjs"],
     ["check-model-refresh.mjs"],
+    ["check-inspection-controller.mjs"],
 ]) {
     const code = await new Promise((resolve, reject) => {
         const child = spawn(process.execPath, args, {
@@ -34,6 +35,8 @@ for (const marker of [
     "harness_export_case",
     "harness_model_case",
     "real-free-text-potion-committed",
+    "query-native-durable-workspace",
+    "d05-external-wait",
     "export-snapshot-independent-of-later-turn",
 ])
     assert(

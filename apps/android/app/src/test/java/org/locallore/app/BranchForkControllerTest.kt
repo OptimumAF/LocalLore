@@ -186,6 +186,17 @@ class BranchForkControllerTest {
             controller.dispose()
         }
     }
+    @Test fun cancelledMetadataCallbackCannotMakeAnObservedCommitUncertain(): Unit = runTest {
+        val gateway = Gateway()
+        val controller = BranchForkController(this, gateway, {}, { throw kotlinx.coroutines.CancellationException("PRIVATE metadata") })
+        controller.contextChanged(Context); controller.prepare(0, "fixed-child")
+        controller.confirm(controller.state.value.input!!, true); advanceUntilIdle()
+        assertEquals(outcome(Input), controller.state.value.outcome)
+        assertFalse(controller.state.value.uncertain)
+        assertEquals(listOf(41L), gateway.runs)
+        assertFalse(controller.state.value.notice!!.contains("PRIVATE"))
+        controller.dispose()
+    }
     private class Gateway : BranchForkGateway {
         val registrations = mutableListOf<Pair<BranchForkContext, BranchForkInput>>()
         val runs = mutableListOf<Long>(); val statuses = mutableListOf<Long>(); val lookups = mutableListOf<BranchForkInput>()

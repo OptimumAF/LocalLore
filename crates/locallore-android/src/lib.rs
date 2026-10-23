@@ -2,6 +2,8 @@
 //! Legacy in-memory fixture boundary and production shared durable workspace adapter.
 //! JNI owns no Java references or native threads.
 pub mod archive;
+#[cfg(all(target_os = "android", feature = "archive-capacity-fixture"))]
+mod archive_capacity_jni;
 #[cfg(target_os = "android")]
 mod archive_jni;
 pub mod workspace;

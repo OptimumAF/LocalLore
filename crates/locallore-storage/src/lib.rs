@@ -1,6 +1,10 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Rust's sole SQLite owner for validated seeds and atomic root-history turns.
 mod branches;
+#[cfg(any(test, feature = "development-fixtures"))]
+pub mod archive_capacity_fixture;
+#[cfg(test)]
+mod archive_full_tests;
 pub mod playable_archive;
 pub use playable_archive::{
     validate_archive, ArchiveError, ArchivePreview, ImportOutcome, PlayableArchive,

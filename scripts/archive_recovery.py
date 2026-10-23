@@ -140,7 +140,7 @@ def interrupt_live_arm(device, future, record, identities, journal):
     journal("target_process_absent", confirmed=True)
 
 
-def parse_transcript(data, interrupted=False):
+def parse_transcript(data, interrupted=False, expected_class=TEST_CLASS, expected_method=TEST_METHOD):
     try:
         text = data.decode("utf-8", errors="strict")
     except UnicodeError:
@@ -153,7 +153,7 @@ def parse_transcript(data, interrupted=False):
             fields[key] = value
         elif line.startswith("INSTRUMENTATION_STATUS_CODE: "):
             code = line.partition(": ")[2]
-            require(fields.get("class") == TEST_CLASS and fields.get("test") == TEST_METHOD
+            require(fields.get("class") == expected_class and fields.get("test") == expected_method
                     and fields.get("numtests") == "1", "instrumentation_inventory")
             if code == "1":
                 require(not starts and not terminals and not runners, "instrumentation_order")

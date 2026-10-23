@@ -184,6 +184,31 @@ class ArchiveControllerTest {
         assertNull(controller.state.value.prepared)
     }
 
+    @Test fun storageFullConsumesConsentAndRequiresFreshValidationBeforeRetry() = runTest {
+        val gateway = Gateway()
+        var nextToken = 40L
+        gateway.prepare = { ArchivePrepared(++nextToken, preview()) }
+        gateway.commit = { throw ArchiveFailure("Full") }
+        val controller = ArchiveController(gateway, this) {}
+        controller.open(Story)
+        controller.completeImport(controller.beginImportPicker()!!) { byteArrayOf(1) }
+        advanceUntilIdle()
+        controller.confirmImport(); advanceUntilIdle()
+        assertEquals(listOf(41L), gateway.commits)
+        assertNull(controller.state.value.prepared)
+        assertNull(controller.state.value.imported)
+        assertEquals("Local storage is full. Close to refresh the library. Free storage and validate the archive again before retrying.",
+            controller.state.value.notice)
+        controller.confirmImport(); advanceUntilIdle()
+        assertEquals(listOf(41L), gateway.commits)
+        gateway.commit = { Imported }
+        controller.completeImport(controller.beginImportPicker()!!) { byteArrayOf(1) }
+        advanceUntilIdle(); controller.confirmImport(); advanceUntilIdle()
+        assertEquals(listOf(41L, 42L), gateway.commits)
+        assertEquals(Imported, controller.state.value.imported)
+        controller.dispose()
+    }
+
     @Test fun disposalAndRetainedCallbacksCannotReopenOrReadWriteOrConfirm() = runTest {
         val gateway = Gateway(); val controller = ArchiveController(gateway, this) { fail("Disposed release") }
         controller.open(Story)

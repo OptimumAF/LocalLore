@@ -2,7 +2,8 @@
 
 Refs #11 M07.01/.04/.06, partial. Claim6360117335 preceded editing. Source
 `3e8d97265ccfaa121fdc5cba820675e48f3729e4`, based accepted main82264e7.
-Status: in_review; independent source review remains required before merge.
+Status: in_review; independent source review is recorded in
+`M07_CONTEXT_CANCELLATION_REVIEW.md`. Owner-authorized merge remains pending.
 
 `compile_cancelled` adds a native Rust cancellation callback; existing `compile`
 keeps its signature. The public CompileError enum gains Cancelled, so downstream
@@ -86,3 +87,29 @@ Logs, including the initial missing-frontend failure, remain gitignored under
 `target/context-cancellation-*`. Full M07 and desktop quality/offline/device gates
 remain unchecked. Next: independent review, reconcile concurrent durable-fork
 integration, then maintained memory and production-consumer work.
+
+## Final integration after durable forks
+
+Accepted main `55ade00c1db8df39c62fb61cbe46c7c38edadd28` was merged without
+rewriting this branch. Checks below executed at `ff7483685787a8dc2a28f6bb2df9cfadce874de5`;
+the cancellation implementation remains exactly `3e8d972`. The independent
+review by `/root/desktop_runtime_profile` is integrated as `ff74836`. That
+reviewer authored an earlier derived-memory prototype, but not this compiler
+change; the report separates that history and attributes execution to root.
+
+The same locked/offline commands above passed again against this combined tree:
+**267 workspace tests**, zero failed/ignored; workspace **all-features**,
+all-target strict Clippy and fmt; standalone evaluator **9 tests**, zero
+failed/ignored, 2.53s, plus its strict all-target Clippy; native development
+units **20 passed/1 existing privilege-related ignore**, plus **2 wrapper tests**,
+and strict native Clippy. No additional real-model or WebView run is attributed
+to this integration. The native assets and frontend inputs remain unchanged.
+
+Android's same command passed in **56s**, **78 tasks: 21 executed/57 up-to-date**.
+Both Rust JNI ABIs rebuilt, both APKs assembled, **38 JVM tests** actually ran
+with zero failures/errors/skips, lint passed, and the APK permission/16KiB
+alignment audit passed. No device was used. Local logs are
+`target/context-cancellation-branches-*`; the earlier 253-test result remains
+separately attributed rather than being reported as this combined execution.
+The earlier CLI report is historical source-bound evidence, not a new CLI run
+at this combined tree. Full M07 criteria remain open.

@@ -1,0 +1,135 @@
+{
+  "date": "2026-10-22",
+  "task": "M04.01",
+  "stacked_prerequisite": 35,
+  "base_commit": "e5d1c5b2e27da028c43127543d10467da24782a6",
+  "storage_implementation_through": "7bb5d12e3ea3bbbf7b84072442d51d1f23287ebb",
+  "host": {
+    "rust_tests": 57,
+    "storage_unit_tests": 2,
+    "storage_adversarial_tests": 14,
+    "python_tests": 63,
+    "fixture_comparisons": 4,
+    "linker_tests": 3,
+    "fmt": "passed",
+    "clippy": "passed",
+    "seed_backup_smoke": "passed"
+  },
+  "android": {
+    "build": "passed",
+    "jvm": {
+      "tests": 31,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "lint": [
+      {
+        "id": "GradleDependency",
+        "severity": "Warning",
+        "message": "A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-android than 1.10.2 is available: 1.11.0"
+      }
+    ],
+    "apk_audit": "passed",
+    "app_sha256": "1f2f9a90b0a482a81fb8fb7c269b94b431d9f3cc401bd11f55a38c1565bf1d95"
+  },
+  "native_builds": [
+    {
+      "abi": "x86_64",
+      "bytes": 3394256,
+      "sha256": "5fae54a7ffaa415654f8e051285ccba650185e995cea6b77044f1adde6188b32",
+      "elf_machine": 62,
+      "pie": true,
+      "load_alignments": [
+        16384,
+        16384,
+        16384
+      ],
+      "needed": [
+        "libdl.so",
+        "libm.so",
+        "libc.so"
+      ]
+    },
+    {
+      "abi": "arm64-v8a",
+      "bytes": 3429952,
+      "sha256": "5788ef7602ccd6a8da55ad984f6af49c9b1ced6b912e4b930ad113afb7c80c88",
+      "elf_machine": 183,
+      "pie": true,
+      "load_alignments": [
+        16384,
+        16384,
+        16384
+      ],
+      "needed": [
+        "libdl.so",
+        "libm.so",
+        "libc.so"
+      ]
+    }
+  ],
+  "emulator_storage": {
+    "binary_sha256": "5fae54a7ffaa415654f8e051285ccba650185e995cea6b77044f1adde6188b32",
+    "runs": [
+      {
+        "label": "A",
+        "model": "sdk_gphone64_x86_64",
+        "android": "15",
+        "sdk": "35",
+        "abi": "x86_64",
+        "page_bytes": 4096,
+        "result": {
+          "existing_backup_refused": true,
+          "foreign_keys": true,
+          "same_entity_ids_isolated": true,
+          "schema_version": 1,
+          "sqlite_version": [
+            3,
+            53,
+            2
+          ],
+          "status": "completed",
+          "stories_backed_up": 2,
+          "stories_reopened": 2,
+          "version": 1
+        },
+        "repeat_directory_refused": true,
+        "repeat_database_unchanged": true,
+        "scoped_cleanup_complete": true
+      },
+      {
+        "label": "B",
+        "model": "sdk_gphone64_x86_64",
+        "android": "15",
+        "sdk": "35",
+        "abi": "x86_64",
+        "page_bytes": 4096,
+        "result": {
+          "existing_backup_refused": true,
+          "foreign_keys": true,
+          "same_entity_ids_isolated": true,
+          "schema_version": 1,
+          "sqlite_version": [
+            3,
+            53,
+            2
+          ],
+          "status": "completed",
+          "stories_backed_up": 2,
+          "stories_reopened": 2,
+          "version": 1
+        },
+        "repeat_directory_refused": true,
+        "repeat_database_unchanged": true,
+        "scoped_cleanup_complete": true
+      }
+    ]
+  },
+  "accepted_turn_persistence": false,
+  "compose_storage_integration": false,
+  "physical_phone_available": false,
+  "arm64_executed": false,
+  "hosted_ci_executed": false,
+  "power_loss_tested": false
+}

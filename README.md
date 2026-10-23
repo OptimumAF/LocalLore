@@ -89,6 +89,11 @@ Exports are plaintext and their selected provider may sync them. See
 
 ## Initial technical direction
 
+The [SQLite foundation](docs/storage/README.md) adds one Rust migration owner,
+scoped foreign keys, consistent safety backups and validated seed persistence.
+It does not yet provide accepted-turn saves or Compose save/resume. Its host tests
+need no model; explicit Android smoke evidence is separate from device support.
+
 The [desktop D01 spike](apps/desktop/README.md) adds a native Windows window over
 the same Rust engine, with fake inference, in-memory turns and explicit Story Lab
 inspection. [ADR-0006](docs/adr/0006-desktop-host.md) proposes Tauri for owner review.

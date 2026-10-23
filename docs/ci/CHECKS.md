@@ -17,6 +17,12 @@ and calculator Python tests, runner tests, and formatting/compiled tests for the
 standalone native linker adapter. Cargo dependency resolution uses `--locked`.
 The linker test executable lives in ignored `target/checks/`.
 
+Workspace tests also exercise the [Rust SQLite owner](../storage/README.md):
+schema identity/version refusal, atomic initialization, scoped foreign keys,
+consistent migration/WAL backups, seed isolation, Busy/retry and fixed errors.
+These tests need a C compiler for the locked bundled SQLite source, but no model,
+SDK or device. Explicit Android storage cross-build/smoke commands remain separate.
+
 The M01 host spike adds five Rust example tests and stdlib-only process/worker
 regressions. These use synthetic fake processes and SDK mocks: default host/CI
 checks never install inference packages, build third-party runtimes or load or

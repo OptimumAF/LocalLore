@@ -6,6 +6,52 @@ use locallore_storage::{ForkRequest, Store};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
+// This integration-test allocator is shared by the real fixture and its collision regression.
+fn create_fixture_dir(timestamp: u128) -> std::io::Result<PathBuf> {
+    let dir = std::env::temp_dir().join(format!(
+        "locallore-native-retention-{}-{timestamp}",
+        std::process::id(),
+    ));
+    std::fs::create_dir(&dir)?;
+    Ok(dir)
+}
+
+#[test]
+fn concurrent_fixtures_with_the_same_clock_value_have_distinct_directories() {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let barrier = std::sync::Arc::new(std::sync::Barrier::new(8));
+    let threads: Vec<_> = (0..8)
+        .map(|_| {
+            let barrier = barrier.clone();
+            std::thread::spawn(move || {
+                barrier.wait();
+                create_fixture_dir(timestamp)
+            })
+        })
+        .collect();
+    let mut paths = std::collections::BTreeSet::new();
+    let mut errors = Vec::new();
+    for thread in threads {
+        match thread.join().unwrap() {
+            Ok(path) => {
+                assert!(paths.insert(path));
+            }
+            Err(error) => errors.push(error.kind()),
+        }
+    }
+    // Remove only directories successfully created by this test, even on the RED path.
+    for path in &paths {
+        std::fs::remove_dir(path).unwrap();
+    }
+    assert!(
+        errors.is_empty(),
+        "same-process allocator collisions: {errors:?}"
+    );
+    assert_eq!(paths.len(), 8);
+}
 struct Fixture {
     dir: PathBuf,
     database: PathBuf,
@@ -16,15 +62,13 @@ struct Fixture {
 }
 impl Fixture {
     fn new() -> Self {
-        let dir = std::env::temp_dir().join(format!(
-            "locallore-native-retention-{}-{}",
-            std::process::id(),
+        let dir = create_fixture_dir(
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
-        ));
-        std::fs::create_dir(&dir).unwrap();
+                .as_nanos(),
+        )
+        .unwrap();
         let database = dir.join("workspace.sqlite3");
         let mut store = Store::open(&database, None).unwrap();
         let seed: Seed =

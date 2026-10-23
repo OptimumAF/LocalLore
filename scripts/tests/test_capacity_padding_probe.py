@@ -5,6 +5,7 @@ from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+from unittest import mock
 
 SPEC = importlib.util.spec_from_file_location("capacity_padding_probe", Path(__file__).resolve().parents[1] / "capacity_padding_probe.py")
 PROBE = importlib.util.module_from_spec(SPEC)
@@ -22,9 +23,10 @@ class CapacityPaddingGuards(unittest.TestCase):
         self.database = self.directory / "stories.sqlite"
         self.connection = sqlite3.connect(str(self.database), isolation_level=None)
         self.addCleanup(self.connection.close)
-        self.connection.executescript(PROBE.SCHEMA.read_text(encoding="utf-8"))
+        for schema in PROBE.SCHEMAS:
+            self.connection.executescript(schema.read_text(encoding="utf-8"))
         self.connection.execute("PRAGMA application_id=1280069458")
-        self.connection.execute("PRAGMA user_version=1")
+        self.connection.execute("PRAGMA user_version=3")
 
     def rejected(self, stage, action="fill", owner=None):
         with self.assertRaisesRegex(PROBE.Rejected, "^" + stage + "$"):
@@ -50,17 +52,55 @@ class CapacityPaddingGuards(unittest.TestCase):
 
     def test_foreign_identity_is_preserved(self):
         self.connection.execute("PRAGMA application_id=99")
-        self.rejected("identity")
+        self.assert_readonly_refusal("identity")
         self.assertEqual(self.connection.execute("PRAGMA application_id").fetchone()[0], 99)
 
     def test_future_schema_version_is_preserved(self):
-        self.connection.execute("PRAGMA user_version=2")
+        self.connection.execute("PRAGMA user_version=4")
         self.rejected("identity")
-        self.assertEqual(self.connection.execute("PRAGMA user_version").fetchone()[0], 2)
+        self.assertEqual(self.connection.execute("PRAGMA user_version").fetchone()[0], 4)
+
+    def assert_readonly_refusal(self, stage):
+        opened = []
+        connect = sqlite3.connect
+
+        def observe(database, *args, **kwargs):
+            opened.append(str(database))
+            return connect(database, *args, **kwargs)
+
+        with mock.patch.object(PROBE.sqlite3, "connect", side_effect=observe):
+            self.rejected(stage)
+        self.assertTrue(any("?mode=ro" in path for path in opened))
+        self.assertFalse(any("?mode=rw" in path for path in opened))
+
+    def test_schema1_and_schema2_refused_before_writable_open(self):
+        for version in (1, 2):
+            with self.subTest(version=version):
+                self.connection.execute("PRAGMA user_version=" + str(version))
+                self.assert_readonly_refusal("identity")
+                self.assertEqual(self.connection.execute("PRAGMA user_version").fetchone()[0], version)
+
+    def test_exact_reference_schema3_digest_and_all_migrations(self):
+        self.assertEqual(PROBE.schema_digest(PROBE.baseline()),
+                         "c05ced1f0439fb767f97d2ff93a34ef44eb6fbc27da6814a75fad455fb0b2c17")
+        self.assertEqual(self.connection.execute("SELECT version,contract FROM schema_migrations ORDER BY version").fetchall(), PROBE.MIGRATION_ROWS)
+
+    def test_missing_migration_record_refused_before_writable_open(self):
+        self.connection.execute("DELETE FROM schema_migrations WHERE version=2")
+        self.assert_readonly_refusal("migrations")
+        self.assertEqual(self.connection.execute("SELECT count(*) FROM schema_migrations").fetchone()[0], 2)
+
+    def test_missing_schema3_object_refused_before_writable_open(self):
+        self.connection.execute("DROP TABLE branch_retention")
+        self.assert_readonly_refusal("schema")
+
+    def test_altered_schema3_object_refused_before_writable_open(self):
+        self.connection.execute("ALTER TABLE branch_retention ADD COLUMN untrusted TEXT")
+        self.assert_readonly_refusal("schema")
 
     def test_wal_is_not_silently_changed(self):
         self.connection.execute("PRAGMA journal_mode=WAL")
-        self.rejected("journal")
+        self.assert_readonly_refusal("journal")
         self.assertEqual(self.connection.execute("PRAGMA journal_mode").fetchone()[0], "wal")
 
     def test_altered_schema_is_not_adopted(self):
@@ -102,9 +142,56 @@ class CapacityPaddingGuards(unittest.TestCase):
         self.assertEqual(PROBE.rows(self.connection), expected)
         self.assertEqual(self.connection.execute("SELECT * FROM schema_migrations").fetchall(), before)
         self.assertFalse(self.connection.in_transaction)
+        self.assertEqual(report["version"], 2)
+        self.assertEqual(report["database_schema_version"], 3)
+        self.assertEqual(report["schema_sha256"], PROBE.schema_digest(expected))
+
+    def test_identity_rechecked_after_writable_open_before_drop(self):
+        self.padding()
+        connect = sqlite3.connect
+
+        def change_before_rw(database, *args, **kwargs):
+            if "?mode=rw" in str(database):
+                self.connection.execute("PRAGMA user_version=2")
+            return connect(database, *args, **kwargs)
+
+        with mock.patch.object(PROBE.sqlite3, "connect", side_effect=change_before_rw):
+            self.rejected("identity", "remove")
+        self.assertIn(PROBE.TABLE, [row[1] for row in PROBE.rows(self.connection)])
+
+    def test_marker_rechecked_after_readonly_preflight(self):
+        self.padding()
+        connect = sqlite3.connect
+
+        def change_after_ro(database, *args, **kwargs):
+            result = connect(database, *args, **kwargs)
+            if "?mode=ro" in str(database):
+                (self.directory / ".capacity-owner").write_text("b" * 32, encoding="ascii")
+            return result
+
+        with mock.patch.object(PROBE.sqlite3, "connect", side_effect=change_after_ro):
+            self.rejected("marker", "remove")
+        self.assertIn(PROBE.TABLE, [row[1] for row in PROBE.rows(self.connection)])
+
+    def test_noncontiguous_padding_is_not_removed(self):
+        self.padding()
+        self.connection.execute("UPDATE locallore_capacity_pad_v1 SET id=2")
+        self.rejected("padding_owner", "remove")
+
+    def test_oversized_database_is_refused_without_writable_open(self):
+        self.connection.execute("CREATE TABLE unrelated_large(payload BLOB)")
+        self.connection.execute("INSERT INTO unrelated_large VALUES(zeroblob(150000))")
+        self.rejected("database_size")
+
+    def test_parent_alias_is_not_accepted_as_owned_directory(self):
+        alias = self.directory / ".." / self.directory.name
+        with self.assertRaisesRegex(PROBE.Rejected, "^directory$"):
+            PROBE.execute(str(alias), self.owner, "fill")
 
     def test_unknown_action_is_refused(self):
-        self.rejected("action", "other")
+        with mock.patch.object(PROBE.sqlite3, "connect") as connect:
+            self.rejected("action", "other")
+        connect.assert_not_called()
 
     def test_full_fallback_requires_exact_fixed_sqlite_message(self):
         self.assertTrue(PROBE.is_full(sqlite3.OperationalError("database or disk is full")))

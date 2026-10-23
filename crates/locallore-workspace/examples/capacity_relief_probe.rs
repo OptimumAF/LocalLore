@@ -13,6 +13,8 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
+const SCHEMA3_SHA256: &str = "c05ced1f0439fb767f97d2ff93a34ef44eb6fbc27da6814a75fad455fb0b2c17";
+
 fn require(condition: bool, stage: &'static str) -> Result<(), &'static str> {
     if condition {
         Ok(())
@@ -116,7 +118,12 @@ fn helper(
     let report: Value = serde_json::from_slice(&fs::read(stdout).map_err(|_| "helper_output")?)
         .map_err(|_| "helper_json")?;
     require(
-        status.success() && report["status"] == "passed" && report["action"] == action,
+        status.success()
+            && report["version"] == 2
+            && report["database_schema_version"] == 3
+            && report["schema_sha256"] == SCHEMA3_SHA256
+            && report["status"] == "passed"
+            && report["action"] == action,
         "helper_result",
     )?;
     Ok(report)
@@ -144,6 +151,11 @@ fn run(directory: &Path, python: &Path, cancel: bool) -> Result<Value, &'static 
     drop(marker);
     let path = owned.join("stories.sqlite");
     let host = locallore_workspace::open(&path, false).map_err(|_| "open")?;
+    let workspace = call(&host, json!({"op":"workspace"}));
+    require(
+        workspace["status"] == "ok" && workspace["data"]["database_schema_version"] == 3,
+        "schema3",
+    )?;
     let created = call(&host, json!({"op":"create","seed":"lantern-quay-v1"}));
     require(created["status"] == "ok", "create")?;
     let session = created["data"]["session"].as_str().ok_or("session")?;
@@ -173,8 +185,29 @@ fn run(directory: &Path, python: &Path, cancel: bool) -> Result<Value, &'static 
         "ready",
         "prepare",
     )?;
-    let fill = helper(python, &owned, &owner, "fill")?;
+    let fill = match helper(python, &owned, &owner, "fill") {
+        Ok(report) => report,
+        Err("helper_ownership_unknown") => return Err("helper_ownership_unknown"),
+        Err(_) => {
+            // The child is terminal, but filling may have created its owned pad
+            // before failing. Attempt only fixed-table cleanup; never resume Host.
+            return Err(if helper(python, &owned, &owner, "remove").is_ok() {
+                "fill_failed_owned_padding_removed"
+            } else {
+                "fill_failed_cleanup_unproven"
+            });
+        }
+    };
     let failed = (|| {
+        require(
+            fill["initial_pages"] == 17
+                && fill["pages"] == 32
+                && fill["free_pages"] == 0
+                && fill["rows"] == 14
+                && fill["insert_attempts"] == 15
+                && fill["sqlite_full"] == true,
+            "measured_fill_profile",
+        )?;
         require(
             matches!(locallore_workspace::open(&path, false), Err(error) if error == "SchemaMismatch"),
             "extra_schema_rejected",
@@ -221,6 +254,14 @@ fn run(directory: &Path, python: &Path, cancel: bool) -> Result<Value, &'static 
     }
     failed?;
     let removed = removed?;
+    require(
+        removed["initial_pages"] == 32
+            && removed["pages"] == 32
+            && removed["free_pages"] == 15
+            && removed["rows_removed"] == 14
+            && removed["schema_restored"] == true,
+        "measured_relief_profile",
+    )?;
     if cancel {
         phase(
             &op(&host, session, scope, turn, "commit"),
@@ -256,7 +297,7 @@ fn run(directory: &Path, python: &Path, cancel: bool) -> Result<Value, &'static 
             "reopened_cancel_snapshot",
         )?;
         return Ok(
-            json!({"version":1,"status":"passed","prefix":0,"ceiling_pages":32,"fill":fill,"remove":removed,
+            json!({"version":2,"database_schema_version":3,"status":"passed","prefix":0,"ceiling_pages":32,"fill":fill,"remove":removed,
             "extra_schema_rejected":true,"full_commits":2,"cancelled_while_full":true,
             "player_snapshot_unchanged_after_full":true,"original_key_terminal_after_relief":true,
             "post_relief_submits":0,"post_relief_prepares":0,"accepted_receipts":0,"revision":0,
@@ -310,7 +351,7 @@ fn run(directory: &Path, python: &Path, cancel: bool) -> Result<Value, &'static 
         "reopened_snapshot",
     )?;
     Ok(
-        json!({"version":1,"status":"passed","prefix":0,"ceiling_pages":32,"fill":fill,"remove":removed,
+        json!({"version":2,"database_schema_version":3,"status":"passed","prefix":0,"ceiling_pages":32,"fill":fill,"remove":removed,
         "extra_schema_rejected":true,"full_commits":2,"player_snapshot_unchanged_after_full":true,
         "same_live_owner_ready_key_accepted":true,"post_relief_submits":0,"post_relief_prepares":0,
         "accepted_receipts":1,"revision":1,"same_key_reopened":true,
@@ -341,7 +382,7 @@ fn main() {
     match result {
         Ok(report) => println!("{report}"),
         Err(stage) => {
-            eprintln!("{}", json!({"version":1,"status":"failed","stage":stage}));
+            eprintln!("{}", json!({"version":2,"status":"failed","stage":stage}));
             std::process::exit(1);
         }
     }

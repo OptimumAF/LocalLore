@@ -193,3 +193,36 @@ sustained cohort was executed for this slice. Existing historical evidence is
 not relabelled a new run. Status in_review; no full-task checkbox, PR or merge by
 this agent. Next: coordinator independent review/integration, then separately
 claimed full-turn/RSS/load and meaningful multi-scene quality work.
+
+## Coordinator integration checks
+
+Independent review and its actual synthetic tests are in
+`D04_RESOURCE_METRICS_REVIEW_2026-10-23.md`. The coordinator integrated accepted
+#88 and #89 without changing the sampler. Final production integration source
+`49c45f37a71304a895f1dd92c22986f005d81d36` includes accepted main
+`4cdbc0d3823c12424720abe8d92106788b766b60`.
+
+On the #88 integration the coordinator independently reran the locked/offline
+runtime all-target tests with `development-worker,engine-adapter`: **38 passed,
+one existing privileged qualification ignore**, strict scene-probe Clippy passed.
+On the final #89 integration, actual desktop development native tests passed
+**44 module + 2 harness contracts**, with one existing ignore; strict native
+all-target Clippy and normal frontend verification passed. Commands are the
+review's runtime templates plus:
+
+```powershell
+node apps/desktop/verify-frontend.mjs
+cargo +1.93.1 test --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness --locked --offline --target-dir <native-target>
+cargo +1.93.1 clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness --all-targets --locked --offline --target-dir <native-target> -- -D warnings
+```
+
+The first native compatibility compile in the new review checkout failed because
+its ignored frontend `dist` did not yet exist. Building the locked normal
+frontend resolved that prerequisite; both complete retry checks passed, and the
+failure remains in `metrics-desktop-test.log`. No source assertion or production
+behavior changed. Final logs are `metrics-integrated-*` and `metrics-final-*`
+under the task-owned `worker-adoption-native` target; Rust1.93.1, Node24.22.1,
+debug=0/incremental=0 and UUID TEMP/TMP on D were used. No new model execution,
+render capture, device operation or blocked-network result is implied by these
+compatibility tests. The historical real-model resource observation above
+retains its original frozen source and hash.

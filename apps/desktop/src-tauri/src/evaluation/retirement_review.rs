@@ -1,25 +1,64 @@
-//! Independent regression over the actual manager retirement path. No worker or assets.
+//! Independent actual-admission retirement regression. Scripted worker only; no model/assets/GUI.
 use super::*;
 
-fn registered() -> (Arc<EvaluationManager>, Arc<WindowLease>, u64, Cancellation) {
-    let manager = Arc::new(EvaluationManager::new(PathBuf::from(
-        "unused-review-root-no-filesystem-access",
-    )));
+struct Root(PathBuf);
+impl Drop for Root {
+    fn drop(&mut self) {
+        fs::remove_dir_all(&self.0).unwrap();
+    }
+}
+struct Admitted {
+    _root: Root,
+    manager: Arc<EvaluationManager>,
+    lease: Arc<WindowLease>,
+    epoch: u64,
+    cancel: Cancellation,
+    release: Arc<std::sync::Barrier>,
+}
+fn registered() -> Admitted {
+    let path =
+        std::env::temp_dir().join(format!("evaluation-retirement-review-{}", uuid().unwrap()));
+    fs::create_dir(&path).unwrap();
+    let root = Root(path);
+    let manager = Arc::new(EvaluationManager::new(root.0.join("runs")));
     let lease = Arc::new(WindowLease::default());
     let epoch = lease.begin().unwrap();
-    let cancel = Cancellation::default();
-    manager.state().unwrap().job = Some(Job {
+    manager.catalog(&lease, epoch).unwrap();
+    // Reuse the real worker's existing pre-publication barrier so completion
+    // cannot erase the actual admitted job before retirement observes it.
+    let entered = Arc::new(std::sync::Barrier::new(2));
+    let release = Arc::new(std::sync::Barrier::new(2));
+    *manager.before_publish.lock().unwrap() = Some((entered.clone(), release.clone()));
+    manager.start(&lease, epoch, None, "all").unwrap();
+    entered.wait();
+    let cancel = manager
+        .state()
+        .unwrap()
+        .job
+        .as_ref()
+        .unwrap()
+        .cancel
+        .clone();
+    Admitted {
+        _root: root,
+        manager,
+        lease,
         epoch,
-        id: 1,
-        run: "11111111-1111-1111-1111-111111111111".into(),
-        cancel: cancel.clone(),
-    });
-    (manager, lease, epoch, cancel)
+        cancel,
+        release,
+    }
 }
 
 #[test]
 fn retired_registered_job_is_cancelled_when_state_was_contended() {
-    let (manager, lease, epoch, cancel) = registered();
+    let Admitted {
+        _root,
+        manager,
+        lease,
+        epoch,
+        cancel,
+        release,
+    } = registered();
     let guard = manager.state().unwrap();
     lease.invalidate("main-1").unwrap();
     let (ready_tx, ready_rx) = std::sync::mpsc::channel();
@@ -39,6 +78,8 @@ fn retired_registered_job_is_cancelled_when_state_was_contended() {
         done_rx.recv_timeout(Duration::from_secs(1)).unwrap();
     }
     thread.join().unwrap();
+    release.wait();
+    manager.drain(epoch);
     assert!(
         cancel.is_cancelled(),
         "Destroyed retirement lost cancellation of a registered job while state was contended"
@@ -47,7 +88,14 @@ fn retired_registered_job_is_cancelled_when_state_was_contended() {
 
 #[test]
 fn retired_registered_job_is_cancelled_when_state_was_poisoned() {
-    let (manager, lease, epoch, cancel) = registered();
+    let Admitted {
+        _root,
+        manager,
+        lease,
+        epoch,
+        cancel,
+        release,
+    } = registered();
     let owner = manager.clone();
     let panic = std::thread::spawn(move || {
         let _guard = owner.state().unwrap();
@@ -56,6 +104,8 @@ fn retired_registered_job_is_cancelled_when_state_was_poisoned() {
     assert!(panic.join().is_err());
     lease.invalidate("main-1").unwrap();
     manager.retire(epoch);
+    release.wait();
+    manager.drain(epoch);
     assert!(
         cancel.is_cancelled(),
         "Destroyed retirement lost cancellation of a registered job when state was poisoned"

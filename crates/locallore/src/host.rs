@@ -1,5 +1,9 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Host-v1: bounded in-memory sessions; no JNI, file, SQL, network or model handles.
+use crate::turn_trace::{
+    self, AttemptHandle, AttemptIdentity, Counts, ErrorCategory, IdentityHash, Label, Outcome,
+    Provenance, Reader, Revision, RingSink, Selection, Stage, StageTimer, TraceOwner, TraceRing,
+};
 use crate::{contracts::*, engine::Engine, inference::*};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -117,6 +121,30 @@ pub enum HostCommand {
         observer: String,
         expected_revision: u64,
     },
+    InspectionQuery {
+        session: String,
+        query: crate::inspection_query::Query,
+    },
+    TraceConfigure {
+        session: String,
+        scope: Scope,
+        expected_head: u64,
+        enabled: bool,
+    },
+    TraceRead {
+        session: String,
+        scope: Scope,
+        expected_head: u64,
+        base_revision: u64,
+        observer: crate::inspection_query::Observer,
+        turn: Option<String>,
+        attempt: Option<u64>,
+    },
+    TraceClear {
+        session: String,
+        scope: Scope,
+        expected_head: u64,
+    },
     ModelStatus {},
     PlaySnapshot {
         session: String,
@@ -173,6 +201,8 @@ struct Turn {
     phase: Phase,
     receipt: Option<Receipt>,
     error: Option<String>,
+    trace: Option<AttemptHandle>,
+    trace_attempt: u32,
 }
 impl Turn {
     fn view(&self) -> Value {
@@ -185,6 +215,7 @@ impl Turn {
 struct Session {
     engine: Engine,
     turns: BTreeMap<String, Turn>,
+    trace_owner: TraceOwner,
 }
 #[derive(Default)]
 struct State {
@@ -192,6 +223,14 @@ struct State {
     workers: usize,
     sessions: BTreeMap<String, Session>,
     persistence: Option<Box<dyn Persistence>>,
+    local_play: Option<LocalPlay>,
+}
+
+pub type ProviderFactory = Arc<dyn Fn() -> Box<dyn InferenceProvider + Send> + Send + Sync>;
+#[derive(Clone)]
+struct LocalPlay {
+    profile: crate::play::PlayProfile,
+    provider: ProviderFactory,
 }
 
 /// Trusted native persistence boundary. Implemented by the one SQLite owner adapter,
@@ -209,6 +248,10 @@ pub struct SavedTurn {
     pub receipt: Option<Receipt>,
 }
 pub trait Persistence: Send {
+    /// Actual SQLite implementation version; workspace host-v1 contract stays separate.
+    fn database_schema_version(&self) -> u32 {
+        1
+    }
     fn location(&self) -> &str;
     fn list(&mut self) -> Result<Vec<WorkspaceSummary>, String>;
     fn create(&mut self) -> Result<Engine, String>;
@@ -220,6 +263,12 @@ pub trait Persistence: Send {
         proposal: &Proposal,
         narration: &str,
     ) -> Result<Receipt, String>;
+    fn commit_prepared(&mut self, receipt: &Receipt) -> Result<Receipt, String> {
+        if receipt.play().is_some() {
+            return Err("Unsupported".into());
+        }
+        self.commit(receipt.request(), receipt.proposal(), receipt.narration())
+    }
     fn cancel(&mut self, request: &Request) -> Result<SavedTurn, String>;
     fn fail(&mut self, request: &Request) -> Result<SavedTurn, String>;
     fn stale(&mut self, request: &Request) -> Result<SavedTurn, String>;
@@ -230,6 +279,7 @@ pub trait Persistence: Send {
 pub struct Host {
     state: Arc<Mutex<State>>,
     story_lab: bool,
+    trace: Arc<Mutex<TraceRing>>,
 }
 impl Default for Host {
     fn default() -> Self {
@@ -237,6 +287,31 @@ impl Default for Host {
     }
 }
 impl Host {
+    /// Trusted native model owner configures only future work; no wire grants this capability.
+    pub fn configure_local_provider(
+        &self,
+        profile: crate::play::PlayProfile,
+        provider: ProviderFactory,
+    ) -> Result<(), String> {
+        profile.validate().map_err(|e| e.to_string())?;
+        self.state
+            .lock()
+            .map_err(|_| "Internal".to_owned())?
+            .local_play = Some(LocalPlay { profile, provider });
+        Ok(())
+    }
+    pub fn disable_local_provider(&self) {
+        if let Ok(mut state) = self.state.lock() {
+            state.local_play = None;
+            for session in state.sessions.values() {
+                for turn in session.turns.values() {
+                    if matches!(turn.request.intent, Intent::FreeText { .. }) {
+                        turn.cancel.cancel();
+                    }
+                }
+            }
+        }
+    }
     /// Native-only immutable export capture. No path or file-writing capability is on the wire.
     /// Storage is reloaded transactionally before the explicit head check; generation and writes
     /// may continue after this clone is captured, without changing the returned export.
@@ -279,10 +354,40 @@ impl Host {
         host.state.lock().unwrap().persistence = Some(persistence);
         host
     }
+    /// Read-only derived views use one immutable durable snapshot. The inspection grant
+    /// comes only from trusted Host construction, never from a query or generation context.
+    pub fn inspection_query(
+        &self,
+        session: &str,
+        query: &crate::inspection_query::Query,
+    ) -> Result<crate::inspection_query::Page, String> {
+        let engine = {
+            let mut state = self.state.lock().map_err(|_| "Internal")?;
+            let session = state.sessions.get(session).ok_or("Closed")?;
+            if session.engine.scope() != &query.scope {
+                return Err("Scope".into());
+            }
+            let cached = session.engine.clone();
+            if let Some(port) = state.persistence.as_mut() {
+                port.resume(&query.scope)?
+            } else {
+                cached
+            }
+        };
+        crate::inspection_query::query(&engine, query, self.story_lab).map_err(|e| e.to_string())
+    }
     pub fn new(story_lab: bool) -> Self {
         Self {
             state: Arc::default(),
             story_lab,
+            trace: Arc::new(Mutex::new(TraceRing::new(
+                turn_trace::Config::new(
+                    turn_trace::MAX_ATTEMPTS,
+                    turn_trace::MAX_STAGES,
+                    turn_trace::MAX_BYTES - 2048,
+                )
+                .unwrap(),
+            ))),
         }
     }
     pub fn call(&self, input: &[u8]) -> Value {
@@ -290,7 +395,7 @@ impl Host {
             if input.len() > MAX_INPUT {
                 return reject("TooLarge");
             }
-            let Ok(envelope) = serde_json::from_slice::<Envelope>(input) else {
+            let Ok(mut envelope) = serde_json::from_slice::<Envelope>(input) else {
                 return reject("Malformed");
             };
             if envelope.version != HOST_VERSION {
@@ -304,8 +409,29 @@ impl Host {
             {
                 return self.prepare(&session, &scope, &turn);
             }
+            if let HostCommand::InspectionQuery { session, query } = &envelope.command {
+                return match self.inspection_query(session, query) {
+                    Ok(page) => ok(json!(page)),
+                    Err(error) => reject(error),
+                };
+            }
             let mut state = self.state.lock().unwrap();
-            self.dispatch(&mut state, envelope.command)
+            if let HostCommand::FreeText { session, request } = envelope.command {
+                if !matches!(request.intent, Intent::FreeText { .. }) {
+                    return reject("Unsupported");
+                }
+                envelope.command = HostCommand::Submit {
+                    session,
+                    request,
+                    mode: Mode::Accepted,
+                };
+            }
+            if let HostCommand::Submit { request, mode, .. } = &envelope.command {
+                if matches!(request.intent, Intent::FreeText { .. }) && *mode != Mode::Accepted {
+                    return reject("Unsupported");
+                }
+            }
+            self.dispatch_traced(&mut state, envelope.command)
         }))
         .unwrap_or_else(|_| reject("Internal"));
         if serde_json::to_vec(&result).map_or(true, |bytes| bytes.len() > MAX_OUTPUT) {
@@ -324,11 +450,228 @@ impl Host {
             }
             state.sessions.clear();
         }
+        if let Ok(mut trace) = self.trace.try_lock() {
+            trace.set_enabled(false);
+        }
     }
     /// Trusted adapter lifecycle evidence, without story content or wire authority.
     pub fn live_counts(&self) -> (usize, usize) {
         let state = self.state.lock().unwrap();
         (state.sessions.len(), state.workers)
+    }
+    fn trace_command(&self, state: &mut State, command: &HostCommand) -> Option<Value> {
+        let (session, scope, head) = match command {
+            HostCommand::TraceConfigure {
+                session,
+                scope,
+                expected_head,
+                ..
+            }
+            | HostCommand::TraceRead {
+                session,
+                scope,
+                expected_head,
+                ..
+            }
+            | HostCommand::TraceClear {
+                session,
+                scope,
+                expected_head,
+            } => (session, scope, *expected_head),
+            _ => return None,
+        };
+        let result = (|| -> Result<Value, Value> {
+            let session = get_session(state, session, scope)?;
+            let owner = session.trace_owner.clone();
+            let cached = session.engine.clone();
+            let engine = if let Some(port) = state.persistence.as_mut() {
+                port.resume(scope).map_err(reject)?
+            } else {
+                cached
+            };
+            if engine.revision() != head {
+                return Err(reject("Stale"));
+            }
+            match command {
+                HostCommand::TraceRead {
+                    base_revision,
+                    observer,
+                    turn,
+                    attempt,
+                    ..
+                } => {
+                    let player = &engine.seed().player;
+                    let actor = match observer {
+                        crate::inspection_query::Observer::Player => player.clone(),
+                        crate::inspection_query::Observer::Character { id } => {
+                            if id != player && !self.story_lab {
+                                return Err(reject("Forbidden"));
+                            }
+                            if !engine.state().actors.contains_key(id) {
+                                return Err(reject("UnknownObserver"));
+                            }
+                            id.clone()
+                        }
+                        crate::inspection_query::Observer::Omniscient => {
+                            if !self.story_lab {
+                                return Err(reject("Forbidden"));
+                            }
+                            // Production currently creates player attempts only. The trusted Lab
+                            // may inspect those; it cannot relabel them as an NPC's own attempt.
+                            player.clone()
+                        }
+                    };
+                    let attempt = attempt
+                        .map(u32::try_from)
+                        .transpose()
+                        .map_err(|_| reject("InvalidRequest"))?;
+                    let query = Selection {
+                        scope: scope.clone(),
+                        base_revision: *base_revision,
+                        observer: actor.clone(),
+                        turn: turn.clone(),
+                        attempt,
+                    };
+                    let reader = if self.story_lab {
+                        Reader::story_lab(scope.clone())
+                    } else {
+                        Reader::scoped(scope.clone(), actor)
+                    };
+                    let trace = self
+                        .trace
+                        .try_lock()
+                        .map_err(|_| reject("TraceUnavailable"))?;
+                    let snapshot = trace
+                        .read_for_owner(&owner, &query, &reader)
+                        .map_err(|e| reject(format!("{e:?}")))?;
+                    let reply = ok(
+                        json!({"scope":scope,"head":head,"base_revision":base_revision,
+                        "observer":observer,"configuration_scope":"window_host",
+                        "capture":"metadata_only","full_capture":"unsupported","snapshot":snapshot}),
+                    );
+                    if serde_json::to_vec(&reply).map_or(true, |b| b.len() > turn_trace::MAX_BYTES)
+                    {
+                        return Err(reject("TooLarge"));
+                    }
+                    Ok(reply)
+                }
+                HostCommand::TraceConfigure { enabled, .. } => {
+                    let mut trace = self.trace_control()?;
+                    trace.set_enabled(*enabled);
+                    Ok(ok(
+                        json!({"configuration_scope":"window_host","capture":"metadata_only",
+                        "enabled":enabled,"full_capture":"unsupported"}),
+                    ))
+                }
+                HostCommand::TraceClear { .. } => {
+                    let mut trace = self.trace_control()?;
+                    trace.clear();
+                    Ok(ok(
+                        json!({"configuration_scope":"window_host","cleared":true,
+                        "capture":"metadata_only","full_capture":"unsupported"}),
+                    ))
+                }
+                _ => unreachable!(),
+            }
+        })();
+        Some(result.unwrap_or_else(|reply| reply))
+    }
+    fn trace_control(&self) -> Result<std::sync::MutexGuard<'_, TraceRing>, Value> {
+        match self.trace.try_lock() {
+            Ok(trace) => Ok(trace),
+            Err(std::sync::TryLockError::Poisoned(error)) => {
+                // Recovery deletes only process-local diagnostics. Canonical owners are untouched.
+                let mut trace = error.into_inner();
+                trace.set_enabled(false);
+                self.trace.clear_poison();
+                Ok(trace)
+            }
+            Err(_) => Err(reject("TraceUnavailable")),
+        }
+    }
+
+    fn trace_record(
+        &self,
+        handle: Option<&AttemptHandle>,
+        timer: StageTimer,
+        stage: Stage,
+        outcome: Outcome,
+        error: Option<ErrorCategory>,
+    ) {
+        if let Some(handle) = handle {
+            if let Ok(mut trace) = self.trace.try_lock() {
+                let _ = trace.record_measured(
+                    handle,
+                    timer.finish(stage, outcome, Counts::default(), error),
+                );
+            }
+        }
+    }
+    fn trace_finish(&self, handle: Option<&AttemptHandle>, outcome: Outcome) {
+        if let Some(handle) = handle {
+            if let Ok(mut trace) = self.trace.try_lock() {
+                let _ = trace.finish(handle, outcome);
+            }
+        }
+    }
+    fn dispatch_traced(&self, state: &mut State, command: HostCommand) -> Value {
+        if let Some(reply) = self.trace_command(state, &command) {
+            return reply;
+        }
+        let target = match &command {
+            HostCommand::Commit {
+                session,
+                scope,
+                turn,
+            }
+            | HostCommand::Cancel {
+                session,
+                scope,
+                turn,
+            }
+            | HostCommand::TurnStatus {
+                session,
+                scope,
+                turn,
+            } => Some((session, scope, turn)),
+            HostCommand::Submit {
+                session, request, ..
+            } => Some((session, &request.scope, &request.turn)),
+            _ => None,
+        };
+        let binding = target.and_then(|(session, scope, turn)| {
+            let s = state.sessions.get(session)?;
+            if s.engine.scope() != scope {
+                return None;
+            }
+            let t = s.turns.get(turn)?;
+            Some((
+                session.clone(),
+                turn.clone(),
+                t.trace.clone()?,
+                t.request.clone(),
+                t.receipt.clone(),
+                t.trace_attempt,
+            ))
+        });
+        let reply = self.dispatch(state, command);
+        if let Some((session, turn, handle, request, prepared, attempt)) = binding {
+            // Saved status refreshes must not lose the original process-local attempt lease.
+            if let Some(t) = state
+                .sessions
+                .get_mut(&session)
+                .and_then(|s| s.turns.get_mut(&turn))
+            {
+                if t.request == request && t.trace.is_none() {
+                    t.trace = Some(handle.clone());
+                    t.trace_attempt = attempt;
+                }
+            }
+            if let Some(outcome) = trace_reply_outcome(&reply, prepared.as_ref()) {
+                self.trace_finish(Some(&handle), outcome);
+            }
+        }
+        reply
     }
     fn dispatch(&self, state: &mut State, command: HostCommand) -> Value {
         if state.persistence.is_some() {
@@ -343,11 +686,19 @@ impl Host {
             HostCommand::Resume { .. } => reject("Unsupported"),
             HostCommand::Capabilities {} => {
                 ok(json!({"domain_version":VERSION,"seed":"lantern-quay-v1",
-                "typed_actions":true,"free_text":false,"persistence":false,"snapshot_export":false,
+                "typed_actions":true,"free_text":state.local_play.is_some(),"persistence":false,"snapshot_export":false,
                 "author":false,"story_lab":self.story_lab,"max_sessions":MAX_SESSIONS,"max_turns":MAX_TURNS}))
             }
             HostCommand::ModelStatus {} => {
-                ok(json!({"provider":"deterministic-fake-v1","real_model":false,"loaded":false}))
+                if let Some(local) = &state.local_play {
+                    ok(
+                        json!({"provider":local.profile.id,"real_model":true,"loaded":null,"status":"configured_native_owner","profile":local.profile}),
+                    )
+                } else {
+                    ok(
+                        json!({"provider":"deterministic-fake-v1","real_model":false,"loaded":false}),
+                    )
+                }
             }
             HostCommand::Create { seed } => {
                 if seed != "lantern-quay-v1" {
@@ -375,6 +726,7 @@ impl Host {
                     Session {
                         engine,
                         turns: BTreeMap::new(),
+                        trace_owner: TraceOwner::default(),
                     },
                 );
                 ok(data)
@@ -392,6 +744,9 @@ impl Host {
                 };
                 for turn in s.turns.values() {
                     turn.cancel.cancel();
+                    if turn.phase.active() {
+                        self.trace_finish(turn.trace.as_ref(), Outcome::Cancelled);
+                    }
                 }
                 state.sessions.remove(&session);
                 ok(json!({"closed":true}))
@@ -401,6 +756,7 @@ impl Host {
                 request,
                 mode,
             } => {
+                let available = state.local_play.is_some();
                 let s = match get_session(state, &session, &request.scope) {
                     Ok(s) => s,
                     Err(e) => return e,
@@ -412,16 +768,21 @@ impl Host {
                         reject("RetryMismatch")
                     };
                 }
+                if matches!(request.intent, Intent::FreeText { .. }) && !available {
+                    return reject("Unsupported");
+                }
                 if s.turns.len() >= MAX_TURNS {
                     return reject("TurnLimit");
                 }
                 if let Err(e) = s.engine.preflight(&request) {
                     return reject(e);
                 }
-                if let Err(e) =
-                    Engine::proposal(&request).and_then(|p| s.engine.preview(&request, &p))
-                {
-                    return reject(e);
+                if !matches!(request.intent, Intent::FreeText { .. }) {
+                    if let Err(e) =
+                        Engine::proposal(&request).and_then(|p| s.engine.preview(&request, &p))
+                    {
+                        return reject(e);
+                    }
                 }
                 let id = request.turn.clone();
                 s.turns.insert(
@@ -433,6 +794,8 @@ impl Host {
                         phase: Phase::Queued,
                         receipt: None,
                         error: None,
+                        trace: None,
+                        trace_attempt: 0,
                     },
                 );
                 ok(s.turns[&id].view())
@@ -457,6 +820,7 @@ impl Host {
                 }
                 if t.cancel.is_cancelled() {
                     t.phase = Phase::Cancelled;
+                    self.trace_finish(t.trace.as_ref(), Outcome::Cancelled);
                     return ok(t.view());
                 }
                 let receipt = t.receipt.as_ref().unwrap();
@@ -469,11 +833,22 @@ impl Host {
                 if serde_json::to_vec(&reply).unwrap().len() > MAX_OUTPUT {
                     return reject("TooLarge");
                 }
-                match s.engine.commit(
-                    &t.request,
-                    &Engine::proposal(&t.request).unwrap(),
-                    receipt.narration(),
-                ) {
+                let timer = StageTimer::start();
+                let outcome = s.engine.commit_prepared(receipt);
+                self.trace_record(
+                    t.trace.as_ref(),
+                    timer,
+                    Stage::AtomicCommit,
+                    if outcome.is_ok() {
+                        Outcome::Committed
+                    } else if matches!(outcome, Err(Error::Stale)) {
+                        Outcome::Stale
+                    } else {
+                        Outcome::Failed
+                    },
+                    outcome.as_ref().err().map(ErrorCategory::from_engine),
+                );
+                match outcome {
                     Ok(receipt) => {
                         t.receipt = Some(receipt);
                         t.phase = Phase::Committed;
@@ -607,7 +982,11 @@ impl Host {
                 }
                 reject("Unsupported")
             }
-            HostCommand::Prepare { .. } => unreachable!(),
+            HostCommand::Prepare { .. }
+            | HostCommand::InspectionQuery { .. }
+            | HostCommand::TraceConfigure { .. }
+            | HostCommand::TraceRead { .. }
+            | HostCommand::TraceClear { .. } => unreachable!(),
         }
     }
 
@@ -616,14 +995,14 @@ impl Host {
             match command {
                 HostCommand::Capabilities {} => Ok(ok(
                     json!({"domain_version":VERSION,"seed":"lantern-quay-v1",
-                    "typed_actions":true,"free_text":false,"persistence":true,"snapshot_export":false,
+                    "typed_actions":true,"free_text":state.local_play.is_some(),"persistence":true,"snapshot_export":false,
                     "author":false,"story_lab":self.story_lab,"max_sessions":MAX_SESSIONS,"max_turns":MAX_TURNS}),
                 )),
                 HostCommand::Workspace {} => {
                     let port = state.persistence.as_mut().unwrap();
                     let stories = port.list().map_err(reject)?;
                     Ok(ok(
-                        json!({"persistent":true,"location":port.location(),"schema_version":1,"stories":stories}),
+                        json!({"persistent":true,"location":port.location(),"schema_version":1,"database_schema_version":port.database_schema_version(),"stories":stories}),
                     ))
                 }
                 HostCommand::Create { seed } => {
@@ -691,6 +1070,35 @@ impl Host {
                     } else if s.turns.len() >= MAX_TURNS {
                         return Err(reject("TurnLimit"));
                     }
+                    if matches!(request.intent, Intent::FreeText { .. })
+                        && state.local_play.is_none()
+                    {
+                        let saved = state
+                            .persistence
+                            .as_mut()
+                            .unwrap()
+                            .status(&request.scope, &request.turn)
+                            .map_err(|e| {
+                                reject(if e == "UnknownTurn" {
+                                    "Unsupported".to_owned()
+                                } else {
+                                    e
+                                })
+                            })?;
+                        if saved.request != *request {
+                            return Err(reject("RetryMismatch"));
+                        }
+                        if saved.phase == "draft" {
+                            return Err(reject("Unsupported"));
+                        }
+                        refresh_session(state, session, &request.scope)?;
+                        let t = saved_turn(saved, *mode)?;
+                        let reply = ok(t.view());
+                        get_session(state, session, &request.scope)?
+                            .turns
+                            .insert(request.turn.clone(), t);
+                        return Ok(reply);
+                    }
                     let saved = state
                         .persistence
                         .as_mut()
@@ -708,11 +1116,13 @@ impl Host {
                     if let Some(t) = s.turns.get(&request.turn) {
                         return Ok(ok(t.view()));
                     }
-                    if let Err(error) =
-                        Engine::proposal(request).and_then(|p| s.engine.preview(request, &p))
-                    {
-                        let _ = state.persistence.as_mut().unwrap().fail(request);
-                        return Err(reject(error));
+                    if !matches!(request.intent, Intent::FreeText { .. }) {
+                        if let Err(error) =
+                            Engine::proposal(request).and_then(|p| s.engine.preview(request, &p))
+                        {
+                            let _ = state.persistence.as_mut().unwrap().fail(request);
+                            return Err(reject(error));
+                        }
                     }
                     let t = saved_turn(saved, *mode)?;
                     let reply = ok(t.view());
@@ -805,6 +1215,7 @@ impl Host {
                         return Err(reject("NotReady"));
                     }
                     let prepared = t.receipt.clone().unwrap();
+                    let trace = t.trace.clone();
                     let request = t.request.clone();
                     let mode = t.mode;
                     let reply = ok(
@@ -814,12 +1225,22 @@ impl Host {
                     if serde_json::to_vec(&reply).unwrap().len() > MAX_OUTPUT {
                         return Err(reject("TooLarge"));
                     }
-                    match state.persistence.as_mut().unwrap().commit(
-                        &request,
-                        prepared.proposal(),
-                        prepared.narration(),
-                    ) {
+                    let timer = StageTimer::start();
+                    match state
+                        .persistence
+                        .as_mut()
+                        .unwrap()
+                        .commit_prepared(&prepared)
+                    {
                         Ok(receipt) => {
+                            self.trace_record(
+                                trace.as_ref(),
+                                timer,
+                                Stage::AtomicCommit,
+                                Outcome::Committed,
+                                None,
+                            );
+                            self.trace_finish(trace.as_ref(), Outcome::Committed);
                             refresh_session(state, session, scope)?;
                             let s = get_session(state, session, scope)?;
                             let t = saved_turn(
@@ -840,6 +1261,15 @@ impl Host {
                             let lookup = state.persistence.as_mut().unwrap().status(scope, turn);
                             match lookup {
                                 Ok(saved) if saved.phase != "draft" => {
+                                    let outcome = trace_saved_outcome(&saved, Some(&prepared));
+                                    self.trace_record(
+                                        trace.as_ref(),
+                                        timer,
+                                        Stage::AtomicCommit,
+                                        outcome,
+                                        None,
+                                    );
+                                    self.trace_finish(trace.as_ref(), outcome);
                                     refresh_session(state, session, scope)?;
                                     let t = saved_turn(saved, mode)?;
                                     let reply = ok(t.view());
@@ -848,8 +1278,26 @@ impl Host {
                                         .insert(turn.clone(), t);
                                     Ok(reply)
                                 }
-                                Ok(_) => Err(reject(error)),
-                                Err(_) => Err(reject("TransportUnknown")),
+                                Ok(_) => {
+                                    self.trace_record(
+                                        trace.as_ref(),
+                                        timer,
+                                        Stage::AtomicCommit,
+                                        Outcome::Failed,
+                                        Some(trace_category(&error)),
+                                    );
+                                    Err(reject(error))
+                                }
+                                Err(_) => {
+                                    self.trace_record(
+                                        trace.as_ref(),
+                                        timer,
+                                        Stage::AtomicCommit,
+                                        Outcome::Unknown,
+                                        Some(ErrorCategory::Unknown),
+                                    );
+                                    Err(reject("TransportUnknown"))
+                                }
                             }
                         }
                     }
@@ -862,11 +1310,15 @@ impl Host {
                         .filter(|t| t.phase.active())
                         .map(|t| {
                             t.cancel.cancel();
-                            t.request.clone()
+                            (t.request.clone(), t.trace.clone(), t.receipt.clone())
                         })
                         .collect();
-                    for request in active {
-                        let _ = state.persistence.as_mut().unwrap().cancel(&request);
+                    for (request, trace, prepared) in active {
+                        let saved = state.persistence.as_mut().unwrap().cancel(&request);
+                        let outcome = saved.as_ref().map_or(Outcome::Unknown, |saved| {
+                            trace_saved_outcome(saved, prepared.as_ref())
+                        });
+                        self.trace_finish(trace.as_ref(), outcome);
                     }
                     state.sessions.remove(session);
                     Ok(ok(json!({"closed":true,"saved":true})))
@@ -886,13 +1338,51 @@ impl Host {
         };
         // A clone of a coherent revision; no canonical lock or transaction during generation.
         let mut engine = work.engine.clone();
-        let result = execute(
-            &mut engine,
-            &work.request,
-            &mut work.mode.provider(),
-            &work.cancel,
-            Budget::default(),
-        );
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            if matches!(work.request.intent, Intent::FreeText { .. }) {
+                if let Some(local) = &work.local_play {
+                    let mut sink = work
+                        .trace
+                        .clone()
+                        .map(|handle| RingSink::new(Arc::clone(&self.trace), handle));
+                    crate::play::execute_traced(
+                        &mut engine,
+                        &work.request,
+                        &mut *(local.provider)(),
+                        &work.cancel,
+                        &local.profile,
+                        sink.as_mut()
+                            .map(|sink| sink as &mut dyn turn_trace::TraceSink),
+                    )
+                } else {
+                    Err(Error::Provider)
+                }
+            } else {
+                let timer = StageTimer::start();
+                let result = execute(
+                    &mut engine,
+                    &work.request,
+                    &mut work.mode.provider(),
+                    &work.cancel,
+                    Budget::default(),
+                );
+                let outcome = match &result {
+                    Ok(_) => Outcome::Accepted,
+                    Err(Error::Cancelled) => Outcome::Cancelled,
+                    Err(Error::Stale) => Outcome::Stale,
+                    Err(_) => Outcome::Failed,
+                };
+                self.trace_record(
+                    work.trace.as_ref(),
+                    timer,
+                    Stage::AcceptedCandidate,
+                    outcome,
+                    result.as_ref().err().map(ErrorCategory::from_engine),
+                );
+                result
+            }
+        }))
+        .unwrap_or(Err(Error::Provider));
         self.finish_work(work, result)
     }
     fn begin_work(&self, session: &str, scope: &Scope, turn: &str) -> Result<Work, Value> {
@@ -900,7 +1390,9 @@ impl Host {
         if state.workers >= MAX_WORKERS {
             return Err(reject("WorkerLimit"));
         }
+        let local_play = state.local_play.clone();
         let s = get_session(&mut state, session, scope)?;
+        let trace_owner = s.trace_owner.clone();
         let Some(t) = s.turns.get_mut(turn) else {
             return Err(reject("UnknownTurn"));
         };
@@ -908,6 +1400,28 @@ impl Host {
             return Err(ok(t.view()));
         }
         t.phase = Phase::Running;
+        t.trace = t.trace_attempt.checked_add(1).and_then(|attempt| {
+            t.trace_attempt = attempt;
+            let identity = AttemptIdentity {
+                scope: t.request.scope.clone(),
+                base_revision: t.request.expected_revision,
+                observer: s.engine.seed().player.clone(),
+                turn: t.request.turn.clone(),
+                attempt,
+            };
+            self.trace.try_lock().ok().and_then(|mut trace| {
+                trace
+                    .begin_for_owner(
+                        &trace_owner,
+                        identity,
+                        trace_provenance(
+                            local_play.as_ref(),
+                            matches!(t.request.intent, Intent::FreeText { .. }),
+                        ),
+                    )
+                    .handle
+            })
+        });
         let work = Work {
             state: self.state.clone(),
             session: session.into(),
@@ -916,11 +1430,58 @@ impl Host {
             request: t.request.clone(),
             mode: t.mode,
             cancel: t.cancel.clone(),
+            local_play,
+            trace: t.trace.clone(),
         };
         state.workers += 1;
         Ok(work)
     }
     fn finish_work(&self, work: Work, result: Result<Receipt, Error>) -> Value {
+        let prepared = if work.trace.is_some() {
+            result.as_ref().ok().cloned()
+        } else {
+            None
+        };
+        let timer = StageTimer::start();
+        let reply = self.finish_work_inner(&work, result);
+        let terminal = trace_reply_outcome(&reply, prepared.as_ref());
+        let outcome = terminal.unwrap_or_else(|| {
+            if reply["status"] == "rejected" {
+                Outcome::Unknown
+            } else {
+                Outcome::Accepted
+            }
+        });
+        let error = reply["data"]["error"]
+            .as_str()
+            .or_else(|| reply["error"].as_str())
+            .map(trace_category);
+        self.trace_record(
+            work.trace.as_ref(),
+            timer,
+            Stage::Publication,
+            if outcome == Outcome::Committed {
+                Outcome::Accepted
+            } else {
+                outcome
+            },
+            error,
+        );
+        if let Some(outcome) = terminal {
+            self.trace_finish(work.trace.as_ref(), outcome);
+        } else if reply["status"] == "rejected" {
+            self.trace_finish(
+                work.trace.as_ref(),
+                if reply["error"] == "Closed" {
+                    Outcome::Cancelled
+                } else {
+                    Outcome::Unknown
+                },
+            );
+        }
+        reply
+    }
+    fn finish_work_inner(&self, work: &Work, result: Result<Receipt, Error>) -> Value {
         let mut state = self.state.lock().unwrap();
         // Generation runs without the owner lock. Another process may have finalized
         // this key meanwhile; its persisted outcome must win over this worker.
@@ -1064,6 +1625,97 @@ struct Work {
     request: Request,
     mode: Mode,
     cancel: Cancellation,
+    local_play: Option<LocalPlay>,
+    trace: Option<AttemptHandle>,
+}
+fn trace_category(error: &str) -> ErrorCategory {
+    match error {
+        "Version" => ErrorCategory::Version,
+        "Scope" => ErrorCategory::Scope,
+        "Stale" => ErrorCategory::Stale,
+        "RetryMismatch" => ErrorCategory::RetryMismatch,
+        "Malformed" => ErrorCategory::Malformed,
+        "TooLarge" => ErrorCategory::TooLarge,
+        "Agency" => ErrorCategory::Agency,
+        "AuthorUiRequired" => ErrorCategory::AuthorUiRequired,
+        "ClarificationRequired" => ErrorCategory::ClarificationRequired,
+        "UnknownReference" => ErrorCategory::UnknownReference,
+        "DeadActor" => ErrorCategory::DeadActor,
+        "Location" => ErrorCategory::Location,
+        "Inventory" => ErrorCategory::Inventory,
+        "Resource" => ErrorCategory::Resource,
+        "Ability" => ErrorCategory::Ability,
+        "Knowledge" => ErrorCategory::Knowledge,
+        "Rule" => ErrorCategory::Rule,
+        "Cancelled" | "Closed" => ErrorCategory::Cancelled,
+        "Provider" => ErrorCategory::Provider,
+        "Timeout" => ErrorCategory::Deadline,
+        "Narration" => ErrorCategory::Narration,
+        "CorruptHistory" => ErrorCategory::CorruptHistory,
+        "Busy" => ErrorCategory::Busy,
+        "Unsupported" => ErrorCategory::Unsupported,
+        _ => ErrorCategory::Unknown,
+    }
+}
+fn trace_reply_outcome(reply: &Value, prepared: Option<&Receipt>) -> Option<Outcome> {
+    if reply["status"] != "ok" {
+        return None;
+    }
+    match reply["data"]["phase"].as_str() {
+        Some("committed") => Some(
+            if prepared.and_then(|r| serde_json::to_value(r).ok()).as_ref()
+                == Some(&reply["data"]["receipt"])
+            {
+                Outcome::Committed
+            } else {
+                Outcome::Stale
+            },
+        ),
+        Some("failed") => Some(Outcome::Failed),
+        Some("cancelled") => Some(Outcome::Cancelled),
+        Some("stale") => Some(Outcome::Stale),
+        _ => None,
+    }
+}
+fn trace_saved_outcome(saved: &SavedTurn, prepared: Option<&Receipt>) -> Outcome {
+    match saved.phase.as_str() {
+        "committed" => {
+            if saved.receipt.as_ref() == prepared {
+                Outcome::Committed
+            } else {
+                Outcome::Stale
+            }
+        }
+        "cancelled" => Outcome::Cancelled,
+        "failed" => Outcome::Failed,
+        "stale" => Outcome::Stale,
+        _ => Outcome::Unknown,
+    }
+}
+fn trace_provenance(local: Option<&LocalPlay>, free_text: bool) -> Provenance {
+    if free_text {
+        if let Some(local) = local {
+            use sha2::{Digest, Sha256};
+            let profile = &local.profile;
+            return Provenance {
+                model_sha256: IdentityHash::sha256(&profile.model_sha256),
+                worker_sha256: IdentityHash::sha256(&profile.worker_sha256),
+                profile_sha256: IdentityHash::sha256(&profile.profile_manifest_sha256),
+                runtime_revision: Revision::new(&profile.runtime_revision),
+                config_sha256: serde_json::to_vec(profile).ok().and_then(|bytes| {
+                    IdentityHash::sha256(&format!("{:x}", Sha256::digest(bytes)))
+                }),
+                profile_label: Label::new(&profile.id),
+                prompt_label: Label::new(crate::play::PROMPT_VERSION),
+                schema_label: Label::new("locallore-play-v2"),
+                ..Provenance::default()
+            };
+        }
+    }
+    Provenance {
+        profile_label: Label::new("deterministic-fake-v1"),
+        ..Provenance::default()
+    }
 }
 impl Drop for Work {
     fn drop(&mut self) {
@@ -1108,6 +1760,7 @@ fn attach_engine(state: &mut State, engine: Engine) -> Value {
         Session {
             engine,
             turns: BTreeMap::new(),
+            trace_owner: TraceOwner::default(),
         },
     );
     ok(data)
@@ -1130,9 +1783,13 @@ fn saved_turn(saved: SavedTurn, mode: Mode) -> Result<Turn, Value> {
         error: match phase {
             Phase::Cancelled => Some("Cancelled".into()),
             Phase::Stale => Some("Stale".into()),
-            Phase::Failed => Some("Provider".into()),
+            // The existing durable port records the terminal phase, not its cause.
+            // Do not fabricate a provider failure when an old validation failed.
+            Phase::Failed => None,
             _ => None,
         },
+        trace: None,
+        trace_attempt: 0,
     })
 }
 fn ok(data: Value) -> Value {
@@ -1176,6 +1833,65 @@ mod tests {
     }
     fn op(h: &Host, id: &str, scope: &Scope, turn: &str, op: &str) -> Value {
         call(h, json!({"op":op,"session":id,"scope":scope,"turn":turn}))
+    }
+    #[test]
+    fn trace_busy_and_poison_never_decide_gameplay_and_reconfigure_recovers() {
+        for poison in [false, true] {
+            let h = Host::default();
+            let (id, scope) = session(&h);
+            assert_eq!(
+                call(
+                    &h,
+                    json!({"op":"trace_configure","session":id,"scope":scope,"expected_head":0,"enabled":true})
+                )["status"],
+                "ok"
+            );
+            let r = request(&scope, "gift");
+            if poison {
+                let trace = Arc::clone(&h.trace);
+                let _ = std::thread::spawn(move || {
+                    let _guard = trace.lock().unwrap();
+                    panic!("synthetic trace poison");
+                })
+                .join();
+                assert_eq!(submit(&h, &id, &r)["data"]["phase"], "queued");
+                assert_eq!(
+                    op(&h, &id, &scope, "gift", "prepare")["data"]["phase"],
+                    "ready"
+                );
+                assert_eq!(
+                    op(&h, &id, &scope, "gift", "commit")["data"]["phase"],
+                    "committed"
+                );
+            } else {
+                let _guard = h.trace.lock().unwrap();
+                assert_eq!(submit(&h, &id, &r)["data"]["phase"], "queued");
+                assert_eq!(
+                    op(&h, &id, &scope, "gift", "prepare")["data"]["phase"],
+                    "ready"
+                );
+                assert_eq!(
+                    op(&h, &id, &scope, "gift", "commit")["data"]["phase"],
+                    "committed"
+                );
+            }
+            assert_eq!(
+                call(
+                    &h,
+                    json!({"op":"trace_configure","session":id,"scope":scope,"expected_head":1,"enabled":true})
+                )["status"],
+                "ok"
+            );
+            let read = call(
+                &h,
+                json!({"op":"trace_read","session":id,"scope":scope,"expected_head":1,"base_revision":0,"observer":{"kind":"player"}}),
+            );
+            assert_eq!(read["status"], "ok");
+            assert!(read["data"]["snapshot"]["attempts"]
+                .as_array()
+                .unwrap()
+                .is_empty());
+        }
     }
     #[test]
     fn schema_is_generated_from_rust() {

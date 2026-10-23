@@ -254,11 +254,50 @@ pub async fn inspection_storage(
     let host = workspace.get(epoch).await?;
     let lease = workspace.lease.clone();
     let cleanup = workspace.preview_cleanup.clone();
-    tauri::async_runtime::spawn_blocking(move || lease.dispatch(epoch,|| {
-        let reply=host.call(br#"{"version":1,"command":{"op":"workspace"}}"#);
-        if reply["status"]!="ok" { return Err(reply["error"].as_str().unwrap_or("Wire").to_owned()); }
-        Ok(json!({"location":reply["data"]["location"],"schema_version":reply["data"]["schema_version"],"read_only":true,"private_preview_cleanup":cleanup.lock().map_err(|_|"Closed")?.clone(),"notice":"Storage metadata only. Live database editing is not available."}))
-    })).await.map_err(|_|"Transport".to_owned())?
+    tauri::async_runtime::spawn_blocking(move || {
+        lease.dispatch(epoch, || {
+            let reply = host.call(br#"{"version":1,"command":{"op":"workspace"}}"#);
+            storage_metadata(&reply, cleanup.lock().map_err(|_| "Closed")?.clone())
+        })
+    })
+    .await
+    .map_err(|_| "Transport".to_owned())?
+}
+
+fn storage_metadata(reply: &Value, cleanup: Value) -> Result<Value, String> {
+    if reply["status"] != "ok" {
+        return Err(reply["error"].as_str().unwrap_or("Wire").to_owned());
+    }
+    // Host workspace schema_version is the compatible protocol contract. This
+    // distinct endpoint is displayed as the actual database implementation version.
+    if reply["data"]["schema_version"] != 1
+        || !matches!(
+            reply["data"]["database_schema_version"].as_u64(),
+            Some(1 | 2)
+        )
+    {
+        return Err("Wire".into());
+    }
+    Ok(
+        json!({"location":reply["data"]["location"],"schema_version":reply["data"]["database_schema_version"],"read_only":true,"private_preview_cleanup":cleanup,"notice":"Storage metadata only. Live database editing is not available."}),
+    )
+}
+
+#[cfg(test)]
+mod storage_metadata_tests {
+    use super::*;
+    #[test]
+    fn actual_database_version_is_distinct_from_workspace_contract() {
+        let mut reply = json!({"status":"ok","data":{"location":"synthetic","schema_version":1,"database_schema_version":2}});
+        let metadata = storage_metadata(&reply, json!(null)).unwrap();
+        assert_eq!(metadata["schema_version"], 2);
+        assert_eq!(metadata["read_only"], true);
+        reply["data"]
+            .as_object_mut()
+            .unwrap()
+            .remove("database_schema_version");
+        assert_eq!(storage_metadata(&reply, json!(null)), Err("Wire".into()));
+    }
 }
 
 #[cfg(feature = "dev-harness")]

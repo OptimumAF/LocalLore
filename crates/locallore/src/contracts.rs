@@ -160,6 +160,19 @@ pub enum Intent {
     Thought(String),
     Ambiguous(String),
     AuthorCorrection(String),
+    /// Explicit untrusted player input; the versioned play pipeline interprets it once.
+    FreeText {
+        kind: PlayInputKind,
+        text: String,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "host", derive(schemars::JsonSchema))]
+pub enum PlayInputKind {
+    Action,
+    Dialogue,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -353,6 +366,8 @@ pub struct Receipt {
     pub(crate) proposal: Proposal,
     pub(crate) events: Vec<AcceptedEvent>,
     pub(crate) narration: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) play: Option<crate::play::PlayRecord>,
 }
 
 impl Receipt {
@@ -367,6 +382,9 @@ impl Receipt {
     }
     pub fn narration(&self) -> &str {
         &self.narration
+    }
+    pub fn play(&self) -> Option<&crate::play::PlayRecord> {
+        self.play.as_ref()
     }
 }
 

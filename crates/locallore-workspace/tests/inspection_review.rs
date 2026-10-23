@@ -9,10 +9,9 @@ use serde_json::{json, Value};
 use std::{
     collections::BTreeSet,
     path::PathBuf,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::atomic::{AtomicUsize, Ordering},
 };
-
-static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
+static TEMP_SEQUENCE: AtomicUsize = AtomicUsize::new(0);
 
 const HIDDEN_FACT: &str = "PRIVATE-NPC-FACT-CANARY-483";
 const HIDDEN_BELIEF: &str = "PRIVATE-NPC-BELIEF-CANARY-702";
@@ -24,11 +23,11 @@ impl Temp {
         let path = std::env::temp_dir().join(format!(
             "locallore-inspection-review-{}-{}-{}",
             std::process::id(),
+            TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_nanos(),
-            NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed)
+                .as_nanos()
         ));
         std::fs::create_dir(&path).unwrap();
         Self(path)

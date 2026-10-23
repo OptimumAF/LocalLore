@@ -1701,8 +1701,11 @@ name = "locallore-desktop-spike"
 version = "0.1.0"
 dependencies = [
  "locallore",
+ "locallore-eval",
+ "locallore-local-runtime",
  "locallore-workspace",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tokio",
@@ -1711,12 +1714,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "locallore-eval"
+version = "0.1.0"
+dependencies = [
+ "locallore",
+ "locallore-storage",
+ "locallore-workspace",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "locallore-local-runtime"
+version = "0.1.0"
+dependencies = [
+ "locallore",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "locallore-storage"
 version = "0.1.0"
 dependencies = [
  "locallore",
  "rusqlite",
+ "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]

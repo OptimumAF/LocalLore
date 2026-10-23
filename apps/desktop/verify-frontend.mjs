@@ -7,6 +7,11 @@ for (const args of [
     ["node_modules/typescript/bin/tsc", "--noEmit"],
     ["check-contract.mjs"],
     ["check-export-controller.mjs"],
+    ["check-model-controller.mjs"],
+    ["check-model-refresh.mjs"],
+    ["check-inspection-controller.mjs"],
+    ["check-trace-controller.mjs"],
+    ["check-evaluation-controller.mjs"],
 ]) {
     const code = await new Promise((resolve, reject) => {
         const child = spawn(process.execPath, args, {
@@ -30,6 +35,15 @@ for (const marker of [
     "restart-retry-does-not-double-apply",
     "harness_oracle",
     "harness_export_case",
+    "harness_model_case",
+    "real-free-text-potion-committed",
+    "query-native-durable-workspace",
+    "d05-external-wait",
+    "d06-native-default-disabled",
+    "d06-external-wait",
+    "d07-native-evaluation-checkpoints",
+    "harness_evaluation_case",
+    "legacy-v1-native-migrated-resume",
     "export-snapshot-independent-of-later-turn",
 ])
     assert(

@@ -7,6 +7,7 @@ use locallore::{
 };
 use locallore_storage::{StorageError, Store, TurnError, TurnPhase, TurnRecord};
 use std::path::Path;
+pub const DATABASE_SCHEMA_VERSION: u32 = locallore_storage::SCHEMA_VERSION;
 
 struct Repository {
     store: Store,
@@ -45,7 +46,7 @@ fn saved(record: TurnRecord) -> SavedTurn {
 /// Native code chooses an application-private path and calls on its IO worker. Failure is
 /// explicit; it never silently substitutes an ephemeral Host or overwrites a foreign database.
 pub fn open(path: &Path, story_lab: bool) -> Result<Host, String> {
-    let store = Store::open(path, None).map_err(storage)?;
+    let store = Store::open_application(path).map_err(storage)?;
     let location = std::fs::canonicalize(path)
         .map_err(|_| "Io".to_owned())?
         .to_str()
@@ -79,6 +80,12 @@ pub fn inspection_database_copy(
         .collect())
 }
 impl Persistence for Repository {
+    fn database_schema_version(&self) -> u32 {
+        DATABASE_SCHEMA_VERSION
+    }
+    fn commit_prepared(&mut self, receipt: &Receipt) -> Result<Receipt, String> {
+        self.store.commit_prepared(receipt).map_err(turn)
+    }
     fn location(&self) -> &str {
         &self.location
     }

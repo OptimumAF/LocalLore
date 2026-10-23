@@ -55,3 +55,27 @@ Persisting transcripts or cached projections alone would lose the accepted-histo
 boundary. An ORM, connection pool or speculative memory tables add no value to
 this slice. The host and explicit Android smoke exercise the actual bundled C
 library without an LLM. Build, emulator and physical-device evidence stay distinct.
+
+## Schema2 derived-memory extension
+
+The M07 implementation adds a STRICT derived-memory table through migration002.
+Historical001 remains byte-for-byte unchanged. Before altering an exact owned
+v1 database, the same owner holds an IMMEDIATE transaction, rechecks identity and
+schema, creates and flushes a consistent new backup through a separate reader,
+then applies002/version markers/exact verification and commits. New databases
+execute both migrations atomically. The application-private open policy selects
+a unique backup sibling; direct Store callers still explicitly provide a new
+backup path. Read-only inspection can verify either historical1 or current2.
+No automatic downgrade, destructive restore or foreign-schema adoption exists.
+
+The canonical tables, accepted outcomes and receipt formats remain unchanged.
+Derived caches use exact original accepted-source provenance and actor-only
+eligibility, and stale/cancelled work cannot publish as current. Temporary FTS
+contains only the verified actor/scope/revision partition. Typed extractive event
+digests are not an LLM archivist or an alternate truth store. Durable job cursors,
+model consumption and semantic-summary quality remain separate M07 work.
+
+Workspace host-v1 compatibility and SQLite implementation version are distinct:
+existing `schema_version:1` remains the workspace contract; the new explicit
+`database_schema_version` reports2. Native database metadata/export labels use
+the actual SQLite field, while canonical readable-export schema1 stays unchanged.

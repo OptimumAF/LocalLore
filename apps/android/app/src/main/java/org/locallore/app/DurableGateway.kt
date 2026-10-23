@@ -171,7 +171,15 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
     override suspend fun cancelSaved(): SavedSnapshot {
         operation?.let { pending ->
             pending.cancelled = true
-            val status = call(scoped("cancel", pending))
+            val status = try { call(scoped("cancel", pending)) }
+                catch (failure: WorkspaceFailure) {
+                    if (failure.category != "UnknownTurn") throw failure
+                    // Cancellation may beat submit on IO. The captured request remains
+                    // cancelled even if its late submit later creates an uncommitted draft.
+                    // Never discard a newer operation or regenerate this original key.
+                    if (operation === pending) operation = null
+                    return@let
+                }
             if (status.getString("phase") == "committed") result(status, pending)
             else if (operation === pending) operation = null
         }

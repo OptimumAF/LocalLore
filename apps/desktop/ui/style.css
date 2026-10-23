@@ -615,3 +615,303 @@ summary {
     border-left: 2px solid #c48c5e;
     padding-left: 0.75rem;
 }
+
+.model-panel {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--line);
+}
+.model-panel pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 20rem;
+    overflow: auto;
+}
+
+.memory-workspace {
+    padding: 1.5rem;
+    min-width: 0;
+}
+.memory-workspace h2 {
+    font-size: 1.6rem;
+}
+.query-context {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.4rem;
+    border-bottom: 1px solid var(--line);
+    padding: 1rem 0;
+    font-size: 0.86rem;
+    overflow-wrap: anywhere;
+}
+.query-context strong {
+    width: 100%;
+}
+.query-controls {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    padding: 1rem 0;
+}
+.query-controls form {
+    grid-column: 1/-1;
+    display: flex;
+    gap: 0.7rem;
+    align-items: end;
+}
+.query-controls form label {
+    max-width: 15rem;
+}
+.query-search {
+    display: flex;
+    align-items: end;
+    gap: 0.7rem;
+    flex-wrap: wrap;
+}
+.query-search label:first-child {
+    flex: 1;
+    min-width: 12rem;
+}
+.query-search input,
+.query-controls input {
+    width: 100%;
+    box-sizing: border-box;
+}
+.query-status {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 1rem;
+}
+.query-table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+}
+.query-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    text-align: left;
+}
+.query-table caption {
+    text-align: left;
+    padding: 0.75rem 0;
+    font-weight: 700;
+}
+.query-table th,
+.query-table td {
+    padding: 0.8rem 0.7rem;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+    overflow-wrap: anywhere;
+}
+.query-table th:nth-child(1) {
+    width: 25%;
+}
+.query-table th:nth-child(2) {
+    width: 40%;
+}
+.query-table th:nth-child(3) {
+    width: 35%;
+}
+.query-table th button {
+    text-align: left;
+    white-space: normal;
+}
+.query-table tr[aria-selected="true"] {
+    background: var(--panel);
+}
+.source-links {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+}
+.source-links button {
+    font-size: 0.8rem;
+    padding: 0.3rem 0.5rem;
+}
+.origin {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+.query-pages,
+.record-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    margin: 1rem 0;
+}
+.record-detail {
+    padding: 1rem 0;
+    border-top: 1px solid var(--line);
+}
+.record-detail pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 20rem;
+    overflow: auto;
+}
+.record-detail dl {
+    max-width: 40rem;
+}
+.record-value {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+.comparison section {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.unsupported {
+    margin: 1rem 0;
+}
+.spoiler-dialog {
+    position: fixed;
+    z-index: 5;
+    inset: 20% max(1rem, 25%);
+    background: #1c251e;
+    border: 1px solid var(--accent);
+    padding: 2rem;
+    box-shadow: 0 0 0 100vmax #000a;
+    align-self: start;
+    height: fit-content;
+}
+.spoiler-dialog button {
+    margin: 0.5rem 0.5rem 0 0;
+}
+@media (max-width: 850px) {
+    .query-controls {
+        grid-template-columns: 1fr;
+    }
+    .comparison {
+        grid-template-columns: 1fr;
+    }
+    .query-table {
+        font-size: 0.85rem;
+    }
+    .query-table th,
+    .query-table td {
+        padding: 0.6rem 0.3rem;
+    }
+    .spoiler-dialog {
+        inset: 15% 1rem;
+    }
+    .memory-workspace {
+        padding: 1rem;
+    }
+}
+
+.turn-debugger {
+    padding: 1.5rem;
+    border-bottom: 1px solid #354237;
+}
+.trace-controls {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.trace-controls label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.trace-controls input {
+    width: 7rem;
+}
+.trace-attempts button small,
+.trace-detail td small {
+    display: block;
+}
+.trace-detail {
+    margin-top: 1.5rem;
+}
+.trace-provenance > div {
+    display: grid;
+    grid-template-columns: minmax(9rem, 1fr) 3fr;
+    gap: 1rem;
+    padding: 0.4rem 0;
+}
+.trace-provenance dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+.trace-limits {
+    margin-top: 1.5rem;
+}
+@media (max-width: 760px) {
+    .turn-debugger {
+        padding: 1rem;
+    }
+    .trace-provenance > div {
+        display: block;
+    }
+}
+
+.turn-debugger .query-table th:nth-child(1) {
+    width: 24%;
+}
+.turn-debugger .query-table th:nth-child(2) {
+    width: 22%;
+}
+.turn-debugger .query-table th:nth-child(3) {
+    width: 20%;
+}
+.turn-debugger .query-table th:nth-child(4) {
+    width: 34%;
+}
+.turn-debugger .trace-attempts th:nth-child(1) {
+    width: 45%;
+}
+.turn-debugger .trace-attempts th:nth-child(2) {
+    width: 10%;
+}
+.turn-debugger .trace-attempts th:nth-child(3) {
+    width: 25%;
+}
+.turn-debugger .trace-attempts th:nth-child(4) {
+    width: 20%;
+}
+
+.evaluation-panel {
+    padding: 1.5rem;
+    border-block: 1px solid var(--border, #364536);
+}
+.evaluation-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.evaluation-panel table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    margin-block: 1rem;
+}
+.evaluation-panel th,
+.evaluation-panel td {
+    overflow-wrap: anywhere;
+    vertical-align: top;
+    padding: 0.65rem;
+    border-bottom: 1px solid #364536;
+    text-align: left;
+}
+.evaluation-panel small {
+    display: block;
+    font-weight: normal;
+}
+.evaluation-panel pre {
+    max-height: 25rem;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.evaluation-binding,
+.evaluation-source {
+    overflow-wrap: anywhere;
+}

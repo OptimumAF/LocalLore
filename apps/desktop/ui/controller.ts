@@ -1,3 +1,7 @@
+import { initialTrace, checkedTrace, attemptKey } from "./trace-model";
+import type { TraceQuery } from "./trace-model";
+import { initialQuery, checkedPage } from "./query-model";
+import type { InspectionQuery, Source, Row } from "./query-model";
 import {
     category,
     difference,
@@ -25,6 +29,7 @@ import type {
     ExportMode,
     ExportPreview,
     NativeAction,
+    ModelState,
 } from "./model";
 interface Operation {
     session: Session;
@@ -37,6 +42,15 @@ interface Operation {
 }
 export class Controller {
     private state: State = {
+        trace: initialTrace(),
+        query: initialQuery(),
+        labPending: false,
+        model: null,
+        modelBusy: false,
+        modelCancelReady: false,
+        modelShown: false,
+        playMode: "fixture",
+        inputKind: "action",
         exports: {
             shown: false,
             imported: false,
@@ -78,10 +92,16 @@ export class Controller {
         notice: "",
         disposed: false,
     };
+    private modelOperation: { baseline: number; id: number | null } | null =
+        null;
+    private modelReadSequence = 0;
     private listeners = new Set<() => void>();
     private drafts = new Map<string, string>();
     private epoch = 0;
     private inspectionEpoch = 0;
+    private queryEpoch = 0;
+    private traceEpoch = 0;
+    private traceControlPending = false;
     private readSequence = 0;
     private nextTurn = 0;
     private operation: Operation | null = null;
@@ -618,6 +638,8 @@ export class Controller {
         this.setDraft(draft);
     }
     private async invalidate() {
+        this.clearTrace(true);
+        this.clearQuery(true);
         await this.cancelExport();
         const old = this.operation ?? this.unresolved;
         if (old) {
@@ -668,6 +690,15 @@ export class Controller {
                         this.state.play.revision > view.revision)
                 )
                     return;
+                if (this.state.play?.revision !== view.revision) {
+                    this.clearQuery();
+                    this.clearTrace();
+                    this.tracePatch({
+                        baseRevision:
+                            view.receipts.at(-1)?.request.expected_revision ??
+                            view.revision,
+                    });
+                }
                 this.patch({
                     play: view,
                     sessions: this.state.sessions.map((s) =>
@@ -684,6 +715,8 @@ export class Controller {
                     ),
                 });
                 await this.inspect();
+                if (this.state.query.shown) await this.queryInspection();
+                if (this.state.trace.shown) void this.readTrace();
                 return;
             } catch (error) {
                 if (
@@ -735,7 +768,679 @@ export class Controller {
             if (epoch === this.inspectionEpoch) this.fail(error);
         }
     }
+    private tracePatch(value: Partial<State["trace"]>) {
+        this.patch({ trace: { ...this.state.trace, ...value } });
+    }
+    private clearTrace(reset = false) {
+        this.traceEpoch++;
+        this.tracePatch({
+            reply: null,
+            selected: null,
+            busy: false,
+            error: null,
+            notice: "",
+            ...(reset ? { baseRevision: 0 } : {}),
+        });
+    }
+    private traceContext(): TraceQuery | null {
+        const session = this.selected(),
+            play = this.state.play;
+        if (!session || !play || this.state.disposed) return null;
+        const lens =
+            this.state.view === "play" ? "player" : this.state.observer;
+        return {
+            op: "trace_read",
+            session: session.id,
+            scope: session.scope,
+            expected_head: play.revision,
+            base_revision: this.state.trace.baseRevision,
+            observer:
+                lens === "player"
+                    ? { kind: "player" }
+                    : lens === "omniscient"
+                      ? { kind: "omniscient" }
+                      : { kind: "character", id: lens },
+            turn: null,
+            attempt: null,
+        };
+    }
+    private sameTraceContext(query: TraceQuery) {
+        const current = this.traceContext();
+        return (
+            this.state.trace.shown &&
+            current !== null &&
+            structural(current) === structural(query)
+        );
+    }
+    async showTrace(shown = true) {
+        this.clearTrace();
+        if (shown) {
+            this.clearQuery();
+            this.queryPatch({ shown: false });
+        }
+        this.tracePatch({ shown });
+        if (shown) await this.readTrace();
+    }
+    async traceBasis(baseRevision: number) {
+        if (
+            !Number.isSafeInteger(baseRevision) ||
+            baseRevision < 0 ||
+            baseRevision > (this.state.play?.revision ?? 0)
+        )
+            return;
+        this.clearTrace();
+        this.tracePatch({ baseRevision });
+        await this.readTrace();
+    }
+    async readTrace() {
+        const query = this.traceContext();
+        if (!query || !this.state.trace.shown) return;
+        const sequence = ++this.traceEpoch,
+            selected = this.state.trace.selected,
+            player = this.state.play!.player.observer;
+        this.tracePatch({
+            busy: true,
+            reply: null,
+            selected: null,
+            error: null,
+            notice: "",
+        });
+        try {
+            const value = checkedTrace(
+                await this.gateway.call(query),
+                query,
+                player,
+            );
+            if (sequence !== this.traceEpoch || !this.sameTraceContext(query))
+                return;
+            const attempts = value.snapshot.attempts;
+            this.tracePatch({
+                busy: false,
+                reply: value,
+                enabled: value.snapshot.status !== "disabled",
+                selected: attempts.some((a) => attemptKey(a) === selected)
+                    ? selected
+                    : attempts.length
+                      ? attemptKey(attempts.at(-1)!)
+                      : null,
+            });
+        } catch (error) {
+            if (sequence === this.traceEpoch && this.sameTraceContext(query))
+                this.tracePatch({ busy: false, error: category(error) });
+        }
+    }
+    async controlTrace(action: "enable" | "disable" | "clear") {
+        const query = this.traceContext();
+        if (!query || this.traceControlPending) return;
+        this.traceControlPending = true;
+        this.clearTrace();
+        this.tracePatch({ controlBusy: true });
+        let succeeded = false;
+        try {
+            const command: Command =
+                action === "clear"
+                    ? {
+                          op: "trace_clear",
+                          session: query.session,
+                          scope: query.scope,
+                          expected_head: query.expected_head,
+                      }
+                    : {
+                          op: "trace_configure",
+                          session: query.session,
+                          scope: query.scope,
+                          expected_head: query.expected_head,
+                          enabled: action === "enable",
+                      };
+            const value = (await this.gateway.call(command)) as Record<
+                string,
+                unknown
+            >;
+            if (
+                !value ||
+                value.configuration_scope !== "window_host" ||
+                value.capture !== "metadata_only" ||
+                value.full_capture !== "unsupported" ||
+                (action === "clear"
+                    ? value.cleared !== true
+                    : value.enabled !== (action === "enable"))
+            )
+                throw new Error("Wire");
+            succeeded = true;
+        } catch (error) {
+            if (this.sameTraceContext(query))
+                this.tracePatch({ error: category(error), enabled: null });
+        } finally {
+            this.traceControlPending = false;
+            this.tracePatch({ controlBusy: false });
+        }
+        if (succeeded && this.state.trace.shown) await this.readTrace();
+    }
+    selectTrace(selected: string) {
+        if (
+            this.state.trace.reply?.snapshot.attempts.some(
+                (a) => attemptKey(a) === selected,
+            )
+        )
+            this.tracePatch({ selected });
+    }
+    traceAttempt() {
+        return (
+            this.state.trace.reply?.snapshot.attempts.find(
+                (a) => attemptKey(a) === this.state.trace.selected,
+            ) ?? null
+        );
+    }
+    debugReceipt() {
+        const a = this.traceAttempt();
+        if (
+            !a ||
+            this.state.view !== "play" ||
+            a.identity.observer !== this.state.play?.player.observer
+        )
+            return null;
+        return (
+            this.state.play.receipts.find(
+                (r) =>
+                    r.request.turn === a.identity.turn &&
+                    r.request.expected_revision === a.identity.base_revision &&
+                    sameScope(r.request.scope, a.identity.scope),
+            ) ?? null
+        );
+    }
+    async traceToInspection() {
+        const receipt = this.debugReceipt(),
+            epoch = this.epoch,
+            session = this.selected(),
+            view = this.state.view,
+            observer = this.state.observer,
+            head = this.state.play?.revision;
+        if (!receipt || !session) return;
+        const current = () =>
+            this.current({ session, epoch }) &&
+            this.state.view === view &&
+            this.state.observer === observer &&
+            this.state.play?.revision === head;
+        this.patch({ receiptTurn: receipt.request.turn });
+        await this.showTrace(false);
+        if (!current()) return;
+        const opening = this.showQuery(true);
+        const queryEpoch = this.queryEpoch;
+        await opening;
+        if (
+            !current() ||
+            !this.state.query.shown ||
+            queryEpoch !== this.queryEpoch
+        )
+            return;
+        await this.browseInspection({
+            view: "turn_diff",
+            atRevision: receipt.events.at(-1)?.sequence ?? null,
+            search: "",
+        });
+    }
+    private queryPatch(value: Partial<State["query"]>) {
+        this.patch({ query: { ...this.state.query, ...value } });
+    }
+    private clearQuery(resetContext = false) {
+        this.queryEpoch++;
+        this.queryPatch({
+            page: null,
+            busy: false,
+            error: null,
+            selectedKey: null,
+            cursor: null,
+            cursors: [],
+            notice: "",
+            trace: null,
+            ...(resetContext ? { search: "", atRevision: null } : {}),
+        });
+    }
+    returnToPlay() {
+        void this.showQuery(false);
+        this.setView("play");
+    }
+    async showQuery(shown = true) {
+        if (shown) {
+            this.clearTrace();
+            this.tracePatch({ shown: false });
+        }
+        this.clearQuery();
+        this.queryPatch({ shown });
+        if (shown) await this.queryInspection();
+    }
+    async browseInspection(
+        value: Partial<
+            Pick<State["query"], "view" | "atRevision" | "search" | "limit">
+        >,
+    ) {
+        this.clearQuery();
+        this.queryPatch(value);
+        await this.queryInspection();
+    }
+    async queryInspection(cursor: string | null = this.state.query.cursor) {
+        const session = this.selected(),
+            play = this.state.play;
+        if (!session || !play || !this.state.query.shown) return;
+        const seq = ++this.queryEpoch,
+            epoch = this.epoch;
+        const observer: InspectionQuery["observer"] =
+            this.state.view === "play" || this.state.observer === "player"
+                ? { kind: "player" }
+                : this.state.observer === "omniscient"
+                  ? { kind: "omniscient" }
+                  : { kind: "character", id: this.state.observer };
+        const state = this.state.query;
+        const query: InspectionQuery = {
+            version: 1,
+            scope: { ...session.scope },
+            expected_head: play.revision,
+            at_revision: state.atRevision,
+            observer,
+            view: state.view,
+            cursor,
+            limit: state.limit,
+            search: state.search,
+        };
+        const key = structural({
+            session: session.id,
+            query,
+            view: this.state.view,
+        });
+        const stillCurrent = () =>
+            seq === this.queryEpoch &&
+            this.current({ session, epoch }) &&
+            this.state.query.shown &&
+            key ===
+                structural({
+                    session: this.state.selectedId,
+                    query: {
+                        ...query,
+                        expected_head: this.state.play?.revision,
+                        at_revision: this.state.query.atRevision,
+                        observer:
+                            this.state.view === "play" ||
+                            this.state.observer === "player"
+                                ? { kind: "player" }
+                                : this.state.observer === "omniscient"
+                                  ? { kind: "omniscient" }
+                                  : {
+                                        kind: "character",
+                                        id: this.state.observer,
+                                    },
+                        view: this.state.query.view,
+                        search: this.state.query.search,
+                        limit: this.state.query.limit,
+                        cursor: this.state.query.cursor,
+                    },
+                    view: this.state.view,
+                });
+        this.queryPatch({
+            busy: true,
+            error: null,
+            page: null,
+            selectedKey: null,
+            cursor,
+            notice: "",
+        });
+        try {
+            const page = checkedPage(
+                await this.gateway.call({
+                    op: "inspection_query",
+                    session: session.id,
+                    query,
+                }),
+                query,
+            );
+            if (!stillCurrent()) return;
+            this.queryPatch({ page });
+        } catch (error) {
+            if (stillCurrent())
+                this.queryPatch({
+                    error: category(error),
+                    notice:
+                        category(error) === "Stale"
+                            ? "Story changed. Refresh the current head before inspecting again."
+                            : category(error) === "TooLarge"
+                              ? "The search, row or page exceeds inspection limits. Shorten the search or reduce the page size."
+                              : category(error) === "InvalidBoundary"
+                                ? "Choose revision 0, current, or the end of a completed turn. Partial turns cannot be inspected."
+                                : category(error) === "InvalidRequest"
+                                  ? "Search allows 256 UTF-8 bytes without control characters. No inspection data is shown."
+                                  : category(error) === "UnsupportedBranch"
+                                    ? "Historical inspection for this branch is not implemented."
+                                    : "No inspection data is shown for this request.",
+                });
+        } finally {
+            if (stillCurrent()) this.queryPatch({ busy: false });
+        }
+    }
+    async nextInspection() {
+        const q = this.state.query;
+        if (q.busy || !q.page?.next_cursor) return;
+        this.queryPatch({ cursors: [...q.cursors, q.cursor] });
+        await this.queryInspection(q.page.next_cursor);
+    }
+    async previousInspection() {
+        const q = this.state.query;
+        if (q.busy || !q.cursors.length) return;
+        const cursors = [...q.cursors],
+            cursor = cursors.pop()!;
+        this.queryPatch({ cursors });
+        await this.queryInspection(cursor);
+    }
+    selectInspection(key: string) {
+        if (this.state.query.page?.rows.some((row) => row.key === key))
+            this.queryPatch({ selectedKey: key });
+    }
+    async followInspectionSource(source: Source) {
+        if (source.kind === "withheld") return null;
+        const pending = this.browseInspection(
+            source.kind === "seed"
+                ? { view: "profiles", atRevision: 0, search: "" }
+                : { view: "history", search: `"sequence":${source.value},` },
+        );
+        const sequence = this.queryEpoch;
+        await pending;
+        if (sequence !== this.queryEpoch || !this.state.query.page) return null;
+        const row = this.state.query.page.rows.find(
+            (r) =>
+                source.kind === "seed" ||
+                (r.kind === "event" && r.event.sequence === source.value),
+        );
+        if (row) this.selectInspection(row.key);
+        return row ? sequence : null;
+    }
+    async whyInspection(row: Row) {
+        const page = this.state.query.page;
+        // A delayed click must not transplant a row from a previous private lens.
+        if (!page?.rows.includes(row)) return;
+        if (row.kind === "provenance") {
+            this.queryPatch({
+                notice: "This record already lists its permitted sources.",
+            });
+            return;
+        }
+        if (row.kind === "event") {
+            const sourceEpoch = await this.followInspectionSource({
+                kind: "event",
+                value: row.event.sequence,
+            });
+            if (
+                sourceEpoch !== null &&
+                sourceEpoch === this.queryEpoch &&
+                this.state.query.page?.rows.some(
+                    (r) =>
+                        r.kind === "event" &&
+                        r.event.sequence === row.event.sequence,
+                )
+            )
+                this.queryPatch({
+                    notice: "Accepted event source; this observation has no separate field-provenance row.",
+                });
+            return;
+        }
+        if (row.kind === "message") {
+            if (!row.event_ids.length) {
+                this.queryPatch({
+                    notice: "No accepted event source is attached to this recorded message.",
+                });
+                return;
+            }
+            const pending = this.browseInspection({
+                view: "history",
+                atRevision: page.revision,
+                search: `"turn":${JSON.stringify(row.turn)},`,
+            });
+            const sequence = this.queryEpoch;
+            await pending;
+            if (sequence !== this.queryEpoch || !this.state.query.page) return;
+            const event = this.state.query.page.rows.find(
+                (r) =>
+                    r.kind === "event" &&
+                    row.event_ids.includes(r.event.sequence),
+            );
+            if (event) this.selectInspection(event.key);
+            this.queryPatch({
+                notice: event
+                    ? "Permitted accepted events support this display record; the message itself is not canonical truth."
+                    : "No supporting accepted event is visible in this lens and page.",
+            });
+            return;
+        }
+        const underlying =
+            row.kind === "change" ? (row.after ?? row.before!) : row;
+        const revision =
+            row.kind === "change"
+                ? row.after
+                    ? row.after_revision
+                    : row.before_revision
+                : page.revision;
+        const pending = this.browseInspection({
+            view: "provenance",
+            atRevision: revision,
+            search: JSON.stringify(underlying.key),
+        });
+        const sequence = this.queryEpoch;
+        await pending;
+        if (sequence !== this.queryEpoch || !this.state.query.page) return;
+        const record = this.state.query.page.rows.find(
+            (r) => r.kind === "provenance" && r.key === underlying.key,
+        );
+        if (record) this.selectInspection(record.key);
+        this.queryPatch({
+            trace:
+                row.kind === "change"
+                    ? {
+                          change: row,
+                          stage: row.after
+                              ? "field_provenance"
+                              : "prior_provenance",
+                      }
+                    : null,
+            notice: record
+                ? row.kind === "change" && !row.after
+                    ? `Prior field provenance at r${revision}; the field is absent at r${row.after_revision}. This is not a current field.`
+                    : "Permitted field provenance at the inspected revision."
+                : "Field provenance is unavailable in this lens and snapshot. No substitute evidence is asserted.",
+        });
+    }
+    async showChangeTurnHistory() {
+        const trace = this.state.query.trace;
+        if (!trace) return;
+        const change = trace.change;
+        // Resolve the boundary event through the same observer-filtered API. Never
+        // look up raw Player receipts to discover a private turn ID for an NPC.
+        let pending = this.browseInspection({
+            view: "history",
+            atRevision: change.after_revision,
+            search: `"sequence":${change.after_revision},`,
+        });
+        let sequence = this.queryEpoch;
+        await pending;
+        if (sequence !== this.queryEpoch || !this.state.query.page) return;
+        const boundary = this.state.query.page.rows.find(
+            (r) =>
+                r.kind === "event" &&
+                r.event.sequence === change.after_revision,
+        );
+        if (boundary?.kind !== "event") {
+            this.queryPatch({
+                trace: { change, stage: "turn_history" },
+                notice: "The completed-head event is not visible to this lens. Causal event evidence is unavailable; no hidden turn is inferred.",
+            });
+            return;
+        }
+        pending = this.browseInspection({
+            view: "history",
+            atRevision: change.after_revision,
+            search: `"turn":${JSON.stringify(boundary.event.turn)},`,
+        });
+        sequence = this.queryEpoch;
+        await pending;
+        if (sequence !== this.queryEpoch || !this.state.query.page) return;
+        const event = this.state.query.page.rows.find(
+            (r) =>
+                r.kind === "event" &&
+                r.event.sequence === change.after_revision,
+        );
+        if (event) this.selectInspection(event.key);
+        this.queryPatch({
+            trace: { change, stage: "turn_history" },
+            notice: "Permitted accepted history for the completed turn in which this change occurred. A turn may contain several effects; no single-event cause is inferred.",
+        });
+    }
+    async traceReceipt() {
+        const receipt = this.receipt();
+        if (!receipt) return;
+        if (!this.state.query.shown) await this.showQuery();
+        await this.inspectEventTurn(receipt.request.turn);
+    }
+    async inspectEventTurn(turn: string) {
+        const boundary = this.state.play?.receipts
+            .find((r) => r.request.turn === turn)
+            ?.events.at(-1)?.sequence;
+        if (boundary === undefined) {
+            this.queryPatch({
+                notice: "Completed turn boundary is unavailable in this snapshot.",
+            });
+            return;
+        }
+        await this.browseInspection({
+            view: "turn_diff",
+            atRevision: boundary,
+            search: "",
+        });
+    }
+    async copyInspection(write: (text: string) => Promise<void>) {
+        const q = this.state.query,
+            row = q.page?.rows.find((r) => r.key === q.selectedKey);
+        if (!row || !q.page || q.busy) return;
+        const context = {
+            scope: q.page.scope,
+            head: q.page.head,
+            revision: q.page.revision,
+            observer: q.page.observer,
+            privacy: q.page.privacy,
+        };
+        try {
+            await write(JSON.stringify({ context, row }, null, 2));
+            this.queryPatch({
+                notice: "Selected read-only record copied by your explicit action.",
+            });
+        } catch {
+            this.queryPatch({ error: "CopyFailed" });
+        }
+    }
+    showModel() {
+        this.patch({ modelShown: !this.state.modelShown });
+        if (this.state.modelShown) void this.refreshModel();
+    }
+    setPlayMode(playMode: State["playMode"]) {
+        if (this.state.pending) return;
+        if (playMode === "local" && !this.state.model?.loaded) {
+            this.fail("ModelUnavailable");
+            return;
+        }
+        this.patch({ playMode, visibleError: null });
+    }
+    setInputKind(inputKind: State["inputKind"]) {
+        if (!this.state.pending) this.patch({ inputKind });
+    }
+    async refreshModel() {
+        const sequence = ++this.modelReadSequence;
+        try {
+            const model = (await this.native("model_status")) as ModelState;
+            if (
+                !model ||
+                typeof model.loaded !== "boolean" ||
+                typeof model.phase !== "string"
+            )
+                throw new Error("Wire");
+            if (!this.state.disposed && sequence === this.modelReadSequence) {
+                const op = this.modelOperation;
+                if (
+                    op &&
+                    op.id === null &&
+                    Number.isSafeInteger(model.operation_id) &&
+                    model.operation_id > op.baseline &&
+                    ["choosing", "checking", "copying", "loading"].includes(
+                        model.phase,
+                    )
+                ) {
+                    op.id = model.operation_id;
+                    this.patch({ modelCancelReady: true });
+                }
+                this.patch({ model });
+            }
+        } catch (error) {
+            if (!this.state.disposed) this.fail(error);
+        }
+    }
+    async modelAction(command: "model_import" | "model_load" | "model_unload") {
+        if (this.state.modelBusy || this.state.disposed) return;
+        const operation = {
+            baseline: this.state.model?.operation_id ?? 0,
+            id: null as number | null,
+        };
+        this.modelOperation = operation;
+        this.patch({
+            modelBusy: true,
+            modelCancelReady: false,
+            visibleError: null,
+        });
+        let polling = false;
+        const timer = setInterval(() => {
+            if (polling) return;
+            polling = true;
+            void this.refreshModel().finally(() => {
+                polling = false;
+            });
+        }, 150);
+        try {
+            await this.native(command);
+            // A periodic status read must not supersede the definitive post-action
+            // refresh and let the action resolve with the previous loaded state.
+            clearInterval(timer);
+            await this.refreshModel();
+        } catch (error) {
+            clearInterval(timer);
+            if (!this.state.disposed) {
+                this.fail(error);
+                await this.refreshModel();
+            }
+        } finally {
+            clearInterval(timer);
+            if (this.modelOperation === operation) {
+                this.modelOperation = null;
+                if (!this.state.disposed)
+                    this.patch({ modelBusy: false, modelCancelReady: false });
+            }
+        }
+    }
+    async cancelModel() {
+        const operation = this.modelOperation;
+        const operationId = operation?.id;
+        if (!operationId) {
+            this.fail("ModelOperationUnknown");
+            return;
+        }
+        try {
+            await this.native("model_cancel", { operationId });
+        } catch (error) {
+            if (this.modelOperation === operation) this.fail(error);
+        }
+    }
+    requestLab() {
+        this.patch({ labPending: true });
+    }
+    acknowledgeLab(confirmed: boolean) {
+        this.patch({ labPending: false });
+        if (confirmed) this.setView("lab");
+    }
     setView(view: State["view"]) {
+        this.clearTrace();
+        this.clearQuery(true);
         if (
             view === "play" &&
             ["full", "database"].includes(this.state.exports.mode)
@@ -749,11 +1454,17 @@ export class Controller {
             visibleError: null,
         });
         void this.inspect();
+        if (this.state.query.shown) void this.queryInspection();
+        if (this.state.trace.shown) void this.readTrace();
     }
     setObserver(observer: string) {
         if (this.state.view !== "lab") return;
+        this.clearTrace();
+        this.clearQuery(true);
         this.patch({ observer });
         void this.inspect();
+        if (this.state.query.shown) void this.queryInspection();
+        if (this.state.trace.shown) void this.readTrace();
     }
     setDraft(draft: string) {
         this.patch({ draft: draft.slice(0, 2048) });
@@ -790,8 +1501,15 @@ export class Controller {
             this.state.play?.receipts.some(
                 (r) => r.request.turn === receiptTurn,
             )
-        )
+        ) {
             this.patch({ receiptTurn, inspectorOpen: true });
+            if (this.state.query.shown)
+                void this.browseInspection({
+                    view: "turn_diff",
+                    atRevision: this.receipt()?.events.at(-1)?.sequence ?? null,
+                    search: "",
+                });
+        }
     }
     private control(
         op: Operation,
@@ -834,26 +1552,52 @@ export class Controller {
             this.fail("SessionRequired");
             return Promise.resolve();
         }
-        if (this.state.action === "dialogue" && !this.state.draft.trim()) {
+        if (this.state.playMode === "local" && !this.state.model?.loaded) {
+            this.fail("ModelUnavailable");
+            return Promise.resolve();
+        }
+        if (
+            (this.state.playMode === "local" ||
+                this.state.action === "dialogue") &&
+            !this.state.draft.trim()
+        ) {
             this.fail("DraftRequired");
             return Promise.resolve();
         }
         const op: Operation = {
             session,
             epoch: this.epoch,
-            request: request(
-                session.scope,
-                `${this.prefix}-${++this.nextTurn}`,
-                play.revision,
-                this.state.action,
-                this.state.draft,
-            ),
-            mode: this.state.fakeMode,
+            request:
+                this.state.playMode === "local"
+                    ? {
+                          version: 1,
+                          scope: session.scope,
+                          turn: `${this.prefix}-${++this.nextTurn}`,
+                          expected_revision: play.revision,
+                          intent: {
+                              kind: "free_text",
+                              value: {
+                                  kind: this.state.inputKind,
+                                  text: this.state.draft,
+                              },
+                          },
+                      }
+                    : request(
+                          session.scope,
+                          `${this.prefix}-${++this.nextTurn}`,
+                          play.revision,
+                          this.state.action,
+                          this.state.draft,
+                      ),
+            mode:
+                this.state.playMode === "local"
+                    ? "accepted"
+                    : this.state.fakeMode,
             submitted: false,
             cancelled: false,
             promise: Promise.resolve(),
         };
-        const mode = this.state.fakeMode;
+        const mode = op.mode;
         this.operation = op;
         this.patch({
             pending: {
@@ -879,12 +1623,20 @@ export class Controller {
     private async run(op: Operation, mode: FakeMode, before: PlayView) {
         try {
             this.unresolved = op;
-            let status = (await this.gateway.call({
-                op: "submit",
-                session: op.session.id,
-                request: op.request,
-                mode,
-            })) as TurnStatus;
+            let status = (await this.gateway.call(
+                op.request.intent.kind === "free_text"
+                    ? {
+                          op: "free_text",
+                          session: op.session.id,
+                          request: op.request,
+                      }
+                    : {
+                          op: "submit",
+                          session: op.session.id,
+                          request: op.request,
+                          mode,
+                      },
+            )) as TurnStatus;
             op.submitted = true;
             if (op.cancelled || !this.current(op)) {
                 const cancelled = await this.control(op, "cancel");
@@ -1003,7 +1755,8 @@ export class Controller {
                     : "Committed by the local Rust engine.",
             });
             if (
-                op.request.intent.kind === "dialogue" &&
+                (op.request.intent.kind === "dialogue" ||
+                    op.request.intent.kind === "free_text") &&
                 this.state.draft === op.request.intent.value.text
             )
                 this.patch({ draft: "" });
@@ -1015,6 +1768,7 @@ export class Controller {
             this.unresolved === op
         )
             this.unresolved = null;
+        if (op.request.intent.kind === "free_text") await this.refreshModel();
         await this.refresh();
         if (this.state.workspace) await this.library();
         if (
@@ -1074,12 +1828,20 @@ export class Controller {
             } catch (error) {
                 if (!this.current(op) || this.unresolved !== op) return;
                 if (category(error) !== "UnknownTurn") throw error;
-                status = (await this.gateway.call({
-                    op: "submit",
-                    session: op.session.id,
-                    request: op.request,
-                    mode: op.mode,
-                })) as TurnStatus;
+                status = (await this.gateway.call(
+                    op.request.intent.kind === "free_text"
+                        ? {
+                              op: "free_text",
+                              session: op.session.id,
+                              request: op.request,
+                          }
+                        : {
+                              op: "submit",
+                              session: op.session.id,
+                              request: op.request,
+                              mode: op.mode,
+                          },
+                )) as TurnStatus;
                 op.submitted = true;
             }
             if (!this.current(op) || this.unresolved !== op) return;
@@ -1135,6 +1897,11 @@ export class Controller {
             session = this.selected();
         return {
             version: 1,
+            query: s.query,
+            trace: s.trace,
+            model: s.model,
+            playMode: s.playMode,
+            inputKind: s.inputKind,
             exports: s.exports,
             workspace: s.workspace,
             ephemeral: s.ephemeral,

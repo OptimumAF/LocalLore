@@ -1,0 +1,435 @@
+{
+  "tested_source": "66e9b3b8ee60f7d77d3ac1707c123cf62b05a596",
+  "base": "d97770c8dac2927e3584e43f697ecb609b3aa5ac",
+  "model_generation": false,
+  "desktop_control": false,
+  "native_v1_migration_exercised": false,
+  "runs": {
+    "trace": {
+      "folder": "trace-native-9f89eef8-eb59-4061-8252-9a4bc599daef",
+      "summary_sha256": "ad89569e022220f1deed5a2451c704f6ea68b03541640b765df58798bb4bf5b3",
+      "assertions": 74,
+      "captures": 12,
+      "actual_process_restart": true,
+      "source_dirty": false,
+      "source_hashes_reverified": 25,
+      "workspace_captures_checked": 0,
+      "input_sha256": {
+        "ui/TurnDebugger.tsx": "b052229e00deed37aee51a2b5a155bcfed03125fbf72df81bc9a44883b5b6e94",
+        "ui/trace-model.ts": "b188a04064b4dda6faa92a0519f9e5475f9ef1afd2e69ed41c87a4d5f8439207",
+        "ui/trace-journeys.ts": "6eac0cbcd264f12038fcc6d10733ad3a226ceb23e680a76f5ac8de4a440322df",
+        "ui/controller.ts": "d49cf7f17a08e3d71d3f3057656e39ede77730e7a62af33c3cf623e56ba80823",
+        "ui/App.tsx": "7c88832f0101e92e211ed0fbcbd74f7d8292f79c202778c664ba80d25576c302",
+        "ui/model.ts": "3c6c90556ff3af606de9e3623d785334aa7abd9542bbf61d39e63682c88a929e",
+        "ui/main.tsx": "00d1f80613c8c614851a2e8fa5055e101e9ceac03c64c86a33fd34b57cc85812",
+        "ui/style.css": "b7e9238274c372f0e9d247744cbdc966dd8a90b47d979bff9fe5e319a1aad99b",
+        "ui/journeys.ts": "5a0f163ad199fd341ffd4bbefa394b51a8ff9423fa2a8be8e60dacada0ec8324",
+        "src-tauri/src/main.rs": "a1da1ab6b8080965d0f0c0702f24b068814d252d5765b8b7dcab7d543cbd17a3",
+        "src-tauri/src/harness.rs": "17ee87a7826567bcd77025831e318ea8b90795669623ccd562aeff0bdbdff14d",
+        "src-tauri/src/lease.rs": "b7a919127c7244622abf3cb7cf59a0f4c550af85bafab234b35602c55df44e55",
+        "src-tauri/Cargo.toml": "a12e0340ae9f331acc059f6f91d53e704f2dfff33968b63c874c9fd53b6a4cd9",
+        "src-tauri/Cargo.lock": "b71f155d6d16743858c24e9e3056648029504fed74f69c28843741b9fb14579f",
+        "host-v1.schema.json": "98006792817121ff1e458010c2dc67b3b9b073bc3646eb2042f3c8b4bcdd7ba5",
+        "ui/host.generated.ts": "210ae1e15c2280d4dfa5e5cd02146cd6b0fd67cb842d8a86e8af226e7b957e30",
+        "dist/app.js": "2b7614b77b37ef9459c3f38d38af0ceacc3bde650cd1411cbce1515bc82eba0d",
+        "trace-harness.mjs": "a89a6d4a22307185c0144ef342a1963582f9511654b3d366e7c78bafac55bde1",
+        "../../crates/locallore/src/turn_trace.rs": "4e12e824da2dd7090497e3799c8ab6d5d932758b063ab6ac72b346ffb7b7d8f0",
+        "../../crates/locallore/src/host.rs": "ae8677b684af21f6a15ad1e5daed6b07dea6d9f6c805895d3bd8a123c4d0c802",
+        "../../crates/locallore/src/engine.rs": "4c9a51ca780f50b4cd32c30dcd7c40ce1885301e8694a334bc6bd300c108a0ef",
+        "../../crates/locallore/src/play.rs": "19f9bf210d7ab75126021d96bb8d486fcd1c3b06806fab7593bce20dbdf22774",
+        "check-trace-controller.mjs": "28445f641c6bda34bce2fcfb09461c72bc2e90190182f9a538f870b3a58adb9f",
+        "verify-frontend.mjs": "09d743f2347481ccfec7fa856ca30ebd308070d7cce411847656af5659561498",
+        "../../crates/locallore-workspace/src/lib.rs": "20aa429c6c1013a42c6b9fe18d6eea4791bfcd0bb66449cd76c5d993056a5abc",
+        "../../crates/locallore-storage/src/lib.rs": "723f7310cf4634a1003c51efaf57b1be37d4e250293d253457380b619657cc30",
+        "<native-target>/debug/locallore-desktop-spike.exe": "2abb47df113df7407ad93e65f86cb68228d0b7f5772eca3ed871c589de28da19"
+      },
+      "bounded_errors": [
+        {
+          "stage": "initial",
+          "errors": [
+            {
+              "category": "Agency",
+              "source": "native"
+            },
+            {
+              "category": "Cancelled",
+              "source": "native"
+            },
+            {
+              "category": "Cancelled",
+              "source": "native"
+            },
+            {
+              "category": "Stale",
+              "source": "native"
+            }
+          ]
+        },
+        {
+          "stage": "restart",
+          "errors": []
+        }
+      ]
+    },
+    "inspector": {
+      "folder": "inspector-native-f7780997-923b-45be-8245-684a937797b6",
+      "summary_sha256": "3e69571564e6e50c600b174cbeeefd88b59d88f65a1fc0ff9421f185d061cbf2",
+      "assertions": 93,
+      "captures": 14,
+      "actual_process_restart": true,
+      "source_dirty": false,
+      "source_hashes_reverified": 22,
+      "workspace_captures_checked": 0,
+      "input_sha256": {
+        "ui/QueryInspector.tsx": "9664a9b2bfb12cbb6bef7480e6d2ae2adccc7e9266b0d5f0affbc48e32ce42fc",
+        "ui/query-model.ts": "f56879bd45ee228bfd5e7764927b110ba628151fc6617936517c9e005ce3dff1",
+        "ui/query-journeys.ts": "85ca50befbabf903b30e7db2f2aa31eb6c8cb5c9b8050d36b081e09bb3599a8b",
+        "ui/controller.ts": "d49cf7f17a08e3d71d3f3057656e39ede77730e7a62af33c3cf623e56ba80823",
+        "ui/App.tsx": "7c88832f0101e92e211ed0fbcbd74f7d8292f79c202778c664ba80d25576c302",
+        "ui/model.ts": "3c6c90556ff3af606de9e3623d785334aa7abd9542bbf61d39e63682c88a929e",
+        "ui/main.tsx": "00d1f80613c8c614851a2e8fa5055e101e9ceac03c64c86a33fd34b57cc85812",
+        "ui/style.css": "b7e9238274c372f0e9d247744cbdc966dd8a90b47d979bff9fe5e319a1aad99b",
+        "ui/journeys.ts": "5a0f163ad199fd341ffd4bbefa394b51a8ff9423fa2a8be8e60dacada0ec8324",
+        "src-tauri/src/main.rs": "a1da1ab6b8080965d0f0c0702f24b068814d252d5765b8b7dcab7d543cbd17a3",
+        "src-tauri/src/harness.rs": "17ee87a7826567bcd77025831e318ea8b90795669623ccd562aeff0bdbdff14d",
+        "src-tauri/src/lease.rs": "b7a919127c7244622abf3cb7cf59a0f4c550af85bafab234b35602c55df44e55",
+        "src-tauri/Cargo.toml": "a12e0340ae9f331acc059f6f91d53e704f2dfff33968b63c874c9fd53b6a4cd9",
+        "src-tauri/Cargo.lock": "b71f155d6d16743858c24e9e3056648029504fed74f69c28843741b9fb14579f",
+        "host-v1.schema.json": "98006792817121ff1e458010c2dc67b3b9b073bc3646eb2042f3c8b4bcdd7ba5",
+        "ui/host.generated.ts": "210ae1e15c2280d4dfa5e5cd02146cd6b0fd67cb842d8a86e8af226e7b957e30",
+        "dist/app.js": "2b7614b77b37ef9459c3f38d38af0ceacc3bde650cd1411cbce1515bc82eba0d",
+        "inspector-harness.mjs": "1b99bf617ba193433de8eff3b2c8cf33de6da77df1424ef9ca95ae322c483ce4",
+        "../../crates/locallore/src/inspection_query.rs": "1031879745a6d5ba0c650f073cb8fc1441592f88ebaa263f5511b06ec7afb068",
+        "../../crates/locallore/src/host.rs": "ae8677b684af21f6a15ad1e5daed6b07dea6d9f6c805895d3bd8a123c4d0c802",
+        "../../crates/locallore/src/engine.rs": "4c9a51ca780f50b4cd32c30dcd7c40ce1885301e8694a334bc6bd300c108a0ef",
+        "../../crates/locallore-workspace/src/lib.rs": "20aa429c6c1013a42c6b9fe18d6eea4791bfcd0bb66449cd76c5d993056a5abc",
+        "../../crates/locallore-storage/src/lib.rs": "723f7310cf4634a1003c51efaf57b1be37d4e250293d253457380b619657cc30",
+        "<native-target>/debug/locallore-desktop-spike.exe": "f931f31d0ae2065233c5bb97f2b4c91e910e258aa86a1e724932d0193a5e608e"
+      },
+      "bounded_errors": [
+        {
+          "stage": "initial",
+          "errors": [
+            {
+              "category": "Scope",
+              "source": "native"
+            },
+            {
+              "category": "InvalidBoundary",
+              "source": "native"
+            },
+            {
+              "category": "InvalidCursor",
+              "source": "native"
+            },
+            {
+              "category": "TooLarge",
+              "source": "native"
+            },
+            {
+              "category": "TooLarge",
+              "source": "native"
+            },
+            {
+              "category": "InvalidRequest",
+              "source": "native"
+            },
+            {
+              "category": "Stale",
+              "source": "native"
+            }
+          ]
+        },
+        {
+          "stage": "restart",
+          "errors": []
+        }
+      ]
+    },
+    "durable": {
+      "folder": "durable-native-275f0f28-5519-4a58-b34d-05a4a29d5746",
+      "summary_sha256": "6b02f44f8a9784da09ed0ecc71df1cc1a8d06f7f1193f6d13a1ca9abe75f0fcc",
+      "assertions": 33,
+      "captures": 11,
+      "actual_process_restart": true,
+      "source_dirty": false,
+      "source_hashes_reverified": 18,
+      "workspace_captures_checked": 10,
+      "input_sha256": {
+        "ui/controller.ts": "d49cf7f17a08e3d71d3f3057656e39ede77730e7a62af33c3cf623e56ba80823",
+        "ui/model.ts": "3c6c90556ff3af606de9e3623d785334aa7abd9542bbf61d39e63682c88a929e",
+        "ui/durable-journeys.ts": "0c9ca36ffc68797d6065b639d6a5b0758169c4c722586d3dfe4b09b9191a29eb",
+        "ui/App.tsx": "7c88832f0101e92e211ed0fbcbd74f7d8292f79c202778c664ba80d25576c302",
+        "ui/main.tsx": "00d1f80613c8c614851a2e8fa5055e101e9ceac03c64c86a33fd34b57cc85812",
+        "src-tauri/src/main.rs": "a1da1ab6b8080965d0f0c0702f24b068814d252d5765b8b7dcab7d543cbd17a3",
+        "src-tauri/Cargo.lock": "b71f155d6d16743858c24e9e3056648029504fed74f69c28843741b9fb14579f",
+        "src-tauri/Cargo.toml": "a12e0340ae9f331acc059f6f91d53e704f2dfff33968b63c874c9fd53b6a4cd9",
+        "host-v1.schema.json": "98006792817121ff1e458010c2dc67b3b9b073bc3646eb2042f3c8b4bcdd7ba5",
+        "dist/app.js": "2b7614b77b37ef9459c3f38d38af0ceacc3bde650cd1411cbce1515bc82eba0d",
+        "<native-target>/debug/locallore-desktop-spike.exe": "3b48aac3f64a65346b367451230675b665eacd16b23a5bed91bc7f00eae69e39",
+        "src-tauri/src/test_bridge.rs": "4399f40459d6ae850cfa41ba57a1b2d3ccc93611c3cf6398d70de4143d7661ba",
+        "src-tauri/src/harness.rs": "17ee87a7826567bcd77025831e318ea8b90795669623ccd562aeff0bdbdff14d",
+        "src-tauri/src/lease.rs": "b7a919127c7244622abf3cb7cf59a0f4c550af85bafab234b35602c55df44e55",
+        "ui/host.generated.ts": "210ae1e15c2280d4dfa5e5cd02146cd6b0fd67cb842d8a86e8af226e7b957e30",
+        "durable-harness.mjs": "248ffe5c06d7e986a876d83851fa9472cdba23fed419699549a9baf1a5f19bbd",
+        "../../crates/locallore/src/host.rs": "ae8677b684af21f6a15ad1e5daed6b07dea6d9f6c805895d3bd8a123c4d0c802",
+        "../../crates/locallore-workspace/src/lib.rs": "20aa429c6c1013a42c6b9fe18d6eea4791bfcd0bb66449cd76c5d993056a5abc",
+        "../../crates/locallore-storage/src/catalog.rs": "ef893b10589569527bee213a8197173397ecb696a85a34fffcead40529f13cfc",
+        "../../crates/locallore-storage/src/turns.rs": "d50fffaabb0129a8adc6aba4077212c7e4524bc08455961aa1e0f5e37ac2bf18"
+      },
+      "bounded_errors": [
+        {
+          "stage": "initial",
+          "errors": []
+        },
+        {
+          "stage": "restart",
+          "errors": []
+        },
+        {
+          "stage": "storage-failure",
+          "errors": [
+            {
+              "category": "Io",
+              "source": "native"
+            },
+            {
+              "category": "Io",
+              "source": "frontend"
+            }
+          ]
+        }
+      ]
+    },
+    "export": {
+      "folder": "export-native-9874c734-393e-4a2a-93cf-7a2db5564b16",
+      "summary_sha256": "9ea1f5d3ede95a93f14696d056ad60e2c727007f1660b5f57f931d9dace1a8fd",
+      "assertions": 36,
+      "captures": 14,
+      "actual_process_restart": true,
+      "source_dirty": false,
+      "source_hashes_reverified": 23,
+      "workspace_captures_checked": 14,
+      "input_sha256": {
+        "ui/controller.ts": "d49cf7f17a08e3d71d3f3057656e39ede77730e7a62af33c3cf623e56ba80823",
+        "ui/model.ts": "3c6c90556ff3af606de9e3623d785334aa7abd9542bbf61d39e63682c88a929e",
+        "ui/export-journeys.ts": "2dd6aa014398157828c693580f0d20a491a4919cdea63cae210a1d09a3298729",
+        "ui/InspectionPanel.tsx": "8c9c93d9551eea33fb6184d8adf851d9d7c50128f7dcb5d5dcb350a8d2e09cfe",
+        "src-tauri/src/exports.rs": "70e2a214b7981131ab158d346906e069925f938eae2e0cbf42a1de09a4c1acf3",
+        "src-tauri/src/export_commands.rs": "c7d93a653fba2cc3757e50e12dbabeaeaa724fa3cb34f5d043f551be30ffb2de",
+        "ui/App.tsx": "7c88832f0101e92e211ed0fbcbd74f7d8292f79c202778c664ba80d25576c302",
+        "ui/main.tsx": "00d1f80613c8c614851a2e8fa5055e101e9ceac03c64c86a33fd34b57cc85812",
+        "src-tauri/src/main.rs": "a1da1ab6b8080965d0f0c0702f24b068814d252d5765b8b7dcab7d543cbd17a3",
+        "src-tauri/Cargo.lock": "b71f155d6d16743858c24e9e3056648029504fed74f69c28843741b9fb14579f",
+        "src-tauri/Cargo.toml": "a12e0340ae9f331acc059f6f91d53e704f2dfff33968b63c874c9fd53b6a4cd9",
+        "host-v1.schema.json": "98006792817121ff1e458010c2dc67b3b9b073bc3646eb2042f3c8b4bcdd7ba5",
+        "dist/app.js": "2b7614b77b37ef9459c3f38d38af0ceacc3bde650cd1411cbce1515bc82eba0d",
+        "<native-target>/debug/locallore-desktop-spike.exe": "f3441332c18eb3c8fca0bae8e4288e8a5fda68feccb342d8ce1eca11b7210371",
+        "src-tauri/src/test_bridge.rs": "4399f40459d6ae850cfa41ba57a1b2d3ccc93611c3cf6398d70de4143d7661ba",
+        "src-tauri/src/harness.rs": "17ee87a7826567bcd77025831e318ea8b90795669623ccd562aeff0bdbdff14d",
+        "src-tauri/src/lease.rs": "b7a919127c7244622abf3cb7cf59a0f4c550af85bafab234b35602c55df44e55",
+        "ui/host.generated.ts": "210ae1e15c2280d4dfa5e5cd02146cd6b0fd67cb842d8a86e8af226e7b957e30",
+        "export-harness.mjs": "b67f3d05b82b2b1bb1fe39823d433d0f5c0c1dcc39ca14ba87ee44d9f732bda7",
+        "../../crates/locallore/src/inspection.rs": "d14f644241ad23a376d630fdb5a87e226f3b87efef68821cd04e0847ad321f5a",
+        "../../crates/locallore-storage/src/lib.rs": "723f7310cf4634a1003c51efaf57b1be37d4e250293d253457380b619657cc30",
+        "../../crates/locallore/src/host.rs": "ae8677b684af21f6a15ad1e5daed6b07dea6d9f6c805895d3bd8a123c4d0c802",
+        "../../crates/locallore-workspace/src/lib.rs": "20aa429c6c1013a42c6b9fe18d6eea4791bfcd0bb66449cd76c5d993056a5abc",
+        "../../crates/locallore-storage/src/catalog.rs": "ef893b10589569527bee213a8197173397ecb696a85a34fffcead40529f13cfc",
+        "../../crates/locallore-storage/src/turns.rs": "d50fffaabb0129a8adc6aba4077212c7e4524bc08455961aa1e0f5e37ac2bf18"
+      },
+      "bounded_errors": [
+        {
+          "stage": "initial",
+          "errors": [
+            {
+              "category": "UnsafeDestination",
+              "source": "native"
+            },
+            {
+              "category": "UnsafeDestination",
+              "source": "native"
+            },
+            {
+              "category": "Full",
+              "source": "native"
+            },
+            {
+              "category": "ExportExists",
+              "source": "native"
+            }
+          ]
+        },
+        {
+          "stage": "restart",
+          "errors": []
+        }
+      ]
+    }
+  },
+  "database_copy": {
+    "manifest_sha256": "9f8a1182d281b19149ab39b093bfe544412949fbcb3a2398d60e867f2efab068",
+    "database_sha256": "73feb8fe31b51d469b123c3202e487e80d2cf1e7f985759652c65cea29e69a1b",
+    "bytes": 86016,
+    "schema_version": 2,
+    "revision": 3,
+    "readable_json_manifest_schema_version": 1
+  },
+  "supplemental_checks": [
+    "trace: clean exact source and native pass",
+    "trace: exact original counts",
+    "trace: fresh SQLite user_version2",
+    "trace: source SHA256 ui/TurnDebugger.tsx",
+    "trace: source SHA256 ui/trace-model.ts",
+    "trace: source SHA256 ui/trace-journeys.ts",
+    "trace: source SHA256 ui/controller.ts",
+    "trace: source SHA256 ui/App.tsx",
+    "trace: source SHA256 ui/model.ts",
+    "trace: source SHA256 ui/main.tsx",
+    "trace: source SHA256 ui/style.css",
+    "trace: source SHA256 ui/journeys.ts",
+    "trace: source SHA256 src-tauri/src/main.rs",
+    "trace: source SHA256 src-tauri/src/harness.rs",
+    "trace: source SHA256 src-tauri/src/lease.rs",
+    "trace: source SHA256 src-tauri/Cargo.toml",
+    "trace: source SHA256 src-tauri/Cargo.lock",
+    "trace: source SHA256 host-v1.schema.json",
+    "trace: source SHA256 ui/host.generated.ts",
+    "trace: source SHA256 trace-harness.mjs",
+    "trace: source SHA256 ../../crates/locallore/src/turn_trace.rs",
+    "trace: source SHA256 ../../crates/locallore/src/host.rs",
+    "trace: source SHA256 ../../crates/locallore/src/engine.rs",
+    "trace: source SHA256 ../../crates/locallore/src/play.rs",
+    "trace: source SHA256 check-trace-controller.mjs",
+    "trace: source SHA256 verify-frontend.mjs",
+    "trace: source SHA256 ../../crates/locallore-workspace/src/lib.rs",
+    "trace: source SHA256 ../../crates/locallore-storage/src/lib.rs",
+    "inspector: clean exact source and native pass",
+    "inspector: exact original counts",
+    "inspector: fresh SQLite user_version2",
+    "inspector: source SHA256 ui/QueryInspector.tsx",
+    "inspector: source SHA256 ui/query-model.ts",
+    "inspector: source SHA256 ui/query-journeys.ts",
+    "inspector: source SHA256 ui/controller.ts",
+    "inspector: source SHA256 ui/App.tsx",
+    "inspector: source SHA256 ui/model.ts",
+    "inspector: source SHA256 ui/main.tsx",
+    "inspector: source SHA256 ui/style.css",
+    "inspector: source SHA256 ui/journeys.ts",
+    "inspector: source SHA256 src-tauri/src/main.rs",
+    "inspector: source SHA256 src-tauri/src/harness.rs",
+    "inspector: source SHA256 src-tauri/src/lease.rs",
+    "inspector: source SHA256 src-tauri/Cargo.toml",
+    "inspector: source SHA256 src-tauri/Cargo.lock",
+    "inspector: source SHA256 host-v1.schema.json",
+    "inspector: source SHA256 ui/host.generated.ts",
+    "inspector: source SHA256 inspector-harness.mjs",
+    "inspector: source SHA256 ../../crates/locallore/src/inspection_query.rs",
+    "inspector: source SHA256 ../../crates/locallore/src/host.rs",
+    "inspector: source SHA256 ../../crates/locallore/src/engine.rs",
+    "inspector: source SHA256 ../../crates/locallore-workspace/src/lib.rs",
+    "inspector: source SHA256 ../../crates/locallore-storage/src/lib.rs",
+    "durable: clean exact source and native pass",
+    "durable: exact original counts",
+    "durable: fresh SQLite user_version2",
+    "durable: actual controller workspace separates DB2 and contract1",
+    "durable: rendered DOM separates SQLite/workspace/domain",
+    "durable: source SHA256 ui/controller.ts",
+    "durable: source SHA256 ui/model.ts",
+    "durable: source SHA256 ui/durable-journeys.ts",
+    "durable: source SHA256 ui/App.tsx",
+    "durable: source SHA256 ui/main.tsx",
+    "durable: source SHA256 src-tauri/src/main.rs",
+    "durable: source SHA256 src-tauri/Cargo.lock",
+    "durable: source SHA256 src-tauri/Cargo.toml",
+    "durable: source SHA256 host-v1.schema.json",
+    "durable: source SHA256 src-tauri/src/test_bridge.rs",
+    "durable: source SHA256 src-tauri/src/harness.rs",
+    "durable: source SHA256 src-tauri/src/lease.rs",
+    "durable: source SHA256 ui/host.generated.ts",
+    "durable: source SHA256 durable-harness.mjs",
+    "durable: source SHA256 ../../crates/locallore/src/host.rs",
+    "durable: source SHA256 ../../crates/locallore-workspace/src/lib.rs",
+    "durable: source SHA256 ../../crates/locallore-storage/src/catalog.rs",
+    "durable: source SHA256 ../../crates/locallore-storage/src/turns.rs",
+    "export: clean exact source and native pass",
+    "export: exact original counts",
+    "export: fresh SQLite user_version2",
+    "export: actual controller workspace separates DB2 and contract1",
+    "export: rendered DOM separates SQLite/workspace/domain",
+    "export: source SHA256 ui/controller.ts",
+    "export: source SHA256 ui/model.ts",
+    "export: source SHA256 ui/export-journeys.ts",
+    "export: source SHA256 ui/InspectionPanel.tsx",
+    "export: source SHA256 src-tauri/src/exports.rs",
+    "export: source SHA256 src-tauri/src/export_commands.rs",
+    "export: source SHA256 ui/App.tsx",
+    "export: source SHA256 ui/main.tsx",
+    "export: source SHA256 src-tauri/src/main.rs",
+    "export: source SHA256 src-tauri/Cargo.lock",
+    "export: source SHA256 src-tauri/Cargo.toml",
+    "export: source SHA256 host-v1.schema.json",
+    "export: source SHA256 src-tauri/src/test_bridge.rs",
+    "export: source SHA256 src-tauri/src/harness.rs",
+    "export: source SHA256 src-tauri/src/lease.rs",
+    "export: source SHA256 ui/host.generated.ts",
+    "export: source SHA256 export-harness.mjs",
+    "export: source SHA256 ../../crates/locallore/src/inspection.rs",
+    "export: source SHA256 ../../crates/locallore-storage/src/lib.rs",
+    "export: source SHA256 ../../crates/locallore/src/host.rs",
+    "export: source SHA256 ../../crates/locallore-workspace/src/lib.rs",
+    "export: source SHA256 ../../crates/locallore-storage/src/catalog.rs",
+    "export: source SHA256 ../../crates/locallore-storage/src/turns.rs",
+    "native inspection_storage actual DB2",
+    "native DB preview reports schema2",
+    "published DB manifest exact captured preview",
+    "published DB copy exact bytes and SHA256",
+    "published DB copy read-only PRAGMA2",
+    "readable JSON format keeps independent schema1"
+  ],
+  "supplemental_check_count": 110,
+  "normal_assets_restored": {
+    "frontend_sha256": "0d666067cb7895eaa2faad97ae3f5126c73a0800002208f64d4f16b084feb345",
+    "default_native_sha256": "5c6d6b4ecb1dead6c3b0257d9148c241f4aef336894573cf4797dbcf85eb4eeb"
+  },
+  "visually_inspected": [
+    {
+      "run": "trace",
+      "relative_path": "initial/d06-context.png",
+      "sha256": "54f0d8be4756f040a1c7fb6b76dc21eef10363d9cfdc6ccc215fe5c70a5e359d"
+    },
+    {
+      "run": "trace",
+      "relative_path": "initial/d06-lens.png",
+      "sha256": "9912b200d5752974c03ddd98a23555d8f607a0f7c264c7a1425522c8750a20ff"
+    },
+    {
+      "run": "inspector",
+      "relative_path": "initial/d05-source.png",
+      "sha256": "78389befdece2aa0a4ecef039992c1ef408c31f071b0b9f4d1cb67718b713dcc"
+    },
+    {
+      "run": "inspector",
+      "relative_path": "initial/d05-narrow.png",
+      "sha256": "d423827d629a3a8b7b6e778447f76ba20740048eb0b445c1c5fd9a7e890b9ab8"
+    },
+    {
+      "run": "durable",
+      "relative_path": "restart/durable-resumed.png",
+      "sha256": "85c3f647695ad079e86deb7f2d5695316eff91e949b3dc959da89ab6c3338de5"
+    },
+    {
+      "run": "export",
+      "relative_path": "initial/export-storage.png",
+      "sha256": "aa96db4785a338d74ff17537a2bcf82de3ccf59e0f36ad9adf47c51fc241d00a"
+    },
+    {
+      "run": "export",
+      "relative_path": "initial/export-database.png",
+      "sha256": "ab70353a04ba5665976b3d7f1dd6c2f9d84feae0b69b2b02b3e76c0977a6dd28"
+    }
+  ],
+  "status": "in_review",
+  "date": "2026-10-23",
+  "raw_evidence_sha256": "062fcb6b20466c7ad5327edc44bcba8ecbedf901da791eccb53987ef25a96953",
+  "attribution": "Executed by desktop compatibility task; synthetic native IPC, no model; coordinator owns other integration checks."
+}

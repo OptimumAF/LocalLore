@@ -34,9 +34,24 @@ struct PersistedReceipt {
     proposal: Proposal,
     events: Vec<serde_json::Value>,
     narration: String,
+    play: Option<crate::play::PlayRecord>,
 }
 
 struct UniqueJson(serde_json::Value);
+
+/// Structural JSON validation only. Caller supplies its byte budget; this grants
+/// no accepted-history, engine, filesystem or permission authority.
+pub fn parse_unique_json(bytes: &[u8], max_bytes: usize) -> Result<serde_json::Value, Error> {
+    if bytes.len() > max_bytes {
+        return Err(Error::TooLarge);
+    }
+    let raw: UniqueJson = serde_json::from_slice(bytes).map_err(|_| Error::Malformed)?;
+    Ok(raw.0)
+}
+
+pub(crate) fn parse_unique<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T, Error> {
+    serde_json::from_value(parse_unique_json(bytes, bytes.len())?).map_err(|_| Error::Malformed)
+}
 
 impl<'de> Deserialize<'de> for UniqueJson {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
@@ -166,7 +181,9 @@ impl Engine {
                 audience: audience.clone(),
             }],
             Intent::AuthorCorrection(_) => return Err(Error::AuthorUiRequired),
-            Intent::Thought(_) | Intent::Ambiguous(_) => return Err(Error::ClarificationRequired),
+            Intent::Thought(_) | Intent::Ambiguous(_) | Intent::FreeText { .. } => {
+                return Err(Error::ClarificationRequired)
+            }
         };
         Ok(Proposal {
             version: VERSION,
@@ -210,6 +227,16 @@ impl Engine {
             return Err(Error::Rule);
         }
         check_json_budget(request, MAX_PROPOSAL_BYTES)?;
+        if let Intent::FreeText { text, .. } = &request.intent {
+            if text.trim().is_empty()
+                || text.len() > MAX_TEXT_BYTES
+                || text
+                    .chars()
+                    .any(|c| c.is_control() && c != '\n' && c != '\t')
+            {
+                return Err(Error::TooLarge);
+            }
+        }
         if let Intent::Actions(commands) = &request.intent {
             if commands.is_empty() || commands.len() > MAX_COMMANDS {
                 return Err(Error::TooLarge);
@@ -234,7 +261,9 @@ impl Engine {
         if proposal.turn != request.turn || !valid_id(&request.turn) {
             return Err(Error::Rule);
         }
-        if Self::proposal(request)?.commands != proposal.commands {
+        if matches!(request.intent, Intent::FreeText { .. }) {
+            crate::play::validate_interpretation(self, request, proposal)?;
+        } else if Self::proposal(request)?.commands != proposal.commands {
             return Err(Error::Agency);
         }
         if proposal.commands.is_empty() || proposal.commands.len() > MAX_COMMANDS {
@@ -268,6 +297,7 @@ impl Engine {
             proposal: proposal.clone(),
             events,
             narration,
+            play: None,
         })
     }
 
@@ -280,6 +310,9 @@ impl Engine {
     ) -> Result<Receipt, Error> {
         if let Some(receipt) = self.recorded(request)? {
             return Ok(receipt);
+        }
+        if matches!(request.intent, Intent::FreeText { .. }) {
+            return Err(Error::Agency);
         }
         let receipt = self.preview(request, proposal)?;
         // The fake-provider proof accepts only exact engine-rendered prose. No semantic oracle claim.
@@ -295,22 +328,103 @@ impl Engine {
         Ok(receipt)
     }
 
+    /// Only a versioned generated-play record can relax v1's exact-rendered narration rule.
+    pub fn commit_play(
+        &mut self,
+        request: &Request,
+        proposal: &Proposal,
+        record: &crate::play::PlayRecord,
+    ) -> Result<Receipt, Error> {
+        self.commit_play_history(request, proposal, record, false)
+    }
+    fn commit_play_history(
+        &mut self,
+        request: &Request,
+        proposal: &Proposal,
+        record: &crate::play::PlayRecord,
+        recorded_history: bool,
+    ) -> Result<Receipt, Error> {
+        if let Some(receipt) = self.recorded(request)? {
+            return Ok(receipt);
+        }
+        if !matches!(request.intent, Intent::FreeText { .. }) {
+            return Err(Error::Agency);
+        }
+        let mut receipt = self.preview(request, proposal)?;
+        crate::play::validate_record(self, &receipt, record, recorded_history)?;
+        receipt.narration = record.narration.text.clone();
+        receipt.play = Some(record.clone());
+        let mut staged = self.state.clone();
+        for (command, event) in proposal.commands.iter().zip(&receipt.events) {
+            let _ = resolve(&self.seed, &mut staged, command, event.sequence)?;
+        }
+        self.state = staged;
+        self.receipts.push(receipt.clone());
+        Ok(receipt)
+    }
+
+    /// Revalidate a prepared engine value; callers cannot supply accepted events as authority.
+    pub fn commit_prepared(&mut self, receipt: &Receipt) -> Result<Receipt, Error> {
+        if let Some(play) = receipt.play() {
+            self.commit_play(receipt.request(), receipt.proposal(), play)
+        } else {
+            self.commit(receipt.request(), receipt.proposal(), receipt.narration())
+        }
+    }
+
+    // History paths alone retain the explicitly supported recorded prompt. A
+    // prepared value supplied for a new turn must still use the current prompt.
+    fn commit_recorded(&mut self, receipt: &Receipt) -> Result<Receipt, Error> {
+        if let Some(play) = receipt.play() {
+            self.commit_play_history(receipt.request(), receipt.proposal(), play, true)
+        } else {
+            self.commit(receipt.request(), receipt.proposal(), receipt.narration())
+        }
+    }
+
     /// Restore bounded complete persisted root-history receipts, never a supplied projection.
     /// V1 rules are deterministic: rebuilding verifies every recorded resolved outcome. Future
     /// random rules require an explicit recorded-outcome contract; they must not reroll here.
     /// No inference provider or random source is used. No partially restored engine is returned.
     pub fn restore(seed: Seed, history: &[String]) -> Result<Self, Error> {
-        if history.len() > MAX_HISTORY_RECEIPTS {
+        let mut engine = Self::new(seed)?;
+        engine.restore_saved(history)?;
+        Ok(engine)
+    }
+
+    /// Restore branch-local recorded receipts onto this validated engine, retaining
+    /// original ancestor scopes and lineage. No provider runs and no partial value escapes.
+    /// This history-only path retains the same supported recorded Play policy as restore;
+    /// fresh prepared commits still require the current policy.
+    pub fn restore_continuation(&self, history: &[String]) -> Result<Self, Error> {
+        let mut engine = self.clone();
+        engine.restore_saved(history)?;
+        Ok(engine)
+    }
+
+    fn restore_saved(&mut self, history: &[String]) -> Result<(), Error> {
+        if self.receipts.len().saturating_add(history.len()) > MAX_HISTORY_RECEIPTS {
             return Err(Error::TooLarge);
         }
         let mut total = 0usize;
+        for receipt in &self.receipts {
+            let bytes = serde_json::to_vec(receipt)
+                .map_err(|_| Error::CorruptHistory)?
+                .len();
+            if bytes > MAX_RECEIPT_BYTES {
+                return Err(Error::TooLarge);
+            }
+            total = total.checked_add(bytes).ok_or(Error::TooLarge)?;
+        }
         for receipt in history {
             total = total.checked_add(receipt.len()).ok_or(Error::TooLarge)?;
             if receipt.len() > MAX_RECEIPT_BYTES || total > MAX_HISTORY_BYTES {
                 return Err(Error::TooLarge);
             }
         }
-        let mut engine = Self::new(seed)?;
+        if total > MAX_HISTORY_BYTES {
+            return Err(Error::TooLarge);
+        }
         for receipt in history {
             // Value normally accepts repeated object keys. Reject them recursively before typed
             // parsing so hidden first/last-wins fields cannot survive archive validation.
@@ -320,23 +434,29 @@ impl Engine {
                 serde_json::from_value(raw.0.clone()).map_err(|_| Error::CorruptHistory)?;
             if recorded.events.is_empty()
                 || recorded.events.len() > MAX_COMMANDS
-                || engine
+                || self
                     .recorded(&recorded.request)
                     .map_err(|_| Error::CorruptHistory)?
                     .is_some()
             {
                 return Err(Error::CorruptHistory);
             }
-            let rebuilt = engine
-                .commit(&recorded.request, &recorded.proposal, &recorded.narration)
-                .map_err(|_| Error::CorruptHistory)?;
+            let rebuilt = if let Some(play) = &recorded.play {
+                if play.narration.text != recorded.narration {
+                    return Err(Error::CorruptHistory);
+                }
+                self.commit_play_history(&recorded.request, &recorded.proposal, play, true)
+            } else {
+                self.commit(&recorded.request, &recorded.proposal, &recorded.narration)
+            }
+            .map_err(|_| Error::CorruptHistory)?;
             // Full JSON equality rejects unknown envelope/effect fields, forged witnesses,
             // provenance, order, scope, sequence and effects. Object key order is irrelevant.
             if serde_json::to_value(rebuilt).map_err(|_| Error::CorruptHistory)? != raw.0 {
                 return Err(Error::CorruptHistory);
             }
         }
-        Ok(engine)
+        Ok(())
     }
 
     /// Replay engine-created typed outcomes under the same deterministic v1 rules as restore.
@@ -346,7 +466,7 @@ impl Engine {
             if engine.recorded(&receipt.request)?.is_some() {
                 return Err(Error::CorruptHistory);
             }
-            let rebuilt = engine.commit(&receipt.request, &receipt.proposal, &receipt.narration)?;
+            let rebuilt = engine.commit_recorded(receipt)?;
             if &rebuilt != receipt {
                 return Err(Error::CorruptHistory);
             }
@@ -354,39 +474,117 @@ impl Engine {
         Ok(engine)
     }
 
-    /// Forks only at completed turn boundaries. Rebuild from seed, never clone a stale projection.
-    pub fn fork(&self, child: &str, at: u64) -> Result<Self, Error> {
-        if !valid_id(child) {
-            return Err(Error::Rule);
-        }
-        if at != 0
-            && !self
-                .receipts
-                .iter()
-                .any(|r| r.events.last().is_some_and(|e| e.sequence == at))
+    /// Read a completed historical boundary in this same branch and lineage.
+    /// Original receipt scopes/provenance are retained. This cannot add history,
+    /// grant observer access, create a branch or call inference.
+    pub fn at_revision(&self, at: u64) -> Result<Self, Error> {
+        if at > self.revision()
+            || (at != 0
+                && !self
+                    .receipts
+                    .iter()
+                    .any(|r| r.events.last().is_some_and(|e| e.sequence == at)))
         {
             return Err(Error::Rule);
         }
-        let mut lineage = self.lineage.clone();
-        lineage.fork(&self.scope, child, at, self.revision())?;
-        let scope = Scope {
-            story: self.scope.story.clone(),
-            branch: child.into(),
-        };
+        if at == self.revision() {
+            return Ok(self.clone());
+        }
         let mut result = Self::new(self.seed.clone())?;
-        result.lineage = lineage;
+        result.lineage = self.lineage.clone();
         for receipt in &self.receipts {
             if receipt.events.last().is_none_or(|e| e.sequence > at) {
                 break;
             }
             result.scope = receipt.request.scope.clone();
-            let rebuilt = result.commit(&receipt.request, &receipt.proposal, &receipt.narration)?;
+            let rebuilt = result.commit_recorded(receipt)?;
             if rebuilt != *receipt {
                 return Err(Error::CorruptHistory);
             }
         }
-        result.scope = scope;
+        result.scope = self.scope.clone();
         Ok(result)
+    }
+
+    /// Fork only at completed turn boundaries using this already validated snapshot.
+    pub fn fork(&self, child: &str, at: u64) -> Result<Self, Error> {
+        if !valid_id(child) {
+            return Err(Error::Rule);
+        }
+        let mut lineage = self.lineage.clone();
+        lineage.fork(&self.scope, child, at, self.revision())?;
+        let mut result = self.at_revision(at)?;
+        result.lineage = lineage;
+        result.scope = Scope {
+            story: self.scope.story.clone(),
+            branch: child.into(),
+        };
+        Ok(result)
+    }
+
+    fn actor_event_eligible(
+        &self,
+        observer: &str,
+        scope: &Scope,
+        revision: u64,
+        event: &AcceptedEvent,
+    ) -> bool {
+        self.lineage
+            .eligible(scope, revision, &event.scope, event.sequence)
+            && event.witnesses.contains(observer)
+    }
+
+    /// Visit borrowed accepted observations after eligibility, without cloning history.
+    /// `revision` must be the current head; the range is (after, through]. A false
+    /// visitor stops normally. Cancellation is checked at least every 32 scanned
+    /// events, including hidden events, and before each eligible callback.
+    /// Actor selection is a trusted caller responsibility; this grants no wire privilege.
+    #[allow(clippy::too_many_arguments)] // Keep scope/basis/range explicit at this narrow read port.
+    pub fn visit_actor_observations(
+        &self,
+        observer: &str,
+        scope: &Scope,
+        revision: u64,
+        after: u64,
+        through: u64,
+        cancel: &dyn Fn() -> bool,
+        visitor: &mut dyn FnMut(&AcceptedEvent) -> bool,
+    ) -> Result<(), Error> {
+        if scope != &self.scope {
+            return Err(Error::Scope);
+        }
+        if revision != self.revision() {
+            return Err(Error::Stale);
+        }
+        if !self.state.actors.contains_key(observer) {
+            return Err(Error::UnknownReference);
+        }
+        if after > through || through > revision {
+            return Err(Error::Rule);
+        }
+        if cancel() {
+            return Err(Error::Cancelled);
+        }
+        for (index, event) in self.receipts.iter().flat_map(|r| &r.events).enumerate() {
+            if index % 32 == 0 && cancel() {
+                return Err(Error::Cancelled);
+            }
+            if event.sequence > after
+                && event.sequence <= through
+                && self.actor_event_eligible(observer, scope, revision, event)
+            {
+                if cancel() {
+                    return Err(Error::Cancelled);
+                }
+                if !visitor(event) {
+                    return Ok(());
+                }
+            }
+        }
+        if cancel() {
+            return Err(Error::Cancelled);
+        }
+        Ok(())
     }
 
     pub fn character_context(
@@ -426,11 +624,7 @@ impl Engine {
             .receipts
             .iter()
             .flat_map(|r| &r.events)
-            .filter(|event| {
-                self.lineage
-                    .eligible(scope, revision, &event.scope, event.sequence)
-                    && event.witnesses.contains(observer)
-            })
+            .filter(|event| self.actor_event_eligible(observer, scope, revision, event))
             .cloned()
             .collect();
         Ok(CharacterContext {
@@ -453,7 +647,7 @@ impl Engine {
     }
 }
 
-fn valid_id(id: &str) -> bool {
+pub(crate) fn valid_id(id: &str) -> bool {
     !id.is_empty()
         && id.len() <= 64
         && id

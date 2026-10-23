@@ -11,16 +11,18 @@ const root = fileURLToPath(new URL(".", import.meta.url));
 const mode = process.argv[2];
 if (!["native", "headless"].includes(mode))
     throw new Error("Use native or headless");
+const target =
+    process.env.LOCALLORE_DESKTOP_TARGET_DIR ??
+    path.join(root, "src-tauri", "target");
 const executable = path.join(
-    root,
-    "src-tauri",
-    "target",
+    target,
     "debug",
     process.platform === "win32"
         ? "locallore-desktop-spike.exe"
         : "locallore-desktop-spike",
 );
-const parent = path.join(root, "artifacts");
+const parent =
+    process.env.LOCALLORE_DESKTOP_ARTIFACT_ROOT ?? path.join(root, "artifacts");
 await mkdir(parent, { recursive: true });
 const directory = path.join(parent, `${mode}-${randomUUID()}`);
 const git = async (...args) =>
@@ -52,6 +54,8 @@ await run("cargo", [
     "--offline",
     "--features",
     "dev-harness",
+    "--target-dir",
+    target,
 ]);
 if (mode === "native") {
     await run(executable, [], {
@@ -368,15 +372,21 @@ const inputs = [
     "build.mjs",
     "harness.mjs",
     "dist/app.js",
-    "src-tauri/target/debug/locallore-desktop-spike.exe",
+    executable,
     "../../crates/locallore/src/host.rs",
 ];
 const hashes = Object.fromEntries(
     await Promise.all(
         inputs.map(async (file) => [
-            file,
+            path.isAbsolute(file)
+                ? "<native-target>/debug/locallore-desktop-spike.exe"
+                : file,
             createHash("sha256")
-                .update(await readFile(path.join(root, file)))
+                .update(
+                    await readFile(
+                        path.isAbsolute(file) ? file : path.join(root, file),
+                    ),
+                )
                 .digest("hex"),
         ]),
     ),

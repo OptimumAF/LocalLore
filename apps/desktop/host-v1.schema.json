@@ -414,6 +414,115 @@
           "additionalProperties": false,
           "properties": {
             "op": {
+              "const": "inspection_query",
+              "type": "string"
+            },
+            "query": {
+              "$ref": "#/$defs/Query"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "query"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "expected_head": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "op": {
+              "const": "trace_configure",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope", "expected_head", "enabled"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "attempt": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": ["integer", "null"]
+            },
+            "base_revision": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "expected_head": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "observer": {
+              "$ref": "#/$defs/Observer"
+            },
+            "op": {
+              "const": "trace_read",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            },
+            "turn": {
+              "type": ["string", "null"]
+            }
+          },
+          "required": [
+            "op",
+            "session",
+            "scope",
+            "expected_head",
+            "base_revision",
+            "observer"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "expected_head": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "op": {
+              "const": "trace_clear",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope", "expected_head"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
               "const": "model_status",
               "type": "string"
             }
@@ -573,6 +682,31 @@
           },
           "required": ["kind", "value"],
           "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Explicit untrusted player input; the versioned play pipeline interprets it once.",
+          "properties": {
+            "kind": {
+              "const": "free_text",
+              "type": "string"
+            },
+            "value": {
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "$ref": "#/$defs/PlayInputKind"
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": ["kind", "text"],
+              "type": "object"
+            }
+          },
+          "required": ["kind", "value"],
+          "type": "object"
         }
       ]
     },
@@ -586,6 +720,104 @@
         "cancelled"
       ],
       "type": "string"
+    },
+    "Observer": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "player",
+              "type": "string"
+            }
+          },
+          "required": ["kind"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "kind": {
+              "const": "character",
+              "type": "string"
+            }
+          },
+          "required": ["kind", "id"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "omniscient",
+              "type": "string"
+            }
+          },
+          "required": ["kind"],
+          "type": "object"
+        }
+      ]
+    },
+    "PlayInputKind": {
+      "enum": ["action", "dialogue"],
+      "type": "string"
+    },
+    "Query": {
+      "additionalProperties": false,
+      "properties": {
+        "at_revision": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "cursor": {
+          "type": ["string", "null"]
+        },
+        "expected_head": {
+          "description": "Current authoritative head, even when inspecting a historical completed turn.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "limit": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "observer": {
+          "$ref": "#/$defs/Observer"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "search": {
+          "description": "Literal case-insensitive substring of eligible serialized rows; not SQL/FTS syntax.",
+          "type": "string"
+        },
+        "version": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "view": {
+          "$ref": "#/$defs/View"
+        }
+      },
+      "required": [
+        "version",
+        "scope",
+        "expected_head",
+        "observer",
+        "view",
+        "limit",
+        "search"
+      ],
+      "type": "object"
     },
     "Request": {
       "additionalProperties": false,
@@ -626,6 +858,20 @@
       },
       "required": ["story", "branch"],
       "type": "object"
+    },
+    "View": {
+      "enum": [
+        "profiles",
+        "history",
+        "relationships",
+        "knowledge",
+        "promises",
+        "provenance",
+        "turn_diff",
+        "summaries",
+        "retrieval_indexes"
+      ],
+      "type": "string"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",

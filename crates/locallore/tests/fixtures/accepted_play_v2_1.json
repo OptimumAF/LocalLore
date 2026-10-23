@@ -1,0 +1,334 @@
+{
+  "source_commit": "dd3de5739ced38af7d67cd7354bd7136798a0b63",
+  "seed": {
+    "version": 1,
+    "id": "lantern-quay-v1",
+    "scope": {
+      "branch": "main",
+      "story": "quay-f2792aff36ead06d3b93b89316ee533f"
+    },
+    "profile": "fantasy_v1",
+    "player": "player",
+    "locations": [
+      "quay",
+      "pier",
+      "tower",
+      "dry-well",
+      "old-ruins"
+    ],
+    "routes": [
+      [
+        "quay",
+        "pier"
+      ],
+      [
+        "pier",
+        "quay"
+      ],
+      [
+        "quay",
+        "dry-well"
+      ],
+      [
+        "dry-well",
+        "quay"
+      ]
+    ],
+    "actors": {
+      "player": {
+        "name": "Rowan",
+        "location": "quay",
+        "alive": true,
+        "energy": 2,
+        "abilities": {
+          "steady": 1
+        },
+        "attributes": {
+          "resolve": 3
+        },
+        "injuries": [
+          "cut-hand"
+        ],
+        "affiliations": [
+          "quay-keepers"
+        ],
+        "goals": [
+          "repair-beacon"
+        ]
+      },
+      "mira": {
+        "name": "Mira",
+        "location": "quay",
+        "alive": true,
+        "energy": 2,
+        "abilities": {
+          "steady": 1,
+          "beacon": 1
+        },
+        "attributes": {},
+        "injuries": [
+          "sprained-ankle"
+        ],
+        "affiliations": [
+          "quay-keepers"
+        ],
+        "goals": [
+          "repair-beacon"
+        ]
+      },
+      "oren": {
+        "name": "Oren",
+        "location": "pier",
+        "alive": true,
+        "energy": 0,
+        "abilities": {},
+        "attributes": {},
+        "injuries": [],
+        "affiliations": [],
+        "goals": [
+          "recover-key"
+        ]
+      },
+      "sable": {
+        "name": "Oren",
+        "location": "tower",
+        "alive": true,
+        "energy": 0,
+        "abilities": {},
+        "attributes": {},
+        "injuries": [],
+        "affiliations": [],
+        "goals": []
+      }
+    },
+    "items": {
+      "potion": {
+        "owner": "player",
+        "quantity": 1,
+        "return_to": null,
+        "healing": true
+      },
+      "brass-key": {
+        "owner": "player",
+        "quantity": 1,
+        "return_to": "oren",
+        "healing": false
+      }
+    },
+    "abilities": {
+      "steady": {
+        "cost": 2,
+        "prerequisite": null,
+        "teacher": "mira",
+        "max_rank": 1
+      },
+      "beacon": {
+        "cost": 1,
+        "prerequisite": "steady",
+        "teacher": "mira",
+        "max_rank": 1
+      },
+      "blink": {
+        "cost": 5,
+        "prerequisite": "beacon",
+        "teacher": "sable",
+        "max_rank": 1
+      }
+    },
+    "facts": {
+      "relic-location": {
+        "proposition": "Tideglass lies in dry-well: SECRET-TIDE-731.",
+        "discoverable_at": "dry-well",
+        "known_by": [
+          "player"
+        ]
+      },
+      "beacon-mark": {
+        "proposition": "An old repair mark is scratched inside the dry well.",
+        "discoverable_at": "dry-well",
+        "known_by": []
+      },
+      "ancestry": {
+        "proposition": "Rowan was born to ordinary quay keepers.",
+        "discoverable_at": null,
+        "known_by": [
+          "player"
+        ]
+      }
+    },
+    "relationships": [
+      {
+        "from": "mira",
+        "to": "player",
+        "respect": 4,
+        "trust": -3,
+        "obligation": 0
+      },
+      {
+        "from": "player",
+        "to": "mira",
+        "respect": 1,
+        "trust": 2,
+        "obligation": 0
+      },
+      {
+        "from": "oren",
+        "to": "player",
+        "respect": 0,
+        "trust": 0,
+        "obligation": 0
+      }
+    ],
+    "story_time": 100,
+    "beliefs": [
+      {
+        "believer": "mira",
+        "proposition": "The tideglass relic is in old-ruins.",
+        "source_claim": null,
+        "source": {
+          "kind": "seed",
+          "value": "lantern-quay-v1"
+        },
+        "confidence": "believed"
+      },
+      {
+        "believer": "oren",
+        "proposition": "Rowan may possess the tideglass relic.",
+        "source_claim": null,
+        "source": {
+          "kind": "seed",
+          "value": "lantern-quay-v1"
+        },
+        "confidence": "suspected"
+      }
+    ],
+    "commitments": {
+      "return-key": {
+        "from": "player",
+        "to": "oren",
+        "terms": "Return the borrowed brass key by tide tick 120.",
+        "deadline": 120,
+        "source": {
+          "kind": "seed",
+          "value": "lantern-quay-v1"
+        },
+        "return_item": "brass-key",
+        "completed_by": null
+      }
+    }
+  },
+  "receipt": {
+    "events": [
+      {
+        "outcome": {
+          "effect": "given",
+          "from": "player",
+          "item": "potion",
+          "quantity": 1,
+          "to": "mira"
+        },
+        "participants": [
+          "mira",
+          "player"
+        ],
+        "rules": "fantasy_v1",
+        "scope": {
+          "branch": "main",
+          "story": "quay-f2792aff36ead06d3b93b89316ee533f"
+        },
+        "seed": "lantern-quay-v1",
+        "sequence": 1,
+        "story_time": 100,
+        "turn": "desktop-f5443386-799c-4f5d-868a-700a0e35c84a-1",
+        "version": 1,
+        "witnesses": [
+          "mira",
+          "player"
+        ]
+      }
+    ],
+    "narration": "You give 1 potion to mira.",
+    "play": {
+      "fallback": true,
+      "narration": {
+        "event_ids": [
+          1
+        ],
+        "speaker": "narrator",
+        "text": "You give 1 potion to mira."
+      },
+      "policy": "grounded-prose-v2.1",
+      "profile": {
+        "context_tokens": 4096,
+        "deadline_ms": 120000,
+        "director_tokens": 350,
+        "id": "qwen3-0.6b-q8-cpu-v1",
+        "model_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+        "narrator_tokens": 350,
+        "profile_manifest_sha256": "01ad542001b04a96f4a8ed6c841be1866eb025350836e0c5d0a4969fdb361d38",
+        "repair_limit": 1,
+        "runtime_revision": "620d2225cc436ab0b001e3200e590e3b286ef9ab",
+        "template_sha256": "57f1fd00f0013a2be96aa79b857391f27e23df5b5f847072b524c897e24d0361",
+        "worker_sha256": "add98cf02249141942c88e2517c2f5a4c9a91dbe9638bf7d3cd30c26916bce87"
+      },
+      "prompt_version": "locallore-play-v2.1",
+      "repairs": 0,
+      "stages": [
+        {
+          "elapsed_ms": 2781,
+          "stage": "director"
+        },
+        {
+          "elapsed_ms": 0,
+          "stage": "validation"
+        },
+        {
+          "elapsed_ms": 1917,
+          "stage": "narrator"
+        },
+        {
+          "elapsed_ms": 0,
+          "stage": "narration_validation"
+        },
+        {
+          "elapsed_ms": 4700,
+          "stage": "total"
+        }
+      ],
+      "version": 2
+    },
+    "proposal": {
+      "commands": [
+        {
+          "item": "potion",
+          "op": "give",
+          "quantity": 1,
+          "to": "mira"
+        }
+      ],
+      "expected_revision": 0,
+      "scope": {
+        "branch": "main",
+        "story": "quay-f2792aff36ead06d3b93b89316ee533f"
+      },
+      "turn": "desktop-f5443386-799c-4f5d-868a-700a0e35c84a-1",
+      "version": 1
+    },
+    "request": {
+      "expected_revision": 0,
+      "intent": {
+        "kind": "free_text",
+        "value": {
+          "kind": "action",
+          "text": "I give my last potion to Mira."
+        }
+      },
+      "scope": {
+        "branch": "main",
+        "story": "quay-f2792aff36ead06d3b93b89316ee533f"
+      },
+      "turn": "desktop-f5443386-799c-4f5d-868a-700a0e35c84a-1",
+      "version": 1
+    }
+  }
+}

@@ -15,6 +15,8 @@ export class FaultGateway implements Gateway {
     dropSubmit = false;
     heldPrepare: ReturnType<typeof gate> | null = null;
     heldView: ReturnType<typeof gate> | null = null;
+    heldQuery: ReturnType<typeof gate> | null = null;
+    heldTrace: ReturnType<typeof gate> | null = null;
     heldLookup: ReturnType<typeof gate> | null = null;
     heldCommit: ReturnType<typeof gate> | null = null;
     failHeldPrepare = false;
@@ -61,9 +63,22 @@ export class FaultGateway implements Gateway {
             this.failLookup = false;
             throw new Error("Transport");
         }
-        if (command.op === "submit")
+        if (command.op === "submit" || command.op === "free_text")
             this.submissions.push(command.request.turn);
         const result = await this.base.call(command);
+        if (command.op === "trace_read" && this.heldTrace) {
+            const held = this.heldTrace;
+            this.heldTrace = null;
+            held.ready();
+            await held.waiting;
+        }
+        if (command.op === "inspection_query" && this.heldQuery) {
+            const held = this.heldQuery;
+            this.heldQuery = null;
+            held.ready();
+            await held.waiting;
+        }
+
         if (command.op === "turn_status" && this.corruptRecovery) {
             this.corruptRecovery = false;
             const altered = structuredClone(result) as {
@@ -83,7 +98,10 @@ export class FaultGateway implements Gateway {
             this.dropCommit = false;
             throw new Error("Transport");
         }
-        if (command.op === "submit" && this.dropSubmit) {
+        if (
+            (command.op === "submit" || command.op === "free_text") &&
+            this.dropSubmit
+        ) {
             this.dropSubmit = false;
             throw new Error("Transport");
         }

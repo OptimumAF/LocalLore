@@ -26,9 +26,13 @@ workspace checks include storage tests. The explicit `storage_smoke` example and
 their commands and actual host/emulator evidence appear in the [dated verification](VERIFICATION_2026-10-22.md).
 The cross-build helper neither operates devices nor downloads SDKs or weights.
 
-`Store::open(path, migration_backup)` initializes a new file or verifies an owned
-schema-1 database. For an existing empty version-0 file, pass a new backup path;
-otherwise it returns `BackupRequired`. Nonempty unversioned databases and future
+`Store::open(path, migration_backup)` initializes schema2 or verifies an owned
+current database. Schema2 adds a bounded derived-memory cache without changing
+canonical v1 tables or receipts. An exact owned schema1 or empty version0 needs
+a new backup path before upgrade; otherwise it returns `BackupRequired`.
+`Store::open_application` supplies a unique nonoverwrite sibling backup for the
+trusted app-private path. `open_read_only` also verifies historical schema1
+without migrating it. Nonempty unversioned databases and future
 versions are refused. `create_story` accepts a typed seed only after `Engine::new`
 validation, then stores the seed, root namespace, typed entity memberships and
 initial replaceable projection in one transaction. `load_seed` requires exact
@@ -41,6 +45,13 @@ the upgrade is accepted; no downgrade or automatic overwrite is provided. The
 backup can be opened separately for verification. These files are plaintext,
 private local data; the crate has no upload/export service. No raw SQL or connection
 escapes the owner. Errors expose fixed categories rather than SQL, paths or content.
+
+The Store's derived-memory methods prepare deterministic typed event extractives,
+publish against exact accepted-source/head fences, revalidate caches on read and
+search only a verified actor/scope/revision partition through temporary SQLite
+FTS5. They do not establish canon or call an archivist model. See
+[Store integration](M07_STORE_INTEGRATION.md) for versioning, measured checks,
+limits and remaining production-memory work.
 
 See [ADR-0007](../adr/0007-sqlite-storage-owner.md), [dependency sources](SOURCES_2026-10-22.md),
 and [review](REVIEW_2026-10-22.md). Branch inheritance, event semantics, eligibility

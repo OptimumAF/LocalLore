@@ -1,0 +1,692 @@
+{
+  "version": 1,
+  "date": "2026-10-22",
+  "tasks": [
+    "M04.04",
+    "M03.05"
+  ],
+  "prerequisite_pr": 45,
+  "prerequisite_source": "6ffd1b0f05621cdafd43a8b463f2289300b9f846",
+  "runner_source": "25c6d6f",
+  "parser_source": "ad173d9",
+  "production_changes": false,
+  "apk_rebuilt_or_installed": false,
+  "inference": "deterministic_fake",
+  "runtime": {
+    "os": "Android 15",
+    "api": 35,
+    "abi": "x86_64",
+    "targets": 2,
+    "physical_phone_available": false,
+    "other_emulators_untouched": 3
+  },
+  "host_checks": {
+    "offline": true,
+    "rust_workspace_test_entries": 123,
+    "rust_linker_tests": 3,
+    "python_tests": 252,
+    "parser_tests_included": 22,
+    "runner_tests_included": 19,
+    "format_clippy_and_fixture_check": "passed",
+    "py_compile": "passed"
+  },
+  "prior_failure": {
+    "artifact": "FRAMEWORK_RESULTS_2026-10-22.json",
+    "attempt": "A-final",
+    "graphics_watchdog_observed": true,
+    "cause_known": false,
+    "cause_fixed": false
+  },
+  "unique_cases": 4,
+  "cohorts_planned": 12,
+  "case_executions_planned": 36,
+  "targets": [
+    {
+      "target": "A",
+      "journal_sha256": "3da5b72c0759ae41ac146c91c33007499c0c2488651593d3d7eb5c062454e988",
+      "journal": [
+        {
+          "apk_sha256": "56ec9d0c20736a772ed7bda9372cdccb300ed8ef1ce609a3158c926e75839ebb",
+          "attempts_planned": 6,
+          "cases_planned": 18,
+          "cohorts": [
+            "cancel_only",
+            "framework_then_cancel",
+            "cancel_then_framework"
+          ],
+          "event": "plan",
+          "repetitions": 2,
+          "scope": "fixed_synthetic_android_cohorts",
+          "test_apk_sha256": "e4d57cf5d735f642ea474f0ecbf3a098849377e559181e7eabf50134452024d3",
+          "version": 1
+        },
+        {
+          "cohort": "cancel_only",
+          "event": "attempt_started",
+          "index": 1,
+          "repetition": 1
+        },
+        {
+          "adb_clients_cleaned": true,
+          "app_absent_after": true,
+          "app_absent_before": true,
+          "cohort": "cancel_only",
+          "event": "attempt_finished",
+          "execution": {
+            "client_cleanup": true,
+            "returncode": 0,
+            "status": "completed"
+          },
+          "failure_stage": "none",
+          "index": 1,
+          "passed": true,
+          "repetition": 1,
+          "result": {
+            "completed": [
+              {
+                "case": "org.locallore.app.ShellInstrumentedTest#cancelAndResetDuringDelayCannotPublishOldResult",
+                "outcome": "passed"
+              }
+            ],
+            "failed": 0,
+            "final_success": true,
+            "graphics_watchdog_signature": false,
+            "order_verified": true,
+            "passed": 1,
+            "skipped": 0,
+            "started_unfinished": 0,
+            "status": "passed"
+          },
+          "transport_error_stage": "none"
+        },
+        {
+          "cohort": "framework_then_cancel",
+          "event": "attempt_started",
+          "index": 2,
+          "repetition": 1
+        },
+        {
+          "adb_clients_cleaned": true,
+          "app_absent_after": true,
+          "app_absent_before": true,
+          "cohort": "framework_then_cancel",
+          "event": "attempt_finished",
+          "execution": {
+            "client_cleanup": true,
+            "returncode": 0,
+            "status": "completed"
+          },
+          "failure_stage": "none",
+          "index": 2,
+          "passed": true,
+          "repetition": 1,
+          "result": {
+            "completed": [
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkDestructionFencesLateReplyAndRetainedCallbacksWithoutDeletingSavedCanon",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkStopCancelsUndeliveredReadyTurnAndLateReplyCannotAttachToNewStory",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkRecreationCancelsRunningTurnAndRetainsOnlyTheCurrentAcceptedReceipt",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.ShellInstrumentedTest#cancelAndResetDuringDelayCannotPublishOldResult",
+                "outcome": "passed"
+              }
+            ],
+            "failed": 0,
+            "final_success": true,
+            "graphics_watchdog_signature": false,
+            "order_verified": true,
+            "passed": 4,
+            "skipped": 0,
+            "started_unfinished": 0,
+            "status": "passed"
+          },
+          "transport_error_stage": "none"
+        },
+        {
+          "cohort": "cancel_then_framework",
+          "event": "attempt_started",
+          "index": 3,
+          "repetition": 1
+        },
+        {
+          "adb_clients_cleaned": true,
+          "app_absent_after": true,
+          "app_absent_before": true,
+          "cohort": "cancel_then_framework",
+          "event": "attempt_finished",
+          "execution": {
+            "client_cleanup": true,
+            "returncode": 0,
+            "status": "completed"
+          },
+          "failure_stage": "none",
+          "index": 3,
+          "passed": true,
+          "repetition": 1,
+          "result": {
+            "completed": [
+              {
+                "case": "org.locallore.app.ShellInstrumentedTest#cancelAndResetDuringDelayCannotPublishOldResult",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkDestructionFencesLateReplyAndRetainedCallbacksWithoutDeletingSavedCanon",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkStopCancelsUndeliveredReadyTurnAndLateReplyCannotAttachToNewStory",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkRecreationCancelsRunningTurnAndRetainsOnlyTheCurrentAcceptedReceipt",
+                "outcome": "passed"
+              }
+            ],
+            "failed": 0,
+            "final_success": true,
+            "graphics_watchdog_signature": false,
+            "order_verified": true,
+            "passed": 4,
+            "skipped": 0,
+            "started_unfinished": 0,
+            "status": "passed"
+          },
+          "transport_error_stage": "none"
+        },
+        {
+          "cohort": "cancel_only",
+          "event": "attempt_started",
+          "index": 4,
+          "repetition": 2
+        },
+        {
+          "adb_clients_cleaned": true,
+          "app_absent_after": true,
+          "app_absent_before": true,
+          "cohort": "cancel_only",
+          "event": "attempt_finished",
+          "execution": {
+            "client_cleanup": true,
+            "returncode": 0,
+            "status": "completed"
+          },
+          "failure_stage": "none",
+          "index": 4,
+          "passed": true,
+          "repetition": 2,
+          "result": {
+            "completed": [
+              {
+                "case": "org.locallore.app.ShellInstrumentedTest#cancelAndResetDuringDelayCannotPublishOldResult",
+                "outcome": "passed"
+              }
+            ],
+            "failed": 0,
+            "final_success": true,
+            "graphics_watchdog_signature": false,
+            "order_verified": true,
+            "passed": 1,
+            "skipped": 0,
+            "started_unfinished": 0,
+            "status": "passed"
+          },
+          "transport_error_stage": "none"
+        },
+        {
+          "cohort": "framework_then_cancel",
+          "event": "attempt_started",
+          "index": 5,
+          "repetition": 2
+        },
+        {
+          "adb_clients_cleaned": true,
+          "app_absent_after": true,
+          "app_absent_before": true,
+          "cohort": "framework_then_cancel",
+          "event": "attempt_finished",
+          "execution": {
+            "client_cleanup": true,
+            "returncode": 0,
+            "status": "completed"
+          },
+          "failure_stage": "none",
+          "index": 5,
+          "passed": true,
+          "repetition": 2,
+          "result": {
+            "completed": [
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkDestructionFencesLateReplyAndRetainedCallbacksWithoutDeletingSavedCanon",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkStopCancelsUndeliveredReadyTurnAndLateReplyCannotAttachToNewStory",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkRecreationCancelsRunningTurnAndRetainsOnlyTheCurrentAcceptedReceipt",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.ShellInstrumentedTest#cancelAndResetDuringDelayCannotPublishOldResult",
+                "outcome": "passed"
+              }
+            ],
+            "failed": 0,
+            "final_success": true,
+            "graphics_watchdog_signature": false,
+            "order_verified": true,
+            "passed": 4,
+            "skipped": 0,
+            "started_unfinished": 0,
+            "status": "passed"
+          },
+          "transport_error_stage": "none"
+        },
+        {
+          "cohort": "cancel_then_framework",
+          "event": "attempt_started",
+          "index": 6,
+          "repetition": 2
+        },
+        {
+          "adb_clients_cleaned": true,
+          "app_absent_after": true,
+          "app_absent_before": true,
+          "cohort": "cancel_then_framework",
+          "event": "attempt_finished",
+          "execution": {
+            "client_cleanup": true,
+            "returncode": 0,
+            "status": "completed"
+          },
+          "failure_stage": "none",
+          "index": 6,
+          "passed": true,
+          "repetition": 2,
+          "result": {
+            "completed": [
+              {
+                "case": "org.locallore.app.ShellInstrumentedTest#cancelAndResetDuringDelayCannotPublishOldResult",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkDestructionFencesLateReplyAndRetainedCallbacksWithoutDeletingSavedCanon",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkStopCancelsUndeliveredReadyTurnAndLateReplyCannotAttachToNewStory",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkRecreationCancelsRunningTurnAndRetainsOnlyTheCurrentAcceptedReceipt",
+                "outcome": "passed"
+              }
+            ],
+            "failed": 0,
+            "final_success": true,
+            "graphics_watchdog_signature": false,
+            "order_verified": true,
+            "passed": 4,
+            "skipped": 0,
+            "started_unfinished": 0,
+            "status": "passed"
+          },
+          "transport_error_stage": "none"
+        },
+        {
+          "adb_clients_cleaned": true,
+          "app_process_absent": true,
+          "attempts_finished": 6,
+          "attempts_planned": 6,
+          "attempts_started": 6,
+          "case_passes": 18,
+          "cause_fixed": false,
+          "cohorts_passed": 6,
+          "event": "complete",
+          "failure_stage": "none",
+          "graphics_signature_attempts": 0,
+          "status": "passed",
+          "unexecuted": 0
+        }
+      ]
+    },
+    {
+      "target": "B",
+      "journal_sha256": "3da5b72c0759ae41ac146c91c33007499c0c2488651593d3d7eb5c062454e988",
+      "journal": [
+        {
+          "apk_sha256": "56ec9d0c20736a772ed7bda9372cdccb300ed8ef1ce609a3158c926e75839ebb",
+          "attempts_planned": 6,
+          "cases_planned": 18,
+          "cohorts": [
+            "cancel_only",
+            "framework_then_cancel",
+            "cancel_then_framework"
+          ],
+          "event": "plan",
+          "repetitions": 2,
+          "scope": "fixed_synthetic_android_cohorts",
+          "test_apk_sha256": "e4d57cf5d735f642ea474f0ecbf3a098849377e559181e7eabf50134452024d3",
+          "version": 1
+        },
+        {
+          "cohort": "cancel_only",
+          "event": "attempt_started",
+          "index": 1,
+          "repetition": 1
+        },
+        {
+          "adb_clients_cleaned": true,
+          "app_absent_after": true,
+          "app_absent_before": true,
+          "cohort": "cancel_only",
+          "event": "attempt_finished",
+          "execution": {
+            "client_cleanup": true,
+            "returncode": 0,
+            "status": "completed"
+          },
+          "failure_stage": "none",
+          "index": 1,
+          "passed": true,
+          "repetition": 1,
+          "result": {
+            "completed": [
+              {
+                "case": "org.locallore.app.ShellInstrumentedTest#cancelAndResetDuringDelayCannotPublishOldResult",
+                "outcome": "passed"
+              }
+            ],
+            "failed": 0,
+            "final_success": true,
+            "graphics_watchdog_signature": false,
+            "order_verified": true,
+            "passed": 1,
+            "skipped": 0,
+            "started_unfinished": 0,
+            "status": "passed"
+          },
+          "transport_error_stage": "none"
+        },
+        {
+          "cohort": "framework_then_cancel",
+          "event": "attempt_started",
+          "index": 2,
+          "repetition": 1
+        },
+        {
+          "adb_clients_cleaned": true,
+          "app_absent_after": true,
+          "app_absent_before": true,
+          "cohort": "framework_then_cancel",
+          "event": "attempt_finished",
+          "execution": {
+            "client_cleanup": true,
+            "returncode": 0,
+            "status": "completed"
+          },
+          "failure_stage": "none",
+          "index": 2,
+          "passed": true,
+          "repetition": 1,
+          "result": {
+            "completed": [
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkDestructionFencesLateReplyAndRetainedCallbacksWithoutDeletingSavedCanon",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkStopCancelsUndeliveredReadyTurnAndLateReplyCannotAttachToNewStory",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkRecreationCancelsRunningTurnAndRetainsOnlyTheCurrentAcceptedReceipt",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.ShellInstrumentedTest#cancelAndResetDuringDelayCannotPublishOldResult",
+                "outcome": "passed"
+              }
+            ],
+            "failed": 0,
+            "final_success": true,
+            "graphics_watchdog_signature": false,
+            "order_verified": true,
+            "passed": 4,
+            "skipped": 0,
+            "started_unfinished": 0,
+            "status": "passed"
+          },
+          "transport_error_stage": "none"
+        },
+        {
+          "cohort": "cancel_then_framework",
+          "event": "attempt_started",
+          "index": 3,
+          "repetition": 1
+        },
+        {
+          "adb_clients_cleaned": true,
+          "app_absent_after": true,
+          "app_absent_before": true,
+          "cohort": "cancel_then_framework",
+          "event": "attempt_finished",
+          "execution": {
+            "client_cleanup": true,
+            "returncode": 0,
+            "status": "completed"
+          },
+          "failure_stage": "none",
+          "index": 3,
+          "passed": true,
+          "repetition": 1,
+          "result": {
+            "completed": [
+              {
+                "case": "org.locallore.app.ShellInstrumentedTest#cancelAndResetDuringDelayCannotPublishOldResult",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkDestructionFencesLateReplyAndRetainedCallbacksWithoutDeletingSavedCanon",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkStopCancelsUndeliveredReadyTurnAndLateReplyCannotAttachToNewStory",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkRecreationCancelsRunningTurnAndRetainsOnlyTheCurrentAcceptedReceipt",
+                "outcome": "passed"
+              }
+            ],
+            "failed": 0,
+            "final_success": true,
+            "graphics_watchdog_signature": false,
+            "order_verified": true,
+            "passed": 4,
+            "skipped": 0,
+            "started_unfinished": 0,
+            "status": "passed"
+          },
+          "transport_error_stage": "none"
+        },
+        {
+          "cohort": "cancel_only",
+          "event": "attempt_started",
+          "index": 4,
+          "repetition": 2
+        },
+        {
+          "adb_clients_cleaned": true,
+          "app_absent_after": true,
+          "app_absent_before": true,
+          "cohort": "cancel_only",
+          "event": "attempt_finished",
+          "execution": {
+            "client_cleanup": true,
+            "returncode": 0,
+            "status": "completed"
+          },
+          "failure_stage": "none",
+          "index": 4,
+          "passed": true,
+          "repetition": 2,
+          "result": {
+            "completed": [
+              {
+                "case": "org.locallore.app.ShellInstrumentedTest#cancelAndResetDuringDelayCannotPublishOldResult",
+                "outcome": "passed"
+              }
+            ],
+            "failed": 0,
+            "final_success": true,
+            "graphics_watchdog_signature": false,
+            "order_verified": true,
+            "passed": 1,
+            "skipped": 0,
+            "started_unfinished": 0,
+            "status": "passed"
+          },
+          "transport_error_stage": "none"
+        },
+        {
+          "cohort": "framework_then_cancel",
+          "event": "attempt_started",
+          "index": 5,
+          "repetition": 2
+        },
+        {
+          "adb_clients_cleaned": true,
+          "app_absent_after": true,
+          "app_absent_before": true,
+          "cohort": "framework_then_cancel",
+          "event": "attempt_finished",
+          "execution": {
+            "client_cleanup": true,
+            "returncode": 0,
+            "status": "completed"
+          },
+          "failure_stage": "none",
+          "index": 5,
+          "passed": true,
+          "repetition": 2,
+          "result": {
+            "completed": [
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkDestructionFencesLateReplyAndRetainedCallbacksWithoutDeletingSavedCanon",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkStopCancelsUndeliveredReadyTurnAndLateReplyCannotAttachToNewStory",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkRecreationCancelsRunningTurnAndRetainsOnlyTheCurrentAcceptedReceipt",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.ShellInstrumentedTest#cancelAndResetDuringDelayCannotPublishOldResult",
+                "outcome": "passed"
+              }
+            ],
+            "failed": 0,
+            "final_success": true,
+            "graphics_watchdog_signature": false,
+            "order_verified": true,
+            "passed": 4,
+            "skipped": 0,
+            "started_unfinished": 0,
+            "status": "passed"
+          },
+          "transport_error_stage": "none"
+        },
+        {
+          "cohort": "cancel_then_framework",
+          "event": "attempt_started",
+          "index": 6,
+          "repetition": 2
+        },
+        {
+          "adb_clients_cleaned": true,
+          "app_absent_after": true,
+          "app_absent_before": true,
+          "cohort": "cancel_then_framework",
+          "event": "attempt_finished",
+          "execution": {
+            "client_cleanup": true,
+            "returncode": 0,
+            "status": "completed"
+          },
+          "failure_stage": "none",
+          "index": 6,
+          "passed": true,
+          "repetition": 2,
+          "result": {
+            "completed": [
+              {
+                "case": "org.locallore.app.ShellInstrumentedTest#cancelAndResetDuringDelayCannotPublishOldResult",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkDestructionFencesLateReplyAndRetainedCallbacksWithoutDeletingSavedCanon",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkStopCancelsUndeliveredReadyTurnAndLateReplyCannotAttachToNewStory",
+                "outcome": "passed"
+              },
+              {
+                "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkRecreationCancelsRunningTurnAndRetainsOnlyTheCurrentAcceptedReceipt",
+                "outcome": "passed"
+              }
+            ],
+            "failed": 0,
+            "final_success": true,
+            "graphics_watchdog_signature": false,
+            "order_verified": true,
+            "passed": 4,
+            "skipped": 0,
+            "started_unfinished": 0,
+            "status": "passed"
+          },
+          "transport_error_stage": "none"
+        },
+        {
+          "adb_clients_cleaned": true,
+          "app_process_absent": true,
+          "attempts_finished": 6,
+          "attempts_planned": 6,
+          "attempts_started": 6,
+          "case_passes": 18,
+          "cause_fixed": false,
+          "cohorts_passed": 6,
+          "event": "complete",
+          "failure_stage": "none",
+          "graphics_signature_attempts": 0,
+          "status": "passed",
+          "unexecuted": 0
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "cohorts_started": 12,
+    "cohorts_finished": 12,
+    "cohorts_passed": 12,
+    "case_passes": 36,
+    "graphics_signature_attempts": 0,
+    "unexecuted": 0,
+    "all_plans_passed": true,
+    "all_final_app_absence_and_client_cleanup": true,
+    "cause_fixed": false
+  }
+}

@@ -48,6 +48,12 @@ pub enum Input {
     },
     /// Only an approved public description reaches the narrator, never the hidden world seed.
     Narrator { accepted_description: String },
+    /// Shared play-v2 compiler supplies a bounded prompt and constrained JSON schema.
+    Structured {
+        role: String,
+        prompt: String,
+        schema: serde_json::Value,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -73,8 +79,8 @@ pub trait InferenceProvider {
     ) -> Poll<Result<Vec<u8>, Error>>;
 }
 
-fn generate(
-    provider: &mut impl InferenceProvider,
+pub(crate) fn generate(
+    provider: &mut (impl InferenceProvider + ?Sized),
     request: &GenerationRequest,
     cancel: &Cancellation,
 ) -> Result<Vec<u8>, Error> {
@@ -85,9 +91,8 @@ fn generate(
         || request.budget.max_output_bytes > MAX_PROPOSAL_BYTES
         || request.budget.max_output_tokens == 0
         || request.budget.max_output_tokens > 2048
-        || request.budget.max_pending_polls > 1024
         || request.budget.deadline_ms == 0
-        || request.budget.deadline_ms > 60_000
+        || request.budget.deadline_ms > 120_000
     {
         return Err(Error::Rule);
     }
@@ -100,7 +105,7 @@ fn generate(
             return Err(Error::Timeout);
         }
         match provider.poll(request, cancel) {
-            Poll::Pending => continue,
+            Poll::Pending => std::thread::sleep(std::time::Duration::from_millis(5)),
             Poll::Ready(result) => {
                 if cancel.is_cancelled() {
                     return Err(Error::Cancelled);
@@ -245,6 +250,7 @@ impl InferenceProvider for FakeProvider {
                     Ok(accepted_description.as_bytes().to_vec())
                 }
             }
+            Input::Structured { .. } => Err(Error::Provider),
         };
         Poll::Ready(result)
     }

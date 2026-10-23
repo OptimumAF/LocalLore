@@ -273,7 +273,7 @@ fn storage_metadata(reply: &Value, cleanup: Value) -> Result<Value, String> {
     if reply["data"]["schema_version"] != 1
         || !matches!(
             reply["data"]["database_schema_version"].as_u64(),
-            Some(1..=3)
+            Some(1..=4)
         )
     {
         return Err("Wire".into());
@@ -292,6 +292,15 @@ mod storage_metadata_tests {
         let metadata = storage_metadata(&reply, json!(null)).unwrap();
         assert_eq!(metadata["schema_version"], 2);
         assert_eq!(metadata["read_only"], true);
+        for version in [1, 3, 4] {
+            reply["data"]["database_schema_version"] = json!(version);
+            assert_eq!(
+                storage_metadata(&reply, json!(null)).unwrap()["schema_version"],
+                version
+            );
+        }
+        reply["data"]["database_schema_version"] = json!(5);
+        assert_eq!(storage_metadata(&reply, json!(null)), Err("Wire".into()));
         reply["data"]
             .as_object_mut()
             .unwrap()

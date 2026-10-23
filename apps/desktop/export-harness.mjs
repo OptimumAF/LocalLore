@@ -6,7 +6,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID, createHash } from "node:crypto";
 const root = fileURLToPath(new URL(".", import.meta.url));
-const folder = path.join(root, "artifacts", `export-native-${randomUUID()}`);
+const folder = path.join(
+    process.env.LOCALLORE_DESKTOP_ARTIFACT_ROOT ?? path.join(root, "artifacts"),
+    `export-native-${randomUUID()}`,
+);
 await mkdir(folder, { recursive: true });
 const db = path.join(folder, "stories-v1.sqlite");
 const exportRoot = path.join(folder, "exports");
@@ -15,13 +18,10 @@ await writeFile(path.join(exportRoot, "blocked"), "synthetic not a directory");
 process.env.CARGO_PROFILE_DEV_DEBUG = "0";
 process.env.CARGO_PROFILE_TEST_DEBUG = "0";
 process.env.CARGO_INCREMENTAL = "0";
-const executable = path.join(
-    root,
-    "src-tauri",
-    "target",
-    "debug",
-    "locallore-desktop-spike.exe",
-);
+const target =
+    process.env.LOCALLORE_DESKTOP_TARGET_DIR ??
+    path.join(root, "src-tauri", "target");
+const executable = path.join(target, "debug", "locallore-desktop-spike.exe");
 async function run(command, args, env = {}) {
     await new Promise((resolve, reject) => {
         const child = spawn(command, args, {
@@ -47,6 +47,8 @@ await run("cargo", [
     "--offline",
     "--features",
     "dev-harness",
+    "--target-dir",
+    target,
 ]);
 const sourceRevision = (
     await promisify(execFile)("git", ["rev-parse", "HEAD"], { cwd: root })

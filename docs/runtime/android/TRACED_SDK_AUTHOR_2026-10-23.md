@@ -114,3 +114,65 @@ Direct JDK tests do not qualify the Android API compile classpath, installation,
 actual new-process read or OS exit-history behavior. Those require the
 coordinator's fresh Android build and explicit device admission. The existing
 27 journal/runner tests include fake SDK plumbing; they are not real-model proof.
+
+## Integrated offline Android artifact qualification
+
+The coordinator integrated the reader and reset partial exit-history observations
+on an internally caught Android query failure. The Java input binding is
+`5123c3c42a74479b6f23509fe0dd6b634edb208f`; the actual qualification source is
+`e8ef8e77e74570ea1ceb9d6dfa54f25753847361`. The intervening commit contains
+controller/decoder work outside the APK inputs. An explicit diff over the Java,
+Gradle, manifest, wrapper and native input scopes was empty, and per-file APK
+input hashes were identical before/after qualification.
+
+The independently qualified cacheprobe APK is **63,666,936 bytes**, SHA256:
+
+```text
+f4d247f3e24c302a7e8d2431d7ee8c9fccc476909c0d82789ea1f84083ddfd81
+```
+
+Its package is `org.locallore.runtimebench.litert.cacheprobe`, with only the
+expected `org.locallore.runtimebench.litert.CacheProbeInstrumentation` runner.
+The manifest audit found no permissions. This is a new artifact, not the prior
+`0cf4c253...` APK.
+
+Native binaries were reused only after validating the full prior qualified
+`0cf4c253c41483973fd1578837d0ba147a7ed3d6d6cd8eb5818a989e185c09dd`
+APK hash and its frozen build-result library identities. Production Rust inputs
+matched that prior source; the only native-scope delta was an integration test.
+Each extracted Rust ABI library was checked for exact byte identity, expected
+five JNI exports and ELF alignment before staging. All four final SDK/Rust ABI
+library entries remained byte-identical to the prior APK. No Rust rebuild,
+runtime upgrade or model change was performed or claimed.
+
+Actual offline Gradle commands were `:app:assembleDebug :app:testDebugUnitTest
+:app:lintDebug :app:auditLintAnalyzer`, with separate D-volume project/output/temp
+paths, explicit cacheprobe true/playprobe false/phaseprobe false, no SDK/toolchain
+downloads and no daemon. The stage completed successfully in 38 seconds with
+50 actionable tasks, all executed. The bounded outer controller completed in
+42,000 ms with exit 0 and known process cleanup. XML results show **105 tests,
+0 failures, 0 errors, 0 skips**, including all nine new reader methods.
+
+Lint had **0 errors and 9 warnings**: OldTargetApi 1, GradleDependency 1 and
+UsableSpace 7. UsableSpace warnings remain the existing nonreserving capacity
+observations; qualification does not claim storage reservations or guaranteed
+future capacity. Locked SDK/test dependency binary hashes, actual pinned lint
+analyzer/dependency metadata, package/runner/permissions, both ABI ELF/native
+entry inventory and 16-KiB ZIP alignment checks passed.
+
+All attempts were retained. A first controller call requested 600 seconds and
+was refused by the existing maximum-180-second process helper before spawning.
+The next bounded controller exited 1 with known cleanup before output creation
+because the coordinator HEAD advanced from `5123c3c` to `e8ef8e7`; its exact-HEAD
+precondition prevented any build. Its stderr byte count is retained, but that
+helper does not retain stderr contents. The approved subsequent controller
+explicitly bound both revisions and used the unchanged maximum 180-second
+budget. No build/test assertion or timing bound was relaxed.
+
+Private build source, before/after input hashes, old-to-new native provenance,
+all stage commands/logs/results, full JVM XML, lint/analyzer metadata and the
+frozen APK are retained in fresh evidence directories. An immutable file-hash
+index accompanies the handoff. No prior artifact was overwritten or removed.
+This author performed no installation, ADB, device process action, model read or
+SDK inference. Fresh storage admission and any device experiment remain separate
+coordinator gates; APK qualification alone does not authorize or prove them.

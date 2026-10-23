@@ -1,9 +1,11 @@
 # Feasibility helpers
 
-These tools prepare M01; they do not implement real inference or establish phone
-support. Run them from the repository root. Python uses only its standard
-library. PowerShell requires an existing Android platform-tools installation for
-device discovery and never prints serial numbers.
+These tools prepare M01 and do not establish phone support. The inventory and
+aggregate tools use Python's standard library; PowerShell device discovery
+requires existing Android platform-tools and never prints serial numbers.
+The separate [runtime spike](../docs/runtime/spike/README.md) can explicitly run
+verified local models through reviewed development runtimes. Default tests use
+fake subprocesses and SDK mocks, with no model/runtime installation or download.
 
 ```powershell
 python -m unittest discover -s benchmarks -p 'test_*.py' -v
@@ -21,7 +23,8 @@ The aggregate calculator keeps host/physical and cold/warm/sustained profiles
 separate and refuses fake-provider traces. Its unit tests contain invented
 numbers. It is not the application's turn engine or a semantic evaluator. Keep
 failures/incomplete attempts and their denominator in the full benchmark report.
-No completed-turn statistics exist yet.
+The narrow host spike has compatibility observations, separate from this
+calculator and the physical-device/full-turn evaluation protocol.
 
 Read [the source/device report](../docs/runtime/FEASIBILITY_2026-10-22.md) and
 [bounded evaluation protocol](../docs/runtime/EVALUATION_PROTOCOL.md) for exact

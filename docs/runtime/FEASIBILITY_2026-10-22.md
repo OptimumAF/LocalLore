@@ -1,5 +1,12 @@
 # M01 feasibility preparation — 2026-10-22
 
+This preserves the initial source-preparation observations below. Later on the
+same date, the [host runtime spike](spike/README.md) verified local model bytes
+and exercised actual Windows CPU calls. Its evidence supersedes the initial
+"not loaded/downloaded" observations for those exact host artifacts only;
+the original source manifest remains a dated provenance record. No phone
+qualification or production backend selection follows.
+
 Status: **source verification and host tooling only; no production backend selected**.
 M01.01–M01.03 remain incomplete. No model was loaded or benchmarked. No weights
 were downloaded. Exact metadata and source hashes are in

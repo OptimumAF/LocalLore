@@ -1,6 +1,8 @@
 # Privacy contract and threat model
 
-Status: design requirements, not a security certification. No application or security audit exists yet.
+Status: design requirements plus bounded implementation evidence, not a security certification.
+The Rust/fake-inference Android demo and local diagnostics have finite regression
+tests; broader release/privacy qualification remains pending.
 
 ## Local-only contract
 
@@ -54,6 +56,32 @@ A SHA-256 hash verifies correspondence to an expected artifact, not that the pub
 Validate schema versions, reference scope, ancestry, event counts, file sizes, decompression limits, path normalization, and media types before writes. Import into a new namespace transactionally, with collision handling and a safe rollback. Limit native allocations and provide cancellable validation for large files.
 
 ## Consent and diagnostics
+
+The Android demo keeps at most 64 enum/numeric diagnostic records in memory:
+phase, outcome, allowlisted error category and elapsed milliseconds clamped to
+60,000. Its API accepts no story text, prompt, narration, actor/item name,
+story/branch/session ID, URI, path, wall clock, device ID or exception message.
+Unknown native category strings become `UNKNOWN`. The bounded JSON v1 snapshot
+is at most 16 KiB; no diagnostic file or remote report is created by default.
+The ViewModel retains it across rotation and clears it on disposal/process death.
+
+Open **Local diagnostics** to review a frozen snapshot. **Clear** removes its
+memory records and refreshes the preview without changing canonical gameplay.
+**Export JSON** explicitly opens Android's document picker. The writer
+uses exactly the reviewed bytes, a user-selected content URI, no broad storage
+permission and no persistent URI grant. Closing/resetting revokes pending
+consent; an outstanding old picker result cannot authorize a newer snapshot.
+No result without an in-memory pending snapshot can write after process death.
+
+Exports are plaintext. A selected document provider can synchronize them outside
+the device; the app cannot prevent that. Failure/cancellation can leave an empty
+or incomplete file, and clearing diagnostics does not delete exported copies.
+Provider calls and cancellation listeners run off the UI thread. One global
+export slot remains held through descriptor and cancellation cleanup, so a
+noncooperative provider can delay subsequent exports without accumulating
+open/write operations. Cancellation does not guarantee provider termination or
+undo a completed write. See [ADR-0005](adr/0005-local-diagnostic-exports.md) and
+[diagnostic evidence](diagnostics/VERIFICATION_2026-10-22.md).
 
 Benchmark reports and issue templates use original synthetic data. No one should need to upload a personal story to receive basic support. An explicit diagnostic export shows exactly which categories/files will be included. Remove credentials, personal paths, device identifiers, story text, and hidden reasoning by default. Store aggregates rather than persistent full prompts when possible.
 

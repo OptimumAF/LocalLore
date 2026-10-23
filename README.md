@@ -58,6 +58,12 @@ and [host verification evidence](docs/IMPLEMENTATION_EVIDENCE.md). Official-sour
 [runtime preparation](docs/runtime/FEASIBILITY_2026-10-22.md) selects no backend;
 physical-device measurements remain blocked.
 
+A separate [development runtime spike](docs/runtime/spike/README.md) exercises
+verified local model files through actual LiteRT-LM and llama.cpp on Windows
+CPU. It adds no Android inference backend. Host compatibility, strict synthetic
+proposal acceptance and process cleanup do not establish phone support or prose
+quality; those gates remain pending.
+
 ## Run the Android engine demo
 
 The minimal Compose app calls the actual Rust engine through bounded JNI. It
@@ -75,6 +81,11 @@ See [Android build and sample instructions](apps/android/README.md) and
 The [shared check runner/CI instructions](docs/ci/CHECKS.md) document offline
 mode, prerequisites and separate authorized emulator commands. Build/static
 checks do not establish hosted execution or device qualification.
+
+**Local diagnostics** previews a bounded memory-only log of timing/error enums;
+explicit export writes exactly the reviewed JSON through the system picker.
+Exports are plaintext and their selected provider may sync them. See
+[diagnostic verification and limits](docs/diagnostics/VERIFICATION_2026-10-22.md).
 
 ## Initial technical direction
 

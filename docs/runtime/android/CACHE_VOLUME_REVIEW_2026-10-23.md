@@ -1,0 +1,35 @@
+# Independent cache-volume review, 2026-10-23
+
+Refs [#5](https://github.com/OptimumAF/LocalLore/issues/5), M01.05 supporting M01.03. The reviewed finite B slice has no remaining concrete source/evidence discrepancy identified. It establishes a separately backed volume and a model-free descriptor/mapping exercise, with task and owner acceptance pending. It does not establish SDK cache compatibility or inference.
+
+The reviewer inspected source and existing evidence only: no builds, tests, device operations, model access, installation or GitHub mutation. Implementation and execution belong to the coordinator and source/device authors. The review base is `91f32dfdeb3267a2c0cd5fd80e6ff6f3f651c441`; policy source is `4e431a808332311ac26e7d48a98dd7210e1252e8`; qualified harness source is `44cd85f7f21b600e1762eceb7007849d0b8948ab`, integrated as `018747f219a74cfe19ca79ddb4de73d0881e3ff1`.
+
+## Concrete findings and corrections
+
+- A preallocated image can lose guest free space without host free-space loss or growth in inventoried cache files. The policy now independently bounds cache-filesystem net consumption, with an adversarial regression. Host budgets group actual backing identities using the maximum reserve plus summed writes; full provisioning bytes are additional to cache growth.
+- Framework external-directory discovery can create or fix directories. The [Android 15 ContextImpl source](https://android.googlesource.com/platform/frameworks/base/+/android-15.0.0_r1/core/java/android/app/ContextImpl.java) supports the corrected description of inspect as bounded setup plus metadata, rather than allocation-free observation.
+- Descriptor restoration failures could be suppressed by a body exception. The independent uncertainty flag now covers restoration, constructor rollback and temporary sink closure; uncertain ownership prevents normal completion. This was source-reviewed, not an injected OS failure measurement.
+- Python 3.9 lacks the newer junction convenience API. The output guard now checks Windows reparse attributes through all ancestors and resolved-path equality; Gradle also checks resolved output identity. Bounded, no-follow marker reads replace an unbounded check-then-read.
+- The trusted framework userdata alias is canonicalized. Refresh checks actual userdata device, exact external cache/files paths, UUID and cache device before model factory access and after completion. Drift regressions are synthetic/JVM checks, not actual remount or hostile replacement tests.
+
+The wrapper retains the original result/error independently of storage verdicts. A rejected or invalid preflight dispatches nothing; exceptions or unknown process/client ownership suppress dependent post sampling. Supplied samples do not authenticate backing or establish freshness. No legacy call site is automatically fenced, and the allowance is neither a quota nor a proven SDK maximum.
+
+## Artifact and evidence audit
+
+The [results](CACHE_VOLUME_RESULTS_2026-10-23.json) bytes independently hash to `417b2b8a1186ff5a188cf34aa92acb5be323f5c0e223c20a62752d5bfd2ffe1b`. All ten tested-source byte hashes match the coordinator checkout. All 150 private evidence bindings (66 sealed device entries plus 84 coordinator/build entries, with possible overlap) match recorded sizes and hashes, and their public projection contains only IDs, sizes and hashes. The sealed device index and sanitized handoff agree with the aggregate. Live image/overlay/log files are explicitly excluded from immutable indexing.
+
+The frozen APK is 63,598,424 bytes, SHA256 `50e6e60cfdb2194272d31cf651805f34452ae09a04443558049020664f60d107`. Its separate package, sole instrumentation, zero permissions, four packaged libraries across two ABIs and alignment audits are recorded. Unstripped native inputs match their reuse ledger; packaged stripped identities are separately labeled. The third qualification rebuilt Java/APK using a copied, audited unchanged native pair, rather than a third Rust rebuild. Both earlier build failures remain: Kotlin DSL File shadowing and an incorrect SDK logging import, neither reaching JVM tests. The legacy problems-report observation has unknown prior identity and is not represented as a preserved original.
+
+Independent XML/log readback confirms 62 JVM tests across six suites, zero failures/errors/skips, including nine CacheVolume tests; lint has zero errors and eight warnings (OldTargetApi one, GradleDependency one, UsableSpace six). Coordinator logs record 213 script tests including the 25 focused policy tests, 140 benchmark tests and 33 helper tests passing. These are existing execution records, not reviewer reruns. Actual negative Gradle executions and live unknown-descriptor/model-owner fault injection were not performed.
+
+## Actual device boundary
+
+The retained preparation proves B-only creation of a fresh 8GiB image, exact original configuration backups, one intentional SD setting change and one graceful restart with original emulator identity. A remained unchanged. The initial unmounted observation and later mounted public-volume proof are both retained; no manual mount, format or reboot retry is claimed. Original 21-package maps and protected model/cache metadata match preflight. B adds only the exact new package, while A remains at 21. Metadata preservation is not a refreshed full model or save-content hash.
+
+Independent journal parsing finds 615 metadata/attachment and 146 app commands: 761 completed with recorded cleanup, 753 exit zero and eight retained nonzero diagnostics. Those include four boot polls whose stderr text was not retained; their exact cause is unestablished. The unsuccessful final sysfs size read is distinct from successful mounted-volume df output. No all-commands-success claim is warranted.
+
+The actual instrumentation stdout contains exactly three inspect results and one mmap result, each equal to saved JSON with terminal code -1 and host exit zero. The single admitted wrapper callback wrote and descriptor-read-verified 65,536 synthetic bytes, mapped/unmapped, closed and removed its exclusive file. A 34-byte ownership marker remains. The instrumentation post sample and later wrapper sample are distinct observations; both wrapper verdicts admit, with zero userdata net consumption and 8,192 bytes net cache-filesystem consumption. SDK engine/conversation counts remain zero. Final recorded process/client checks are clean and leases released.
+
+**No mapped-pointer or tensor read, SDK initialization, model read/copy, inference or SQLite play occurred.** The result qualifies this finite mapping lifecycle only. A remains below the userdata reserve. Original 715/e7 artifact/policy, earlier integrity observations and their unresolved causes are unchanged.
+
+The next useful task is fresh model/source integrity and an exclusively owned, fully budgeted and verified external-file copy for the new B artifact, followed by the bounded explicit-cache SDK control with fresh admission and ownership checks. Actual SDK cache growth, model cancellation, ARM64/physical-phone execution, sustained resource behavior and full M01 acceptance remain unverified.

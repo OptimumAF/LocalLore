@@ -164,6 +164,30 @@ the earlier unexplained transients separately from this follow-up.
 
 ## Bounds and authority
 
+The separate [cache-volume experiment](CACHE_VOLUME_VERIFICATION_2026-10-23.md)
+adds an opt-in cache destination and a volume-aware policy. It has a different
+package/artifact identity; it is not the original installed SDK control. Keep
+its model and generated cache on an explicitly selected framework-returned
+independent volume, with canonical saves in app-private userdata. No automatic
+internal-directory fallback is allowed. Merely choosing an external-looking
+path does not prove independent storage.
+
+For policy assessment only:
+
+```powershell
+python -B benchmarks/android_cache_volume.py --sample <fresh-private-storage.json> --volume-uuid <exact-selected-uuid> --model-copy-bytes 0
+```
+
+Exit0 means the supplied sample meets this experiment's budgets; exit2 means a
+policy refusal and exit1 means invalid/failed input. This command does not collect
+evidence, start a controller, provision weights or authenticate a backing-volume
+assertion. The trusted caller must map actual guest/host filesystems and sample
+once per host filesystem, preserving fresh APK/model/owner evidence separately.
+`run_with_admission` wraps one whole callback with pre/post observations; unknown
+ownership suppresses every post read and must fence later dependent work. Preserve
+the original result/accepted receipt independently of the storage verdict. The
+new budgets do not retroactively pass the old userdata/host admission gate.
+
 The native [process owner](../../../benchmarks/spike/android/controller/README.md)
 owns/reaps one trusted direct child. An ADB-client exit is never native cleanup
 evidence. Package termination is limited to the hash-verified isolated SDK app;

@@ -11,6 +11,15 @@ fn main() {
             .windows_attributes(tauri_build::WindowsAttributes::new().window_icon_path(&icon))
             .app_manifest(tauri_build::AppManifest::new().commands(&[
                 "host_call",
+                "evaluation_catalog",
+                "evaluation_start",
+                "evaluation_open",
+                "evaluation_status",
+                "evaluation_read",
+                "evaluation_cancel",
+                "evaluation_resume",
+                "evaluation_rerun",
+                "harness_evaluation_case",
                 "model_status",
                 "model_import",
                 "model_load",

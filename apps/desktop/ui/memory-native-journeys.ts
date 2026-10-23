@@ -4,8 +4,9 @@ import type {Controller} from "./controller";
 import type {MemoryMaintenanceController,MemoryAction} from "./memory-maintenance-controller";
 import type {BrokerRetention} from "./broker-retention";
 import {structural,type ErrorBuffer} from "./model";
+import type {FaultGateway} from "./journeys";
 type Invoke=(command:string,args?:Record<string,unknown>)=>Promise<unknown>;
-export async function memoryNativeJourneys({controller:c,maintenance:m,brokerRetention:retention,errors,invoke,dispose,config}:{controller:Controller;maintenance:MemoryMaintenanceController;brokerRetention:BrokerRetention;errors:ErrorBuffer;invoke:Invoke;dispose:()=>Promise<void>;config:{stage:string}}) {
+export async function memoryNativeJourneys({controller:c,maintenance:m,brokerRetention:retention,gateway,errors,invoke,dispose,config}:{controller:Controller;maintenance:MemoryMaintenanceController;brokerRetention:BrokerRetention;gateway:FaultGateway;errors:ErrorBuffer;invoke:Invoke;dispose:()=>Promise<void>;config:{stage:string}}) {
     const checks:string[]=[];let current="memory-start";
     const check=(value:unknown,label:string)=>{current=label;if(!value)throw Error(label);checks.push(label);};
     const pause=()=>new Promise(r=>setTimeout(r,25));
@@ -53,7 +54,13 @@ export async function memoryNativeJourneys({controller:c,maintenance:m,brokerRet
             await capture("memory-native-switched");c.setView("play");
             await c.resume({story:"memory-controls-other",branch:"main"});check(m.get().reply===null&&m.get().context?.expected_head===0,"session-switch-never-installs-original-job-metadata");await capture("memory-native-other");
             await c.resume({story:"memory-controls-synthetic",branch:"main"});await action("status");
-            c.setFakeMode("delayed");c.setAction("wait");const turn=c.send();await until(()=>c.get().pending?.stage==="generating");await m.act("step");check(m.get().error==="Busy"&&m.get().uncertain,"queued-turn-blocks-memory-mutation-with-honest-busy");await capture("memory-native-turn-busy");await c.cancel();await turn;c.setFakeMode("accepted");await action("status");
+            // Hold the actual successful native Prepare acknowledgement before
+            // frontend Commit. A wall-clock delayed provider could finish while
+            // CapturePreview runs and accidentally commit this synthetic turn.
+            let release!:()=>void,ready!:()=>void;
+            const held={entered:new Promise<void>(r=>{ready=r;}),waiting:new Promise<void>(r=>{release=r;}),ready:()=>ready(),release:()=>release()};
+            gateway.heldPrepare=held;c.setAction("wait");const turn=c.send();await held.entered;
+            await m.act("step");check(m.get().error==="Busy"&&m.get().uncertain,"queued-turn-blocks-memory-mutation-with-honest-busy");await capture("memory-native-turn-busy");await c.cancel();held.release();await turn;await action("status");
             await action("step");check(m.get().reply?.maintenance.job?.status==="complete"&&m.get().reply?.maintenance.job?.next_from===1,"one-explicit-chunk-completes-fixed-history");await capture("memory-native-complete");
             await invoke("harness_viewport",{preset:"capture-narrow"});await capture("memory-native-narrow");
             check(structural(c.get().play)===before&&structural(c.get().play?.receipts)===receiptBefore,"maintenance-never-mutates-canon-player-context-or-receipts");

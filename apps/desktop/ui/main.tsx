@@ -232,7 +232,7 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
                   : driver.journeys;
     if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.maintaining) {
         const {memoryNativeJourneys}=await import("./memory-native-journeys");
-        await memoryNativeJourneys({controller,maintenance,brokerRetention,errors,invoke,dispose,config:window.__LOCALLORE_TEST__});
+        await memoryNativeJourneys({controller,maintenance,brokerRetention,gateway:gateway as InstanceType<typeof driver.FaultGateway>,errors,invoke,dispose,config:window.__LOCALLORE_TEST__});
     } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.forking) {
         const { forkNativeJourneys } = await import("./fork-native-journeys");
         await forkNativeJourneys({

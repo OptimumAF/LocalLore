@@ -12,8 +12,8 @@ use std::{
 };
 
 pub const PLAY_VERSION: u16 = 2;
-pub const NARRATION_POLICY: &str = "grounded-prose-v2.0";
-pub const PROMPT_VERSION: &str = "locallore-play-v2.0";
+pub const NARRATION_POLICY: &str = "grounded-prose-v2.1";
+pub const PROMPT_VERSION: &str = "locallore-play-v2.1";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -90,7 +90,11 @@ pub struct PlayRecord {
     pub stages: Vec<StageTiming>,
 }
 
-pub(crate) fn validate_interpretation(request: &Request, proposal: &Proposal) -> Result<(), Error> {
+pub(crate) fn validate_interpretation(
+    engine: &Engine,
+    request: &Request,
+    proposal: &Proposal,
+) -> Result<(), Error> {
     let Intent::FreeText { kind, text } = &request.intent else {
         return Err(Error::Agency);
     };
@@ -115,7 +119,7 @@ pub(crate) fn validate_interpretation(request: &Request, proposal: &Proposal) ->
             }) {
                 Err(Error::Agency)
             } else {
-                Ok(())
+                crate::intent_guard::validate_action(engine, request, proposal)
             }
         }
     }
@@ -389,6 +393,11 @@ pub fn execute(
     let Intent::FreeText { kind, text } = &request.intent else {
         return Err(Error::Agency);
     };
+    if matches!(kind, PlayInputKind::Action) {
+        // Refuse unsupported/ambiguous syntax before spending model work. The
+        // generated proposal must match again during preview, commit and replay.
+        crate::intent_guard::compile_action(engine, text)?;
+    }
     let started = Instant::now();
     let mut stages = Vec::new();
     let context =

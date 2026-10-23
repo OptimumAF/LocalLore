@@ -6,5 +6,6 @@ pub mod host;
 pub mod inference;
 #[cfg(feature = "host")]
 pub mod inspection;
+pub mod intent_guard;
 pub mod play;
 pub mod scope;

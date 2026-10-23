@@ -133,7 +133,7 @@ fn main() {
         profile_manifest_sha256: runtime.profile_manifest_sha256(),
         context_tokens: 4096,
         director_tokens: 350,
-        narrator_tokens: 220,
+        narrator_tokens: 350,
         deadline_ms: 120_000,
         repair_limit: 1,
     };
@@ -222,6 +222,15 @@ fn main() {
         (PlayInputKind::Action, "I wait for one tide tick."),
         Some(50),
     ));
+    results.push(scenario(
+        &mut store,
+        runtime.clone(),
+        &profile,
+        &scope,
+        "literal-unavailable-ability",
+        (PlayInputKind::Action, "I use ability teleport."),
+        None,
+    ));
     let final_engine = store.resume(&scope).unwrap().engine;
     let history: Vec<_> = final_engine
         .receipts()
@@ -252,6 +261,9 @@ fn main() {
         .iter()
         .any(|error| results[2]["outcome"]["error"] == *error)
         && results[4]["outcome"]["error"] == "Cancelled";
+    let mechanical_ability_refusal =
+        results[5]["unchanged"] == true && results[5]["outcome"]["error"] == "Ability";
+    let scene_pass = scene_pass && mechanical_ability_refusal;
     let report = json!({"synthetic":true,"execution":"native CPU worker plus shared Rust engine/store; no desktop IPC or render","profile":profile,"load":load,"scene_pass":scene_pass,"gift_committed":gift_committed,"restart_equal":restarted_equal,"exact_retry_without_inference":exact_retry,"speaker_scoped_secret":speaker_scoped,"replay_without_inference":replay_equal,"results":results,"total_ms":overall.elapsed().as_millis(),"quality_accepted":false,"network_blocked":false});
     std::fs::write(
         output.join("report.json"),

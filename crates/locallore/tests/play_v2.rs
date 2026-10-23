@@ -144,19 +144,27 @@ fn real_contract_records_original_free_text_and_generated_prose_then_replays_wit
 
 #[test]
 fn semantic_mechanical_rejection_does_not_ask_narrator_or_repair_away_an_invalid_action() {
-    for (command, error) in [
+    for (text, command, error) in [
         (
+            "I use ability invented-teleport.",
             json!({"op":"use_ability","ability":"invented-teleport"}),
             Error::Ability,
         ),
         (
+            "I give invented-sword to Mira.",
             json!({"op":"give","item":"invented-sword","to":"mira","quantity":1}),
             Error::Inventory,
         ),
     ] {
         let mut e = engine();
         let before = e.canonical_bytes();
-        let r = request(&e);
+        let r = e.request(
+            "unavailable-action",
+            Intent::FreeText {
+                kind: PlayInputKind::Action,
+                text: text.into(),
+            },
+        );
         let mut p = Script::new(vec![json!({"commands":[command]}), prose()]);
         assert_eq!(
             play::execute(&mut e, &r, &mut p, &Cancellation::default(), &profile()),

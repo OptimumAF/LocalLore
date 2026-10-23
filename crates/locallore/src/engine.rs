@@ -253,7 +253,7 @@ impl Engine {
             return Err(Error::Rule);
         }
         if matches!(request.intent, Intent::FreeText { .. }) {
-            crate::play::validate_interpretation(request, proposal)?;
+            crate::play::validate_interpretation(self, request, proposal)?;
         } else if Self::proposal(request)?.commands != proposal.commands {
             return Err(Error::Agency);
         }

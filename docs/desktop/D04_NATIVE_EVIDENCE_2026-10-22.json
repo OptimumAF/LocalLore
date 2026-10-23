@@ -1,0 +1,513 @@
+{
+  "synthetic": true,
+  "passed": true,
+  "desktopControl": false,
+  "actualProcessRestart": true,
+  "sourceRevision": "7c66260ada2c7b97527437b5c846c027f3f11d3a",
+  "sourceDirty": false,
+  "captures": 10,
+  "checks": [
+    "real-native-durable-workspace",
+    "model-starts-unloaded-no-silent-fallback",
+    "existing-owned-import-reused-without-second-model-copy",
+    "native-model-hash-load-cancel-keeps-host-unconfigured",
+    "actual-fixed-packaged-worker-loads-approved-model",
+    "loaded-worker-provenance-is-verified",
+    "explicit-real-cpu-profile-selected",
+    "pending-model-output-is-noncanonical",
+    "real-free-text-potion-committed",
+    "real-potion-spent-once",
+    "real-receipt-records-v2-profile-and-policy",
+    "lost-native-commit-ack-resolves-one-original-v2-receipt",
+    "real-double-spend-never-adds-event",
+    "real-explicit-dialogue-committed",
+    "real-unlearned-ability-cannot-mutate-canon",
+    "unsupported-teleport-asks-clarification-without-alternate-effect",
+    "supported-unlearned-ability-is-refused-by-engine",
+    "real-generation-cancel-leaves-canon-unchanged",
+    "absent-npc-inspection-excludes-secret",
+    "new-story-isolates-real-history",
+    "original-real-story-retains-canonical-head",
+    "unload-never-selects-fake-profile",
+    "unloaded-real-play-has-actionable-error",
+    "model-can-recover-by-explicit-reload",
+    "imported-model-retained-after-real-process-restart",
+    "real-turn-save-in-library-after-restart",
+    "real-spent-potion-still-spent-after-restart",
+    "v2-provenance-restores-without-loaded-model",
+    "exact-original-real-key-resolves-saved-receipt-without-loaded-model",
+    "real-restart-model-unloads-cleanly",
+    "unload-does-not-rewrite-saved-history"
+  ],
+  "reports": [
+    {
+      "stage": "initial",
+      "report": {
+        "checks": [
+          "real-native-durable-workspace",
+          "model-starts-unloaded-no-silent-fallback",
+          "existing-owned-import-reused-without-second-model-copy",
+          "native-model-hash-load-cancel-keeps-host-unconfigured",
+          "actual-fixed-packaged-worker-loads-approved-model",
+          "loaded-worker-provenance-is-verified",
+          "explicit-real-cpu-profile-selected",
+          "pending-model-output-is-noncanonical",
+          "real-free-text-potion-committed",
+          "real-potion-spent-once",
+          "real-receipt-records-v2-profile-and-policy",
+          "lost-native-commit-ack-resolves-one-original-v2-receipt",
+          "real-double-spend-never-adds-event",
+          "real-explicit-dialogue-committed",
+          "real-unlearned-ability-cannot-mutate-canon",
+          "unsupported-teleport-asks-clarification-without-alternate-effect",
+          "supported-unlearned-ability-is-refused-by-engine",
+          "real-generation-cancel-leaves-canon-unchanged",
+          "absent-npc-inspection-excludes-secret",
+          "new-story-isolates-real-history",
+          "original-real-story-retains-canonical-head",
+          "unload-never-selects-fake-profile",
+          "unloaded-real-play-has-actionable-error",
+          "model-can-recover-by-explicit-reload"
+        ],
+        "errors": [
+          {
+            "category": "Cancelled",
+            "source": "native"
+          },
+          {
+            "category": "Cancelled",
+            "source": "frontend"
+          },
+          {
+            "category": "Inventory",
+            "source": "native"
+          },
+          {
+            "category": "ClarificationRequired",
+            "source": "native"
+          },
+          {
+            "category": "Ability",
+            "source": "native"
+          },
+          {
+            "category": "Cancelled",
+            "source": "native"
+          },
+          {
+            "category": "Cancelled",
+            "source": "native"
+          },
+          {
+            "category": "Cancelled",
+            "source": "native"
+          },
+          {
+            "category": "ModelUnavailable",
+            "source": "frontend"
+          }
+        ],
+        "measurements": [
+          {
+            "elapsed_ms": 10850,
+            "error": null,
+            "stage": "model_load"
+          },
+          {
+            "elapsed_ms": 4652,
+            "error": null,
+            "phase": "committed",
+            "receipt": {
+              "events": [
+                {
+                  "outcome": {
+                    "effect": "given",
+                    "from": "player",
+                    "item": "potion",
+                    "quantity": 1,
+                    "to": "mira"
+                  },
+                  "participants": [
+                    "mira",
+                    "player"
+                  ],
+                  "rules": "fantasy_v1",
+                  "scope": {
+                    "branch": "main",
+                    "story": "quay-f5907a1229f432f42edbd7d852939762"
+                  },
+                  "seed": "lantern-quay-v1",
+                  "sequence": 1,
+                  "story_time": 100,
+                  "turn": "desktop-127046a3-9264-4cc2-a7cc-6afcf30e371e-1",
+                  "version": 1,
+                  "witnesses": [
+                    "mira",
+                    "player"
+                  ]
+                }
+              ],
+              "narration": "You give 1 potion to mira.",
+              "play": {
+                "fallback": true,
+                "narration": {
+                  "event_ids": [
+                    1
+                  ],
+                  "speaker": "narrator",
+                  "text": "You give 1 potion to mira."
+                },
+                "policy": "grounded-prose-v2.1",
+                "profile": {
+                  "context_tokens": 4096,
+                  "deadline_ms": 120000,
+                  "director_tokens": 350,
+                  "id": "qwen3-0.6b-q8-cpu-v1",
+                  "model_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+                  "narrator_tokens": 350,
+                  "profile_manifest_sha256": "01ad542001b04a96f4a8ed6c841be1866eb025350836e0c5d0a4969fdb361d38",
+                  "repair_limit": 1,
+                  "runtime_revision": "620d2225cc436ab0b001e3200e590e3b286ef9ab",
+                  "template_sha256": "57f1fd00f0013a2be96aa79b857391f27e23df5b5f847072b524c897e24d0361",
+                  "worker_sha256": "eda393e923ddfd03ea57d91741d8f7948d1a4af13deb90c7d6c90c492e63ff58"
+                },
+                "prompt_version": "locallore-play-v2.1",
+                "repairs": 0,
+                "stages": [
+                  {
+                    "elapsed_ms": 2782,
+                    "stage": "director"
+                  },
+                  {
+                    "elapsed_ms": 0,
+                    "stage": "validation"
+                  },
+                  {
+                    "elapsed_ms": 1972,
+                    "stage": "narrator"
+                  },
+                  {
+                    "elapsed_ms": 0,
+                    "stage": "narration_validation"
+                  },
+                  {
+                    "elapsed_ms": 4756,
+                    "stage": "total"
+                  }
+                ],
+                "version": 2
+              },
+              "proposal": {
+                "commands": [
+                  {
+                    "item": "potion",
+                    "op": "give",
+                    "quantity": 1,
+                    "to": "mira"
+                  }
+                ],
+                "expected_revision": 0,
+                "scope": {
+                  "branch": "main",
+                  "story": "quay-f5907a1229f432f42edbd7d852939762"
+                },
+                "turn": "desktop-127046a3-9264-4cc2-a7cc-6afcf30e371e-1",
+                "version": 1
+              },
+              "request": {
+                "expected_revision": 0,
+                "intent": {
+                  "kind": "free_text",
+                  "value": {
+                    "kind": "action",
+                    "text": "I give my last potion to Mira."
+                  }
+                },
+                "scope": {
+                  "branch": "main",
+                  "story": "quay-f5907a1229f432f42edbd7d852939762"
+                },
+                "turn": "desktop-127046a3-9264-4cc2-a7cc-6afcf30e371e-1",
+                "version": 1
+              }
+            },
+            "stage": "potion"
+          },
+          {
+            "elapsed_ms": 45,
+            "error": "Inventory",
+            "phase": "failed",
+            "receipt": null,
+            "stage": "double-spend"
+          },
+          {
+            "elapsed_ms": 5039,
+            "error": null,
+            "phase": "committed",
+            "receipt": {
+              "events": [
+                {
+                  "outcome": {
+                    "audience": [
+                      "mira"
+                    ],
+                    "effect": "said",
+                    "source": 2,
+                    "speaker": "player",
+                    "text": "The lantern code is SYNTHETIC_AMBER_FINCH."
+                  },
+                  "participants": [
+                    "mira",
+                    "player"
+                  ],
+                  "rules": "fantasy_v1",
+                  "scope": {
+                    "branch": "main",
+                    "story": "quay-f5907a1229f432f42edbd7d852939762"
+                  },
+                  "seed": "lantern-quay-v1",
+                  "sequence": 2,
+                  "story_time": 100,
+                  "turn": "desktop-127046a3-9264-4cc2-a7cc-6afcf30e371e-3",
+                  "version": 1,
+                  "witnesses": [
+                    "mira",
+                    "player"
+                  ]
+                }
+              ],
+              "narration": "Your words are heard by the chosen listeners.",
+              "play": {
+                "fallback": true,
+                "narration": {
+                  "event_ids": [
+                    2
+                  ],
+                  "speaker": "narrator",
+                  "text": "Your words are heard by the chosen listeners."
+                },
+                "policy": "grounded-prose-v2.1",
+                "profile": {
+                  "context_tokens": 4096,
+                  "deadline_ms": 120000,
+                  "director_tokens": 350,
+                  "id": "qwen3-0.6b-q8-cpu-v1",
+                  "model_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+                  "narrator_tokens": 350,
+                  "profile_manifest_sha256": "01ad542001b04a96f4a8ed6c841be1866eb025350836e0c5d0a4969fdb361d38",
+                  "repair_limit": 1,
+                  "runtime_revision": "620d2225cc436ab0b001e3200e590e3b286ef9ab",
+                  "template_sha256": "57f1fd00f0013a2be96aa79b857391f27e23df5b5f847072b524c897e24d0361",
+                  "worker_sha256": "eda393e923ddfd03ea57d91741d8f7948d1a4af13deb90c7d6c90c492e63ff58"
+                },
+                "prompt_version": "locallore-play-v2.1",
+                "repairs": 0,
+                "stages": [
+                  {
+                    "elapsed_ms": 3149,
+                    "stage": "director"
+                  },
+                  {
+                    "elapsed_ms": 0,
+                    "stage": "validation"
+                  },
+                  {
+                    "elapsed_ms": 1792,
+                    "stage": "narrator"
+                  },
+                  {
+                    "elapsed_ms": 0,
+                    "stage": "narration_validation"
+                  },
+                  {
+                    "elapsed_ms": 4942,
+                    "stage": "total"
+                  }
+                ],
+                "version": 2
+              },
+              "proposal": {
+                "commands": [
+                  {
+                    "audience": [
+                      "mira"
+                    ],
+                    "op": "say",
+                    "text": "The lantern code is SYNTHETIC_AMBER_FINCH."
+                  }
+                ],
+                "expected_revision": 1,
+                "scope": {
+                  "branch": "main",
+                  "story": "quay-f5907a1229f432f42edbd7d852939762"
+                },
+                "turn": "desktop-127046a3-9264-4cc2-a7cc-6afcf30e371e-3",
+                "version": 1
+              },
+              "request": {
+                "expected_revision": 1,
+                "intent": {
+                  "kind": "free_text",
+                  "value": {
+                    "kind": "dialogue",
+                    "text": "The lantern code is SYNTHETIC_AMBER_FINCH."
+                  }
+                },
+                "scope": {
+                  "branch": "main",
+                  "story": "quay-f5907a1229f432f42edbd7d852939762"
+                },
+                "turn": "desktop-127046a3-9264-4cc2-a7cc-6afcf30e371e-3",
+                "version": 1
+              }
+            },
+            "stage": "secret"
+          },
+          {
+            "elapsed_ms": 40,
+            "error": "ClarificationRequired",
+            "phase": "failed",
+            "receipt": null,
+            "stage": "invalid"
+          },
+          {
+            "elapsed_ms": 73,
+            "error": "Ability",
+            "phase": "failed",
+            "receipt": null,
+            "stage": "known-unlearned-ability"
+          },
+          {
+            "elapsed_ms": 10557,
+            "error": null,
+            "stage": "model_reload"
+          }
+        ],
+        "passed": true,
+        "stage": "initial",
+        "synthetic": true
+      }
+    },
+    {
+      "stage": "restart",
+      "report": {
+        "checks": [
+          "real-native-durable-workspace",
+          "model-starts-unloaded-no-silent-fallback",
+          "imported-model-retained-after-real-process-restart",
+          "real-turn-save-in-library-after-restart",
+          "real-spent-potion-still-spent-after-restart",
+          "v2-provenance-restores-without-loaded-model",
+          "exact-original-real-key-resolves-saved-receipt-without-loaded-model",
+          "actual-fixed-packaged-worker-loads-approved-model",
+          "loaded-worker-provenance-is-verified",
+          "explicit-real-cpu-profile-selected",
+          "real-restart-model-unloads-cleanly",
+          "unload-does-not-rewrite-saved-history"
+        ],
+        "errors": [],
+        "measurements": [
+          {
+            "elapsed_ms": 10171,
+            "error": null,
+            "stage": "model_load"
+          }
+        ],
+        "passed": true,
+        "stage": "restart",
+        "synthetic": true
+      }
+    }
+  ],
+  "inputSHA256": {
+    "ui/controller.ts": "6e8bd0921605eb26f4fbee3d7eb758d2719ac241f66da8a88a233c0bec3469d5",
+    "ui/model.ts": "0e97394ea2bce7d226642dacacf4b445edc77c21c8147eae8352b89af2bf675f",
+    "ui/model-journeys.ts": "245834c4e2efac582544bce3a05b398f36a0f8a5ef5b230950379e9f0e289c07",
+    "ui/ModelPanel.tsx": "aa0cf996bd64485d9ab0071c0ffc0a05a1f19b6f65d4712b5008a09e488adb18",
+    "src-tauri/src/models.rs": "e2333aab5410bb86214dcabbd82690fe6a370c417f39dabf55f994779b889581",
+    "src-tauri/src/model_commands.rs": "5da9ddb1ba7b883733febee9a49c1acbb2a6eb5cab92f3341cead0c1a0debc01",
+    "ui/App.tsx": "5377045d5abf4d0d7c0198c23798ddb061c8f3f50dd615302f332d76a327b335",
+    "ui/main.tsx": "61c8b5afdfafde204752d31a16eef9d79e3e2bdd8e45f03ad632b1b714fb28a7",
+    "src-tauri/src/main.rs": "c967f8be9b48feb9448a89fbd11734a8c185fbdf2ca22e8eb9040b50047286dd",
+    "src-tauri/Cargo.lock": "b71f155d6d16743858c24e9e3056648029504fed74f69c28843741b9fb14579f",
+    "src-tauri/Cargo.toml": "a44c4cdbcfcfef3500ac414d8df130006e8d28b0d4d19f27390a8028e2aea74a",
+    "host-v1.schema.json": "c995e40aba9ecf6709b53c3edba38ee8fa2baa9cc01dcf0c9cbeac538d8e1bab",
+    "dist/app.js": "8a4b8b4aee800c6abd9a26016881eab6b97b1d91156f969fd7f3e58dceea55e4",
+    "<native-target>/debug/locallore-desktop-spike.exe": "580047d06fccc31b9649dd49fb8be070c8bf4137fbcf897af02eece3567a28b2",
+    "src-tauri/src/test_bridge.rs": "4399f40459d6ae850cfa41ba57a1b2d3ccc93611c3cf6398d70de4143d7661ba",
+    "src-tauri/src/harness.rs": "a80c801c28531640a07e6d8386b1684218ecf7aeb577fa2a4d8546e040c5bfbf",
+    "src-tauri/src/lease.rs": "6618d0d2a31df5ac482db454d707d1534ea4bc971395dd59c1ea5524b6b75e26",
+    "ui/host.generated.ts": "54ff1f7dba3f565e3cdf4f377d21ade9e62829cacc195844fdaa952720a9f9c4",
+    "model-harness.mjs": "d709c978d3f45c6e45e2230c284fa3485ab360524e7aae5d6b3bdd4ece4b94d8",
+    "stage-runtime.mjs": "bcd9199bc601395f2d0093dbdfc423f3db92bb4bf17f2c58fb977760293ff858",
+    "../../crates/locallore/src/play.rs": "b3fb83521232c637f8429eb4ef54acea298f32328af27a45c082dac8b7e55ef2",
+    "../../crates/locallore/src/contracts.rs": "756ed270862c2ecbeabd7fb95910a3733a909083db3690811cbe811b420c195f",
+    "../../crates/locallore/src/engine.rs": "8ef97067bcf6ba7944d736f940cc672b7fd5e7e66c369904cd409ed833f66a68",
+    "../../crates/locallore/src/intent_guard.rs": "73c7ffc802db877db2926da365ebc93e78450c17024fa76fcd962ae36f80fd6f",
+    "../../crates/locallore-local-runtime/src/lib.rs": "3b061036756cc926e023b164e4eea077054cd11d3e0ba90bc6582e013937970d",
+    "../../crates/locallore-local-runtime/src/adapter.rs": "6089dcd48cd0bf345d297bf2d22c5f85c3797c84523d6d5f786f058fe6f44f04",
+    "../../native/llama-worker/profile-v1.json": "77ca04648f1d1a232b2f950d71d5e489494145e314a56a0d9a9fdb1cb1eb9d80",
+    "../../native/llama-worker/main.cpp": "d3ef445437893d89a146224e94e35909dc5743b9eaeaddb7172bfb18db8a40d6",
+    "../../native/llama-worker/schema_order.h": "1c20912fc7625bf689338ba4c84a9136351f61f93c4b5613c44e8304cb52e0bc",
+    "../../native/llama-worker/generate.inc": "55456ba808e2334125a74f5f6437bb562735cf1dbb7b6de2f5a297ae2b6250d2",
+    "src-tauri/runtime/locallore-llama-worker.exe": "eda393e923ddfd03ea57d91741d8f7948d1a4af13deb90c7d6c90c492e63ff58",
+    "../../crates/locallore/src/host.rs": "baf5f1eed019d4d572e8573f78d272711950685d9f86dcf0699131c26ff49df4",
+    "../../crates/locallore-workspace/src/lib.rs": "98ec8c57528b87bdc2d420af58f3fa41ec168be52b05eacf0e8f8fc960fce76e",
+    "../../crates/locallore-storage/src/catalog.rs": "ef893b10589569527bee213a8197173397ecb696a85a34fffcead40529f13cfc",
+    "../../crates/locallore-storage/src/turns.rs": "704d0920553513a5b8a4cc774a9909e83f56c04bdd6dd62c84b745b680fc1134"
+  },
+  "qualification": {
+    "app_plumbing_passed": true,
+    "narration_quality_qualified": false,
+    "network_blocked_verified": false,
+    "sustained_performance_qualified": false,
+    "release_qualified": false,
+    "committed_turns": 2,
+    "safe_narration_fallbacks": 2
+  },
+  "artifact_directory": "desktop-artifacts/model-native-a3f9428d-541a-4b04-922c-4159ec0be4b1 (task-owned D drive, local only)",
+  "source_summary_sha256": "2b64aada2efc8bd4f1008d280475329db03bb5bd1436630a34e236ee07c90293",
+  "regressions": [
+    {
+      "artifact_directory": "apps/desktop/artifacts/native-d5804a33-ea6c-44a5-9024-3c154038c374",
+      "summary_sha256": "cdd5a17ed8d0b6d10a7eb55cf96aa10eb3e0d9366a331b6327630ea19d4669c7",
+      "source_revision": "800b645817ec625190286a29ce8c184131f68459",
+      "source_dirty": false,
+      "passed": true,
+      "assertions": 163,
+      "captures": 21,
+      "publications": 0
+    },
+    {
+      "artifact_directory": "apps/desktop/artifacts/headless-da46b4d3-1756-4bee-a212-c20472c8904b",
+      "summary_sha256": "01b2885233d7400a96013bf2db9e767cb064ab1c15a77526c6e5c75f0bc662e7",
+      "source_revision": "800b645817ec625190286a29ce8c184131f68459",
+      "source_dirty": false,
+      "passed": true,
+      "assertions": 163,
+      "captures": 21,
+      "publications": 0
+    },
+    {
+      "artifact_directory": "apps/desktop/artifacts/durable-native-3862d999-358e-4c82-ac1f-006dfae06201",
+      "summary_sha256": "596f6d02aec4b3ab22a1de94f3c7d201958888f18a9bea5d6dd077f267efea68",
+      "source_revision": "7c66260ada2c7b97527437b5c846c027f3f11d3a",
+      "source_dirty": true,
+      "passed": true,
+      "assertions": 33,
+      "captures": 11,
+      "publications": 0,
+      "dirty_note": "Formatting-only schema/CSS edits present when launcher recorded dirty status; committed c448672. Model journey uses clean source."
+    },
+    {
+      "artifact_directory": "apps/desktop/artifacts/export-native-d1df4500-de6a-429d-82c2-e7dd124bd799",
+      "summary_sha256": "7a1a3a9ec192e30b5bdb69c9e69025b5ac55d00f39c00b94bde69a5a77d00285",
+      "source_revision": "a8c4632428d623ed98d7e9766c04e829b3d19c95",
+      "source_dirty": false,
+      "passed": true,
+      "assertions": 36,
+      "captures": 14,
+      "publications": 4
+    }
+  ]
+}

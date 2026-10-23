@@ -26,10 +26,17 @@ read-only text within this app. Reveal storage shows app-owned location metadata
 See [D03 native inspection](../../docs/desktop/D03_NATIVE_EXPORT.md) and
 [verification](../../docs/desktop/D03_NATIVE_VERIFICATION_2026-10-22.md).
 
-Arbitrary story generation, model choice/import, free-text interpretation
-and author edits are unavailable. Real runtime spikes elsewhere in the repository
-are not integrated into this shell. Save files are local app data; OS-level backup,
-access control and device security still apply.
+An explicit experimental local CPU profile now imports and verifies the approved
+Qwen3-0.6B Q8_0 artifact through a native picker. Action and Dialogue free text use
+the shared director, engine validation and narrator; accepted v2 receipts record
+provenance, timing and any safe narration fallback. Supported actions are limited
+to single English scene commands; unclear text asks for clarification. Quality
+and network-blocked qualification remain pending. Arbitrary model choice, story
+generation and author edits remain unavailable. See
+[D04 native integration](../../docs/desktop/D04_NATIVE_INTEGRATION.md) and
+[verification](../../docs/desktop/D04_NATIVE_VERIFICATION_2026-10-22.md).
+Save files and the imported model are local app data; OS-level backup, access
+control and device security still apply.
 
 See [ADR-0006](../../docs/adr/0006-desktop-host.md),
 [host-v1](../../docs/desktop/HOST_V1.md),
@@ -41,7 +48,9 @@ See [ADR-0006](../../docs/adr/0006-desktop-host.md),
 
 Tested on Windows 11 x64 with Rust 1.93.1, MSVC/Windows SDK, installed WebView2,
 Node 23.10.0 / npm 11.2.0. Development dependency provisioning uses network;
-subsequent locked builds use the cache. No model weights or API key are needed.
+subsequent locked builds use the cache. Fake fixtures need no model or API key.
+Real local play additionally requires the verified worker resource and an explicit
+approved-model import, as described in D04 integration.
 Other OS targets and installers remain unqualified.
 
 From a clean checkout at the repository root:

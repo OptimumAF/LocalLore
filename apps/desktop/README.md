@@ -48,7 +48,8 @@ Always rebuild the normal frontend with `npm run build` after using a developmen
 harness, then rebuild the native executable without `--features dev-harness`.
 Node, Playwright and a dev server are not shipped runtimes. React and CSS bundle
 into local assets; the executable uses the installed WebView2. The desktop is a
-separate Cargo workspace; Android does not enable the optional host feature.
+separate Cargo workspace, so Tauri is not an Android dependency. Android now
+enables the portable host feature through the shared workspace/storage adapter.
 
 Enter submits the selected typed action; Shift+Enter adds a newline, and IME
 composition does not submit. Native form controls support keyboard navigation;

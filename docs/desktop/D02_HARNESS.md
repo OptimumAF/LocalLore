@@ -1,5 +1,11 @@
 # D02 application-owned development harness
 
+These D02 compatibility journeys deliberately use ephemeral fixtures and label
+their progress as memory-only. The production app now uses shared durable storage;
+its distinct `npm run harness:durable` proof is documented in
+[app durability](APP_DURABILITY.md). Neither backend substitutes for the other:
+headless rendering is separate from actual native WebView/IPC execution.
+
 The harness verifies the running Play/Story Lab shell without desktop control.
 It invokes the same `Controller` used by React and the same `IpcGateway` used by
 buttons. Native runs use actual Tauri WebView → Rust `host_call`; engine outcomes
@@ -74,7 +80,7 @@ Frontend `__DEV_HARNESS__` is false by default. The normal bundle eliminates
 the driver/fault gateway; `npm run check` checks marker absence. Native modules,
 stdio bridge and all six harness handlers compile only with Cargo feature
 `dev-harness`, off by default. Native window hooks additionally require
-`LOCALLORE_D02_HARNESS=1`, the fixed `main` window and a launcher-owned fresh
+`LOCALLORE_D02_HARNESS=1`, the current native `main-<epoch>` window lease and a launcher-owned fresh
 artifact leaf. Generated permission names do not register handlers; the normal
 binary registers only `host_call`. Environment variables cannot restore
 compiled-out commands. The fixed initialization flag is not a production API.

@@ -10,11 +10,13 @@ use std::{
 };
 
 struct Temp(PathBuf);
+static TEMP_SEQUENCE: AtomicUsize = AtomicUsize::new(0);
 impl Temp {
     fn new() -> Self {
         let p = std::env::temp_dir().join(format!(
-            "locallore-play-host-{}-{}",
+            "locallore-play-host-{}-{}-{}",
             std::process::id(),
+            TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()

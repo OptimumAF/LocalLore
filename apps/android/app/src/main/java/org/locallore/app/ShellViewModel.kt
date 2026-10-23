@@ -146,11 +146,15 @@ class ShellViewModel internal constructor(
         if (disposed || !mutableForkVisible.value || current.busy || before.busy || current.outcome !== rendered) return
         val input = current.input ?: return
         if (!matchesForkOutcome(rendered, input)) return
-        val root = before.stories.singleOrNull { it.story == rendered.scope.story } ?: return
         forkController?.dismiss()
         mutableForkVisible.value = false
         mutable.value = before.copy(forkActive = false)
         savedOperation("New timeline resumed. Original history and downstream choices remain unchanged.") {
+            // A lookup can observe a story restored by another owner after this UI's catalog.
+            // Refresh only on this explicit resume action; never create/select on lookup alone.
+            val saved = gateway.snapshot() ?: throw WorkspaceFailure("NotFound")
+            val root = saved.stories.singleOrNull { it.story == rendered.scope.story }
+                ?: throw WorkspaceFailure("NotFound")
             gateway.resumeSaved(SavedStory(rendered.scope.story, rendered.scope.branch, root.title, rendered.headRevision))
         }
     }

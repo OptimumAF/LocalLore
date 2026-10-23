@@ -388,6 +388,11 @@ export async function traceJourneys({
             );
             await c.switchSession(oldSession);
             await c.traceBasis(0);
+            await invoke("harness_viewport", { preset: "narrow" });
+            c.layout(0, 0, 150);
+            await capture("d06-narrow");
+            await invoke("harness_viewport", { preset: "wide" });
+            c.layout(1, 1, 100);
             const beforeClear = structural(await snap());
             await c.controlTrace("clear");
             check(
@@ -409,11 +414,6 @@ export async function traceJourneys({
                 structural(await snap()) === beforeClear,
                 "disable-never-changes-canon",
             );
-            await invoke("harness_viewport", { preset: "narrow" });
-            c.layout(0, 0, 150);
-            await capture("d06-narrow");
-            await invoke("harness_viewport", { preset: "wide" });
-            c.layout(1, 1, 100);
             check(
                 document.querySelector(".skip")?.getAttribute("href") ===
                     "#trace-controls",

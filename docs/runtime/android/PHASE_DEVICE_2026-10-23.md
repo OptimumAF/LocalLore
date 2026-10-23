@@ -7,7 +7,7 @@ physical-phone or ARM execution gates.
 
 ## Qualified artifact and scope
 
-- Core source: `04326712278eaa0a91073511085c0c97b7375123`.
+- Java/integration source: `04326712278eaa0a91073511085c0c97b7375123`.
 - APK: 63,666,944 bytes; SHA-256
   `df2b2552fd0ee2de202d19ab5381bf253674f32d4e2ed5b4b2c99a19ae4b3dda`.
 - Separate package: `org.locallore.runtimebench.litert.phaseprobe`; sole runner

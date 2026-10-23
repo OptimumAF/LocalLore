@@ -220,6 +220,12 @@ precede strict Rust replay on a separate local copy. It invokes no model and
 established a failed turn with zero accepted events and the player's potion
 retained. The SDK crash cause and runtime compatibility remain unqualified.
 
+The [private SDK phase journal](SDK_PHASE_PROTOCOL_V1.md) persists bounded
+content-free lifecycle checkpoints and an optional Android process-instance
+token. Its [verification](SDK_PHASE_VERIFICATION_2026-10-23.md) uses a separate
+no-model self-kill/read package before another SDK control. A last checkpoint
+and an OS exit reason do not establish canonical outcomes or a crash cause.
+
 The native [process owner](../../../benchmarks/spike/android/controller/README.md)
 owns/reaps one trusted direct child. An ADB-client exit is never native cleanup
 evidence. Package termination is limited to the hash-verified isolated SDK app;

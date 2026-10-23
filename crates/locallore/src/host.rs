@@ -519,18 +519,23 @@ impl Host {
     /// Trusted storage lifecycle notification, never an LLM/Host wire command.
     /// The adapter fences new submit/commit/resume calls through the deletion transaction.
     pub fn invalidate_story(&self, story: &str) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
         state.sessions.retain(|_, session| {
             if session.engine.scope().story != story {
                 return true;
             }
+            session.trace_owner.retire();
             for turn in session.turns.values() {
                 turn.cancel.cancel();
             }
             false
         });
+        drop(state);
         // Clear outstanding trace handles too; no retained per-story metadata survives.
-        self.trace.lock().unwrap().clear();
+        // Retired owners also fence late private writes if the diagnostic lock is busy.
+        if let Ok(mut trace) = self.trace.try_lock() {
+            trace.clear();
+        }
     }
     /// Trusted adapter lifecycle evidence, without story content or wire authority.
     pub fn live_counts(&self) -> (usize, usize) {
@@ -2524,5 +2529,36 @@ mod tests {
         // Cleanup does not clear poison or resume gameplay through untrusted state.
         assert!(h.state.is_poisoned());
         drop(held_trace);
+    }
+    #[test]
+    fn story_invalidation_retires_only_matching_owners_even_with_busy_trace_and_poison() {
+        for poison in [false, true] {
+            let h = Host::new(true);
+            let (a, scope) = session(&h);
+            let (b, _) = session(&h);
+            let (selected, retained) = {
+                let state = h.state.lock().unwrap();
+                (
+                    state.sessions[&a].trace_owner.clone(),
+                    state.sessions[&b].trace_owner.clone(),
+                )
+            };
+            if poison {
+                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let _state = h.state.lock().unwrap();
+                    panic!("synthetic invalidation cleanup poison");
+                }));
+            }
+            let held_trace = h.trace.lock().unwrap();
+            h.invalidate_story(&scope.story);
+            assert!(!selected.live());
+            assert!(retained.live());
+            let state = h.state.lock().unwrap_or_else(|p| p.into_inner());
+            assert_eq!(state.sessions.len(), 1);
+            assert!(state.sessions.contains_key(&b));
+            assert_eq!(h.state.is_poisoned(), poison);
+            drop(state);
+            drop(held_trace);
+        }
     }
 }

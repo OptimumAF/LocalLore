@@ -201,7 +201,11 @@ export function App({ controller: c }: { controller: Controller }) {
                                 {s.workspace.location}
                             </p>
                             <p>
-                                Schema {s.workspace.schema_version} | Contract
+                                SQLite schema{" "}
+                                {s.workspace.database_schema_version ??
+                                    "Not reported"}{" "}
+                                | Workspace contract{" "}
+                                {s.workspace.schema_version} | Domain contract
                                 domain-v1 | Rules{" "}
                                 {s.play?.rules ?? "unavailable"} | Canonical
                                 receipts and validated replay

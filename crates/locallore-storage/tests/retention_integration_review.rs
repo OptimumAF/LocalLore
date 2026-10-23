@@ -66,7 +66,10 @@ impl Fixture {
             .unwrap();
         let result = self.store.delete_branch(plan, &|| false).unwrap();
         assert_eq!(result.retained_through_revision, Some(2));
-        assert_eq!(result.invalidated_branches, [self.parent.branch.clone()]);
+        assert_eq!(
+            result.invalidated_branches.as_slice(),
+            std::slice::from_ref(&self.parent.branch)
+        );
     }
 }
 

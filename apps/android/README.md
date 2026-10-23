@@ -237,6 +237,10 @@ The opt-in isolated archive application also has an explicit
 Its synthetic DocumentsProvider is packaged only in the instrumentation APK;
 the normal application receives no provider or storage permission. These tests
 retain their synthetic imported stories and never reset the existing workspace.
+The [interruption follow-up](../../docs/native/ARCHIVE_RECOVERY_VERIFICATION_2026-10-23.md)
+adds an explicit external owner for live app force-stop/relaunch. Deliberately
+interrupted arms are separate from passing verification tests; independent host
+transaction-kill checks do not imply Android mid-transaction or power-loss proof.
 
 Host tests cover strict bytes, scoped IDs, ownership, idempotency, provider
 failures, cancellation/commit races and cleanup. JVM tests cover publication,

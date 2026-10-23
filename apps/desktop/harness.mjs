@@ -372,15 +372,21 @@ const inputs = [
     "build.mjs",
     "harness.mjs",
     "dist/app.js",
-    "src-tauri/target/debug/locallore-desktop-spike.exe",
+    executable,
     "../../crates/locallore/src/host.rs",
 ];
 const hashes = Object.fromEntries(
     await Promise.all(
         inputs.map(async (file) => [
-            file,
+            path.isAbsolute(file)
+                ? "<native-target>/debug/locallore-desktop-spike.exe"
+                : file,
             createHash("sha256")
-                .update(await readFile(path.join(root, file)))
+                .update(
+                    await readFile(
+                        path.isAbsolute(file) ? file : path.join(root, file),
+                    ),
+                )
                 .digest("hex"),
         ]),
     ),

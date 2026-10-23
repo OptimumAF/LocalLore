@@ -96,7 +96,7 @@ const files = [
     "src-tauri/Cargo.toml",
     "host-v1.schema.json",
     "dist/app.js",
-    "src-tauri/target/debug/locallore-desktop-spike.exe",
+    executable,
     "src-tauri/src/test_bridge.rs",
     "src-tauri/src/harness.rs",
     "src-tauri/src/lease.rs",
@@ -110,9 +110,13 @@ const files = [
 const inputSHA256 = Object.fromEntries(
     await Promise.all(
         files.map(async (f) => [
-            f,
+            path.isAbsolute(f)
+                ? "<native-target>/debug/locallore-desktop-spike.exe"
+                : f,
             createHash("sha256")
-                .update(await readFile(path.join(root, f)))
+                .update(
+                    await readFile(path.isAbsolute(f) ? f : path.join(root, f)),
+                )
                 .digest("hex"),
         ]),
     ),

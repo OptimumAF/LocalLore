@@ -208,6 +208,7 @@ export function App({ controller: c }: { controller: Controller }) {
                             aria-label="Engine status"
                         >
                             <span>Revision {s.play?.revision ?? "—"}</span>
+                            <span>Rules: {s.play?.rules ?? "unavailable"}</span>
                             <span>Provider: deterministic fake v1</span>
                             <span>
                                 Turn:{" "}
@@ -591,11 +592,12 @@ export function App({ controller: c }: { controller: Controller }) {
             </div>
             <footer className="footer">
                 <span>
-                    Fake inference · Progress lives only in this process
+                    Fake inference |{" "}
+                    {s.workspace
+                        ? "Accepted progress saved locally"
+                        : "Storage must open before play"}
                 </span>
-                <span>
-                    No model, save/resume, export or arbitrary story generator
-                </span>
+                <span>No real model, export or arbitrary story generator</span>
             </footer>
         </div>
     );

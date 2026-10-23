@@ -179,7 +179,7 @@ if (mode === "native") {
     ]);
     await page.route("**/*", async (route) => {
         const url = new URL(route.request().url());
-        if (url.origin !== "http://locallore.test") {
+        if (url.origin !== "https://locallore.test") {
             unexpected.push("ExternalRequest");
             return route.abort();
         }
@@ -252,7 +252,7 @@ if (mode === "native") {
                 case "harness_reopen":
                     await bridge.close();
                     bridge = new Bridge();
-                    await page.goto("http://locallore.test/?reopened=1", {
+                    await page.goto("https://locallore.test/?reopened=1", {
                         waitUntil: "domcontentloaded",
                     });
                     return null;
@@ -291,7 +291,7 @@ if (mode === "native") {
     });
     let timeout;
     try {
-        await page.goto("http://locallore.test/", {
+        await page.goto("https://locallore.test/", {
             waitUntil: "domcontentloaded",
         });
         const pass = await Promise.race([

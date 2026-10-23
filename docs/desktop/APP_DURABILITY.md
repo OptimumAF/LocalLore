@@ -50,3 +50,15 @@ production app. Native and headless captures remain separately labeled.
 No new desktop dependency version is introduced; the path dependency reuses the
 shared workspace's pinned SQLite owner. Real-model, installer, OS backup,
 screen-reader and physical-device qualification remain separate gates.
+
+Native window calls also capture a native-only epoch. Destroyed invalidates it
+synchronously; initialization and non-generation calls recheck it inside a
+blocking control gate shared with close. Reopen waits for cleanup completion,
+uses a new `main-<epoch>` identity, and never revives an old captured window.
+Preparation runs outside that gate and remains fenced by the shared Host. Two
+barrier/lifecycle unit regressions cover delayed dispatch/init and old-window
+rejection. The permission window matcher is restricted to `main-*`.
+
+Headless D02 fixtures use an intercepted HTTPS origin so the standard Web Crypto
+UUID API is available. Assets are fulfilled in-process; no server or external
+request is involved. Native durable verification uses the installed WebView2.

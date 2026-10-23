@@ -195,6 +195,16 @@ export async function durableJourneys({
             c.get().play?.receipts.length === 0,
             "first-start-creates-saved-original-story",
         );
+        check(
+            c.get().play?.rules === "fantasy_v1",
+            "authoritative-rules-profile-before-first-turn",
+        );
+        check(
+            !document
+                .getElementById("root")!
+                .textContent?.includes("Progress lives only in this process"),
+            "durable-ui-has-no-ephemeral-save-label",
+        );
         await checkpoint("durable-initial");
         await c.send();
         check(
@@ -288,7 +298,7 @@ export async function durableJourneys({
             c.get().workspace!.stories.length === 3,
             "reset-keeps-previous-saves",
         );
-        await checkpoint("durable-new");
+
         await c.resume(savedScope);
         await g.base.call({
             op: "submit",
@@ -308,6 +318,7 @@ export async function durableJourneys({
             )?.drafts === 1,
             "submitted-uncommitted-request-is-durable",
         );
+        await checkpoint("durable-new");
         c.setDraft("Synthetic unsent draft");
         await invoke("harness_reopen");
     } catch {

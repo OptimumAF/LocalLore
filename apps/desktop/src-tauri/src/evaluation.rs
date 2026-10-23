@@ -39,6 +39,28 @@ mod tests {
         manager.catalog(&lease, epoch).unwrap();
         (manager, lease, epoch, path)
     }
+    #[test]
+    fn late_cancellation_registration_and_old_cleanup_cannot_escape_retirement() {
+        let (m, l, e, path) = setup();
+        l.invalidate(&format!("main-{e}")).unwrap();
+        m.retire(e); // retirement observes no registered job
+        let late = Cancellation::default();
+        m.register_cancellation(&l, e, 1, &late);
+        assert!(late.is_cancelled());
+
+        let next_lease = WindowLease::default();
+        let next_epoch = next_lease.begin().unwrap();
+        let current = Cancellation::default();
+        m.register_cancellation(&next_lease, next_epoch, 2, &current);
+        m.clear_cancellation(e, 1);
+        assert!(!current.is_cancelled());
+        m.retire(next_epoch);
+        assert!(current.is_cancelled());
+        m.clear_cancellation(next_epoch, 2);
+        assert!(m.cancellation.lock().unwrap().is_none());
+        drop(m);
+        fs::remove_dir_all(path).unwrap();
+    }
     fn done(m: &EvaluationManager, l: &WindowLease, e: u64, t: &str) -> Value {
         for _ in 0..1000 {
             let status = m.status(l, e, t).unwrap();
@@ -442,6 +464,11 @@ struct Job {
     run: String,
     cancel: Cancellation,
 }
+struct JobCancellation {
+    epoch: u64,
+    operation: u64,
+    cancel: Cancellation,
+}
 #[derive(Default)]
 struct State {
     runs: BTreeMap<String, Run>,
@@ -453,6 +480,9 @@ pub struct EvaluationManager {
     curated: Mutex<curated::CuratedState>,
     root: PathBuf,
     state: Mutex<State>,
+    // Only clone/cancel/replace under this lock; never IO, joins, or another
+    // manager/lease lock. Destroyed can cancel even if presentation state is busy.
+    cancellation: Mutex<Option<JobCancellation>>,
     worker: Mutex<Option<(u64, JoinHandle<()>)>>,
     registration: Mutex<()>,
     #[cfg(test)]
@@ -474,6 +504,7 @@ impl EvaluationManager {
             curated: Mutex::new(curated::CuratedState::default()),
             root,
             state: Mutex::new(State::default()),
+            cancellation: Mutex::new(None),
             worker: Mutex::new(None),
             registration: Mutex::new(()),
             #[cfg(test)]
@@ -492,6 +523,36 @@ impl EvaluationManager {
     }
     fn state(&self) -> Result<std::sync::MutexGuard<'_, State>> {
         self.state.lock().map_err(|_| "EvaluationInternal".into())
+    }
+    fn register_cancellation(
+        &self,
+        lease: &WindowLease,
+        epoch: u64,
+        operation: u64,
+        cancel: &Cancellation,
+    ) {
+        {
+            let mut slot = self.cancellation.lock().unwrap_or_else(|p| p.into_inner());
+            *slot = Some(JobCancellation {
+                epoch,
+                operation,
+                cancel: cancel.clone(),
+            });
+        }
+        // Invalidation is atomic and need not wait for lease.dispatch's gate.
+        // Retirement may have observed an empty slot just before registration.
+        if !lease.valid(epoch) {
+            cancel.cancel();
+        }
+    }
+    fn clear_cancellation(&self, epoch: u64, operation: u64) {
+        let mut slot = self.cancellation.lock().unwrap_or_else(|p| p.into_inner());
+        if slot
+            .as_ref()
+            .is_some_and(|j| j.epoch == epoch && j.operation == operation)
+        {
+            *slot = None;
+        }
     }
     fn budget(&self, run: Option<&Path>) -> Result<()> {
         let curated = self.curated_root();
@@ -788,7 +849,9 @@ impl EvaluationManager {
                     if id>9_007_199_254_740_991{return Err("EvaluationBudget".into())}
                     let cancel=Cancellation::default();if recover{cancel.cancel()}
                     let r=s.runs.get_mut(&run).ok_or("EvaluationInternal")?;r.phase=if recover{"validating_checkpoints"}else{"running"}.into();r.error=None;let selected=r.selection.clone();
-                    s.job=Some(Job{epoch,id,run:run.clone(),cancel:cancel.clone()});(run,token,id,cancel,resume,selected)
+                    s.job=Some(Job{epoch,id,run:run.clone(),cancel:cancel.clone()});
+                    self.register_cancellation(lease,epoch,id,&cancel);
+                    (run,token,id,cancel,resume,selected)
                 };
                 #[cfg(test)]
                 if let Some((entered,release))=self.before_spawn.lock().unwrap().take(){entered.wait();release.wait();}
@@ -818,6 +881,7 @@ impl EvaluationManager {
                     let _=lease_copy.dispatch(epoch,||{let mut s=manager.state()?;if s.job.as_ref().is_some_and(|j|j.id==id&&j.epoch==epoch){let r=s.runs.get_mut(&run_copy).ok_or("EvaluationInternal")?;r.phase=if result.is_err(){"error"}else if r.report.as_ref().is_some_and(|r|r["completed"]==true){"completed"}else{"paused"}.into();r.error=result.clone().err();}Ok(())});
                     // Terminal ownership cleanup also works after lease retirement and
                     // poisoned-state panics. It never publishes a new report.
+                    manager.clear_cancellation(epoch,id);
                     let mut s=manager.state.lock().unwrap_or_else(|poison|poison.into_inner());
                     if s.job.as_ref().is_some_and(|j|j.id==id&&j.epoch==epoch){if !lease_copy.valid(epoch){if let Some(r)=s.runs.get_mut(&run_copy){r.phase="retained".into()}}s.job=None;}
                 };
@@ -826,7 +890,7 @@ impl EvaluationManager {
                 let spawned=if failed{Err(std::io::Error::other("fixed synthetic spawn refusal"))}else{std::thread::Builder::new().name("locallore-evaluation".into()).spawn(work)};
                 match spawned {
                     Ok(handle)=>{*self.worker.lock().unwrap_or_else(|p|p.into_inner())=Some((epoch,handle));let _=start.send(());}
-                    Err(_)=>{let mut s=self.state()?;if s.job.as_ref().is_some_and(|j|j.id==id&&j.epoch==epoch){s.job=None;s.tokens.remove(&token);if let Some(r)=s.runs.get_mut(&run){r.phase="error".into();r.error=Some("EvaluationInternal".into())}}return Err("EvaluationInternal".into())}
+                    Err(_)=>{self.clear_cancellation(epoch,id);let mut s=self.state()?;if s.job.as_ref().is_some_and(|j|j.id==id&&j.epoch==epoch){s.job=None;s.tokens.remove(&token);if let Some(r)=s.runs.get_mut(&run){r.phase="error".into();r.error=Some("EvaluationInternal".into())}}return Err("EvaluationInternal".into())}
                 }
                 let s=self.state()?;Self::snapshot(&s,&run,&token)
             });
@@ -839,8 +903,15 @@ impl EvaluationManager {
         }
     }
     pub fn retire(&self, epoch: u64) {
-        // Destroyed must never wait for admission IO or a worker. The lease was
-        // synchronously invalidated already; the worker checks it at boundaries.
+        // No IO/state/lease/worker locks are acquired while holding this slot.
+        // Cleanup recovers poison; ordinary presentation calls still fail closed.
+        {
+            let slot = self.cancellation.lock().unwrap_or_else(|p| p.into_inner());
+            if let Some(job) = slot.as_ref().filter(|job| job.epoch == epoch) {
+                job.cancel.cancel();
+            }
+        }
+        // Destroyed never waits for admission IO or a worker.
         if let Ok(mut s) = self.state.try_lock() {
             s.tokens.retain(|_, t| t.epoch != epoch);
             if let Some(j) = s.job.as_ref().filter(|j| j.epoch == epoch) {
@@ -882,4 +953,7 @@ impl EvaluationManager {
     }
 }
 mod curated;
+#[cfg(test)]
+#[path = "evaluation/retirement_review.rs"]
+mod retirement_review;
 pub use curated::{CuratedEvidenceRequest, CuratedStart};

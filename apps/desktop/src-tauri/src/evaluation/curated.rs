@@ -403,6 +403,7 @@ impl EvaluationManager {
                     run: id.clone(),
                     cancel: cancel.clone(),
                 });
+                self.register_cancellation(lease, epoch, operation, &cancel);
                 Ok((token, operation, cancel))
             })?;
             {
@@ -509,6 +510,7 @@ impl EvaluationManager {
                     }
                     Ok(())
                 });
+                manager.clear_cancellation(epoch, operation);
                 let mut state = manager.state.lock().unwrap_or_else(|p| p.into_inner());
                 if state
                     .job
@@ -548,6 +550,7 @@ impl EvaluationManager {
                     let _ = start.send(());
                 }
                 Err(_) => {
+                    self.clear_cancellation(epoch, operation);
                     self.state()?.job = None;
                     let mut runs = self.curated_lock()?;
                     let run = runs.runs.get_mut(&id).ok_or("EvaluationInternal")?;

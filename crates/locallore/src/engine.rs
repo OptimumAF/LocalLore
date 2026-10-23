@@ -473,6 +473,71 @@ impl Engine {
         Ok(result)
     }
 
+    fn actor_event_eligible(
+        &self,
+        observer: &str,
+        scope: &Scope,
+        revision: u64,
+        event: &AcceptedEvent,
+    ) -> bool {
+        self.lineage
+            .eligible(scope, revision, &event.scope, event.sequence)
+            && event.witnesses.contains(observer)
+    }
+
+    /// Visit borrowed accepted observations after eligibility, without cloning history.
+    /// `revision` must be the current head; the range is (after, through]. A false
+    /// visitor stops normally. Cancellation is checked at least every 32 scanned
+    /// events, including hidden events, and before each eligible callback.
+    /// Actor selection is a trusted caller responsibility; this grants no wire privilege.
+    #[allow(clippy::too_many_arguments)] // Keep scope/basis/range explicit at this narrow read port.
+    pub fn visit_actor_observations(
+        &self,
+        observer: &str,
+        scope: &Scope,
+        revision: u64,
+        after: u64,
+        through: u64,
+        cancel: &dyn Fn() -> bool,
+        visitor: &mut dyn FnMut(&AcceptedEvent) -> bool,
+    ) -> Result<(), Error> {
+        if scope != &self.scope {
+            return Err(Error::Scope);
+        }
+        if revision != self.revision() {
+            return Err(Error::Stale);
+        }
+        if !self.state.actors.contains_key(observer) {
+            return Err(Error::UnknownReference);
+        }
+        if after > through || through > revision {
+            return Err(Error::Rule);
+        }
+        if cancel() {
+            return Err(Error::Cancelled);
+        }
+        for (index, event) in self.receipts.iter().flat_map(|r| &r.events).enumerate() {
+            if index % 32 == 0 && cancel() {
+                return Err(Error::Cancelled);
+            }
+            if event.sequence > after
+                && event.sequence <= through
+                && self.actor_event_eligible(observer, scope, revision, event)
+            {
+                if cancel() {
+                    return Err(Error::Cancelled);
+                }
+                if !visitor(event) {
+                    return Ok(());
+                }
+            }
+        }
+        if cancel() {
+            return Err(Error::Cancelled);
+        }
+        Ok(())
+    }
+
     pub fn character_context(
         &self,
         observer: &str,
@@ -510,11 +575,7 @@ impl Engine {
             .receipts
             .iter()
             .flat_map(|r| &r.events)
-            .filter(|event| {
-                self.lineage
-                    .eligible(scope, revision, &event.scope, event.sequence)
-                    && event.witnesses.contains(observer)
-            })
+            .filter(|event| self.actor_event_eligible(observer, scope, revision, event))
             .cloned()
             .collect();
         Ok(CharacterContext {

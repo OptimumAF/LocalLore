@@ -52,6 +52,10 @@ class Device(FakeDevice):
 
 
 class SdkReadControllerTests(unittest.TestCase):
+    def test_real_reader_pin_is_new_play_artifact_only(self):
+        self.assertEqual(reader.READBACK_APK_SHA256, reader.cache.TRACED_APK_SHA256)
+        self.assertNotIn(reader.READBACK_APK_SHA256, (reader.cache.APK_SHA256, reader.cache.GUARDED_APK_SHA256))
+
     def invoke(self, device=None, sink=None):
         device = device or Device(); sink = sink if sink is not None else Mock()
         with patch.object(reader, 'READBACK_APK_SHA256', PIN):

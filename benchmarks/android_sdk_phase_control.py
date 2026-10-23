@@ -8,8 +8,8 @@ import shlex
 import android_cache_control as cache
 import android_sdk_phase_result as decoder
 
-# Dispatch stays disabled until the new readback-capable APK is qualified.
-READBACK_APK_SHA256 = None
+# Only the qualified readback-capable artifact, never legacy play pins.
+READBACK_APK_SHA256 = cache.TRACED_APK_SHA256
 
 def _uid(client):
     raw = client.shell('run-as', cache.PACKAGE, 'id', '-u')

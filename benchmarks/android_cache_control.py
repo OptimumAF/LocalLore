@@ -20,7 +20,9 @@ INSTRUMENTATION = "org.locallore.runtimebench.litert.CacheProbeInstrumentation"
 APK_SHA256 = "04eef96b7177aaef275574f9ee45d25efa9b181bab4fcb0a363d8077a4e4fb7d"
 # Accepted guard-bound schema, core source ba31932; old artifact remains explicit.
 GUARDED_APK_SHA256 = "0cf4c253c41483973fd1578837d0ba147a7ed3d6d6cd8eb5818a989e185c09dd"
-SUPPORTED_APKS = frozenset({APK_SHA256, GUARDED_APK_SHA256})
+# Fresh stopped-session readback Java; unchanged guarded native/runtime bytes.
+TRACED_APK_SHA256 = "f4d247f3e24c302a7e8d2431d7ee8c9fccc476909c0d82789ea1f84083ddfd81"
+SUPPORTED_APKS = frozenset({APK_SHA256, GUARDED_APK_SHA256, TRACED_APK_SHA256})
 MODEL_SHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
 MODEL_BYTES = 2_588_147_712
 MODEL_KEYS = {"verified", "volume_uuid", "sha256", "bytes", "diagnostic"}

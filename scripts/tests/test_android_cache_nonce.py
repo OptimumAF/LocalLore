@@ -7,10 +7,20 @@ import shlex
 import unittest
 from unittest.mock import Mock, patch
 
-from test_android_cache_control import control, FakeDevice, sample, model, decoded, UUID
+from test_android_cache_control import control, FakeDevice, response, sample, model, decoded, UUID, INSTALLED
 
 
 class CacheNonceTests(unittest.TestCase):
+    def test_traced_artifact_binds_package_and_original_profile_without_replacing_old_pins(self):
+        pin = control.TRACED_APK_SHA256
+        device = FakeDevice(lambda _, event, __: response((pin+'  '+INSTALLED+'\n').encode()) if event == 'package_hash' else None)
+        with patch.object(control.play, 'make_profile', wraps=control.play.make_profile) as profile:
+            with patch.object(control.cache_result, 'parse_result', return_value=decoded()):
+                result = control.run_control(device, pin, 'gift', UUID,
+                    Mock(side_effect=[sample(), sample()]), lambda: model(), lambda _: None, session_nonce='f'*32)
+        self.assertTrue(result['check_passed']); profile.assert_called_once_with(pin)
+        self.assertEqual(control.SUPPORTED_APKS, {control.APK_SHA256, control.GUARDED_APK_SHA256, pin})
+
     def test_explicit_nonce_is_dispatched_once_and_never_exported(self):
         nonce = 'e' * 32; device = FakeDevice()
         with patch.object(control.uuid, 'uuid4', side_effect=AssertionError('must not replace nonce')):

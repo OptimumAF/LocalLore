@@ -108,7 +108,7 @@ const files = [
     "src-tauri/build.rs",
     "src-tauri/tauri.conf.json",
     "src-tauri/Cargo.toml",
-    "src-tauri/Cargo.lock",
+    "../../Cargo.lock",
     "host-v1.schema.json",
     "ui/host.generated.ts",
     "dist/app.js",

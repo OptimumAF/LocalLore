@@ -1731,6 +1731,7 @@ name = "locallore-eval"
 version = "0.1.0"
 dependencies = [
  "locallore",
+ "locallore-local-runtime",
  "locallore-storage",
  "locallore-workspace",
  "serde",

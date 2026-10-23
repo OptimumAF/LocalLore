@@ -45,9 +45,12 @@ final class CacheSdkModel implements WarmRunner.Model {
             if (conversation.renderMessageIntoString(Message.Companion.user(request.prompt), Collections.emptyMap()).isEmpty())
                 throw new WarmRunner.Failure("unsupported_template");
             return new Role(conversation, request);
-        } catch (Exception failure) {
+        } catch (Exception | Error failure) {
             try { conversation.close(); increment("conversations_closed"); }
-            catch (Exception close) { throw new WarmRunner.Undrained(); }
+            catch (Exception | Error close) {
+                WarmRunner.Undrained unknown = new WarmRunner.Undrained();
+                unknown.addSuppressed(failure); if (close != failure) unknown.addSuppressed(close); throw unknown;
+            }
             throw failure;
         }
     }

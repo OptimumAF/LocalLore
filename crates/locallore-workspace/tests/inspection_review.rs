@@ -504,3 +504,40 @@ fn snapshot_excludes_uncommitted_request_prose_and_does_not_finalize_its_draft()
     assert!(joined(&next).contains(DRAFT));
     assert!(!joined(&captured).contains(DRAFT));
 }
+
+#[test]
+fn structural_validation_does_not_authenticate_modified_views_or_grant_canonical_authority() {
+    let dir = Temp::new();
+    let scope = dir.seed();
+    let h = dir.host(true);
+    let id = resume(&h, &scope);
+    let mut modified = h
+        .inspection_snapshot(&id, &scope, 0, ExportMode::Full)
+        .unwrap();
+    modified.manifest["mode"] = json!("player");
+    modified.manifest["privacy"] = json!("private_player_visible_story");
+    for row in modified.manifest["views"].as_array_mut().unwrap() {
+        if row["status"] != "unsupported" {
+            row["status"] = json!("observer_filtered");
+        }
+    }
+    // Checksums/schema are consistency checks, not a signature or a trusted observer certificate.
+    modified.validate().unwrap();
+    assert!(joined(&modified).contains(HIDDEN_FACT));
+    // The supported capture still obtains eligibility from the canonical engine, never this data.
+    let actual = h
+        .inspection_snapshot(&id, &scope, 0, ExportMode::Player)
+        .unwrap();
+    assert!(!joined(&actual).contains(HIDDEN_FACT));
+    assert_eq!(
+        call(
+            &h,
+            json!({"op":"inspection_import","bundle":modified.manifest})
+        )["error"],
+        "Malformed"
+    );
+    assert_eq!(
+        call(&h, json!({"op":"open","session":id,"scope":scope}))["data"]["revision"],
+        0
+    );
+}

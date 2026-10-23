@@ -44,6 +44,7 @@ import org.locallore.app.DemoAction
 import org.locallore.app.DemoMode
 import org.locallore.app.ShellState
 import org.locallore.app.SavedStory
+import org.locallore.app.SavedTimeline
 
 private val Paper = Color(0xFFF8F5EC)
 private val Ink = Color(0xFF202D2A)
@@ -65,6 +66,7 @@ fun LocalLoreScreen(
     onArchive: () -> Unit = {},
     deletionAvailable: Boolean = false,
     onDelete: () -> Unit = {},
+    onTimeline: ((SavedTimeline) -> Unit)? = null,
     overlay: @Composable () -> Unit = {},
 ) {
     MaterialTheme(
@@ -146,6 +148,33 @@ fun LocalLoreScreen(
                                         state.stories.forEach { story ->
                                             DropdownMenuItem(text = { Text("${story.title} · ${story.story} · revision ${story.revision}") },
                                                 onClick = { libraryExpanded = false; onResume(story) })
+                                        }
+                                    }
+                                }
+                            }
+                            if (onTimeline != null && state.persistent && state.selectedStory != null && state.timelines.isNotEmpty()) {
+                                var timelinesExpanded by remember(state.selectedStory.story) { mutableStateOf(false) }
+                                val canSelect = !state.busy && !state.archiveActive && !state.deletionActive && !state.recoveryRequired
+                                val selected = state.timelines.firstOrNull { it.branch == state.selectedStory.branch }
+                                selected?.let { timeline ->
+                                    Text("Timeline · ${timeline.branch} · " +
+                                        (timeline.parentBranch?.let { "from $it at ${timeline.forkRevision}" } ?: "original") +
+                                        " · revision ${timeline.revision} · ${timeline.uncommittedDrafts} uncommitted",
+                                        style = MaterialTheme.typography.bodySmall)
+                                }
+                                Box {
+                                    TextButton(onClick = { timelinesExpanded = true }, enabled = canSelect,
+                                        modifier = Modifier.heightIn(min = 48.dp).testTag("timeline-library")) {
+                                        Text("Choose timeline · ${state.timelines.size}")
+                                    }
+                                    DropdownMenu(expanded = timelinesExpanded && canSelect,
+                                        onDismissRequest = { timelinesExpanded = false }) {
+                                        state.timelines.forEach { timeline ->
+                                            DropdownMenuItem(text = { Text("${timeline.branch} · " +
+                                                (timeline.parentBranch?.let { "from $it at ${timeline.forkRevision}" } ?: "original") +
+                                                " · revision ${timeline.revision} · ${timeline.uncommittedDrafts} uncommitted") },
+                                                onClick = { timelinesExpanded = false; onTimeline(timeline) },
+                                                modifier = Modifier.heightIn(min = 48.dp).testTag("timeline-${timeline.branch}"))
                                         }
                                     }
                                 }

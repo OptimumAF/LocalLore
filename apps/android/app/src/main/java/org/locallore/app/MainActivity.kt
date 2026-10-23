@@ -66,7 +66,8 @@ class MainActivity : ComponentActivity() {
             LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::reset,
                 onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover,
                 archiveAvailable = model.archiveController != null, onArchive = model::openArchive,
-                deletionAvailable = model.deletionController != null, onDelete = model::openDeletion) {
+                deletionAvailable = model.deletionController != null, onDelete = model::openDeletion,
+                onTimeline = model::resumeTimeline) {
                 model.deletionController?.let { controller ->
                     StoryDeletionDialog(deletion, controller::dismiss, controller::cancel, controller::confirm)
                 }

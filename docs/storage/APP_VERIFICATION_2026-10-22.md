@@ -55,6 +55,39 @@ Final local APK SHA-256 (artifacts remain ignored; no upload):
 | `crates/locallore-android/src/workspace.rs` | `829f7f3440029f22e710a06c3dd5bb87757c01ae3029734c4a79acb003c0f99d` |
 | `apps/android/native-build.gradle.kts` | `5e7652e8c27fb04ccb7b2ca2bb259d69259b6fa8cd5100c516f286603c14d035` |
 
+## Desktop results
+
+Node 23.10.0, pinned desktop packages and native Tauri/WebView2 on Windows:
+
+- `npm --prefix apps/desktop run check` and `run format:check`: PASS, including
+  strict TypeScript, Rust-generated schema parity, current controller builders,
+  hostile requests, bounded errors and development-hook absence in normal bundles.
+- The two native lifetime regressions pass independently through `rustc --test`
+  against the integrated `lease.rs`. The desktop agent also executes them through
+  its native Cargo checks.
+- `npm --prefix apps/desktop run harness:durable`: PASS **33 assertions and
+  11 app-only captures** on clean desktop source `1a18d12`, including shared core
+  `7bf5b7e`. This uses actual native IPC, hidden WebView close/reopen, a separate
+  executable process against the same synthetic SQLite file, receipt equality,
+  last-potion retention, exact retry/no double spend, retained library, orphan
+  draft warning, new restart request keys and visible startup failure/no fallback.
+- Coordinator inspected the resumed and storage-error PNGs. All bound source
+  inputs match the integrated checkout after Git line-ending normalization;
+  the core Host SHA matches byte-for-byte. Four desktop files differ only in
+  CRLF/LF checkout representation.
+
+Ignored artifact directory: `apps/desktop/artifacts/durable-native-d60a4b4d-d6e6-42d2-9046-66acee3213bd`
+in the dedicated desktop verification checkout. It contains synthetic captures,
+per-stage reports and a summary with source revision, clean-tree status, source,
+bundle and executable SHA-256 values. No raw local save path appears in semantic
+reports; no artifacts are uploaded. Summary SHA-256:
+`a91b2ce42d89e05e5dfedbb9020af3814ad267bf2212be95d234cda2a729d3a0`.
+
+| Inspected app capture | SHA-256 |
+|---|---|
+| `restart/durable-resumed.png` | `185945ee202c4311f6fc41d6769902fbad10d9d2a7a7b7ab7c8dc2a006676036` |
+| `storage-failure/durable-storage-error.png` | `44f16d308848bf840dd70ab9a6f211598f338da648c959e323d2b471ee6b4d9f` |
+
 ## Limits
 
 This is a bounded root-branch fixture app with explicitly fake inference. It

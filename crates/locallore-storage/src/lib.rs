@@ -72,7 +72,48 @@ pub struct StoreInfo {
 
 /// No connection, SQL executor or deserializer for accepted events crosses this boundary.
 pub struct Store {
+    // Field order is intentional: SQLite closes BEFORE the new-leaf reservation.
     connection: Connection,
+    _new_leaf: Option<std::fs::File>,
+}
+
+#[cfg(windows)]
+fn reserve_new_leaf(path: &Path) -> Result<std::fs::File> {
+    use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
+    let leaf = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or(StorageError::InvalidInput)?;
+    if !path.is_absolute()
+        || path
+            .components()
+            .any(|c| matches!(c, std::path::Component::ParentDir))
+        || leaf.contains([':', '\0'])
+        || leaf.ends_with(['.', ' '])
+    {
+        return Err(StorageError::InvalidInput);
+    }
+    // CREATE_NEW refuses all existing leaves, including dangling reparses. Do
+    // not request DELETE access: SQLite's second handle does not share DELETE.
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create_new(true)
+        .share_mode(0x1 | 0x2) // FILE_SHARE_READ | FILE_SHARE_WRITE, never DELETE.
+        .custom_flags(0x0020_0000) // FILE_FLAG_OPEN_REPARSE_POINT.
+        .open(path)
+        .map_err(|_| StorageError::Io)?;
+    let metadata = file.metadata().map_err(|_| StorageError::Io)?;
+    if !metadata.is_file() || metadata.file_attributes() & 0x400 != 0 {
+        return Err(StorageError::Integrity);
+    }
+    Ok(file)
+}
+
+#[cfg(all(test, windows))]
+struct PinnedNewHooks {
+    after_reservation: fn(&Path) -> Result<()>,
+    after_connect: fn(&Connection) -> Result<()>,
 }
 
 fn configure(connection: &Connection) -> Result<()> {
@@ -241,6 +282,60 @@ fn migrate_v1(connection: &Connection, sql: &str) -> Result<()> {
 }
 
 impl Store {
+    fn from_connection(connection: Connection) -> Self {
+        Self {
+            connection,
+            _new_leaf: None,
+        }
+    }
+    /// Atomically create a new Windows staging leaf and retain its no-DELETE
+    /// sharing handle until AFTER SQLite closes. Refuses every existing leaf.
+    /// Caller MUST retain a trusted ancestor chain for the entire Store lifetime;
+    /// this is leaf replacement protection, not a same-user/OS security sandbox.
+    /// On failure an exclusively created empty/partial leaf may remain. No path
+    /// cleanup is attempted; the trusted staging owner must handle it separately.
+    /// Non-Windows callers fail closed with InvalidInput; no weaker fallback.
+    pub fn create_new_pinned(path: &Path) -> Result<Self> {
+        #[cfg(windows)]
+        {
+            #[cfg(test)]
+            {
+                Self::create_new_pinned_inner(
+                    path,
+                    PinnedNewHooks {
+                        after_reservation: |_| Ok(()),
+                        after_connect: |_| Ok(()),
+                    },
+                )
+            }
+            #[cfg(not(test))]
+            {
+                Self::create_new_pinned_inner(path)
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = path;
+            Err(StorageError::InvalidInput)
+        }
+    }
+    #[cfg(windows)]
+    fn create_new_pinned_inner(path: &Path, #[cfg(test)] hooks: PinnedNewHooks) -> Result<Self> {
+        let guard = reserve_new_leaf(path)?;
+        #[cfg(test)]
+        (hooks.after_reservation)(path)?;
+        let connection = connect(path, false)?;
+        #[cfg(test)]
+        (hooks.after_connect)(&connection)?;
+        // Never adopt a populated database even if someone wrote into this new
+        // leaf through compatible write sharing. No overwrite or migration here.
+        if identity(&connection)? != (0, 0) || !schema_rows(&connection)?.is_empty() {
+            return Err(StorageError::Integrity);
+        }
+        let mut store = Self::open_connection(path, None, true, connection)?;
+        store._new_leaf = Some(guard);
+        Ok(store)
+    }
     /// Trusted application-private path only. Upgrade known old databases with a unique,
     /// nonoverwrite sibling backup; never adopt a foreign or altered schema.
     pub fn open_application(path: &Path) -> Result<Self> {
@@ -272,7 +367,7 @@ impl Store {
         let (application, version) = identity(&connection)?;
         supported_identity(application, version)?;
         verify_version(&connection, version)?;
-        Ok(Self { connection })
+        Ok(Self::from_connection(connection))
     }
     /// New paths initialize the current schema. Existing v0/v1 upgrades require a new safety
     /// backup. Foreign/nonempty v0, future or altered schemas are refused, never adopted.
@@ -285,7 +380,14 @@ impl Store {
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => false,
             Err(_) => return Err(StorageError::Io),
         };
-        let mut connection = connect(path, false)?;
+        Self::open_connection(path, migration_backup, new_file, connect(path, false)?)
+    }
+    fn open_connection(
+        path: &Path,
+        migration_backup: Option<&Path>,
+        new_file: bool,
+        mut connection: Connection,
+    ) -> Result<Self> {
         let (application, version) = identity(&connection)?;
         supported_identity(application, version)?;
         if version == 0 {
@@ -325,7 +427,7 @@ impl Store {
             transaction.commit()?;
         }
         verify(&connection)?;
-        Ok(Self { connection })
+        Ok(Self::from_connection(connection))
     }
     pub fn info(&self) -> Result<StoreInfo> {
         Ok(StoreInfo {
@@ -544,6 +646,112 @@ impl Store {
 mod tests {
     use super::*;
 
+    #[cfg(windows)]
+    mod pinned_new {
+        use super::*;
+        fn fixture() -> PathBuf {
+            let dir = std::env::temp_dir().join(format!(
+                "pinned-store-hook-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            std::fs::create_dir(&dir).unwrap();
+            let outside = dir.join("outside.sqlite");
+            let mut store = Store::open(&outside, None).unwrap();
+            let seed: Seed =
+                serde_json::from_str(include_str!("../../../fixtures/lantern_quay.json")).unwrap();
+            store
+                .create_story("Synthetic outside fixture", seed)
+                .unwrap();
+            drop(store);
+            dir
+        }
+        fn cleanup(dir: &Path) {
+            for entry in std::fs::read_dir(dir).unwrap() {
+                std::fs::remove_file(entry.unwrap().path()).unwrap();
+            }
+            std::fs::remove_dir(dir).unwrap();
+        }
+        #[test]
+        fn existing_leaf_refusal_never_reaches_connect_hooks() {
+            let dir = fixture();
+            let path = dir.join("outside.sqlite");
+            let before = std::fs::read(&path).unwrap();
+            let result = Store::create_new_pinned_inner(
+                &path,
+                PinnedNewHooks {
+                    after_reservation: |_| panic!("reservation was refused"),
+                    after_connect: |_| panic!("must not connect"),
+                },
+            );
+            assert_eq!(result.err(), Some(StorageError::Io));
+            assert_eq!(std::fs::read(&path).unwrap(), before);
+            cleanup(&dir);
+        }
+        #[test]
+        fn reserved_handle_blocks_replacement_in_the_exact_pre_sqlite_window() {
+            let dir = fixture();
+            let path = dir.join("new.sqlite");
+            let outside = dir.join("outside.sqlite");
+            let before = std::fs::read(&outside).unwrap();
+            let store =
+                Store::create_new_pinned_inner(
+                    &path,
+                    PinnedNewHooks {
+                        after_reservation: |path| {
+                            assert_eq!(std::fs::metadata(path).unwrap().len(), 0);
+                            assert!(std::fs::rename(path, path.with_file_name("stolen.sqlite"))
+                                .is_err());
+                            assert!(std::fs::remove_file(path).is_err());
+                            assert!(std::fs::rename(path.with_file_name("outside.sqlite"), path)
+                                .is_err());
+                            Ok(())
+                        },
+                        after_connect: |_| Ok(()),
+                    },
+                )
+                .unwrap();
+            assert_eq!(store.info().unwrap().schema_version, SCHEMA_VERSION);
+            assert_eq!(std::fs::read(&outside).unwrap(), before);
+            drop(store);
+            cleanup(&dir);
+        }
+        #[test]
+        fn failed_initializer_leaves_only_its_owned_partial_leaf_and_releases_handles() {
+            let dir = fixture();
+            let path = dir.join("failed.sqlite");
+            let outside = dir.join("outside.sqlite");
+            let before = std::fs::read(&outside).unwrap();
+            let result = Store::create_new_pinned_inner(
+                &path,
+                PinnedNewHooks {
+                    after_reservation: |_| Ok(()),
+                    after_connect: |connection| {
+                        connection.execute_batch("CREATE TABLE synthetic_initializer_failure(value TEXT); INSERT INTO synthetic_initializer_failure VALUES('owned partial leaf');")?;
+                        Err(StorageError::Database)
+                    },
+                },
+            );
+            assert_eq!(result.err(), Some(StorageError::Database));
+            assert!(path.is_file());
+            let partial = std::fs::read(&path).unwrap();
+            assert!(partial.starts_with(b"SQLite format 3\0"));
+            assert_eq!(std::fs::read(&outside).unwrap(), before);
+            assert_eq!(
+                Store::create_new_pinned(&path).err(),
+                Some(StorageError::Io)
+            );
+            assert_eq!(std::fs::read(&path).unwrap(), partial);
+            let moved = dir.join("released.sqlite");
+            std::fs::rename(&path, &moved).unwrap();
+            std::fs::rename(&moved, &path).unwrap();
+            cleanup(&dir);
+        }
+    }
+
     #[test]
     fn file_owner_and_read_only_connections_require_memory_only_temp_fts() {
         let path = std::env::temp_dir().join(format!(
@@ -679,7 +887,7 @@ mod tests {
         let tx = connection.transaction().unwrap();
         initialize(&tx, SCHEMA).unwrap();
         tx.commit().unwrap();
-        let store = Store { connection };
+        let store = Store::from_connection(connection);
         assert_eq!(
             store.backup_bounded(&path, 1),
             Err(StorageError::InvalidInput)

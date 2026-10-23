@@ -35,7 +35,15 @@ impl PlayProfile {
         fn hex(s: &str, n: usize) -> bool {
             s.len() == n && s.bytes().all(|b| b.is_ascii_hexdigit())
         }
-        if !crate::engine::valid_id(&self.id)
+        // Runtime profile names include model versions such as `qwen3-0.6b`.
+        // This is a provenance label, not a story/entity ID or filesystem path.
+        let valid_profile_id = !self.id.is_empty()
+            && self.id.len() <= 64
+            && self
+                .id
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'));
+        if !valid_profile_id
             || !hex(&self.model_sha256, 64)
             || !hex(&self.runtime_revision, 40)
             || !hex(&self.template_sha256, 64)

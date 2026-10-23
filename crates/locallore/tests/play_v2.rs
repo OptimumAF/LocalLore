@@ -34,6 +34,30 @@ struct Script {
     seen: Vec<GenerationRequest>,
     cancel_narrator: bool,
 }
+
+#[test]
+fn pinned_runtime_profile_name_accepts_version_separator_only_in_profile_ids() {
+    let mut p = profile();
+    p.id = "qwen3-0.6b-q8-cpu-v1".into();
+    assert_eq!(p.validate(), Ok(()));
+    for id in [
+        "",
+        "../model/path",
+        "model\\path",
+        "model name",
+        "model\nname",
+        "模型",
+    ] {
+        p.id = id.into();
+        assert_eq!(p.validate(), Err(Error::Rule), "{id:?}");
+    }
+    p.id = "a".repeat(65);
+    assert_eq!(p.validate(), Err(Error::Rule));
+    // Domain identifiers retain their existing stricter contract.
+    let mut seed = engine().seed().clone();
+    seed.scope.story = "story.1".into();
+    assert!(Engine::new(seed).is_err());
+}
 impl Script {
     fn new(replies: Vec<Value>) -> Self {
         Self {

@@ -98,3 +98,11 @@ and three Store regressions run in the host gate. The separate compiled-page
 qualifier is explicitly ignored there and must be selected in its documented
 isolated Cargo profile. No default CI step provisions a device, fills a partition
 or enables the feature-only JNI fixture in an ordinary build.
+
+The explicit [whole-story deletion checks](../native/STORY_DELETION_VERIFICATION_2026-10-23.md)
+build `.storydelete` with an exclusive project cache and no test-only native
+feature. Eight Store and five public native-owner regressions run in the host
+gate; consent/empty-library tests run in the JVM suite. Actual product Activity,
+Compose/JNI and Android protocol cases require a separately authorized test
+emulator. The first product Activity test requires an initially empty dedicated
+library; never substitute or clear a user's installed workspace.

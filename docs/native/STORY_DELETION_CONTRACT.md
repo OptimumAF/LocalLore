@@ -66,7 +66,10 @@ database are removed; their work is cancelled and trace metadata is cleared.
 Other story sessions remain available. Monotonic session IDs prevent late work
 attaching to a new session. Prepare can run outside the gate to preserve cancel
 responsiveness; an old completion can precede invalidation, but cannot commit
-through the gate afterward. Other-process captured memory is outside this fence.
+through the gate afterward. Separately captured UI snapshots/archive bytes
+(including an independent archive owner's prepared export) and other-process
+memory are outside this fence. The product UI excludes concurrent archive and
+deletion consent; this is not a guarantee of forensic memory scrubbing.
 
 The Kotlin controller confirms only the exact immutable preview object rendered
 by the dialog; a retained callback cannot borrow a later story's token. It

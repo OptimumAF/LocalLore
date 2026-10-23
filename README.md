@@ -99,6 +99,12 @@ before committing; existing IDs conflict and accepted history remains authoritat
 See [Android archive checks and limits](docs/native/ANDROID_ARCHIVE_VERIFICATION_2026-10-23.md).
 This partial adapter is under review; it does not establish cross-device or model support.
 
+**Delete story** previews every timeline and removes the story atomically through
+the shared Store, with explicit confirmation and native session invalidation.
+An empty library stays empty until **New story**. This whole-story slice is under
+review; branch-only deletion and forensic erasure are not provided. See
+[deletion verification and limits](docs/native/STORY_DELETION_VERIFICATION_2026-10-23.md).
+
 ## Initial technical direction
 
 The [shared SQLite owner](docs/storage/README.md) provides scoped seed storage,

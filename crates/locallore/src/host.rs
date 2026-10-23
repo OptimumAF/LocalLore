@@ -550,22 +550,29 @@ impl Host {
     }
     /// Remove only retired/collected targets. Retained descendant sessions stay live.
     pub fn invalidate_branches(&self, story: &str, branches: &[String]) {
-        let mut state = self.state.lock().unwrap();
+        // Lifecycle cleanup must revoke capabilities even after gameplay poison;
+        // recovering this guard does not clear poison or authorize more gameplay.
+        let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
         let mut owners = Vec::new();
         state.sessions.retain(|_, session| {
             let scope = session.engine.scope();
             if scope.story != story || !branches.contains(&scope.branch) {
                 return true;
             }
+            session.trace_owner.retire();
             owners.push(session.trace_owner.clone());
             for turn in session.turns.values() {
                 turn.cancel.cancel();
             }
             false
         });
-        let mut trace = self.trace.lock().unwrap();
-        for owner in owners {
-            trace.clear_owner(&owner);
+        drop(state);
+        // Retired owner liveness fences late private writes independently of a
+        // busy/poisoned diagnostic lock. Preserve unrelated live owner metadata.
+        if let Ok(mut trace) = self.trace.try_lock() {
+            for owner in owners {
+                trace.clear_owner(&owner);
+            }
         }
     }
     /// Trusted adapter lifecycle evidence, without story content or wire authority.
@@ -1976,6 +1983,7 @@ fn get_session<'a>(
         if let Err(error) = port.validate_scope(scope) {
             if error == "NotFound" {
                 if let Some(session) = state.sessions.remove(id) {
+                    session.trace_owner.retire();
                     for turn in session.turns.values() {
                         turn.cancel.cancel();
                     }
@@ -2579,6 +2587,37 @@ mod tests {
         let state = h.state.lock().unwrap();
         assert!(!state.sessions.contains_key(&parent));
         assert!(state.sessions.contains_key(&child));
+    }
+    #[test]
+    fn branch_retirement_retires_only_targets_with_busy_trace_and_poisoned_state() {
+        for poison in [false, true] {
+            let h = Host::new(true);
+            let (target, scope) = session(&h);
+            let (other, _) = session(&h);
+            let (selected, retained) = {
+                let state = h.state.lock().unwrap();
+                (
+                    state.sessions[&target].trace_owner.clone(),
+                    state.sessions[&other].trace_owner.clone(),
+                )
+            };
+            if poison {
+                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let _state = h.state.lock().unwrap();
+                    panic!("synthetic retirement cleanup poison");
+                }));
+            }
+            let held_trace = h.trace.lock().unwrap();
+            h.invalidate_branches(&scope.story, std::slice::from_ref(&scope.branch));
+            assert!(!selected.live());
+            assert!(retained.live());
+            let state = h.state.lock().unwrap_or_else(|p| p.into_inner());
+            assert_eq!(state.sessions.len(), 1);
+            assert!(state.sessions.contains_key(&other));
+            assert_eq!(h.state.is_poisoned(), poison);
+            drop(state);
+            drop(held_trace);
+        }
     }
     #[test]
     fn public_scope_retirement_retires_owner_before_removing_cached_session() {

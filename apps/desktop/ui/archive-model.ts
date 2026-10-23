@@ -35,11 +35,12 @@ export const archiveErrors = new Set([
     "StorageUnavailable",
 ]);
 export interface ArchivePreview {
-    version: 1;
+    version: 1 | 2;
     story_id: string;
     title: string;
     root_branch: string;
     branch_heads: Record<string, number>;
+    retired_branch_ids?: string[];
     committed_turns: number;
     bytes: number;
     payload_sha256: string;
@@ -106,7 +107,8 @@ export function decodePreview(v: unknown): PreviewToken {
         wire();
     const p = v.preview;
     if (
-        p.version !== 1 ||
+        ![1, 2].includes(Number(p.version)) ||
+        typeof p.version !== "number" ||
         !id(p.story_id) ||
         !id(p.root_branch) ||
         typeof p.title !== "string" ||
@@ -126,6 +128,25 @@ export function decodePreview(v: unknown): PreviewToken {
         p.noncommitted_workflow_transferred !== false
     )
         wire();
+    // V2 includes physical retired ancestors and collected-ID tombstones.
+    if (p.version === 1) {
+        if (p.retired_branch_ids !== undefined) wire();
+    } else {
+        const retired = p.retired_branch_ids;
+        if (
+            !Array.isArray(retired) ||
+            retired.length === 0 ||
+            retired.length > 256 ||
+            retired.some(
+                (value, index) =>
+                    !id(value) ||
+                    value === p.root_branch ||
+                    (index > 0 && retired[index - 1] >= value),
+            ) ||
+            new Set([...Object.keys(p.branch_heads), ...retired]).size > 256
+        )
+            wire();
+    }
     return v as unknown as PreviewToken;
 }
 export function decodeStatus(v: unknown): ArchiveStatus {

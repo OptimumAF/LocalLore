@@ -76,6 +76,7 @@ def main(argv=None):
     parser.add_argument("--sdk", type=Path, required=True)
     parser.add_argument("--output", type=Path, default=ROOT / "target/storage-android-smoke")
     parser.add_argument("--abi", choices=TARGETS, action="append")
+    parser.add_argument("--example", choices=["storage_smoke", "durable_smoke"], default="storage_smoke")
     args = parser.parse_args(argv)
     if os.name != "nt":
         parser.error("This checked recipe currently supports Windows hosts only")
@@ -109,9 +110,9 @@ def main(argv=None):
                 "-C", "link-arg=-Wl,-z,max-page-size=16384"]),
         })
         command(["cargo", f"+{RUST_VERSION}", "build", "--locked", "--offline", "--release",
-                 "--package", "locallore-storage", "--example", "storage_smoke",
+                 "--package", "locallore-storage", "--example", args.example,
                  "--target", target, "--target-dir", output / "rust"], environment)
-        report = inspect_binary(output / "rust" / target / "release/examples/storage_smoke", abi)
+        report = inspect_binary(output / "rust" / target / "release/examples" / args.example, abi)
         reports.append(report)
         (output / f"{abi}-elf.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         print(json.dumps({"status": "built", **report}), flush=True)

@@ -1,5 +1,6 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
-//! Rust's sole SQLite owner. This slice persists validated seeds, not accepted turns.
+//! Rust's sole SQLite owner for validated seeds and atomic root-history turns.
+mod turns;
 use locallore::{
     contracts::{Scope, Seed},
     engine::Engine,
@@ -10,6 +11,7 @@ use std::{
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
+pub use turns::{ResumedStory, TurnError, TurnPhase, TurnRecord};
 
 pub const SCHEMA_VERSION: u32 = 1;
 const APPLICATION_ID: u32 = 0x4c4c4f52;

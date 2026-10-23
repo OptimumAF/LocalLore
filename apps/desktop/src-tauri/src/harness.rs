@@ -18,6 +18,7 @@ const LABELS: &[&str] = &[
     "curated-lost-ack",
     "curated-completed",
     "curated-evidence",
+    "curated-receipt",
     "curated-output-narrow",
     "curated-player",
     "curated-rejected",

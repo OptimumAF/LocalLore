@@ -49,6 +49,7 @@ export async function curatedJourneys({
                 synthetic: true,
                 uiRevision: c.get().play?.revision ?? 0,
                 checks: [...checks],
+                errors: errors.snapshot(),
                 selectedStory: c.selected()?.scope,
                 observer: c.get().observer,
                 revision: c.get().play?.revision,
@@ -177,8 +178,13 @@ export async function curatedJourneys({
                 ".curated-evidence details",
             );
             details[0].open = true;
+            details[1].open = true;
             details[2].open = true;
             await capture("curated-evidence", ".curated-evidence");
+            await capture(
+                "curated-receipt",
+                ".curated-evidence details:nth-child(5)",
+            );
             await invoke("harness_viewport", { preset: "capture-narrow" });
             await capture(
                 "curated-output-narrow",
@@ -206,6 +212,18 @@ export async function curatedJourneys({
                 (e.get().curatedEvidence?.evidence.page as { view: string })
                     ?.view === "profiles",
                 "rejected-turn-opens-actual-state-not-fictional-diff",
+            );
+            await new Promise((r) => setTimeout(r, 50));
+            document.querySelectorAll<HTMLDetailsElement>(
+                ".curated-evidence details",
+            )[1].open = true;
+            check(
+                document
+                    .querySelector(".curated-evidence")
+                    ?.textContent?.includes(
+                        "No accepted receipt available for this turn/lens.",
+                    ),
+                "rejected-receipt-unavailable-visible-text",
             );
             await capture("curated-rejected", ".curated-evidence");
             c.setObserver("mira");
@@ -254,6 +272,16 @@ export async function curatedJourneys({
             });
             void e.curatedStart("scripted", null, "all");
             await until(() => !!e.get().curatedStatus?.running);
+            check(
+                errors
+                    .snapshot()
+                    .every(
+                        (x) =>
+                            x.source === "native" &&
+                            x.category === "EvaluationIo",
+                    ),
+                "initial-window-no-unexpected-render-or-native-errors",
+            );
             await invoke("harness_reopen");
             return;
         }

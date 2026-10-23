@@ -104,6 +104,9 @@ Overall cohort acceptance correctly fails because the runner requires
 `status=passed`; there is no cohort false pass. Nevertheless `final_success`
 should also require absence of the explicit abort flag. A regression should
 retain the four valid preceding case results while keeping final success false.
+The coordinator assigned that correction and regression to the exclusive parser
+agent. Integration depends on that follow-up; this report does not claim the
+correction or its check has already passed.
 
 Reporting limits remain explicit: `case_passes` can include individually passed
 tests from a failed/incomplete cohort; only `cohorts_passed` and overall status

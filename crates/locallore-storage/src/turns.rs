@@ -353,9 +353,6 @@ impl Store {
         proposal: &Proposal,
         narration: &str,
     ) -> Result<Receipt> {
-        if narration.len() > MAX_RECEIPT_BYTES {
-            return Err(TurnError::TooLarge);
-        }
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -366,6 +363,11 @@ impl Store {
         }
         if turn.phase != TurnPhase::Draft {
             return Err(TurnError::Terminal);
+        }
+        // A committed exact request is resolved above before considering a new output.
+        // Unknown/provisional output cannot replace or hide a winning recorded result.
+        if narration.len() > MAX_RECEIPT_BYTES {
+            return Err(TurnError::TooLarge);
         }
         if request.expected_revision != resumed.engine.revision() {
             tx.execute(

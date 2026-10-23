@@ -69,6 +69,11 @@ both candidates and the existing Rust oracle on authorized emulators. It adds
 no production inference dependency; physical-device and reliability gates remain
 open, with failures retained in the dated results.
 
+An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects
+the isolated SDK to guarded free-text preparation and durable commit. Its
+[verification](docs/runtime/android/PLAY_VERIFICATION_2026-10-23.md) establishes
+host/build and missing-model cleanup checks; real generation remains pending.
+
 ## Run the Android engine demo
 
 The minimal Compose app calls the actual Rust engine through bounded JNI. It

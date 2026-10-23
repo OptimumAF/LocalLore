@@ -169,10 +169,12 @@ mod tests {
         crate::play_fixture::configure(&host).unwrap();
         let lease = Arc::new(Lease {
             host,
+            database: PathBuf::new(), // This fixture uses an in-memory Host, not a disk Store.
             closed: AtomicBool::new(false),
             control: Mutex::new(()),
         });
         let registry = Arc::new(WorkspaceRegistry {
+            mutation: Mutex::new(()),
             entries: Mutex::new(RegistryState {
                 next: 1,
                 opening: 0,

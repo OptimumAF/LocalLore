@@ -8,7 +8,16 @@ Python on the development host orchestrates ADB and transient IPC; inference and
 the Rust oracle execute on the emulator. A standalone gameplay adapter remains
 future work.
 
-The [dated verification](VERIFICATION_2026-10-22.md) and
+The new opt-in [current Rust play experiment](PLAY_PROTOCOL.md) exercises the
+guarded free-text pipeline through a bounded JNI request pump instead of the
+older fixture oracle. Its [dated verification](PLAY_VERIFICATION_2026-10-23.md)
+currently establishes build/host and missing-model cleanup only; model-backed
+acceptance and active SDK cancellation remain pending. It adds no production
+backend or Compose inference dependency.
+The separate [compatibility follow-up](PLAY_COMPAT_VERIFICATION_2026-10-23.md)
+verifies the captured newer accepted main plus the same experimental source.
+
+The earlier [dated verification](VERIFICATION_2026-10-22.md) and
 [all-attempt aggregate results](RESULTS_2026-10-22.json) distinguish successful
 turns, cancellation, expected rejection, uncertain cleanup and follow-up checks.
 The original Qwen3.5-4B conversion and M01 physical-device gate remain pending.

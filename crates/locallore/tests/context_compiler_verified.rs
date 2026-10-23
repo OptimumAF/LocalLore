@@ -159,6 +159,10 @@ fn six_hundred_accepted_events_forward_cached_old_payload_with_exact_raw_bytes()
     let ps = packets(&e, "mira");
     let v = proof(&e, "mira", &ps);
     let m = parity(&e, &request(&e, "OLDEST-VERIFIED-SPINDLE"), Some(&v));
+    println!(
+        "VERIFIED_CONTEXT_COUNTS {}",
+        serde_json::to_string(&m.coverage).unwrap()
+    );
     assert_eq!(m.coverage.mode, CoverageMode::Verified);
     assert!(m.coverage.packets_used > 0);
     assert!(m.coverage.cached_event_candidates > 0);

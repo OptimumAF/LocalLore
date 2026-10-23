@@ -154,6 +154,8 @@ Android native owner opens. Production schema checks stay unchanged. This probes
 same-live-owner commit recovery after freeing pages, not ordinary valid-schema
 restart under Full or partition ENOSPC. The ordinary, 17-page and relief modes
 are mutually exclusive and keep independent task histories and APKs.
+The [schema3 Android qualification](../../docs/native/SCHEMA3_CAPACITY_VERIFICATION_2026-10-23.md)
+records both-emulator results, artifact bindings, retained attempts and limits.
 Cancellation that reaches Rust before submit exists is reconciled as an uncommitted
 request. A late submit remains a draft; recovery does not regenerate or commit it.
 The earlier [ADR-0004](../../docs/adr/0004-android-engine-boundary.md) remains the

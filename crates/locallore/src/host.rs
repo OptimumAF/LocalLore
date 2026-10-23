@@ -586,7 +586,17 @@ impl Host {
                 if !self.story_lab {
                     return Err(reject("Forbidden"));
                 }
-                let owner = get_session(state, session, scope)?.trace_owner.clone();
+                // Revocation only removes optional copies. Resolve the live
+                // in-memory lease without canonical Store admission or replay:
+                // unavailable storage must not prevent narrowing access.
+                let selected = state
+                    .sessions
+                    .get(session)
+                    .ok_or_else(|| reject("Closed"))?;
+                if selected.engine.scope() != scope {
+                    return Err(reject("Scope"));
+                }
+                let owner = selected.trace_owner.clone();
                 // No persistence read, head assertion or canonical mutation is
                 // needed to revoke this owner's optional diagnostic copies.
                 self.trace_control()?.revoke_details(&owner);
@@ -2750,6 +2760,9 @@ mod tests {
         use crate::turn_trace::TraceSink;
         struct Unreadable;
         impl Persistence for Unreadable {
+            fn validate_scope(&mut self, _: &Scope) -> Result<(), String> {
+                panic!("revocation must not validate an unavailable canonical Store")
+            }
             fn location(&self) -> &str {
                 "synthetic-unavailable"
             }

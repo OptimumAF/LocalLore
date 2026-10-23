@@ -104,6 +104,25 @@ that ignores cancellation can delay future exports; provider I/O and its
 cancellation listener remain off the UI thread. See [diagnostic evidence](../../docs/diagnostics/VERIFICATION_2026-10-22.md)
 and [privacy boundaries](../../docs/PRIVACY_AND_THREAT_MODEL.md).
 
+## Browse the player story record
+
+Open **Story record** from an idle saved story to inspect **Progression**, **History**,
+**Relationships**, or **Knowledge**. Each read uses the Rust engine's player lens at
+the selected story's accepted revision. Search is literal, limited to visible rows;
+pages contain at most eight records. Seed/event references explain recorded values.
+Statements, beliefs, discoveries, narration, and known world facts retain separate labels.
+
+Browsing never submits a turn, invokes inference, advances time, or changes accepted
+history. Closing, leaving the foreground, starting a turn, switching stories, recovery,
+and disposal revoke pending publication. An unavailable or stale read displays a fixed
+error; it cannot repair saves or promote a summary into canonical state. Native reads
+already executing may finish on their IO worker after dismissal; their results are discarded.
+
+This bounded view offers source references as text, without event-detail navigation or
+NPC/omniscient controls. Unsupported engine fields remain explicitly limited. See
+[record verification](../../docs/native/ANDROID_RECORD_VERIFICATION_2026-10-23.md)
+for exact checks and the remaining milestone gates.
+
 ## Verification and limits
 
 Host tests cover strict bytes, scoped IDs, ownership, idempotency, provider

@@ -283,6 +283,24 @@ pub struct WorkspaceBranchCatalog {
     pub root_branch: String,
     pub branches: Vec<WorkspaceBranch>,
 }
+/// Trusted native fork identity. This is deliberately not a HostCommand or a
+/// deserializable author capability. The expected head guards new creation only.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WorkspaceForkRequest {
+    pub parent: Scope,
+    pub child_branch: String,
+    pub expected_parent_revision: u64,
+    pub at_revision: u64,
+}
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+pub struct WorkspaceForkOutcome {
+    pub version: u16,
+    pub scope: Scope,
+    pub parent: Scope,
+    pub fork_revision: u64,
+    pub head_revision: u64,
+    pub created: bool,
+}
 pub struct SavedTurn {
     pub request: Request,
     pub phase: String,
@@ -300,6 +318,13 @@ pub trait Persistence: Send {
     fn location(&self) -> &str;
     fn list(&mut self) -> Result<Vec<WorkspaceSummary>, String>;
     fn branches(&mut self, _story: &str) -> Result<WorkspaceBranchCatalog, String> {
+        Err("Unsupported".into())
+    }
+    fn fork_branch(
+        &mut self,
+        _request: &WorkspaceForkRequest,
+        _cancel: &dyn Fn() -> bool,
+    ) -> Result<WorkspaceForkOutcome, String> {
         Err("Unsupported".into())
     }
     fn create(&mut self) -> Result<Engine, String>;
@@ -421,6 +446,37 @@ impl Host {
         let host = Self::new(story_lab);
         host.state.lock().unwrap().persistence = Some(persistence);
         host
+    }
+    /// Native-only durable fork. Does not select the child, refresh an existing
+    /// session, or confer inspection/author privileges. The owner lock serializes
+    /// local turn admission/publication with the Store transaction; generation
+    /// already admitted on this parent must settle before a fork is requested.
+    pub fn fork_branch(
+        &self,
+        session: &str,
+        request: &WorkspaceForkRequest,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<WorkspaceForkOutcome, String> {
+        let mut state = self.state.lock().map_err(|_| "Internal")?;
+        let selected = state.sessions.get(session).ok_or("Closed")?;
+        if selected.engine.scope() != &request.parent {
+            return Err("Scope".into());
+        }
+        if state.sessions.values().any(|selected| {
+            selected.engine.scope() == &request.parent
+                && selected.turns.values().any(|turn| turn.phase.active())
+        }) {
+            return Err("Busy".into());
+        }
+        // Store owns completed boundaries, cancellation and immutable child
+        // retry. In particular, do not reject an existing-child retry by checking
+        // expected_parent_revision against this process's cached or current head.
+        // A successful return is committed even if cancellation arrives later.
+        state
+            .persistence
+            .as_mut()
+            .ok_or("Unsupported")?
+            .fork_branch(request, cancel)
     }
     /// Read-only derived views use one immutable durable snapshot. The inspection grant
     /// comes only from trusted Host construction, never from a query or generation context.
@@ -1858,6 +1914,9 @@ impl Host {
         reply
     }
 }
+
+#[cfg(test)]
+mod fork_port_tests;
 impl Drop for Host {
     fn drop(&mut self) {
         self.close_all();

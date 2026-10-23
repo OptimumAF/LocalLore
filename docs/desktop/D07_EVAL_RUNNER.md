@@ -9,8 +9,10 @@ All milestone criteria remain unchecked pending their full evidence and owner re
 ## Frozen inputs and shared authority
 
 `crates/locallore-eval` is a standalone Rust workspace with its own locked manifest.
-It is deliberately not added to the repository workspace or existing CI in this
-slice; root `cargo test` will not execute it. Its explicit command is below.
+Root `cargo test` will not execute it. The desktop workflow explicitly runs this
+standalone crate's formatting, all-target tests and strict Clippy using only
+built-in synthetic cases; real-model runs remain outside default CI. Its explicit
+local command is below.
 
 `fixtures/eval/reference-v1.json` is a strict serde version1 suite. Every expected
 value and retrieval target is declared **before execution**, rather than copied

@@ -367,7 +367,7 @@ fn remove_abandoned_import(path: &Path) -> Result<(), String> {
             return Err("InvalidInput".into());
         }
         let info = FILE_DISPOSITION_INFO {
-            DeleteFile: true.into(),
+            DeleteFile: true,
         };
         unsafe {
             SetFileInformationByHandle(

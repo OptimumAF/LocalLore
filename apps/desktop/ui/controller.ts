@@ -812,8 +812,12 @@ export class Controller {
         }, 150);
         try {
             await this.native(command);
+            // A periodic status read must not supersede the definitive post-action
+            // refresh and let the action resolve with the previous loaded state.
+            clearInterval(timer);
             await this.refreshModel();
         } catch (error) {
+            clearInterval(timer);
             if (!this.state.disposed) {
                 this.fail(error);
                 await this.refreshModel();

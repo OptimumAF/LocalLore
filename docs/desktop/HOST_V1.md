@@ -17,8 +17,9 @@ versions reject without echoing input. Limits: 24,576 input bytes, 262,144 reply
 bytes, four sessions, 64 retained turns per session and four retained generation
 workers across session churn. IDs are opaque strings, never pointers or JS numbers.
 The 64-turn limit concerns live session retention; reopening durable history does
-not reset its canonical revision. Storage separately bounds a root history to
-4,096 receipts, 65,536 bytes per receipt and 16 MiB total, and the app library to
+not reset its canonical revision. Storage separately bounds a root branch to
+4,096 persisted turn IDs, 65,536 bytes per receipt and 16 MiB of combined request/
+receipt history, and the app library to
 256 stories. Full player/history replies can reach the smaller reply limit first
 and return `TooLarge`; the UI does not promise unlimited history. Arbitrary
 JS-large revisions cannot commit because they fail exact revision checks. The

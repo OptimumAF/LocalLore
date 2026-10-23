@@ -87,6 +87,7 @@ export async function durableJourneys({
             check(
                 c.get().visibleError === "Io" &&
                     c.get().workspace === null &&
+                    !c.get().ephemeral &&
                     c.get().sessions.length === 0,
                 "storage-open-failure-is-visible-no-memory-fallback",
             );

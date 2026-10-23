@@ -118,7 +118,9 @@ export async function journeys({
         const semantic = c.semantic();
         check(
             semantic.ephemeral &&
-                root.textContent?.includes("In-memory only · not saved"),
+                (c.get().disposed
+                    ? root.childElementCount === 0
+                    : root.textContent?.includes("In-memory only · not saved")),
             `${label}:honest-memory-label`,
         );
         check(

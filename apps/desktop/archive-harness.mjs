@@ -188,7 +188,7 @@ const files = [
     "src-tauri/src/main.rs",
     "src-tauri/src/lease.rs",
     "src-tauri/Cargo.toml",
-    "src-tauri/Cargo.lock",
+    "../../Cargo.lock",
     "src-tauri/build.rs",
     "src-tauri/tauri.conf.json",
     "archive-harness.mjs",

@@ -187,7 +187,7 @@ const files = [
     "src-tauri/src/lease.rs",
     "src-tauri/src/test_bridge.rs",
     "src-tauri/Cargo.toml",
-    "src-tauri/Cargo.lock",
+    "../../Cargo.lock",
     "../../crates/locallore-storage/Cargo.toml",
     "../../crates/locallore-storage/examples/native_legacy_workspace.rs",
     "../../crates/locallore-storage/migrations/001_initial.sql",

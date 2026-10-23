@@ -1,0 +1,2136 @@
+{
+  "version": 1,
+  "task": "M04.04",
+  "status": "implemented_locally_verified_pending_owner_acceptance",
+  "base": "540dff07e5e09019bd04bcc4ea5ad7dc32cacb1f",
+  "qualified_source": "677d73f2debab25509b9763a887e5e321fb1f26c",
+  "scope": "synthetic_helper_failure_ownership",
+  "host_checks": {
+    "rust_workspace": 380,
+    "linker": 3,
+    "ignored": 2,
+    "python": 374,
+    "fixture_bindings": 4,
+    "fmt": "passed",
+    "clippy": "passed",
+    "separate_ownership_policy_tests": 2,
+    "actual_unknown_os_ownership_incident": false
+  },
+  "android_build": {
+    "final": "passed",
+    "jvm": {
+      "tests": 146,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "jvm_fresh_in_red_reused_in_final": true,
+    "lint_errors": 0,
+    "lint_warnings": 1,
+    "audit": {
+      "status": "passed",
+      "scope": "synthetic_helper_fault_test_binary",
+      "pages": 32,
+      "fixture_format": 2,
+      "database_schema_version": 3,
+      "faults_format": 1,
+      "package": "org.locallore.app.capacityfaultsv3",
+      "permissions": [
+        "org.locallore.app.capacityfaultsv3.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "libraries": [
+        {
+          "entry": "lib/arm64-v8a/libandroidx.graphics.path.so",
+          "elf_load_alignment": [
+            16384,
+            16384,
+            16384
+          ]
+        },
+        {
+          "entry": "lib/arm64-v8a/liblocallore_android.so",
+          "elf_load_alignment": [
+            16384,
+            16384,
+            16384
+          ]
+        },
+        {
+          "entry": "lib/x86_64/libandroidx.graphics.path.so",
+          "elf_load_alignment": [
+            16384,
+            16384,
+            16384
+          ]
+        },
+        {
+          "entry": "lib/x86_64/liblocallore_android.so",
+          "elf_load_alignment": [
+            16384,
+            16384,
+            16384
+          ]
+        }
+      ]
+    },
+    "nonincremental_test_compilation": true
+  },
+  "configuration_refusals": {
+    "bad-value": {
+      "status": "rejected_as_expected",
+      "exit_code": 1
+    },
+    "missing-cache": {
+      "status": "rejected_as_expected",
+      "exit_code": 1
+    },
+    "cache-without-flag": {
+      "status": "rejected_as_expected",
+      "exit_code": 1
+    },
+    "full-cache": {
+      "status": "rejected_as_expected",
+      "exit_code": 1
+    },
+    "relief-cache": {
+      "status": "rejected_as_expected",
+      "exit_code": 1
+    },
+    "combined-relief": {
+      "status": "rejected_as_expected",
+      "exit_code": 1
+    },
+    "combined-full": {
+      "status": "rejected_as_expected",
+      "exit_code": 1
+    },
+    "combined-parent": {
+      "status": "rejected_as_expected",
+      "exit_code": 1
+    },
+    "release": {
+      "status": "rejected_as_expected",
+      "exit_code": 1
+    }
+  },
+  "red_regressions": {
+    "red-MarkerDrift-A": {
+      "alias": "A",
+      "phase": "red",
+      "case": "MarkerDrift",
+      "status": "expected_regression_failure",
+      "parsed": {
+        "status": "failed",
+        "passed": 0,
+        "failed": 1,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$MarkerDrift#postReadOnlyMarkerDriftIsUncertainAndPoisonsEveryDependentDispatch",
+            "outcome": "failed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": false
+      },
+      "expected_assertion": "unknown_completion_is_sticky",
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "c96728cc94468882aa6fe8526b94010582eba96231d53b5a61eb4195b87ed0cc",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "6a24b05b593b1d3407edc99033c78b053c9789a390c34cd5480d6ecc47410184"
+      }
+    },
+    "red-DispatchFence-A": {
+      "alias": "A",
+      "phase": "red",
+      "case": "DispatchFence",
+      "status": "expected_regression_failure",
+      "parsed": {
+        "status": "failed",
+        "passed": 0,
+        "failed": 1,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$DispatchFence#swallowedHelperFailureCannotDispatchAwaitingNativeCommit",
+            "outcome": "failed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": false
+      },
+      "expected_assertion": "no_post_hook_native_dispatch",
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "c37259412d4db56170fdaacba0082c02740ff6c7b9dc5af8e8f9d62cbf0124b1",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "6a24b05b593b1d3407edc99033c78b053c9789a390c34cd5480d6ecc47410184"
+      }
+    },
+    "red-MarkerDrift-B-prelaunch2": {
+      "alias": "B",
+      "phase": "red",
+      "case": "MarkerDrift",
+      "status": "expected_regression_failure",
+      "parsed": {
+        "status": "failed",
+        "passed": 0,
+        "failed": 1,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$MarkerDrift#postReadOnlyMarkerDriftIsUncertainAndPoisonsEveryDependentDispatch",
+            "outcome": "failed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": false
+      },
+      "expected_assertion": "unknown_completion_is_sticky",
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "51931232646d4af139ec18574ec66a0698df41c338925ec7e488afb39fdbf236",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "6a24b05b593b1d3407edc99033c78b053c9789a390c34cd5480d6ecc47410184"
+      }
+    },
+    "red-DispatchFence-B": {
+      "alias": "B",
+      "phase": "red",
+      "case": "DispatchFence",
+      "status": "expected_regression_failure",
+      "parsed": {
+        "status": "failed",
+        "passed": 0,
+        "failed": 1,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$DispatchFence#swallowedHelperFailureCannotDispatchAwaitingNativeCommit",
+            "outcome": "failed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": false
+      },
+      "expected_assertion": "no_post_hook_native_dispatch",
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "c9aace8cc54d721c9c9123134a2197fc36b7f2a3a1e1f95b9812c65d1a048845",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "6a24b05b593b1d3407edc99033c78b053c9789a390c34cd5480d6ecc47410184"
+      }
+    }
+  },
+  "superseded_first_candidate": {
+    "final-MarkerDrift-A": {
+      "alias": "A",
+      "phase": "final",
+      "case": "MarkerDrift",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$MarkerDrift#postReadOnlyMarkerDriftIsUncertainAndPoisonsEveryDependentDispatch",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "e882df2ad7e6abaf2011fa8dad3b7ef625e1c4edb3e1b5c14eb5f41f9c57f904",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "021fcbb8b204f80c086f8e97bf6a2841c0758148f00496b010e1f10f0c8e4b8f"
+      }
+    },
+    "final-DispatchFence-A": {
+      "alias": "A",
+      "phase": "final",
+      "case": "DispatchFence",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$DispatchFence#swallowedHelperFailureCannotDispatchAwaitingNativeCommit",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "d673acbf664ef6b875040d0a383e3048b7104dab76ac601b3108e08aad791f85",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "021fcbb8b204f80c086f8e97bf6a2841c0758148f00496b010e1f10f0c8e4b8f"
+      }
+    },
+    "final-Malformed-A": {
+      "alias": "A",
+      "phase": "final",
+      "case": "Malformed",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$Malformed#malformedTerminalIsReapedAndPoisonsEveryDependentDispatch",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "93a98127e24b95e9712d9d6c01dcc9c788a4111489ebfcb69cd7565ecf427075",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "021fcbb8b204f80c086f8e97bf6a2841c0758148f00496b010e1f10f0c8e4b8f"
+      }
+    },
+    "final-Oversize-A": {
+      "alias": "A",
+      "phase": "final",
+      "case": "Oversize",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$Oversize#oversizeTerminalIsBoundedAndPoisonsEveryDependentDispatch",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "2be697bdda16ea09e06147076f7d3b5a5bab6592fbf7006502876cb14b4d1fc6",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "021fcbb8b204f80c086f8e97bf6a2841c0758148f00496b010e1f10f0c8e4b8f"
+      }
+    },
+    "final-Timeout-A": {
+      "alias": "A",
+      "phase": "final",
+      "case": "Timeout",
+      "status": "failed",
+      "parsed": {
+        "status": "failed",
+        "passed": 0,
+        "failed": 1,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$Timeout#deadlineDestroysOnlyOwnedChildAndPoisonsEveryDependentDispatch",
+            "outcome": "failed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": false
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "d9020b03f0ae931a70778cbd9170606758a8d284aa25caeed1b464b0562c802b",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "021fcbb8b204f80c086f8e97bf6a2841c0758148f00496b010e1f10f0c8e4b8f"
+      }
+    },
+    "final-MarkerDrift-B": {
+      "alias": "B",
+      "phase": "final",
+      "case": "MarkerDrift",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$MarkerDrift#postReadOnlyMarkerDriftIsUncertainAndPoisonsEveryDependentDispatch",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "0a1218d4b6fe24a20e5e13f77b299cc9249d0a08392794ab7379d558a16b9669",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "021fcbb8b204f80c086f8e97bf6a2841c0758148f00496b010e1f10f0c8e4b8f"
+      }
+    },
+    "final-DispatchFence-B": {
+      "alias": "B",
+      "phase": "final",
+      "case": "DispatchFence",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$DispatchFence#swallowedHelperFailureCannotDispatchAwaitingNativeCommit",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "5c11e42765be86dc3f2c219917e5bbb596643d77e9ee63121504aa72ec3de68f",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "021fcbb8b204f80c086f8e97bf6a2841c0758148f00496b010e1f10f0c8e4b8f"
+      }
+    },
+    "final-Malformed-B": {
+      "alias": "B",
+      "phase": "final",
+      "case": "Malformed",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$Malformed#malformedTerminalIsReapedAndPoisonsEveryDependentDispatch",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "3425c5b464d985a5483ddb05f1865d0cbdbff6354e264501558ed0955d192c5e",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "021fcbb8b204f80c086f8e97bf6a2841c0758148f00496b010e1f10f0c8e4b8f"
+      }
+    },
+    "final-Oversize-B": {
+      "alias": "B",
+      "phase": "final",
+      "case": "Oversize",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$Oversize#oversizeTerminalIsBoundedAndPoisonsEveryDependentDispatch",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "8d3718d051caec3a18785afcf3b1f014c65115aef11ddd032ba9e71671e646cc",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "021fcbb8b204f80c086f8e97bf6a2841c0758148f00496b010e1f10f0c8e4b8f"
+      }
+    },
+    "final-Timeout-B": {
+      "alias": "B",
+      "phase": "final",
+      "case": "Timeout",
+      "status": "failed",
+      "parsed": {
+        "status": "failed",
+        "passed": 0,
+        "failed": 1,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$Timeout#deadlineDestroysOnlyOwnedChildAndPoisonsEveryDependentDispatch",
+            "outcome": "failed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": false
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "71eaf186d4bdd4a000ceabc617df3588030235370b6ad6957e977c549c5fa8bc",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "021fcbb8b204f80c086f8e97bf6a2841c0758148f00496b010e1f10f0c8e4b8f"
+      }
+    }
+  },
+  "qualified_emulator_cohorts": {
+    "round2-final-MarkerDrift-A": {
+      "alias": "A",
+      "phase": "final",
+      "case": "MarkerDrift",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$MarkerDrift#postReadOnlyMarkerDriftIsUncertainAndPoisonsEveryDependentDispatch",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "f72c96a8d14d34315a968bac1bdfa64f133bc1fff901bf36bb1fa537c0a09a7a",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "ff04a113c96e8dbda617b49132d1483a24f268793532eb26976ffe6fa07e56d4"
+      }
+    },
+    "round2-final-DispatchFence-A": {
+      "alias": "A",
+      "phase": "final",
+      "case": "DispatchFence",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$DispatchFence#swallowedHelperFailureCannotDispatchAwaitingNativeCommit",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "923de993a3e0122468d309fc5cfe784d9b41fad577fc091300395029a990a7c6",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "ff04a113c96e8dbda617b49132d1483a24f268793532eb26976ffe6fa07e56d4"
+      }
+    },
+    "round2-final-Malformed-A": {
+      "alias": "A",
+      "phase": "final",
+      "case": "Malformed",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$Malformed#malformedTerminalIsReapedAndPoisonsEveryDependentDispatch",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "f8c82052f484296272574c995e837974445c846bf8459eff380453064bffa66c",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "ff04a113c96e8dbda617b49132d1483a24f268793532eb26976ffe6fa07e56d4"
+      }
+    },
+    "round2-final-Oversize-A": {
+      "alias": "A",
+      "phase": "final",
+      "case": "Oversize",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$Oversize#oversizeTerminalIsBoundedAndPoisonsEveryDependentDispatch",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "ca2fa964e733fd451e19b7cc3d0496a1646b883a886b388e6537ea3beb9ac1b1",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "ff04a113c96e8dbda617b49132d1483a24f268793532eb26976ffe6fa07e56d4"
+      }
+    },
+    "round2-final-Timeout-A": {
+      "alias": "A",
+      "phase": "final",
+      "case": "Timeout",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$Timeout#deadlineDestroysOnlyOwnedChildAndPoisonsEveryDependentDispatch",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "4cc50e3f7ec059ee4f2d31038ae74d52662c83eba3db33c4c9e842449375e2c1",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "ff04a113c96e8dbda617b49132d1483a24f268793532eb26976ffe6fa07e56d4"
+      }
+    },
+    "round2-final-AfterFill-A": {
+      "alias": "A",
+      "phase": "final",
+      "case": "AfterFill",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$AfterFill#closedFullChildBadExitRetainsOwnedPaddingWithoutNativeDispatch",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "5de95c2ee52b99c2315a4bbed31f35404f12d2168ac7e9983b608d637132bcc1",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "ff04a113c96e8dbda617b49132d1483a24f268793532eb26976ffe6fa07e56d4"
+      }
+    },
+    "round2-default-A": {
+      "alias": "A",
+      "phase": "default",
+      "case": null,
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteReliefInstrumentedTest#collectedFullRecoveryAfterOwnedPaddingRemovalPublishesOnlyOriginalAcceptedReceipt",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteReliefNativeTest#actualFullThenOwnedPaddingRemovalCommitsOnlyOriginalReadyKeyOnce",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteReliefNativeTest#cancelledFullReadyTurnRemainsUnspentAfterPaddingRemovalAndReopen",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "beec0a7144ecaa4b2ff440d381834ae45d5f45b4f99eaa368c0ae8eae934e3ad",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "ff04a113c96e8dbda617b49132d1483a24f268793532eb26976ffe6fa07e56d4"
+      }
+    },
+    "round2-final-MarkerDrift-B": {
+      "alias": "B",
+      "phase": "final",
+      "case": "MarkerDrift",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$MarkerDrift#postReadOnlyMarkerDriftIsUncertainAndPoisonsEveryDependentDispatch",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "55d7f9f1052248fbf76e736ba469b1ba577a8329c2166f31ec1f23355ffa9fbb",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "ff04a113c96e8dbda617b49132d1483a24f268793532eb26976ffe6fa07e56d4"
+      }
+    },
+    "round2-final-DispatchFence-B": {
+      "alias": "B",
+      "phase": "final",
+      "case": "DispatchFence",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$DispatchFence#swallowedHelperFailureCannotDispatchAwaitingNativeCommit",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "db651ff9d39f09dc415e79b367c73001e84715d4739a631577100d19077bd6d5",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "ff04a113c96e8dbda617b49132d1483a24f268793532eb26976ffe6fa07e56d4"
+      }
+    },
+    "round2-final-Malformed-B": {
+      "alias": "B",
+      "phase": "final",
+      "case": "Malformed",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$Malformed#malformedTerminalIsReapedAndPoisonsEveryDependentDispatch",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "63094f68529d0e752314e38ca07954c3dac6a9c50eefa655b73120435ef9831b",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "ff04a113c96e8dbda617b49132d1483a24f268793532eb26976ffe6fa07e56d4"
+      }
+    },
+    "round2-final-Oversize-B": {
+      "alias": "B",
+      "phase": "final",
+      "case": "Oversize",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$Oversize#oversizeTerminalIsBoundedAndPoisonsEveryDependentDispatch",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "a41739bde6d1f57a2d60ff87d1f18b3f34228e6ceaffbcae6bbeb745651e033a",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "ff04a113c96e8dbda617b49132d1483a24f268793532eb26976ffe6fa07e56d4"
+      }
+    },
+    "round2-final-Timeout-B": {
+      "alias": "B",
+      "phase": "final",
+      "case": "Timeout",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$Timeout#deadlineDestroysOnlyOwnedChildAndPoisonsEveryDependentDispatch",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "b311308387b0a363afe236fe9434ede2dc567f47f37fc95b06781ab11cd2d3a8",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "ff04a113c96e8dbda617b49132d1483a24f268793532eb26976ffe6fa07e56d4"
+      }
+    },
+    "round2-final-AfterFill-B": {
+      "alias": "B",
+      "phase": "final",
+      "case": "AfterFill",
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteHelperFaultTest$AfterFill#closedFullChildBadExitRetainsOwnedPaddingWithoutNativeDispatch",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "e7bf9f690947e4708ab5ba4c1fcabc78e8b5b7cbb47b9c9bde424801dfe73152",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "ff04a113c96e8dbda617b49132d1483a24f268793532eb26976ffe6fa07e56d4"
+      }
+    },
+    "round2-default-B": {
+      "alias": "B",
+      "phase": "default",
+      "case": null,
+      "status": "passed",
+      "parsed": {
+        "status": "passed",
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteReliefInstrumentedTest#collectedFullRecoveryAfterOwnedPaddingRemovalPublishesOnlyOriginalAcceptedReceipt",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteReliefNativeTest#actualFullThenOwnedPaddingRemovalCommitsOnlyOriginalReadyKeyOnce",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteReliefNativeTest#cancelledFullReadyTurnRemainsUnspentAfterPaddingRemovalAndReopen",
+            "outcome": "passed"
+          }
+        ],
+        "started_unfinished": 0,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "final_success": true
+      },
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "raw_sha256": "f950d798f9777d69348c34c73fe013d94cc219dc712b5af0180e9463f0f0b94d",
+      "apks": {
+        "org.locallore.app.capacityfaultsv3": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "org.locallore.app.capacityfaultsv3.test": "ff04a113c96e8dbda617b49132d1483a24f268793532eb26976ffe6fa07e56d4"
+      }
+    }
+  },
+  "qualified_test_executions": 18,
+  "red_failed_invocations": 4,
+  "superseded_candidate_passes": 8,
+  "superseded_candidate_failures": 2,
+  "artifact_phases": {
+    "red": {
+      "source": "f35df14",
+      "apk_sha256": {
+        "app": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "test": "6a24b05b593b1d3407edc99033c78b053c9789a390c34cd5480d6ecc47410184"
+      },
+      "prior_local_apks_preserved": 20
+    },
+    "candidate1": {
+      "source": "f169955",
+      "apk_sha256": {
+        "app": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "test": "021fcbb8b204f80c086f8e97bf6a2841c0758148f00496b010e1f10f0c8e4b8f"
+      }
+    },
+    "final": {
+      "source": "677d73f",
+      "apk_sha256": {
+        "app": "e149627f2d36ea3491124806c3e982991dc7b78d0224d478a923b05632799d2f",
+        "test": "ff04a113c96e8dbda617b49132d1483a24f268793532eb26976ffe6fa07e56d4"
+      }
+    }
+  },
+  "same_application_all_phases": true,
+  "native_sha256": {
+    "x86_64": "761650b01e645ed5ae9b93be0d35aa9fe8cf7b7716e1ec761f16f1c57fa2dcf9",
+    "arm64-v8a": "0dcd5ebe3698ad90e818d2753a1f14ef61cfbe900f3237a82206c1b88e4dc7aa"
+  },
+  "native_identical_to_pr87_relief": true,
+  "host_faults": {
+    "malformed": {
+      "actual_fill_observed": true,
+      "ceiling_pages": 32,
+      "cleanup": {
+        "child": {
+          "exit_code": 0,
+          "kill_requested": false,
+          "kill_succeeded": false,
+          "reaped": true,
+          "started": true,
+          "terminal": true
+        },
+        "report": {
+          "action": "remove",
+          "database_schema_version": 3,
+          "free_pages": 15,
+          "initial_pages": 32,
+          "pages": 32,
+          "rows_removed": 14,
+          "schema_restored": true,
+          "schema_sha256": "c05ced1f0439fb767f97d2ff93a34ef44eb6fbc27da6814a75fad455fb0b2c17",
+          "sqlite_version": "3.38.2",
+          "status": "passed",
+          "version": 2
+        },
+        "status": "restored"
+      },
+      "database_schema_version": 3,
+      "fault": "malformed",
+      "fill_insert_attempts": 15,
+      "helper_children_started": 2,
+      "no_gameplay_acceptance_claimed": true,
+      "original_failure": {
+        "category": "helper_json",
+        "child": {
+          "exit_code": 0,
+          "kill_requested": false,
+          "kill_succeeded": false,
+          "reaped": true,
+          "started": true,
+          "terminal": true
+        },
+        "reported_stage": null
+      },
+      "padding_rows": 14,
+      "physical_enospc_proven": false,
+      "post_failure_host_calls": 0,
+      "post_failure_workspace_opens": 0,
+      "real_model_proven": false,
+      "scope": "host_synthetic_helper_fault_v1",
+      "status": "passed",
+      "version": 1
+    },
+    "overflow": {
+      "actual_fill_observed": true,
+      "ceiling_pages": 32,
+      "cleanup": {
+        "child": {
+          "exit_code": 0,
+          "kill_requested": false,
+          "kill_succeeded": false,
+          "reaped": true,
+          "started": true,
+          "terminal": true
+        },
+        "report": {
+          "action": "remove",
+          "database_schema_version": 3,
+          "free_pages": 15,
+          "initial_pages": 32,
+          "pages": 32,
+          "rows_removed": 14,
+          "schema_restored": true,
+          "schema_sha256": "c05ced1f0439fb767f97d2ff93a34ef44eb6fbc27da6814a75fad455fb0b2c17",
+          "sqlite_version": "3.38.2",
+          "status": "passed",
+          "version": 2
+        },
+        "status": "restored"
+      },
+      "database_schema_version": 3,
+      "fault": "overflow",
+      "fill_insert_attempts": 15,
+      "helper_children_started": 2,
+      "no_gameplay_acceptance_claimed": true,
+      "original_failure": {
+        "category": "helper_output_bound",
+        "child": {
+          "exit_code": 1,
+          "kill_requested": true,
+          "kill_succeeded": true,
+          "reaped": true,
+          "started": true,
+          "terminal": true
+        },
+        "reported_stage": null
+      },
+      "padding_rows": 14,
+      "physical_enospc_proven": false,
+      "post_failure_host_calls": 0,
+      "post_failure_workspace_opens": 0,
+      "real_model_proven": false,
+      "scope": "host_synthetic_helper_fault_v1",
+      "status": "passed",
+      "version": 1
+    },
+    "timeout": {
+      "actual_fill_observed": true,
+      "ceiling_pages": 32,
+      "cleanup": {
+        "child": {
+          "exit_code": 0,
+          "kill_requested": false,
+          "kill_succeeded": false,
+          "reaped": true,
+          "started": true,
+          "terminal": true
+        },
+        "report": {
+          "action": "remove",
+          "database_schema_version": 3,
+          "free_pages": 15,
+          "initial_pages": 32,
+          "pages": 32,
+          "rows_removed": 14,
+          "schema_restored": true,
+          "schema_sha256": "c05ced1f0439fb767f97d2ff93a34ef44eb6fbc27da6814a75fad455fb0b2c17",
+          "sqlite_version": "3.38.2",
+          "status": "passed",
+          "version": 2
+        },
+        "status": "restored"
+      },
+      "database_schema_version": 3,
+      "fault": "timeout",
+      "fill_insert_attempts": 15,
+      "helper_children_started": 2,
+      "no_gameplay_acceptance_claimed": true,
+      "original_failure": {
+        "category": "helper_deadline",
+        "child": {
+          "exit_code": 1,
+          "kill_requested": true,
+          "kill_succeeded": true,
+          "reaped": true,
+          "started": true,
+          "terminal": true
+        },
+        "reported_stage": null
+      },
+      "padding_rows": 14,
+      "physical_enospc_proven": false,
+      "post_failure_host_calls": 0,
+      "post_failure_workspace_opens": 0,
+      "real_model_proven": false,
+      "scope": "host_synthetic_helper_fault_v1",
+      "status": "passed",
+      "version": 1
+    },
+    "after-fill": {
+      "actual_fill_observed": true,
+      "ceiling_pages": 32,
+      "cleanup": {
+        "child": {
+          "exit_code": 0,
+          "kill_requested": false,
+          "kill_succeeded": false,
+          "reaped": true,
+          "started": true,
+          "terminal": true
+        },
+        "report": {
+          "action": "remove",
+          "database_schema_version": 3,
+          "free_pages": 15,
+          "initial_pages": 32,
+          "pages": 32,
+          "rows_removed": 14,
+          "schema_restored": true,
+          "schema_sha256": "c05ced1f0439fb767f97d2ff93a34ef44eb6fbc27da6814a75fad455fb0b2c17",
+          "sqlite_version": "3.38.2",
+          "status": "passed",
+          "version": 2
+        },
+        "status": "restored"
+      },
+      "database_schema_version": 3,
+      "fault": "after-fill",
+      "fill_insert_attempts": 15,
+      "helper_children_started": 2,
+      "no_gameplay_acceptance_claimed": true,
+      "original_failure": {
+        "category": "helper_result",
+        "child": {
+          "exit_code": 1,
+          "kill_requested": false,
+          "kill_succeeded": false,
+          "reaped": true,
+          "started": true,
+          "terminal": true
+        },
+        "reported_stage": "injected_after_fill"
+      },
+      "padding_rows": 14,
+      "physical_enospc_proven": false,
+      "post_failure_host_calls": 0,
+      "post_failure_workspace_opens": 0,
+      "real_model_proven": false,
+      "scope": "host_synthetic_helper_fault_v1",
+      "status": "passed",
+      "version": 1
+    },
+    "cleanup-refusal": {
+      "actual_fill_observed": true,
+      "ceiling_pages": 32,
+      "cleanup": {
+        "failure": {
+          "category": "helper_result",
+          "child": {
+            "exit_code": 1,
+            "kill_requested": false,
+            "kill_succeeded": false,
+            "reaped": true,
+            "started": true,
+            "terminal": true
+          },
+          "reported_stage": "injected_cleanup_refusal"
+        },
+        "status": "failed"
+      },
+      "database_schema_version": 3,
+      "fault": "cleanup-refusal",
+      "fill_insert_attempts": 15,
+      "helper_children_started": 2,
+      "no_gameplay_acceptance_claimed": true,
+      "original_failure": {
+        "category": "helper_result",
+        "child": {
+          "exit_code": 1,
+          "kill_requested": false,
+          "kill_succeeded": false,
+          "reaped": true,
+          "started": true,
+          "terminal": true
+        },
+        "reported_stage": "injected_after_fill"
+      },
+      "padding_rows": 14,
+      "physical_enospc_proven": false,
+      "post_failure_host_calls": 0,
+      "post_failure_workspace_opens": 0,
+      "real_model_proven": false,
+      "scope": "host_synthetic_helper_fault_v1",
+      "status": "passed",
+      "version": 1
+    }
+  },
+  "host_normal_controls": {
+    "accept": {
+      "accepted_receipts": 1,
+      "ceiling_pages": 32,
+      "database_schema_version": 3,
+      "extra_schema_rejected": true,
+      "fill": {
+        "action": "fill",
+        "database_schema_version": 3,
+        "errorcode_api": false,
+        "free_pages": 0,
+        "initial_pages": 17,
+        "insert_attempts": 15,
+        "pages": 32,
+        "rows": 14,
+        "schema_sha256": "c05ced1f0439fb767f97d2ff93a34ef44eb6fbc27da6814a75fad455fb0b2c17",
+        "sqlite_full": true,
+        "sqlite_version": "3.38.2",
+        "status": "passed",
+        "version": 2
+      },
+      "full_commits": 2,
+      "physical_enospc_proven": false,
+      "player_snapshot_unchanged_after_full": true,
+      "post_relief_prepares": 0,
+      "post_relief_submits": 0,
+      "prefix": 0,
+      "real_model_proven": false,
+      "remove": {
+        "action": "remove",
+        "database_schema_version": 3,
+        "free_pages": 15,
+        "initial_pages": 32,
+        "pages": 32,
+        "rows_removed": 14,
+        "schema_restored": true,
+        "schema_sha256": "c05ced1f0439fb767f97d2ff93a34ef44eb6fbc27da6814a75fad455fb0b2c17",
+        "sqlite_version": "3.38.2",
+        "status": "passed",
+        "version": 2
+      },
+      "revision": 1,
+      "same_key_reopened": true,
+      "same_live_owner_ready_key_accepted": true,
+      "status": "passed",
+      "version": 2
+    },
+    "cancel": {
+      "accepted_receipts": 0,
+      "cancelled_while_full": true,
+      "ceiling_pages": 32,
+      "database_schema_version": 3,
+      "extra_schema_rejected": true,
+      "fill": {
+        "action": "fill",
+        "database_schema_version": 3,
+        "errorcode_api": false,
+        "free_pages": 0,
+        "initial_pages": 17,
+        "insert_attempts": 15,
+        "pages": 32,
+        "rows": 14,
+        "schema_sha256": "c05ced1f0439fb767f97d2ff93a34ef44eb6fbc27da6814a75fad455fb0b2c17",
+        "sqlite_full": true,
+        "sqlite_version": "3.38.2",
+        "status": "passed",
+        "version": 2
+      },
+      "full_commits": 2,
+      "original_key_terminal_after_relief": true,
+      "physical_enospc_proven": false,
+      "player_snapshot_unchanged_after_full": true,
+      "post_relief_prepares": 0,
+      "post_relief_submits": 0,
+      "prefix": 0,
+      "real_model_proven": false,
+      "remove": {
+        "action": "remove",
+        "database_schema_version": 3,
+        "free_pages": 15,
+        "initial_pages": 32,
+        "pages": 32,
+        "rows_removed": 14,
+        "schema_restored": true,
+        "schema_sha256": "c05ced1f0439fb767f97d2ff93a34ef44eb6fbc27da6814a75fad455fb0b2c17",
+        "sqlite_version": "3.38.2",
+        "status": "passed",
+        "version": 2
+      },
+      "revision": 0,
+      "same_key_reopened": true,
+      "status": "passed",
+      "version": 2
+    }
+  },
+  "host_private_index_sha256": "276ec2d7caf5cead6e9b0630f289b911fa8f0246ed5e1740b267dc2923d53ad7",
+  "host_log_bindings": [
+    {
+      "id": "after-fill-final.log",
+      "bytes": 1030,
+      "sha256": "44813d491b43612a2b0445caea8f99fda2e0c0e8ecf88cc8a4a11a2b6b976704"
+    },
+    {
+      "id": "cleanup-refusal-final.log",
+      "bytes": 833,
+      "sha256": "a30034e12c94c2d685c1f89e561fe0b6815c7b5d785a780b17f26b21e3eedd43"
+    },
+    {
+      "id": "clippy-initial.log",
+      "bytes": 1216,
+      "sha256": "d77124172e8b1c5e00b353c01aa2e8591645d1da15004f0a5f74d546624e5938"
+    },
+    {
+      "id": "fmt-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "malformed-final.log",
+      "bytes": 1357,
+      "sha256": "0c543ba023d84f23ba5dbfedcb44231d9a94388f71de2ce523fefa5309ca9889"
+    },
+    {
+      "id": "malformed-initial.log",
+      "bytes": 2950,
+      "sha256": "976b13cd0f92767402a5ee76d821586d7fef71ea4402708f3db348146851b61d"
+    },
+    {
+      "id": "malformed-owner-metadata-final.log",
+      "bytes": 1010,
+      "sha256": "db713f013f23185f07e544a35400ccb4e750724b2a12362edcee106663aaebdf"
+    },
+    {
+      "id": "normal-accept-final.log",
+      "bytes": 981,
+      "sha256": "a061550b1ee08683a108c747a1dd20b033c1f71825c7bf3995389f308fc2b2f9"
+    },
+    {
+      "id": "normal-cancel-final.log",
+      "bytes": 1009,
+      "sha256": "471491257f55bd9340d207b4040fb9c9b96a619773528de4b4df84811bb38ece"
+    },
+    {
+      "id": "overflow-final.log",
+      "bytes": 1475,
+      "sha256": "7bdbda15d5164715d96d3ff7cb049d71bd96d5573b8eaf9cda8822dd4a3d9bb2"
+    },
+    {
+      "id": "python-final.log",
+      "bytes": 3477,
+      "sha256": "195c953a62b6d7e83194f0a48e57d264bceee4153bbd477be7295dc42533fb9d"
+    },
+    {
+      "id": "rust-policy-final.log",
+      "bytes": 667,
+      "sha256": "6b7cf2aa291e92cefe43641c5a04e2072dea73afe1e62a1a41e5c609f7be85d2"
+    },
+    {
+      "id": "timeout-final.log",
+      "bytes": 1010,
+      "sha256": "2edaa8b01133ce3dd854d77f6f2a4a9b2d54007ceafb1fd1ed6029320481d2e5"
+    }
+  ],
+  "host_child_artifact_count": 38,
+  "preservation": {
+    "prior_local_apks_unchanged": 20,
+    "prior_installed_packages_unchanged_each": 19,
+    "inactive_compiler_files_relocated_and_hash_verified": 1715
+  },
+  "setup_failures": [
+    {
+      "stage": "B initial MarkerDrift prelaunch",
+      "reason": "20s owned force-stop timeout; client terminal clean, subsequent finally stops/absence verified, no instrumentation launched; same-budget fresh prelaunch2 retained"
+    },
+    {
+      "stage": "build-final2",
+      "reason": "incremental compile rejected unchanged internal fixture declarations; full module compilation of same Kotlin source passed without visibility changes; compiler cause not established"
+    },
+    {
+      "stage": "host initial compile",
+      "reason": "two Result/closure type errors corrected before runtime qualification; original log retained"
+    }
+  ],
+  "timeout_observation": {
+    "original_failures_retained": 2,
+    "aggregate_read_failure_and_global_poison_retained": true,
+    "shutdown_io_observation_does_not_prove_causality": true,
+    "official_android15_source": "https://android.googlesource.com/platform/libcore/+/android-15.0.0_r1/ojluni/src/main/java/java/lang/UNIXProcess.java",
+    "source_sha256": "16d0a310d2c53caa3f3a716d6ed18a579d350e6c92e85f11e26dd1ac1cb9983b"
+  },
+  "limits": {
+    "partition_enospc": false,
+    "power_loss": false,
+    "physical_phone": false,
+    "arm64_execution": false,
+    "real_model_inference": false,
+    "unkillable_child_qualification": false,
+    "same_uid_os_adversary": false,
+    "ordinary_android_rebuild": false
+  },
+  "source_sha256": {
+    ".gitignore": "92d990a41004dc9edd7afdda3130035f2a0ad26d55a6340c216b1bdbe056d259",
+    "apps/android/app/build.gradle.kts": "731d1cfb9d0334979cd3fd974053d90cb305733442e87f57e0987b794c508e93",
+    "apps/android/app/src/capacityReliefTest/FaultsAppManifest.xml": "22548ee836f86db96d4310d533db9ea235bd1c415b563d57198f470ee7de2a63",
+    "apps/android/app/src/capacityReliefTest/java/org/locallore/app/SqliteHelperFaultTest.kt": "65bfd9f10aa4b87c0419356b3a5135d19ec95f90aa8a444d1ec505331b3580d2",
+    "apps/android/app/src/capacityReliefTest/java/org/locallore/app/SqlitePaddingProcess.kt": "050e9326265cb339c5865abe6b128d72eb7356f90f1d70934296f4cd28d90161",
+    "apps/android/app/src/capacityReliefTest/java/org/locallore/app/SqliteReliefFixture.kt": "0703a8f112fee08782b7dcd7801ae41531e86012422cf8b380b197bb41fe2eef",
+    "crates/locallore-workspace/examples/capacity_relief_probe.rs": "86a2558c944abdf034d32d3495824a97eabaf1660ce70196a6ef28456e4aa59d",
+    "scripts/android_capacity_fault_probe.py": "27dc74dc5c61d0dbfe80a002e180b88abb59d39e11b4f0f8a226bcc4ad47e6d4",
+    "scripts/android_capacity_relief_probe.py": "e981ecd71c13e11baaaee82ee0756bc11ef0039a528d03f8ca29c096499c5011",
+    "scripts/audit_apk.py": "6e6efd3e12a410c8b21efec20ddc6f861f04ed1aa948f984af21a47dd5cfaabe",
+    "scripts/capacity_padding_probe.py": "055543a8e38d6248e69c158346f19eb56c422e8bafb1928077d2c23081a12aae",
+    "scripts/tests/test_android_capacity_fault_probe.py": "2f8432621c26e69b5d51feb9fc7e9a5e570cee09b1636d27b61b1b4495c95a5c",
+    "scripts/tests/test_capacity_padding_probe.py": "0092218fb87b63b49c52ac56cc712d11f52473847e742d26e8664c0cc9616a1a"
+  },
+  "source_hash_encoding": "tested workspace bytes including line endings",
+  "all_local_attempt_bindings": {
+    "build-final1.log": {
+      "bytes": 8348,
+      "sha256": "18fe8fdfc5743651a033a93011f0c8e4806881487a44eecd0340bdca1d6beb8d"
+    },
+    "build-final2.log": {
+      "bytes": 28513,
+      "sha256": "701a0982a624c0d198ec114380fed7bd586afa52cd12d56d65a135ae1dcbce23"
+    },
+    "build-final3.log": {
+      "bytes": 8163,
+      "sha256": "bda1fa36eee7984712db0c7c8d90c18da335e02d32a57e0ac19c9a9c334122d9"
+    },
+    "build-red1.log": {
+      "bytes": 11388,
+      "sha256": "d9fde3d9b5b3d52deb49810a00c85fe72c4d2913ce1abcedb891b38c98710f34"
+    },
+    "fault-audit-tests1.log": {
+      "bytes": 688,
+      "sha256": "2fb67ce2db53cd68f46847b9e514b93db4de60ce036ee042acc74638dafd2ebb"
+    },
+    "fault-audit-tests2.log": {
+      "bytes": 688,
+      "sha256": "2fb67ce2db53cd68f46847b9e514b93db4de60ce036ee042acc74638dafd2ebb"
+    },
+    "final-DispatchFence-A/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "db0950dea6ba0cf8363c4431bd93130434b30f040939ef2d82f4fccc4cffe871"
+    },
+    "final-DispatchFence-A/instrumentation.raw.txt": {
+      "bytes": 860,
+      "sha256": "d673acbf664ef6b875040d0a383e3048b7104dab76ac601b3108e08aad791f85"
+    },
+    "final-DispatchFence-A/result.json": {
+      "bytes": 5673,
+      "sha256": "f40fc5392b58a8a038045e77e5258be53a92a480b76c646d336518638dd27c08"
+    },
+    "final-DispatchFence-A.log": {
+      "bytes": 540,
+      "sha256": "3228fa71ade5e52fca9dcbfe6556e8838c165462106327355370b9a26c4c294d"
+    },
+    "final-DispatchFence-B/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "6863820e25cc6feac6eab530e5966b1b0778fb037c53c738395c1ad2dc34c012"
+    },
+    "final-DispatchFence-B/instrumentation.raw.txt": {
+      "bytes": 860,
+      "sha256": "5c11e42765be86dc3f2c219917e5bbb596643d77e9ee63121504aa72ec3de68f"
+    },
+    "final-DispatchFence-B/result.json": {
+      "bytes": 5673,
+      "sha256": "e58ea7c97da7a17257e9ad8f2a22ce09e65713fa05657532fa6f38fa3daa1be1"
+    },
+    "final-DispatchFence-B.log": {
+      "bytes": 540,
+      "sha256": "83ccffd03b5ebf13068d2e155a184373677f3c8ce7350d0e31783ec548634074"
+    },
+    "final-Malformed-A/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "ed40fa849ed99740ce5ac58695e66f6543b0307c8afd89415e38bee4d9425c6e"
+    },
+    "final-Malformed-A/instrumentation.raw.txt": {
+      "bytes": 850,
+      "sha256": "93a98127e24b95e9712d9d6c01dcc9c788a4111489ebfcb69cd7565ecf427075"
+    },
+    "final-Malformed-A/result.json": {
+      "bytes": 5666,
+      "sha256": "dd534e4c9c22774846cf77b7890a827f85266cc06bc71b48e70c0cc7a9a857a9"
+    },
+    "final-Malformed-A.log": {
+      "bytes": 533,
+      "sha256": "db21622b37a18987ef22dc1ca00cddb22fce6e33d5fa3c5fc7dbe16d3c7720ba"
+    },
+    "final-Malformed-B/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "3b1dfa81af206b3ae319ad8ae0d8ca0c1531af4cc836bf0ba91e196e669e04be"
+    },
+    "final-Malformed-B/instrumentation.raw.txt": {
+      "bytes": 850,
+      "sha256": "3425c5b464d985a5483ddb05f1865d0cbdbff6354e264501558ed0955d192c5e"
+    },
+    "final-Malformed-B/result.json": {
+      "bytes": 5666,
+      "sha256": "4edb3f14b0aa1fd0d77f21916545d8b5fcc19d7ed922ebd86a0afdcfdc4ae035"
+    },
+    "final-Malformed-B.log": {
+      "bytes": 533,
+      "sha256": "54362bbf0b459c1ba1060173bbdc7851e0ada11cec46c40743d119f421758f8d"
+    },
+    "final-MarkerDrift-A/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "4857ba66afbf9a780214844dd610ea8bcdd7365206450854838d84643c3a0836"
+    },
+    "final-MarkerDrift-A/instrumentation.raw.txt": {
+      "bytes": 874,
+      "sha256": "e882df2ad7e6abaf2011fa8dad3b7ef625e1c4edb3e1b5c14eb5f41f9c57f904"
+    },
+    "final-MarkerDrift-A/result.json": {
+      "bytes": 5679,
+      "sha256": "87a192684792f668684b5abbd0b55f486bea8d7bdb6cecd18b05d4480a4bf15d"
+    },
+    "final-MarkerDrift-A.log": {
+      "bytes": 546,
+      "sha256": "95e3439d7bac437ec92fa0ac996f45afa91529a3fcbc11cb91a438e974e36842"
+    },
+    "final-MarkerDrift-B/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "47f1158fb5727d9489def96e5ebfdaf4a0dbb3bbba1872421dbe461c10f8846e"
+    },
+    "final-MarkerDrift-B/instrumentation.raw.txt": {
+      "bytes": 874,
+      "sha256": "0a1218d4b6fe24a20e5e13f77b299cc9249d0a08392794ab7379d558a16b9669"
+    },
+    "final-MarkerDrift-B/result.json": {
+      "bytes": 5679,
+      "sha256": "7d44a93b7a6d8824f95b2682ca0a7709321aaf113f1141d21ea1f8a91b7472a6"
+    },
+    "final-MarkerDrift-B.log": {
+      "bytes": 546,
+      "sha256": "cff58a6a81b6d9770fbc175f0c8c4bedc0f1dbd7d72d6d9a2ce8c936d2ebc16f"
+    },
+    "final-Oversize-A/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "97ccdb2a9f852860c8d6e145a866e779696fc5d2607458a6169dbcb5bb75c353"
+    },
+    "final-Oversize-A/instrumentation.raw.txt": {
+      "bytes": 847,
+      "sha256": "2be697bdda16ea09e06147076f7d3b5a5bab6592fbf7006502876cb14b4d1fc6"
+    },
+    "final-Oversize-A/result.json": {
+      "bytes": 5664,
+      "sha256": "cecc3ba6cfbc2b17104aa0d8519e281e1aa8e2d285b23d1d8c5b6f7f70381fd7"
+    },
+    "final-Oversize-A.log": {
+      "bytes": 531,
+      "sha256": "a2596a5c90efd9eda900453b5b97398566d5d46db55b9c801d9202dc13382fdd"
+    },
+    "final-Oversize-B/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "96e977733d960a2bf7ba5002ecd786b6db87274609629346e8bc282f104fcc8e"
+    },
+    "final-Oversize-B/instrumentation.raw.txt": {
+      "bytes": 847,
+      "sha256": "8d3718d051caec3a18785afcf3b1f014c65115aef11ddd032ba9e71671e646cc"
+    },
+    "final-Oversize-B/result.json": {
+      "bytes": 5664,
+      "sha256": "3bb89964b1d71fc8a53ab876ed9ea47c2f1474b2a86cf1e86164b57bc83de3ff"
+    },
+    "final-Oversize-B.log": {
+      "bytes": 531,
+      "sha256": "c6ef078c59de3cedbb4149d97cebc9bfc70f0e6d6de63bd1de0ec2d64de38dc2"
+    },
+    "final-Timeout-A/commands.jsonl": {
+      "bytes": 11843,
+      "sha256": "90948922be20a653b4c1ae536a8335807a86f6fa1480ae472a01ff35640f9a6e"
+    },
+    "final-Timeout-A/instrumentation.raw.txt": {
+      "bytes": 4955,
+      "sha256": "d9020b03f0ae931a70778cbd9170606758a8d284aa25caeed1b464b0562c802b"
+    },
+    "final-Timeout-A/result.json": {
+      "bytes": 5668,
+      "sha256": "81beb38a76d13b2f284bc7753b1e44f9b18c249db5b8799aa6dd50b15e1a82a9"
+    },
+    "final-Timeout-A.log": {
+      "bytes": 836,
+      "sha256": "2fdb60218c109402b3c49be4ff65835b7dcd82f2f676a9c7c12ecd6e6c4b6eca"
+    },
+    "final-Timeout-B/commands.jsonl": {
+      "bytes": 11843,
+      "sha256": "c98d2da6ba370007a1bb49e335c203e5275a3be794a45cd531460e90c71fc8c9"
+    },
+    "final-Timeout-B/instrumentation.raw.txt": {
+      "bytes": 4955,
+      "sha256": "71eaf186d4bdd4a000ceabc617df3588030235370b6ad6957e977c549c5fa8bc"
+    },
+    "final-Timeout-B/result.json": {
+      "bytes": 5668,
+      "sha256": "8c38954a10675bbccec604179a9b794b39dd6ee4145e1b3e1c33321d80860b9f"
+    },
+    "final-Timeout-B.log": {
+      "bytes": 836,
+      "sha256": "4068ae3211fb487a643c7c3d42a0f028078b590d00de5fdfc0868586399eb56a"
+    },
+    "full-audit-tests1.log": {
+      "bytes": 662,
+      "sha256": "1aabd8725b163694feb943e4c9d1794958ec1558581ca537a30d6f3fb3dbfc44"
+    },
+    "guard-bad-value.log": {
+      "bytes": 795,
+      "sha256": "166b0093baf4696ff1cf07cf0da5446abfa1cf43090b54a7ad5b7f507698d536"
+    },
+    "guard-cache-without-flag.log": {
+      "bytes": 848,
+      "sha256": "832568b69881b41c5b0a3b0c74643f72d6b778d4dbc5c620d67ef6b32b1d0af1"
+    },
+    "guard-combined-full.log": {
+      "bytes": 788,
+      "sha256": "fc31ad7945be176686a3681573304f2a4f35911bd7e88581d8a479d59c95e121"
+    },
+    "guard-combined-parent.log": {
+      "bytes": 824,
+      "sha256": "a31ee377a8f757e68be806d58fc93aa2fef0dd74b4be5d8d3cfe36aa1a865d0f"
+    },
+    "guard-combined-relief.log": {
+      "bytes": 783,
+      "sha256": "fdbcb7f4c561d2c7cb0c97370632f1a05d30517dddc0e197a18771b9ea440ce9"
+    },
+    "guard-full-cache.log": {
+      "bytes": 848,
+      "sha256": "832568b69881b41c5b0a3b0c74643f72d6b778d4dbc5c620d67ef6b32b1d0af1"
+    },
+    "guard-missing-cache.log": {
+      "bytes": 848,
+      "sha256": "832568b69881b41c5b0a3b0c74643f72d6b778d4dbc5c620d67ef6b32b1d0af1"
+    },
+    "guard-release.log": {
+      "bytes": 1107,
+      "sha256": "d68d6050948a0d836a7c1d5b2ddee8dc60af62ee8637967421d8f40f1ae5c4b5"
+    },
+    "guard-relief-cache.log": {
+      "bytes": 848,
+      "sha256": "832568b69881b41c5b0a3b0c74643f72d6b778d4dbc5c620d67ef6b32b1d0af1"
+    },
+    "guards-driver.log": {
+      "bytes": 618,
+      "sha256": "0b3c40f5b1f6ba2ca504adf097e3409193108a21209d72f4d77777748c6f6bfe"
+    },
+    "host-policy1.log": {
+      "bytes": 673,
+      "sha256": "d441ad51793a758c22191509f5e54805ab83fa2cd6b9f868bb6d63b58b490959"
+    },
+    "host1.log": {
+      "bytes": 51396,
+      "sha256": "b2c1d744fb1c9459d3016ce706747f6dfb24f578599a3d053590b7e9fdda7967"
+    },
+    "install-final-A/commands.jsonl": {
+      "bytes": 12069,
+      "sha256": "c55cfc5897f7ca0adb6aaef4c9dbddcb6afaeb28f0d9254574ef5a2bf4a0aaf1"
+    },
+    "install-final-A/result.json": {
+      "bytes": 5073,
+      "sha256": "3bd595f874c1c7225acc597bbc20bff3d09ab02ef44a647623f35d676952295b"
+    },
+    "install-final-A.log": {
+      "bytes": 211,
+      "sha256": "ea298cc5e06cf36b061b003724e1fc50b05f43560c0624b95e7aeace9a70288e"
+    },
+    "install-final-B/commands.jsonl": {
+      "bytes": 12069,
+      "sha256": "230f1ab9733203615bc125966c47270e7fcd865812dbd6f3bb0386713ce7f113"
+    },
+    "install-final-B/result.json": {
+      "bytes": 5073,
+      "sha256": "2a644daf9b8a6b2c83832c22f6245a32fec7b2dc8b6edfdf63d7975b8d1b6ec8"
+    },
+    "install-final-B.log": {
+      "bytes": 211,
+      "sha256": "cbc10c9a9c456e6979f28945883a258d66e190def40e968465e62c632ff1ce57"
+    },
+    "install-red-A/commands.jsonl": {
+      "bytes": 11159,
+      "sha256": "4fb55ceb71c97aa3592739ba078c9a1ec8e860d40ca6cd87ffae53502eb10761"
+    },
+    "install-red-A/result.json": {
+      "bytes": 4844,
+      "sha256": "feb690841d84a8e2c9930e052ab1a0b8b4c130513d66f796d7a6b3378c32d6c2"
+    },
+    "install-red-A.log": {
+      "bytes": 209,
+      "sha256": "97ec0be9ed506881033af9da55b2a12c940f2a5980a04d07041c5afe9defa433"
+    },
+    "install-red-B/commands.jsonl": {
+      "bytes": 11159,
+      "sha256": "5ac329f8590b0b5889ad2918b927e828db6675c0ce65879cbd140916057842f2"
+    },
+    "install-red-B/result.json": {
+      "bytes": 4844,
+      "sha256": "ab5c22ca6104357ecfc70e662afb3a2f00a937006c7516f862405d9d7bbc9d65"
+    },
+    "install-red-B.log": {
+      "bytes": 209,
+      "sha256": "50aa286654924189a7c70f2b2987a21dc5fbf3a6b6086c8b5e230b6fd8fc3697"
+    },
+    "output-relocation.json": {
+      "bytes": 121,
+      "sha256": "728aa2abd96c1c8014f6ac601346f99d306f228649b3a59c0dcb3c7a15cc0ea2"
+    },
+    "preflight-A/commands.jsonl": {
+      "bytes": 5007,
+      "sha256": "a016c269e94d90928a0426f2012cbfb1a6b0d089a89897021802f945cf851740"
+    },
+    "preflight-A/result.json": {
+      "bytes": 2249,
+      "sha256": "1c7c29fc47e7db2174976a1cfd5b1f82f87e4d87110800272060a37e3fef717d"
+    },
+    "preflight-A.log": {
+      "bytes": 83,
+      "sha256": "2efd05d21b3cec83218d146a9a87aa19fdc7676580e6cacaeae0e56abdc5fa59"
+    },
+    "preflight-B/commands.jsonl": {
+      "bytes": 5007,
+      "sha256": "a016c269e94d90928a0426f2012cbfb1a6b0d089a89897021802f945cf851740"
+    },
+    "preflight-B/result.json": {
+      "bytes": 2249,
+      "sha256": "4c07456fd82280e9f8eaacd57b6a84318f1c3ac1439e6504cbc217237d6a01d1"
+    },
+    "preflight-B.log": {
+      "bytes": 83,
+      "sha256": "1dce651b00da918194058002ec56258e23ee45a26ddc52c699a0deb75cec2288"
+    },
+    "red-DispatchFence-A/commands.jsonl": {
+      "bytes": 11843,
+      "sha256": "17bfe7c3ef1da03f380e9323e771d806293f66e1de1120a8e43dbdcc8dad04aa"
+    },
+    "red-DispatchFence-A/instrumentation.raw.txt": {
+      "bytes": 4795,
+      "sha256": "c37259412d4db56170fdaacba0082c02740ff6c7b9dc5af8e8f9d62cbf0124b1"
+    },
+    "red-DispatchFence-A/result.json": {
+      "bytes": 5750,
+      "sha256": "db80a6dd753af9a142ee99479360de6ee09727aee7329324cedfc74f18fe2fa2"
+    },
+    "red-DispatchFence-A.log": {
+      "bytes": 586,
+      "sha256": "3dd51d93e04e86f58e2b9dfd6dbf1261263afa7c99df8a39ac1eeed12b9f6a52"
+    },
+    "red-DispatchFence-B/commands.jsonl": {
+      "bytes": 11843,
+      "sha256": "751be7e06a79dbdff5b8cc5bd412c68f89d7a12b3a3ae8208d514bdba10a3836"
+    },
+    "red-DispatchFence-B/instrumentation.raw.txt": {
+      "bytes": 4795,
+      "sha256": "c9aace8cc54d721c9c9123134a2197fc36b7f2a3a1e1f95b9812c65d1a048845"
+    },
+    "red-DispatchFence-B/result.json": {
+      "bytes": 5750,
+      "sha256": "8811740f8bbe2ca520c3d5879f0ec6cb7ac2ccdc4dc5b5107260363f3be3a512"
+    },
+    "red-DispatchFence-B.log": {
+      "bytes": 586,
+      "sha256": "ef1da4b9f8fa8277f13ef4caa45930c11982cf08aa7555038284250e982e6aeb"
+    },
+    "red-MarkerDrift-A/commands.jsonl": {
+      "bytes": 11843,
+      "sha256": "e3edf450c0b5efaf48f74860d53a27db1cd8335522626149f44a81c9b6158d3b"
+    },
+    "red-MarkerDrift-A/instrumentation.raw.txt": {
+      "bytes": 5114,
+      "sha256": "c96728cc94468882aa6fe8526b94010582eba96231d53b5a61eb4195b87ed0cc"
+    },
+    "red-MarkerDrift-A/result.json": {
+      "bytes": 5756,
+      "sha256": "22e658202a52770536e652a7238bd340bd1930792a59dbb33276314d28cfa863"
+    },
+    "red-MarkerDrift-A.log": {
+      "bytes": 592,
+      "sha256": "0da22c532405f8d10798dc3dd3153c4fa617fabfcf95c0e1070518cdfd8026ab"
+    },
+    "red-MarkerDrift-B/commands.jsonl": {
+      "bytes": 11611,
+      "sha256": "e8412495863e0da3de3f5ba2219b627d0eb3b7ca6ccebf273fcd5e6bf3eed3e8"
+    },
+    "red-MarkerDrift-B/result.json": {
+      "bytes": 5072,
+      "sha256": "10ae5b59258f937426d48270a1081aad25d83dcd8e7e487e2e053a00320d9048"
+    },
+    "red-MarkerDrift-B-prelaunch2/commands.jsonl": {
+      "bytes": 11843,
+      "sha256": "e16b198743579f82e68b8ec6def421a0cbed3d5f5fdd418da40aa7ca7754b9a9"
+    },
+    "red-MarkerDrift-B-prelaunch2/instrumentation.raw.txt": {
+      "bytes": 5114,
+      "sha256": "51931232646d4af139ec18574ec66a0698df41c338925ec7e488afb39fdbf236"
+    },
+    "red-MarkerDrift-B-prelaunch2/result.json": {
+      "bytes": 5756,
+      "sha256": "5b09d90b5ede42f58119ceb1900033c0f59b053925789f831a7d1db07be0cf3b"
+    },
+    "red-MarkerDrift-B-prelaunch2.log": {
+      "bytes": 592,
+      "sha256": "2bd71f46e470c77d6c0047c96d4abf15d38cb2a0077309fc8cfd30f78c8f020b"
+    },
+    "red-MarkerDrift-B.log": {
+      "bytes": 910,
+      "sha256": "9f450697204824c78f860cf05675783cd3cdfe1e49225c43714322b89ace1f1b"
+    },
+    "relief-audit-tests1.log": {
+      "bytes": 809,
+      "sha256": "c081be9076a32536c66437dcb52ef80e1bc99d6a309ec8438ecef1b44da0b380"
+    },
+    "relief-audit-tests2.log": {
+      "bytes": 809,
+      "sha256": "c081be9076a32536c66437dcb52ef80e1bc99d6a309ec8438ecef1b44da0b380"
+    },
+    "round2-default-A/commands.jsonl": {
+      "bytes": 11843,
+      "sha256": "5d2a6a33561fc42e1a03c347efdbc6d5346f83490d6b497fca9a5c1788e6cf9d"
+    },
+    "round2-default-A/instrumentation.raw.txt": {
+      "bytes": 2336,
+      "sha256": "beec0a7144ecaa4b2ff440d381834ae45d5f45b4f99eaa368c0ae8eae934e3ad"
+    },
+    "round2-default-A/result.json": {
+      "bytes": 6030,
+      "sha256": "136a8aeb11946d0690f8b9d67a6fc0cea99d596d02c61e5d3798a23fcd215dc6"
+    },
+    "round2-default-A.log": {
+      "bytes": 829,
+      "sha256": "8e55bfa1a4184cff3d7bdd94aad04bcac8c4be786a80eca3313388adaab6a726"
+    },
+    "round2-default-B/commands.jsonl": {
+      "bytes": 11843,
+      "sha256": "bebbc9d4f38265c704a3c8c4159b27a04582003bb2de41d1a13401b60d972194"
+    },
+    "round2-default-B/instrumentation.raw.txt": {
+      "bytes": 2336,
+      "sha256": "f950d798f9777d69348c34c73fe013d94cc219dc712b5af0180e9463f0f0b94d"
+    },
+    "round2-default-B/result.json": {
+      "bytes": 6030,
+      "sha256": "ef7fb07e8577e12b3928cc120153d147c7ad0997d5d7d733b063945b60a3da5a"
+    },
+    "round2-default-B.log": {
+      "bytes": 829,
+      "sha256": "967439543136812461cb3cbd858a1b132130fd428dba0f6b9df0691c3d252f28"
+    },
+    "round2-final-AfterFill-A/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "ead80e776a661f18abadbd335e47fa74202a9fbb25165902d37d28783ca1bdbd"
+    },
+    "round2-final-AfterFill-A/instrumentation.raw.txt": {
+      "bytes": 860,
+      "sha256": "5de95c2ee52b99c2315a4bbed31f35404f12d2168ac7e9983b608d637132bcc1"
+    },
+    "round2-final-AfterFill-A/result.json": {
+      "bytes": 5671,
+      "sha256": "19853b0b1a776185eef8e136124cded0cc608498047e8cb969d7563791952ab0"
+    },
+    "round2-final-AfterFill-A.log": {
+      "bytes": 538,
+      "sha256": "fc72361f396fceeeea8ab07352b686bca451b6ce26e17e05ab7c178aa1e2eb66"
+    },
+    "round2-final-AfterFill-B/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "679b3c9c2d28295b59cef45e574e69427856af19538be99d396eb86c70e0bf42"
+    },
+    "round2-final-AfterFill-B/instrumentation.raw.txt": {
+      "bytes": 860,
+      "sha256": "e7bf9f690947e4708ab5ba4c1fcabc78e8b5b7cbb47b9c9bde424801dfe73152"
+    },
+    "round2-final-AfterFill-B/result.json": {
+      "bytes": 5671,
+      "sha256": "2bd98341bb02f0a2c91edede466583efef6157f7123d861f14f70723cef0463a"
+    },
+    "round2-final-AfterFill-B.log": {
+      "bytes": 538,
+      "sha256": "b6c40c4e0bbe38c64e65b4213c488d74061ecf33398531b3f2337c07ab898184"
+    },
+    "round2-final-DispatchFence-A/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "95d7b223b8b7e6990f4d121064f9c472c9ba46b3a3322f229e395115068da6e7"
+    },
+    "round2-final-DispatchFence-A/instrumentation.raw.txt": {
+      "bytes": 859,
+      "sha256": "923de993a3e0122468d309fc5cfe784d9b41fad577fc091300395029a990a7c6"
+    },
+    "round2-final-DispatchFence-A/result.json": {
+      "bytes": 5673,
+      "sha256": "963963cb3a885e53a8661718daf8397ced204b4cfccf4d17751fb72b7c0cc19c"
+    },
+    "round2-final-DispatchFence-A.log": {
+      "bytes": 540,
+      "sha256": "3228fa71ade5e52fca9dcbfe6556e8838c165462106327355370b9a26c4c294d"
+    },
+    "round2-final-DispatchFence-B/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "3ac24b0cd58ff149440f7027c1c0afe38da6265d5550523af3089978933d1faf"
+    },
+    "round2-final-DispatchFence-B/instrumentation.raw.txt": {
+      "bytes": 860,
+      "sha256": "db651ff9d39f09dc415e79b367c73001e84715d4739a631577100d19077bd6d5"
+    },
+    "round2-final-DispatchFence-B/result.json": {
+      "bytes": 5673,
+      "sha256": "049a0174e9ac104aff1e30aa8770f5356e8941c968beaaccd2d4cbafdee12051"
+    },
+    "round2-final-DispatchFence-B.log": {
+      "bytes": 540,
+      "sha256": "83ccffd03b5ebf13068d2e155a184373677f3c8ce7350d0e31783ec548634074"
+    },
+    "round2-final-Malformed-A/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "b89fc2aafa39708e9c7c038faf1f96ee0186034446b2a05508df86ca0ac7bbbf"
+    },
+    "round2-final-Malformed-A/instrumentation.raw.txt": {
+      "bytes": 849,
+      "sha256": "f8c82052f484296272574c995e837974445c846bf8459eff380453064bffa66c"
+    },
+    "round2-final-Malformed-A/result.json": {
+      "bytes": 5666,
+      "sha256": "eab189f975cd6621ef97597d301ecfe2b05dd5193f80c8f95a18b839bc98f096"
+    },
+    "round2-final-Malformed-A.log": {
+      "bytes": 533,
+      "sha256": "db21622b37a18987ef22dc1ca00cddb22fce6e33d5fa3c5fc7dbe16d3c7720ba"
+    },
+    "round2-final-Malformed-B/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "57324084bc002eab6c92d3024b62691ee52523d68d0c9703e90e0627ce92b25d"
+    },
+    "round2-final-Malformed-B/instrumentation.raw.txt": {
+      "bytes": 850,
+      "sha256": "63094f68529d0e752314e38ca07954c3dac6a9c50eefa655b73120435ef9831b"
+    },
+    "round2-final-Malformed-B/result.json": {
+      "bytes": 5666,
+      "sha256": "68d6dfe2216a31364b50d9980ce61e19eb96507f7655586dd6ba8f15b85f31f7"
+    },
+    "round2-final-Malformed-B.log": {
+      "bytes": 533,
+      "sha256": "54362bbf0b459c1ba1060173bbdc7851e0ada11cec46c40743d119f421758f8d"
+    },
+    "round2-final-MarkerDrift-A/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "58c066f5ab82145f23296fab4e5c71951a52ee0191464605561a3e336df0809a"
+    },
+    "round2-final-MarkerDrift-A/instrumentation.raw.txt": {
+      "bytes": 874,
+      "sha256": "f72c96a8d14d34315a968bac1bdfa64f133bc1fff901bf36bb1fa537c0a09a7a"
+    },
+    "round2-final-MarkerDrift-A/result.json": {
+      "bytes": 5679,
+      "sha256": "4a7a879050a558623ebaacbbb94aa2e9779736f5bb1263ed399bd453dd584bec"
+    },
+    "round2-final-MarkerDrift-A.log": {
+      "bytes": 546,
+      "sha256": "95e3439d7bac437ec92fa0ac996f45afa91529a3fcbc11cb91a438e974e36842"
+    },
+    "round2-final-MarkerDrift-B/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "b9a40659db838374701772ae9dd14ebed48dfb6e4d1082df6449beaa5d6c66bf"
+    },
+    "round2-final-MarkerDrift-B/instrumentation.raw.txt": {
+      "bytes": 874,
+      "sha256": "55d7f9f1052248fbf76e736ba469b1ba577a8329c2166f31ec1f23355ffa9fbb"
+    },
+    "round2-final-MarkerDrift-B/result.json": {
+      "bytes": 5679,
+      "sha256": "4fe233eb365d638003917ad8108b818e7bf08cf6798d548a16c8b3340be01c34"
+    },
+    "round2-final-MarkerDrift-B.log": {
+      "bytes": 546,
+      "sha256": "cff58a6a81b6d9770fbc175f0c8c4bedc0f1dbd7d72d6d9a2ce8c936d2ebc16f"
+    },
+    "round2-final-Oversize-A/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "3dc91c6ac74a69c82903b248a38c6b9fe250e6f737de5118fcadb8e5482ef66b"
+    },
+    "round2-final-Oversize-A/instrumentation.raw.txt": {
+      "bytes": 847,
+      "sha256": "ca2fa964e733fd451e19b7cc3d0496a1646b883a886b388e6537ea3beb9ac1b1"
+    },
+    "round2-final-Oversize-A/result.json": {
+      "bytes": 5664,
+      "sha256": "49f7f84b5e95a53e89e2a0ad723828cd4ac2461ce420043fbd9eaab53c9490fe"
+    },
+    "round2-final-Oversize-A.log": {
+      "bytes": 531,
+      "sha256": "a2596a5c90efd9eda900453b5b97398566d5d46db55b9c801d9202dc13382fdd"
+    },
+    "round2-final-Oversize-B/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "07fddde5cdddf5d894e7e3cc97cb75914ba1106b3b91ec8fbc2b61243a27a098"
+    },
+    "round2-final-Oversize-B/instrumentation.raw.txt": {
+      "bytes": 847,
+      "sha256": "a41739bde6d1f57a2d60ff87d1f18b3f34228e6ceaffbcae6bbeb745651e033a"
+    },
+    "round2-final-Oversize-B/result.json": {
+      "bytes": 5664,
+      "sha256": "94bf97898cd51547e671eff7935f468042af9935bd53842c589a4b02ae86bedf"
+    },
+    "round2-final-Oversize-B.log": {
+      "bytes": 531,
+      "sha256": "c6ef078c59de3cedbb4149d97cebc9bfc70f0e6d6de63bd1de0ec2d64de38dc2"
+    },
+    "round2-final-Timeout-A/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "280671de71a78afe913b593a3a93066b4090988ef3be90d7231b8532d094a036"
+    },
+    "round2-final-Timeout-A/instrumentation.raw.txt": {
+      "bytes": 855,
+      "sha256": "4cc50e3f7ec059ee4f2d31038ae74d52662c83eba3db33c4c9e842449375e2c1"
+    },
+    "round2-final-Timeout-A/result.json": {
+      "bytes": 5667,
+      "sha256": "21066e987263d31e7e84856ae8505546fc479a29908d025a15b8009bd7f296ff"
+    },
+    "round2-final-Timeout-A.log": {
+      "bytes": 534,
+      "sha256": "497875f757c2e956fbe4d9799d52f37d9bedeecc8f5afabe02d8423fba773543"
+    },
+    "round2-final-Timeout-B/commands.jsonl": {
+      "bytes": 11842,
+      "sha256": "8e0b229877e0babe80cd449392b6b1a8fdad5a2191ac22be257c642ecf1f7362"
+    },
+    "round2-final-Timeout-B/instrumentation.raw.txt": {
+      "bytes": 855,
+      "sha256": "b311308387b0a363afe236fe9434ede2dc567f47f37fc95b06781ab11cd2d3a8"
+    },
+    "round2-final-Timeout-B/result.json": {
+      "bytes": 5667,
+      "sha256": "1e6e92a31a6b0ab8cddc8ef9ae90ec59de539c3c3a0fc334cdbaf40c7c830157"
+    },
+    "round2-final-Timeout-B.log": {
+      "bytes": 534,
+      "sha256": "dff9738344b6fef17812828bfb80e8156bd7426c1e8ffe189fddefa346576b84"
+    },
+    "round2-install-final-A/commands.jsonl": {
+      "bytes": 12069,
+      "sha256": "14ee738d7576793efe2b8cd04f7e692d8f504f3d216475a7901086332d8907b9"
+    },
+    "round2-install-final-A/result.json": {
+      "bytes": 5073,
+      "sha256": "4f7d652524cb6aed107f8fc0157bc827a5a772831ffc720de055f02f06388b2e"
+    },
+    "round2-install-final-A.log": {
+      "bytes": 211,
+      "sha256": "ea298cc5e06cf36b061b003724e1fc50b05f43560c0624b95e7aeace9a70288e"
+    },
+    "round2-install-final-B/commands.jsonl": {
+      "bytes": 12069,
+      "sha256": "1e33d1c2f1a3aa06b5f95489bf976e1ecbf732da5cd979a89fbc6d8bb14f5227"
+    },
+    "round2-install-final-B/result.json": {
+      "bytes": 5073,
+      "sha256": "5a06269b141a2cd42df989a64c393a08b5228a87a78cb0163b1992c96f1d253c"
+    },
+    "round2-install-final-B.log": {
+      "bytes": 211,
+      "sha256": "cbc10c9a9c456e6979f28945883a258d66e190def40e968465e62c632ff1ce57"
+    }
+  }
+}

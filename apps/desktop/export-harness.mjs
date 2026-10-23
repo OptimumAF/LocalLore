@@ -155,7 +155,7 @@ const files = [
     "ui/App.tsx",
     "ui/main.tsx",
     "src-tauri/src/main.rs",
-    "src-tauri/Cargo.lock",
+    "../../Cargo.lock",
     "src-tauri/Cargo.toml",
     "host-v1.schema.json",
     "dist/app.js",

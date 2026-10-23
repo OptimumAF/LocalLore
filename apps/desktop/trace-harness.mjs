@@ -92,7 +92,7 @@ const files = [
     "src-tauri/src/harness.rs",
     "src-tauri/src/lease.rs",
     "src-tauri/Cargo.toml",
-    "src-tauri/Cargo.lock",
+    "../../Cargo.lock",
     "host-v1.schema.json",
     "ui/host.generated.ts",
     "dist/app.js",

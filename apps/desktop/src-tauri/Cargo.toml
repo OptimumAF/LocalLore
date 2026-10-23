@@ -31,5 +31,3 @@ required-features = ["dev-harness"]
 
 [build-dependencies]
 tauri-build = { version = "=2.7.4", features = [] }
-
-[workspace]

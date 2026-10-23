@@ -18,11 +18,21 @@ git diff --check
 ```
 
 First-time toolchain/crate provisioning can need network access. After dependencies
-are installed, `cargo test --workspace --locked --offline` and
+are installed, `cargo test --workspace --exclude locallore-desktop-spike --locked --offline` and
 `cargo run --locked --offline -p locallore` exercise fully local host behavior.
 The executable makes no network calls, requests no account, writes no save file
 and loads only the compiled-in original fixture. No model weights or private
 stories are required. Python feasibility helpers use the standard library.
+
+The root Cargo workspace includes the Windows desktop adapter. Its four portable
+packages remain `default-members`, so plain `cargo test --locked --offline` keeps
+the portable selection. An explicit `--workspace` overrides that default: use
+`--exclude locallore-desktop-spike` for portable test/Clippy commands, as the check
+runner does, to avoid selecting Tauri and Linux GTK dependencies. Desktop commands
+use `--manifest-path apps/desktop/src-tauri/Cargo.toml` and the root `Cargo.lock`.
+The runtime and evaluation crates remain explicitly excluded standalone workspaces
+with their own locks. See [workspace alignment evidence](desktop/D09_WORKSPACE_ALIGNMENT_2026-10-23.md)
+for lock provenance, actual package selections and the remaining byte comparison gate.
 
 `cargo run` prints the accepted potion transfer, verifies root replay bytes and
 checks that Mira observed the gift while Sable did not. This is an in-memory

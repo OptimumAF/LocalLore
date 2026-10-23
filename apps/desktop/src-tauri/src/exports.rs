@@ -503,6 +503,16 @@ pub fn atomic_finalize(handle: &File, _staging: &Path, target: &Path) -> Result<
                 FileRenameInfo, SetFileInformationByHandle, FILE_RENAME_INFO, FILE_RENAME_INFO_0,
             },
         };
+        // Callers retain pinned destination ancestors through publication.
+        // Canonicalizing that existing parent supplies Windows' extended path
+        // form for the absent target; the actual rename still uses the held
+        // staging handle and refuses replacement.
+        let target = target
+            .parent()
+            .ok_or("Io")?
+            .canonicalize()
+            .map_err(|_| "Io")?
+            .join(target.file_name().ok_or("Io")?);
         let name = target
             .as_os_str()
             .encode_wide()
@@ -904,6 +914,58 @@ pub fn capture_database(source: &Path, cache: &Path) -> Result<(Vec<u8>, Value),
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(windows)]
+    #[test]
+    fn long_unicode_target_renames_the_actual_handle_without_replacing_an_existing_file() {
+        use std::os::windows::{ffi::OsStrExt, fs::OpenOptionsExt};
+        let root = Root::new();
+        let mut directory = root.0.clone();
+        while directory.as_os_str().encode_wide().count() < 290 {
+            directory.push("Synthetic Unicode save 模型 é");
+        }
+        fs::create_dir_all(&directory).unwrap();
+        let stage = directory.join("stage.partial");
+        let target = directory.join("saved story.json");
+        let mut handle = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .share_mode(3)
+            .access_mode(0x80000000 | 0x40000000 | 0x00010000)
+            .open(&stage)
+            .unwrap();
+        handle
+            .write_all(b"synthetic original archive bytes")
+            .unwrap();
+        handle.sync_all().unwrap();
+        assert!(target.as_os_str().encode_wide().count() > 260);
+        let result = atomic_finalize(&handle, &stage, &target);
+        assert!(result.is_ok(), "actual long target rename: {result:?}");
+        assert!(!stage.exists());
+        assert_eq!(
+            fs::read(&target).unwrap(),
+            b"synthetic original archive bytes"
+        );
+        drop(handle);
+        let mut other = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .share_mode(3)
+            .access_mode(0x80000000 | 0x40000000 | 0x00010000)
+            .open(&stage)
+            .unwrap();
+        other.write_all(b"must never replace original").unwrap();
+        assert_eq!(
+            atomic_finalize(&other, &stage, &target).unwrap_err(),
+            "ExportExists"
+        );
+        assert_eq!(
+            fs::read(&target).unwrap(),
+            b"synthetic original archive bytes"
+        );
+        assert_eq!(fs::read(&stage).unwrap(), b"must never replace original");
+    }
     #[test]
     fn private_trace_fixed_bytes_caps_expiry_and_retirement_use_same_writer() {
         let root = Root::new();

@@ -366,9 +366,7 @@ fn remove_abandoned_import(path: &Path) -> Result<(), String> {
         if !meta.is_file() || meta.file_attributes() & 0x400 != 0 || meta.len() > MODEL_BYTES {
             return Err("InvalidInput".into());
         }
-        let info = FILE_DISPOSITION_INFO {
-            DeleteFile: true,
-        };
+        let info = FILE_DISPOSITION_INFO { DeleteFile: true };
         unsafe {
             SetFileInformationByHandle(
                 HANDLE(handle.as_raw_handle()),

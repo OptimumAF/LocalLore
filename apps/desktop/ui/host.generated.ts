@@ -68,6 +68,29 @@ export type HostCommand =
           session: string;
       }
     | {
+          enabled: boolean;
+          expected_head: number;
+          op: "trace_configure";
+          scope: Scope;
+          session: string;
+      }
+    | {
+          attempt?: number | null;
+          base_revision: number;
+          expected_head: number;
+          observer: Observer;
+          op: "trace_read";
+          scope: Scope;
+          session: string;
+          turn?: string | null;
+      }
+    | {
+          expected_head: number;
+          op: "trace_clear";
+          scope: Scope;
+          session: string;
+      }
+    | {
           op: "model_status";
       }
     | {

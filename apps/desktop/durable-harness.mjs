@@ -6,16 +6,16 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID, createHash } from "node:crypto";
 const root = fileURLToPath(new URL(".", import.meta.url));
-const folder = path.join(root, "artifacts", `durable-native-${randomUUID()}`);
+const folder = path.join(
+    process.env.LOCALLORE_DESKTOP_ARTIFACT_ROOT ?? path.join(root, "artifacts"),
+    `durable-native-${randomUUID()}`,
+);
 await mkdir(folder, { recursive: true });
 const db = path.join(folder, "stories-v1.sqlite");
-const executable = path.join(
-    root,
-    "src-tauri",
-    "target",
-    "debug",
-    "locallore-desktop-spike.exe",
-);
+const target =
+    process.env.LOCALLORE_DESKTOP_TARGET_DIR ??
+    path.join(root, "src-tauri", "target");
+const executable = path.join(target, "debug", "locallore-desktop-spike.exe");
 async function run(command, args, env = {}) {
     await new Promise((resolve, reject) => {
         const child = spawn(command, args, {
@@ -41,6 +41,8 @@ await run("cargo", [
     "--offline",
     "--features",
     "dev-harness",
+    "--target-dir",
+    target,
 ]);
 const sourceRevision = (
     await promisify(execFile)("git", ["rev-parse", "HEAD"], { cwd: root })
@@ -94,7 +96,7 @@ const files = [
     "src-tauri/Cargo.toml",
     "host-v1.schema.json",
     "dist/app.js",
-    "src-tauri/target/debug/locallore-desktop-spike.exe",
+    executable,
     "src-tauri/src/test_bridge.rs",
     "src-tauri/src/harness.rs",
     "src-tauri/src/lease.rs",
@@ -108,9 +110,13 @@ const files = [
 const inputSHA256 = Object.fromEntries(
     await Promise.all(
         files.map(async (f) => [
-            f,
+            path.isAbsolute(f)
+                ? "<native-target>/debug/locallore-desktop-spike.exe"
+                : f,
             createHash("sha256")
-                .update(await readFile(path.join(root, f)))
+                .update(
+                    await readFile(path.isAbsolute(f) ? f : path.join(root, f)),
+                )
                 .digest("hex"),
         ]),
     ),

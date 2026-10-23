@@ -15,6 +15,7 @@ internal interface WorkspaceTransport {
 /** No gameplay rules or ledger live here. Only authoritative player snapshots reach the UI. */
 internal class DurableGateway(private val transport: WorkspaceTransport) : DemoGateway {
     override val durable = true
+    override val storyRecords = true
     private var session: String? = null
     private var scope: JSONObject? = null
     private var revision = 0L
@@ -32,6 +33,22 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
         return reply.getJSONObject("data")
     }
     private fun command(op: String) = JSONObject().put("op", op)
+    override suspend fun readStoryRecord(query: StoryRecordQuery): StoryRecordPage {
+        val capturedSession = session ?: throw StoryRecordFailure(StoryRecordProblem.UNAVAILABLE)
+        val capturedScope = scope ?: throw StoryRecordFailure(StoryRecordProblem.UNAVAILABLE)
+        fun current() = !closed.get() && session == capturedSession && operation == null &&
+            revision == query.context.revision && scope === capturedScope &&
+            capturedScope.getString("story") == query.context.story.story &&
+            capturedScope.getString("branch") == query.context.story.branch
+        if (!current()) throw StoryRecordFailure(StoryRecordProblem.STALE)
+        val data = try { call(StoryRecordWire.command(capturedSession, query)) }
+        catch (failure: WorkspaceFailure) {
+            throw StoryRecordFailure(if (failure.category in setOf("Stale", "Scope", "Session"))
+                StoryRecordProblem.STALE else StoryRecordProblem.UNAVAILABLE)
+        }
+        if (!current()) throw StoryRecordFailure(StoryRecordProblem.STALE)
+        return StoryRecordWire.decode(data, query)
+    }
     private fun scoped(op: String, pending: Pending? = null): JSONObject = command(op)
         .put("session", pending?.session ?: checkNotNull(session))
         .put("scope", pending?.scope ?: checkNotNull(scope))
@@ -110,7 +127,7 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
             return result(prepared, pending)
         } catch (failure: WorkspaceFailure) {
             // An explicit rejection before acceptance cannot create canon; transport uncertainty stays pending.
-            if (failure.category in setOf("Full", "Database", "Integrity", "Io", "Internal")) throw failure
+            if (failure.category in setOf("Full", "Busy", "Database", "Integrity", "Io", "Internal")) throw failure
             if (operation === pending) operation = null
             return DemoResult.Rejected(failure.category)
         }
@@ -118,20 +135,21 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
     private fun result(data: JSONObject, pending: Pending): DemoResult {
         check(data.getString("turn") == pending.turn && sameScope(data.getJSONObject("scope"), pending.scope))
         check(data.getLong("expected_revision") == pending.request.getLong("expected_revision"))
-        return when (data.getString("phase")) {
+        val resolved = when (data.getString("phase")) {
         "ready" -> DemoResult.Prepared(0, pending.serial)
         "committed" -> {
             val receipt = data.getJSONObject("receipt")
             check(sameJson(receipt.getJSONObject("request"), pending.request))
-            if (operation === pending) operation = null
             DemoResult.Accepted(pending.request.getLong("expected_revision") + 1, "", receipt.getString("narration"))
         }
         "cancelled", "failed", "stale" -> {
-            if (operation === pending) operation = null
             DemoResult.Rejected(data.optString("error").takeUnless { it.isBlank() || it == "null" } ?: "Cancelled")
         }
         else -> error("Unfinished")
         }
+        // Decode the entire authoritative result before releasing its recovery key.
+        if (resolved !is DemoResult.Prepared && operation === pending) operation = null
+        return resolved
     }
     override suspend fun commitAsync(result: DemoResult): DemoResult {
         if (result !is DemoResult.Prepared) return result
@@ -140,7 +158,11 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
         val data = try { call(scoped("commit", pending)) }
             catch (failure: Exception) {
                 // The original key is the only authority after a lost commit acknowledgement.
-                try { call(scoped("turn_status", pending)) } catch (_: Exception) { throw failure }
+                val status = try { call(scoped("turn_status", pending)) } catch (_: Exception) { throw failure }
+                if (status.optString("phase") !in setOf("committed", "cancelled", "failed", "stale")) throw failure
+                // Ready/queued work is still uncertain. Even a terminal-looking malformed
+                // reply cannot discard the key or hide the primary storage error.
+                return try { this.result(status, pending) } catch (_: Exception) { throw failure }
             }
         return this.result(data, pending)
     }
@@ -171,7 +193,15 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
     override suspend fun cancelSaved(): SavedSnapshot {
         operation?.let { pending ->
             pending.cancelled = true
-            val status = call(scoped("cancel", pending))
+            val status = try { call(scoped("cancel", pending)) }
+                catch (failure: WorkspaceFailure) {
+                    if (failure.category != "UnknownTurn") throw failure
+                    // Cancellation may beat submit on IO. The captured request remains
+                    // cancelled even if its late submit later creates an uncommitted draft.
+                    // Never discard a newer operation or regenerate this original key.
+                    if (operation === pending) operation = null
+                    return@let
+                }
             if (status.getString("phase") == "committed") result(status, pending)
             else if (operation === pending) operation = null
         }

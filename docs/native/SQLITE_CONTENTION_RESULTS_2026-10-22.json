@@ -1,0 +1,555 @@
+{
+  "version": 1,
+  "date": "2026-10-22",
+  "scope": "M04.04_actual_SQLite_contention_through_Compose",
+  "base_pr": 49,
+  "base_source": "fe5c151e03187b8ede46fd66883414a72ba41852",
+  "test_author_commit": "61e44f0b74bda573e526245dbddfe4020ab7fc9f",
+  "integrated_test_source": "58a5c98",
+  "production_code_changed": false,
+  "inference": "deterministic_local_fake",
+  "build": {
+    "command": "python scripts/check.py android --offline",
+    "attempts": 1,
+    "status": "passed",
+    "incremental": true,
+    "actionable_tasks": 78,
+    "executed_tasks": 7,
+    "up_to_date_tasks": 71,
+    "jvm": {
+      "tests": 47,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "jvm_task": "UP-TO-DATE_reused_PR49_results",
+    "native_build_task": "UP-TO-DATE",
+    "lint_errors": 0,
+    "existing_dependency_advisories": 1,
+    "apk_audit": "passed",
+    "packaged_abis": [
+      "x86_64",
+      "arm64-v8a"
+    ],
+    "rust_python_host_gate_rerun": false
+  },
+  "preflight_inventory": {
+    "attached_emulators": 5,
+    "attached_physical": 0,
+    "selected_ready": true,
+    "client_cleanup": true
+  },
+  "preflight_targets": [
+    {
+      "target": "A",
+      "properties": {
+        "ro.build.version.release": "15",
+        "ro.build.version.sdk": "35",
+        "ro.product.cpu.abi": "x86_64",
+        "ro.product.model": "sdk_gphone64_x86_64"
+      },
+      "app_absent": true,
+      "clients_cleaned": true
+    },
+    {
+      "target": "B",
+      "properties": {
+        "ro.build.version.release": "15",
+        "ro.build.version.sdk": "35",
+        "ro.product.cpu.abi": "x86_64",
+        "ro.product.model": "sdk_gphone64_x86_64"
+      },
+      "app_absent": true,
+      "clients_cleaned": true
+    }
+  ],
+  "attempts": [
+    {
+      "attempt": "A-contention-1",
+      "app_absent": true,
+      "app_sha256": "f17db036fed45bac28d1a27d8632e3f6631d641092be8247a4ef053a7b324393",
+      "clients_cleaned": true,
+      "cohort": "new",
+      "event": "finished",
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      },
+      "expected_cases": 3,
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteContentionInstrumentedTest#composedReadyCommitBusyBlocksNewTurnsUntilOriginalGiftRecoversAndReopens",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteContentionInstrumentedTest#actualCancelBusyRetriesCancellationThenLateReadyReplyCannotSpendInNewStory",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteContentionInstrumentedTest#actualSubmitBusyRetainsExactRequestAndRecoversAfterWriterRelease",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 3,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "stage": "finished",
+      "status": "passed",
+      "target": "A",
+      "test_sha256": "6cd6e37925fe2d362be904e0a55a87133eca71b6fdad0c060c9eda83b01300a2"
+    },
+    {
+      "attempt": "A-native-1",
+      "app_absent": true,
+      "app_sha256": "f17db036fed45bac28d1a27d8632e3f6631d641092be8247a4ef053a7b324393",
+      "clients_cleaned": true,
+      "cohort": "native",
+      "event": "finished",
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      },
+      "expected_cases": 15,
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.NativeBoundaryTest#twentyCancelDestroyCyclesReleaseRetainedSessionsWorkersAndOperations",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.NativeBoundaryTest#nullOversizedMalformedForeignAndDestroyedInputsFailClosedThroughJni",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.NativeBoundaryTest#cancelBeforeRunAndAfterPrepareNeverCommits",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.NativeBoundaryTest#actualEnginePreparesWithoutCommitAndIdempotentlyOwnsEventsAndResources",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.NativeLifecycleOwnershipTest#retainedResetAfterDisposalCannotAllocateAnUnownedNativeSession",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.NativeLifecycleOwnershipTest#replacingRunningSessionsCannotCancelFreshWorkOrLeakOldOwners",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.DurableNativeTest#actualJniProcessOwnerReopenRestoresCommittedTranscriptAndIndependentStories",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.DurableNativeTest#lateCancelledPrepareCannotClearTheReplacementOperationKey",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.DurableNativeTest#lostCommitAcknowledgementRecoversSameTurnAndNeverDuplicatesActualSqliteReceipt",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.DurableNativeTest#failedCancellationTransportCannotTurnRecoveryIntoACommit",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.DurableNativeTest#actualJniCancellationReleasesLiveOwnerWithoutDeletingSavedStory",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.DurableCancellationReviewTest#cancellationBeforeSubmitExistsDoesNotFailOrRegenerateTheLateOriginalRequest",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.DurableCancellationReviewTest#lateCancelledSubmitCannotClearOrCommitTheReplacementOperation",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.DurableTransportOwnershipTest#productionTransportCancelsActiveRustWorkAndRepeatedMainCloseReleasesEverySlot",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.DurableTransportOwnershipTest#productionTransportDisposalReleasesItsOwnerAndCannotCommitALatePreparedResult",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 15,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "stage": "finished",
+      "status": "passed",
+      "target": "A",
+      "test_sha256": "6cd6e37925fe2d362be904e0a55a87133eca71b6fdad0c060c9eda83b01300a2"
+    },
+    {
+      "attempt": "A-recovery-1",
+      "app_absent": true,
+      "app_sha256": "f17db036fed45bac28d1a27d8632e3f6631d641092be8247a4ef053a7b324393",
+      "clients_cleaned": true,
+      "cohort": "recovery",
+      "event": "finished",
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      },
+      "expected_cases": 8,
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.StorageRecoveryInstrumentedTest#statusFailureKeepsThePrimaryCommitErrorAndOriginalReadyKey",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StorageRecoveryInstrumentedTest#busyPrepareRetainsOriginalKeyAndRecoversTheExistingNativeTurn",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StorageRecoveryInstrumentedTest#composedRecoveryShowsSanitizedFullAndBusyAndPublishesOnlyNativeAcceptance",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StorageRecoveryInstrumentedTest#fullAndBusyCommitKeepPrimaryCategoryAndReadyKeyUntilRecovery",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StorageRecoveryInstrumentedTest#cancelledHeldReadyReplyCannotAttachAfterCreatingANewSavedStory",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StorageRecoveryInstrumentedTest#fullAndBusyAfterActualCommitResolveTheStoredReceiptWithoutDuplicate",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StorageRecoveryInstrumentedTest#malformedCommittedFallbackRetainsPrimaryBusyAndCanRecoverItsOriginalKey",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StorageRecoveryInstrumentedTest#fullAndBusySubmitUncertaintyRetriesOnlyTheOriginalRequest",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 8,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "stage": "finished",
+      "status": "passed",
+      "target": "A",
+      "test_sha256": "6cd6e37925fe2d362be904e0a55a87133eca71b6fdad0c060c9eda83b01300a2"
+    },
+    {
+      "attempt": "B-contention-1",
+      "app_absent": false,
+      "app_sha256": "f17db036fed45bac28d1a27d8632e3f6631d641092be8247a4ef053a7b324393",
+      "clients_cleaned": true,
+      "cohort": "new",
+      "event": "finished",
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      },
+      "expected_cases": 3,
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteContentionInstrumentedTest#composedReadyCommitBusyBlocksNewTurnsUntilOriginalGiftRecoversAndReopens",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteContentionInstrumentedTest#actualCancelBusyRetriesCancellationThenLateReadyReplyCannotSpendInNewStory",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": false,
+        "graphics_watchdog_signature": false,
+        "order_verified": false,
+        "passed": 2,
+        "skipped": 0,
+        "started_unfinished": 1,
+        "status": "invalid"
+      },
+      "stage": "finished",
+      "status": "failed",
+      "target": "B",
+      "test_sha256": "6cd6e37925fe2d362be904e0a55a87133eca71b6fdad0c060c9eda83b01300a2"
+    },
+    {
+      "attempt": "B-contention-2",
+      "app_absent": true,
+      "app_sha256": "f17db036fed45bac28d1a27d8632e3f6631d641092be8247a4ef053a7b324393",
+      "clients_cleaned": true,
+      "cohort": "new",
+      "event": "finished",
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      },
+      "expected_cases": 3,
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteContentionInstrumentedTest#composedReadyCommitBusyBlocksNewTurnsUntilOriginalGiftRecoversAndReopens",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteContentionInstrumentedTest#actualCancelBusyRetriesCancellationThenLateReadyReplyCannotSpendInNewStory",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteContentionInstrumentedTest#actualSubmitBusyRetainsExactRequestAndRecoversAfterWriterRelease",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 3,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "stage": "finished",
+      "status": "passed",
+      "target": "B",
+      "test_sha256": "6cd6e37925fe2d362be904e0a55a87133eca71b6fdad0c060c9eda83b01300a2"
+    },
+    {
+      "attempt": "B-native-1",
+      "app_absent": true,
+      "app_sha256": "f17db036fed45bac28d1a27d8632e3f6631d641092be8247a4ef053a7b324393",
+      "clients_cleaned": true,
+      "cohort": "native",
+      "event": "finished",
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      },
+      "expected_cases": 15,
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.NativeBoundaryTest#twentyCancelDestroyCyclesReleaseRetainedSessionsWorkersAndOperations",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.NativeBoundaryTest#nullOversizedMalformedForeignAndDestroyedInputsFailClosedThroughJni",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.NativeBoundaryTest#cancelBeforeRunAndAfterPrepareNeverCommits",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.NativeBoundaryTest#actualEnginePreparesWithoutCommitAndIdempotentlyOwnsEventsAndResources",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.NativeLifecycleOwnershipTest#retainedResetAfterDisposalCannotAllocateAnUnownedNativeSession",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.NativeLifecycleOwnershipTest#replacingRunningSessionsCannotCancelFreshWorkOrLeakOldOwners",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.DurableNativeTest#actualJniProcessOwnerReopenRestoresCommittedTranscriptAndIndependentStories",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.DurableNativeTest#lateCancelledPrepareCannotClearTheReplacementOperationKey",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.DurableNativeTest#lostCommitAcknowledgementRecoversSameTurnAndNeverDuplicatesActualSqliteReceipt",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.DurableNativeTest#failedCancellationTransportCannotTurnRecoveryIntoACommit",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.DurableNativeTest#actualJniCancellationReleasesLiveOwnerWithoutDeletingSavedStory",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.DurableCancellationReviewTest#cancellationBeforeSubmitExistsDoesNotFailOrRegenerateTheLateOriginalRequest",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.DurableCancellationReviewTest#lateCancelledSubmitCannotClearOrCommitTheReplacementOperation",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.DurableTransportOwnershipTest#productionTransportCancelsActiveRustWorkAndRepeatedMainCloseReleasesEverySlot",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.DurableTransportOwnershipTest#productionTransportDisposalReleasesItsOwnerAndCannotCommitALatePreparedResult",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 15,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "stage": "finished",
+      "status": "passed",
+      "target": "B",
+      "test_sha256": "6cd6e37925fe2d362be904e0a55a87133eca71b6fdad0c060c9eda83b01300a2"
+    },
+    {
+      "attempt": "B-recovery-1",
+      "app_absent": true,
+      "app_sha256": "f17db036fed45bac28d1a27d8632e3f6631d641092be8247a4ef053a7b324393",
+      "clients_cleaned": true,
+      "cohort": "recovery",
+      "event": "finished",
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      },
+      "expected_cases": 8,
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.StorageRecoveryInstrumentedTest#statusFailureKeepsThePrimaryCommitErrorAndOriginalReadyKey",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StorageRecoveryInstrumentedTest#busyPrepareRetainsOriginalKeyAndRecoversTheExistingNativeTurn",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StorageRecoveryInstrumentedTest#composedRecoveryShowsSanitizedFullAndBusyAndPublishesOnlyNativeAcceptance",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StorageRecoveryInstrumentedTest#fullAndBusyCommitKeepPrimaryCategoryAndReadyKeyUntilRecovery",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StorageRecoveryInstrumentedTest#cancelledHeldReadyReplyCannotAttachAfterCreatingANewSavedStory",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StorageRecoveryInstrumentedTest#fullAndBusyAfterActualCommitResolveTheStoredReceiptWithoutDuplicate",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StorageRecoveryInstrumentedTest#malformedCommittedFallbackRetainsPrimaryBusyAndCanRecoverItsOriginalKey",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StorageRecoveryInstrumentedTest#fullAndBusySubmitUncertaintyRetriesOnlyTheOriginalRequest",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 8,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "stage": "finished",
+      "status": "passed",
+      "target": "B",
+      "test_sha256": "6cd6e37925fe2d362be904e0a55a87133eca71b6fdad0c060c9eda83b01300a2"
+    }
+  ],
+  "post_abort_recovery": {
+    "identity_and_app_cleanup": {
+      "app_identity": true,
+      "test_identity": true,
+      "app_absent": true,
+      "clients_cleaned": true
+    },
+    "holder_observation": {
+      "holder_command_matches": 0,
+      "clients_cleaned": true
+    },
+    "readiness": {
+      "boot_completed": true,
+      "window_service": true,
+      "activity_service": true,
+      "clients_cleaned": true
+    },
+    "observed_system_server_watchdog": "WindowManager_snapshot_nativeCaptureLayers_monitor_blockage",
+    "cause_or_fixture_relationship": "unknown_unfixed",
+    "raw_system_logs_published": false
+  },
+  "summary": {
+    "candidate_passed": 52,
+    "candidate_unique_methods": 26,
+    "new_actual_contention_methods": 3,
+    "new_actual_contention_executions": 6,
+    "existing_regression_executions": 46,
+    "failures": 0,
+    "skipped": 0,
+    "unfinished_in_final_cohorts": 0,
+    "all_final_apps_absent_and_clients_cleaned": true,
+    "retained_incomplete_attempts": 1,
+    "additional_pass_completions_in_incomplete_attempt": 2,
+    "started_unfinished_in_incomplete_attempt": 1,
+    "total_recorded_pass_completions": 54
+  },
+  "fixture_assertions": {
+    "actual_unmodified_native_Busy_replies_per_target": 7,
+    "owned_holder_lifetimes_per_target": 3,
+    "same_uid_distinct_pid": true,
+    "release_ack_exit_zero_and_joined_pipes": true,
+    "original_key_no_partial_spend_and_reopen": true,
+    "all_four_native_slots_released": true
+  },
+  "preexecution_findings": [
+    "same_process_separate_SQLite_libraries_rejected_before_build_or_device_execution",
+    "child_and_pipe_ownership_uncertainty_fixed_before_first_build",
+    "root_removal_requires_writer_owner_and_exchange_drain_before_capacity_proof",
+    "expected_middle_dot_encoding_corrected_before_first_build"
+  ],
+  "limits": [
+    "API35_x86_64_execution_only",
+    "test_holder_uses_API28_APIs",
+    "no_new_physical_phone_or_real_model_evidence",
+    "actual_Full_through_Compose_pending_separate_capacity_fixture",
+    "holder_forced_cleanup_and_self_lease_expiry_not_independently_qualified",
+    "prior_graphics_abort_and_current_window_manager_watchdog_causes_unknown_unfixed",
+    "no_heap_power_loss_or_hosted_CI_qualification",
+    "PR49_restart_and_other_UI_results_are_separate_not_rerun_here",
+    "no_merge_release_or_settings_change"
+  ]
+}

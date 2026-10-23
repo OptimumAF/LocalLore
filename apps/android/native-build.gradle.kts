@@ -5,6 +5,9 @@ import java.util.Properties
 val nativeNdkVersion = "29.0.14206865"
 val nativeRustToolchain = "1.93.1"
 val nativeMinSdk = 26
+val nativeCapacityTest = project.extra["localloreCapacityTest"] as Boolean
+val nativeCapacityPages = project.extra["localloreCapacityPages"] as Int
+val nativeSqliteFlags = if (nativeCapacityTest) "-DSQLITE_MAX_PAGE_COUNT=$nativeCapacityPages" else ""
 val nativeRepository = rootProject.projectDir.resolve("../..").canonicalFile
 val nativeCargoOutput = layout.buildDirectory.dir("rust-target")
 val nativeLibraries = layout.buildDirectory.dir("generated/rustJniLibs")
@@ -25,6 +28,11 @@ val buildRustAndroid = tasks.register("buildRustAndroid") {
     inputs.files(fileTree(nativeRepository.resolve("fixtures")))
     inputs.file(rootProject.file("native-build.gradle.kts"))
     inputs.file(rootProject.file("native-linker.rs"))
+    inputs.file(rootProject.file("capacity-profile.properties"))
+    inputs.file(rootProject.file("capacity-relief-profile.properties"))
+    inputs.property("capacityTest", nativeCapacityTest)
+    inputs.property("capacityMode", project.extra["localloreCapacityMode"] as String)
+    inputs.property("sqliteFlags", nativeSqliteFlags)
     inputs.property("ndkVersion", nativeNdkVersion)
     inputs.property("rustToolchain", nativeRustToolchain)
     inputs.property("minSdk", nativeMinSdk)
@@ -118,6 +126,7 @@ val buildRustAndroid = tasks.register("buildRustAndroid") {
                 "AR_$target" to archiver.absolutePath,
                 "CFLAGS_$target" to cFlags,
                 "CC_SHELL_ESCAPED_FLAGS" to "1",
+                "LIBSQLITE3_FLAGS" to nativeSqliteFlags,
             ))
             val library = nativeCargoOutput.get().file("$target/release/liblocallore_android.so").asFile
             check(library.isFile) { "Cargo did not produce ${library.name} for $target" }

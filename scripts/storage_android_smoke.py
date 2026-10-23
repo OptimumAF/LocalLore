@@ -71,12 +71,43 @@ def command(arguments, environment=None):
                    env=environment, check=True, shell=False)
 
 
+def unit_test_binary(output, target, environment):
+    """Use Cargo's exact artifact, never a possibly stale executable glob."""
+    completed = subprocess.run(
+        ["cargo", f"+{RUST_VERSION}", "test", "--lib", "--no-run", "--locked", "--offline",
+         "--release", "--package", "locallore-storage", "--target", target,
+         "--target-dir", str(output / "rust"), "--message-format=json"],
+        cwd=ROOT, env=environment, check=True, shell=False, stdout=subprocess.PIPE, text=True)
+    return select_unit_artifact(completed.stdout, output, target)
+
+
+def select_unit_artifact(messages, output, target):
+    artifacts = []
+    for line in messages.splitlines():
+        message = json.loads(line)
+        if (message.get("reason") == "compiler-artifact"
+                and message.get("target", {}).get("name") == "locallore_storage"
+                and message.get("target", {}).get("kind") == ["lib"]
+                and message.get("profile", {}).get("test") is True):
+            require(type(message.get("executable")) is str, "Missing unit-test artifact")
+            artifacts.append(Path(message["executable"]).resolve())
+    require(len(artifacts) == 1, "Expected one exact storage unit-test executable")
+    artifact = artifacts[0]
+    expected = (output / "rust" / target / "release/deps").resolve()
+    require(artifact.parent == expected and artifact.name.startswith("locallore_storage-")
+            and artifact.is_file(), "Unexpected unit-test artifact path")
+    return artifact
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sdk", type=Path, required=True)
     parser.add_argument("--output", type=Path, default=ROOT / "target/storage-android-smoke")
     parser.add_argument("--abi", choices=TARGETS, action="append")
-    parser.add_argument("--example", choices=["storage_smoke", "durable_smoke"], default="storage_smoke")
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--example", choices=["storage_smoke", "durable_smoke"])
+    selection.add_argument("--unit-tests", action="store_true",
+                           help="build private storage unit tests without running them")
     args = parser.parse_args(argv)
     if os.name != "nt":
         parser.error("This checked recipe currently supports Windows hosts only")
@@ -109,10 +140,17 @@ def main(argv=None):
                 "-C", f"link-arg=--sysroot={llvm / 'sysroot'}",
                 "-C", "link-arg=-Wl,-z,max-page-size=16384"]),
         })
-        command(["cargo", f"+{RUST_VERSION}", "build", "--locked", "--offline", "--release",
-                 "--package", "locallore-storage", "--example", args.example,
-                 "--target", target, "--target-dir", output / "rust"], environment)
-        report = inspect_binary(output / "rust" / target / "release/examples" / args.example, abi)
+        if args.unit_tests:
+            binary = unit_test_binary(output, target, environment)
+        else:
+            example = args.example or "storage_smoke"
+            command(["cargo", f"+{RUST_VERSION}", "build", "--locked", "--offline", "--release",
+                     "--package", "locallore-storage", "--example", example,
+                     "--target", target, "--target-dir", output / "rust"], environment)
+            binary = output / "rust" / target / "release/examples" / example
+        report = inspect_binary(binary, abi)
+        if args.unit_tests:
+            report.update({"kind": "storage_unit_tests", "artifact": binary.relative_to(output).as_posix()})
         reports.append(report)
         (output / f"{abi}-elf.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         print(json.dumps({"status": "built", **report}), flush=True)
@@ -123,6 +161,6 @@ def main(argv=None):
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (AuditError, OSError, UnicodeError, struct.error, subprocess.CalledProcessError):
+    except (AuditError, OSError, UnicodeError, json.JSONDecodeError, struct.error, subprocess.CalledProcessError):
         print(json.dumps({"status": "failed", "error": "cross_build_or_audit"}))
         raise SystemExit(1)

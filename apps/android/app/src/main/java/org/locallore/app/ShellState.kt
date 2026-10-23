@@ -43,6 +43,9 @@ fun interface DemoGateway {
     fun reset() {}
     fun close() {}
     val durable: Boolean get() = false
+    val storyRecords: Boolean get() = false
+    suspend fun readStoryRecord(query: StoryRecordQuery): StoryRecordPage =
+        throw StoryRecordFailure(StoryRecordProblem.UNAVAILABLE)
     suspend fun initialize(): SavedSnapshot? = null
     suspend fun snapshot(): SavedSnapshot? = null
     suspend fun commitAsync(result: DemoResult): DemoResult = commit(result)

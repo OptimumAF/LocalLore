@@ -61,6 +61,7 @@ fun LocalLoreScreen(
     onDiagnostics: () -> Unit = {},
     onResume: (SavedStory) -> Unit = {},
     onRecover: () -> Unit = {},
+    onStoryRecord: (() -> Unit)? = null,
     overlay: @Composable () -> Unit = {},
 ) {
     MaterialTheme(
@@ -254,6 +255,15 @@ fun LocalLoreScreen(
                                     .testTag("try-ability"),
                             ) { Text("Try unlearned ability") }
                         }
+                    }
+                    if (onStoryRecord != null) item(key = "story-record") {
+                        OutlinedButton(
+                            onClick = onStoryRecord,
+                            enabled = state.persistent && state.selectedStory != null &&
+                                !state.busy && !state.recoveryRequired,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .testTag("story-record-open"),
+                        ) { Text("Story record") }
                     }
                     item(key = "diagnostics") {
                         TextButton(onClick = onDiagnostics, enabled = !state.busy,

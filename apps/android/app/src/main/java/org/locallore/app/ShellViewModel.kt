@@ -21,6 +21,9 @@ class ShellViewModel(
     private var pending: Job? = null
     private val diagnosticController = DiagnosticsController(diagnosticLog, viewModelScope)
     val diagnostics = diagnosticController.state
+    private val recordController = StoryRecordController(StoryRecordReader(gateway::readStoryRecord), viewModelScope)
+    val storyRecord = recordController.state
+    val hasStoryRecords: Boolean get() = gateway.storyRecords
     private var disposed = false
 
     init {
@@ -40,6 +43,7 @@ class ShellViewModel(
     )
 
     private fun savedOperation(notice: String, operation: suspend () -> SavedSnapshot?) {
+        recordController.dismiss()
         val ticket = ++generation
         mutable.value = mutable.value.copy(busy = true, preparingResponse = false, notice = null)
         pending = viewModelScope.launch {
@@ -47,9 +51,10 @@ class ShellViewModel(
                 val saved = operation()
                 if (!disposed && ticket == generation && saved != null) mutable.value = publishSaved(saved, notice)
             } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) {
+            catch (failure: Exception) {
                 if (!disposed && ticket == generation) mutable.value = mutable.value.copy(
-                    recoveryRequired = true, notice = "Saved progress could not be confirmed. Retry recovery; existing saves are retained.",
+                    recoveryRequired = true, notice = recoveryNotice(failure,
+                        "Saved progress could not be confirmed. Retry recovery; existing saves are retained."),
                 )
             } finally {
                 if (!disposed && ticket == generation) mutable.value = mutable.value.copy(busy = false)
@@ -66,7 +71,28 @@ class ShellViewModel(
         if (!disposed && !mutable.value.busy && gateway.durable) savedOperation("Saved story resumed.") { gateway.resumeSaved(story) }
     }
 
-    fun openDiagnostics() { if (!disposed && !mutable.value.busy) diagnosticController.open() }
+    fun openDiagnostics() { if (!disposed && !mutable.value.busy) { recordController.dismiss(); diagnosticController.open() } }
+    fun openStoryRecord() {
+        val current = mutable.value
+        val story = current.selectedStory ?: return
+        if (!disposed && gateway.storyRecords && current.persistent && !current.busy && !current.recoveryRequired) {
+            diagnosticController.dismiss()
+            recordController.open(StoryRecordContext(story, current.revision))
+        }
+    }
+    fun closeStoryRecord() = recordController.dismiss()
+    fun recordSection(section: StoryRecordSection) = recordController.select(section)
+    fun recordSearch(text: String) = recordController.search(text)
+    fun nextRecordPage() = recordController.next()
+    fun firstRecordPage() = recordController.first()
+    fun retryStoryRecord() = recordController.retry()
+    fun openRecordEvent(sequence: Long) = recordController.openEvent(sequence)
+    fun openRecordEvent(sequence: Long, expectedContext: StoryRecordContext?) {
+        if (expectedContext != null && expectedContext == storyRecord.value.context)
+            recordController.openEvent(sequence)
+    }
+    fun backToStoryRecord() = recordController.back()
+    fun retryRecordEvent() = recordController.retryEvent()
     fun closeDiagnostics() = diagnosticController.dismiss()
     fun clearDiagnostics() = diagnosticController.clear()
     fun beginDiagnosticExport() = diagnosticController.beginExport()
@@ -79,6 +105,7 @@ class ShellViewModel(
 
     fun submit(action: DemoAction) {
         if (disposed || mutable.value.busy || mutable.value.recoveryRequired) return
+        recordController.dismiss()
         val before = mutable.value
         val ticket = ++generation
         mutable.value = before.copy(busy = true, preparingResponse = true, notice = null)
@@ -121,13 +148,15 @@ class ShellViewModel(
             } catch (cancelled: CancellationException) {
                 if (!disposed) diagnosticLog.record(DiagnosticPhase.PREPARE, DiagnosticOutcome.CANCELLED, elapsedMillis(start))
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (failure: Exception) {
                 if (!disposed) diagnosticLog.record(if (committing) DiagnosticPhase.COMMIT else DiagnosticPhase.PREPARE,
                     if (committing) DiagnosticOutcome.UNKNOWN else DiagnosticOutcome.FAILED,
-                    elapsedMillis(start), DiagnosticError.TRANSPORT)
+                    elapsedMillis(start), if (failure is WorkspaceFailure) DiagnosticError.fromNative(failure.category)
+                        else DiagnosticError.TRANSPORT)
                 if (ticket == generation) mutable.value = if (committing || gateway.durable) before.copy(
                     recoveryRequired = true,
-                    notice = if (gateway.durable) "Unable to confirm the outcome. Retry recovery using the original response key; saves are retained."
+                    notice = if (gateway.durable) recoveryNotice(failure,
+                        "Unable to confirm the outcome. Retry recovery using the original response key; saves are retained.")
                         else "Unable to confirm the outcome. Reset this in-memory demo to continue.",
                 ) else before.copy(notice = "Response failed. Nothing changed; try again.")
             } finally {
@@ -137,6 +166,7 @@ class ShellViewModel(
     }
 
     fun cancel() {
+        recordController.dismiss()
         if (!mutable.value.busy) return
         // Opening storage has no cancellable turn. Closing the ViewModel still releases its handle.
         if (gateway.durable && !mutable.value.preparingResponse) return
@@ -160,6 +190,7 @@ class ShellViewModel(
         if (gateway.durable && mutable.value.busy) return
         val start = System.nanoTime()
         diagnosticController.dismiss()
+        recordController.dismiss()
         generation++
         gateway.cancel()
         pending?.cancel()
@@ -172,6 +203,7 @@ class ShellViewModel(
     override fun onCleared() {
         disposed = true
         diagnosticController.dispose()
+        recordController.dispose()
         generation++
         gateway.close()
         pending?.cancel()
@@ -179,6 +211,12 @@ class ShellViewModel(
         mutable.value = mutable.value.copy(busy = false, preparingResponse = false)
         super.onCleared()
     }
+}
+
+private fun recoveryNotice(failure: Exception, fallback: String): String = when ((failure as? WorkspaceFailure)?.category) {
+    "Full" -> "Local storage is full. Free space, then retry recovery. Saved progress is retained."
+    "Busy" -> "The local engine is busy. Wait briefly, then retry recovery. Saved progress is retained."
+    else -> fallback
 }
 
 private fun DemoAction.description(): String = when (this) {

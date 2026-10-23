@@ -126,7 +126,8 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
         val provider = status.get("provider") as? String ?: error("Invalid provider")
         val configured = status.get("status") as? String ?: error("Invalid provider")
         return when {
-            real && provider.isNotBlank() && configured == "configured_native_owner" && status.isNull("loaded") -> TextProvider.LOCAL
+            real && provider.isNotBlank() && configured == "configured_native_owner" &&
+                status.get("loaded") === JSONObject.NULL -> TextProvider.LOCAL
             !real && provider == "android-scripted-play-v2" &&
                 configured == "configured_fixture_owner" && status.get("loaded") == false -> TextProvider.SCRIPTED
             else -> TextProvider.UNAVAILABLE

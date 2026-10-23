@@ -310,7 +310,11 @@ impl Host {
         self.state
             .lock()
             .map_err(|_| "Internal".to_owned())?
-            .local_play = Some(LocalPlay { profile, provider, real_model });
+            .local_play = Some(LocalPlay {
+            profile,
+            provider,
+            real_model,
+        });
         Ok(())
     }
     pub fn disable_local_provider(&self) {
@@ -1826,6 +1830,65 @@ fn reject(error: impl std::fmt::Display) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn trusted_fixture_configuration_is_honest_without_changing_real_provider_provenance() {
+        let h = Host::default();
+        let profile = crate::play::PlayProfile {
+            id: "test-scripted".into(),
+            model_sha256: "a".repeat(64),
+            runtime_revision: "b".repeat(40),
+            template_sha256: "c".repeat(64),
+            worker_sha256: "d".repeat(64),
+            profile_manifest_sha256: "e".repeat(64),
+            context_tokens: 4096,
+            director_tokens: 350,
+            narrator_tokens: 220,
+            deadline_ms: 1000,
+            repair_limit: 1,
+        };
+        let provider: ProviderFactory =
+            Arc::new(|| Box::new(FakeProvider::new(FakeMode::Accepted)));
+        for real in [false, true] {
+            if real {
+                h.configure_local_provider(profile.clone(), provider.clone())
+                    .unwrap();
+            } else {
+                h.configure_fixture_provider(profile.clone(), provider.clone())
+                    .unwrap();
+            }
+            let status = call(&h, json!({"op":"model_status"}));
+            assert_eq!(status["data"]["real_model"], real);
+            assert_eq!(
+                status["data"]["loaded"],
+                if real { Value::Null } else { json!(false) }
+            );
+            assert_eq!(
+                call(&h, json!({"op":"capabilities"}))["data"]["free_text"],
+                true
+            );
+            let local = h.state.lock().unwrap().local_play.clone();
+            let provenance = trace_provenance(local.as_ref(), true);
+            assert_eq!(provenance.model_sha256.is_some(), real);
+            assert_eq!(provenance.worker_sha256.is_some(), real);
+            assert_eq!(provenance.profile_sha256.is_some(), real);
+            assert_eq!(provenance.config_sha256.is_some(), real);
+            assert_eq!(provenance.runtime_revision.is_some(), real);
+            assert!(provenance.profile_label.is_some());
+        }
+        assert_eq!(
+            call(&h, json!({"op":"configure_fixture_provider"}))["error"],
+            "Malformed"
+        );
+        h.disable_local_provider();
+        assert_eq!(
+            call(&h, json!({"op":"capabilities"}))["data"]["free_text"],
+            false
+        );
+        assert_eq!(
+            call(&h, json!({"op":"model_status"}))["data"]["real_model"],
+            false
+        );
+    }
     fn call(h: &Host, c: Value) -> Value {
         h.call(&serde_json::to_vec(&json!({"version":1,"command":c})).unwrap())
     }

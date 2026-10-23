@@ -38,7 +38,7 @@ final class CacheVolume {
     }
     static void request(String operation, String uuid, String session, String playCase, String profile)
             throws Problem {
-        if (!Arrays.asList("inspect", "mmap", "play").contains(operation) || !uuid(uuid)
+        if (!Arrays.asList("inspect", "mmap", "play", "verify_model").contains(operation) || !uuid(uuid)
                 || session == null || !session.matches("[a-f0-9]{32}")) throw new Problem("invalid_request");
         if (operation.equals("play")) {
             if (!Arrays.asList("gift", "dialogue", "unlearned", "spent", "cancel").contains(playCase)

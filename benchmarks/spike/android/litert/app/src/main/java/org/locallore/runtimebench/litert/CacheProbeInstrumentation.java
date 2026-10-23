@@ -8,10 +8,13 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Process;
 import android.os.Environment;
+import android.os.Build;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
 import android.system.Os;
 import android.system.OsConstants;
+import android.system.ErrnoException;
+import android.system.StructStat;
 import android.util.Base64;
 import com.google.ai.edge.litertlm.ExperimentalFlags;
 import com.google.ai.edge.litertlm.Engine;
@@ -21,6 +24,7 @@ import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import java.io.File;
 import java.io.FileDescriptor;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -53,7 +57,7 @@ public final class CacheProbeInstrumentation extends Instrumentation {
     }
     @Override public void onStart() {
         JsonObject report = new JsonObject(); report.addProperty("version", 1);
-        report.addProperty("operation", Arrays.asList("inspect", "mmap", "play").contains(operation) ? operation : "invalid");
+        report.addProperty("operation", Arrays.asList("inspect", "mmap", "play", "verify_model").contains(operation) ? operation : "invalid");
         report.addProperty("status", "error"); report.addProperty("error", "runtime_failed");
         JsonObject metrics = new JsonObject();
         for (String field : Arrays.asList("engines_opened", "engines_closed", "conversations_opened", "conversations_closed"))
@@ -75,7 +79,14 @@ public final class CacheProbeInstrumentation extends Instrumentation {
             CacheVolume.Candidate selected = CacheVolume.select(candidates, uuid, userdataDevice);
             CacheVolume.stable(selected, selected, userdataDevice, Os.stat(userdata.getPath()).st_dev);
             JsonObject before = sample(selected, userdataDevice, userdata.getUsableSpace()); report.add("sample", before);
-            if (!operation.equals("inspect")) {
+            if (operation.equals("verify_model")) {
+                CacheModelIdentity.Result identity = verifyModel(selected);
+                CacheVolume.Candidate after = refresh(selected, userdata, userdataDevice);
+                report.add("post_sample", sample(after, userdataDevice, userdata.getUsableSpace()));
+                JsonObject receipt = new JsonObject(); receipt.addProperty("verified", identity.verified);
+                receipt.addProperty("sha256", identity.sha256); receipt.addProperty("bytes", identity.bytes);
+                receipt.addProperty("diagnostic", identity.diagnostic); report.add("model_identity", receipt);
+            } else if (!operation.equals("inspect")) {
                 CacheVolume.capacity(selected, userdata.getUsableSpace());
                 Path cache = CacheVolume.freshSession(selected.cache, session);
                 CacheVolume.capacity(refresh(selected, userdata, userdataDevice), userdata.getUsableSpace());
@@ -106,7 +117,7 @@ public final class CacheProbeInstrumentation extends Instrumentation {
                 report.add("post_sample", sample(after, userdataDevice, userdata.getUsableSpace()));
             }
             report.addProperty("status", "completed"); report.add("error", JsonNull.INSTANCE);
-        } catch (WarmRunner.Undrained unknown) {
+        } catch (WarmRunner.Undrained | CacheModelIdentity.OwnershipUnknown unknown) {
             // Abrupt own-process termination is not reported as successful resource disposal.
             Process.killProcess(Process.myPid()); return;
         } catch (CacheVolume.Problem problem) { report.addProperty("error", problem.category);
@@ -122,6 +133,49 @@ public final class CacheProbeInstrumentation extends Instrumentation {
         report.add("metrics", metrics);
         Bundle result = new Bundle(); result.putString("cache_result", report.toString());
         finish(Activity.RESULT_OK, result);
+    }
+    private CacheModelIdentity.Result verifyModel(CacheVolume.Candidate selected) throws Exception {
+        Path parent = CacheVolume.realDirectory(selected.files);
+        if (Os.stat(parent.toString()).st_dev != selected.device) throw new CacheVolume.Problem("volume_changed");
+        String path = parent.resolve(CacheVolume.MODEL).toString();
+        CacheModelIdentity.Source source = new CacheModelIdentity.Source() {
+            @Override public CacheModelIdentity.Stamp path() throws IOException {
+                try { return stamp(Os.lstat(path)); }
+                catch (ErrnoException error) {
+                    if (error.errno == OsConstants.ENOENT) return null;
+                    throw new IOException("model_stat_failed");
+                }
+            }
+            @Override public CacheModelIdentity.Handle open() throws IOException {
+                final FileDescriptor descriptor;
+                try { descriptor = Os.open(path, OsConstants.O_RDONLY | OsConstants.O_NOFOLLOW, 0); }
+                catch (ErrnoException error) { throw new IOException("model_open_failed"); }
+                return new CacheModelIdentity.Handle() {
+                    @Override public CacheModelIdentity.Stamp stat() throws IOException {
+                        try { return stamp(Os.fstat(descriptor)); }
+                        catch (ErrnoException error) { throw new IOException("model_fstat_failed"); }
+                    }
+                    @Override public int read(byte[] buffer, int count) throws IOException {
+                        try { int read = Os.read(descriptor, buffer, 0, count); return read == 0 ? -1 : read; }
+                        catch (ErrnoException error) { throw new IOException("model_read_failed"); }
+                    }
+                    @Override public void close() throws IOException {
+                        try { Os.close(descriptor); }
+                        catch (ErrnoException error) { throw new IOException("model_close_failed"); }
+                    }
+                };
+            }
+        };
+        return CacheModelIdentity.verify(source, selected.device);
+    }
+    private static CacheModelIdentity.Stamp stamp(StructStat value) {
+        if (Build.VERSION.SDK_INT >= 27) {
+            return new CacheModelIdentity.Stamp(value.st_dev, value.st_ino, value.st_size,
+                value.st_mtim.tv_sec, value.st_mtim.tv_nsec, value.st_ctim.tv_sec, value.st_ctim.tv_nsec,
+                value.st_mode, OsConstants.S_ISREG(value.st_mode), true);
+        }
+        return new CacheModelIdentity.Stamp(value.st_dev, value.st_ino, value.st_size,
+            value.st_mtime, 0, value.st_ctime, 0, value.st_mode, OsConstants.S_ISREG(value.st_mode), false);
     }
     private CacheVolume.Candidate refresh(CacheVolume.Candidate selected, File userdata, long expectedDevice) throws Exception {
         long actualDevice = Os.stat(userdata.getPath()).st_dev;

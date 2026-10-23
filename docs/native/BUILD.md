@@ -2,8 +2,10 @@
 
 Scope: [M03.03 / #7](https://github.com/OptimumAF/LocalLore/issues/7).
 The native library contains the actual Rust engine and deterministic fake
-inference provider. It supplies no model weights, inference backend, saved-story
-database, network transport, or physical-device qualification.
+inference provider, plus the [shared SQLite workspace owner](APP_DURABILITY.md).
+It supplies no model weights, real inference backend, network transport, or
+physical-device qualification. Original in-memory boundary evidence and
+[current durable-app verification](APP_DEVICE_VERIFICATION_2026-10-22.md) are separate.
 
 The application applies `apps/android/native-build.gradle.kts` after its Android
 application plugin. `preBuild` depends on `buildRustAndroid`; regular APK and

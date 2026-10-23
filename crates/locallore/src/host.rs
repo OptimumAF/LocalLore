@@ -562,8 +562,13 @@ impl Host {
             // Overrides receive the same panic-safe cancellation boundary as
             // the default port. An observed true/panic remains cancelled even
             // if an override ignores it and returns an otherwise valid Engine.
-            port.generation_snapshot(scope, expected_head, &selected_seed.player, &safe_cancel)
-                .map_err(generation_read_error)?
+            // Contain a native override failure inside the guard so it cannot
+            // poison every later operation on this owner.
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                port.generation_snapshot(scope, expected_head, &selected_seed.player, &safe_cancel)
+            }))
+            .map_err(|_| "Internal")?
+            .map_err(generation_read_error)?
         } else {
             HostGenerationSnapshot {
                 engine: ephemeral.expect("selected ephemeral Engine"),

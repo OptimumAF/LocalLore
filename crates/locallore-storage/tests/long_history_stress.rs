@@ -503,6 +503,34 @@ fn accepted_thousand_event_retrieval_and_interference_baseline() {
         ),
         json!({}),
     );
+    let mut director_request = request(&child_engine, "player", PRIVATE);
+    director_request.role = Role::Director;
+    let director = compile(&child_engine, &director_request);
+    record(
+        &mut cases,
+        "director-player-secret-is-legitimate-courier-secret-is-not",
+        director.as_ref().is_ok_and(|p| {
+            let text = serde_json::to_string(p).unwrap();
+            has_event(p, &root, 6)
+                && has_event(p, &child, CHILD_HEAD)
+                && text.contains("PLAYER-SEED-VAULT-ANCHOR")
+                && !text.contains("COURIER-SEED-VAULT-ANCHOR")
+                && FORBIDDEN.iter().all(|m| !text.contains(m))
+        }),
+        json!({"error":director.as_ref().err().map(|e|format!("{e:?}")),
+            "selected":director.as_ref().ok().map(|p|p.records.len()),
+            "bytes":director.as_ref().ok().map(|p|p.serialized_bytes)}),
+    );
+    director_request.observer = "courier".into();
+    record(
+        &mut cases,
+        "director-cannot-assume-another-actor-observer",
+        matches!(
+            compile(&child_engine, &director_request),
+            Err(CompileError::Observer)
+        ),
+        json!({}),
+    );
     let mut alias = request(&child_engine, "courier", "Lark Reed spindle");
     record(
         &mut cases,
@@ -707,7 +735,14 @@ fn accepted_thousand_event_retrieval_and_interference_baseline() {
         .filter(|c| c["pass"] != true)
         .map(|c| c["case"].clone())
         .collect();
+    let info = store.info().unwrap();
+    let generator = format!(
+        "{:x}",
+        Sha256::digest(include_bytes!("long_history_stress.rs"))
+    );
     let metrics = json!({"synthetic":true,"provider_calls":0,"production_memory_consumer":false,
+        "generator_sha256":generator,"development_fixtures_feature":cfg!(feature="development-fixtures"),
+        "sqlite_version":info.sqlite_version,"schema_version":info.schema_version,
         "source_base":"a13b80b8f7e37c1fb2aad714f5ba931f7bf37941","root_events_at_fork":ROOT_HEAD,"root_receipts_at_fork":129,
         "root_final_head":engine.revision(),"accepted_unique_events_all_scopes":unique_events.len(),"accepted_unique_receipts_all_scopes":unique_receipts.len(),
         "child_head":CHILD_HEAD,"child_receipts_including_inherited":child_engine.receipts().len(),

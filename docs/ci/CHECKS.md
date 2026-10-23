@@ -72,3 +72,11 @@ command stops the suite and returns its exit code. Missing tools/configuration
 return 1; invalid CLI arguments return 2; keyboard interruption returns 130.
 No passing host or APK build proves emulator execution, physical phone performance,
 ARM64 execution, model quality, durable storage, or repository owner acceptance.
+
+The Android crate's `platform_roundtrip` development example is registered with
+`test=true`, so the normal host suite checks its real Store/Host fixtures and
+engine-to-packaged-asset drift. Platform-specific junction/symlink cases differ
+by OS. These host tests do not launch ADB. The explicit
+[cross-platform runner](../native/PLATFORM_ROUNDTRIP_VERIFICATION_2026-10-23.md)
+requires already installed, hash-matching test APKs and an authorized selected
+device; it is not part of default CI and performs no model provisioning.

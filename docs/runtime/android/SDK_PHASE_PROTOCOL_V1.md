@@ -70,11 +70,22 @@ database and failed turn are preserved. The profile requires the existing
 isolated build paths, offline dependencies, no permissions and no additional
 manifest components. The control uses Android APIs and the pure Java journal.
 
+The build entry point is `python benchmarks/spike/android/litert/cache_build.py
+--phase-probe --java21 <existing-jdk21> --output <fresh-D-directory>`. It uses
+existing offline tools and dependencies; the normal CLI builds both native ABIs.
+The dated qualification report separately identifies its verified native reuse.
+
 After fresh package/hash, namespace, storage and client-ownership checks, the
 caller runs exactly one `crash` operation with a fresh nonce. It creates the
 journal, syncs `probe_ready`, attempts the summary, syncs `probe_kill`, then kills
 only its own process. Independent process absence must precede one `read`
 operation for the same nonce. The reader never modifies that journal.
+
+Instrumentation component:
+`org.locallore.runtimebench.litert.phaseprobe/org.locallore.runtimebench.litert.PhaseEvidenceInstrumentation`.
+Pass `-e operation crash` or `-e operation read`, and `-e session <fresh-32-hex>`,
+to `am instrument -w -r` on the explicitly selected emulator. Keep the same nonce
+for the single read and retain the full output before decoding it.
 
 `android_phase_result.parse_result` validates the fixed bounded instrumentation
 terminal. `journal_verified` additionally requires two checkpoints, last phase

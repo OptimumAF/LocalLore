@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -29,8 +30,15 @@ def real_directory(path):
     if not path.is_absolute() or path != Path(os.path.normpath(path)):
         raise ValueError("invalid_output")
     for ancestor in (path, *path.parents):
-        if not ancestor.is_dir() or ancestor.is_symlink() or getattr(ancestor, "is_junction", lambda: False)():
+        try:
+            metadata = ancestor.lstat()
+        except OSError as error:
+            raise ValueError("linked_or_missing_output") from error
+        if (getattr(metadata, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+                or not ancestor.is_dir() or ancestor.is_symlink()):
             raise ValueError("linked_or_missing_output")
+    if path.resolve(strict=True) != path:
+        raise ValueError("linked_or_missing_output")
     return path
 
 

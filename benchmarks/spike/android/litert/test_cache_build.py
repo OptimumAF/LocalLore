@@ -102,6 +102,14 @@ class CacheBuildTests(unittest.TestCase):
                 with self.assertRaises(FileExistsError):
                     target.fresh_output(parent)
 
+    def test_reparse_attribute_refuses_junction_before_output_creation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            parent = Path(directory)
+            with patch.object(Path, 'lstat', return_value=SimpleNamespace(st_file_attributes=0x400)):
+                with self.assertRaisesRegex(ValueError, 'linked_or_missing_output'):
+                    target.real_directory(parent)
+            self.assertEqual(list(parent.iterdir()), [])
+
 
 if __name__ == '__main__':
     unittest.main()

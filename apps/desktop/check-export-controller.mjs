@@ -20,7 +20,9 @@ const scope = { story: "synthetic", branch: "main" };
 let cancelRelease,
     previewRelease,
     holdPreview = false,
-    heldMode = "full";
+    heldMode = "full",
+    saveRelease,
+    cancelSaved = false;
 const gateway = {
     async call(command) {
         if (command.op === "open")
@@ -48,7 +50,13 @@ const gateway = {
     async native(command, args) {
         if (command === "inspection_cancel")
             return new Promise((resolve) => {
-                cancelRelease = () => resolve({ status: "cancelled" });
+                cancelRelease = () =>
+                    resolve({ status: cancelSaved ? "saved" : "cancelled" });
+            });
+        if (command === "inspection_save")
+            return new Promise((resolve) => {
+                saveRelease = () =>
+                    resolve({ status: "saved", location: "old-private-full" });
             });
         if (command === "inspection_preview") {
             heldMode = args.mode;
@@ -95,6 +103,28 @@ cancelRelease();
 await pending;
 assert.equal(c.get().exports.preview, null);
 assert.equal(c.get().exports.mode, "diagnostics");
+holdPreview = false;
+previewRelease = null;
+c.setView("lab");
+c.setExportMode("full");
+await c.previewExport();
+const saving = c.saveExport();
+while (!saveRelease) await new Promise((r) => setTimeout(r, 0));
+cancelSaved = true;
+const attaching = c.attach({
+    id: "session-2",
+    scope,
+    revision: 0,
+    name: "Another",
+});
+assert.equal(c.get().exports.preview, null);
+assert.equal(c.get().exports.savedLocation, null);
+cancelRelease();
+await attaching;
+saveRelease();
+await saving;
+assert.equal(c.get().exports.preview, null);
+assert.equal(c.get().exports.savedLocation, null);
 await c.dispose();
 console.log(
     "PASS: delayed native cancellation and stale Full preview cannot appear under Diagnostics or Play.",

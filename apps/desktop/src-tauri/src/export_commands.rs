@@ -68,12 +68,7 @@ pub async fn inspection_database_preview(
     let source = workspace.path.clone();
     tauri::async_runtime::spawn_blocking(move || {
         lease.dispatch(epoch, || {
-            host.inspection_snapshot(
-                &session,
-                &parsed,
-                expected_revision,
-                ExportMode::Diagnostics,
-            )?;
+            host.inspection_snapshot(&session, &parsed, expected_revision, ExportMode::Full)?;
             let cache = source
                 .parent()
                 .ok_or("InvalidInput")?

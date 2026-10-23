@@ -134,7 +134,7 @@ export class Controller {
     showExports(shown = true) {
         this.exportPatch({ shown });
     }
-    private clearExportPreview() {
+    private clearExportPreview(cancelNative = true) {
         const token = this.state.exports.preview?.token;
         this.exportEpoch++;
         this.exportPatch({
@@ -146,8 +146,9 @@ export class Controller {
             error: null,
             notice: "",
         });
-        if (token)
+        if (token && cancelNative)
             void this.native("inspection_cancel", { token }).catch(() => {});
+        return token;
     }
     setExportMode(mode: ExportMode) {
         if (
@@ -266,32 +267,14 @@ export class Controller {
         }
     }
     async cancelExport() {
-        const preview = this.state.exports.preview;
-        if (preview) {
+        const token = this.clearExportPreview(false);
+        if (token) {
             try {
-                const result = (await this.native("inspection_cancel", {
-                    token: preview.token,
-                })) as { status: string };
-                if (result.status === "saved" && this.state.exports.busy) {
-                    this.exportPatch({
-                        notice: "Save completed before cancellation.",
-                    });
-                    return;
-                }
+                await this.native("inspection_cancel", { token });
             } catch {
-                /* Expiry/window destruction already revokes the native preview. */
+                /* Native expiry or window destruction already revokes authority. */
             }
         }
-        this.exportEpoch++;
-        this.exportPatch({
-            preview: null,
-            imported: false,
-            busy: false,
-            opened: null,
-            savedLocation: null,
-            error: null,
-            notice: "",
-        });
     }
     selectExportFile(selectedFile: string) {
         if (
@@ -753,7 +736,10 @@ export class Controller {
         }
     }
     setView(view: State["view"]) {
-        if (view === "play" && this.state.exports.mode === "full") {
+        if (
+            view === "play" &&
+            ["full", "database"].includes(this.state.exports.mode)
+        ) {
             this.clearExportPreview();
             this.exportPatch({ mode: "diagnostics" });
         }

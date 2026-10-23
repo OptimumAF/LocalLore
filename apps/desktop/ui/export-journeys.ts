@@ -125,13 +125,13 @@ export async function exportJourneys({
                 c.get().exports.preview!.manifest.revision === before,
                 "reopened-snapshot-identifies-same-canonical-head",
             );
-            c.selectExportFile("transcript.jsonl");
+            c.selectExportFile("events.jsonl");
             await c.openExport();
             check(
                 c
                     .get()
                     .exports.opened?.text.includes("PRIVATE_SYNTHETIC_CANARY"),
-                "private-saved-transcript-reopened-read-only",
+                "private-saved-events-reopened-read-only",
             );
             await c.refresh();
             check(
@@ -211,8 +211,7 @@ export async function exportJourneys({
         await c.openExport();
         check(
             c.get().exports.preview!.manifest.revision === head &&
-                JSON.parse(c.get().exports.opened!.text).source_revision ===
-                    head,
+                JSON.parse(c.get().exports.opened!.text).revision === head,
             "export-snapshot-independent-of-later-turn",
         );
         await capture("export-player-preview");
@@ -305,7 +304,7 @@ export async function exportJourneys({
             c.get().exports.imported,
             "existing-local-snapshot-is-always-labeled-untrusted",
         );
-        c.selectExportFile("transcript.jsonl");
+        c.selectExportFile("events.jsonl");
         await c.openExport();
         check(
             c.get().exports.opened!.text.includes("PRIVATE_SYNTHETIC_CANARY"),

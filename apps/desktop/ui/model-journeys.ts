@@ -291,8 +291,18 @@ export async function modelJourneys({
             c.get().play!.revision === savedRevision,
             "real-unlearned-ability-cannot-mutate-canon",
         );
+        check(
+            c.get().turnStatus?.error === "ClarificationRequired",
+            "unsupported-teleport-asks-clarification-without-alternate-effect",
+        );
+        await play("known-unlearned-ability", "I use ability teleport.");
+        check(
+            c.get().turnStatus?.error === "Ability" &&
+                c.get().play!.revision === savedRevision,
+            "supported-unlearned-ability-is-refused-by-engine",
+        );
         await capture("model-invalid-action");
-        c.setDraft("I wait quietly for one moment.");
+        c.setDraft("I wait for one tide tick.");
         c.setInputKind("action");
         const pending = c.send();
         await until(async () => (await c.pendingStatus())?.phase === "running");

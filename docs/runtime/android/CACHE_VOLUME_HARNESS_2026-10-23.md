@@ -137,8 +137,19 @@ Source `44cd85f7f21b600e1762eceb7007849d0b8948ab` qualified the new APK:
 | Actual Java compiler | 21.0.4; existing Java 17 launcher |
 | APK package/instrumentation | Exact new identity and only the explicit cache runner |
 | Capability/native audits | Zero requested/declared permissions; exact two-ABI/four-library set; ELF and ZIP 16 KiB alignment; five required Rust play JNI exports per ABI |
-| Dependencies/analyzer | Existing binary hashes, exact locked analyzer graph, SDK/Kotlin model, lint passed |
+| Dependencies/analyzer | Existing binary hashes, exact locked analyzer graph and SDK/Kotlin model passed |
+| Actual lint XML | 0 errors, 8 warnings: OldTargetApi 1, GradleDependency 1, UsableSpace 6 |
+| Negative Gradle configuration executions | Not run; Python command/guard tests are not actual Gradle rejection evidence |
 | Frozen APK | 63,598,424 bytes; SHA256 `50e6e60cfdb2194272d31cf651805f34452ae09a04443558049020664f60d107` |
+
+The `UsableSpace` warnings correspond to deliberate `getUsableSpace()` filesystem
+observations rather than an allocation or reservation API. They are instantaneous
+readings, not reserved space or a guarantee of future allocation. The harness
+does not substitute an allocatable/reclaimable-cache estimate for those measured
+free bytes. It rechecks the independent floors before engine initialization and
+records a post-operation sample; those checks do not establish a maximum SDK
+cache requirement. The warnings remain reported. No dependency upgrade, target
+change or reservation-policy change was made to silence them.
 
 All attempts remain in private task-owned evidence. The first build compiled
 both Rust ABIs but failed during Gradle configuration because the `java` extension

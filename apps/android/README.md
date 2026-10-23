@@ -46,6 +46,21 @@ ANDROID_SERIAL to select one, then repeat for the second. Omit transport IDs
 from public reports. This packet executes on two x86_64 API-35 emulators;
 ARM64 runtime and physical-device qualification remain separate gates.
 
+The timeline catalog journey uses an isolated debug identity so existing saves
+remain in their installed app. From `apps/android`, build with:
+
+```powershell
+.\gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest :app:lintDebug -PlocalLoreTimelineVerification=true --project-cache-dir .gradle-timeline -Pkotlin.incremental=false --offline --no-daemon
+```
+
+This selects `org.locallore.app.timelineverify`, `app/build-timeline`, and its
+exclusive project cache. The profile rejects release and combined verification
+modes. Install its two APKs only on authorized targets, then select
+`TimelineNativeTest`, `TimelineProtocolTest`, `TimelineActivityTest` and
+`TimelineMainActivityTest` with AndroidJUnitRunner. They use synthetic data;
+the Activity tests require this isolated package. Ordinary builds keep their
+usual identity/output directory.
+
 No platform Internet, media, contact or location permission is requested.
 AndroidX adds an app-owned signature receiver permission. Backup exclusions
 are configured; these tests do not qualify OS backup behavior. Existing Gradle,
@@ -63,6 +78,11 @@ visible. Simulated delay is not a performance measurement.
 
 Accepted state survives Activity recreation and native/process owner recreation.
 Startup resumes a default saved story; use **Saved stories** to select another.
+Use **Timelines** to resume an existing root, child or sibling in that story.
+Inherited accepted receipts retain their original ancestor scopes; Rust filters
+history at fork boundaries. The selector does not create branches. Whole-story
+deletion from a child still previews and confirms every timeline using the root
+head. See the [catalog contract](../../docs/native/TIMELINE_CATALOG_CONTRACT.md).
 The displayed path is the actual database in app-private `noBackupFilesDir`,
 with workspace contract version 1 and database schema version 2. Uncommitted responses remain separate from canon;
 resuming does not regenerate or automatically apply them. Closing the app does

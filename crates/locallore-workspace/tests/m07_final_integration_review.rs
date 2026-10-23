@@ -221,3 +221,35 @@ fn exact_committed_historical_submit_remains_available_after_selected_head_advan
     assert_eq!(restored.receipts(), current.receipts());
     assert_eq!(restored.canonical_bytes(), current.canonical_bytes());
 }
+
+#[test]
+fn uncached_exact_historical_draft_submit_is_read_only_after_independent_append() {
+    let fixture = Fixture::new();
+    let empty = create(&fixture);
+    let mut store = fixture.store();
+    let prefix = commit(&mut store, &empty, "original-prefix");
+    let request = prefix.request(
+        "historical-draft-retry",
+        Intent::Actions(vec![Command::Wait { ticks: 1 }]),
+    );
+    store.begin_turn(&request).unwrap();
+    let current = commit(&mut store, &prefix, "independent-selected-suffix");
+    let host = locallore_workspace::open(&fixture.path(), false).unwrap();
+    let session = select(&host, current.scope());
+    let before = std::fs::read(fixture.path()).unwrap();
+    let result = call(
+        &host,
+        json!({"op":"submit","session":session,"request":request,"mode":"accepted"}),
+    );
+    assert_eq!(result["data"]["phase"], "queued", "{result}");
+    assert_eq!(result["data"]["receipt"], Value::Null);
+    assert_eq!(std::fs::read(fixture.path()).unwrap(), before);
+    let mut actual = fixture.store();
+    let draft = actual.turn_status(&request).unwrap();
+    assert_eq!(draft.phase, locallore_storage::TurnPhase::Draft);
+    assert_eq!(draft.request, request);
+    assert!(draft.receipt.is_none());
+    let restored = actual.resume(current.scope()).unwrap().engine;
+    assert_eq!(restored.receipts(), current.receipts());
+    assert_eq!(restored.canonical_bytes(), current.canonical_bytes());
+}

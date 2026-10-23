@@ -9,9 +9,13 @@ use std::{
 };
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
-struct Temp(PathBuf);
+// Keep expensive SQLite fixture construction from starving the 200 ms delayed-provider
+// overlap assertions. Each case still runs its real independent Host/worker races.
+static FIXTURE_GATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+struct Temp(PathBuf, std::sync::MutexGuard<'static, ()>);
 impl Temp {
     fn new() -> Self {
+        let guard = FIXTURE_GATE.lock().unwrap_or_else(|p| p.into_inner());
         let p = std::env::temp_dir().join(format!(
             "locallore-ownership-{}-{}-{}",
             std::process::id(),
@@ -22,7 +26,7 @@ impl Temp {
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         std::fs::create_dir(&p).unwrap();
-        Self(p)
+        Self(p, guard)
     }
     fn host(&self, lab: bool) -> Host {
         locallore_workspace::open(&self.0.join("synthetic.sqlite"), lab).unwrap()
@@ -30,6 +34,7 @@ impl Temp {
 }
 impl Drop for Temp {
     fn drop(&mut self) {
+        let _keep_fixture_gate = &self.1;
         std::fs::remove_dir_all(&self.0).unwrap();
     }
 }
@@ -549,6 +554,11 @@ fn failed_cancel_acknowledgement_cannot_publish_an_unpersisted_terminal_outcome(
             "failed storage cancellation must remain uncertain, not falsely terminal: {result}"
         );
     });
+    let status = op(&h, &id, &scope, "cancel-failed", "turn_status");
+    assert_ne!(
+        status["data"]["phase"], "cancelled",
+        "lookup must not publish a failed in-memory transition: {status}"
+    );
     drop(h);
     let h = tmp.host(false);
     let id = resume(&h, &scope);

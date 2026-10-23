@@ -60,6 +60,12 @@ final class PhaseAndroidEvidence {
                 report.addProperty("exit_instance_matched", true);
                 report.addProperty("exit_reason", reason); report.addProperty("exit_status", status);
             }
-        } catch (RuntimeException unavailable) { /* An unavailable record is not evidence of a cause. */ }
+        } catch (RuntimeException unavailable) {
+            // Do not publish a partial enumeration as an observed zero-match history.
+            report.addProperty("exit_history_available", false);
+            report.addProperty("exit_records_examined", 0); report.addProperty("exit_instance_matches", 0);
+            report.addProperty("exit_instance_matched", false);
+            report.addProperty("exit_reason", -1); report.addProperty("exit_status", -1);
+        }
     }
 }

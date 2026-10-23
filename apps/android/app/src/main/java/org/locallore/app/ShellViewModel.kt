@@ -36,6 +36,7 @@ class ShellViewModel(
         schemaVersion = saved.schemaVersion, stories = saved.stories, selectedStory = saved.selected,
         uncommittedDrafts = saved.uncommittedDrafts,
         rulesProfile = saved.rulesProfile,
+        databaseSchemaVersion = saved.databaseSchemaVersion,
         recoveryRequired = false, notice = notice,
     )
 

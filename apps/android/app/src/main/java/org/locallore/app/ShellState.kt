@@ -10,6 +10,7 @@ data class SavedSnapshot(
     val location: String, val schemaVersion: Int, val stories: List<SavedStory>, val selected: SavedStory,
     val uncommittedDrafts: Int = 0,
     val rulesProfile: String = "unknown",
+    val databaseSchemaVersion: Int? = null,
 )
 data class ShellState(
     val busy: Boolean = false,
@@ -27,6 +28,7 @@ data class ShellState(
     val selectedStory: SavedStory? = null,
     val uncommittedDrafts: Int = 0,
     val rulesProfile: String? = null,
+    val databaseSchemaVersion: Int? = null,
 )
 
 sealed interface DemoResult {

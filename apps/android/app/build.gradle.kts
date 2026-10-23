@@ -4,6 +4,13 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Explicit local instrumentation variant; leave the user's installed demo/data intact.
+val archiveVerification = providers.gradleProperty("localLoreArchiveVerification").orNull
+require(archiveVerification == null || archiveVerification == "true")
+if (archiveVerification == "true") {
+    layout.buildDirectory.set(layout.projectDirectory.dir("build-archive-verification"))
+}
+
 android {
     namespace = "org.locallore.app"
     compileSdk = 36
@@ -17,6 +24,12 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0-shell"
+        manifestPlaceholders["diagnosticTestAuthority"] = if (archiveVerification == "true")
+            "org.locallore.app.archiveverify.test.diagnostics" else "org.locallore.app.test.diagnostics"
+        if (archiveVerification == "true") {
+            applicationIdSuffix = ".archiveverify"
+            versionNameSuffix = "-archive-verification"
+        }
         ndk { abiFilters += listOf("x86_64", "arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

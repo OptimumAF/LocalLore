@@ -113,7 +113,7 @@ fun LocalLoreScreen(
                                 color = MutedInk,
                             )
                             Text(
-                                if (state.persistent) "Local saved progress · schema ${state.schemaVersion ?: "opening"}"
+                                if (state.persistent) "Local saved progress · database schema ${state.databaseSchemaVersion ?: "opening"}"
                                     else "In-memory session · no saved progress",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MutedInk,

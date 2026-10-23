@@ -1,4 +1,5 @@
 // Fixed metadata debugger journey. Real frontend/controller/native IPC; fake inference only.
+import { attemptKey } from "./trace-model";
 import type { Controller } from "./controller";
 import type { FaultGateway } from "./journeys";
 import { category, structural } from "./model";
@@ -28,6 +29,12 @@ export async function traceJourneys({
     dispose,
     config,
 }: Options) {
+    const releases: (() => void)[] = [];
+    const block = () => {
+        const value = gate();
+        releases.push(value.release);
+        return value;
+    };
     const checks: string[] = [];
     let failed = "start";
     const check = (v: unknown, name: string) => {
@@ -225,11 +232,21 @@ export async function traceJourneys({
             );
             await capture("d06-failed");
             c.setFakeMode("accepted");
-            const held = gate();
+            const held = block();
             g.heldPrepare = held;
             const sending = c.send();
             await held.entered;
             await c.readTrace();
+            const pendingAttempt = c
+                .get()
+                .trace.reply?.snapshot.attempts.find(
+                    (a) => a.identity.turn === c.get().pending?.turn,
+                );
+            check(
+                pendingAttempt,
+                "pending-original-turn-has-its-own-retained-attempt",
+            );
+            c.selectTrace(attemptKey(pendingAttempt!));
             check(
                 c.traceAttempt()?.outcome === "running",
                 "prepared-candidate-remains-uncommitted-running-trace",
@@ -262,7 +279,7 @@ export async function traceJourneys({
                 "cancelled-candidate-never-changes-saved-canon",
             );
             await capture("d06-cancelled");
-            const old = gate();
+            const old = block();
             g.heldTrace = old;
             const oldRead = c.readTrace();
             await old.entered;
@@ -337,7 +354,7 @@ export async function traceJourneys({
                 "explicit-gameplay-refresh-reconciles-trace-head",
             );
             const oldSession = session.id;
-            const delayed = gate();
+            const delayed = block();
             g.heldTrace = delayed;
             const oldStoryRead = c.readTrace();
             await delayed.entered;
@@ -423,6 +440,7 @@ export async function traceJourneys({
         });
     } catch (error) {
         const failedCheck = failed;
+        releases.forEach((release) => release());
         await capture("d06-failure").catch(() => {});
         await dispose().catch(() => {});
         await invoke("harness_finish", {

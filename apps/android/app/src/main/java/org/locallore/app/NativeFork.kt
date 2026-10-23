@@ -123,7 +123,7 @@ internal object ForkNativeWire {
             val result = value.getJSONObject("result").also { it.exact("kind", "outcome"); require(it.get("kind") == "fork") }
             outcome(result.getJSONObject("outcome"), input)
         } else { require(value.isNull("result")); null }
-        val error = if (phase == BranchForkPhase.REJECTED) value.error("error")
+        val error = if (phase == BranchForkPhase.REJECTED) value.category("error")
             else { require(value.isNull("error")); null }
         BranchForkStatus(operation, phase, cancelled, outcome, error)
     }
@@ -146,7 +146,7 @@ internal object ForkNativeWire {
         require(value.integer("version") == 1L)
         when (value.get("status") as? String) {
             "ok" -> { value.exact("version", "status", "data"); block(value.getJSONObject("data")) }
-            "rejected" -> { value.exact("version", "status", "error"); throw BranchForkFailure(value.error("error")) }
+            "rejected" -> { value.exact("version", "status", "error"); throw BranchForkFailure(value.category("error")) }
             else -> error("Invalid envelope")
         }
     }
@@ -188,7 +188,7 @@ internal object ForkNativeWire {
         val value = getJSONObject(key).also { it.exact("story", "branch") }
         return ForkScope(value.identifier("story"), value.identifier("branch"))
     }
-    private fun JSONObject.error(key: String) = (get(key) as? String)?.also { require(it in FORK_ERRORS) }
+    private fun JSONObject.category(key: String) = (get(key) as? String)?.also { require(it in FORK_ERRORS) }
         ?: error("Error required")
     private fun <T> guarded(block: () -> T): T = try { block() }
         catch (failure: BranchForkFailure) { throw failure }

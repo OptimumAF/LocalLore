@@ -352,6 +352,7 @@ mod tests {
         });
         let registry = Arc::new(WorkspaceRegistry {
             mutation: Mutex::new(()),
+            forks: Default::default(),
             entries: Mutex::new(RegistryState {
                 next: 1,
                 opening: 0,
@@ -399,6 +400,7 @@ mod tests {
         });
         let registry = WorkspaceRegistry {
             mutation: Mutex::new(()),
+            forks: Default::default(),
             entries: Mutex::new(RegistryState {
                 next: 1,
                 opening: 0,

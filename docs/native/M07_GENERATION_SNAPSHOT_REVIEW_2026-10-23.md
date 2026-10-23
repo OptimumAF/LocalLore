@@ -62,4 +62,8 @@ Actual exit **101**: **1 passed /4 failed /0 ignored /0 filtered**. The ordinary
 
 Log `generation-snapshot-review-artifacts/original-five-red.log` SHA-256 **`3ad93a44e39ad09d109dca5bb99987334ed419047f34c1c392194ff17ba1e1f1`**. Test SHA remains **`b370696a5eff13a0ed2bec7649fa6a1e94bad0dd9c8cbe516daeab908f4b8ecd`** unchanged. No source/oracle correction or repeat has occurred. F1 is now **demonstrated**, not merely source-derived. The resource slot was released immediately after test exit; no reviewer compiler/child remains.
 
-Root owns the narrow integration fix; unchanged five-case GREEN and source recheck remain pending. Current Store/schema4 publication is a separate boundary and this review does not reattribute its checks. No claim release/full gate acceptance follows from this RED-only handoff.
+Root owns the narrow integration fix; unchanged five-case GREEN and source recheck remain pending. Current Store/schema4 publication is a separate boundary and this review does not reattribute its checks. This RED-only result does not establish full gate acceptance.
+
+## Final review handoff
+
+At coordinator request the reviewer stops here with immutable original test/RED evidence and releases the two NEW paths. **F1 remains open** for the generation-snapshot port; its future integration/production Play use requires the selected accepted-prefix/immutable-ancestry fence and unchanged regression recheck. The separate current schema4 Store PR is not declared blocked by this not-yet-integrated Host port. No production fix, GREEN, strict Clippy, broad suite or final acceptance is attributed to this reviewer. Source/rustfmt/whitespace checks and the single actual default five-case RED above are the exact executed scope. Root owns all correction, compatibility/feature-mode reruns, integration and future prompt2.4 work.

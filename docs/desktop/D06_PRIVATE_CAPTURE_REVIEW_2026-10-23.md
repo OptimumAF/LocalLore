@@ -35,7 +35,8 @@ access Host's private locks from the assigned integration test and has not
 executed that private repro. Host wire access itself fails closed after State
 poisoning, so this is a lifecycle/retention gap, not demonstrated wire disclosure.
 Both findings were sent to the coordinator before report completion. Their
-correction/disposition is pending in this initial frozen-source report.
+initial disposition was pending; the independently rechecked correction is
+recorded below without replacing this original failure evidence.
 
 ## Production authority and privacy observations
 
@@ -147,7 +148,69 @@ Local logs: `capture-review-first.log`, `capture-review-production-tests.log`,
 | src/host.rs | `cef0117f7550b7bf46dce79a35c48242ed6b6778bceb3b5d132700838218d365` |
 | tests/turn_capture_review.rs | `e35665b8d631915c0ef0dc3b34ab4287ef202de9d5d2cb745b65674d900457a3` |
 
-Next: coordinator correction/disposition of the two findings, source-bound
-regression and platform compatibility, then separately claimed capture UI and
-exact private export consent/preview. No independent favorable score, human
-acceptance, pause/maintenance, full-reconstruction or full D06 gate is claimed.
+## Correction recheck — both findings addressed
+
+The coordinator's correction is `b4f618b53162c2e6053b42bfaaef70ecf040aab8`.
+The reviewer applied only that correction to the isolated frozen-source review
+branch (`425c38f` is the local cherry-pick), then read the two changed files and
+executed the focused checks below. No production correction was authored by this
+reviewer. This is not an execution claim for the later integrated Android/main
+merge `708b06023a7dbb8e6e12b2ab5b3a735b26965abd` or a substitute for the
+coordinator's integrated platform checks.
+
+The default-feature finding is addressed by `cfg(any(feature = "host", test))`
+on `TraceOwner::retire`. The previously failing exact default review-target
+strict Clippy command now passes. The original failing log remains evidence of
+the finding; it is not relabeled as a pass.
+
+The teardown finding is addressed by obtaining even a poisoned State guard only
+inside `close_all` cleanup, retiring every session owner, cancelling its turns
+and clearing sessions before attempting the diagnostic lock. It does not clear
+State poison or use the recovered guard to resume gameplay. The coordinator added
+the actual private regression
+`host::tests::teardown_retires_private_capture_owner_with_poisoned_state_and_busy_trace`.
+It holds the trace mutex, poisons State through a caught synthetic panic, invokes
+teardown and checks owner retirement, empty sessions and preserved poison. The
+reviewer executed this case successfully after correction. Its expected caught
+panic appears in the unit log; the test result is a pass. The coordinator reports
+that this exact new case failed before the correction; that before-fix execution
+is coordinator evidence, not reviewer execution.
+
+Same Windows/Rust 1.93.1, locked/offline, own target and debug/incremental settings
+as above; no model, app, Android/device or protected-resource operations:
+
+```text
+cargo +1.93.1 test -p locallore --test turn_capture_review --locked --offline --target-dir <own-target>
+3 passed; 0 failed; no retire warning.
+cargo +1.93.1 test -p locallore --all-features --test turn_capture --test turn_capture_host --test turn_capture_review --locked --offline --target-dir <own-target>
+5 + 1 + 4 passed; 0 failed.
+cargo +1.93.1 test -p locallore --lib --all-features --locked --offline --target-dir <own-target> capture -- --nocapture
+6 passed; 0 failed (four capture-module cases and both teardown/unload units).
+cargo +1.93.1 clippy -p locallore --test turn_capture_review --locked --offline --target-dir <own-target> -- -D warnings
+PASS
+cargo +1.93.1 clippy -p locallore --test turn_capture_review --all-features --locked --offline --target-dir <own-target> -- -D warnings
+PASS
+cargo +1.93.1 fmt --all -- --check
+PASS
+git diff --check
+PASS
+```
+
+Corrected logs under the same task root:
+`capture-review-corrected-default-tests.log`,
+`capture-review-corrected-allfeature-tests.log`,
+`capture-review-corrected-unit-tests.log`,
+`capture-review-corrected-default-clippy.log`,
+`capture-review-corrected-allfeature-clippy.log`.
+
+| Corrected file under crates/locallore/ | SHA-256 |
+| --- | --- |
+| src/host.rs | `d369a039699580429abdf67b50772879a82ed4c17100a2bfbad089713f9185eb` |
+| src/turn_trace.rs | `05bc6e7998f698e88712a48650cf654efd2a8af494d6f05e86bd8516ba206b70` |
+
+The other frozen production files and independent test bytes in the table above
+are unchanged. Both concrete review findings are addressed at this corrected
+source. Capture UI and exact private export consent/preview, integrated platform
+compatibility and owner acceptance remain separate gates. No favorable score,
+human acceptance, pause/maintenance, full-reconstruction or full D06 gate is
+claimed.

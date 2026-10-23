@@ -46,7 +46,30 @@ export async function modelJourneys({
             await new Promise((r) => setTimeout(r, 30));
         }
     };
-    const capture = async (label: string) => {
+    const rendered = () => {
+        const root = document.getElementById("root")!;
+        return (
+            !!root.innerText.trim() &&
+            [...root.querySelectorAll<HTMLElement>("h1,h2,h3")].some(
+                (heading) =>
+                    !!heading.innerText.trim() &&
+                    heading.getBoundingClientRect().width > 0 &&
+                    heading.getBoundingClientRect().height > 0 &&
+                    getComputedStyle(heading).visibility !== "hidden",
+            )
+        );
+    };
+    const renderFailed = () =>
+        errors
+            .snapshot()
+            .some((error) =>
+                ["RenderError", "UnhandledError"].includes(error.category),
+            );
+    const checkRendered = (label: string) => {
+        check(!renderFailed(), `${label}-no-render-or-unhandled-error`);
+        check(rendered(), `${label}-visible-dom-and-heading`);
+    };
+    const capture = async (label: string, requireRendered = true) => {
         if (label === "model-receipt-context") window.scrollTo({ top: 0 });
         else
             document
@@ -59,6 +82,7 @@ export async function modelJourneys({
                 )
                 ?.scrollIntoView({ block: "start" });
         await new Promise((r) => setTimeout(r, 100));
+        if (requireRendered) checkRendered(label);
         const clean = (value: unknown, key = ""): unknown =>
             key === "location"
                 ? "<synthetic workspace>"
@@ -122,6 +146,8 @@ export async function modelJourneys({
     };
     try {
         await c.start();
+        await until(() => rendered() || renderFailed(), 5000);
+        checkRendered("model-start");
         check(!!c.get().workspace, "real-native-durable-workspace");
         c.showModel();
         await c.refreshModel();
@@ -374,7 +400,7 @@ export async function modelJourneys({
             },
         });
     } catch (error) {
-        await capture("model-failure").catch(() => {});
+        await capture("model-failure", false).catch(() => {});
         await c.modelAction("model_unload");
         await invoke("harness_finish", {
             report: {

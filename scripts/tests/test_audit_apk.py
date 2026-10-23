@@ -89,6 +89,19 @@ class ApkAuditTests(unittest.TestCase):
     def test_manifest_allows_only_current_app_owned_signature_permission(self):
         self.assertEqual(audit.audit_manifest(BADGING, TREE), [audit.PERMISSION])
 
+    def test_capacity_package_requires_explicit_allowlist_and_own_permission(self):
+        for package in ("org.locallore.app.capacity", "org.locallore.app.capacityrelief"):
+            badging = BADGING.replace("org.locallore.app", package)
+            tree = TREE.replace("org.locallore.app", package)
+            with self.subTest(package=package):
+                with self.assertRaises(audit.AuditError):
+                    audit.audit_manifest(badging, tree)
+                self.assertEqual(audit.audit_manifest(badging, tree, package),
+                                 [package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"])
+        for package, candidate_tree in (("arbitrary.app", tree), ("org.locallore.app.capacity", TREE)):
+            with self.subTest(package=package), self.assertRaises(audit.AuditError):
+                audit.audit_manifest(badging, candidate_tree, package)
+
     def test_manifest_rejects_extra_capabilities_or_weakened_permission(self):
         cases = [
             (BADGING + "uses-permission: name='android.permission.INTERNET'\n", TREE),

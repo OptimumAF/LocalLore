@@ -303,9 +303,16 @@ fn actual_player_job_reaches_production_compiler_after_npc_inspection_without_ex
     assert!(context["source_fallback_reason"].is_null());
     let seen = calls.lock().unwrap();
     assert_eq!(seen.len(), 2);
-    assert!(!serde_json::to_string(&*seen)
-        .unwrap()
-        .contains("NPC-ONLY-SOURCE-947"));
+    assert!(seen.iter().all(|request| match &request.input {
+        Input::Structured {
+            role,
+            prompt,
+            schema,
+        } => !serde_json::to_string(&json!({"role":role,"prompt":prompt,"schema":schema}),)
+            .unwrap()
+            .contains("NPC-ONLY-SOURCE-947"),
+        _ => false,
+    }));
     let after = store.resume(&seed().scope).unwrap().engine;
     assert!(after.extends_accepted_history(&before).unwrap());
     assert_eq!(after.revision(), 265);

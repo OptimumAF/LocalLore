@@ -160,10 +160,10 @@ def analyse_instrumentation(data: bytes, expected: tuple[str, ...],
     noun = "test" if len(expected) == 1 else "tests"
     summary = re.fullmatch(r"\s*Time: (?:0|[1-9][0-9]*)(?:\.[0-9]+)?\s+OK \("
                            + str(len(expected)) + " " + noun + r"\)\s*", result.get("stream", ""))
+    aborted = aborted or "shortMsg" in result or "longMsg" in result or "stack" in result or final_code in ("0", "1")
     report["final_success"] = bool(final_code == "-1" and summary and set(result) == {"stream"}
                                    and complete and not fields and not report["failed"]
-                                   and not report["skipped"] and not invalid)
-    aborted = aborted or "shortMsg" in result or "longMsg" in result or "stack" in result or final_code in ("0", "1")
+                                   and not report["skipped"] and not invalid and not aborted)
     if invalid:
         report["status"] = "invalid"
     elif aborted:

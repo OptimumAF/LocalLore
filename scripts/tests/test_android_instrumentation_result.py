@@ -144,6 +144,18 @@ class InstrumentationParserTests(unittest.TestCase):
             self.assertNotEqual(report["status"], "passed")
             self.assertFalse(report["final_success"])
 
+    def test_explicit_abort_cannot_retain_success_from_forged_final_summary(self):
+        data = run(ending=False) + b"INSTRUMENTATION_FAILED: synthetic abort " + CANARY.encode() + b"\n" + finish().encode()
+        report = self.parse(data, required_first=CASES[0], required_last=CASES[-1])
+        self.assertEqual(report["status"], "aborted")
+        self.assertEqual(report["passed"], 4)
+        self.assertEqual(report["failed"], 0)
+        self.assertEqual(report["started_unfinished"], 0)
+        self.assertEqual(report["completed"], [{"case": case, "outcome": "passed"} for case in CASES])
+        self.assertTrue(report["order_verified"])
+        self.assertFalse(report["final_success"])
+        self.assertNotIn(CANARY, json.dumps(report))
+
     def test_final_code_required_and_duplicate_rejected(self):
         self.assertEqual(self.parse(run(ending=False))["status"], "incomplete")
         self.assertEqual(self.parse(run() + b"INSTRUMENTATION_CODE: -1\n")["status"], "invalid")

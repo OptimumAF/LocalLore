@@ -148,6 +148,21 @@ pub enum HostCommand {
         scope: Scope,
         expected_head: u64,
     },
+    TraceCaptureConfigure {
+        session: String,
+        scope: Scope,
+        expected_head: u64,
+        enabled: bool,
+        consent: bool,
+    },
+    TraceCaptureRead {
+        session: String,
+        scope: Scope,
+        expected_head: u64,
+        base_revision: u64,
+        turn: String,
+        attempt: u64,
+    },
     ModelStatus {},
     PlaySnapshot {
         session: String,
@@ -485,8 +500,12 @@ impl Host {
     }
     /// Window/process teardown invalidates all outstanding leases before dropping sessions.
     pub fn close_all(&self) {
-        if let Ok(mut state) = self.state.lock() {
+        {
+            // Cleanup must revoke leases even if gameplay previously poisoned
+            // State. Do not clear poison or resume gameplay with this guard.
+            let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
             for session in state.sessions.values() {
+                session.trace_owner.retire();
                 for turn in session.turns.values() {
                     turn.cancel.cancel();
                 }
@@ -500,18 +519,24 @@ impl Host {
     /// Trusted storage lifecycle notification, never an LLM/Host wire command.
     /// The adapter fences new submit/commit/resume calls through the deletion transaction.
     pub fn invalidate_story(&self, story: &str) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
         state.sessions.retain(|_, session| {
             if session.engine.scope().story != story {
                 return true;
             }
+            session.trace_owner.retire();
             for turn in session.turns.values() {
                 turn.cancel.cancel();
             }
             false
         });
-        // Clear outstanding trace handles too; no retained per-story metadata survives.
-        self.trace.lock().unwrap().clear();
+        drop(state);
+        // Clear immediately when available. Removed sessions cannot read retained
+        // metadata; retired owners fence late private writes and purge on next access
+        // if a diagnostic reader currently holds the lock.
+        if let Ok(mut trace) = self.trace.try_lock() {
+            trace.clear();
+        }
     }
     /// Trusted adapter lifecycle evidence, without story content or wire authority.
     pub fn live_counts(&self) -> (usize, usize) {
@@ -527,6 +552,18 @@ impl Host {
                 ..
             }
             | HostCommand::TraceRead {
+                session,
+                scope,
+                expected_head,
+                ..
+            }
+            | HostCommand::TraceCaptureConfigure {
+                session,
+                scope,
+                expected_head,
+                ..
+            }
+            | HostCommand::TraceCaptureRead {
                 session,
                 scope,
                 expected_head,
@@ -552,6 +589,64 @@ impl Host {
                 return Err(reject("Stale"));
             }
             match command {
+                HostCommand::TraceCaptureConfigure {
+                    enabled, consent, ..
+                } => {
+                    if !self.story_lab {
+                        return Err(reject("Forbidden"));
+                    }
+                    if *enabled && !consent {
+                        return Err(reject("CaptureConsentRequired"));
+                    }
+                    let mut trace = self.trace_control()?;
+                    if *enabled {
+                        trace.set_enabled(true);
+                    }
+                    trace.configure_details(&owner, scope, *enabled);
+                    Ok(ok(
+                        json!({"version":1,"scope":scope,"head":head,"enabled":enabled,
+                        "capture":"explicit_private_details","retention_seconds":600,
+                        "retention":"Access-time expiry/clear; memory only. No forensic erasure or OS paging guarantee.",
+                        "caps":{"attempts":3,"bytes":524288,"attempt_bytes":196608,"artifact_bytes":49152},
+                        "warning":"Private original input, selected actor context, prompts, raw model outputs and staged proposals. Never uploaded, never included in normal story archives. Future attempts in this exact session only."}),
+                    ))
+                }
+                HostCommand::TraceCaptureRead {
+                    base_revision,
+                    turn,
+                    attempt,
+                    ..
+                } => {
+                    if !self.story_lab {
+                        return Err(reject("Forbidden"));
+                    }
+                    let attempt = u32::try_from(*attempt).map_err(|_| reject("InvalidRequest"))?;
+                    let selection = Selection {
+                        scope: scope.clone(),
+                        base_revision: *base_revision,
+                        observer: engine.seed().player.clone(),
+                        turn: Some(turn.clone()),
+                        attempt: Some(attempt),
+                    };
+                    let details = self
+                        .trace
+                        .try_lock()
+                        .map_err(|_| reject("TraceUnavailable"))?
+                        .read_details_for_owner(
+                            &owner,
+                            &selection,
+                            &Reader::story_lab(scope.clone()),
+                        )
+                        .map_err(|e| reject(format!("{e:?}")))?;
+                    let reply = ok(
+                        json!({"scope":scope,"head":head,"base_revision":base_revision,
+                        "observer":"private_player_generation_capture","details":details}),
+                    );
+                    if serde_json::to_vec(&reply).map_or(true, |b| b.len() > MAX_OUTPUT) {
+                        return Err(reject("TooLarge"));
+                    }
+                    Ok(reply)
+                }
                 HostCommand::TraceRead {
                     base_revision,
                     observer,
@@ -811,7 +906,12 @@ impl Host {
                         self.trace_finish(turn.trace.as_ref(), Outcome::Cancelled);
                     }
                 }
-                state.sessions.remove(&session);
+                if let Some(closed) = state.sessions.remove(&session) {
+                    closed.trace_owner.retire();
+                    if let Ok(mut trace) = self.trace.try_lock() {
+                        trace.revoke_details(&closed.trace_owner);
+                    }
+                }
                 ok(json!({"closed":true}))
             }
             HostCommand::Submit {
@@ -1050,6 +1150,9 @@ impl Host {
             | HostCommand::TraceConfigure { .. }
             | HostCommand::TraceRead { .. }
             | HostCommand::TraceClear { .. } => unreachable!(),
+            HostCommand::TraceCaptureConfigure { .. } | HostCommand::TraceCaptureRead { .. } => {
+                unreachable!()
+            }
         }
     }
 
@@ -1396,7 +1499,12 @@ impl Host {
                         });
                         self.trace_finish(trace.as_ref(), outcome);
                     }
-                    state.sessions.remove(session);
+                    if let Some(closed) = state.sessions.remove(session) {
+                        closed.trace_owner.retire();
+                        if let Ok(mut trace) = self.trace.try_lock() {
+                            trace.revoke_details(&closed.trace_owner);
+                        }
+                    }
                     Ok(ok(json!({"closed":true,"saved":true})))
                 }
                 _ => Ok(Value::Null),
@@ -2384,5 +2492,74 @@ mod tests {
         );
         assert!(view["data"]["inventory"].get("potion").is_none());
         assert_eq!(view["data"]["receipts"].as_array().unwrap().len(), 1);
+    }
+    #[test]
+    fn private_capture_owner_retires_even_when_trace_lock_is_busy_but_not_on_model_unload() {
+        let h = Host::new(true);
+        let (id, _) = session(&h);
+        let owner = h.state.lock().unwrap().sessions[&id].trace_owner.clone();
+        h.disable_local_provider();
+        assert!(owner.live(), "model unload does not close a session");
+        let held_trace = h.trace.lock().unwrap();
+        h.close_all();
+        assert!(
+            !owner.live(),
+            "close revokes access independently of the busy diagnostic lock"
+        );
+        assert!(h.state.lock().unwrap().sessions.is_empty());
+        drop(held_trace);
+    }
+    #[test]
+    fn teardown_retires_private_capture_owner_with_poisoned_state_and_busy_trace() {
+        let h = Host::new(true);
+        let (id, _) = session(&h);
+        let owner = h.state.lock().unwrap().sessions[&id].trace_owner.clone();
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _state = h.state.lock().unwrap();
+            panic!("synthetic state poison");
+        }));
+        let held_trace = h.trace.lock().unwrap();
+        h.close_all();
+        assert!(!owner.live());
+        assert!(h
+            .state
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .sessions
+            .is_empty());
+        // Cleanup does not clear poison or resume gameplay through untrusted state.
+        assert!(h.state.is_poisoned());
+        drop(held_trace);
+    }
+    #[test]
+    fn story_invalidation_retires_only_matching_owners_even_with_busy_trace_and_poison() {
+        for poison in [false, true] {
+            let h = Host::new(true);
+            let (a, scope) = session(&h);
+            let (b, _) = session(&h);
+            let (selected, retained) = {
+                let state = h.state.lock().unwrap();
+                (
+                    state.sessions[&a].trace_owner.clone(),
+                    state.sessions[&b].trace_owner.clone(),
+                )
+            };
+            if poison {
+                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let _state = h.state.lock().unwrap();
+                    panic!("synthetic invalidation cleanup poison");
+                }));
+            }
+            let held_trace = h.trace.lock().unwrap();
+            h.invalidate_story(&scope.story);
+            assert!(!selected.live());
+            assert!(retained.live());
+            let state = h.state.lock().unwrap_or_else(|p| p.into_inner());
+            assert_eq!(state.sessions.len(), 1);
+            assert!(state.sessions.contains_key(&b));
+            assert_eq!(h.state.is_poisoned(), poison);
+            drop(state);
+            drop(held_trace);
+        }
     }
 }

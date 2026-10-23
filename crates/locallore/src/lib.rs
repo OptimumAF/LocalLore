@@ -11,4 +11,5 @@ pub mod inspection_query;
 pub mod intent_guard;
 pub mod play;
 pub mod scope;
+pub mod turn_capture;
 pub mod turn_trace;

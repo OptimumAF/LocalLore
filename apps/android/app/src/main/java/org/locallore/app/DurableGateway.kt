@@ -71,7 +71,7 @@ internal class DurableGateway(
     }
     private suspend fun workspace(): JSONObject = call(command("workspace")).also {
         check(it.getBoolean("persistent") && it.getInt("schema_version") == 1)
-        check(it.getInt("database_schema_version") == 3)
+        check(it.getInt("database_schema_version") == 4)
         it.getString("location")
         it.getJSONArray("stories")
     }
@@ -138,7 +138,7 @@ internal class DurableGateway(
         val workspace = workspace()
         // Host-v1's workspace contract and the SQLite implementation have separate versions.
         val databaseSchema = workspace.getInt("database_schema_version")
-        check(databaseSchema == 3)
+        check(databaseSchema == 4)
         val stories = workspace.getJSONArray("stories").let { rows -> (0 until rows.length()).map {
             val row = rows.getJSONObject(it); val s = row.getJSONObject("scope")
             SavedStory(s.getString("story"), s.getString("branch"), row.getString("title"), row.getLong("revision"))

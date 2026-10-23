@@ -39,7 +39,7 @@ class BranchDeletionShellTest {
         var initializeGate: CompletableDeferred<Unit>? = null
         fun saved(): SavedSnapshot {
             if (empty) return SavedSnapshot(0, "", emptyList(), "/synthetic/stories.sqlite3", 1,
-                emptyList(), null, databaseSchemaVersion = 3, textProvider = TextProvider.SCRIPTED)
+                emptyList(), null, databaseSchemaVersion = 4, textProvider = TextProvider.SCRIPTED)
             val root = SavedStory("synthetic-story", "main", "Original title", 8)
             val timelines = listOfNotNull(
                 SavedTimeline(root.story, "main", null, null, 8, 0),
@@ -51,7 +51,7 @@ class BranchDeletionShellTest {
                 "Confirmed ${current.branch}", false)), "/synthetic/stories.sqlite3", 1,
                 listOf(root), root.copy(branch = current.branch, revision = current.revision,
                     title = if (current.branch == "main") root.title else "Selected display title"),
-                current.uncommittedDrafts, databaseSchemaVersion = 3, timelines = timelines,
+                current.uncommittedDrafts, databaseSchemaVersion = 4, timelines = timelines,
                 textProvider = TextProvider.SCRIPTED)
         }
         override suspend fun readStoryRecord(query: StoryRecordQuery): StoryRecordPage {

@@ -111,3 +111,63 @@ The earlier scroll/recreation timing concern remains a source-derived risk,
 not a reproduced failure in this review. No additional native test was added
 for a Kotlin scheduling boundary. Integrated emulator results remain owned by
 the coordinator's evidence report.
+
+## Cancellation and transport fixture review
+
+The coordinator subsequently reported an actual emulator-A baseline capture
+with missing `cancel-turn` and touch-injection failures after the 200 ms fake
+window, plus legacy label failures. This reviewer has not independently read
+those device logs; exact terminal counts, deadline handling and reruns belong
+in the coordinator's integrated evidence.
+
+Read-only review of the proposed `DurableTransportOwnershipTest` confirms that
+durable `turn_status` returns the local `running` phase when persisted status is
+still `draft`; bounded phase polling is therefore valid. Opening all four real
+native-owner slots and closing each successful probe in `finally` is a useful
+release proof without a production statistics hook. The isolated
+`ContextWrapper` preserves use of the production transport while redirecting
+only the create-new synthetic private directory.
+
+Two scheduling qualifications were returned to the coordinator:
+
+- A Main pulse after observing `running` still has only the finite 200 ms fake
+  window. Failure to overlap is not, by itself, evidence that Main was blocked.
+- Production `close()` schedules native teardown asynchronously. A prepare can
+  finish as a noncanonical `ready` proposal before that cleanup worker runs.
+  Rejection with `Closed` proves that teardown won that measured race, but is
+  not guaranteed merely because Kotlin `close()` returned. ViewModel generation
+  and job fences own late UI publication; a draft response is not a commit.
+
+Moving shell cancellation onto the same Main stack avoids the scroll race but
+introduces a distinct pre-submit path. Native `submit` may not have executed
+when `cancelSaved` calls `cancel`. The actual Host then returns `UnknownTurn`.
+At the reviewed baseline `cancelSaved` propagates this error, whereas
+`recoverSaved`'s cancelled branch clears the same pending operation and returns
+the canonical snapshot. This is a concrete source-level asymmetry; independent
+device reproduction is not claimed here.
+
+Under the coordinator's additional #8 ownership claim, the new instrumented
+`DurableCancellationReviewTest.kt` gates the first submit **before** delegation
+to real JNI/SQLite. It expects cancellation to reconcile `UnknownTurn`, releases
+the old submit and verifies that its retained cancellation intent prevents any
+prepare, commit or recovery regeneration. The late draft stays outside canon
+across reopen. A second case verifies that late completion cannot clear a
+replacement operation: only the replacement key prepares and commits, exactly
+one gift is saved, and reopen preserves its receipt-derived transcript.
+
+Mirroring the existing cancelled-recovery handling is appropriate only while
+clearing `operation` by identity (`operation === pending`). The original pending
+object must stay cancelled, so a late submit reply cannot initiate preparation
+or clear a replacement. The test asserts that distinction. No production change
+was made in this review worktree.
+
+The coordinator subsequently reported that its first revised shell run did
+reproduce the pre-submit cancellation recovery state, and that manually calling
+`Instrumentation.callActivityOnStop` left ActivityScenario's lifecycle state
+incompatible with the later recreation. That callback shortcut was removed.
+The revised test is explicitly about recreation of an **already cancelled**
+draft; it does not claim framework-triggered cancellation during a running
+generation. The coordinator also reported successful production-transport and
+two-phase restart cases on emulator B. These are attributed reports, not
+independent executions by this reviewer; final counts and source identity must
+come from the integrated verification artifact.

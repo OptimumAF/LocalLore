@@ -69,6 +69,7 @@ class ArchiveCapacityActivityTest {
     private lateinit var launcher: ActivityResultLauncher<Array<String>>
     private var shown by mutableStateOf<ShellViewModel?>(null)
     private var pickerRequested = false
+    private var stage = "initialization"
     private var providerRun: String? = null
     private val fullCount = AtomicInteger()
     private val fullGuidance = "Local storage is full. Close to refresh the library. Free storage and validate the archive again before retrying."
@@ -98,6 +99,7 @@ class ArchiveCapacityActivityTest {
         val originalFlags = info.flags
         info.flags = info.flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
         instrumentation.uiAutomation.serviceInfo = info
+        var primaryFailure: Throwable? = null
         try {
             compose.activityRule.scenario.onActivity { activity ->
                 launcher = activity.activityResultRegistry.register("capacity-import", ActivityResultContracts.OpenDocument()) { uri ->
@@ -126,7 +128,9 @@ class ArchiveCapacityActivityTest {
             }
             awaitIdleControl(setup)
             val original = model.state.value
-            configureProvider(); openArchive(); selectValid()
+            configureProvider(); openArchive(); selectValid("first")
+            verify(model.archive.value.prepared?.preview?.storyId == setup.getString("source_story"),
+                "First preview must come from the intended capacity provider")
             val token = requireNotNull(model.archive.value.prepared).token
             compose.onNodeWithTag("archive-import-confirm").performScrollTo().performClick()
             compose.waitUntil(15_000) { !model.archive.value.busy && fullCount.get() > 0 }
@@ -150,7 +154,9 @@ class ArchiveCapacityActivityTest {
 
             newOwner(); awaitIdleControl(setup)
             verify(sameCanon(original, model.state.value), "Fresh owners must reopen the unchanged control story")
-            configureProvider(); openArchive(); selectValid()
+            configureProvider(); openArchive(); selectValid("second")
+            verify(model.archive.value.prepared?.preview?.storyId == setup.getString("source_story"),
+                "Second preview must come from the intended capacity provider")
             compose.onNodeWithTag("archive-import-confirm").performScrollTo().performClick()
             compose.waitUntil(15_000) { !model.archive.value.busy && model.archive.value.imported != null }
             verify(sameCanon(original, model.state.value), "Successful import must still require explicit Open")
@@ -192,20 +198,37 @@ class ArchiveCapacityActivityTest {
                     channel.force(true)
                 }
             }
+        } catch (failure: Throwable) {
+            val preserved = stageFailure(failure, stage)
+            primaryFailure = preserved
+            throw preserved
         } finally {
-            try {
+            var cleanupFailure: Throwable? = null
+            fun cleanup(at: String, action: () -> Unit) {
+                try { action() } catch (failure: Throwable) {
+                    val preserved = stageFailure(failure, at)
+                    val previous = primaryFailure ?: cleanupFailure
+                    if (previous == null) cleanupFailure = preserved else previous.addSuppressed(preserved)
+                }
+            }
+            cleanup("cleanup-picker-back") {
                 if (pickerRequested && activePackage() in documents) {
                     verify(activePackage() in documents, "Cleanup Back requires foreground DocumentsUI")
                     instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK); awaitPackage { it == context.packageName }
                 }
-                if (::store.isInitialized) disposeOwner()
+            }
+            // Attempt each independent teardown even when the external picker did not return.
+            cleanup("cleanup-model-owner") { if (::store.isInitialized) disposeOwner(waitForComposition = false) }
+            cleanup("cleanup-launcher") {
                 if (::launcher.isInitialized) instrumentation.runOnMainSync { launcher.unregister() }
-                if (providerRun != null) drainedStats()
-                archiveOwnerFence()
-            } finally {
+            }
+            cleanup("cleanup-document-descriptors") { if (providerRun != null) drainedStats() }
+            cleanup("cleanup-native-owners") { archiveOwnerFence() }
+            cleanup("cleanup-accessibility") {
                 val restored = instrumentation.uiAutomation.serviceInfo; restored.flags = originalFlags
                 instrumentation.uiAutomation.serviceInfo = restored
             }
+            if (primaryFailure == null) cleanupFailure?.let { throw it }
         }
     } }
 
@@ -218,7 +241,10 @@ class ArchiveCapacityActivityTest {
         model = ShellViewModel(DurableGateway(NativeWorkspaceTransport(isolated)), archiveGateway = recorder)
         store = ViewModelStore().also { it.put("capacity-model", model) }; shown = model
     }
-    private fun disposeOwner(): Unit { instrumentation.runOnMainSync { shown = null; store.clear() }; compose.waitForIdle() }
+    private fun disposeOwner(waitForComposition: Boolean = true): Unit {
+        instrumentation.runOnMainSync { shown = null; store.clear() }
+        if (waitForComposition) compose.waitForIdle()
+    }
     private fun awaitIdleControl(setup: JSONObject): Unit {
         compose.waitUntil(15_000) { !model.state.value.busy && model.state.value.persistent && !model.state.value.recoveryRequired }
         verify(model.state.value.selectedStory?.story == setup.getString("control_story") && model.state.value.revision == setup.getLong("control_revision"),
@@ -309,6 +335,14 @@ class ArchiveCapacityActivityTest {
         verify(Looper.myLooper() != Looper.getMainLooper(), "Capacity native work must stay off Main"); block()
     } }
     private class CapacityFailure(message: String) : AssertionError(message)
+    private fun stageFailure(failure: Throwable, at: String): CapacityFailure {
+        if (failure is VirtualMachineError || failure is ThreadDeath) throw failure
+        val detail = if (failure is CapacityFailure) failure.message else failure.javaClass.simpleName
+        return CapacityFailure("Capacity stage $at failed: $detail").also {
+            it.stackTrace = failure.stackTrace
+            failure.suppressed.take(8).forEach { previous -> it.addSuppressed(stageFailure(previous, "prior-suppressed")) }
+        }
+    }
     private fun safe(block: () -> Unit): Unit {
         try { block() } catch (failure: CapacityFailure) { throw failure }
         catch (failure: Throwable) { if (failure is VirtualMachineError || failure is ThreadDeath) throw failure
@@ -334,16 +368,27 @@ class ArchiveCapacityActivityTest {
         verify(context.checkUriPermission(uri, Process.myPid(), Process.myUid(), Intent.FLAG_GRANT_READ_URI_PERMISSION) ==
             PackageManager.PERMISSION_DENIED, "New capacity source requires a real chooser grant")
     }
-    private fun selectValid(): Unit {
+    private fun selectValid(attempt: String): Unit {
+        verify(attempt == "first" || attempt == "second", "Invalid fixed picker stage")
+        stage = "$attempt-picker-launch"
         pickerRequested = true
-        compose.onNodeWithTag("archive-import-pick").performScrollTo().performClick(); awaitPackage { it in documents }
+        compose.onNodeWithTag("archive-import-pick").performScrollTo().performClick()
+        stage = "$attempt-picker-foreground"
+        awaitPackage { it in documents }
+        stage = "$attempt-picker-roots"
         clickIfPresent { it.contentDescription?.toString() in setOf("Show roots", "Open navigation drawer", "Show locations") }
-        clickDocumentNode { it.text?.toString() == "LocalLore test archives" }; clickDocumentNode { it.text?.toString() == "Valid archive.json" }
+        clickDocumentNode { it.text?.toString() == "LocalLore test archives (${instrumentation.context.packageName})" }
+        stage = "$attempt-picker-source"
+        clickDocumentNode { it.text?.toString() == "Valid archive.json" }
+        stage = "$attempt-picker-selected"
         val deadline = SystemClock.elapsedRealtime() + 10_000
         while (activePackage() in documents && SystemClock.elapsedRealtime() < deadline) {
             clickIfPresent { it.text?.toString()?.equals("Open", true) == true }; Thread.yield() }
+        stage = "$attempt-picker-await-return"
         awaitPackage { it == context.packageName }; pickerRequested = false
+        stage = "$attempt-picker-native-preview"
         compose.waitUntil(15_000) { !model.archive.value.busy && !model.archive.value.awaitingPicker && model.archive.value.prepared != null }
+        stage = "$attempt-preview-ready"
     }
     private fun clickDocumentNode(matches: (AccessibilityNodeInfo) -> Boolean): Unit {
         val deadline = SystemClock.elapsedRealtime() + 10_000

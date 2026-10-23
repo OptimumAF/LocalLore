@@ -70,6 +70,26 @@ mod windows {
         drop(store);
         (scope, state)
     }
+    fn assert_sidecars_locked(path: &Path) {
+        for suffix in ["-journal", "-wal", "-shm"] {
+            let mut name = path.as_os_str().to_owned();
+            name.push(suffix);
+            let sidecar = PathBuf::from(name);
+            assert_eq!(std::fs::metadata(&sidecar).unwrap().len(), 0);
+            assert!(
+                std::fs::OpenOptions::new()
+                    .write(true)
+                    .open(&sidecar)
+                    .is_err(),
+                "write {suffix}"
+            );
+            assert!(std::fs::remove_file(&sidecar).is_err(), "delete {suffix}");
+            assert!(
+                std::fs::rename(&sidecar, sidecar.with_extension("stolen")).is_err(),
+                "rename {suffix}"
+            );
+        }
+    }
 
     #[test]
     fn existing_empty_ordinary_valid_and_hardlinked_leaves_are_never_adopted_or_changed() {
@@ -124,6 +144,7 @@ mod windows {
         outside(&replacement);
         let outside_bytes = std::fs::read(&replacement).unwrap();
         let mut store = Store::create_new_pinned(&path).unwrap();
+        assert_sidecars_locked(&path);
         assert_eq!(store.info().unwrap().schema_version, SCHEMA_VERSION);
         let seed = seed();
         let scope = seed.scope.clone();
@@ -137,6 +158,7 @@ mod windows {
             store.resume(&scope).unwrap().engine.receipts(),
             std::slice::from_ref(&receipt)
         );
+        assert_sidecars_locked(&path);
         drop(store);
         let moved = dir.path("released.sqlite");
         std::fs::rename(&path, &moved).unwrap();
@@ -181,6 +203,7 @@ mod windows {
                 &|| false,
             )
             .unwrap();
+        assert_sidecars_locked(&destination);
         let loaded = target.resume(&child).unwrap().engine;
         assert_eq!(loaded.canonical_bytes(), expected.canonical_bytes());
         assert_eq!(loaded.receipts(), expected.receipts());
@@ -227,15 +250,84 @@ mod windows {
     }
 
     #[test]
+    fn every_existing_sidecar_empty_ordinary_or_hardlink_refuses_before_sqlite() {
+        for suffix in ["-journal", "-wal", "-shm"] {
+            for kind in ["empty", "ordinary", "hardlink"] {
+                let dir = Temp::new();
+                let outside_path = dir.path("outside.sqlite");
+                let (scope, state) = outside(&outside_path);
+                let before = std::fs::read(&outside_path).unwrap();
+                let path = dir.path("stage.sqlite");
+                let sidecar = dir.path(&format!("stage.sqlite{suffix}"));
+                match kind {
+                    "empty" => std::fs::write(&sidecar, b"").unwrap(),
+                    "ordinary" => std::fs::write(&sidecar, b"foreign sidecar bytes").unwrap(),
+                    _ => std::fs::hard_link(&outside_path, &sidecar).unwrap(),
+                };
+                let sidecar_before = std::fs::read(&sidecar).unwrap();
+                assert_eq!(
+                    Store::create_new_pinned(&path).err(),
+                    Some(StorageError::Io),
+                    "{suffix}/{kind}"
+                );
+                assert_eq!(std::fs::read(&sidecar).unwrap(), sidecar_before);
+                assert_eq!(std::fs::read(&outside_path).unwrap(), before);
+                assert_eq!(
+                    Store::open(&outside_path, None)
+                        .unwrap()
+                        .resume(&scope)
+                        .unwrap()
+                        .engine
+                        .canonical_bytes(),
+                    state
+                );
+            }
+        }
+    }
+
+    #[test]
     #[ignore = "Requires Windows file-symlink privilege or Developer Mode; run explicitly."]
     fn planted_sidecar_reparse_never_recovers_or_overwrites_another_valid_store() {
         for suffix in ["-journal", "-wal", "-shm"] {
-            let dir=Temp::new();let outside_path=dir.path("outside.sqlite");let(scope,state)=outside(&outside_path);let before=std::fs::read(&outside_path).unwrap();
-            let path=dir.path("stage.sqlite");let sidecar=dir.path(&format!("stage.sqlite{suffix}"));std::os::windows::fs::symlink_file(&outside_path,&sidecar).unwrap();
-            let result=Store::create_new_pinned(&path);let accepted=result.is_ok();drop(result);
-            let changed=std::fs::read(&outside_path).unwrap()!=before;
-            assert!(!accepted&&!changed,"sidecar={suffix}, accepted={accepted}, outside_bytes_changed={changed}");
-            assert_eq!(Store::open(&outside_path,None).unwrap().resume(&scope).unwrap().engine.canonical_bytes(),state);
+            let dir = Temp::new();
+            let outside_path = dir.path("outside.sqlite");
+            let (scope, state) = outside(&outside_path);
+            let before = std::fs::read(&outside_path).unwrap();
+            let path = dir.path("stage.sqlite");
+            let sidecar = dir.path(&format!("stage.sqlite{suffix}"));
+            std::os::windows::fs::symlink_file(&outside_path, &sidecar).unwrap();
+            let result = Store::create_new_pinned(&path);
+            let accepted = result.is_ok();
+            drop(result);
+            let changed = std::fs::read(&outside_path).unwrap() != before;
+            assert!(
+                !accepted && !changed,
+                "sidecar={suffix}, accepted={accepted}, outside_bytes_changed={changed}"
+            );
+            assert_eq!(
+                Store::open(&outside_path, None)
+                    .unwrap()
+                    .resume(&scope)
+                    .unwrap()
+                    .engine
+                    .canonical_bytes(),
+                state
+            );
+            // Dangling reparses are also existing entries and must not create
+            // or inspect the named target during pragma/schema initialization.
+            let other_dir = Temp::new();
+            let missing = other_dir.path("must-not-create.sqlite");
+            let path = other_dir.path("stage.sqlite");
+            std::os::windows::fs::symlink_file(
+                &missing,
+                other_dir.path(&format!("stage.sqlite{suffix}")),
+            )
+            .unwrap();
+            assert_eq!(
+                Store::create_new_pinned(&path).err(),
+                Some(StorageError::Io)
+            );
+            assert!(!missing.exists());
         }
     }
 

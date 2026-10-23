@@ -255,6 +255,16 @@ export async function forkNativeJourneys({
                 "child-rebuild-preserves-original-scope-excludes-later-parent",
             );
             await capture("fork-switched");
+            c.setAction("wait");
+            c.setFakeMode("accepted");
+            await c.send();
+            const siblingTurn = c.get().play?.receipts.at(-1)?.request.turn;
+            check(
+                c.get().play?.revision === 3 &&
+                    c.get().play?.receipts.at(-1)?.request.scope.branch ===
+                        "accepted-child",
+                "existing-fake-controller-continues-child-on-its-own-scope",
+            );
             await resumeTimeline(c, scope("main"));
             await f.lookup();
             check(
@@ -277,6 +287,17 @@ export async function forkNativeJourneys({
             );
             await capture("fork-retry");
             await resumeTimeline(c, scope("uncertain-child"));
+            check(
+                c.get().play?.revision === 2 &&
+                    !c
+                        .get()
+                        .play?.receipts.some(
+                            (r) =>
+                                r.request.turn === siblingTurn ||
+                                r.request.scope.branch === "accepted-child",
+                        ),
+                "sibling-child-continuation-excluded-from-new-prefix",
+            );
             const before = structural(c.get().play);
             c.selectReceipt("fork-prefix");
             c.requestLab();

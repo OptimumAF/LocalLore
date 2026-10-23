@@ -11,6 +11,10 @@ if (!base) throw new Error("TrustedTaskArtifactRootRequired");
 const folder = path.join(base, `fork-native-${randomUUID()}`);
 await mkdir(folder, { recursive: true });
 const db = path.join(folder, "stories-v1.sqlite");
+console.log(`FORK native local artifacts: ${folder}`);
+if ((process.env.LIBSQLITE3_FLAGS ?? "").trim())
+    throw Error("OrdinaryUncappedSQLiteRequired");
+process.env.CARGO_BUILD_JOBS = "1";
 process.env.CARGO_PROFILE_DEV_DEBUG = "0";
 process.env.CARGO_PROFILE_TEST_DEBUG = "0";
 process.env.CARGO_INCREMENTAL = "0";
@@ -41,8 +45,14 @@ async function run(command, args, env = {}) {
                         chunk.subarray(0, available),
                     ]);
             });
-        const timer = setTimeout(() => child.kill(), 240000);
-        child.once("error", reject);
+        const timer = setTimeout(
+            () => child.kill(),
+            command === "cargo" ? 900000 : 240000,
+        );
+        child.once("error", (error) => {
+            clearTimeout(timer);
+            reject(error);
+        });
         child.once("exit", async (code) => {
             clearTimeout(timer);
             for (const channel of ["stdout", "stderr"])

@@ -39,6 +39,9 @@ Fixed initial oracles, in order:
    confirms no switch-child.
 6. Withhold actual committed uncertain-child acknowledgement, require Transport
    with original identity retained; explicit exact retry finds committed same child.
+   Before this new fork, continue accepted-child through the existing explicitly
+   fake typed-action controller; uncertain-child must exclude that sibling turn
+   and retain its original prefix/head2. No alternate inference implementation.
 7. Explicitly open child; Mira sees inherited addressed statement, Sable cannot;
    neither lens changes canonical Play or original receipt scope. Narrow620px has
    no horizontal overflow. No model call.

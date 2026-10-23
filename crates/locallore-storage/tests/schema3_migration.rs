@@ -299,6 +299,38 @@ fn standalone_copy(source: &Path, destination: &Path) {
 }
 
 #[test]
+fn exact_v3_safety_copy_and_upgrade_preserve_every_canonical_and_cache_row() {
+    let f = Fixture::historical(3);
+    let original = fs::read(&f.path).unwrap();
+    let states = state(&f.path, &f.scopes);
+    let data = rows(&f.path, true);
+    let receipts = literal_receipts(&f.path);
+    assert_eq!(
+        Store::open(&f.path, None).err(),
+        Some(StorageError::BackupRequired)
+    );
+    same(&original, &fs::read(&f.path).unwrap());
+    let backup = f.path("before-v3.sqlite");
+    let upgraded = Store::open(&f.path, Some(&backup)).unwrap();
+    verify_retention_empty(&upgraded, &f.path, &f.scopes);
+    same(&states, &state(&f.path, &f.scopes));
+    same(&data, &rows(&f.path, true));
+    same(&receipts, &literal_receipts(&f.path));
+    assert_eq!(
+        Store::open_read_only(&backup)
+            .unwrap()
+            .info()
+            .unwrap()
+            .schema_version,
+        3
+    );
+    same(&original, &fs::read(&backup).unwrap());
+    same(&states, &state(&backup, &f.scopes));
+    drop(upgraded);
+    verify_retention_empty(&Store::open(&f.path, None).unwrap(), &f.path, &f.scopes);
+}
+
+#[test]
 fn exact_v2_safety_copy_and_upgrade_preserve_literal_receipts_all_timelines_and_real_caches() {
     let f = Fixture::historical(2);
     let before = fs::read(&f.path).unwrap();

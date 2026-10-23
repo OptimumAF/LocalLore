@@ -262,7 +262,9 @@ fn preview_is_bounded_read_only_and_covers_every_timeline_and_workflow_kind() {
         ),
         (2, 4, 5, 1, 4, 2)
     );
-    assert_eq!(p.rows.len(), 10);
+    assert_eq!(p.rows.len(), 12);
+    assert_eq!(p.rows["memory_jobs"], 0);
+    assert_eq!(p.rows["memory_job_packets"], 0);
     assert_eq!(p.rows["turns"], 9);
     for (table, actual) in &rows {
         assert_eq!(p.rows[table], actual.len() as u64);

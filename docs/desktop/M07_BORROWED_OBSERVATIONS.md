@@ -38,3 +38,15 @@ while scanning an entirely hidden history. Logs are local/gitignored under
 `target/visitor-*`. There is no UI/model/SQLite/APK/device execution in this slice.
 The separately claimed derived-memory owner consumes this port; its production
 Store/migration/index/summary integration and full M07 acceptance remain pending.
+
+Publication integration merged accepted main `ad5868899984540ef86b3e0293ac2a30c746f752`
+as `0793ec6`, retaining the newer private recorded-prompt replay/fork fix. The
+complete integrated workspace then **233 passed, zero failed or ignored**, and
+strict workspace/all-target Clippy passed using the task-owned `m07-context`
+target. Logs: `target/integrated-workspace.log` and `integrated-clippy.log`.
+The independent source-only report is M07_EVENT_PORT_REVIEW.md; it also inspects
+the earlier test-only runtime scheduling fix without claiming reviewer execution.
+These integrated Rust tests include the Android/JNI host adapter; APK/device,
+frontend/native rendering and model checks were not repeated for this read-port
+addition. The production context change's separate dated checks remain in its
+integration report.

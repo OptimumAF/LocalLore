@@ -75,6 +75,17 @@ No cancelled native conversation is reused. Close return values and coordinator
 process-absence checks complement callback observations; a callback alone is
 not proof that all native work has finished.
 
+The separate `warm` mode takes a host-generated `session` argument and the
+[strict private exchange v1](../../../../docs/runtime/android/WARM_PROTOCOL.md),
+instead of `files/request.json`. It initializes one Engine and creates/closes
+fresh director/narrator Conversations. The host's Rust validation must precede
+the narrator request. Final instrumentation contains no role text; bounded role
+outputs travel only through the private atomic files. Host cancellation abandons
+the entire session, drains active callbacks where possible and closes owners.
+Use the explicit `benchmarks/android_warm_spike.py` coordinator, not an ad hoc
+instrumentation command. [Warm verification](../../../../docs/runtime/android/WARM_VERIFICATION_2026-10-22.md)
+records actual emulator results, cancellation, counts, timing and limits.
+
 SDK calls run on the instrumentation worker, with a Main-looper heartbeat.
 An independent 90-second watchdog kills only this benchmark process if a native
 call outlives the coordinator. A callback-drain timeout also terminates the

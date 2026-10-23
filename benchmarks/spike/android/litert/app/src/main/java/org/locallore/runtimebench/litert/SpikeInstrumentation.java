@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /** Isolated SDK experiment. Never invoked by LocalLore gameplay. */
 public final class SpikeInstrumentation extends Instrumentation {
     private String mode;
+    private String warmSession;
     private final AtomicBoolean finished = new AtomicBoolean();
     private final AtomicInteger pulses = new AtomicInteger();
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -42,6 +43,7 @@ public final class SpikeInstrumentation extends Instrumentation {
     @Override public void onCreate(Bundle arguments) {
         super.onCreate(arguments);
         mode = arguments == null ? "" : arguments.getString("mode", "");
+        warmSession = arguments == null ? null : arguments.getString("session");
         // An independent watchdog still terminates this package if a native call blocks
         // the worker or Main and the host controller vanishes. This is abrupt death,
         // never evidence of cooperative cancellation or native resource disposal.
@@ -68,6 +70,11 @@ public final class SpikeInstrumentation extends Instrumentation {
         metrics.addProperty("terminal_callback", false);
         metrics.addProperty("reload_completed", false);
         metrics.addProperty("generated_text_logged", false);
+        if (mode.equals("warm")) {
+            metrics.addProperty("warm_roles", 0);
+            metrics.addProperty("warm_engine_reused", false);
+            metrics.addProperty("warm_cancel_observed", false);
+        }
         try (QuietDescriptors ignored = new QuietDescriptors()) {
             if (!allowedMode(mode)) throw new Failure("invalid_request");
             if (Looper.myLooper() == Looper.getMainLooper()) throw new Failure("runtime_failed");
@@ -77,6 +84,7 @@ public final class SpikeInstrumentation extends Instrumentation {
             ExperimentalFlags.INSTANCE.setEnableSpeculativeDecoding(false);
             if (mode.equals("metadata")) result = metadata();
             else if (mode.equals("missing") || mode.equals("corrupt")) result = invalidModel();
+            else if (mode.equals("warm")) result = warm();
             else {
                 Request request = readRequest();
                 result = generate(request, mode.equals("cancel"));
@@ -88,7 +96,12 @@ public final class SpikeInstrumentation extends Instrumentation {
                 }
             }
             pulseCheck();
-        } catch (Failure failure) { result = emptyResult(failure.category); }
+        } catch (WarmRunner.Undrained failure) {
+            metrics.addProperty("cleanup_requires_process_termination", true);
+            Process.killProcess(Process.myPid());
+            return; // Never finish or claim graceful disposal if an owner/callback is uncertain.
+        } catch (WarmRunner.Failure failure) { result = emptyResult(failure.category); }
+        catch (Failure failure) { result = emptyResult(failure.category); }
         catch (UnsatisfiedLinkError | NoClassDefFoundError error) { result = emptyResult("runtime_unavailable"); }
         catch (Exception error) { result = emptyResult("runtime_failed"); }
         finished.set(true);
@@ -104,7 +117,7 @@ public final class SpikeInstrumentation extends Instrumentation {
 
     private boolean allowedMode(String value) {
         return value.equals("metadata") || value.equals("missing") || value.equals("corrupt")
-            || value.equals("generate") || value.equals("cancel");
+            || value.equals("generate") || value.equals("cancel") || value.equals("warm");
     }
 
     private File model() { return new File(getTargetContext().getFilesDir(), "gemma4-e2b.litertlm"); }
@@ -155,6 +168,91 @@ public final class SpikeInstrumentation extends Instrumentation {
 
     private Engine configuredEngine(File path) {
         return new Engine(new EngineConfig(path.getPath(), new Backend.CPU(4, null), null, null, 4096));
+    }
+
+    private JsonObject warm() throws Exception {
+        WarmExchange exchange;
+        try { exchange = new WarmExchange(getTargetContext().getFilesDir(), warmSession); }
+        catch (Exception failure) { throw new Failure("invalid_request"); }
+        try { new WarmRunner(new WarmModel(), exchange, metrics).run(); }
+        catch (java.io.IOException failure) { throw new Failure("invalid_request"); }
+        // Role text is published only to the private, bounded exchange, never instrumentation.
+        return emptyResult(null);
+    }
+
+    private final class WarmModel implements WarmRunner.Model {
+        private final Engine engine = configuredEngine(model());
+        @Override public void initialize() throws Exception {
+            if (!model().isFile()) throw new Failure("model_missing");
+            try { engine.initialize(); } catch (RuntimeException failure) { throw new Failure("model_load_failed"); }
+            increment("engines_opened");
+        }
+        @Override public WarmRunner.Role open(Request request) throws Exception {
+            ConversationConfig config = new ConversationConfig(null, Collections.emptyList(), Collections.emptyList(),
+                new SamplerConfig(1, 1.0, 0.0, 1), false, null, Collections.emptyMap(), null, false,
+                request.maxTokens, new ThinkingConfig(false, 0), request.schema != null, false, null);
+            Conversation conversation = engine.createConversation(config);
+            increment("conversations_opened");
+            try {
+                if (conversation.renderMessageIntoString(Message.Companion.user(request.prompt), Collections.emptyMap()).isEmpty())
+                    throw new Failure("unsupported_template");
+                return new WarmRole(conversation, request);
+            } catch (Exception failure) {
+                try { conversation.close(); increment("conversations_closed"); }
+                catch (Exception cleanup) { throw new WarmRunner.Undrained(); }
+                throw failure;
+            }
+        }
+        @Override public void close() {
+            if (engine.isInitialized()) { engine.close(); increment("engines_closed"); }
+        }
+    }
+
+    private final class WarmRole implements WarmRunner.Role {
+        private final Conversation conversation;
+        private final Request request;
+        private final Stream stream = new Stream();
+        private long generatedAt;
+        private int pulsesAtStart;
+        private boolean cancelling;
+        WarmRole(Conversation conversation, Request request) { this.conversation = conversation; this.request = request; }
+        @Override public void start() {
+            generatedAt = System.nanoTime(); pulsesAtStart = pulses.get();
+            ResponseFormat format = request.schema == null ? null : ResponseFormat.json(request.schema.toString());
+            conversation.sendMessageAsync(request.prompt, stream, Collections.emptyMap(), null, null, null,
+                request.maxTokens, new ThinkingConfig(false, 0), format);
+        }
+        @Override public boolean await(long milliseconds) throws Exception {
+            boolean terminal = stream.done.await(milliseconds, TimeUnit.MILLISECONDS);
+            if (terminal) {
+                metrics.addProperty("generation_main_pulses", pulses.get() - pulsesAtStart);
+                metrics.addProperty(cancelling ? "cancel_terminal_callback" : "generate_terminal_callback", true);
+                metrics.addProperty(cancelling ? "cancel_main_pulses" : "generate_main_pulses", pulses.get() - pulsesAtStart);
+            }
+            return terminal;
+        }
+        @Override public void cancel() {
+            long began = System.nanoTime();
+            cancelling = true;
+            conversation.cancelProcess();
+            metrics.addProperty("cancel_call_ms", elapsed(began));
+        }
+        @Override public JsonObject result(double loadMs) throws Exception {
+            String text = stream.text();
+            BenchmarkInfo info = conversation.getBenchmarkInfo();
+            int input = info.getLastPrefillTokenCount(), output = info.getLastDecodeTokenCount();
+            if (input <= 0 || output <= 0 || output > request.maxTokens || input + output > 4096)
+                throw new Failure("context_overflow");
+            JsonObject result = emptyResult(null);
+            result.addProperty("load_ms", loadMs); result.addProperty("generation_ms", elapsed(generatedAt));
+            result.addProperty("input_tokens", input); result.addProperty("output_tokens", output);
+            result.addProperty("thinking_disabled", true); result.addProperty("template_applied", true);
+            result.addProperty("schema_enforced", request.schema != null); result.addProperty("text", text);
+            return result;
+        }
+        @Override public void close() {
+            conversation.close(); increment("conversations_closed");
+        }
     }
 
     private JsonObject generate(Request request, boolean cancel) throws Exception {

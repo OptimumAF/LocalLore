@@ -102,8 +102,21 @@ its reviewed manifest/runtime uses a single process and threads, not arbitrary
 descendants. Unknown or disconnected cleanup remains unverified. Do not reuse
 this controller as a sandbox for arbitrary programs.
 
-Every role uses a fresh process/engine. One model is active at a time; a warm
-shared-model turn is not tested. Director<=350/narrator<=220 tokens, 4096 context,
+The cold entrypoint above uses a fresh process/engine per role. The separate
+[warm exchange](WARM_VERIFICATION_2026-10-22.md) retains one Engine across fresh
+director/narrator Conversations, with Rust validation between them and verified
+shutdown before commit. Run it explicitly on authorized targets:
+
+```powershell
+python benchmarks/android_warm_spike.py --adb <adb> --serial <authorized-target> --owner <built-native-owner> --oracle <built-rust-oracle> --apk <frozen-source-built-sdk.apk> --model <verified-gemma-litertlm> --output target/android-warm.json
+```
+
+Use `--cancel-after 8` for cancellation, then a new invocation for fresh-session
+recovery. Its [versioned private protocol](WARM_PROTOCOL.md) is development IPC,
+not a gameplay or SQL API. All attempts and exact limits are retained in the
+linked report. No warm multi-turn session or phone performance is qualified.
+
+One model is active at a time. Director<=350/narrator<=220 tokens, 4096 context,
 four CPU threads and the shared 60-second turn budget are development limits.
 Hashing/provisioning are outside inference timing; OS file cache and host load
 are uncontrolled. Independent native/Java watchdogs bound abandoned work, but

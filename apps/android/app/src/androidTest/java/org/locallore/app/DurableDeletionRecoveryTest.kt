@@ -43,6 +43,13 @@ class DurableDeletionRecoveryTest {
                             .put("revision", story.revision).put("drafts", 0))
                     } }))
             }
+            if (op == "branches") {
+                val story = stories.singleOrNull { it.story == command.getString("story") } ?: return rejected("NotFound")
+                return ok(JSONObject().put("version", 1).put("story_id", story.story).put("title", story.title)
+                    .put("root_branch", story.branch).put("branches", JSONArray().put(JSONObject()
+                        .put("scope", scope(story)).put("parent_branch", JSONObject.NULL)
+                        .put("fork_revision", JSONObject.NULL).put("revision", story.revision).put("drafts", 0))))
+            }
             if (op == "create" || op == "resume") {
                 val story = if (op == "create") SavedStory("created-${next + 1}", "main", "Created", 0).also { stories += it }
                     else stories.single { it.story == command.getJSONObject("scope").getString("story") }

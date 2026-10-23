@@ -4,7 +4,9 @@
 pub mod archive_capacity_fixture;
 #[cfg(test)]
 mod archive_full_tests;
+mod branch_catalog;
 mod branches;
+pub use branch_catalog::{BranchCatalog, BranchSummary};
 mod story_deletion;
 pub use story_deletion::{
     DeletionError, PreparedStoryDeletion, StoryDeletionOutcome, StoryDeletionPreview,

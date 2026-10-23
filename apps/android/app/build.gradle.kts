@@ -24,7 +24,7 @@ val selectedProjectCache = (gradle.startParameter.projectCacheDir ?: rootProject
 require((timelineVerification == "true") == (selectedProjectCache == rootProject.file(".gradle-timeline").canonicalFile)) {
     "Timeline verification requires its exclusive .gradle-timeline project cache."
 }
-require(timelineVerification != "true" || gradle.startParameter.taskNames.any { it.contains("release", ignoreCase = true) }.not()) {
+require(timelineVerification != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
     "Timeline verification is for local debug verification only."
 }
 require((storyDeletion == "true") == (selectedProjectCache == rootProject.file(".gradle-story-deletion").canonicalFile)) {

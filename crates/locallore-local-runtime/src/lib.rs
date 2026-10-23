@@ -164,7 +164,10 @@ impl LocalRuntime {
     }
     fn spawn(executable: &Path, model: &Path) -> Result<Self, Error> {
         let absolute = std::path::absolute(model).map_err(|_| Error::ModelInvalid)?;
+        #[cfg(windows)]
         let mut ancestors = vec![];
+        #[cfg(not(windows))]
+        let ancestors = vec![];
         #[cfg(windows)]
         {
             use std::os::windows::fs::{MetadataExt, OpenOptionsExt};

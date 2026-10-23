@@ -430,6 +430,98 @@
         {
           "additionalProperties": false,
           "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "expected_head": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "op": {
+              "const": "trace_configure",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope", "expected_head", "enabled"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "attempt": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": ["integer", "null"]
+            },
+            "base_revision": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "expected_head": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "observer": {
+              "$ref": "#/$defs/Observer"
+            },
+            "op": {
+              "const": "trace_read",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            },
+            "turn": {
+              "type": ["string", "null"]
+            }
+          },
+          "required": [
+            "op",
+            "session",
+            "scope",
+            "expected_head",
+            "base_revision",
+            "observer"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "expected_head": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "op": {
+              "const": "trace_clear",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope", "expected_head"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
             "op": {
               "const": "model_status",
               "type": "string"

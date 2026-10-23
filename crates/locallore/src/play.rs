@@ -3,13 +3,100 @@ use crate::{
     contracts::*,
     engine::Engine,
     inference::{generate, Budget, Cancellation, GenerationRequest, InferenceProvider, Input},
+    turn_trace::{Counts, ErrorCategory, Outcome, Stage, StageMeasurement, StageTimer, TraceSink},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    time::Instant,
+    time::{Duration, Instant},
 };
+
+struct Trace<'a> {
+    sink: Option<&'a mut dyn TraceSink>,
+    overhead: Duration,
+}
+#[derive(Clone, Copy)]
+struct GameplayClock {
+    started: Instant,
+    overhead: Duration,
+}
+impl Trace<'_> {
+    fn clock(&self) -> GameplayClock {
+        GameplayClock {
+            started: Instant::now(),
+            overhead: self.overhead,
+        }
+    }
+    fn elapsed(&self, clock: GameplayClock) -> Duration {
+        clock
+            .started
+            .elapsed()
+            .saturating_sub(self.overhead.saturating_sub(clock.overhead))
+    }
+    fn emit(&mut self, measurement: StageMeasurement) {
+        if let Some(sink) = self.sink.as_deref_mut() {
+            let before = Instant::now();
+            let failed =
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| sink.record(measurement)))
+                    .is_err();
+            self.overhead = self.overhead.saturating_add(before.elapsed());
+            if failed {
+                self.sink = None;
+            }
+        }
+    }
+    fn run<T>(
+        &mut self,
+        stage: Stage,
+        failed: Outcome,
+        operation: impl FnOnce() -> Result<T, Error>,
+    ) -> Result<T, Error> {
+        self.counted(stage, failed, operation, |_| Counts::default())
+    }
+    fn counted<T>(
+        &mut self,
+        stage: Stage,
+        failed: Outcome,
+        operation: impl FnOnce() -> Result<T, Error>,
+        counts: impl FnOnce(&T) -> Counts,
+    ) -> Result<T, Error> {
+        let timer = StageTimer::start();
+        let result = operation();
+        let (outcome, category, counts) = match &result {
+            Ok(value) => (Outcome::Accepted, None, counts(value)),
+            Err(error) => (
+                match error {
+                    Error::Cancelled => Outcome::Cancelled,
+                    Error::Stale => Outcome::Stale,
+                    _ => failed,
+                },
+                Some(ErrorCategory::from_engine(error)),
+                Counts::default(),
+            ),
+        };
+        self.emit(timer.finish(stage, outcome, counts, category));
+        result
+    }
+    fn not_run(&mut self, stage: Stage) {
+        self.emit(StageTimer::start().finish(
+            stage,
+            Outcome::NotRun,
+            Counts::default(),
+            Some(ErrorCategory::Unsupported),
+        ));
+    }
+}
+fn remaining(clock: GameplayClock, overhead: Duration, deadline_ms: u64) -> Result<u64, Error> {
+    let elapsed = clock
+        .started
+        .elapsed()
+        .saturating_sub(overhead.saturating_sub(clock.overhead));
+    deadline_ms
+        .checked_sub(elapsed.as_millis() as u64)
+        .filter(|v| *v > 0)
+        .ok_or(Error::Timeout)
+}
 
 pub const PLAY_VERSION: u16 = 2;
 pub const NARRATION_POLICY: &str = "grounded-prose-v2.1";
@@ -472,31 +559,78 @@ pub fn execute(
     cancel: &Cancellation,
     profile: &PlayProfile,
 ) -> Result<Receipt, Error> {
-    if let Some(receipt) = engine.recorded(request)? {
+    execute_traced(engine, request, provider, cancel, profile, None)
+}
+
+/// Optional passive metadata over the same production path. Hooks have no gameplay authority;
+/// panics are isolated and callback duration is excluded from gameplay budgets/stage timings.
+/// Success creates a candidate in this clone, NOT a durable Host/Store commit.
+pub fn execute_traced(
+    engine: &mut Engine,
+    request: &Request,
+    provider: &mut (impl InferenceProvider + ?Sized),
+    cancel: &Cancellation,
+    profile: &PlayProfile,
+    sink: Option<&mut dyn TraceSink>,
+) -> Result<Receipt, Error> {
+    let mut trace = Trace {
+        sink,
+        overhead: Duration::ZERO,
+    };
+    if let Some(sink) = trace.sink.as_deref_mut() {
+        let started = Instant::now();
+        let matched = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            sink.matches(
+                &request.scope,
+                request.expected_revision,
+                &engine.seed().player,
+                &request.turn,
+            )
+        }))
+        .unwrap_or(false);
+        trace.overhead = started.elapsed();
+        if !matched {
+            trace.sink = None;
+        }
+    }
+    let recorded = trace.run(Stage::Intent, Outcome::Rejected, || {
+        if let Some(receipt) = engine.recorded(request)? {
+            return Ok(Some(receipt));
+        }
+        profile.validate()?;
+        engine.preflight(request)?;
+        if !matches!(request.intent, Intent::FreeText { .. }) {
+            return Err(Error::Agency);
+        }
+        Ok(None)
+    })?;
+    if let Some(receipt) = recorded {
         return Ok(receipt);
     }
-    profile.validate()?;
-    engine.preflight(request)?;
     let Intent::FreeText { kind, text } = &request.intent else {
         return Err(Error::Agency);
     };
     if matches!(kind, PlayInputKind::Action) {
         // Refuse unsupported/ambiguous syntax before spending model work. The
         // generated proposal must match again during preview, commit and replay.
-        let expected = crate::intent_guard::compile_action(engine, text)?;
-        engine.preview(
-            request,
-            &Proposal {
-                version: VERSION,
-                scope: request.scope.clone(),
-                turn: request.turn.clone(),
-                expected_revision: request.expected_revision,
-                commands: vec![expected],
-            },
-        )?;
+        trace.run(Stage::Validation, Outcome::Rejected, || {
+            let expected = crate::intent_guard::compile_action(engine, text)?;
+            engine.preview(
+                request,
+                &Proposal {
+                    version: VERSION,
+                    scope: request.scope.clone(),
+                    turn: request.turn.clone(),
+                    expected_revision: request.expected_revision,
+                    commands: vec![expected],
+                },
+            )
+        })?;
     }
-    let started = Instant::now();
+    let started = trace.clock();
     let mut stages = Vec::new();
+    trace.not_run(Stage::Retrieval);
+    let (inventory, nearby, base, _) = trace.counted(Stage::Context, Outcome::Rejected, || {
     let context =
         engine.character_context(&engine.seed().player, engine.scope(), engine.revision())?;
     let inventory: BTreeMap<_, _> = engine
@@ -524,6 +658,8 @@ pub fn execute(
         .filter(|(from, _)| from == &context.self_state.location)
         .map(|(_, to)| to)
         .collect();
+    let eligible = [context.facts.len(), context.observations.len(), context.beliefs.len(),
+        inventory.len(), nearby.len(), routes.len(), 1].into_iter().fold(0usize, usize::saturating_add).min(u32::MAX as usize) as u32;
     let input = json!({"kind":kind,"player_text":text,"context":context,"inventory":inventory,"nearby":nearby,"routes":routes});
     crate::engine::check_json_budget(&input, 24_576)?;
     let instructions = match kind {
@@ -531,19 +667,14 @@ pub fn execute(
         PlayInputKind::Dialogue => "DIALOGUE mode: return exactly one say command: {\"commands\":[{\"op\":\"say\",\"text\":exact_player_text,\"audience\":[present_actor_id]}]}. Preserve player_text exactly. Choose only present audience IDs; never perform a physical action.",
     };
     let base=format!("Interpret an untrusted attempt, not an established outcome. Return JSON only. Use lowercase IDs from input, not display names. Never grant powers, items, author privileges, hidden knowledge or control NPCs. Context data: {input}\n{instructions}\nTranslate ONLY this player's {:?} request now: {}",kind,serde_json::to_string(text).map_err(|_|Error::Malformed)?);
-    let remaining = || {
-        profile
-            .deadline_ms
-            .checked_sub(started.elapsed().as_millis() as u64)
-            .filter(|v| *v > 0)
-            .ok_or(Error::Timeout)
-    };
+    Ok((inventory, nearby, base, eligible))
+    }, |result| Counts { eligible_records: result.3, ..Counts::default() })?;
     let mut repairs = 0;
     let proposal = loop {
-        if cancel.is_cancelled() {
-            return Err(Error::Cancelled);
-        }
-        let before = Instant::now();
+        let before = trace.clock();
+        let overhead = trace.overhead;
+        let bytes = trace.run(if repairs == 0 { Stage::Director } else { Stage::Repair }, Outcome::Failed, || {
+        if cancel.is_cancelled() { return Err(Error::Cancelled); }
         let prompt = if repairs == 0 {
             base.clone()
         } else {
@@ -555,14 +686,24 @@ pub fn execute(
             "director",
             prompt,
             director_schema_for(kind, text, &nearby, &inventory, &engine.seed().player),
-            remaining()?,
+                    remaining(started, overhead, profile.deadline_ms)?,
         );
-        let bytes = generate(provider, &generation, cancel)?;
+        generate(provider, &generation, cancel)
+        })?;
         stages.push(StageTiming {
             stage: if repairs == 0 { "director" } else { "repair" }.into(),
-            elapsed_ms: before.elapsed().as_millis() as u64,
+            elapsed_ms: trace.elapsed(before).as_millis() as u64,
         });
-        let parsed: Result<DirectorOutput, _> = crate::engine::parse_unique(&bytes);
+        let parsed: Result<DirectorOutput, Error> = trace.counted(
+            Stage::Parsing,
+            Outcome::Rejected,
+            || crate::engine::parse_unique(&bytes),
+            |output: &DirectorOutput| Counts {
+                operations: output.commands.len().min(u16::MAX as usize) as u16,
+                repairs,
+                ..Counts::default()
+            },
+        );
         match parsed {
             Ok(output) => {
                 break Proposal {
@@ -577,12 +718,23 @@ pub fn execute(
             Err(_) => return Err(Error::Malformed),
         }
     };
-    let before = Instant::now();
-    let approved = engine.preview(request, &proposal)?;
+    let before = trace.clock();
+    let approved = trace.counted(
+        Stage::Validation,
+        Outcome::Rejected,
+        || engine.preview(request, &proposal),
+        |receipt| Counts {
+            operations: receipt.events().len().min(u16::MAX as usize) as u16,
+            repairs,
+            ..Counts::default()
+        },
+    )?;
     stages.push(StageTiming {
         stage: "validation".into(),
-        elapsed_ms: before.elapsed().as_millis() as u64,
+        elapsed_ms: trace.elapsed(before).as_millis() as u64,
     });
+    let overhead = trace.overhead;
+    let (bytes, narrator_elapsed_ms) = trace.run(Stage::Narration, Outcome::Failed, || {
     let outcomes: Vec<_> = approved
         .events()
         .iter()
@@ -601,13 +753,15 @@ pub fn execute(
         "narrator",
         prompt,
         narration_schema(approved.events()),
-        remaining()?,
+                remaining(started, overhead, profile.deadline_ms)?,
     );
-    let before = Instant::now();
+    let generation_started = Instant::now();
     let bytes = generate(provider, &generation, cancel)?;
+    Ok((bytes, generation_started.elapsed().as_millis() as u64))
+    })?;
     stages.push(StageTiming {
         stage: "narrator".into(),
-        elapsed_ms: before.elapsed().as_millis() as u64,
+        elapsed_ms: narrator_elapsed_ms,
     });
     let mut record = PlayRecord {
         version: PLAY_VERSION,
@@ -616,15 +770,24 @@ pub fn execute(
         profile: profile.clone(),
         repairs,
         fallback: false,
-        narration: crate::engine::parse_unique(&bytes).unwrap_or_else(|_| NarrationDocument {
-            text: String::new(),
-            event_ids: Vec::new(),
-            speaker: String::new(),
-        }),
+        narration: trace
+            .run(Stage::Parsing, Outcome::Rejected, || {
+                crate::engine::parse_unique(&bytes)
+            })
+            .unwrap_or_else(|_| NarrationDocument {
+                text: String::new(),
+                event_ids: Vec::new(),
+                speaker: String::new(),
+            }),
         stages,
     };
-    let before = Instant::now();
-    if validate_record(engine, &approved, &record).is_err() {
+    let before = trace.clock();
+    if trace
+        .run(Stage::NarrationValidation, Outcome::Rejected, || {
+            validate_record(engine, &approved, &record)
+        })
+        .is_err()
+    {
         record.fallback = true;
         record.narration = NarrationDocument {
             text: approved.narration().into(),
@@ -634,15 +797,20 @@ pub fn execute(
     }
     record.stages.push(StageTiming {
         stage: "narration_validation".into(),
-        elapsed_ms: before.elapsed().as_millis() as u64,
+        elapsed_ms: trace.elapsed(before).as_millis() as u64,
     });
     record.stages.push(StageTiming {
         stage: "total".into(),
-        elapsed_ms: started.elapsed().as_millis() as u64,
+        elapsed_ms: trace.elapsed(started).as_millis() as u64,
     });
-    remaining()?;
-    if cancel.is_cancelled() {
-        return Err(Error::Cancelled);
-    }
-    engine.commit_play(request, &proposal, &record)
+    let overhead = trace.overhead;
+    let receipt = trace.run(Stage::AcceptedCandidate, Outcome::Rejected, || {
+        remaining(started, overhead, profile.deadline_ms)?;
+        if cancel.is_cancelled() {
+            return Err(Error::Cancelled);
+        }
+        engine.commit_play(request, &proposal, &record)
+    })?;
+    trace.not_run(Stage::MemoryMaintenance);
+    Ok(receipt)
 }

@@ -1,6 +1,6 @@
 //! Fixed reconstructed synthetic-v1 qualification fixture, never a production writer.
 use locallore::{contracts::*, engine::Engine, inspection::sha256};
-use locallore_storage::Store;
+use locallore_storage::{Store, SCHEMA_VERSION};
 use serde_json::{json, Value};
 use std::{fs, path::Path};
 
@@ -81,7 +81,7 @@ fn create(root: &Path) -> Result<Value, String> {
         .ok_or("FixtureSchema")?;
     safe_path(&path)?;
     let db = rusqlite::Connection::open(&path).map_err(|_| "FixtureDatabase")?;
-    db.execute_batch(&format!("BEGIN; DROP TABLE derived_memory; DROP TABLE schema_migrations; {header} PRAGMA user_version=1; COMMIT;")).map_err(|_| "FixtureSchema")?;
+    db.execute_batch(&format!("BEGIN; DROP TABLE memory_job_packets; DROP TABLE memory_jobs; DROP TABLE branch_retention; DROP TABLE derived_memory; DROP TABLE schema_migrations; {header} PRAGMA user_version=1; COMMIT;")).map_err(|_| "FixtureSchema")?;
     drop(db);
     inspect(&path, 1)
 }
@@ -125,14 +125,16 @@ fn verify(root: &Path) -> Result<Value, String> {
         return Err("FixedFixtureDirectoryRequired".into());
     }
     safe_path(root)?;
-    let live = inspect(&root.join(DATABASE), 2)?;
+    let live = inspect(&root.join(DATABASE), SCHEMA_VERSION)?;
     let mut backups = Vec::new();
     for entry in fs::read_dir(root).map_err(|_| "FixtureDirectory")? {
         let entry = entry.map_err(|_| "FixtureEntry")?;
         let name = entry.file_name();
         let name = name.to_str().ok_or("FixtureName")?;
         safe_path(&entry.path())?;
-        if name.starts_with("stories-v1.sqlite.before-v2-") && name.ends_with(".sqlite") {
+        if name.starts_with(&format!("stories-v1.sqlite.before-v{SCHEMA_VERSION}-"))
+            && name.ends_with(".sqlite")
+        {
             backups.push(entry.path());
         } else if name != DATABASE
             && !["webview-profile", "inspection-preview-cache"].contains(&name)

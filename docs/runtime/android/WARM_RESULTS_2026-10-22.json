@@ -1,0 +1,828 @@
+{
+  "version": 1,
+  "task_ids": [
+    "M01.02",
+    "M01.04",
+    "M01.05"
+  ],
+  "observed_date": "2026-10-22",
+  "scope": "android_two_role_one_engine_development_smoke",
+  "prerequisite_pr": 40,
+  "prerequisite_head": "07dbac7c904fa8d76e0d3d251b5f9cb7707fd986",
+  "controller_source_commit": "3becf49",
+  "sdk_source_commit": "f173b2890952ecc6a6ef9b539c0a02792dd4a75c",
+  "phone_qualified": false,
+  "quality_assessed": false,
+  "performance_comparison": false,
+  "original_transients_explained": false,
+  "production_backend_selected": false,
+  "attempts": [
+    {
+      "emulator": "A",
+      "phase": "initial_compatibility_smoke",
+      "cli_exit": 0,
+      "controller_source_commit": "0c410f3",
+      "result": {
+        "version": 1,
+        "scope": "android_sdk_shared_engine_smoke",
+        "status": "committed",
+        "attempted_roles": 2,
+        "roles": [
+          {
+            "role": "director",
+            "status": "completed",
+            "error": null,
+            "load_ms": 1827.044968,
+            "generation_ms": 20066.972347,
+            "output_tokens": 64,
+            "input_tokens": 473,
+            "schema_enforced": true,
+            "thinking_disabled": true,
+            "template_applied": true,
+            "wall_ms": 32954
+          },
+          {
+            "role": "narrator",
+            "status": "completed",
+            "error": null,
+            "load_ms": 0.0,
+            "generation_ms": 1284.238939,
+            "output_tokens": 9,
+            "input_tokens": 66,
+            "schema_enforced": false,
+            "thinking_disabled": true,
+            "template_applied": true,
+            "wall_ms": 2641
+          }
+        ],
+        "oracle_runs": [
+          {
+            "operation": "fixture",
+            "process_status": "completed",
+            "wall_ms": 4531,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          },
+          {
+            "operation": "validate",
+            "process_status": "completed",
+            "wall_ms": 1609,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          },
+          {
+            "operation": "commit",
+            "process_status": "completed",
+            "wall_ms": 1531,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          }
+        ],
+        "phone_qualified": false,
+        "quality_assessed": false,
+        "durable_state": false,
+        "failure_stage": "none",
+        "session": {
+          "status": "completed",
+          "stage": "none",
+          "cleanup_failure_stage": "none",
+          "cleanup_complete": true,
+          "adb_cleanup_complete": true,
+          "directory_cleanup_complete": true,
+          "cancel_requested": false,
+          "wall_ms": 42750,
+          "sdk": {
+            "reload_completed": false,
+            "owners_balanced": true,
+            "generated_text_logged": false,
+            "generate_terminal_callback": true,
+            "terminal_callback": true,
+            "worker_off_main": true,
+            "cancel_called": false,
+            "generate_main_pulses": 105,
+            "engines_closed": 1,
+            "engines_opened": 1,
+            "generation_main_pulses": 105,
+            "main_pulses": 2497,
+            "conversations_closed": 2,
+            "conversations_opened": 2,
+            "warm_engine_reused": true,
+            "warm_cancel_observed": false,
+            "warm_roles": 2
+          }
+        },
+        "revision": 1,
+        "events": 1,
+        "recipient_observations": 1,
+        "absent_observations": 0,
+        "exact_retry_unchanged": true,
+        "artifact": "gemma4-e2b-litert",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+      },
+      "complete_turn_timer_available": false
+    },
+    {
+      "emulator": "A",
+      "phase": "gift",
+      "cli_exit": 0,
+      "complete_turn_timer_available": true,
+      "result": {
+        "version": 1,
+        "scope": "android_sdk_shared_engine_smoke",
+        "status": "committed",
+        "attempted_roles": 2,
+        "roles": [
+          {
+            "role": "director",
+            "status": "completed",
+            "error": null,
+            "load_ms": 815.10527,
+            "generation_ms": 8296.700215,
+            "output_tokens": 64,
+            "input_tokens": 473,
+            "schema_enforced": true,
+            "thinking_disabled": true,
+            "template_applied": true,
+            "wall_ms": 17297
+          },
+          {
+            "role": "narrator",
+            "status": "completed",
+            "error": null,
+            "load_ms": 0.0,
+            "generation_ms": 993.474562,
+            "output_tokens": 9,
+            "input_tokens": 66,
+            "schema_enforced": false,
+            "thinking_disabled": true,
+            "template_applied": true,
+            "wall_ms": 2141
+          }
+        ],
+        "oracle_runs": [
+          {
+            "operation": "fixture",
+            "process_status": "completed",
+            "wall_ms": 984,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          },
+          {
+            "operation": "validate",
+            "process_status": "completed",
+            "wall_ms": 859,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          },
+          {
+            "operation": "commit",
+            "process_status": "completed",
+            "wall_ms": 860,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          }
+        ],
+        "phone_qualified": false,
+        "quality_assessed": false,
+        "durable_state": false,
+        "failure_stage": "none",
+        "session": {
+          "status": "completed",
+          "stage": "none",
+          "cleanup_failure_stage": "none",
+          "cleanup_complete": true,
+          "adb_cleanup_complete": true,
+          "directory_cleanup_complete": true,
+          "cancel_requested": false,
+          "wall_ms": 21937,
+          "sdk": {
+            "reload_completed": false,
+            "terminal_callback": true,
+            "cancel_called": false,
+            "owners_balanced": true,
+            "worker_off_main": true,
+            "generate_terminal_callback": true,
+            "generated_text_logged": false,
+            "engines_closed": 1,
+            "conversations_closed": 2,
+            "generate_main_pulses": 85,
+            "main_pulses": 1293,
+            "conversations_opened": 2,
+            "engines_opened": 1,
+            "generation_main_pulses": 85,
+            "warm_engine_reused": true,
+            "warm_cancel_observed": false,
+            "warm_roles": 2
+          }
+        },
+        "revision": 1,
+        "events": 1,
+        "recipient_observations": 1,
+        "absent_observations": 0,
+        "exact_retry_unchanged": true,
+        "turn_wall_ms": 22797,
+        "artifact": "gemma4-e2b-litert",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+      }
+    },
+    {
+      "emulator": "A",
+      "phase": "cancel",
+      "cli_exit": 2,
+      "complete_turn_timer_available": true,
+      "result": {
+        "version": 1,
+        "scope": "android_sdk_shared_engine_smoke",
+        "status": "cancelled",
+        "attempted_roles": 1,
+        "roles": [
+          {
+            "role": "director",
+            "status": "not_completed"
+          }
+        ],
+        "oracle_runs": [
+          {
+            "operation": "fixture",
+            "process_status": "completed",
+            "wall_ms": 922,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          }
+        ],
+        "phone_qualified": false,
+        "quality_assessed": false,
+        "durable_state": false,
+        "failure_stage": "wait_result",
+        "session": {
+          "status": "worker_failed",
+          "stage": "none",
+          "cleanup_failure_stage": "none",
+          "cleanup_complete": true,
+          "adb_cleanup_complete": true,
+          "directory_cleanup_complete": true,
+          "cancel_requested": true,
+          "wall_ms": 13125,
+          "sdk": {
+            "cancel_terminal_callback": true,
+            "reload_completed": false,
+            "cancelled_text_discarded": true,
+            "cancel_called": true,
+            "generated_text_logged": false,
+            "terminal_callback": true,
+            "worker_off_main": true,
+            "owners_balanced": true,
+            "engines_closed": 1,
+            "engines_opened": 1,
+            "conversations_closed": 1,
+            "cancel_main_pulses": 415,
+            "generation_main_pulses": 415,
+            "conversations_opened": 1,
+            "main_pulses": 729,
+            "cancel_call_ms": 0.053138,
+            "warm_engine_reused": false,
+            "warm_cancel_observed": true,
+            "warm_roles": 0
+          }
+        },
+        "turn_wall_ms": 13125,
+        "artifact": "gemma4-e2b-litert",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+      }
+    },
+    {
+      "emulator": "A",
+      "phase": "reload",
+      "cli_exit": 0,
+      "complete_turn_timer_available": true,
+      "result": {
+        "version": 1,
+        "scope": "android_sdk_shared_engine_smoke",
+        "status": "committed",
+        "attempted_roles": 2,
+        "roles": [
+          {
+            "role": "director",
+            "status": "completed",
+            "error": null,
+            "load_ms": 525.539716,
+            "generation_ms": 7154.610588,
+            "output_tokens": 64,
+            "input_tokens": 473,
+            "schema_enforced": true,
+            "thinking_disabled": true,
+            "template_applied": true,
+            "wall_ms": 13312
+          },
+          {
+            "role": "narrator",
+            "status": "completed",
+            "error": null,
+            "load_ms": 0.0,
+            "generation_ms": 1253.101125,
+            "output_tokens": 9,
+            "input_tokens": 66,
+            "schema_enforced": false,
+            "thinking_disabled": true,
+            "template_applied": true,
+            "wall_ms": 2422
+          }
+        ],
+        "oracle_runs": [
+          {
+            "operation": "fixture",
+            "process_status": "completed",
+            "wall_ms": 875,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          },
+          {
+            "operation": "validate",
+            "process_status": "completed",
+            "wall_ms": 1156,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          },
+          {
+            "operation": "commit",
+            "process_status": "completed",
+            "wall_ms": 922,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          }
+        ],
+        "phone_qualified": false,
+        "quality_assessed": false,
+        "durable_state": false,
+        "failure_stage": "none",
+        "session": {
+          "status": "completed",
+          "stage": "none",
+          "cleanup_failure_stage": "none",
+          "cleanup_complete": true,
+          "adb_cleanup_complete": true,
+          "directory_cleanup_complete": true,
+          "cancel_requested": false,
+          "wall_ms": 18921,
+          "sdk": {
+            "terminal_callback": true,
+            "generated_text_logged": false,
+            "generate_terminal_callback": true,
+            "worker_off_main": true,
+            "reload_completed": false,
+            "cancel_called": false,
+            "owners_balanced": true,
+            "conversations_opened": 2,
+            "generation_main_pulses": 101,
+            "generate_main_pulses": 101,
+            "main_pulses": 1244,
+            "engines_closed": 1,
+            "conversations_closed": 2,
+            "engines_opened": 1,
+            "warm_engine_reused": true,
+            "warm_cancel_observed": false,
+            "warm_roles": 2
+          }
+        },
+        "revision": 1,
+        "events": 1,
+        "recipient_observations": 1,
+        "absent_observations": 0,
+        "exact_retry_unchanged": true,
+        "turn_wall_ms": 19843,
+        "artifact": "gemma4-e2b-litert",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+      }
+    },
+    {
+      "emulator": "B",
+      "phase": "gift",
+      "cli_exit": 0,
+      "complete_turn_timer_available": true,
+      "result": {
+        "version": 1,
+        "scope": "android_sdk_shared_engine_smoke",
+        "status": "committed",
+        "attempted_roles": 2,
+        "roles": [
+          {
+            "role": "director",
+            "status": "completed",
+            "error": null,
+            "load_ms": 1071.144499,
+            "generation_ms": 10857.144498,
+            "output_tokens": 64,
+            "input_tokens": 473,
+            "schema_enforced": true,
+            "thinking_disabled": true,
+            "template_applied": true,
+            "wall_ms": 16860
+          },
+          {
+            "role": "narrator",
+            "status": "completed",
+            "error": null,
+            "load_ms": 0.0,
+            "generation_ms": 928.732156,
+            "output_tokens": 9,
+            "input_tokens": 66,
+            "schema_enforced": false,
+            "thinking_disabled": true,
+            "template_applied": true,
+            "wall_ms": 1953
+          }
+        ],
+        "oracle_runs": [
+          {
+            "operation": "fixture",
+            "process_status": "completed",
+            "wall_ms": 890,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          },
+          {
+            "operation": "validate",
+            "process_status": "completed",
+            "wall_ms": 828,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          },
+          {
+            "operation": "commit",
+            "process_status": "completed",
+            "wall_ms": 828,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          }
+        ],
+        "phone_qualified": false,
+        "quality_assessed": false,
+        "durable_state": false,
+        "failure_stage": "none",
+        "session": {
+          "status": "completed",
+          "stage": "none",
+          "cleanup_failure_stage": "none",
+          "cleanup_complete": true,
+          "adb_cleanup_complete": true,
+          "directory_cleanup_complete": true,
+          "cancel_requested": false,
+          "wall_ms": 21265,
+          "sdk": {
+            "terminal_callback": true,
+            "cancel_called": false,
+            "generate_terminal_callback": true,
+            "owners_balanced": true,
+            "worker_off_main": true,
+            "reload_completed": false,
+            "generated_text_logged": false,
+            "conversations_closed": 2,
+            "conversations_opened": 2,
+            "engines_closed": 1,
+            "engines_opened": 1,
+            "generation_main_pulses": 76,
+            "generate_main_pulses": 76,
+            "main_pulses": 1571,
+            "warm_engine_reused": true,
+            "warm_cancel_observed": false,
+            "warm_roles": 2
+          }
+        },
+        "revision": 1,
+        "events": 1,
+        "recipient_observations": 1,
+        "absent_observations": 0,
+        "exact_retry_unchanged": true,
+        "turn_wall_ms": 22093,
+        "artifact": "gemma4-e2b-litert",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+      }
+    },
+    {
+      "emulator": "B",
+      "phase": "cancel",
+      "cli_exit": 2,
+      "complete_turn_timer_available": true,
+      "result": {
+        "version": 1,
+        "scope": "android_sdk_shared_engine_smoke",
+        "status": "cancelled",
+        "attempted_roles": 1,
+        "roles": [
+          {
+            "role": "director",
+            "status": "not_completed"
+          }
+        ],
+        "oracle_runs": [
+          {
+            "operation": "fixture",
+            "process_status": "completed",
+            "wall_ms": 844,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          }
+        ],
+        "phone_qualified": false,
+        "quality_assessed": false,
+        "durable_state": false,
+        "failure_stage": "wait_result",
+        "session": {
+          "status": "worker_failed",
+          "stage": "none",
+          "cleanup_failure_stage": "none",
+          "cleanup_complete": true,
+          "adb_cleanup_complete": true,
+          "directory_cleanup_complete": true,
+          "cancel_requested": true,
+          "wall_ms": 11391,
+          "sdk": {
+            "cancel_terminal_callback": true,
+            "cancelled_text_discarded": true,
+            "cancel_called": true,
+            "generated_text_logged": false,
+            "owners_balanced": true,
+            "reload_completed": false,
+            "worker_off_main": true,
+            "terminal_callback": true,
+            "main_pulses": 545,
+            "engines_closed": 1,
+            "conversations_opened": 1,
+            "cancel_main_pulses": 212,
+            "engines_opened": 1,
+            "cancel_call_ms": 0.065153,
+            "generation_main_pulses": 212,
+            "conversations_closed": 1,
+            "warm_engine_reused": false,
+            "warm_cancel_observed": true,
+            "warm_roles": 0
+          }
+        },
+        "turn_wall_ms": 11391,
+        "artifact": "gemma4-e2b-litert",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+      }
+    },
+    {
+      "emulator": "B",
+      "phase": "reload",
+      "cli_exit": 0,
+      "complete_turn_timer_available": true,
+      "result": {
+        "version": 1,
+        "scope": "android_sdk_shared_engine_smoke",
+        "status": "committed",
+        "attempted_roles": 2,
+        "roles": [
+          {
+            "role": "director",
+            "status": "completed",
+            "error": null,
+            "load_ms": 993.175805,
+            "generation_ms": 9414.263969,
+            "output_tokens": 64,
+            "input_tokens": 473,
+            "schema_enforced": true,
+            "thinking_disabled": true,
+            "template_applied": true,
+            "wall_ms": 16969
+          },
+          {
+            "role": "narrator",
+            "status": "completed",
+            "error": null,
+            "load_ms": 0.0,
+            "generation_ms": 889.289465,
+            "output_tokens": 9,
+            "input_tokens": 66,
+            "schema_enforced": false,
+            "thinking_disabled": true,
+            "template_applied": true,
+            "wall_ms": 2078
+          }
+        ],
+        "oracle_runs": [
+          {
+            "operation": "fixture",
+            "process_status": "completed",
+            "wall_ms": 921,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          },
+          {
+            "operation": "validate",
+            "process_status": "completed",
+            "wall_ms": 1422,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          },
+          {
+            "operation": "commit",
+            "process_status": "completed",
+            "wall_ms": 781,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          }
+        ],
+        "phone_qualified": false,
+        "quality_assessed": false,
+        "durable_state": false,
+        "failure_stage": "none",
+        "session": {
+          "status": "completed",
+          "stage": "none",
+          "cleanup_failure_stage": "none",
+          "cleanup_complete": true,
+          "adb_cleanup_complete": true,
+          "directory_cleanup_complete": true,
+          "cancel_requested": false,
+          "wall_ms": 21937,
+          "sdk": {
+            "worker_off_main": true,
+            "cancel_called": false,
+            "generate_terminal_callback": true,
+            "reload_completed": false,
+            "generated_text_logged": false,
+            "owners_balanced": true,
+            "terminal_callback": true,
+            "engines_opened": 1,
+            "engines_closed": 1,
+            "conversations_opened": 2,
+            "conversations_closed": 2,
+            "generate_main_pulses": 75,
+            "main_pulses": 1482,
+            "generation_main_pulses": 75,
+            "warm_engine_reused": true,
+            "warm_cancel_observed": false,
+            "warm_roles": 2
+          }
+        },
+        "revision": 1,
+        "events": 1,
+        "recipient_observations": 1,
+        "absent_observations": 0,
+        "exact_retry_unchanged": true,
+        "turn_wall_ms": 22718,
+        "artifact": "gemma4-e2b-litert",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+      }
+    }
+  ],
+  "final_cleanup": [
+    {
+      "emulator": "A",
+      "sdk_package_stopped": true,
+      "native_benchmark_processes_gone": true,
+      "unverified_native_run_directories": 0,
+      "unverified_private_warm_entries": 0,
+      "known_session_files_removed": true,
+      "properties": {
+        "model": "sdk_gphone64_x86_64",
+        "android": "15",
+        "sdk": "35",
+        "abi": "x86_64",
+        "page_bytes": 4096
+      }
+    },
+    {
+      "emulator": "B",
+      "sdk_package_stopped": true,
+      "native_benchmark_processes_gone": true,
+      "unverified_native_run_directories": 0,
+      "unverified_private_warm_entries": 0,
+      "known_session_files_removed": true,
+      "properties": {
+        "model": "sdk_gphone64_x86_64",
+        "android": "15",
+        "sdk": "35",
+        "abi": "x86_64",
+        "page_bytes": 4096
+      }
+    }
+  ],
+  "artifacts": {
+    "sdk_apk_sha256": "82d5923a16a167d87816c8724807dd8cdf8534d67b2329bcb7af4f238d4bf939",
+    "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+    "model_host_and_private_hash_verified": true,
+    "model_downloaded_or_transferred": false,
+    "native_owner_sha256": "e3bd96add8436b1f25d44471e8b289e9a7c75dbac857729578cae4d998911508",
+    "rust_oracle_sha256": "1b3e12e94470cea37a5ccbddeec568e9cca7c2ac723b620f0a494cd12305d228",
+    "sdk_verification": "WARM_SDK_VERIFICATION_2026-10-22.json"
+  },
+  "verification": {
+    "host_command": "python scripts/check.py host --offline",
+    "host_exit": 0,
+    "rust_test_entries": 89,
+    "auxiliary_rust_child_helper_entries": 1,
+    "python_tests": 191,
+    "fixture_comparisons": 4,
+    "linker_tests": 3,
+    "format": "passed",
+    "clippy": "passed",
+    "android_command": "python scripts/check.py android --offline",
+    "android_exit": 0,
+    "production_jvm_tests": 31,
+    "production_jvm_failures": 0,
+    "production_apk_audit": "passed",
+    "production_lint": [
+      {
+        "id": "GradleDependency",
+        "severity": "Warning"
+      }
+    ],
+    "isolated_sdk_jvm_tests": 42,
+    "isolated_sdk_python_tests": 20,
+    "coordinator_warm_python_tests": 8,
+    "independent_warm_python_tests": 35
+  },
+  "environment": {
+    "host": "Windows x86_64",
+    "rust": "1.93.1",
+    "ndk": "29.0.14206865",
+    "java_gradle": "17.0.6",
+    "java_sdk_compiler": "21.0.4",
+    "gradle": "8.11.1",
+    "agp": "8.10.1",
+    "sdk_compile": 36,
+    "build_tools": "35.0.0",
+    "litert_lm": "0.18.1",
+    "lint_experiment": "32.4.1",
+    "available_emulators": 5,
+    "selected_emulators": 2,
+    "physical_phones": 0
+  },
+  "counts": {
+    "requests": 7,
+    "attempted_roles": 12,
+    "committed": 5,
+    "cancelled": 2
+  }
+}

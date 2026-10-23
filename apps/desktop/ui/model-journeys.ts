@@ -46,19 +46,62 @@ export async function modelJourneys({
             await new Promise((r) => setTimeout(r, 30));
         }
     };
-    const capture = async (label: string) => {
+    const rendered = () => {
+        const root = document.getElementById("root")!;
+        return (
+            !!root.innerText.trim() &&
+            [...root.querySelectorAll<HTMLElement>("h1,h2,h3")].some(
+                (heading) =>
+                    !!heading.innerText.trim() &&
+                    heading.getBoundingClientRect().width > 0 &&
+                    heading.getBoundingClientRect().height > 0 &&
+                    getComputedStyle(heading).visibility !== "hidden",
+            )
+        );
+    };
+    const renderFailed = () =>
+        errors
+            .snapshot()
+            .some((error) =>
+                ["RenderError", "UnhandledError"].includes(error.category),
+            );
+    const checkRendered = (label: string) => {
+        check(!renderFailed(), `${label}-no-render-or-unhandled-error`);
+        check(rendered(), `${label}-visible-dom-and-heading`);
+    };
+    const capture = async (label: string, requireRendered = true) => {
         if (label === "model-receipt-context") window.scrollTo({ top: 0 });
-        else
-            document
-                .querySelector(
-                    label.includes("pending")
-                        ? ".compose"
-                        : label.includes("receipt")
-                          ? ".transcript"
-                          : ".model-panel",
+        else {
+            const selector = label.includes("pending")
+                ? ".pending"
+                : label === "model-invalid-action"
+                  ? ".message.error"
+                  : label === "model-cancelled"
+                    ? ".message.notice"
+                    : label.includes("receipt")
+                      ? ".transcript"
+                      : ".model-panel";
+            const target = document.querySelector(selector);
+            target?.scrollIntoView({ block: "start" });
+            if (
+                requireRendered &&
+                [".pending", ".message.error", ".message.notice"].includes(
+                    selector,
                 )
-                ?.scrollIntoView({ block: "start" });
+            ) {
+                const bounds = target?.getBoundingClientRect();
+                check(
+                    !!target?.textContent?.trim() &&
+                        !!bounds &&
+                        bounds.top >= 0 &&
+                        bounds.bottom <= innerHeight &&
+                        bounds.height > 0,
+                    `${label}-status-visible-in-render`,
+                );
+            }
+        }
         await new Promise((r) => setTimeout(r, 100));
+        if (requireRendered) checkRendered(label);
         const clean = (value: unknown, key = ""): unknown =>
             key === "location"
                 ? "<synthetic workspace>"
@@ -122,6 +165,8 @@ export async function modelJourneys({
     };
     try {
         await c.start();
+        await until(() => rendered() || renderFailed(), 5000);
+        checkRendered("model-start");
         check(!!c.get().workspace, "real-native-durable-workspace");
         c.showModel();
         await c.refreshModel();
@@ -219,7 +264,7 @@ export async function modelJourneys({
         );
         check(
             c.get().model?.profile?.worker_sha256 ===
-                "add98cf02249141942c88e2517c2f5a4c9a91dbe9638bf7d3cd30c26916bce87",
+                "b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434",
             "loaded-worker-provenance-is-verified",
         );
         c.setPlayMode("local");
@@ -374,7 +419,7 @@ export async function modelJourneys({
             },
         });
     } catch (error) {
-        await capture("model-failure").catch(() => {});
+        await capture("model-failure", false).catch(() => {});
         await c.modelAction("model_unload");
         await invoke("harness_finish", {
             report: {

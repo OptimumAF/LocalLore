@@ -20,20 +20,43 @@ pub const MAX_WORKERS: usize = 4;
 #[serde(rename_all = "snake_case")]
 pub enum Mode {
     Accepted,
+    Delayed,
     Malformed,
     Rejected,
     Failed,
     Cancelled,
 }
 impl Mode {
-    fn provider(self) -> FakeProvider {
-        FakeProvider::new(match self {
-            Self::Accepted => FakeMode::Accepted,
-            Self::Malformed => FakeMode::Malformed,
-            Self::Rejected => FakeMode::Rejected,
-            Self::Failed => FakeMode::Failed,
-            Self::Cancelled => FakeMode::Cancelled,
-        })
+    fn provider(self) -> TimedFake {
+        TimedFake {
+            delayed: self == Self::Delayed,
+            inner: FakeProvider::new(match self {
+                Self::Accepted => FakeMode::Accepted,
+                Self::Delayed => FakeMode::Delayed { polls: 4 },
+                Self::Malformed => FakeMode::Malformed,
+                Self::Rejected => FakeMode::Rejected,
+                Self::Failed => FakeMode::Failed,
+                Self::Cancelled => FakeMode::Cancelled,
+            }),
+        }
+    }
+}
+// A visibly pending synthetic provider for lifecycle tests and the demo UI.
+// No sleep/lock on the UI or canonical owner; generation is on a bounded worker.
+struct TimedFake {
+    delayed: bool,
+    inner: FakeProvider,
+}
+impl InferenceProvider for TimedFake {
+    fn poll(
+        &mut self,
+        request: &GenerationRequest,
+        cancel: &Cancellation,
+    ) -> std::task::Poll<Result<Vec<u8>, Error>> {
+        if self.delayed && self.inner.calls < 4 && !cancel.is_cancelled() {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        self.inner.poll(request, cancel)
     }
 }
 
@@ -91,6 +114,11 @@ pub enum HostCommand {
         expected_revision: u64,
     },
     ModelStatus {},
+    PlaySnapshot {
+        session: String,
+        scope: Scope,
+        expected_revision: u64,
+    },
     FreeText {
         session: String,
         request: Request,
@@ -217,6 +245,11 @@ impl Host {
             }
             state.sessions.clear();
         }
+    }
+    /// Trusted adapter lifecycle evidence, without story content or wire authority.
+    pub fn live_counts(&self) -> (usize, usize) {
+        let state = self.state.lock().unwrap();
+        (state.sessions.len(), state.workers)
     }
     fn dispatch(&self, state: &mut State, command: HostCommand) -> Value {
         match command {
@@ -434,6 +467,37 @@ impl Host {
                         Err(e) => reject(e),
                     }
                 }
+            }
+            HostCommand::PlaySnapshot {
+                session,
+                scope,
+                expected_revision,
+            } => {
+                let s = match get_session(state, &session, &scope) {
+                    Ok(s) => s,
+                    Err(e) => return e,
+                };
+                if expected_revision != s.engine.revision() {
+                    return reject("Stale");
+                }
+                let player = &s.engine.seed().player;
+                let context = s
+                    .engine
+                    .character_context(player, &scope, expected_revision)
+                    .unwrap();
+                let inventory: BTreeMap<_, _> = s
+                    .engine
+                    .state()
+                    .items
+                    .iter()
+                    .filter(|(_, item)| &item.owner == player)
+                    .collect();
+                // All currently supported receipts resolve the player's explicit typed
+                // requests. This is not an omniscient event feed for future NPC jobs.
+                ok(
+                    json!({"scope":scope,"revision":expected_revision,"player":context,
+                    "inventory":inventory,"receipts":s.engine.receipts()}),
+                )
             }
             HostCommand::FreeText { session, request } => {
                 if let Err(e) = get_session(state, &session, &request.scope) {
@@ -922,5 +986,39 @@ mod tests {
             call(&h, json!({"op":"open","session":b,"scope":scope_b}))["data"]["revision"],
             0
         );
+    }
+    #[test]
+    fn play_snapshot_is_coherent_and_excludes_other_actors_and_beliefs() {
+        let h = Host::default();
+        let (id, scope) = session(&h);
+        let view = call(
+            &h,
+            json!({"op":"play_snapshot","session":id,"scope":scope,"expected_revision":0}),
+        );
+        assert_eq!(view["data"]["revision"], 0);
+        assert_eq!(view["data"]["player"]["observer"], "player");
+        assert!(view["data"].get("state").is_none());
+        assert!(view["data"]["player"]["beliefs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|b| b["believer"] == "player"));
+        assert_eq!(view["data"]["inventory"]["potion"]["owner"], "player");
+        submit(&h, &id, &request(&scope, "gift"));
+        op(&h, &id, &scope, "gift", "prepare");
+        op(&h, &id, &scope, "gift", "commit");
+        assert_eq!(
+            call(
+                &h,
+                json!({"op":"play_snapshot","session":id,"scope":scope,"expected_revision":0})
+            )["error"],
+            "Stale"
+        );
+        let view = call(
+            &h,
+            json!({"op":"play_snapshot","session":id,"scope":scope,"expected_revision":1}),
+        );
+        assert!(view["data"]["inventory"].get("potion").is_none());
+        assert_eq!(view["data"]["receipts"].as_array().unwrap().len(), 1);
     }
 }

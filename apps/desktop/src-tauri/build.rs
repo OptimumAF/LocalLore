@@ -9,7 +9,15 @@ fn main() {
     let result = tauri_build::try_build(
         tauri_build::Attributes::new()
             .windows_attributes(tauri_build::WindowsAttributes::new().window_icon_path(&icon))
-            .app_manifest(tauri_build::AppManifest::new().commands(&["host_call", "smoke_finish"])),
+            .app_manifest(tauri_build::AppManifest::new().commands(&[
+                "host_call",
+                "harness_checkpoint",
+                "harness_viewport",
+                "harness_finish",
+                "harness_stats",
+                "harness_oracle",
+                "harness_reopen",
+            ])),
     );
     std::fs::remove_file(&icon).expect("remove public icon copy");
     std::fs::remove_dir(&temporary).expect("remove empty build directory");

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-harness-reopen"
+description = "Enables the harness_reopen command without any pre-configured scope."
+commands.allow = ["harness_reopen"]
+
+[[permission]]
+identifier = "deny-harness-reopen"
+description = "Denies the harness_reopen command without any pre-configured scope."
+commands.deny = ["harness_reopen"]

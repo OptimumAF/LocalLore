@@ -1,11 +1,27 @@
 {
-  "name": "locallore-desktop-contract-checks",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "check": "node check-contract.mjs"
-  },
-  "devDependencies": {
-    "ajv": "8.20.0"
-  }
+    "name": "locallore-desktop",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "node build.mjs",
+        "build:harness": "node build.mjs --harness",
+        "check": "node verify-frontend.mjs",
+        "harness:native": "node harness.mjs native",
+        "harness:headless": "node harness.mjs headless",
+        "format:check": "prettier --check \"ui/*.{ts,tsx,html,css}\" \"*.{json,mjs}\""
+    },
+    "devDependencies": {
+        "@types/react": "19.3.0",
+        "@types/react-dom": "19.3.0",
+        "ajv": "8.20.0",
+        "esbuild": "0.28.2",
+        "json-schema-to-typescript": "16.0.0",
+        "playwright": "1.64.1",
+        "prettier": "3.9.10",
+        "typescript": "7.0.2"
+    },
+    "dependencies": {
+        "react": "19.3.1",
+        "react-dom": "19.3.1"
+    }
 }

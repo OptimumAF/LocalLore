@@ -1,7 +1,7 @@
 # ADR-0004: Android engine sessions and explicit commit
 
 - Date: 2026-10-22
-- Status: implemented for review; owner acceptance pending
+- Status: bounded integration accepted in [#20](https://github.com/OptimumAF/LocalLore/pull/20); lifecycle follow-up for review
 - Scope: M03.03, [#7](https://github.com/OptimumAF/LocalLore/issues/7)
 
 ## Context and decision
@@ -37,6 +37,11 @@ retain an `Arc`; cooperative polling returns and releases it. Reset destroys
 the old session and creates a new one. Disposal closes idempotently. `onStop`
 cancels pending work; configuration recreation retains the ViewModel/accepted
 in-memory engine. Process death starts fresh.
+
+ViewModel disposal is terminal: a retained Reset callback after `onCleared`
+must do nothing. It cannot create another native session after its lifecycle
+owner has released the original one. The [ownership follow-up](../native/OWNERSHIP_FOLLOWUP_2026-10-22.md)
+records the reproduced regression and the actual JNI checks.
 
 Rust creates no threads, retains no JNI environment/reference, makes no JVM
 callbacks and borrows no array elements across calls. Local references die at

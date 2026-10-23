@@ -1,6 +1,6 @@
 # Data model and state invariants
 
-Status: target data model for M02/M04. The implemented [v1 host contract](DOMAIN_CONTRACT_V1.md) defines the current typed subset; names below also describe future records. No SQL migration exists yet.
+Status: target data model for M02/M04. The implemented [v1 host contract](DOMAIN_CONTRACT_V1.md) defines the current typed subset; names below also describe future records. The [SQLite owner](storage/README.md) implements schema 1, root-seed persistence, atomic root turns and validated deterministic-v1 save/resume. Durable branch inheritance, future random-rule outcomes and full memory tables require later contracts; UI save/resume is not wired yet.
 
 ## 1. Identity, time, and scope
 

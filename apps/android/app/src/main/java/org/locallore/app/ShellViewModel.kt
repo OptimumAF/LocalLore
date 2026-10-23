@@ -100,6 +100,8 @@ class ShellViewModel(
     }
 
     fun reset() {
+        // A retained UI callback must not reopen a native session after onCleared.
+        if (disposed) return
         val start = System.nanoTime()
         diagnosticController.dismiss()
         generation++

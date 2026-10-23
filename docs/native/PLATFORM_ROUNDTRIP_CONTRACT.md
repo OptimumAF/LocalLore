@@ -8,7 +8,9 @@ desktop UI, system chooser or physical-phone qualification is implied.
 
 `cargo +1.93.1 run -p locallore-android --example platform_roundtrip --locked --offline -- --development-fixtures <generate|verify|check-final> --directory NEW [--inputs DIR] [--fixtures DIR]`
 
-Require the explicit development switch; exact known arguments only. Each
+Require the explicit development switch; exact known arguments only. Optional
+`--owned-stdin` requires EOF from a bounded one-byte stdin read before filesystem
+work; the process-owning runner supplies it, manual commands need no stdin. Each
 command creates a NEW output directory, refuses existing/linked targets, writes
 only fixed files and never recursively deletes anything. Inputs are fixed names
 in explicitly selected directories, regular nonlinks, at most 128 KiB each for
@@ -43,6 +45,9 @@ they include scope/revision/rules/player/inventory/receipts with original scopes
 Host `inspect` allows player only in Android's non-Lab adapter; NPC requests must
 remain Forbidden. Independently compare real Engine contexts for player/Mira/Sable
 on Windows before/after transfers, including sibling/future/hidden-fact canaries.
+The accepted workspace catalog lists one row per story root, not one row per
+branch. Verify the three branch snapshots/heads separately; import adds one
+catalog row. Source inspection corrected the initial test assumption before run.
 
 `verify --inputs DIR --fixtures DIR`: inputs fixed `windows-return.json`,
 `windows-continued.json`, `android-origin.json`. Compare returned Windows bytes

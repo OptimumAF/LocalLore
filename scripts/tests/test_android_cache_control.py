@@ -369,6 +369,17 @@ class CacheControllerTests(unittest.TestCase):
         self.assertFalse(result["clients_cleaned"])
         self.assertEqual(measure.call_count, 1)
 
+    def test_profile_exception_keeps_its_phase_and_still_performs_known_cleanup(self):
+        with patch.object(control.play, "make_profile", side_effect=ValueError(PRIVATE)):
+            result, device, measure, *_ = self.invoke()
+        self.assertEqual(result["failure_stage"], "profile")
+        self.assertEqual(device.launches, 0)
+        self.assertEqual(device.stops, 3)
+        self.assertTrue(result["process_absent"])
+        self.assertEqual(measure.call_count, 2)
+        self.assertFalse(result["check_passed"])
+        self.assertNotIn(PRIVATE, json.dumps(result))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -12,16 +12,16 @@ mod export_commands;
 mod exports;
 mod fork_commands;
 mod lease;
-mod model_commands;
 mod memory_maintenance_commands;
+mod model_commands;
 mod models;
 use lease::WindowLease;
 #[cfg(feature = "dev-harness")]
 mod fork_harness;
 #[cfg(feature = "dev-harness")]
-mod memory_harness;
-#[cfg(feature = "dev-harness")]
 mod harness;
+#[cfg(feature = "dev-harness")]
+mod memory_harness;
 #[cfg(feature = "dev-harness")]
 mod test_bridge;
 #[cfg(feature = "dev-harness")]
@@ -392,7 +392,9 @@ fn main() {
                 fork_harness::seed(&path).map_err(std::io::Error::other)?;
             }
             #[cfg(feature = "dev-harness")]
-            if memory_harness::active() && std::env::var("LOCALLORE_TEST_RESTART").as_deref()!=Ok("1") {
+            if memory_harness::active()
+                && std::env::var("LOCALLORE_TEST_RESTART").as_deref() != Ok("1")
+            {
                 memory_harness::seed(&path).map_err(std::io::Error::other)?;
             }
             let model_root = path

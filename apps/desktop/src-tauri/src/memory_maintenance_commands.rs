@@ -102,7 +102,9 @@ fn start_owned(
             let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
             while crate::memory_harness::HOLD.load(std::sync::atomic::Ordering::SeqCst) {
                 work.check()?;
-                if std::time::Instant::now() >= deadline {return Err("Transport".into());}
+                if std::time::Instant::now() >= deadline {
+                    return Err("Transport".into());
+                }
                 std::thread::sleep(std::time::Duration::from_millis(5));
             }
         }
@@ -146,18 +148,25 @@ pub async fn memory_maintenance_start(
     let lease = workspace.lease.clone();
     let broker = broker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        #[cfg(feature="dev-harness")]
-        let lose_ack=crate::memory_harness::active() && crate::memory_harness::LOSE_ACK.swap(false,std::sync::atomic::Ordering::SeqCst);
-        #[cfg(feature="dev-harness")]
-        let status_lease=lease.clone();
-        let result=start_owned(host,lease,broker.clone(),epoch,request);
-        #[cfg(feature="dev-harness")]
+        #[cfg(feature = "dev-harness")]
+        let lose_ack = crate::memory_harness::active()
+            && crate::memory_harness::LOSE_ACK.swap(false, std::sync::atomic::Ordering::SeqCst);
+        #[cfg(feature = "dev-harness")]
+        let status_lease = lease.clone();
+        let result = start_owned(host, lease, broker.clone(), epoch, request);
+        #[cfg(feature = "dev-harness")]
         if lose_ack {
-            let id=result.as_ref().ok().and_then(|value|value["operation_id"].as_u64()).ok_or("SyntheticStart")?;
+            let id = result
+                .as_ref()
+                .ok()
+                .and_then(|value| value["operation_id"].as_u64())
+                .ok_or("SyntheticStart")?;
             for _ in 0..1000 {
-                let status=broker.status(&status_lease,epoch,id)?;
-                if status["running"]==false {
-                    if status["error"]!=Value::Null{return Err("SyntheticMemoryFailed".into());}
+                let status = broker.status(&status_lease, epoch, id)?;
+                if status["running"] == false {
+                    if status["error"] != Value::Null {
+                        return Err("SyntheticMemoryFailed".into());
+                    }
                     return Err("Transport".into());
                 }
                 std::thread::sleep(std::time::Duration::from_millis(5));
@@ -166,8 +175,8 @@ pub async fn memory_maintenance_start(
         }
         result
     })
-        .await
-        .map_err(|_| "Internal".to_owned())?
+    .await
+    .map_err(|_| "Internal".to_owned())?
 }
 
 #[cfg(test)]

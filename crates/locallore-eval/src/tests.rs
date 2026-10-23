@@ -99,7 +99,7 @@ fn actual_compiler_omission_regression_fails_with_assertion_and_source_then_rest
         .unwrap();
     let bad = temp.0.join("omitted");
     fs::create_dir(&bad).unwrap();
-    let failed = evaluate(spec, &bad, true).unwrap();
+    let failed = evaluate(spec, &bad, Fault::DropCompiler).unwrap();
     assert_eq!(failed.status, Status::Failed);
     let failure = failed
         .checks
@@ -117,9 +117,52 @@ fn actual_compiler_omission_regression_fails_with_assertion_and_source_then_rest
     );
     let restored = temp.0.join("restored");
     fs::create_dir(&restored).unwrap();
-    let fixed = evaluate(spec, &restored, false).unwrap();
+    let fixed = evaluate(spec, &restored, Fault::None).unwrap();
     assert_eq!(fixed.status, Status::Passed);
     println!("RESTORED RETRIEVAL scenario={} status=passed", fixed.id);
+}
+
+#[test]
+fn dropped_director_forwarding_fails_even_when_actual_compiler_target_passes() {
+    let temp = Temp::new();
+    let suite = builtin().unwrap();
+    let spec = suite
+        .scenarios
+        .iter()
+        .find(|s| s.id == "scripted-production-gift")
+        .unwrap();
+    let bad = temp.0.join("dropped-forwarding");
+    fs::create_dir(&bad).unwrap();
+    let failed = evaluate(spec, &bad, Fault::DropForwarded).unwrap();
+    assert_eq!(failed.status, Status::Failed);
+    assert_eq!(
+        failed
+            .checks
+            .iter()
+            .find(|c| c.id == "gift-context-target-0")
+            .unwrap()
+            .status,
+        Status::Passed
+    );
+    let failure = failed
+        .checks
+        .iter()
+        .find(|c| c.id == "original-gift-0-prompt-targets")
+        .unwrap();
+    assert_eq!(failure.status, Status::Failed);
+    assert_eq!(failure.stage, "retrieval");
+    assert_eq!(failure.turn.as_deref(), Some("original-gift-0"));
+    assert_eq!(failure.expected, json!([true]));
+    assert_eq!(failure.actual, json!([false]));
+    println!(
+        "INJECTED FORWARDING FAILURE {}",
+        String::from_utf8(encode(failure).unwrap()).unwrap()
+    );
+    let restored = temp.0.join("restored-forwarding");
+    fs::create_dir(&restored).unwrap();
+    let fixed = evaluate(spec, &restored, Fault::None).unwrap();
+    assert_eq!(fixed.status, Status::Passed);
+    println!("RESTORED FORWARDING scenario={} status=passed", fixed.id);
 }
 
 #[test]

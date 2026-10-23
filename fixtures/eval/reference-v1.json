@@ -454,7 +454,17 @@
                 "quantity": 1
               }
             ],
-            "narration": "You place the potion in Mira's hand with a gentle nod."
+            "narration": "You place the potion in Mira's hand with a gentle nod.",
+            "prompt_targets": [
+              {
+                "kind": "commitment",
+                "contains": "return-key",
+                "source": {
+                  "kind": "seed",
+                  "value": "lantern-quay-v1"
+                }
+              }
+            ]
           },
           "phase": "committed",
           "error": null,
@@ -467,6 +477,21 @@
           "id": "production-gift-owner",
           "pointer": "/items/potion/owner",
           "equals": "mira"
+        },
+        {
+          "kind": "context",
+          "id": "gift-context",
+          "observer": "player",
+          "query": "borrowed brass key",
+          "required": [
+            {
+              "kind": "commitment",
+              "contains": "return-key",
+              "source": { "kind": "seed", "value": "lantern-quay-v1" }
+            }
+          ],
+          "forbidden": [],
+          "error": null
         },
         {
           "kind": "prohibited_narration",

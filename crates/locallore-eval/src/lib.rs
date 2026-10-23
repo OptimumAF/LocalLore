@@ -71,6 +71,7 @@ pub struct Step {
 pub struct ScriptPlan {
     pub commands: Vec<Command>,
     pub narration: String,
+    pub prompt_targets: Vec<Target>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -146,9 +147,14 @@ pub struct Turn {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Capture {
+    pub turn: String,
     pub role: String,
     pub prompt_sha256: String,
     pub schema_sha256: String,
+    pub compiler_version: Option<u64>,
+    pub player_text_sha256: Option<String>,
+    pub prompt_targets: Vec<Target>,
+    pub prompt_targets_present: Vec<bool>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -267,7 +273,15 @@ fn validate(suite: &Suite) -> Result<()> {
                 return Err("InvalidStep".into());
             }
             if let Some(plan) = &step.scripted {
-                if plan.commands.len() > 8 || plan.narration.len() > 1024 {
+                if plan.commands.len() > 8
+                    || plan.narration.len() > 1024
+                    || plan.prompt_targets.len() > 8
+                    || plan.prompt_targets.iter().any(|target| {
+                        target.kind.len() > 64
+                            || target.contains.len() > 256
+                            || target.source.to_string().len() > 512
+                    })
+                {
                     return Err("ScriptBudget".into());
                 }
             }
@@ -414,6 +428,16 @@ fn profile() -> PlayProfile {
 struct Script {
     plan: ScriptPlan,
     captures: Arc<Mutex<Vec<Capture>>>,
+    #[cfg(test)]
+    drop_forwarded: bool,
+}
+fn contains_json(haystack: &Value, needle: &Value) -> bool {
+    haystack == needle
+        || match haystack {
+            Value::Object(map) => map.values().any(|v| contains_json(v, needle)),
+            Value::Array(items) => items.iter().any(|v| contains_json(v, needle)),
+            _ => false,
+        }
 }
 impl InferenceProvider for Script {
     fn poll(
@@ -436,10 +460,61 @@ impl InferenceProvider for Script {
         if captures.len() >= 128 {
             return Poll::Ready(Err(Error::TooLarge));
         }
+        // Read the actual production prompt envelope, not a second context compiler.
+        // This fixed template boundary is deliberately asserted; format drift fails the case.
+        let input = if role == "director" {
+            prompt.split_once("Context data: ").and_then(|(_, suffix)| {
+                Value::deserialize(&mut serde_json::Deserializer::from_str(suffix)).ok()
+            })
+        } else {
+            None
+        };
+        // Test-only downstream forwarding fault: the actual compiler result is
+        // untouched, but the observed director envelope has lost commitments.
+        #[cfg(test)]
+        let input = {
+            let mut input = input;
+            if self.drop_forwarded {
+                if let Some(records) = input
+                    .as_mut()
+                    .and_then(|i| i["context"]["records"].as_array_mut())
+                {
+                    records.retain(|r| r["kind"] != "commitment");
+                }
+            }
+            input
+        };
+        let targets = self
+            .plan
+            .prompt_targets
+            .iter()
+            .map(|target| {
+                input
+                    .as_ref()
+                    .and_then(|i| i["context"]["records"].as_array())
+                    .is_some_and(|records| {
+                        records.iter().any(|r| {
+                            r["kind"] == target.kind
+                                && r.to_string().contains(&target.contains)
+                                && contains_json(r, &target.source)
+                        })
+                    })
+            })
+            .collect();
         captures.push(Capture {
+            turn: request.turn.clone(),
             role: role.clone(),
             prompt_sha256: digest(prompt.as_bytes()),
             schema_sha256: digest(&serde_json::to_vec(schema).unwrap()),
+            compiler_version: input
+                .as_ref()
+                .and_then(|i| i["context"]["compiler_version"].as_u64()),
+            player_text_sha256: input
+                .as_ref()
+                .and_then(|i| i["player_text"].as_str())
+                .map(|s| digest(s.as_bytes())),
+            prompt_targets: self.plan.prompt_targets.clone(),
+            prompt_targets_present: targets,
         });
         let value = if role == "director" {
             json!({"commands":self.plan.commands})
@@ -472,7 +547,18 @@ fn check(
     });
 }
 
-fn evaluate(spec: &Scenario, directory: &Path, drop_retrieval: bool) -> Result<CaseResult> {
+#[derive(Clone, Copy)]
+enum Fault {
+    None,
+    #[cfg(test)]
+    DropCompiler,
+    #[cfg(test)]
+    DropForwarded,
+}
+
+fn evaluate(spec: &Scenario, directory: &Path, fault: Fault) -> Result<CaseResult> {
+    #[cfg(not(test))]
+    let _ = fault;
     let mut out = CaseResult {
         id: spec.id.clone(),
         status: Status::Passed,
@@ -511,6 +597,8 @@ fn evaluate(spec: &Scenario, directory: &Path, drop_retrieval: bool) -> Result<C
                             Box::new(Script {
                                 plan: plan.clone(),
                                 captures: captures.clone(),
+                                #[cfg(test)]
+                                drop_forwarded: matches!(fault, Fault::DropForwarded),
                             })
                         }),
                     )
@@ -575,6 +663,52 @@ fn evaluate(spec: &Scenario, directory: &Path, drop_retrieval: bool) -> Result<C
                         json!(digest(&before.canonical_bytes())),
                         json!(digest(&after.canonical_bytes())),
                     );
+                }
+                if let (Some(plan), Intent::FreeText { text, .. }) = (&step.scripted, &step.intent)
+                {
+                    if step.phase == "committed" {
+                        let directors: Vec<_> = captures
+                            .lock()
+                            .unwrap()
+                            .iter()
+                            .filter(|c| c.turn == turn && c.role == "director")
+                            .cloned()
+                            .collect();
+                        check(
+                            &mut out,
+                            format!("{turn}-director-count"),
+                            Some(turn.clone()),
+                            "pipeline",
+                            json!(1),
+                            json!(directors.len()),
+                        );
+                        for capture in directors {
+                            check(
+                                &mut out,
+                                format!("{turn}-compiler-envelope"),
+                                Some(turn.clone()),
+                                "retrieval",
+                                json!(1),
+                                json!(capture.compiler_version),
+                            );
+                            check(
+                                &mut out,
+                                format!("{turn}-original-input"),
+                                Some(turn.clone()),
+                                "agency",
+                                json!(digest(text.as_bytes())),
+                                json!(capture.player_text_sha256),
+                            );
+                            check(
+                                &mut out,
+                                format!("{turn}-prompt-targets"),
+                                Some(turn.clone()),
+                                "retrieval",
+                                json!(vec![true; plan.prompt_targets.len()]),
+                                json!(capture.prompt_targets_present),
+                            );
+                        }
+                    }
                 }
                 let narration = result["data"]["receipt"]["narration"]
                     .as_str()
@@ -670,12 +804,10 @@ fn evaluate(spec: &Scenario, directory: &Path, drop_retrieval: bool) -> Result<C
                         json!(actual_error),
                     );
                     if let Ok(package) = result {
-                        #[cfg(not(test))]
-                        let _ = drop_retrieval;
                         #[cfg(test)]
                         let package = {
                             let mut package = package;
-                            if drop_retrieval {
+                            if matches!(fault, Fault::DropCompiler) {
                                 package
                                     .records
                                     .retain(|r| r.kind != context_compiler::Kind::Commitment);
@@ -1070,7 +1202,7 @@ pub fn run_builtin(
             .iter()
             .find(|s| s.id == *name)
             .ok_or("InvalidSuite")?;
-        let result = match evaluate(spec, &attempt, false) {
+        let result = match evaluate(spec, &attempt, Fault::None) {
             Ok(r) => r,
             Err(category) => CaseResult {
                 id: name.clone(),

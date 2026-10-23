@@ -38,7 +38,13 @@ InferenceProvider and traverses **Host → production Play → production contex
 compiler → typed Engine validation → durable commit**. The provider returns the
 predeclared director command and fixed narration, using the actual supplied
 narrator event-ID schema. It captures prompt/schema SHA256s, not invented model
-measurements. No local-runtime crate, worker/model/native GUI or network service
+measurements. It parses the actual director's frozen `Context data: ` JSON envelope
+to assert compiler version, original input hash, and predeclared bounded target
+kind/text/source presence. It never records the raw full prompt or computes a
+second generation eligibility filter. The report includes the selected target
+declarations and their presence flags. The fake profile's zero-filled artifact
+hashes are explicit synthetic placeholders, not model/worker provenance.
+No local-runtime crate, worker/model/native GUI or network service
 is linked/invoked by this lane.
 
 Canonical/observer/retrieval assertions read the actual Store-resumed validated
@@ -158,3 +164,11 @@ run must pass. This checks that the evaluator detects a known retrieval omission
 it does not claim a production compiler defect was introduced/fixed or that a
 real model used the retrieved fact correctly. Exact executions and earlier runner/
 fixture mistakes are preserved in [D07_EVAL_EVIDENCE_2026-10-22.md](D07_EVAL_EVIDENCE_2026-10-22.md).
+
+A separate cfg(test)-only seam removes commitment records from the parsed observed
+director envelope, leaving the actual direct compiler call unchanged. The declared
+`gift-context-target-0` must still pass while
+`original-gift-0-prompt-targets` fails on the original turn, then a fresh restored
+case must pass. This simulates downstream dropped forwarding at the capture
+assertion boundary; it is not a production Play modification or an observed
+compiler defect. Prompt format/version drift also fails the envelope assertion.

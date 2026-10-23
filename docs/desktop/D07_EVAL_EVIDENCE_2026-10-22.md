@@ -8,7 +8,7 @@ before implementation to accepted **228c482c6a3bcfef7bec6a6769ed2207ee054b69**.
 Only new standalone crates/locallore-eval/**, fixtures/eval/** and these D07_EVAL*
 documents are submitted. No existing core/Host/storage/app/workspace/CI file changed.
 
-## Actual environment and checks
+## Preliminary f69cb8e environment and checks
 
 Windows11Pro10.0.26300 x64; Rust1.93.1; Cargo locked/offline;
 DEV/TEST_DEBUG=0, INCREMENTAL=0; dedicated D: target and temp paths. No real model,
@@ -91,7 +91,57 @@ the revised predeclared scenario explicitly queries royal heir and still require
 typed Event1 statement provenance, no power grant, no canonical truth for Mira and
 no hidden canary. No shared engine/compiler behavior or gate was relaxed. A later
 intermediate run <task>/d07-eval-run-02 passed; final evidence above is from the
-frozen source-binding/metadata version, not that earlier schema.
+frozen preliminary source-binding/metadata version, not that earlier schema.
+
+## Forwarding follow-up, 2026-10-23
+
+The preliminary commit `f69cb8e7b3c44eddd23f6a08f4c431aa81597f61` checked direct
+compiler results and hashed the production prompt, but a hash alone did not assert
+that a required fact reached generation. The follow-up declares a return-key
+commitment target before execution and inspects the actual production director
+JSON envelope under its frozen prompt/compiler version. It checks the original
+player text SHA256, one director request, compiler_version=1, and target kind/
+text/source presence. Reports include the bounded selected targets and hashes,
+without recording the raw full prompt. No alternate compiler/eligibility path or
+shared production source changed. Synthetic profile artifact hashes are zero-filled
+placeholders, never evidence of model or worker execution.
+
+Actual final commands used the same manifest/locked/offline/owned target/temp
+environment above. Formatting and strict all-target Clippy passed. **Nine tests
+passed, zero failed/ignored**, in3.10s. The new controlled forwarding test leaves
+the actual direct compiler result untouched, removes commitments only from the
+parsed observed prompt at a cfg(test)-only capture seam, and verifies
+`gift-context-target-0` still passes while this check fails:
+
+```json
+{"id":"original-gift-0-prompt-targets","turn":"original-gift-0","stage":"retrieval","status":"failed","expected":[true],"actual":[false]}
+```
+
+The same scripted case in a fresh directory without that seam passes. The earlier
+compiler-omission failure/restoration test also remains and passed. Exact output
+is retained at `<task>/d07-eval-tests-forwarding-final.log`. These are injected
+assertion-boundary faults proving specified detection, not observed production
+bugs or model-usefulness evidence.
+
+A fresh non-test CLI `run <task>/d07-eval-forwarding-final --max-cases 1` paused
+with1 case and completed=false; `resume` then yielded **12 results:9 passed,
+0 failed,3 unsupported,196 checks**, completed=true, quality_accepted=false.
+The original gift's player text hash is
+`631216ff6a827d32efce1f87ba9ef8b7e1b9099fb78ed880181818311e0b06ee`;
+the captured compiler version is1 and its required return-key seed source is
+present. The scripted director+narrator still total2 calls, fallback=false,
+repairs=0. All unsupported/quality/device limitations above still apply.
+
+| Final local artifact / binding | Actual |
+|---|---|
+| report.json |78,128bytes; SHA256 `6ced89a159e9fa9c962840181d256d6daf3505ee4dee60d583a3aeced99ba089`|
+| report.html |110,983bytes; SHA256 `6838a591a7381dc645a4b0c2216f94c9d4bf8706ab49c235c9941cefdfd0cdbd`|
+| run binding SHA256 |`a4331f1964822154ac5a348d102ed95cc0c0cd06146d9243df1bbed03f5f4a4a`|
+
+These artifacts are separate from and do not replace the preliminary/failed runs.
+The binding covers exact raw compiled source bytes; integration changes or checkout
+line-ending changes intentionally require a fresh run rather than reusing this
+checkpoint as current evidence. Documentation bytes are outside that binding.
 
 ## Open work
 

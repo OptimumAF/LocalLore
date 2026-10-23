@@ -1656,17 +1656,7 @@ impl Host {
                     let original =
                         selected_turn_status(state, session, scope, turn).map_err(reject)?;
                     let selected = get_session(state, session, scope)?;
-                    let basis = selected
-                        .turns
-                        .get(turn)
-                        .and_then(|t| t.basis.clone())
-                        .map(Ok)
-                        .unwrap_or_else(|| {
-                            selected
-                                .engine
-                                .accepted_history_basis_at(original.request.expected_revision)
-                        })
-                        .map_err(reject)?;
+                    let basis = selected.engine.accepted_history_basis().map_err(reject)?;
                     let saved = state
                         .persistence
                         .as_mut()
@@ -1825,11 +1815,7 @@ impl Host {
                                 t.request.clone(),
                                 t.trace.clone(),
                                 t.receipt.clone(),
-                                t.basis.clone().or_else(|| {
-                                    s.engine
-                                        .accepted_history_basis_at(t.request.expected_revision)
-                                        .ok()
-                                }),
+                                s.engine.accepted_history_basis().ok(),
                             )
                         })
                         .collect();
@@ -2426,16 +2412,18 @@ fn selected_turn_status(
     scope: &Scope,
     turn: &str,
 ) -> Result<SavedTurn, String> {
-    let cached = state
-        .sessions
-        .get(session)
-        .and_then(|s| s.turns.get(turn))
-        .and_then(|t| t.basis.clone().map(|basis| (t.request.clone(), basis)));
+    let selected = state.sessions.get(session).ok_or("Closed")?;
+    let basis = selected
+        .engine
+        .accepted_history_basis()
+        .map_err(|error| error.to_string())?;
+    let cached = selected.turns.get(turn).map(|t| t.request.clone());
     let port = state.persistence.as_mut().ok_or("Unsupported")?;
-    match cached {
-        Some((request, basis)) => port.status_bound(&request, &basis),
-        None => port.status(scope, turn),
-    }
+    let request = match cached {
+        Some(request) => request,
+        None => port.status(scope, turn)?.request,
+    };
+    port.status_bound(&request, &basis)
 }
 fn attach_engine(state: &mut State, engine: Engine) -> Value {
     let Some(next) = state.next.checked_add(1) else {

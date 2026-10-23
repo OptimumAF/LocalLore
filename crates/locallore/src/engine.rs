@@ -24,6 +24,10 @@ impl AcceptedHistoryBasis {
     pub fn matches_request(&self, request: &Request) -> bool {
         self.scope == request.scope && self.revision == request.expected_revision
     }
+    /// Read/cleanup may guard a historical request with a stronger selected head.
+    pub fn covers_request(&self, request: &Request) -> bool {
+        self.scope == request.scope && self.revision >= request.expected_revision
+    }
 }
 
 struct BasisWriter {

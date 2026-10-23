@@ -418,7 +418,7 @@ impl Store {
         let tx = self.connection.transaction()?;
         let resumed = read_engine(&tx, &request.scope)?;
         if let Some(basis) = basis {
-            if !basis.matches_request(request)
+            if !basis.covers_request(request)
                 || !resumed
                     .engine
                     .matches_accepted_history(basis)
@@ -522,7 +522,7 @@ impl Store {
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
         let resumed = read_engine(&tx, &request.scope)?;
         if let Some(basis) = basis {
-            if !basis.matches_request(request)
+            if !basis.covers_request(request)
                 || !resumed
                     .engine
                     .matches_accepted_history(basis)

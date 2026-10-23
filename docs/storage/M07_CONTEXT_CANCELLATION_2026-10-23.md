@@ -5,7 +5,8 @@ Refs #11 M07.01/.04/.06, partial. Claim6360117335 preceded editing. Source
 Status: in_review; independent source review remains required before merge.
 
 `compile_cancelled` adds a native Rust cancellation callback; existing `compile`
-remains source-compatible. Cancellation and callback panic return Cancelled,
+keeps its signature. The public CompileError enum gains Cancelled, so downstream
+exhaustive Rust matches may need updating. Cancellation and callback panic return Cancelled,
 with no partial package. Production Play supplies its actual cancellation token
 and maps this error to the existing shared Cancelled category before inference.
 No inspector grant, new wire field, model access or generation permission exists.

@@ -72,9 +72,13 @@ fn configure(connection: &Connection) -> Result<()> {
     connection.busy_timeout(Duration::from_millis(250))?;
     connection.pragma_update(None, "foreign_keys", true)?;
     connection.pragma_update(None, "trusted_schema", false)?;
+    // Actor-scoped TEMP FTS contains story plaintext. Never spill that corpus to
+    // the OS temporary directory; require the connection-local memory policy.
+    connection.pragma_update(None, "temp_store", "MEMORY")?;
     connection.pragma_update(None, "synchronous", "FULL")?;
     let enabled: bool = connection.pragma_query_value(None, "foreign_keys", |r| r.get(0))?;
-    if !enabled {
+    let temp_store: u32 = connection.pragma_query_value(None, "temp_store", |r| r.get(0))?;
+    if !enabled || temp_store != 2 {
         return Err(StorageError::Integrity);
     }
     Ok(())
@@ -532,6 +536,80 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn file_owner_and_read_only_connections_require_memory_only_temp_fts() {
+        let path = std::env::temp_dir().join(format!(
+            "locallore-temp-policy-{}-{}.sqlite",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        {
+            let store = Store::open(&path, None).unwrap();
+            assert_eq!(
+                store
+                    .connection
+                    .pragma_query_value(None, "temp_store", |r| r.get::<_, u32>(0))
+                    .unwrap(),
+                2
+            );
+            store
+                .connection
+                .execute_batch("CREATE VIRTUAL TABLE temp.policy_probe USING fts5(body)")
+                .unwrap();
+            // Exercise the actual bundled FTS with a corpus larger than its
+            // usual small page cache, not merely a source-level PRAGMA check.
+            store
+                .connection
+                .execute(
+                    "INSERT INTO temp.policy_probe(body) VALUES(?1)",
+                    ["synthetic ".repeat(240_000)],
+                )
+                .unwrap();
+            let count: u32 = store
+                .connection
+                .query_row(
+                    "SELECT count(*) FROM temp.policy_probe WHERE policy_probe MATCH 'synthetic'",
+                    [],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            assert_eq!(count, 1);
+            let temporary_file: String = store
+                .connection
+                .query_row(
+                    "SELECT file FROM pragma_database_list WHERE name='temp'",
+                    [],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            assert!(temporary_file.is_empty());
+            store
+                .connection
+                .execute_batch("DROP TABLE temp.policy_probe")
+                .unwrap();
+            assert!(!store
+                .connection
+                .prepare("SELECT 1 FROM sqlite_temp_schema WHERE name GLOB 'policy_probe*'")
+                .unwrap()
+                .exists([])
+                .unwrap());
+        }
+        {
+            let store = Store::open_read_only(&path).unwrap();
+            assert_eq!(
+                store
+                    .connection
+                    .pragma_query_value(None, "temp_store", |r| r.get::<_, u32>(0))
+                    .unwrap(),
+                2
+            );
+        }
+        std::fs::remove_file(path).unwrap();
+    }
 
     #[test]
     fn failed_v1_upgrade_rolls_back_derived_ddl_migration_records_and_version() {

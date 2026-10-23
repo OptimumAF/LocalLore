@@ -1,7 +1,9 @@
 # M08 lineage consumers: source review — 2026-10-23
 
 Reviewed frozen coordinator implementation
-`6b243027b5d37e353c7f9def3fa5c162590c7fc6` on accepted main `d5a76d2`.
+`6b243027b5d37e353c7f9def3fa5c162590c7fc6` on accepted main `d5a76d2`, then
+source-rechecked the two test-only follow-ups through final source
+`0e36a637298913f650ce3f0ce616e71f22cb24ab` (including `cd8e55b`).
 Reviewer `/root/app_storage_review`, isolated branch
 `review/m08-lineage-consumers`; claims #12 comment 6361024616 and #11 6361024882.
 Only this new report was written. No production edits, builds, test execution,
@@ -9,7 +11,8 @@ models, app/device/CUA operations or protected resources were used in this revie
 
 ## Disposition and independence
 
-No concrete blocking defect was identified in the seven-file frozen change.
+No concrete blocking defect was identified in the frozen implementation or its
+test-only follow-ups.
 This is a bounded source review, not an execution result, human acceptance,
 favorable score or full M07/M08/D08 gate. The coordinator owns integrated
 workspace/eval/platform execution and publication; their results must be recorded
@@ -102,7 +105,7 @@ work limits, not a new immediate-cancellation or zero-copy guarantee. Repeated
 historical/TurnDiff requests can cost repeated replay. No new hard latency or
 peak-memory measurement is claimed here.
 
-## Tests inspected and useful follow-up vector
+## Tests inspected and follow-up source recheck
 
 The source adds six core tests and one actual Store-reopen integration case.
 They assert original receipt scopes/current-head equality, zero/historical/partial
@@ -113,17 +116,27 @@ feeds a reopened durable child into compiler/query while checking cache Unsuppor
 These are meaningful assertions inspected in source; **the reviewer did not run
 them** and does not infer outcomes from their existence.
 
-An optional targeted strengthening, not a demonstrated defect: apply compiler,
-History/Provenance/TurnDiff and a hostile later-parent search to the positive
-pre-birth `root5 -> a@5(+local6) -> b@1(+local2)` family, at b revisions 0/1/2.
-Assert child-bound package metadata, original root/b EventRow scopes, no a/future
-field or count, and before-revision provenance. The new small nested case covers
-same-birth and zero rewinds; the stronger positive pre-birth family currently
-appears in older Store/archive fixtures rather than these consumer tests.
+The review's optional positive pre-birth consumer vector is now addressed in
+source by `0e36a63`: `root5 -> a@5(+local6) -> b@1(+local2)`, selected at b
+revisions 0/1/2. The new test checks compiler inclusion/exclusion, original root
+receipt scope, child-bound query metadata and exclusion of later parent/local
+canaries across History, Profiles, Knowledge and TurnDiff, plus nonmutation.
+This adds a seventh core test; it is no longer an outstanding review suggestion.
+The reviewer inspected the new assertion source and did not execute it.
+
+`cd8e55b` changes only the older durable-branch test's now-superseded compiler
+and query Unsupported expectations to successful child-bound results. It retains
+the actual derived-cache Unsupported assertion. This reconciles an obsolete test
+contract with the intended capability, without changing implementation or
+weakening the cache guard. The coordinator reported a full-run failure on the
+old expectations before the repair; this review does not replace that actual
+failure with an inferred pass. Final execution remains coordinator-owned.
 
 ## Exact frozen file hashes
 
-SHA-256 of actual checkout bytes:
+SHA-256 of original frozen checkout bytes below; production source and the new
+Store integration test are unchanged through final `0e36a63`. The core test hash
+below belongs to the initial six-test source, not the seven-test follow-up.
 
 | File under crates/ | SHA-256 |
 | --- | --- |
@@ -132,6 +145,12 @@ SHA-256 of actual checkout bytes:
 | locallore/src/inspection_query.rs | `ba2f2fafb80cfa6e6d1d7feea35bcd3e025eddc6336d5c89a9ae19b7fd4a1626` |
 | locallore/tests/lineage_consumers.rs | `c06e93d7fb590449151d12591ad041f9af4fc6faff6ae531cf2667628ad66d0a` |
 | locallore-storage/tests/lineage_consumers.rs | `324753b263fd7026d086d7f8c77cfff16e72ca726ab26b9a955aff7e3c80fc19` |
+
+Final follow-up Git blob identities, read directly from `0e36a63` without
+altering the frozen implementation checkout:
+
+- `locallore/tests/lineage_consumers.rs`: `8ec12d407bddc95e16c2ded04d9ec157228a4b65`.
+- `locallore-storage/tests/durable_branches.rs`: `193079475be95f987939265c13679f73c5a3f6f7`.
 
 Next gate: coordinator's source-bound integrated checks and owner disposition.
 Maintain pending native/Android branch-session, cache-maintenance and portability

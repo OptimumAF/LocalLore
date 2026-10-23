@@ -64,7 +64,7 @@ pub fn inspection_database_copy(
     destination: &Path,
 ) -> Result<Vec<WorkspaceSummary>, String> {
     let source = Store::open_read_only(source).map_err(storage)?;
-    source.backup_to(destination).map_err(storage)?;
+    source.backup_inspection_to(destination).map_err(storage)?;
     let mut copy = Store::open_read_only(destination).map_err(storage)?;
     Ok(copy
         .stories()

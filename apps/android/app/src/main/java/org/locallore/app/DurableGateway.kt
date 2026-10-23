@@ -15,6 +15,7 @@ internal interface WorkspaceTransport {
 /** No gameplay rules or ledger live here. Only authoritative player snapshots reach the UI. */
 internal class DurableGateway(private val transport: WorkspaceTransport) : DemoGateway {
     override val durable = true
+    override val storyRecords = true
     private var session: String? = null
     private var scope: JSONObject? = null
     private var revision = 0L
@@ -32,6 +33,22 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
         return reply.getJSONObject("data")
     }
     private fun command(op: String) = JSONObject().put("op", op)
+    override suspend fun readStoryRecord(query: StoryRecordQuery): StoryRecordPage {
+        val capturedSession = session ?: throw StoryRecordFailure(StoryRecordProblem.UNAVAILABLE)
+        val capturedScope = scope ?: throw StoryRecordFailure(StoryRecordProblem.UNAVAILABLE)
+        fun current() = !closed.get() && session == capturedSession && operation == null &&
+            revision == query.context.revision && scope === capturedScope &&
+            capturedScope.getString("story") == query.context.story.story &&
+            capturedScope.getString("branch") == query.context.story.branch
+        if (!current()) throw StoryRecordFailure(StoryRecordProblem.STALE)
+        val data = try { call(StoryRecordWire.command(capturedSession, query)) }
+        catch (failure: WorkspaceFailure) {
+            throw StoryRecordFailure(if (failure.category in setOf("Stale", "Scope", "Session"))
+                StoryRecordProblem.STALE else StoryRecordProblem.UNAVAILABLE)
+        }
+        if (!current()) throw StoryRecordFailure(StoryRecordProblem.STALE)
+        return StoryRecordWire.decode(data, query)
+    }
     private fun scoped(op: String, pending: Pending? = null): JSONObject = command(op)
         .put("session", pending?.session ?: checkNotNull(session))
         .put("scope", pending?.scope ?: checkNotNull(scope))

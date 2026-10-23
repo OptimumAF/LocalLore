@@ -70,6 +70,11 @@ not delete saves. All SQLite/replay/JNI work runs on IO workers. Generation runs
 outside the canonical lock and SQLite transaction. A lost commit acknowledgement
 is looked up with its original turn key; **Recover saved progress** retries
 uncertain work without allocating a new key. See [app durability](../../docs/native/APP_DURABILITY.md).
+Full or Busy storage errors show fixed recovery guidance and retain the original
+request. The confirmed snapshot stays visible until recovery obtains an accepted
+native outcome; new turns and mode changes stay disabled during uncertainty.
+The [storage recovery report](../../docs/native/STORAGE_RECOVERY_VERIFICATION_2026-10-22.md)
+distinguishes injected error replies from actual SQLite exhaustion.
 Cancellation that reaches Rust before submit exists is reconciled as an uncommitted
 request. A late submit remains a draft; recovery does not regenerate or commit it.
 The earlier [ADR-0004](../../docs/adr/0004-android-engine-boundary.md) remains the
@@ -120,6 +125,7 @@ actual events/resources, invalid arrays and repeated cancellation/disposal;
 Compose tests cover flows, reset/recreation/disposal and doubled-font layout.
 Exact evidence is in [native verification](../../docs/native/VERIFICATION_2026-10-22.md).
 
-Shared durability is wired to the app; real-device/process-kill instrumentation
-and M01 physical/model feasibility remain separate unmeasured gates.
+Shared durability is wired to the app; the reports above record explicit
+process-stop/resume checks on two selected API 35 x86_64 emulators. Physical
+phones, ARM64 execution and M01 model feasibility remain separate unmeasured gates.
 Local build checks do not establish hosted CI execution or release readiness.

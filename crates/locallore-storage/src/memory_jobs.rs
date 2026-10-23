@@ -246,7 +246,7 @@ fn validate(engine: &Engine, request: &MemoryJobRequest, cancel: &dyn Fn() -> bo
     Ok(())
 }
 fn read_job(connection: &Connection, handle: &MemoryJobHandle) -> Result<Job> {
-    let row=connection.query_row("SELECT basis_revision,next_from,generation,status,last_error,seed_sha256,lineage_sha256,source_sha256 FROM memory_jobs WHERE job_id=?1 AND story_id=?2 AND branch_id=?3 AND observer_id=?4 AND method=?5 AND summary_version=2",
+    let row=connection.query_row("SELECT basis_revision,next_from,generation,CASE WHEN length(CAST(status AS BLOB))<=9 THEN status ELSE '' END,CASE WHEN last_error IS NULL OR length(CAST(last_error AS BLOB))<=12 THEN last_error ELSE '!' END,CASE WHEN length(CAST(seed_sha256 AS BLOB))=64 THEN seed_sha256 ELSE '' END,CASE WHEN length(CAST(lineage_sha256 AS BLOB))=64 THEN lineage_sha256 ELSE '' END,CASE WHEN length(CAST(source_sha256 AS BLOB))=64 THEN source_sha256 ELSE '' END FROM memory_jobs WHERE job_id=?1 AND story_id=?2 AND branch_id=?3 AND observer_id=?4 AND method=?5 AND summary_version=2",
         params![integer(handle.id)?,handle.scope.story,handle.scope.branch,handle.observer,coverage::METHOD],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,i64>(1)?,r.get::<_,i64>(2)?,r.get::<_,String>(3)?,r.get::<_,Option<String>>(4)?,r.get::<_,String>(5)?,r.get::<_,String>(6)?,r.get::<_,String>(7)?))).optional()?.ok_or(MemoryError::NotFound)?;
     let info = MemoryJobInfo {
         handle: handle.clone(),
@@ -256,7 +256,15 @@ fn read_job(connection: &Connection, handle: &MemoryJobHandle) -> Result<Job> {
         status: MemoryJobStatus::parse(&row.3)?,
         last_error: row.4.as_deref().map(MemoryJobFailure::parse).transpose()?,
     };
-    if info.generation == 0 || info.next_from > info.basis_revision {
+    if info.generation == 0
+        || info.next_from > info.basis_revision
+        || (info.status == MemoryJobStatus::Complete && info.next_from != info.basis_revision)
+        || (info.status == MemoryJobStatus::Ready && info.next_from == info.basis_revision)
+        || ((info.status == MemoryJobStatus::Blocked) != info.last_error.is_some())
+        || [&row.5, &row.6, &row.7]
+            .iter()
+            .any(|hash| hash.len() != 64 || !hash.bytes().all(|b| b.is_ascii_hexdigit()))
+    {
         return Err(MemoryError::Integrity);
     }
     Ok(Job {
@@ -647,11 +655,21 @@ impl Store {
         let engine = Self::memory_engine(&tx, &request.scope, cancel)?;
         validate(&engine, request, cancel)?;
         // No writes, admission, cursor repair, or canonical mutation on a read.
-        let bytes = match find_job(&tx, request, &self.memory_job_owner)? {
-            Some(job) => packets(&tx, &job.info.handle)?,
-            None => vec![],
+        let coverage = match find_job(&tx, request, &self.memory_job_owner) {
+            Ok(job) => {
+                let bytes = job
+                    .map(|job| packets(&tx, &job.info.handle))
+                    .transpose()?
+                    .unwrap_or_default();
+                verify(&engine, request, &bytes, cancel)?
+            }
+            // Only derived metadata is rejected here. Strict canonical replay
+            // already succeeded above; preserve usable raw context without a write.
+            Err(MemoryError::Integrity) => {
+                CoverageRead::RawFallback(coverage::FallbackReason::Malformed)
+            }
+            Err(error) => return Err(error),
         };
-        let coverage = verify(&engine, request, &bytes, cancel)?;
         check(cancel)?;
         tx.commit()?;
         Ok(ContextSnapshot { engine, coverage })

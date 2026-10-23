@@ -40,6 +40,7 @@ for (const marker of [
     "d05-external-wait",
     "d06-native-default-disabled",
     "d06-external-wait",
+    "legacy-v1-native-migrated-resume",
     "export-snapshot-independent-of-later-turn",
 ])
     assert(

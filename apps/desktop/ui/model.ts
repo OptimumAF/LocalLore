@@ -69,6 +69,7 @@ export interface Workspace {
     persistent: true;
     location: string;
     schema_version: number;
+    database_schema_version?: number;
     stories: SavedStory[];
 }
 export interface Session {

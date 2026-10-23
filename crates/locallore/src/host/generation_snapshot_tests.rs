@@ -90,6 +90,83 @@ impl Persistence for OverridePort {
         unreachable!()
     }
 }
+/// Deliberately invokes the supplied callback without its own panic catcher.
+/// The new Host port must hand every override a safe cancellation boundary.
+struct CallbackPort(Engine);
+impl Persistence for CallbackPort {
+    fn location(&self) -> &str {
+        "synthetic-native-callback"
+    }
+    fn list(&mut self) -> Result<Vec<WorkspaceSummary>, String> {
+        unreachable!()
+    }
+    fn create(&mut self) -> Result<Engine, String> {
+        unreachable!()
+    }
+    fn resume(&mut self, _: &Scope) -> Result<Engine, String> {
+        unreachable!()
+    }
+    fn generation_snapshot(
+        &mut self,
+        _: &Scope,
+        _: u64,
+        _: &str,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<HostGenerationSnapshot, String> {
+        if cancel() {
+            return Err("Cancelled".into());
+        }
+        Ok(HostGenerationSnapshot {
+            engine: self.0.clone(),
+            coverage: CoverageRead::RawFallback(FallbackReason::Missing),
+        })
+    }
+    fn begin(&mut self, _: &Request) -> Result<SavedTurn, String> {
+        unreachable!()
+    }
+    fn commit(&mut self, _: &Request, _: &Proposal, _: &str) -> Result<Receipt, String> {
+        unreachable!()
+    }
+    fn cancel(&mut self, _: &Request) -> Result<SavedTurn, String> {
+        unreachable!()
+    }
+    fn fail(&mut self, _: &Request) -> Result<SavedTurn, String> {
+        unreachable!()
+    }
+    fn stale(&mut self, _: &Request) -> Result<SavedTurn, String> {
+        unreachable!()
+    }
+    fn status(&mut self, _: &Scope, _: &str) -> Result<SavedTurn, String> {
+        unreachable!()
+    }
+}
+
+#[test]
+fn cancellation_panic_inside_override_is_cancelled_and_host_owner_remains_usable() {
+    let actual = engine();
+    let host = Host::with_persistence(false, Box::new(CallbackPort(actual.clone())));
+    let session = attach(&host, actual.clone());
+    let calls = AtomicUsize::new(0);
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        host.generation_snapshot(&session, actual.scope(), 0, &|| {
+            if calls.fetch_add(1, Ordering::SeqCst) > 0 {
+                panic!("synthetic callback panic inside native override");
+            }
+            false
+        })
+    }));
+    assert!(
+        host.generation_snapshot(&session, actual.scope(), 0, &|| false)
+            .is_ok(),
+        "callback rejection must leave Host owner usable"
+    );
+    assert!(
+        result.is_ok(),
+        "callback panic must not escape native override"
+    );
+    assert_eq!(error(result.unwrap()), "Cancelled");
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+}
 fn engine() -> Engine {
     Engine::new(
         serde_json::from_str(include_str!("../../../../fixtures/lantern_quay.json")).unwrap(),

@@ -19,6 +19,7 @@ declare global {
             stage: "initial" | "reopened" | "restart";
             durable?: boolean;
             failure?: boolean;
+            exporting?: boolean;
         };
     }
 }
@@ -51,7 +52,15 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
         __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.durable
             ? await import("./durable-journeys")
             : null;
-    const run = durableDriver ? durableDriver.durableJourneys : driver.journeys;
+    const exportDriver =
+        __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.exporting
+            ? await import("./export-journeys")
+            : null;
+    const run = exportDriver
+        ? exportDriver.exportJourneys
+        : durableDriver
+          ? durableDriver.durableJourneys
+          : driver.journeys;
     await run({
         controller,
         gateway: gateway as InstanceType<typeof driver.FaultGateway>,

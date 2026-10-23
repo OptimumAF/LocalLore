@@ -1,8 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use locallore::host::Host;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::sync::Arc;
 use tauri::Manager;
+mod export_commands;
+mod exports;
 mod lease;
 use lease::WindowLease;
 #[cfg(feature = "dev-harness")]
@@ -18,6 +20,7 @@ struct WorkspaceState {
     path: std::path::PathBuf,
     lease: Arc<WindowLease>,
     host: tokio::sync::OnceCell<Arc<Host>>,
+    preview_cleanup: Arc<std::sync::Mutex<Value>>,
 }
 impl WorkspaceState {
     async fn get(&self, epoch: u64) -> Result<Arc<Host>, String> {
@@ -25,6 +28,7 @@ impl WorkspaceState {
             .get_or_try_init(|| async {
                 let path = self.path.clone();
                 let lease = self.lease.clone();
+                let cleanup = self.preview_cleanup.clone();
                 tauri::async_runtime::spawn_blocking(move || {
                     lease.dispatch(epoch, || {
                         #[cfg(feature = "dev-harness")]
@@ -35,6 +39,13 @@ impl WorkspaceState {
                         }
                         let parent = path.parent().ok_or_else(|| "InvalidInput".to_owned())?;
                         std::fs::create_dir_all(parent).map_err(|_| "Io".to_owned())?;
+                        let report = exports::reap_private_previews(
+                            &parent.join("inspection-preview-cache"),
+                        )
+                        .unwrap_or_else(|error| json!({"unavailable":error}));
+                        if let Ok(mut value) = cleanup.lock() {
+                            *value = report;
+                        }
                         locallore_workspace::open(&path, true).map(Arc::new)
                     })
                 })
@@ -109,9 +120,10 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
             if reopened {
                 "reopened"
             } else if std::env::var("LOCALLORE_TEST_RESTART").as_deref() == Ok("1") {
@@ -223,12 +235,23 @@ fn main() {
         test_bridge::run();
         return;
     }
-    let builder = tauri::Builder::default().manage(Arc::new(tokio::sync::Semaphore::new(4)));
+    let builder = tauri::Builder::default()
+        .manage(Arc::new(tokio::sync::Semaphore::new(4)))
+        .manage(Arc::new(exports::ExportBroker::default()));
     #[cfg(feature = "dev-harness")]
     let builder = builder
         .manage(Reopen(AtomicBool::new(false)))
+        .manage(export_commands::TestExportState::default())
         .invoke_handler(tauri::generate_handler![
             host_call,
+            export_commands::inspection_preview,
+            export_commands::inspection_database_preview,
+            export_commands::inspection_save,
+            export_commands::inspection_cancel,
+            export_commands::inspection_open,
+            export_commands::inspection_storage,
+            export_commands::inspection_load,
+            export_commands::harness_export_case,
             harness::harness_checkpoint,
             harness::harness_viewport,
             harness::harness_finish,
@@ -237,7 +260,16 @@ fn main() {
             harness_reopen
         ]);
     #[cfg(not(feature = "dev-harness"))]
-    let builder = builder.invoke_handler(tauri::generate_handler![host_call]);
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        host_call,
+        export_commands::inspection_preview,
+        export_commands::inspection_database_preview,
+        export_commands::inspection_save,
+        export_commands::inspection_cancel,
+        export_commands::inspection_open,
+        export_commands::inspection_storage,
+        export_commands::inspection_load
+    ]);
     builder
         .setup(|app| {
             let path = app.path().app_local_data_dir()?.join("stories-v1.sqlite");
@@ -254,6 +286,7 @@ fn main() {
                 path,
                 lease: Arc::new(WindowLease::default()),
                 host: tokio::sync::OnceCell::new(),
+                preview_cleanup: Arc::new(std::sync::Mutex::new(json!({"pending":true}))),
             });
             #[cfg(feature = "dev-harness")]
             if harness::active() {
@@ -272,6 +305,9 @@ fn main() {
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 let state = window.state::<WorkspaceState>();
                 if let Some(closed) = state.lease.invalidate(window.label()) {
+                    window
+                        .state::<Arc<exports::ExportBroker>>()
+                        .invalidate(closed - 1);
                     let lease = state.lease.clone();
                     let host = state.ready();
                     tauri::async_runtime::spawn_blocking(move || {

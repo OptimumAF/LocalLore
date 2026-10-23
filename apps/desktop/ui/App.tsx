@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { Controller } from "./controller";
+import { InspectionPanel } from "./InspectionPanel";
 import { PAGE_SIZE, composerShortcut } from "./model";
 import type { Action, FakeMode, Receipt } from "./model";
 const actions: Record<Action, string> = {
@@ -76,6 +77,14 @@ export function App({ controller: c }: { controller: Controller }) {
                             </small>
                         </button>
                     ))}
+                    <div className="export-actions">
+                        <button onClick={() => c.showExports()}>
+                            Inspection snapshots
+                        </button>
+                        <button onClick={() => void c.revealStorage()}>
+                            Reveal storage in app
+                        </button>
+                    </div>
                     <h3>Open in this window</h3>
                     <button
                         className="new"
@@ -231,6 +240,7 @@ export function App({ controller: c }: { controller: Controller }) {
                             not change character knowledge or permissions.
                         </div>
                     )}
+                    <InspectionPanel controller={c} state={s} />
                     <div
                         className="transcript"
                         aria-label="Finalized transcript"
@@ -610,7 +620,7 @@ export function App({ controller: c }: { controller: Controller }) {
                           ? "In-memory progress · lost on close"
                           : "Storage must open before play"}
                 </span>
-                <span>No real model, export or arbitrary story generator</span>
+                <span>No real model or arbitrary story generator</span>
             </footer>
         </div>
     );

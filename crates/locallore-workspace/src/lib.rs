@@ -56,6 +56,28 @@ pub fn open(path: &Path, story_lab: bool) -> Result<Host, String> {
         Box::new(Repository { store, location }),
     ))
 }
+/// Trusted native-only explicit private SQLite-tool copy, including every saved story/draft.
+/// Caller owns source/destination authority and staging/finalization; no renderer paths accepted.
+/// Uses SQLite backup, never a live .db file copy. Returned heads are read from the actual copy.
+pub fn inspection_database_copy(
+    source: &Path,
+    destination: &Path,
+) -> Result<Vec<WorkspaceSummary>, String> {
+    let source = Store::open_read_only(source).map_err(storage)?;
+    source.backup_inspection_to(destination).map_err(storage)?;
+    let mut copy = Store::open_read_only(destination).map_err(storage)?;
+    Ok(copy
+        .stories()
+        .map_err(storage)?
+        .into_iter()
+        .map(|s| WorkspaceSummary {
+            scope: s.scope,
+            title: s.title,
+            revision: s.revision,
+            drafts: s.drafts,
+        })
+        .collect())
+}
 impl Persistence for Repository {
     fn location(&self) -> &str {
         &self.location

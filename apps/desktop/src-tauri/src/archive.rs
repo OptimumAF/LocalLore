@@ -1015,7 +1015,7 @@ mod tests {
         let r = run(&b, &l, e, move |w| {
             publish(w, &token, Some(destination), None)
         });
-        assert_eq!(r["result"]["status"], "exported");
+        assert_eq!(r["result"]["status"], "exported", "{r}");
         let result: Value =
             serde_json::from_slice(&fs::read(r["result"]["location"].as_str().unwrap()).unwrap())
                 .unwrap();

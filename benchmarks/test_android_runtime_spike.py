@@ -23,6 +23,33 @@ def envelope(metrics=None, output=None):
 
 
 class SdkEnvelopeTests(unittest.TestCase):
+    def test_probe_native_recovery_retains_the_failed_oracle_stage(self):
+        failed = spike.RemoteResult("setup_failed", 1, True, failure_stage="native_write_request",
+                                    adb_cleanup_complete=True)
+        native = SimpleNamespace(run=lambda *args, **kwargs: failed)
+        recovery = {}
+        self.assertFalse(control.fixture_ok(native, "oracle", recovery))
+        self.assertEqual(recovery["oracle_runs"][0]["failure_stage"], "native_write_request")
+        self.assertFalse(recovery["check_passed"])
+
+    def test_probe_sdk_recovery_keeps_diagnostics_separate_from_the_original_fault(self):
+        failed = spike.RemoteResult("setup_failed", 1, True, failure_stage="native_create_run")
+        native = SimpleNamespace(run=unittest.mock.Mock(return_value=failed))
+        sdk = SimpleNamespace(run=unittest.mock.Mock(return_value=spike.RemoteResult(
+            "setup_failed", 1, True, failure_stage="sdk_write_request")))
+        recovery = {"check_passed": False, "status": "cleanup_failed",
+                    "cleanup_failure_stage": "sdk_stop_absence", "oracle_runs": []}
+        rows = []
+        with patch.object(spike, "NativeWorker", return_value=native), \
+                patch.object(control, "fixture_ok", return_value=True), \
+                patch.object(spike, "oracle", return_value={"director": {}}), \
+                patch.object(spike, "SdkWorker", return_value=sdk), \
+                patch.object(spike, "sdk_diagnostic", return_value=recovery):
+            control.probes(None, "owner", "oracle", "1" * 64, rows)
+        self.assertEqual(rows[3]["failure_stage"], "sdk_write_request")
+        self.assertEqual(rows[3]["recovery"]["cleanup_failure_stage"], "sdk_stop_absence")
+        self.assertFalse(rows[3]["passed"])
+
     def test_probe_retains_failed_attempt_when_fresh_recovery_also_fails(self):
         rows = []
         failed = spike.RemoteResult("setup_failed", 1, True, failure_stage="native_create_run")

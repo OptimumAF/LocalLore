@@ -24,10 +24,16 @@ install an APK, contact a device or fetch model weights. It verifies the existin
 repository Gradle wrapper before invoking Java. The debug APK is at
 `app/build/outputs/apk/debug/app-debug.apk` relative to this directory.
 
-The runner deliberately exits 2 when AGP's lint analyzer cannot read Kotlin 2.4
-metadata, even if assembly, JVM tests and the APK audit succeed. Read the
-[source and compatibility evidence](../../../../docs/runtime/android/LITERT_SOURCES_2026-10-22.md).
-No suppression or dependency downgrade masks this limitation.
+The isolated project pins lint 9.4.1 (artifact 32.4.1) through Google's documented
+experimental analyzer override, retaining AGP and the production toolchain.
+The runner compares the actual analyzer classpath with its locked hash manifest,
+checks SDK/Kotlin dependency analysis and rejects metadata/infrastructure errors
+even when Gradle returns zero. Normal assembly, JVM tests, lint and APK audits
+must all pass. `--probe-incompatible-analyzer` instead reproduces the original
+analyzer's metadata failure and deliberately returns 2. Read the
+[analyzer evidence](../../../../docs/runtime/android/LITERT_ANALYZER_2026-10-22.md)
+and [SDK source review](../../../../docs/runtime/android/LITERT_SOURCES_2026-10-22.md).
+No suppression or dependency downgrade masks the old analyzer's limitation.
 
 An authorized coordinator owns installation and every device interaction. The
 single APK self-instrumentation component is:

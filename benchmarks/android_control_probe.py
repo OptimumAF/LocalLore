@@ -55,10 +55,14 @@ class InjectedDevice:
         return self.device.raw(*args, **kwargs)
 
 
-def fixture_ok(native, oracle):
-    reply = spike.oracle(native, oracle, "fixture", "gift")
-    return bool(reply and reply.get("revision") == 0 and reply.get("preflight_error") is None
-                and isinstance(reply.get("director"), dict))
+def fixture_ok(native, oracle, report):
+    report.update(status="oracle_failed", check_passed=False, oracle_runs=[])
+    reply = spike.oracle(spike.ObservedOracle(native, report["oracle_runs"]), oracle, "fixture", "gift")
+    report["check_passed"] = bool(reply and reply.get("revision") == 0 and reply.get("preflight_error") is None
+                                 and isinstance(reply.get("director"), dict))
+    if report["check_passed"]:
+        report["status"] = "fixture_valid"
+    return report["check_passed"]
 
 
 def probes(device, owner, oracle, apk_sha256, rows):
@@ -74,7 +78,8 @@ def probes(device, owner, oracle, apk_sha256, rows):
         if injected.run_directory:
             device.script("[ ! -e " + shlex.quote(injected.run_directory) + " ]")
             absent = True
-        recovered = fixture_ok(native, oracle)
+        row["recovery"] = {}
+        recovered = fixture_ok(native, oracle, row["recovery"])
         row.update(launcher_calls=injected.launches, owned_directory_absent=absent, fresh_fixture_valid=recovered)
         row["passed"] = bool(result.status == "setup_failed" and result.failure_stage == phase
             and result.cleanup_complete and result.adb_cleanup_complete and absent and recovered
@@ -85,14 +90,17 @@ def probes(device, owner, oracle, apk_sha256, rows):
         injected = InjectedDevice(device, fault)
         row = {"check": "sdk_" + fault, "injected": True, "passed": False}
         rows.append(row)
-        fixture = spike.oracle(native, oracle, "fixture", "gift")
+        row["setup_oracle_runs"] = []
+        fixture = spike.oracle(spike.ObservedOracle(native, row["setup_oracle_runs"]), oracle, "fixture", "gift")
         if not fixture or not isinstance(fixture.get("director"), dict):
             raise spike.Failure("fixture_failed", command_cleaned=True)
         data = json.dumps(fixture["director"]).encode("utf-8")
         result = spike.SdkWorker(injected, apk_sha256, mode).run("unused", [], data, deadline=30)
         row.update(spike.remote_metadata(result))
         # Explicit recovery follows the retained fault result; it does not relabel it completed.
+        row["recovery"] = {"status": "not_started", "check_passed": False}
         recovered = spike.sdk_diagnostic(spike.SdkWorker(device, apk_sha256, "missing"), native, oracle, "missing")
+        row["recovery"].update(recovered)
         row.update(launcher_calls=injected.launches, output_discarded=result.stdout == b"" and result.metrics == {},
                    fresh_missing_valid=recovered.get("check_passed") is True)
         if fault == "final_stop":

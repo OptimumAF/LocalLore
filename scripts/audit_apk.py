@@ -74,7 +74,8 @@ def audit_zip(path):
 
 
 def audit_manifest(badging, tree, package="org.locallore.app"):
-    require(package in ("org.locallore.app", "org.locallore.app.capacity"), "Unreviewed app package")
+    require(package in ("org.locallore.app", "org.locallore.app.capacity", "org.locallore.app.capacityrelief"),
+            "Unreviewed app package")
     permission = package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
     require(re.search(r"^package: name='" + re.escape(package) + r"' ", badging, re.M), "Wrong app package")
     require(re.search(r"^minSdkVersion:'26'$", badging, re.M), "Minimum SDK changed")

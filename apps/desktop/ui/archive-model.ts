@@ -1,5 +1,7 @@
 import type { Scope } from "./model";
 export const archiveErrors = new Set([
+    "Transport",
+    "ArchiveAcknowledgementUnavailable",
     "Malformed",
     "Unsupported",
     "Integrity",
@@ -186,7 +188,28 @@ export function decodeStatus(v: unknown): ArchiveStatus {
             (typeof r.error !== "string" || !archiveErrors.has(r.error))
         )
             wire();
+        if (
+            r.status === "failed" &&
+            !(
+                typeof r.staging_cleanup_complete === "boolean" ||
+                typeof r.cleanup_complete === "boolean"
+            )
+        )
+            wire();
+        for (const key of ["staging_cleanup_complete", "cleanup_complete"])
+            if (r[key] !== undefined && typeof r[key] !== "boolean") wire();
     }
     if (v.running && (v.result !== null || v.error !== null)) wire();
+    if (v.running && ["completed", "error"].includes(String(v.phase))) wire();
+    if (
+        !v.running &&
+        !(
+            (v.phase === "completed" &&
+                v.result !== null &&
+                v.error === null) ||
+            (v.phase === "error" && v.result === null && v.error !== null)
+        )
+    )
+        wire();
     return v as unknown as ArchiveStatus;
 }

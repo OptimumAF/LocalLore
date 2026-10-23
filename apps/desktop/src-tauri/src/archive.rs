@@ -46,6 +46,11 @@ pub fn pin(path: &Path) -> Result<Vec<File>> {
     {
         return Err("UnsafeArchivePath".into());
     }
+    #[cfg(windows)]
+    if !matches!(path.components().next(),Some(std::path::Component::Prefix(p)) if matches!(p.kind(),std::path::Prefix::Disk(_)|std::path::Prefix::VerbatimDisk(_)))
+    {
+        return Err("UnsafeArchivePath".into());
+    }
     let absolute = std::path::absolute(path).map_err(|_| "ArchiveIo")?;
     let mut paths: Vec<_> = absolute.ancestors().collect();
     paths.reverse();
@@ -77,6 +82,26 @@ pub fn pin(path: &Path) -> Result<Vec<File>> {
         }
     }
     Ok(handles)
+}
+fn space(path: &Path, required: u64) -> Result<()> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStrExt;
+        use windows::{core::PCWSTR, Win32::Storage::FileSystem::GetDiskFreeSpaceExW};
+        let name: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+        let mut available = 0;
+        unsafe { GetDiskFreeSpaceExW(PCWSTR(name.as_ptr()), Some(&mut available), None, None) }
+            .map_err(|_| "ArchiveIo")?;
+        if available < required {
+            return Err("Full".into());
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (path, required);
+        return Err("Unsupported".into());
+    }
+    Ok(())
 }
 pub fn read_input(path: &Path) -> Result<Vec<u8>> {
     let pins = pin(path)?;
@@ -138,8 +163,14 @@ pub struct ArchiveBroker {
     registration: Mutex<()>,
     #[cfg(any(test, feature = "dev-harness"))]
     pub hold: AtomicBool,
+    #[cfg(any(test, feature = "dev-harness"))]
+    pub collision: AtomicBool,
+    #[cfg(any(test, feature = "dev-harness"))]
+    pub drop_import_ack: AtomicBool,
     #[cfg(test)]
     fail_spawn: AtomicBool,
+    #[cfg(test)]
+    before_spawn: Mutex<Option<(Arc<std::sync::Barrier>, Arc<std::sync::Barrier>)>>,
 }
 impl Default for ArchiveBroker {
     fn default() -> Self {
@@ -149,8 +180,14 @@ impl Default for ArchiveBroker {
             registration: Mutex::new(()),
             #[cfg(any(test, feature = "dev-harness"))]
             hold: AtomicBool::new(false),
+            #[cfg(any(test, feature = "dev-harness"))]
+            collision: AtomicBool::new(false),
+            #[cfg(any(test, feature = "dev-harness"))]
+            drop_import_ack: AtomicBool::new(false),
             #[cfg(test)]
             fail_spawn: AtomicBool::new(false),
+            #[cfg(test)]
+            before_spawn: Mutex::new(None),
         }
     }
 }
@@ -310,6 +347,11 @@ impl ArchiveBroker {
                     (operation, cancel)
                 };
                 let (start, registered) = std::sync::mpsc::channel();
+                #[cfg(test)]
+                if let Some((entered, release)) = self.before_spawn.lock().unwrap().take() {
+                    entered.wait();
+                    release.wait();
+                }
                 let broker = self.clone();
                 let copy = lease.clone();
                 let task = move || {
@@ -387,7 +429,11 @@ impl ArchiveBroker {
                 )
             });
             drop(registration);
-            return result;
+            return if lease.valid(epoch) {
+                result
+            } else {
+                Err("Closed".into())
+            };
         }
     }
     pub fn retire(&self, epoch: u64) {
@@ -476,6 +522,7 @@ pub fn publish(
     };
     w.phase("writing")?;
     let _parents = pin(&destination)?;
+    space(&destination, bytes.len() as u64 + 16 * 1024 * 1024)?;
     if !fs::metadata(&destination)
         .map_err(|_| "ArchiveIo")?
         .is_dir()
@@ -501,6 +548,10 @@ pub fn publish(
         file.sync_all().map_err(|_| "ArchiveIo")?;
         w.lease.dispatch(w.epoch, || {
             w.check()?;
+            #[cfg(any(test, feature = "dev-harness"))]
+            if w.broker.collision.swap(false, Ordering::SeqCst) {
+                fs::write(&target, b"fixed existing collision file").map_err(|_| "ArchiveIo")?;
+            }
             exports::atomic_finalize(&file, &stage, &target)
         })?;
         Ok(
@@ -554,6 +605,7 @@ pub fn import(w: &Work, token: &str, destination: &Path) -> Result<Value> {
     w.phase("staging")?;
     let parent = destination.parent().ok_or("UnsafeArchivePath")?;
     let _parents = pin(parent)?;
+    space(parent, 96 * 1024 * 1024)?;
     let staging_root = parent.join("archive-staging-v1");
     if !staging_root.exists() {
         fs::create_dir(&staging_root).map_err(|_| "ArchiveIo")?;
@@ -600,6 +652,10 @@ pub fn import(w: &Work, token: &str, destination: &Path) -> Result<Value> {
     let outcome = store
         .import_archive(*validated, &|| w.cancelled())
         .map_err(error)?;
+    #[cfg(any(test, feature = "dev-harness"))]
+    if w.broker.drop_import_ack.swap(false, Ordering::SeqCst) {
+        return Err("ArchiveAcknowledgementUnavailable".into());
+    }
     Ok(
         json!({"version":1,"status":"imported","root":outcome.root,"branches":outcome.branches,"committed_turns":outcome.committed_turns,"staging_cleanup_complete":true,"pending_workflow_resumed":false,"model_loaded":false}),
     )
@@ -902,5 +958,119 @@ mod tests {
             ))["result"]["status"],
             "cancelled"
         );
+    }
+    #[test]
+    fn destruction_between_admission_and_registration_waits_and_prevents_work() {
+        let (_root, b, l, e) = setup();
+        let entered = Arc::new(std::sync::Barrier::new(2));
+        let release = Arc::new(std::sync::Barrier::new(2));
+        *b.before_spawn.lock().unwrap() = Some((entered.clone(), release.clone()));
+        let wrote = Arc::new(AtomicBool::new(false));
+        let marker = wrote.clone();
+        let manager = b.clone();
+        let lease = l.clone();
+        let start = std::thread::spawn(move || {
+            manager.start(lease, e, move |_| {
+                marker.store(true, Ordering::SeqCst);
+                Ok(json!({"version":1,"status":"cancelled"}))
+            })
+        });
+        entered.wait();
+        let closed = l.invalidate("main-1").unwrap();
+        b.retire(e);
+        let drained = Arc::new(AtomicBool::new(false));
+        let done = drained.clone();
+        let manager = b.clone();
+        let drain = std::thread::spawn(move || {
+            manager.drain(e);
+            done.store(true, Ordering::SeqCst);
+        });
+        assert!(!drained.load(Ordering::SeqCst));
+        release.wait();
+        assert_eq!(start.join().unwrap().unwrap_err(), "Closed");
+        drain.join().unwrap();
+        assert!(!wrote.load(Ordering::SeqCst));
+        l.finish_close(closed, || {});
+    }
+    #[test]
+    fn collision_preserves_existing_file_and_exact_staging_cleanup() {
+        let (root, b, l, e) = setup();
+        let input = root.join("source.sqlite");
+        source(&input);
+        let r = run(&b, &l, e, move |w| capture(w, &input, "quay", "main", 1));
+        let token = r["result"]["token"].as_str().unwrap().to_owned();
+        let output = root.join("exports");
+        fs::create_dir(&output).unwrap();
+        b.collision.store(true, Ordering::SeqCst);
+        let folder = output.clone();
+        let r = run(&b, &l, e, move |w| publish(w, &token, Some(folder), None));
+        assert_eq!(r["result"]["error"], "ExportExists");
+        assert_eq!(r["result"]["cleanup_complete"], true);
+        let files = fs::read_dir(&output)
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .collect::<Vec<_>>();
+        assert_eq!(files.len(), 1);
+        assert_eq!(
+            fs::read(&files[0]).unwrap(),
+            b"fixed existing collision file"
+        );
+    }
+    #[test]
+    fn successful_import_with_lost_ack_is_visible_and_never_idempotent_success() {
+        let (root, b, l, e) = setup();
+        let input = root.join("input.json");
+        fs::write(&input, source(&root.join("source.sqlite"))).unwrap();
+        let target = root.join("target.sqlite");
+        Store::open_application(&target).unwrap();
+        let token = preview(&b, &l, e, input.clone());
+        b.drop_import_ack.store(true, Ordering::SeqCst);
+        let path = target.clone();
+        assert_eq!(
+            run(&b, &l, e, move |w| import(w, &token, &path))["error"],
+            "ArchiveAcknowledgementUnavailable"
+        );
+        assert_eq!(
+            Store::open_read_only(&target)
+                .unwrap()
+                .stories()
+                .unwrap()
+                .len(),
+            1
+        );
+        let token = preview(&b, &l, e, input);
+        assert_eq!(
+            run(&b, &l, e, move |w| import(w, &token, &target))["error"],
+            "Conflict"
+        );
+    }
+    #[test]
+    fn pinned_ancestor_cannot_move_and_junction_parent_never_reaches_input() {
+        let (root, _b, _l, _e) = setup();
+        let actual = root.join("real");
+        fs::create_dir(&actual).unwrap();
+        fs::write(actual.join("input.json"), b"{}").unwrap();
+        let pins = pin(&actual).unwrap();
+        assert!(fs::rename(&actual, root.join("moved")).is_err());
+        drop(pins);
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            let junction = root.join("junction");
+            let result = std::process::Command::new("cmd")
+                .args(["/c", "mklink", "/J"])
+                .arg(&junction)
+                .arg(&actual)
+                .creation_flags(0x08000000)
+                .output()
+                .unwrap();
+            assert!(result.status.success());
+            assert_eq!(
+                read_input(&junction.join("input.json")).unwrap_err(),
+                "UnsafeArchivePath"
+            );
+            assert_eq!(fs::read(actual.join("input.json")).unwrap(), b"{}");
+            fs::remove_dir(&junction).unwrap();
+        }
     }
 }

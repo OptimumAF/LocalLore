@@ -45,6 +45,9 @@ pub async fn archive_export_preview(
         return Err("InvalidArchiveInput".into());
     }
     let scope: Scope = serde_json::from_value(scope).map_err(|_| "InvalidArchiveInput")?;
+    if scope.story.len() > 64 || scope.branch.len() > 64 {
+        return Err("InvalidArchiveInput".into());
+    }
     let e = epoch(&window, &workspace)?;
     let host = workspace.get(e).await?;
     let lease = workspace.lease.clone();
@@ -256,6 +259,8 @@ pub fn harness_archive_case(
         "disk-full",
         "hold-import",
         "release-import",
+        "collision",
+        "drop-import-ack",
     ]
     .contains(&scenario.as_str())
     {
@@ -263,7 +268,15 @@ pub fn harness_archive_case(
     }
     let e = epoch(&window, &workspace)?;
     workspace.lease.dispatch(e, || {
-        if scenario == "hold-import" || scenario == "release-import" {
+        if scenario == "drop-import-ack" {
+            broker
+                .drop_import_ack
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+        } else if scenario == "collision" {
+            broker
+                .collision
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+        } else if scenario == "hold-import" || scenario == "release-import" {
             broker.hold.store(
                 scenario == "hold-import",
                 std::sync::atomic::Ordering::SeqCst,

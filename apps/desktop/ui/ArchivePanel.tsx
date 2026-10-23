@@ -43,6 +43,9 @@ export function ArchivePanel({
                 this panel.
             </p>
             <div className="archive-actions">
+                <button disabled={s.busy} onClick={() => void c.library()}>
+                    Refresh saved story library
+                </button>
                 <button
                     disabled={s.busy || !session || !play}
                     onClick={() =>

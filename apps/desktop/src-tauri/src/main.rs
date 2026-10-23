@@ -136,7 +136,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
             std::env::var("LOCALLORE_M07_LEGACY_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D07_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_HARNESS").as_deref() == Ok("1"),
-            match std::env::var("LOCALLORE_D08_STAGE").as_deref(){Ok("import")=>"import",Ok("restarted")=>"restarted",_=>"source"},
+            match std::env::var("LOCALLORE_D08_STAGE").as_deref(){Ok("import")=>"import",Ok("uncertain")=>"uncertain",Ok("retire")=>"retire",Ok("restarted")=>"restarted",_=>"source"},
             if reopened {
                 "reopened"
             } else if std::env::var("LOCALLORE_TEST_RESTART").as_deref() == Ok("1") {

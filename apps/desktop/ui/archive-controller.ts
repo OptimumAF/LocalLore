@@ -126,6 +126,10 @@ export class ArchiveController {
             );
             const operation = status.operation_id;
             if (epoch !== this.epoch) {
+                if (status.result?.token)
+                    void this.invoke("archive_discard", {
+                        token: status.result.token,
+                    }).catch(() => {});
                 if (status.running)
                     void this.invoke("archive_cancel", {
                         operationId: operation,
@@ -144,10 +148,29 @@ export class ArchiveController {
                         operationId: operation,
                     }),
                 );
+                if (epoch !== this.epoch && status.result?.token)
+                    void this.invoke("archive_discard", {
+                        token: status.result.token,
+                    }).catch(() => {});
             }
             if (status.error) throw Error(status.error);
             const result = status.result;
             if (!result) throw Error("Wire");
+            if (
+                !isPreview &&
+                result.status === "imported" &&
+                (preview!.kind !== "import" ||
+                    result.root?.story !== preview!.preview.story_id ||
+                    result.root.branch !== preview!.preview.root_branch)
+            )
+                throw Error("Wire");
+            if (
+                !isPreview &&
+                result.status === "exported" &&
+                (preview!.kind !== "export" ||
+                    result.payload_sha256 !== preview!.preview.payload_sha256)
+            )
+                throw Error("Wire");
             if (result.token) {
                 const p = decodePreview(result);
                 if (
@@ -183,7 +206,10 @@ export class ArchiveController {
                     await this.refreshLibrary();
             }
         } catch (e) {
-            if (epoch === this.epoch) this.failure(e);
+            if (epoch === this.epoch) {
+                if (!isPreview) this.patch({ preview: null, consent: false });
+                this.failure(e);
+            }
         } finally {
             if (epoch === this.epoch) this.patch({ busy: false });
         }

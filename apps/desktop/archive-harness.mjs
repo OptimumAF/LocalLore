@@ -69,18 +69,37 @@ const reports = [];
 let checks = [],
     captures = 0;
 let transferSHA;
-for (const stage of ["source", "import", "restarted"]) {
+async function publishedArchives() {
+    const archives = [];
+    for (const name of await readdir(exported)) {
+        try {
+            const bytes = await readFile(path.join(exported, name));
+            if (JSON.parse(bytes).format === "locallore-playable-archive")
+                archives.push({ name, bytes });
+        } catch {}
+    }
+    return archives;
+}
+for (const stage of ["source", "import", "restarted", "uncertain", "retire"]) {
     const workspace = path.join(
         folder,
-        stage === "source" ? "source-workspace" : "destination-workspace",
+        stage === "source"
+            ? "source-workspace"
+            : stage === "uncertain"
+              ? "uncertain-workspace"
+              : stage === "retire"
+                ? "retire-workspace"
+                : "destination-workspace",
     );
     await mkdir(workspace, { recursive: true });
     if (stage === "import") {
-        const names = (await readdir(exported)).filter((n) =>
-            n.endsWith(".locallore-story.json"),
+        const archives = await publishedArchives();
+        assert.equal(archives.length, 1);
+        const bytes = archives[0].bytes;
+        assert(
+            !bytes.toString().includes(reports[0].report.omittedWorkflowKey),
+            "cancelled workflow key excluded",
         );
-        assert.equal(names.length, 1);
-        const bytes = await readFile(path.join(exported, names[0]));
         transferSHA = createHash("sha256").update(bytes).digest("hex");
         await writeFile(path.join(picker, "transfer.json"), bytes);
         const future = JSON.parse(bytes);
@@ -107,6 +126,15 @@ for (const stage of ["source", "import", "restarted"]) {
     assert.equal(report.passed, true, JSON.stringify(report));
     assert.deepEqual(report.errors, []);
     reports.push({ stage, report });
+    if (stage === "import") {
+        const archives = await publishedArchives();
+        assert.equal(archives.length, 2);
+        assert.deepEqual(
+            JSON.parse(archives[0].bytes),
+            JSON.parse(archives[1].bytes),
+            "actual destination reexport preserves complete canonical archive",
+        );
+    }
     checks.push(...report.checks);
     for (const name of await readdir(directory)) {
         if (name.endsWith(".png")) captures++;
@@ -130,6 +158,16 @@ assert.deepEqual(
     await readdir(stages),
     [],
     "all exact synthetic staging directories cleaned",
+);
+assert.deepEqual(
+    await readdir(path.join(folder, "uncertain-workspace/archive-staging-v1")),
+    [],
+    "uncertain acknowledgement staging cleaned",
+);
+assert.deepEqual(
+    await readdir(path.join(folder, "retire-workspace/archive-staging-v1")),
+    [],
+    "retired staging cleaned before reopen",
 );
 const files = [
     "ui/ArchivePanel.tsx",

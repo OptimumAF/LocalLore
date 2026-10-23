@@ -28,7 +28,8 @@ declare global {
             legacy?: boolean;
             evaluating?: boolean;
             archiving?: boolean;
-            archiveStage?: "source" | "import" | "restarted";
+            archiveStage?:
+                "source" | "import" | "restarted" | "uncertain" | "retire";
         };
     }
 }

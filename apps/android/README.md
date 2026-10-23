@@ -116,16 +116,20 @@ distinguishes injected error replies from actual SQLite exhaustion.
 The [actual SQLite contention fixture](../../docs/native/SQLITE_CONTENTION_VERIFICATION_2026-10-22.md)
 adds a separate-process writer and unmodified Rust Busy recovery checks, without
 changing production code or introducing a gameplay SQL interface.
-The separate [capacity fixture](../../docs/native/CAPACITY_VERIFICATION_2026-10-22.md)
+The separate [schema3 capacity fixtures](../../docs/native/SCHEMA3_CAPACITY_HOST_2026-10-23.md)
 uses a visibly labelled, test-only app with an immutable SQLite compile-time ceiling
 to exercise actual Full replies. Build/audit it explicitly with
 `python scripts/android_capacity_probe.py build --offline`; this never installs or
-runs a device. Its APKs live under `app/build-capacity`, with application ID
-`org.locallore.app.capacity`, separate from ordinary saves and instrumentation.
-The helper supplies a separate `.gradle-capacity` project cache: distinct task
+runs a device. The measured schema3/format2 profile has a fixed 17-page ceiling:
+Ready fits17 pages and the gift needs18. Its APKs live under `app/build-capacity-v3`,
+with application ID `org.locallore.app.capacityv3`, separate from ordinary saves
+and instrumentation. The helper supplies `.gradle-capacity-v3`: distinct task
 histories are required as well as distinct output directories, or Gradle can
 delete the previous mode's APKs as stale outputs. Property-only direct capacity
-builds are rejected. Only debug exists in capacity mode. Ordinary `scripts/check.py android` remains
+builds and historical `.gradle-capacity` / `.gradle-capacity-relief` caches are
+rejected. Historical [15-page evidence](../../docs/native/CAPACITY_VERIFICATION_2026-10-22.md)
+and its artifacts remain dated; that ceiling cannot seed schema3. Only debug exists
+in capacity mode. Ordinary `scripts/check.py android` remains
 uncapped. Unset ambient `LIBSQLITE3_FLAGS` for either build; the reviewed native
 build owns that option. This immutable fixture cannot prove recovery after freeing
 capacity or partition-level exhaustion.
@@ -134,16 +138,21 @@ separates native-only proofs from the single Compose case and adds an explicit
 ordered cohort with Activity-only controls. Default capacity discovery runs the
 original three proofs once; the historical UI-class selector now runs only its
 one UI method. The report explains nested-suite selection and remote-shell quoting.
-The distinct [capacity-relief fixture](../../docs/native/CAPACITY_RELIEF_VERIFICATION_2026-10-22.md)
+The distinct capacity-relief fixture (with separate
+[historical schema1 evidence](../../docs/native/CAPACITY_RELIEF_VERIFICATION_2026-10-22.md))
 uses `python scripts/android_capacity_relief_probe.py build --offline`, application
-ID `org.locallore.app.capacityrelief`, `app/build-capacity-relief` and the helper's
-mandatory `.gradle-capacity-relief` cache. It is debug/testOnly, with a fixed
+ID `org.locallore.app.capacityreliefv3`, `app/build-capacity-relief-v3` and the helper's
+mandatory `.gradle-capacity-relief-v3` cache. It is debug/testOnly, schema3/format2, with a fixed
 32-page native ceiling and separate test sources. Its one-shot helper fills then
-drops only a verified owned padding table in a fresh synthetic workspace. Padding
+drops only a verified owned padding table in a fresh synthetic workspace. The exact
+schema3 baseline is17 pages;14 fixed padding rows fill32 pages and their removal
+frees15 pages. Known schema/migration, marker and file identities are checked
+read-only before writable admission and rechecked around mutations. Unknown
+helper ownership fences subsequent native calls. Padding
 temporarily violates the exact schema contract; it is removed before any new
 Android native owner opens. Production schema checks stay unchanged. This probes
 same-live-owner commit recovery after freeing pages, not ordinary valid-schema
-restart under Full or partition ENOSPC. The ordinary, 15-page and relief modes
+restart under Full or partition ENOSPC. The ordinary, 17-page and relief modes
 are mutually exclusive and keep independent task histories and APKs.
 Cancellation that reaches Rust before submit exists is reconciled as an uncommitted
 request. A late submit remains a draft; recovery does not regenerate or commit it.

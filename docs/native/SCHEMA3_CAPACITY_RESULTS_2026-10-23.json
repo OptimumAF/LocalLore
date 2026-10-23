@@ -1,0 +1,927 @@
+{
+  "version": 1,
+  "task": "M04.04",
+  "status": "implemented_locally_verified_pending_owner_acceptance",
+  "base": "a1b1cc97639860bccf1d92253c9bcfe286d15809",
+  "qualified_code_head": "37bb3ff",
+  "scope": "synthetic_schema3_sqlite_page_ceiling",
+  "host": {
+    "rust_workspace": 380,
+    "rust_linker": 3,
+    "rust_ignored": 2,
+    "python": 364,
+    "fmt": "passed",
+    "clippy": "passed",
+    "fixture_bindings": 4
+  },
+  "environment": {
+    "rust": "1.93.1",
+    "java": "17.0.6",
+    "gradle": "8.11.1",
+    "agp": "8.10.1",
+    "kotlin": "2.2.21",
+    "ndk": "29.0.14206865",
+    "build_tools": "35.0.0",
+    "compile_target_sdk": 36,
+    "emulators": {
+      "A": {
+        "api": 35,
+        "abi": "x86_64",
+        "os_page_bytes": 4096
+      },
+      "B": {
+        "api": 35,
+        "abi": "x86_64",
+        "os_page_bytes": 4096
+      }
+    }
+  },
+  "builds": {
+    "full": {
+      "status": "passed",
+      "jvm": {
+        "tests": 146,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "lint_errors": 0,
+      "lint_warnings": 1,
+      "audit": {
+        "status": "passed",
+        "scope": "synthetic_capacity_test_binary",
+        "pages": 17,
+        "prefix_turns": 0,
+        "fixture_format": 2,
+        "database_schema_version": 3,
+        "package": "org.locallore.app.capacityv3",
+        "permissions": [
+          "org.locallore.app.capacityv3.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        ],
+        "libraries": [
+          {
+            "entry": "lib/arm64-v8a/libandroidx.graphics.path.so",
+            "elf_load_alignment": [
+              16384,
+              16384,
+              16384
+            ]
+          },
+          {
+            "entry": "lib/arm64-v8a/liblocallore_android.so",
+            "elf_load_alignment": [
+              16384,
+              16384,
+              16384
+            ]
+          },
+          {
+            "entry": "lib/x86_64/libandroidx.graphics.path.so",
+            "elf_load_alignment": [
+              16384,
+              16384,
+              16384
+            ]
+          },
+          {
+            "entry": "lib/x86_64/liblocallore_android.so",
+            "elf_load_alignment": [
+              16384,
+              16384,
+              16384
+            ]
+          }
+        ]
+      }
+    },
+    "relief": {
+      "status": "passed",
+      "jvm": {
+        "tests": 146,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "lint_errors": 0,
+      "lint_warnings": 1,
+      "audit": {
+        "status": "passed",
+        "scope": "synthetic_capacity_relief_test_binary",
+        "pages": 32,
+        "fixture_format": 2,
+        "database_schema_version": 3,
+        "package": "org.locallore.app.capacityreliefv3",
+        "permissions": [
+          "org.locallore.app.capacityreliefv3.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        ],
+        "libraries": [
+          {
+            "entry": "lib/arm64-v8a/libandroidx.graphics.path.so",
+            "elf_load_alignment": [
+              16384,
+              16384,
+              16384
+            ]
+          },
+          {
+            "entry": "lib/arm64-v8a/liblocallore_android.so",
+            "elf_load_alignment": [
+              16384,
+              16384,
+              16384
+            ]
+          },
+          {
+            "entry": "lib/x86_64/libandroidx.graphics.path.so",
+            "elf_load_alignment": [
+              16384,
+              16384,
+              16384
+            ]
+          },
+          {
+            "entry": "lib/x86_64/liblocallore_android.so",
+            "elf_load_alignment": [
+              16384,
+              16384,
+              16384
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "guard_rejections": {
+    "full-missing-cache": {
+      "status": "rejected_as_expected",
+      "clients_cleaned": true
+    },
+    "relief-missing-cache": {
+      "status": "rejected_as_expected",
+      "clients_cleaned": true
+    },
+    "full-cache-without-flag": {
+      "status": "rejected_as_expected",
+      "clients_cleaned": true
+    },
+    "relief-cache-without-flag": {
+      "status": "rejected_as_expected",
+      "clients_cleaned": true
+    },
+    "historical-full-cache": {
+      "status": "rejected_as_expected",
+      "clients_cleaned": true
+    },
+    "historical-relief-cache": {
+      "status": "rejected_as_expected",
+      "clients_cleaned": true
+    },
+    "combined": {
+      "status": "rejected_as_expected",
+      "clients_cleaned": true
+    },
+    "combined-parent": {
+      "status": "rejected_as_expected",
+      "clients_cleaned": true
+    },
+    "combined-archive": {
+      "status": "rejected_as_expected",
+      "clients_cleaned": true
+    },
+    "full-release": {
+      "status": "rejected_as_expected",
+      "clients_cleaned": true
+    },
+    "relief-release": {
+      "status": "rejected_as_expected",
+      "clients_cleaned": true
+    }
+  },
+  "emulator_attempts": {
+    "full-suite-A": {
+      "status": "passed",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "started_unfinished": 0,
+      "completed": [
+        {
+          "case": "org.locallore.app.CapacityLifecycleCohort$Before#emptyComposeBeforeCapacityWorkClosesNormally",
+          "outcome": "passed"
+        },
+        {
+          "case": "org.locallore.app.SqliteCapacityNativeTest#actualReadyFullRetriesKeepOriginalKeyAndCanonThenReopenAsUncommittedDraft",
+          "outcome": "passed"
+        },
+        {
+          "case": "org.locallore.app.SqliteCapacityNativeTest#cancellingActualFullTurnPersistsCancellationAndReopenCannotApplyItsOriginalRequest",
+          "outcome": "passed"
+        },
+        {
+          "case": "org.locallore.app.SqliteCapacityInstrumentedTest#composedActualFullKeepsLastCanonBlocksCallbacksAndRepeatedRecoveryThenFencesDisposal",
+          "outcome": "passed"
+        },
+        {
+          "case": "org.locallore.app.CapacityLifecycleCohort$After#emptyComposeAfterCapacityWorkClosesNormally",
+          "outcome": "passed"
+        }
+      ],
+      "order_verified": true,
+      "final_success": true,
+      "raw_sha256": "9365ad4ac8abf6e879e73a33663448f4ff9524a4244aef4b43863d44b1032408",
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "apks": {
+        "org.locallore.app.capacityv3": "2877ed91202d5f70d48e65e64fd61791d724ce5f809d271ec3c6ce716dead4c7",
+        "org.locallore.app.capacityv3.test": "f367b24c3c53902371c9ec1411ab553e22c3b218c773feeb34794fc913c46634"
+      }
+    },
+    "relief-A": {
+      "status": "passed",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "started_unfinished": 0,
+      "completed": [
+        {
+          "case": "org.locallore.app.SqliteReliefNativeTest#actualFullThenOwnedPaddingRemovalCommitsOnlyOriginalReadyKeyOnce",
+          "outcome": "passed"
+        },
+        {
+          "case": "org.locallore.app.SqliteReliefNativeTest#cancelledFullReadyTurnRemainsUnspentAfterPaddingRemovalAndReopen",
+          "outcome": "passed"
+        },
+        {
+          "case": "org.locallore.app.SqliteReliefInstrumentedTest#collectedFullRecoveryAfterOwnedPaddingRemovalPublishesOnlyOriginalAcceptedReceipt",
+          "outcome": "passed"
+        }
+      ],
+      "order_verified": true,
+      "final_success": true,
+      "raw_sha256": "6ea05876a1b1c723465e2cf3189c0bf7d623aa9a3d8edf70de37b4a62d3bd257",
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "apks": {
+        "org.locallore.app.capacityreliefv3": "3e8ae7bbaeb80f2d917d089e8a6d35350ab01483128636a172314126938ac8a9",
+        "org.locallore.app.capacityreliefv3.test": "c795af855cf80dd52adb1452c1e4be985074da813de2a7d7aec9d74218438334"
+      }
+    },
+    "full-default-A": {
+      "status": "passed",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "started_unfinished": 0,
+      "completed": [
+        {
+          "case": "org.locallore.app.SqliteCapacityInstrumentedTest#composedActualFullKeepsLastCanonBlocksCallbacksAndRepeatedRecoveryThenFencesDisposal",
+          "outcome": "passed"
+        },
+        {
+          "case": "org.locallore.app.SqliteCapacityNativeTest#actualReadyFullRetriesKeepOriginalKeyAndCanonThenReopenAsUncommittedDraft",
+          "outcome": "passed"
+        },
+        {
+          "case": "org.locallore.app.SqliteCapacityNativeTest#cancellingActualFullTurnPersistsCancellationAndReopenCannotApplyItsOriginalRequest",
+          "outcome": "passed"
+        }
+      ],
+      "order_verified": true,
+      "final_success": true,
+      "raw_sha256": "2d56336f0673e225e20a52024a9d79cf2f34153438424a087ccc0f52a5a7a3ad",
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "apks": {
+        "org.locallore.app.capacityv3": "2877ed91202d5f70d48e65e64fd61791d724ce5f809d271ec3c6ce716dead4c7",
+        "org.locallore.app.capacityv3.test": "f367b24c3c53902371c9ec1411ab553e22c3b218c773feeb34794fc913c46634"
+      }
+    },
+    "full-suite-B": {
+      "status": "passed",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "started_unfinished": 0,
+      "completed": [
+        {
+          "case": "org.locallore.app.CapacityLifecycleCohort$Before#emptyComposeBeforeCapacityWorkClosesNormally",
+          "outcome": "passed"
+        },
+        {
+          "case": "org.locallore.app.SqliteCapacityNativeTest#actualReadyFullRetriesKeepOriginalKeyAndCanonThenReopenAsUncommittedDraft",
+          "outcome": "passed"
+        },
+        {
+          "case": "org.locallore.app.SqliteCapacityNativeTest#cancellingActualFullTurnPersistsCancellationAndReopenCannotApplyItsOriginalRequest",
+          "outcome": "passed"
+        },
+        {
+          "case": "org.locallore.app.SqliteCapacityInstrumentedTest#composedActualFullKeepsLastCanonBlocksCallbacksAndRepeatedRecoveryThenFencesDisposal",
+          "outcome": "passed"
+        },
+        {
+          "case": "org.locallore.app.CapacityLifecycleCohort$After#emptyComposeAfterCapacityWorkClosesNormally",
+          "outcome": "passed"
+        }
+      ],
+      "order_verified": true,
+      "final_success": true,
+      "raw_sha256": "274206506ab79a6588f827c255535c18378f4fa64d0cf26f2492bae1bb7b2aa8",
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "apks": {
+        "org.locallore.app.capacityv3": "2877ed91202d5f70d48e65e64fd61791d724ce5f809d271ec3c6ce716dead4c7",
+        "org.locallore.app.capacityv3.test": "f367b24c3c53902371c9ec1411ab553e22c3b218c773feeb34794fc913c46634"
+      }
+    },
+    "relief-B": {
+      "status": "passed",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "started_unfinished": 0,
+      "completed": [
+        {
+          "case": "org.locallore.app.SqliteReliefNativeTest#actualFullThenOwnedPaddingRemovalCommitsOnlyOriginalReadyKeyOnce",
+          "outcome": "passed"
+        },
+        {
+          "case": "org.locallore.app.SqliteReliefNativeTest#cancelledFullReadyTurnRemainsUnspentAfterPaddingRemovalAndReopen",
+          "outcome": "passed"
+        },
+        {
+          "case": "org.locallore.app.SqliteReliefInstrumentedTest#collectedFullRecoveryAfterOwnedPaddingRemovalPublishesOnlyOriginalAcceptedReceipt",
+          "outcome": "passed"
+        }
+      ],
+      "order_verified": true,
+      "final_success": true,
+      "raw_sha256": "fe7f0ce67bd3abb216f20c02bbb389f6d29c5cdc1d4c6ee8d83c54ff01d31702",
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "apks": {
+        "org.locallore.app.capacityreliefv3": "3e8ae7bbaeb80f2d917d089e8a6d35350ab01483128636a172314126938ac8a9",
+        "org.locallore.app.capacityreliefv3.test": "c795af855cf80dd52adb1452c1e4be985074da813de2a7d7aec9d74218438334"
+      }
+    },
+    "full-default-B": {
+      "status": "passed",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "started_unfinished": 0,
+      "completed": [
+        {
+          "case": "org.locallore.app.SqliteCapacityInstrumentedTest#composedActualFullKeepsLastCanonBlocksCallbacksAndRepeatedRecoveryThenFencesDisposal",
+          "outcome": "passed"
+        },
+        {
+          "case": "org.locallore.app.SqliteCapacityNativeTest#actualReadyFullRetriesKeepOriginalKeyAndCanonThenReopenAsUncommittedDraft",
+          "outcome": "passed"
+        },
+        {
+          "case": "org.locallore.app.SqliteCapacityNativeTest#cancellingActualFullTurnPersistsCancellationAndReopenCannotApplyItsOriginalRequest",
+          "outcome": "passed"
+        }
+      ],
+      "order_verified": true,
+      "final_success": true,
+      "raw_sha256": "dee534f891d3ef8dd50945777acb99c826178fd6acc7ad4bb5ccb62dc9c083e1",
+      "clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "apks": {
+        "org.locallore.app.capacityv3": "2877ed91202d5f70d48e65e64fd61791d724ce5f809d271ec3c6ce716dead4c7",
+        "org.locallore.app.capacityv3.test": "f367b24c3c53902371c9ec1411ab553e22c3b218c773feeb34794fc913c46634"
+      }
+    }
+  },
+  "total_emulator_test_executions": 22,
+  "default_discovery_repeats_original_three": true,
+  "ordinary_existing_apk_audit": {
+    "status": "passed",
+    "permissions": [
+      "org.locallore.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+    ],
+    "libraries": [
+      {
+        "entry": "lib/arm64-v8a/libandroidx.graphics.path.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/x86_64/libandroidx.graphics.path.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/arm64-v8a/liblocallore_android.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/x86_64/liblocallore_android.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      }
+    ]
+  },
+  "preservation": {
+    "prior_local_apks": 16,
+    "prior_local_apk_hashes_unchanged": true,
+    "prior_installed_packages_each_emulator": 15,
+    "prior_installed_apk_hashes_unchanged": true,
+    "legacy_builds_relocated_with_junctions_and_hash_verification": true
+  },
+  "nonpassing_setup_attempts": [
+    {
+      "ids": [
+        "build-full1",
+        "build-relief1"
+      ],
+      "cause": "stale_nullable_selected_story_in_disposal_test_callbacks",
+      "correction": "46764a3",
+      "gameplay_tests_run": false
+    },
+    {
+      "ids": [
+        "install-full-A",
+        "install-full-B"
+      ],
+      "cause": "private_driver_read_nonexistent_ProcessResult_stderr_field_after_app_install",
+      "correction": "known completed/clean client and before/after exact APK identities admitted app ownership; missing test APK installed in resume1; no reinstall/clear/uninstall",
+      "gameplay_tests_run": false
+    },
+    {
+      "ids": [
+        "guards-driver",
+        "guard-full-missing-cache"
+      ],
+      "cause": "bounded process helper intentionally excludes stderr text; cannot qualify expected failure reason",
+      "correction": "guard2 captures both streams;11 terminal expected refusals verified",
+      "gameplay_tests_run": false
+    }
+  ],
+  "limitations": {
+    "physical_enospc": false,
+    "power_loss": false,
+    "physical_phone": false,
+    "arm64_execution": false,
+    "model_inference": false,
+    "same_uid_race_immunity": false,
+    "live_ownership_drift_injection": false,
+    "helper_unknown_child_fault_injection": false,
+    "ordinary_android_rebuild_in_this_packet": false
+  },
+  "source_sha256": {
+    ".gitignore": "81a6f88ce64acfa517348c4086dac3d8be35a6b03988eebfb08a6eed513885ff",
+    "apps/android/app/build.gradle.kts": "e2c8485db1efe041e1484fa28ba633072ad5319b7553d5daf1a0a0a514a00291",
+    "apps/android/app/src/capacityReliefTest/ReliefAppManifest.xml": "2d86db9618c0f114f7a953e9265e844777118748ec238c417b66973194fdb2cb",
+    "apps/android/app/src/capacityReliefTest/java/org/locallore/app/SqlitePaddingProcess.kt": "0b616631e9ea9594ac8954f9fce887910be36460caf976d4d7a4b137056f0cb8",
+    "apps/android/app/src/capacityReliefTest/java/org/locallore/app/SqliteReliefFixture.kt": "ef9d3e81e9d9151ca5c21505e8ed2a193d0a4da3d1f09a5230af7ba9a0d09762",
+    "apps/android/app/src/capacityReliefTest/java/org/locallore/app/SqliteReliefInstrumentedTest.kt": "8ffeb81aa735fe608bd7cddcad8ad5972bbc5aaddac6e7f83dd4d76c36b85979",
+    "apps/android/app/src/capacityReliefTest/java/org/locallore/app/SqliteReliefNativeTest.kt": "253276b1857707e384211c0632e32069f2d51762bd5dc5d147ee35bd4c0afa37",
+    "apps/android/app/src/capacityTest/CapacityAppManifest.xml": "0292419e30a7ca5ec0d29668e434db2b27f2494dc51842fd7cab85a54ba12ed4",
+    "apps/android/app/src/capacityTest/java/org/locallore/app/CapacityTestFixture.kt": "dd19d47f1decfe06c7f605bd6ebc795f3f831cfe5d39b31780f8207624d577d4",
+    "apps/android/app/src/capacityTest/java/org/locallore/app/SqliteCapacityInstrumentedTest.kt": "fa42270a16a8b3a4981b9ccb0e13acbdbabf5c0ea8710bae12b330db6f74d51f",
+    "apps/android/capacity-profile.properties": "48da82f596c544c86d96b74aadcaefe20b92fecf7b0580acda48ebd262f80650",
+    "apps/android/capacity-relief-profile.properties": "f95406350266f83a568ef89f3997216489b6668e299422b9d5557c1b632ed904",
+    "crates/locallore-workspace/examples/capacity_probe.rs": "04c702863b13b6158342f5c913f5a500a12c455908ce760e3837a65601a42442",
+    "crates/locallore-workspace/examples/capacity_relief_probe.rs": "401ed9665892f220064a9d773ecf11b68217a27286f46d63c8e7db58e3404cfb",
+    "scripts/android_capacity_probe.py": "461a6c36cc03ff19c845ebd05d32e2b7c4f77b3e925b96f4c7eb5d9165506c3f",
+    "scripts/android_capacity_relief_probe.py": "427b03361adae369b6e40cf3c7ce4215dacd73582ee62a1a0537692a869cf0eb",
+    "scripts/audit_apk.py": "2d45f3c61840c280761e6d34fafd2aa2761af46d585d0c6acfbf7ef6364929fd",
+    "scripts/capacity_padding_probe.py": "46d4bee19a2b30983e0c747e0af9d9701140e067f591257b8df5c4623b9f9c02",
+    "scripts/tests/test_android_capacity_probe.py": "1149549e3215b28af3a9ad884686ae880b85fdf8045a3e998f464df7f312ff07",
+    "scripts/tests/test_android_capacity_relief_probe.py": "a8a1489cba97e540a01cc6635807c1f8e8019fd824eb9f9ae9851a866f98bd17",
+    "scripts/tests/test_capacity_padding_probe.py": "cace8ad95a35b99d44ba85fbb39849ac71454def03deb73ba9d750865d5972f6"
+  },
+  "all_attempt_evidence": {
+    "build-full1.log": {
+      "bytes": 8920,
+      "sha256": "26a2dc78779df67e6b669dcaf2fe35df17bcfe0d560c429d14ce506c750170b0"
+    },
+    "build-full2.log": {
+      "bytes": 7731,
+      "sha256": "2573613b065a62f00b66492aaff792864f2557496e41f7556b7a6a0e620b8761"
+    },
+    "build-relief1.log": {
+      "bytes": 8986,
+      "sha256": "3ae1101e2624acd2eb38adee8dd4cda2d4ae535cd318d1c4fcdf4afa12be3a45"
+    },
+    "build-relief2.log": {
+      "bytes": 7973,
+      "sha256": "f2f3552167bb9ac59732d4f37fbf05a2c50d1cf1823b9948f4a2e3e26985945a"
+    },
+    "full-audit-tests1.log": {
+      "bytes": 544,
+      "sha256": "26920e9942c81d664682dfcd58fd2d21e866fa860a003b4d659f1022f7f3d176"
+    },
+    "full-audit-tests2.log": {
+      "bytes": 662,
+      "sha256": "a6410669be046b23069dbf4edad909351eae6c6e49d8956f65d5f610b09a93b3"
+    },
+    "full-audit-tests3.log": {
+      "bytes": 662,
+      "sha256": "5c2480d618427eccb236bcc9d39f931b8a77ae633c6be6e175e6c20d1834ff74"
+    },
+    "full-default-A/commands.jsonl": {
+      "bytes": 11157,
+      "sha256": "6c5d52bd20f80877579a2d8133d6008e811489f82cfc1119f2498f452257021f"
+    },
+    "full-default-A/instrumentation.raw.txt": {
+      "bytes": 2411,
+      "sha256": "2d56336f0673e225e20a52024a9d79cf2f34153438424a087ccc0f52a5a7a3ad"
+    },
+    "full-default-A/result.json": {
+      "bytes": 5569,
+      "sha256": "2505e2dcb2a82ac03fefea196a3584e5f61668027b2dac5f013c1620288ff4fc"
+    },
+    "full-default-A.log": {
+      "bytes": 5198,
+      "sha256": "cb39d6b44abc20681aa31258de92e342397ce4bce1fce7dae64c60845b168df5"
+    },
+    "full-default-B/commands.jsonl": {
+      "bytes": 11157,
+      "sha256": "1898d88757d54a397fe18ab4f0a54c1af106ee40bbc5a29fb604d9e84cfb488f"
+    },
+    "full-default-B/instrumentation.raw.txt": {
+      "bytes": 2411,
+      "sha256": "dee534f891d3ef8dd50945777acb99c826178fd6acc7ad4bb5ccb62dc9c083e1"
+    },
+    "full-default-B/result.json": {
+      "bytes": 5569,
+      "sha256": "8d60a1eb4b69eb4bc367c373efb537f26ee441c9985b3dac9b704b3217c87c67"
+    },
+    "full-default-B.log": {
+      "bytes": 5198,
+      "sha256": "31cfc7b15c5238c93bfe7cb324ebf2ac77fe2bd6e7ccd59f21828c78c8bfdb93"
+    },
+    "full-suite-A/commands.jsonl": {
+      "bytes": 11157,
+      "sha256": "fb1b0bbcbc8c1bc7715987267c02cf9970450e0f0de536a3080cc303eae5d922"
+    },
+    "full-suite-A/instrumentation.raw.txt": {
+      "bytes": 3863,
+      "sha256": "9365ad4ac8abf6e879e73a33663448f4ff9524a4244aef4b43863d44b1032408"
+    },
+    "full-suite-A/result.json": {
+      "bytes": 5873,
+      "sha256": "a1182b943748c5fcc11cedf25d1d940544a6e803170d0b9abbfb6e07ec203c6f"
+    },
+    "full-suite-A.log": {
+      "bytes": 5450,
+      "sha256": "6fda47df9fe06c731acccecafaa16fec1d296269bfd059c7121ec2a452de2d4e"
+    },
+    "full-suite-B/commands.jsonl": {
+      "bytes": 11157,
+      "sha256": "ac67831ab9b4ee72d1e330d51877238a7495aee871b0bb862242a90d7b868093"
+    },
+    "full-suite-B/instrumentation.raw.txt": {
+      "bytes": 3863,
+      "sha256": "274206506ab79a6588f827c255535c18378f4fa64d0cf26f2492bae1bb7b2aa8"
+    },
+    "full-suite-B/result.json": {
+      "bytes": 5873,
+      "sha256": "cec6bdd359ac39ce07a7e292a23ffa0a1accded05599d4534fb67bcc6b704680"
+    },
+    "full-suite-B.log": {
+      "bytes": 5450,
+      "sha256": "6f5137fa3eb4f04658f98b8e68b2d0bb7a9333cf376780b4fb44f47b39999408"
+    },
+    "guard-full-missing-cache.log": {
+      "bytes": 284,
+      "sha256": "3ad04254d003e827ffc64715e0605cd8877d2e51071250491004b5b5a69927b9"
+    },
+    "guard2-combined-archive.log": {
+      "bytes": 816,
+      "sha256": "130fd914c877233b34d0f81c2a0cde02e84eda64f21e5234cf883e5258ee9207"
+    },
+    "guard2-combined-parent.log": {
+      "bytes": 824,
+      "sha256": "a31ee377a8f757e68be806d58fc93aa2fef0dd74b4be5d8d3cfe36aa1a865d0f"
+    },
+    "guard2-combined.log": {
+      "bytes": 789,
+      "sha256": "13af35855ed1f0b654d33cab9d7d597dd2b7e36b2aa95ef77fc24d0d320ae88f"
+    },
+    "guard2-full-cache-without-flag.log": {
+      "bytes": 848,
+      "sha256": "0e4568cc15d2d8ac399480b2e41d07a08f31623fa08a969ce6e9fa5864fe5f62"
+    },
+    "guard2-full-missing-cache.log": {
+      "bytes": 847,
+      "sha256": "8f3058ecf29895913852c8e4b6c99b30fe2386d1b81c55abb88c0d59ea280d2a"
+    },
+    "guard2-full-release.log": {
+      "bytes": 1108,
+      "sha256": "a4036a903b70dde132a3aa4bde26ca63acaf5df0d390299c639d43e76ae50c74"
+    },
+    "guard2-historical-full-cache.log": {
+      "bytes": 817,
+      "sha256": "62e15d29710059eb2fc7933f76490d9b7133149a623f8d19c925ab6ac2b365f4"
+    },
+    "guard2-historical-relief-cache.log": {
+      "bytes": 817,
+      "sha256": "983c76f71375f3b0ddc6b31d063bcc68a48519a71fc3c83cea1253d5fb6e97f7"
+    },
+    "guard2-relief-cache-without-flag.log": {
+      "bytes": 848,
+      "sha256": "3149fcd6ea7800b16919f83f1094675343fe51199f07508d8196aa4435cac59e"
+    },
+    "guard2-relief-missing-cache.log": {
+      "bytes": 847,
+      "sha256": "8f3058ecf29895913852c8e4b6c99b30fe2386d1b81c55abb88c0d59ea280d2a"
+    },
+    "guard2-relief-release.log": {
+      "bytes": 1108,
+      "sha256": "21479527cb669fb9e12245a66abfe1746043a4cb915080c4323e3c41637cb16d"
+    },
+    "guards-driver.log": {
+      "bytes": 592,
+      "sha256": "dd34745700e4b6c5dcdb6c77fb99ae51ed1e86c3e4ddcf4d36912d4630c13863"
+    },
+    "guards-driver2.log": {
+      "bytes": 912,
+      "sha256": "8b37bf13d4444e9960df6902b9b19a52c7e5146d5871a4f0701ec3c67a180e21"
+    },
+    "host1.log": {
+      "bytes": 54340,
+      "sha256": "56d97e077a87e2be393fa218f0b5136a34bd7a47307c4385fecdcb5fc66478f5"
+    },
+    "install-full-A/commands.jsonl": {
+      "bytes": 7969,
+      "sha256": "c3b2aa61a8a398eb5bc457288b521006c44cb96cff7889409ce80eb52e5bfdd1"
+    },
+    "install-full-A/result.json": {
+      "bytes": 3863,
+      "sha256": "ec90ce035c8b6c29c2e227ec4dc3454070313ba5e939e9399084633ec0474364"
+    },
+    "install-full-A-resume1/commands.jsonl": {
+      "bytes": 13437,
+      "sha256": "e168f03a91b1251a9f81d936a5f88fbc664b6778e2cc3a4c6dd8dcb3cb4133a8"
+    },
+    "install-full-A-resume1/result.json": {
+      "bytes": 4113,
+      "sha256": "1acadb6d77fb6af89bcbd7b7a91bf1449affb626691af43eff8edf15249dfdad"
+    },
+    "install-full-A-resume1.log": {
+      "bytes": 3883,
+      "sha256": "d4a5f92ab84c3509478e7047cdb253204dbdb5a2b5a331dc3b205a6590969917"
+    },
+    "install-full-A.log": {
+      "bytes": 3961,
+      "sha256": "c1e1ee72af48e29df1b0f442dc520adf95d3583f35ec2a0e8d9761ff9c5fc3d7"
+    },
+    "install-full-B/commands.jsonl": {
+      "bytes": 7969,
+      "sha256": "c3b2aa61a8a398eb5bc457288b521006c44cb96cff7889409ce80eb52e5bfdd1"
+    },
+    "install-full-B/result.json": {
+      "bytes": 3863,
+      "sha256": "41c5e8ae47eef56b1c52bb9256aa34179f494ac50da4dc858c948c65317c522f"
+    },
+    "install-full-B-resume1/commands.jsonl": {
+      "bytes": 13437,
+      "sha256": "cc4741b8b1911a091e446485acea1a17687413d23145f32afeb7d7bedf4fc1f7"
+    },
+    "install-full-B-resume1/result.json": {
+      "bytes": 4113,
+      "sha256": "c4a6c439c02e76b38fd71930d3c04f6cdbc5db00268d3861b033fe3b896411eb"
+    },
+    "install-full-B-resume1.log": {
+      "bytes": 3883,
+      "sha256": "5ebf69aa8b326151a9c430a7027b4e23f4d60608efd5314179c78e9858cc5977"
+    },
+    "install-full-B.log": {
+      "bytes": 3961,
+      "sha256": "8b366b9f2a5acc205c46ebec26e339948a44ee8229b0c29b69b5d2cc6c68d92a"
+    },
+    "install-relief-A/commands.jsonl": {
+      "bytes": 14918,
+      "sha256": "5288bc23b1d716205a0796e1253773a907f1ff0628f1ef81433e695781fb337e"
+    },
+    "install-relief-A/result.json": {
+      "bytes": 4464,
+      "sha256": "c7f653e2f087498054dc9bb47c34d6c1f5d9dc58b05839b56e7e1f7c825685f0"
+    },
+    "install-relief-A.log": {
+      "bytes": 4219,
+      "sha256": "db6250c01f094d214edabe217fa435b7e3540c833feedcce5d22d33b061f9317"
+    },
+    "install-relief-B/commands.jsonl": {
+      "bytes": 14918,
+      "sha256": "2a0d01de6f948bc1fee6d536f7a738c05cba45ea5cd9fc7fb4c966663124eee0"
+    },
+    "install-relief-B/result.json": {
+      "bytes": 4464,
+      "sha256": "a1ee2bb8ee16b1ab246b1da74e00d91078ba36fa1f2c4aa7f26c82978f8bd8fc"
+    },
+    "install-relief-B.log": {
+      "bytes": 4219,
+      "sha256": "e768de1fe91f3e35acc26bdf4df901acc7aeb4b3fc1419c14dc92f62ee7ca4d8"
+    },
+    "ordinary-audit-tests.log": {
+      "bytes": 728,
+      "sha256": "7ffaca59def62a5de5b67e93c82c87f4084f3a767ea50c6d6f0fb459053832b9"
+    },
+    "ordinary-existing-audit.log": {
+      "bytes": 783,
+      "sha256": "33d292acd39d4040aeb6f7032aad4acaed7619a3446d32a3799b10a220be9699"
+    },
+    "preflight-A/commands.jsonl": {
+      "bytes": 7628,
+      "sha256": "a2b8f7f51cf0014cf2fe96adb98fd3dd6d5fe170de7af2b230b9c61e0aaf924d"
+    },
+    "preflight-A/result.json": {
+      "bytes": 3522,
+      "sha256": "f65c5b28d971f87414fee9322fbe457f9bd793a264c77c9f255670190c6b6783"
+    },
+    "preflight-A.log": {
+      "bytes": 3328,
+      "sha256": "3d38124120101c1e26ec5f2cc9a7d1d61249c6c903e785275cf52cdedca370a7"
+    },
+    "preflight-B/commands.jsonl": {
+      "bytes": 7628,
+      "sha256": "a2b8f7f51cf0014cf2fe96adb98fd3dd6d5fe170de7af2b230b9c61e0aaf924d"
+    },
+    "preflight-B/result.json": {
+      "bytes": 3522,
+      "sha256": "deaeee7285c0a78ac50b59e2edeee983ebb0093bf0ca760bc76d485b7370dc4f"
+    },
+    "preflight-B.log": {
+      "bytes": 3328,
+      "sha256": "e66487db091759f7d53becffb176cf8670a5f456dada73fc1db3d025ef9105bc"
+    },
+    "relief-A/commands.jsonl": {
+      "bytes": 11157,
+      "sha256": "5b13bb99bc1ced4f5936a878dfc5f0ac6d07fd74d892b0a0202b95800d4733da"
+    },
+    "relief-A/instrumentation.raw.txt": {
+      "bytes": 2336,
+      "sha256": "6ea05876a1b1c723465e2cf3189c0bf7d623aa9a3d8edf70de37b4a62d3bd257"
+    },
+    "relief-A/result.json": {
+      "bytes": 5539,
+      "sha256": "5bca1e7aff36d75c1373ce2838e070d4229abd769aab9eead005a87ef56d2a71"
+    },
+    "relief-A.log": {
+      "bytes": 5168,
+      "sha256": "938ff5f3b929a275d47425ae1bd32e98045a1ebc189f94a20fb2ee6e9c5b5abe"
+    },
+    "relief-audit-tests1.log": {
+      "bytes": 697,
+      "sha256": "a3356b8c4b648b831b39e25823507d0bebd4d94fbcf4c3200d225dfb3daab71f"
+    },
+    "relief-audit-tests2.log": {
+      "bytes": 809,
+      "sha256": "c081be9076a32536c66437dcb52ef80e1bc99d6a309ec8438ecef1b44da0b380"
+    },
+    "relief-audit-tests3.log": {
+      "bytes": 809,
+      "sha256": "c93e358776aa13259000559d1d7d17aeb1c900f78b6a074eca7cb9a1191da9ee"
+    },
+    "relief-B/commands.jsonl": {
+      "bytes": 11157,
+      "sha256": "42324245864ee8959553b7d079764b060b6acb0f4bdef076f198f2d9dcb27564"
+    },
+    "relief-B/instrumentation.raw.txt": {
+      "bytes": 2336,
+      "sha256": "fe7f0ce67bd3abb216f20c02bbb389f6d29c5cdc1d4c6ee8d83c54ff01d31702"
+    },
+    "relief-B/result.json": {
+      "bytes": 5539,
+      "sha256": "14ffb1cb6f56d4912e274b2b1bed12c05392f994701fb73acd22ea5662f40078"
+    },
+    "relief-B.log": {
+      "bytes": 5168,
+      "sha256": "618e760a6b9629655470ff63fe3d800e27bd4ded77996ecae50b67f19b6272e4"
+    }
+  },
+  "host_calibration": {
+    "database_schema_version": 3,
+    "page_bytes": 4096,
+    "exact_schema_sha256": "c05ced1f0439fb767f97d2ff93a34ef44eb6fbc27da6814a75fad455fb0b2c17",
+    "uncapped": {
+      "create_pages": 17,
+      "draft_pages": 17,
+      "ready_pages": 17,
+      "committed_gift_pages": 18,
+      "reopen": true
+    },
+    "old15": {
+      "status": "failed",
+      "stage": "create"
+    },
+    "lower16": {
+      "status": "failed",
+      "stage": "create"
+    },
+    "cap17": {
+      "status": "passed",
+      "commit_full": true,
+      "same_key_ready": true,
+      "canon_unchanged": true,
+      "reopened_original_key": true
+    },
+    "relief32": {
+      "status": "passed",
+      "initial_pages": 17,
+      "rows": 14,
+      "insert_attempts": 15,
+      "full_pages": 32,
+      "free_pages_before_relief": 0,
+      "free_pages_after_relief": 15,
+      "accept_receipts": 1,
+      "accept_revision": 1,
+      "cancel_receipts": 0,
+      "cancel_revision": 0,
+      "same_key_reopened_both": true
+    },
+    "all_attempt_logs": [
+      {
+        "id": "cap15-prefix0.log",
+        "bytes": 2157,
+        "sha256": "ff3f53dbe46453425f4379a27644a49c62a85f05b4c05cbb0dfdc4c44a825bc4"
+      },
+      {
+        "id": "cap16-prefix0.log",
+        "bytes": 2157,
+        "sha256": "2190987503c18175fddcdd2d9b7866ea790208b18760f2fcc381dd53e8178d29"
+      },
+      {
+        "id": "cap17-prefix0-final.log",
+        "bytes": 1096,
+        "sha256": "596d63fcf74c932009f3f19dde2148b20ce54328e38f780ad248244163b6b9e6"
+      },
+      {
+        "id": "cap17-prefix0.log",
+        "bytes": 2280,
+        "sha256": "014f96701f72b5cf03e909579332c8ee36571e639147e9fea5ead7d97c32a7a4"
+      },
+      {
+        "id": "cap32-accept-final.log",
+        "bytes": 1384,
+        "sha256": "0f6d57f5992fbc163ca378567a8454d31fa9bd5e0178f5d86ded3a3eebac341c"
+      },
+      {
+        "id": "cap32-accept-initial.log",
+        "bytes": 2887,
+        "sha256": "d08a89613ca0e26f3b8fa059c627ea32b09d504537265d74b7a6342783df1f2f"
+      },
+      {
+        "id": "cap32-cancel-final.log",
+        "bytes": 1456,
+        "sha256": "6dc52590ef6ac0269e29e19358b6618e1aad9eca01f9e86d3446e6eeb4fdf89c"
+      },
+      {
+        "id": "clippy-final.log",
+        "bytes": 1216,
+        "sha256": "2585a5e8b1909acb1dcea7ba945e0973437af5c09617f8fcbb208f7c570ecc92"
+      },
+      {
+        "id": "fmt-final.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "id": "python-final.log",
+        "bytes": 2910,
+        "sha256": "122626bcc98e4a8b98a8f02d54ba7f7f44e9b49ed64cbf236d0f6cb1de800398"
+      },
+      {
+        "id": "python-initial.log",
+        "bytes": 2910,
+        "sha256": "dc23d5261a93f61683303b6072763b1adf53f3a24828d493d4539c9b39c7c265"
+      },
+      {
+        "id": "uncapped-prefix0-final.log",
+        "bytes": 932,
+        "sha256": "96b218a64d9133a1a2eac9e295873c6bae5730ad393beab4f8808ad4a9c3e360"
+      },
+      {
+        "id": "uncapped-prefix0.log",
+        "bytes": 2275,
+        "sha256": "c7d72c54ec70c720e327b81b345a66ab5fb44973a3b4739e458575e561875718"
+      }
+    ],
+    "measurement_index_sha256": "2f20da0606e8342291a0b616480bb90835e20505729cdcba3f0370b71ac10630"
+  }
+}

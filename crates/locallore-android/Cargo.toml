@@ -8,6 +8,10 @@ license.workspace = true
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+# Development SDK experiment only; production Android never enables these JNI exports.
+play-probe = []
+
 [dependencies]
 locallore = { path = "../locallore" }
 locallore-workspace = { path = "../locallore-workspace" }

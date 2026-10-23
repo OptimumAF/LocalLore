@@ -910,7 +910,21 @@ impl Host {
                 Ok(Some(reply))
             })();
             match observed {
-                Ok(Some(reply)) | Err(reply) => return reply,
+                Ok(Some(reply)) => return reply,
+                Err(reply) => {
+                    // The worker is ending without a durable observation. Leave
+                    // its original key retryable after a transient read failure.
+                    if let Some(t) = state
+                        .sessions
+                        .get_mut(&work.session)
+                        .and_then(|s| s.turns.get_mut(&work.turn))
+                    {
+                        if t.phase == Phase::Running {
+                            t.phase = Phase::Queued;
+                        }
+                    }
+                    return reply;
+                }
                 Ok(None) => {}
             }
         }

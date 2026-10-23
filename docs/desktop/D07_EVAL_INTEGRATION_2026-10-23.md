@@ -78,6 +78,25 @@ and strict Clippy, and the final normal native link without development features
 No hosted Actions execution, settings change, app launch or model download is
 claimed. Workflow checks use pinned Node24.22.1 and existing locked YAML tooling.
 
+## Final shared-input follow-up
+
+Store policy `591fb60` was incorporated, requiring memory-only SQLite temporary
+storage, followed by the feature-gated legacy fixture Cargo stanza from
+`e7293e0`. These change the compiled-source binding. The complete standalone
+test suite was rerun: **9 passed**, zero failed/ignored, **2.68s**. Strict
+all-target Clippy passed again. A new CLI run/resume in
+`<task>/d07-eval-final-store2-memory-temp` passed with the same **9 passed,
+0 failed, 3 unsupported, 196 checks**, actual storage version2 and explicit
+quality_accepted=false. The earlier report above is retained as historical
+evidence, not substituted for this new binding.
+
+Final report JSON SHA256:
+`02b9a5f5a5495f419648eac676d920a11208e34d1cc076a69cd7f6ad2f903aa6`.
+Final binding SHA256:
+`d60a46b128baf186aa87594a17cdc214df604996e7cbc6438d87478a263f195e`.
+Commands are those above with the new output directory; final logs use
+`target/eval-final-*`. No model/native GUI/device execution was added.
+
 ## Remaining work
 
 Story Lab results UI/reruns and D05/D06 navigation remain pending, as do supported

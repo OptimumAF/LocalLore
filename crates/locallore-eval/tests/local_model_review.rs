@@ -20,7 +20,11 @@ impl InferenceProvider for Fixed {
     }
 }
 
-fn probe(role: &str, text: &str, forbidden: Vec<String>) -> Arc<actual_recording::Recording> {
+fn probe(
+    role: &str,
+    text: &str,
+    forbidden: actual_recording::ForbiddenByRole,
+) -> Arc<actual_recording::Recording> {
     let state = Arc::new(actual_recording::Recording::default());
     let mut provider =
         actual_recording::RecordingProvider::new(Box::new(Fixed), state.clone(), vec![], forbidden);
@@ -57,7 +61,9 @@ fn probe(role: &str, text: &str, forbidden: Vec<String>) -> Arc<actual_recording
 
 fn recorded_privacy_failure(state: &actual_recording::Recording) -> bool {
     let records = state.state.lock().unwrap();
-    records.forbidden_narrator_prompt || records.forbidden_narrator_output
+    records.forbidden_director_prompt
+        || records.forbidden_narrator_prompt
+        || records.forbidden_narrator_output
 }
 
 #[test]
@@ -70,10 +76,19 @@ fn actual_director_envelope_canaries_must_record_a_privacy_failure() {
     let forbidden = canaries.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
     let mut undetected = vec![];
     for canary in canaries {
-        let state = probe("director", canary, forbidden.clone());
-        if !recorded_privacy_failure(&state) {
+        let state = probe(
+            "director",
+            canary,
+            actual_recording::ForbiddenByRole {
+                director: forbidden.clone(),
+                narrator: forbidden.clone(),
+            },
+        );
+        let records = state.state.lock().unwrap();
+        if !records.forbidden_director_prompt {
             undetected.push(canary);
         }
+        assert!(!records.forbidden_narrator_prompt);
     }
     assert!(
         undetected.is_empty(),
@@ -84,10 +99,27 @@ fn actual_director_envelope_canaries_must_record_a_privacy_failure() {
 #[test]
 fn player_secret_is_legitimate_director_input_but_forbidden_narrator_input() {
     let secret = "SECRET-TIDE-731";
-    let director = probe("director", secret, vec![secret.into()]);
+    let policy = actual_recording::ForbiddenByRole {
+        director: vec![
+            "PARENT-FUTURE-MIST".into(),
+            "SIBLING-ONLY-SALT".into(),
+            "FOREIGN-ONLY-lineage".into(),
+        ],
+        narrator: vec![
+            "PARENT-FUTURE-MIST".into(),
+            "SIBLING-ONLY-SALT".into(),
+            "FOREIGN-ONLY-lineage".into(),
+            secret.into(),
+        ],
+    };
+    let director = probe("director", secret, policy.clone());
     assert!(!recorded_privacy_failure(&director));
-    let narrator = probe("narrator", secret, vec![secret.into()]);
-    assert!(recorded_privacy_failure(&narrator));
+    for canary in &policy.narrator {
+        let narrator = probe("narrator", canary, policy.clone());
+        let records = narrator.state.lock().unwrap();
+        assert!(records.forbidden_narrator_prompt);
+        assert!(!records.forbidden_director_prompt);
+    }
 }
 
 #[test]
@@ -95,8 +127,12 @@ fn unknown_admission_stays_charged_when_completed_story_is_reused() {
     use locallore_eval::local_lane::{run_curated, LaneFactory};
     use std::io::Write;
     let directory = std::env::temp_dir().join(format!(
-        "independent-eval-unknown-reservation-{}",
-        std::process::id()
+        "independent-eval-unknown-reservation-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
     ));
     let first = run_curated(
         &directory,

@@ -38,6 +38,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /** Explicit separate-package cache experiment; never installs/provisions or searches for a model. */
 public final class CacheProbeInstrumentation extends Instrumentation {
     private String operation, uuid, session, playCase, profile;
+    private boolean readPhaseExtrasInvalid;
     private final AtomicBoolean finished = new AtomicBoolean();
     private final AtomicInteger pulses = new AtomicInteger();
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -47,6 +48,7 @@ public final class CacheProbeInstrumentation extends Instrumentation {
     @Override public void onCreate(Bundle arguments) {
         super.onCreate(arguments);
         Bundle args = arguments == null ? new Bundle() : arguments;
+        readPhaseExtrasInvalid = !args.keySet().equals(new java.util.HashSet<>(Arrays.asList("operation", "session")));
         operation = args.getString("operation", ""); uuid = args.getString("volume_uuid");
         session = args.getString("session"); playCase = args.getString("play_case"); profile = args.getString("profile_base64");
         Thread watchdog = new Thread(() -> {
@@ -56,6 +58,7 @@ public final class CacheProbeInstrumentation extends Instrumentation {
         watchdog.setDaemon(true); watchdog.start(); main.post(pulse); start();
     }
     @Override public void onStart() {
+        if ("read_phase".equals(operation)) { readPhase(); return; }
         JsonObject report = new JsonObject(); report.addProperty("version", 1);
         report.addProperty("operation", Arrays.asList("inspect", "mmap", "play", "verify_model").contains(operation) ? operation : "invalid");
         report.addProperty("status", "error"); report.addProperty("error", "runtime_failed");
@@ -141,6 +144,30 @@ public final class CacheProbeInstrumentation extends Instrumentation {
             && metrics.get("conversations_opened").equals(metrics.get("conversations_closed")));
         report.add("metrics", metrics);
         Bundle result = new Bundle(); result.putString("cache_result", report.toString());
+        finish(Activity.RESULT_OK, result);
+    }
+    private void readPhase() {
+        JsonObject report = SdkPhaseReadback.error();
+        try {
+            if (!CacheVolume.PACKAGE.equals(getTargetContext().getPackageName())
+                    || Looper.myLooper() == Looper.getMainLooper() || readPhaseExtrasInvalid
+                    || session == null || !session.matches("[a-f0-9]{32}")) throw new IOException("invalid_read_phase");
+            Path root = getTargetContext().getNoBackupFilesDir().getCanonicalFile().toPath();
+            // Canonical framework app-private root only; the reader creates no session or marker.
+            Path directory = root.resolve("locallore-cache-probe-v1-" + session);
+            report = SdkPhaseReadback.read(directory, session, Process.getStartElapsedRealtime(), identity -> {
+                JsonObject observation = new JsonObject();
+                PhaseAndroidEvidence.addExitObservation(getTargetContext(), session, identity, observation);
+                return new SdkPhaseReadback.Exit(observation.get("exit_history_available").getAsBoolean(),
+                    observation.get("exit_records_examined").getAsInt(), observation.get("exit_instance_matches").getAsInt(),
+                    observation.get("exit_reason").getAsInt(), observation.get("exit_status").getAsInt());
+            });
+        } catch (Exception failure) {
+            if (PhaseFailure.journalOwnershipUnknown(failure)) { Process.killProcess(Process.myPid()); return; }
+            report = SdkPhaseReadback.error();
+        }
+        finished.set(true); main.removeCallbacks(pulse);
+        Bundle result = new Bundle(); result.putString("sdk_phase_result", report.toString());
         finish(Activity.RESULT_OK, result);
     }
     private CacheModelIdentity.Result verifyModel(CacheVolume.Candidate selected) throws Exception {

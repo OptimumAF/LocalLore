@@ -1,3 +1,4 @@
+import { EvaluationController } from "./evaluation-controller";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { Controller } from "./controller";
@@ -23,6 +24,8 @@ declare global {
             localplay?: boolean;
             inspecting?: boolean;
             debugging?: boolean;
+            legacy?: boolean;
+            evaluating?: boolean;
         };
     }
 }
@@ -33,9 +36,21 @@ const driver =
     __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.enabled
         ? await import("./journeys")
         : null;
+const evaluation = new EvaluationController(invoke);
 const base = new IpcGateway(invoke, errors),
     gateway = driver ? new driver.FaultGateway(base) : base,
     controller = new Controller(gateway, errors);
+// Invalidate evaluation replies before React observes a changed story/lens/Play
+// context. Evaluation is independent of gameplay; no gameplay controller changes.
+const syncEvaluationContext = () => {
+    const s = controller.get();
+    evaluation.contextChanged(
+        `${s.selectedId}|${s.view}|${s.observer}`,
+        s.view === "lab",
+    );
+};
+const releaseEvaluationContext = controller.subscribe(syncEvaluationContext);
+syncEvaluationContext();
 const onError = () => errors.add("frontend", "UnhandledError");
 window.addEventListener("error", onError);
 window.addEventListener("unhandledrejection", onError);
@@ -43,8 +58,10 @@ const root = createRoot(document.getElementById("root")!, {
     onUncaughtError: () => errors.add("frontend", "RenderError"),
     onRecoverableError: () => errors.add("frontend", "RenderError"),
 });
-root.render(<App controller={controller} />);
+root.render(<App controller={controller} evaluation={evaluation} />);
 const dispose = async () => {
+    releaseEvaluationContext();
+    evaluation.dispose();
     await controller.dispose();
     root.unmount();
     window.removeEventListener("error", onError);
@@ -71,25 +88,42 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
         __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.debugging
             ? await import("./trace-journeys")
             : null;
-    const run = traceDriver
-        ? traceDriver.traceJourneys
-        : queryDriver
-          ? queryDriver.queryJourneys
-          : modelDriver
-            ? modelDriver.modelJourneys
-            : exportDriver
-              ? exportDriver.exportJourneys
-              : durableDriver
-                ? durableDriver.durableJourneys
-                : driver.journeys;
-    await run({
-        controller,
-        gateway: gateway as InstanceType<typeof driver.FaultGateway>,
-        errors,
-        invoke,
-        dispose,
-        config: window.__LOCALLORE_TEST__,
-    });
+    const legacyDriver =
+        __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.legacy
+            ? await import("./legacy-journeys")
+            : null;
+    const run = legacyDriver
+        ? legacyDriver.legacyJourneys
+        : traceDriver
+          ? traceDriver.traceJourneys
+          : queryDriver
+            ? queryDriver.queryJourneys
+            : modelDriver
+              ? modelDriver.modelJourneys
+              : exportDriver
+                ? exportDriver.exportJourneys
+                : durableDriver
+                  ? durableDriver.durableJourneys
+                  : driver.journeys;
+    if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.evaluating) {
+        const { evaluationJourneys } = await import("./evaluation-journeys");
+        await evaluationJourneys({
+            controller,
+            evaluation,
+            errors,
+            invoke,
+            dispose,
+            config: window.__LOCALLORE_TEST__,
+        });
+    } else
+        await run({
+            controller,
+            gateway: gateway as InstanceType<typeof driver.FaultGateway>,
+            errors,
+            invoke,
+            dispose,
+            config: window.__LOCALLORE_TEST__,
+        });
 } else {
     await controller.start();
 }

@@ -39,9 +39,18 @@ struct PersistedReceipt {
 
 struct UniqueJson(serde_json::Value);
 
-pub(crate) fn parse_unique<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T, Error> {
+/// Structural JSON validation only. Caller supplies its byte budget; this grants
+/// no accepted-history, engine, filesystem or permission authority.
+pub fn parse_unique_json(bytes: &[u8], max_bytes: usize) -> Result<serde_json::Value, Error> {
+    if bytes.len() > max_bytes {
+        return Err(Error::TooLarge);
+    }
     let raw: UniqueJson = serde_json::from_slice(bytes).map_err(|_| Error::Malformed)?;
-    serde_json::from_value(raw.0).map_err(|_| Error::Malformed)
+    Ok(raw.0)
+}
+
+pub(crate) fn parse_unique<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T, Error> {
+    serde_json::from_value(parse_unique_json(bytes, bytes.len())?).map_err(|_| Error::Malformed)
 }
 
 impl<'de> Deserialize<'de> for UniqueJson {
@@ -378,17 +387,44 @@ impl Engine {
     /// random rules require an explicit recorded-outcome contract; they must not reroll here.
     /// No inference provider or random source is used. No partially restored engine is returned.
     pub fn restore(seed: Seed, history: &[String]) -> Result<Self, Error> {
-        if history.len() > MAX_HISTORY_RECEIPTS {
+        let mut engine = Self::new(seed)?;
+        engine.restore_saved(history)?;
+        Ok(engine)
+    }
+
+    /// Restore branch-local recorded receipts onto this validated engine, retaining
+    /// original ancestor scopes and lineage. No provider runs and no partial value escapes.
+    /// This history-only path retains the same supported recorded Play policy as restore;
+    /// fresh prepared commits still require the current policy.
+    pub fn restore_continuation(&self, history: &[String]) -> Result<Self, Error> {
+        let mut engine = self.clone();
+        engine.restore_saved(history)?;
+        Ok(engine)
+    }
+
+    fn restore_saved(&mut self, history: &[String]) -> Result<(), Error> {
+        if self.receipts.len().saturating_add(history.len()) > MAX_HISTORY_RECEIPTS {
             return Err(Error::TooLarge);
         }
         let mut total = 0usize;
+        for receipt in &self.receipts {
+            let bytes = serde_json::to_vec(receipt)
+                .map_err(|_| Error::CorruptHistory)?
+                .len();
+            if bytes > MAX_RECEIPT_BYTES {
+                return Err(Error::TooLarge);
+            }
+            total = total.checked_add(bytes).ok_or(Error::TooLarge)?;
+        }
         for receipt in history {
             total = total.checked_add(receipt.len()).ok_or(Error::TooLarge)?;
             if receipt.len() > MAX_RECEIPT_BYTES || total > MAX_HISTORY_BYTES {
                 return Err(Error::TooLarge);
             }
         }
-        let mut engine = Self::new(seed)?;
+        if total > MAX_HISTORY_BYTES {
+            return Err(Error::TooLarge);
+        }
         for receipt in history {
             // Value normally accepts repeated object keys. Reject them recursively before typed
             // parsing so hidden first/last-wins fields cannot survive archive validation.
@@ -398,7 +434,7 @@ impl Engine {
                 serde_json::from_value(raw.0.clone()).map_err(|_| Error::CorruptHistory)?;
             if recorded.events.is_empty()
                 || recorded.events.len() > MAX_COMMANDS
-                || engine
+                || self
                     .recorded(&recorded.request)
                     .map_err(|_| Error::CorruptHistory)?
                     .is_some()
@@ -409,9 +445,9 @@ impl Engine {
                 if play.narration.text != recorded.narration {
                     return Err(Error::CorruptHistory);
                 }
-                engine.commit_play_history(&recorded.request, &recorded.proposal, play, true)
+                self.commit_play_history(&recorded.request, &recorded.proposal, play, true)
             } else {
-                engine.commit(&recorded.request, &recorded.proposal, &recorded.narration)
+                self.commit(&recorded.request, &recorded.proposal, &recorded.narration)
             }
             .map_err(|_| Error::CorruptHistory)?;
             // Full JSON equality rejects unknown envelope/effect fields, forged witnesses,
@@ -420,7 +456,7 @@ impl Engine {
                 return Err(Error::CorruptHistory);
             }
         }
-        Ok(engine)
+        Ok(())
     }
 
     /// Replay engine-created typed outcomes under the same deterministic v1 rules as restore.
@@ -438,27 +474,24 @@ impl Engine {
         Ok(engine)
     }
 
-    /// Forks only at completed turn boundaries. Rebuild from seed, never clone a stale projection.
-    pub fn fork(&self, child: &str, at: u64) -> Result<Self, Error> {
-        if !valid_id(child) {
-            return Err(Error::Rule);
-        }
-        if at != 0
-            && !self
-                .receipts
-                .iter()
-                .any(|r| r.events.last().is_some_and(|e| e.sequence == at))
+    /// Read a completed historical boundary in this same branch and lineage.
+    /// Original receipt scopes/provenance are retained. This cannot add history,
+    /// grant observer access, create a branch or call inference.
+    pub fn at_revision(&self, at: u64) -> Result<Self, Error> {
+        if at > self.revision()
+            || (at != 0
+                && !self
+                    .receipts
+                    .iter()
+                    .any(|r| r.events.last().is_some_and(|e| e.sequence == at)))
         {
             return Err(Error::Rule);
         }
-        let mut lineage = self.lineage.clone();
-        lineage.fork(&self.scope, child, at, self.revision())?;
-        let scope = Scope {
-            story: self.scope.story.clone(),
-            branch: child.into(),
-        };
+        if at == self.revision() {
+            return Ok(self.clone());
+        }
         let mut result = Self::new(self.seed.clone())?;
-        result.lineage = lineage;
+        result.lineage = self.lineage.clone();
         for receipt in &self.receipts {
             if receipt.events.last().is_none_or(|e| e.sequence > at) {
                 break;
@@ -469,7 +502,23 @@ impl Engine {
                 return Err(Error::CorruptHistory);
             }
         }
-        result.scope = scope;
+        result.scope = self.scope.clone();
+        Ok(result)
+    }
+
+    /// Fork only at completed turn boundaries using this already validated snapshot.
+    pub fn fork(&self, child: &str, at: u64) -> Result<Self, Error> {
+        if !valid_id(child) {
+            return Err(Error::Rule);
+        }
+        let mut lineage = self.lineage.clone();
+        lineage.fork(&self.scope, child, at, self.revision())?;
+        let mut result = self.at_revision(at)?;
+        result.lineage = lineage;
+        result.scope = Scope {
+            story: self.scope.story.clone(),
+            branch: child.into(),
+        };
         Ok(result)
     }
 

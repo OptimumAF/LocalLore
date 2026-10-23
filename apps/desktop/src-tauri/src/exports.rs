@@ -170,7 +170,7 @@ impl ExportBroker {
             .duration_since(std::time::UNIX_EPOCH)
             .map_err(|_| "Clock")?
             .as_millis() as u64;
-        let manifest = json!({"format":"locallore-database-inspection","version":1,"mode":"database","privacy":"private_all_stories_and_drafts","portable_playable":false,"schema_version":1,"app_version":env!("CARGO_PKG_VERSION"),"created_at_unix_ms":timestamp,"scope":scope,"revision":revision,"stories":stories,"contents":"All stories, drafts, receipts and canonical state. Private copy for explicit read-only SQLite inspection.","files":[{"path":"stories-snapshot.sqlite","bytes":bytes.len(),"sha256":locallore::inspection::sha256(&bytes),"media_type":"application/vnd.sqlite3"}]});
+        let manifest = json!({"format":"locallore-database-inspection","version":1,"mode":"database","privacy":"private_all_stories_and_drafts","portable_playable":false,"schema_version":locallore_workspace::DATABASE_SCHEMA_VERSION,"app_version":env!("CARGO_PKG_VERSION"),"created_at_unix_ms":timestamp,"scope":scope,"revision":revision,"stories":stories,"contents":"All stories, drafts, receipts, derived cache and canonical state. Private copy for explicit read-only SQLite inspection.","files":[{"path":"stories-snapshot.sqlite","bytes":bytes.len(),"sha256":locallore::inspection::sha256(&bytes),"media_type":"application/vnd.sqlite3"}]});
         self.insert_snapshot(
             epoch,
             NativeSnapshot::Database {

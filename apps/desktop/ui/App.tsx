@@ -1,3 +1,5 @@
+import { EvaluationPanel } from "./EvaluationPanel";
+import type { EvaluationController } from "./evaluation-controller";
 import { TurnDebugger } from "./TurnDebugger";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Controller } from "./controller";
@@ -54,7 +56,13 @@ function LabAcknowledgement({ controller: c }: { controller: Controller }) {
         </dialog>
     );
 }
-export function App({ controller: c }: { controller: Controller }) {
+export function App({
+    controller: c,
+    evaluation,
+}: {
+    controller: Controller;
+    evaluation?: EvaluationController;
+}) {
     const s = useSyncExternalStore(c.subscribe, c.get),
         selected = c.selected(),
         receipt = c.receipt();
@@ -201,7 +209,11 @@ export function App({ controller: c }: { controller: Controller }) {
                                 {s.workspace.location}
                             </p>
                             <p>
-                                Schema {s.workspace.schema_version} | Contract
+                                SQLite schema{" "}
+                                {s.workspace.database_schema_version ??
+                                    "Not reported"}{" "}
+                                | Workspace contract{" "}
+                                {s.workspace.schema_version} | Domain contract
                                 domain-v1 | Rules{" "}
                                 {s.play?.rules ?? "unavailable"} | Canonical
                                 receipts and validated replay
@@ -317,6 +329,13 @@ export function App({ controller: c }: { controller: Controller }) {
                             Story Lab shows spoilers. Its inspection lens does
                             not change character knowledge or permissions.
                         </div>
+                    )}
+                    {evaluation && (
+                        <EvaluationPanel
+                            controller={evaluation}
+                            context={`${s.selectedId}|${s.view}|${s.observer}`}
+                            allowed={s.view === "lab"}
+                        />
                     )}
                     {s.query.shown ? (
                         <QueryInspector controller={c} state={s} />

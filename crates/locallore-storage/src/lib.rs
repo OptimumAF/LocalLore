@@ -1,6 +1,14 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Rust's sole SQLite owner for validated seeds and atomic root-history turns.
+mod branches;
+pub mod playable_archive;
+pub use playable_archive::{
+    validate_archive, ArchiveError, ArchivePreview, ImportOutcome, PlayableArchive,
+    ValidatedArchive,
+};
 mod catalog;
+pub use branches::{ForkOutcome, ForkRequest, MAX_BRANCHES_PER_STORY, MAX_BRANCH_DEPTH};
+pub mod derived_memory;
 mod turns;
 pub use catalog::StorySummary;
 use locallore::{
@@ -15,7 +23,7 @@ use std::{
 };
 pub use turns::{ResumedStory, TurnError, TurnPhase, TurnRecord};
 
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 pub const MAX_INSPECTION_DATABASE_BYTES: u64 = 64 * 1024 * 1024;
 const APPLICATION_ID: u32 = 0x4c4c4f52;
 const SCHEMA: &str = include_str!("../migrations/001_initial.sql");
@@ -71,9 +79,13 @@ fn configure(connection: &Connection) -> Result<()> {
     connection.busy_timeout(Duration::from_millis(250))?;
     connection.pragma_update(None, "foreign_keys", true)?;
     connection.pragma_update(None, "trusted_schema", false)?;
+    // Actor-scoped TEMP FTS contains story plaintext. Never spill that corpus to
+    // the OS temporary directory; require the connection-local memory policy.
+    connection.pragma_update(None, "temp_store", "MEMORY")?;
     connection.pragma_update(None, "synchronous", "FULL")?;
     let enabled: bool = connection.pragma_query_value(None, "foreign_keys", |r| r.get(0))?;
-    if !enabled {
+    let temp_store: u32 = connection.pragma_query_value(None, "temp_store", |r| r.get(0))?;
+    if !enabled || temp_store != 2 {
         return Err(StorageError::Integrity);
     }
     Ok(())
@@ -108,24 +120,33 @@ fn schema_rows(connection: &Connection) -> Result<Vec<(String, String, String, S
     let rows = query.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
     Ok(rows.collect::<std::result::Result<Vec<_>, _>>()?)
 }
-fn verify(connection: &Connection) -> Result<()> {
-    if identity(connection)? != (APPLICATION_ID, SCHEMA_VERSION) {
+fn verify_version(connection: &Connection, version: u32) -> Result<()> {
+    if !(1..=SCHEMA_VERSION).contains(&version)
+        || identity(connection)? != (APPLICATION_ID, version)
+    {
         return Err(StorageError::SchemaMismatch);
     }
     let reference = Connection::open_in_memory()?;
     configure(&reference)?;
     reference.execute_batch(SCHEMA)?;
+    if version >= 2 {
+        reference.execute_batch(derived_memory::DERIVED_SCHEMA_SQL)?;
+    }
     if schema_rows(connection)? != schema_rows(&reference)? {
         return Err(StorageError::SchemaMismatch);
     }
-    let contract: Option<String> = connection
-        .query_row(
-            "SELECT contract FROM schema_migrations WHERE version=1",
-            [],
-            |r| r.get(0),
-        )
-        .optional()?;
-    if contract.as_deref() != Some("locallore-storage-v1") {
+    let mut query =
+        connection.prepare("SELECT version,contract FROM schema_migrations ORDER BY version")?;
+    let contracts = query
+        .query_map([], |row| {
+            Ok((row.get::<_, u32>(0)?, row.get::<_, String>(1)?))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let mut expected = vec![(1, "locallore-storage-v1".to_owned())];
+    if version >= 2 {
+        expected.push((2, "locallore-storage-v2-derived-memory".to_owned()));
+    }
+    if contracts != expected {
         return Err(StorageError::SchemaMismatch);
     }
     let integrity: String = connection.query_row("PRAGMA quick_check", [], |r| r.get(0))?;
@@ -133,6 +154,9 @@ fn verify(connection: &Connection) -> Result<()> {
         return Err(StorageError::Integrity);
     }
     Ok(())
+}
+fn verify(connection: &Connection) -> Result<()> {
+    verify_version(connection, SCHEMA_VERSION)
 }
 
 // Reserve with create_new so backups never overwrite a story, symlink or existing file.
@@ -205,22 +229,53 @@ fn consistent_backup(source: &Connection, path: &Path) -> Result<()> {
 
 fn initialize(connection: &Connection, sql: &str) -> Result<()> {
     connection.execute_batch(sql)?;
+    connection.execute_batch(derived_memory::DERIVED_SCHEMA_SQL)?;
     connection.pragma_update(None, "application_id", APPLICATION_ID)?;
+    connection.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+    verify(connection)
+}
+fn migrate_v1(connection: &Connection, sql: &str) -> Result<()> {
+    connection.execute_batch(sql)?;
     connection.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     verify(connection)
 }
 
 impl Store {
+    /// Trusted application-private path only. Upgrade known old databases with a unique,
+    /// nonoverwrite sibling backup; never adopt a foreign or altered schema.
+    pub fn open_application(path: &Path) -> Result<Self> {
+        match Self::open(path, None) {
+            Err(StorageError::BackupRequired) => {
+                use std::sync::atomic::{AtomicU64, Ordering};
+                static NEXT_BACKUP: AtomicU64 = AtomicU64::new(0);
+                let mut filename = path
+                    .file_name()
+                    .ok_or(StorageError::InvalidInput)?
+                    .to_os_string();
+                let time = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_err(|_| StorageError::Io)?
+                    .as_nanos();
+                filename.push(format!(
+                    ".before-v{SCHEMA_VERSION}-{}-{time}-{}.sqlite",
+                    std::process::id(),
+                    NEXT_BACKUP.fetch_add(1, Ordering::Relaxed)
+                ));
+                Self::open(path, Some(&path.with_file_name(filename)))
+            }
+            result => result,
+        }
+    }
     /// Inspection/backup source only: never create, migrate or expose a writable connection.
     pub fn open_read_only(path: &Path) -> Result<Self> {
         let connection = connect(path, true)?;
         let (application, version) = identity(&connection)?;
         supported_identity(application, version)?;
-        verify(&connection)?;
+        verify_version(&connection, version)?;
         Ok(Self { connection })
     }
-    /// A new path initializes v1. An existing empty v0 database needs an explicit safety backup.
-    /// Foreign/nonempty v0, future versions and altered v1 schemas are refused, never adopted.
+    /// New paths initialize the current schema. Existing v0/v1 upgrades require a new safety
+    /// backup. Foreign/nonempty v0, future or altered schemas are refused, never adopted.
     pub fn open(path: &Path, migration_backup: Option<&Path>) -> Result<Self> {
         let new_file = match OpenOptions::new().write(true).create_new(true).open(path) {
             Ok(file) => {
@@ -254,6 +309,21 @@ impl Store {
             initialize(&transaction, SCHEMA)?;
             transaction.commit()?;
         }
+        if version == 1 {
+            let transaction =
+                connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            let locked = identity(&transaction)?;
+            supported_identity(locked.0, locked.1)?;
+            if locked != (application, version) {
+                return Err(StorageError::Busy);
+            }
+            verify_version(&transaction, 1)?;
+            let backup_path = migration_backup.ok_or(StorageError::BackupRequired)?;
+            let reader = connect(path, true)?;
+            consistent_backup(&reader, backup_path)?;
+            migrate_v1(&transaction, derived_memory::DERIVED_SCHEMA_SQL)?;
+            transaction.commit()?;
+        }
         verify(&connection)?;
         Ok(Self { connection })
     }
@@ -267,6 +337,91 @@ impl Store {
                 .connection
                 .query_row("SELECT sqlite_version()", [], |r| r.get(0))?,
         })
+    }
+    fn memory_engine(
+        &mut self,
+        scope: &Scope,
+        cancel: &dyn Fn() -> bool,
+    ) -> std::result::Result<Engine, derived_memory::MemoryError> {
+        use derived_memory::{check, MemoryError};
+        check(cancel)?;
+        if identity(&self.connection)
+            .map_err(|_| MemoryError::Database)?
+            .1
+            != SCHEMA_VERSION
+        {
+            return Err(MemoryError::Unsupported);
+        }
+        let engine = self
+            .resume(scope)
+            .map_err(|error| match error {
+                TurnError::Engine(error) => MemoryError::from(error),
+                TurnError::Storage(StorageError::Busy) => MemoryError::Busy,
+                TurnError::Storage(StorageError::NotFound) | TurnError::UnknownTurn => {
+                    MemoryError::NotFound
+                }
+                TurnError::Stale => MemoryError::Stale,
+                TurnError::TooLarge => MemoryError::TooLarge,
+                TurnError::Full => MemoryError::Full,
+                TurnError::Integrity | TurnError::Storage(StorageError::Integrity) => {
+                    MemoryError::Integrity
+                }
+                _ => MemoryError::Database,
+            })?
+            .engine;
+        check(cancel)?;
+        Ok(engine)
+    }
+    /// Prepare from this owner's validated accepted history, never a caller-provided Engine.
+    pub fn prepare_memory(
+        &mut self,
+        request: &derived_memory::PrepareRequest,
+        cancel: &dyn Fn() -> bool,
+    ) -> std::result::Result<derived_memory::PreparedMemory, derived_memory::MemoryError> {
+        let engine = self.memory_engine(&request.scope, cancel)?;
+        derived_memory::prepare(&engine, request, cancel)
+    }
+    pub fn publish_memory(
+        &mut self,
+        prepared: derived_memory::PreparedMemory,
+        cancel: &dyn Fn() -> bool,
+    ) -> std::result::Result<derived_memory::PublishOutcome, derived_memory::MemoryError> {
+        derived_memory::publish(&mut self.connection, prepared, cancel)
+    }
+    pub fn read_memory(
+        &mut self,
+        request: &derived_memory::PrepareRequest,
+        cancel: &dyn Fn() -> bool,
+    ) -> std::result::Result<derived_memory::SummaryPacket, derived_memory::MemoryError> {
+        let engine = self.memory_engine(&request.scope, cancel)?;
+        derived_memory::read(&self.connection, &engine, request, cancel)
+    }
+    pub fn search_memory(
+        &mut self,
+        request: &derived_memory::SearchRequest,
+        cancel: &dyn Fn() -> bool,
+    ) -> std::result::Result<Vec<derived_memory::SearchHit>, derived_memory::MemoryError> {
+        let engine = self.memory_engine(&request.scope, cancel)?;
+        derived_memory::search(&self.connection, &engine, request, cancel)
+    }
+    pub fn invalidate_memory(
+        &mut self,
+        scope: &Scope,
+        observer: &str,
+        expected_revision: u64,
+        cancel: &dyn Fn() -> bool,
+    ) -> std::result::Result<(), derived_memory::MemoryError> {
+        let engine = self.memory_engine(scope, cancel)?;
+        if !engine.state().actors.contains_key(observer) {
+            return Err(derived_memory::MemoryError::NotFound);
+        }
+        derived_memory::invalidate(
+            &mut self.connection,
+            scope,
+            observer,
+            expected_revision,
+            cancel,
+        )
     }
     pub fn create_story(&mut self, title: &str, seed: Seed) -> Result<()> {
         self.create_story_bounded(title, seed, false)
@@ -388,6 +543,126 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn file_owner_and_read_only_connections_require_memory_only_temp_fts() {
+        let path = std::env::temp_dir().join(format!(
+            "locallore-temp-policy-{}-{}.sqlite",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        {
+            let store = Store::open(&path, None).unwrap();
+            assert_eq!(
+                store
+                    .connection
+                    .pragma_query_value(None, "temp_store", |r| r.get::<_, u32>(0))
+                    .unwrap(),
+                2
+            );
+            store
+                .connection
+                .execute_batch("CREATE VIRTUAL TABLE temp.policy_probe USING fts5(body)")
+                .unwrap();
+            // Exercise the actual bundled FTS with a corpus larger than its
+            // usual small page cache, not merely a source-level PRAGMA check.
+            store
+                .connection
+                .execute(
+                    "INSERT INTO temp.policy_probe(body) VALUES(?1)",
+                    ["synthetic ".repeat(240_000)],
+                )
+                .unwrap();
+            let count: u32 = store
+                .connection
+                .query_row(
+                    "SELECT count(*) FROM temp.policy_probe WHERE policy_probe MATCH 'synthetic'",
+                    [],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            assert_eq!(count, 1);
+            let temporary_file: String = store
+                .connection
+                .query_row(
+                    "SELECT file FROM pragma_database_list WHERE name='temp'",
+                    [],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            assert!(temporary_file.is_empty());
+            store
+                .connection
+                .execute_batch("DROP TABLE temp.policy_probe")
+                .unwrap();
+            assert!(!store
+                .connection
+                .prepare("SELECT 1 FROM sqlite_temp_schema WHERE name GLOB 'policy_probe*'")
+                .unwrap()
+                .exists([])
+                .unwrap());
+        }
+        {
+            let store = Store::open_read_only(&path).unwrap();
+            assert_eq!(
+                store
+                    .connection
+                    .pragma_query_value(None, "temp_store", |r| r.get::<_, u32>(0))
+                    .unwrap(),
+                2
+            );
+        }
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn failed_v1_upgrade_rolls_back_derived_ddl_migration_records_and_version() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        configure(&connection).unwrap();
+        connection.execute_batch(SCHEMA).unwrap();
+        connection
+            .pragma_update(None, "application_id", APPLICATION_ID)
+            .unwrap();
+        connection.pragma_update(None, "user_version", 1).unwrap();
+        let original = schema_rows(&connection).unwrap();
+        for (sql, expected) in [
+            (
+                format!(
+                    "{} INSERT INTO absent_migration_table VALUES(1);",
+                    derived_memory::DERIVED_SCHEMA_SQL
+                ),
+                StorageError::Database,
+            ),
+            (
+                format!(
+                    "{} CREATE TABLE unexpected(data TEXT);",
+                    derived_memory::DERIVED_SCHEMA_SQL
+                ),
+                StorageError::SchemaMismatch,
+            ),
+        ] {
+            let tx = connection
+                .transaction_with_behavior(TransactionBehavior::Immediate)
+                .unwrap();
+            assert_eq!(migrate_v1(&tx, &sql), Err(expected));
+            drop(tx);
+            assert_eq!(identity(&connection).unwrap(), (APPLICATION_ID, 1));
+            assert_eq!(schema_rows(&connection).unwrap(), original);
+            verify_version(&connection, 1).unwrap();
+        }
+        assert_eq!(identity(&connection).unwrap(), (APPLICATION_ID, 1));
+        assert_eq!(schema_rows(&connection).unwrap(), original);
+        verify_version(&connection, 1).unwrap();
+        let tx = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .unwrap();
+        migrate_v1(&tx, derived_memory::DERIVED_SCHEMA_SQL).unwrap();
+        tx.commit().unwrap();
+        verify(&connection).unwrap();
+    }
 
     #[test]
     fn inspection_copy_checks_snapshot_budget_before_creating_any_destination() {

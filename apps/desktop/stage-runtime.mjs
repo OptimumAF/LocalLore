@@ -10,7 +10,7 @@ if (!source)
         "Set LOCALLORE_D04_WORKER_SOURCE to the reviewed fixed native build artifact.",
     );
 const expected =
-    "add98cf02249141942c88e2517c2f5a4c9a91dbe9638bf7d3cd30c26916bce87";
+    "b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434";
 const bytes = await readFile(source);
 if (
     bytes.length > 16 * 1024 * 1024 ||

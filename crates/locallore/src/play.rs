@@ -640,7 +640,7 @@ pub fn execute_traced(
         Outcome::Rejected,
         || {
             let reserved_tokens = 512.min(profile.context_tokens.saturating_sub(1));
-            crate::context_compiler::compile(
+            crate::context_compiler::compile_cancelled(
                 engine,
                 &crate::context_compiler::CompileRequest {
                     version: crate::context_compiler::COMPILER_VERSION,
@@ -663,8 +663,10 @@ pub fn execute_traced(
                         ..crate::context_compiler::Budget::default()
                     },
                 },
+                &|| cancel.is_cancelled(),
             )
             .map_err(|error| match error {
+                crate::context_compiler::CompileError::Cancelled => Error::Cancelled,
                 crate::context_compiler::CompileError::Scope => Error::Scope,
                 crate::context_compiler::CompileError::Stale => Error::Stale,
                 crate::context_compiler::CompileError::Observer => Error::Knowledge,

@@ -877,3 +877,41 @@ summary {
 .turn-debugger .trace-attempts th:nth-child(4) {
     width: 20%;
 }
+
+.evaluation-panel {
+    padding: 1.5rem;
+    border-block: 1px solid var(--border, #364536);
+}
+.evaluation-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.evaluation-panel table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    margin-block: 1rem;
+}
+.evaluation-panel th,
+.evaluation-panel td {
+    overflow-wrap: anywhere;
+    vertical-align: top;
+    padding: 0.65rem;
+    border-bottom: 1px solid #364536;
+    text-align: left;
+}
+.evaluation-panel small {
+    display: block;
+    font-weight: normal;
+}
+.evaluation-panel pre {
+    max-height: 25rem;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.evaluation-binding,
+.evaluation-source {
+    overflow-wrap: anywhere;
+}

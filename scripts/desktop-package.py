@@ -19,7 +19,7 @@ import uuid
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKER_SHA = "add98cf02249141942c88e2517c2f5a4c9a91dbe9638bf7d3cd30c26916bce87"
+WORKER_SHA = "b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434"
 NODE_VERSION = "v24.22.1"
 NPM_VERSION = "11.19.1"
 RUNTIME_COMMIT = "620d2225cc436ab0b001e3200e590e3b286ef9ab"

@@ -249,6 +249,10 @@ pub struct SavedTurn {
     pub receipt: Option<Receipt>,
 }
 pub trait Persistence: Send {
+    /// Actual SQLite implementation version; workspace host-v1 contract stays separate.
+    fn database_schema_version(&self) -> u32 {
+        1
+    }
     fn location(&self) -> &str;
     fn list(&mut self) -> Result<Vec<WorkspaceSummary>, String>;
     fn create(&mut self) -> Result<Engine, String>;
@@ -1022,7 +1026,7 @@ impl Host {
                     let port = state.persistence.as_mut().unwrap();
                     let stories = port.list().map_err(reject)?;
                     Ok(ok(
-                        json!({"persistent":true,"location":port.location(),"schema_version":1,"stories":stories}),
+                        json!({"persistent":true,"location":port.location(),"schema_version":1,"database_schema_version":port.database_schema_version(),"stories":stories}),
                     ))
                 }
                 HostCommand::Create { seed } => {

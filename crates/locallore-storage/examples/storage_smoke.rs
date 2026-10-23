@@ -66,7 +66,7 @@ fn smoke(directory: &Path) -> Result<Value, Failure> {
         .map(str::parse)
         .collect::<Result<_, _>>()
         .map_err(|_| Failure::Verification)?;
-    if info.schema_version != 1
+    if info.schema_version != locallore_storage::SCHEMA_VERSION
         || !info.foreign_keys
         || sqlite_version != [3, 53, 2]
         || store

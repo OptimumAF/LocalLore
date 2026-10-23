@@ -52,9 +52,10 @@ class ShellViewModel(
                 val saved = operation()
                 if (!disposed && ticket == generation && saved != null) mutable.value = publishSaved(saved, notice)
             } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) {
+            catch (failure: Exception) {
                 if (!disposed && ticket == generation) mutable.value = mutable.value.copy(
-                    recoveryRequired = true, notice = "Saved progress could not be confirmed. Retry recovery; existing saves are retained.",
+                    recoveryRequired = true, notice = recoveryNotice(failure,
+                        "Saved progress could not be confirmed. Retry recovery; existing saves are retained."),
                 )
             } finally {
                 if (!disposed && ticket == generation) mutable.value = mutable.value.copy(busy = false)
@@ -161,13 +162,15 @@ class ShellViewModel(
             } catch (cancelled: CancellationException) {
                 if (!disposed) diagnosticLog.record(DiagnosticPhase.PREPARE, DiagnosticOutcome.CANCELLED, elapsedMillis(start))
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (failure: Exception) {
                 if (!disposed) diagnosticLog.record(if (committing) DiagnosticPhase.COMMIT else DiagnosticPhase.PREPARE,
                     if (committing) DiagnosticOutcome.UNKNOWN else DiagnosticOutcome.FAILED,
-                    elapsedMillis(start), DiagnosticError.TRANSPORT)
+                    elapsedMillis(start), if (failure is WorkspaceFailure) DiagnosticError.fromNative(failure.category)
+                        else DiagnosticError.TRANSPORT)
                 if (ticket == generation) mutable.value = if (committing || gateway.durable) before.copy(
                     recoveryRequired = true,
-                    notice = if (gateway.durable) "Unable to confirm the outcome. Retry recovery using the original response key; saves are retained."
+                    notice = if (gateway.durable) recoveryNotice(failure,
+                        "Unable to confirm the outcome. Retry recovery using the original response key; saves are retained.")
                         else "Unable to confirm the outcome. Reset this in-memory demo to continue.",
                 ) else before.copy(notice = "Response failed. Nothing changed; try again.")
             } finally {
@@ -222,6 +225,12 @@ class ShellViewModel(
         mutable.value = mutable.value.copy(busy = false, preparingResponse = false)
         super.onCleared()
     }
+}
+
+private fun recoveryNotice(failure: Exception, fallback: String): String = when ((failure as? WorkspaceFailure)?.category) {
+    "Full" -> "Local storage is full. Free space, then retry recovery. Saved progress is retained."
+    "Busy" -> "The local engine is busy. Wait briefly, then retry recovery. Saved progress is retained."
+    else -> fallback
 }
 
 private fun DemoAction.description(): String = when (this) {

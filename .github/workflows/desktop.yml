@@ -63,6 +63,13 @@ jobs:
                   node scripts/desktop-package-workflow-check.mjs
                   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                   python scripts/desktop-package-tests.py
+            # Synthetic built-in cases only; this is another standalone workspace.
+            - name: Check deterministic evaluation formatting
+              run: cargo +1.93.1 fmt --manifest-path crates/locallore-eval/Cargo.toml -- --check
+            - name: Test deterministic shared Host evaluation and regression probes
+              run: cargo +1.93.1 test --manifest-path crates/locallore-eval/Cargo.toml --all-targets --locked
+            - name: Check deterministic evaluation
+              run: cargo +1.93.1 clippy --manifest-path crates/locallore-eval/Cargo.toml --all-targets --locked -- -D warnings
             # This crate is a standalone workspace, excluded from cargo test at repo root.
             # Build the ordinary fixture executable before unit tests locate it beside deps/.
             - name: Build synthetic runtime protocol fixture

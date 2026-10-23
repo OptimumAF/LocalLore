@@ -92,6 +92,8 @@ See [verification and limitations](docs/native/ANDROID_INPUT_VERIFICATION_2026-1
 
 See [Android build and sample instructions](apps/android/README.md) and
 [dated native/emulator verification](docs/native/VERIFICATION_2026-10-22.md).
+The [durable-app FFI follow-up](docs/native/APP_DEVICE_VERIFICATION_2026-10-22.md)
+records current production-transport cancellation, disposal and process-restart checks.
 The [shared check runner/CI instructions](docs/ci/CHECKS.md) document offline
 mode, prerequisites and separate authorized emulator commands. Build/static
 checks do not establish hosted execution or device qualification.

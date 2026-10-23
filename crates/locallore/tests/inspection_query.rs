@@ -418,8 +418,10 @@ fn query_bounds_unsupported_views_versions_and_branch_limits_fail_honestly() {
     }
     let child = engine.fork("child", 0).unwrap();
     assert_eq!(
-        query(&child, &request(&child, View::Profiles), false),
-        Err(QueryError::UnsupportedBranch)
+        query(&child, &request(&child, View::Profiles), false)
+            .unwrap()
+            .scope,
+        *child.scope()
     );
     q = request(&engine, View::Profiles);
     q.scope.branch = "sibling".into();

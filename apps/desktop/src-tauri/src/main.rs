@@ -3,6 +3,8 @@ use locallore::host::Host;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tauri::Manager;
+mod evaluation;
+mod evaluation_commands;
 mod export_commands;
 mod exports;
 mod lease;
@@ -122,13 +124,15 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},legacy:{},evaluating:{},stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
               std::env::var("LOCALLORE_D04_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D05_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D06_HARNESS").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_M07_LEGACY_HARNESS").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_D07_HARNESS").as_deref() == Ok("1"),
             if reopened {
                 "reopened"
             } else if std::env::var("LOCALLORE_TEST_RESTART").as_deref() == Ok("1") {
@@ -250,6 +254,14 @@ fn main() {
         .manage(model_commands::TestModelState::default())
         .invoke_handler(tauri::generate_handler![
             host_call,
+            evaluation_commands::evaluation_catalog,
+            evaluation_commands::evaluation_start,
+            evaluation_commands::evaluation_open,
+            evaluation_commands::evaluation_status,
+            evaluation_commands::evaluation_read,
+            evaluation_commands::evaluation_cancel,
+            evaluation_commands::evaluation_resume,
+            evaluation_commands::evaluation_rerun,
             model_commands::harness_model_case,
             model_commands::model_status,
             model_commands::model_import,
@@ -264,6 +276,7 @@ fn main() {
             export_commands::inspection_storage,
             export_commands::inspection_load,
             export_commands::harness_export_case,
+            evaluation_commands::harness_evaluation_case,
             harness::harness_checkpoint,
             harness::harness_viewport,
             harness::harness_finish,
@@ -274,6 +287,14 @@ fn main() {
     #[cfg(not(feature = "dev-harness"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         host_call,
+        evaluation_commands::evaluation_catalog,
+        evaluation_commands::evaluation_start,
+        evaluation_commands::evaluation_open,
+        evaluation_commands::evaluation_status,
+        evaluation_commands::evaluation_read,
+        evaluation_commands::evaluation_cancel,
+        evaluation_commands::evaluation_resume,
+        evaluation_commands::evaluation_rerun,
         model_commands::model_status,
         model_commands::model_import,
         model_commands::model_load,
@@ -317,6 +338,11 @@ fn main() {
                 model_root,
                 app.path().resource_dir()?.join("runtime"),
             )));
+            app.manage(Arc::new(evaluation::EvaluationManager::new(
+                path.parent()
+                    .ok_or_else(|| std::io::Error::other("InvalidInput"))?
+                    .join("evaluation-runs-v1"),
+            )));
             app.manage(WorkspaceState {
                 path,
                 lease: Arc::new(WindowLease::default()),
@@ -354,10 +380,16 @@ fn main() {
                         .state::<Arc<models::ModelManager>>()
                         .inner()
                         .clone();
+                    let evaluation_manager = window
+                        .state::<Arc<evaluation::EvaluationManager>>()
+                        .inner()
+                        .clone();
+                    evaluation_manager.retire(closed - 1);
                     let retired = model_manager.retire();
                     let lease = state.lease.clone();
                     let host = state.ready();
                     tauri::async_runtime::spawn_blocking(move || {
+                        evaluation_manager.drain(closed - 1);
                         lease.finish_close(closed, || {
                             if let Some(host) = &host {
                                 host.close_all();

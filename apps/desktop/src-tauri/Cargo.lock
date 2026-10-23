@@ -1701,6 +1701,7 @@ name = "locallore-desktop-spike"
 version = "0.1.0"
 dependencies = [
  "locallore",
+ "locallore-eval",
  "locallore-local-runtime",
  "locallore-workspace",
  "serde_json",
@@ -1710,6 +1711,18 @@ dependencies = [
  "tokio",
  "webview2-com",
  "windows",
+]
+
+[[package]]
+name = "locallore-eval"
+version = "0.1.0"
+dependencies = [
+ "locallore",
+ "locallore-storage",
+ "locallore-workspace",
+ "serde",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -1728,7 +1741,9 @@ version = "0.1.0"
 dependencies = [
  "locallore",
  "rusqlite",
+ "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]

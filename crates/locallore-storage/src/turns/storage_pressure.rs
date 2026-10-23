@@ -4,18 +4,22 @@ use super::*;
 use locallore::contracts::{Command, Intent};
 use rusqlite::types::Value;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 
 struct Temp(PathBuf);
 impl Temp {
     fn new() -> Self {
         // Android's explicit native runner supplies a fresh synthetic TMPDIR.
         let path = std::env::temp_dir().join(format!(
-            "locallore-storage-pressure-{}-{}",
+            "locallore-storage-pressure-{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed)
         ));
         std::fs::create_dir(&path).unwrap();
         Self(path)
@@ -164,6 +168,15 @@ fn add_other_story(store: &mut Store) -> (Scope, Vec<u8>) {
 
 #[test]
 fn full_after_insertable_gift_rolls_back_all_rows_then_exact_retry_spends_once() {
+    gift_pressure(false);
+}
+
+#[test]
+fn full_then_reopen_preserves_draft_and_exact_retry_spends_potion_once() {
+    gift_pressure(true);
+}
+
+fn gift_pressure(reopen_after_full: bool) {
     let directory = Temp::new();
     let mut store = directory.open();
     let initial = seed();
@@ -213,13 +226,32 @@ fn full_after_insertable_gift_rolls_back_all_rows_then_exact_retry_spends_once()
         tx.rollback().unwrap();
     }
     assert_eq!(rows(&store, None), before);
-    // Repeat on the same capped connection: each error must be real SQLITE_FULL,
-    // and neither attempt can publish the gift or any of the following claims.
-    for _ in 0..2 {
+    // Both retries must return real SQLITE_FULL. The reopen variant closes the
+    // failed owner before checking recovery or retrying the original draft.
+    for attempt in 0..2 {
         assert_eq!(
             store.commit_turn(&request, &proposal, preview.narration()),
             Err(TurnError::Full)
         );
+        if reopen_after_full && attempt == 0 {
+            drop(store);
+            store = directory.open();
+            let reopened_cap: i64 = store
+                .connection
+                .pragma_query_value(None, "max_page_count", |row| row.get(0))
+                .unwrap();
+            let reopened_pages: i64 = store
+                .connection
+                .pragma_query_value(None, "page_count", |row| row.get(0))
+                .unwrap();
+            assert_eq!(reopened_pages, pages);
+            assert!(reopened_cap >= reopened_pages);
+            // max_page_count is a connection-local test constraint; do not
+            // assume a reopened owner inherits it or models a full partition.
+            // Reapply it explicitly, then raise this new connection's budget
+            // only after another real FULL and all recovery checks below.
+            assert_eq!(clamp_pages(&store), pages);
+        }
         assert_eq!(rows(&store, None), before);
         let resumed = store.resume(&scope).unwrap();
         assert!(!resumed.projection_needs_rebuild);

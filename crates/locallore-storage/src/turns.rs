@@ -341,10 +341,34 @@ impl Store {
     /// Persist intent, then release the transaction BEFORE calling any inference/provider.
     /// An exact retry returns the recorded phase/receipt even after the head advances.
     pub fn begin_turn(&mut self, request: &Request) -> Result<TurnRecord> {
+        self.begin_turn_inner(request, None)
+    }
+    pub fn begin_bound(
+        &mut self,
+        request: &Request,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+    ) -> Result<TurnRecord> {
+        self.begin_turn_inner(request, Some(basis))
+    }
+    fn begin_turn_inner(
+        &mut self,
+        request: &Request,
+        basis: Option<&locallore::engine::AcceptedHistoryBasis>,
+    ) -> Result<TurnRecord> {
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
         let (resumed, history_count, history_bytes) = read_engine_budget(&tx, &request.scope)?;
+        if let Some(basis) = basis {
+            if !basis.matches_request(request)
+                || !resumed
+                    .engine
+                    .matches_accepted_history(basis)
+                    .map_err(TurnError::Engine)?
+            {
+                return Err(TurnError::Stale);
+            }
+        }
         if let Some(existing) = recorded(&tx, request, &resumed.engine)? {
             return Ok(existing);
         }
@@ -377,8 +401,32 @@ impl Store {
         })
     }
     pub fn turn_status(&mut self, request: &Request) -> Result<TurnRecord> {
+        self.turn_status_inner(request, None)
+    }
+    pub fn turn_status_bound(
+        &mut self,
+        request: &Request,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+    ) -> Result<TurnRecord> {
+        self.turn_status_inner(request, Some(basis))
+    }
+    fn turn_status_inner(
+        &mut self,
+        request: &Request,
+        basis: Option<&locallore::engine::AcceptedHistoryBasis>,
+    ) -> Result<TurnRecord> {
         let tx = self.connection.transaction()?;
         let resumed = read_engine(&tx, &request.scope)?;
+        if let Some(basis) = basis {
+            if !basis.covers_request(request)
+                || !resumed
+                    .engine
+                    .matches_accepted_history(basis)
+                    .map_err(TurnError::Engine)?
+            {
+                return Err(TurnError::Stale);
+            }
+        }
         let result = recorded(&tx, request, &resumed.engine)?.ok_or(TurnError::UnknownTurn)?;
         tx.commit()?;
         Ok(result)
@@ -445,10 +493,44 @@ impl Store {
         status: &str,
         phase: TurnPhase,
     ) -> Result<TurnRecord> {
+        self.finish_draft_bound(request, status, phase, None)
+    }
+    /// Native worker cleanup must not terminalize a replacement owner's draft.
+    pub fn finish_bound(
+        &mut self,
+        request: &Request,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+        phase: TurnPhase,
+    ) -> Result<TurnRecord> {
+        let status = match phase {
+            TurnPhase::Cancelled => "cancelled",
+            TurnPhase::Failed => "failed",
+            TurnPhase::Stale => "stale",
+            _ => return Err(TurnError::Integrity),
+        };
+        self.finish_draft_bound(request, status, phase, Some(basis))
+    }
+    fn finish_draft_bound(
+        &mut self,
+        request: &Request,
+        status: &str,
+        phase: TurnPhase,
+        basis: Option<&locallore::engine::AcceptedHistoryBasis>,
+    ) -> Result<TurnRecord> {
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
         let resumed = read_engine(&tx, &request.scope)?;
+        if let Some(basis) = basis {
+            if !basis.covers_request(request)
+                || !resumed
+                    .engine
+                    .matches_accepted_history(basis)
+                    .map_err(TurnError::Engine)?
+            {
+                return Err(TurnError::Stale);
+            }
+        }
         let mut result = recorded(&tx, request, &resumed.engine)?.ok_or(TurnError::UnknownTurn)?;
         if result.phase == TurnPhase::Draft {
             tx.execute("UPDATE turns SET status=?4 WHERE story_id=?1 AND branch_id=?2 AND turn_id=?3 AND status='draft'",
@@ -466,7 +548,7 @@ impl Store {
         proposal: &Proposal,
         narration: &str,
     ) -> Result<Receipt> {
-        self.commit_output(request, proposal, narration, None)
+        self.commit_output(request, proposal, narration, None, None)
     }
     pub fn commit_prepared(&mut self, receipt: &Receipt) -> Result<Receipt> {
         self.commit_output(
@@ -474,6 +556,22 @@ impl Store {
             receipt.proposal(),
             receipt.narration(),
             receipt.play(),
+            None,
+        )
+    }
+    /// Compare the opaque generation source inside the same write transaction as
+    /// canonical acceptance. A failed comparison performs no draft mutation.
+    pub fn commit_prepared_bound(
+        &mut self,
+        receipt: &Receipt,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+    ) -> Result<Receipt> {
+        self.commit_output(
+            receipt.request(),
+            receipt.proposal(),
+            receipt.narration(),
+            receipt.play(),
+            Some(basis),
         )
     }
     fn commit_output(
@@ -482,11 +580,22 @@ impl Store {
         proposal: &Proposal,
         narration: &str,
         play: Option<&locallore::play::PlayRecord>,
+        basis: Option<&locallore::engine::AcceptedHistoryBasis>,
     ) -> Result<Receipt> {
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
         let (mut resumed, _, history_bytes) = read_engine_budget(&tx, &request.scope)?;
+        if let Some(basis) = basis {
+            if !basis.matches_request(request)
+                || !resumed
+                    .engine
+                    .matches_accepted_history(basis)
+                    .map_err(TurnError::Engine)?
+            {
+                return Err(TurnError::Stale);
+            }
+        }
         let turn = recorded(&tx, request, &resumed.engine)?.ok_or(TurnError::UnknownTurn)?;
         if let Some(receipt) = turn.receipt {
             return Ok(receipt);

@@ -1,5 +1,6 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
-//! Explicit original synthetic fixture. No real save, model or network is used.
+//! Builds the synthetic retained-ancestry scenario with the current Store schema.
+//! The packaged historical schema3 asset stays immutable. No real save/model/network.
 use locallore::{contracts::*, engine::Engine};
 use locallore_storage::{ForkRequest, Store};
 use std::{fs, io::Write, path::PathBuf};
@@ -107,25 +108,50 @@ fn main() {
 mod tests {
     use super::*;
     #[test]
-    fn original_fixture_matches_packaged_asset_and_validates_nested_rewind() {
+    fn current_fixture_preserves_historical_canon_and_validates_nested_rewind() {
         let actual = fixture();
-        assert_eq!(
-            actual,
-            include_bytes!(
-                "../../../apps/android/app/src/androidTest/assets/parent-retention-v1.json"
-            )
+        let historical = include_bytes!(
+            "../../../apps/android/app/src/androidTest/assets/parent-retention-v1.json"
         );
-        let validated = locallore_storage::validate_archive(&actual, &|| false).unwrap();
+        let mut current_json: serde_json::Value = serde_json::from_slice(&actual).unwrap();
+        let mut historical_json: serde_json::Value = serde_json::from_slice(historical).unwrap();
         assert_eq!(
-            validated.preview().branch_heads,
-            std::collections::BTreeMap::from([
-                ("main".into(), 4),
-                ("parent".into(), 5),
-                ("child".into(), 4),
-                ("rewind".into(), 1),
-                ("sibling".into(), 1)
-            ])
+            historical_json["payload"]["source_database_schema_version"],
+            3
         );
-        assert!(validated.preview().retired_branch_ids.is_empty());
+        assert_eq!(
+            current_json["payload"]["source_database_schema_version"],
+            locallore_storage::SCHEMA_VERSION
+        );
+        // Current export must not claim it came from a historical Store. Only
+        // source-schema metadata and its dependent payload digest may differ;
+        // seed/branch/receipt/state integrity and every canonical field stay equal.
+        for value in [&mut current_json, &mut historical_json] {
+            value["payload"]
+                .as_object_mut()
+                .unwrap()
+                .remove("source_database_schema_version")
+                .unwrap();
+            value["integrity"]
+                .as_object_mut()
+                .unwrap()
+                .remove("payload_sha256")
+                .unwrap();
+        }
+        assert_eq!(current_json, historical_json);
+        for bytes in [&actual[..], &historical[..]] {
+            let validated = locallore_storage::validate_archive(bytes, &|| false).unwrap();
+            assert_eq!(
+                validated.preview().branch_heads,
+                std::collections::BTreeMap::from([
+                    ("main".into(), 4),
+                    ("parent".into(), 5),
+                    ("child".into(), 4),
+                    ("rewind".into(), 1),
+                    ("sibling".into(), 1)
+                ])
+            );
+            assert!(validated.preview().retired_branch_ids.is_empty());
+        }
     }
 }

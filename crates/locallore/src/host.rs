@@ -4,7 +4,11 @@ use crate::turn_trace::{
     self, AttemptHandle, AttemptIdentity, Counts, ErrorCategory, IdentityHash, Label, Outcome,
     Provenance, Reader, Revision, RingSink, Selection, Stage, StageTimer, TraceOwner, TraceRing,
 };
-use crate::{contracts::*, engine::Engine, inference::*};
+use crate::{
+    contracts::*,
+    engine::{AcceptedHistoryBasis, Engine},
+    inference::*,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -14,6 +18,7 @@ use std::{
 };
 
 pub const HOST_VERSION: u16 = 1;
+pub mod memory_maintenance;
 pub const MAX_INPUT: usize = 24_576;
 pub const MAX_OUTPUT: usize = 262_144;
 pub const MAX_SESSIONS: usize = 4;
@@ -226,6 +231,7 @@ struct Turn {
     error: Option<String>,
     trace: Option<AttemptHandle>,
     trace_attempt: u32,
+    basis: Option<AcceptedHistoryBasis>,
 }
 impl Turn {
     fn view(&self) -> Value {
@@ -239,6 +245,7 @@ struct Session {
     engine: Engine,
     turns: BTreeMap<String, Turn>,
     trace_owner: TraceOwner,
+    work_owner: Arc<()>,
 }
 #[derive(Default)]
 struct State {
@@ -301,12 +308,97 @@ pub struct WorkspaceForkOutcome {
     pub head_revision: u64,
     pub created: bool,
 }
+/// Native-only coherent generation input. This is neither a wire payload nor an
+/// inspection grant. Consumers must recheck an opaque proof against this Engine
+/// at consumption; missing cache remains honest exact-raw fallback.
+pub struct HostGenerationSnapshot {
+    pub engine: Engine,
+    pub coverage: crate::memory_coverage::CoverageRead,
+}
+fn check_generation_cancel(cancel: &dyn Fn() -> bool) -> Result<(), String> {
+    if std::panic::catch_unwind(std::panic::AssertUnwindSafe(cancel)).unwrap_or(true) {
+        Err("Cancelled".into())
+    } else {
+        Ok(())
+    }
+}
+fn validate_generation_engine(
+    engine: &Engine,
+    scope: &Scope,
+    expected_head: u64,
+    observer: &str,
+) -> Result<(), String> {
+    if engine.scope() != scope {
+        return Err("Scope".into());
+    }
+    if engine.revision() != expected_head || engine.seed().player != observer {
+        return Err("Stale".into());
+    }
+    Ok(())
+}
+fn generation_read_error(error: String) -> String {
+    // Only this selected-session port treats a missing/replaced source or player
+    // as a stale basis. Other persistence ports retain their existing mapping.
+    if error == "NotFound" {
+        "Stale".into()
+    } else {
+        error
+    }
+}
 pub struct SavedTurn {
     pub request: Request,
     pub phase: String,
     pub receipt: Option<Receipt>,
 }
+#[derive(Clone, Copy)]
+pub enum DraftDisposition {
+    Cancelled,
+    Failed,
+    Stale,
+}
 pub trait Persistence: Send {
+    fn begin_bound(
+        &mut self,
+        _request: &Request,
+        _basis: &AcceptedHistoryBasis,
+    ) -> Result<SavedTurn, String> {
+        Err("Unsupported".into())
+    }
+    fn status_bound(
+        &mut self,
+        _request: &Request,
+        _basis: &AcceptedHistoryBasis,
+    ) -> Result<SavedTurn, String> {
+        Err("Unsupported".into())
+    }
+    /// Implementations must compare the basis atomically with canonical writes.
+    /// Legacy ports fail closed rather than pretending a read then write is atomic.
+    fn commit_prepared_bound(
+        &mut self,
+        _receipt: &Receipt,
+        _basis: &AcceptedHistoryBasis,
+    ) -> Result<Receipt, String> {
+        Err("Unsupported".into())
+    }
+    fn finish_bound(
+        &mut self,
+        _request: &Request,
+        _basis: &AcceptedHistoryBasis,
+        _phase: DraftDisposition,
+    ) -> Result<SavedTurn, String> {
+        Err("Unsupported".into())
+    }
+    /// Trusted native maintenance uses the existing selected canonical source.
+    /// Unsupported ports cannot silently create a competing maintenance owner.
+    fn memory_maintenance(
+        &mut self,
+        _selected: &Engine,
+        _expected_head: u64,
+        _action: memory_maintenance::MaintenanceAction,
+        _cancel: &dyn Fn() -> bool,
+    ) -> Result<memory_maintenance::MaintenanceReply, memory_maintenance::MaintenanceError> {
+        Err(memory_maintenance::MaintenanceError::Unsupported)
+    }
     /// Recheck public target admission even before returning process-cached work.
     fn validate_scope(&mut self, _scope: &Scope) -> Result<(), String> {
         Ok(())
@@ -329,6 +421,24 @@ pub trait Persistence: Send {
     }
     fn create(&mut self) -> Result<Engine, String>;
     fn resume(&mut self, scope: &Scope) -> Result<Engine, String>;
+    fn generation_snapshot(
+        &mut self,
+        scope: &Scope,
+        expected_head: u64,
+        observer: &str,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<HostGenerationSnapshot, String> {
+        check_generation_cancel(cancel)?;
+        let engine = self.resume(scope).map_err(generation_read_error)?;
+        validate_generation_engine(&engine, scope, expected_head, observer)?;
+        check_generation_cancel(cancel)?;
+        Ok(HostGenerationSnapshot {
+            engine,
+            coverage: crate::memory_coverage::CoverageRead::RawFallback(
+                crate::memory_coverage::FallbackReason::Missing,
+            ),
+        })
+    }
     fn begin(&mut self, request: &Request) -> Result<SavedTurn, String>;
     fn commit(
         &mut self,
@@ -477,6 +587,73 @@ impl Host {
             .as_mut()
             .ok_or("Unsupported")?
             .fork_branch(request, cancel)
+    }
+    /// Read-only native generation input, independent of spoiler inspection.
+    /// The selected seed fixes the player; neither JSON nor the caller supplies
+    /// an observer. Does not admit jobs, select/refresh sessions or run a provider.
+    pub fn generation_snapshot(
+        &self,
+        session: &str,
+        scope: &Scope,
+        expected_head: u64,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<HostGenerationSnapshot, String> {
+        let mut state = self.state.lock().map_err(|_| "Internal")?;
+        let selected = state.sessions.get(session).ok_or("Closed")?;
+        if selected.engine.scope() != scope {
+            return Err("Scope".into());
+        }
+        let selected_seed = selected.engine.seed().clone();
+        let ephemeral = state.persistence.is_none().then(|| selected.engine.clone());
+        let observed_cancelled = std::cell::Cell::new(false);
+        let safe_cancel = || {
+            if !observed_cancelled.get() {
+                observed_cancelled.set(check_generation_cancel(cancel).is_err());
+            }
+            observed_cancelled.get()
+        };
+        check_generation_cancel(&safe_cancel)?;
+        let snapshot = if let Some(port) = state.persistence.as_mut() {
+            // Overrides receive the same panic-safe cancellation boundary as
+            // the default port. An observed true/panic remains cancelled even
+            // if an override ignores it and returns an otherwise valid Engine.
+            // Contain a native override failure inside the guard so it cannot
+            // poison every later operation on this owner.
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                port.generation_snapshot(scope, expected_head, &selected_seed.player, &safe_cancel)
+            }))
+            .map_err(|_| "Internal")?
+            .map_err(generation_read_error)?
+        } else {
+            HostGenerationSnapshot {
+                engine: ephemeral.expect("selected ephemeral Engine"),
+                coverage: crate::memory_coverage::CoverageRead::RawFallback(
+                    crate::memory_coverage::FallbackReason::Missing,
+                ),
+            }
+        };
+        validate_generation_engine(
+            &snapshot.engine,
+            scope,
+            expected_head,
+            &selected_seed.player,
+        )?;
+        if snapshot.engine.seed() != &selected_seed {
+            return Err("Stale".into());
+        }
+        // A matching seed/head does not identify immutable accepted history:
+        // an archive can replace a deleted scope with different receipts or
+        // ancestry. Permit another owner's append only to this exact prefix.
+        let selected = &state.sessions.get(session).ok_or("Closed")?.engine;
+        if !snapshot
+            .engine
+            .extends_accepted_history(selected)
+            .map_err(|_| "Stale")?
+        {
+            return Err("Stale".into());
+        }
+        check_generation_cancel(&safe_cancel)?;
+        Ok(snapshot)
     }
     /// Read-only derived views use one immutable durable snapshot. The inspection grant
     /// comes only from trusted Host construction, never from a query or generation context.
@@ -1001,6 +1178,7 @@ impl Host {
                         engine,
                         turns: BTreeMap::new(),
                         trace_owner: TraceOwner::default(),
+                        work_owner: Arc::new(()),
                     },
                 );
                 ok(data)
@@ -1075,6 +1253,7 @@ impl Host {
                         error: None,
                         trace: None,
                         trace_attempt: 0,
+                        basis: None,
                     },
                 );
                 ok(s.turns[&id].view())
@@ -1349,7 +1528,29 @@ impl Host {
                         .resume(scope)
                         .map_err(reject)?;
                     let revision = engine.revision();
-                    get_session(state, session, scope)?.engine = engine;
+                    let selected = get_session(state, session, scope)?;
+                    // Open also serves passive frontend refresh. Preserve work
+                    // and diagnostic consent for the same accepted source or an
+                    // exact append; only a replacement/rewind selects a new owner.
+                    if !engine
+                        .extends_accepted_history(&selected.engine)
+                        .map_err(reject)?
+                    {
+                        for turn in selected.turns.values() {
+                            turn.cancel.cancel();
+                            if turn.phase.active() {
+                                self.trace_finish(turn.trace.as_ref(), Outcome::Cancelled);
+                            }
+                        }
+                        selected.turns.clear();
+                        selected.work_owner = Arc::new(());
+                        selected.trace_owner.retire();
+                        if let Ok(mut trace) = self.trace.try_lock() {
+                            trace.revoke_details(&selected.trace_owner);
+                        }
+                        selected.trace_owner = TraceOwner::default();
+                    }
+                    selected.engine = engine;
                     Ok(ok(
                         json!({"session":session,"scope":scope,"revision":revision}),
                     ))
@@ -1359,6 +1560,7 @@ impl Host {
                     request,
                     mode,
                 } => {
+                    refresh_session(state, session, &request.scope)?;
                     let s = get_session(state, session, &request.scope)?;
                     if let Some(t) = s.turns.get(&request.turn) {
                         if t.request != *request || t.mode != *mode {
@@ -1367,6 +1569,24 @@ impl Host {
                     } else if s.turns.len() >= MAX_TURNS {
                         return Err(reject("TurnLimit"));
                     }
+                    let basis = match s.turns.get(&request.turn).and_then(|t| t.basis.clone()) {
+                        Some(basis) => basis,
+                        None => s
+                            .engine
+                            .accepted_history_basis_at(request.expected_revision)
+                            .map_err(|error| {
+                                reject(if error == Error::Rule {
+                                    Error::Stale
+                                } else {
+                                    error
+                                })
+                            })?,
+                    };
+                    if !s.engine.matches_accepted_history(&basis).map_err(reject)? {
+                        return Err(reject("Stale"));
+                    }
+                    let selected_basis = s.engine.accepted_history_basis().map_err(reject)?;
+                    let historical = request.expected_revision != s.engine.revision();
                     if matches!(request.intent, Intent::FreeText { .. })
                         && state.local_play.is_none()
                     {
@@ -1374,7 +1594,7 @@ impl Host {
                             .persistence
                             .as_mut()
                             .unwrap()
-                            .status(&request.scope, &request.turn)
+                            .status_bound(request, &selected_basis)
                             .map_err(|e| {
                                 reject(if e == "UnknownTurn" {
                                     "Unsupported".to_owned()
@@ -1396,12 +1616,22 @@ impl Host {
                             .insert(request.turn.clone(), t);
                         return Ok(reply);
                     }
-                    let saved = state
-                        .persistence
-                        .as_mut()
-                        .unwrap()
-                        .begin(request)
-                        .map_err(reject)?;
+                    let port = state.persistence.as_mut().unwrap();
+                    // Historical retries are reads. A shorter request prefix must
+                    // never admit a new draft if another owner rewinds the source
+                    // between refresh and the persistence transaction.
+                    let saved = if historical {
+                        port.status_bound(request, &selected_basis)
+                            .map_err(|error| {
+                                reject(if error == "UnknownTurn" {
+                                    "Stale".to_owned()
+                                } else {
+                                    error
+                                })
+                            })?
+                    } else {
+                        port.begin_bound(request, &selected_basis).map_err(reject)?
+                    };
                     refresh_session(state, session, &request.scope)?;
                     let s = get_session(state, session, &request.scope)?;
                     if saved.phase != "draft" {
@@ -1413,15 +1643,20 @@ impl Host {
                     if let Some(t) = s.turns.get(&request.turn) {
                         return Ok(ok(t.view()));
                     }
-                    if !matches!(request.intent, Intent::FreeText { .. }) {
+                    if !historical && !matches!(request.intent, Intent::FreeText { .. }) {
                         if let Err(error) =
                             Engine::proposal(request).and_then(|p| s.engine.preview(request, &p))
                         {
-                            let _ = state.persistence.as_mut().unwrap().fail(request);
+                            let _ = state.persistence.as_mut().unwrap().finish_bound(
+                                request,
+                                &basis,
+                                DraftDisposition::Failed,
+                            );
                             return Err(reject(error));
                         }
                     }
-                    let t = saved_turn(saved, *mode)?;
+                    let mut t = saved_turn(saved, *mode)?;
+                    t.basis = Some(basis);
                     let reply = ok(t.view());
                     get_session(state, session, &request.scope)?
                         .turns
@@ -1434,12 +1669,8 @@ impl Host {
                     turn,
                 } => {
                     get_session(state, session, scope)?;
-                    let saved = state
-                        .persistence
-                        .as_mut()
-                        .unwrap()
-                        .status(scope, turn)
-                        .map_err(reject)?;
+                    let saved =
+                        selected_turn_status(state, session, scope, turn).map_err(reject)?;
                     refresh_session(state, session, scope)?;
                     let s = get_session(state, session, scope)?;
                     if saved.phase == "draft" {
@@ -1462,17 +1693,15 @@ impl Host {
                     if let Some(t) = s.turns.get_mut(turn) {
                         t.cancel.cancel();
                     }
-                    let original = state
-                        .persistence
-                        .as_mut()
-                        .unwrap()
-                        .status(scope, turn)
-                        .map_err(reject)?;
+                    let original =
+                        selected_turn_status(state, session, scope, turn).map_err(reject)?;
+                    let selected = get_session(state, session, scope)?;
+                    let basis = selected.engine.accepted_history_basis().map_err(reject)?;
                     let saved = state
                         .persistence
                         .as_mut()
                         .unwrap()
-                        .cancel(&original.request)
+                        .finish_bound(&original.request, &basis, DraftDisposition::Cancelled)
                         .map_err(reject)?;
                     refresh_session(state, session, scope)?;
                     let s = get_session(state, session, scope)?;
@@ -1488,12 +1717,8 @@ impl Host {
                     turn,
                 } => {
                     get_session(state, session, scope)?;
-                    let stored = state
-                        .persistence
-                        .as_mut()
-                        .unwrap()
-                        .status(scope, turn)
-                        .map_err(reject)?;
+                    let stored =
+                        selected_turn_status(state, session, scope, turn).map_err(reject)?;
                     if stored.phase != "draft" {
                         refresh_session(state, session, scope)?;
                         let s = get_session(state, session, scope)?;
@@ -1512,6 +1737,15 @@ impl Host {
                         return Err(reject("NotReady"));
                     }
                     let prepared = t.receipt.clone().unwrap();
+                    let original_basis = t.basis.as_ref().ok_or_else(|| reject("NotReady"))?;
+                    if !s
+                        .engine
+                        .matches_accepted_history(original_basis)
+                        .map_err(reject)?
+                    {
+                        return Err(reject("Stale"));
+                    }
+                    let basis = s.engine.accepted_history_basis().map_err(reject)?;
                     let trace = t.trace.clone();
                     let request = t.request.clone();
                     let mode = t.mode;
@@ -1523,12 +1757,26 @@ impl Host {
                         return Err(reject("TooLarge"));
                     }
                     let timer = StageTimer::start();
-                    match state
-                        .persistence
-                        .as_mut()
-                        .unwrap()
-                        .commit_prepared(&prepared)
-                    {
+                    let port = state.persistence.as_mut().unwrap();
+                    let committed = if basis.matches_request(&request) {
+                        port.commit_prepared_bound(&prepared, &basis)
+                    } else {
+                        // The selected source has advanced. Terminalize only
+                        // under its stronger full prefix, never the old candidate's
+                        // shorter prefix after a separate status/read operation.
+                        port.finish_bound(&request, &basis, DraftDisposition::Stale)
+                            .and_then(|saved| {
+                                saved.receipt.ok_or_else(|| {
+                                    match saved.phase.as_str() {
+                                        "cancelled" => "Cancelled",
+                                        "failed" => "Failed",
+                                        _ => "Stale",
+                                    }
+                                    .into()
+                                })
+                            })
+                    };
+                    match committed {
                         Ok(receipt) => {
                             self.trace_record(
                                 trace.as_ref(),
@@ -1555,7 +1803,11 @@ impl Host {
                         Err(error) => {
                             // A failed acknowledgement may still have committed. Lookup before
                             // reporting failure; if lookup also fails, preserve recoverable ownership.
-                            let lookup = state.persistence.as_mut().unwrap().status(scope, turn);
+                            let lookup = state
+                                .persistence
+                                .as_mut()
+                                .unwrap()
+                                .status_bound(&request, &basis);
                             match lookup {
                                 Ok(saved) if saved.phase != "draft" => {
                                     let outcome = trace_saved_outcome(&saved, Some(&prepared));
@@ -1585,6 +1837,20 @@ impl Host {
                                     );
                                     Err(reject(error))
                                 }
+                                Err(source_error)
+                                    if source_error == "Stale"
+                                        || source_error == "RetryMismatch" =>
+                                {
+                                    self.trace_record(
+                                        trace.as_ref(),
+                                        timer,
+                                        Stage::AtomicCommit,
+                                        Outcome::Stale,
+                                        Some(trace_category(&source_error)),
+                                    );
+                                    self.trace_finish(trace.as_ref(), Outcome::Stale);
+                                    Err(reject(source_error))
+                                }
                                 Err(_) => {
                                     self.trace_record(
                                         trace.as_ref(),
@@ -1607,11 +1873,23 @@ impl Host {
                         .filter(|t| t.phase.active())
                         .map(|t| {
                             t.cancel.cancel();
-                            (t.request.clone(), t.trace.clone(), t.receipt.clone())
+                            (
+                                t.request.clone(),
+                                t.trace.clone(),
+                                t.receipt.clone(),
+                                s.engine.accepted_history_basis().ok(),
+                            )
                         })
                         .collect();
-                    for (request, trace, prepared) in active {
-                        let saved = state.persistence.as_mut().unwrap().cancel(&request);
+                    for (request, trace, prepared, basis) in active {
+                        let saved = match basis {
+                            Some(basis) => state.persistence.as_mut().unwrap().finish_bound(
+                                &request,
+                                &basis,
+                                DraftDisposition::Cancelled,
+                            ),
+                            None => Err("Unsupported".into()),
+                        };
                         let outcome = saved.as_ref().map_or(Outcome::Unknown, |saved| {
                             trace_saved_outcome(saved, prepared.as_ref())
                         });
@@ -1634,10 +1912,23 @@ impl Host {
         }
     }
     fn prepare(&self, session: &str, scope: &Scope, turn: &str) -> Value {
-        let work = match self.begin_work(session, scope, turn) {
+        let mut work = match self.begin_work(session, scope, turn) {
             Ok(work) => work,
             Err(value) => return value,
         };
+        if matches!(work.request.intent, Intent::FreeText { .. }) && work.local_play.is_some() {
+            // Read actual Engine and proof together after releasing begin_work's
+            // lock. The returned native proof stays with precisely that Engine.
+            match self.generation_snapshot(session, scope, work.request.expected_revision, &|| {
+                work.cancel.is_cancelled()
+            }) {
+                Ok(snapshot) => {
+                    work.engine = snapshot.engine;
+                    work.coverage = Some(snapshot.coverage);
+                }
+                Err(error) => return self.generation_input_failure(work, error),
+            }
+        }
         // A clone of a coherent revision; no canonical lock or transaction during generation.
         let mut engine = work.engine.clone();
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -1647,7 +1938,7 @@ impl Host {
                         .trace
                         .clone()
                         .map(|handle| RingSink::new(Arc::clone(&self.trace), handle));
-                    crate::play::execute_traced(
+                    crate::play::execute_traced_with_coverage(
                         &mut engine,
                         &work.request,
                         &mut *(local.provider)(),
@@ -1655,6 +1946,7 @@ impl Host {
                         &local.profile,
                         sink.as_mut()
                             .map(|sink| sink as &mut dyn turn_trace::TraceSink),
+                        work.coverage.as_ref().expect("coherent free-text input"),
                     )
                 } else {
                     Err(Error::Provider)
@@ -1687,6 +1979,44 @@ impl Host {
         .unwrap_or(Err(Error::Provider));
         self.finish_work(work, result)
     }
+    fn generation_input_failure(&self, work: Work, error: String) -> Value {
+        let terminal = match error.as_str() {
+            "Cancelled" | "Closed" => Some(Error::Cancelled),
+            "Stale" | "NotFound" => Some(Error::Stale),
+            "Scope" => Some(Error::Scope),
+            "TooLarge" => Some(Error::TooLarge),
+            "Integrity" => Some(Error::CorruptHistory),
+            _ => None,
+        };
+        if let Some(error) = terminal {
+            return self.finish_work(work, Err(error));
+        }
+        // A transient storage read did not run a provider or consume the key.
+        // Keep it queued; status/exact retry can observe another owner's commit.
+        if let Ok(mut state) = self.state.lock() {
+            if let Some(turn) = state
+                .sessions
+                .get_mut(&work.session)
+                .filter(|session| Arc::ptr_eq(&session.work_owner, &work.owner))
+                .and_then(|session| session.turns.get_mut(&work.turn))
+            {
+                if turn.phase == Phase::Running {
+                    turn.phase = Phase::Queued;
+                    turn.error = None;
+                    turn.receipt = None;
+                }
+            }
+        }
+        self.trace_record(
+            work.trace.as_ref(),
+            StageTimer::start(),
+            Stage::Retrieval,
+            Outcome::Failed,
+            Some(trace_category(&error)),
+        );
+        self.trace_finish(work.trace.as_ref(), Outcome::Unknown);
+        reject(error)
+    }
     fn begin_work(&self, session: &str, scope: &Scope, turn: &str) -> Result<Work, Value> {
         let mut state = self.state.lock().unwrap();
         if state.workers >= MAX_WORKERS {
@@ -1700,6 +2030,16 @@ impl Host {
         };
         if t.phase != Phase::Queued {
             return Err(ok(t.view()));
+        }
+        let basis = match &t.basis {
+            Some(basis) => basis.clone(),
+            None => s
+                .engine
+                .accepted_history_basis_at(t.request.expected_revision)
+                .map_err(reject)?,
+        };
+        if !s.engine.matches_accepted_history(&basis).map_err(reject)? {
+            return Err(reject("Stale"));
         }
         t.phase = Phase::Running;
         t.trace = t.trace_attempt.checked_add(1).and_then(|attempt| {
@@ -1728,12 +2068,15 @@ impl Host {
             state: self.state.clone(),
             session: session.into(),
             turn: turn.into(),
+            owner: s.work_owner.clone(),
             engine: s.engine.clone(),
             request: t.request.clone(),
             mode: t.mode,
             cancel: t.cancel.clone(),
             local_play,
             trace: t.trace.clone(),
+            coverage: None,
+            basis,
         };
         state.workers += 1;
         Ok(work)
@@ -1785,6 +2128,13 @@ impl Host {
     }
     fn finish_work_inner(&self, work: &Work, result: Result<Receipt, Error>) -> Value {
         let mut state = self.state.lock().unwrap();
+        if !state
+            .sessions
+            .get(&work.session)
+            .is_some_and(|session| Arc::ptr_eq(&session.work_owner, &work.owner))
+        {
+            return reject("Closed");
+        }
         // Generation runs without the owner lock. Another process may have finalized
         // this key meanwhile; its persisted outcome must win over this worker.
         if state.persistence.is_some() && state.sessions.contains_key(&work.session) {
@@ -1793,9 +2143,30 @@ impl Host {
                     .persistence
                     .as_mut()
                     .unwrap()
-                    .status(&work.request.scope, &work.turn)
+                    .status_bound(&work.request, &work.basis)
                     .map_err(reject)?;
                 refresh_session(&mut state, &work.session, &work.request.scope)?;
+                if saved.request != work.request {
+                    return Err(reject("RetryMismatch"));
+                }
+                if !state.sessions[&work.session]
+                    .engine
+                    .matches_accepted_history(&work.basis)
+                    .map_err(reject)?
+                {
+                    let t = state
+                        .sessions
+                        .get_mut(&work.session)
+                        .unwrap()
+                        .turns
+                        .get_mut(&work.turn)
+                        .unwrap();
+                    t.phase = Phase::Stale;
+                    t.error = Some("Stale".into());
+                    t.receipt = None;
+                    // The new source owns its own draft: no stale/cancel/fail write.
+                    return Ok(Some(ok(t.view())));
+                }
                 if saved.phase == "draft" {
                     return Ok(None);
                 }
@@ -1812,6 +2183,18 @@ impl Host {
             match observed {
                 Ok(Some(reply)) => return reply,
                 Err(reply) => {
+                    if reply["error"] == "Stale" {
+                        if let Some(t) = state
+                            .sessions
+                            .get_mut(&work.session)
+                            .and_then(|s| s.turns.get_mut(&work.turn))
+                        {
+                            t.phase = Phase::Stale;
+                            t.error = Some("Stale".into());
+                            t.receipt = None;
+                            return ok(t.view());
+                        }
+                    }
                     // The worker is ending without a durable observation. Leave
                     // its original key retryable after a transient read failure.
                     if let Some(t) = state
@@ -1831,6 +2214,24 @@ impl Host {
         let Some(s) = state.sessions.get_mut(&work.session) else {
             return reject("Closed");
         };
+        if !matches!(s.engine.matches_accepted_history(&work.basis), Ok(true)) {
+            let t = s.turns.get_mut(&work.turn).unwrap();
+            t.phase = Phase::Stale;
+            t.error = Some("Stale".into());
+            t.receipt = None;
+            return ok(t.view());
+        }
+        let terminal_basis = match s.engine.accepted_history_basis() {
+            Ok(basis) => basis,
+            Err(error) => {
+                if let Some(t) = s.turns.get_mut(&work.turn) {
+                    if t.phase == Phase::Running {
+                        t.phase = Phase::Queued;
+                    }
+                }
+                return reject(error);
+            }
+        };
         let t = s.turns.get_mut(&work.turn).unwrap();
         if !t.phase.active() {
             return ok(t.view());
@@ -1846,12 +2247,13 @@ impl Host {
                 Ok(receipt) => {
                     t.phase = Phase::Ready;
                     t.receipt = Some(receipt);
+                    t.basis = Some(work.basis.clone());
                 }
                 Err(e) => {
-                    t.phase = if e == Error::Cancelled {
-                        Phase::Cancelled
-                    } else {
-                        Phase::Failed
+                    t.phase = match e {
+                        Error::Cancelled => Phase::Cancelled,
+                        Error::Stale => Phase::Stale,
+                        _ => Phase::Failed,
                     };
                     t.error = Some(e.to_string());
                 }
@@ -1861,9 +2263,19 @@ impl Host {
         let reply = ok(t.view());
         if let Some(port) = state.persistence.as_mut() {
             let saved = match phase {
-                Phase::Cancelled => Some(port.cancel(&work.request)),
-                Phase::Failed => Some(port.fail(&work.request)),
-                Phase::Stale => Some(port.stale(&work.request)),
+                Phase::Cancelled => Some(port.finish_bound(
+                    &work.request,
+                    &terminal_basis,
+                    DraftDisposition::Cancelled,
+                )),
+                Phase::Failed => Some(port.finish_bound(
+                    &work.request,
+                    &terminal_basis,
+                    DraftDisposition::Failed,
+                )),
+                Phase::Stale => {
+                    Some(port.finish_bound(&work.request, &terminal_basis, DraftDisposition::Stale))
+                }
                 _ => None,
             };
             if let Some(saved) = saved {
@@ -1917,6 +2329,8 @@ impl Host {
 
 #[cfg(test)]
 mod fork_port_tests;
+#[cfg(test)]
+mod generation_snapshot_tests;
 impl Drop for Host {
     fn drop(&mut self) {
         self.close_all();
@@ -1926,12 +2340,15 @@ struct Work {
     state: Arc<Mutex<State>>,
     session: String,
     turn: String,
+    owner: Arc<()>,
     engine: Engine,
     request: Request,
     mode: Mode,
     cancel: Cancellation,
     local_play: Option<LocalPlay>,
     trace: Option<AttemptHandle>,
+    coverage: Option<crate::memory_coverage::CoverageRead>,
+    basis: AcceptedHistoryBasis,
 }
 fn trace_category(error: &str) -> ErrorCategory {
     match error {
@@ -2071,8 +2488,38 @@ fn refresh_session(state: &mut State, id: &str, scope: &Scope) -> Result<(), Val
         .unwrap()
         .resume(scope)
         .map_err(reject)?;
-    get_session(state, id, scope)?.engine = engine;
+    let selected = get_session(state, id, scope)?;
+    // An implicit refresh may observe appends to the selected accepted source;
+    // it cannot silently select a replacement seed, prefix or lineage.
+    if !engine
+        .extends_accepted_history(&selected.engine)
+        .map_err(reject)?
+    {
+        return Err(reject("Stale"));
+    }
+    selected.engine = engine;
     Ok(())
+}
+fn selected_turn_status(
+    state: &mut State,
+    session: &str,
+    scope: &Scope,
+    turn: &str,
+) -> Result<SavedTurn, String> {
+    refresh_session(state, session, scope)
+        .map_err(|reply| reply["error"].as_str().unwrap_or("Internal").to_owned())?;
+    let selected = state.sessions.get(session).ok_or("Closed")?;
+    let basis = selected
+        .engine
+        .accepted_history_basis()
+        .map_err(|error| error.to_string())?;
+    let cached = selected.turns.get(turn).map(|t| t.request.clone());
+    let port = state.persistence.as_mut().ok_or("Unsupported")?;
+    let request = match cached {
+        Some(request) => request,
+        None => port.status(scope, turn)?.request,
+    };
+    port.status_bound(&request, &basis)
 }
 fn attach_engine(state: &mut State, engine: Engine) -> Value {
     let Some(next) = state.next.checked_add(1) else {
@@ -2087,6 +2534,7 @@ fn attach_engine(state: &mut State, engine: Engine) -> Value {
             engine,
             turns: BTreeMap::new(),
             trace_owner: TraceOwner::default(),
+            work_owner: Arc::new(()),
         },
     );
     ok(data)
@@ -2116,6 +2564,7 @@ fn saved_turn(saved: SavedTurn, mode: Mode) -> Result<Turn, Value> {
         },
         trace: None,
         trace_attempt: 0,
+        basis: None,
     })
 }
 fn ok(data: Value) -> Value {

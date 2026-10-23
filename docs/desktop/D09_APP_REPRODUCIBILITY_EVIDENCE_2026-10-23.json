@@ -1,0 +1,592 @@
+{
+  "version": 1,
+  "date": "2026-10-23",
+  "tasks": "D09.03/.05/.07 partial; D09.01/.02 applicability only",
+  "status": "in_review",
+  "application_byte_reproducibility_qualified": false,
+  "base": "c496eb87147843958653b194aed0ca934fb03923",
+  "final_code_test_source": "9b623541b02a389227d1867508295012c6197ca8",
+  "source_files": {
+    "scripts/desktop-package.py": "63c925b48663d1c051dd8eef8223f8ec0449457c4cfae134cfad4ba373db4fc8",
+    "scripts/desktop-reproducible.py": "85c4df5f2e772ce5e4c72d864b1aae0e4edd6615780b93949f8c3446d97ddd81",
+    "scripts/desktop-reproducible-tests.py": "c3eee53cb4bddf777c7e06d8d3b765cddbc92bc3095cc44c1c0772267530a7cb"
+  },
+  "checks": {
+    "synthetic_checker_tests": 20,
+    "existing_synthetic_package_tests": 12,
+    "failures": 0,
+    "skipped": 0,
+    "diff_check": "passed",
+    "normal_package_builds": 4,
+    "normal_package_verifications": 4,
+    "app_byte_comparison_cohorts_failed": 2
+  },
+  "policy": {
+    "normalizer": null,
+    "ignored_package_members": [],
+    "manifest_compared": true,
+    "application_launched": false,
+    "worker_launched": false,
+    "model_weights_read_copied_loaded": false,
+    "gui_or_desktop_control": false,
+    "downloads_installs_settings_releases": false
+  },
+  "tools": {
+    "versions": {
+      "cargo": "cargo 1.93.1 (083ac5135 2025-12-15)\nrelease: 1.93.1\ncommit-hash: 083ac5135f967fd9dc906ab057a2315861c7a80d\ncommit-date: 2025-12-15\nhost: x86_64-pc-windows-msvc\nlibgit2: 1.9.1 (sys:0.20.2 vendored)\nlibcurl: 8.15.0-DEV (sys:0.4.83+curl-8.15.0 vendored ssl:Schannel)\nos: Windows 10.0.26300 (Windows 11 Professional) [64-bit]",
+      "esbuild": "0.28.2",
+      "git": "git version 2.33.0.windows.2",
+      "node": "v24.22.1",
+      "npm": "11.19.1",
+      "python": "3.14.9 (tags/v3.14.9:ead82c0, Oct 21 2026, 06:26:14) [MSC v.1944 64 bit (AMD64)]",
+      "rust": "rustc 1.93.1 (01f6ddf75 2026-02-11)\nbinary: rustc\ncommit-hash: 01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\ncommit-date: 2026-02-11\nhost: x86_64-pc-windows-msvc\nrelease: 1.93.1\nLLVM version: 21.1.8"
+    },
+    "executables": {
+      "cargo": {
+        "sha256": "88d8258dcf6ae4f7a80c7d1088e1f36fa7025a1cfd1343731b4ee6f385121fc0",
+        "bytes": 13551616,
+        "rustup_proxy": true
+      },
+      "cl": {
+        "sha256": "36d32d60b9d26a3b5c7dcf763d4628d5cec2505059db1364c826776cbb37763d",
+        "bytes": 618992,
+        "rustup_proxy": false
+      },
+      "dumpbin": {
+        "sha256": "e514df6278fa532ab963f58ad9287eae6debfcdcc24a801f47db8f82a85be903",
+        "bytes": 23480,
+        "rustup_proxy": false
+      },
+      "git": {
+        "sha256": "ae463cad04c2b15fc91de68ab096933ec08c44752e205aebd7d64c3a482df62d",
+        "bytes": 45072,
+        "rustup_proxy": false
+      },
+      "lib": {
+        "sha256": "54e8c0b868ad2509e9bd4b7845c67380a4e074af76c286ecd049a3679ccfa3b9",
+        "bytes": 23512,
+        "rustup_proxy": false
+      },
+      "link": {
+        "sha256": "38f375b084e796c6be3ae724641136897770fbc4858e578724f7956c41c48fce",
+        "bytes": 2367464,
+        "rustup_proxy": false
+      },
+      "mt": {
+        "sha256": "d3426043571913ca4df8f85c0aa491094045d9a115f2b47bb0baae54db74ed68",
+        "bytes": 1838560,
+        "rustup_proxy": false
+      },
+      "node": {
+        "sha256": "d702daa815eabbff763c7d3808e235cf031cf2ca70211b56847bc72f51e240e5",
+        "bytes": 93915464,
+        "rustup_proxy": false
+      },
+      "npm_cli": {
+        "sha256": "3ce7cba6f5128dd5f54c98b6a5036b0f850496878cc2e21044b675fe3c594e3e",
+        "bytes": 56,
+        "rustup_proxy": false
+      },
+      "python": {
+        "sha256": "e67f33a86fc64a07798a136af126f38a8e0d3c0a25787c635fb1678c2b66b12a",
+        "bytes": 106208,
+        "rustup_proxy": false
+      },
+      "rc": {
+        "sha256": "a182e516ba0cd2c38600c6f4eab17666da12ae485c5537050e0191aaedd7dade",
+        "bytes": 70112,
+        "rustup_proxy": false
+      },
+      "rustc": {
+        "sha256": "88d8258dcf6ae4f7a80c7d1088e1f36fa7025a1cfd1343731b4ee6f385121fc0",
+        "bytes": 13551616,
+        "rustup_proxy": true
+      }
+    },
+    "selected_rust_binaries": {
+      "cargo-clippy.exe": {
+        "sha256": "30ae12110de7d77180e92cc1191ef174243fd5024391f4989264ff1816bc546d",
+        "bytes": 1145856
+      },
+      "cargo-fmt.exe": {
+        "sha256": "42c7a816aaa2b9256a391e21c1570657ad54e0ba3d1656a9cfd94b56aeb1650c",
+        "bytes": 1227776
+      },
+      "cargo.exe": {
+        "sha256": "8aebf0f349d5306c1c572c13736cbbad2ac3ec56176ba3c4030df38ce8eb1732",
+        "bytes": 29633536
+      },
+      "clippy-driver.exe": {
+        "sha256": "349f381505583ee005831d2b3ede5bdf27cf9b4dd12f72616efdf04a46ff1696",
+        "bytes": 11683328
+      },
+      "rustc.exe": {
+        "sha256": "830890c09c00c504a860016bb34903a5df44bddb8115dc8db15cbf23d5464a2b",
+        "bytes": 111104
+      },
+      "rustc_driver-029f9378fe20754b.dll": {
+        "sha256": "8c072bfea98f4df46ffff0b9ee7c750b5912669353fb1ec120cd56087f45079e",
+        "bytes": 180997120
+      },
+      "rustdoc.exe": {
+        "sha256": "f5ba47685b130ec7a0140a145235dfac1f51f79da962308e62d80ea0647020de",
+        "bytes": 11474944
+      },
+      "rustfmt.exe": {
+        "sha256": "69cbbf545d5eb9eef8b9b5d3b62ab77815b6b46d031fb5a56074406bf13e2ff6",
+        "bytes": 4776960
+      },
+      "std-4d8b4da6b4ab36bd.dll": {
+        "sha256": "67ab0c97357c78e0056c06853fc2e749fd69cc26c3e84e83657710d22979bf02",
+        "bytes": 10284032
+      }
+    },
+    "compiler_banner": "Microsoft (R) C/C++ Optimizing Compiler Version 19.34.31937 for x64",
+    "linker_banner": "Microsoft (R) Incremental Linker Version 14.34.31937.0",
+    "sdk_tool_directory_version": "10.0.19041.0",
+    "historical_mixed_case_selector_capture_bug": true,
+    "selector_capture_fixed_at_final_source": true,
+    "rust_registry_headers_libraries_hermetic_audit": false
+  },
+  "dependency_file_count": 3538,
+  "dependency_inventory_sha256": "57cad8333de434d9d9c1398ed5041737746a25284b303d511eb36aad6eb03703",
+  "worker_sha256": "b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434",
+  "cohorts": [
+    {
+      "id": "clean01",
+      "source_commit": "c496eb87147843958653b194aed0ca934fb03923",
+      "checker_commit": "c170a03005d17a2bf271cf78f1cbd730b65de295",
+      "status": "failed_bytes_differ",
+      "exit": 1,
+      "comparison_sha256": "a051d3b1a3d4282e573da8430023116b7a9f805830718eb22699dbee74dbc3ac",
+      "source_inventories_equal": true,
+      "tool_identities_before_after_equal": true,
+      "frontend_equal": true,
+      "executable_comparison": {
+        "equal": false,
+        "first_different_offset": 256,
+        "left": {
+          "bytes": 23624704,
+          "sha256": "3bb0a821f621f2c4ca0b7be650bbef1a3f052b0faa5d4d6930f2e5462d2c371d"
+        },
+        "right": {
+          "bytes": 23581184,
+          "sha256": "686e9800dffd738fd9fc790b773a61ca203420fbe27bf7d3286917bd0288bddd"
+        }
+      },
+      "zip_comparison": {
+        "equal": false,
+        "first_different_offset": 3989,
+        "left": {
+          "bytes": 10686138,
+          "sha256": "b23c9395f8f242cccdc64c5d261151db3ddacc1ad153bbc18d7eaa1a64bde9cf"
+        },
+        "right": {
+          "bytes": 10671588,
+          "sha256": "ec1c1f57c1bd3f18341db52829dc14e4185bd52eb8245fe4a03181e29b7986c2"
+        }
+      },
+      "zip_metadata_equal": false,
+      "changed_payload_members": [
+        "LocalLore Desktop.exe",
+        "build-manifest.json"
+      ],
+      "zip_offset_cascade_members": 444,
+      "builds": [
+        {
+          "path_label": "first source",
+          "independent_empty_target": true,
+          "no_target_object_archive_reuse": true,
+          "build_exit": 0,
+          "package_verify": {
+            "bytes": 10686138,
+            "members": 446,
+            "sha256": "b23c9395f8f242cccdc64c5d261151db3ddacc1ad153bbc18d7eaa1a64bde9cf",
+            "source_commit": "c496eb87147843958653b194aed0ca934fb03923",
+            "worker_sha256": "b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434"
+          },
+          "manifest_sha256": "3c65ecc11a78b4200a115ed9ee5344f3534827065d9c71269664dab72b805af6",
+          "source_files": 776,
+          "normal_frontend": {
+            "app.js": {
+              "bytes": 337060,
+              "sha256": "943181d740cd44f96c9b04b608429b234555908e2eb0e3383f58ed58c66b1f3d"
+            },
+            "app.js.LEGAL.txt": {
+              "bytes": 1528,
+              "sha256": "cd7dec749043f2074e9799163f9c46a6ba714fd4889f07150cc1165c816ea1d3"
+            },
+            "index.html": {
+              "bytes": 438,
+              "sha256": "36503276fdc948f730a3855791f159a7d01c85b9f9405e55b9e1b11dbe1aa971"
+            },
+            "style.css": {
+              "bytes": 17085,
+              "sha256": "524e2c7578860ac035b61d7d9c5bf99bf25f1ea1b8c3af3806df71ba8fa31cdb"
+            }
+          },
+          "own_absolute_source_prefix_occurrences": 35,
+          "virtual_source_prefix_occurrences": 0,
+          "license_audit_complete": false,
+          "selected_rust_packages": 256,
+          "selected_glib": []
+        },
+        {
+          "path_label": "second longer source",
+          "independent_empty_target": true,
+          "no_target_object_archive_reuse": true,
+          "build_exit": 0,
+          "package_verify": {
+            "bytes": 10671588,
+            "members": 446,
+            "sha256": "ec1c1f57c1bd3f18341db52829dc14e4185bd52eb8245fe4a03181e29b7986c2",
+            "source_commit": "c496eb87147843958653b194aed0ca934fb03923",
+            "worker_sha256": "b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434"
+          },
+          "manifest_sha256": "3217f0c7bb81b17330c9e92110d48c6c1b913c39457ef936552bc7236ec6e6b4",
+          "source_files": 776,
+          "normal_frontend": {
+            "app.js": {
+              "bytes": 337060,
+              "sha256": "943181d740cd44f96c9b04b608429b234555908e2eb0e3383f58ed58c66b1f3d"
+            },
+            "app.js.LEGAL.txt": {
+              "bytes": 1528,
+              "sha256": "cd7dec749043f2074e9799163f9c46a6ba714fd4889f07150cc1165c816ea1d3"
+            },
+            "index.html": {
+              "bytes": 438,
+              "sha256": "36503276fdc948f730a3855791f159a7d01c85b9f9405e55b9e1b11dbe1aa971"
+            },
+            "style.css": {
+              "bytes": 17085,
+              "sha256": "524e2c7578860ac035b61d7d9c5bf99bf25f1ea1b8c3af3806df71ba8fa31cdb"
+            }
+          },
+          "own_absolute_source_prefix_occurrences": 35,
+          "virtual_source_prefix_occurrences": 0,
+          "license_audit_complete": false,
+          "selected_rust_packages": 256,
+          "selected_glib": []
+        }
+      ]
+    },
+    {
+      "id": "clean02",
+      "source_commit": "6e576f473a4796c329468a6abf3eeaaf4323a89b",
+      "checker_commit": "6e576f473a4796c329468a6abf3eeaaf4323a89b",
+      "status": "failed_bytes_differ",
+      "exit": 1,
+      "comparison_sha256": "bfb513e7b9c716130dd48d5eac98b7af3e8babb37d24bb6a0cf949ec4cd41d2f",
+      "source_inventories_equal": true,
+      "tool_identities_before_after_equal": true,
+      "frontend_equal": true,
+      "executable_comparison": {
+        "equal": false,
+        "first_different_offset": 256,
+        "left": {
+          "bytes": 23616512,
+          "sha256": "30be7cde451ab6d5515e27781021c54772dcf3122d4dda71d048a21bad6fc308"
+        },
+        "right": {
+          "bytes": 23578624,
+          "sha256": "2e863f26a88061c64ea9aba0e8574443c32863d154e197ac18eca59d0955e72d"
+        }
+      },
+      "zip_comparison": {
+        "equal": false,
+        "first_different_offset": 3989,
+        "left": {
+          "bytes": 10686423,
+          "sha256": "3f13d9a22e64866b40c9e6e8fae05efa3867461b9fd5e5bc56088aea1f4e545b"
+        },
+        "right": {
+          "bytes": 10672739,
+          "sha256": "f9c273fa45dcea5bc3e0bbcb7c544c17518bddcd0b0651b45a7044a1052769ad"
+        }
+      },
+      "zip_metadata_equal": false,
+      "changed_payload_members": [
+        "LocalLore Desktop.exe",
+        "build-manifest.json"
+      ],
+      "zip_offset_cascade_members": 444,
+      "builds": [
+        {
+          "path_label": "first source",
+          "independent_empty_target": true,
+          "no_target_object_archive_reuse": true,
+          "build_exit": 0,
+          "package_verify": {
+            "bytes": 10686423,
+            "members": 446,
+            "sha256": "3f13d9a22e64866b40c9e6e8fae05efa3867461b9fd5e5bc56088aea1f4e545b",
+            "source_commit": "6e576f473a4796c329468a6abf3eeaaf4323a89b",
+            "worker_sha256": "b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434"
+          },
+          "manifest_sha256": "94b56eaf4ffc24c96b3624775f632cd1266a31f8612eab5f65520b2994c040be",
+          "source_files": 778,
+          "normal_frontend": {
+            "app.js": {
+              "bytes": 337060,
+              "sha256": "943181d740cd44f96c9b04b608429b234555908e2eb0e3383f58ed58c66b1f3d"
+            },
+            "app.js.LEGAL.txt": {
+              "bytes": 1528,
+              "sha256": "cd7dec749043f2074e9799163f9c46a6ba714fd4889f07150cc1165c816ea1d3"
+            },
+            "index.html": {
+              "bytes": 438,
+              "sha256": "36503276fdc948f730a3855791f159a7d01c85b9f9405e55b9e1b11dbe1aa971"
+            },
+            "style.css": {
+              "bytes": 17085,
+              "sha256": "524e2c7578860ac035b61d7d9c5bf99bf25f1ea1b8c3af3806df71ba8fa31cdb"
+            }
+          },
+          "own_absolute_source_prefix_occurrences": 0,
+          "virtual_source_prefix_occurrences": 35,
+          "license_audit_complete": false,
+          "selected_rust_packages": 256,
+          "selected_glib": []
+        },
+        {
+          "path_label": "second longer source",
+          "independent_empty_target": true,
+          "no_target_object_archive_reuse": true,
+          "build_exit": 0,
+          "package_verify": {
+            "bytes": 10672739,
+            "members": 446,
+            "sha256": "f9c273fa45dcea5bc3e0bbcb7c544c17518bddcd0b0651b45a7044a1052769ad",
+            "source_commit": "6e576f473a4796c329468a6abf3eeaaf4323a89b",
+            "worker_sha256": "b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434"
+          },
+          "manifest_sha256": "5a48eeec096b98884ccb32887d467c13127e6b1a1511a0a4e2c9fb3faa104379",
+          "source_files": 778,
+          "normal_frontend": {
+            "app.js": {
+              "bytes": 337060,
+              "sha256": "943181d740cd44f96c9b04b608429b234555908e2eb0e3383f58ed58c66b1f3d"
+            },
+            "app.js.LEGAL.txt": {
+              "bytes": 1528,
+              "sha256": "cd7dec749043f2074e9799163f9c46a6ba714fd4889f07150cc1165c816ea1d3"
+            },
+            "index.html": {
+              "bytes": 438,
+              "sha256": "36503276fdc948f730a3855791f159a7d01c85b9f9405e55b9e1b11dbe1aa971"
+            },
+            "style.css": {
+              "bytes": 17085,
+              "sha256": "524e2c7578860ac035b61d7d9c5bf99bf25f1ea1b8c3af3806df71ba8fa31cdb"
+            }
+          },
+          "own_absolute_source_prefix_occurrences": 0,
+          "virtual_source_prefix_occurrences": 35,
+          "license_audit_complete": false,
+          "selected_rust_packages": 256,
+          "selected_glib": []
+        }
+      ]
+    }
+  ],
+  "compiler_probes": [
+    {
+      "id": 1,
+      "description": "outside workspace, file! only",
+      "results_sha256": "ac1fe71d6575100ca5e6381dfd5e736c13bdaf06993a0fad0ff2a3e21f992c0b",
+      "control_equal": false,
+      "remap_equal": true,
+      "binaries_executed": false,
+      "builds": [
+        {
+          "path_label": "first source",
+          "mode": "control",
+          "bytes": 132608,
+          "sha256": "b8067365cdcf86ae1ad6ab8f3ca51390263b985ab5034fce32b866ce548598fe",
+          "absolute_source_prefix_occurrences": 1,
+          "virtual_source_prefix_occurrences": 0,
+          "log_sha256": "d3a9e4566205cf031131dd2a2859aeff5be2e2d8369fcdae2195b66c246f844d"
+        },
+        {
+          "path_label": "first source",
+          "mode": "remap",
+          "bytes": 132608,
+          "sha256": "f652329fc56befd38213851eaeeabdb65704d4cdc47e6a38b73da1ec06f7ec33",
+          "absolute_source_prefix_occurrences": 0,
+          "virtual_source_prefix_occurrences": 1,
+          "log_sha256": "86c5b80fb8068ae7c5f38693acc880cbee3e9b557a9ca8008096b40bdc6a021e"
+        },
+        {
+          "path_label": "second much longer source",
+          "mode": "control",
+          "bytes": 132608,
+          "sha256": "da5511d00fb1fac97ce35f81e13d4a5feb3f76f32c0da002b99124863f7897d0",
+          "absolute_source_prefix_occurrences": 1,
+          "virtual_source_prefix_occurrences": 0,
+          "log_sha256": "3336fc9ed41669e2e4343e37a8300e0fe2de475c7d74e118efc3dab270092a66"
+        },
+        {
+          "path_label": "second much longer source",
+          "mode": "remap",
+          "bytes": 132608,
+          "sha256": "f652329fc56befd38213851eaeeabdb65704d4cdc47e6a38b73da1ec06f7ec33",
+          "absolute_source_prefix_occurrences": 0,
+          "virtual_source_prefix_occurrences": 1,
+          "log_sha256": "140a1514eb52e1f270b75cde11ab5c6148982392d6a6441e3e100cc1cf5c92b9"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "description": "outside workspace, file! plus TypeId",
+      "results_sha256": "0cc76cf53584b84fbc0ade5c90aa4928869724e9715fc011975d8ea720480b03",
+      "control_equal": false,
+      "remap_equal": false,
+      "binaries_executed": false,
+      "builds": [
+        {
+          "path_label": "first source",
+          "mode": "control",
+          "bytes": 133120,
+          "sha256": "a9b120b503d79cd20f57d1d376d208c1ec7c5425f21544c0c38a77bde0437464",
+          "absolute_source_prefix_occurrences": 1,
+          "virtual_source_prefix_occurrences": 0,
+          "log_sha256": "7e2a03589cac0950edf7bd4cb2b650c9319391ed48282ab5ee9303804d08343e"
+        },
+        {
+          "path_label": "first source",
+          "mode": "remap",
+          "bytes": 133120,
+          "sha256": "3e891cb44471bb293cb91b4a95563df7f7c6f6434ee8c0026a712835f27fe60c",
+          "absolute_source_prefix_occurrences": 0,
+          "virtual_source_prefix_occurrences": 1,
+          "log_sha256": "158c9a59255f628494d1c13b7fafc9f2d6be4f7f24ada26e6e9e2dfd299148a0"
+        },
+        {
+          "path_label": "second much longer source",
+          "mode": "control",
+          "bytes": 133120,
+          "sha256": "efa130ff8bb2de09ba1041c13503d27add9680546c50079fdac36e76ae0b5d41",
+          "absolute_source_prefix_occurrences": 1,
+          "virtual_source_prefix_occurrences": 0,
+          "log_sha256": "b34973f4d36310ecc7d0d21b0448b28ae4fffa7491de5b15ae2cc99ffcd5dfa5"
+        },
+        {
+          "path_label": "second much longer source",
+          "mode": "remap",
+          "bytes": 133120,
+          "sha256": "122aa98304dc0526fd4342684af2e86f572dc1fd82b30259ccfa846e53704b96",
+          "absolute_source_prefix_occurrences": 0,
+          "virtual_source_prefix_occurrences": 1,
+          "log_sha256": "da932215eef53ca46b25bed7f7dc4ce9bcbd80c7b3dc3773c3d61080cfcc76db"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "description": "TypeId leaf below app workspace",
+      "results_sha256": "5bcbb6ad2c00600635f816dfd9ba23cfd56eea92ed2b8ca6d49d0a279f9a0cd6",
+      "control_equal": true,
+      "remap_equal": true,
+      "binaries_executed": false,
+      "builds": [
+        {
+          "path_label": "first source",
+          "mode": "control",
+          "bytes": 133120,
+          "sha256": "74b8d6753177e396ad2fb00e6de9812a7c33f80e8042b6f0757217d93e0386e8",
+          "absolute_source_prefix_occurrences": 0,
+          "virtual_source_prefix_occurrences": 0,
+          "log_sha256": "b6be00cd65741b089a4f255891fbaa0aa4a131e27eda23fc024b906dfb069c1a"
+        },
+        {
+          "path_label": "first source",
+          "mode": "remap",
+          "bytes": 133120,
+          "sha256": "74b8d6753177e396ad2fb00e6de9812a7c33f80e8042b6f0757217d93e0386e8",
+          "absolute_source_prefix_occurrences": 0,
+          "virtual_source_prefix_occurrences": 0,
+          "log_sha256": "bfb31c012a267826e107f2a08e6e8226970efac8f9586a309f2d5c2a4696d0a1"
+        },
+        {
+          "path_label": "second much longer source",
+          "mode": "control",
+          "bytes": 133120,
+          "sha256": "74b8d6753177e396ad2fb00e6de9812a7c33f80e8042b6f0757217d93e0386e8",
+          "absolute_source_prefix_occurrences": 0,
+          "virtual_source_prefix_occurrences": 0,
+          "log_sha256": "9d5fa53620a780ded1bdf5986fecc2dbbc5126c23abc7a23ed9a12dc01ecf964"
+        },
+        {
+          "path_label": "second much longer source",
+          "mode": "remap",
+          "bytes": 133120,
+          "sha256": "74b8d6753177e396ad2fb00e6de9812a7c33f80e8042b6f0757217d93e0386e8",
+          "absolute_source_prefix_occurrences": 0,
+          "virtual_source_prefix_occurrences": 0,
+          "log_sha256": "a6a09e3c496a26a873e68806cff3a27f82472fde5599a91df9f73a5a83f4568d"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "description": "app in common parent workspace; excluded leaf retains standalone workspace",
+      "results_sha256": "c017583fcfba77df7dc19dce82e1a80a332375c1919ae64dac13368203fd8b24",
+      "control_equal": true,
+      "remap_equal": true,
+      "binaries_executed": false,
+      "builds": [
+        {
+          "path_label": "first source",
+          "mode": "control",
+          "bytes": 133120,
+          "sha256": "61663d2746f0a2fba7dca992f645b76824b9fdb2b054acbc662a2fccd9333117",
+          "absolute_source_prefix_occurrences": 0,
+          "virtual_source_prefix_occurrences": 0,
+          "log_sha256": "66d608be475e8088ac02f3811e856112d2da71785c3e8587b90da1cf334e22c6"
+        },
+        {
+          "path_label": "first source",
+          "mode": "remap",
+          "bytes": 133120,
+          "sha256": "61663d2746f0a2fba7dca992f645b76824b9fdb2b054acbc662a2fccd9333117",
+          "absolute_source_prefix_occurrences": 0,
+          "virtual_source_prefix_occurrences": 0,
+          "log_sha256": "cbd9abeae80d1d371979623e7519f67c28fb612d0390b162bcd35be808916df0"
+        },
+        {
+          "path_label": "second much longer source",
+          "mode": "control",
+          "bytes": 133120,
+          "sha256": "61663d2746f0a2fba7dca992f645b76824b9fdb2b054acbc662a2fccd9333117",
+          "absolute_source_prefix_occurrences": 0,
+          "virtual_source_prefix_occurrences": 0,
+          "log_sha256": "32fbdf3a3d9748824a3abfb0cebf0bde9cd2403bc36925e10085c2beb72fa605"
+        },
+        {
+          "path_label": "second much longer source",
+          "mode": "remap",
+          "bytes": 133120,
+          "sha256": "61663d2746f0a2fba7dca992f645b76824b9fdb2b054acbc662a2fccd9333117",
+          "absolute_source_prefix_occurrences": 0,
+          "virtual_source_prefix_occurrences": 0,
+          "log_sha256": "e3a202dc211fa122478c004d7b3fdf573b759f2b07a6f1c04bd2a9e628b1d6e8"
+        }
+      ]
+    }
+  ],
+  "known_limitations": [
+    "both actual normal application raw PE/ZIP comparisons failed; four verified packages are not reproducibility",
+    "source remap removed absolute checkout paths but was insufficient",
+    "primary standalone desktop workspace leaves local dependencies outside Cargo stable-hash prefix",
+    "proposed coordinator-owned common-root desktop workspace/lock/portable-selection integration remains unimplemented",
+    "full Unicode build unqualified; checker intentionally only admits ASCII/space build roots",
+    "no native app execution/IPC/WebView/model/device/Android/offline/installer/retention tests here",
+    "glib advisory open; no target-selected Windows glib is applicability evidence not remediation",
+    "license audit incomplete; no release qualification",
+    "later checker evidence-key casing fix has synthetic verification only, historical build manifests retained unchanged"
+  ],
+  "next_task": "coordinator workspace/lock/portable-check integration and same raw two-path gate"
+}

@@ -231,6 +231,7 @@ pub type ProviderFactory = Arc<dyn Fn() -> Box<dyn InferenceProvider + Send> + S
 struct LocalPlay {
     profile: crate::play::PlayProfile,
     provider: ProviderFactory,
+    real_model: bool,
 }
 
 /// Trusted native persistence boundary. Implemented by the one SQLite owner adapter,
@@ -289,11 +290,27 @@ impl Host {
         profile: crate::play::PlayProfile,
         provider: ProviderFactory,
     ) -> Result<(), String> {
+        self.configure_provider(profile, provider, true)
+    }
+    /// Synthetic plumbing, configured by trusted native code only. Never claims a real model.
+    pub fn configure_fixture_provider(
+        &self,
+        profile: crate::play::PlayProfile,
+        provider: ProviderFactory,
+    ) -> Result<(), String> {
+        self.configure_provider(profile, provider, false)
+    }
+    fn configure_provider(
+        &self,
+        profile: crate::play::PlayProfile,
+        provider: ProviderFactory,
+        real_model: bool,
+    ) -> Result<(), String> {
         profile.validate().map_err(|e| e.to_string())?;
         self.state
             .lock()
             .map_err(|_| "Internal".to_owned())?
-            .local_play = Some(LocalPlay { profile, provider });
+            .local_play = Some(LocalPlay { profile, provider, real_model });
         Ok(())
     }
     pub fn disable_local_provider(&self) {
@@ -688,7 +705,10 @@ impl Host {
             HostCommand::ModelStatus {} => {
                 if let Some(local) = &state.local_play {
                     ok(
-                        json!({"provider":local.profile.id,"real_model":true,"loaded":null,"status":"configured_native_owner","profile":local.profile}),
+                        json!({"provider":local.profile.id,"real_model":local.real_model,
+                            "loaded":if local.real_model { Value::Null } else { json!(false) },
+                            "status":if local.real_model { "configured_native_owner" } else { "configured_fixture_owner" },
+                            "profile":local.profile}),
                     )
                 } else {
                     ok(
@@ -1691,6 +1711,14 @@ fn trace_saved_outcome(saved: &SavedTurn, prepared: Option<&Receipt>) -> Outcome
 fn trace_provenance(local: Option<&LocalPlay>, free_text: bool) -> Provenance {
     if free_text {
         if let Some(local) = local {
+            if !local.real_model {
+                return Provenance {
+                    profile_label: Label::new(&local.profile.id),
+                    prompt_label: Label::new(crate::play::PROMPT_VERSION),
+                    schema_label: Label::new("locallore-play-v2"),
+                    ..Provenance::default()
+                };
+            }
             use sha2::{Digest, Sha256};
             let profile = &local.profile;
             return Provenance {

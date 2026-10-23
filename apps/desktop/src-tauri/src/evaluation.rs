@@ -450,6 +450,7 @@ struct State {
     next: u64,
 }
 pub struct EvaluationManager {
+    curated: Mutex<curated::CuratedState>,
     root: PathBuf,
     state: Mutex<State>,
     worker: Mutex<Option<(u64, JoinHandle<()>)>>,
@@ -464,10 +465,13 @@ pub struct EvaluationManager {
     before_publish: Mutex<Option<(Arc<std::sync::Barrier>, Arc<std::sync::Barrier>)>>,
     #[cfg(any(test, feature = "dev-harness"))]
     hold: std::sync::atomic::AtomicBool,
+    #[cfg(any(test, feature = "dev-harness"))]
+    curated_lost_ack: std::sync::atomic::AtomicBool,
 }
 impl EvaluationManager {
     pub fn new(root: PathBuf) -> Self {
         Self {
+            curated: Mutex::new(curated::CuratedState::default()),
             root,
             state: Mutex::new(State::default()),
             worker: Mutex::new(None),
@@ -482,13 +486,23 @@ impl EvaluationManager {
             before_publish: Mutex::new(None),
             #[cfg(any(test, feature = "dev-harness"))]
             hold: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(any(test, feature = "dev-harness"))]
+            curated_lost_ack: std::sync::atomic::AtomicBool::new(false),
         }
     }
     fn state(&self) -> Result<std::sync::MutexGuard<'_, State>> {
         self.state.lock().map_err(|_| "EvaluationInternal".into())
     }
     fn budget(&self, run: Option<&Path>) -> Result<()> {
-        if free_space(&self.root)? < 64 * 1024 * 1024 || bytes(&self.root, &mut 0)? > ROOT_BYTES {
+        let curated = self.curated_root();
+        let extra = if curated.exists() {
+            bytes(&curated, &mut 0)?
+        } else {
+            0
+        };
+        if free_space(&self.root)? < 64 * 1024 * 1024
+            || bytes(&self.root, &mut 0)?.saturating_add(extra) > ROOT_BYTES
+        {
             return Err("EvaluationBudget".into());
         }
         if let Some(p) = run {
@@ -568,8 +582,10 @@ impl EvaluationManager {
         Ok(t.run.clone())
     }
     fn mint(s: &mut State, epoch: u64, run: String) -> Result<String> {
-        s.tokens
-            .retain(|_, t| t.touched.elapsed() < Duration::from_secs(900));
+        let active = s.job.as_ref().map(|j| j.run.clone());
+        s.tokens.retain(|_, t| {
+            t.touched.elapsed() < Duration::from_secs(900) || active.as_ref() == Some(&t.run)
+        });
         // Opening the same run reuses its lease; no token churn during ordinary browsing.
         if let Some((id, t)) = s
             .tokens
@@ -585,6 +601,7 @@ impl EvaluationManager {
                 .tokens
                 .iter()
                 .filter(|(_, t)| t.epoch == epoch)
+                .filter(|(_, t)| active.as_ref() != Some(&t.run))
                 .min_by_key(|(_, t)| t.touched)
                 .map(|(id, _)| id.clone())
                 .ok_or("EvaluationTokenLimit")?;
@@ -662,7 +679,21 @@ impl EvaluationManager {
                 .filter(|j| j.epoch == epoch && j.id == operation && j.run == run)
                 .ok_or("StaleEvaluationOperation")?;
             j.cancel.cancel();
-            s.runs.get_mut(&run).unwrap().phase = "stopping_at_boundary".into();
+            if let Some(retained) = s.runs.get_mut(&run) {
+                retained.phase = "stopping_at_boundary".into();
+            } else if let Some(retained) = self
+                .curated
+                .lock()
+                .map_err(|_| "EvaluationInternal")?
+                .runs
+                .get_mut(&run)
+            {
+                retained.phase = "stopping_at_boundary".into();
+            }
+            if !s.runs.contains_key(&run) {
+                drop(s);
+                return self.curated_snapshot(epoch, &run, token);
+            }
             Self::snapshot(&s, &run, token)
         })
     }
@@ -839,8 +870,16 @@ impl EvaluationManager {
         match case {
             "hold-boundary" => self.hold.store(true, Ordering::SeqCst),
             "release-boundary" => self.hold.store(false, Ordering::SeqCst),
+            "lose-curated-start-ack" => self.curated_lost_ack.store(true, Ordering::SeqCst),
             _ => return Err("InvalidEvaluationInput".into()),
         }
         Ok(json!({"synthetic":true}))
     }
+    #[cfg(feature = "dev-harness")]
+    pub fn take_curated_lost_ack(&self) -> bool {
+        self.curated_lost_ack
+            .swap(false, std::sync::atomic::Ordering::SeqCst)
+    }
 }
+mod curated;
+pub use curated::{CuratedEvidenceRequest, CuratedStart};

@@ -3,10 +3,46 @@ use super::*;
 use locallore::inspection_query::{self, Observer, Query, View};
 
 pub fn catalog() -> Result<Value> {
-    Ok(
-        json!({"version":1,"cases":corpus()?.stories.iter().map(|s|json!({"id":s.id,"turns":s.steps.len(),"sources":s.steps.iter().map(|t|json!({"turn":t.id,"scope":{"story":s.seed.scope.story,"branch":t.branch}})).collect::<Vec<_>>()})).collect::<Vec<_>>(),
-        "limits":{"admissions":MAX_ADMISSIONS,"roles":MAX_ROLES,"active_ms":MAX_ACTIVE_MS,"invocations":32,"checkpoint":"four_turn_story"}}),
-    )
+    let mut value = json!({"version":1,"cases":corpus()?.stories.iter().map(|s|json!({"id":s.id,"turns":s.steps.len(),"sources":s.steps.iter().map(|t|json!({"turn":t.id,"scope":{"story":s.seed.scope.story,"branch":t.branch}})).collect::<Vec<_>>()})).collect::<Vec<_>>(),
+        "limits":{"admissions":MAX_ADMISSIONS,"roles":MAX_ROLES,"active_ms":MAX_ACTIVE_MS,"invocations":32,"checkpoint":"four_turn_story"}});
+    value["approved_profile"] = {
+        #[cfg(feature = "local-model")]
+        {
+            serde_json::to_value(native_profile()?).map_err(|_| "Encoding")?
+        }
+        #[cfg(not(feature = "local-model"))]
+        {
+            Value::Null
+        }
+    };
+    Ok(value)
+}
+/// Capture the current compiled request binding before native dispatch, even if acknowledgement
+/// or process ownership is lost before the runner writes its first invocation.
+pub fn request_binding(native: bool, selected: Option<&str>) -> Result<String> {
+    let profile = if native {
+        #[cfg(feature = "local-model")]
+        {
+            native_profile()?
+        }
+        #[cfg(not(feature = "local-model"))]
+        {
+            return Err("NativeFeatureUnavailable".into());
+        }
+    } else {
+        LaneFactory::ScriptedBaseline.profile()?
+    };
+    let all = corpus()?.stories;
+    if selected.is_some_and(|id| !all.iter().any(|s| s.id == id)) {
+        return Err("UnknownCase".into());
+    }
+    let stories: Vec<_> = all
+        .into_iter()
+        .filter(|s| selected.is_none_or(|id| id == s.id))
+        .collect();
+    Ok(digest(&encode(&curated_basis(
+        &stories, profile, native, false,
+    )?)?))
 }
 struct Opened {
     _pins: Vec<File>,

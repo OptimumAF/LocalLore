@@ -1,4 +1,52 @@
 use super::*;
+#[test]
+fn every_checkpoint_turn_keeps_original_branch_revision_and_only_actual_receipts() {
+    let temp = crate::tests::Temp::new();
+    let dir = temp.0.join("all");
+    run_curated(
+        &dir,
+        false,
+        None,
+        &Cancellation::default(),
+        6,
+        LaneFactory::ScriptedBaseline,
+    )
+    .unwrap();
+    let before = files(&dir);
+    let snapshot = inspect(&dir).unwrap();
+    let binding = snapshot["binding_sha256"].as_str().unwrap();
+    for story in corpus().unwrap().stories {
+        let case = snapshot["report"]["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["id"] == story.id)
+            .unwrap();
+        for row in case["turns"].as_array().unwrap() {
+            let turn = row["id"].as_str().unwrap();
+            let step = story.steps.iter().find(|s| s.id == turn).unwrap();
+            let view = evidence(
+                &dir,
+                binding,
+                &story.id,
+                turn,
+                Observer::Omniscient,
+                View::Profiles,
+            )
+            .unwrap();
+            assert_eq!(view["scope"]["branch"], step.branch);
+            assert_eq!(view["scope"]["story"], story.seed.scope.story);
+            assert_eq!(view["revision"], row["revision"]);
+            assert_eq!(view["canonical_sha256"], row["canonical_sha256"]);
+            assert_eq!(
+                view["receipt"].is_object(),
+                row["phase"] == "committed",
+                "{turn}"
+            );
+        }
+    }
+    assert_eq!(files(&dir), before);
+}
 fn files(path: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
     let mut out = BTreeMap::new();
     for item in fs::read_dir(path).unwrap() {

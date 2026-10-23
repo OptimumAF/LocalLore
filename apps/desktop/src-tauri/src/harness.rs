@@ -14,6 +14,19 @@ const MAX_JSON: usize = 256 * 1024;
 const MAX_PNG: usize = 16 * 1024 * 1024;
 const MAX_CHECKPOINTS: usize = 40;
 const LABELS: &[&str] = &[
+    "curated-library",
+    "curated-lost-ack",
+    "curated-completed",
+    "curated-evidence",
+    "curated-output-narrow",
+    "curated-player",
+    "curated-lens",
+    "curated-pending",
+    "curated-cancelled",
+    "curated-retired",
+    "curated-restarted",
+    "curated-finished",
+    "curated-failure",
     "d06-private-disabled",
     "d06-private-repair",
     "d06-private-context",

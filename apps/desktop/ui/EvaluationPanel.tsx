@@ -1,3 +1,4 @@
+import { EvaluationEvidencePanel } from "./EvaluationEvidencePanel";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { EvaluationController } from "./evaluation-controller";
 const display = (v: unknown) => {
@@ -38,6 +39,7 @@ export function EvaluationPanel({
             </div>
             {s.shown && (
                 <>
+                    <EvaluationEvidencePanel controller={c} context={context} />
                     <p>
                         Isolated built-in scenarios · deterministic fake
                         inference. No model, semantic quality, human acceptance

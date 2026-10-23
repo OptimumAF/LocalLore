@@ -125,6 +125,7 @@ actual events/resources, invalid arrays and repeated cancellation/disposal;
 Compose tests cover flows, reset/recreation/disposal and doubled-font layout.
 Exact evidence is in [native verification](../../docs/native/VERIFICATION_2026-10-22.md).
 
-Shared durability is wired to the app; real-device/process-kill instrumentation
-and M01 physical/model feasibility remain separate unmeasured gates.
+Shared durability is wired to the app; the reports above record explicit
+process-stop/resume checks on two selected API 35 x86_64 emulators. Physical
+phones, ARM64 execution and M01 model feasibility remain separate unmeasured gates.
 Local build checks do not establish hosted CI execution or release readiness.

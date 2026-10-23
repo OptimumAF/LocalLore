@@ -104,7 +104,13 @@ fn valid_reply(
                 && (job.status != MaintenanceStatus::Complete
                     || job.next_from == job.basis_revision)
                 && (job.status != MaintenanceStatus::Ready || job.next_from < job.basis_revision)
-                && ((job.status == MaintenanceStatus::Blocked) == job.last_error.is_some())
+                // Store computes a passive Stale view without rewriting the
+                // persisted row. Preserve that row's historical blocked error.
+                && match job.status {
+                    MaintenanceStatus::Blocked => job.last_error.is_some(),
+                    MaintenanceStatus::Stale => true,
+                    _ => job.last_error.is_none(),
+                }
         })
         && serde_json::to_vec(reply).is_ok_and(|bytes| bytes.len() <= 4096)
 }

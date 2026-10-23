@@ -1,0 +1,574 @@
+{
+  "version": 1,
+  "date": "2026-10-23",
+  "scope": "M08.06 bounded archive force-stop and independent host transaction interruption, in review",
+  "dependency": {
+    "pr": 78,
+    "head": "a6bd83b798c5c17e3adf5747a8c8b87ed4bfa920",
+    "unmerged": true
+  },
+  "final_executable_test_source": "8eb3bdf3bc817bf332f9d2a8fbffdb887e885e0a",
+  "source_sha256": {
+    "scripts/archive_recovery.py": "1ab26df515b907cd314aa15e90da3d081f35e34a8e209f13ef5c995126ca1824",
+    "scripts/tests/test_archive_recovery.py": "00d8239813317a8b05e44709fcf345d05da6d4e5cbbf99a8a5ad69f7dcc46ff1",
+    "crates/locallore-storage/tests/archive_interruption.rs": "122c622ed6a29a0eaa4ff2c628468b50d2719ce1339339708df41490efa297f9",
+    "apps/android/app/src/androidTest/java/org/locallore/app/ArchiveRecoveryActivityTest.kt": "23a976a8eb15270441ca6f3d1fa056acbbca8096a51a066b87ed013780bc7c8d"
+  },
+  "host": {
+    "workspace_rust_passed": 311,
+    "linker_passed": 3,
+    "python_passed": 223,
+    "archive_process_tests_passed": 3,
+    "ignored_ipc_worker": 1,
+    "orchestration_fault_tests": 17,
+    "log_sha256": "4927352919895e0ba201414d520307fe39df88b42e0d4139815c7d405fd2d998",
+    "initial_log_sha256": "da444e27d131df142677a63fed3f715154dd412d639b6f9046f3030f866edbae",
+    "initial_python_passed": 221
+  },
+  "jvm": {
+    "tests": 60,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "android_cycles": [
+    {
+      "version": 1,
+      "scope": "synthetic_android_archive_force_stop",
+      "target_alias": "A",
+      "status": "passed",
+      "cases": {
+        "preview": {
+          "status": "passed",
+          "arm": {
+            "started": 1,
+            "passed": 0,
+            "intentional_interruptions": 1,
+            "test_terminal_received": false,
+            "raw_sha256": "06165ea7639ddff62f1fff8a9897fef967369cfc9a1b5724ab7d87ff81713a43"
+          },
+          "relaunch": {
+            "started": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unfinished": 0,
+            "raw_sha256": "ee7c2ac99a79b3c08cd3e92a1be4e09a2ed477743bc1cae2b5610c419c642469"
+          },
+          "archive_sha256": "f24e322dfeebc535fef7ca51e8bf390d9c1252cd519e2b7a2604bc04da8151c5",
+          "different_process_confirmed": true
+        },
+        "committed": {
+          "status": "passed",
+          "arm": {
+            "started": 1,
+            "passed": 0,
+            "intentional_interruptions": 1,
+            "test_terminal_received": false,
+            "raw_sha256": "06165ea7639ddff62f1fff8a9897fef967369cfc9a1b5724ab7d87ff81713a43"
+          },
+          "relaunch": {
+            "started": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unfinished": 0,
+            "raw_sha256": "29da27c1cd7e996d1e24a2e8a40b0caee892fd493f4dba4592455450d827ab20"
+          },
+          "archive_sha256": "e8d065184932ad930db54cc2ed5565f5214a341213a33be44b6533e31df3bf84",
+          "different_process_confirmed": true
+        }
+      },
+      "apk_sha256": {
+        "org.locallore.app.archiveverify": "5a058eef62d1e56e9326ac71a959bd1205ae9a96820b42626abda6530e93944f",
+        "org.locallore.app.archiveverify.test": "ffbbaab9b7ebeeb4322904567dfc66308b299463bdffe2b3074520aa1132fa08"
+      },
+      "android_api": 35,
+      "abi": "x86_64",
+      "adb_clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "tool_clients_cleaned": true,
+      "source_commit": "bf1fd9ad8748e694151533ac825754b956646769",
+      "orchestrator_sha256": "11b35e29de3fd034581b0fd14cb2c57cc8683f15a3fb469f7397fafd7dacefd1",
+      "attempt": "initial",
+      "report_sha256": "f9c06db3fd8a11b5434a41a58709b7b1beea573f0de284324fb12eb798bcda75",
+      "phases": {
+        "preview": {
+          "ready_sha256": "87e3bf0ea628197be522156b2762d019265383a51396415ed37c2a43274d6776",
+          "verified_sha256": "df13d68c8d58efb3b250fbef23f56114613d412a87eb8e07038ccf8cabd9f7ae"
+        },
+        "committed": {
+          "ready_sha256": "321f73d0e194ef809de3f018aef727e8a808045bce91f5ba547de37223e3ce2a",
+          "verified_sha256": "ff324e37a62afcc3984106894c59f6094037f3a216b1b3c8165597933129d23a"
+        }
+      },
+      "journal": {
+        "sha256": "0f5f8eb469c37c286c03aae527814b8d0c3d42f28bc4eedeb298b21de5b1af6a",
+        "records": 177,
+        "adb_clients": 171,
+        "owned_tool_clients": 2
+      }
+    },
+    {
+      "version": 1,
+      "scope": "synthetic_android_archive_force_stop",
+      "target_alias": "B",
+      "status": "passed",
+      "cases": {
+        "preview": {
+          "status": "passed",
+          "arm": {
+            "started": 1,
+            "passed": 0,
+            "intentional_interruptions": 1,
+            "test_terminal_received": false,
+            "raw_sha256": "06165ea7639ddff62f1fff8a9897fef967369cfc9a1b5724ab7d87ff81713a43"
+          },
+          "relaunch": {
+            "started": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unfinished": 0,
+            "raw_sha256": "a56419a1b39766cac4ac6e16934a9325d69f4596c80de7537fcb282fa5e33f84"
+          },
+          "archive_sha256": "f43b10fbfe35bd81fdf52d0b800e1d6f64a596c201d9ba9a767491de4164bbb8",
+          "different_process_confirmed": true
+        },
+        "committed": {
+          "status": "passed",
+          "arm": {
+            "started": 1,
+            "passed": 0,
+            "intentional_interruptions": 1,
+            "test_terminal_received": false,
+            "raw_sha256": "06165ea7639ddff62f1fff8a9897fef967369cfc9a1b5724ab7d87ff81713a43"
+          },
+          "relaunch": {
+            "started": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unfinished": 0,
+            "raw_sha256": "b43d1a1d84557dd0491f1c1f779e8e3bd2f81107ce805975bbcf46229ab54469"
+          },
+          "archive_sha256": "3ac900f0ce6eef751546cd224e48a368fdd78b501824f476799a764ea7acf1ef",
+          "different_process_confirmed": true
+        }
+      },
+      "apk_sha256": {
+        "org.locallore.app.archiveverify": "5a058eef62d1e56e9326ac71a959bd1205ae9a96820b42626abda6530e93944f",
+        "org.locallore.app.archiveverify.test": "ffbbaab9b7ebeeb4322904567dfc66308b299463bdffe2b3074520aa1132fa08"
+      },
+      "android_api": 35,
+      "abi": "x86_64",
+      "adb_clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "tool_clients_cleaned": true,
+      "source_commit": "bf1fd9ad8748e694151533ac825754b956646769",
+      "orchestrator_sha256": "11b35e29de3fd034581b0fd14cb2c57cc8683f15a3fb469f7397fafd7dacefd1",
+      "attempt": "initial",
+      "report_sha256": "02ea600e70ac2225e4fd92b0e088406c7eeae835da0961fd96a86e3afd749d1a",
+      "phases": {
+        "preview": {
+          "ready_sha256": "c6d2d72a655115c0c661e212d75e336594adad835c55b9c1a843af6e8f957efd",
+          "verified_sha256": "9fbeb0564811b85e05a3aeebb6c2f0cc89819705ce074e51cd50313a46458d87"
+        },
+        "committed": {
+          "ready_sha256": "409ac239061cc6ff7efd183c291760cc06cd4467b8f2ef325ef1a2a1294514dd",
+          "verified_sha256": "2d0fcffc0274ba5765bc2b5545d3c5acca99b3004b76219a27bb649b5d462a04"
+        }
+      },
+      "journal": {
+        "sha256": "57ae59e485a5082b6ccbd3f12f9e445510e084703752505558cfdd72d590eca7",
+        "records": 216,
+        "adb_clients": 210,
+        "owned_tool_clients": 2
+      }
+    },
+    {
+      "version": 1,
+      "scope": "synthetic_android_archive_force_stop",
+      "target_alias": "A",
+      "status": "passed",
+      "cases": {
+        "preview": {
+          "status": "passed",
+          "stage": "verified",
+          "interruption_confirmed": true,
+          "arm": {
+            "started": 1,
+            "passed": 0,
+            "intentional_interruptions": 1,
+            "test_terminal_received": false,
+            "raw_sha256": "06165ea7639ddff62f1fff8a9897fef967369cfc9a1b5724ab7d87ff81713a43"
+          },
+          "relaunch": {
+            "started": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unfinished": 0,
+            "raw_sha256": "5ba948e043154c6b350c9902f1701fec168c7ce434d50ab9c1dec9d121d2ffc0"
+          },
+          "archive_sha256": "e291f5b920be28fe69d1968f513bff31cc7f59afe855d0383eb31e9b831d0066",
+          "different_process_confirmed": true
+        },
+        "committed": {
+          "status": "passed",
+          "stage": "verified",
+          "interruption_confirmed": true,
+          "arm": {
+            "started": 1,
+            "passed": 0,
+            "intentional_interruptions": 1,
+            "test_terminal_received": false,
+            "raw_sha256": "06165ea7639ddff62f1fff8a9897fef967369cfc9a1b5724ab7d87ff81713a43"
+          },
+          "relaunch": {
+            "started": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unfinished": 0,
+            "raw_sha256": "2ae978a8d590043ed393d48433980c2c069970957fe1a31d999032703c66d5fb"
+          },
+          "archive_sha256": "096ee44ce3ba1cef02513c96b0424bcd3bad095ddd02c740a65bd690a44cf98f",
+          "different_process_confirmed": true
+        }
+      },
+      "apk_sha256": {
+        "org.locallore.app.archiveverify": "5a058eef62d1e56e9326ac71a959bd1205ae9a96820b42626abda6530e93944f",
+        "org.locallore.app.archiveverify.test": "ffbbaab9b7ebeeb4322904567dfc66308b299463bdffe2b3074520aa1132fa08"
+      },
+      "android_api": 35,
+      "abi": "x86_64",
+      "adb_clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "tool_clients_cleaned": true,
+      "source_commit": "8eb3bdf3bc817bf332f9d2a8fbffdb887e885e0a",
+      "orchestrator_sha256": "1ab26df515b907cd314aa15e90da3d081f35e34a8e209f13ef5c995126ca1824",
+      "attempt": "final",
+      "report_sha256": "652040a6742639549da23194a814f4f82137c82c20318463fc07af0dafb79161",
+      "phases": {
+        "preview": {
+          "ready_sha256": "552af9794db2c60d06aabcb1380a6ebaa7a5bf099e7b681abf8804a6c338302f",
+          "verified_sha256": "3222c6e5566109772b7143c802467121aebd4298cc6cb25010140d0a9935e5eb"
+        },
+        "committed": {
+          "ready_sha256": "f19bba465daab0431cc1bcf2eecf24d4f06196e933dae916f4b888e32f85bbf8",
+          "verified_sha256": "64ad2983216afaf3702e968eb19c16b59c14b8084a3f8df24815c2d120705281"
+        }
+      },
+      "journal": {
+        "sha256": "41a4012ece35b3dc8918e8c6ffd82abbf1ccdb0d502cccf4a3582397fa2e37be",
+        "records": 176,
+        "adb_clients": 170,
+        "owned_tool_clients": 2
+      }
+    },
+    {
+      "version": 1,
+      "scope": "synthetic_android_archive_force_stop",
+      "target_alias": "B",
+      "status": "passed",
+      "cases": {
+        "preview": {
+          "status": "passed",
+          "stage": "verified",
+          "interruption_confirmed": true,
+          "arm": {
+            "started": 1,
+            "passed": 0,
+            "intentional_interruptions": 1,
+            "test_terminal_received": false,
+            "raw_sha256": "06165ea7639ddff62f1fff8a9897fef967369cfc9a1b5724ab7d87ff81713a43"
+          },
+          "relaunch": {
+            "started": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unfinished": 0,
+            "raw_sha256": "4a4adca6f7f705fcaa85691721c952f7b9964c08cc6f0d7949c7aa06ea99c08f"
+          },
+          "archive_sha256": "b703e966997f88ab85105945bfa6dcbd6b40af42d114759251b93e7ea9640b50",
+          "different_process_confirmed": true
+        },
+        "committed": {
+          "status": "passed",
+          "stage": "verified",
+          "interruption_confirmed": true,
+          "arm": {
+            "started": 1,
+            "passed": 0,
+            "intentional_interruptions": 1,
+            "test_terminal_received": false,
+            "raw_sha256": "06165ea7639ddff62f1fff8a9897fef967369cfc9a1b5724ab7d87ff81713a43"
+          },
+          "relaunch": {
+            "started": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unfinished": 0,
+            "raw_sha256": "fdff877607f97f9a62463a6b873671a45e991e5ae34ea2a9b9f4c748006f4005"
+          },
+          "archive_sha256": "8a97b5e18a9b6176a5ba7a294610bdb8cc2150466b02a0ad4538ab86b0072cfc",
+          "different_process_confirmed": true
+        }
+      },
+      "apk_sha256": {
+        "org.locallore.app.archiveverify": "5a058eef62d1e56e9326ac71a959bd1205ae9a96820b42626abda6530e93944f",
+        "org.locallore.app.archiveverify.test": "ffbbaab9b7ebeeb4322904567dfc66308b299463bdffe2b3074520aa1132fa08"
+      },
+      "android_api": 35,
+      "abi": "x86_64",
+      "adb_clients_cleaned": true,
+      "owned_processes_absent": true,
+      "prior_packages_preserved": true,
+      "tool_clients_cleaned": true,
+      "source_commit": "8eb3bdf3bc817bf332f9d2a8fbffdb887e885e0a",
+      "orchestrator_sha256": "1ab26df515b907cd314aa15e90da3d081f35e34a8e209f13ef5c995126ca1824",
+      "attempt": "final",
+      "report_sha256": "d755ccde198013db8a6d44101407f2fe3fac9cd0d7cabdb2ba057b4cfdf42b46",
+      "phases": {
+        "preview": {
+          "ready_sha256": "d7c24f7918d88f25f38a32e798e59e4980827cf742dabd46c6f6c1835f1cfd08",
+          "verified_sha256": "de57934df95097422195fe4cdf4358dd8a18659892143907405d50721b097073"
+        },
+        "committed": {
+          "ready_sha256": "953bdf2643644d7a3ec4cb4360b8d6773fcda44cac4154ddee5e259e9b744496",
+          "verified_sha256": "e94d1964afae19794503dbc6ce1abbcd72d100bc441a21270b31627fff4b1d1f"
+        }
+      },
+      "journal": {
+        "sha256": "166ec5e4c6481e4e883803ca9ac15bd6d1a69c0ac7a10356357ff3a597216221",
+        "records": 215,
+        "adb_clients": 209,
+        "owned_tool_clients": 2
+      }
+    }
+  ],
+  "ordinary_regression_cohorts": [
+    {
+      "cohort": "regression",
+      "target_alias": "A",
+      "started": 21,
+      "passed": 21,
+      "failed": 0,
+      "skipped": 0,
+      "unfinished": 0,
+      "classes": [
+        {
+          "class": "ArchiveActivityTest",
+          "terminal_code": 0,
+          "count": 2
+        },
+        {
+          "class": "ArchiveChooserActivityTest",
+          "terminal_code": 0,
+          "count": 2
+        },
+        {
+          "class": "ArchiveDialogTest",
+          "terminal_code": 0,
+          "count": 6
+        },
+        {
+          "class": "ArchiveDocumentTest",
+          "terminal_code": 0,
+          "count": 5
+        },
+        {
+          "class": "ArchiveIntegrationTest",
+          "terminal_code": 0,
+          "count": 6
+        }
+      ],
+      "apk_sha256": {
+        "org.locallore.app.archiveverify": "5a058eef62d1e56e9326ac71a959bd1205ae9a96820b42626abda6530e93944f",
+        "org.locallore.app.archiveverify.test": "ffbbaab9b7ebeeb4322904567dfc66308b299463bdffe2b3074520aa1132fa08"
+      },
+      "prior_package_hashes_preserved": true,
+      "owned_processes_absent": true,
+      "adb_clients_cleaned": true,
+      "raw_sha256": "a3c03e445aa578efe730e64bdd50eb665a3522510fe16bc429721bed8231c7c5"
+    },
+    {
+      "cohort": "regression",
+      "target_alias": "B",
+      "started": 21,
+      "passed": 21,
+      "failed": 0,
+      "skipped": 0,
+      "unfinished": 0,
+      "classes": [
+        {
+          "class": "ArchiveActivityTest",
+          "terminal_code": 0,
+          "count": 2
+        },
+        {
+          "class": "ArchiveChooserActivityTest",
+          "terminal_code": 0,
+          "count": 2
+        },
+        {
+          "class": "ArchiveDialogTest",
+          "terminal_code": 0,
+          "count": 6
+        },
+        {
+          "class": "ArchiveDocumentTest",
+          "terminal_code": 0,
+          "count": 5
+        },
+        {
+          "class": "ArchiveIntegrationTest",
+          "terminal_code": 0,
+          "count": 6
+        }
+      ],
+      "apk_sha256": {
+        "org.locallore.app.archiveverify": "5a058eef62d1e56e9326ac71a959bd1205ae9a96820b42626abda6530e93944f",
+        "org.locallore.app.archiveverify.test": "ffbbaab9b7ebeeb4322904567dfc66308b299463bdffe2b3074520aa1132fa08"
+      },
+      "prior_package_hashes_preserved": true,
+      "owned_processes_absent": true,
+      "adb_clients_cleaned": true,
+      "raw_sha256": "fe1769880a4bc2b270b2ba2e06df3e70e6a730dd07744b15b6256dcb37e0189a"
+    }
+  ],
+  "final_emulator_qualification": {
+    "passing_relaunch_tests": 4,
+    "passing_archive_regressions": 42,
+    "intentional_interrupted_arms": 4,
+    "failed": 0,
+    "skipped": 0,
+    "unexpected_unfinished": 0
+  },
+  "all_retained_emulator_attempts": {
+    "passing_relaunch_tests": 8,
+    "passing_archive_regressions": 42,
+    "intentional_interrupted_arms": 8,
+    "failed": 0,
+    "skipped": 0,
+    "unexpected_unfinished": 0
+  },
+  "builds": {
+    "isolated": {
+      "status": "passed",
+      "tasks": 79,
+      "executed": 33,
+      "up_to_date": 46,
+      "log_sha256": "bf81a9008ff9523a2314c4075f66a0a1ec14c85dc0c3883fac2bf426a4c19f39",
+      "lint": {
+        "Error": 0,
+        "Warning": 1
+      }
+    },
+    "production": {
+      "status": "passed",
+      "tasks": 78,
+      "executed": 32,
+      "up_to_date": 46,
+      "log_sha256": "75a76cc136c64e0c851bd23686a25f1e07ebe1d2fa75aa2f50c3dbee8944d087",
+      "lint": {
+        "Error": 0,
+        "Warning": 1
+      }
+    }
+  },
+  "isolated_audit": {
+    "status": "passed",
+    "package": "org.locallore.app.archiveverify",
+    "apk_sha256": "5a058eef62d1e56e9326ac71a959bd1205ae9a96820b42626abda6530e93944f",
+    "permissions_with_explicit_owned_suffix_normalization": [
+      "org.locallore.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+    ],
+    "libraries": [
+      {
+        "entry": "lib/arm64-v8a/libandroidx.graphics.path.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/arm64-v8a/liblocallore_android.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/x86_64/libandroidx.graphics.path.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/x86_64/liblocallore_android.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      }
+    ],
+    "native_archive_symbols": {
+      "arm64-v8a": [
+        "cancel",
+        "close",
+        "commitImport",
+        "exportBytes",
+        "open",
+        "prepareExport",
+        "prepareImport"
+      ],
+      "x86_64": [
+        "cancel",
+        "close",
+        "commitImport",
+        "exportBytes",
+        "open",
+        "prepareExport",
+        "prepareImport"
+      ]
+    }
+  },
+  "parser_counterexample": {
+    "baseline_commit": "bf1fd9a",
+    "baseline_accepted_reordered_transcript": true,
+    "current_rejected": true,
+    "category": "instrumentation_order"
+  },
+  "environment": {
+    "rust": "1.93.1",
+    "java": "17.0.6",
+    "gradle": "8.11.1",
+    "agp": "8.10.1",
+    "kotlin": "2.2.21",
+    "ndk": "29.0.14206865",
+    "compile_target_api": 36,
+    "executed_api": 35,
+    "executed_abi": "x86_64",
+    "visible_emulators": 4,
+    "available_physical_phones": 0
+  },
+  "limits": [
+    "Android user/app force-stop at validated preview or acknowledged committed import, not mid-transaction Android termination",
+    "Native host process-kill boundaries separately cover actual SQLite transaction ownership and old-or-complete replay",
+    "No low-memory dismissal, power loss, disk-full/ENOSPC, ARM64 execution, real-model or physical-phone qualification",
+    "No full M08 or owner acceptance; no merge/release/model-copy action"
+  ],
+  "private_raw_or_player_data_uploaded": false
+}

@@ -87,7 +87,7 @@ class PlayInputScreenTest {
             tag("play-kind-action").assertIsSelected()
             assertEquals(0L, model.state.value.revision)
             assertTrue(model.state.value.messages.isEmpty())
-            compose.runOnIdle { model.resume(saved.selected) }
+            compose.runOnIdle { model.resume(checkNotNull(saved.selected)) }
             settled(model)
             assertEquals(saved.messages, model.state.value.messages)
             assertEquals(accepted, owner.acceptedView())

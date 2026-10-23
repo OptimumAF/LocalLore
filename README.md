@@ -69,6 +69,11 @@ both candidates and the existing Rust oracle on authorized emulators. It adds
 no production inference dependency; physical-device and reliability gates remain
 open, with failures retained in the dated results.
 
+An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects
+the isolated SDK to guarded free-text preparation and durable commit. Its
+[verification](docs/runtime/android/PLAY_VERIFICATION_2026-10-23.md) establishes
+host/build and missing-model cleanup checks; real generation remains pending.
+
 ## Run the Android engine demo
 
 The minimal Compose app calls the actual Rust engine through bounded JNI. It
@@ -98,10 +103,27 @@ The [shared check runner/CI instructions](docs/ci/CHECKS.md) document offline
 mode, prerequisites and separate authorized emulator commands. Build/static
 checks do not establish hosted execution or device qualification.
 
+**Timelines** selects existing validated branches, including their inherited
+accepted transcript and independent progress. Gameplay and lineage checks remain
+in Rust. See the [catalog contract](docs/native/TIMELINE_CATALOG_CONTRACT.md).
+Creating or deleting an individual timeline is not exposed by this selector.
+
 **Local diagnostics** previews a bounded memory-only log of timing/error enums;
 explicit export writes exactly the reviewed JSON through the system picker.
 Exports are plaintext and their selected provider may sync them. See
 [diagnostic verification and limits](docs/diagnostics/VERIFICATION_2026-10-22.md).
+
+**Story archive** adds explicit full-private export/import previews through the
+system document picker. The shared Rust Store validates and replays every import
+before committing; existing IDs conflict and accepted history remains authoritative.
+See [Android archive checks and limits](docs/native/ANDROID_ARCHIVE_VERIFICATION_2026-10-23.md).
+This partial adapter is under review; it does not establish cross-device or model support.
+
+**Delete story** previews every timeline and removes the story atomically through
+the shared Store, with explicit confirmation and native session invalidation.
+An empty library stays empty until **New story**. This whole-story slice is under
+review; branch-only deletion and forensic erasure are not provided. See
+[deletion verification and limits](docs/native/STORY_DELETION_VERIFICATION_2026-10-23.md).
 
 ## Initial technical direction
 

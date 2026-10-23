@@ -37,7 +37,7 @@ class StoryRecordInstrumentedTest {
         withRecordFixture { fixture ->
             var owner = fixture.owner()
             val initial = owner.gateway.initialize()
-            val query = StoryRecordQuery(StoryRecordContext(initial.selected, initial.revision))
+            val query = StoryRecordQuery(StoryRecordContext(checkNotNull(initial.selected), initial.revision))
             val before = owner.acceptedView()
             val turnCalls = owner.transport.turnCalls.get()
             val first = owner.gateway.readStoryRecord(query)
@@ -70,7 +70,7 @@ class StoryRecordInstrumentedTest {
             val after = owner.acceptedView()
             val receipt = JSONObject(after).getJSONArray("receipts").getJSONObject(0)
             val turn = receipt.getJSONObject("request").getString("turn")
-            val historyQuery = StoryRecordQuery(StoryRecordContext(committed.selected, 1), StoryRecordSection.HISTORY)
+            val historyQuery = StoryRecordQuery(StoryRecordContext(checkNotNull(committed.selected), 1), StoryRecordSection.HISTORY)
             val history = owner.gateway.readStoryRecord(historyQuery)
             assertEquals(100L, history.storyTime)
             assertTrue(history.entries.any { it.origin == StoryRecordOrigin.RECORDED_OBSERVATION && "Event #1" in it.sources })
@@ -101,7 +101,7 @@ class StoryRecordInstrumentedTest {
             assertEquals(2L, saved.revision)
             val before = owner.acceptedView()
             val turnCalls = owner.transport.turnCalls.get()
-            val query = StoryRecordQuery(StoryRecordContext(saved.selected, 2), StoryRecordSection.KNOWLEDGE)
+            val query = StoryRecordQuery(StoryRecordContext(checkNotNull(saved.selected), 2), StoryRecordSection.KNOWLEDGE)
             val page = owner.gateway.readStoryRecord(query)
             val statement = page.entries.single { it.origin == StoryRecordOrigin.RECORDED_STATEMENT }
             val belief = page.entries.single { it.origin == StoryRecordOrigin.SUBJECTIVE_BELIEF }
@@ -136,7 +136,7 @@ class StoryRecordInstrumentedTest {
         withRecordFixture { fixture ->
             val owner = fixture.owner()
             val saved = owner.gateway.initialize()
-            val query = StoryRecordQuery(StoryRecordContext(saved.selected, 0))
+            val query = StoryRecordQuery(StoryRecordContext(checkNotNull(saved.selected), 0))
             val original = owner.recordData(query)
             assertEquals(8, StoryRecordWire.decode(original, query).entries.size)
             val canary = "PRIVATE-DECODER-CANARY-9182"
@@ -197,7 +197,7 @@ class StoryRecordInstrumentedTest {
             assertTrue(owner.gateway.commitAsync(owner.gateway.respond(DemoAction.GIVE_POTION, 0, DemoMode.ACCEPTED)) is DemoResult.Accepted)
             val committed = owner.gateway.snapshot()
             val accepted = owner.acceptedView()
-            val historyQuery = StoryRecordQuery(StoryRecordContext(committed.selected, 1), StoryRecordSection.HISTORY)
+            val historyQuery = StoryRecordQuery(StoryRecordContext(checkNotNull(committed.selected), 1), StoryRecordSection.HISTORY)
             val history = owner.recordData(historyQuery)
             for (ids in listOf(JSONArray(), JSONArray().put(1).put(1))) {
                 val page = JSONObject(history.toString())

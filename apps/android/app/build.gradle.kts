@@ -6,6 +6,57 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Explicit local instrumentation variant; leave the user's installed demo/data intact.
+val archiveVerification = providers.gradleProperty("localLoreArchiveVerification").orNull
+require(archiveVerification == null || archiveVerification == "true")
+val archiveCapacity = providers.gradleProperty("localLoreArchiveCapacityVerification").orNull
+require(archiveCapacity == null || archiveCapacity == "true")
+val storyDeletion = providers.gradleProperty("localLoreStoryDeletionVerification").orNull
+require(storyDeletion == null || storyDeletion == "true")
+val timelineVerification = providers.gradleProperty("localLoreTimelineVerification").orNull
+require(timelineVerification == null || timelineVerification == "true")
+require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification).count { it == "true" } <= 1) {
+    "Verification installations must be selected individually."
+}
+require(archiveVerification != "true" || archiveCapacity != "true") {
+    "Archive verification and capacity verification are separate installations."
+}
+val capacityProjectCache = rootProject.file(".gradle-archive-capacity").canonicalFile
+val selectedProjectCache = (gradle.startParameter.projectCacheDir ?: rootProject.file(".gradle")).canonicalFile
+require((timelineVerification == "true") == (selectedProjectCache == rootProject.file(".gradle-timeline").canonicalFile)) {
+    "Timeline verification requires its exclusive .gradle-timeline project cache."
+}
+require(timelineVerification != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
+    "Timeline verification is for local debug verification only."
+}
+require((storyDeletion == "true") == (selectedProjectCache == rootProject.file(".gradle-story-deletion").canonicalFile)) {
+    "Story deletion verification requires its exclusive .gradle-story-deletion project cache."
+}
+require(storyDeletion != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
+    "Story deletion verification is for local debug verification only."
+}
+require((archiveCapacity == "true") == (selectedProjectCache == capacityProjectCache)) {
+    "Capacity verification requires its exclusive .gradle-archive-capacity project cache."
+}
+require(archiveCapacity != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
+    "The synthetic capacity fixture is for local debug verification only."
+}
+if (archiveVerification == "true") {
+    layout.buildDirectory.set(layout.projectDirectory.dir("build-archive-verification"))
+} else if (archiveCapacity == "true") {
+    layout.buildDirectory.set(layout.projectDirectory.dir("build-archive-capacity"))
+} else if (storyDeletion == "true") {
+    layout.buildDirectory.set(layout.projectDirectory.dir("build-story-deletion"))
+} else if (timelineVerification == "true") {
+    layout.buildDirectory.set(layout.projectDirectory.dir("build-timeline"))
+}
+val verificationSuffix = when {
+    timelineVerification == "true" -> ".timelineverify"
+    storyDeletion == "true" -> ".storydelete"
+    archiveCapacity == "true" -> ".archivecapacity"
+    archiveVerification == "true" -> ".archiveverify"
+    else -> ""
+}
 // Explicit test binary; never change the ordinary application's SQLite limit.
 val capacityOption = providers.gradleProperty("locallore.capacityTest").orNull
 require(capacityOption == null || capacityOption == "false" || capacityOption == "true") {
@@ -21,6 +72,9 @@ require(reliefOption == null || reliefOption == "false" || reliefOption == "true
 }
 val reliefTest = reliefOption == "true"
 require(!(capacityTest && reliefTest)) { "Capacity and capacity-relief modes are mutually exclusive" }
+require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification).none { it == "true" } || !(capacityTest || reliefTest)) {
+    "Archive verification and capacity modes are mutually exclusive"
+}
 val capacityCache = rootProject.file(".gradle-capacity").canonicalFile
 val reliefCache = rootProject.file(".gradle-capacity-relief").canonicalFile
 val selectedCache = gradle.startParameter.projectCacheDir?.canonicalFile
@@ -68,6 +122,13 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0-shell"
+        manifestPlaceholders["diagnosticTestAuthority"] = "org.locallore.app$verificationSuffix.test.diagnostics"
+        manifestPlaceholders["archiveTestAuthority"] = "org.locallore.app$verificationSuffix.test.archives"
+        manifestPlaceholders["chooserTestAuthority"] = "org.locallore.app$verificationSuffix.test.chooser"
+        if (verificationSuffix.isNotEmpty()) {
+            applicationIdSuffix = verificationSuffix
+            versionNameSuffix = when { timelineVerification == "true" -> "-timeline-verification"; storyDeletion == "true" -> "-story-deletion"; archiveCapacity == "true" -> "-archive-capacity"; else -> "-archive-verification" }
+        }
         ndk { abiFilters += listOf("x86_64", "arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -92,6 +153,12 @@ android {
 androidComponents {
     beforeVariants(selector().all()) { variant ->
         if ((capacityTest || reliefTest) && variant.buildType != "debug") variant.enable = false
+    }
+}
+
+androidComponents {
+    beforeVariants(selector().withBuildType("release")) {
+        if (archiveCapacity == "true" || storyDeletion == "true" || timelineVerification == "true") it.enable = false
     }
 }
 

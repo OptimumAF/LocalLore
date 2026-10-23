@@ -1,10 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
+        <!-- UID-checked fixture setup only; no document grants or file API. -->
+        <provider
+            android:name="org.locallore.app.ChooserArchiveProvider$Control"
+            android:authorities="${chooserTestAuthority}.control"
+            android:exported="true"
+            android:process=":chooser_test_provider" />
+        <!-- System picker integration only; never packaged in the application APK. -->
+        <provider
+            android:name="org.locallore.app.ChooserArchiveProvider"
+            android:authorities="${chooserTestAuthority}"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS"
+            android:process=":chooser_test_provider">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
+        <provider
+            android:name="org.locallore.app.ArchiveDocumentProvider"
+            android:authorities="${archiveTestAuthority}"
+            android:exported="true"
+            android:process=":archive_test_provider" />
         <!-- Test APK only: separate process proves actual ContentResolver descriptor ownership. -->
         <provider
             android:name="org.locallore.app.TestDiagnosticProvider"
-            android:authorities="org.locallore.app.test.diagnostics"
+            android:authorities="${diagnosticTestAuthority}"
             android:exported="true"
             android:process=":diagnostic_test_provider" />
     </application>

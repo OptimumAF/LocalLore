@@ -29,6 +29,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class SpikeInstrumentation extends Instrumentation {
     private String mode;
     private String warmSession;
+    private String playCase, profileEncoded;
+    private JsonObject playResult;
     private final AtomicBoolean finished = new AtomicBoolean();
     private final AtomicInteger pulses = new AtomicInteger();
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -44,6 +46,8 @@ public final class SpikeInstrumentation extends Instrumentation {
         super.onCreate(arguments);
         mode = arguments == null ? "" : arguments.getString("mode", "");
         warmSession = arguments == null ? null : arguments.getString("session");
+        playCase = arguments == null ? null : arguments.getString("play_case");
+        profileEncoded = arguments == null ? null : arguments.getString("profile_base64");
         // An independent watchdog still terminates this package if a native call blocks
         // the worker or Main and the host controller vanishes. This is abrupt death,
         // never evidence of cooperative cancellation or native resource disposal.
@@ -85,6 +89,7 @@ public final class SpikeInstrumentation extends Instrumentation {
             if (mode.equals("metadata")) result = metadata();
             else if (mode.equals("missing") || mode.equals("corrupt")) result = invalidModel();
             else if (mode.equals("warm")) result = warm();
+            else if (mode.equals("play")) result = play();
             else {
                 Request request = readRequest();
                 result = generate(request, mode.equals("cancel"));
@@ -101,7 +106,6 @@ public final class SpikeInstrumentation extends Instrumentation {
             Process.killProcess(Process.myPid());
             return; // Never finish or claim graceful disposal if an owner/callback is uncertain.
         } catch (WarmRunner.Failure failure) { result = emptyResult(failure.category); }
-        catch (Failure failure) { result = emptyResult(failure.category); }
         catch (UnsatisfiedLinkError | NoClassDefFoundError error) { result = emptyResult("runtime_unavailable"); }
         catch (Exception error) { result = emptyResult("runtime_failed"); }
         finished.set(true);
@@ -112,12 +116,13 @@ public final class SpikeInstrumentation extends Instrumentation {
         Bundle bundle = new Bundle();
         bundle.putString("result_base64", Base64.encodeToString(result.toString().getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP));
         bundle.putString("metrics", metrics.toString());
+        if (playResult != null) bundle.putString("play_result", playResult.toString());
         finish(Activity.RESULT_OK, bundle);
     }
 
     private boolean allowedMode(String value) {
         return value.equals("metadata") || value.equals("missing") || value.equals("corrupt")
-            || value.equals("generate") || value.equals("cancel") || value.equals("warm");
+            || value.equals("generate") || value.equals("cancel") || value.equals("warm") || value.equals("play");
     }
 
     private File model() { return new File(getTargetContext().getFilesDir(), "gemma4-e2b.litertlm"); }
@@ -180,6 +185,28 @@ public final class SpikeInstrumentation extends Instrumentation {
         return emptyResult(null);
     }
 
+    private JsonObject play() throws Exception {
+        if (warmSession == null || !warmSession.matches("[a-f0-9]{32}") || profileEncoded == null || profileEncoded.length() > 5464 ||
+            playCase == null || !java.util.Arrays.asList("gift", "dialogue", "unlearned", "spent", "cancel").contains(playCase))
+            throw new Failure("invalid_request");
+        byte[] profile;
+        try { profile = Base64.decode(profileEncoded, Base64.NO_WRAP); }
+        catch (IllegalArgumentException failure) { throw new Failure("invalid_request"); }
+        if (profile.length == 0 || profile.length > 4096) throw new Failure("invalid_request");
+        File parent = getTargetContext().getNoBackupFilesDir().getCanonicalFile();
+        File directory = new File(parent, "play-probe-" + warmSession).getCanonicalFile();
+        if (!parent.equals(directory.getParentFile()) || !directory.mkdir()) throw new Failure("invalid_request");
+        try (java.io.OutputStream marker = java.nio.file.Files.newOutputStream(new File(directory, "owner-v1").toPath(),
+                java.nio.file.StandardOpenOption.CREATE_NEW, java.nio.file.StandardOpenOption.WRITE,
+                java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            marker.write("locallore-android-play-probe-v1".getBytes(StandardCharsets.US_ASCII));
+        }
+        // Retained even on safe completion. Cleanup is a separate controller-owned decision.
+        NativePlayProbe.Adapter probe = new NativePlayProbe.Adapter(new File(directory, "stories.sqlite3").getPath(), profile);
+        playResult = new PlayRunner(probe, WarmModel::new, metrics).run(playCase);
+        return emptyResult(null);
+    }
+
     private final class WarmModel implements WarmRunner.Model {
         private final Engine engine = configuredEngine(model());
         @Override public void initialize() throws Exception {
@@ -237,6 +264,7 @@ public final class SpikeInstrumentation extends Instrumentation {
             conversation.cancelProcess();
             metrics.addProperty("cancel_call_ms", elapsed(began));
         }
+        @Override public boolean hasOutput() { return stream.hasOutput(); }
         @Override public JsonObject result(double loadMs) throws Exception {
             String text = stream.text();
             BenchmarkInfo info = conversation.getBenchmarkInfo();
@@ -352,6 +380,7 @@ public final class SpikeInstrumentation extends Instrumentation {
             if (lower.contains("<think>") || lower.contains("</think>")) throw new Failure("unsupported_output");
             return text;
         }
+        synchronized boolean hasOutput() { return output.length() > 0; }
     }
 
     private void pulseCheck() throws Exception {
@@ -369,9 +398,8 @@ public final class SpikeInstrumentation extends Instrumentation {
         for (String key : new String[]{"schema_enforced", "thinking_disabled", "template_applied"}) result.addProperty(key, false);
         return result;
     }
-    private static final class Failure extends Exception {
-        final String category;
-        Failure(String category) { super(category); this.category = category; }
+    private static final class Failure extends WarmRunner.Failure {
+        Failure(String category) { super(category); }
     }
     private static final class QuietDescriptors implements AutoCloseable {
         private FileDescriptor stdout, stderr;

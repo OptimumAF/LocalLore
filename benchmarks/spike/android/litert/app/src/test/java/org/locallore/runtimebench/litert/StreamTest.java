@@ -39,4 +39,12 @@ public class StreamTest {
         stream.onMessage(visible("é".repeat(8193))); stream.onDone();
         assertEquals("output_too_large", assertThrows(Exception.class, stream::text).getMessage());
     }
+    @Test public void terminalLatchesWithoutContentNeverCountAsObservedOutput() {
+        SpikeInstrumentation.Stream done = new SpikeInstrumentation.Stream(); done.onDone();
+        assertEquals(0, done.first.getCount()); assertFalse(done.hasOutput());
+        SpikeInstrumentation.Stream error = new SpikeInstrumentation.Stream(); error.onError(new Exception("private"));
+        assertEquals(0, error.first.getCount()); assertFalse(error.hasOutput());
+        SpikeInstrumentation.Stream visible = new SpikeInstrumentation.Stream(); visible.onMessage(visible("Lantern"));
+        assertTrue(visible.hasOutput()); assertEquals(1, visible.done.getCount());
+    }
 }

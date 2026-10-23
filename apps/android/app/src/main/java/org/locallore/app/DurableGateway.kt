@@ -17,7 +17,11 @@ internal interface WorkspaceTransport {
 }
 
 /** No gameplay rules or ledger live here. Only authoritative player snapshots reach the UI. */
-internal class DurableGateway(private val transport: WorkspaceTransport) : DemoGateway {
+internal class DurableGateway(
+    private val transport: WorkspaceTransport,
+    autoCreateIfEmpty: Boolean = true,
+) : DemoGateway {
+    private var mayAutoCreate = autoCreateIfEmpty
     override val durable = true
     override val storyRecords = true
     private var session: String? = null
@@ -63,12 +67,35 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
 
     override suspend fun initialize(): SavedSnapshot {
         if (session != null) return snapshot()
-        val workspace = call(command("workspace"))
-        check(workspace.getBoolean("persistent"))
+        return openLibrary(mayAutoCreate)
+    }
+    private suspend fun workspace(): JSONObject = call(command("workspace")).also {
+        check(it.getBoolean("persistent") && it.getInt("schema_version") == 1)
+        check(it.getInt("database_schema_version") == 2)
+        it.getString("location")
+        it.getJSONArray("stories")
+    }
+    private suspend fun openLibrary(allowCreate: Boolean): SavedSnapshot {
+        val workspace = workspace()
         val saved = workspace.getJSONArray("stories")
+        // Automatic bootstrap is a one-time compatibility option. Never repeat an uncertain create.
+        mayAutoCreate = false
+        if (saved.length() == 0 && !allowCreate) return emptySnapshot(workspace)
         attach(if (saved.length() == 0) call(command("create").put("seed", "lantern-quay-v1"))
             else call(command("resume").put("scope", saved.getJSONObject(0).getJSONObject("scope"))))
         return snapshot()
+    }
+    private fun emptySnapshot(workspace: JSONObject): SavedSnapshot {
+        check(workspace.getJSONArray("stories").length() == 0)
+        return SavedSnapshot(0, "", emptyList(), workspace.getString("location"), 1,
+            emptyList(), null, databaseSchemaVersion = workspace.getInt("database_schema_version"))
+    }
+    override suspend fun reconcileSaved(): SavedSnapshot {
+        mayAutoCreate = false
+        operation?.cancelled = true
+        operation = null
+        closeSession()
+        return openLibrary(allowCreate = false)
     }
     private fun attach(data: JSONObject) {
         session = data.getString("session")
@@ -77,6 +104,7 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
         operation = null
     }
     override suspend fun snapshot(): SavedSnapshot {
+        if (session == null) return openLibrary(allowCreate = false)
         // Open refreshes revision from validated persisted canon before coherent player inspection.
         val opened = call(scoped("open"))
         check(sameScope(opened.getJSONObject("scope"), checkNotNull(scope)))
@@ -92,7 +120,11 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
         for (i in 0 until receipts.length()) {
             val receipt = receipts.getJSONObject(i)
             val request = receipt.getJSONObject("request")
-            check(sameScope(request.getJSONObject("scope"), checkNotNull(scope)))
+            // Inherited accepted receipts keep their original ancestor scope. Rust's
+            // player snapshot owns lineage/fork filtering; never rewrite those requests.
+            val originalScope = request.getJSONObject("scope")
+            check(originalScope.getString("story") == checkNotNull(scope).getString("story"))
+            check(timelineId.matches(originalScope.getString("branch")))
             val intent = request.getJSONObject("intent")
             val playerText = when (intent.getString("kind")) {
                 "actions" -> intent.getJSONArray("value").toString()
@@ -103,19 +135,26 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
             messages += SceneMessage(i * 2L + 1, playerText, true)
             messages += SceneMessage(i * 2L + 2, receipt.getString("narration"), false)
         }
-        val workspace = call(command("workspace"))
-        check(workspace.getBoolean("persistent") && workspace.getInt("schema_version") == 1)
+        val workspace = workspace()
+        // Host-v1's workspace contract and the SQLite implementation have separate versions.
+        val databaseSchema = workspace.getInt("database_schema_version")
+        check(databaseSchema == 2)
         val stories = workspace.getJSONArray("stories").let { rows -> (0 until rows.length()).map {
             val row = rows.getJSONObject(it); val s = row.getJSONObject("scope")
             SavedStory(s.getString("story"), s.getString("branch"), row.getString("title"), row.getLong("revision"))
         } }
-        val current = checkNotNull(stories.find { it.story == scope!!.getString("story") && it.branch == scope!!.getString("branch") })
+        val selectedScope = checkNotNull(scope)
+        val root = checkNotNull(stories.singleOrNull { it.story == selectedScope.getString("story") })
+        val timelines = decodeTimelines(call(command("branches").put("story", root.story)), root)
+        val current = checkNotNull(timelines.singleOrNull { it.branch == selectedScope.getString("branch") })
+        // A concurrent owner can advance between calls. Fail closed and recover a new
+        // coherent snapshot rather than attaching a different head's catalog metadata.
+        if (current.revision != revision) throw WorkspaceFailure("Stale")
         textProvider = readTextProvider()
         return SavedSnapshot(revision, if (view.getJSONObject("inventory").has("potion")) "You" else "Not in your inventory",
-            messages.takeLast(40), workspace.getString("location"), 1, stories, current,
-            workspace.getJSONArray("stories").let { rows -> (0 until rows.length()).map { rows.getJSONObject(it) }
-                .first { sameScope(it.getJSONObject("scope"), checkNotNull(scope)) }.optInt("drafts", 0) },
-            view.getString("rules"), textProvider)
+            messages.takeLast(40), workspace.getString("location"), 1, stories,
+            SavedStory(current.story, current.branch, root.title, current.revision), current.uncommittedDrafts,
+            view.getString("rules"), textProvider, databaseSchemaVersion = databaseSchema, timelines = timelines)
     }
     private suspend fun readTextProvider(): TextProvider {
         val capabilities = call(command("capabilities"))
@@ -199,7 +238,7 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
     }
     override suspend fun commitAsync(result: DemoResult): DemoResult {
         if (result !is DemoResult.Prepared) return result
-        val pending = checkNotNull(operation)
+        val pending = operation ?: return DemoResult.Rejected("Cancelled")
         if (pending.cancelled || result.operation != pending.serial) return DemoResult.Rejected("Cancelled")
         val data = try { call(scoped("commit", pending)) }
             catch (failure: Exception) {
@@ -252,10 +291,28 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
         }
         return snapshot()
     }
+    private suspend fun closeSession() {
+        if (session != null) {
+            try { call(scoped("close")) }
+            catch (failure: WorkspaceFailure) {
+                if (failure.category != "Closed") throw failure
+            }
+        }
+        session = null; scope = null; revision = 0
+    }
     private suspend fun release() {
-        cancelSaved()
-        call(scoped("close"))
-        session = null; scope = null
+        operation?.let { pending ->
+            pending.cancelled = true
+            try {
+                val status = submissionGate.withLock { call(scoped("cancel", pending)) }
+                if (status.getString("phase") == "committed") result(status, pending)
+                else if (operation === pending) operation = null
+            } catch (failure: WorkspaceFailure) {
+                if (failure.category !in setOf("Closed", "UnknownTurn")) throw failure
+                if (operation === pending) operation = null
+            }
+        }
+        closeSession()
     }
     override suspend fun createSaved(): SavedSnapshot {
         release()
@@ -272,6 +329,61 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
     }
 }
 internal class WorkspaceFailure(val category: String) : Exception("Workspace operation failed")
+private val timelineId = Regex("[A-Za-z0-9_-]{1,64}")
+
+/** Metadata validation only. Replay, history eligibility and gameplay remain Rust-owned. */
+private fun decodeTimelines(data: JSONObject, root: SavedStory): List<SavedTimeline> = try {
+    check(data.toString().toByteArray(Charsets.UTF_8).size <= 60 * 1024)
+    fun fields(value: JSONObject, expected: Set<String>) {
+        check(value.keys().asSequence().toSet() == expected)
+    }
+    fun text(value: JSONObject, key: String): String = value.get(key) as? String ?: error("Wire")
+    fun count(value: JSONObject, key: String): Long {
+        val raw = value.get(key)
+        check(raw is Int || raw is Long)
+        return (raw as Number).toLong().also { check(it >= 0) }
+    }
+    fields(data, setOf("version", "story_id", "title", "root_branch", "branches"))
+    check(count(data, "version") == 1L && text(data, "story_id") == root.story)
+    check(text(data, "title") == root.title && text(data, "root_branch") == root.branch)
+    check(timelineId.matches(root.story) && timelineId.matches(root.branch))
+    val rows = data.get("branches") as? JSONArray ?: error("Wire")
+    check(rows.length() in 1..256)
+    val timelines = (0 until rows.length()).map { index ->
+        val row = rows.get(index) as? JSONObject ?: error("Wire")
+        fields(row, setOf("scope", "parent_branch", "fork_revision", "revision", "drafts"))
+        val itemScope = row.get("scope") as? JSONObject ?: error("Wire")
+        fields(itemScope, setOf("story", "branch"))
+        val story = text(itemScope, "story")
+        val branch = text(itemScope, "branch")
+        check(story == root.story && timelineId.matches(branch))
+        val parent = if (row.isNull("parent_branch")) null else text(row, "parent_branch")
+        check(parent == null || timelineId.matches(parent))
+        val fork = if (row.isNull("fork_revision")) null else count(row, "fork_revision")
+        val head = count(row, "revision")
+        val drafts = count(row, "drafts")
+        check(drafts <= 4096 && (parent == null) == (fork == null))
+        check((branch == root.branch) == (parent == null) && (fork == null || fork <= head))
+        SavedTimeline(story, branch, parent, fork, head, drafts.toInt())
+    }
+    check(timelines.zipWithNext().all { (left, right) -> left.branch < right.branch })
+    val byBranch = timelines.associateBy { it.branch }
+    check(byBranch[root.branch]?.revision == root.revision)
+    for (timeline in timelines) {
+        var cursor = timeline
+        val seen = mutableSetOf<String>()
+        while (true) {
+            check(seen.add(cursor.branch) && seen.size <= 32)
+            val parent = cursor.parentBranch ?: break
+            val ancestor = byBranch[parent] ?: error("Wire")
+            check(checkNotNull(cursor.forkRevision) <= ancestor.revision)
+            cursor = ancestor
+        }
+    }
+    java.util.Collections.unmodifiableList(timelines)
+} catch (_: Exception) {
+    throw WorkspaceFailure("Malformed")
+}
 private fun sameScope(left: JSONObject, right: JSONObject) =
     left.getString("story") == right.getString("story") && left.getString("branch") == right.getString("branch")
 private fun sameJson(left: Any?, right: Any?): Boolean = when {

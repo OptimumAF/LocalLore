@@ -1,0 +1,666 @@
+{
+  "version": 1,
+  "date": "2026-10-23",
+  "scope": "M08.06 bounded actual SQLite page-limit archive rollback and cache-only retry",
+  "status": "implemented_and_locally_verified_in_review_not_owner_accepted",
+  "parent": {
+    "pr": 79,
+    "head": "7127e55fb7889209f296178680bd6ac81bbc0ff8",
+    "state": "open_unmerged_at_readback"
+  },
+  "source_commit": "292be65ea372a742d8a815777e8faefd734f4a38",
+  "source_file_sha256": {
+    ".gitignore": "8d10955a6bf76be0658a81c80bd6e8089fdfab5a913017cb310782d36701efab",
+    "apps/android/app/build.gradle.kts": "5fc6fada9338568415c1c86bf19649ae4f194fb31d26b463a5b08ffb04be89e3",
+    "apps/android/app/src/androidTest/java/org/locallore/app/ArchiveCapacityActivityTest.kt": "968054c7b964416515ae3c05217f0be1aee90aa30ded2a129a0e9fa061eb043a",
+    "apps/android/app/src/androidTest/java/org/locallore/app/ArchiveChooserActivityTest.kt": "a72fc677966c56eba56b8ef0e5dd8c0d03bc881d52e8d22e76310ed174cbc57a",
+    "apps/android/app/src/androidTest/java/org/locallore/app/ArchiveRecoveryActivityTest.kt": "a5f0d7e806d018e1e773f2923960dd76c4349ceb1ae59eda0f59bf45d01f68a4",
+    "apps/android/app/src/androidTest/java/org/locallore/app/ChooserArchiveProvider.java": "2145d228a6941a3bb3e4c245ee7120edd4e92aa81a777e083cb00b8af465d6f2",
+    "apps/android/app/src/main/java/org/locallore/app/ArchiveController.kt": "c03f654abb2cd8108b4853830f33a960c1812df67ba29a99db7439b93ca37066",
+    "apps/android/app/src/test/java/org/locallore/app/ArchiveControllerTest.kt": "12a1877828f6479ae53817f14f3a62696f0cb11eebdcefc7f89f077087c49e02",
+    "apps/android/native-build.gradle.kts": "67b152539b70a77fffa496c2ab0642d8a42087780c274cafaa5b6e7b000cbf9b",
+    "crates/locallore-android/Cargo.toml": "dd3009b06a7a1e58ee5c8998ada2c8d7fec440c7b4dca5402de715573f7c71c0",
+    "crates/locallore-android/src/archive_capacity_jni.rs": "ffdd131e3c51900c1888c51935f658775075374184141a15154a42e932026fb3",
+    "crates/locallore-android/src/lib.rs": "1b35619010011c8beb79e507d11d234565442b2202b6e4217fd68eb175a15fd2",
+    "crates/locallore-storage/src/archive_capacity_fixture.rs": "ff757b77dd2daaafcb946a579ff9c5a358a7c0a634514c46899d1d2fa8156202",
+    "crates/locallore-storage/src/archive_full_tests.rs": "b4af16387ebd656e30d047ab7ed74b1ef9d3625a4411d226d79786bca421de84",
+    "crates/locallore-storage/src/lib.rs": "84554d369ad9f7a0095690ce94fe7bee44c0053613da6a956912991950955bb6",
+    "scripts/archive_capacity.py": "3479f939d34ed4cccfe8feff597ad8755421303a0057c2ddb34e00e82f2435bc",
+    "scripts/archive_recovery.py": "1124d31a192862b6538fd935b830eb843748e3c301533eb2b4cddaf97bab4174",
+    "scripts/tests/test_archive_capacity.py": "4525f5a48068b8e46933a9b1e62a9a5798db67f127e45563b017ecd5d1a29eb5"
+  },
+  "environment": {
+    "rust": "1.93.1",
+    "java": "17.0.6",
+    "gradle": "8.11.1",
+    "agp": "8.10.1",
+    "kotlin": "2.2.21",
+    "ndk": "29.0.14206865",
+    "compile_target_api": 36,
+    "min_api": 26,
+    "executed_android_api": 35,
+    "executed_abi": "x86_64",
+    "executed_os_page_bytes": 4096,
+    "sqlite": "3.53.2",
+    "rusqlite": "0.40.2",
+    "libsqlite3_sys": "0.38.2",
+    "emulators_observed": 4,
+    "physical_phones_observed": 0
+  },
+  "host": {
+    "workspace_rust_passed": 314,
+    "linker_rust_passed": 3,
+    "python_passed": 232,
+    "source_commit": "44b81f6d7792826119b1463ca01f1bf2f3cae703",
+    "rust_python_unchanged_at_final_source": true,
+    "ignored_in_default_discovery": 2,
+    "ignored_explanations": [
+      "existing interruption IPC worker invoked by three parent qualifiers",
+      "compiled page-profile qualifier executed separately"
+    ],
+    "compiled_96_qualifier_passed": 1,
+    "compiled_96_qualifier_log_sha256": "9a01ed524f4df7c8b120f945d037db140b5567c60a8559301596d3cfdfe09f27",
+    "normal_host_log_sha256": "fc9a87b709ab6e5ae5df685a5f8f39f5702c16743df4a67ad14d7d59f5eb5021"
+  },
+  "final_jvm": {
+    "tests": 61,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "dedicated_builds": [
+    {
+      "attempt": "initial",
+      "source_commit": null,
+      "qualification": "not installed; in-progress source",
+      "tasks": 79,
+      "executed": 78,
+      "up_to_date": 1,
+      "log_sha256": "18ce96c21c772067d9b420758d66e95881710a33a3045ccbfb4e479146d5961c"
+    },
+    {
+      "attempt": "final",
+      "source_commit": "44b81f6d7792826119b1463ca01f1bf2f3cae703",
+      "qualification": "frozen source",
+      "tasks": 79,
+      "executed": 8,
+      "up_to_date": 71,
+      "log_sha256": "fe1281ced737749ae1c076b06ff6f6f3c4056c76770bbf82bf51fef789f203a2"
+    },
+    {
+      "attempt": "fix1",
+      "source_commit": "292be65ea372a742d8a815777e8faefd734f4a38",
+      "qualification": "frozen source",
+      "tasks": 79,
+      "executed": 10,
+      "up_to_date": 69,
+      "log_sha256": "520c67bb1bef60d561760b0ff3807659be67325495471d2863c92c44689cb030"
+    }
+  ],
+  "ordinary_builds": [
+    {
+      "attempt": "production",
+      "source_commit": "44b81f6d7792826119b1463ca01f1bf2f3cae703",
+      "tasks": 78,
+      "executed": 24,
+      "up_to_date": 54,
+      "log_sha256": "2136f628e4568fe22893dd45258c597c9e48661367b550c02b9ce607aca1a7cf"
+    },
+    {
+      "attempt": "production-fix1",
+      "source_commit": "292be65ea372a742d8a815777e8faefd734f4a38",
+      "tasks": 78,
+      "executed": 8,
+      "up_to_date": 70,
+      "log_sha256": "0701357410fb3a58e50fa0abd395b5844b69e5bb58138f1a2bcc2b9039fd2fab"
+    }
+  ],
+  "configuration_guards": [
+    {
+      "case": "false",
+      "returncode": 1,
+      "passed": true
+    },
+    {
+      "case": "combined",
+      "returncode": 1,
+      "passed": true
+    },
+    {
+      "case": "release",
+      "returncode": 1,
+      "passed": true
+    },
+    {
+      "case": "inventory",
+      "returncode": 0,
+      "passed": true
+    },
+    {
+      "case": "cap-default-cache",
+      "returncode": 1,
+      "passed": true
+    },
+    {
+      "case": "normal-cap-cache",
+      "returncode": 1,
+      "passed": true
+    }
+  ],
+  "profile": {
+    "max_page_count": 96,
+    "pressured_page_count_host_observation": 94,
+    "initial_derived_rows": 6,
+    "after_relief_derived_rows": 1,
+    "retained_control_revision": 10,
+    "source_branches": 3,
+    "source_main_revision": 2,
+    "continued_main_revision": 3,
+    "pressure": "actual deterministic Store memory publication",
+    "relief": "exact control/player cache invalidation; Mira cache and accepted history retained",
+    "physical_enospc_tested": false
+  },
+  "final_artifact_audit": {
+    "status": "passed",
+    "mode": "capacity",
+    "package": "org.locallore.app.archivecapacity",
+    "apk_sha256": {
+      "org.locallore.app.archivecapacity": "aa09afc46d0921a1e43f739a3c6331f2fbd839301f533d2ca5ac0b5c4e4e6bb2",
+      "org.locallore.app.archivecapacity.test": "1d7fdbe216a7d720f0d3342711159cb61053f27dbdf45a2b8b572d4037aef967"
+    },
+    "permissions": [
+      "org.locallore.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+    ],
+    "libraries": [
+      {
+        "entry": "lib/arm64-v8a/libandroidx.graphics.path.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/x86_64/libandroidx.graphics.path.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/arm64-v8a/liblocallore_android.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/x86_64/liblocallore_android.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      }
+    ],
+    "native_symbols": {
+      "arm64-v8a": {
+        "archive": [
+          "cancel",
+          "close",
+          "commitImport",
+          "exportBytes",
+          "open",
+          "prepareExport",
+          "prepareImport"
+        ],
+        "fixture": true
+      },
+      "x86_64": {
+        "archive": [
+          "cancel",
+          "close",
+          "commitImport",
+          "exportBytes",
+          "open",
+          "prepareExport",
+          "prepareImport"
+        ],
+        "fixture": true
+      }
+    },
+    "library_sha256": {
+      "arm64-v8a": "e5f2f26573aa54ddb41c5695e8523efc03d8f2dd4afeb6f94da2a7a29be9c648",
+      "x86_64": "bb9a397bc3e261e152372b35faaae62b9327326416aca5e688b73e96b7374bd4"
+    },
+    "compile_cap_96_string": {
+      "arm64-v8a": true,
+      "x86_64": true
+    }
+  },
+  "ordinary_artifact_audit": {
+    "status": "passed",
+    "mode": "production",
+    "package": "org.locallore.app",
+    "apk_sha256": {
+      "org.locallore.app": "8e2c9512997d9dcd1da29938cd94c9f8557ceb9654891eef5bfe99a384a729a6",
+      "org.locallore.app.test": "79c38c3c1d574efc82691e43629683998a31b4f3489dee38bdc9b478884e395f"
+    },
+    "permissions": [
+      "org.locallore.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+    ],
+    "libraries": [
+      {
+        "entry": "lib/arm64-v8a/libandroidx.graphics.path.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/x86_64/libandroidx.graphics.path.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/arm64-v8a/liblocallore_android.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/x86_64/liblocallore_android.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      }
+    ],
+    "native_symbols": {
+      "arm64-v8a": {
+        "archive": [
+          "cancel",
+          "close",
+          "commitImport",
+          "exportBytes",
+          "open",
+          "prepareExport",
+          "prepareImport"
+        ],
+        "fixture": false
+      },
+      "x86_64": {
+        "archive": [
+          "cancel",
+          "close",
+          "commitImport",
+          "exportBytes",
+          "open",
+          "prepareExport",
+          "prepareImport"
+        ],
+        "fixture": false
+      }
+    },
+    "library_sha256": {
+      "arm64-v8a": "4970469efd98bd5f22a7ce84f0a99cc4422fa8fad693fafd8b97317e814eedf4",
+      "x86_64": "6386568697285102b1f8fa1dfd1d56467bff9247f189beaa9195bad8292060d3"
+    },
+    "compile_cap_96_string": {
+      "arm64-v8a": false,
+      "x86_64": false
+    }
+  },
+  "retained_prior_archiveverify_audit": {
+    "status": "passed",
+    "mode": "archiveverify",
+    "package": "org.locallore.app.archiveverify",
+    "apk_sha256": {
+      "org.locallore.app.archiveverify": "5a058eef62d1e56e9326ac71a959bd1205ae9a96820b42626abda6530e93944f",
+      "org.locallore.app.archiveverify.test": "ffbbaab9b7ebeeb4322904567dfc66308b299463bdffe2b3074520aa1132fa08"
+    },
+    "permissions": [
+      "org.locallore.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+    ],
+    "libraries": [
+      {
+        "entry": "lib/arm64-v8a/libandroidx.graphics.path.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/arm64-v8a/liblocallore_android.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/x86_64/libandroidx.graphics.path.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/x86_64/liblocallore_android.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      }
+    ],
+    "native_symbols": {
+      "arm64-v8a": {
+        "archive": [
+          "cancel",
+          "close",
+          "commitImport",
+          "exportBytes",
+          "open",
+          "prepareExport",
+          "prepareImport"
+        ],
+        "fixture": false
+      },
+      "x86_64": {
+        "archive": [
+          "cancel",
+          "close",
+          "commitImport",
+          "exportBytes",
+          "open",
+          "prepareExport",
+          "prepareImport"
+        ],
+        "fixture": false
+      }
+    },
+    "library_sha256": {
+      "arm64-v8a": "3860a6ea7fca086e8da0327582ccc9ada528f87d360e9a17c5ca0affafc97659",
+      "x86_64": "e1e13b531b7bfc90d0e9a2b97ab0b0c77d695f8f1c74ee019b4eb4ac61c9bed3"
+    },
+    "compile_cap_96_string": {
+      "arm64-v8a": false,
+      "x86_64": false
+    }
+  },
+  "local_apk_preservation": [
+    {
+      "before_production": {
+        "build/outputs/apk/debug/app-debug.apk": "119a2203f43d9c6ae5b6ce3f20ad14b1f098e3367d59f535bad3f758a7c3be99",
+        "build/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "1eef68e2d1107ffd6520cc1ba2f080894c99818aa3b031563b9c66730979ce77",
+        "build-archive-capacity/outputs/apk/debug/app-debug.apk": "aa09afc46d0921a1e43f739a3c6331f2fbd839301f533d2ca5ac0b5c4e4e6bb2",
+        "build-archive-capacity/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "689729ff856289fcefbaad3e7aa6e3d024bb74cd1391399d832726df0cc609a8",
+        "build-archive-verification/outputs/apk/debug/app-debug.apk": "5a058eef62d1e56e9326ac71a959bd1205ae9a96820b42626abda6530e93944f",
+        "build-archive-verification/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "ffbbaab9b7ebeeb4322904567dfc66308b299463bdffe2b3074520aa1132fa08",
+        "build-capacity/outputs/apk/debug/app-debug.apk": "8ffe81c0bdefcf2e9e6fa1d569a94e8409c3c9066b326887cc92e9e73bf0feb9",
+        "build-capacity/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "1fdc11ff897471740d806582375f43ba09fd01645aaff459be4225eac389838e",
+        "build-capacity-relief/outputs/apk/debug/app-debug.apk": "7968c0e15ae7058c89a03f88a1ed6c79899a1fa6aefd7bac7befba79c395c1c0",
+        "build-capacity-relief/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "81366501c6876470e7639c00f14bb439c3a256b50a4792159079d0586cac1708"
+      },
+      "after_production": {
+        "build/outputs/apk/debug/app-debug.apk": "8e2c9512997d9dcd1da29938cd94c9f8557ceb9654891eef5bfe99a384a729a6",
+        "build/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "c37c13069eddc21f92a3283fa4b20014847058a2f3079170d6487392d59246a5",
+        "build-archive-capacity/outputs/apk/debug/app-debug.apk": "aa09afc46d0921a1e43f739a3c6331f2fbd839301f533d2ca5ac0b5c4e4e6bb2",
+        "build-archive-capacity/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "689729ff856289fcefbaad3e7aa6e3d024bb74cd1391399d832726df0cc609a8",
+        "build-archive-verification/outputs/apk/debug/app-debug.apk": "5a058eef62d1e56e9326ac71a959bd1205ae9a96820b42626abda6530e93944f",
+        "build-archive-verification/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "ffbbaab9b7ebeeb4322904567dfc66308b299463bdffe2b3074520aa1132fa08",
+        "build-capacity/outputs/apk/debug/app-debug.apk": "8ffe81c0bdefcf2e9e6fa1d569a94e8409c3c9066b326887cc92e9e73bf0feb9",
+        "build-capacity/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "1fdc11ff897471740d806582375f43ba09fd01645aaff459be4225eac389838e",
+        "build-capacity-relief/outputs/apk/debug/app-debug.apk": "7968c0e15ae7058c89a03f88a1ed6c79899a1fa6aefd7bac7befba79c395c1c0",
+        "build-capacity-relief/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "81366501c6876470e7639c00f14bb439c3a256b50a4792159079d0586cac1708"
+      },
+      "unrelated_and_capacity_apks_preserved": true
+    },
+    {
+      "before_production": {
+        "build/outputs/apk/debug/app-debug.apk": "8e2c9512997d9dcd1da29938cd94c9f8557ceb9654891eef5bfe99a384a729a6",
+        "build/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "c37c13069eddc21f92a3283fa4b20014847058a2f3079170d6487392d59246a5",
+        "build-archive-capacity/outputs/apk/debug/app-debug.apk": "aa09afc46d0921a1e43f739a3c6331f2fbd839301f533d2ca5ac0b5c4e4e6bb2",
+        "build-archive-capacity/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "1d7fdbe216a7d720f0d3342711159cb61053f27dbdf45a2b8b572d4037aef967",
+        "build-archive-verification/outputs/apk/debug/app-debug.apk": "5a058eef62d1e56e9326ac71a959bd1205ae9a96820b42626abda6530e93944f",
+        "build-archive-verification/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "ffbbaab9b7ebeeb4322904567dfc66308b299463bdffe2b3074520aa1132fa08",
+        "build-capacity/outputs/apk/debug/app-debug.apk": "8ffe81c0bdefcf2e9e6fa1d569a94e8409c3c9066b326887cc92e9e73bf0feb9",
+        "build-capacity/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "1fdc11ff897471740d806582375f43ba09fd01645aaff459be4225eac389838e",
+        "build-capacity-relief/outputs/apk/debug/app-debug.apk": "7968c0e15ae7058c89a03f88a1ed6c79899a1fa6aefd7bac7befba79c395c1c0",
+        "build-capacity-relief/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "81366501c6876470e7639c00f14bb439c3a256b50a4792159079d0586cac1708"
+      },
+      "after_production": {
+        "build/outputs/apk/debug/app-debug.apk": "8e2c9512997d9dcd1da29938cd94c9f8557ceb9654891eef5bfe99a384a729a6",
+        "build/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "79c38c3c1d574efc82691e43629683998a31b4f3489dee38bdc9b478884e395f",
+        "build-archive-capacity/outputs/apk/debug/app-debug.apk": "aa09afc46d0921a1e43f739a3c6331f2fbd839301f533d2ca5ac0b5c4e4e6bb2",
+        "build-archive-capacity/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "1d7fdbe216a7d720f0d3342711159cb61053f27dbdf45a2b8b572d4037aef967",
+        "build-archive-verification/outputs/apk/debug/app-debug.apk": "5a058eef62d1e56e9326ac71a959bd1205ae9a96820b42626abda6530e93944f",
+        "build-archive-verification/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "ffbbaab9b7ebeeb4322904567dfc66308b299463bdffe2b3074520aa1132fa08",
+        "build-capacity/outputs/apk/debug/app-debug.apk": "8ffe81c0bdefcf2e9e6fa1d569a94e8409c3c9066b326887cc92e9e73bf0feb9",
+        "build-capacity/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "1fdc11ff897471740d806582375f43ba09fd01645aaff459be4225eac389838e",
+        "build-capacity-relief/outputs/apk/debug/app-debug.apk": "7968c0e15ae7058c89a03f88a1ed6c79899a1fa6aefd7bac7befba79c395c1c0",
+        "build-capacity-relief/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "81366501c6876470e7639c00f14bb439c3a256b50a4792159079d0586cac1708"
+      },
+      "unrelated_and_capacity_apks_preserved": true
+    }
+  ],
+  "device_attempts": [
+    {
+      "attempt": "initial-A",
+      "scope": "capacity",
+      "qualifying_final_apk": false,
+      "source_commit": "44b81f6d7792826119b1463ca01f1bf2f3cae703",
+      "status": "passed",
+      "apk_sha256": {
+        "org.locallore.app.archivecapacity": "aa09afc46d0921a1e43f739a3c6331f2fbd839301f533d2ca5ac0b5c4e4e6bb2",
+        "org.locallore.app.archivecapacity.test": "689729ff856289fcefbaad3e7aa6e3d024bb74cd1391399d832726df0cc609a8"
+      },
+      "raw_sha256": "1393a1a72273f9812edf51f62d881982d0979fa8520c2fe271927fff95beda0f",
+      "started": 1,
+      "passed": 1,
+      "failed_terminals": 0,
+      "failure_entries": [],
+      "elapsed_runner_seconds": 9.005,
+      "client_cleanup_confirmed": true,
+      "owned_processes_absent": true,
+      "prior_installed_packages_preserved": true,
+      "verified": {
+        "version": 1,
+        "status": "verified",
+        "archive_sha256": "9a57c495ec1e1bb38487b3646a954d8ae32c7e43596594360a9ecde584c7e040",
+        "source_revision": 2,
+        "continued_revision": 3,
+        "full_count": 1,
+        "cache_only_relief": true
+      }
+    },
+    {
+      "attempt": "initial-B",
+      "scope": "capacity",
+      "qualifying_final_apk": false,
+      "source_commit": "44b81f6d7792826119b1463ca01f1bf2f3cae703",
+      "status": "failed",
+      "apk_sha256": {
+        "org.locallore.app.archivecapacity": "aa09afc46d0921a1e43f739a3c6331f2fbd839301f533d2ca5ac0b5c4e4e6bb2",
+        "org.locallore.app.archivecapacity.test": "689729ff856289fcefbaad3e7aa6e3d024bb74cd1391399d832726df0cc609a8"
+      },
+      "raw_sha256": "1a98657bd90c0e85489945b5511ca3044a781520bf5fa436b625f96ae9ea5f0c",
+      "started": 1,
+      "passed": 0,
+      "failed_terminals": 1,
+      "failure_entries": [
+        {
+          "class": "org.locallore.app.ArchiveCapacityActivityTest",
+          "test": "storageFullThenCacheReliefAndFreshImport",
+          "code": -2
+        }
+      ],
+      "elapsed_runner_seconds": 28.959,
+      "client_cleanup_confirmed": true,
+      "owned_processes_absent": true,
+      "prior_installed_packages_preserved": true,
+      "limitation": "Primary exception masked by cleanup; original cause unknown. Same-title provider hazard is an inference."
+    },
+    {
+      "attempt": "regression-A",
+      "scope": "regression_selector_error",
+      "qualifying_final_apk": false,
+      "source_commit": "44b81f6d7792826119b1463ca01f1bf2f3cae703",
+      "status": "failed",
+      "apk_sha256": {
+        "org.locallore.app.archivecapacity": "aa09afc46d0921a1e43f739a3c6331f2fbd839301f533d2ca5ac0b5c4e4e6bb2",
+        "org.locallore.app.archivecapacity.test": "689729ff856289fcefbaad3e7aa6e3d024bb74cd1391399d832726df0cc609a8"
+      },
+      "raw_sha256": "c3d3ddd2e9c124b6f3387f59bdd9ca742c13110013fb35634c15ccd5f54237ae",
+      "started": 17,
+      "passed": 15,
+      "failed_terminals": 2,
+      "failure_entries": [
+        {
+          "class": "org.locallore.app.ArchiveDocumentsTest",
+          "test": "initializationError",
+          "code": -2
+        },
+        {
+          "class": "org.locallore.app.ArchiveChooserActivityTest",
+          "test": "invalidChooserInputsRemainRecoverable",
+          "code": -2
+        }
+      ],
+      "elapsed_runner_seconds": 35.192,
+      "client_cleanup_confirmed": true,
+      "owned_processes_absent": true,
+      "prior_installed_packages_preserved": true,
+      "limitation": "Wrong selector produced one initialization error plus one actual chooser failure. Five document tests unrun."
+    },
+    {
+      "attempt": "final-B",
+      "scope": "capacity",
+      "qualifying_final_apk": true,
+      "source_commit": "292be65ea372a742d8a815777e8faefd734f4a38",
+      "status": "passed",
+      "apk_sha256": {
+        "org.locallore.app.archivecapacity": "aa09afc46d0921a1e43f739a3c6331f2fbd839301f533d2ca5ac0b5c4e4e6bb2",
+        "org.locallore.app.archivecapacity.test": "1d7fdbe216a7d720f0d3342711159cb61053f27dbdf45a2b8b572d4037aef967"
+      },
+      "raw_sha256": "5eb0aef209aeb94b5c65279c0642756da5e71ee8d16d864fd166f7b3ca714284",
+      "started": 1,
+      "passed": 1,
+      "failed_terminals": 0,
+      "failure_entries": [],
+      "elapsed_runner_seconds": 15.402,
+      "client_cleanup_confirmed": true,
+      "owned_processes_absent": true,
+      "prior_installed_packages_preserved": true,
+      "verified": {
+        "version": 1,
+        "status": "verified",
+        "archive_sha256": "9a57c495ec1e1bb38487b3646a954d8ae32c7e43596594360a9ecde584c7e040",
+        "source_revision": 2,
+        "continued_revision": 3,
+        "full_count": 1,
+        "cache_only_relief": true
+      }
+    },
+    {
+      "attempt": "final-A",
+      "scope": "capacity",
+      "qualifying_final_apk": true,
+      "source_commit": "292be65ea372a742d8a815777e8faefd734f4a38",
+      "status": "passed",
+      "apk_sha256": {
+        "org.locallore.app.archivecapacity": "aa09afc46d0921a1e43f739a3c6331f2fbd839301f533d2ca5ac0b5c4e4e6bb2",
+        "org.locallore.app.archivecapacity.test": "1d7fdbe216a7d720f0d3342711159cb61053f27dbdf45a2b8b572d4037aef967"
+      },
+      "raw_sha256": "22277109903dad1fd032982e9dcf53ed227b6c9424d1598c2019f6eb7edc4853",
+      "started": 1,
+      "passed": 1,
+      "failed_terminals": 0,
+      "failure_entries": [],
+      "elapsed_runner_seconds": 11.43,
+      "client_cleanup_confirmed": true,
+      "owned_processes_absent": true,
+      "prior_installed_packages_preserved": true,
+      "verified": {
+        "version": 1,
+        "status": "verified",
+        "archive_sha256": "9a57c495ec1e1bb38487b3646a954d8ae32c7e43596594360a9ecde584c7e040",
+        "source_revision": 2,
+        "continued_revision": 3,
+        "full_count": 1,
+        "cache_only_relief": true
+      }
+    },
+    {
+      "attempt": "regression-final-B",
+      "scope": "regression",
+      "qualifying_final_apk": true,
+      "source_commit": "292be65ea372a742d8a815777e8faefd734f4a38",
+      "status": "passed",
+      "apk_sha256": {
+        "org.locallore.app.archivecapacity": "aa09afc46d0921a1e43f739a3c6331f2fbd839301f533d2ca5ac0b5c4e4e6bb2",
+        "org.locallore.app.archivecapacity.test": "1d7fdbe216a7d720f0d3342711159cb61053f27dbdf45a2b8b572d4037aef967"
+      },
+      "raw_sha256": "d15db15ccb5be0c1253abe5a0d2763b7a33fc615944157bd0b4a4696dc8a33b5",
+      "started": 21,
+      "passed": 21,
+      "failed_terminals": 0,
+      "failure_entries": [],
+      "elapsed_runner_seconds": 43.06,
+      "client_cleanup_confirmed": true,
+      "owned_processes_absent": true,
+      "prior_installed_packages_preserved": true
+    },
+    {
+      "attempt": "regression-final-A",
+      "scope": "regression",
+      "qualifying_final_apk": true,
+      "source_commit": "292be65ea372a742d8a815777e8faefd734f4a38",
+      "status": "passed",
+      "apk_sha256": {
+        "org.locallore.app.archivecapacity": "aa09afc46d0921a1e43f739a3c6331f2fbd839301f533d2ca5ac0b5c4e4e6bb2",
+        "org.locallore.app.archivecapacity.test": "1d7fdbe216a7d720f0d3342711159cb61053f27dbdf45a2b8b572d4037aef967"
+      },
+      "raw_sha256": "5341595a64f8ea56111f983fe481f91e16a809d6c2757728cbb6dd7d31a59047",
+      "started": 21,
+      "passed": 21,
+      "failed_terminals": 0,
+      "failure_entries": [],
+      "elapsed_runner_seconds": 28.148,
+      "client_cleanup_confirmed": true,
+      "owned_processes_absent": true,
+      "prior_installed_packages_preserved": true
+    }
+  ],
+  "final_qualifying_passes": 44,
+  "all_device_pass_terminals": 60,
+  "all_device_failed_terminals": 3,
+  "failed_terminal_breakdown": {
+    "actual_test_bodies": 2,
+    "junit_initialization_errors": 1
+  },
+  "setup_failures": [
+    "private build-wrapper quoting before build",
+    "initial host formatting before tests",
+    "author u64 SQLite row decoding compile error corrected before final handoff"
+  ],
+  "limitations": [
+    "SQLite connection page-default experiment, not physical ENOSPC",
+    "B masked primary cause unknown; same-title root hypothesis not proven exact cause",
+    "No Android mid-import kill, power loss, low-memory death or arbitrary-provider hard preemption",
+    "No ARM64/16KiB OS/physical-phone execution or real-model qualification",
+    "No hosted CI or owner acceptance inferred"
+  ]
+}

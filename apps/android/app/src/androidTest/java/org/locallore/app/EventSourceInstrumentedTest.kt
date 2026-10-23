@@ -43,7 +43,7 @@ class EventSourceInstrumentedTest {
             assertEquals(listOf(2L), location.eventSources)
             assertEquals(listOf("Event #2"), location.sources)
             val relationships = owner.gateway.readStoryRecord(StoryRecordQuery(
-                StoryRecordContext(saved.selected, saved.revision), StoryRecordSection.RELATIONSHIPS))
+                StoryRecordContext(checkNotNull(saved.selected), saved.revision), StoryRecordSection.RELATIONSHIPS))
             assertTrue(relationships.entries.isNotEmpty())
             // Giving updates an NPC's incoming obligation; that is not the player's outgoing edge.
             assertTrue(relationships.entries.all { it.origin == StoryRecordOrigin.CANONICAL_FIELD &&
@@ -67,7 +67,7 @@ class EventSourceInstrumentedTest {
             assertEquals(setOf(1L, 2L, 3L, 4L), events.map { it.event!!.sequence }.toSet())
             assertTrue(events.all { it.eventSources == listOf(it.event!!.sequence) && it.event!!.storyTime == 100L })
             val rawEvents = jsonRows(owner.recordData(StoryRecordQuery(
-                StoryRecordContext(saved.selected, saved.revision), StoryRecordSection.HISTORY)))
+                StoryRecordContext(checkNotNull(saved.selected), saved.revision), StoryRecordSection.HISTORY)))
                 .filter { it.getString("kind") == "event" }.map { it.getJSONObject("event") }
                 .associateBy { it.getLong("sequence") }
             fun actors(sequence: Long, field: String): Set<String> = rawEvents.getValue(sequence).getJSONArray(field).let { rows ->
@@ -92,7 +92,7 @@ class EventSourceInstrumentedTest {
             fixture.closeOwnersAndDrain()
             owner = fixture.owner()
             assertTrue(saved == owner.gateway.initialize())
-            val restored = owner.gateway.readStoryRecord(StoryRecordQuery(StoryRecordContext(saved.selected, saved.revision), StoryRecordSection.HISTORY))
+            val restored = owner.gateway.readStoryRecord(StoryRecordQuery(StoryRecordContext(checkNotNull(saved.selected), saved.revision), StoryRecordSection.HISTORY))
             assertEquals(history.entries, restored.entries)
             assertTrue("Strict reopen changed receipts", accepted == owner.acceptedView())
         }
@@ -110,7 +110,7 @@ class EventSourceInstrumentedTest {
                 .put(JSONObject().put("op", "believe").put("claim_event", 2))))
             val storyA = owner.gateway.snapshot()
             val beforeA = owner.acceptedView()
-            val queryA = StoryRecordQuery(StoryRecordContext(storyA.selected, 3), StoryRecordSection.HISTORY)
+            val queryA = StoryRecordQuery(StoryRecordContext(checkNotNull(storyA.selected), 3), StoryRecordSection.HISTORY)
             val visible = owner.gateway.readStoryRecord(queryA.copy(search = "\"sequence\":1,"))
             assertEquals(1, visible.entries.size)
             assertEquals(1L, visible.entries.single().event!!.sequence)
@@ -130,7 +130,7 @@ class EventSourceInstrumentedTest {
             val future = owner.transport.exchange(owner.recordCommand(queryA.copy(context = queryA.context.copy(revision = 4))))
             assertEquals("rejected", future.getString("status"))
             assertEquals("Stale", future.getString("error"))
-            val branch = queryA.copy(context = queryA.context.copy(story = storyA.selected.copy(branch = "synthetic-other-branch")))
+            val branch = queryA.copy(context = queryA.context.copy(story = checkNotNull(storyA.selected).copy(branch = "synthetic-other-branch")))
             assertEquals("Scope", owner.transport.exchange(owner.recordCommand(branch)).getString("error"))
             for (privateText in listOf("The tideglass relic is in old-ruins.", "Rowan may possess the tideglass relic.")) {
                 val page = owner.gateway.readStoryRecord(queryA.copy(section = StoryRecordSection.KNOWLEDGE, search = privateText))
@@ -168,12 +168,12 @@ class EventSourceInstrumentedTest {
             awaitEventShell(model)
             val storyB = owner.gateway.snapshot()
             assertEquals(0L, storyB.revision)
-            assertTrue(storyA.selected.story != storyB.selected.story)
+            assertTrue(checkNotNull(storyA.selected).story != checkNotNull(storyB.selected).story)
             val beforeB = owner.acceptedView()
             try { owner.gateway.readStoryRecord(queryA); fail("Other-story query accepted") }
             catch (failure: StoryRecordFailure) { assertEquals(StoryRecordProblem.STALE, failure.problem) }
             assertEquals("Scope", owner.transport.exchange(owner.recordCommand(queryA)).getString("error"))
-            val queryB = StoryRecordQuery(StoryRecordContext(storyB.selected, 0), StoryRecordSection.HISTORY, "\"sequence\":1,")
+            val queryB = StoryRecordQuery(StoryRecordContext(checkNotNull(storyB.selected), 0), StoryRecordSection.HISTORY, "\"sequence\":1,")
             assertEquals(0, owner.gateway.readStoryRecord(queryB).total)
             withContext(Dispatchers.Main) { model.openStoryRecord() }
             val current = awaitEventRecord(model)
@@ -184,7 +184,7 @@ class EventSourceInstrumentedTest {
             fixture.closeOwnersAndDrain()
             owner = fixture.owner()
             val reopened = owner.gateway.initialize()
-            val restored = owner.gateway.resumeSaved(reopened.stories.single { it.story == storyA.selected.story })
+            val restored = owner.gateway.resumeSaved(reopened.stories.single { it.story == checkNotNull(storyA.selected).story })
             assertEquals(storyA.revision, restored.revision)
             assertEquals(storyA.messages, restored.messages)
             assertTrue(beforeA == owner.acceptedView())
@@ -195,7 +195,7 @@ class EventSourceInstrumentedTest {
         withRecordFixture { fixture ->
             val owner = fixture.owner()
             val saved = seedEventScenes(owner)
-            val query = StoryRecordQuery(StoryRecordContext(saved.selected, saved.revision), StoryRecordSection.HISTORY)
+            val query = StoryRecordQuery(StoryRecordContext(checkNotNull(saved.selected), saved.revision), StoryRecordSection.HISTORY)
             val original = owner.recordData(query)
             val decoded = StoryRecordWire.decode(original, query)
             assertEquals(setOf(1L, 2L, 3L, 4L), decoded.entries.mapNotNull { it.event?.sequence }.toSet())

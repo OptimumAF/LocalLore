@@ -68,6 +68,21 @@ assert(
     fixture >= 0 && tests > fixture && clippy > tests,
     "Standalone runtime needs fixture, all-target tests and Clippy in order",
 );
+const evalTests = runs.findIndex((run) =>
+    run.startsWith(
+        "cargo +1.93.1 test --manifest-path crates/locallore-eval/Cargo.toml --all-targets --locked",
+    ),
+);
+const evalClippy = runs.findIndex(
+    (run) =>
+        run.startsWith(
+            "cargo +1.93.1 clippy --manifest-path crates/locallore-eval/Cargo.toml --all-targets --locked",
+        ) && run.endsWith("-- -D warnings"),
+);
+assert(
+    evalTests >= 0 && evalClippy > evalTests && evalClippy < fixture,
+    "Standalone deterministic evaluation needs all-target tests and strict Clippy",
+);
 assert(runs.at(-1).includes("--no-default-features"));
 assert(runs.at(-1).endsWith("-- -C link-arg=/Brepro"));
 for (const forbidden of [
@@ -83,5 +98,5 @@ for (const forbidden of [
 ])
     assert(!text.includes(forbidden), `Forbidden CI policy: ${forbidden}`);
 console.log(
-    "PASS: desktop workflow parses; pinned read-only Windows tools, complete standalone runtime gate and normal final link policy.",
+    "PASS: desktop workflow parses; pinned read-only Windows tools, standalone evaluation/runtime gates and normal final link policy.",
 );

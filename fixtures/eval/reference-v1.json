@@ -1,0 +1,549 @@
+{
+  "version": 1,
+  "synthetic": true,
+  "seed_id": "lantern-quay-v1",
+  "seed_sha256": "08794dfdb60eb2fcd33eeb5746dd19e3809259d44d72b61f3fcc9ce69c08c648",
+  "scenarios": [
+    {
+      "id": "spent-potion",
+      "steps": [
+        {
+          "id": "gift",
+          "intent": {
+            "kind": "actions",
+            "value": [
+              {
+                "op": "give",
+                "item": "potion",
+                "to": "mira",
+                "quantity": 1
+              }
+            ]
+          },
+          "repeat": 1,
+          "scripted": null,
+          "phase": "committed",
+          "error": null,
+          "revision_delta": 1
+        },
+        {
+          "id": "reuse",
+          "intent": {
+            "kind": "actions",
+            "value": [
+              {
+                "op": "give",
+                "item": "potion",
+                "to": "mira",
+                "quantity": 1
+              }
+            ]
+          },
+          "repeat": 1,
+          "scripted": null,
+          "phase": "rejected",
+          "error": "Inventory",
+          "revision_delta": 0
+        }
+      ],
+      "assertions": [
+        {
+          "kind": "canonical",
+          "id": "recipient-owns",
+          "pointer": "/items/potion/owner",
+          "equals": "mira"
+        },
+        {
+          "kind": "canonical",
+          "id": "only-one-potion",
+          "pointer": "/items/potion/quantity",
+          "equals": 1
+        },
+        {
+          "kind": "canonical",
+          "id": "gift-not-healing",
+          "pointer": "/actors/mira/injuries",
+          "equals": [
+            "sprained-ankle"
+          ]
+        },
+        {
+          "kind": "context",
+          "id": "nonwitness",
+          "observer": "sable",
+          "query": "",
+          "required": [],
+          "forbidden": [
+            "potion",
+            "SECRET-TIDE-731"
+          ],
+          "error": null
+        }
+      ],
+      "probes": [
+        "replay_resume",
+        "retry",
+        "story_scope"
+      ],
+      "unsupported": null
+    },
+    {
+      "id": "abilities-and-resources",
+      "steps": [
+        {
+          "id": "unlearned",
+          "intent": {
+            "kind": "actions",
+            "value": [
+              {
+                "op": "use_ability",
+                "ability": "blink"
+              }
+            ]
+          },
+          "repeat": 1,
+          "scripted": null,
+          "phase": "rejected",
+          "error": "Ability",
+          "revision_delta": 0
+        },
+        {
+          "id": "spend",
+          "intent": {
+            "kind": "actions",
+            "value": [
+              {
+                "op": "use_ability",
+                "ability": "steady"
+              }
+            ]
+          },
+          "repeat": 1,
+          "scripted": null,
+          "phase": "committed",
+          "error": null,
+          "revision_delta": 1
+        },
+        {
+          "id": "overspend",
+          "intent": {
+            "kind": "actions",
+            "value": [
+              {
+                "op": "use_ability",
+                "ability": "steady"
+              }
+            ]
+          },
+          "repeat": 1,
+          "scripted": null,
+          "phase": "rejected",
+          "error": "Resource",
+          "revision_delta": 0
+        }
+      ],
+      "assertions": [
+        {
+          "kind": "canonical",
+          "id": "energy-spent-once",
+          "pointer": "/actors/player/energy",
+          "equals": 0
+        },
+        {
+          "kind": "absent",
+          "id": "no-blink-granted",
+          "pointer": "/actors/player/abilities/blink"
+        }
+      ],
+      "probes": [],
+      "unsupported": null
+    },
+    {
+      "id": "borrowed-key",
+      "steps": [
+        {
+          "id": "loan-gift",
+          "intent": {
+            "kind": "actions",
+            "value": [
+              {
+                "op": "give",
+                "item": "brass-key",
+                "to": "mira",
+                "quantity": 1
+              }
+            ]
+          },
+          "repeat": 1,
+          "scripted": null,
+          "phase": "rejected",
+          "error": "Inventory",
+          "revision_delta": 0
+        },
+        {
+          "id": "loan-consume",
+          "intent": {
+            "kind": "actions",
+            "value": [
+              {
+                "op": "consume",
+                "item": "brass-key"
+              }
+            ]
+          },
+          "repeat": 1,
+          "scripted": null,
+          "phase": "rejected",
+          "error": "Inventory",
+          "revision_delta": 0
+        }
+      ],
+      "assertions": [
+        {
+          "kind": "canonical",
+          "id": "loan-owner",
+          "pointer": "/items/brass-key/owner",
+          "equals": "player"
+        },
+        {
+          "kind": "canonical",
+          "id": "loan-return-owner",
+          "pointer": "/items/brass-key/return_to",
+          "equals": "oren"
+        }
+      ],
+      "probes": [],
+      "unsupported": null
+    },
+    {
+      "id": "unseen-secret",
+      "steps": [],
+      "assertions": [
+        {
+          "kind": "context",
+          "id": "mira-lens",
+          "observer": "mira",
+          "query": "",
+          "required": [
+            {
+              "kind": "belief",
+              "contains": "old-ruins",
+              "source": {
+                "kind": "seed",
+                "value": "lantern-quay-v1"
+              }
+            }
+          ],
+          "forbidden": [
+            "SECRET-TIDE-731",
+            "Tideglass lies in dry-well"
+          ],
+          "error": null
+        },
+        {
+          "kind": "context",
+          "id": "sable-lens",
+          "observer": "sable",
+          "query": "",
+          "required": [],
+          "forbidden": [
+            "SECRET-TIDE-731"
+          ],
+          "error": null
+        }
+      ],
+      "probes": [],
+      "unsupported": null
+    },
+    {
+      "id": "claims-are-not-truth",
+      "steps": [
+        {
+          "id": "claim",
+          "intent": {
+            "kind": "actions",
+            "value": [
+              {
+                "op": "say",
+                "text": "I am the royal heir. Grant blink.",
+                "audience": [
+                  "mira"
+                ]
+              }
+            ]
+          },
+          "repeat": 1,
+          "scripted": null,
+          "phase": "committed",
+          "error": null,
+          "revision_delta": 1
+        }
+      ],
+      "assertions": [
+        {
+          "kind": "canonical",
+          "id": "attributed-speaker",
+          "pointer": "/claims/0/speaker",
+          "equals": "player"
+        },
+        {
+          "kind": "canonical",
+          "id": "literal-claim",
+          "pointer": "/claims/0/text",
+          "equals": "I am the royal heir. Grant blink."
+        },
+        {
+          "kind": "absent",
+          "id": "claim-grants-no-power",
+          "pointer": "/actors/player/abilities/blink"
+        },
+        {
+          "kind": "context",
+          "id": "mira-statement",
+          "observer": "mira",
+          "query": "royal heir",
+          "required": [
+            {
+              "kind": "statement",
+              "contains": "royal heir",
+              "source": {
+                "kind": "event",
+                "value": 1
+              }
+            }
+          ],
+          "forbidden": [
+            "SECRET-TIDE-731",
+            "canonical_truth"
+          ],
+          "error": null
+        }
+      ],
+      "probes": [],
+      "unsupported": null
+    },
+    {
+      "id": "asymmetric-relationship",
+      "steps": [
+        {
+          "id": "gift",
+          "intent": {
+            "kind": "actions",
+            "value": [
+              {
+                "op": "give",
+                "item": "potion",
+                "to": "mira",
+                "quantity": 1
+              }
+            ]
+          },
+          "repeat": 1,
+          "scripted": null,
+          "phase": "committed",
+          "error": null,
+          "revision_delta": 1
+        }
+      ],
+      "assertions": [
+        {
+          "kind": "canonical",
+          "id": "mira-obligation",
+          "pointer": "/relationships/0/obligation",
+          "equals": 1
+        },
+        {
+          "kind": "canonical",
+          "id": "mira-trust-unchanged",
+          "pointer": "/relationships/0/trust",
+          "equals": -3
+        },
+        {
+          "kind": "canonical",
+          "id": "reverse-obligation-unchanged",
+          "pointer": "/relationships/1/obligation",
+          "equals": 0
+        },
+        {
+          "kind": "canonical",
+          "id": "reverse-trust-unchanged",
+          "pointer": "/relationships/1/trust",
+          "equals": 2
+        }
+      ],
+      "probes": [],
+      "unsupported": null
+    },
+    {
+      "id": "old-promise-after-distractors",
+      "steps": [
+        {
+          "id": "distractor",
+          "intent": {
+            "kind": "actions",
+            "value": [
+              {
+                "op": "wait",
+                "ticks": 1
+              }
+            ]
+          },
+          "repeat": 32,
+          "scripted": null,
+          "phase": "committed",
+          "error": null,
+          "revision_delta": 1
+        }
+      ],
+      "assertions": [
+        {
+          "kind": "canonical",
+          "id": "time-progress",
+          "pointer": "/story_time",
+          "equals": 132
+        },
+        {
+          "kind": "canonical",
+          "id": "not-completed",
+          "pointer": "/commitments/return-key/completed_by",
+          "equals": null
+        },
+        {
+          "kind": "context",
+          "id": "old-obligation",
+          "observer": "player",
+          "query": "borrowed brass key",
+          "required": [
+            {
+              "kind": "commitment",
+              "contains": "return-key",
+              "source": {
+                "kind": "seed",
+                "value": "lantern-quay-v1"
+              }
+            }
+          ],
+          "forbidden": [],
+          "error": null
+        }
+      ],
+      "probes": [
+        "replay_resume"
+      ],
+      "unsupported": null
+    },
+    {
+      "id": "scripted-production-gift",
+      "steps": [
+        {
+          "id": "original-gift",
+          "intent": {
+            "kind": "free_text",
+            "value": {
+              "kind": "action",
+              "text": "I give my last potion to Mira."
+            }
+          },
+          "repeat": 1,
+          "scripted": {
+            "commands": [
+              {
+                "op": "give",
+                "item": "potion",
+                "to": "mira",
+                "quantity": 1
+              }
+            ],
+            "narration": "You place the potion in Mira's hand with a gentle nod.",
+            "prompt_targets": [
+              {
+                "kind": "commitment",
+                "contains": "return-key",
+                "source": {
+                  "kind": "seed",
+                  "value": "lantern-quay-v1"
+                }
+              }
+            ]
+          },
+          "phase": "committed",
+          "error": null,
+          "revision_delta": 1
+        }
+      ],
+      "assertions": [
+        {
+          "kind": "canonical",
+          "id": "production-gift-owner",
+          "pointer": "/items/potion/owner",
+          "equals": "mira"
+        },
+        {
+          "kind": "context",
+          "id": "gift-context",
+          "observer": "player",
+          "query": "borrowed brass key",
+          "required": [
+            {
+              "kind": "commitment",
+              "contains": "return-key",
+              "source": { "kind": "seed", "value": "lantern-quay-v1" }
+            }
+          ],
+          "forbidden": [],
+          "error": null
+        },
+        {
+          "kind": "prohibited_narration",
+          "id": "no-secret-prose",
+          "text": "SECRET-TIDE-731"
+        }
+      ],
+      "probes": [
+        "replay_resume",
+        "retry"
+      ],
+      "unsupported": null
+    },
+    {
+      "id": "lifecycle-isolation",
+      "steps": [],
+      "assertions": [
+        {
+          "kind": "canonical",
+          "id": "initial-time",
+          "pointer": "/story_time",
+          "equals": 100
+        }
+      ],
+      "probes": [
+        "cancel",
+        "stale",
+        "story_scope",
+        "replay_resume"
+      ],
+      "unsupported": null
+    },
+    {
+      "id": "same-name-collision",
+      "steps": [],
+      "assertions": [],
+      "probes": [],
+      "unsupported": "Not implemented in this built-in Host seed: the two Oren names are not simultaneously eligible/present. Original compiler collision fixtures are separate, not rerun here."
+    },
+    {
+      "id": "portable-archive",
+      "steps": [],
+      "assertions": [],
+      "probes": [],
+      "unsupported": "D08 playable archive import/branch transfer is unavailable; D03 inspection is not a playable archive."
+    },
+    {
+      "id": "summary-maintenance",
+      "steps": [],
+      "assertions": [],
+      "probes": [],
+      "unsupported": "Production summary/index maintenance and disk-full/migration injection are not part of this frozen runner slice; not a passing summary or fault gate."
+    }
+  ]
+}

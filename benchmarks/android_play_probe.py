@@ -160,6 +160,13 @@ def parse_result(raw, case):
         if original_metrics.get("mode") != "play" or type(original_metrics.get("version")) is not int or original_metrics["version"] != 1:
             return None
         value = spike.strict_json(rows[0])
+        # Current source can emit explicit role observations; old artifacts retain
+        # their exact schema. The cache controller separately binds schema to pin.
+        turns = value.get('turns') if type(value) is dict else None
+        if type(turns) is list and any(type(t) is dict and type(t.get('generations')) is list
+                and any(type(g) is dict and 'output_observation' in g for g in t['generations']) for t in turns):
+            import android_role_observation
+            return android_role_observation.validate_play_result(value, terminal[1], case)
         return validate_play_result(value, terminal[1], case)
     except (ValueError, TypeError, KeyError, UnicodeError, RecursionError, OverflowError):
         return None

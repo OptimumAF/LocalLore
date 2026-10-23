@@ -47,4 +47,40 @@ public class StreamTest {
         SpikeInstrumentation.Stream visible = new SpikeInstrumentation.Stream(); visible.onMessage(visible("Lantern"));
         assertTrue(visible.hasOutput()); assertEquals(1, visible.done.getCount());
     }
+    @Test public void callbackActivityIsDistinctFromBufferedTextAndNativeTokenCounters() {
+        SpikeInstrumentation.Stream stream = new SpikeInstrumentation.Stream();
+        assertNull(stream.observation(null, false, null, null));
+        stream.onMessage(visible(""));
+        stream.onMessage(new Message(Role.MODEL, Contents.Companion.of("private-thought"), Collections.emptyList(), Collections.singletonMap("thought", "hidden")));
+        assertFalse(stream.hasOutput()); stream.onDone();
+        RoleObservation observation = stream.observation(null, true, 0, 0);
+        assertEquals(2, observation.callbackMessages); assertEquals(0, observation.bufferedTextBytes);
+        assertEquals("unsupported_output", observation.callbackError);
+        assertEquals(Integer.valueOf(0), observation.inputTokens);
+        assertFalse(observation.toJson().toString().contains("private-thought"));
+    }
+    @Test public void mixedRejectedCallbackAndBufferedTextNeverImpliesAValidAnswer() {
+        SpikeInstrumentation.Stream stream = new SpikeInstrumentation.Stream();
+        stream.onMessage(new Message(Role.MODEL, Contents.Companion.of("hidden"), Collections.emptyList(), Collections.singletonMap("thought", "hidden")));
+        stream.onMessage(visible("é")); stream.onDone();
+        RoleObservation observation = stream.observation(null, false, null, null);
+        assertTrue(stream.hasOutput()); assertEquals(2, observation.bufferedTextBytes);
+        assertEquals("unsupported_output", observation.callbackError);
+        assertThrows(Exception.class, stream::text);
+    }
+    @Test public void bufferedThinkingTagsAreObservationsNotValidation() {
+        SpikeInstrumentation.Stream stream = new SpikeInstrumentation.Stream();
+        stream.onMessage(visible("<think>")); stream.onDone();
+        assertTrue(stream.hasOutput()); assertEquals(7, stream.observation(null, false, null, null).bufferedTextBytes);
+        assertEquals("unsupported_output", assertThrows(Exception.class, stream::text).getMessage());
+    }
+    @Test public void terminalSnapshotIsFrozenAndLateCallbacksCannotChangeIt() {
+        SpikeInstrumentation.Stream stream = new SpikeInstrumentation.Stream();
+        stream.onMessage(visible("a")); stream.onDone();
+        RoleObservation first = stream.observation(null, false, null, null);
+        stream.onMessage(visible("late-private")); stream.onError(new RuntimeException("private error"));
+        assertEquals(1, first.callbackMessages); assertEquals(1, first.bufferedTextBytes);
+        assertEquals("none", first.callbackError);
+        assertFalse(first.toJson().toString().contains("private"));
+    }
 }

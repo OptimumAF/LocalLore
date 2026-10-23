@@ -353,8 +353,10 @@ public final class SpikeInstrumentation extends Instrumentation {
         private final StringBuilder output = new StringBuilder();
         private String error;
         private boolean ended;
+        private int callbackMessages, bufferedTextBytes;
         @Override public synchronized void onMessage(Message message) {
             if (ended) return;
+            if (callbackMessages < RoleObservation.MAX_CALLBACKS) callbackMessages++;
             if (!message.getChannels().isEmpty()) { error = "unsupported_output"; return; }
             if (!message.getToolCalls().isEmpty()) { error = "unsupported_output"; return; }
             // Exposed SDK channels fail closed; their text is never copied.
@@ -367,7 +369,8 @@ public final class SpikeInstrumentation extends Instrumentation {
                     || (output.toString() + text).getBytes(StandardCharsets.UTF_8).length > 16384) {
                     error = "output_too_large"; continue;
                 }
-                output.append(text); first.countDown();
+                output.append(text); bufferedTextBytes = output.toString().getBytes(StandardCharsets.UTF_8).length;
+                first.countDown();
             }
         }
         @Override public synchronized void onDone() { ended = true; done.countDown(); first.countDown(); }
@@ -381,6 +384,12 @@ public final class SpikeInstrumentation extends Instrumentation {
             return text;
         }
         synchronized boolean hasOutput() { return output.length() > 0; }
+        synchronized RoleObservation observation(RoleObservation.Config configuration, boolean benchmarkAvailable,
+                Integer inputTokens, Integer outputTokens) {
+            if (!ended) return null;
+            return new RoleObservation(callbackMessages, bufferedTextBytes, error == null ? "none" : error,
+                benchmarkAvailable, inputTokens, outputTokens, configuration);
+        }
     }
 
     private void pulseCheck() throws Exception {

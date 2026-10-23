@@ -63,6 +63,7 @@ class TimelineProtocolTest {
         override suspend fun exchange(command: JSONObject): JSONObject {
             val op = command.getString("op"); calls += op
             return when (op) {
+                "capabilities" -> ok(JSONObject().put("free_text", false))
                 "workspace" -> ok(JSONObject().put("persistent", true).put("schema_version", 1)
                     .put("database_schema_version", 3).put("location", "/synthetic/workspace.sqlite3")
                     .put("stories", JSONArray().put(JSONObject().put("scope", scope("main"))
@@ -114,7 +115,7 @@ class TimelineProtocolTest {
             assertEquals(listOf("I may be mistaken.", "Mira heard your statement.",
                 "These are only my words.", "Your words were recorded."), child.messages.map { it.text })
             assertEquals("You", child.potionOwner)
-            assertTrue(transport.calls.all { it in setOf("workspace", "resume", "open", "play_snapshot", "branches", "close") })
+            assertTrue(transport.calls.all { it in setOf("workspace", "resume", "open", "play_snapshot", "branches", "capabilities", "close") })
             assertEquals(2, transport.calls.count { it == "branches" })
         } finally { gateway.close() }
         assertTrue(transport.closed)

@@ -4,7 +4,8 @@ The desktop and Android shells use `locallore-workspace::open` and the same
 `locallore-storage` owner. Each application has a local SQLite database. Shared
 means shared implementation and contracts, not cross-device synchronization.
 The canonical ledger/receipt contract remains v1. The current Store upgrades its
-SQLite implementation to schema2 for bounded derived memory, without a new model
+SQLite implementation to schema3 for bounded derived memory and retained-branch
+metadata, without a new model
 dependency or a second persistence owner.
 
 Native startup chooses a private directory outside the source tree. Desktop uses
@@ -15,16 +16,16 @@ location, schema/rules versions and selected story/branch/head. These directorie
 do not protect against a compromised OS, user backups or explicit file copying.
 
 Before an exact owned old database is upgraded, the private factory makes a new
-consistent, fsynced sibling backup named `.before-v2-<unique>.sqlite`. It never
+consistent, fsynced sibling backup named `.before-v3-<unique>.sqlite`. It never
 overwrites, deletes or automatically restores the backup. Backup/schema/space
 failures prevent migration and surface through the existing fixed error path.
 These retained plaintext backups contain private stories and drafts. Foreign or
-altered databases are refused before backup/migration. The original schema1
-remains verifiable through the owner's read-only API.
+altered databases are refused before backup/migration. Historical schema1/2
+remain verifiable through the owner's read-only API.
 
 Host `workspace.schema_version` remains the compatible workspace contract1 used
 by existing desktop/Android clients. Additive `database_schema_version` reports
-the actual SQLite version2 separately. Native storage inspection and database-
+the actual SQLite version3 separately. Native storage inspection and database-
 copy manifests use that actual version. Canonical readable inspection bundles
 keep their distinct export schema1; they are not SQLite schemas or playable
 archives. Normal non-database exports omit the derived cache.
@@ -33,7 +34,9 @@ The bounded `workspace` operation returns metadata for up to 256 stories in
 deterministic story-ID order. Startup resumes the first entry, or creates a new
 opaque story identity when empty. The library permits explicit selection; this
 order does not imply last-used or newest. New/reset preserves previous saves.
-Closing a session preserves its story. No story deletion is exposed.
+Closing a session preserves its story. Android exposes separately previewed,
+explicitly confirmed whole-story deletion and nonroot timeline retirement; see
+the [retention contract](../native/PARENT_RETENTION_CONTRACT.md).
 
 `Host::with_persistence` accepts a trusted storage port; wire requests cannot
 choose file paths, issue SQL or install providers. Submitted requests and

@@ -34,6 +34,7 @@ class DurableDeletionRecoveryTest {
         override suspend fun exchange(command: JSONObject): JSONObject {
             calls += JSONObject(command.toString())
             val op = command.getString("op")
+            if (op == "capabilities") return ok(JSONObject().put("free_text", false))
             if (op == "workspace") {
                 workspaceFailure?.let { workspaceFailure = null; return rejected(it) }
                 return ok(JSONObject().put("persistent", true).put("schema_version", 1)
@@ -86,7 +87,7 @@ class DurableDeletionRecoveryTest {
     private fun assertEmpty(saved: SavedSnapshot) {
         assertNull(saved.selected); assertTrue(saved.stories.isEmpty()); assertTrue(saved.messages.isEmpty())
         assertEquals(0L, saved.revision); assertEquals(0, saved.uncommittedDrafts)
-        assertEquals(1, saved.schemaVersion); assertEquals(2, saved.databaseSchemaVersion)
+        assertEquals(1, saved.schemaVersion); assertEquals(3, saved.databaseSchemaVersion)
         assertEquals("/synthetic/stories.sqlite3", saved.location)
     }
 

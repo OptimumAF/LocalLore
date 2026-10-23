@@ -19,9 +19,10 @@ class ParentRetentionNativeTest {
             .also { check(it.mkdir()) }
         val database = File(directory, "stories.sqlite3")
         val staging = File(directory, "staging").also { check(it.mkdir()) }
-        val handle = NativeWorkspace.open(database.canonicalPath).also { check(it > 0) }
-        val archive = NativeArchive.open(database.canonicalPath, staging.canonicalPath).also { check(it > 0) }
+        var handle = 0L
+        var archive = 0L
         val pool = Executors.newFixedThreadPool(2)
+        var primary: Throwable? = null
         fun scope(branch: String) = JSONObject().put("story", "parent-retention-fixture").put("branch", branch)
         fun call(command: JSONObject) = JSONObject(NativeWorkspace.call(handle,
             JSONObject().put("version", 1).put("command", command).toString().toByteArray(Charsets.UTF_8)).toString(Charsets.UTF_8))
@@ -33,6 +34,8 @@ class ParentRetentionNativeTest {
         fun snapshot(session: String, branch: String, revision: Int) = data(call(JSONObject().put("op", "play_snapshot")
             .put("session", session).put("scope", scope(branch)).put("expected_revision", revision))).toString()
         try {
+            handle = NativeWorkspace.open(database.canonicalPath).also { check(it > 0) }
+            archive = NativeArchive.open(database.canonicalPath, staging.canonicalPath).also { check(it > 0) }
             val fixture = instrumentation.context.assets.open("parent-retention-v1.json").use { it.readBytes() }
             val prepared = accepted(NativeArchive.prepareImport(archive, fixture))
             accepted(NativeArchive.commitImport(archive, prepared.getLong("token")))
@@ -71,14 +74,31 @@ class ParentRetentionNativeTest {
             assertEquals("committed", JSONObject(receipt).getString("phase"))
             assertEquals(receipt, data(call(commit)).toString())
             assertEquals("NotFound", call(JSONObject().put("op", "resume").put("scope", scope("parent"))).getString("error"))
-        } finally {
-            NativeWorkspace.close(handle); pool.shutdown(); assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS))
-            NativeArchive.close(archive)
-            val workspaces = mutableListOf<Long>(); val archives = mutableListOf<Long>()
-            try {
-                repeat(4) { workspaces += NativeWorkspace.open(database.canonicalPath).also { check(it > 0) } }
-                repeat(4) { archives += NativeArchive.open(database.canonicalPath, staging.canonicalPath).also { check(it > 0) } }
-            } finally { workspaces.forEach(NativeWorkspace::close); archives.forEach(NativeArchive::close) }
+        } catch (failure: Throwable) { primary = failure; throw failure }
+        finally {
+            var cleanupFailure: Throwable? = null
+            fun cleanup(action: () -> Unit) {
+                try { action() } catch (failure: Throwable) {
+                    val previous = cleanupFailure
+                    if (previous == null) cleanupFailure = failure else previous.addSuppressed(failure)
+                }
+            }
+            cleanup { if (handle > 0) NativeWorkspace.close(handle) }
+            var drained = false
+            cleanup {
+                pool.shutdown(); drained = pool.awaitTermination(10, TimeUnit.SECONDS)
+                check(drained) { "Native worker ownership did not drain" }
+            }
+            // Close the archive even when worker drain or a prior assertion failed.
+            cleanup { if (archive > 0) NativeArchive.close(archive) }
+            if (drained && handle > 0 && archive > 0) cleanup {
+                val workspaces = mutableListOf<Long>(); val archives = mutableListOf<Long>()
+                try {
+                    repeat(4) { workspaces += NativeWorkspace.open(database.canonicalPath).also { check(it > 0) } }
+                    repeat(4) { archives += NativeArchive.open(database.canonicalPath, staging.canonicalPath).also { check(it > 0) } }
+                } finally { workspaces.forEach(NativeWorkspace::close); archives.forEach(NativeArchive::close) }
+            }
+            cleanupFailure?.let { failure -> primary?.addSuppressed(failure) ?: throw failure }
         }
     }
 }

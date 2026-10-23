@@ -14,6 +14,18 @@ const MAX_JSON: usize = 256 * 1024;
 const MAX_PNG: usize = 16 * 1024 * 1024;
 const MAX_CHECKPOINTS: usize = 40;
 const LABELS: &[&str] = &[
+    "d06-disabled",
+    "d06-committed",
+    "d06-failed",
+    "d06-pending",
+    "d06-cancelled",
+    "d06-lens",
+    "d06-stale",
+    "d06-cleared",
+    "d06-narrow",
+    "d06-restarted",
+    "d06-finished",
+    "d06-failure",
     "d05-profile",
     "d05-history",
     "d05-knowledge",

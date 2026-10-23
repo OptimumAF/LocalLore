@@ -1,3 +1,4 @@
+import type { TraceState } from "./trace-model";
 import type { QueryState } from "./query-model";
 import type { Envelope as HostEnvelope } from "./host.generated";
 export type Command = HostEnvelope["command"];
@@ -131,6 +132,7 @@ export interface ExportState {
     notice: string;
 }
 export interface State {
+    trace: TraceState;
     query: QueryState;
     labPending: boolean;
     model: ModelState | null;
@@ -170,6 +172,7 @@ export interface State {
 }
 export const PAGE_SIZE = 12;
 export const categories = new Set([
+    "TraceUnavailable",
     "UnknownObserver",
     "InvalidBoundary",
     "InvalidCursor",

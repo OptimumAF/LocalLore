@@ -1,3 +1,5 @@
+import { initialTrace, checkedTrace, attemptKey } from "./trace-model";
+import type { TraceQuery } from "./trace-model";
 import { initialQuery, checkedPage } from "./query-model";
 import type { InspectionQuery, Source, Row } from "./query-model";
 import {
@@ -40,6 +42,7 @@ interface Operation {
 }
 export class Controller {
     private state: State = {
+        trace: initialTrace(),
         query: initialQuery(),
         labPending: false,
         model: null,
@@ -97,6 +100,8 @@ export class Controller {
     private epoch = 0;
     private inspectionEpoch = 0;
     private queryEpoch = 0;
+    private traceEpoch = 0;
+    private traceControlPending = false;
     private readSequence = 0;
     private nextTurn = 0;
     private operation: Operation | null = null;
@@ -633,6 +638,7 @@ export class Controller {
         this.setDraft(draft);
     }
     private async invalidate() {
+        this.clearTrace(true);
         this.clearQuery(true);
         await this.cancelExport();
         const old = this.operation ?? this.unresolved;
@@ -684,8 +690,15 @@ export class Controller {
                         this.state.play.revision > view.revision)
                 )
                     return;
-                if (this.state.play?.revision !== view.revision)
+                if (this.state.play?.revision !== view.revision) {
                     this.clearQuery();
+                    this.clearTrace();
+                    this.tracePatch({
+                        baseRevision:
+                            view.receipts.at(-1)?.request.expected_revision ??
+                            view.revision,
+                    });
+                }
                 this.patch({
                     play: view,
                     sessions: this.state.sessions.map((s) =>
@@ -703,6 +716,7 @@ export class Controller {
                 });
                 await this.inspect();
                 if (this.state.query.shown) await this.queryInspection();
+                if (this.state.trace.shown) await this.readTrace();
                 return;
             } catch (error) {
                 if (
@@ -754,6 +768,201 @@ export class Controller {
             if (epoch === this.inspectionEpoch) this.fail(error);
         }
     }
+    private tracePatch(value: Partial<State["trace"]>) {
+        this.patch({ trace: { ...this.state.trace, ...value } });
+    }
+    private clearTrace(reset = false) {
+        this.traceEpoch++;
+        this.tracePatch({
+            reply: null,
+            selected: null,
+            busy: false,
+            error: null,
+            notice: "",
+            ...(reset ? { baseRevision: 0 } : {}),
+        });
+    }
+    private traceContext(): TraceQuery | null {
+        const session = this.selected(),
+            play = this.state.play;
+        if (!session || !play || this.state.disposed) return null;
+        const lens =
+            this.state.view === "play" ? "player" : this.state.observer;
+        return {
+            op: "trace_read",
+            session: session.id,
+            scope: session.scope,
+            expected_head: play.revision,
+            base_revision: this.state.trace.baseRevision,
+            observer:
+                lens === "player"
+                    ? { kind: "player" }
+                    : lens === "omniscient"
+                      ? { kind: "omniscient" }
+                      : { kind: "character", id: lens },
+            turn: null,
+            attempt: null,
+        };
+    }
+    private sameTraceContext(query: TraceQuery) {
+        const current = this.traceContext();
+        return (
+            this.state.trace.shown &&
+            current !== null &&
+            structural(current) === structural(query)
+        );
+    }
+    async showTrace(shown = true) {
+        this.clearTrace();
+        if (shown) {
+            this.clearQuery();
+            this.queryPatch({ shown: false });
+        }
+        this.tracePatch({ shown });
+        if (shown) await this.readTrace();
+    }
+    async traceBasis(baseRevision: number) {
+        if (
+            !Number.isSafeInteger(baseRevision) ||
+            baseRevision < 0 ||
+            baseRevision > (this.state.play?.revision ?? 0)
+        )
+            return;
+        this.clearTrace();
+        this.tracePatch({ baseRevision });
+        await this.readTrace();
+    }
+    async readTrace() {
+        const query = this.traceContext();
+        if (!query || !this.state.trace.shown) return;
+        const sequence = ++this.traceEpoch,
+            selected = this.state.trace.selected,
+            player = this.state.play!.player.observer;
+        this.tracePatch({
+            busy: true,
+            reply: null,
+            selected: null,
+            error: null,
+            notice: "",
+        });
+        try {
+            const value = checkedTrace(
+                await this.gateway.call(query),
+                query,
+                player,
+            );
+            if (sequence !== this.traceEpoch || !this.sameTraceContext(query))
+                return;
+            const attempts = value.snapshot.attempts;
+            this.tracePatch({
+                busy: false,
+                reply: value,
+                enabled: value.snapshot.status !== "disabled",
+                selected: attempts.some((a) => attemptKey(a) === selected)
+                    ? selected
+                    : attempts.length
+                      ? attemptKey(attempts.at(-1)!)
+                      : null,
+            });
+        } catch (error) {
+            if (sequence === this.traceEpoch && this.sameTraceContext(query))
+                this.tracePatch({ busy: false, error: category(error) });
+        }
+    }
+    async controlTrace(action: "enable" | "disable" | "clear") {
+        const query = this.traceContext();
+        if (!query || this.traceControlPending) return;
+        this.traceControlPending = true;
+        this.clearTrace();
+        this.tracePatch({ controlBusy: true });
+        let succeeded = false;
+        try {
+            const command: Command =
+                action === "clear"
+                    ? {
+                          op: "trace_clear",
+                          session: query.session,
+                          scope: query.scope,
+                          expected_head: query.expected_head,
+                      }
+                    : {
+                          op: "trace_configure",
+                          session: query.session,
+                          scope: query.scope,
+                          expected_head: query.expected_head,
+                          enabled: action === "enable",
+                      };
+            const value = (await this.gateway.call(command)) as Record<
+                string,
+                unknown
+            >;
+            if (
+                !value ||
+                value.configuration_scope !== "window_host" ||
+                value.capture !== "metadata_only" ||
+                value.full_capture !== "unsupported" ||
+                (action === "clear"
+                    ? value.cleared !== true
+                    : value.enabled !== (action === "enable"))
+            )
+                throw new Error("Wire");
+            succeeded = true;
+        } catch (error) {
+            if (this.sameTraceContext(query))
+                this.tracePatch({ error: category(error), enabled: null });
+        } finally {
+            this.traceControlPending = false;
+            this.tracePatch({ controlBusy: false });
+        }
+        if (succeeded && this.state.trace.shown) await this.readTrace();
+    }
+    selectTrace(selected: string) {
+        if (
+            this.state.trace.reply?.snapshot.attempts.some(
+                (a) => attemptKey(a) === selected,
+            )
+        )
+            this.tracePatch({ selected });
+    }
+    traceAttempt() {
+        return (
+            this.state.trace.reply?.snapshot.attempts.find(
+                (a) => attemptKey(a) === this.state.trace.selected,
+            ) ?? null
+        );
+    }
+    debugReceipt() {
+        const a = this.traceAttempt();
+        if (
+            !a ||
+            this.state.view !== "play" ||
+            a.identity.observer !== this.state.play?.player.observer
+        )
+            return null;
+        return (
+            this.state.play.receipts.find(
+                (r) =>
+                    r.request.turn === a.identity.turn &&
+                    r.request.expected_revision === a.identity.base_revision &&
+                    sameScope(r.request.scope, a.identity.scope),
+            ) ?? null
+        );
+    }
+    async traceToInspection() {
+        const receipt = this.debugReceipt(),
+            epoch = this.epoch,
+            session = this.selected();
+        if (!receipt || !session) return;
+        this.patch({ receiptTurn: receipt.request.turn });
+        await this.showTrace(false);
+        await this.showQuery(true);
+        if (!this.current({ session, epoch })) return;
+        await this.browseInspection({
+            view: "turn_diff",
+            atRevision: receipt.events.at(-1)?.sequence ?? null,
+            search: "",
+        });
+    }
     private queryPatch(value: Partial<State["query"]>) {
         this.patch({ query: { ...this.state.query, ...value } });
     }
@@ -776,6 +985,10 @@ export class Controller {
         this.setView("play");
     }
     async showQuery(shown = true) {
+        if (shown) {
+            this.clearTrace();
+            this.tracePatch({ shown: false });
+        }
         this.clearQuery();
         this.queryPatch({ shown });
         if (shown) await this.queryInspection();
@@ -1210,6 +1423,7 @@ export class Controller {
         if (confirmed) this.setView("lab");
     }
     setView(view: State["view"]) {
+        this.clearTrace();
         this.clearQuery(true);
         if (
             view === "play" &&
@@ -1225,13 +1439,16 @@ export class Controller {
         });
         void this.inspect();
         if (this.state.query.shown) void this.queryInspection();
+        if (this.state.trace.shown) void this.readTrace();
     }
     setObserver(observer: string) {
         if (this.state.view !== "lab") return;
+        this.clearTrace();
         this.clearQuery(true);
         this.patch({ observer });
         void this.inspect();
         if (this.state.query.shown) void this.queryInspection();
+        if (this.state.trace.shown) void this.readTrace();
     }
     setDraft(draft: string) {
         this.patch({ draft: draft.slice(0, 2048) });
@@ -1665,6 +1882,7 @@ export class Controller {
         return {
             version: 1,
             query: s.query,
+            trace: s.trace,
             model: s.model,
             playMode: s.playMode,
             inputKind: s.inputKind,

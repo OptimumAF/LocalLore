@@ -10,6 +10,7 @@ import re
 import sqlite3
 import struct
 import sys
+import time
 
 TABLE = "locallore_capacity_pad_v1"
 CREATE = "CREATE TABLE locallore_capacity_pad_v1 (id INTEGER PRIMARY KEY, owner TEXT NOT NULL, payload BLOB NOT NULL)"
@@ -23,6 +24,7 @@ SCHEMAS = tuple(MIGRATIONS / name for name in (
 MIGRATION_ROWS = [(1, "locallore-storage-v1"),
                   (2, "locallore-storage-v2-derived-memory"),
                   (3, "locallore-storage-v3-branch-retention")]
+FAULTS = ("malformed", "overflow", "timeout", "after-fill", "cleanup-refusal")
 
 
 class Rejected(Exception):
@@ -191,14 +193,62 @@ def execute(directory, owner, action):
         connection.close()
 
 
+def fault_authorized(directory, owner, action, fault):
+    # Opt-in fixed synthetic faults have no SQL/script/path payload. Refuse an
+    # unknown selector before opening any database, including the reference.
+    require(fault in FAULTS, "fault")
+    require(action == "fill" or (action == "remove" and fault == "cleanup-refusal"), "fault_action")
+    database = owned_path(directory, owner)
+    marker = Path(directory) / ".capacity-fault"
+    require(marker.is_file() and not marker.is_symlink() and marker.stat().st_size <= 128, "fault_marker")
+    require(marker.read_text(encoding="ascii") == owner + "\n" + fault, "fault_marker")
+    connection = sqlite3.connect(database.as_uri() + "?mode=ro", uri=True,
+                                 timeout=0.25, isolation_level=None)
+    try:
+        connection.execute("PRAGMA query_only=ON")
+        preflight(connection, baseline(), action, owner)
+    finally:
+        connection.close()
+
+
+def execute_fault(directory, owner, action, fault):
+    fault_authorized(directory, owner, action, fault)
+    if action == "remove":
+        raise Rejected("injected_cleanup_refusal")
+    report = execute(directory, owner, action)
+    require(report["rows"] == 14 and report["insert_attempts"] == 15 and report["sqlite_full"], "fault_fill_profile")
+    ready = {"version": 1, "owner": owner, "fault": fault, "rows": report["rows"],
+             "insert_attempts": report["insert_attempts"], "pages": report["pages"], "sqlite_full": True}
+    with (Path(directory) / ".capacity-fault-ready").open("xb") as output:
+        output.write(json.dumps(ready, sort_keys=True).encode("ascii"))
+        output.flush()
+        os.fsync(output.fileno())
+    if fault == "malformed":
+        print("capacity-malformed-v1", flush=True)
+        return None
+    if fault == "overflow":
+        # Fixed8KiB payload: the parent observes a4KiB polling threshold, not a
+        # hard file quota. Remain alive so its kill/reap path is actually used.
+        sys.stdout.write("X" * 8192)
+        sys.stdout.flush()
+    if fault in ("overflow", "timeout"):
+        time.sleep(120)  # Parent owns a10s deadline and must kill+reap this child.
+        raise Rejected("fault_parent_did_not_stop_child")
+    raise Rejected("injected_after_fill")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--directory", required=True)
     parser.add_argument("--owner", required=True)
     parser.add_argument("--action", choices=("fill", "remove"), required=True)
+    parser.add_argument("--fault", choices=FAULTS)
     arguments = parser.parse_args()
     try:
-        report = execute(arguments.directory, arguments.owner, arguments.action)
+        report = (execute(arguments.directory, arguments.owner, arguments.action)
+                  if arguments.fault is None else execute_fault(arguments.directory, arguments.owner, arguments.action, arguments.fault))
+        if report is None:
+            return 0  # Deliberately malformed terminal fault, already emitted.
     except Rejected as error:
         report = {"version": 2, "status": "failed", "stage": str(error)}
     except Exception:

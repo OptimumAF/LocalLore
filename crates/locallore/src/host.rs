@@ -550,11 +550,18 @@ impl Host {
         }
         let selected_seed = selected.engine.seed().clone();
         let ephemeral = state.persistence.is_none().then(|| selected.engine.clone());
-        check_generation_cancel(cancel)?;
+        let observed_cancelled = std::cell::Cell::new(false);
+        let safe_cancel = || {
+            if !observed_cancelled.get() {
+                observed_cancelled.set(check_generation_cancel(cancel).is_err());
+            }
+            observed_cancelled.get()
+        };
+        check_generation_cancel(&safe_cancel)?;
         let snapshot = if let Some(port) = state.persistence.as_mut() {
             // Overrides receive the same panic-safe cancellation boundary as
-            // the default port, so callbacks cannot unwind through this owner.
-            let safe_cancel = || check_generation_cancel(cancel).is_err();
+            // the default port. An observed true/panic remains cancelled even
+            // if an override ignores it and returns an otherwise valid Engine.
             port.generation_snapshot(scope, expected_head, &selected_seed.player, &safe_cancel)
                 .map_err(generation_read_error)?
         } else {
@@ -574,7 +581,7 @@ impl Host {
         if snapshot.engine.seed() != &selected_seed {
             return Err("Stale".into());
         }
-        check_generation_cancel(cancel)?;
+        check_generation_cancel(&safe_cancel)?;
         Ok(snapshot)
     }
     /// Read-only derived views use one immutable durable snapshot. The inspection grant

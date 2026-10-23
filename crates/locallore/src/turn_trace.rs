@@ -101,6 +101,7 @@ pub enum Stage {
     Narration,
     NarrationValidation,
     AtomicCommit,
+    Publication,
     MemoryMaintenance,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -115,6 +116,7 @@ pub enum Outcome {
     Cancelled,
     Stale,
     Truncated,
+    Unknown,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -230,6 +232,21 @@ pub enum HookStatus {
 pub struct AttemptHandle {
     owner: Arc<()>,
     sequence: u64,
+}
+/// Opaque native capture namespace, not part of model/wire identity or serialized diagnostics.
+#[derive(Clone)]
+pub struct TraceOwner(Arc<()>);
+impl Default for TraceOwner {
+    fn default() -> Self {
+        Self(Arc::new(()))
+    }
+}
+fn same_owner(a: Option<&TraceOwner>, b: Option<&TraceOwner>) -> bool {
+    match (a, b) {
+        (None, None) => true,
+        (Some(a), Some(b)) => Arc::ptr_eq(&a.0, &b.0),
+        _ => false,
+    }
 }
 /// Explicit stage interval. It carries no authority, content or caller-supplied clock values.
 pub struct StageTimer {
@@ -389,6 +406,7 @@ pub struct Snapshot {
 }
 
 struct LiveAttempt {
+    capture_owner: Option<TraceOwner>,
     sequence: u64,
     started: Instant,
     last: Instant,
@@ -432,6 +450,22 @@ impl TraceRing {
         HookStatus::Unsupported
     }
     pub fn begin(&mut self, identity: AttemptIdentity, provenance: Provenance) -> Begin {
+        self.begin_owned(None, identity, provenance)
+    }
+    pub fn begin_for_owner(
+        &mut self,
+        owner: &TraceOwner,
+        identity: AttemptIdentity,
+        provenance: Provenance,
+    ) -> Begin {
+        self.begin_owned(Some(owner.clone()), identity, provenance)
+    }
+    fn begin_owned(
+        &mut self,
+        capture_owner: Option<TraceOwner>,
+        identity: AttemptIdentity,
+        provenance: Provenance,
+    ) -> Begin {
         let none = |status| Begin {
             status,
             handle: None,
@@ -443,7 +477,10 @@ impl TraceRing {
             return none(HookStatus::InvalidMetadata);
         }
         // Reusing one attempt identity would make a restarted hook look like the same trace.
-        if self.attempts.iter().any(|a| a.data.identity == identity) {
+        if self.attempts.iter().any(|a| {
+            a.data.identity == identity
+                && same_owner(a.capture_owner.as_ref(), capture_owner.as_ref())
+        }) {
             return none(HookStatus::Dropped);
         }
         let Some(sequence) = self.sequence.checked_add(1) else {
@@ -452,6 +489,7 @@ impl TraceRing {
         self.sequence = sequence;
         let now = Instant::now();
         self.attempts.push_back(LiveAttempt {
+            capture_owner,
             sequence,
             started: now,
             last: now,
@@ -610,6 +648,22 @@ impl TraceRing {
         }
     }
     pub fn read(&self, selection: &Selection, reader: &Reader) -> Result<Snapshot, ReadError> {
+        self.read_owned(None, selection, reader)
+    }
+    pub fn read_for_owner(
+        &self,
+        owner: &TraceOwner,
+        selection: &Selection,
+        reader: &Reader,
+    ) -> Result<Snapshot, ReadError> {
+        self.read_owned(Some(owner), selection, reader)
+    }
+    fn read_owned(
+        &self,
+        owner: Option<&TraceOwner>,
+        selection: &Selection,
+        reader: &Reader,
+    ) -> Result<Snapshot, ReadError> {
         if selection.scope != reader.scope {
             return Err(ReadError::Scope);
         }
@@ -632,7 +686,8 @@ impl TraceRing {
             .iter()
             .filter(|a| {
                 let key = &a.data.identity;
-                key.scope == selection.scope
+                same_owner(a.capture_owner.as_ref(), owner)
+                    && key.scope == selection.scope
                     && key.base_revision == selection.base_revision
                     && key.observer == selection.observer
                     && selection.turn.as_ref().is_none_or(|turn| &key.turn == turn)

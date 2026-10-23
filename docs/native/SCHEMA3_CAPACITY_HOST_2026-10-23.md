@@ -77,9 +77,10 @@ reference has15 pages; the actual seeded Ready fixture has17.
 
 Both examples and helper reports now use **version2/database_schema_version3**;
 the helper also reports `schema_sha256`. The relief runner binds those fields,
-the fixed measured fill/removal counts and its 32-page ceiling. Child outputs are
-bounded to4KiB, execution to10 seconds, and terminal cleanup observation to2
-seconds after kill. Unknown child ownership prohibits further helper/Host work.
+the fixed measured fill/removal counts and its 32-page ceiling. A4KiB observed
+output threshold is checked while polling, rather than enforced as a hard
+filesystem quota. Execution is limited to10 seconds, and terminal cleanup
+observation to2 seconds after kill. Unknown child ownership prohibits further helper/Host work.
 A failed fill attempts only fixed owned-table cleanup after known child exit;
 it never proceeds to Host calls. The actual Python `sqlite3` library reported
 SQLite **3.38.2**. Its missing `sqlite_errorcode` attribute

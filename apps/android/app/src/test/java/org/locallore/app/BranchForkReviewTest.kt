@@ -77,6 +77,32 @@ class BranchForkReviewTest {
         assertEquals(1, gateway.closes)
     }
 
+    @Test fun recoveryClearContextChangeThenFailureCannotLabelTheNewSelection(): Unit = runTest {
+        for (cancelled in listOf(false, true)) {
+            val gateway = Gateway()
+            lateinit var controller: BranchForkController
+            controller = BranchForkController(this, gateway, { saved ->
+                check(saved == null)
+                controller.contextChanged(Replacement)
+                if (cancelled) throw CancellationException("PRIVATE old recovery clear")
+                else error("PRIVATE old recovery clear")
+            })
+            controller.contextChanged(Original)
+            controller.restore(BranchForkRecovery(1, BranchForkInput(Original.parent, "fixed-child", 0, 0)))
+            controller.forgetRecovery(true)
+            advanceUntilIdle()
+            assertEquals(Replacement, controller.state.value.context)
+            assertNull("Old clear failure cannot label a replacement context", controller.state.value.notice)
+            assertNull(controller.state.value.input)
+            assertFalse(controller.state.value.visible)
+            assertFalse(controller.state.value.uncertain)
+            assertFalse(controller.state.value.busy)
+            assertTrue(gateway.registrations.isEmpty())
+            assertTrue(gateway.runs.isEmpty())
+            controller.dispose()
+        }
+    }
+
     private class Gateway : BranchForkGateway {
         val registrations = mutableListOf<Pair<BranchForkContext, BranchForkInput>>()
         val runs = mutableListOf<Long>()

@@ -16,6 +16,7 @@ const MAX_CHECKPOINTS: usize = 40;
 const LABELS: &[&str] = &[
     "d06-private-disabled",
     "d06-private-repair",
+    "d06-private-context",
     "d06-private-preview",
     "d06-private-saved",
     "d06-private-lens",

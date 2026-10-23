@@ -45,7 +45,13 @@ export async function captureJourneys({
     const checkpoint = async (label: string) => {
         await new Promise((r) => setTimeout(r, 150));
         document
-            .querySelector(".private-capture")
+            .querySelector(
+                ["d06-private-preview", "d06-private-saved"].includes(label)
+                    ? ".capture-export"
+                    : label === "d06-private-context"
+                      ? ".capture-context"
+                      : ".private-capture",
+            )
             ?.scrollIntoView({ block: "start" });
         await new Promise((r) => setTimeout(r, 100));
         check(
@@ -233,6 +239,11 @@ export async function captureJourneys({
                     ),
                 "private-plan-candidate-not-durable-commit-labels",
             );
+            const contextDetail =
+                document.querySelector<HTMLDetailsElement>(".capture-context");
+            if (contextDetail) contextDetail.open = true;
+            await checkpoint("d06-private-context");
+            if (contextDetail) contextDetail.open = false;
             await checkpoint("d06-private-repair");
             const committed = await repair.control("commit");
             check(committed.phase === "committed", "private-real-host-commit");

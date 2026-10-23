@@ -97,9 +97,35 @@ fn plan_stale_expected_value_cancel_and_bounded_input_leave_parent_unchanged() {
 #[test]
 fn actor_event_and_receipt_views_omit_author_records_and_raw_player_text() {
     let mut c = correct(&fixture(), "child", "KNOWN_A", "PRIVATE_B");
-    commit(&mut c, "private-say", vec![Command::Say { text: "PRIVATE_PLAYER_INPUT".into(), audience: ["oren".into()].into() }]);
+    commit(&mut c, "private-say", vec![Command::Say { text: "PRIVATE_PLAYER_INPUT".into(), audience: ["player".into()].into() }]);
     let views = c.actor_receipts_v2("mira", c.scope(), c.revision()).unwrap();
     let serialized = serde_json::to_string(&views).unwrap();
     for private in ["PRIVATE_AUTHOR_REASON", "PRIVATE_B", "PRIVATE_PLAYER_INPUT", "request", "proposal", "narration"] { assert!(!serialized.contains(private), "{serialized}"); }
     assert!(views.is_empty());
+}
+
+#[test]
+fn fixed_author_key_remains_valid_for_ordinary_legacy_turns() {
+    let mut e = fixture();
+    let r = commit(&mut e, "author-correction-v1", vec![Command::Wait { ticks: 1 }]);
+    assert_eq!(e.recorded(r.request()).unwrap(), Some(r));
+    assert_eq!(e.domain_version(), 1);
+}
+#[test]
+fn actual_author_record_reserves_its_own_scoped_key_against_ordinary_requests() {
+    let c = correct(&fixture(), "child", "KNOWN_A", "B");
+    assert_eq!(c.canonical_records()[0].turn_key(), "author-correction-v1");
+    let r = c.request("author-correction-v1", Intent::Actions(vec![Command::Wait { ticks: 1 }]));
+    assert_eq!(c.recorded(&r), Err(Error::RetryMismatch));
+    assert_eq!(c.preview(&r, &Engine::proposal(&r).unwrap()), Err(Error::RetryMismatch));
+}
+#[test]
+fn inherited_author_or_ordinary_key_does_not_reserve_another_branch_namespace() {
+    let mut e = fixture(); commit(&mut e, "author-correction-v1", vec![Command::Wait { ticks: 1 }]);
+    let c = correct(&e, "child", "KNOWN_A", "B");
+    let mut other = c.fork("grandchild", c.revision()).unwrap();
+    let r = commit(&mut other, "author-correction-v1", vec![Command::Wait { ticks: 1 }]);
+    assert_eq!(r.request().scope, *other.scope());
+    assert_eq!(other.canonical_record_count(), 3);
+    assert_eq!(c.canonical_record_count(), 2);
 }

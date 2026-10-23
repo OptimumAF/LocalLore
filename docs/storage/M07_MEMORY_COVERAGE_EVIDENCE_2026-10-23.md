@@ -95,3 +95,46 @@ This contributor authored the coverage contract; these tests are implementation
 evidence, not independent approval. Next is a separately frozen Store/job/schema
 slice, then actual production compiler forwarding. No speed/heap/quality, model,
 durable maintenance, pipeline-consumption or full milestone claim is made.
+
+## Coordinator integrated execution
+
+The independent review and three added actual-Engine regressions are recorded
+in `M07_MEMORY_COVERAGE_REVIEW_2026-10-23.md`. Coordinator integration source
+`f55855429b1ae2debdffdecfb0728df00cc7366e` includes accepted #88/#89; its complete
+locked/offline workspace suite passed **406 tests, zero failures, four existing
+qualification ignores**. Strict default and all-feature workspace/all-target
+Clippy, workspace fmt and diff whitespace passed. The production core source
+bytes did not change when subsequent accepted #90/#91 runtime/desktop changes
+were reconciled into `a8ec65bd50a82e88cd394302ee2e2aab4cb6b33f`.
+
+The final integration includes accepted main
+`c496eb87147843958653b194aed0ca934fb03923`. Normal frontend verification passed;
+native development tests passed **44 modules + 2 harness contracts**, one existing
+ignore, and strict native all-target Clippy passed, including after the #91
+identity-guard reconciliation. Commands:
+
+```powershell
+cargo +1.93.1 test --workspace --all-features --locked --offline --target-dir <core-target>
+cargo +1.93.1 clippy --workspace --all-targets --locked --offline --target-dir <core-target> -- -D warnings
+cargo +1.93.1 clippy --workspace --all-targets --all-features --locked --offline --target-dir <core-target> -- -D warnings
+cargo +1.93.1 fmt --all -- --check
+node apps/desktop/verify-frontend.mjs
+cargo +1.93.1 test --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness --locked --offline --target-dir <native-target>
+cargo +1.93.1 clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness --all-targets --locked --offline --target-dir <native-target> -- -D warnings
+```
+
+Windows Rust/Cargo1.93.1, Node24.22.1, task-owned D targets and UUID TEMP/TMP,
+development/test debug=0 and incremental=0. Logs: `coverage-v2-workspace.log`,
+`coverage-v2-{default,all}-clippy.log`, `coverage-v2-frontend.log`,
+`coverage-v2-native*.log` and `coverage-v2-identity-native*.log`. No new model,
+render, Android/device, process-death or storage-full run was performed for this
+pure core integration. Native tests establish compile/module compatibility,
+not a production summary UI/IPC or generation consumer.
+
+The next Store/job migration must follow the next accepted schema after
+concurrent #85 retained-parent retirement and #87 schema3 capacity qualification;
+it must not compete for schema3 or discard their ancestry/reserved-ID/archive
+semantics. Existing v1 Store rows and compiler behavior remain unchanged in this
+slice. Future production use must still verify against its actual coherent
+Engine snapshot and forward only eligible typed content, never private binding
+headers or identifying excluded-source metadata.

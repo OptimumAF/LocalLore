@@ -81,9 +81,11 @@ val buildRustAndroid = tasks.register("buildRustAndroid") {
         val ndk = rootProject.file(sdkPath).resolve("ndk/$nativeNdkVersion")
         val llvm = ndk.resolve("toolchains/llvm/prebuilt/$hostTag")
         val clang = llvm.resolve("bin/clang${if (windows) ".exe" else ""}")
+        val archiver = llvm.resolve("bin/llvm-ar${if (windows) ".exe" else ""}")
         check(clang.isFile) {
             "Install NDK $nativeNdkVersion in the configured Android SDK before building Rust."
         }
+        check(archiver.isFile) { "The configured NDK must include llvm-ar for bundled SQLite." }
         val cargo = if (windows) "cargo.exe" else "cargo"
         val linker = nativeTools.get().file("native-linker${if (windows) ".exe" else ""}").asFile
         linker.parentFile.mkdirs()
@@ -101,11 +103,21 @@ val buildRustAndroid = tasks.register("buildRustAndroid") {
                 "-C", "link-arg=--sysroot=${llvm.resolve("sysroot").absolutePath}",
                 "-C", "link-arg=-Wl,-z,max-page-size=16384",
             ).joinToString("\u001f")
+            // Bundled SQLite is compiled by cc-rs, separately from rustc's linker. Its pinned
+            // version supports shell-escaped flags; quote each flag so SDK spaces/apostrophes
+            // remain part of one sysroot argument. Compiler/archiver paths are exact files.
+            fun quoteCFlag(value: String) = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+            val cFlags = listOf("--target=$target$nativeMinSdk", "--sysroot=${llvm.resolve("sysroot").absolutePath}")
+                .joinToString(" ") { quoteCFlag(it) }
             logger.lifecycle("Building LocalLore Rust JNI: $target -> $abi")
             runNativeCommand(command, mapOf(
                 "CARGO_TARGET_${target.uppercase(Locale.ROOT).replace('-', '_')}_LINKER" to linker.absolutePath,
                 "LOCALLORE_ANDROID_CLANG" to clang.absolutePath,
                 "CARGO_ENCODED_RUSTFLAGS" to rustFlags,
+                "CC_$target" to clang.absolutePath,
+                "AR_$target" to archiver.absolutePath,
+                "CFLAGS_$target" to cFlags,
+                "CC_SHELL_ESCAPED_FLAGS" to "1",
             ))
             val library = nativeCargoOutput.get().file("$target/release/liblocallore_android.so").asFile
             check(library.isFile) { "Cargo did not produce ${library.name} for $target" }

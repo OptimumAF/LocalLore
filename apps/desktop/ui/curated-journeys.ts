@@ -272,15 +272,12 @@ export async function curatedJourneys({
             });
             void e.curatedStart("scripted", null, "all");
             await until(() => !!e.get().curatedStatus?.running);
+            const initialErrors = errors.snapshot();
             check(
-                errors
-                    .snapshot()
-                    .every(
-                        (x) =>
-                            x.source === "native" &&
-                            x.category === "EvaluationIo",
-                    ),
-                "initial-window-no-unexpected-render-or-native-errors",
+                initialErrors.length === 1 &&
+                    initialErrors[0].source === "native" &&
+                    initialErrors[0].category === "Transport",
+                "initial-window-only-one-expected-lost-ack-error",
             );
             await invoke("harness_reopen");
             return;
@@ -290,12 +287,7 @@ export async function curatedJourneys({
             structural(c.get().play) === before,
             "restart-and-cache-preserve-live-story",
         );
-        const bad = errors
-            .snapshot()
-            .filter(
-                (x) =>
-                    !(x.source === "native" && x.category === "EvaluationIo"),
-            );
+        const bad = errors.snapshot();
         check(
             bad.length === 0,
             "no-unexpected-native-render-or-unhandled-errors",

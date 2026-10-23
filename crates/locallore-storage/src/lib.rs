@@ -683,7 +683,11 @@ mod tests {
             let tx = connection
                 .transaction_with_behavior(TransactionBehavior::Immediate)
                 .unwrap();
-            assert_eq!(migrate_v1(&tx, &sql), Err(expected));
+            let attempted = (|| -> Result<()> {
+                tx.execute_batch(&sql)?;
+                migrate_known(&tx, 2)
+            })();
+            assert_eq!(attempted, Err(expected));
             drop(tx);
             assert_eq!(identity(&connection).unwrap(), (APPLICATION_ID, 1));
             assert_eq!(schema_rows(&connection).unwrap(), original);
@@ -695,7 +699,7 @@ mod tests {
         let tx = connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .unwrap();
-        migrate_v1(&tx, derived_memory::DERIVED_SCHEMA_SQL).unwrap();
+        migrate_known(&tx, 1).unwrap();
         tx.commit().unwrap();
         verify(&connection).unwrap();
     }

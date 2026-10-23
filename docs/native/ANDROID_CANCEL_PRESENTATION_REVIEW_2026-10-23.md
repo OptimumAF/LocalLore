@@ -105,4 +105,3 @@ physical-phone behavior or a two-emulator gate. Build execution and emulator
 admission/results are reported separately by their actual owners. A remains
 blocked by its previously measured storage deficit; this is B-only verification. Full
 M05/M04 acceptance remains subject to repository acceptance rules.
-

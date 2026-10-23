@@ -2408,7 +2408,16 @@ fn refresh_session(state: &mut State, id: &str, scope: &Scope) -> Result<(), Val
         .unwrap()
         .resume(scope)
         .map_err(reject)?;
-    get_session(state, id, scope)?.engine = engine;
+    let selected = get_session(state, id, scope)?;
+    // An implicit refresh may observe appends to the selected accepted source;
+    // it cannot silently select a replacement seed, prefix or lineage.
+    if !engine
+        .extends_accepted_history(&selected.engine)
+        .map_err(reject)?
+    {
+        return Err(reject("Stale"));
+    }
+    selected.engine = engine;
     Ok(())
 }
 fn selected_turn_status(

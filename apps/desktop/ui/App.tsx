@@ -358,7 +358,13 @@ export function App({
                     ) : (
                         <>
                             <TurnDebugger controller={c} state={s} />
-                            {capture && <CapturePanel controller={capture} gameplay={c} receipts={receipts} />}
+                            {capture && (
+                                <CapturePanel
+                                    controller={capture}
+                                    gameplay={c}
+                                    receipts={receipts}
+                                />
+                            )}
                             <ModelPanel controller={c} state={s} />
                             <InspectionPanel controller={c} state={s} />
                             <div

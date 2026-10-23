@@ -11,16 +11,21 @@ const directory =
 await mkdir(directory, { recursive: true });
 const target = path.join(directory, `capture-controller-${randomUUID()}.mjs`);
 const compiled = await build({
-    entryPoints: [
-        fileURLToPath(new URL("ui/capture-controller.ts", import.meta.url)),
-    ],
+    stdin: {
+        contents:
+            'export { CaptureController } from "./ui/capture-controller"; export { Controller } from "./ui/controller";',
+        resolveDir: fileURLToPath(new URL(".", import.meta.url)),
+        loader: "ts",
+    },
     bundle: true,
     platform: "node",
     format: "esm",
     write: false,
 });
 await writeFile(target, compiled.outputFiles[0].contents);
-const { CaptureController } = await import(pathToFileURL(target).href);
+const { CaptureController, Controller } = await import(
+    pathToFileURL(target).href
+);
 const session = {
     id: "session-a",
     scope: { story: "synthetic-capture", branch: "main" },
@@ -310,6 +315,97 @@ revokeError = null;
 await c.disable();
 assert.equal(c.get().enabled, false);
 await c.dispose();
+let metadataEnabled = true;
+const combinedGateway = {
+    native: gateway.native,
+    async call(q) {
+        if (q.op === "open") return { revision: 0 };
+        if (q.op === "play_snapshot")
+            return {
+                scope: q.scope,
+                revision: 0,
+                rules: "fantasy_v1",
+                inventory: {},
+                receipts: [],
+                player: {
+                    scope: q.scope,
+                    revision: 0,
+                    observer: "player",
+                    self_state: { name: "Rowan", energy: 2, location: "quay" },
+                    facts: {},
+                    beliefs: [],
+                    observations: [],
+                },
+            };
+        if (["inspect", "close"].includes(q.op)) return {};
+        if (q.op === "trace_read")
+            return {
+                scope: q.scope,
+                head: q.expected_head,
+                base_revision: q.base_revision,
+                observer: q.observer,
+                configuration_scope: "window_host",
+                capture: "metadata_only",
+                full_capture: "unsupported",
+                snapshot: {
+                    version: 1,
+                    status: metadataEnabled
+                        ? "bounded_metadata_window"
+                        : "disabled",
+                    exact_reconstruction: false,
+                    attempts: [],
+                },
+            };
+        if (["trace_clear", "trace_configure"].includes(q.op)) {
+            enabled = false;
+            if (q.op === "trace_configure") metadataEnabled = q.enabled;
+            return {
+                configuration_scope: "window_host",
+                capture: "metadata_only",
+                full_capture: "unsupported",
+                ...(q.op === "trace_clear"
+                    ? { cleared: true }
+                    : { enabled: q.enabled }),
+            };
+        }
+        if (q.op === "trace_capture_configure") metadataEnabled = true;
+        return gateway.call(q);
+    },
+};
+const raw = new CaptureController(combinedGateway, () => gameplay.readTrace());
+const gameplay = new Controller(
+    combinedGateway,
+    undefined,
+    "capture-control-test",
+    () => {
+        void raw.disable();
+    },
+);
+await gameplay.attach(session);
+await gameplay.showTrace();
+raw.contextChanged(session, 0, true, attempt);
+const settleRaw = async () => {
+    for (let n = 0; n < 100 && raw.get().controlBusy; n++)
+        await new Promise((r) => setImmediate(r));
+    assert.equal(raw.get().controlBusy, false);
+};
+for (const action of ["clear", "disable"]) {
+    await raw.configure(true);
+    await raw.read();
+    assert(raw.get().reply);
+    const clearing = gameplay.controlTrace(action);
+    assert.equal(
+        raw.get().reply,
+        null,
+        "metadata control synchronously clears private presentation",
+    );
+    await clearing;
+    await settleRaw();
+    assert.equal(raw.get().enabled, false);
+    assert.equal(enabled, false);
+}
+await raw.dispose();
+await gameplay.dispose();
 console.log(
-    "PASS: MOCK actual capture controller/decoder consent, five retention statuses, seven hostile replies, head advance, late read/configure/preview, lens/session revoke, exact token-only second-consent save, Busy revocation honesty.",
+    "PASS: MOCK actual capture/gameplay controllers and decoder consent, retention states, hostile replies, head advance, late read/configure/preview, lens/session revoke, token-only second-consent save, Busy revocation honesty and metadata clear/disable coupling.",
 );

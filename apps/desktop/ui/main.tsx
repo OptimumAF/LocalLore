@@ -44,10 +44,12 @@ const driver =
         : null;
 const evaluation = new EvaluationController(invoke);
 const base = new IpcGateway(invoke, errors),
-    gateway = driver ? new driver.FaultGateway(base) : base,
-    controller = new Controller(gateway, errors);
+    gateway = driver ? new driver.FaultGateway(base) : base;
+const controller = new Controller(gateway, errors, undefined, () => {
+    void capture.disable();
+});
 const archive = new ArchiveController(invoke, () => controller.library());
-const capture = new CaptureController(gateway);
+const capture = new CaptureController(gateway, () => controller.readTrace());
 // Invalidate evaluation replies before React observes a changed story/lens/Play
 // context. Evaluation is independent of gameplay; no gameplay controller changes.
 const syncEvaluationContext = () => {

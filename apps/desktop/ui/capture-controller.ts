@@ -31,7 +31,10 @@ export class CaptureController {
     private controls: Promise<unknown> = Promise.resolve();
     private pendingControls = 0;
     private listeners = new Set<() => void>();
-    constructor(private gateway: Gateway) {}
+    constructor(
+        private gateway: Gateway,
+        private refreshMetadata: () => Promise<void> = async () => {},
+    ) {}
     get = () => this.state;
     subscribe = (listener: () => void) => {
         this.listeners.add(listener);
@@ -196,6 +199,7 @@ export class CaptureController {
                 )
                     throw new Error("Wire");
                 this.patch({ enabled: true, cleanup: "" });
+                await this.refreshMetadata();
             } catch (error) {
                 if (epoch === this.epoch)
                     this.patch({ error: category(error), enabled: null });

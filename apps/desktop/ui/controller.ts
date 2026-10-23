@@ -112,6 +112,7 @@ export class Controller {
         readonly gateway: Gateway,
         readonly errors = new ErrorBuffer(),
         private prefix = `desktop-${crypto.randomUUID()}`,
+        private revokePrivateCapture: () => void = () => {},
     ) {}
     get = () => this.state;
     subscribe = (listener: () => void) => {
@@ -872,6 +873,7 @@ export class Controller {
     async controlTrace(action: "enable" | "disable" | "clear") {
         const query = this.traceContext();
         if (!query || this.traceControlPending) return;
+        if (action !== "enable") this.revokePrivateCapture();
         this.traceControlPending = true;
         this.clearTrace();
         this.tracePatch({ controlBusy: true });

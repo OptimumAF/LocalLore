@@ -379,7 +379,7 @@ export async function captureJourneys({
                 "private-explicit-revoke-clears-presentation",
             );
             await checkpoint("d06-private-cleared");
-            await invoke("harness_viewport", { width: 620, height: 900 });
+            await invoke("harness_viewport", { preset: "narrow" });
             await checkpoint("d06-private-narrow");
         }
         check(
@@ -390,6 +390,25 @@ export async function captureJourneys({
                 ),
             "private-no-render-or-unhandled-errors",
         );
+        check(
+            errors
+                .snapshot()
+                .every(
+                    (e) =>
+                        e.source === "native" &&
+                        ["Agency", "Cancelled"].includes(e.category),
+                ),
+            "private-only-expected-native-error-categories",
+        );
+        if (config.stage !== "restart") {
+            check(
+                errors.snapshot().filter((e) => e.category === "Agency")
+                    .length === 1 &&
+                    errors.snapshot().filter((e) => e.category === "Cancelled")
+                        .length <= 3,
+                "private-expected-native-errors-bounded",
+            );
+        }
         await checkpoint("d06-private-finished");
         await dispose();
         await invoke("harness_finish", {

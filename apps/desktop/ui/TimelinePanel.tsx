@@ -36,9 +36,8 @@ export function TimelinePanel({
                 </button>
             </div>
             <p>
-                Browse validated ancestry metadata. Choosing an active timeline
-                resumes accepted history through the shared owner. It does not
-                alter the original timeline or grant author privileges.
+                See where each saved timeline began. Opening a timeline keeps
+                its original history intact and preserves what characters know.
             </p>
             <p>
                 Forking, rewinding, regenerating committed history and author

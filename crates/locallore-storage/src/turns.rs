@@ -1,5 +1,5 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
-//! Atomic root-branch turns. No inference, file selector or SQL escapes this owner.
+//! Atomic scoped turns and validated branch-history replay. No inference, file selector or SQL escapes this owner.
 use crate::{StorageError, Store};
 use locallore::{
     contracts::{
@@ -68,25 +68,104 @@ fn sql_revision(value: u64) -> Result<i64> {
     i64::try_from(value).map_err(|_| TurnError::TooLarge)
 }
 
-fn read_engine(connection: &Connection, scope: &Scope) -> Result<ResumedStory> {
-    let seed_json: String = connection
-        .query_row(
-            "SELECT seed_json FROM stories WHERE story_id=?1 AND root_branch=?2",
-            (&scope.story, &scope.branch),
-            |r| r.get(0),
-        )
-        .optional()?
-        .ok_or(StorageError::NotFound)?;
+// Reuse one strict loader for root and child histories. Ancestor rows are read
+// only as far as required to validate each fork; sibling rows never enter replay.
+pub(crate) fn read_engine(connection: &Connection, scope: &Scope) -> Result<ResumedStory> {
+    read_engine_budget(connection, scope).map(|(story, _, _)| story)
+}
+fn read_engine_budget(
+    connection: &Connection,
+    scope: &Scope,
+) -> Result<(ResumedStory, usize, usize)> {
+    let path = crate::branches::lineage(connection, scope)?;
+    let seed_json: String = connection.query_row(
+        "SELECT seed_json FROM stories WHERE story_id=?1",
+        [&scope.story],
+        |r| r.get(0),
+    )?;
     let seed: Seed = serde_json::from_str(&seed_json).map_err(|_| TurnError::Integrity)?;
-    if &seed.scope != scope {
+    if seed.scope != path[0].scope {
         return Err(TurnError::Integrity);
     }
-    let head: i64 = connection.query_row(
-        "SELECT head_revision FROM branches WHERE story_id=?1 AND branch_id=?2 AND parent_branch IS NULL",
-        (&scope.story, &scope.branch), |r| r.get(0))?;
-    let (count, bytes): (i64, i64) = connection.query_row(
-        "SELECT count(*),coalesce(sum(length(CAST(request_json AS BLOB))+coalesce(length(CAST(response_json AS BLOB)),0)),0) FROM turns WHERE story_id=?1 AND branch_id=?2",
-        (&scope.story, &scope.branch), |r| Ok((r.get(0)?,r.get(1)?)))?;
+    let mut engine = None::<Engine>;
+    let mut used_count = 0usize;
+    let mut used_bytes = 0usize;
+    for (index, branch) in path.iter().enumerate() {
+        let complete = index + 1 == path.len();
+        // A nested fork may rewind before its parent's own birth. Retain enough
+        // temporary prefix to validate that parent's original creation, then
+        // Engine::fork discards observations beyond the next child's fork.
+        let cap = if complete {
+            branch.head
+        } else {
+            branch
+                .fork
+                .unwrap_or(0)
+                .max(path[index + 1].fork.ok_or(TurnError::Integrity)?)
+        };
+        let (history, requests, count, bytes) =
+            read_history(connection, &branch.scope, cap, complete)?;
+        used_count = used_count.checked_add(count).ok_or(TurnError::TooLarge)?;
+        used_bytes = used_bytes.checked_add(bytes).ok_or(TurnError::TooLarge)?;
+        if used_count > MAX_HISTORY_RECEIPTS || used_bytes > MAX_HISTORY_BYTES {
+            return Err(TurnError::TooLarge);
+        }
+        let rebuilt = if let Some(parent) = engine {
+            parent
+                .fork(
+                    &branch.scope.branch,
+                    branch.fork.ok_or(TurnError::Integrity)?,
+                )
+                .and_then(|fork| fork.restore_continuation(&history))
+        } else {
+            Engine::restore(seed.clone(), &history)
+        }
+        .map_err(|_| TurnError::Integrity)?;
+        let local: Vec<_> = rebuilt
+            .receipts()
+            .iter()
+            .filter(|r| r.request().scope == branch.scope)
+            .collect();
+        if rebuilt.revision() != cap
+            || local.len() != requests.len()
+            || local.iter().zip(&requests).any(|(r, q)| r.request() != q)
+        {
+            return Err(TurnError::Integrity);
+        }
+        verify_ledger(connection, &branch.scope, cap, complete, &local)?;
+        engine = Some(rebuilt);
+    }
+    let engine = engine.ok_or(TurnError::Integrity)?;
+    let head = sql_revision(engine.revision())?;
+    let cache:Option<(i64,u16,String)>=connection.query_row(
+        "SELECT revision,projection_version,projection_json FROM branch_projections WHERE story_id=?1 AND branch_id=?2",
+        (&scope.story,&scope.branch),|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
+    let canonical = engine.canonical_bytes();
+    let valid_cache = cache.is_some_and(|(revision, version, json)| {
+        revision == head && version == 1 && json.as_bytes() == canonical
+    });
+    Ok((
+        ResumedStory {
+            engine,
+            projection_needs_rebuild: !valid_cache,
+        },
+        used_count,
+        used_bytes,
+    ))
+}
+
+fn read_history(
+    connection: &Connection,
+    scope: &Scope,
+    cap: u64,
+    complete: bool,
+) -> Result<(Vec<String>, Vec<Request>, usize, usize)> {
+    let cap = sql_revision(cap)?;
+    // Keep the established root/current-branch admission accounting (including
+    // terminal drafts); ancestor drafts and later outcomes are not inherited.
+    let (count,bytes):(i64,i64)=connection.query_row(
+        "SELECT count(*),coalesce(sum(length(CAST(request_json AS BLOB))+coalesce(length(CAST(response_json AS BLOB)),0)),0) FROM turns WHERE story_id=?1 AND branch_id=?2 AND (?4 OR (status='committed' AND expected_revision<?3))",
+        (&scope.story,&scope.branch,cap,complete),|r|Ok((r.get(0)?,r.get(1)?)))?;
     if count < 0
         || bytes < 0
         || count > MAX_HISTORY_RECEIPTS as i64
@@ -94,9 +173,9 @@ fn read_engine(connection: &Connection, scope: &Scope) -> Result<ResumedStory> {
     {
         return Err(TurnError::TooLarge);
     }
-    let mut query = connection.prepare(
-        "SELECT turn_id,expected_revision,request_json,response_json FROM turns WHERE story_id=?1 AND branch_id=?2 AND status='committed' ORDER BY expected_revision,turn_id")?;
-    let mut rows = query.query((&scope.story, &scope.branch))?;
+    let mut query=connection.prepare(
+        "SELECT turn_id,expected_revision,request_json,response_json FROM turns WHERE story_id=?1 AND branch_id=?2 AND status='committed' AND (?4 OR expected_revision<?3) ORDER BY expected_revision,turn_id")?;
+    let mut rows = query.query((&scope.story, &scope.branch, cap, complete))?;
     let mut history = Vec::with_capacity(count as usize);
     let mut requests = Vec::with_capacity(count as usize);
     while let Some(row) = rows.next()? {
@@ -115,25 +194,24 @@ fn read_engine(connection: &Connection, scope: &Scope) -> Result<ResumedStory> {
         history.push(response);
         requests.push(request);
     }
-    let engine = Engine::restore(seed, &history).map_err(|_| TurnError::Integrity)?;
-    if sql_revision(engine.revision())? != head
-        || engine.receipts().len() != requests.len()
-        || engine
-            .receipts()
-            .iter()
-            .zip(&requests)
-            .any(|(r, q)| r.request() != q)
-    {
-        return Err(TurnError::Integrity);
-    }
-    // The normalized ledger must exactly agree with the validated complete receipts.
-    let mut events = connection.prepare("SELECT sequence,turn_id,event_version,envelope_json FROM accepted_events WHERE story_id=?1 AND branch_id=?2 ORDER BY sequence")?;
-    let mut event_rows = events.query((&scope.story, &scope.branch))?;
-    for receipt in engine.receipts() {
+    Ok((history, requests, count as usize, bytes as usize))
+}
+
+fn verify_ledger(
+    connection: &Connection,
+    scope: &Scope,
+    cap: u64,
+    complete: bool,
+    receipts: &[&Receipt],
+) -> Result<()> {
+    // The normalized source ledger must agree with original scoped receipts;
+    // ancestor envelopes are never copied under a child's branch key.
+    let mut events=connection.prepare("SELECT sequence,turn_id,event_version,envelope_json FROM accepted_events WHERE story_id=?1 AND branch_id=?2 AND (?4 OR sequence<=?3) ORDER BY sequence")?;
+    let mut event_rows =
+        events.query((&scope.story, &scope.branch, sql_revision(cap)?, complete))?;
+    for receipt in receipts {
         for event in receipt.events() {
             let row = event_rows.next()?.ok_or(TurnError::Integrity)?;
-            // This owner writes canonical bytes. Exact comparison also rejects duplicate keys
-            // that a generic JSON Value parser would silently collapse.
             let stored: String = row.get(3)?;
             if row.get::<_, i64>(0)? != sql_revision(event.sequence())?
                 || row.get::<_, String>(1)? != receipt.request().turn
@@ -142,7 +220,7 @@ fn read_engine(connection: &Connection, scope: &Scope) -> Result<ResumedStory> {
             {
                 return Err(TurnError::Integrity);
             }
-            let mut witnesses = connection.prepare("SELECT observer_id FROM event_witnesses WHERE story_id=?1 AND branch_id=?2 AND sequence=?3 ORDER BY observer_id")?;
+            let mut witnesses=connection.prepare("SELECT observer_id FROM event_witnesses WHERE story_id=?1 AND branch_id=?2 AND sequence=?3 ORDER BY observer_id")?;
             let mut observer_rows =
                 witnesses.query((&scope.story, &scope.branch, sql_revision(event.sequence())?))?;
             for observer in event.witnesses() {
@@ -163,33 +241,17 @@ fn read_engine(connection: &Connection, scope: &Scope) -> Result<ResumedStory> {
     if event_rows.next()?.is_some() {
         return Err(TurnError::Integrity);
     }
-    // Also detect scoped orphan rows introduced outside this owner after open-time FK checks.
-    // Per-event checks above alone would never visit a witness for a nonexistent sequence.
-    let witness_count: i64 = connection.query_row(
-        "SELECT count(*) FROM event_witnesses WHERE story_id=?1 AND branch_id=?2",
-        (&scope.story, &scope.branch),
-        |r| r.get(0),
-    )?;
-    let expected_witnesses: usize = engine
-        .receipts()
+    let count:i64=connection.query_row("SELECT count(*) FROM event_witnesses WHERE story_id=?1 AND branch_id=?2 AND (?4 OR sequence<=?3)",
+        (&scope.story,&scope.branch,sql_revision(cap)?,complete),|r|r.get(0))?;
+    let expected: usize = receipts
         .iter()
         .flat_map(|r| r.events())
         .map(|e| e.witnesses().len())
         .sum();
-    if witness_count != expected_witnesses as i64 {
+    if count != expected as i64 {
         return Err(TurnError::Integrity);
     }
-    let cache: Option<(i64,u16,String)> = connection.query_row(
-        "SELECT revision,projection_version,projection_json FROM branch_projections WHERE story_id=?1 AND branch_id=?2",
-        (&scope.story,&scope.branch), |r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
-    let canonical = engine.canonical_bytes();
-    let valid_cache = cache.is_some_and(|(revision, version, json)| {
-        revision == head && version == 1 && json.as_bytes() == canonical
-    });
-    Ok(ResumedStory {
-        engine,
-        projection_needs_rebuild: !valid_cache,
-    })
+    Ok(())
 }
 
 fn recorded(
@@ -231,7 +293,7 @@ fn recorded(
         receipt,
     }))
 }
-fn write_projection(connection: &Connection, engine: &Engine) -> Result<()> {
+pub(crate) fn write_projection(connection: &Connection, engine: &Engine) -> Result<()> {
     let bytes = engine.canonical_bytes();
     if bytes.len() > 262144 {
         return Err(TurnError::TooLarge);
@@ -268,7 +330,7 @@ impl Store {
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let resumed = read_engine(&tx, &request.scope)?;
+        let (resumed, history_count, history_bytes) = read_engine_budget(&tx, &request.scope)?;
         if let Some(existing) = recorded(&tx, request, &resumed.engine)? {
             return Ok(existing);
         }
@@ -276,17 +338,11 @@ impl Store {
             .engine
             .preflight(request)
             .map_err(TurnError::Engine)?;
-        let count: i64 = tx.query_row(
-            "SELECT count(*) FROM turns WHERE story_id=?1 AND branch_id=?2",
-            (&request.scope.story, &request.scope.branch),
-            |r| r.get(0),
-        )?;
-        if count >= MAX_HISTORY_RECEIPTS as i64 {
+        if history_count >= MAX_HISTORY_RECEIPTS {
             return Err(TurnError::TooLarge);
         }
         let input = serde_json::to_string(request).map_err(|_| TurnError::Integrity)?;
-        let bytes:i64 = tx.query_row("SELECT coalesce(sum(length(CAST(request_json AS BLOB))+coalesce(length(CAST(response_json AS BLOB)),0)),0) FROM turns WHERE story_id=?1 AND branch_id=?2",(&request.scope.story,&request.scope.branch),|r|r.get(0))?;
-        if bytes.saturating_add(input.len() as i64) > MAX_HISTORY_BYTES as i64 {
+        if history_bytes.saturating_add(input.len()) > MAX_HISTORY_BYTES {
             return Err(TurnError::TooLarge);
         }
         tx.execute(
@@ -416,7 +472,7 @@ impl Store {
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let mut resumed = read_engine(&tx, &request.scope)?;
+        let (mut resumed, _, history_bytes) = read_engine_budget(&tx, &request.scope)?;
         let turn = recorded(&tx, request, &resumed.engine)?.ok_or(TurnError::UnknownTurn)?;
         if let Some(receipt) = turn.receipt {
             return Ok(receipt);
@@ -447,9 +503,8 @@ impl Store {
         }
         .map_err(TurnError::Engine)?;
         let response = serde_json::to_string(&receipt).map_err(|_| TurnError::Integrity)?;
-        let prior_bytes: i64 = tx.query_row("SELECT coalesce(sum(length(CAST(request_json AS BLOB))+coalesce(length(CAST(response_json AS BLOB)),0)),0) FROM turns WHERE story_id=?1 AND branch_id=?2",(&request.scope.story,&request.scope.branch),|r|r.get(0))?;
         if response.len() > MAX_RECEIPT_BYTES
-            || prior_bytes.saturating_add(response.len() as i64) > MAX_HISTORY_BYTES as i64
+            || history_bytes.saturating_add(response.len()) > MAX_HISTORY_BYTES
         {
             return Err(TurnError::TooLarge);
         }

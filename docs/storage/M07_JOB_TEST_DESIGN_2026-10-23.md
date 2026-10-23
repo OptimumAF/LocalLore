@@ -143,3 +143,48 @@ it with an ABORT string or fill a real volume. Existing coordinator-owned privat
 unit fixtures may qualify Full separately. Same-snapshot overlapping-writer
 evidence still needs a bounded schedule against the frozen implementation; no
 claim is made from the mere presence of the snapshot return type.
+
+## Explicit pre-execution follow-up
+
+Immutable initial freeze `9e8b84f1b6e77d18ca6ef5b7e63202aaf18809ba`, test
+SHA-256 `da6c4398f69f6575dbd7546f210cb5c5c0fbc2f1dbb4d114d78af621fc36d16a`,
+was never compiled or executed. The next revision implements the coordinator's
+approved native capability lifetime clarification and documented oracle
+corrections **before** first execution; the original source remains in history.
+
+- Reopen cases now explicitly reject an old owner handle with NotFound, call
+  ensure to reissue a native handle, and require the exact previous durable
+  ID/cursor/generation/status. Cancelled jobs remain cancelled. Both owners in a
+  competing-step case call ensure themselves; actual CAS still permits only one
+  publication from the two prepared tokens.
+- A new collision case creates two real independent databases with identical
+  seed/history/Scope/observer and matching actual AUTOINCREMENT ID. Status,
+  prepare, cancel, prune and a prepared publication from one Store must refuse on
+  the other. Each owner's own handle still works. No opaque token is fabricated.
+- Job digest format/stability is tested without assuming Core and SQL lineage
+  digests use identical serialization. If actual Core packets still verify after
+  only a job source-hash metadata field is corrupted, they must recheck against
+  the returned actual Engine; canon stays unchanged. Ensure repairs the binding
+  and completion still exactly equals pure Core output. Missing-prefix/packet
+  schema/actor/scope/source corruption still requires whole-set fallback and
+  generation-advanced safe prefix reset; no existing failure expectation was
+  relaxed to accept the coordinator's same-basis Integrity result.
+- A new bounded overlapping-writer case uses an explicit synthetic SQLite WAL
+  fixture, as existing derived-memory snapshot tests do. It signals another Store
+  after strict source replay inside the reader, lets that owner actually commit
+  four new events, retarget and complete the job, then requires the returned old
+  Engine **and old complete coverage** from the same read snapshot. A new request
+  with old expected head must subsequently reject. The callback checkpoint is
+  source-audited at e98: outer context check, memory_engine entry, post-strict-
+  replay check. Re-audit that position at the final module freeze before running;
+  no production hook or alternate snapshot is added. The canonical/proof oracle
+  is fixed regardless of a later checkpoint-position adjustment.
+- `cache_rows` materializes its iterator before returning to avoid a potential
+  Rust tail-expression borrow-lifetime issue; no compiler error is invented for
+  this static correction.
+
+The follow-up contains **23 parent tests plus one intentionally parent-spawned
+ignored helper**. It still has not been compiled, run, or used to launch a child.
+Source formatting/Git whitespace checks are the only local executable checks so
+far. Root will provide the owner-bound/reset-corrected module hash and resource
+slot; production remains entirely outside this author's ownership.

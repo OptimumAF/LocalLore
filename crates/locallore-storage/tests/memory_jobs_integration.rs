@@ -18,9 +18,13 @@ use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
+    cell::Cell,
     path::PathBuf,
     process::Command as ProcessCommand,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        mpsc,
+    },
     time::{Duration, Instant},
 };
 
@@ -218,13 +222,14 @@ fn fingerprint(bytes: &[u8]) -> String {
 }
 fn cache_rows(db: &Connection, handle: &MemoryJobHandle) -> Vec<(u64, u64, String)> {
     let mut query = db.prepare("SELECT from_revision,through_revision,packet_json FROM memory_job_packets WHERE job_id=?1 ORDER BY from_revision").unwrap();
-    query
+    let rows = query
         .query_map([handle.id()], |row| {
             Ok((row.get(0)?, row.get(1)?, row.get(2)?))
         })
         .unwrap()
         .map(Result::unwrap)
-        .collect()
+        .collect();
+    rows
 }
 fn job_row(db: &Connection, handle: &MemoryJobHandle) -> String {
     db.query_row("SELECT json_object('id',job_id,'story',story_id,'branch',branch_id,'observer',observer_id,'method',method,'version',summary_version,'basis',basis_revision,'seed',seed_sha256,'lineage',lineage_sha256,'source',source_sha256,'cursor',next_from,'generation',generation,'status',status,'last_error',last_error) FROM memory_jobs WHERE job_id=?1", [handle.id()], |row| row.get(0)).unwrap()
@@ -289,6 +294,20 @@ fn packet_cursor_is_durable_and_core_bound_without_canonical_mutation() {
     let handle = first.handle.clone();
     drop(store);
     let mut store = temp.open();
+    assert!(
+        matches!(
+            store.memory_job_status(&handle, &|| false),
+            Err(MemoryError::NotFound)
+        ),
+        "native handle expires with its Store owner"
+    );
+    let reopened = store.ensure_memory_job(&req, &|| false).unwrap();
+    assert_eq!(
+        identity(&reopened),
+        before,
+        "durable checkpoint must survive owner replacement"
+    );
+    let handle = reopened.handle;
     assert_eq!(
         identity(&store.memory_job_status(&handle, &|| false).unwrap()),
         before
@@ -323,11 +342,13 @@ fn two_owners_compete_at_one_cursor_and_only_one_prepared_step_advances() {
     let req = request(&engine, "agent");
     let info = store.ensure_memory_job(&req, &|| false).unwrap();
     let mut other = temp.open();
+    let other_info = other.ensure_memory_job(&req, &|| false).unwrap();
+    assert_eq!(identity(&other_info), identity(&info));
     let a = store
         .prepare_memory_job_step(&info.handle, &|| false)
         .unwrap();
     let b = other
-        .prepare_memory_job_step(&info.handle, &|| false)
+        .prepare_memory_job_step(&other_info.handle, &|| false)
         .unwrap();
     let winner = store.publish_memory_job_step(a, &|| false).unwrap();
     assert!(matches!(
@@ -335,11 +356,167 @@ fn two_owners_compete_at_one_cursor_and_only_one_prepared_step_advances() {
         Err(MemoryError::Stale)
     ));
     assert_eq!(
-        identity(&other.memory_job_status(&info.handle, &|| false).unwrap()),
+        identity(
+            &other
+                .memory_job_status(&other_info.handle, &|| false)
+                .unwrap()
+        ),
         identity(&winner)
     );
     assert_eq!(verified(&mut other, &engine, &req).packets().len(), 1);
     assert_canon(&mut store, &engine);
+}
+
+#[test]
+fn opaque_handle_and_prepared_step_cannot_cross_matching_store_instances() {
+    let (_first_temp, mut first, first_engine) = fixture();
+    let (_second_temp, mut second, second_engine) = fixture();
+    assert_eq!(
+        first_engine.canonical_bytes(),
+        second_engine.canonical_bytes()
+    );
+    let first_info = first
+        .ensure_memory_job(&request(&first_engine, "agent"), &|| false)
+        .unwrap();
+    let second_info = second
+        .ensure_memory_job(&request(&second_engine, "agent"), &|| false)
+        .unwrap();
+    assert_eq!(
+        first_info.handle.id(),
+        second_info.handle.id(),
+        "actual independent AUTOINCREMENT IDs deliberately collide"
+    );
+    assert_eq!(first_engine.scope(), second_engine.scope());
+    assert!(matches!(
+        second.memory_job_status(&first_info.handle, &|| false),
+        Err(MemoryError::NotFound)
+    ));
+    assert!(matches!(
+        second.prepare_memory_job_step(&first_info.handle, &|| false),
+        Err(MemoryError::NotFound)
+    ));
+    assert!(matches!(
+        second.cancel_memory_job(&first_info.handle, &|| false),
+        Err(MemoryError::NotFound)
+    ));
+    assert!(matches!(
+        second.prune_memory_job(&first_info.handle, &|| false),
+        Err(MemoryError::NotFound)
+    ));
+    let prepared = first
+        .prepare_memory_job_step(&first_info.handle, &|| false)
+        .unwrap();
+    assert!(matches!(
+        second.publish_memory_job_step(prepared, &|| false),
+        Err(MemoryError::NotFound)
+    ));
+    assert_eq!(
+        identity(
+            &first
+                .memory_job_status(&first_info.handle, &|| false)
+                .unwrap()
+        ),
+        identity(&first_info)
+    );
+    assert_eq!(
+        identity(
+            &second
+                .memory_job_status(&second_info.handle, &|| false)
+                .unwrap()
+        ),
+        identity(&second_info)
+    );
+    let a = first
+        .prepare_memory_job_step(&first_info.handle, &|| false)
+        .unwrap();
+    let b = second
+        .prepare_memory_job_step(&second_info.handle, &|| false)
+        .unwrap();
+    first.publish_memory_job_step(a, &|| false).unwrap();
+    second.publish_memory_job_step(b, &|| false).unwrap();
+    assert_eq!(
+        verified(&mut first, &first_engine, &request(&first_engine, "agent")).packets(),
+        verified(
+            &mut second,
+            &second_engine,
+            &request(&second_engine, "agent")
+        )
+        .packets()
+    );
+    assert_canon(&mut first, &first_engine);
+    assert_canon(&mut second, &second_engine);
+}
+
+#[test]
+fn engine_and_coverage_share_read_snapshot_while_another_owner_commits_and_retargets() {
+    let (temp, mut store, engine) = fixture();
+    let req = request(&engine, "agent");
+    let info = store.ensure_memory_job(&req, &|| false).unwrap();
+    drain(&mut store, &info.handle);
+    let expected = packets(&engine, "agent");
+    // Local synthetic WAL permits a writer to finish under the held reader;
+    // this is a database fixture setting, not an OS/app configuration change.
+    Connection::open(temp.path("source.sqlite"))
+        .unwrap()
+        .pragma_update(None, "journal_mode", "WAL")
+        .unwrap();
+    let mut other = temp.open();
+    let mut newer = engine.clone();
+    let (go_tx, go_rx) = mpsc::channel();
+    let (done_tx, done_rx) = mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        go_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        apply(
+            &mut other,
+            &mut newer,
+            "concurrent-newer-head",
+            vec![say("Concurrent newer source.", "agent"); 4],
+        );
+        let retargeted = other
+            .ensure_memory_job(&request(&newer, "agent"), &|| false)
+            .unwrap();
+        drain(&mut other, &retargeted.handle);
+        done_tx.send(newer.revision()).unwrap();
+    });
+    let checks = Cell::new(0);
+    let snapshot = store
+        .context_snapshot(&req, &|| {
+            checks.set(checks.get() + 1);
+            // Frozen e98 context_snapshot: initial check, memory_engine entry, then
+            // memory_engine's post-strict-replay check within the same read txn.
+            if checks.get() == 3 {
+                go_tx.send(()).unwrap();
+                assert_eq!(
+                    done_rx.recv_timeout(Duration::from_secs(10)).unwrap(),
+                    EVENTS + 4
+                );
+            }
+            false
+        })
+        .unwrap();
+    worker.join().unwrap();
+    assert!(checks.get() >= 3);
+    assert_eq!(snapshot.engine.canonical_bytes(), engine.canonical_bytes());
+    let CoverageRead::Verified(proof) = snapshot.coverage else {
+        panic!("mixed snapshots lost the original complete proof");
+    };
+    assert_eq!(proof.verified_head(), EVENTS);
+    assert_eq!(proof.covered_through(), EVENTS);
+    assert_eq!(proof.packets(), expected);
+    assert!(matches!(
+        proof
+            .recheck(&snapshot.engine, &core_request(&req), &|| false)
+            .unwrap(),
+        CoverageRead::Verified(_)
+    ));
+    assert_eq!(
+        store.resume(engine.scope()).unwrap().engine.revision(),
+        EVENTS + 4
+    );
+    assert!(matches!(
+        store.context_snapshot(&req, &|| false),
+        Err(MemoryError::Stale)
+    ));
 }
 
 #[test]
@@ -351,7 +528,10 @@ fn persisted_cancel_blocks_old_prepared_work_and_ensure_never_resurrects() {
         .prepare_memory_job_step(&initial.handle, &|| false)
         .unwrap();
     let mut other = temp.open();
-    let cancelled = other.cancel_memory_job(&initial.handle, &|| false).unwrap();
+    let other_info = other.ensure_memory_job(&req, &|| false).unwrap();
+    let cancelled = other
+        .cancel_memory_job(&other_info.handle, &|| false)
+        .unwrap();
     assert!(matches!(cancelled.status, MemoryJobStatus::Cancelled));
     assert!(cancelled.generation > initial.generation);
     assert_eq!(cancelled.next_from, 0);
@@ -367,8 +547,18 @@ fn persisted_cancel_blocks_old_prepared_work_and_ensure_never_resurrects() {
     drop(other);
     drop(store);
     let mut store = temp.open();
+    assert!(matches!(
+        store.memory_job_status(&initial.handle, &|| false),
+        Err(MemoryError::NotFound)
+    ));
+    let reopened = store.ensure_memory_job(&req, &|| false).unwrap();
+    assert_eq!(identity(&reopened), expected);
     assert_eq!(
-        identity(&store.memory_job_status(&initial.handle, &|| false).unwrap()),
+        identity(
+            &store
+                .memory_job_status(&reopened.handle, &|| false)
+                .unwrap()
+        ),
         expected
     );
     assert_eq!(
@@ -924,7 +1114,7 @@ fn untrusted_packet_schema_actor_and_resealed_sources_never_become_verified() {
 }
 
 #[test]
-fn missing_prefix_or_forged_job_source_requires_fresh_prefix_without_canon_change() {
+fn missing_prefix_resets_and_untrusted_job_binding_never_changes_canon() {
     let (temp, mut store, engine) = fixture();
     let req = request(&engine, "agent");
     let info = store.ensure_memory_job(&req, &|| false).unwrap();
@@ -932,9 +1122,11 @@ fn missing_prefix_or_forged_job_source_requires_fresh_prefix_without_canon_chang
     let expected = packets(&engine, "agent");
     let db = Connection::open(temp.path("source.sqlite")).unwrap();
     let metadata: Value = serde_json::from_str(&job_row(&db, &info.handle)).unwrap();
-    assert_eq!(metadata["seed"], expected[0].seed_sha256);
-    assert_eq!(metadata["lineage"], expected[0].lineage_sha256);
-    assert_eq!(metadata["source"].as_str().unwrap().len(), 64);
+    for field in ["seed", "lineage", "source"] {
+        let digest = metadata[field].as_str().unwrap();
+        assert_eq!(digest.len(), 64);
+        assert!(digest.bytes().all(|byte| byte.is_ascii_hexdigit()));
+    }
     assert_eq!(
         db.execute(
             "DELETE FROM memory_job_packets WHERE job_id=?1 AND from_revision=0",
@@ -955,12 +1147,21 @@ fn missing_prefix_or_forged_job_source_requires_fresh_prefix_without_canon_chang
         params!["0".repeat(64), info.handle.id()],
     )
     .unwrap();
-    assert!(matches!(
-        store.context_snapshot(&req, &|| false).unwrap().coverage,
-        CoverageRead::RawFallback(_)
-    ));
-    let reset = store.ensure_memory_job(&req, &|| false).unwrap();
-    assert_eq!(reset.next_from, 0);
+    // Job metadata is not canonical authority. Valid packets may still verify
+    // only by rebuilding against this exact Engine, never by trusting this row.
+    let snapshot = store.context_snapshot(&req, &|| false).unwrap();
+    assert_eq!(snapshot.engine.canonical_bytes(), engine.canonical_bytes());
+    if let CoverageRead::Verified(proof) = snapshot.coverage {
+        assert!(matches!(
+            proof
+                .recheck(&snapshot.engine, &core_request(&req), &|| false)
+                .unwrap(),
+            CoverageRead::Verified(_)
+        ));
+        assert_eq!(proof.packets(), expected);
+    }
+    let rebound = store.ensure_memory_job(&req, &|| false).unwrap();
+    assert_eq!(rebound.handle.id(), info.handle.id());
     drain(&mut store, &info.handle);
     let rebuilt: Value = serde_json::from_str(&job_row(&db, &info.handle)).unwrap();
     assert_eq!(rebuilt["source"], metadata["source"]);
@@ -1108,7 +1309,12 @@ fn own_process_death_before_and_after_checkpoint_recovers_exact_progress() {
         child.kill().unwrap();
         assert!(!child.wait().unwrap().success());
         let mut store = temp.open();
-        let actual = store.memory_job_status(&info.handle, &|| false).unwrap();
+        assert!(matches!(
+            store.memory_job_status(&info.handle, &|| false),
+            Err(MemoryError::NotFound)
+        ));
+        let renewed = store.ensure_memory_job(&req, &|| false).unwrap();
+        let actual = store.memory_job_status(&renewed.handle, &|| false).unwrap();
         let expected_cursor = if stage == "before" { 0 } else { expected_first };
         assert_eq!(actual.handle.id(), info.handle.id());
         assert_eq!(actual.next_from, expected_cursor);
@@ -1126,7 +1332,7 @@ fn own_process_death_before_and_after_checkpoint_recovers_exact_progress() {
             );
         }
         assert_canon(&mut store, &engine);
-        drain(&mut store, &info.handle);
+        drain(&mut store, &renewed.handle);
         assert_eq!(
             verified(&mut store, &engine, &req).packets(),
             packets(&engine, "agent")

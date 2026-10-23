@@ -8,7 +8,8 @@ new native journey result from historical evidence.
 
 ## Disposition
 
-No new blocking production defect was demonstrated in the reviewed D02 scope.
+The initial source audit demonstrated no new blocking canonical-state or
+production-storage defect in the reviewed D02 scope.
 The shell still submits typed requests through the real shared Rust Host and
 Engine, derives its transcript from finalized receipts, and keeps Story Lab
 inspection separate from player requests. Current production startup uses the
@@ -16,10 +17,12 @@ shared SQLite owner; the original D02 fixture journeys deliberately use a
 development-only memory Host. Both remain fake inference, with no real-model or
 free-text interpretation capability.
 
-The concrete maintenance gap is current contract documentation that still
+The source audit identified current contract documentation that still
 describes the original in-memory-only app. The coordinator owns corrections and
 the current executable verification packet. Dated D01/D02 evidence remains a
 record of its tested source, rather than fresh evidence for current main.
+Subsequent coordinator render inspection found a real fixture-mode display
+regression that this source-only audit had missed; its corrective review is below.
 
 ## Requirement trace
 
@@ -92,6 +95,36 @@ rebuild accepted work. Startup's first story is deterministic opaque-ID order,
 not the most recently used story. Archives, branches, author changes, real
 inference, production accessibility, network observation and packaging remain
 their owning future gates.
+
+## Render-driven corrective follow-up
+
+Fresh coordinator native renders at the accepted baseline showed memory fixtures
+claiming `Storage unavailable` and promising save retention. The labels were
+wrong for an explicitly ephemeral native Host. Coordinator commits
+`eefe54c7ff8e7d372e5454e8155ef9e484339d36` and
+`a4a90b97936f342e0d010303b969879d113105b8` were independently read-reviewed.
+They make memory status a value obtained from the actual `workspace` reply,
+requiring exactly `persistent:false`, null location/schema and an empty story
+list. They do not infer memory mode from an exception or missing persistent data.
+The controller starts with ephemeral mode false; a failed production open still
+surfaces its error, with no automatic fixture creation or memory fallback.
+
+Persistent metadata remains a distinct `persistent:true` type. The view changes
+its header, fixture/save sidebar, close/reset descriptions, buttons and footer
+from this native-reported mode. Memory fixtures can create sessions and do not
+offer an erroneous storage-retry button. Production saved-story behavior remains
+the accepted shared-storage implementation.
+
+The fixture journeys now query native workspace mode and check visible honest
+labels and absence of false save/failure labels at checkpoints. Independent review
+found a defect in the first regression: it required visible labels even after
+React had intentionally unmounted during disposal. The final `a4a90b9` checks
+an empty root after disposal and retains the live-label assertion before disposal.
+The durable journey also requires persistent metadata and explicitly asserts
+ephemeral mode is false on storage-open failure. No further concrete defect was
+found in the final five-file corrective change. This is source-review disposition;
+fresh complete journey counts and actual corrected renders are recorded by the
+coordinator after its sequential native/headless/durable runs.
 
 ## Independent execution in this review
 

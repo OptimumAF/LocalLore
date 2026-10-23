@@ -241,6 +241,11 @@ The [interruption follow-up](../../docs/native/ARCHIVE_RECOVERY_VERIFICATION_202
 adds an explicit external owner for live app force-stop/relaunch. Deliberately
 interrupted arms are separate from passing verification tests; independent host
 transaction-kill checks do not imply Android mid-transaction or power-loss proof.
+The separate [capacity follow-up](../../docs/native/ARCHIVE_CAPACITY_VERIFICATION_2026-10-23.md)
+uses `.archivecapacity` and an enforced exclusive Gradle cache to exercise actual
+SQLite Full, exact rollback and cache-only relief before fresh consent/retry.
+Its fixture JNI and 96-page SQLite default are absent from ordinary builds.
+This is a bounded page-limit proof, not physical device ENOSPC qualification.
 
 Host tests cover strict bytes, scoped IDs, ownership, idempotency, provider
 failures, cancellation/commit races and cleanup. JVM tests cover publication,

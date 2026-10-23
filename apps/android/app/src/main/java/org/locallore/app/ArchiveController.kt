@@ -263,11 +263,12 @@ private fun archiveNotice(failure: Exception): String = when ((failure as? Archi
     "Malformed", "Integrity" -> "The archive is invalid or failed its integrity checks. Nothing was imported."
     "Stale" -> "The selected story changed. Close this view and refresh the library."
     "Busy" -> "Local storage is busy. Try again after the current work finishes."
+    "Full" -> "Local storage is full. Close to refresh the library. Free storage and validate the archive again before retrying."
     "Cancelled" -> "Archive work stopped. No import was confirmed. Close to refresh the library."
     else -> "Archive work failed. Close to refresh the library before retrying."
 }
 private fun importCommitNotice(failure: Exception): String = when ((failure as? ArchiveFailure)?.category) {
     "Conflict" -> "A story with this ID already exists. Nothing was overwritten."
-    "Unsupported", "Malformed", "Integrity", "TooLarge" -> archiveNotice(failure)
+    "Unsupported", "Malformed", "Integrity", "TooLarge", "Full" -> archiveNotice(failure)
     else -> "The import outcome is uncertain. It may already have completed. Close to refresh the library; do not assume cancellation rolled it back."
 }

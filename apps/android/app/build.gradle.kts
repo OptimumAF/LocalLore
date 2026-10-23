@@ -9,8 +9,28 @@ plugins {
 // Explicit local instrumentation variant; leave the user's installed demo/data intact.
 val archiveVerification = providers.gradleProperty("localLoreArchiveVerification").orNull
 require(archiveVerification == null || archiveVerification == "true")
+val archiveCapacity = providers.gradleProperty("localLoreArchiveCapacityVerification").orNull
+require(archiveCapacity == null || archiveCapacity == "true")
+require(archiveVerification != "true" || archiveCapacity != "true") {
+    "Archive verification and capacity verification are separate installations."
+}
+val capacityProjectCache = rootProject.file(".gradle-archive-capacity").canonicalFile
+val selectedProjectCache = (gradle.startParameter.projectCacheDir ?: rootProject.file(".gradle")).canonicalFile
+require((archiveCapacity == "true") == (selectedProjectCache == capacityProjectCache)) {
+    "Capacity verification requires its exclusive .gradle-archive-capacity project cache."
+}
+require(archiveCapacity != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
+    "The synthetic capacity fixture is for local debug verification only."
+}
 if (archiveVerification == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-archive-verification"))
+} else if (archiveCapacity == "true") {
+    layout.buildDirectory.set(layout.projectDirectory.dir("build-archive-capacity"))
+}
+val verificationSuffix = when {
+    archiveCapacity == "true" -> ".archivecapacity"
+    archiveVerification == "true" -> ".archiveverify"
+    else -> ""
 }
 // Explicit test binary; never change the ordinary application's SQLite limit.
 val capacityOption = providers.gradleProperty("locallore.capacityTest").orNull
@@ -27,7 +47,7 @@ require(reliefOption == null || reliefOption == "false" || reliefOption == "true
 }
 val reliefTest = reliefOption == "true"
 require(!(capacityTest && reliefTest)) { "Capacity and capacity-relief modes are mutually exclusive" }
-require(archiveVerification != "true" || !(capacityTest || reliefTest)) {
+require((archiveVerification != "true" && archiveCapacity != "true") || !(capacityTest || reliefTest)) {
     "Archive verification and capacity modes are mutually exclusive"
 }
 val capacityCache = rootProject.file(".gradle-capacity").canonicalFile
@@ -77,15 +97,12 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0-shell"
-        manifestPlaceholders["diagnosticTestAuthority"] = if (archiveVerification == "true")
-            "org.locallore.app.archiveverify.test.diagnostics" else "org.locallore.app.test.diagnostics"
-        manifestPlaceholders["archiveTestAuthority"] = if (archiveVerification == "true")
-            "org.locallore.app.archiveverify.test.archives" else "org.locallore.app.test.archives"
-        manifestPlaceholders["chooserTestAuthority"] = if (archiveVerification == "true")
-            "org.locallore.app.archiveverify.test.chooser" else "org.locallore.app.test.chooser"
-        if (archiveVerification == "true") {
-            applicationIdSuffix = ".archiveverify"
-            versionNameSuffix = "-archive-verification"
+        manifestPlaceholders["diagnosticTestAuthority"] = "org.locallore.app$verificationSuffix.test.diagnostics"
+        manifestPlaceholders["archiveTestAuthority"] = "org.locallore.app$verificationSuffix.test.archives"
+        manifestPlaceholders["chooserTestAuthority"] = "org.locallore.app$verificationSuffix.test.chooser"
+        if (verificationSuffix.isNotEmpty()) {
+            applicationIdSuffix = verificationSuffix
+            versionNameSuffix = if (archiveCapacity == "true") "-archive-capacity" else "-archive-verification"
         }
         ndk { abiFilters += listOf("x86_64", "arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -111,6 +128,12 @@ android {
 androidComponents {
     beforeVariants(selector().all()) { variant ->
         if ((capacityTest || reliefTest) && variant.buildType != "debug") variant.enable = false
+    }
+}
+
+androidComponents {
+    beforeVariants(selector().withBuildType("release")) {
+        if (archiveCapacity == "true") it.enable = false
     }
 }
 

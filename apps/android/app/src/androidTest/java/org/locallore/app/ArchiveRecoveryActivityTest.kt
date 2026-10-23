@@ -255,7 +255,7 @@ class ArchiveRecoveryActivityTest {
         compose.onNodeWithTag("archive-import-pick").performScrollTo().performClick()
         awaitPackage { it in documents }
         clickIfPresent { it.contentDescription?.toString() in setOf("Show roots", "Open navigation drawer", "Show locations") }
-        clickDocumentNode { it.text?.toString() == "LocalLore test archives" }
+        clickDocumentNode { it.text?.toString() == "LocalLore test archives (${instrumentation.context.packageName})" }
         clickDocumentNode { it.text?.toString() == "Valid archive.json" }
         val deadline = SystemClock.elapsedRealtime() + 10_000
         while (activePackage() in documents && SystemClock.elapsedRealtime() < deadline) {

@@ -89,3 +89,12 @@ Its Python fault tests and three host Store transaction-interruption tests run
 in the normal host suite. The latter invoke one explicitly ignored IPC worker;
 that entry is not an additional standalone qualification test. No model or
 private save is provisioned, and no directory is recursively deleted by them.
+
+The explicit [archive capacity runner](../native/ARCHIVE_CAPACITY_VERIFICATION_2026-10-23.md)
+requires preinstalled exact `.archivecapacity` APKs and its exclusive build cache.
+It verifies actual SQLite Full and cache-only recovery through the real native
+gateways and Compose surface. Its nine Python ownership/evidence fault tests
+and three Store regressions run in the host gate. The separate compiled-page
+qualifier is explicitly ignored there and must be selected in its documented
+isolated Cargo profile. No default CI step provisions a device, fills a partition
+or enables the feature-only JNI fixture in an ordinary build.

@@ -39,9 +39,18 @@ struct PersistedReceipt {
 
 struct UniqueJson(serde_json::Value);
 
-pub(crate) fn parse_unique<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T, Error> {
+/// Structural JSON validation only. Caller supplies its byte budget; this grants
+/// no accepted-history, engine, filesystem or permission authority.
+pub fn parse_unique_json(bytes: &[u8], max_bytes: usize) -> Result<serde_json::Value, Error> {
+    if bytes.len() > max_bytes {
+        return Err(Error::TooLarge);
+    }
     let raw: UniqueJson = serde_json::from_slice(bytes).map_err(|_| Error::Malformed)?;
-    serde_json::from_value(raw.0).map_err(|_| Error::Malformed)
+    Ok(raw.0)
+}
+
+pub(crate) fn parse_unique<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T, Error> {
+    serde_json::from_value(parse_unique_json(bytes, bytes.len())?).map_err(|_| Error::Malformed)
 }
 
 impl<'de> Deserialize<'de> for UniqueJson {

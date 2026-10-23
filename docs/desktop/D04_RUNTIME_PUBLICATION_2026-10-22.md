@@ -7,8 +7,10 @@ Rust owner/adapter and fixed C++ worker, with no desktop application, Android,
 database, shared schema or canonical engine source changes. Native model
 management and frontend integration follow in the next PR.
 
-All runtime/worker implementation inputs are copied without modification from
-joint integration `61e8cf1eac0f0aa9285f1515bfd56d01c46d932b`. Earlier reports in
+Initial runtime/worker implementation inputs were copied without modification from
+joint integration `61e8cf1eac0f0aa9285f1515bfd56d01c46d932b`; review corrections
+`5e0f8d1` then fixed partial startup cleanup, native thread-launch recovery,
+first-role ordering and terminal-reply deadline checks. Earlier reports in
 this directory are historical packets: their source pins, counts and old worker
 hashes describe those runs. This report and `native/llama-worker/SCHEMA_ORDERING.md`
 identify the corrected publication worker and current verification.
@@ -49,20 +51,33 @@ python native/llama-worker/test_protocol.py <reviewed-worker.exe>
 & <reviewed-schema-order-test.exe>
 ```
 
+Review found that a failed pipe-thread launch before construction of the Rust
+owner could orphan the child, and failed C++ operation-thread construction could
+leave busy set permanently. The Rust cleanup owner now exists before any pipe
+extraction/thread creation, with fallible named launches and preallocated handles.
+Test-only per-thread failure injection covers all three partial stages and checks
+a duplicated exact-child Windows handle is signaled after return; existing started
+threads are joined. C++ launch resets busy and returns runtime_failed on failure;
+the model-free launch test demonstrates failure/nonexecution and successful recovery.
+The adapter also refuses a narrator as first role; parsed terminal replies recheck
+the deadline before publishing success. A test-only post-parse delay makes that
+race deterministic. None of these failure controls exists in the normal API/wire.
+
 The standalone fixture build is required before process tests; Cargo's binary
 test harness is not the executable protocol fixture. All-target/all-feature test:
-20 passed, 0 failed, 1 privilege-dependent case explicitly ignored (4.27s).
-The exact ignored reparse-path case then passed separately: **21 actually executed
+23 passed, 0 failed, 1 privilege-dependent case explicitly ignored (4.37s).
+The exact ignored reparse-path case then passed separately: **24 actually executed
 Rust cases**, no failure. Strict Clippy, rustfmt and staged diff checks passed.
 The actual compiled native worker passed **11 model-free protocol cases**.
 The actual pinned grammar converter/machine test passed **13 assertions**,
 including the demonstrated old property-order failure and corrected op-first
 Give, legal Wait, exact Say, narrator references and invalid fields/values.
+The actual native launch helper also passed **3 failure/recovery assertions**.
 These are native process/grammar checks; no model or app UI ran in this pass.
 Bounded logs stay in ignored local `target/`, not public artifacts.
 
 Actual corrected worker SHA256:
-`eda393e923ddfd03ea57d91741d8f7948d1a4af13deb90c7d6c90c492e63ff58`.
+`add98cf02249141942c88e2517c2f5a4c9a91dbe9638bf7d3cd30c26916bce87`.
 Pinned llama.cpp: `620d2225cc436ab0b001e3200e590e3b286ef9ab`.
 Approved existing Qwen3-0.6B Q8_0 model SHA256:
 `9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031`.
@@ -76,10 +91,23 @@ No binary, model, personal path, private prompt or generated raw story is commit
 
 ## Real-model evidence and pending gates
 
-The same corrected runtime/worker already ran the synthetic shared Engine/Store
-scene and actual application-owned Windows IPC/WebView2 harness in the separate
-joint integration. Scene gift/refusal/clarification/secret-observer/cancel/restart/
-retry/replay invariants passed. Native app evidence:31 assertions,10 app-owned
+The fresh corrected worker was built from the pinned upstream source using
+installed CMake3.22.1/Ninja/MSVC19.34, then passed the real-model lifecycle probe:
+load378.05ms; director543.70ms; narrator1007.18ms; active cancellation terminal229ms
+(one native abort callback); same-model fresh-context recovery393.00ms;
+unload/reload325.67ms; separate load cancellation terminal472ms (one callback);
+fresh worker/model recovery366.36ms. These are short observations with concurrent
+development builds, not performance distributions. Generated text is not saved.
+The fresh synthetic Engine/Store scene also passed in21556ms: gift, Inventory/
+ClarificationRequired/Ability refusal, exact secret scoped to Mira and absent from
+Sable, cancellation/nonmutation, restart, exact retry and no-inference replay.
+Both accepted narrations again used the explicit engine fallback. These commands
+use the opt-in runtime-probe/play-scene-probe binaries built with scene-probe,
+the reviewed fixed worker and already approved model; no app UI is involved.
+
+The earlier `eda393e9...` worker ran the actual application-owned Windows
+IPC/WebView2 harness in separate joint integration. That prior-binary native
+app evidence is31 assertions,10 app-owned
 render images and two process executions across restart. Those dependent app
 sources are absent from this boundary and their evidence is not a standalone
 runtime UI test. Both accepted narrations used the labeled safe engine fallback

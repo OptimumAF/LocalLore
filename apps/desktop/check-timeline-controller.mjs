@@ -117,6 +117,52 @@ const play = (s, revision, receipts = []) => ({
         observations: [],
     },
 });
+function originalScopeReview() {
+    const original = play(scope("child"), 2, [receipt(scope("main"), 1)]);
+    check(
+        playView(original, scope("child"), 2) === original &&
+            original.receipts[0].request.scope.branch === "main",
+        "inherited-view-is-not-relabelled-or-copied",
+    );
+    for (const [label, mutate] of [
+        ["missing-original-scope", (v) => (v.receipts[0].request.scope = null)],
+        [
+            "extra-original-scope-key",
+            (v) => (v.receipts[0].request.scope.extra = true),
+        ],
+        [
+            "empty-original-branch",
+            (v) => (v.receipts[0].request.scope.branch = ""),
+        ],
+        [
+            "traversal-original-branch",
+            (v) => (v.receipts[0].request.scope.branch = "../outside"),
+        ],
+        [
+            "oversized-original-branch",
+            (v) => (v.receipts[0].request.scope.branch = "b".repeat(65)),
+        ],
+        ["player-scope-mismatch", (v) => (v.player.scope = scope("sibling"))],
+        ["player-revision-mismatch", (v) => (v.player.revision = 1)],
+        [
+            "negative-event-sequence",
+            (v) => (v.receipts[0].events[0].sequence = -1),
+        ],
+        ["zero-event-sequence", (v) => (v.receipts[0].events[0].sequence = 0)],
+    ]) {
+        const v = structuredClone(original);
+        mutate(v);
+        assert.throws(() => playView(v, scope("child"), 2), undefined, label);
+        checks.push(`original-scope-review-reject-${label}`);
+    }
+}
+if (process.argv.includes("--scope-review")) {
+    originalScopeReview();
+    console.log(
+        "PASS: actual play decoder original-scope shape and sequence checks.",
+    );
+    process.exit(0);
+}
 async function actualChildResume() {
     const calls = [];
     const gateway = {
@@ -170,6 +216,7 @@ async function actualChildResume() {
             ),
         "existing-resume-only-no-generation-or-grant",
     );
+    return { controller: c, gateway, calls };
 }
 if (process.argv.includes("--child-resume-repro")) {
     await actualChildResume();
@@ -249,6 +296,24 @@ check(
     decodeBranchCatalog(unicode, "timeline-synthetic").title === unicode.title,
     "shared-title256-unicode-codepoints-accepted",
 );
+const full = { ...catalog(), branches: [row("main", null, null, 4)] };
+for (let i = 0; i < 255; i++) full.branches.push(row(`b${i}`, "main", 0, 0));
+check(
+    decodeBranchCatalog(full, "timeline-synthetic").branches.length === 256,
+    "shared-256-branch-count-accepted",
+);
+const large = {
+    ...catalog(),
+    root_branch: "r".repeat(64),
+    branches: [row("r".repeat(64), null, null, 4)],
+};
+for (let i = 0; i < 255; i++)
+    large.branches.push(row(`b${i}`.padEnd(64, "x"), large.root_branch, 0, 0));
+assert.throws(
+    () => decodeBranchCatalog(large, "timeline-synthetic"),
+    /TooLarge/,
+);
+checks.push("shared-60KiB-byte-cap-enforced");
 const prebirth = catalog();
 prebirth.branches[2] = row("parent", "main", 4, 4, true);
 prebirth.branches[0] = row("child", "parent", 1, 1);
@@ -504,7 +569,55 @@ for (const [label, mutate] of [
     );
     checks.push(`gameplay-reject-${label}`);
 }
-await actualChildResume();
+const actual = await actualChildResume();
+{
+    const c = actual.controller;
+    const both = new TimelineController(
+        {
+            async call(q) {
+                if (q.op === "branches")
+                    return {
+                        ...catalog(),
+                        branches: [
+                            row("main", null, null, 1),
+                            row("child", "main", 1, 2),
+                        ],
+                    };
+                return actual.gateway.call(q);
+            },
+        },
+        (s) => resumeTimeline(c, s),
+    );
+    // The gateway/session data is MOCK. The timeline and actual gameplay
+    // controllers, subscribe fence and existing-session switch path are real.
+    const sync = () =>
+        both.contextChanged({ ...timelineContext(c), persistent: true });
+    const release = c.subscribe(sync);
+    sync();
+    await both.show();
+    await both.select("main");
+    check(
+        c.selected().scope.branch === "main" && c.get().play.revision === 1,
+        "timeline-selection-uses-actual-existing-session-switch",
+    );
+    check(
+        actual.calls.filter((q) => q.op === "resume").length === 1,
+        "switch-reuses-existing-owner-no-second-resume",
+    );
+    check(
+        !both.get().shown &&
+            both.get().catalog === null &&
+            !both.get().notice.includes("Selection completed"),
+        "combined-subscription-clears-old-selection-presentation",
+    );
+    check(
+        c.get().observer === "player" && c.get().view === "play",
+        "selection-does-not-grant-or-change-observer",
+    );
+    release();
+    both.dispose();
+}
+originalScopeReview();
 const snapshot = play(scope("child"), 2, [
     receipt(scope("main"), 1),
     receipt(scope("child"), 2),

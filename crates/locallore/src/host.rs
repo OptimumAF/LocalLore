@@ -605,13 +605,15 @@ impl Host {
                     Ok(attach_engine(state, engine))
                 }
                 HostCommand::Resume { scope } => {
-                    if let Some((id, s)) = state
+                    if let Some(id) = state
                         .sessions
                         .iter()
                         .find(|(_, s)| s.engine.scope() == scope)
+                        .map(|(id, _)| id.clone())
                     {
+                        refresh_session(state, &id, scope)?;
                         return Ok(ok(
-                            json!({"session":id,"scope":scope,"revision":s.engine.revision()}),
+                            json!({"session":id,"scope":scope,"revision":state.sessions[&id].engine.revision()}),
                         ));
                     }
                     if state.sessions.len() >= MAX_SESSIONS {
@@ -658,6 +660,7 @@ impl Host {
                         .unwrap()
                         .begin(request)
                         .map_err(reject)?;
+                    refresh_session(state, session, &request.scope)?;
                     let s = get_session(state, session, &request.scope)?;
                     if saved.phase != "draft" {
                         let t = saved_turn(saved, *mode)?;
@@ -693,6 +696,7 @@ impl Host {
                         .unwrap()
                         .status(scope, turn)
                         .map_err(reject)?;
+                    refresh_session(state, session, scope)?;
                     let s = get_session(state, session, scope)?;
                     if saved.phase == "draft" {
                         if let Some(t) = s.turns.get(turn) {
@@ -700,7 +704,10 @@ impl Host {
                         }
                     }
                     let mode = s.turns.get(turn).map_or(Mode::Accepted, |t| t.mode);
-                    Ok(ok(saved_turn(saved, mode)?.view()))
+                    let t = saved_turn(saved, mode)?;
+                    let reply = ok(t.view());
+                    s.turns.insert(turn.clone(), t);
+                    Ok(reply)
                 }
                 HostCommand::Cancel {
                     session,
@@ -723,6 +730,7 @@ impl Host {
                         .unwrap()
                         .cancel(&original.request)
                         .map_err(reject)?;
+                    refresh_session(state, session, scope)?;
                     let s = get_session(state, session, scope)?;
                     let mode = s.turns.get(turn).map_or(Mode::Accepted, |t| t.mode);
                     let t = saved_turn(saved, mode)?;
@@ -743,7 +751,13 @@ impl Host {
                         .status(scope, turn)
                         .map_err(reject)?;
                     if stored.phase != "draft" {
-                        return Ok(ok(saved_turn(stored, Mode::Accepted)?.view()));
+                        refresh_session(state, session, scope)?;
+                        let s = get_session(state, session, scope)?;
+                        let mode = s.turns.get(turn).map_or(Mode::Accepted, |t| t.mode);
+                        let t = saved_turn(stored, mode)?;
+                        let reply = ok(t.view());
+                        s.turns.insert(turn.clone(), t);
+                        return Ok(reply);
                     }
                     let s = get_session(state, session, scope)?;
                     let t = s.turns.get_mut(turn).ok_or_else(|| reject("NotReady"))?;
@@ -769,12 +783,8 @@ impl Host {
                         prepared.narration(),
                     ) {
                         Ok(receipt) => {
+                            refresh_session(state, session, scope)?;
                             let s = get_session(state, session, scope)?;
-                            // Store is the writer. This cache update cannot invent a different result;
-                            // Open always reloads canonical storage before a refreshed UI snapshot.
-                            let _ =
-                                s.engine
-                                    .commit(&request, receipt.proposal(), receipt.narration());
                             let t = saved_turn(
                                 SavedTurn {
                                     request,
@@ -793,6 +803,7 @@ impl Host {
                             let lookup = state.persistence.as_mut().unwrap().status(scope, turn);
                             match lookup {
                                 Ok(saved) if saved.phase != "draft" => {
+                                    refresh_session(state, session, scope)?;
                                     let t = saved_turn(saved, mode)?;
                                     let reply = ok(t.view());
                                     get_session(state, session, scope)?
@@ -823,7 +834,7 @@ impl Host {
                     state.sessions.remove(session);
                     Ok(ok(json!({"closed":true,"saved":true})))
                 }
-                _ => return Ok(Value::Null),
+                _ => Ok(Value::Null),
             }
         })();
         match result {
@@ -874,6 +885,35 @@ impl Host {
     }
     fn finish_work(&self, work: Work, result: Result<Receipt, Error>) -> Value {
         let mut state = self.state.lock().unwrap();
+        // Generation runs without the owner lock. Another process may have finalized
+        // this key meanwhile; its persisted outcome must win over this worker.
+        if state.persistence.is_some() && state.sessions.contains_key(&work.session) {
+            let observed = (|| -> Result<Option<Value>, Value> {
+                let saved = state
+                    .persistence
+                    .as_mut()
+                    .unwrap()
+                    .status(&work.request.scope, &work.turn)
+                    .map_err(reject)?;
+                refresh_session(&mut state, &work.session, &work.request.scope)?;
+                if saved.phase == "draft" {
+                    return Ok(None);
+                }
+                let t = saved_turn(saved, work.mode)?;
+                let reply = ok(t.view());
+                state
+                    .sessions
+                    .get_mut(&work.session)
+                    .unwrap()
+                    .turns
+                    .insert(work.turn.clone(), t);
+                Ok(Some(reply))
+            })();
+            match observed {
+                Ok(Some(reply)) | Err(reply) => return reply,
+                Ok(None) => {}
+            }
+        }
         let Some(s) = state.sessions.get_mut(&work.session) else {
             return reject("Closed");
         };
@@ -884,9 +924,7 @@ impl Host {
         if t.phase == Phase::Cancelled || work.cancel.is_cancelled() {
             t.phase = Phase::Cancelled;
             t.error = Some("Cancelled".into());
-            return ok(t.view());
-        }
-        if s.engine.revision() != work.request.expected_revision {
+        } else if s.engine.revision() != work.request.expected_revision {
             t.phase = Phase::Stale;
             t.error = Some("Stale".into());
         } else {
@@ -914,8 +952,24 @@ impl Host {
                 Phase::Stale => Some(port.stale(&work.request)),
                 _ => None,
             };
-            if let Some(Ok(saved)) = saved {
-                if saved.phase == "committed" {
+            if let Some(saved) = saved {
+                let saved = match saved {
+                    Ok(saved) => saved,
+                    Err(error) => return reject(error),
+                };
+                if saved.phase
+                    != match phase {
+                        Phase::Cancelled => "cancelled",
+                        Phase::Failed => "failed",
+                        Phase::Stale => "stale",
+                        _ => "draft",
+                    }
+                {
+                    if let Err(reply) =
+                        refresh_session(&mut state, &work.session, &work.request.scope)
+                    {
+                        return reply;
+                    }
                     if let Ok(t) = saved_turn(saved, work.mode) {
                         let reply = ok(t.view());
                         state
@@ -965,6 +1019,17 @@ fn get_session<'a>(
         return Err(reject("Scope"));
     }
     Ok(s)
+}
+fn refresh_session(state: &mut State, id: &str, scope: &Scope) -> Result<(), Value> {
+    get_session(state, id, scope)?;
+    let engine = state
+        .persistence
+        .as_mut()
+        .unwrap()
+        .resume(scope)
+        .map_err(reject)?;
+    get_session(state, id, scope)?.engine = engine;
+    Ok(())
 }
 fn attach_engine(state: &mut State, engine: Engine) -> Value {
     let Some(next) = state.next.checked_add(1) else {

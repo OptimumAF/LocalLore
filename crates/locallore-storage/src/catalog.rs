@@ -50,7 +50,7 @@ impl Store {
                 self.connection
                     .query_row("SELECT lower(hex(randomblob(16)))", [], |r| r.get(0))?;
             seed.scope.story = format!("quay-{suffix}");
-            match self.create_story(title, seed.clone()) {
+            match self.create_story_bounded(title, seed.clone(), true) {
                 Ok(()) => return Ok(seed.scope),
                 Err(StorageError::DuplicateStory) => continue,
                 Err(e) => return Err(e),

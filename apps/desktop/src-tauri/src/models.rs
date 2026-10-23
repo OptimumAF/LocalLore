@@ -48,6 +48,7 @@ impl ModelManager {
         self.root.join("Qwen3-0.6B-Q8_0.gguf")
     }
     pub fn status(&self) -> Result<Value, String> {
+        let imported = self.path().is_file();
         let mut s = self.inner.lock().map_err(|_| "Internal")?;
         let failed = s.runtime.as_ref().is_some_and(|owner| {
             owner.try_lock().is_ok_and(|runtime| {
@@ -59,7 +60,7 @@ impl ModelManager {
             s.error = Some("Runtime".into());
         }
         Ok(
-            json!({"operation_id":s.job,"resident":s.runtime.is_some(),"phase":s.phase,"percent":s.percent,"error":s.error,"loaded":s.runtime.is_some()&&!failed,"imported":self.path().is_file(),"profile":s.profile,"available_profile":{"id":PROFILE,"model_bytes":MODEL_BYTES,"model_sha256":MODEL_SHA256,"runtime_revision":RUNTIME_COMMIT,"device":"CPU: experimental Windows x64","qualification":"Experimental. Narrative quality and offline qualification remain pending."}}),
+            json!({"operation_id":s.job,"resident":s.runtime.is_some(),"phase":s.phase,"percent":s.percent,"error":s.error,"loaded":s.runtime.is_some()&&!failed,"imported":imported,"profile":s.profile,"available_profile":{"id":PROFILE,"model_bytes":MODEL_BYTES,"model_sha256":MODEL_SHA256,"runtime_revision":RUNTIME_COMMIT,"device":"CPU: experimental Windows x64","qualification":"Experimental. Narrative quality and offline qualification remain pending."}}),
         )
     }
     fn begin(&self, phase: &'static str) -> Result<(u64, Arc<AtomicBool>), String> {

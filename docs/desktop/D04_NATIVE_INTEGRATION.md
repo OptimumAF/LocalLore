@@ -7,7 +7,10 @@ prompts, model hashes or configuration. The native file picker selects a source;
 import copies only the exact approved artifact into app-local models storage.
 Missing/incompatible/corrupt sources are refused. Hash, byte count, available
 space, root/ancestor pinning and no-replace staged publication protect the copy.
-The source is opened read-only and is never changed. No weights are distributed
+The source is opened read-only and is never changed. The packaged application and
+native worker remain a trusted installation boundary; a compromised package or
+operating system can replace code or read local data. Hash/provenance checks do
+not promise protection from that compromise. No weights are distributed
 with this source or downloaded during play.
 
 One loaded model serves director and narrator sequentially with fresh isolated

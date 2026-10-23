@@ -1,7 +1,7 @@
 //! Native-only full-private playable archive authority. No renderer paths or bytes.
 use crate::{exports, lease::WindowLease};
 use locallore_storage::{
-    validate_archive, ArchivePreview, Store, ValidatedArchive, ARCHIVE_VERSION,
+    playable_archive::ARCHIVE_VERSION, validate_archive, ArchivePreview, Store, ValidatedArchive,
 };
 use serde_json::{json, Value};
 use std::{

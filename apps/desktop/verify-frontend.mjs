@@ -7,6 +7,7 @@ for (const args of [
     ["node_modules/typescript/bin/tsc", "--noEmit"],
     ["check-contract.mjs"],
     ["check-export-controller.mjs"],
+    ["check-model-controller.mjs"],
 ]) {
     const code = await new Promise((resolve, reject) => {
         const child = spawn(process.execPath, args, {

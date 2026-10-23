@@ -129,3 +129,34 @@ These suites exercise parser policy, journal ordering and transport control
 without invoking ADB. No real device/cohort outcome or graphics fix is claimed
 by this review. The concrete additional abort counterexample above was not
 covered by those initial passing tests.
+
+## Correction verification
+
+The parser owner's follow-up `5e68f3d` was integrated by the coordinator as
+`ad173d9`; the runner was committed at `25c6d6f`. For isolated source review,
+this worktree cherry-picked the initial parser prerequisite `504cb5a` and then
+the follow-up. The resulting parser and test blobs match the coordinator's
+integrated correction exactly. No source fix was authored by this reviewer.
+
+The correction computes the combined abort state before deciding final success
+and requires `not aborted`. Its new regression reproduces the explicit abort
+plus a forged success summary, preserves all four earlier valid case results
+and verified order, reports `status=aborted` and `final_success=false`, and
+confirms that the private canary does not escape. This resolves the concrete
+metadata inconsistency without discarding partial evidence or relaxing cohort
+acceptance.
+
+Read-only synthetic verification in the coordinator's checkout after integration:
+
+```text
+python -m unittest discover -s scripts/tests -p test_android_instrumentation_result.py
+  22 passed, 0 failed
+python -m unittest discover -s scripts/tests -p test_android_app_reliability_smoke.py
+  19 passed, 0 failed
+git diff --check
+  passed
+```
+
+No ADB, device, model, installed APK or network operation was exercised by
+these commands. Real cohort outcomes and the still-unexplained graphics abort
+remain separate verification evidence owned by the coordinator.

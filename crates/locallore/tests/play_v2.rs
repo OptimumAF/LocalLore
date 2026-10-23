@@ -206,6 +206,9 @@ fn consequential_invention_foreign_speaker_and_unearned_healing_use_labeled_safe
         json!({"text":"A golden key appears in your hand.","event_ids":[1],"speaker":"narrator"}),
         json!({"text":"The potion passes to Mira.","event_ids":[1],"speaker":"sable"}),
         json!({"text":"Mira is healed and her injury disappears.","event_ids":[1],"speaker":"narrator"}),
+        json!({"text":"Mira's ankle mends.","event_ids":[1],"speaker":"narrator"}),
+        json!({"text":"You give a potion to Miran.","event_ids":[1],"speaker":"narrator"}),
+        json!({"text":"You said that the fire is burning.","event_ids":[1],"speaker":"narrator"}),
     ] {
         let mut e = engine();
         let r = request(&e);
@@ -381,6 +384,34 @@ fn v1_bytes_and_strict_narration_survive_mixed_history_and_v2_effect_tampering_i
         clean.commit(&r, receipt.proposal(), receipt.narration()),
         Err(Error::Agency)
     );
+    let mut prototype = serde_json::to_value(&receipt).unwrap();
+    prototype["play"]["policy"] = json!("grounded-prose-v2.0");
+    prototype["play"]["prompt_version"] = json!("locallore-play-v2.0");
+    assert!(
+        Engine::restore(fresh.seed().clone(), &[prototype.to_string()]).is_err(),
+        "unmerged unguarded prototype policy has no fresh-commit/restore bypass"
+    );
+}
+
+#[test]
+fn a_visible_name_alias_is_not_rejected_for_a_distinct_hidden_actor_with_the_same_name() {
+    let mut seed = engine().seed().clone();
+    seed.actors.get_mut("mira").unwrap().name = "Oren".into();
+    let mut e = Engine::new(seed).unwrap();
+    let r = e.request(
+        "visible-name",
+        Intent::FreeText {
+            kind: PlayInputKind::Action,
+            text: "I give potion to mira.".into(),
+        },
+    );
+    let mut p = Script::new(vec![
+        gift(),
+        json!({"text":"You pass the potion to Oren with care.","event_ids":[1],"speaker":"narrator"}),
+    ]);
+    let receipt = play::execute(&mut e, &r, &mut p, &Cancellation::default(), &profile()).unwrap();
+    assert!(!receipt.play().unwrap().fallback);
+    assert_eq!(e.state().items["potion"].owner, "mira");
 }
 
 #[test]

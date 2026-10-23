@@ -185,6 +185,10 @@ fn validate_prose(engine: &Engine, approved: &Receipt, text: &str) -> Result<(),
         || text.contains('“')
         || text.contains('”')
         || lower.contains(" says")
+        || lower.contains(" said")
+        || lower.contains("you say ")
+        || lower.contains("you tell ")
+        || lower.contains(" told ")
         || lower.contains(" tells ")
     {
         return Err(Error::Narration);
@@ -234,7 +238,18 @@ fn validate_prose(engine: &Engine, approved: &Receipt, text: &str) -> Result<(),
         })
     };
     for (kind, words) in [
-        ("consumed", &["healed", "cured", "injury disappears"][..]),
+        (
+            "consumed",
+            &[
+                "healed",
+                "cured",
+                "injury disappears",
+                "ankle mends",
+                "wound closes",
+                "injury vanishes",
+                "energy restored",
+            ][..],
+        ),
         ("learned", &["mastered", "learned a", "new power"][..]),
         ("moved", &["arrives at", "travels to", "teleports"][..]),
     ] {
@@ -263,10 +278,63 @@ fn validate_prose(engine: &Engine, approved: &Receipt, text: &str) -> Result<(),
         .iter()
         .flat_map(|e| e.witnesses().iter().map(String::as_str))
         .collect();
+    let visible_labels: BTreeSet<_> = engine
+        .state()
+        .actors
+        .iter()
+        .filter(|(id, _)| visible.contains(id.as_str()))
+        .flat_map(|(id, actor)| [id.to_lowercase(), actor.name.to_lowercase()])
+        .collect();
+    // This profile has no authority to introduce a new named character. Keep the
+    // conservative check to capitalized in-sentence tokens; it is no NLP proof.
+    for sentence in text.split(['.', '!', '?', '\n']) {
+        for (index, token) in sentence.split_whitespace().enumerate() {
+            let token = token.trim_matches(|c: char| !c.is_alphabetic());
+            let token = token
+                .strip_suffix("'s")
+                .or_else(|| token.strip_suffix("’s"))
+                .unwrap_or(token);
+            let opening_word = index == 0
+                && [
+                    "you",
+                    "your",
+                    "the",
+                    "a",
+                    "an",
+                    "it",
+                    "in",
+                    "at",
+                    "with",
+                    "as",
+                    "after",
+                    "before",
+                    "carefully",
+                    "gently",
+                    "quietly",
+                ]
+                .contains(&token.to_lowercase().as_str());
+            if token.chars().next().is_some_and(char::is_uppercase)
+                && !opening_word
+                && !visible_labels.contains(&token.to_lowercase())
+                && !source.contains(&token.to_lowercase())
+            {
+                return Err(Error::Narration);
+            }
+        }
+    }
     for (id, actor) in &engine.state().actors {
-        if !visible.contains(id.as_str())
-            && (lower.contains(&id.to_lowercase()) || lower.contains(&actor.name.to_lowercase()))
-        {
+        let hidden_mentioned = [id.to_lowercase(), actor.name.to_lowercase()]
+            .iter()
+            .any(|label| {
+                !visible_labels.contains(label)
+                    && lower.match_indices(label).any(|(start, _)| {
+                        let end = start + label.len();
+                        let boundary = |c: char| !c.is_alphanumeric() && !matches!(c, '_' | '-');
+                        lower[..start].chars().next_back().is_none_or(boundary)
+                            && lower[end..].chars().next().is_none_or(boundary)
+                    })
+            });
+        if !visible.contains(id.as_str()) && hidden_mentioned {
             return Err(Error::Knowledge);
         }
     }

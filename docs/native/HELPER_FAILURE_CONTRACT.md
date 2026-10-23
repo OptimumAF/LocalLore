@@ -46,6 +46,15 @@ unchanged. Pipe buffering is bounded. An observed timeout is not evidence of
 death: only terminal process/reader observations prove that cleanup completed.
 An unreaped owner blocks dependent work and remains a failure.
 
+Android's [API35-era process implementation](https://android.googlesource.com/platform/libcore/+/android-15.0.0_r1/ojluni/src/main/java/java/lang/UNIXProcess.java)
+closes streams during `destroy()`. Observations distinguish an IOException seen
+after the parent's atomic termination-request flag from unexpected reader
+failures. This records order/type, not proof of exact causality. Timeout tests
+still require the actual deadline, owned termination, terminal reap and both
+readers stopped. Aggregate `readFailed` and process-wide poison remain set;
+shutdown observations never authorize further cleanup or native work. Other
+fault cases require no reader failure.
+
 ## Host admission and continuation
 
 The host example's fixed optional fault selector is confined to a fresh owned

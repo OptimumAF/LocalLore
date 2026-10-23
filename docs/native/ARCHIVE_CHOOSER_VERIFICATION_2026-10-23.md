@@ -79,7 +79,8 @@ Read access was denied before source selection; write access was denied before
 creation and granted afterward. No chooser grant was persisted. A selected
 same-ID archive failed without overwrite; future-format and malformed documents
 failed without import, then a valid preview could be selected and cancelled.
-Prior stories/accepted state were preserved and the prior selection was restored.
+Prior library entries and the previously selected story's accepted state were
+preserved, and the prior selection was restored.
 
 Provider counts reached opened=closed, active=0 and zero close failures. Existing
 regressions separately exercised actual pending-picker cancellation across Activity

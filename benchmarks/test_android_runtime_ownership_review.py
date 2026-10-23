@@ -180,7 +180,7 @@ class ImmediateDevice:
     def shell(self, *args, **kwargs):
         self.shells.append(args)
         if args[0] == "rmdir":
-            raise spike.Failure(CANARY)
+            raise spike.Failure(CANARY, command_cleaned=True)
         return b""
 
     def put_bytes(self, data, path):

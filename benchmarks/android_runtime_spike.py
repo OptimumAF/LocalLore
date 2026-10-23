@@ -321,11 +321,11 @@ class SdkWorker:
     def verify_package(self):
         path = self.device.shell("pm", "path", PACKAGE).strip()
         if not path.startswith(b"package:") or b"\n" in path:
-            raise Failure("package_identity_failed")
+            raise Failure("package_identity_failed", command_cleaned=True)
         installed = path[len(b"package:"):].decode("utf-8")
         observed = self.device.shell("sha256sum", installed)
         if not observed or observed.split()[0].decode("ascii") != self.apk_sha256:
-            raise Failure("package_identity_failed")
+            raise Failure("package_identity_failed", command_cleaned=True)
 
     def stop(self):
         self.stop_stage = "sdk_stop_identity"
@@ -381,7 +381,8 @@ class SdkWorker:
                     cleanup_failure = "sdk_stop_absence"
                 elif adb_cleaned:
                     files = self.cleanup_request()
-            except Exception:
+            except Exception as cleanup_error:
+                adb_cleaned = adb_cleaned and getattr(cleanup_error, "command_cleaned", False) is True
                 cleanup_failure = self.stop_stage if self.stop_stage != "none" else "sdk_request_cleanup"
             return RemoteResult("setup_failed", round((time.monotonic() - start) * 1000), cleaned,
                                 adb_cleanup_complete=adb_cleaned, directory_cleanup_complete=files,
@@ -392,10 +393,11 @@ class SdkWorker:
             files = False
             try:
                 files = self.cleanup_request()
-            except Exception:
+            except Exception as cleanup_error:
+                adb_cleaned = getattr(cleanup_error, "command_cleaned", False) is True
                 cleanup_failure = "sdk_request_cleanup"
             return RemoteResult(expired, round((time.monotonic() - start) * 1000), True,
-                                adb_cleanup_complete=True, directory_cleanup_complete=files,
+                                adb_cleanup_complete=adb_cleaned if cleanup_failure != "none" else True, directory_cleanup_complete=files,
                                 failure_stage="sdk_wait_instrumentation" if expired == "timeout" else "none",
                                 cleanup_failure_stage=cleanup_failure)
         results, finished, host_cancel = [], threading.Event(), threading.Event()
@@ -440,7 +442,8 @@ class SdkWorker:
                     cleanup_failure = "sdk_stop_absence"
                 elif adb_cleaned:
                     files = self.cleanup_request()
-            except Exception:
+            except Exception as cleanup_error:
+                adb_cleaned = adb_cleaned and getattr(cleanup_error, "command_cleaned", False) is True
                 cleanup = False if self.stop_stage != "none" else cleanup
                 cleanup_failure = self.stop_stage if self.stop_stage != "none" else "sdk_request_cleanup"
             if not adb_cleaned:
@@ -482,7 +485,8 @@ class NativeWorker:
                 try:
                     remove_run(device, run)
                     files = True
-                except Exception:
+                except Exception as cleanup_error:
+                    adb_cleaned = adb_cleaned and getattr(cleanup_error, "command_cleaned", False) is True
                     cleanup_failure = "native_remove_run"
             # No native launcher was started, independently of directory/ADB cleanup.
             return RemoteResult("setup_failed", round((time.monotonic() - start) * 1000), True,
@@ -527,7 +531,7 @@ class NativeWorker:
         pid, identity = None, None
         status, cleanup, directory_cleanup = "owner_failed", False, False
         output, code = b"", None
-        failure, cleanup_failure = "none", "none"
+        failure, cleanup_failure, commands_cleaned = "none", "none", True
         try:
             phase = "native_read_owner"
             until = time.monotonic() + min(8, deadline)
@@ -535,18 +539,18 @@ class NativeWorker:
                 raw = device.read_optional(run + "/owner")
                 if raw:
                     if re.fullmatch(rb"[1-9][0-9]{0,9}\r?\n", raw) is None:
-                        raise Failure("invalid_owner")
+                        raise Failure("invalid_owner", command_cleaned=True)
                     pid = int(raw)
                     phase = "native_verify_owner"
                     identity = device.identity(pid)
                     if identity is None or identity[1] != [arg.encode("utf-8") for arg in command]:
-                        raise Failure("invalid_owner")
+                        raise Failure("invalid_owner", command_cleaned=True)
                     break
                 if stopped.is_set():
-                    raise Failure("owner_failed")
+                    raise Failure("owner_failed", command_cleaned=True)
                 time.sleep(.02)
             if identity is None:
-                raise Failure("owner_failed")
+                raise Failure("owner_failed", command_cleaned=True)
             requested = None
             elapsed = time.monotonic() - start
             if cancel_after is not None and elapsed >= cancel_after:
@@ -595,7 +599,8 @@ class NativeWorker:
             if not cleanup:
                 status = "cleanup_failed"
                 failure, cleanup_failure = phase, "native_verify_reap"
-        except Exception:
+        except Exception as error:
+            commands_cleaned = getattr(error, "command_cleaned", False) is True
             failure, cleanup_failure = phase, "native_verify_reap"
             status = "cleanup_failed"
             try:
@@ -610,9 +615,10 @@ class NativeWorker:
                 try:
                     remove_run(device, run)
                     directory_cleanup = True
-                except Exception:
+                except Exception as cleanup_error:
+                    commands_cleaned = commands_cleaned and getattr(cleanup_error, "command_cleaned", False) is True
                     cleanup_failure = "native_remove_run"
-        adb_cleaned = bool(results and results[0].cleanup_complete and not thread.is_alive())
+        adb_cleaned = bool(commands_cleaned and results and results[0].cleanup_complete is True and not thread.is_alive())
         if not adb_cleaned:
             cleanup_failure = "native_join_adb"
         return RemoteResult(status, round((time.monotonic() - start) * 1000), cleanup,

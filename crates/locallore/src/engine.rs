@@ -363,6 +363,16 @@ impl Engine {
         }
     }
 
+    // History paths alone retain the explicitly supported recorded prompt. A
+    // prepared value supplied for a new turn must still use the current prompt.
+    fn commit_recorded(&mut self, receipt: &Receipt) -> Result<Receipt, Error> {
+        if let Some(play) = receipt.play() {
+            self.commit_play_history(receipt.request(), receipt.proposal(), play, true)
+        } else {
+            self.commit(receipt.request(), receipt.proposal(), receipt.narration())
+        }
+    }
+
     /// Restore bounded complete persisted root-history receipts, never a supplied projection.
     /// V1 rules are deterministic: rebuilding verifies every recorded resolved outcome. Future
     /// random rules require an explicit recorded-outcome contract; they must not reroll here.
@@ -420,11 +430,7 @@ impl Engine {
             if engine.recorded(&receipt.request)?.is_some() {
                 return Err(Error::CorruptHistory);
             }
-            let rebuilt = if let Some(play) = receipt.play() {
-                engine.commit_play_history(receipt.request(), receipt.proposal(), play, true)?
-            } else {
-                engine.commit(receipt.request(), receipt.proposal(), receipt.narration())?
-            };
+            let rebuilt = engine.commit_recorded(receipt)?;
             if &rebuilt != receipt {
                 return Err(Error::CorruptHistory);
             }
@@ -458,7 +464,7 @@ impl Engine {
                 break;
             }
             result.scope = receipt.request.scope.clone();
-            let rebuilt = result.commit_prepared(receipt)?;
+            let rebuilt = result.commit_recorded(receipt)?;
             if rebuilt != *receipt {
                 return Err(Error::CorruptHistory);
             }

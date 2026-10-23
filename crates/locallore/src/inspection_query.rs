@@ -1,5 +1,5 @@
-//! Bounded read-only inspection of an immutable validated root-history Engine.
-//! This module derives views; it never supplies generation context or establishes knowledge.
+//! Read-only eligibility over an immutable validated root-history Engine.
+//! Shared views and an internal actor-context port never establish canonical knowledge.
 use crate::{contracts::*, engine::Engine};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

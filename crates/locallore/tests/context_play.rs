@@ -190,6 +190,11 @@ fn exact_accepted_main_v21_receipt_restores_replays_and_retries_but_cannot_be_a_
         restored.recorded(receipt.request()).unwrap().as_ref(),
         Some(receipt)
     );
+    let child = restored.fork("legacy-child", restored.revision()).unwrap();
+    assert_eq!(child.scope().branch, "legacy-child");
+    assert_eq!(child.revision(), restored.revision());
+    assert_eq!(child.state(), restored.state());
+    assert_eq!(child.receipts(), restored.receipts());
     let mut fresh = Engine::new(seed).unwrap();
     let before = fresh.canonical_bytes();
     assert_eq!(fresh.commit_prepared(receipt), Err(Error::Narration));

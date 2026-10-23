@@ -4,4 +4,6 @@ pub mod engine;
 #[cfg(feature = "host")]
 pub mod host;
 pub mod inference;
+#[cfg(feature = "host")]
+pub mod inspection;
 pub mod scope;

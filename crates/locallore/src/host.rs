@@ -237,6 +237,43 @@ impl Default for Host {
     }
 }
 impl Host {
+    /// Native-only immutable export capture. No path or file-writing capability is on the wire.
+    /// Storage is reloaded transactionally before the explicit head check; generation and writes
+    /// may continue after this clone is captured, without changing the returned export.
+    pub fn inspection_snapshot(
+        &self,
+        session: &str,
+        scope: &Scope,
+        expected_revision: u64,
+        mode: crate::inspection::ExportMode,
+    ) -> Result<crate::inspection::InspectionBundle, String> {
+        if mode == crate::inspection::ExportMode::Full && !self.story_lab {
+            return Err("Forbidden".into());
+        }
+        let engine = {
+            let mut state = self.state.lock().map_err(|_| "Internal")?;
+            let s = state.sessions.get(session).ok_or("Closed")?;
+            if s.engine.scope() != scope {
+                return Err("Scope".into());
+            }
+            let cached = s.engine.clone();
+            if let Some(port) = state.persistence.as_mut() {
+                port.resume(scope)?
+            } else {
+                cached
+            }
+        };
+        if engine.revision() != expected_revision {
+            return Err("Stale".into());
+        }
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| "Clock")?
+            .as_millis()
+            .try_into()
+            .map_err(|_| "Clock")?;
+        crate::inspection::capture(&engine, mode, timestamp)
+    }
     pub fn with_persistence(story_lab: bool, persistence: Box<dyn Persistence>) -> Self {
         let host = Self::new(story_lab);
         host.state.lock().unwrap().persistence = Some(persistence);

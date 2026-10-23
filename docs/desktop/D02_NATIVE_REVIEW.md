@@ -171,3 +171,84 @@ regressions against fixed source; verify lost-submit and lost-commit recovery,
 duplicate Retry, switching/disposal during recovery, and read-response ordering
 in the integrated journey suite. These findings remain a request for concrete
 fix/test evidence until the coordinator records that disposition.
+
+## Follow-up disposition and integrated evidence inspection
+
+Reread coordinator source after the first native harness run. At that review,
+SHA-256 values were:
+
+| File | SHA-256 |
+|---|---|
+| `ui/controller.ts` | `39fa78797c9ebf845c0411ffff1e202c491f04a7cbea2011472a710818b1b928` |
+| `ui/model.ts` | `11253b9752c83c0af8107c1376318bb100d973c20fff37c84a3a55074670ce15` |
+| `ui/journeys.ts` | `5296efee401cedcf196095da38cec09892979d339a605cce453f124b5cb9f388` |
+| `ui/main.tsx` | `472d17eb3a59bb801d3ca9b116a660175da4f5a8eebb74b08f8a117cfc51e077` |
+| `harness.mjs` | `21d5c73c7d5f7008856ec8377de71f96f8c9a563f2881b97abe5c96a4e050d95` |
+| `src-tauri/src/main.rs` | `01eeb1699d6d4178e57a6e480207534ea933bf072dc5715c691abe636c30e72a` |
+| `src-tauri/src/test_bridge.rs` | `6a824b1dcf059c0ceab6a22a1773a9cba76ab5bc4431944a94705e436a2c18ed` |
+
+The original three findings have concrete fixes in that source: unresolved
+ownership is established before submission and retained on transport uncertainty;
+recovery is serialized/tracked and guards session/epoch before publishing;
+refreshes carry a read sequence and reject lower displayed revisions. Structural
+request comparison now covers version/scope/intent independently of JSON order.
+
+Independently read the coordinator's local synthetic native-run `summary.json`,
+`report.json` and all 21 per-checkpoint capture metadata records under ignored
+`artifacts/native-a550051b-a6d5-45ec-8e5d-c25850190836`. Summary reports 109 distinct
+assertions; every capture reports `native-webview2`; final reopened-stage report
+passes with no recorded errors. Inspected corresponding `journeys.ts` assertions:
+`commit-and-lookup-loss-is-unknown`,
+`uncertain-commit-retry-original-id-once`, `lost-submit-ack-is-unknown`,
+`lost-submit-reuses-original-key`, `old-read-cannot-regress-revision`,
+`recovery-deduplicated`, `old-recovery-error-cannot-publish`,
+`native-close-released-sessions-workers`, `reopened-direct-engine-receipt-equality`
+and `disposal-native-resources-zero`. The reviewer read existing artifacts and
+source; the coordinator executed that native run and visually inspected its
+accepted/narrow/200% captures. This follow-up did not rerun native rendering or
+use a desktop-control tool. The artifacts predate later fixes; final evidence
+must identify the final tested source rather than treating these hashes as it.
+
+The native module, stdio test bridge, command functions and invoke registrations
+are all guarded by Cargo `dev-harness`; default registration exposes only
+`host_call`. Static generated permission names do not register compiled-out
+handlers. Frontend `build.mjs` defines `__DEV_HARNESS__` false by default. Ran an
+in-memory esbuild normal bundle using the same entry/defines, without writing
+coordinator build artifacts: 248,312 bytes; none of `harness_checkpoint`,
+`harness_finish`, `harness_reopen`, `harness_viewport`, `dropCommit` or
+`commit-and-lookup-loss-is-unknown` remained. This supports normal frontend hook
+elimination; the coordinator still owns the final ordinary Rust build evidence.
+
+The stdio bridge uses only typed synthetic host commands, stats and direct-engine
+receipt comparison; it has no socket, path selector, arbitrary evaluation or
+shell execution. Input is bounded to 1,024 frames of less than 32,768 bytes,
+host payloads to the shared input limit, four preparation workers, 64 oracle
+receipts and 256 KiB oracle serialization. Native capture/JSON limits remain
+those above. Runner invokes only local build/app processes and its own headless
+browser page, with allowlisted local assets and blocked external requests.
+
+Follow-up findings sent to coordinator for final disposition:
+
+- **P2: cancelling recovery could strand the original turn.** Executed another
+  temporary-bundle controller case: lose submit acknowledgement; begin Retry
+  with a deferred queued lookup; Cancel; release lookup; Retry again. Observed
+  `submits:1`, `cancels:0`, `phase:"unknown"`, `pending:null`, `visibleError:null`.
+  `recover()`'s cancellation guards returned while retaining a permanently
+  cancelled unresolved operation. Native original turn remained queued. Recovery
+  must reconcile and publish authoritative cancellation (or a winning commit),
+  clear terminal unresolved ownership, and allow the next distinct attempt.
+- **Runner timeout cleanup:** the headless success `Promise.race` retained its
+  180-second timer, keeping a successful Node process alive until expiration.
+  Clear/unref the timer; bound backend close/per-call waits so timeout cleanup
+  cannot wait indefinitely. Bind final artifacts to source revision plus dirty
+  state/content hashes because integration runs occur before the final commit.
+- **Wire robustness:** validate a committed status and complete receipt before
+  publishing `turnStatus`; previously subscribers could observe a foreign
+  receipt before structural validation threw. `playView` should explicitly
+  reject null/malformed nested receipt/event/scope shapes as `Wire`. The trusted
+  Rust host currently guarantees those shapes; review did not demonstrate an
+  engine observer-isolation breach.
+
+These follow-up observations are source/controller fault-injection findings,
+not owner acceptance, a release gate, or evidence that normal operation exposed
+private data. Final coordinator evidence must record their disposition.

@@ -10,6 +10,7 @@ data class SavedSnapshot(
     val location: String, val schemaVersion: Int, val stories: List<SavedStory>, val selected: SavedStory,
     val uncommittedDrafts: Int = 0,
     val rulesProfile: String = "unknown",
+    val textProvider: TextProvider = TextProvider.UNAVAILABLE,
 )
 data class ShellState(
     val busy: Boolean = false,
@@ -27,6 +28,7 @@ data class ShellState(
     val selectedStory: SavedStory? = null,
     val uncommittedDrafts: Int = 0,
     val rulesProfile: String? = null,
+    val textProvider: TextProvider = TextProvider.UNAVAILABLE,
 )
 
 sealed interface DemoResult {
@@ -38,11 +40,15 @@ sealed interface DemoResult {
 /** Preparation may suspend. Commit and publication share one non-suspending owner-thread step. */
 fun interface DemoGateway {
     suspend fun respond(action: DemoAction, revision: Long, mode: DemoMode): DemoResult
+    suspend fun respondText(input: PlayInput, revision: Long): DemoResult = DemoResult.Rejected("Unsupported")
     fun commit(result: DemoResult): DemoResult = result
     fun cancel() {}
     fun reset() {}
     fun close() {}
     val durable: Boolean get() = false
+    val storyRecords: Boolean get() = false
+    suspend fun readStoryRecord(query: StoryRecordQuery): StoryRecordPage =
+        throw StoryRecordFailure(StoryRecordProblem.UNAVAILABLE)
     suspend fun initialize(): SavedSnapshot? = null
     suspend fun snapshot(): SavedSnapshot? = null
     suspend fun commitAsync(result: DemoResult): DemoResult = commit(result)

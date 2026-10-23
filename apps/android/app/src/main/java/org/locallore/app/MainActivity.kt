@@ -12,6 +12,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.locallore.app.ui.LocalLoreScreen
 import org.locallore.app.ui.DiagnosticsDialog
+import org.locallore.app.ui.StoryRecordDialog
 
 class MainActivity : ComponentActivity() {
     private lateinit var model: ShellViewModel
@@ -39,8 +40,17 @@ class MainActivity : ComponentActivity() {
         setContent {
             val state by model.state.collectAsStateWithLifecycle()
             val diagnostics by model.diagnostics.collectAsStateWithLifecycle()
+            val record by model.storyRecord.collectAsStateWithLifecycle()
+            val renderedRecordContext = record.context
             LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::reset,
-                onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover) {
+                onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover,
+                onStoryRecord = if (model.hasStoryRecords) model::openStoryRecord else null,
+                onText = model::submitText) {
+                StoryRecordDialog(record, model::closeStoryRecord, model::recordSection, model::recordSearch,
+                    model::nextRecordPage, model::firstRecordPage, model::retryStoryRecord,
+                    onEvent = { sequence -> model.openRecordEvent(sequence, renderedRecordContext) },
+                    onEventBack = model::backToStoryRecord,
+                    onEventRetry = model::retryRecordEvent)
                 DiagnosticsDialog(diagnostics, model::closeDiagnostics, model::clearDiagnostics) {
                     if (model.beginDiagnosticExport()) {
                         try { documentPicker.launch("locallore-diagnostics.json") }

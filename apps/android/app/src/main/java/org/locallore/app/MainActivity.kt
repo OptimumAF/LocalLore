@@ -45,7 +45,8 @@ class MainActivity : ComponentActivity() {
                 onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover,
                 onStoryRecord = if (model.hasStoryRecords) model::openStoryRecord else null) {
                 StoryRecordDialog(record, model::closeStoryRecord, model::recordSection, model::recordSearch,
-                    model::nextRecordPage, model::firstRecordPage, model::retryStoryRecord)
+                    model::nextRecordPage, model::firstRecordPage, model::retryStoryRecord,
+                    onEvent = model::openRecordEvent, onEventBack = model::backToStoryRecord)
                 DiagnosticsDialog(diagnostics, model::closeDiagnostics, model::clearDiagnostics) {
                     if (model.beginDiagnosticExport()) {
                         try { documentPicker.launch("locallore-diagnostics.json") }

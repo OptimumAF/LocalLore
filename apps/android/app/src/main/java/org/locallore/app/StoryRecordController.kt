@@ -45,6 +45,51 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         val context = current.context ?: return
         if (!disposed && !current.loading) load(StoryRecordQuery(context, current.section, current.search, current.cursor))
     }
+    fun openEvent(sequence: Long) {
+        val current = mutable.value
+        if (current.eventDetail == null) readEvent(current, sequence)
+    }
+    fun retryEvent() {
+        val current = mutable.value
+        val detail = current.eventDetail ?: return
+        if (!detail.loading) readEvent(current, detail.reference)
+    }
+    private fun readEvent(current: StoryRecordState, sequence: Long) {
+        val context = current.context ?: return
+        if (disposed || !current.visible || current.loading || current.problem != null ||
+            sequence !in 1..context.revision || current.entries.none { sequence in it.eventSources }) return
+        val query = StoryRecordQuery(context, StoryRecordSection.HISTORY, "\"sequence\":$sequence,")
+        val ticket = ++generation
+        pending?.cancel()
+        mutable.value = current.copy(eventDetail = StoryRecordEventDetail(sequence))
+        pending = scope.launch {
+            try {
+                val page = reader.readStoryRecord(query)
+                if (disposed || ticket != generation) return@launch
+                check(page.query == query && page.storyTime == current.storyTime && page.nextCursor == null)
+                if (page.total == 0 && page.entries.isEmpty())
+                    throw StoryRecordFailure(StoryRecordProblem.EVENT_UNAVAILABLE)
+                check(page.total == 1 && page.entries.size == 1)
+                val entry = page.entries.single()
+                validateEntry(entry, query, page.storyTime)
+                check(entry.origin == StoryRecordOrigin.RECORDED_OBSERVATION && entry.event?.sequence == sequence)
+                mutable.value = mutable.value.copy(eventDetail = StoryRecordEventDetail(sequence, loading = false,
+                    entry = freeze(entry)))
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (failure: Exception) {
+                if (!disposed && ticket == generation) mutable.value = mutable.value.copy(
+                    eventDetail = StoryRecordEventDetail(sequence, loading = false,
+                        problem = (failure as? StoryRecordFailure)?.problem ?: StoryRecordProblem.INVALID_RESPONSE))
+            }
+        }
+    }
+    fun back() {
+        if (mutable.value.eventDetail == null) return
+        generation++
+        pending?.cancel()
+        pending = null
+        mutable.value = mutable.value.copy(eventDetail = null)
+    }
     private fun load(query: StoryRecordQuery) {
         val identity = query.copy(cursor = null)
         if (query.cursor == null || pageBoundary?.first != identity) pageBoundary = null
@@ -64,12 +109,13 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
                 check(page.query == query && page.storyTime >= 0 && page.total in 0..65536)
                 check(page.entries.size <= STORY_RECORD_PAGE_ROWS && page.total >= page.entries.size)
                 check(page.entries.map { it.key }.toSet().size == page.entries.size)
+                page.entries.forEach { validateEntry(it, query, page.storyTime) }
                 if (boundary != null) check(page.total == boundary.first && page.storyTime == boundary.second)
                 check(page.nextCursor == null || (page.nextCursor != query.cursor && page.entries.isNotEmpty() &&
                     page.nextCursor.toByteArray(Charsets.UTF_8).size in 1..128))
                 pageBoundary = identity to (page.total to page.storyTime)
                 mutable.value = mutable.value.copy(loading = false, storyTime = page.storyTime, total = page.total,
-                    entries = page.entries.map { it.copy(sources = it.sources.toList()) },
+                    entries = page.entries.map(::freeze),
                     nextCursor = page.nextCursor, limitations = page.limitations.toList())
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: Exception) {
@@ -86,6 +132,20 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         mutable.value = StoryRecordState()
     }
     fun dispose() { disposed = true; dismiss() }
+
+    private fun freeze(entry: StoryRecordEntry) = entry.copy(sources = entry.sources.toList(),
+        eventSources = entry.eventSources.toList())
+
+    private fun validateEntry(entry: StoryRecordEntry, query: StoryRecordQuery, time: Long) {
+        check(entry.key.isNotEmpty() && entry.eventSources.size <= 64)
+        check(entry.eventSources.all { it in 1..query.context.revision } &&
+            entry.eventSources.toSet().size == entry.eventSources.size)
+        if (entry.origin == StoryRecordOrigin.RECORDED_OBSERVATION) {
+            val event = checkNotNull(entry.event)
+            check(query.section == StoryRecordSection.HISTORY && event.sequence in 1..query.context.revision &&
+                event.storyTime in 0..time && event.turn.isNotEmpty() && entry.eventSources == listOf(event.sequence))
+        } else check(entry.event == null)
+    }
 }
 
 internal fun validStoryRecordSearch(text: String) =

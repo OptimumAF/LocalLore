@@ -127,6 +127,35 @@ Local logs under `<target>`: `private-capture-workspace.log`,
 `private-capture-frontend.log`, `private-capture-frontend-format.log`.
 Independent review and platform integration results are recorded separately.
 
+Additional coordinator platform checks on the same frozen production tree:
+
+```text
+cargo +1.93.1 test --manifest-path crates/locallore-eval/Cargo.toml --all-targets --locked --offline --target-dir <target>
+9 passed, 0 failed.
+cargo +1.93.1 clippy --manifest-path crates/locallore-eval/Cargo.toml --all-targets --locked --offline --target-dir <target> -- -D warnings
+PASS
+cargo +1.93.1 test --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness --locked --offline --target-dir <target>
+30 native module tests + 2 harness contracts passed; 1 existing test ignored.
+cargo +1.93.1 clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness --all-targets --locked --offline --target-dir <target> -- -D warnings
+PASS
+java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain -I <task>/android-output.gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest :app:lintDebug --offline --no-daemon --console=plain '-Pandroid.builder.sdkDownload=false'
+BUILD SUCCESSFUL in 33s; 78 tasks, 21 executed/57 up-to-date.
+python scripts/audit_apk.py <task>/android-build/_app/outputs/apk/debug/app-debug.apk
+PASS with ANDROID_HOME explicitly set.
+```
+
+Android used existing JDK17.0.6/Gradle8.11.1/AGP8.10.1/Kotlin2.2.21,
+SDK36/NDK29.0.14206865 and task-owned Gradle/build outputs. Both x86_64/arm64-v8a
+JNI libraries and debug/test APKs built; 38 JVM tests, zero failures/errors/skips,
+lint and APK permission/16KiB ELF checks passed. No Android device/emulator was
+operated. The first manual APK-audit retry lacked ANDROID_HOME and failed with
+that fixed prerequisite error; the explicit configured retry above passed.
+The asynchronous Gradle observation handle was absent when polled, so its
+terminal BUILD SUCCESSFUL log and test XML were inspected rather than restarting
+the completed build. Platform logs use the private-capture-eval/native/android
+prefixes under the task target. These are compatibility checks, not native UI
+rendering or a real-model capture journey.
+
 No new WebView image, native UI journey, real-model capture, persistent private
 capture/export preview, summary maintenance trace, pause/re-run sandbox or full
 D06 acceptance is implied. Existing actual metadata/inspector/evaluation panels

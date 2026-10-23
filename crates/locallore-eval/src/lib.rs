@@ -20,6 +20,9 @@ use std::{
     task::Poll,
 };
 
+pub mod local_lane;
+mod local_recording;
+
 pub const VERSION: u16 = 1;
 pub const MAX_REPORT: usize = 2 * 1024 * 1024;
 const MAX_CASE: usize = 64 * 1024;
@@ -1098,6 +1101,9 @@ fn escape(text: &str) -> String {
         .replace('\'', "&#39;")
 }
 fn publish_reports(dir: &Path, report: &Report) -> Result<()> {
+    if report.lane != "deterministic_fake_shared_host" {
+        return local_lane::publish_local_report(dir, report);
+    }
     let data = serde_json::to_vec_pretty(report).map_err(|_| "Encoding")?;
     if data.len() > MAX_REPORT {
         return Err("ReportBudget".into());

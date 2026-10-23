@@ -503,6 +503,16 @@ pub fn atomic_finalize(handle: &File, _staging: &Path, target: &Path) -> Result<
                 FileRenameInfo, SetFileInformationByHandle, FILE_RENAME_INFO, FILE_RENAME_INFO_0,
             },
         };
+        // Callers retain pinned destination ancestors through publication.
+        // Canonicalizing that existing parent supplies Windows' extended path
+        // form for the absent target; the actual rename still uses the held
+        // staging handle and refuses replacement.
+        let target = target
+            .parent()
+            .ok_or("Io")?
+            .canonicalize()
+            .map_err(|_| "Io")?
+            .join(target.file_name().ok_or("Io")?);
         let name = target
             .as_os_str()
             .encode_wide()

@@ -1,0 +1,272 @@
+{
+  "version": 1,
+  "task": "D07.01/.02/.03 partial bounded curated local-model lane",
+  "status": "in_review",
+  "date": "2026-10-23",
+  "measured_source": {
+    "source": "c76d7917cf0cdd4cd17db151dcd8f313709b7b96",
+    "dirty": false,
+    "exe_sha256": "8592824fd63332c7eb0a5510cbccb61cb183e9513ec9349e2b551a74a8a88d40",
+    "fixture_sha256": "007d71afd310569150012fcf09d1c4d42235625a3b47c0b4c76dcca59d640993"
+  },
+  "accepted_base": "884cf3fe7ec144b8da082bef9a726d426d4aaf4c",
+  "combined_main_8e377594_qualification": "not_run",
+  "fixtures": "six synthetic stories, four declared turn-cases each; identical scripted/native inputs",
+  "checks": {
+    "default_tests": 19,
+    "local_model_feature_tests": 20,
+    "failed_tests": 0,
+    "ignored_tests": 0,
+    "strict_clippy_default": "passed",
+    "strict_clippy_local_model": "passed",
+    "format": "passed",
+    "diff_check": "passed"
+  },
+  "scripted": {
+    "lane": "scripted_curated_shared_host",
+    "quality_accepted": false,
+    "coverage": {
+      "cancelled": 1,
+      "checkpointed_stories": 6,
+      "declared_turn_cases": 24,
+      "executed_turn_cases": 24,
+      "fallbacks": 0,
+      "guard_only": 6,
+      "inference_completed": 17,
+      "inference_failed": 0,
+      "not_run": 0,
+      "quality_candidates": 0,
+      "selected_stories": 6
+    },
+    "budget": {
+      "active_ms_charged": 2373,
+      "admissions_across_attempts": 24,
+      "cleanup": "cooperative_not_hard_realtime",
+      "exceeded": false,
+      "invocations": 1,
+      "max_active_ms": 1800000,
+      "max_admissions": 32,
+      "max_roles": 96,
+      "roles_charged": 35,
+      "unknown_work": "conservatively_reserved_not_refunded"
+    },
+    "checks": 372,
+    "failed_checks": 0,
+    "stories": [
+      {
+        "id": "gift-agency",
+        "status": "passed",
+        "checks": 66,
+        "failed_checks": 0,
+        "not_run_turns": []
+      },
+      {
+        "id": "loan-promise",
+        "status": "passed",
+        "checks": 60,
+        "failed_checks": 0,
+        "not_run_turns": []
+      },
+      {
+        "id": "ability-cost",
+        "status": "passed",
+        "checks": 52,
+        "failed_checks": 0,
+        "not_run_turns": []
+      },
+      {
+        "id": "knowledge-boundary",
+        "status": "passed",
+        "checks": 74,
+        "failed_checks": 0,
+        "not_run_turns": []
+      },
+      {
+        "id": "same-name",
+        "status": "passed",
+        "checks": 55,
+        "failed_checks": 0,
+        "not_run_turns": []
+      },
+      {
+        "id": "lineage",
+        "status": "passed",
+        "checks": 65,
+        "failed_checks": 0,
+        "not_run_turns": []
+      }
+    ]
+  },
+  "native": {
+    "lane": "native_curated_shared_host",
+    "quality_accepted": false,
+    "coverage": {
+      "cancelled": 1,
+      "checkpointed_stories": 6,
+      "declared_turn_cases": 24,
+      "executed_turn_cases": 21,
+      "fallbacks": 7,
+      "guard_only": 6,
+      "inference_completed": 10,
+      "inference_failed": 4,
+      "not_run": 3,
+      "quality_candidates": 3,
+      "selected_stories": 6
+    },
+    "budget": {
+      "active_ms_charged": 164743,
+      "admissions_across_attempts": 21,
+      "cleanup": "cooperative_not_hard_realtime",
+      "exceeded": false,
+      "invocations": 1,
+      "max_active_ms": 1800000,
+      "max_admissions": 32,
+      "max_roles": 96,
+      "roles_charged": 25,
+      "unknown_work": "conservatively_reserved_not_refunded"
+    },
+    "checks": 297,
+    "failed_checks": 20,
+    "stories": [
+      {
+        "id": "gift-agency",
+        "status": "passed",
+        "checks": 66,
+        "failed_checks": 0,
+        "not_run_turns": []
+      },
+      {
+        "id": "loan-promise",
+        "status": "failed",
+        "checks": 20,
+        "failed_checks": 5,
+        "not_run_turns": [
+          "old-promise",
+          "return-key"
+        ]
+      },
+      {
+        "id": "ability-cost",
+        "status": "failed",
+        "checks": 48,
+        "failed_checks": 5,
+        "not_run_turns": []
+      },
+      {
+        "id": "knowledge-boundary",
+        "status": "failed",
+        "checks": 47,
+        "failed_checks": 5,
+        "not_run_turns": [
+          "return"
+        ]
+      },
+      {
+        "id": "same-name",
+        "status": "failed",
+        "checks": 51,
+        "failed_checks": 5,
+        "not_run_turns": []
+      },
+      {
+        "id": "lineage",
+        "status": "passed",
+        "checks": 65,
+        "failed_checks": 0,
+        "not_run_turns": []
+      }
+    ]
+  },
+  "native_exit": 1,
+  "native_role_outcomes": {
+    "completed/completed": 24,
+    "cancelled/cancelled": 1
+  },
+  "native_roles": {
+    "director": 15,
+    "narrator": 10
+  },
+  "resource_observations": {
+    "windows": 25,
+    "successful_statuses": {
+      "sampled": 25
+    },
+    "failed_samples": 0,
+    "capped_windows": 0,
+    "max_sampled_working_set_bytes": 1214119936,
+    "max_sampled_private_committed_bytes": 929542144,
+    "max_process_lifetime_peak_working_set_bytes": 1268768768,
+    "interpretation": "sampled window peaks are lower bounds; process-lifetime peak and worker counters cumulative; no TTFT/exact peak/parent memory/comparative performance claim"
+  },
+  "asset_integrity": {
+    "model_bytes": 639446688,
+    "model_mtime": "2026-10-23T04:07:36.4318064Z",
+    "model_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+    "worker_sha256": "b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434",
+    "old_worker_sha256": "add98cf02249141942c88e2517c2f5a4c9a91dbe9638bf7d3cd30c26916bce87"
+  },
+  "asset_preflight_postflight_equal": true,
+  "reports": {
+    "initial_native_bytes": 184071,
+    "initial_native_sha256": "17b09b316d405a1a00d3d6df9c9bd1e497b34ddeb2157494fe5441a9e660f5fd",
+    "cached_native_sha256": "30e4db2a2d25be02b08d09903795f8a68f41a3214dce9f4d2b60b26a8dae7a74",
+    "scripted_sha256": "cc2009e648a810887eeb3130906b6be8143ab6075c080190042e18655cc2c063"
+  },
+  "cached_only_resume": {
+    "exit": 1,
+    "native_startup": "not_run_all_checkpoints_complete",
+    "artifact_verification_this_invocation": "not_run_cached_only",
+    "native_load_present": false,
+    "admissions": 21,
+    "roles": 25,
+    "checkpoint_count": 6,
+    "checkpoint_digests_unchanged": true,
+    "supplied_assets": "intentionally nonexistent model/worker paths"
+  },
+  "known_limitations": [
+    "review correction: historical c76 required ancestor target checked actual director; parent/sibling/foreign absence checked separate compiler, not actual director envelope; no retroactive actual-model exclusion qualification",
+    "four valid-shaped wrong-action proposals rejected without canonical projection change; five failed expectation checks per proposal",
+    "old-promise and return-key dependent cases not_run",
+    "knowledge return and terminal Mira/Sable context assertions not_run",
+    "finite narration policy has a model-free false-negative regression; evaluation catches declared phrase but is not semantic oracle",
+    "seven fallback narrations out of ten commits; three nonfallback candidates not human reviewed",
+    "quality_accepted remains false; rubric not_reviewed",
+    "no derived summary/FTS generation consumption",
+    "no WebView/IPC/UI/device/Android/package/network-block checks for this slice",
+    "sampler and expected-worker helper unchanged stack dependencies subject to coordinator review/integration"
+  ],
+  "raw_outputs": "local only, excluded from public summary",
+  "human_quality_acceptance": false,
+  "review_correction": {
+    "claim": 6369139902,
+    "historical_measured_source_unchanged": true,
+    "independent_failing_test_source": "8c900f8acdd45aaa0a09576eaff87ee07fb5221d",
+    "failing_test_log_sha256": "551faabb2fa84b7fb737936a5f472bcfaf8d8c6cb1ac6e0968757c7cf33b1594",
+    "before_result": {
+      "passed": 1,
+      "failed": 1
+    },
+    "repair_source": "e1f1af2b39941767a00376052197e8f378a9c9c8",
+    "actual_model_rerun": "not_run",
+    "historical_director_absence_qualification": false,
+    "final_code_test_source": "960e60c475538993a0750b152d1f497b4c03b009",
+    "independent_test_adaptation_source": "eb796fa2f65041cbdccfd9fe4b73b810babde6cf",
+    "unknown_reservation_test_source": "056740242133a6bdb789c9d5ac82bba45557ade5",
+    "after_author_tests": {
+      "default_lib": 20,
+      "default_review_integration": 3,
+      "default_total": 23,
+      "local_model_lib": 21,
+      "local_model_review_integration": 3,
+      "local_model_total": 24,
+      "failed": 0,
+      "ignored": 0,
+      "strict_clippy_default": "passed",
+      "strict_clippy_local_model": "passed",
+      "fmt": "passed",
+      "diff_check": "passed"
+    },
+    "reservation_probe": "synthetic durable unknown admission fixture, not actual worker kill",
+    "unchanged_historical_report_hashes": true
+  }
+}

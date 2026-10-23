@@ -231,8 +231,9 @@ export async function queryJourneys({
             [{ scope: { ...queryBase.scope, branch: "sibling" } }, "Scope"],
             [{ at_revision: queryBase.expected_head + 1 }, "InvalidBoundary"],
             [{ cursor: "edited" }, "InvalidCursor"],
-            [{ limit: 65 }, "InvalidRequest"],
-            [{ search: "x".repeat(257) }, "InvalidRequest"],
+            [{ limit: 65 }, "TooLarge"],
+            [{ search: "x".repeat(257) }, "TooLarge"],
+            [{ search: "invalid\nsearch" }, "InvalidRequest"],
         ] as const) {
             let rejected = "";
             try {

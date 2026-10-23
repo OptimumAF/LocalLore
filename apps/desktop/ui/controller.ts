@@ -866,13 +866,15 @@ export class Controller {
                     notice:
                         category(error) === "Stale"
                             ? "Story changed. Refresh the current head before inspecting again."
-                            : category(error) === "InvalidBoundary"
-                              ? "Choose revision 0, current, or the end of a completed turn. Partial turns cannot be inspected."
-                              : category(error) === "InvalidRequest"
-                                ? "Search allows 256 UTF-8 bytes without control characters. No inspection data is shown."
-                                : category(error) === "UnsupportedBranch"
-                                  ? "Historical inspection for this branch is not implemented."
-                                  : "No inspection data is shown for this request.",
+                            : category(error) === "TooLarge"
+                              ? "The search, row or page exceeds inspection limits. Shorten the search or reduce the page size."
+                              : category(error) === "InvalidBoundary"
+                                ? "Choose revision 0, current, or the end of a completed turn. Partial turns cannot be inspected."
+                                : category(error) === "InvalidRequest"
+                                  ? "Search allows 256 UTF-8 bytes without control characters. No inspection data is shown."
+                                  : category(error) === "UnsupportedBranch"
+                                    ? "Historical inspection for this branch is not implemented."
+                                    : "No inspection data is shown for this request.",
                 });
         } finally {
             if (stillCurrent()) this.queryPatch({ busy: false });

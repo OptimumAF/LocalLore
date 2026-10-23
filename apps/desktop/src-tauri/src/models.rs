@@ -122,8 +122,11 @@ impl ModelManager {
         epoch: u64,
         pick: impl FnOnce() -> Result<Option<PathBuf>, String>,
     ) -> Result<Value, String> {
-        let (job, cancel) = self.begin("choosing")?;
+        let (job, cancel) = lease.dispatch(epoch, || self.begin("choosing"))?;
         let result = (|| {
+            if cancel.load(Ordering::SeqCst) || !lease.valid(epoch) {
+                return Err("Closed".into());
+            }
             let Some(source) = pick()? else {
                 return Err("Cancelled".into());
             };
@@ -157,12 +160,15 @@ impl ModelManager {
         }
     }
     pub fn load(&self, host: &Host, lease: &WindowLease, epoch: u64) -> Result<Value, String> {
-        let (job, cancel) = self.begin("loading")?;
+        let (job, cancel) = lease.dispatch(epoch, || self.begin("loading"))?;
         let result = (|| {
             if !lease.valid(epoch) {
                 return Err("Closed".into());
             }
-            let mut runtime = LocalRuntime::spawn_packaged(&self.resource, &self.path())
+            let mut runtime =
+                LocalRuntime::spawn_packaged_cancelled(&self.resource, &self.path(), || {
+                    cancel.load(Ordering::SeqCst) || !lease.valid(epoch)
+                })
                 .map_err(runtime_error)?;
             runtime
                 .load(|| cancel.load(Ordering::SeqCst) || !lease.valid(epoch))
@@ -181,6 +187,7 @@ impl ModelManager {
                 deadline_ms: 120000,
                 repair_limit: 1,
             };
+            profile.validate().map_err(|e| e.to_string())?;
             let shared = Arc::new(Mutex::new(runtime));
             lease.dispatch(epoch, || {
                 let mut s = self.inner.lock().map_err(|_| "Internal")?;
@@ -196,7 +203,7 @@ impl ModelManager {
                         ))
                     }),
                 )?;
-                s.runtime = Some(shared);
+                s.runtime = Some(shared.clone());
                 s.profile = Some(profile);
                 Ok(())
             })
@@ -205,14 +212,14 @@ impl ModelManager {
         result?;
         self.status()
     }
-    pub fn unload(&self, host: &Host) -> Result<Value, String> {
-        let (job, _) = self.begin("unloading")?;
-        host.disable_local_provider();
-        let runtime = {
+    pub fn unload(&self, host: &Host, lease: &WindowLease, epoch: u64) -> Result<Value, String> {
+        let (job, runtime) = lease.dispatch(epoch, || {
+            let (job, _) = self.begin("unloading")?;
+            host.disable_local_provider();
             let mut s = self.inner.lock().map_err(|_| "Internal")?;
             s.profile = None;
-            s.runtime.take()
-        };
+            Ok((job, s.runtime.take()))
+        })?;
         let result = if let Some(owner) = runtime {
             owner
                 .lock()
@@ -440,6 +447,32 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+    #[test]
+    fn delayed_closed_operations_cannot_start_picker_or_unload_new_window() {
+        let root = Root::new();
+        let manager = ModelManager::new(root.0.clone(), root.0.clone());
+        let lease = WindowLease::default();
+        let old = lease.begin().unwrap();
+        let closed = lease.invalidate("main-1").unwrap();
+        lease.finish_close(closed, || {});
+        let _new = lease.begin().unwrap();
+        let called = AtomicBool::new(false);
+        assert_eq!(
+            manager
+                .import(&lease, old, || {
+                    called.store(true, Ordering::SeqCst);
+                    Ok(None)
+                })
+                .unwrap_err(),
+            "Closed"
+        );
+        assert!(!called.load(Ordering::SeqCst));
+        assert_eq!(
+            manager.unload(&Host::new(true), &lease, old).unwrap_err(),
+            "Closed"
+        );
+        assert_eq!(manager.status().unwrap()["operation_id"], 0);
     }
     #[test]
     fn invalid_sources_cancel_and_missing_worker_are_honest() {

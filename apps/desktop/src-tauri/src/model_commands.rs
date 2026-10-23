@@ -103,8 +103,9 @@ pub async fn model_unload(
         .capture(window.label())
         .map_err(str::to_owned)?;
     let host = workspace.get(epoch).await?;
+    let lease = workspace.lease.clone();
     let manager = models.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || manager.unload(&host))
+    tauri::async_runtime::spawn_blocking(move || manager.unload(&host, &lease, epoch))
         .await
         .map_err(|_| "Internal".to_owned())?
 }

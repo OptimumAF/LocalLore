@@ -301,6 +301,16 @@ fn main() {
                 .parent()
                 .ok_or_else(|| std::io::Error::other("InvalidInput"))?
                 .join("models");
+            #[cfg(feature = "dev-harness")]
+            let model_root = if harness::active()
+                && std::env::var("LOCALLORE_D04_HARNESS").as_deref() == Ok("1")
+            {
+                std::env::var_os("LOCALLORE_D04_MODEL_ROOT")
+                    .map(std::path::PathBuf::from)
+                    .unwrap_or(model_root)
+            } else {
+                model_root
+            };
             app.manage(Arc::new(models::ModelManager::new(
                 model_root,
                 app.path().resource_dir()?.join("runtime"),

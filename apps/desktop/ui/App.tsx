@@ -689,14 +689,21 @@ export function App({ controller: c }: { controller: Controller }) {
             </div>
             <footer className="footer">
                 <span>
-                    Fake inference |{" "}
+                    {s.playMode === "local"
+                        ? "Experimental local CPU"
+                        : "Fake fixture inference"}{" "}
+                    |{" "}
                     {s.workspace
                         ? "Accepted progress saved locally"
                         : s.ephemeral
                           ? "In-memory progress · lost on close"
                           : "Storage must open before play"}
                 </span>
-                <span>No real model or arbitrary story generator</span>
+                <span>
+                    {s.model?.loaded
+                        ? "One local model loaded; no cloud fallback"
+                        : "No model loaded; fake fixtures require explicit selection"}
+                </span>
             </footer>
         </div>
     );

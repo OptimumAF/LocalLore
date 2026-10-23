@@ -20,6 +20,7 @@ declare global {
             durable?: boolean;
             failure?: boolean;
             exporting?: boolean;
+            localplay?: boolean;
         };
     }
 }
@@ -56,11 +57,17 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
         __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.exporting
             ? await import("./export-journeys")
             : null;
-    const run = exportDriver
-        ? exportDriver.exportJourneys
-        : durableDriver
-          ? durableDriver.durableJourneys
-          : driver.journeys;
+    const modelDriver =
+        __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.localplay
+            ? await import("./model-journeys")
+            : null;
+    const run = modelDriver
+        ? modelDriver.modelJourneys
+        : exportDriver
+          ? exportDriver.exportJourneys
+          : durableDriver
+            ? durableDriver.durableJourneys
+            : driver.journeys;
     await run({
         controller,
         gateway: gateway as InstanceType<typeof driver.FaultGateway>,

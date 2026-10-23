@@ -447,3 +447,61 @@ fn explicit_open_reselection_fences_held_old_work_from_same_key_new_owner() {
         assert_eq!(host.live_counts().1, 0);
     });
 }
+
+#[test]
+fn explicit_open_same_source_fences_cancelled_old_work_from_retried_draft() {
+    let fixture = Fixture::new();
+    let empty = create(&fixture);
+    let mut store = fixture.store();
+    let original = commit(&mut store, &empty, "original-prefix");
+    let host = Arc::new(locallore_workspace::open(&fixture.path(), false).unwrap());
+    let session = select(&host, original.scope());
+    let request = original.request("same-source-new-incarnation", Intent::FreeText {
+        kind: PlayInputKind::Action, text: "I wait for one tide tick.".into(),
+    });
+    let (entered_send, entered_receive) = mpsc::sync_channel(1);
+    let (release_send, release_receive) = mpsc::sync_channel(1);
+    let release_receive = Arc::new(Mutex::new(release_receive));
+    let calls = Arc::new(AtomicUsize::new(0));
+    let factory_calls = calls.clone();
+    host.configure_fixture_provider(PlayProfile {
+        id: "synthetic-same-source-open-review".into(), model_sha256: "a".repeat(64),
+        runtime_revision: "b".repeat(40), template_sha256: "c".repeat(64), worker_sha256: "d".repeat(64),
+        profile_manifest_sha256: "e".repeat(64), context_tokens: 4096, director_tokens: 350,
+        narrator_tokens: 220, deadline_ms: 5000, repair_limit: 1,
+    }, Arc::new(move || Box::new(HeldDirector {
+        entered: entered_send.clone(), release: release_receive.clone(), calls: factory_calls.clone(),
+    }))).unwrap();
+    let submitted = call(&host, json!({"op":"free_text","session":session,"request":request}));
+    assert_eq!(submitted["data"]["phase"], "queued", "{submitted}");
+    std::thread::scope(|threads| {
+        let worker = threads.spawn(|| call(&host, json!({
+            "op":"prepare","session":session,"scope":request.scope,"turn":request.turn,
+        })));
+        let mut release = ReleaseOnDrop(Some(release_send));
+        entered_receive.recv_timeout(Duration::from_secs(5))
+            .expect("actual director reached held poll before same-source Open");
+        // No replacement, rewind or source mismatch: the old Work basis still
+        // exactly matches. Incarnation, rather than history, must fence cleanup.
+        let opened = call(&host, json!({"op":"open","session":session,"scope":original.scope()}));
+        assert_eq!(opened["status"], "ok", "{opened}");
+        let fresh = call(&host, json!({"op":"free_text","session":session,"request":request}));
+        assert_eq!(fresh["data"]["phase"], "queued", "{fresh}");
+        release.0.take().unwrap().send(()).unwrap();
+        let retired = worker.join().expect("retired same-source work must not panic");
+        assert!(retired["error"]=="Closed" || retired["error"]=="Cancelled" || retired["error"]=="Stale"
+            || retired["data"]["phase"]=="cancelled" || retired["data"]["phase"]=="stale", "{retired}");
+        let status = call(&host, json!({"op":"turn_status","session":session,"scope":request.scope,"turn":request.turn}));
+        assert_eq!(status["data"]["phase"], "queued", "old cancelled work overwrote new owner: {status}");
+        assert_eq!(status["data"]["receipt"], Value::Null);
+        let draft = store.turn_status(&request).unwrap();
+        assert_eq!(draft.phase, locallore_storage::TurnPhase::Draft);
+        assert_eq!(draft.request, request);
+        assert!(draft.receipt.is_none());
+        let actual = store.resume(original.scope()).unwrap().engine;
+        assert_eq!(actual.receipts(), original.receipts());
+        assert_eq!(actual.canonical_bytes(), original.canonical_bytes());
+        assert_eq!(calls.load(Ordering::SeqCst), 1, "cancelled retired work cannot narrate or regenerate");
+        assert_eq!(host.live_counts().1, 0);
+    });
+}

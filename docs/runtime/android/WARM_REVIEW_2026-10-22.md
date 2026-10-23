@@ -47,11 +47,18 @@ owners accompanied by `cleanup_requires_process_termination=true`, and a host
 `cancel_requested=true` that had not yet been observed by the SDK. The coordinator
 now rejects both as independent barriers to commit.
 
-Final reviewed controller: `9ac04b2`, source SHA-256
-`272b5673ee82afa18ec56446a29f28def9d1616a9a07db36b1e4869bdecc610e`.
-All 34 independent warm test methods pass. The broader command
+The coordinator then identified a race between an empty final-result read and
+instrumentation completion. A 35th independent regression reproduced
+`worker_failed` at `9ac04b2` even though a result published immediately before
+launcher exit was available to the next read. The reader now observes launcher
+completion before reading, so absence is terminal only after a read that follows
+that observation.
+
+Final reviewed controller: `d3aad3a`, source SHA-256
+`d9ce8a626dc81a745973926346d0040a40516fa5c987f513bad9323823de236f`.
+All 35 independent warm test methods pass. The broader command
 `python -m unittest discover -s benchmarks -p 'test_android*.py' -v` passes all
-86 methods (34 new warm methods plus 52 existing control/Android methods).
+87 methods (35 new warm methods plus 52 existing control/Android methods).
 `python -m py_compile benchmarks/test_android_warm_review.py` and
 `git diff --check` also pass.
 

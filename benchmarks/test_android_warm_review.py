@@ -358,6 +358,29 @@ class LifecycleReview(unittest.TestCase):
                 session.generate(request("director"))
             constructor.assert_not_called()
 
+    def test_final_result_published_during_empty_read_is_reread_after_launcher_exit(self):
+        session = self.session()
+        session.step = 1
+        session.launcher = object()
+        session.publish = lambda name, data: None
+        result_reads = 0
+        def read(name):
+            nonlocal result_reads
+            if name != "result-2.json":
+                return b""
+            result_reads += 1
+            # The first lookup is the before-publication out-of-order guard.
+            # On the first poll, publication/exit races the reader's empty result.
+            if result_reads <= 2:
+                if result_reads == 2:
+                    session.finished.set()
+                return b""
+            return exchange(session=session.session_id, step=2)
+        session.read = read
+        self.assertEqual(session.generate(request("narrator")), worker())
+        self.assertEqual(session.step, 2)
+        self.assertEqual(result_reads, 3)
+
 
 if __name__ == "__main__":
     unittest.main()

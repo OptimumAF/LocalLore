@@ -65,6 +65,7 @@ internal class BranchForkController(
     private var recovery: BranchForkRecovery? = null
     private var origin: BranchForkContext? = null
     private var cancelRequested = false
+    private var recoveryControl = false
 
     fun contextChanged(context: BranchForkContext?) {
         if (disposed || mutable.value.context == context) return
@@ -76,7 +77,7 @@ internal class BranchForkController(
     }
     fun prepare(atRevision: Long, childBranch: String = UUID.randomUUID().toString()) {
         val context = mutable.value.context ?: return
-        if (disposed || active != null || !validContext(context)) return
+        if (disposed || active != null || recoveryControl || !validContext(context)) return
         if (recovery != null) {
             mutable.value = mutable.value.copy(notice = "Look up or explicitly forget the previous fork identity before preparing another.")
             return
@@ -90,7 +91,7 @@ internal class BranchForkController(
         mutable.value = BranchForkUiState(context = context, visible = true, input = input)
     }
     fun restore(saved: BranchForkRecovery) {
-        if (disposed || active != null || saved.version != 1 || !validForkInput(saved.input)) return
+        if (disposed || active != null || recoveryControl || saved.version != 1 || !validForkInput(saved.input)) return
         ++generation
         gateway.cancel()
         recovery = saved.copy(input = saved.input.copy(parent = saved.input.parent.copy()))
@@ -103,15 +104,25 @@ internal class BranchForkController(
     fun confirm(rendered: BranchForkInput, consent: Boolean) {
         val before = mutable.value
         val context = before.context ?: return
-        if (disposed || active != null || !consent || !before.visible || before.lookupOnly ||
+        if (disposed || active != null || recoveryControl || !consent || !before.visible || before.lookupOnly ||
             before.input !== rendered || origin != context || !validContext(context) || !validForkInput(rendered)) return
         val saved = BranchForkRecovery(1, rendered.copy(parent = rendered.parent.copy()))
+        val saveGeneration = generation
+        val saveOrigin = origin
+        recoveryControl = true
         try { saveRecovery(saved) }
         catch (_: Exception) {
-            mutable.value = before.copy(notice = "The exact recovery identity could not be saved. No fork was dispatched.")
+            if (sameRecoveryOrigin(before, saveGeneration, saveOrigin))
+                mutable.value = mutable.value.copy(notice = "The exact recovery identity could not be saved. No fork was dispatched.")
+            return
+        } finally { recoveryControl = false }
+        // The save succeeded even if its callback retired the old presentation.
+        // Retain that exact identity for explicit lookup; never dispatch a stale origin.
+        recovery = saved
+        if (!sameRecoveryOrigin(before, saveGeneration, saveOrigin)) {
+            origin = null
             return
         }
-        recovery = saved
         cancelRequested = false
         work { ticket ->
             mutable.value = mutable.value.copy(uncertain = true, operation = null)
@@ -166,7 +177,7 @@ internal class BranchForkController(
     }
     fun lookup() {
         val saved = recovery ?: return
-        if (disposed || active != null) return
+        if (disposed || active != null || recoveryControl) return
         // This explicit action labels the original input scope, never a new selection's scope.
         mutable.value = BranchForkUiState(context = mutable.value.context, visible = true,
             input = saved.input, lookupOnly = origin == null || origin != mutable.value.context, uncertain = true)
@@ -180,13 +191,21 @@ internal class BranchForkController(
         }
     }
     fun forgetRecovery(consent: Boolean) {
-        if (disposed || active != null || !consent) return
+        if (disposed || active != null || recoveryControl || !consent) return
+        val before = mutable.value
+        val clearGeneration = generation
+        val clearOrigin = origin
+        recoveryControl = true
         try { saveRecovery(null) } catch (_: Exception) {
-            mutable.value = mutable.value.copy(notice = "The recovery identity could not be cleared."); return
-        }
+            if (sameRecoveryOrigin(before, clearGeneration, clearOrigin))
+                mutable.value = mutable.value.copy(notice = "The recovery identity could not be cleared.")
+            return
+        } finally { recoveryControl = false }
+        // A successful clear removes the old identity, but cannot reset a new context.
         recovery = null
+        val sameOrigin = sameRecoveryOrigin(before, clearGeneration, clearOrigin)
         origin = null
-        mutable.value = BranchForkUiState(context = mutable.value.context)
+        if (sameOrigin) mutable.value = BranchForkUiState(context = before.context)
     }
     fun cancel() {
         if (disposed || !mutable.value.visible || mutable.value.outcome != null) return
@@ -215,6 +234,10 @@ internal class BranchForkController(
         origin = null
         mutable.value = BranchForkUiState()
     }
+    // Synchronous injected persistence can reenter context/close controls before returning.
+    // Reference equality also catches same-context presentation changes such as dismiss/cancel.
+    private fun sameRecoveryOrigin(before: BranchForkUiState, ticket: Long, expectedOrigin: BranchForkContext?) =
+        !disposed && generation == ticket && mutable.value === before && origin == expectedOrigin
     private fun current(ticket: Long) = !disposed && generation == ticket && mutable.value.visible
     private fun work(block: suspend (Long) -> Unit) {
         val ticket = ++generation

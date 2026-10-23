@@ -207,6 +207,12 @@ Its aggregate keeps accepted Rust receipts separate from storage and cleanup
 verdicts. The actual gift request was rejected by the action intent guard with
 unchanged canon; typed canonical events remain authoritative.
 
+The later [guard-bound SDK integration](GUARDED_SDK_VERIFICATION_2026-10-23.md)
+carries the already accepted prompt2.3 schema into a newly built native pair and
+separately qualified APK. Its bridge tests use synthetic bytes, while artifact
+selection is fixed for every package check within a controller run. The earlier
+APK and rejected attempt retain their original identities and evidence.
+
 The native [process owner](../../../benchmarks/spike/android/controller/README.md)
 owns/reaps one trusted direct child. An ADB-client exit is never native cleanup
 evidence. Package termination is limited to the hash-verified isolated SDK app;

@@ -8,6 +8,16 @@ and [review](PLAY_REVIEW_2026-10-23.md).
 The later [captured-main compatibility proof](PLAY_COMPAT_VERIFICATION_2026-10-23.md)
 records a separate build and emulator cohort without rewriting the original.
 
+The [guarded SDK bridge tests](GUARDED_SDK_BRIDGE_TESTS_2026-10-23.md) carry the
+accepted prompt2.3 refinement through the same public native byte interface.
+Supported action grammar binds the exact Engine-preflighted command; actual
+provider bytes still undergo parsing, intent and mechanical validation. Earlier
+APK/model observations retain their original source identity. The separately
+[qualified prompt2.3 artifact](GUARDED_SDK_VERIFICATION_2026-10-23.md) returned a
+process-crash terminal without a structured SDK result in its one actual run;
+its native schema compatibility remains unqualified. The earlier `04eef96b...`
+artifact and its Agency rejection are prompt2.2 evidence.
+
 ## Build and run
 
 Use existing Windows Rust1.93.1, NDK29.0.14206865, Android SDK, cached Gradle

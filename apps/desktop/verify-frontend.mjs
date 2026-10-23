@@ -17,6 +17,7 @@ for (const args of [
     ["check-capture-review.mjs"],
     ["check-evaluation-controller.mjs"],
     ["check-archive-controller.mjs"],
+    ["check-timeline-controller.mjs"],
 ]) {
     const code = await new Promise((resolve, reject) => {
         const child = spawn(process.execPath, args, {
@@ -59,6 +60,7 @@ for (const marker of [
     "private-capture-native-production-play",
     "MALFORMED_SYNTHETIC_DIRECTOR",
     "d08-native-durable-workspace",
+    "d08-timeline-native-durable-workspace",
     "legacy-v1-native-migrated-resume",
     "export-snapshot-independent-of-later-turn",
 ])

@@ -1,6 +1,9 @@
 import { EvaluationPanel } from "./EvaluationPanel";
 import { ArchivePanel } from "./ArchivePanel";
 import type { ArchiveController } from "./archive-controller";
+import { TimelinePanel } from "./TimelinePanel";
+import { timelineContext } from "./timeline-controller";
+import type { TimelineController } from "./timeline-controller";
 import type { EvaluationController } from "./evaluation-controller";
 import { TurnDebugger } from "./TurnDebugger";
 import { CapturePanel } from "./CapturePanel";
@@ -65,11 +68,13 @@ export function App({
     capture,
     evaluation,
     archive,
+    timeline,
 }: {
     controller: Controller;
     capture?: CaptureController;
     evaluation?: EvaluationController;
     archive?: ArchiveController;
+    timeline?: TimelineController;
 }) {
     const s = useSyncExternalStore(c.subscribe, c.get),
         selected = c.selected(),
@@ -337,6 +342,12 @@ export function App({
                             Story Lab shows spoilers. Its inspection lens does
                             not change character knowledge or permissions.
                         </div>
+                    )}
+                    {timeline && selected && (
+                        <TimelinePanel
+                            timeline={timeline}
+                            context={timelineContext(c)}
+                        />
                     )}
                     {evaluation && (
                         <EvaluationPanel

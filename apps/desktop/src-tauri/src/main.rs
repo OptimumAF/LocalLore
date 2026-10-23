@@ -19,6 +19,8 @@ mod harness;
 #[cfg(feature = "dev-harness")]
 mod test_bridge;
 #[cfg(feature = "dev-harness")]
+mod timeline_harness;
+#[cfg(feature = "dev-harness")]
 use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(feature = "dev-harness")]
 struct Reopen(AtomicBool);
@@ -127,7 +129,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},archiving:{},archiveStage:'{}',stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},archiving:{},timelining:{},archiveStage:'{}',stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
@@ -138,6 +140,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
             std::env::var("LOCALLORE_M07_LEGACY_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D07_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_HARNESS").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_D08_TIMELINE_HARNESS").as_deref() == Ok("1"),
             match std::env::var("LOCALLORE_D08_STAGE").as_deref(){Ok("import")=>"import",Ok("uncertain")=>"uncertain",Ok("retire")=>"retire",Ok("restarted")=>"restarted",_=>"source"},
             if reopened {
                 "reopened"
@@ -354,6 +357,13 @@ fn main() {
             } else {
                 path
             };
+            #[cfg(feature = "dev-harness")]
+            if harness::active()
+                && std::env::var("LOCALLORE_D08_TIMELINE_HARNESS").as_deref() == Ok("1")
+                && std::env::var("LOCALLORE_TEST_RESTART").as_deref() != Ok("1")
+            {
+                timeline_harness::seed(&path).map_err(std::io::Error::other)?;
+            }
             let model_root = path
                 .parent()
                 .ok_or_else(|| std::io::Error::other("InvalidInput"))?

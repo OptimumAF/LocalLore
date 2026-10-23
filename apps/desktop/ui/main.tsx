@@ -1,6 +1,11 @@
 import { EvaluationController } from "./evaluation-controller";
 import { ArchiveController } from "./archive-controller";
 import { CaptureController } from "./capture-controller";
+import {
+    TimelineController,
+    timelineContext,
+    resumeTimeline,
+} from "./timeline-controller";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { Controller } from "./controller";
@@ -30,6 +35,7 @@ declare global {
             legacy?: boolean;
             evaluating?: boolean;
             archiving?: boolean;
+            timelining?: boolean;
             archiveStage?:
                 "source" | "import" | "restarted" | "uncertain" | "retire";
         };
@@ -50,10 +56,14 @@ const controller = new Controller(gateway, errors, undefined, (work) =>
 );
 const archive = new ArchiveController(invoke, () => controller.library());
 const capture = new CaptureController(gateway, () => controller.readTrace());
+const timeline = new TimelineController(gateway, (scope) =>
+    resumeTimeline(controller, scope),
+);
 // Invalidate evaluation replies before React observes a changed story/lens/Play
 // context. Evaluation is independent of gameplay; no gameplay controller changes.
 const syncEvaluationContext = () => {
     const s = controller.get();
+    timeline.contextChanged(timelineContext(controller));
     capture.contextChanged(
         controller.selected(),
         s.play?.revision ?? 0,
@@ -87,12 +97,14 @@ root.render(
         evaluation={evaluation}
         archive={archive}
         capture={capture}
+        timeline={timeline}
     />,
 );
 const dispose = async () => {
     releaseEvaluationContext();
     evaluation.dispose();
     archive.dispose();
+    timeline.dispose();
     await capture.dispose();
     await controller.dispose();
     root.unmount();
@@ -137,7 +149,19 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
                 : durableDriver
                   ? durableDriver.durableJourneys
                   : driver.journeys;
-    if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.capturing) {
+    if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.timelining) {
+        const { timelineNativeJourneys } =
+            await import("./timeline-native-journeys");
+        await timelineNativeJourneys({
+            controller,
+            timeline,
+            gateway: gateway as InstanceType<typeof driver.FaultGateway>,
+            errors,
+            invoke,
+            dispose,
+            config: window.__LOCALLORE_TEST__,
+        });
+    } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.capturing) {
         const { captureJourneys } = await import("./capture-journeys");
         await captureJourneys({
             controller,

@@ -86,22 +86,48 @@ struct Reply {
     metrics: Metrics,
 }
 
-fn verified_model(path: &Path) -> Result<File, Error> {
+struct PinnedFile {
+    path: std::path::PathBuf,
+    file: File,
+    ancestors: Vec<File>,
+}
+
+fn ancestor_paths(absolute: &Path) -> Result<Vec<std::path::PathBuf>, Error> {
+    let mut paths: Vec<_> = absolute
+        .parent()
+        .ok_or(Error::InvalidRequest)?
+        .ancestors()
+        .map(Path::to_path_buf)
+        .collect();
+    paths.reverse();
+    Ok(paths)
+}
+
+// Root-to-leaf pinning makes every next path lookup occur under an already locked parent.
+// Holding a leaf first is insufficient: a not-yet-locked ancestor could be replaced meanwhile.
+fn pin_file(path: &Path, error: Error) -> Result<PinnedFile, Error> {
+    let absolute = std::path::absolute(path).map_err(|_| error)?;
+    let directories = ancestor_paths(&absolute).map_err(|_| error)?;
+    #[cfg(windows)]
+    let mut ancestors = vec![];
+    #[cfg(not(windows))]
+    let ancestors = vec![];
     #[cfg(windows)]
     {
-        use std::os::windows::fs::MetadataExt;
-        let absolute = std::path::absolute(path).map_err(|_| Error::ModelInvalid)?;
-        for ancestor in absolute.ancestors() {
-            if std::fs::symlink_metadata(ancestor)
-                .map_err(|_| Error::ModelInvalid)?
-                .file_attributes()
-                & 0x400
-                != 0
-            {
-                return Err(Error::ModelInvalid);
+        use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
+        for directory in directories {
+            let mut options = OpenOptions::new();
+            options.read(true).share_mode(1).custom_flags(0x0220_0000);
+            let handle = options.open(directory).map_err(|_| error)?;
+            let metadata = handle.metadata().map_err(|_| error)?;
+            if !metadata.is_dir() || metadata.file_attributes() & 0x400 != 0 {
+                return Err(error);
             }
+            ancestors.push(handle);
         }
     }
+    #[cfg(not(windows))]
+    let _ = directories;
     let mut options = OpenOptions::new();
     options.read(true);
     #[cfg(windows)]
@@ -109,36 +135,73 @@ fn verified_model(path: &Path) -> Result<File, Error> {
         use std::os::windows::fs::OpenOptionsExt;
         options.share_mode(1).custom_flags(0x0020_0000);
     }
-    let mut file = options.open(path).map_err(|_| Error::ModelInvalid)?;
+    let file = options.open(&absolute).map_err(|_| error)?;
+    let metadata = file.metadata().map_err(|_| error)?;
+    if !metadata.is_file() {
+        return Err(error);
+    }
     #[cfg(windows)]
     {
         use std::os::windows::fs::MetadataExt;
-        if file
-            .metadata()
-            .map_err(|_| Error::ModelInvalid)?
-            .file_attributes()
-            & 0x400
-            != 0
-        {
-            return Err(Error::ModelInvalid);
+        if metadata.file_attributes() & 0x400 != 0 {
+            return Err(error);
         }
     }
-    if file.metadata().map_err(|_| Error::ModelInvalid)?.len() != MODEL_BYTES {
-        return Err(Error::ModelInvalid);
-    }
+    Ok(PinnedFile {
+        path: absolute,
+        file,
+        ancestors,
+    })
+}
+fn hash_file(file: &mut File, error: Error) -> Result<String, Error> {
     let mut digest = Sha256::new();
     let mut chunk = vec![0; 65_536];
     loop {
-        let count = file.read(&mut chunk).map_err(|_| Error::ModelInvalid)?;
+        let count = file.read(&mut chunk).map_err(|_| error)?;
         if count == 0 {
             break;
         }
         digest.update(&chunk[..count]);
     }
-    if format!("{:x}", digest.finalize()) != MODEL_SHA256 {
+    Ok(format!("{:x}", digest.finalize()))
+}
+fn verified_model(path: &Path) -> Result<PinnedFile, Error> {
+    let mut pinned = pin_file(path, Error::ModelInvalid)?;
+    if pinned
+        .file
+        .metadata()
+        .map_err(|_| Error::ModelInvalid)?
+        .len()
+        != MODEL_BYTES
+        || hash_file(&mut pinned.file, Error::ModelInvalid)? != MODEL_SHA256
+    {
         return Err(Error::ModelInvalid);
     }
-    Ok(file)
+    Ok(pinned)
+}
+fn canonical_json(value: &Value) -> Value {
+    match value {
+        Value::Object(object) => {
+            let sorted: std::collections::BTreeMap<_, _> = object.iter().collect();
+            let mut result = serde_json::Map::new();
+            for (key, value) in sorted {
+                result.insert(key.clone(), canonical_json(value));
+            }
+            Value::Object(result)
+        }
+        Value::Array(array) => Value::Array(array.iter().map(canonical_json).collect()),
+        _ => value.clone(),
+    }
+}
+/// Hash of the embedded reviewed profile after recursive object-key sorting and compact JSON
+/// serialization. Arrays retain order; this is the pinned serde JSON encoding, not RFC8785.
+pub fn profile_manifest_sha256() -> String {
+    let profile: Value =
+        serde_json::from_str(include_str!("../../../native/llama-worker/profile-v1.json"))
+            .expect("embedded runtime profile is valid JSON");
+    let bytes =
+        serde_json::to_vec(&canonical_json(&profile)).expect("embedded runtime profile serializes");
+    format!("{:x}", Sha256::digest(bytes))
 }
 
 /// One trusted packaged executable and one verified, locked artifact. Calls block and must run
@@ -151,6 +214,9 @@ pub struct LocalRuntime {
     threads: Vec<JoinHandle<()>>,
     _model: File,
     _ancestors: Vec<File>,
+    _worker: Option<File>,
+    _worker_ancestors: Vec<File>,
+    worker_sha256: String,
     next_id: u64,
     status: Status,
     deadline: Duration,
@@ -165,33 +231,22 @@ impl LocalRuntime {
         Self::spawn(executable, model)
     }
     fn spawn(executable: &Path, model: &Path) -> Result<Self, Error> {
-        let absolute = std::path::absolute(model).map_err(|_| Error::ModelInvalid)?;
-        #[cfg(windows)]
-        let mut ancestors = vec![];
-        #[cfg(not(windows))]
-        let ancestors = vec![];
-        #[cfg(windows)]
-        {
-            use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
-            for directory in absolute.parent().ok_or(Error::ModelInvalid)?.ancestors() {
-                let mut options = OpenOptions::new();
-                options.read(true).share_mode(1).custom_flags(0x0220_0000);
-                let handle = options.open(directory).map_err(|_| Error::ModelInvalid)?;
-                if handle
-                    .metadata()
-                    .map_err(|_| Error::ModelInvalid)?
-                    .file_attributes()
-                    & 0x400
-                    != 0
-                {
-                    return Err(Error::ModelInvalid);
-                }
-                ancestors.push(handle);
-            }
+        let model = verified_model(model)?;
+        let mut worker = pin_file(executable, Error::WorkerUnavailable)?;
+        let bytes = worker
+            .file
+            .metadata()
+            .map_err(|_| Error::WorkerUnavailable)?
+            .len();
+        if bytes == 0 || bytes > 128 * 1024 * 1024 {
+            return Err(Error::WorkerUnavailable);
         }
-        let file = verified_model(&absolute)?;
-        let mut owner = Self::start(executable, &absolute, file)?;
-        owner._ancestors = ancestors;
+        let digest = hash_file(&mut worker.file, Error::WorkerUnavailable)?;
+        let mut owner = Self::start(&worker.path, &model.path, model.file)?;
+        owner._ancestors = model.ancestors;
+        owner._worker = Some(worker.file);
+        owner._worker_ancestors = worker.ancestors;
+        owner.worker_sha256 = digest;
         Ok(owner)
     }
     fn start(executable: &Path, model: &Path, file: File) -> Result<Self, Error> {
@@ -277,11 +332,21 @@ impl LocalRuntime {
             threads: vec![write_thread, read_thread, error_thread],
             _model: file,
             _ancestors: vec![],
+            _worker: None,
+            _worker_ancestors: vec![],
+            worker_sha256: String::new(),
             next_id: 0,
             status: Status::Unloaded,
             deadline: Duration::from_secs(60),
             last_metrics: None,
         })
+    }
+    /// Identity of the exact read-only executable handle retained across process creation.
+    pub fn worker_sha256(&self) -> &str {
+        &self.worker_sha256
+    }
+    pub fn profile_manifest_sha256(&self) -> String {
+        profile_manifest_sha256()
     }
     pub fn status(&self) -> Status {
         self.status
@@ -482,6 +547,95 @@ mod tests {
     use super::*;
     use std::sync::atomic::AtomicU64;
     static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+    fn resources() -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "locallore-runtime-resource-{}-{}",
+            std::process::id(),
+            SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::create_dir(&dir).unwrap();
+        dir
+    }
+    #[test]
+    fn profile_manifest_digest_is_canonical_and_matches_independent_vector() {
+        // Independent Python json(sort_keys=True,separators=(',',':')) SHA-256 vector.
+        assert_eq!(
+            profile_manifest_sha256(),
+            "01ad542001b04a96f4a8ed6c841be1866eb025350836e0c5d0a4969fdb361d38"
+        );
+        let one: Value = serde_json::from_str(r#"{"b":[{"z":1,"a":2}],"a":true}"#).unwrap();
+        let two: Value = serde_json::from_str(r#"{"a":true,"b":[{"a":2,"z":1}]}"#).unwrap();
+        assert_eq!(
+            serde_json::to_vec(&canonical_json(&one)).unwrap(),
+            serde_json::to_vec(&canonical_json(&two)).unwrap()
+        );
+    }
+    #[test]
+    fn ancestor_order_is_root_to_leaf_even_with_spaces_and_unicode() {
+        let path = std::path::absolute(
+            std::env::temp_dir()
+                .join("worker resources Δ")
+                .join("nested")
+                .join("worker.exe"),
+        )
+        .unwrap();
+        let paths = ancestor_paths(&path).unwrap();
+        assert!(paths.first().unwrap().parent().is_none());
+        assert_eq!(paths.last().unwrap(), path.parent().unwrap());
+        for pair in paths.windows(2) {
+            assert_eq!(pair[1].parent().unwrap(), pair[0]);
+        }
+    }
+    #[test]
+    fn pinned_resource_hash_uses_locked_handle_and_missing_paths_reject() {
+        let dir = resources();
+        let nested = dir.join("worker resources Δ");
+        std::fs::create_dir(&nested).unwrap();
+        let path = nested.join("synthetic worker.exe");
+        std::fs::write(&path, b"abc").unwrap();
+        let mut pinned = pin_file(&path, Error::WorkerUnavailable).unwrap();
+        assert_eq!(
+            hash_file(&mut pinned.file, Error::WorkerUnavailable).unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        assert!(pin_file(&nested.join("missing.exe"), Error::WorkerUnavailable).is_err());
+        assert!(pin_file(&nested, Error::WorkerUnavailable).is_err());
+        #[cfg(windows)]
+        {
+            assert!(OpenOptions::new().write(true).open(&path).is_err());
+            assert!(std::fs::remove_file(&path).is_err());
+            assert!(std::fs::rename(&nested, dir.join("replaced")).is_err());
+        }
+        drop(pinned);
+        assert!(OpenOptions::new().write(true).open(&path).is_ok());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+    #[cfg(windows)]
+    #[test]
+    #[ignore = "requires Windows symlink privilege; run explicitly when available"]
+    fn model_and_worker_reparse_paths_reject() {
+        let dir = resources();
+        let real = dir.join("actual");
+        std::fs::create_dir(&real).unwrap();
+        let file = real.join("file.exe");
+        std::fs::write(&file, b"abc").unwrap();
+        let leaf = dir.join("worker-link.exe");
+        std::os::windows::fs::symlink_file(&file, &leaf).unwrap();
+        let ancestor = dir.join("directory-link");
+        std::os::windows::fs::symlink_dir(&real, &ancestor).unwrap();
+        for category in [Error::WorkerUnavailable, Error::ModelInvalid] {
+            assert_eq!(pin_file(&leaf, category).err().unwrap(), category);
+            assert_eq!(
+                pin_file(&ancestor.join("file.exe"), category)
+                    .err()
+                    .unwrap(),
+                category
+            );
+        }
+        std::fs::remove_file(leaf).unwrap();
+        std::fs::remove_dir(ancestor).unwrap();
+        std::fs::remove_dir_all(dir).unwrap();
+    }
     pub(super) fn fixture(mode: &str) -> (LocalRuntime, std::path::PathBuf) {
         let dir = std::env::temp_dir().join(format!(
             "locallore-runtime-{}-{}",

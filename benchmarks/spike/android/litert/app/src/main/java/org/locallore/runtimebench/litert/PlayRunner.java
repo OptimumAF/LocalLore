@@ -175,21 +175,25 @@ final class PlayRunner {
                 checkpoint("role_open_before", roleRequest.role);
                 WarmRunner.Role role = model.open(roleRequest);
                 boolean active = false, drained = false;
+                RoleObserver observer = new RoleObserver(currentGeneration, result);
                 try {
                     checkpoint("role_open_after", roleRequest.role);
                     checkpoint("role_start_before", roleRequest.role);
-                    active = true; generationStarted = System.nanoTime(); role.start();
+                    active = true; generationStarted = System.nanoTime(); observer.started = generationStarted; role.start();
                     checkpoint("role_start_after", roleRequest.role);
                     checkpoint("role_drain_before", roleRequest.role);
                     while (true) {
+                        observer.output(role);
                         checkDeadline(deadline);
-                        if (cancelAfterOutput && role.hasOutput() && !role.await(0)) {
-                            result.addProperty("first_output_observed", true);
-                            data(probe.call(scoped("cancel", request)), "cancel");
-                            throw new Cancelled();
+                        if (cancelAfterOutput && role.hasOutput()) {
+                            observer.positive();
+                            if (!role.await(0)) {
+                                data(probe.call(scoped("cancel", request)), "cancel");
+                                throw new Cancelled();
+                            }
                         }
                         if (role.await(25)) {
-                            drained = true; checkpoint("role_drain_after", roleRequest.role); break;
+                            drained = true; observer.output(role); checkpoint("role_drain_after", roleRequest.role); break;
                         }
                     }
                     metrics.addProperty("terminal_callback", true);
@@ -209,6 +213,7 @@ final class PlayRunner {
                         catch (Exception failure) { drained = false; }
                     }
                     if (active && !drained) { modelOwned = false; throw new WarmRunner.Undrained(); }
+                    if (active && drained) { observer.output(role); observer.terminal(role); }
                     metrics.addProperty("terminal_callback", true);
                     cleanupCheckpoint("role_close_before", roleRequest.role);
                     try { role.close(); }
@@ -439,7 +444,40 @@ final class PlayRunner {
         JsonObject row = new JsonObject(); row.addProperty("role", role); row.addProperty("status", "error"); setError(row, null);
         for (String key : Arrays.asList("load_ms", "generation_ms", "input_tokens", "output_tokens")) row.add(key, JsonNull.INSTANCE);
         for (String key : Arrays.asList("schema_enforced", "thinking_disabled", "template_applied")) row.addProperty(key, false);
+        row.addProperty("output_observation", "unknown"); row.add("first_output_elapsed_ms", JsonNull.INSTANCE);
+        row.add("terminal_observation", JsonNull.INSTANCE);
         return row;
+    }
+    /** Optional observations never decide cancellation, acceptance or owner cleanup. */
+    private static final class RoleObserver {
+        final JsonObject row, turn;
+        long started;
+        boolean seen, unknown;
+        RoleObserver(JsonObject row, JsonObject turn) { this.row = row; this.turn = turn; }
+        void output(WarmRunner.Role role) {
+            try {
+                Boolean output = role.observeOutput();
+                if (output == null) unknown = true;
+                else if (output) positive();
+            } catch (Exception unavailable) { unknown = true; }
+            row.addProperty("output_observation", seen ? "observed" : unknown ? "unknown" : "not_observed");
+        }
+        void positive() {
+            if (!seen) {
+                seen = true;
+                row.addProperty("first_output_elapsed_ms", Math.max(0, Math.min(180000, elapsed(started))));
+            }
+            turn.addProperty("first_output_observed", true); row.addProperty("output_observation", "observed");
+        }
+        void terminal(WarmRunner.Role role) {
+            try {
+                RoleObservation observation = role.observeTerminal();
+                if (observation != null) {
+                    row.add("terminal_observation", observation.toJson());
+                    if (observation.bufferedTextBytes > 0) positive();
+                }
+            } catch (Exception unavailable) { /* Optional metadata cannot replace a primary failure or skip cleanup. */ }
+        }
     }
     private static void copyGeneration(JsonObject row, JsonObject generated, Request request, long started) throws Exception {
         if (!string(generated.get("status")).equals("completed") || !generated.get("error").isJsonNull())

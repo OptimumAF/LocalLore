@@ -229,8 +229,13 @@ export async function captureJourneys({
                 "private-actual-player-context-not-lab-context",
             );
             check(
-                !JSON.stringify(ctx).includes("smuggler") &&
-                    !JSON.stringify(ctx).includes("SECRET_CANARY"),
+                JSON.stringify(ctx).includes("SECRET-TIDE-731") &&
+                    !JSON.stringify(ctx).includes(
+                        "An old repair mark is scratched inside the dry well.",
+                    ) &&
+                    !JSON.stringify(ctx).includes(
+                        "The tideglass relic is in old-ruins.",
+                    ),
                 "private-captured-context-actor-filtered",
             );
             check(

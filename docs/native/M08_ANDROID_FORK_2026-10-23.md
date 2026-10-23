@@ -51,3 +51,13 @@ Coordinator compiler slots remain exclusive. The source/test commit must precede
 ## Source-review follow-up before any execution
 
 After initial freeze9ea923a, source inspection identified a possible pre-dispatch Kotlin lifetime hole: cancelling the lazy-started coroutine before its body enters may skip its body/finally and retain `active`, leaving the controller Busy. A NEW twelfth actual-controller test is frozen separately with no production fix: confirm, immediate context change without scheduler advance, then require worker release and lookup-only recovery. This is an **unexecuted source finding**, not measured RED. Root still owns compiler scheduling; Kotlin/JVM execution needs separate clearance. Original11 tests and initial source remain immutable. The next applicable run must preserve this outcome before changing the coroutine cleanup.
+
+## First actual checks, unchanged source9ea923a / testsac401fd
+
+Exclusive coordinator resource GO, own `android-fork-artifacts` D target/TEMP, Rust1.93.1 jobs1 locked/offline, ordinary uncapped SQLite:
+
+- `cargo +1.93.1 test -p locallore-android --test branch_fork_native --locked --offline --jobs 1 --target-dir <own>/target -- --test-threads=1`: **9 PASS**,35.16s compile/.47s cases. Initial log SHA256 `5938a69f1553c0b972a19751726b58b7aa79c8e930f00591cacb522008b828ce`.
+- Filtered `--lib workspace::branch_fork::tests`: **compile FAIL E0063 /0 executed**, two existing cfg(test) WorkspaceRegistry literals omit the newly added forks field. Initial log SHA256 `c940aadfc5880352e6fedbe0595b8124d7857f2bd994ae0d64be79f43c6617e5`. Coordinator approved only those two test-literal defaults; addendum#12 6375030981/#30 6375031263.
+- Gradle `:app:testDebugUnitTest --tests org.locallore.app.BranchForkControllerTest --offline --no-daemon --max-workers 1 -Pandroid.builder.sdkDownload=false --init-script <own>/fork-output.gradle`: first invocation **compile FAIL /0 JVM cases**. Both ordinary JNI release ABIs compiled (x86_64 2m50s;ARM64 2m30s), then Kotlin found a private `JSONObject.error` extension shadowing `kotlin.error`, recursively inferring Any instead of Boolean at NativeFork.kt128/134/136/141/192. Initial log SHA256 `61f4f56523f22eaf0c405e149e69033fcbc708007deed9eb03611005c64d4d44`;5m48s total. The correction will rename the private category reader, preserving its closed allowlist and all existing oracles.
+
+Environment: Android Studio1 JBR17.0.6; SDK36/NDK29.0.14206865; shared read-through Gradle cache under the task D root; project-specific own D build outputs and TEMP; no app/installation/JNI execution/device/model. Source fixes must be committed before subsequent checks. The initial lifecycle concern remains unmeasured until tests actually execute.

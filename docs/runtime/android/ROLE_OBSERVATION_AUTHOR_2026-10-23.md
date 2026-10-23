@@ -228,3 +228,46 @@ No author ADB, installation, model read, SDK execution, native rebuild or Androi
 build was performed during these source fixes. The coordinator owns the Stream
 first-error correction, integration, new-artifact build and any later device
 admission. The final resource tests are host fakes, not real SDK fault injection.
+
+## Corrected artifact qualification 2
+
+After the independent source audit, the coordinator integrated all runner
+ownership fixes, SDK-open rollback handling and sticky first callback diagnostics
+at `604cb991ade7cb922ef3c89b08e6a296ecab4b4b`. A fresh second build independently
+qualified that exact source. The first build and its successful 123-test evidence
+remain retained as superseded, not reclassified as a failed build or installed
+experiment.
+
+The corrected APK is **63,666,936 bytes**, SHA256:
+
+```text
+9417a3e914975918d018c8a7d8954f192c09e40e10320b08c86be8a50fd7217f
+```
+
+Its exact cacheprobe package/runner and zero-permission manifest were verified.
+The new build used the same hash-verified `f4d247f3...` prior APK native anchor;
+production native inputs were unchanged from `ba31932` except a test. Both
+staged Rust libraries, all four final SDK/Rust native entry hashes, expected JNI
+exports, ABI ELF alignment and 16-KiB ZIP alignment passed. No native rebuild or
+runtime upgrade was performed. APK inputs were byte-identical before/after
+qualification, including the reviewed Java implementation.
+
+The offline Gradle build ran 50 tasks, all executed, and reported success in
+41 seconds. Its bounded stage receipt records 41,937 ms; the complete Windows Job
+controller records **44,390 ms, exit 0, no stderr and known cleanup**. The existing
+stdin-EOF ownership barrier, maximum-180-second controller budget, separate
+D-volume outputs and per-stage C/D capacity gates were retained.
+
+Actual XML across the twelve Java suites shows **132 tests, 0 failures,
+0 errors, 0 skips**. Locked dependency identities, actual lint analyzer and
+transitive dependency metadata checks passed. Lint had **0 errors, 9 warnings**
+(OldTargetApi 1, GradleDependency 1, UsableSpace 7). There were no failed or refused
+qualification-2 stages. No test count is inferred from an expected count.
+
+The combined evidence index binds both successful build attempts, their distinct
+source inputs and native provenance, original per-stage logs/receipts, JVM XML,
+lint/analyzer metadata, both APK identities and the followup source-fix host
+checks. The first artifact remains superseded before installation. This author
+performed no ADB, model/SDK execution or device action for either qualification.
+The corrected artifact's fresh device capacity/model-identity admission and any
+actual inference result remain coordinator-owned work.

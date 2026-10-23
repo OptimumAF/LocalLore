@@ -282,3 +282,39 @@ fn in_flight_candidate_cannot_become_ready_after_same_head_receipt_replacement_a
         "source rejection must drain the admitted worker"
     );
 }
+
+#[test]
+fn selected_session_cannot_adopt_replacement_source_during_fresh_submit() {
+    let target = Fixture::new();
+    let original = create_prefix(&target, "original-accepted-prefix");
+    let host = target.host();
+    let session = select(&host, original.scope());
+    let calls = configure(&host, None);
+    let request = request(&original);
+    let replacement = replace_and_redraft(&target, &original, &request);
+    let submitted = call(
+        &host,
+        json!({"op":"free_text","session":session,"request":request}),
+    );
+    assert_stale_without_mutating_replacement(&submitted, &target, &replacement, &request);
+    assert_eq!(calls.load(Ordering::Relaxed), 0);
+    assert_eq!(host.live_counts().1, 0);
+}
+
+#[test]
+fn turn_status_cannot_launder_queued_source_basis_before_prepare() {
+    let target = Fixture::new();
+    let original = create_prefix(&target, "original-accepted-prefix");
+    let host = target.host();
+    let session = select(&host, original.scope());
+    let calls = configure(&host, None);
+    let request = request(&original);
+    submit(&host, &session, &request);
+    let replacement = replace_and_redraft(&target, &original, &request);
+    let status = operation(&host, &session, &request, "turn_status");
+    assert_stale_without_mutating_replacement(&status, &target, &replacement, &request);
+    let prepared = operation(&host, &session, &request, "prepare");
+    assert_stale_without_mutating_replacement(&prepared, &target, &replacement, &request);
+    assert_eq!(calls.load(Ordering::Relaxed), 0);
+    assert_eq!(host.live_counts().1, 0);
+}

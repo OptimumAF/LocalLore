@@ -254,7 +254,8 @@ internal class ArchiveController(
         job.start()
     }
     private fun freeze(prepared: ArchivePrepared) = prepared.copy(preview = prepared.preview.copy(
-        branchHeads = prepared.preview.branchHeads.toMap()))
+        branchHeads = java.util.Collections.unmodifiableMap(LinkedHashMap(prepared.preview.branchHeads)),
+        retiredBranchIds = java.util.Collections.unmodifiableList(ArrayList(prepared.preview.retiredBranchIds))))
 }
 
 private fun archiveNotice(failure: Exception): String = when ((failure as? ArchiveFailure)?.category) {

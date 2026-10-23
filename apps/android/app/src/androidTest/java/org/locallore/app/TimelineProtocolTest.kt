@@ -22,19 +22,19 @@ class TimelineProtocolTest {
             JSONObject().put("story", story).put("branch", branch)
         private fun ok(data: JSONObject) = JSONObject().put("version", 1).put("status", "ok").put("data", data)
         private fun head() = if (selected == "main") 2L else 3L
-        fun catalog() = JSONObject().put("version", 1).put("story_id", storyId).put("title", "Original title")
+        fun catalog() = JSONObject().put("version", 2).put("story_id", storyId).put("title", "Original title")
             .put("root_branch", "main").put("branches", JSONArray()
                 .put(JSONObject().put("scope", scope("child")).put("parent_branch", "main").put("fork_revision", 1)
-                    .put("revision", 3).put("drafts", 2))
+                    .put("revision", 3).put("drafts", 2).put("retired", false))
                 .put(JSONObject().put("scope", scope("main")).put("parent_branch", JSONObject.NULL)
-                    .put("fork_revision", JSONObject.NULL).put("revision", 2).put("drafts", 0)))
+                    .put("fork_revision", JSONObject.NULL).put("revision", 2).put("drafts", 0).put("retired", false)))
         override suspend fun exchange(command: JSONObject): JSONObject {
             val op = command.getString("op"); calls += op
             return when (op) {
                 "workspace" -> ok(JSONObject().put("persistent", true).put("schema_version", 1)
-                    .put("database_schema_version", 2).put("location", "/synthetic/workspace.sqlite3")
+                    .put("database_schema_version", 3).put("location", "/synthetic/workspace.sqlite3")
                     .put("stories", JSONArray().put(JSONObject().put("scope", scope("main"))
-                        .put("title", "Original title").put("revision", 2).put("drafts", 0))))
+                        .put("title", "Original title").put("revision", 2).put("drafts", 0).put("retired", false))))
                 "branches" -> {
                     assertEquals(storyId, command.getString("story"))
                     ok(catalog().also(changeCatalog))
@@ -135,7 +135,7 @@ class TimelineProtocolTest {
             fun row(branch: String, ancestor: String) = JSONObject()
                 .put("scope", JSONObject().put("story", story).put("branch", branch))
                 .put("parent_branch", ancestor).put("fork_revision", 1)
-                .put("revision", 3).put("drafts", 0)
+                .put("revision", 3).put("drafts", 0).put("retired", false)
             val rows = JSONArray().put(row(parent, "main"))
             repeat(254) { index -> rows.put(row("b" + index.toString().padStart(3, '0') + "x".repeat(60), parent)) }
             rows.put(root); data.put("branches", rows)

@@ -255,6 +255,15 @@ fn graph(connection: &Connection, story: &str, cancel: &dyn Fn() -> bool) -> Res
     })
 }
 
+/// Validate reserved IDs and the retained-prefix normal form for metadata consumers.
+pub(crate) fn validate_retention(
+    connection: &Connection,
+    story: &str,
+    cancel: &dyn Fn() -> bool,
+) -> Result<()> {
+    graph(connection, story, cancel).map(|_| ())
+}
+
 // Private SQL identifiers and predicates, never caller/model supplied.
 fn predicate(table: &str, cap: Option<u64>) -> &'static str {
     match (table, cap) {

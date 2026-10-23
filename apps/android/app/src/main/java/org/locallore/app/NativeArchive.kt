@@ -38,13 +38,14 @@ internal object NativeArchive {
 }
 
 /** IO-only native work, separate from the Host wire. Paths never come from a picker or archive. */
-internal class NativeArchiveGateway(context: Context) : ArchiveGateway, StoryDeletionGateway {
+internal class NativeArchiveGateway(context: Context) : ArchiveGateway, StoryDeletionGateway, BranchDeletionGateway {
     private val app = context.applicationContext
     private val allocation = Mutex()
     private val handle = AtomicLong()
     private val closed = AtomicBoolean()
     private val epoch = AtomicLong()
     private val deletion = AtomicReference<StoryDeletionPrepared?>()
+    private val branchDeletion = AtomicReference<BranchDeletionPrepared?>()
     private val cleanup = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private suspend fun owner(): Long = allocation.withLock {
@@ -133,8 +134,40 @@ internal class NativeArchiveGateway(context: Context) : ArchiveGateway, StoryDel
             }
         }
     }
+    private suspend fun <T> deletingBranch(block: suspend () -> T): T = try { block() }
+        catch (failure: ArchiveFailure) { throw BranchDeletionFailure(failure.category) }
+    override suspend fun prepareBranch(story: SavedStory): BranchDeletionPrepared = deletingBranch {
+        branchDeletion.set(null)
+        io { id ->
+            val request = JSONObject().put("story", story.story).put("branch", story.branch)
+                .put("expected_revision", story.revision).toString().toByteArray(Charsets.UTF_8)
+            if (request.size > 4096) throw ArchiveFailure("TooLarge")
+            ArchiveNativeWire.branchDeletionPrepared(NativeArchive.prepareBranchDelete(id, request)).also {
+                val p = it.preview
+                if (p.storyId != story.story || p.branchId != story.branch || p.expectedRevision != story.revision ||
+                    p.title != story.title) throw ArchiveFailure("Stale")
+                branchDeletion.set(it)
+            }
+        }
+    }
+    override suspend fun commitBranch(token: Long): BranchDeleted = deletingBranch {
+        val prepared = branchDeletion.get() ?: throw ArchiveFailure("InvalidToken")
+        if (prepared.token != token || !branchDeletion.compareAndSet(prepared, null)) throw ArchiveFailure("InvalidToken")
+        io { id ->
+            ArchiveNativeWire.branchDeleted(NativeArchive.commitBranchDelete(id, token)).also {
+                val p = prepared.preview
+                val invalidated = (p.removedBranches + p.branchId).distinct().sorted()
+                if (it.storyId != p.storyId || it.branchId != p.branchId ||
+                    it.retainedThroughRevision != p.retainedHeads[p.branchId] ||
+                    it.collectedBranches != p.removedBranches.size.toLong() ||
+                    it.deletedTurns != p.removedRows["turns"] || it.invalidatedBranches != invalidated)
+                    throw ArchiveFailure("Integrity")
+            }
+        }
+    }
     override fun cancel() {
         deletion.set(null)
+        branchDeletion.set(null)
         epoch.incrementAndGet()
         val id = handle.get()
         if (id != 0L) NativeArchive.cancel(id)
@@ -158,6 +191,52 @@ private val ARCHIVE_ERRORS = setOf("Malformed", "Unsupported", "Integrity", "Too
 
 /** Native response validation only. Archive parsing/replay remains entirely in Rust. */
 internal object ArchiveNativeWire {
+    fun branchDeletionPrepared(bytes: ByteArray): BranchDeletionPrepared = decoded(bytes, 65536) { data ->
+        data.keysExactly("token", "preview")
+        val token = data.integer("token").also { require(it > 0) }
+        val p = data.getJSONObject("preview")
+        p.keysExactly("version", "scope", "title", "root_branch", "expected_revision", "retained_descendants",
+            "retained_heads", "removed_branches", "removed_rows", "removed_committed_turns",
+            "removed_noncommitted_turns", "privacy_warning")
+        require(p.integer("version") == 1L)
+        val scope = p.getJSONObject("scope").also { it.keysExactly("story", "branch") }
+        val story = scope.identifier("story"); val branch = scope.identifier("branch")
+        val root = p.identifier("root_branch").also { require(it != branch) }
+        val descendants = branchCounts(p.getJSONObject("retained_descendants"))
+        val retained = branchCounts(p.getJSONObject("retained_heads"))
+        val removed = identifiers(p.getJSONArray("removed_branches"), allowEmpty = true)
+        require(root !in descendants && branch !in descendants && root !in retained && root !in removed)
+        require(descendants.keys.none { it in removed } && retained.keys.none { it in removed })
+        require((branch in retained) != (branch in removed))
+        if (descendants.isNotEmpty()) require(branch in retained)
+        val rowsObject = p.getJSONObject("removed_rows")
+        rowsObject.keysExactly("derived_memory", "event_witnesses", "accepted_events", "turns", "branch_projections",
+            "branch_entities", "branches")
+        val rows = rowsObject.keys().asSequence().associateWith { rowsObject.integer(it) }
+        require(rows.getValue("branches") == removed.size.toLong())
+        val committed = p.integer("removed_committed_turns"); val pending = p.integer("removed_noncommitted_turns")
+        require(committed <= rows.getValue("turns") && pending == rows.getValue("turns") - committed)
+        BranchDeletionPrepared(token, BranchDeletionPreview(1, story, branch, p.text("title", 1024), root,
+            p.integer("expected_revision"), descendants, retained, removed, rows, committed, pending, p.text("privacy_warning",4096)))
+    }
+    fun branchDeleted(bytes: ByteArray): BranchDeleted = decoded(bytes, 65536) { data ->
+        data.keysExactly("scope", "retained_through_revision", "collected_branches", "deleted_turns", "invalidated_branches")
+        val scope = data.getJSONObject("scope").also { it.keysExactly("story", "branch") }
+        val invalidated = identifiers(data.getJSONArray("invalidated_branches"), allowEmpty = false)
+        val branch = scope.identifier("branch").also { require(it in invalidated) }
+        BranchDeleted(scope.identifier("story"), branch,
+            if (data.isNull("retained_through_revision")) null else data.integer("retained_through_revision"),
+            data.integer("collected_branches").also { require(it <= 256) }, data.integer("deleted_turns"), invalidated)
+    }
+    private fun branchCounts(value: JSONObject): Map<String, Long> {
+        require(value.length() <= 256)
+        return value.keys().asSequence().associateWith { require(validArchiveId(it)); value.integer(it) }
+    }
+    private fun identifiers(value: org.json.JSONArray, allowEmpty: Boolean): List<String> {
+        require(value.length() in (if (allowEmpty) 0 else 1)..256)
+        return (0 until value.length()).map { (value.get(it) as String).also { id -> require(validArchiveId(id)) } }
+            .also { require(it.zipWithNext().all { (a,b) -> a < b }) }
+    }
     fun deletionPrepared(bytes: ByteArray): StoryDeletionPrepared = decoded(bytes, 65536) { data ->
         data.keysExactly("token", "preview")
         val token = data.integer("token").also { require(it > 0) }

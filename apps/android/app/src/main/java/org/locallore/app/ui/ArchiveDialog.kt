@@ -123,9 +123,14 @@ fun ArchiveDialog(
                                     modifier = Modifier.semantics { heading() })
                                 Text("Archive format · ${preview.version}")
                                 Text("${preview.branchHeads.size} timelines · ${preview.committedTurns} committed turns · ${preview.bytes} bytes")
-                                preview.branchHeads.forEach { (branch, head) -> Text("$branch · accepted head $head",
+                                preview.branchHeads.forEach { (branch, head) -> Text(
+                                    if (branch in preview.retiredBranchIds) "$branch · retained ancestry through $head (not playable)"
+                                    else "$branch · accepted head $head",
                                     style = MaterialTheme.typography.bodySmall) }
                                 Text(preview.privacyWarning, style = MaterialTheme.typography.bodySmall)
+                                if (preview.retiredBranchIds.isNotEmpty()) Text(
+                                    "Reserved deleted timeline IDs: ${preview.retiredBranchIds.joinToString()}. Import preserves these IDs and retained ancestry.",
+                                    style = MaterialTheme.typography.bodySmall)
                                 Text("Payload checksum · ${preview.payloadSha256}", style = MaterialTheme.typography.bodySmall)
                                 if (state.kind == ArchiveKind.EXPORT) {
                                     Text("Choose a new document. LocalLore refuses nonempty or unverifiable opened destinations. " +

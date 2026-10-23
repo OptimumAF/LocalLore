@@ -179,7 +179,7 @@ fn v1_backup_collision_preserves_original_and_concurrent_openers_make_one_backup
         .collect();
     for thread in threads {
         match thread.join().unwrap() {
-            Ok(store) => assert_eq!(store.info().unwrap().schema_version, 2),
+            Ok(store) => assert_eq!(store.info().unwrap().schema_version, SCHEMA_VERSION),
             Err(error) => assert_eq!(error, StorageError::Busy),
         }
     }

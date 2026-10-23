@@ -66,6 +66,23 @@ impl Store {
             )
             .optional()?;
         let (title, root_branch) = metadata.ok_or(StorageError::NotFound)?;
+        if crate::identity(&tx)?.1 >= 3 {
+            let retired: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM branch_retention WHERE story_id=?1)",
+                [story],
+                |row| row.get(0),
+            )?;
+            if retired {
+                crate::branch_retention::validate_retention(&tx, story, cancel).map_err(
+                    |error| match error {
+                        crate::DeletionError::Cancelled => TurnError::Engine(Error::Cancelled),
+                        crate::DeletionError::TooLarge => TurnError::TooLarge,
+                        crate::DeletionError::Busy => TurnError::Storage(StorageError::Busy),
+                        _ => TurnError::Integrity,
+                    },
+                )?;
+            }
+        }
         if title.is_empty()
             || title.chars().count() > 256
             || title.contains('\0')

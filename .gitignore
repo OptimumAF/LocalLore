@@ -21,6 +21,8 @@ apps/android/.gradle-story-deletion/
 apps/android/app/build-story-deletion/
 apps/android/.gradle-timeline/
 apps/android/app/build-timeline/
+apps/android/.gradle-parent-retention/
+apps/android/app/build-parent-retention/
 target/
 *.apk
 *.aab

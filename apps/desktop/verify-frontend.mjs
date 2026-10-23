@@ -11,6 +11,7 @@ for (const args of [
     ["check-model-refresh.mjs"],
     ["check-inspection-controller.mjs"],
     ["check-trace-controller.mjs"],
+    ["check-evaluation-controller.mjs"],
 ]) {
     const code = await new Promise((resolve, reject) => {
         const child = spawn(process.execPath, args, {
@@ -40,6 +41,8 @@ for (const marker of [
     "d05-external-wait",
     "d06-native-default-disabled",
     "d06-external-wait",
+    "d07-native-evaluation-checkpoints",
+    "harness_evaluation_case",
     "legacy-v1-native-migrated-resume",
     "export-snapshot-independent-of-later-turn",
 ])

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-evaluation-status"
+description = "Enables the evaluation_status command without any pre-configured scope."
+commands.allow = ["evaluation_status"]
+
+[[permission]]
+identifier = "deny-evaluation-status"
+description = "Denies the evaluation_status command without any pre-configured scope."
+commands.deny = ["evaluation_status"]

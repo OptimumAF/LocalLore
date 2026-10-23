@@ -326,6 +326,15 @@ impl Engine {
         proposal: &Proposal,
         record: &crate::play::PlayRecord,
     ) -> Result<Receipt, Error> {
+        self.commit_play_history(request, proposal, record, false)
+    }
+    fn commit_play_history(
+        &mut self,
+        request: &Request,
+        proposal: &Proposal,
+        record: &crate::play::PlayRecord,
+        recorded_history: bool,
+    ) -> Result<Receipt, Error> {
         if let Some(receipt) = self.recorded(request)? {
             return Ok(receipt);
         }
@@ -333,7 +342,7 @@ impl Engine {
             return Err(Error::Agency);
         }
         let mut receipt = self.preview(request, proposal)?;
-        crate::play::validate_record(self, &receipt, record)?;
+        crate::play::validate_record(self, &receipt, record, recorded_history)?;
         receipt.narration = record.narration.text.clone();
         receipt.play = Some(record.clone());
         let mut staged = self.state.clone();
@@ -349,6 +358,16 @@ impl Engine {
     pub fn commit_prepared(&mut self, receipt: &Receipt) -> Result<Receipt, Error> {
         if let Some(play) = receipt.play() {
             self.commit_play(receipt.request(), receipt.proposal(), play)
+        } else {
+            self.commit(receipt.request(), receipt.proposal(), receipt.narration())
+        }
+    }
+
+    // History paths alone retain the explicitly supported recorded prompt. A
+    // prepared value supplied for a new turn must still use the current prompt.
+    fn commit_recorded(&mut self, receipt: &Receipt) -> Result<Receipt, Error> {
+        if let Some(play) = receipt.play() {
+            self.commit_play_history(receipt.request(), receipt.proposal(), play, true)
         } else {
             self.commit(receipt.request(), receipt.proposal(), receipt.narration())
         }
@@ -390,7 +409,7 @@ impl Engine {
                 if play.narration.text != recorded.narration {
                     return Err(Error::CorruptHistory);
                 }
-                engine.commit_play(&recorded.request, &recorded.proposal, play)
+                engine.commit_play_history(&recorded.request, &recorded.proposal, play, true)
             } else {
                 engine.commit(&recorded.request, &recorded.proposal, &recorded.narration)
             }
@@ -411,7 +430,7 @@ impl Engine {
             if engine.recorded(&receipt.request)?.is_some() {
                 return Err(Error::CorruptHistory);
             }
-            let rebuilt = engine.commit_prepared(receipt)?;
+            let rebuilt = engine.commit_recorded(receipt)?;
             if &rebuilt != receipt {
                 return Err(Error::CorruptHistory);
             }
@@ -445,7 +464,7 @@ impl Engine {
                 break;
             }
             result.scope = receipt.request.scope.clone();
-            let rebuilt = result.commit_prepared(receipt)?;
+            let rebuilt = result.commit_recorded(receipt)?;
             if rebuilt != *receipt {
                 return Err(Error::CorruptHistory);
             }

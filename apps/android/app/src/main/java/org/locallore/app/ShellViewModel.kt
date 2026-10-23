@@ -21,6 +21,9 @@ class ShellViewModel(
     private var pending: Job? = null
     private val diagnosticController = DiagnosticsController(diagnosticLog, viewModelScope)
     val diagnostics = diagnosticController.state
+    private val recordController = StoryRecordController(StoryRecordReader(gateway::readStoryRecord), viewModelScope)
+    val storyRecord = recordController.state
+    val hasStoryRecords: Boolean get() = gateway.storyRecords
     private var disposed = false
 
     init {
@@ -40,6 +43,7 @@ class ShellViewModel(
     )
 
     private fun savedOperation(notice: String, operation: suspend () -> SavedSnapshot?) {
+        recordController.dismiss()
         val ticket = ++generation
         mutable.value = mutable.value.copy(busy = true, preparingResponse = false, notice = null)
         pending = viewModelScope.launch {
@@ -66,7 +70,21 @@ class ShellViewModel(
         if (!disposed && !mutable.value.busy && gateway.durable) savedOperation("Saved story resumed.") { gateway.resumeSaved(story) }
     }
 
-    fun openDiagnostics() { if (!disposed && !mutable.value.busy) diagnosticController.open() }
+    fun openDiagnostics() { if (!disposed && !mutable.value.busy) { recordController.dismiss(); diagnosticController.open() } }
+    fun openStoryRecord() {
+        val current = mutable.value
+        val story = current.selectedStory ?: return
+        if (!disposed && gateway.storyRecords && current.persistent && !current.busy && !current.recoveryRequired) {
+            diagnosticController.dismiss()
+            recordController.open(StoryRecordContext(story, current.revision))
+        }
+    }
+    fun closeStoryRecord() = recordController.dismiss()
+    fun recordSection(section: StoryRecordSection) = recordController.select(section)
+    fun recordSearch(text: String) = recordController.search(text)
+    fun nextRecordPage() = recordController.next()
+    fun firstRecordPage() = recordController.first()
+    fun retryStoryRecord() = recordController.retry()
     fun closeDiagnostics() = diagnosticController.dismiss()
     fun clearDiagnostics() = diagnosticController.clear()
     fun beginDiagnosticExport() = diagnosticController.beginExport()
@@ -79,6 +97,7 @@ class ShellViewModel(
 
     fun submit(action: DemoAction) {
         if (disposed || mutable.value.busy || mutable.value.recoveryRequired) return
+        recordController.dismiss()
         val before = mutable.value
         val ticket = ++generation
         mutable.value = before.copy(busy = true, preparingResponse = true, notice = null)
@@ -137,6 +156,7 @@ class ShellViewModel(
     }
 
     fun cancel() {
+        recordController.dismiss()
         if (!mutable.value.busy) return
         // Opening storage has no cancellable turn. Closing the ViewModel still releases its handle.
         if (gateway.durable && !mutable.value.preparingResponse) return
@@ -160,6 +180,7 @@ class ShellViewModel(
         if (gateway.durable && mutable.value.busy) return
         val start = System.nanoTime()
         diagnosticController.dismiss()
+        recordController.dismiss()
         generation++
         gateway.cancel()
         pending?.cancel()
@@ -172,6 +193,7 @@ class ShellViewModel(
     override fun onCleared() {
         disposed = true
         diagnosticController.dispose()
+        recordController.dispose()
         generation++
         gateway.close()
         pending?.cancel()

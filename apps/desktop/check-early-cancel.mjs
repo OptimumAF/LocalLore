@@ -19,7 +19,13 @@ const compiled = await build({
 });
 await writeFile(target, compiled.outputFiles[0].contents);
 const { Controller } = await import(pathToFileURL(target).href);
-for (const schedule of ["admitted", "rejected", "lost-ack", "switch"]) {
+for (const schedule of [
+    "admitted",
+    "rejected",
+    "lost-ack",
+    "recovery-cancel",
+    "switch",
+]) {
     const first = {
         id: "a",
         name: "Synthetic A",
@@ -36,6 +42,8 @@ for (const schedule of ["admitted", "rejected", "lost-ack", "switch"]) {
     let release;
     let admitted = false;
     let request;
+    let releaseLookup;
+    let lookupCount = 0;
     const terminal = (phase) => ({
         scope: request.scope,
         turn: request.turn,
@@ -84,7 +92,7 @@ for (const schedule of ["admitted", "rejected", "lost-ack", "switch"]) {
                             return;
                         }
                         admitted = true;
-                        if (schedule === "lost-ack")
+                        if (["lost-ack", "recovery-cancel"].includes(schedule))
                             reject(new Error("Transport"));
                         else resolve(terminal("queued"));
                     };
@@ -98,6 +106,14 @@ for (const schedule of ["admitted", "rejected", "lost-ack", "switch"]) {
                 );
                 assert.equal(command.session, first.id);
                 assert.equal(command.turn, request.turn);
+                if (
+                    schedule === "recovery-cancel" &&
+                    command.op === "turn_status" &&
+                    ++lookupCount === 1
+                )
+                    return new Promise((_resolve, reject) => {
+                        releaseLookup = () => reject(new Error("Transport"));
+                    });
                 return terminal(
                     command.op === "cancel" ? "cancelled" : "queued",
                 );
@@ -112,7 +128,7 @@ for (const schedule of ["admitted", "rejected", "lost-ack", "switch"]) {
     assert(controller.get().pending);
     assert.equal(typeof release, "function");
     if (schedule === "switch") await controller.attach(second);
-    else await controller.cancel();
+    else if (schedule !== "recovery-cancel") await controller.cancel();
     assert.equal(
         calls.filter((c) => c.op === "cancel").length,
         0,
@@ -121,16 +137,26 @@ for (const schedule of ["admitted", "rejected", "lost-ack", "switch"]) {
     assert.notEqual(controller.get().visibleError, "TransportUnknown");
     release();
     await work;
-    if (schedule === "lost-ack") {
+    if (["lost-ack", "recovery-cancel"].includes(schedule)) {
         assert.equal(
             controller.get().visibleError,
             "TransportUnknown",
             "lost acknowledgement remains honestly uncertain",
         );
-        await controller.retry();
+        if (schedule === "recovery-cancel") {
+            const recovery = controller.retry();
+            assert.equal(typeof releaseLookup, "function");
+            await controller.cancel();
+            assert.equal(controller.get().turnStatus.phase, "cancelled");
+            releaseLookup();
+            await recovery;
+        } else await controller.retry();
         assert.equal(controller.get().turnStatus.phase, "cancelled");
         assert.equal(controller.get().visibleError, null);
-        assert.equal(calls.filter((c) => c.op === "turn_status").length, 1);
+        assert.equal(
+            calls.filter((c) => c.op === "turn_status").length,
+            schedule === "recovery-cancel" ? 2 : 1,
+        );
     } else if (schedule === "rejected") {
         assert.equal(controller.get().turnStatus.phase, "rejected");
         assert.equal(controller.get().visibleError, "Rule");

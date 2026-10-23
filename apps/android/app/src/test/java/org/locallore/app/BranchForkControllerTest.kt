@@ -197,6 +197,20 @@ class BranchForkControllerTest {
         assertFalse(controller.state.value.notice!!.contains("PRIVATE"))
         controller.dispose()
     }
+    @Test fun restoredLookupWithoutSelectedContextRemainsLookupOnly(): Unit = runTest {
+        val gateway = Gateway(); val controller = BranchForkController(this, gateway, {})
+        controller.restore(BranchForkRecovery(1, Input))
+        assertNull(controller.state.value.context)
+        assertTrue(controller.state.value.lookupOnly)
+        controller.lookup(); advanceUntilIdle()
+        assertEquals(listOf(Input), gateway.lookups)
+        assertNull(controller.state.value.context)
+        assertTrue("Recovered identity cannot gain executable presentation without an origin", controller.state.value.lookupOnly)
+        controller.retryExact(true); advanceUntilIdle()
+        assertTrue(gateway.registrations.isEmpty())
+        assertTrue(gateway.runs.isEmpty())
+        controller.dispose()
+    }
     private class Gateway : BranchForkGateway {
         val registrations = mutableListOf<Pair<BranchForkContext, BranchForkInput>>()
         val runs = mutableListOf<Long>(); val statuses = mutableListOf<Long>(); val lookups = mutableListOf<BranchForkInput>()

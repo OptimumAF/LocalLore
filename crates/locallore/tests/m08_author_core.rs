@@ -301,3 +301,193 @@ fn inherited_author_or_ordinary_key_does_not_reserve_another_branch_namespace() 
     assert_eq!(other.canonical_record_count(), 3);
     assert_eq!(c.canonical_record_count(), 2);
 }
+
+#[test]
+fn retained_boundary_restore_preserves_creation_head_without_requiring_excluded_parent_future() {
+    let mut parent = fixture();
+    commit(&mut parent, "retained", vec![Command::Wait { ticks: 2 }]);
+    let retained_revision = parent.revision();
+    commit(&mut parent, "excluded", vec![Command::Wait { ticks: 3 }]);
+    let request = input(&parent, "child", retained_revision, "KNOWN_A", "PRIVATE_B");
+    let plan = parent
+        .prepare_author_correction(&request, &|| false)
+        .unwrap();
+    assert_eq!(plan.preview().excluded_suffix_events, 1);
+    assert_eq!(plan.preview().excluded_suffix_records, 1);
+    let child = parent
+        .apply_author_correction(&plan, &|| false)
+        .unwrap()
+        .engine;
+    assert_eq!(
+        child.state().story_time,
+        parent
+            .at_revision(retained_revision)
+            .unwrap()
+            .state()
+            .story_time
+    );
+    assert_eq!(child.canonical_records()[0], parent.canonical_records()[0]);
+    assert_eq!(child.canonical_record_count(), 2);
+    let author = serde_json::to_string(&child.canonical_records()[1]).unwrap();
+    let base = parent.fork("child", retained_revision).unwrap();
+    let restored = base.restore_continuation(&[author]).unwrap();
+    assert_eq!(restored.canonical_records(), child.canonical_records());
+    assert_eq!(restored.canonical_bytes(), child.canonical_bytes());
+    assert_eq!(
+        restored.accepted_history_basis().unwrap(),
+        child.accepted_history_basis().unwrap()
+    );
+    let replayed =
+        Engine::replay_records(parent.seed().clone(), child.canonical_records()).unwrap();
+    assert_eq!(replayed.canonical_records(), child.canonical_records());
+    assert_eq!(replayed.canonical_bytes(), child.canonical_bytes());
+    assert_eq!(
+        child.canonical_records()[1].last_revision(),
+        retained_revision + 1
+    );
+    assert_eq!(parent.revision(), request.expected_parent_revision);
+    assert!(request.expected_parent_revision > request.fork_revision);
+}
+
+#[test]
+fn inherited_author_prefix_retains_original_scopes_and_does_not_invent_ordinary_fork_lineage() {
+    let root = fixture();
+    let mut authored = correct(&root, "authored", "KNOWN_A", "PRIVATE_B");
+    commit(
+        &mut authored,
+        "discover",
+        vec![Command::Discover {
+            fact: "relic-location".into(),
+        }],
+    );
+    let mut grandchild = authored.fork("ordinary-fork", authored.revision()).unwrap();
+    let inherited = grandchild.canonical_records().to_vec();
+    commit(
+        &mut grandchild,
+        "ordinary-child-turn",
+        vec![Command::Wait { ticks: 1 }],
+    );
+    assert_eq!(&grandchild.canonical_records()[..2], inherited);
+    assert_eq!(
+        grandchild.canonical_records()[0].original_scope(),
+        authored.scope()
+    );
+    assert_eq!(
+        grandchild
+            .observed_facts("player", grandchild.scope(), grandchild.revision())
+            .unwrap()["relic-location"]
+            .proposition,
+        "PRIVATE_B"
+    );
+    let base = authored.fork("ordinary-fork", authored.revision()).unwrap();
+    let suffix = serde_json::to_string(&grandchild.canonical_records()[2]).unwrap();
+    let restored = base.restore_continuation(&[suffix]).unwrap();
+    assert_eq!(
+        restored.accepted_history_basis().unwrap(),
+        grandchild.accepted_history_basis().unwrap()
+    );
+    assert!(Engine::replay_records(root.seed().clone(), grandchild.canonical_records()).is_err());
+    let before_author = grandchild.fork("prebirth", 0).unwrap();
+    assert_eq!(before_author.domain_version(), 1);
+    assert_eq!(before_author.canonical_record_count(), 0);
+    assert_eq!(
+        before_author
+            .effective_fact("relic-location")
+            .unwrap()
+            .proposition,
+        "KNOWN_A"
+    );
+}
+
+#[test]
+fn actor_v2_cancellation_and_legacy_version_refusal_emit_no_private_callbacks() {
+    let c = correct(&fixture(), "child", "KNOWN_A", "PRIVATE_B");
+    let mut callbacks = 0;
+    c.visit_actor_observations_v2(
+        "player",
+        c.scope(),
+        c.revision(),
+        0,
+        c.revision(),
+        &|| false,
+        &mut |_| {
+            callbacks += 1;
+            true
+        },
+    )
+    .unwrap();
+    assert_eq!(callbacks, 0);
+    assert_eq!(
+        c.visit_actor_observations_v2(
+            "player",
+            c.scope(),
+            c.revision(),
+            0,
+            c.revision(),
+            &|| panic!("synthetic cancellation"),
+            &mut |_| {
+                callbacks += 1;
+                true
+            }
+        ),
+        Err(Error::Cancelled)
+    );
+    assert_eq!(callbacks, 0);
+    assert_eq!(
+        c.visit_actor_observations(
+            "player",
+            c.scope(),
+            c.revision(),
+            0,
+            c.revision(),
+            &|| false,
+            &mut |_| {
+                callbacks += 1;
+                true
+            }
+        ),
+        Err(Error::Version)
+    );
+    assert_eq!(callbacks, 0);
+    let request = c.request(
+        "free-text",
+        Intent::FreeText {
+            kind: PlayInputKind::Action,
+            text: "I wait for one tide tick.".into(),
+        },
+    );
+    let proposal = Proposal {
+        version: VERSION,
+        scope: c.scope().clone(),
+        turn: request.turn.clone(),
+        expected_revision: c.revision(),
+        commands: vec![Command::Wait { ticks: 1 }],
+    };
+    assert_eq!(c.preview(&request, &proposal), Err(Error::Version));
+}
+
+#[test]
+fn bounded_escaped_author_text_round_trips_and_play_cache_cannot_set_canonical_head() {
+    let root = fixture();
+    let mut request = input(&root, "child", 0, "KNOWN_A", &"\u{0000}".repeat(2048));
+    request.reason = "\u{0001}".repeat(2048);
+    let plan = root.prepare_author_correction(&request, &|| false).unwrap();
+    let mut child = root
+        .apply_author_correction(&plan, &|| false)
+        .unwrap()
+        .engine;
+    assert!(child.receipts().is_empty());
+    assert_eq!(child.revision(), 1);
+    let receipt = commit(&mut child, "after-cache", vec![Command::Wait { ticks: 1 }]);
+    assert_eq!(child.receipts(), &[receipt]);
+    assert_eq!(child.canonical_record_count(), 2);
+    assert_eq!(child.revision(), 2);
+    let encoded: Vec<String> = child
+        .canonical_records()
+        .iter()
+        .map(|r| serde_json::to_string(r).unwrap())
+        .collect();
+    let restored = Engine::restore(root.seed().clone(), &encoded).unwrap();
+    assert_eq!(restored.canonical_bytes(), child.canonical_bytes());
+    assert_eq!(restored.canonical_records(), child.canonical_records());
+}

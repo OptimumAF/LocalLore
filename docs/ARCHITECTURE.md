@@ -1,6 +1,6 @@
 # System architecture
 
-Status: target architecture, 2026-10-22. The bounded [v1 host contract](DOMAIN_CONTRACT_V1.md) implements pure rules and fake-provider coordination in one Rust crate. The [Compose shell](../apps/android/README.md) displays Rust-generated fixture outcomes through a replaceable sample adapter. Live native engine/inference and persistence remain future work; the proposed module layout is not a list of existing packages.
+Status: target architecture, 2026-10-22. The bounded [v1 host contract](DOMAIN_CONTRACT_V1.md) implements pure rules and fake-provider coordination in one Rust crate. Compose reaches it through JNI. The shared [SQLite owner](storage/DURABILITY.md) adds atomic root turns and validated save/resume; app adapters still use in-memory sessions. Production inference, app save/resume integration and broader memory behavior remain separate work. The proposed module layout is not a list of existing packages.
 
 ## 1. Authority and component boundaries
 
@@ -17,7 +17,7 @@ Application / turn coordinator
   +--> Derived-memory jobs --> summaries/indexes (never canonical writes)
 ```
 
-The domain engine owns rules and state transitions. The persistence layer owns all migrations and writes. The coordinator owns cancellation, revision checks, inference budgets, and lifecycle. The UI consumes typed state and cannot secretly apply inventory changes. The model cannot call arbitrary SQL, native code, filesystem paths, or network endpoints.
+The domain engine owns rules and state transitions. The persistence layer owns all migrations and writes. The [SQLite foundation](storage/README.md) implements that Rust owner for schema initialization and validated seed storage; accepted-turn persistence remains future M04 work. The coordinator owns cancellation, revision checks, inference budgets, and lifecycle. The UI consumes typed state and cannot secretly apply inventory changes. The model cannot call arbitrary SQL, native code, filesystem paths, or network endpoints.
 
 Proposed implementation: Kotlin/Compose UI; Rust domain/persistence core; SQLite; a small native inference adapter chosen after measured spikes. JNI/FFI integration must be demonstrated before expanding the engine API. If the Rust integration imposes disproportionate mobile maintenance costs, propose an alternative in an ADR with tests and portability tradeoffs. Do not maintain two copies of the domain rules.
 

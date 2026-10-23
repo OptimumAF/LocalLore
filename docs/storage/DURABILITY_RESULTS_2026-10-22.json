@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "date": "2026-10-22",
+  "synthetic": true,
+  "source_revision": "2192ab4cc1bf0a47613f6e94915852715433f9e1",
+  "source_input_sha256": {
+    "crates/locallore/src/engine.rs": "9ad970aa6e923ba516ecdb1edc9939c8c6940db8ae61b5f588a233eb2e0aec99",
+    "crates/locallore/src/contracts.rs": "794b85ee7d8edba0c2fcb357add48963b117309a80183aef5c6036954cfa7ad2",
+    "crates/locallore/tests/restore.rs": "b6c8bce288517b467a386803d548491f57a3f912ff1a99fc1da07e0f79743241",
+    "crates/locallore-storage/src/lib.rs": "0da9eddadfc7b8b311c9ea9130acf5f546e48b4a2ae9cb7c17b83c29a2b18095",
+    "crates/locallore-storage/src/turns.rs": "fa8af6e43ddf4d0fd2d5f006d4e147470d66bd05d664196f233d4ffc398355ae",
+    "crates/locallore-storage/tests/durable_turns.rs": "d186bbf6c0707906b4d360e5a5eac806a8ad8a82576406f1bf65e3899169e451",
+    "crates/locallore-storage/tests/durability_review.rs": "a81ef055ec3a8d187eef9a1da2f688523ac44e4ba6af609d9417337d3b0f8b1b",
+    "crates/locallore-storage/examples/durable_smoke.rs": "990d2a3c0ce5cf9ab1b6d2211474cc62a61744f7c4743cb51511ebf94af26897",
+    "scripts/storage_android_smoke.py": "8e830681bbe72362ef076095705643d5d3c378592b357fa49e0362bd1abd4697",
+    "Cargo.lock": "e6966a8b77921a6f5cac78a7fa57294112ba9c3525551dd80c4109ff00287062",
+    "crates/locallore-storage/migrations/001_initial.sql": "dbc4ec72104850c7b9fbe9bd93c21f445e9b5b7985a3d3c3f1da4cc5f4b167d3"
+  },
+  "host": {
+    "exit": 0,
+    "cargo_entries": 89,
+    "auxiliary_child_entry": 1,
+    "python_tests": 63,
+    "linker_tests": 3,
+    "fixture_cases": 4,
+    "projection_sha256": "464abab4ac43ae8087657a524eeb09a32f5ca8d3c41ae58529e145b371166c87",
+    "revision": 1,
+    "committed_turns": 1,
+    "existing_directory_refused_without_mutation": true,
+    "smoke_exe_sha256": "569b7ff947d5b00c78a182e5017cbfb1eacc97ca25b36bc4a5ba833f14e5dd51"
+  },
+  "android": {
+    "clean_command_exit": 0,
+    "gradle_tasks": 79,
+    "executed": 78,
+    "up_to_date": 1,
+    "jvm_tests": 31,
+    "jvm_failures": 0,
+    "jvm_errors": 0,
+    "jvm_skipped": 0,
+    "app_apk_sha256": "76db6d3121607ee35549e442d26de7ea6245925e2a856aa40aa03ed516fe9296",
+    "test_apk_sha256": "153d4ce99de49761f952e4ca5fabca0bc06d1bd056989e95fbcf2dc0a08a58a4",
+    "durability_crossbuilds": [
+      {
+        "abi": "x86_64",
+        "bytes": 4090664,
+        "sha256": "98189218f45b393bd39b53f89e5e80b1ada2ad24e8116299e93b2d6d35da7a16",
+        "elf_machine": 62,
+        "pie": true,
+        "load_alignments": [
+          16384,
+          16384,
+          16384
+        ],
+        "needed": [
+          "libdl.so",
+          "libm.so",
+          "libc.so"
+        ]
+      },
+      {
+        "abi": "arm64-v8a",
+        "bytes": 4102608,
+        "sha256": "1de76f78339b0557b3ec72153c9135d66e92d7b712498db9d4e0bf9d00bbf0d2",
+        "elf_machine": 183,
+        "pie": true,
+        "load_alignments": [
+          16384,
+          16384,
+          16384
+        ],
+        "needed": [
+          "libdl.so",
+          "libm.so",
+          "libc.so"
+        ]
+      }
+    ],
+    "new_emulator_executions": 0,
+    "physical_executions": 0
+  },
+  "models_loaded": 0,
+  "desktop_control": false
+}

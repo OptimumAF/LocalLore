@@ -89,6 +89,14 @@ Exports are plaintext and their selected provider may sync them. See
 
 ## Initial technical direction
 
+The [shared SQLite owner](docs/storage/README.md) provides scoped seed storage,
+atomic root-branch turns and validated save/resume with exact durable retries.
+Run `cargo run -p locallore-storage --example durable_smoke --locked --offline -- --directory target/my-fresh-durability-proof`
+for a synthetic potion-spend/reopen/retry/backup proof; the directory must be new.
+The existing Compose/desktop demos still use in-memory sessions. Their UI
+save/resume wiring remains a separate integration step. No model is needed;
+Android cross-build evidence is separate from actual device execution/support.
+
 The [desktop Play/Story Lab shell](apps/desktop/README.md) adds a native Windows
 window over the same Rust engine, with typed fixture actions, finalized receipts,
 fake inference, in-memory sessions and explicit spoiler-bearing inspection.

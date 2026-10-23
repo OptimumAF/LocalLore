@@ -115,7 +115,7 @@ class EventSourceScreenTest {
             recordTag("story-record-source-$index-0").assertTextEquals("Open event #$source").performClick()
             detail(model, source)
             val canonicalDetail = owner.gateway.readStoryRecord(StoryRecordQuery(
-                StoryRecordContext(saved.selected, saved.revision), StoryRecordSection.HISTORY, "\"sequence\":$source,"))
+                StoryRecordContext(checkNotNull(saved.selected), saved.revision), StoryRecordSection.HISTORY, "\"sequence\":$source,"))
             assertEquals(canonicalDetail.entries.single(), model.storyRecord.value.eventDetail!!.entry)
             InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
             loaded(model) { it.eventDetail == null }
@@ -136,7 +136,7 @@ class EventSourceScreenTest {
 
             shellTag("reset-demo").performClick() // A fresh story only inside this synthetic root.
             compose.waitUntil(8_000) {
-                !model.state.value.busy && model.state.value.selectedStory?.story != saved.selected.story
+                !model.state.value.busy && model.state.value.selectedStory?.story != checkNotNull(saved.selected).story
             }
             assertFalse(model.state.value.recoveryRequired)
             assertEquals(0L, model.state.value.revision)
@@ -178,13 +178,13 @@ class EventSourceScreenTest {
             assertEquals(finalTurnCalls, owner.transport.turnCalls.get())
             compose.onNodeWithTag("story-record-close").performClick()
             shellTag("saved-library").performClick()
-            compose.onNodeWithText("${saved.selected.title} \u00B7 ${saved.selected.story} \u00B7 revision ${saved.revision}").performClick()
+            compose.onNodeWithText("${checkNotNull(saved.selected).title} \u00B7 ${checkNotNull(saved.selected).story} \u00B7 revision ${saved.revision}").performClick()
             compose.waitUntil(8_000) {
-                !model.state.value.busy && model.state.value.selectedStory?.story == saved.selected.story
+                !model.state.value.busy && model.state.value.selectedStory?.story == checkNotNull(saved.selected).story
             }
             assertEquals(saved.revision, model.state.value.revision)
             shellTag("story-record-open").performClick()
-            loaded(model) { it.context?.story?.story == saved.selected.story }
+            loaded(model) { it.context?.story?.story == checkNotNull(saved.selected).story }
             history(model)
             search(model, "\"sequence\":1,")
             assertEquals(1, model.storyRecord.value.total)

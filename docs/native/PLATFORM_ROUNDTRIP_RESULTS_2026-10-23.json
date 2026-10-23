@@ -1,0 +1,618 @@
+{
+  "version": 1,
+  "date": "2026-10-23",
+  "scope": "M08.06 / supplemental D08.06 headless Windows-Android verification only",
+  "dependency": {
+    "pr": 76,
+    "unmerged_parent": "6e9b2dc66ea86890a2afcfec02b01b4e8e90df24",
+    "accepted_main": "a2bb6639eacaa9ac416788caf2fc7a6b70bf1392"
+  },
+  "final_executable_source": "f448dce9ebf7d60c741d956c7d036314538c8c58",
+  "previous_cycle_source": "a9d327414fd3296a8baad050cbc9d2f80f767d64",
+  "final_frozen_native_sha256": "e335ecd7fdbb1d4518a724e60afbe44976c5949cf454969a0a8807198cbffc6a",
+  "source_sha256": {
+    "crates/locallore-android/Cargo.toml": "26c29c282558515131b55e59f65979413ff4083cc816f88fde8c3315102db7c9",
+    "crates/locallore-android/examples/platform_roundtrip.rs": "0f048e8a9fc2136918d0169c13dc13c8ca2717d52d33764386af3b768ecd0252",
+    "apps/android/app/src/androidTest/java/org/locallore/app/ArchivePlatformRoundTripTest.kt": "18de0d16441c626a11b0bc5248809ec4d95db4cc5d012f48022d50e6d017fc14",
+    "scripts/platform_roundtrip.py": "cdde01a3eb33950daffc9c78dbfba885ed7bea2b80fab0aa61c9813c8ddf7df5",
+    "scripts/tests/test_platform_roundtrip.py": "bc0bf0be325d52ac531d8f0e9dca639460020431d0cdea6c7b3bd46c5e6494ff",
+    "apps/android/app/src/androidTest/assets/platform-roundtrip-v1/windows-origin.json": "ac77f1144db9de68c0d01241949f85f21660da6526b241cb9e947277b3c27fbb",
+    "apps/android/app/src/androidTest/assets/platform-roundtrip-v1/windows-continued.json": "31f7bdb6904d8759186f0586b80c79b0346d9e9d03f04c015c409a1f1670ec6a",
+    "apps/android/app/src/androidTest/assets/platform-roundtrip-v1/expectations.json": "537f7555bd564ebe106e6aac65e8c00520130aedb8d5ee2b60605e9c216c88b5"
+  },
+  "environment": {
+    "rust": "1.93.1",
+    "java": "17.0.6",
+    "ndk": "29.0.14206865",
+    "agp": "8.10.1",
+    "kotlin": "2.2.21",
+    "gradle": "8.11.1",
+    "executed_android_api": 35,
+    "executed_abi": "x86_64",
+    "host": "Windows x64",
+    "built_android_abis": [
+      "arm64-v8a",
+      "x86_64"
+    ],
+    "authorized_physical_phones_observed": 0,
+    "models_copied": 0,
+    "real_model_generations": 0
+  },
+  "checks": {
+    "host_command": "python scripts/check.py host --offline",
+    "workspace_rust_passed": 308,
+    "linker_passed": 3,
+    "python_passed": 206,
+    "native_example_tests_included": 8,
+    "original_runner_fault_tests_included": 15,
+    "android_jvm": {
+      "tests": 60,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "isolated_build_tasks": {
+      "total": 79,
+      "executed": 4,
+      "up_to_date": 75
+    },
+    "production_build_tasks": {
+      "total": 78,
+      "executed": 33,
+      "up_to_date": 45
+    },
+    "lint_errors": 0,
+    "lint_existing_warnings": 1,
+    "production_apk_audit": "passed"
+  },
+  "isolated_apk_audit": {
+    "status": "passed",
+    "package": "org.locallore.app.archiveverify",
+    "apk_sha256": "5a058eef62d1e56e9326ac71a959bd1205ae9a96820b42626abda6530e93944f",
+    "permissions_with_explicit_owned_suffix_normalization": [
+      "org.locallore.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+    ],
+    "libraries": [
+      {
+        "entry": "lib/arm64-v8a/libandroidx.graphics.path.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/arm64-v8a/liblocallore_android.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/x86_64/libandroidx.graphics.path.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/x86_64/liblocallore_android.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      }
+    ],
+    "native_archive_symbols": {
+      "arm64-v8a": [
+        "cancel",
+        "close",
+        "commitImport",
+        "exportBytes",
+        "open",
+        "prepareExport",
+        "prepareImport"
+      ],
+      "x86_64": [
+        "cancel",
+        "close",
+        "commitImport",
+        "exportBytes",
+        "open",
+        "prepareExport",
+        "prepareImport"
+      ]
+    }
+  },
+  "cycles": [
+    {
+      "cohort": "initial-A",
+      "version": 1,
+      "target_alias": "A",
+      "status": "passed",
+      "phases": {
+        "android_outbound": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unfinished": 0,
+          "raw_sha256": "6f7ba1f1d3b794f954a5f3d5a40c3361e3121bdf12d7d1a15af32661c76334a4"
+        },
+        "windows_import_continue": {
+          "status": "passed",
+          "raw_sha256": "31df2133a845bc358d0887476650d00c7626d739b0510177168d36b9c7fd3ada"
+        },
+        "android_return": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unfinished": 0,
+          "raw_sha256": "8b5c11c0bf0330b2516f656dba6f7f9edb18b82d8bb7d2471537eceeb4f585ca"
+        },
+        "windows_final_replay": {
+          "status": "passed",
+          "raw_sha256": "51aaa289911f4d0b2e15baa6e7892a397b5326c92463adfb36e146364cb549bf"
+        }
+      },
+      "models_copied": 0,
+      "model_generations": 0,
+      "installed_apks": false,
+      "cleared_app_data": false,
+      "prior_packages_preserved": true,
+      "owned_processes_absent": true,
+      "adb_clients_cleaned": true,
+      "apk_sha256": {
+        "org.locallore.app.archiveverify": "5a058eef62d1e56e9326ac71a959bd1205ae9a96820b42626abda6530e93944f",
+        "org.locallore.app.archiveverify.test": "b3f45ecee08acb3482874549fb773c29843bd0c5b10d76fda9c84001736acf8a"
+      },
+      "native_fixture_sha256": "d35a0ce2da9625fe096f3c531a7efd2a034e259980ac503d31c35da6e0e8d0e5",
+      "fixture_sha256": {
+        "windows-origin.json": "ac77f1144db9de68c0d01241949f85f21660da6526b241cb9e947277b3c27fbb",
+        "windows-continued.json": "31f7bdb6904d8759186f0586b80c79b0346d9e9d03f04c015c409a1f1670ec6a",
+        "expectations.json": "537f7555bd564ebe106e6aac65e8c00520130aedb8d5ee2b60605e9c216c88b5"
+      },
+      "android_api": 35,
+      "abi": "x86_64",
+      "artifacts": {
+        "windows-return.json": {
+          "bytes": 7064,
+          "sha256": "ac77f1144db9de68c0d01241949f85f21660da6526b241cb9e947277b3c27fbb"
+        },
+        "windows-continued.json": {
+          "bytes": 7890,
+          "sha256": "31f7bdb6904d8759186f0586b80c79b0346d9e9d03f04c015c409a1f1670ec6a"
+        },
+        "android-origin.json": {
+          "bytes": 4314,
+          "sha256": "e07e8a26f25fb82a513c3a792dfc3231f889746f44c6a5a4ff5c73e34160c39b"
+        },
+        "android-return.json": {
+          "bytes": 5084,
+          "sha256": "80d4e1212b257fad8c5b97623917e72557e76fa2afc28a51a344dd4ecb989b94"
+        },
+        "android-final.json": {
+          "bytes": 5851,
+          "sha256": "68aa5ef485c8f3fa597f0edcbf0b814092f8e64a700738c87e1e2045ccd9d738"
+        }
+      },
+      "native_clients_cleaned": true,
+      "command_journal_sha256": "b165311a68eb98a0d8f41036e6b5ad644b2b686d95f9484ef56493bd00dbce5d",
+      "command_counts": {
+        "adb": 72,
+        "native": 2
+      }
+    },
+    {
+      "cohort": "initial-B",
+      "version": 1,
+      "target_alias": "B",
+      "status": "passed",
+      "phases": {
+        "android_outbound": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unfinished": 0,
+          "raw_sha256": "7c5ddc1ea8b7432e5a8d3d929da8e4a0708c78ddc9675718987acbfaf300d78c"
+        },
+        "windows_import_continue": {
+          "status": "passed",
+          "raw_sha256": "31df2133a845bc358d0887476650d00c7626d739b0510177168d36b9c7fd3ada"
+        },
+        "android_return": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unfinished": 0,
+          "raw_sha256": "9fafa0cbda8393c6fde475ce04effbc59caeaf4bb1ead30cbb43bca527062f62"
+        },
+        "windows_final_replay": {
+          "status": "passed",
+          "raw_sha256": "51aaa289911f4d0b2e15baa6e7892a397b5326c92463adfb36e146364cb549bf"
+        }
+      },
+      "models_copied": 0,
+      "model_generations": 0,
+      "installed_apks": false,
+      "cleared_app_data": false,
+      "prior_packages_preserved": true,
+      "owned_processes_absent": true,
+      "adb_clients_cleaned": true,
+      "apk_sha256": {
+        "org.locallore.app.archiveverify": "5a058eef62d1e56e9326ac71a959bd1205ae9a96820b42626abda6530e93944f",
+        "org.locallore.app.archiveverify.test": "b3f45ecee08acb3482874549fb773c29843bd0c5b10d76fda9c84001736acf8a"
+      },
+      "native_fixture_sha256": "d35a0ce2da9625fe096f3c531a7efd2a034e259980ac503d31c35da6e0e8d0e5",
+      "fixture_sha256": {
+        "windows-origin.json": "ac77f1144db9de68c0d01241949f85f21660da6526b241cb9e947277b3c27fbb",
+        "windows-continued.json": "31f7bdb6904d8759186f0586b80c79b0346d9e9d03f04c015c409a1f1670ec6a",
+        "expectations.json": "537f7555bd564ebe106e6aac65e8c00520130aedb8d5ee2b60605e9c216c88b5"
+      },
+      "android_api": 35,
+      "abi": "x86_64",
+      "artifacts": {
+        "windows-return.json": {
+          "bytes": 7064,
+          "sha256": "ac77f1144db9de68c0d01241949f85f21660da6526b241cb9e947277b3c27fbb"
+        },
+        "windows-continued.json": {
+          "bytes": 7890,
+          "sha256": "31f7bdb6904d8759186f0586b80c79b0346d9e9d03f04c015c409a1f1670ec6a"
+        },
+        "android-origin.json": {
+          "bytes": 4314,
+          "sha256": "9e79469457db2c2ff222263f3c3d85421d690a92741b68d915d0d44c181cb645"
+        },
+        "android-return.json": {
+          "bytes": 5084,
+          "sha256": "3e191c8fbcc728b5d9f6e1022fcd4c668e30b8476d7cf10413f7859755d845a8"
+        },
+        "android-final.json": {
+          "bytes": 5851,
+          "sha256": "87be523ae12a1044f29a7a833f6c74b6bb6cba107d792c61a4e24db2538ed8ba"
+        }
+      },
+      "native_clients_cleaned": true,
+      "command_journal_sha256": "59c4399cd0a2989823eb2d39fd25fc141b5c3863b0921782ec086caee66dbb8d",
+      "command_counts": {
+        "adb": 72,
+        "native": 2
+      }
+    },
+    {
+      "cohort": "final-A",
+      "version": 1,
+      "target_alias": "A",
+      "status": "passed",
+      "phases": {
+        "android_outbound": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unfinished": 0,
+          "raw_sha256": "ba5f8950e7ba2fa0dfa06fea833d4ed7a14386bea6b4be5b92960e37b8163365"
+        },
+        "windows_import_continue": {
+          "status": "passed",
+          "raw_sha256": "31df2133a845bc358d0887476650d00c7626d739b0510177168d36b9c7fd3ada"
+        },
+        "android_return": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unfinished": 0,
+          "raw_sha256": "59d3fac57def9486ddbc349c052928334278efa721162329d3c9df7421557861"
+        },
+        "windows_final_replay": {
+          "status": "passed",
+          "raw_sha256": "51aaa289911f4d0b2e15baa6e7892a397b5326c92463adfb36e146364cb549bf"
+        }
+      },
+      "models_copied": 0,
+      "model_generations": 0,
+      "installed_apks": false,
+      "cleared_app_data": false,
+      "prior_packages_preserved": true,
+      "owned_processes_absent": true,
+      "adb_clients_cleaned": true,
+      "apk_sha256": {
+        "org.locallore.app.archiveverify": "5a058eef62d1e56e9326ac71a959bd1205ae9a96820b42626abda6530e93944f",
+        "org.locallore.app.archiveverify.test": "b3f45ecee08acb3482874549fb773c29843bd0c5b10d76fda9c84001736acf8a"
+      },
+      "native_fixture_sha256": "984a54714a176b1272a4c8d3ef2b8a155cf7db33f4cb2243d94650bd754ab0b3",
+      "fixture_sha256": {
+        "windows-origin.json": "ac77f1144db9de68c0d01241949f85f21660da6526b241cb9e947277b3c27fbb",
+        "windows-continued.json": "31f7bdb6904d8759186f0586b80c79b0346d9e9d03f04c015c409a1f1670ec6a",
+        "expectations.json": "537f7555bd564ebe106e6aac65e8c00520130aedb8d5ee2b60605e9c216c88b5"
+      },
+      "android_api": 35,
+      "abi": "x86_64",
+      "artifacts": {
+        "windows-return.json": {
+          "bytes": 7064,
+          "sha256": "ac77f1144db9de68c0d01241949f85f21660da6526b241cb9e947277b3c27fbb"
+        },
+        "windows-continued.json": {
+          "bytes": 7890,
+          "sha256": "31f7bdb6904d8759186f0586b80c79b0346d9e9d03f04c015c409a1f1670ec6a"
+        },
+        "android-origin.json": {
+          "bytes": 4314,
+          "sha256": "366bb8761ba1cd24732dc86ded19980ac6792baf5c6986b92513cc014ab98eda"
+        },
+        "android-return.json": {
+          "bytes": 5084,
+          "sha256": "c7f7dc21b697496a3ae3fc18817579f34debf434bd237b9554c3ec19a376aa57"
+        },
+        "android-final.json": {
+          "bytes": 5851,
+          "sha256": "9ef47004ca8936efbee93c02ba66851adc0b192e892271e1a5a8cb6b6e81fec6"
+        }
+      },
+      "native_clients_cleaned": true,
+      "command_journal_sha256": "e52e6cb8d912a582ecedca4f35561158f1684c1e3c363cf4dfe181610d299eef",
+      "command_counts": {
+        "adb": 72,
+        "native": 2
+      }
+    },
+    {
+      "cohort": "final-B",
+      "version": 1,
+      "target_alias": "B",
+      "status": "passed",
+      "phases": {
+        "android_outbound": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unfinished": 0,
+          "raw_sha256": "3ed62f72c8bfe6ad496298aa8dd4ac38a4349efa5af0892c1b6100eb0ea97ac1"
+        },
+        "windows_import_continue": {
+          "status": "passed",
+          "raw_sha256": "31df2133a845bc358d0887476650d00c7626d739b0510177168d36b9c7fd3ada"
+        },
+        "android_return": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unfinished": 0,
+          "raw_sha256": "c024db56e0b942f4ca6b74500366258fb3ea49ff6a6c02f053cc3606b9ecfc11"
+        },
+        "windows_final_replay": {
+          "status": "passed",
+          "raw_sha256": "51aaa289911f4d0b2e15baa6e7892a397b5326c92463adfb36e146364cb549bf"
+        }
+      },
+      "models_copied": 0,
+      "model_generations": 0,
+      "installed_apks": false,
+      "cleared_app_data": false,
+      "prior_packages_preserved": true,
+      "owned_processes_absent": true,
+      "adb_clients_cleaned": true,
+      "apk_sha256": {
+        "org.locallore.app.archiveverify": "5a058eef62d1e56e9326ac71a959bd1205ae9a96820b42626abda6530e93944f",
+        "org.locallore.app.archiveverify.test": "b3f45ecee08acb3482874549fb773c29843bd0c5b10d76fda9c84001736acf8a"
+      },
+      "native_fixture_sha256": "984a54714a176b1272a4c8d3ef2b8a155cf7db33f4cb2243d94650bd754ab0b3",
+      "fixture_sha256": {
+        "windows-origin.json": "ac77f1144db9de68c0d01241949f85f21660da6526b241cb9e947277b3c27fbb",
+        "windows-continued.json": "31f7bdb6904d8759186f0586b80c79b0346d9e9d03f04c015c409a1f1670ec6a",
+        "expectations.json": "537f7555bd564ebe106e6aac65e8c00520130aedb8d5ee2b60605e9c216c88b5"
+      },
+      "android_api": 35,
+      "abi": "x86_64",
+      "artifacts": {
+        "windows-return.json": {
+          "bytes": 7064,
+          "sha256": "ac77f1144db9de68c0d01241949f85f21660da6526b241cb9e947277b3c27fbb"
+        },
+        "windows-continued.json": {
+          "bytes": 7890,
+          "sha256": "31f7bdb6904d8759186f0586b80c79b0346d9e9d03f04c015c409a1f1670ec6a"
+        },
+        "android-origin.json": {
+          "bytes": 4314,
+          "sha256": "fe29bf7410f9abcb06ec8104f0c4eb45aa6bf087b551df30f0440c008077dc6b"
+        },
+        "android-return.json": {
+          "bytes": 5084,
+          "sha256": "884bd0625fac57d1e24068c0a1c4cf0c337609632dc673a0963d3355e8876d92"
+        },
+        "android-final.json": {
+          "bytes": 5851,
+          "sha256": "4aea2018a1db2ea5d32ce53d22d7014a436fa8f4f1e69fe91afd5794d41b9f72"
+        }
+      },
+      "native_clients_cleaned": true,
+      "command_journal_sha256": "f228daab4c5646fbe6668b6fa0e3d4694a293e7a14da288d2d3a4df63e1961fe",
+      "command_counts": {
+        "adb": 72,
+        "native": 2
+      }
+    },
+    {
+      "cohort": "verified-A",
+      "version": 1,
+      "target_alias": "A",
+      "status": "passed",
+      "phases": {
+        "android_outbound": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unfinished": 0,
+          "raw_sha256": "44504190992e3d28c66b45b43f30e92de518becabf84f860ae4f65e5ed8013b8"
+        },
+        "windows_import_continue": {
+          "status": "passed",
+          "raw_sha256": "31df2133a845bc358d0887476650d00c7626d739b0510177168d36b9c7fd3ada"
+        },
+        "android_return": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unfinished": 0,
+          "raw_sha256": "a79da16755b9641f311deec1b06d779172ca65a15c05fbfe85faba581d282096"
+        },
+        "windows_final_replay": {
+          "status": "passed",
+          "raw_sha256": "51aaa289911f4d0b2e15baa6e7892a397b5326c92463adfb36e146364cb549bf"
+        }
+      },
+      "models_copied": 0,
+      "model_generations": 0,
+      "installed_apks": false,
+      "cleared_app_data": false,
+      "prior_packages_preserved": true,
+      "owned_processes_absent": true,
+      "adb_clients_cleaned": true,
+      "apk_sha256": {
+        "org.locallore.app.archiveverify": "5a058eef62d1e56e9326ac71a959bd1205ae9a96820b42626abda6530e93944f",
+        "org.locallore.app.archiveverify.test": "b3f45ecee08acb3482874549fb773c29843bd0c5b10d76fda9c84001736acf8a"
+      },
+      "native_fixture_sha256": "e335ecd7fdbb1d4518a724e60afbe44976c5949cf454969a0a8807198cbffc6a",
+      "fixture_sha256": {
+        "windows-origin.json": "ac77f1144db9de68c0d01241949f85f21660da6526b241cb9e947277b3c27fbb",
+        "windows-continued.json": "31f7bdb6904d8759186f0586b80c79b0346d9e9d03f04c015c409a1f1670ec6a",
+        "expectations.json": "537f7555bd564ebe106e6aac65e8c00520130aedb8d5ee2b60605e9c216c88b5"
+      },
+      "android_api": 35,
+      "abi": "x86_64",
+      "artifacts": {
+        "windows-return.json": {
+          "bytes": 7064,
+          "sha256": "ac77f1144db9de68c0d01241949f85f21660da6526b241cb9e947277b3c27fbb"
+        },
+        "windows-continued.json": {
+          "bytes": 7890,
+          "sha256": "31f7bdb6904d8759186f0586b80c79b0346d9e9d03f04c015c409a1f1670ec6a"
+        },
+        "android-origin.json": {
+          "bytes": 4314,
+          "sha256": "a617dfc2b86d58aa6c5a935c0f0d896a5929d120ea306efb24f70206e2992056"
+        },
+        "android-return.json": {
+          "bytes": 5084,
+          "sha256": "75a33d5f6f7bcc888cc147f6acd791a6ee5b9faf3fc822640c6457dc66d1a093"
+        },
+        "android-final.json": {
+          "bytes": 5851,
+          "sha256": "df36d284f29921bcd2e95871a4ee1ac2c150c672827942223ded92f0374fbdcf"
+        }
+      },
+      "native_clients_cleaned": true,
+      "command_journal_sha256": "1f1ba50b53094164c0a6fd38e6b0157c3bdfd4baff84c2ae16cd49268c3cd8a3",
+      "command_counts": {
+        "adb": 72,
+        "native": 2
+      }
+    },
+    {
+      "cohort": "verified-B",
+      "version": 1,
+      "target_alias": "B",
+      "status": "passed",
+      "phases": {
+        "android_outbound": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unfinished": 0,
+          "raw_sha256": "e28fef955afef39c99ac71aa29c433d1ff90b04223d97adaebab61d0d30ae08a"
+        },
+        "windows_import_continue": {
+          "status": "passed",
+          "raw_sha256": "31df2133a845bc358d0887476650d00c7626d739b0510177168d36b9c7fd3ada"
+        },
+        "android_return": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unfinished": 0,
+          "raw_sha256": "7e911c434078d7b852a7c0f7405c29d04fd36218e6fb0f798f480a17d8ad5dd0"
+        },
+        "windows_final_replay": {
+          "status": "passed",
+          "raw_sha256": "51aaa289911f4d0b2e15baa6e7892a397b5326c92463adfb36e146364cb549bf"
+        }
+      },
+      "models_copied": 0,
+      "model_generations": 0,
+      "installed_apks": false,
+      "cleared_app_data": false,
+      "prior_packages_preserved": true,
+      "owned_processes_absent": true,
+      "adb_clients_cleaned": true,
+      "apk_sha256": {
+        "org.locallore.app.archiveverify": "5a058eef62d1e56e9326ac71a959bd1205ae9a96820b42626abda6530e93944f",
+        "org.locallore.app.archiveverify.test": "b3f45ecee08acb3482874549fb773c29843bd0c5b10d76fda9c84001736acf8a"
+      },
+      "native_fixture_sha256": "e335ecd7fdbb1d4518a724e60afbe44976c5949cf454969a0a8807198cbffc6a",
+      "fixture_sha256": {
+        "windows-origin.json": "ac77f1144db9de68c0d01241949f85f21660da6526b241cb9e947277b3c27fbb",
+        "windows-continued.json": "31f7bdb6904d8759186f0586b80c79b0346d9e9d03f04c015c409a1f1670ec6a",
+        "expectations.json": "537f7555bd564ebe106e6aac65e8c00520130aedb8d5ee2b60605e9c216c88b5"
+      },
+      "android_api": 35,
+      "abi": "x86_64",
+      "artifacts": {
+        "windows-return.json": {
+          "bytes": 7064,
+          "sha256": "ac77f1144db9de68c0d01241949f85f21660da6526b241cb9e947277b3c27fbb"
+        },
+        "windows-continued.json": {
+          "bytes": 7890,
+          "sha256": "31f7bdb6904d8759186f0586b80c79b0346d9e9d03f04c015c409a1f1670ec6a"
+        },
+        "android-origin.json": {
+          "bytes": 4314,
+          "sha256": "59a3e3ba043c3b0c550e6350839424645116fabb1527cc0eb7e6d708a02dd45b"
+        },
+        "android-return.json": {
+          "bytes": 5084,
+          "sha256": "378501d3282101bcde38e8469522d2b25faacd33a7fab276371e93258112e9b1"
+        },
+        "android-final.json": {
+          "bytes": 5851,
+          "sha256": "a08f7ab93ed6a9a110aff74e88a34d5e8b0eb0d2d00e7fbdda70b8fbcf7ef89f"
+        }
+      },
+      "native_clients_cleaned": true,
+      "command_journal_sha256": "4d6c956646829b00550ecf6ac11327a843180b33b1a959aa5f984778feb72333",
+      "command_counts": {
+        "adb": 72,
+        "native": 2
+      }
+    }
+  ],
+  "final_android_phase_passes": 4,
+  "all_android_phase_passes": 12,
+  "final_windows_cli_verifications": 4,
+  "all_windows_cli_verifications": 12,
+  "limitations": [
+    "Windows native engine/Store fixture CLI, not desktop application UI",
+    "No system-chooser UI transfer, phone, ARM64 execution or real-model qualification",
+    "Typed deterministic fake-provider fixtures; no cross-platform guarded free-text Play metadata claim",
+    "No archive-specific process-death/disk-full product qualification; injected runner fault tests are separate",
+    "No merge, owner acceptance, full M08/D08 acceptance or hosted CI execution claimed"
+  ],
+  "private_raw_files_uploaded": false
+}

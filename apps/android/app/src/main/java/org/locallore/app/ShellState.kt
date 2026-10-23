@@ -5,12 +5,18 @@ enum class DemoAction { GIVE_POTION, TRY_ABILITY }
 enum class DemoMode { ACCEPTED, MALFORMED, REJECTED, DELAYED, FAILED }
 data class SceneMessage(val id: Long, val text: String, val isPlayer: Boolean)
 data class SavedStory(val story: String, val branch: String, val title: String, val revision: Long)
+data class SavedTimeline(
+    val story: String, val branch: String, val parentBranch: String?, val forkRevision: Long?,
+    val revision: Long, val uncommittedDrafts: Int,
+)
 data class SavedSnapshot(
     val revision: Long, val potionOwner: String, val messages: List<SceneMessage>,
-    val location: String, val schemaVersion: Int, val stories: List<SavedStory>, val selected: SavedStory,
+    val location: String, val schemaVersion: Int, val stories: List<SavedStory>, val selected: SavedStory?,
     val uncommittedDrafts: Int = 0,
     val rulesProfile: String = "unknown",
     val textProvider: TextProvider = TextProvider.UNAVAILABLE,
+    val databaseSchemaVersion: Int? = null,
+    val timelines: List<SavedTimeline> = emptyList(),
 )
 data class ShellState(
     val busy: Boolean = false,
@@ -29,6 +35,10 @@ data class ShellState(
     val uncommittedDrafts: Int = 0,
     val rulesProfile: String? = null,
     val textProvider: TextProvider = TextProvider.UNAVAILABLE,
+    val databaseSchemaVersion: Int? = null,
+    val archiveActive: Boolean = false,
+    val deletionActive: Boolean = false,
+    val timelines: List<SavedTimeline> = emptyList(),
 )
 
 sealed interface DemoResult {
@@ -55,5 +65,6 @@ fun interface DemoGateway {
     suspend fun createSaved(): SavedSnapshot? { reset(); return null }
     suspend fun resumeSaved(story: SavedStory): SavedSnapshot? = null
     suspend fun recoverSaved(): SavedSnapshot? = snapshot()
+    suspend fun reconcileSaved(): SavedSnapshot? = snapshot()
     suspend fun cancelSaved(): SavedSnapshot? { cancel(); return snapshot() }
 }

@@ -16,6 +16,10 @@ android {
         versionName = "0.18.1-spike"
         ndk { abiFilters += listOf("x86_64", "arm64-v8a") }
     }
+    // Optional Rust pump is built/staged by the explicit play-probe helper only.
+    if (providers.gradleProperty("localLorePlayProbe").orNull == "true") {
+        sourceSets["main"].jniLibs.srcDir(rootProject.file("../../../../target/android-play-probe/jniLibs"))
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

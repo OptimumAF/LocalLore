@@ -1,0 +1,231 @@
+{
+  "version": 1,
+  "task": "M08.01",
+  "supports": "M08.05",
+  "status": "locally_verified_pending_owner_acceptance",
+  "base_commit": "ddd4eed6b42ecc05e13ed1363c2d2fad5f074ea2",
+  "source_commit": "36e074d09bc7a13c6c9f6ae68be2e2e7e57f0a5c",
+  "code_worktree_sha256": {
+    ".gitignore": "40c1fa5091530264110ad9a9220a00a4f2df058c5e2d1de5ee1ce5b9463e01e3",
+    "apps/android/app/build.gradle.kts": "b6bbfc5f9fe314d3d198c7caf0b7f290eb957ba5a4f0fe0ba8184af52ee5ba4c",
+    "apps/android/app/src/androidTest/java/org/locallore/app/DurableDeletionRecoveryTest.kt": "544f230286ead18fe400462ec739ba5a0a8290e83399d91429c65a2fb29bab05",
+    "apps/android/app/src/androidTest/java/org/locallore/app/TimelineActivityTest.kt": "d577274a9d71682a03ebe4275be3f827c3980d2628687cbe7650eac503cdb5cb",
+    "apps/android/app/src/androidTest/java/org/locallore/app/TimelineMainActivityTest.kt": "4991416069fa75b8e69cc56e024b8326c7f566ecc17040323b454eeeaa95d3ae",
+    "apps/android/app/src/androidTest/java/org/locallore/app/TimelineNativeTest.kt": "9dc6f06acbe4d80fac5b6443488978226d26225d0bbbaa4bf069775c702ec822",
+    "apps/android/app/src/androidTest/java/org/locallore/app/TimelineProtocolTest.kt": "5c6f348128db77645eaf306e31c0aaee18a5f112e6ba9502b9e5fcd3f77a41b2",
+    "apps/android/app/src/main/java/org/locallore/app/DurableGateway.kt": "330ca97dad8e241b91b40ddd6fdad271244f1ec46762bcefb114528321955d14",
+    "apps/android/app/src/main/java/org/locallore/app/MainActivity.kt": "172860465fc5d1deb11e05387b2d252e00e0cc13e4b4710e8de77ac22e7e5839",
+    "apps/android/app/src/main/java/org/locallore/app/ShellState.kt": "796bae428ef34bf484560003b1da06faa70b98df6b7f5cd5afbd2bd2a3b5ae16",
+    "apps/android/app/src/main/java/org/locallore/app/ShellViewModel.kt": "ce43660ff7026d135faf9dc7d9f299d290baf0ffee97fe534559351ff1382658",
+    "apps/android/app/src/main/java/org/locallore/app/ui/LocalLoreScreen.kt": "fc118482fae454ec73804a1353964d9161c12652cfbd3ebb02228bd77b89586e",
+    "apps/android/app/src/test/java/org/locallore/app/TimelineShellTest.kt": "473d174922f5ff33e4d7f5d4fbdde940053004c6e6af0c975021a90dd4d431fa",
+    "apps/desktop/host-v1.schema.json": "19c2ccd6f585b56ce0a914e4f35966f10ecf52172e1f482686dc926748b1ed97",
+    "crates/locallore-android/tests/branch_catalog.rs": "a4a17a08bba2a10e7ea31ea091c12c16888971e6c61d0be6160f4d9c9b99a79b",
+    "crates/locallore-storage/src/branch_catalog.rs": "f84a53c2b47de25fc019d3772e56abcdc16308645aabc880cd71920dc2bb8e21",
+    "crates/locallore-storage/src/lib.rs": "cd8f7d25407bac0827d9a1ef8a9264b162606f193293e4c61c9b41d8608e401e",
+    "crates/locallore-storage/tests/branch_catalog.rs": "2b7319c694d9c0508cc516ac2ea65ac9a0a7c6c55039e76c1fde59170b53fcd9",
+    "crates/locallore-workspace/src/lib.rs": "8d898c90288a2fe7ad7bc38839e90eb59900ed6bb1a6f71bc0c2a00b4f03a795",
+    "crates/locallore/src/host.rs": "5ba595e880cf9d78ade1df0a7d20c17b3b1a3b3e83b456a127b0d1e5113f11d7"
+  },
+  "environment": {
+    "rust": "1.93.1",
+    "java": "17.0.6",
+    "gradle": "8.11.1",
+    "agp": "8.10.1",
+    "kotlin": "2.2.21",
+    "compile_target_sdk": 36,
+    "build_tools": "35.0.0",
+    "ndk": "29.0.14206865",
+    "emulators": 2,
+    "emulator_api": 35,
+    "emulator_abi": "x86_64",
+    "os_page_bytes": 4096,
+    "physical_phones_observed": 0,
+    "arm64": "built_packaged_not_executed"
+  },
+  "host": {
+    "workspace_rust_passed": 338,
+    "workspace_rust_failed": 0,
+    "workspace_rust_ignored_explicit_qualifiers": 2,
+    "linker_passed": 3,
+    "python_passed": 232,
+    "strict_clippy_fmt": "passed",
+    "generated_fixtures": 4,
+    "new_store_catalog_tests": 7,
+    "new_native_public_catalog_tests": 4
+  },
+  "android": {
+    "dedicated_jvm": 77,
+    "ordinary_jvm": 77,
+    "jvm_failed_errors_skipped": 0,
+    "lint_errors": 0,
+    "lint_existing_gradle_dependency_warnings": 1,
+    "final_apk": {
+      "org.locallore.app.timelineverify": "6531e71834f7a6e8c14f0b9abec64c8a4dca1b783c3ce0bb3e6332a760987117",
+      "org.locallore.app.timelineverify.test": "17d34f5deb4f59881637158ff82f2ef8b3107b787bbd2f969310462c1cc2576e"
+    },
+    "ordinary_apk": {
+      "org.locallore.app": "8332c8bca9170d22a2c912ada24081e867da78c3a7d0e4a3a9a43e774e1469be",
+      "org.locallore.app.test": "de4d67f4467c64202ded9a54796996a64379354cf0ac5064f2f706568be3c8d2"
+    },
+    "ordinary_apk_installed": false,
+    "library_sha256": {
+      "arm64-v8a": "9ec4aac4534eed6e1895e1bb1fd180828d5c77892a9a9de7974efd4e597fa7aa",
+      "x86_64": "91e19a1a2cf4ed774cd6b1756d38feaee8b8e434d661fa569874146a5f838ad3"
+    },
+    "elf_zip_alignment_bytes": 16384,
+    "archive_jni_symbols": 9,
+    "new_jni_symbols": 0,
+    "fixture96_and_test_providers_in_product": false,
+    "internet_permission": false,
+    "nonordinary_local_apks_preserved": 12,
+    "previous_installed_package_identities_preserved": 11,
+    "configuration_guards": {
+      "bad-value": {
+        "status": "rejected_as_expected",
+        "evidence": "terminal_build_failed_expected_configuration_guard"
+      },
+      "missing-cache": {
+        "status": "rejected_as_expected",
+        "evidence": "terminal_build_failed_expected_configuration_guard"
+      },
+      "cache-without-property": {
+        "status": "rejected_as_expected",
+        "evidence": "terminal_build_failed_expected_configuration_guard"
+      },
+      "combined-archive": {
+        "status": "rejected_as_expected",
+        "evidence": "terminal_build_failed_expected_configuration_guard"
+      },
+      "combined-deletion": {
+        "status": "rejected_as_expected",
+        "evidence": "terminal_build_failed_expected_configuration_guard"
+      },
+      "combined-capacity": {
+        "status": "rejected_as_expected",
+        "evidence": "terminal_build_failed_expected_configuration_guard"
+      },
+      "release": {
+        "status": "rejected_as_expected",
+        "evidence": "terminal_build_failed_expected_configuration_guard"
+      }
+    }
+  },
+  "final_emulator_cohorts": [
+    {
+      "alias": "A",
+      "cohort": "final",
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "unfinished": 0,
+      "raw_sha256": "3571e09d524f2cfcec17c64caee5035b2ca5e734ed9d5a8a99247e440dcecc73",
+      "processes_absent": true,
+      "clients_cleaned": true,
+      "prior_packages_preserved": true,
+      "postflight_read_timeout_recovered": false
+    },
+    {
+      "alias": "B",
+      "cohort": "final",
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "unfinished": 0,
+      "raw_sha256": "bd704906faaf2f7865f80fdc29f6f45ec318781fe77e53f5857c6ef58e189f01",
+      "processes_absent": true,
+      "clients_cleaned": true,
+      "prior_packages_preserved": true,
+      "postflight_read_timeout_recovered": false
+    },
+    {
+      "alias": "A",
+      "cohort": "regression",
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "unfinished": 0,
+      "raw_sha256": "c7a91174572e3d6c73041f2f0ade06b5711d5c4e32f11d64c0c4729f07958e3a",
+      "processes_absent": true,
+      "clients_cleaned": true,
+      "prior_packages_preserved": true,
+      "postflight_read_timeout_recovered": true
+    },
+    {
+      "alias": "B",
+      "cohort": "regression",
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "unfinished": 0,
+      "raw_sha256": "2b3d940661640a0ee6bf062831779f787617a567899444f383ab71f0c5295784",
+      "processes_absent": true,
+      "clients_cleaned": true,
+      "prior_packages_preserved": true,
+      "postflight_read_timeout_recovered": false
+    }
+  ],
+  "final_passed_total": 80,
+  "superseded_attempts": [
+    {
+      "attempt": "red",
+      "alias": "A",
+      "passed": 0,
+      "failed": 1,
+      "expected_red_regression": true,
+      "raw_sha256": "2d2a0cb4cd678a57872fd0e5876b8847a9e3623f86c1c8bbfcce442e924e662f",
+      "apk_sha256": {
+        "org.locallore.app.timelineverify": "a26fb5704e6d01005ea8bd5fabddc62103ada34612292d8b3c728666ec82e9d8",
+        "org.locallore.app.timelineverify.test": "5f29edeb0ef485170bf2870435c024a467ee5fdcd25decf8886f3f2f61adb57d"
+      }
+    },
+    {
+      "attempt": "green",
+      "alias": "A",
+      "passed": 13,
+      "failed": 1,
+      "expected_red_regression": false,
+      "raw_sha256": "95e04c525dee0639c7825555a2aceccff6abf0e1506559673a41a8a4c8729cb3",
+      "apk_sha256": {
+        "org.locallore.app.timelineverify": "6531e71834f7a6e8c14f0b9abec64c8a4dca1b783c3ce0bb3e6332a760987117",
+        "org.locallore.app.timelineverify.test": "6697b3d718176a021bd847026aeadfaa6a82aa01aaa2879528a3fb1cac80ba9f"
+      }
+    },
+    {
+      "attempt": "green",
+      "alias": "B",
+      "passed": 13,
+      "failed": 1,
+      "expected_red_regression": false,
+      "raw_sha256": "3091a490fe2dc27e3fe95ef998814e349c84d60367eccba07f89fe6f1e05454e",
+      "apk_sha256": {
+        "org.locallore.app.timelineverify": "6531e71834f7a6e8c14f0b9abec64c8a4dca1b783c3ce0bb3e6332a760987117",
+        "org.locallore.app.timelineverify.test": "6697b3d718176a021bd847026aeadfaa6a82aa01aaa2879528a3fb1cac80ba9f"
+      }
+    }
+  ],
+  "build_attempts": {
+    "red": "passed_72_jvm_lint_original_native",
+    "green": "failed_incremental_kotlin_unchanged_declarations",
+    "green_full": "passed_77_jvm_lint_no_visibility_change",
+    "fix1": "passed_77_jvm_lint_test_scrolling_fix_only",
+    "ordinary": "passed_77_jvm_lint"
+  },
+  "attempt_log_sha256": {
+    "red-build.log": "4e9599fe49f7b2b15b8542eb9a1dcbc4c335a601415f2cd083d2ecf18165ec94",
+    "green-build.log": "0a64b3e7045ad76b5fbbf8904d74ecd6cfea5c0f4f1359da00448cd2451c871e",
+    "green-full-build.log": "26bf57d60729c9479da4fb2e0b45521fc9021b1f72f9143ec444abadeba9e2ca",
+    "fix1-build.log": "5b71d21f6653e5027899dfc940e8fd5f28a886e21da8442d6e1b33d150709fea",
+    "production.log": "0e3b4cc7a68dadeabcb3ac27a0f5e12ced3e43fb72ab0ba9ccc6aa781152a76e",
+    "host.log": "3cf9286fa84ac1a3c728086504d2a10879f6011156d554f3998df473364f0815"
+  },
+  "limitations": [
+    "Fake inference only; physical device/model/ARM64 execution gates not satisfied",
+    "No branch creation/rewind/retcon/retirement/branch-delete UI",
+    "No schema3/archivev2 implementation",
+    "Catalog cancellation checked between replay operations; no hard CPU deadline or maximum-history latency claim",
+    "Immediate UI cancellation, not injected Running-native inference overlap",
+    "A regression postflight hash read timed out; distinct fresh postflight verified preservation/cleanup without rerunning tests"
+  ],
+  "next_runnable_task": "M08.05 retained-parent deletion, safe schema3 migration and versioned archivev2 retirement metadata"
+}

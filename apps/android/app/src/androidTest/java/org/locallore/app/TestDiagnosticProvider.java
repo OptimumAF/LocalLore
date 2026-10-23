@@ -25,7 +25,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /** Test APK only. Platform/Java APIs keep its separate process independent of target runtime classes. */
 public final class TestDiagnosticProvider extends ContentProvider {
-    public static final String AUTHORITY = "org.locallore.app.test.diagnostics";
     private final AtomicInteger opened = new AtomicInteger();
     private final AtomicInteger closed = new AtomicInteger();
     private final AtomicInteger started = new AtomicInteger();
@@ -139,7 +138,7 @@ public final class TestDiagnosticProvider extends ContentProvider {
     private String caseName(Uri uri) throws FileNotFoundException {
         List<String> segments = uri.getPathSegments();
         String name = segments.size() == 1 ? segments.get(0) : "";
-        if (!AUTHORITY.equals(uri.getAuthority()) || uri.getQuery() != null || uri.getFragment() != null
+        if (getContext() == null || !(getContext().getPackageName() + ".diagnostics").equals(uri.getAuthority()) || uri.getQuery() != null || uri.getFragment() != null
                 || !("success".equals(name) || "failure".equals(name) || "write_failure".equals(name)
                 || "null".equals(name) || "slow".equals(name))) {
             throw new FileNotFoundException("Unsupported synthetic destination");

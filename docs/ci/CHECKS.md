@@ -72,3 +72,37 @@ command stops the suite and returns its exit code. Missing tools/configuration
 return 1; invalid CLI arguments return 2; keyboard interruption returns 130.
 No passing host or APK build proves emulator execution, physical phone performance,
 ARM64 execution, model quality, durable storage, or repository owner acceptance.
+
+The Android crate's `platform_roundtrip` development example is registered with
+`test=true`, so the normal host suite checks its real Store/Host fixtures and
+engine-to-packaged-asset drift. Platform-specific junction/symlink cases differ
+by OS. These host tests do not launch ADB. The explicit
+[cross-platform runner](../native/PLATFORM_ROUNDTRIP_VERIFICATION_2026-10-23.md)
+requires already installed, hash-matching test APKs and an authorized selected
+device; it is not part of default CI and performs no model provisioning.
+
+The explicit [archive recovery runner](../native/ARCHIVE_RECOVERY_VERIFICATION_2026-10-23.md)
+also requires matching installed isolated APKs and an authorized selected device.
+It deliberately force-stops only that verified app after a live-PID readiness
+check, then requires a real passing relaunch test. It is not part of default CI.
+Its Python fault tests and three host Store transaction-interruption tests run
+in the normal host suite. The latter invoke one explicitly ignored IPC worker;
+that entry is not an additional standalone qualification test. No model or
+private save is provisioned, and no directory is recursively deleted by them.
+
+The explicit [archive capacity runner](../native/ARCHIVE_CAPACITY_VERIFICATION_2026-10-23.md)
+requires preinstalled exact `.archivecapacity` APKs and its exclusive build cache.
+It verifies actual SQLite Full and cache-only recovery through the real native
+gateways and Compose surface. Its nine Python ownership/evidence fault tests
+and three Store regressions run in the host gate. The separate compiled-page
+qualifier is explicitly ignored there and must be selected in its documented
+isolated Cargo profile. No default CI step provisions a device, fills a partition
+or enables the feature-only JNI fixture in an ordinary build.
+
+The explicit [whole-story deletion checks](../native/STORY_DELETION_VERIFICATION_2026-10-23.md)
+build `.storydelete` with an exclusive project cache and no test-only native
+feature. Eight Store and five public native-owner regressions run in the host
+gate; consent/empty-library tests run in the JVM suite. Actual product Activity,
+Compose/JNI and Android protocol cases require a separately authorized test
+emulator. The first product Activity test requires an initially empty dedicated
+library; never substitute or clear a user's installed workspace.

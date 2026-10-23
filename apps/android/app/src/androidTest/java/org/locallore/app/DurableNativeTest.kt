@@ -49,7 +49,7 @@ class DurableNativeTest {
             // New JNI owner and Host reload/replay the same actual database; no cached UI transcript.
             gateway = DurableGateway(TestTransport(path))
             val reopened = gateway.initialize()
-            val restored = gateway.resumeSaved(reopened.stories.first { it.story == committed.selected.story })
+            val restored = gateway.resumeSaved(reopened.stories.first { it.story == checkNotNull(committed.selected).story })
             assertEquals(committed.messages, restored.messages)
             assertEquals(committed.revision, restored.revision)
             assertEquals(2, restored.stories.size)

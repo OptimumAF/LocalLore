@@ -81,7 +81,8 @@ class EventSourceScreenTest {
             compose.setContent {
                 val state by model.state.collectAsState()
                 val records by model.storyRecord.collectAsState()
-                val openEvent: (Long) -> Unit = { sequence -> model.openRecordEvent(sequence, records.context) }
+                val renderedRecordContext = records.context
+                val openEvent: (Long) -> Unit = { sequence -> model.openRecordEvent(sequence, renderedRecordContext) }
                 SideEffect { renderedEventClick.set(openEvent) }
                 LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::reset,
                     onResume = model::resume, onRecover = model::recover, onStoryRecord = model::openStoryRecord) {

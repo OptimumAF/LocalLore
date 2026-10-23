@@ -9,6 +9,8 @@ license = "Apache-2.0"
 locallore = { path = "../../../crates/locallore", features = ["host"] }
 locallore-workspace = { path = "../../../crates/locallore-workspace" }
 serde_json = "=1.0.154"
+sha2 = "=0.10.9"
+locallore-local-runtime = { path = "../../../crates/locallore-local-runtime", features = ["engine-adapter"] }
 tauri = { version = "=2.12.5", default-features = false, features = ["wry", "compression", "common-controls-v6", "custom-protocol"] }
 tokio = { version = "=1.54.1", features = ["sync", "time"] }
 

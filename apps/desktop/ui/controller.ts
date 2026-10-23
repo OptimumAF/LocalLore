@@ -25,6 +25,7 @@ import type {
     ExportMode,
     ExportPreview,
     NativeAction,
+    ModelState,
 } from "./model";
 interface Operation {
     session: Session;
@@ -37,6 +38,12 @@ interface Operation {
 }
 export class Controller {
     private state: State = {
+        model: null,
+        modelBusy: false,
+        modelCancelReady: false,
+        modelShown: false,
+        playMode: "fixture",
+        inputKind: "action",
         exports: {
             shown: false,
             imported: false,
@@ -78,6 +85,9 @@ export class Controller {
         notice: "",
         disposed: false,
     };
+    private modelOperation: { baseline: number; id: number | null } | null =
+        null;
+    private modelReadSequence = 0;
     private listeners = new Set<() => void>();
     private drafts = new Map<string, string>();
     private epoch = 0;
@@ -735,6 +745,105 @@ export class Controller {
             if (epoch === this.inspectionEpoch) this.fail(error);
         }
     }
+    showModel() {
+        this.patch({ modelShown: !this.state.modelShown });
+        if (this.state.modelShown) void this.refreshModel();
+    }
+    setPlayMode(playMode: State["playMode"]) {
+        if (this.state.pending) return;
+        if (playMode === "local" && !this.state.model?.loaded) {
+            this.fail("ModelUnavailable");
+            return;
+        }
+        this.patch({ playMode, visibleError: null });
+    }
+    setInputKind(inputKind: State["inputKind"]) {
+        if (!this.state.pending) this.patch({ inputKind });
+    }
+    async refreshModel() {
+        const sequence = ++this.modelReadSequence;
+        try {
+            const model = (await this.native("model_status")) as ModelState;
+            if (
+                !model ||
+                typeof model.loaded !== "boolean" ||
+                typeof model.phase !== "string"
+            )
+                throw new Error("Wire");
+            if (!this.state.disposed && sequence === this.modelReadSequence) {
+                const op = this.modelOperation;
+                if (
+                    op &&
+                    op.id === null &&
+                    Number.isSafeInteger(model.operation_id) &&
+                    model.operation_id > op.baseline &&
+                    [
+                        "choosing",
+                        "checking",
+                        "copying",
+                        "loading",
+                        "unloading",
+                    ].includes(model.phase)
+                ) {
+                    op.id = model.operation_id;
+                    this.patch({ modelCancelReady: true });
+                }
+                this.patch({ model });
+            }
+        } catch (error) {
+            if (!this.state.disposed) this.fail(error);
+        }
+    }
+    async modelAction(command: "model_import" | "model_load" | "model_unload") {
+        if (this.state.modelBusy || this.state.disposed) return;
+        const operation = {
+            baseline: this.state.model?.operation_id ?? 0,
+            id: null as number | null,
+        };
+        this.modelOperation = operation;
+        this.patch({
+            modelBusy: true,
+            modelCancelReady: false,
+            visibleError: null,
+        });
+        let polling = false;
+        const timer = setInterval(() => {
+            if (polling) return;
+            polling = true;
+            void this.refreshModel().finally(() => {
+                polling = false;
+            });
+        }, 150);
+        try {
+            await this.native(command);
+            await this.refreshModel();
+        } catch (error) {
+            if (!this.state.disposed) {
+                this.fail(error);
+                await this.refreshModel();
+            }
+        } finally {
+            clearInterval(timer);
+            if (this.modelOperation === operation) {
+                this.modelOperation = null;
+                if (!this.state.disposed)
+                    this.patch({ modelBusy: false, modelCancelReady: false });
+            }
+        }
+    }
+    async cancelModel() {
+        const operation = this.modelOperation;
+        const operationId = operation?.id;
+        if (!operationId) {
+            this.fail("ModelOperationUnknown");
+            return;
+        }
+        try {
+            await this.native("model_cancel", { operationId });
+        } catch (error) {
+            if (this.modelOperation === operation) this.fail(error);
+        }
+    }
     setView(view: State["view"]) {
         if (
             view === "play" &&
@@ -834,26 +943,52 @@ export class Controller {
             this.fail("SessionRequired");
             return Promise.resolve();
         }
-        if (this.state.action === "dialogue" && !this.state.draft.trim()) {
+        if (this.state.playMode === "local" && !this.state.model?.loaded) {
+            this.fail("ModelUnavailable");
+            return Promise.resolve();
+        }
+        if (
+            (this.state.playMode === "local" ||
+                this.state.action === "dialogue") &&
+            !this.state.draft.trim()
+        ) {
             this.fail("DraftRequired");
             return Promise.resolve();
         }
         const op: Operation = {
             session,
             epoch: this.epoch,
-            request: request(
-                session.scope,
-                `${this.prefix}-${++this.nextTurn}`,
-                play.revision,
-                this.state.action,
-                this.state.draft,
-            ),
-            mode: this.state.fakeMode,
+            request:
+                this.state.playMode === "local"
+                    ? {
+                          version: 1,
+                          scope: session.scope,
+                          turn: `${this.prefix}-${++this.nextTurn}`,
+                          expected_revision: play.revision,
+                          intent: {
+                              kind: "free_text",
+                              value: {
+                                  kind: this.state.inputKind,
+                                  text: this.state.draft,
+                              },
+                          },
+                      }
+                    : request(
+                          session.scope,
+                          `${this.prefix}-${++this.nextTurn}`,
+                          play.revision,
+                          this.state.action,
+                          this.state.draft,
+                      ),
+            mode:
+                this.state.playMode === "local"
+                    ? "accepted"
+                    : this.state.fakeMode,
             submitted: false,
             cancelled: false,
             promise: Promise.resolve(),
         };
-        const mode = this.state.fakeMode;
+        const mode = op.mode;
         this.operation = op;
         this.patch({
             pending: {
@@ -879,12 +1014,20 @@ export class Controller {
     private async run(op: Operation, mode: FakeMode, before: PlayView) {
         try {
             this.unresolved = op;
-            let status = (await this.gateway.call({
-                op: "submit",
-                session: op.session.id,
-                request: op.request,
-                mode,
-            })) as TurnStatus;
+            let status = (await this.gateway.call(
+                op.request.intent.kind === "free_text"
+                    ? {
+                          op: "free_text",
+                          session: op.session.id,
+                          request: op.request,
+                      }
+                    : {
+                          op: "submit",
+                          session: op.session.id,
+                          request: op.request,
+                          mode,
+                      },
+            )) as TurnStatus;
             op.submitted = true;
             if (op.cancelled || !this.current(op)) {
                 const cancelled = await this.control(op, "cancel");
@@ -1003,7 +1146,8 @@ export class Controller {
                     : "Committed by the local Rust engine.",
             });
             if (
-                op.request.intent.kind === "dialogue" &&
+                (op.request.intent.kind === "dialogue" ||
+                    op.request.intent.kind === "free_text") &&
                 this.state.draft === op.request.intent.value.text
             )
                 this.patch({ draft: "" });
@@ -1015,6 +1159,7 @@ export class Controller {
             this.unresolved === op
         )
             this.unresolved = null;
+        if (op.request.intent.kind === "free_text") await this.refreshModel();
         await this.refresh();
         if (this.state.workspace) await this.library();
         if (
@@ -1074,12 +1219,20 @@ export class Controller {
             } catch (error) {
                 if (!this.current(op) || this.unresolved !== op) return;
                 if (category(error) !== "UnknownTurn") throw error;
-                status = (await this.gateway.call({
-                    op: "submit",
-                    session: op.session.id,
-                    request: op.request,
-                    mode: op.mode,
-                })) as TurnStatus;
+                status = (await this.gateway.call(
+                    op.request.intent.kind === "free_text"
+                        ? {
+                              op: "free_text",
+                              session: op.session.id,
+                              request: op.request,
+                          }
+                        : {
+                              op: "submit",
+                              session: op.session.id,
+                              request: op.request,
+                              mode: op.mode,
+                          },
+                )) as TurnStatus;
                 op.submitted = true;
             }
             if (!this.current(op) || this.unresolved !== op) return;
@@ -1135,6 +1288,9 @@ export class Controller {
             session = this.selected();
         return {
             version: 1,
+            model: s.model,
+            playMode: s.playMode,
+            inputKind: s.inputKind,
             exports: s.exports,
             workspace: s.workspace,
             ephemeral: s.ephemeral,

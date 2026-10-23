@@ -303,10 +303,14 @@ fn committed_receipt_learned_through_cancel_survives_late_worker_completion() {
     let req = request(&scope, "same", 0, true);
     submit(&first, &a, &req, "delayed");
     submit(&second, &b, &req, "accepted");
+    assert_eq!(
+        op(&second, &b, &scope, "same", "prepare")["data"]["phase"],
+        "ready"
+    );
     std::thread::scope(|threads| {
         let running = threads.spawn(|| op(&first, &a, &scope, "same", "prepare"));
         await_worker(&first);
-        let accepted = commit(&second, &b, &scope, "same");
+        let accepted = op(&second, &b, &scope, "same", "commit");
         assert_eq!(op(&first, &a, &scope, "same", "cancel"), accepted);
         assert_eq!(
             running.join().unwrap(),
@@ -574,4 +578,46 @@ fn lost_commit_acknowledgement_retries_the_recorded_outcome_without_a_second_eff
             .len(),
         1
     );
+}
+
+#[test]
+fn simultaneous_admission_at_library_cap_cannot_make_the_catalog_unreadable() {
+    let tmp = Temp::new();
+    {
+        let mut store =
+            locallore_storage::Store::open(&tmp.0.join("synthetic.sqlite"), None).unwrap();
+        let seed: locallore::contracts::Seed =
+            serde_json::from_str(include_str!("../../../fixtures/lantern_quay.json")).unwrap();
+        for n in 0..255 {
+            let mut seed = seed.clone();
+            seed.scope.story = format!("synthetic-{n}");
+            store
+                .create_story("Synthetic capacity fixture", seed)
+                .unwrap();
+        }
+    }
+    let first = tmp.host(false);
+    let second = tmp.host(false);
+    let barrier = std::sync::Barrier::new(2);
+    let (a, b) = std::thread::scope(|threads| {
+        let a = threads.spawn(|| {
+            barrier.wait();
+            call(&first, json!({"op":"create","seed":"lantern-quay-v1"}))
+        });
+        let b = threads.spawn(|| {
+            barrier.wait();
+            call(&second, json!({"op":"create","seed":"lantern-quay-v1"}))
+        });
+        (a.join().unwrap(), b.join().unwrap())
+    });
+    assert!(
+        !(a["status"] == "ok" && b["status"] == "ok"),
+        "only one of the two writers can admit the last story: {a} {b}"
+    );
+    let library = call(&first, json!({"op":"workspace"}));
+    assert_eq!(
+        library["status"], "ok",
+        "hitting the library bound must preserve readable existing saves: {library}"
+    );
+    assert!(library["data"]["stories"].as_array().unwrap().len() <= 256);
 }

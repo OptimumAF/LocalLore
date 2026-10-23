@@ -141,6 +141,15 @@ export class EvaluationController {
     }
     hide() {
         this.epoch++;
+        this.evidenceEpoch++;
+        this.patch({
+            curatedStatus: null,
+            curatedEvidence: null,
+            curatedBusy: false,
+            curatedError: null,
+            curatedCase: null,
+            curatedTurn: null,
+        });
         this.patch({
             shown: false,
             status: null,

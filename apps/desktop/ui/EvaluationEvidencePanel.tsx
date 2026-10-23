@@ -306,8 +306,7 @@ export function EvaluationEvidencePanel({
                                     disabled={busy || !s.curatedTurn}
                                     onClick={() => void c.curatedInspect()}
                                 >
-                                    Inspect evaluated turn diff and retained
-                                    output
+                                    Inspect evaluated state / accepted turn diff
                                 </button>
                                 <button
                                     disabled={busy || !s.curatedTurn}

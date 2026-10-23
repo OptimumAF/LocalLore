@@ -1,4 +1,33 @@
 use super::*;
+#[test]
+fn missing_native_assets_are_unavailable_without_scripted_substitution() {
+    let (_root, m, l, e, models) = setup();
+    let started = m
+        .curated_start(
+            &l,
+            e,
+            models,
+            CuratedStart {
+                client: &uuid().unwrap(),
+                chosen_lane: "native",
+                selection: None,
+                batch: "one",
+                consent: true,
+            },
+        )
+        .unwrap();
+    let token = started["run_token"].as_str().unwrap();
+    let failed = done(&m, &l, e, token);
+    assert_eq!(failed["error"], "EvaluationModelUnavailable");
+    assert_eq!(failed["completed_cases"], 0);
+    assert_eq!(failed["lane"], "native");
+    let opened = m
+        .curated_open(&l, e, started["run_id"].as_str().unwrap())
+        .unwrap();
+    assert_eq!(opened["snapshot"]["budget"]["roles_charged"], 0);
+    assert_eq!(opened["snapshot"]["report"]["cases"], json!([]));
+    m.drain(e);
+}
 struct Root(PathBuf);
 impl Root {
     fn new() -> Self {

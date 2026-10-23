@@ -192,6 +192,22 @@ export async function curatedJourneys({
                 "player-query-withholds-private-role-output-and-receipt",
             );
             await capture("curated-player", ".curated-evidence");
+            const rejected = selected.turns.find(
+                (t) => t.phase !== "committed",
+            );
+            check(rejected, "rejected-evaluated-turn-present");
+            e.curatedSelectTurn(rejected!.id);
+            await e.curatedInspect();
+            check(
+                e.get().curatedEvidence?.evidence.receipt === null,
+                "rejected-turn-has-no-invented-accepted-receipt",
+            );
+            check(
+                (e.get().curatedEvidence?.evidence.page as { view: string })
+                    ?.view === "profiles",
+                "rejected-turn-opens-actual-state-not-fictional-diff",
+            );
+            await capture("curated-rejected", ".curated-evidence");
             c.setObserver("mira");
             check(
                 e.get().curatedEvidence === null &&
@@ -208,6 +224,14 @@ export async function curatedJourneys({
             });
             const pending = e.curatedStart("scripted", null, "all");
             await until(() => !!e.get().curatedStatus?.running);
+            check(
+                [
+                    ...document.querySelectorAll<HTMLButtonElement>(
+                        ".evaluation-panel button",
+                    ),
+                ].find((b) => b.textContent === "Run built-in suite")?.disabled,
+                "deterministic-controls-disable-during-curated-owner",
+            );
             await capture("curated-pending");
             await e.curatedCancel();
             await pending;

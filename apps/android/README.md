@@ -1,9 +1,9 @@
 # LocalLore Android engine demo
 
 The Compose shell calls the actual Rust engine through a bounded JNI interface.
-It uses **fake inference**, original Lantern Quay fixtures and in-memory events.
-Kotlin implements no gameplay rules. No real model, saved progress, account or
-network dependency during play is present.
+It uses **fake inference**, original Lantern Quay fixtures and the shared SQLite
+workspace for durable accepted history. Kotlin implements no gameplay rules.
+No real model, account or network dependency during play is present.
 
 ## Build and run
 
@@ -55,24 +55,31 @@ and [JNI source/license inventory](../../docs/native/SOURCES_2026-10-22.md).
 ## Exercise the engine
 
 Give the potion to Mira, then try giving it again and using the unlearned ability.
-Only Rust-accepted outcomes enter the transcript. **Demo responses** injects
-malformed, rejected, delayed and failing generation. Cancel a delayed turn or
-reset while pending. Cancellation before commit leaves canon unchanged;
-reset starts fresh. Simulated delay is not a performance measurement.
+Only finalized shared-engine receipts enter the transcript. **Demo responses**
+injects malformed, rejected, delayed and failing generation. **New story** creates
+a new independent saved story and retains earlier stories in **Saved stories**.
+Cancel reconciles against accepted history: a commit that already won remains
+visible. Simulated delay is not a performance measurement.
 
-Accepted state survives Activity recreation through the ViewModel. onStop
-cancels pending work; disposal destroys the native session and signals workers.
-Process death starts fresh. Preparation runs on Kotlin IO; owner-thread commit
-and UI publication never suspend. Unknown commit transport failure requires
-reset rather than claiming rollback. [ADR-0004](../../docs/adr/0004-android-engine-boundary.md)
-defines this lifecycle and bounded control protocol.
+Accepted state survives Activity recreation and native/process owner recreation.
+Startup resumes a default saved story; use **Saved stories** to select another.
+The displayed path is the actual database in app-private `noBackupFilesDir`,
+with shared schema version 1. Uncommitted responses remain separate from canon;
+resuming does not regenerate or automatically apply them. Closing the app does
+not delete saves. All SQLite/replay/JNI work runs on IO workers. Generation runs
+outside the canonical lock and SQLite transaction. A lost commit acknowledgement
+is looked up with its original turn key; **Recover saved progress** retries
+uncertain work without allocating a new key. See [app durability](../../docs/native/APP_DURABILITY.md).
+The earlier [ADR-0004](../../docs/adr/0004-android-engine-boundary.md) remains the
+legacy in-memory boundary fixture; production now uses the shared Host-v1 adapter.
 
 Disposal is terminal: retained Reset callbacks cannot reopen native sessions.
 The [ownership follow-up](../../docs/native/OWNERSHIP_FOLLOWUP_2026-10-22.md)
 records the regression and additional lifecycle/worker replacement checks.
 
-The former recorded adapter/samples now live only in src/test and are not
-packaged or used by the app. Their host drift check remains:
+The recorded adapter/samples live only in src/test. The legacy NativeDemoGateway
+and Registry remain boundary-test fixtures; MainActivity selects DurableGateway
+and NativeWorkspaceTransport. Their host drift check remains:
 
 ```powershell
 cargo run --locked --offline -p locallore --example android_fixtures -- --check
@@ -106,5 +113,6 @@ actual events/resources, invalid arrays and repeated cancellation/disposal;
 Compose tests cover flows, reset/recreation/disposal and doubled-font layout.
 Exact evidence is in [native verification](../../docs/native/VERIFICATION_2026-10-22.md).
 
-M04 durability and M01 physical/model feasibility remain separate work.
+Shared durability is wired to the app; real-device/process-kill instrumentation
+and M01 physical/model feasibility remain separate unmeasured gates.
 Local build checks do not establish hosted CI execution or release readiness.

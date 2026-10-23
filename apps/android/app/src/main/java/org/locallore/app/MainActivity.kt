@@ -32,7 +32,7 @@ class MainActivity : ComponentActivity() {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 require(modelClass == ShellViewModel::class.java)
-                return ShellViewModel(NativeDemoGateway()) as T
+                return ShellViewModel(DurableGateway(NativeWorkspaceTransport(applicationContext))) as T
             }
         }
         model = ViewModelProvider(this, factory)[ShellViewModel::class.java]
@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
             val state by model.state.collectAsStateWithLifecycle()
             val diagnostics by model.diagnostics.collectAsStateWithLifecycle()
             LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::reset,
-                onDiagnostics = model::openDiagnostics) {
+                onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover) {
                 DiagnosticsDialog(diagnostics, model::closeDiagnostics, model::clearDiagnostics) {
                     if (model.beginDiagnosticExport()) {
                         try { documentPicker.launch("locallore-diagnostics.json") }
@@ -53,7 +53,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         // Conservatively stop sample work when the surface leaves the foreground, including rotation.
-        // Accepted in-memory state survives configuration recreation through the ViewModel.
+        // Accepted state belongs to shared durable storage; configuration recreation retains the ViewModel.
         if (::model.isInitialized) model.cancel()
         super.onStop()
     }

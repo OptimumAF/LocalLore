@@ -23,6 +23,48 @@ class ShellViewModel(
     val diagnostics = diagnosticController.state
     private var disposed = false
 
+    init {
+        if (gateway.durable) {
+            mutable.value = ShellState(busy = true, persistent = true, notice = "Opening local saved stories…")
+            savedOperation("Saved story resumed. Uncommitted responses remain outside accepted history.") { gateway.initialize() }
+        }
+    }
+
+    private fun publishSaved(saved: SavedSnapshot, notice: String): ShellState = mutable.value.copy(
+        busy = false, revision = saved.revision, potionOwner = saved.potionOwner,
+        messages = saved.messages, persistent = true, storageLocation = saved.location,
+        schemaVersion = saved.schemaVersion, stories = saved.stories, selectedStory = saved.selected,
+        uncommittedDrafts = saved.uncommittedDrafts,
+        recoveryRequired = false, notice = notice,
+    )
+
+    private fun savedOperation(notice: String, operation: suspend () -> SavedSnapshot?) {
+        val ticket = ++generation
+        mutable.value = mutable.value.copy(busy = true, notice = null)
+        pending = viewModelScope.launch {
+            try {
+                val saved = operation()
+                if (!disposed && ticket == generation && saved != null) mutable.value = publishSaved(saved, notice)
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) {
+                if (!disposed && ticket == generation) mutable.value = mutable.value.copy(
+                    recoveryRequired = true, notice = "Saved progress could not be confirmed. Retry recovery; existing saves are retained.",
+                )
+            } finally {
+                if (!disposed && ticket == generation) mutable.value = mutable.value.copy(busy = false)
+            }
+        }
+    }
+
+    fun recover() {
+        if (!disposed && !mutable.value.busy && gateway.durable) savedOperation("Saved progress recovered.") {
+            if (mutable.value.storageLocation == null) gateway.initialize() else gateway.recoverSaved()
+        }
+    }
+    fun resume(story: SavedStory) {
+        if (!disposed && !mutable.value.busy && gateway.durable) savedOperation("Saved story resumed.") { gateway.resumeSaved(story) }
+    }
+
     fun openDiagnostics() { if (!disposed && !mutable.value.busy) diagnosticController.open() }
     fun closeDiagnostics() = diagnosticController.dismiss()
     fun clearDiagnostics() = diagnosticController.clear()
@@ -54,9 +96,12 @@ class ShellViewModel(
                     elapsedMillis(start), if (prepared is DemoResult.Rejected) DiagnosticError.fromNative(prepared.category) else DiagnosticError.NONE)
                 start = System.nanoTime()
                 committing = prepared !is DemoResult.Rejected
-                val result = if (committing) gateway.commit(prepared) else prepared
+                val result = if (committing) gateway.commitAsync(prepared) else prepared
+                if (disposed || ticket != generation) return@launch
+                val saved = if (gateway.durable) gateway.snapshot() else null
+                if (disposed || ticket != generation) return@launch
                 mutable.value = when (result) {
-                    is DemoResult.Accepted -> before.copy(
+                    is DemoResult.Accepted -> if (saved != null) publishSaved(saved, "Outcome accepted and saved by the local engine.") else before.copy(
                         revision = result.revision,
                         potionOwner = result.potionOwner,
                         messages = (before.messages + listOf(
@@ -65,7 +110,8 @@ class ShellViewModel(
                         )).takeLast(40),
                         notice = "Outcome accepted by the local engine.",
                     )
-                    is DemoResult.Rejected -> before.copy(notice = rejectionNotice(result.category))
+                    is DemoResult.Rejected -> if (saved != null) publishSaved(saved, rejectionNotice(result.category))
+                        else before.copy(notice = rejectionNotice(result.category))
                     is DemoResult.Prepared -> error("Commit returned an unfinished operation")
                 }
                 if (committing) diagnosticLog.record(DiagnosticPhase.COMMIT,
@@ -78,9 +124,10 @@ class ShellViewModel(
                 if (!disposed) diagnosticLog.record(if (committing) DiagnosticPhase.COMMIT else DiagnosticPhase.PREPARE,
                     if (committing) DiagnosticOutcome.UNKNOWN else DiagnosticOutcome.FAILED,
                     elapsedMillis(start), DiagnosticError.TRANSPORT)
-                if (ticket == generation) mutable.value = if (committing) before.copy(
+                if (ticket == generation) mutable.value = if (committing || gateway.durable) before.copy(
                     recoveryRequired = true,
-                    notice = "Unable to confirm the outcome. Reset this in-memory demo to continue.",
+                    notice = if (gateway.durable) "Unable to confirm the outcome. Retry recovery using the original response key; saves are retained."
+                        else "Unable to confirm the outcome. Reset this in-memory demo to continue.",
                 ) else before.copy(notice = "Response failed. Nothing changed; try again.")
             } finally {
                 if (ticket == generation) mutable.value = mutable.value.copy(busy = false)
@@ -90,11 +137,18 @@ class ShellViewModel(
 
     fun cancel() {
         if (!mutable.value.busy) return
+        // Opening storage has no cancellable turn. Closing the ViewModel still releases its handle.
+        if (gateway.durable && mutable.value.storageLocation == null) return
         val start = System.nanoTime()
         generation++
         gateway.cancel()
         pending?.cancel()
         pending = null
+        if (gateway.durable) {
+            savedOperation("Response stopped. Showing the accepted saved history.") { gateway.cancelSaved() }
+            diagnosticLog.record(DiagnosticPhase.CANCEL, DiagnosticOutcome.COMPLETED, elapsedMillis(start))
+            return
+        }
         mutable.value = mutable.value.copy(busy = false, notice = "Response cancelled. Nothing changed.")
         diagnosticLog.record(DiagnosticPhase.CANCEL, DiagnosticOutcome.COMPLETED, elapsedMillis(start))
     }
@@ -102,14 +156,15 @@ class ShellViewModel(
     fun reset() {
         // A retained UI callback must not reopen a native session after onCleared.
         if (disposed) return
+        if (gateway.durable && mutable.value.busy) return
         val start = System.nanoTime()
         diagnosticController.dismiss()
         generation++
         gateway.cancel()
         pending?.cancel()
         pending = null
-        gateway.reset()
-        mutable.value = ShellState()
+        if (gateway.durable) savedOperation("New saved story created. Previous stories remain in the library.") { gateway.createSaved() }
+        else { gateway.reset(); mutable.value = ShellState() }
         diagnosticLog.record(DiagnosticPhase.RESET, DiagnosticOutcome.COMPLETED, elapsedMillis(start))
     }
 

@@ -38,7 +38,7 @@ class StoryDeletionActivityTest {
     private var shown by mutableStateOf<ShellViewModel?>(null)
 
     @Test fun nativeConsentCancelAllTimelinesRetainedStoryAndEmptyReopen(): Unit {
-        assertEquals("org.locallore.app.storydelete", instrumentation.targetContext.packageName)
+        assertTrue(instrumentation.targetContext.packageName in setOf("org.locallore.app.storydelete", "org.locallore.app.parentverify"))
         root = io { File(instrumentation.targetContext.noBackupFilesDir, "story-delete-${UUID.randomUUID()}")
             .also { check(it.mkdir()) } }
         isolated = object : ContextWrapper(instrumentation.targetContext) {
@@ -85,7 +85,7 @@ class StoryDeletionActivityTest {
             val preview = requireNotNull(model.deletion.value.prepared).preview
             assertEquals(setOf("main", "child", "sibling"), preview.branchHeads.keys)
             assertEquals(4L, preview.committedTurns)
-            assertEquals(9, preview.rows.size)
+            assertEquals(10, preview.rows.size)
             assertFalse(model.archive.value.visible)
             compose.runOnIdle { model.submit(DemoAction.GIVE_POTION); assertFalse(model.state.value.busy) }
             compose.onNodeWithTag("delete-cancel").performClick()

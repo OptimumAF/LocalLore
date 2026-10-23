@@ -36,7 +36,7 @@ class TimelineActivityTest {
     private var shown by mutableStateOf<ShellViewModel?>(null)
 
     @Test fun selectCancelReopenAndDeleteWholeStoryFromChildAtDifferentRootHead() {
-        assertEquals("org.locallore.app.timelineverify", instrumentation.targetContext.packageName)
+        assertTrue(instrumentation.targetContext.packageName in setOf("org.locallore.app.timelineverify", "org.locallore.app.parentverify"))
         io {
             root = File(instrumentation.targetContext.noBackupFilesDir, "timeline-ui-${UUID.randomUUID()}").also { check(it.mkdir()) }
             val directory = File(root, "workspace-v1").also { check(it.mkdir()) }

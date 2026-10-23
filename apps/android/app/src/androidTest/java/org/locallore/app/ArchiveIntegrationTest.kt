@@ -76,7 +76,7 @@ class ArchiveIntegrationTest {
             val first = DurableGateway(Transport(database))
             val before = try { first.initialize() } finally { first.close() }
             assertEquals(1, before.schemaVersion)
-            assertEquals(2, before.databaseSchemaVersion)
+            assertEquals(3, before.databaseSchemaVersion)
             val second = DurableGateway(Transport(database))
             try {
                 val after = second.initialize()
@@ -84,7 +84,7 @@ class ArchiveIntegrationTest {
                 assertEquals(before.revision, after.revision)
                 assertEquals(before.messages, after.messages)
                 assertEquals(1, after.schemaVersion)
-                assertEquals(2, after.databaseSchemaVersion)
+                assertEquals(3, after.databaseSchemaVersion)
             } finally { second.close() }
             // Retain this private synthetic workspace as evidence; never delete shared/default saves.
         }

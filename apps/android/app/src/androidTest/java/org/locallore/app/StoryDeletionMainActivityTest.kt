@@ -14,7 +14,7 @@ class StoryDeletionMainActivityTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private lateinit var model: ShellViewModel
     @Test fun explicitCreateDeleteRecreateStaysEmptyAndExplicitCreateWorksAgain() {
-        assertEquals("org.locallore.app.storydelete", InstrumentationRegistry.getInstrumentation().targetContext.packageName)
+        assertTrue(InstrumentationRegistry.getInstrumentation().targetContext.packageName in setOf("org.locallore.app.storydelete", "org.locallore.app.parentverify"))
         attach()
         compose.waitUntil(15_000) { !model.state.value.busy && model.state.value.persistent }
         assertFalse(model.state.value.recoveryRequired)

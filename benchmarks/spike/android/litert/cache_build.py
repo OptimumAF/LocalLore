@@ -1,4 +1,6 @@
 """Offline, fresh D-output cacheprobe build/audit. Never installs, provisions or runs a model."""
+import sys
+sys.dont_write_bytecode = True
 import argparse
 import hashlib
 import json
@@ -8,7 +10,6 @@ import re
 import shutil
 import stat
 import subprocess
-import sys
 import xml.etree.ElementTree as ET
 import zipfile
 
@@ -144,7 +145,7 @@ def stage(output, name, command, cwd, overrides=None):
     capacity(output)
     plan = {"command": command, "cwd": str(cwd), "environment": overrides or {}}
     request = json.dumps(plan).encode("utf-8")
-    result = runtime_spike.run_process([sys.executable, str(Path(__file__).resolve()), "--owned-stage"],
+    result = runtime_spike.run_process([sys.executable, "-B", str(Path(__file__).resolve()), "--owned-stage"],
         request=request, deadline=180, max_output=262144)
     (output / "logs" / (name + ".log")).write_bytes(result.stdout)
     record = {"version": 1, "status": result.status, "returncode": result.returncode,

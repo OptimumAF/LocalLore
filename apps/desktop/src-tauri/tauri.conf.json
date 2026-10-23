@@ -51,6 +51,7 @@
                         "allow-harness-oracle",
                         "allow-harness-reopen",
                         "allow-evaluation-catalog",
+                        "allow-evaluation-curated",
                         "allow-evaluation-start",
                         "allow-evaluation-open",
                         "allow-evaluation-status",

@@ -67,7 +67,7 @@ and timings were retained without normalization. SHA-256:
 The original 2.1/2.2 fixtures were not edited.
 
 ```text
-LOCALLORE_CAPTURE_PLAY_V23=1
+$env:LOCALLORE_CAPTURE_PLAY_V23='1'
 cargo test --locked --offline --jobs 1 -p locallore --test play_verified_memory freeze_original_v23_receipt_before_memory_consumer -- --ignored --exact
 ```
 
@@ -77,8 +77,8 @@ regenerate the original fixture.
 
 ## Frozen new model-free oracles
 
-NEW `tests/play_verified_memory.rs` has nine consumer tests plus the historical
-ignored capture helper. Before first 2.4 execution, the fixed cases require:
+NEW `tests/play_verified_memory.rs` has nine consumer tests plus two historical
+ignored capture/measurement helpers. Before first 2.4 execution, the fixed cases required:
 
 - 265 real typed accepted events, retained proof then one real raw-tail event;
   raw/verified actual prompt and ContextPackage byte parity, same actual proposal/
@@ -104,14 +104,86 @@ ignored capture helper. Before first 2.4 execution, the fixed cases require:
 
 ## Qualification status at source freeze
 
-Only the original 2.3 capture has executed. New 2.4 production and oracles are
-frozen before Cargo execution and await coordinator resource GO. Rust/Cargo 1.93.1,
-rustfmt 1.8.0-stable; own task-specific D target/TEMP/TMP, locked/offline deps,
-debug0/incremental0, jobs1. No model/app/native UI/Android/device test is claimed.
-Planned checks: the new test target, portable/default/allfeatures Core tests,
-Core+workspace integration where appropriate, strict both-feature alltarget
-Clippy and workspace fmt. Actual failures/results will be appended without
-retuning the corpus, expected commands, budgets or old fixtures.
+Production/oracles froze before first 2.4 compilation in
+`03ace8987acc0cc95c7021ece36546ec558adea6`. All actual checks below are this
+agent's own execution: Rust/Cargo1.93.1, rustfmt1.8.0-stable, Windows native Rust,
+owned D target/TEMP/TMP, locked/offline deps, debug0/incremental0, jobs1, exclusive
+coordinator Cargo slot. No model/app/native UI/Android/device execution occurred.
+
+| Source | Check | Actual result |
+| --- | --- | --- |
+| 03ace | NEW consumer target | 9 passed, 0 failed, 1 historical helper ignored |
+| 03ace | Core + workspace default | 267 passed, 0 failed, 1 historical helper ignored |
+| 03ace | Core + workspace all features | 267 passed, 0 failed, 1 historical helper ignored |
+| 03ace | Portable Core/no default features | 175 passed, 0 failed, 1 historical helper ignored |
+| 03ace | Strict both-feature alltarget Clippy/fmt | Passed |
+| b769 original 2.3 production | Original compact-byte probe | 1 passed, 0 failed |
+| 28835e6 (test-only strengthening) | NEW consumer target, default and all features | Each 9 passed, 0 failed, 2 historical helpers ignored |
+| 28835e6 | Strict both-feature alltarget Clippy/fmt/diff | Passed |
+
+Exact qualification commands (all Cargo commands also use `--locked --offline --jobs 1`):
+
+```text
+cargo test --locked --offline --jobs 1 -p locallore --test play_verified_memory
+cargo test --locked --offline --jobs 1 -p locallore -p locallore-workspace
+cargo test --locked --offline --jobs 1 -p locallore -p locallore-workspace --all-features
+cargo test --locked --offline --jobs 1 -p locallore --no-default-features
+cargo test --locked --offline --jobs 1 -p locallore --all-features --test play_verified_memory
+cargo clippy --locked --offline --jobs 1 -p locallore -p locallore-workspace --all-targets -- -D warnings
+cargo clippy --locked --offline --jobs 1 -p locallore -p locallore-workspace --all-targets --all-features -- -D warnings
+cargo fmt --all -- --check
+git diff --check
+```
+
+### Independent original-source compact bytes
+
+Coordinator approved original-production probe
+`b769b99ce13725808f56cb60cb5db2e8c1090028`, on f767 plus unchanged fixture76e1
+(local fixture import5d15b77). Its production diff versus5e44 is empty. It restores
+the unchanged three fixtures and prints only synthetic hashes/lengths, with no
+provider or writer. The identical ignored helper is retained in current source.
+
+```text
+cargo test --locked --offline --jobs 1 -p locallore --test play_verified_memory original_source_compact_receipt_hash_probe -- --ignored --exact --nocapture
+```
+
+| Version | Original compact Receipt bytes | Original SHA-256 |
+| --- | ---: | --- |
+| 2.1 | 1905 | 4e95baa09c8d0646f5465945bf6a3f659d600ba6ee86b45a45a26d70fc49e234 |
+| 2.2 | 1788 | 348f33142a818744bfc1a6a542244fd0a59bae0bbdd7f141d250766cb09bf119 |
+| 2.3 | 1760 | e9a1c58aa02236e97041658fae7910b8571ad8d487266a45201c7aa1fa8614e0 |
+
+Those original-source constants were frozen in test-only
+`28835e60f292a46b8f13daee268d5c199da8469d` before current verification. Current
+default/allfeature consumer tests reproduce all three byte lengths/hashes exactly.
+The full original2.3 fixture SHA remains unchanged. Production was not changed
+after03ace; final Play source SHA-256:
+`916e66d814b34500b6b45e421027636f23bc64daf2dc13d230bbc1e46e72a53e`.
+Final consumer test SHA-256:
+`38f18bb4c934b7dab3c5a1d58cf8c21b0ebf70338032c07cc1d362b57cf822a9`.
+
+### Retained setup failure
+
+After the successful old-source probe, reusing its target directory for current
+source produced 20 missing-new-API/type/field errors (E0425/E0432/E0433/E0609),
+zero executed tests. The target contained the old2.3 library. This is preserved
+as an artifact/setup failure, not a consumer regression or a passing run. No source,
+fixture, expectation or budget changed. A fresh distinct current target rebuilt
+the actual unchanged source and passed both final targets/strict checks. Keep
+original-source and current-source artifact directories separate when reproducing.
+
+Bounded logs remain local outside Git; SHA-256 bindings:
+
+| Log | SHA-256 |
+| --- | --- |
+| original-compact-probe.log | 6219f7dc5b9f1bdafdb099ae41828877bdbcab048d10de5724fc3bc5d7cf0aad |
+| bytes-default.log (failed shared-target setup) | 2daff25ee1ecd9ed0a47e4a7277e4f53eb53deb3f95744b1f3a13a9f68a4d2ef |
+| final-bytes-default.log | 8f5e42c5a31599a0175f9bccb4224d71043408aba1172271b9d6a6f192a402aa |
+| final-bytes-allfeatures.log | 10497fe544cb814e5707555d5bb9a3bebc54e023c6c0d235e66e2d22335bbd9e |
+
+No production/test semantic RED occurred on frozen03ace, no oracle was weakened,
+and no corpus, expected command or budget was tuned after execution. Claims are
+released to the coordinator, status in_review; no task checkbox is marked accepted.
 
 ## Integration still owned by coordinator
 

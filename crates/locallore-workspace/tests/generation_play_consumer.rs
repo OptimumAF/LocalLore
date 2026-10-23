@@ -381,6 +381,39 @@ impl ErrorPort {
     }
 }
 impl Persistence for ErrorPort {
+    fn begin_bound(
+        &mut self,
+        request: &Request,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+    ) -> Result<SavedTurn, String> {
+        assert!(basis.matches_request(request));
+        assert!(self.actual.matches_accepted_history(basis).unwrap());
+        self.begin(request)
+    }
+    fn status_bound(
+        &mut self,
+        request: &Request,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+    ) -> Result<SavedTurn, String> {
+        assert!(basis.covers_request(request));
+        assert!(self.actual.matches_accepted_history(basis).unwrap());
+        let saved = self.saved();
+        assert_eq!(saved.request, *request);
+        Ok(saved)
+    }
+    fn finish_bound(
+        &mut self,
+        request: &Request,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+        phase: locallore::host::DraftDisposition,
+    ) -> Result<SavedTurn, String> {
+        self.status_bound(request, basis)?;
+        self.terminal(match phase {
+            locallore::host::DraftDisposition::Cancelled => "cancelled",
+            locallore::host::DraftDisposition::Failed => "failed",
+            locallore::host::DraftDisposition::Stale => "stale",
+        })
+    }
     fn location(&self) -> &str {
         "synthetic-error-port"
     }

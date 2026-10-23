@@ -52,6 +52,19 @@ class ReliefAuditTests(unittest.TestCase):
         result = capacity.audit_relief_manifests(BADGING, TREE, TEST_BADGING, TEST_TREE)
         self.assertEqual(result, [capacity.PACKAGE + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"])
 
+    def test_androidx_startup_metadata_is_distinct_from_fixed_capacity_profile(self):
+        metadata = '''  E: provider (line=6)
+    E: meta-data (line=7)
+      A: android:name(0x1)="androidx.lifecycle.ProcessLifecycleInitializer"
+      A: android:value(0x2)="androidx.startup"
+'''
+        self.assertEqual(capacity.audit_relief_manifests(BADGING, TREE + metadata, TEST_BADGING, TEST_TREE),
+                         [capacity.PACKAGE + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"])
+        with self.assertRaises(audit_apk.AuditError):
+            capacity.audit_relief_manifests(BADGING, TREE + metadata.replace(
+                'androidx.lifecycle.ProcessLifecycleInitializer', 'org.locallore.capacity.pages'),
+                TEST_BADGING, TEST_TREE)
+
     def test_wrong_profile_or_missing_test_identity_rejected(self):
         for tree in (TREE.replace("=32", "=33"), TREE.replace("=32", "=15"),
                      TREE.replace("=1\n", "=2\n"), TREE + TREE[TREE.index('    E: meta-data'):],

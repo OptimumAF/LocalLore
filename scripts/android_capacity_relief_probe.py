@@ -32,7 +32,10 @@ def audit_relief_manifests(badging, tree, test_badging, test_tree):
             r'E: meta-data \([^\n]*\)\s+[^\n]*:name\([^)]*\)="org\.locallore\.capacity\.relief\.'
             + key + r'"[^\n]*\n\s+[^\n]*:value\([^)]*\)=' + value + r'\b', tree)) == 1,
             "Missing or duplicate fixed relief metadata")
-    audit_apk.require(tree.count('E: meta-data (') == 2, "Unexpected relief metadata")
+    profile_names = re.findall(r':name\([^)]*\)="(org\.locallore\.capacity[^\"]*)"', tree)
+    audit_apk.require(sorted(profile_names) == ["org.locallore.capacity.relief.format",
+                                               "org.locallore.capacity.relief.pages"],
+                      "Unexpected relief profile metadata")
     audit_apk.require(re.search(r"^package: name='" + re.escape(PACKAGE) + r"\.test' ", test_badging, re.M),
                       "Wrong capacity relief test package")
     blocks = []

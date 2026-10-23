@@ -8,7 +8,40 @@ pub struct Lineage {
     parents: BTreeMap<String, Option<(String, u64)>>,
 }
 
+/// Private selected ancestry identity for derived coverage binding. Not a wire
+/// grant, imported lineage, or enumeration of unrelated branches.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+pub(crate) struct LineageBindingEntry {
+    pub branch: String,
+    pub parent: Option<String>,
+    pub fork_revision: Option<u64>,
+}
+
 impl Lineage {
+    pub(crate) fn binding(&self, target: &Scope) -> Result<Vec<LineageBindingEntry>, Error> {
+        if target.story != self.story {
+            return Err(Error::Scope);
+        }
+        let mut node = target.branch.as_str();
+        let mut seen = BTreeSet::new();
+        let mut result = Vec::new();
+        for _ in 0..32 {
+            if !seen.insert(node) {
+                return Err(Error::Scope);
+            }
+            let parent = self.parents.get(node).ok_or(Error::Scope)?;
+            result.push(LineageBindingEntry {
+                branch: node.to_owned(),
+                parent: parent.as_ref().map(|(branch, _)| branch.clone()),
+                fork_revision: parent.as_ref().map(|(_, revision)| *revision),
+            });
+            match parent {
+                Some((branch, _)) => node = branch,
+                None => return Ok(result),
+            }
+        }
+        Err(Error::Scope)
+    }
     pub fn new(scope: &Scope) -> Self {
         Self {
             story: scope.story.clone(),
@@ -65,5 +98,56 @@ impl Lineage {
             }
         }
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn binding_preserves_prebirth_fork_chain_without_unselected_branches() {
+        let root = Scope {
+            story: "story".into(),
+            branch: "root".into(),
+        };
+        let mut lineage = Lineage::new(&root);
+        lineage.fork(&root, "a", 5, 5).unwrap();
+        lineage.fork(&root, "unselected", 0, 5).unwrap();
+        let a = Scope {
+            story: "story".into(),
+            branch: "a".into(),
+        };
+        lineage.fork(&a, "b", 1, 6).unwrap();
+        let b = Scope {
+            story: "story".into(),
+            branch: "b".into(),
+        };
+        assert_eq!(
+            serde_json::to_value(lineage.binding(&b).unwrap()).unwrap(),
+            serde_json::json!([
+                {"branch":"b","parent":"a","fork_revision":1},
+                {"branch":"a","parent":"root","fork_revision":5},
+                {"branch":"root","parent":null,"fork_revision":null}
+            ])
+        );
+        assert_eq!(lineage.binding(&root).unwrap().len(), 1);
+        assert_eq!(
+            lineage
+                .binding(&Scope {
+                    story: "other".into(),
+                    branch: "b".into()
+                })
+                .err(),
+            Some(Error::Scope)
+        );
+        assert_eq!(
+            lineage
+                .binding(&Scope {
+                    story: "story".into(),
+                    branch: "missing".into()
+                })
+                .err(),
+            Some(Error::Scope)
+        );
     }
 }

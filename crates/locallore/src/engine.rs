@@ -141,6 +141,11 @@ impl Engine {
     pub fn scope(&self) -> &Scope {
         &self.scope
     }
+    pub(crate) fn memory_lineage_binding(
+        &self,
+    ) -> Result<Vec<crate::scope::LineageBindingEntry>, Error> {
+        self.lineage.binding(&self.scope)
+    }
     pub fn seed(&self) -> &Seed {
         &self.seed
     }

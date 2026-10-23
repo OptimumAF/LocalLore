@@ -151,6 +151,66 @@ pub async fn fork_lookup(
 #[cfg(test)]
 mod fork_adapter_tests {
     use super::*;
+    use crate::lease::WindowLease;
+    use std::sync::{
+        atomic::{AtomicU64, Ordering},
+        mpsc,
+    };
+    use std::time::{Duration, Instant};
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    fn database() -> std::path::PathBuf {
+        // Bounded synthetic test evidence, retained under caller-owned TEMP.
+        let root = std::env::temp_dir().join(format!(
+            "locallore-desktop-fork-{}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::create_dir(&root).unwrap();
+        root.join("synthetic.sqlite")
+    }
+    fn call(host: &Host, command: Value) -> Value {
+        host.call(&serde_json::to_vec(&json!({"version":1,"command":command})).unwrap())
+    }
+    fn create(host: &Host) -> (String, Scope) {
+        let value = call(host, json!({"op":"create","seed":"lantern-quay-v1"}));
+        assert_eq!(value["status"], "ok", "{value}");
+        (
+            value["data"]["session"].as_str().unwrap().to_owned(),
+            serde_json::from_value(value["data"]["scope"].clone()).unwrap(),
+        )
+    }
+    fn fork(parent: &Scope, expected: u64, at: u64) -> WorkspaceForkRequest {
+        request(&json!({"parent":parent,"child_branch":"fixed-child","expected_parent_revision":expected,"at_revision":at})).unwrap()
+    }
+    fn wait(host: &Host, session: &str, scope: &Scope, head: u64, turn: &str) {
+        let value = call(
+            host,
+            json!({"op":"submit","session":session,"request":{"version":1,"scope":scope,"turn":turn,"expected_revision":head,"intent":{"kind":"actions","value":[{"op":"wait","ticks":1}]}},"mode":"accepted"}),
+        );
+        assert_eq!(value["data"]["phase"], "queued", "{value}");
+        for (op, phase) in [("prepare", "ready"), ("commit", "committed")] {
+            let value = call(
+                host,
+                json!({"op":op,"session":session,"scope":scope,"turn":turn}),
+            );
+            assert_eq!(value["data"]["phase"], phase, "{value}");
+        }
+    }
+    fn settled(broker: &ArchiveBroker, lease: &WindowLease, epoch: u64, operation: u64) -> Value {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            let value = broker.status(lease, epoch, operation).unwrap();
+            if value["running"] == false {
+                return value;
+            }
+            assert!(Instant::now() < deadline, "fork test worker did not settle");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
     fn input() -> Value {
         json!({"parent":{"story":"s","branch":"main"},"child_branch":"fixed-child","expected_parent_revision":2,"at_revision":1})
     }
@@ -190,5 +250,181 @@ mod fork_adapter_tests {
             Err("Closed".into())
         );
         assert_eq!(lookup(&host, &input), Err("Unsupported".into()));
+    }
+    #[test]
+    fn actual_store_discarded_ack_restart_lookup_and_exact_retry_current_head() {
+        let path = database();
+        let host = locallore_workspace::open(&path, false).unwrap();
+        let (session, parent) = create(&host);
+        let input = fork(&parent, 0, 0);
+        assert_eq!(lookup(&host, &input).unwrap()["found"], false);
+        assert_eq!(
+            call(&host, json!({"op":"branches","story":parent.story}))["data"]["branches"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        let answer = execute(&host, &session, &input, &|| false).unwrap();
+        assert_eq!(answer["outcome"]["created"], true);
+        // Drop the actual outcome and actual owner, simulating lost acknowledgement.
+        drop(answer);
+        drop(host);
+        let host = locallore_workspace::open(&path, false).unwrap();
+        let found = lookup(&host, &input).unwrap();
+        assert_eq!(found["found"], true);
+        assert_eq!(found["outcome"]["created"], false);
+        let child: Scope = serde_json::from_value(found["outcome"]["scope"].clone()).unwrap();
+        let child_session = call(&host, json!({"op":"resume","scope":child}))["data"]["session"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        wait(&host, &child_session, &child, 0, "child-after-restart");
+        let parent_session = call(&host, json!({"op":"resume","scope":parent}))["data"]["session"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        wait(&host, &parent_session, &parent, 0, "parent-after-restart");
+        let retry = execute(&host, &parent_session, &input, &|| false).unwrap();
+        assert_eq!(retry["outcome"]["head_revision"], 1);
+        assert_eq!(retry["outcome"]["created"], false);
+        assert_eq!(
+            lookup(&host, &input).unwrap()["outcome"]["head_revision"],
+            1
+        );
+        let mut store = locallore_storage::Store::open_read_only(&path).unwrap();
+        let child_engine = store.resume(&child).unwrap().engine;
+        let parent_engine = store.resume(&parent).unwrap().engine;
+        assert_eq!(child_engine.receipts().len(), 1);
+        assert_eq!(parent_engine.receipts().len(), 1);
+        assert_ne!(
+            child_engine.receipts()[0].request().turn,
+            parent_engine.receipts()[0].request().turn
+        );
+        let mut mismatch = input.clone();
+        mismatch.at_revision = 1;
+        assert_eq!(lookup(&host, &mismatch), Err("Mismatch".into()));
+        assert_eq!(
+            call(&host, json!({"op":"branches","story":parent.story}))["data"]["branches"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+    }
+    #[test]
+    fn actual_store_closed_session_stale_and_cancel_do_not_create_child() {
+        let path = database();
+        let host = locallore_workspace::open(&path, false).unwrap();
+        let (session, parent) = create(&host);
+        assert_eq!(
+            execute(&host, "foreign-session", &fork(&parent, 0, 0), &|| false),
+            Err("Closed".into())
+        );
+        assert_eq!(
+            execute(&host, &session, &fork(&parent, 1, 0), &|| false),
+            Err("Stale".into())
+        );
+        assert_eq!(
+            execute(&host, &session, &fork(&parent, 0, 0), &|| true),
+            Err("Cancelled".into())
+        );
+        assert_eq!(lookup(&host, &fork(&parent, 0, 0)).unwrap()["found"], false);
+        assert_eq!(
+            locallore_storage::Store::open_read_only(&path)
+                .unwrap()
+                .resume(&parent)
+                .unwrap()
+                .engine
+                .revision(),
+            0
+        );
+    }
+    #[test]
+    fn existing_broker_pending_cancel_and_commit_wins_late_cancel() {
+        let path = database();
+        let host = Arc::new(locallore_workspace::open(&path, false).unwrap());
+        let (session, parent) = create(&host);
+        let input = fork(&parent, 0, 0);
+        let broker = Arc::new(ArchiveBroker::default());
+        let lease = Arc::new(WindowLease::default());
+        let epoch = lease.begin().unwrap();
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let copy = host.clone();
+        let selected = session.clone();
+        let first = input.clone();
+        let value = broker
+            .start(lease.clone(), epoch, move |work| {
+                entered_tx.send(()).unwrap();
+                release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+                execute(&copy, &selected, &first, &|| work.cancelled())
+            })
+            .unwrap();
+        let operation = value["operation_id"].as_u64().unwrap();
+        entered_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert_eq!(
+            broker.start(lease.clone(), epoch, |_| Ok(json!({}))),
+            Err("ArchiveBusy".into())
+        );
+        broker.cancel(&lease, epoch, operation).unwrap();
+        release_tx.send(()).unwrap();
+        assert_eq!(
+            settled(&broker, &lease, epoch, operation)["error"],
+            "Cancelled"
+        );
+        assert_eq!(lookup(&host, &input).unwrap()["found"], false);
+        let copy = host.clone();
+        let selected = session.clone();
+        let next = input.clone();
+        let value = broker
+            .start(lease.clone(), epoch, move |work| {
+                execute(&copy, &selected, &next, &|| work.cancelled())
+            })
+            .unwrap();
+        let operation = value["operation_id"].as_u64().unwrap();
+        let committed = settled(&broker, &lease, epoch, operation);
+        assert_eq!(committed["result"]["outcome"]["created"], true);
+        assert_eq!(
+            broker.cancel(&lease, epoch, operation).unwrap()["result"],
+            committed["result"]
+        );
+        broker.drain(epoch);
+        assert_eq!(lookup(&host, &input).unwrap()["found"], true);
+    }
+    #[test]
+    fn existing_broker_window_retirement_cancels_queued_actual_store_fork() {
+        let path = database();
+        let host = Arc::new(locallore_workspace::open(&path, false).unwrap());
+        let (session, parent) = create(&host);
+        let input = fork(&parent, 0, 0);
+        let broker = Arc::new(ArchiveBroker::default());
+        let lease = Arc::new(WindowLease::default());
+        let epoch = lease.begin().unwrap();
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let copy = host.clone();
+        let selected = session.clone();
+        let first = input.clone();
+        let value = broker
+            .start(lease.clone(), epoch, move |work| {
+                entered_tx.send(()).unwrap();
+                release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+                execute(&copy, &selected, &first, &|| work.cancelled())
+            })
+            .unwrap();
+        let operation = value["operation_id"].as_u64().unwrap();
+        entered_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        let closed = lease.invalidate(&format!("main-{epoch}")).unwrap();
+        broker.retire(epoch);
+        release_tx.send(()).unwrap();
+        broker.drain(epoch);
+        assert_eq!(
+            broker.status(&lease, epoch, operation),
+            Err("Closed".into())
+        );
+        lease.finish_close(closed, || host.close_all());
+        assert_eq!(lookup(&host, &input).unwrap()["found"], false);
+        assert!(lease.begin().is_ok());
     }
 }

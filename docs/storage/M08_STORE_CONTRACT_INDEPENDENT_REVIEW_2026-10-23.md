@@ -164,7 +164,7 @@ old payload text unchanged, foreign_key_check and rollback on injected failure.
 Preparation should read full actual parent and any consent metadata coherently.
 Apply uses one IMMEDIATE transaction: verify owner, full source/input/plan,
 child/tombstone admission and budgets; insert branch/entity metadata, exactly one
-author response/index/normalized wrapper and projection, then commit. Extract a
+author response/index/normalized receipt and projection, then commit. Extract a
 narrow transaction-local fork insertion helper; never call the public
 transaction-opening fork API and append author state in a second transaction.
 

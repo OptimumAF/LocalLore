@@ -1,10 +1,14 @@
 """Independent synthetic Android-controller regressions; no ADB/model/device use."""
 import json
+import base64
 import contextlib
 import io
 import shlex
+import subprocess
+import tempfile
 import threading
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -240,6 +244,89 @@ class DirectoryOwnershipTests(unittest.TestCase):
         self.assertFalse(result.cleanup_complete)
         self.assertFalse(any("/release" in script for script in device.scripts))
         self.assertFalse(any(command[0] in ("kill", "pkill") for command in device.shells))
+
+
+class SdkOwnershipFollowupTests(unittest.TestCase):
+    def envelope(self):
+        metrics = dict(worker_off_main=True, owners_balanced=True, generated_text_logged=False,
+                       engines_opened=1, engines_closed=1, conversations_opened=1,
+                       conversations_closed=1, main_pulses=2)
+        return (b"INSTRUMENTATION_RESULT: result_base64=" + base64.b64encode(worker_result())
+                + b"\nINSTRUMENTATION_RESULT: metrics=" + json.dumps(metrics).encode() + b"\n")
+
+    def test_returned_sdk_output_cannot_establish_cleanup_when_package_stop_fails(self):
+        device = SimpleNamespace(private_write=Mock(), raw=Mock(return_value=remote(stdout=self.envelope())))
+        worker = spike.SdkWorker(device, "1" * 64)
+        worker.verify_package = Mock()
+        worker.stop = Mock(return_value=False)
+        result = worker.run("unused", [], b"synthetic")
+        self.assertEqual(result.status, "cleanup_failed")
+        self.assertFalse(result.cleanup_complete)
+        self.assertNotIn(CANARY, repr(result))
+
+    def test_cancelled_sdk_discards_late_completed_output_after_explicit_stop(self):
+        release = threading.Event()
+        def raw(*args, **kwargs):
+            release.wait(1)
+            return remote(stdout=self.envelope())
+        device = SimpleNamespace(private_write=Mock(), raw=raw)
+        worker = spike.SdkWorker(device, "1" * 64)
+        worker.verify_package = Mock()
+        def stop():
+            release.set()
+            return True
+        worker.stop = stop
+        result = worker.run("unused", [], b"synthetic", deadline=1, cancel_after=.01)
+        self.assertEqual(result.status, "cancelled")
+        self.assertEqual(result.stdout, b"")
+        self.assertEqual(result.metrics, {})
+        self.assertTrue(result.cleanup_complete)
+
+    def test_unrecognized_installed_apk_cannot_write_request_or_launch_sdk(self):
+        device = SimpleNamespace(shell=Mock(return_value=b"package:/data/app/base.apk\n"),
+                                 private_write=Mock(), raw=Mock())
+        worker = spike.SdkWorker(device, "1" * 64)
+        with self.assertRaises(spike.Failure):
+            worker.run("unused", [], b"synthetic")
+        device.private_write.assert_not_called()
+        device.raw.assert_not_called()
+        self.assertFalse(any(call.args[0] == "am" for call in device.shell.call_args_list))
+
+    def test_split_or_multiple_package_paths_cannot_authorize_force_stop(self):
+        device = SimpleNamespace(shell=Mock(return_value=b"package:/data/app/base.apk\npackage:/other/split.apk\n"))
+        with self.assertRaises(spike.Failure):
+            spike.SdkWorker(device, "1" * 64).stop()
+        self.assertEqual(device.shell.call_count, 1)
+
+    def test_transfer_cleanup_timeout_is_a_fixed_failure_without_private_exception(self):
+        class Process:
+            pid = 731
+            def poll(self):
+                return None
+            def wait(self, timeout=None):
+                raise subprocess.TimeoutExpired(CANARY, timeout)
+            def kill(self):
+                pass
+        class Job:
+            def __init__(self, pid):
+                pass
+            def close(self):
+                return False
+        device = spike.Device("adb", "synthetic-emulator")
+        device.script = Mock(return_value=b"")
+        device.shell = Mock(side_effect=[b"", b"fs blocks used available\nfs 10000000 1 9999999 1% /data\n"])
+        with tempfile.TemporaryDirectory() as directory:
+            model = Path(directory) / "synthetic-model"
+            model.write_bytes(b"abc")
+            with patch.object(spike.host, "verify_model", return_value=None), \
+                    patch.object(spike.subprocess, "Popen", return_value=Process()) as spawn, \
+                    patch.object(spike.host, "WindowsJob", Job), \
+                    patch.object(spike.time, "monotonic", side_effect=[0, 181]), \
+                    self.assertRaises(spike.Failure) as failure:
+                device.provision_private_model(model)
+        self.assertNotIn(CANARY, str(failure.exception))
+        self.assertEqual(spawn.call_args.kwargs["stdout"], subprocess.DEVNULL)
+        self.assertEqual(spawn.call_args.kwargs["stderr"], subprocess.DEVNULL)
 
 
 if __name__ == "__main__":

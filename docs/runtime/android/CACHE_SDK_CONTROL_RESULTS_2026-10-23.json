@@ -1,0 +1,371 @@
+{
+  "artifact": {
+    "bytes": 63598424,
+    "sha256": "04eef96b7177aaef275574f9ee45d25efa9b181bab4fcb0a363d8077a4e4fb7d"
+  },
+  "base_commit": "22968a138f9d87a98753684a6f8461d5863568ef",
+  "date": "2026-10-23",
+  "devices": {
+    "A": {
+      "abi": "x86_64",
+      "api": 35,
+      "build": 16428233,
+      "emulator": "37.2.12",
+      "os": "Android 15",
+      "packages_after": 21,
+      "packages_before": 21,
+      "status": "read_only_storage_blocked"
+    },
+    "B": {
+      "abi": "x86_64",
+      "api": 35,
+      "build": 12990079,
+      "emulator": "35.3.12",
+      "os": "Android 15",
+      "packages_after": 22,
+      "packages_before": 21
+    },
+    "physical_phones": 0
+  },
+  "evidence": {
+    "aggregate_generator": {
+      "bytes": 6183,
+      "sha256": "8a2d3d4fb68fe9ce6f3f762bb24731cf64431ac34156ccbb437853ef75ecd11f"
+    },
+    "author_build_controller": {
+      "bindings": 58,
+      "bytes": 13813,
+      "sha256": "0a4e77c7d00b4754a8db7871c72c4ccd0da90f94f01151b47a5244ae7bd599a7"
+    },
+    "device_index": {
+      "bindings": 229,
+      "bytes": 50641,
+      "sha256": "f29c3b9e5155141cbee14b5f6ded14ee0c44e21d8709265f43b10b9074b7683e"
+    },
+    "device_sanitized_handoff": {
+      "bytes": 7466,
+      "sha256": "9d058a262eea64a9418d1a330eee4b063293fff4c63af80e83e3d964e5f98dd3"
+    },
+    "local_copy_receipt": {
+      "bytes": 17356,
+      "sha256": "c4a05086419af9557d1435f2633746e094fdd3c1d44bcdff91d796a5e2b7faca"
+    },
+    "root_metadata_logs": {
+      "bindings": 121,
+      "bytes": 26735,
+      "sha256": "f3f3342dfd9921125a21858ebf528ff8dcc4483edb833970d55529fbc84cff5d"
+    },
+    "sdk_control_receipt": {
+      "bytes": 4097,
+      "sha256": "84e6eb637f242b1ae3205edaf8fe4b64bba1d0c4f4fb6199b4803dc41c7f669f"
+    }
+  },
+  "final_inventory": {
+    "emulators": 7,
+    "other_devices": 0,
+    "selected_ready": true
+  },
+  "host_preservation": {
+    "aliases": 3427,
+    "further_candidates_halted": true,
+    "internal_hardlink_groups": 285,
+    "mixed_tree_original_paths_fully_restored": true,
+    "mixed_tree_relocation_completed": false,
+    "partial_compiler_backup_memory_error_retained": true,
+    "restored_tree_aliases": 2143,
+    "restored_tree_internal_hardlink_groups": 28,
+    "restored_tree_unique_files": 2115,
+    "successful_compiler_relocations": 2,
+    "unique_bytes": 1667443128,
+    "unique_files": 3141,
+    "unrelated_avds_stopped": false
+  },
+  "java_source_commit": "a033d08e764d82b23347a67d9dd69a72243c88b7",
+  "limitations": [
+    "No physical-phone qualification or ARM64 execution",
+    "No production runtime/model selection or supported profile",
+    "No sustained session, thermal, peak memory or full prose-quality acceptance",
+    "Storage observations are not reservations, quotas or proven maximum SDK growth",
+    "Actual requested gift was rejected with Agency; no transfer or narration pass",
+    "No actual cancellation or memory-pressure run in this packet",
+    "Backing association is sampled under trusted no-replacement scope; no continuous hotplug monitor"
+  ],
+  "local_model_copy": {
+    "admission": {
+      "bytes": {
+        "cache_bytes": 34,
+        "cache_free_bytes": 8573018112,
+        "cache_host_free_bytes": 338898325504,
+        "evidence_free_bytes": 338898325504,
+        "userdata_free_bytes": 1734619136,
+        "userdata_host_free_bytes": 8082112512
+      },
+      "model_copy_bytes": 2588147712,
+      "phase": "before",
+      "reasons": [],
+      "status": "admitted",
+      "version": 1
+    },
+    "app_domain_full_target_match": true,
+    "attempts": 1,
+    "direct_fd_transfer": false,
+    "parent_cleanup_complete": true,
+    "post": {
+      "bytes": {
+        "cache_bytes": 34,
+        "cache_free_bytes": 5984870400,
+        "cache_host_free_bytes": 336264892416,
+        "evidence_free_bytes": 336264892416,
+        "userdata_free_bytes": 1734619136,
+        "userdata_host_free_bytes": 8031010816
+      },
+      "observed_deltas": {
+        "cache_growth_bytes": 0,
+        "cache_net_consumption_bytes": 2588147712,
+        "userdata_net_consumption_bytes": 0
+      },
+      "phase": "after",
+      "reasons": [],
+      "status": "admitted",
+      "version": 1
+    },
+    "prior_packages_and_protected_model_cache_metadata_preserved": true,
+    "shell_full_target_match": true,
+    "source_fd_closed": true,
+    "source_fingerprints_stable": true,
+    "sync_elapsed_ms": 22016,
+    "sync_exit": 0
+  },
+  "merged": false,
+  "model": {
+    "bytes": 2588147712,
+    "sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+  },
+  "next_task": "Bounded privacy-preserving Agency category diagnosis with deterministic host fixtures; no automatic SDK rerun",
+  "phone_qualified": false,
+  "post_control_integrity": {
+    "new_target_app_full_hashes": 3,
+    "new_target_shell_full_hashes": 2,
+    "post_control_identity_preserved": true,
+    "source_complete_passes_this_packet": 6
+  },
+  "preservation": {
+    "A_original_packages": 21,
+    "B_original_packages": 21,
+    "B_total_packages": 22,
+    "all_original_package_hashes": true,
+    "new_model_cache_retained": true,
+    "original_model_contents_read_this_packet": false,
+    "protected_original_model_cache_metadata": true,
+    "selected_lease_released": true
+  },
+  "profile": {
+    "app_watchdog_seconds": 90,
+    "context_tokens": 4096,
+    "director_tokens": 350,
+    "host_instrumentation_seconds": 110,
+    "narrator_tokens": 220,
+    "turn_budget_ms": 60000
+  },
+  "released": false,
+  "retained_failures": [
+    "terminal-order decoder regression fixed",
+    "two stale integration stop-count assertions fixed",
+    "JUnit class-name initialization error corrected before test bodies",
+    "qualification capacity refusal followed by audit-only continuation",
+    "SDK-helper default-C-temp setup error followed by required-D-temp pass",
+    "raw stdin binary transport controls rejected before model copy",
+    "preservation capacity/metadata refusals retained",
+    "sharing violation followed by full corrective original-path restoration",
+    "additional compiler backup MemoryError; source and partial copy retained"
+  ],
+  "runtime": {
+    "backend": "CPU",
+    "commit": "bda624851d74be34d4e1f7fac1fc4155939539c7",
+    "name": "LiteRT-LM",
+    "threads": 4,
+    "version": "0.18.1"
+  },
+  "scope": "M01.03/M01.05 partial explicit-cache SDK control",
+  "sdk_observation": {
+    "admission": {
+      "bytes": {
+        "cache_bytes": 34,
+        "cache_free_bytes": 5984870400,
+        "cache_host_free_bytes": 336062832640,
+        "evidence_free_bytes": 336062832640,
+        "userdata_free_bytes": 1734529024,
+        "userdata_host_free_bytes": 7602311168
+      },
+      "model_copy_bytes": 0,
+      "phase": "before",
+      "reasons": [],
+      "status": "admitted",
+      "version": 1
+    },
+    "artifacts_retained": true,
+    "case": "gift",
+    "check_passed": false,
+    "cleanup_failure_stage": "none",
+    "clients_cleaned": true,
+    "dispatched": true,
+    "failure_stage": "none",
+    "model_diagnostic": "verified",
+    "model_verified": true,
+    "phone_qualified": false,
+    "post": {
+      "bytes": {
+        "cache_bytes": 788412804,
+        "cache_free_bytes": 5196447744,
+        "cache_host_free_bytes": 335206621184,
+        "evidence_free_bytes": 335206621184,
+        "userdata_free_bytes": 1734447104,
+        "userdata_host_free_bytes": 7581126656
+      },
+      "observed_deltas": {
+        "cache_growth_bytes": 788412770,
+        "cache_net_consumption_bytes": 788422656,
+        "userdata_net_consumption_bytes": 81920
+      },
+      "phase": "after",
+      "reasons": [],
+      "status": "admitted",
+      "version": 1
+    },
+    "process_absent": true,
+    "raw_protocol_retained": true,
+    "result": {
+      "canon_unchanged": true,
+      "case": "gift",
+      "director_calls": 1,
+      "error": "Agency",
+      "exact_retry": false,
+      "fallback": false,
+      "first_output_observed": false,
+      "gift_seeded": false,
+      "model_initialized": true,
+      "narrator_calls": 0,
+      "outcome": "rejected",
+      "owner_drained": true,
+      "receipts_after": 0,
+      "receipts_before": 0,
+      "reopen_equal": true,
+      "repairs": 0,
+      "revision_after": 0,
+      "revision_before": 0,
+      "roles": 1,
+      "turns": [
+        {
+          "canon_unchanged": true,
+          "director_calls": 1,
+          "error": "Agency",
+          "exact_retry": false,
+          "fallback": false,
+          "first_output_observed": false,
+          "generations": [
+            {
+              "error": null,
+              "generation_ms": 49591.5411,
+              "input_tokens": 1855,
+              "load_ms": 6394.3941,
+              "output_tokens": 15,
+              "role": "director",
+              "schema_enforced": true,
+              "status": "completed",
+              "template_applied": true,
+              "thinking_disabled": true
+            }
+          ],
+          "model_initialized": true,
+          "narrator_calls": 0,
+          "outcome": "rejected",
+          "owner_drained": true,
+          "receipts_after": 0,
+          "receipts_before": 0,
+          "reopen_equal": true,
+          "repairs": 0,
+          "revision_after": 0,
+          "revision_before": 0,
+          "roles": 1
+        }
+      ],
+      "version": 1,
+      "workspace_retained": true
+    },
+    "scope": "android_explicit_cache_sdk_control",
+    "sdk": {
+      "cleanup_requires_process_termination": false,
+      "conversations_closed": 1,
+      "conversations_opened": 1,
+      "engines_closed": 1,
+      "engines_opened": 1,
+      "generate_terminal_callback": true,
+      "generation_main_pulses": 2759,
+      "main_pulses": 3504,
+      "owners_balanced": true,
+      "play_generation_ms": 49551.7118,
+      "play_input_tokens": 1855,
+      "play_load_ms": 6394.4444,
+      "play_output_tokens": 15,
+      "play_roles": 1,
+      "terminal_callback": true
+    },
+    "status": "observed",
+    "storage_checks_passed": true,
+    "storage_samples_valid": true,
+    "transport_valid": true,
+    "version": 1,
+    "wall_ms": 91704,
+    "worker_error": null,
+    "worker_status": "completed"
+  },
+  "sdk_play_request_intercepted": true,
+  "semantic": {
+    "Agency_cause": "unestablished",
+    "canonical_DB_read": false,
+    "committed": false,
+    "generated_command_retained": false,
+    "requested_gift_succeeded": false
+  },
+  "source_code_commit": "de1b63186a8ca72843a975547d1a647bc9785eba",
+  "status": "in_review_pending_owner_acceptance",
+  "transport": {
+    "all_recorded_cleanup_known": true,
+    "all_recorded_completed": true,
+    "closed_journal_sha256": "db61720bb15ba92a83697053aaa3dec20bfa6bf288bcf2de162b72d0a4f1ec24",
+    "final_selected_or_inventory_client_matches": 0,
+    "final_server_processes": 1,
+    "final_unclassified_ADB_processes": 1,
+    "global_all_started_clients_claimed": false,
+    "recorded_device_commands": 768,
+    "return_codes": {
+      "0": 741,
+      "1": 27
+    },
+    "statuses": {
+      "completed": 768
+    }
+  },
+  "verification": {
+    "apk_native_manifest_dependency_audits_passed": true,
+    "arm64_executed": false,
+    "benchmark_tests": 140,
+    "counts_overlap": true,
+    "focused_cache_tests": 71,
+    "jvm_errors": 0,
+    "jvm_failures": 0,
+    "jvm_skips": 0,
+    "jvm_tests": 73,
+    "lint_errors": 0,
+    "lint_warnings": {
+      "GradleDependency": 1,
+      "OldTargetApi": 1,
+      "UsableSpace": 7
+    },
+    "native_recompiled": false,
+    "python": "3.9.12",
+    "script_tests": 259,
+    "sdk_helper_tests": 33
+  },
+  "version": 1
+}

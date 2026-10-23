@@ -78,9 +78,60 @@ Local logs under `memory-jobs-artifacts`:
 | Log | SHA256 |
 | --- | --- |
 | storage-final-default.log |5aa8e0ad9a04fb4697b7b6e37d5ae7fb020b043d5e89b2f290d9ee65c4a77d96|
+| preview-and-backup-fix.log |563684dc2a9814cef2a2c5fb8e121c016977806f4669d56b60d94a12bcbbc883|
+| portable-clippy-allfeatures.log |66402fbc7255173c0046cd7bfe74cbb492fc95a32dec41925d41f33c123352f9|
+| capacity-python-integration.log |f5a1d2612e88500185251abc1cc039126e9e68e81e70ee59654ad9a76fa6bfd1|
+| android-normal-final.log (original failure) |5a1c942747d49104e1e2869353b7e85925292ab32bd8f926cd9efb33575bbf4b|
+| android-preview-fixed.log |3df3b575dee74f7425201314935fd0b94bc6a904c687244ca3ccc084dbd090f5|
+| android-apk-audit.log |a2220741ab7d3170dc6f144e8b0c0d97b3b85457ef46d7bf0d6e0c76a8cef49f|
 
-The later Android/frontend/native execution results will be recorded before PR
-submission. No unexecuted check in this record is a PASS.
+## Android and integrated capacity checks
+
+Ordinary Android Rust inputs equal5e44. The original build at1f23ede compiled
+both JNI ABIs, main and instrumented Kotlin, then ran146 passing JVM tests and
+one failure: the older controller refusal test still treated preview2 as future.
+`da8df0c` changes only that mutation2→3, preserving all refusal, null-consent,
+zero-commit and cancellation assertions. Original log/XML are retained locally.
+An initial attempt to stage this test used a root-relative path from apps/android
+and failed without staging/committing; the correct root-directory commit followed.
+No check or production guard was changed by that command failure.
+
+The following complete rerun passed in47s (14 tasks executed,64 up-to-date):
+
+```powershell
+# Existing task-local JDK/SDK/Gradle home and init script redirect outputs to D.
+./gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest :app:lintDebug --offline --no-daemon --init-script <own-output-init.gradle> '-Pandroid.builder.sdkDownload=false'
+python scripts/audit_apk.py <own-output>/outputs/apk/debug/app-debug.apk
+```
+
+JDK17.0.6, Gradle8.11.1, AGP8.10.1, Kotlin2.2.21, SDK36,
+NDK29.0.14206865. Both x86_64 and arm64-v8a Rust release JNI builds completed
+in the first run and were unchanged/up-to-date in the successful rerun.
+JVM XML totals: **147 passed,0 failed/errors/skipped**. The ordinary app and
+androidTest APKs packaged successfully. Lint has zero errors and one
+`GradleDependency` newer-coroutines warning; no dependency was fetched or upgraded.
+The pre-existing instrumented AtomicReference<Boolean> compiler warning remains.
+The APK audit passed its exact ordinary package/permission/native ZIP/architecture
+and16KiB ELF LOAD alignment checks for both ABIs. App APK SHA256:
+`6abc149659728544abe279a2894cb726f2fc769311024139b197bced24ab903b`.
+No APK was installed and no instrumented test, JNI call, emulator, ADB or device
+operation ran. Compiling the real JSONObject decoder tests does not execute them.
+
+The coordinator independently reran the capacity/helper Python suites on the
+integrated source: **59 passed**,13.362s, no failures. This includes50 guards,
+three actual fixed helper CLI cases and six ordinary APK-audit regressions.
+The explicit isolated Python is3.14.9 (stdlib SQLite3.50.4); its path setup adds
+the repository scripts/tests for imports. This rerun does not repeat the Rust
+Full/relief capacity measurements or execute Android helper processes.
+
+```powershell
+python -m unittest discover -s scripts/tests -p 'test*capacity*probe.py' -v
+python -m unittest discover -s scripts/tests -p test_capacity_integration_review.py -v
+python -m unittest discover -s scripts/tests -p test_audit_apk.py -v
+```
+
+Frontend/native Rust and actual application-owned rendering results remain to be
+recorded before PR submission. No unexecuted check in this record is a PASS.
 
 ## Separate capacity qualification and remaining work
 

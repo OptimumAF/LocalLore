@@ -1,4 +1,4 @@
-//! Read-only eligibility over an immutable validated root-history Engine.
+//! Read-only eligibility over an immutable validated scoped Engine and its lineage.
 //! Shared views and an internal actor-context port never establish canonical knowledge.
 use crate::{contracts::*, engine::Engine};
 use serde::{Deserialize, Serialize};
@@ -318,21 +318,10 @@ fn key(parts: &[&str]) -> String {
     serde_json::to_string(parts).expect("string slice is serializable")
 }
 fn at(engine: &Engine, revision: u64) -> Result<Engine, QueryError> {
-    if revision == engine.revision() {
-        return Ok(engine.clone());
-    }
-    let count = if revision == 0 {
-        0
-    } else {
-        engine
-            .receipts()
-            .iter()
-            .position(|r| r.events().last().is_some_and(|e| e.sequence() == revision))
-            .map(|i| i + 1)
-            .ok_or(QueryError::InvalidBoundary)?
-    };
-    Engine::replay(engine.seed().clone(), &engine.receipts()[..count])
-        .map_err(|_| QueryError::Integrity)
+    engine.at_revision(revision).map_err(|error| match error {
+        crate::contracts::Error::Rule => QueryError::InvalidBoundary,
+        _ => QueryError::Integrity,
+    })
 }
 
 /// `story_lab_granted` must come from trusted native construction, never request JSON.
@@ -350,9 +339,6 @@ pub fn query(
     }
     if request.expected_head != engine.revision() {
         return Err(QueryError::Stale);
-    }
-    if engine.scope() != &engine.seed().scope {
-        return Err(QueryError::UnsupportedBranch);
     }
     if request.limit == 0 || request.limit > MAX_ROWS || request.search.len() > MAX_SEARCH_BYTES {
         return Err(QueryError::TooLarge);

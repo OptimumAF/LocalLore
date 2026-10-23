@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-evaluation-start"
+description = "Enables the evaluation_start command without any pre-configured scope."
+commands.allow = ["evaluation_start"]
+
+[[permission]]
+identifier = "deny-evaluation-start"
+description = "Denies the evaluation_start command without any pre-configured scope."
+commands.deny = ["evaluation_start"]

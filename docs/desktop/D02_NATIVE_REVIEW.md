@@ -13,8 +13,10 @@ feature `dev-harness` (off by default). Runtime activation additionally requires
 `LOCALLORE_D02_HARNESS=1`. Only the native `main` app window may invoke commands.
 There is no server, listener, remote-debug port, desktop capture, injected
 input, window activation, arbitrary JavaScript execution or frontend-selected
-file path. Production builds must omit both the module and command permission
-entries. Environment activation alone cannot add compiled-out commands.
+file path. Normal builds omit the module and command handler registration.
+The generated/static ACL names may remain in the manifest: permission names
+alone do not register compiled-out handlers. Environment activation alone
+cannot add compiled-out commands.
 
 The launcher selects `LOCALLORE_D02_ARTIFACT_DIR`, a fresh absolute leaf beneath
 its ignored synthetic artifact parent. The module creates the leaf itself;
@@ -305,3 +307,61 @@ identify the reviewed snapshot with those final guard requests still present;
 they do not identify final fixed source or establish owner acceptance. Record
 the two guards' disposition and fresh integrated regression results before
 treating this review as resolved. No desktop-control operation occurred.
+
+## Resolved disposition at final tested source
+
+Read-only final review inspected integration commit
+`fa6aea7be2c0e465743f600a3d6db125191cf5db` (implementation `80de9b0` plus accepted
+main integration through #34), current controller/journey source, and the
+coordinator's final local evidence. No application was launched or controlled
+by this review. Current documentation edits do not change the tested input
+hashes below.
+
+Both final guard findings are **resolved** in the inspected source and named
+regressions:
+
+- Recovery retains `unresolved` through `publishResult()` validation; only
+  successfully validated terminal publication clears it. The journeys corrupt
+  a recovered committed receipt, subscribe for accidental foreign-scope
+  publication, then retry the original turn without an additional submit.
+  `malformed-recovered-receipt-never-published` and
+  `malformed-recovery-retains-original-id` passed in both final backends.
+- The normal run catch now requires both the original current session/epoch
+  and `this.unresolved === op`. A completed authoritative cancellation/commit
+  therefore fences its late transport failure. Journeys hold preparation or
+  commit acknowledgements, publish native cancellation or the winning commit,
+  then reject the held reply/lookup. Both
+  `late-prepare-error-cannot-replace-authoritative-cancel` and
+  `late-transport-error-cannot-replace-authoritative-commit` passed in both final
+  backends. The cancellation-during-recovery and subsequent-retry regressions
+  also passed.
+
+Inspected final ignored artifact sets:
+
+| Local artifact leaf under `apps/desktop/artifacts/` | Recorded backend | Result |
+|---|---|---|
+| `native-33387cc5-c1e5-4e6e-a9ef-d91d9bc33c64` | Actual native WebView IPC and WebView2 CapturePreview | PASS; 119 unique assertions, 21 captures |
+| `headless-710b5d9a-08a8-4114-9529-6395521154f0` | Headless Chromium rendering and real Rust stdio host | PASS; 119 unique assertions, 21 captures |
+
+A read-only Node artifact audit compared all 18 recorded source/build-input
+SHA-256 values (excluding generated `dist/app.js` and executable outputs) with
+the current files: **zero mismatches** for both sets. Each summary records the
+full final source revision above and `sourceDirty:false`. All 21 PNG files in
+each set have a PNG signature; all native capture metadata says
+`native-webview2`, and all headless metadata says `headless-chromium`. Both final
+reports pass with empty final-stage frontend errors; the headless report also
+records zero unexpected requests. The coordinator owns execution/visual QA;
+this audit inspected existing results and assertion implementations. It did
+not re-execute or claim equality of executable files overwritten by later
+builds. Final controller SHA-256 is
+`747f19e30261b9d094bec12b85ca40f6335a98c59d528f94178c0e1358340a15`, and final
+journeys SHA-256 is
+`7621985af10f02fd2998efdf99b4d9af30cc887dc5630cead2c4a90c41f6e2fa`.
+
+All concrete findings raised by this bounded review have a source disposition
+and regression evidence. This resolves the review requests; it does not grant
+owner acceptance or establish real inference, persistence, physical-device,
+installer, screen-reader or other-platform qualification. Normal handlers
+remain feature-gated despite inert static ACL names. No desktop input,
+activation, desktop screenshot, other-app automation or new native launch was
+used in the final review.

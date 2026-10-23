@@ -13,9 +13,10 @@ let mut provider = RuntimeProvider::new(shared.clone());
 // Supply this provider to the authoritative shared play pipeline on a background worker.
 ```
 
-Create one provider per turn. It accepts an immutable director request, then one
+Create one provider per turn. It accepts an immutable director request, at most one completed director repair, then one
 narrator request for the same story/branch/turn/revision/model profile. Identical
-polls return the cached result. A changed active prompt, role, schema, budget or
+polls return the cached result. A repair may change only the bounded prompt within
+the same turn and schema; a second repair is rejected before native work. A changed active prompt, role, schema, budget or
 scope is fenced with RetryMismatch and cancellation; another turn needs a new
 provider. Public model profile must match the pinned PROFILE constant. Roles are
 director/narrator, schema must be an object, output cap is1–350tokens/1–16384
@@ -53,10 +54,11 @@ cargo test --manifest-path crates/locallore-local-runtime/Cargo.toml --all-targe
 cargo clippy --manifest-path crates/locallore-local-runtime/Cargo.toml --all-targets --all-features --locked --offline -- -D warnings
 ```
 
-13 tests passed (seven existing native-owner tests and six adapter tests).
+15 tests passed (seven existing native-owner tests and eight adapter tests).
 Adapter cases cover legacy/invalid-role/profile/budget rejection, exact repeat
 polls and sequential roles, active scope/prompt/role mismatch poisoning, competing
-ownership Busy, post-completion different-turn rejection, and prompt cancellation
+ownership Busy, post-completion different-turn rejection, one permitted completed director repair,
+second-repair/schema/scope rejection, and prompt cancellation
 with Drop terminal/reap. Existing hostile frame/pipe/identity/timeout tests remain
 enabled. The cancellation test observes poll return under50ms, then confirms
 Drop within4s and an exited native fixture child. These are finite local timing

@@ -23,17 +23,27 @@ struct Identity {
     revision: u64,
     profile: String,
     role: String,
+    prompt: String,
+    schema: Vec<u8>,
     full: Vec<u8>,
 }
 impl Identity {
-    fn follows(&self, before: &Self) -> bool {
-        before.role == "director"
-            && self.role == "narrator"
-            && self.story == before.story
+    fn same_turn(&self, before: &Self) -> bool {
+        self.story == before.story
             && self.branch == before.branch
             && self.turn == before.turn
             && self.revision == before.revision
             && self.profile == before.profile
+    }
+    fn follows(&self, before: &Self) -> bool {
+        self.same_turn(before) && before.role == "director" && self.role == "narrator"
+    }
+    fn repairs(&self, before: &Self) -> bool {
+        self.same_turn(before)
+            && before.role == "director"
+            && self.role == "director"
+            && self.schema == before.schema
+            && self.prompt != before.prompt
     }
 }
 fn compile(request: &GenerationRequest) -> Result<(Identity, Generation), Error> {
@@ -76,6 +86,9 @@ fn compile(request: &GenerationRequest) -> Result<(Identity, Generation), Error>
             revision: request.revision,
             profile: request.model_profile.clone(),
             role: role.clone(),
+            prompt: prompt.clone(),
+            schema: serde_json::to_vec(&json!({"id":request.schema,"schema":schema}))
+                .map_err(|_| Error::Malformed)?,
             full,
         },
         Generation {
@@ -98,7 +111,7 @@ struct Job {
     receiver: mpsc::Receiver<Outcome>,
     thread: Option<JoinHandle<()>>,
 }
-/// Create one provider per turn. It accepts one director then one narrator for that same turn;
+/// Create one provider per turn. It accepts a director, at most one director repair, then a narrator;
 /// repeated identical polls are idempotent. A new turn needs a fresh provider from the factory.
 pub struct RuntimeProvider {
     runtime: SharedRuntime,
@@ -107,6 +120,7 @@ pub struct RuntimeProvider {
     metrics: Option<Metrics>,
     failure: Option<RuntimeError>,
     poisoned: bool,
+    directors_started: u8,
 }
 impl RuntimeProvider {
     pub fn new(runtime: SharedRuntime) -> Self {
@@ -117,6 +131,7 @@ impl RuntimeProvider {
             metrics: None,
             failure: None,
             poisoned: false,
+            directors_started: 0,
         }
     }
     pub fn metrics(&self) -> Option<&Metrics> {
@@ -249,9 +264,15 @@ impl InferenceProvider for RuntimeProvider {
                 if identity == *previous {
                     return Poll::Ready(result.clone());
                 }
-                if result.is_err() || !identity.follows(previous) {
+                if result.is_err()
+                    || !(identity.follows(previous)
+                        || (self.directors_started < 2 && identity.repairs(previous)))
+                {
                     return Poll::Ready(Err(Error::RetryMismatch));
                 }
+            }
+            if identity.role == "director" {
+                self.directors_started += 1;
             }
             if let Err(error) = self.start(identity, generation, request, cancel.clone()) {
                 return Poll::Ready(Err(error));
@@ -376,6 +397,61 @@ mod tests {
         drop(provider);
         drop(shared);
         std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[test]
+    fn exactly_one_completed_director_repair_then_narrator_is_permitted() {
+        let (shared, dir) = owner("valid");
+        let mut provider = RuntimeProvider::new(shared.clone());
+        let cancel = Cancellation::default();
+        let original = request("director");
+        assert!(poll_to_ready(&mut provider, &original, &cancel).is_ok());
+        let mut repair = original.clone();
+        if let Input::Structured { prompt, .. } = &mut repair.input {
+            *prompt = "bounded repair after malformed proposal".into();
+        }
+        assert!(poll_to_ready(&mut provider, &repair, &cancel).is_ok());
+        assert_eq!(provider.directors_started, 2);
+        let mut third = repair.clone();
+        if let Input::Structured { prompt, .. } = &mut third.input {
+            *prompt = "forbidden second repair".into();
+        }
+        assert_eq!(
+            provider.poll(&third, &cancel),
+            Poll::Ready(Err(Error::RetryMismatch))
+        );
+        assert!(poll_to_ready(&mut provider, &request("narrator"), &cancel).is_ok());
+        assert_eq!(provider.directors_started, 2);
+        drop(provider);
+        drop(shared);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[test]
+    fn completed_director_repair_cannot_change_schema_or_scope() {
+        for mutation in 0..2 {
+            let (shared, dir) = owner("valid");
+            let mut provider = RuntimeProvider::new(shared.clone());
+            let cancel = Cancellation::default();
+            let original = request("director");
+            assert!(poll_to_ready(&mut provider, &original, &cancel).is_ok());
+            let mut repair = original.clone();
+            if let Input::Structured { prompt, schema, .. } = &mut repair.input {
+                *prompt = "repair".into();
+                if mutation == 0 {
+                    *schema = json!({"type":"array"});
+                }
+            }
+            if mutation == 1 {
+                repair.scope.branch = "sibling".into();
+            }
+            assert_eq!(
+                provider.poll(&repair, &cancel),
+                Poll::Ready(Err(Error::RetryMismatch))
+            );
+            assert_eq!(provider.directors_started, 1);
+            drop(provider);
+            drop(shared);
+            std::fs::remove_dir_all(dir).unwrap();
+        }
     }
     #[test]
     fn active_identity_change_is_prompt_and_poisoned() {

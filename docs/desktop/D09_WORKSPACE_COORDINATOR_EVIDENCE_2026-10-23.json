@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "source_commit": "3a849345da5a40f4c02ed15c3089d895d35fc6da",
+  "checker_commit": "3a849345da5a40f4c02ed15c3089d895d35fc6da",
+  "checker_sha256": {
+    "bytes": 21757,
+    "sha256": "85c4df5f2e772ce5e4c72d864b1aae0e4edd6615780b93949f8c3446d97ddd81"
+  },
+  "comparison_sha256": "c1bb07423640b4ecb7194213e999f30e05f6a619d5cf2e79e0540a7bf5979056",
+  "status": "passed_two_clean_paths",
+  "executable": {
+    "equal": true,
+    "first_different_offset": null,
+    "left": {
+      "bytes": 24332288,
+      "sha256": "dcbaa7d480955cf5b70504f30fe52389896e8f5bb0b07bea418a3323a3939b03"
+    },
+    "right": {
+      "bytes": 24332288,
+      "sha256": "dcbaa7d480955cf5b70504f30fe52389896e8f5bb0b07bea418a3323a3939b03"
+    }
+  },
+  "archive": {
+    "equal": true,
+    "first_different_offset": null,
+    "left": {
+      "bytes": 10868414,
+      "sha256": "8e02e138ae18dfa45a88de35aacd530d2e8ecd8db369697fad1e19a8aa5758ac"
+    },
+    "right": {
+      "bytes": 10868414,
+      "sha256": "8e02e138ae18dfa45a88de35aacd530d2e8ecd8db369697fad1e19a8aa5758ac"
+    }
+  },
+  "folder_inventory_equal": true,
+  "zip_metadata_and_member_order_equal": true,
+  "member_count": 446,
+  "changed_payload_count": 0,
+  "changed_metadata_count": 0,
+  "normal_frontend_equal": true,
+  "normalizer": "none; every packaged member including manifest participates",
+  "application_launched": false,
+  "models_read_or_loaded": false,
+  "versions": {
+    "sdk": "10.0.19041.0",
+    "msvc": "19.34.31937",
+    "node": "24.22.1",
+    "rust": "1.93.1",
+    "npm": "11.19.1",
+    "toolset": "14.34.31933",
+    "cargo": "1.93.1",
+    "python": "3.14.9"
+  },
+  "limits": [
+    "Same existing machine and reviewed tools",
+    "Two distinct ASCII space-containing source roots, not Unicode clean-root qualification",
+    "No app, model or worker execution",
+    "Legacy license_audit_complete remains false; independent license packet pending",
+    "Earlier clean01 and clean02 failed cohorts preserved"
+  ]
+}

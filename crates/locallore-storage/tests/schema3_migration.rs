@@ -158,7 +158,7 @@ impl Fixture {
 // Roots remain under the caller-owned task TEMP for genuine failed-attempt
 // evidence. This helper never recursively deletes or adopts an existing root.
 fn historical_schema(db: &Connection, version: u32) {
-    assert!([1, 2].contains(&version));
+    assert!([1, 2, 3].contains(&version));
     let initial = include_str!("../migrations/001_initial.sql")
         .split("CREATE TABLE stories")
         .next()
@@ -172,10 +172,15 @@ fn historical_schema(db: &Connection, version: u32) {
     } else {
         ""
     };
-    let records = if version == 2 { derived_header } else { "" };
+    let records = if version >= 2 { derived_header } else { "" };
+    let retention = if version == 3 {
+        include_str!("../migrations/003_branch_retention.sql")
+    } else {
+        ""
+    };
     // Reconstruct the actual historical schema_migrations definition, not an
     // approximation with current CHECK constraints or a renamed current table.
-    db.execute_batch(&format!("BEGIN IMMEDIATE; DROP TABLE branch_retention; {optional} DROP TABLE schema_migrations; {initial} {records} PRAGMA user_version={version}; COMMIT;")).unwrap();
+    db.execute_batch(&format!("BEGIN IMMEDIATE; DROP TABLE memory_job_packets; DROP TABLE memory_jobs; DROP TABLE branch_retention; {optional} DROP TABLE schema_migrations; {initial} {records} {retention} PRAGMA user_version={version}; COMMIT;")).unwrap();
 }
 fn apply(store: &mut Store, scope: &Scope, id: &str, commands: Vec<Command>) {
     let e = store.resume(scope).unwrap().engine;
@@ -266,8 +271,14 @@ fn same<T: PartialEq>(a: &T, b: &T) {
     assert!(a == b, "synthetic migration parity differed");
 }
 fn verify_retention_empty(store: &Store, path: &Path, scopes: &[Scope]) {
-    assert_eq!(store.info().unwrap().schema_version, 3);
-    assert_eq!(SCHEMA_VERSION, 3);
+    assert_eq!(store.info().unwrap().schema_version, SCHEMA_VERSION);
+    assert_eq!(SCHEMA_VERSION, 4);
+    for table in ["memory_jobs", "memory_job_packets"] {
+        let count: i64 = read(path)
+            .query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 0);
+    }
     let count: i64 = read(path)
         .query_row("SELECT count(*) FROM branch_retention", [], |r| r.get(0))
         .unwrap();
@@ -384,7 +395,7 @@ fn exact_v1_read_only_and_direct_upgrade_keep_history_and_old_backup_version() {
 
 #[test]
 fn existing_backup_collision_preserves_both_old_databases_and_existing_destination() {
-    for version in [1, 2] {
+    for version in [1, 2, 3] {
         let f = Fixture::historical(version);
         let before = fs::read(&f.path).unwrap();
         let backup = f.path("already-owned.sqlite");
@@ -438,7 +449,8 @@ fn altered_current_schema_missing_migration_record_and_future_version_never_adop
                 StorageError::SchemaMismatch
             }
             _ => {
-                db.pragma_update(None, "user_version", 4).unwrap();
+                db.pragma_update(None, "user_version", SCHEMA_VERSION + 1)
+                    .unwrap();
                 StorageError::FutureVersion
             }
         };
@@ -455,7 +467,7 @@ fn altered_current_schema_missing_migration_record_and_future_version_never_adop
 
 #[test]
 fn application_upgrade_creates_one_new_standalone_historical_safety_copy() {
-    for version in [1, 2] {
+    for version in [1, 2, 3] {
         let f = Fixture::historical(version);
         let baseline = state(&f.path, &f.scopes);
         let upgraded = Store::open_application(&f.path).unwrap();

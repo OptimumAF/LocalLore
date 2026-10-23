@@ -599,7 +599,10 @@ fn static_schema2_v1_stays_active_and_schema3_without_retirement_exports_v1() {
         .unwrap();
     let current: Value = serde_json::from_slice(exported.bytes()).unwrap();
     assert_eq!(current["version"], 1);
-    assert_eq!(current["payload"]["source_database_schema_version"], 3);
+    assert_eq!(
+        current["payload"]["source_database_schema_version"],
+        locallore_storage::SCHEMA_VERSION
+    );
     assert!(current["payload"].get("retired_branch_ids").is_none());
     assert!(serde_json::to_value(exported.preview())
         .unwrap()

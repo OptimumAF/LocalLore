@@ -16,7 +16,9 @@ use std::{
     time::SystemTime,
 };
 
-const TABLES: [&str; 10] = [
+const TABLES: [&str; 12] = [
+    "memory_job_packets",
+    "memory_jobs",
     "branch_retention",
     "derived_memory",
     "event_witnesses",
@@ -270,7 +272,7 @@ fn preview(
         noncommitted_turns: noncommitted
             .try_into()
             .map_err(|_| DeletionError::Integrity)?,
-        derived_packets: counts["derived_memory"],
+        derived_packets: counts["derived_memory"] + counts["memory_job_packets"],
         rows: counts,
         privacy_warning: WARNING.into(),
     };

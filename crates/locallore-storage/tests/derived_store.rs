@@ -58,7 +58,7 @@ fn historical_v1(path: &std::path::Path) -> (Scope, Receipt) {
     let initial = include_str!("../migrations/001_initial.sql");
     let header = initial.split("CREATE TABLE stories").next().unwrap();
     let db = Connection::open(path).unwrap();
-    db.execute_batch(&format!("BEGIN; DROP TABLE branch_retention; DROP TABLE derived_memory; DROP TABLE schema_migrations; {header} PRAGMA user_version=1; COMMIT;")).unwrap();
+    db.execute_batch(&format!("BEGIN; DROP TABLE memory_job_packets; DROP TABLE memory_jobs; DROP TABLE branch_retention; DROP TABLE derived_memory; DROP TABLE schema_migrations; {header} PRAGMA user_version=1; COMMIT;")).unwrap();
     assert_eq!(
         Store::open_read_only(path)
             .unwrap()

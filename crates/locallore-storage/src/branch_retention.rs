@@ -14,7 +14,9 @@ use std::{
     path::PathBuf,
 };
 
-const TABLES: [&str; 7] = [
+const TABLES: [&str; 9] = [
+    "memory_job_packets",
+    "memory_jobs",
     "derived_memory",
     "event_witnesses",
     "accepted_events",
@@ -222,7 +224,12 @@ fn graph(connection: &Connection, story: &str, cancel: &dyn Fn() -> bool) -> Res
             if required_cap(&nodes, id)? != Some(node.head) {
                 return Err(DeletionError::Integrity);
             }
-            for table in ["derived_memory", "branch_projections"] {
+            for table in [
+                "memory_job_packets",
+                "memory_jobs",
+                "derived_memory",
+                "branch_projections",
+            ] {
                 if count(
                     connection,
                     &format!(

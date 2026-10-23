@@ -89,7 +89,7 @@ export async function legacyJourneys({
             "legacy-v1-native-migrated-resume",
         );
         check(
-            c.get().workspace?.database_schema_version === 3 &&
+            c.get().workspace?.database_schema_version === 4 &&
                 c.get().workspace?.schema_version === 1,
             "legacy-actual-db2-workspace-contract1",
         );

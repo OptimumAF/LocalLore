@@ -22,6 +22,7 @@ pub use playable_archive::{
 mod catalog;
 pub use branches::{ForkOutcome, ForkRequest, MAX_BRANCHES_PER_STORY, MAX_BRANCH_DEPTH};
 pub mod derived_memory;
+pub mod memory_jobs;
 mod turns;
 pub use catalog::StorySummary;
 use locallore::{
@@ -36,7 +37,7 @@ use std::{
 };
 pub use turns::{ResumedStory, TurnError, TurnPhase, TurnRecord};
 
-pub const SCHEMA_VERSION: u32 = 3;
+pub const SCHEMA_VERSION: u32 = 4;
 pub const MAX_INSPECTION_DATABASE_BYTES: u64 = 64 * 1024 * 1024;
 const APPLICATION_ID: u32 = 0x4c4c4f52;
 const SCHEMA: &str = include_str!("../migrations/001_initial.sql");
@@ -222,6 +223,9 @@ fn verify_version(connection: &Connection, version: u32) -> Result<()> {
     if version >= 3 {
         reference.execute_batch(retention_state::SCHEMA_SQL)?;
     }
+    if version >= 4 {
+        reference.execute_batch(memory_jobs::SCHEMA_SQL)?;
+    }
     if schema_rows(connection)? != schema_rows(&reference)? {
         return Err(StorageError::SchemaMismatch);
     }
@@ -238,6 +242,9 @@ fn verify_version(connection: &Connection, version: u32) -> Result<()> {
     }
     if version >= 3 {
         expected.push((3, "locallore-storage-v3-branch-retention".to_owned()));
+    }
+    if version >= 4 {
+        expected.push((4, "locallore-storage-v4-memory-jobs".to_owned()));
     }
     if contracts != expected {
         return Err(StorageError::SchemaMismatch);
@@ -324,6 +331,7 @@ fn initialize(connection: &Connection, sql: &str) -> Result<()> {
     connection.execute_batch(sql)?;
     connection.execute_batch(derived_memory::DERIVED_SCHEMA_SQL)?;
     connection.execute_batch(retention_state::SCHEMA_SQL)?;
+    connection.execute_batch(memory_jobs::SCHEMA_SQL)?;
     connection.pragma_update(None, "application_id", APPLICATION_ID)?;
     connection.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     verify(connection)
@@ -332,7 +340,10 @@ fn migrate_known(connection: &Connection, version: u32) -> Result<()> {
     if version == 1 {
         connection.execute_batch(derived_memory::DERIVED_SCHEMA_SQL)?;
     }
-    connection.execute_batch(retention_state::SCHEMA_SQL)?;
+    if version < 3 {
+        connection.execute_batch(retention_state::SCHEMA_SQL)?;
+    }
+    connection.execute_batch(memory_jobs::SCHEMA_SQL)?;
     connection.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     verify(connection)
 }
@@ -427,7 +438,7 @@ impl Store {
         verify_version(&connection, version)?;
         Ok(Self::from_connection(connection))
     }
-    /// New paths initialize the current schema. Existing v0/v1/v2 upgrades require a new safety
+    /// New paths initialize the current schema. Existing v0/v1/v2/v3 upgrades require a new safety
     /// backup. Foreign/nonempty v0, future or altered schemas are refused, never adopted.
     pub fn open(path: &Path, migration_backup: Option<&Path>) -> Result<Self> {
         let new_file = match OpenOptions::new().write(true).create_new(true).open(path) {

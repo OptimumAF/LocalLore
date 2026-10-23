@@ -637,6 +637,21 @@ export function App({ controller: c }: { controller: Controller }) {
                                             )}
                                         </pre>
                                     </details>
+                                    {receipt.play && (
+                                        <details>
+                                            <summary>
+                                                Local play provenance &amp;
+                                                stage timing
+                                            </summary>
+                                            <pre tabIndex={0}>
+                                                {JSON.stringify(
+                                                    receipt.play,
+                                                    null,
+                                                    2,
+                                                )}
+                                            </pre>
+                                        </details>
+                                    )}
                                 </>
                             ) : (
                                 <p className="muted">No accepted turn yet.</p>

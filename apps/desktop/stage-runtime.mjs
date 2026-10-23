@@ -1,5 +1,5 @@
 // Fixed packaged resource staging; never stages or downloads model weights.
-import { readFile, mkdir, copyFile } from "node:fs/promises";
+import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,9 +22,9 @@ for (const destination of [
     path.join(root, "src-tauri", "target", "debug", "runtime"),
 ]) {
     await mkdir(destination, { recursive: true });
-    await copyFile(
-        source,
+    await writeFile(
         path.join(destination, "locallore-llama-worker.exe"),
+        bytes,
     );
 }
 console.log("Staged reviewed fixed CPU worker; no model bytes copied.");

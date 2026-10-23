@@ -6,6 +6,11 @@ pub mod archive;
 mod archive_capacity_jni;
 #[cfg(target_os = "android")]
 mod archive_jni;
+mod play_fixture;
+#[cfg(feature = "play-probe")]
+pub mod play_probe;
+#[cfg(all(feature = "play-probe", target_os = "android"))]
+mod play_probe_jni;
 pub mod workspace;
 use locallore::{contracts::*, engine::Engine, inference::*};
 use serde::Deserialize;

@@ -23,6 +23,7 @@ class TimelineShellTest {
 
     private class Stories : DemoGateway {
         override val durable = true
+        override val storyRecords = true
         var story = "story-a"
         var selected = "main"
         var failRecovery = false
@@ -37,7 +38,7 @@ class TimelineShellTest {
             val current = timelines.single { it.branch == selected }
             return SavedSnapshot(current.revision, "You", emptyList(), "/synthetic", 1,
                 listOf(root), SavedStory(story, selected, root.title, current.revision),
-                current.uncommittedDrafts, databaseSchemaVersion = 2, timelines = timelines)
+                current.uncommittedDrafts, textProvider = TextProvider.SCRIPTED, databaseSchemaVersion = 2, timelines = timelines)
         }
         override suspend fun initialize() = saved()
         override suspend fun snapshot() = saved()
@@ -88,6 +89,17 @@ class TimelineShellTest {
         assertEquals(3L, model.state.value.revision); assertEquals(2, model.state.value.uncommittedDrafts)
         assertEquals("main", model.state.value.stories.single().branch)
         assertEquals(0, stories.gameplay)
+        assertEquals(TextProvider.SCRIPTED, model.state.value.textProvider)
+    }
+
+    @Test fun changingTimelineDismissesThePriorRecordContext(): Unit = runTest(dispatcher) {
+        val stories = Stories(); val model = model(stories); advanceUntilIdle()
+        model.openStoryRecord(); advanceUntilIdle(); assertTrue(model.storyRecord.value.visible)
+        model.resumeTimeline(model.state.value.timelines.first()); advanceUntilIdle()
+        assertFalse(model.storyRecord.value.visible)
+        model.openStoryRecord(); advanceUntilIdle()
+        assertEquals("child", model.storyRecord.value.context?.story?.branch)
+        assertEquals(3L, model.storyRecord.value.context?.revision)
     }
 
     @Test fun copiedRefreshedAndOtherStoryCallbacksCannotSelectCurrentTimeline(): Unit = runTest(dispatcher) {

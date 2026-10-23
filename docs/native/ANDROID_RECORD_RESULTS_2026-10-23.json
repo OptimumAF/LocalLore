@@ -1,0 +1,383 @@
+{
+  "version": 1,
+  "date": "2026-10-23",
+  "scope": "bounded_m06_06_android_player_record",
+  "base_commit": "ac7fe2c",
+  "final_source_commit": "65dae1a",
+  "status": "locally_verified_pending_owner_acceptance",
+  "dependencies_changed": false,
+  "canonical_engine_or_schema_changed": false,
+  "host": {
+    "command": "python scripts/check.py host --offline",
+    "initial_result": "failed",
+    "initial_failure": "existing migration_rechecks_version_after_waiting_for_an_existing_writer: Busy instead of FutureVersion",
+    "targeted_command": "cargo +1.93.1 test -p locallore-storage --test adversarial migration_rechecks_version_after_waiting_for_an_existing_writer --locked --offline -- --exact --test-threads=1",
+    "targeted_result": "passed",
+    "full_rerun_result": "passed",
+    "workspace_rust_passed": 233,
+    "native_linker_passed": 3,
+    "python_passed": 191,
+    "storage_source_changed": false,
+    "timing_cause_established": false
+  },
+  "android_builds": [
+    {
+      "attempt": 1,
+      "status": "passed",
+      "unit_count_retained": false
+    },
+    {
+      "attempt": 2,
+      "status": "passed",
+      "jvm_passed": 54
+    },
+    {
+      "attempt": 3,
+      "status": "passed",
+      "jvm_passed": 55
+    },
+    {
+      "attempt": 4,
+      "status": "passed",
+      "jvm_passed": 55,
+      "fresh_unit_task": true,
+      "lint": "passed",
+      "compiled_abis": [
+        "x86_64",
+        "arm64-v8a"
+      ]
+    }
+  ],
+  "final_jvm_suites": [
+    {
+      "name": "org.locallore.app.DiagnosticsControllerTest",
+      "tests": "9",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "org.locallore.app.DiagnosticsTest",
+      "tests": "9",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "org.locallore.app.DurableShellTest",
+      "tests": "7",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "org.locallore.app.ShellViewModelTest",
+      "tests": "13",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "org.locallore.app.StoryRecordControllerTest",
+      "tests": "8",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "org.locallore.app.StoryRecordViewModelTest",
+      "tests": "9",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "preflight_attempts": [
+    {
+      "target": "A",
+      "attempt": 1,
+      "status": "failed_before_install",
+      "stage": "pre_existing_package_process_absence_guard",
+      "evidence": "coordinator_tool_output_only_not_independently_raw_reparsed",
+      "device_mutation": false
+    },
+    {
+      "target": "B",
+      "attempt": 1,
+      "status": "failed_before_install",
+      "stage": "pre_existing_package_process_absence_guard",
+      "evidence": "coordinator_tool_output_only_not_independently_raw_reparsed",
+      "device_mutation": false
+    },
+    {
+      "target": "A",
+      "attempt": 2,
+      "status": "passed",
+      "api": 35,
+      "abi": "x86_64",
+      "page_bytes": 4096,
+      "prior_package_hashes_preserved": true,
+      "ordinary_packages_absent": true
+    },
+    {
+      "target": "B",
+      "attempt": 2,
+      "status": "passed",
+      "api": 35,
+      "abi": "x86_64",
+      "page_bytes": 4096,
+      "prior_package_hashes_preserved": true,
+      "ordinary_packages_absent": true
+    }
+  ],
+  "emulator_cohorts": [
+    {
+      "cohort": "first-A",
+      "target": "A",
+      "source_commit": "864bb1c",
+      "status": "passed",
+      "app_sha256": "94f3b66cc65227ce6cc7756fd7a55fe643a81409e3d6059920b657561d7a6494",
+      "test_sha256": "43ecd62de304a312b2643894c3932a5a36a54da5f813ccaf46933557fbfa8009",
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#playerPaginationAndGiftHistoryAreReadOnlyAndSurviveStrictReopen",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#androidJsonDecoderRejectsMalformedAndPrivatePagesWithoutEchoingPayloads",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#actualClaimsBeliefsAndKnownTruthKeepDistinctOriginsAndObserverGrants",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordScreenTest#collectedRecordPagesSearchOriginsAndGiftRefreshUseTheAuthoritativeSavedHead",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 4,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "own_app_stopped_after": true,
+      "prior_package_hashes_preserved": true,
+      "adb_clients_cleaned": true
+    },
+    {
+      "cohort": "first-B",
+      "target": "B",
+      "source_commit": "864bb1c",
+      "status": "passed",
+      "app_sha256": "94f3b66cc65227ce6cc7756fd7a55fe643a81409e3d6059920b657561d7a6494",
+      "test_sha256": "43ecd62de304a312b2643894c3932a5a36a54da5f813ccaf46933557fbfa8009",
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#playerPaginationAndGiftHistoryAreReadOnlyAndSurviveStrictReopen",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#androidJsonDecoderRejectsMalformedAndPrivatePagesWithoutEchoingPayloads",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#actualClaimsBeliefsAndKnownTruthKeepDistinctOriginsAndObserverGrants",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordScreenTest#collectedRecordPagesSearchOriginsAndGiftRefreshUseTheAuthoritativeSavedHead",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 4,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "own_app_stopped_after": true,
+      "prior_package_hashes_preserved": true,
+      "adb_clients_cleaned": true
+    },
+    {
+      "cohort": "final-A",
+      "target": "A",
+      "source_commit": "4ef9e20",
+      "status": "passed",
+      "app_sha256": "44b2d1623dfee731fafb4fcd72a44d97239a7aa1ef49f0c0a47614ec1ed14e43",
+      "test_sha256": "43ecd62de304a312b2643894c3932a5a36a54da5f813ccaf46933557fbfa8009",
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#playerPaginationAndGiftHistoryAreReadOnlyAndSurviveStrictReopen",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#androidJsonDecoderRejectsMalformedAndPrivatePagesWithoutEchoingPayloads",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#actualClaimsBeliefsAndKnownTruthKeepDistinctOriginsAndObserverGrants",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordScreenTest#collectedRecordPagesSearchOriginsAndGiftRefreshUseTheAuthoritativeSavedHead",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 4,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "own_app_stopped_after": true,
+      "prior_package_hashes_preserved": true,
+      "adb_clients_cleaned": true
+    },
+    {
+      "cohort": "final-B",
+      "target": "B",
+      "source_commit": "4ef9e20",
+      "status": "passed",
+      "app_sha256": "44b2d1623dfee731fafb4fcd72a44d97239a7aa1ef49f0c0a47614ec1ed14e43",
+      "test_sha256": "43ecd62de304a312b2643894c3932a5a36a54da5f813ccaf46933557fbfa8009",
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#playerPaginationAndGiftHistoryAreReadOnlyAndSurviveStrictReopen",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#androidJsonDecoderRejectsMalformedAndPrivatePagesWithoutEchoingPayloads",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#actualClaimsBeliefsAndKnownTruthKeepDistinctOriginsAndObserverGrants",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordScreenTest#collectedRecordPagesSearchOriginsAndGiftRefreshUseTheAuthoritativeSavedHead",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 4,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "own_app_stopped_after": true,
+      "prior_package_hashes_preserved": true,
+      "adb_clients_cleaned": true
+    },
+    {
+      "cohort": "retry-boundary-A",
+      "target": "A",
+      "source_commit": "65dae1a",
+      "status": "passed",
+      "app_sha256": "676d87d4ad3cd58ba38a733131357d31ad0307517e3fb2e4a0ca4d763b4277b8",
+      "test_sha256": "43ecd62de304a312b2643894c3932a5a36a54da5f813ccaf46933557fbfa8009",
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#playerPaginationAndGiftHistoryAreReadOnlyAndSurviveStrictReopen",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#androidJsonDecoderRejectsMalformedAndPrivatePagesWithoutEchoingPayloads",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#actualClaimsBeliefsAndKnownTruthKeepDistinctOriginsAndObserverGrants",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordScreenTest#collectedRecordPagesSearchOriginsAndGiftRefreshUseTheAuthoritativeSavedHead",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 4,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "own_app_stopped_after": true,
+      "prior_package_hashes_preserved": true,
+      "adb_clients_cleaned": true
+    },
+    {
+      "cohort": "retry-boundary-B",
+      "target": "B",
+      "source_commit": "65dae1a",
+      "status": "passed",
+      "app_sha256": "676d87d4ad3cd58ba38a733131357d31ad0307517e3fb2e4a0ca4d763b4277b8",
+      "test_sha256": "43ecd62de304a312b2643894c3932a5a36a54da5f813ccaf46933557fbfa8009",
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#playerPaginationAndGiftHistoryAreReadOnlyAndSurviveStrictReopen",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#androidJsonDecoderRejectsMalformedAndPrivatePagesWithoutEchoingPayloads",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#actualClaimsBeliefsAndKnownTruthKeepDistinctOriginsAndObserverGrants",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordScreenTest#collectedRecordPagesSearchOriginsAndGiftRefreshUseTheAuthoritativeSavedHead",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 4,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "own_app_stopped_after": true,
+      "prior_package_hashes_preserved": true,
+      "adb_clients_cleaned": true
+    }
+  ],
+  "instrumentation_unique_methods": 4,
+  "instrumentation_total_passes": 24,
+  "instrumentation_final_build_passes": 8,
+  "instrumentation_failed": 0,
+  "instrumentation_skipped": 0,
+  "instrumentation_unfinished": 0,
+  "limitations": [
+    "Textual source references; no event-detail navigation",
+    "Partial M06.06 only; no checklist acceptance or milestone completion",
+    "Existing supported shared fields only; no NPC or omniscient play controls",
+    "No framework onStop measurement added; lifecycle callback and late completion tested on JVM",
+    "No claim that dismissal interrupts an already executing native IO read",
+    "No phone, real model, ARM64 execution, performance, process-kill, hosted CI or release qualification"
+  ]
+}

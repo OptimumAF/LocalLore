@@ -23,7 +23,13 @@ class BranchDeletionShellTest {
 
     private class Stories : DemoGateway {
         override val durable = true
+        override val storyRecords = true
+        val reads = mutableListOf<StoryRecordQuery>()
+        val textInputs = mutableListOf<PlayInput>()
+        val textHeads = mutableListOf<Long>()
+        var recordGate: CompletableDeferred<Unit>? = null
         var selected = "parent"
+        var empty = false
         var removed = false
         var mutations = 0
         var reconciles = 0
@@ -32,6 +38,8 @@ class BranchDeletionShellTest {
         var failReconcile = false
         var initializeGate: CompletableDeferred<Unit>? = null
         fun saved(): SavedSnapshot {
+            if (empty) return SavedSnapshot(0, "", emptyList(), "/synthetic/stories.sqlite3", 1,
+                emptyList(), null, databaseSchemaVersion = 3, textProvider = TextProvider.SCRIPTED)
             val root = SavedStory("synthetic-story", "main", "Original title", 8)
             val timelines = listOfNotNull(
                 SavedTimeline(root.story, "main", null, null, 8, 0),
@@ -43,7 +51,18 @@ class BranchDeletionShellTest {
                 "Confirmed ${current.branch}", false)), "/synthetic/stories.sqlite3", 1,
                 listOf(root), root.copy(branch = current.branch, revision = current.revision,
                     title = if (current.branch == "main") root.title else "Selected display title"),
-                current.uncommittedDrafts, databaseSchemaVersion = 3, timelines = timelines)
+                current.uncommittedDrafts, databaseSchemaVersion = 3, timelines = timelines,
+                textProvider = TextProvider.SCRIPTED)
+        }
+        override suspend fun readStoryRecord(query: StoryRecordQuery): StoryRecordPage {
+            reads += query
+            recordGate?.let { withContext(NonCancellable) { it.await() } }
+            return StoryRecordPage(query, query.context.revision, 1,
+                listOf(StoryRecordEntry("visible", "Visible", "Frozen selected timeline",
+                    StoryRecordOrigin.CANONICAL_FIELD)), null)
+        }
+        override suspend fun respondText(input: PlayInput, revision: Long): DemoResult {
+            textInputs += input; textHeads += revision; return DemoResult.Rejected("Inventory")
         }
         override suspend fun initialize(): SavedSnapshot { initializeGate?.await(); return saved() }
         override suspend fun snapshot() = saved()
@@ -217,5 +236,64 @@ class BranchDeletionShellTest {
         assertFalse(model.branchDeletion.value.visible); assertEquals(1, deletes.closes)
         assertEquals(0, stories.reconciles); assertEquals(0, stories.mutations)
         assertEquals(1, deletes.requests.size); assertEquals("parent", model.state.value.selectedStory?.branch)
+    }
+
+    @Test fun branchDeletionDismissesNoncooperativeRecordAndFencesRetainedTextAndRecordCallbacks() = runTest(dispatcher) {
+        val stories = Stories(); val release = CompletableDeferred<Unit>(); stories.recordGate = release
+        val deletes = Deletes(stories); val model = model(stories, deletes); advanceUntilIdle()
+        try {
+            val before = model.state.value
+            model.openStoryRecord(); runCurrent()
+            assertTrue(model.storyRecord.value.visible && model.storyRecord.value.loading)
+            val oldContext = model.storyRecord.value.context
+            model.openBranchDeletion(); runCurrent()
+            assertEquals(StoryRecordState(), model.storyRecord.value)
+            assertTrue(model.state.value.deletionActive)
+            model.openStoryRecord(); model.recordSection(StoryRecordSection.KNOWLEDGE)
+            model.recordSearch("retained"); model.nextRecordPage(); model.firstRecordPage()
+            model.retryStoryRecord(); model.openRecordEvent(1, oldContext); model.retryRecordEvent()
+            model.submitText(PlayInput(PlayInputKind.ACTION, "I give my last potion to Mira."))
+            model.resumeTimeline(before.timelines.first()); runCurrent()
+            assertEquals(1, stories.reads.size); assertTrue(stories.textInputs.isEmpty())
+            assertEquals(0, stories.mutations); assertEquals(before.messages, model.state.value.messages)
+            release.complete(Unit); advanceUntilIdle()
+            assertEquals(StoryRecordState(), model.storyRecord.value)
+            checkNotNull(model.branchDeletionController).dismiss(); advanceUntilIdle()
+            stories.recordGate = null; model.openStoryRecord(); advanceUntilIdle()
+            assertEquals("main", model.storyRecord.value.context?.story?.branch)
+            assertEquals(8L, model.storyRecord.value.context?.revision)
+            assertEquals(2, stories.reads.size); assertEquals(TextProvider.SCRIPTED, model.state.value.textProvider)
+        } finally { release.complete(Unit); runCurrent() }
+    }
+
+    @Test fun textTurnAfterDeletionReconciliationUsesRetainedRootHeadAndPreservesOriginalInput() = runTest(dispatcher) {
+        val stories = Stories(); val deletes = Deletes(stories); val model = model(stories, deletes)
+        advanceUntilIdle(); model.openBranchDeletion(); advanceUntilIdle()
+        val controller = checkNotNull(model.branchDeletionController)
+        controller.confirm(checkNotNull(controller.state.value.prepared)); advanceUntilIdle()
+        val input = PlayInput(PlayInputKind.DIALOGUE, "  A literal retained-root remark.\n")
+        model.submitText(input); advanceUntilIdle(); assertTrue(stories.textInputs.isEmpty())
+        controller.dismiss(); advanceUntilIdle()
+        model.openStoryRecord(); advanceUntilIdle(); assertTrue(model.storyRecord.value.visible)
+        model.submitText(input); advanceUntilIdle()
+        assertEquals(listOf(input), stories.textInputs); assertEquals(listOf(8L), stories.textHeads)
+        assertEquals(StoryRecordState(), model.storyRecord.value)
+        assertEquals("main", model.state.value.selectedStory?.branch); assertEquals(8L, model.state.value.revision)
+        assertEquals("Confirmed main", model.state.value.messages.single().text)
+        assertEquals(0, stories.mutations); assertEquals(1, stories.reconciles)
+    }
+
+    @Test fun emptyLibraryNeverReadsOrSendsTextOrPreparesEitherDeletion() = runTest(dispatcher) {
+        val stories = Stories().apply { empty = true }; val deletes = Deletes(stories); val whole = WholeDeletes()
+        val model = model(stories, deletes, whole, Archives()); advanceUntilIdle()
+        val before = model.state.value
+        assertNull(before.selectedStory); assertTrue(before.timelines.isEmpty()); assertTrue(before.stories.isEmpty())
+        model.openBranchDeletion(); model.openDeletion(); model.openStoryRecord(); model.openArchive()
+        model.submitText(PlayInput(PlayInputKind.DIALOGUE, "A remark without a selected story."))
+        model.submit(DemoAction.GIVE_POTION); advanceUntilIdle()
+        assertEquals(before, model.state.value); assertTrue(stories.reads.isEmpty())
+        assertTrue(stories.textInputs.isEmpty()); assertTrue(deletes.requests.isEmpty()); assertEquals(0, whole.prepares)
+        assertFalse(model.branchDeletion.value.visible); assertFalse(model.storyRecord.value.visible)
+        assertFalse(model.archive.value.visible); assertEquals(0, stories.mutations)
     }
 }

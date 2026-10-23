@@ -7,7 +7,7 @@ use locallore::{
     play::{self, PlayProfile},
 };
 use locallore_local_runtime::{
-    adapter::RuntimeProvider, LocalRuntime, MODEL_SHA256, PROFILE, RUNTIME_COMMIT,
+    adapter::RuntimeProvider, LocalRuntime, RoleMetricsLog, MODEL_SHA256, PROFILE, RUNTIME_COMMIT,
 };
 use locallore_storage::Store;
 use serde_json::{json, Value};
@@ -69,8 +69,9 @@ fn scenario(
             token.cancel();
         })
     });
+    let role_metrics = RoleMetricsLog::new();
     let mut provider = RecordedProvider {
-        inner: RuntimeProvider::new(runtime),
+        inner: RuntimeProvider::with_metrics(runtime, role_metrics.clone()),
         outputs: vec![],
     };
     let mut candidate = engine.clone();
@@ -84,6 +85,9 @@ fn scenario(
     }
     let metrics = provider.inner.metrics().cloned();
     let failure = provider.inner.last_failure();
+    let outputs = std::mem::take(&mut provider.outputs);
+    drop(provider); // Drain any cancelled attempt before taking the detached metadata snapshot.
+    let role_metrics = role_metrics.snapshot();
     let outcome = match result {
         Ok(receipt) => match store.commit_prepared(&receipt) {
             Ok(committed) => {
@@ -101,7 +105,7 @@ fn scenario(
         }
     };
     let current = store.resume(scope).unwrap().engine;
-    json!({"scenario":turn,"kind":kind,"outcome":outcome,"synthetic_outputs":provider.outputs,"native_metrics_last_role":metrics,"runtime_error":failure,"total_ms":start.elapsed().as_millis(),"unchanged":current.canonical_bytes()==before,"head":current.revision(),"canonical_sha256":format!("{:x}",Sha256::digest(current.canonical_bytes()))})
+    json!({"scenario":turn,"kind":kind,"outcome":outcome,"synthetic_outputs":outputs,"native_role_metrics":role_metrics,"native_metrics_last_role":metrics,"runtime_error":failure,"total_ms":start.elapsed().as_millis(),"unchanged":current.canonical_bytes()==before,"head":current.revision(),"canonical_sha256":format!("{:x}",Sha256::digest(current.canonical_bytes()))})
 }
 
 fn main() {
@@ -264,8 +268,23 @@ fn main() {
         && results[4]["outcome"]["error"] == "Cancelled";
     let mechanical_ability_refusal =
         results[5]["unchanged"] == true && results[5]["outcome"]["error"] == "Ability";
-    let scene_pass = scene_pass && mechanical_ability_refusal;
-    let report = json!({"synthetic":true,"execution":"native CPU worker plus shared Rust engine/store; no desktop IPC or render","scope":scope,"profile":profile,"load":load,"scene_pass":scene_pass,"gift_committed":gift_committed,"restart_equal":restarted_equal,"exact_retry_without_inference":exact_retry,"speaker_scoped_secret":speaker_scoped,"replay_without_inference":replay_equal,"results":results,"total_ms":overall.elapsed().as_millis(),"quality_accepted":false,"network_blocked":false});
+    let per_role_metrics_complete = results
+        .iter()
+        .filter(|r| r["outcome"]["status"] == "committed")
+        .all(|result| {
+            let snapshot = &result["native_role_metrics"];
+            let records = snapshot["records"].as_array().unwrap();
+            snapshot["available"] == true
+                && snapshot["incomplete"] == false
+                && (2..=3).contains(&records.len())
+                && records.first().unwrap()["role"] == "director"
+                && records.last().unwrap()["role"] == "narrator"
+                && records
+                    .iter()
+                    .all(|r| r["native_terminal"] == "completed" && !r["worker_metrics"].is_null())
+        });
+    let scene_pass = scene_pass && mechanical_ability_refusal && per_role_metrics_complete;
+    let report = json!({"synthetic":true,"execution":"native CPU worker plus shared Rust engine/store; no desktop IPC or render","scope":scope,"profile":profile,"load":load,"scene_pass":scene_pass,"per_role_metrics_complete":per_role_metrics_complete,"gift_committed":gift_committed,"restart_equal":restarted_equal,"exact_retry_without_inference":exact_retry,"speaker_scoped_secret":speaker_scoped,"replay_without_inference":replay_equal,"results":results,"total_ms":overall.elapsed().as_millis(),"quality_accepted":false,"network_blocked":false});
     std::fs::write(
         output.join("report.json"),
         serde_json::to_vec_pretty(&report).unwrap(),

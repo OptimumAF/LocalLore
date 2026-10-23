@@ -10,6 +10,10 @@ use locallore::{
 };
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior};
 
+#[cfg(test)]
+#[path = "turns/storage_pressure.rs"]
+mod storage_pressure;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TurnError {
     Storage(StorageError),

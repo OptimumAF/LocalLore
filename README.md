@@ -69,6 +69,11 @@ both candidates and the existing Rust oracle on authorized emulators. It adds
 no production inference dependency; physical-device and reliability gates remain
 open, with failures retained in the dated results.
 
+An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects
+the isolated SDK to guarded free-text preparation and durable commit. Its
+[verification](docs/runtime/android/PLAY_VERIFICATION_2026-10-23.md) establishes
+host/build and missing-model cleanup checks; real generation remains pending.
+
 ## Run the Android engine demo
 
 The minimal Compose app calls the actual Rust engine through bounded JNI. It
@@ -82,8 +87,18 @@ SDK 36, NDK 29.0.14206865 and both Rust Android targets installed:
 python scripts/check.py android
 ```
 
+The **Write a turn** composer now sends Action/Dialogue input through Rust's
+guarded play-v2 flow using an explicitly scripted fixture, with no language model.
+**Potion example** fills a draft; **Send** proposes the gift for engine validation.
+Dialogue records the player's literal statement without establishing world truth.
+Cancellation, exact-key recovery and saved-story reopen were exercised on both
+test emulators. This is input plumbing, not the real-backend/reference-phone demo.
+See [verification and limitations](docs/native/ANDROID_INPUT_VERIFICATION_2026-10-23.md).
+
 See [Android build and sample instructions](apps/android/README.md) and
 [dated native/emulator verification](docs/native/VERIFICATION_2026-10-22.md).
+The [durable-app FFI follow-up](docs/native/APP_DEVICE_VERIFICATION_2026-10-22.md)
+records current production-transport cancellation, disposal and process-restart checks.
 The [shared check runner/CI instructions](docs/ci/CHECKS.md) document offline
 mode, prerequisites and separate authorized emulator commands. Build/static
 checks do not establish hosted execution or device qualification.

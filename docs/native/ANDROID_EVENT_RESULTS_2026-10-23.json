@@ -1,0 +1,596 @@
+{
+  "version": 1,
+  "date": "2026-10-23",
+  "scope": "bounded_m06_06_player_source_event_navigation",
+  "prerequisite_pr": 64,
+  "base_commit": "ab5416405050634739572866863b1b53c424a071",
+  "final_executable_source": "54847ac",
+  "status": "final_source_locally_verified_pending_owner_acceptance",
+  "engine_host_storage_schema_dependencies_permissions_changed": false,
+  "host": {
+    "command": "python scripts/check.py host --offline",
+    "status": "passed",
+    "workspace_rust": 233,
+    "native_linker": 3,
+    "python": 191
+  },
+  "build_attempts": [
+    {
+      "attempt": 1,
+      "status": "passed",
+      "scope": "initial_build_jvm_lint",
+      "unit_count_not_retained": true
+    },
+    {
+      "attempt": 2,
+      "status": "passed",
+      "scope": "unit_only"
+    },
+    {
+      "attempt": 3,
+      "status": "failed",
+      "scope": "fresh_unit_build_lint",
+      "failure": "coordinator AndroidTest unresolved local variable record",
+      "jvm_passed": 71
+    },
+    {
+      "attempt": 4,
+      "status": "passed",
+      "scope": "build_lint_instrumentation_compile",
+      "unit_task_reused": true
+    },
+    {
+      "attempt": 5,
+      "status": "passed",
+      "scope": "negative_regression_apks_only"
+    },
+    {
+      "attempt": 6,
+      "status": "passed",
+      "scope": "corrected_final_fresh_unit_build_lint",
+      "jvm_passed": 71,
+      "native_task_reused": true
+    },
+    {
+      "attempt": 7,
+      "status": "passed",
+      "scope": "final_lint_cleanup_unit_build_lint",
+      "jvm_passed": 71,
+      "native_task_reused": true
+    }
+  ],
+  "jvm_suites": [
+    {
+      "name": "org.locallore.app.DiagnosticsControllerTest",
+      "tests": "9",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "org.locallore.app.DiagnosticsTest",
+      "tests": "9",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "org.locallore.app.DurableShellTest",
+      "tests": "7",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "org.locallore.app.EventSourceControllerTest",
+      "tests": "11",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "org.locallore.app.EventSourceViewModelTest",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "org.locallore.app.ShellViewModelTest",
+      "tests": "13",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "org.locallore.app.StoryRecordControllerTest",
+      "tests": "8",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "org.locallore.app.StoryRecordViewModelTest",
+      "tests": "9",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "lint": {
+    "errors": 0,
+    "existing_warnings": 1,
+    "new_warnings": 0,
+    "historical_build06": {
+      "existing_GradleDependency": 1,
+      "new_ModifierParameter": 1
+    },
+    "cleanup": "remove unnecessary default from internal detail retry parameter"
+  },
+  "apk_audits": [
+    {
+      "attempt": 1,
+      "status": "failed_before_inspection",
+      "reason": "ANDROID_HOME missing"
+    },
+    {
+      "attempt": 2,
+      "status": "passed"
+    },
+    {
+      "attempt": 3,
+      "status": "passed",
+      "packaged_abis": [
+        "x86_64",
+        "arm64-v8a"
+      ],
+      "elf_zip_alignment_bytes": 16384
+    },
+    {
+      "attempt": 4,
+      "status": "passed",
+      "final": true,
+      "packaged_abis": [
+        "x86_64",
+        "arm64-v8a"
+      ],
+      "elf_zip_alignment_bytes": 16384
+    }
+  ],
+  "preflight": [
+    {
+      "target": "A",
+      "status": "passed",
+      "api": 35,
+      "abi": "x86_64",
+      "os_page_bytes": 4096,
+      "known_prior_record_build_verified": true,
+      "prior_capacity_packages_preserved": true
+    },
+    {
+      "target": "B",
+      "status": "passed",
+      "api": 35,
+      "abi": "x86_64",
+      "os_page_bytes": 4096,
+      "known_prior_record_build_verified": true,
+      "prior_capacity_packages_preserved": true
+    }
+  ],
+  "cohorts": [
+    {
+      "cohort": "candidate-A",
+      "source_commit": "487effa",
+      "purpose": "pre_render_callback_regression",
+      "target": "A",
+      "status": "passed",
+      "app_sha256": "08da19285beb71b65931b54dfa2b0f48594741e6da6926a085048ff7e9089fc7",
+      "test_sha256": "1adc40e01ad954a87923dc9b4332e7220c0e5d1d7f33373c6c64568468bb3b28",
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#playerPaginationAndGiftHistoryAreReadOnlyAndSurviveStrictReopen",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#androidJsonDecoderRejectsMalformedAndPrivatePagesWithoutEchoingPayloads",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#actualClaimsBeliefsAndKnownTruthKeepDistinctOriginsAndObserverGrants",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#decoderRequiresValidTypedEvidenceAndEventMetadataAndNeverLinksWithheldEvidence",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#crossSceneSourcesNavigateToExactAcceptedEventsWithoutNewTurnsAndReopenStrictly",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#playerSourcesCannotGrantNpcFutureBranchOrOtherStoryEvents",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordScreenTest#collectedRecordPagesSearchOriginsAndGiftRefreshUseTheAuthoritativeSavedHead",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceScreenTest#sourceButtonsRestoreSearchedSecondPageAndFenceLinksAcrossSavedStories",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 8,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "own_app_stopped_after": true,
+      "prior_package_hashes_preserved": true,
+      "host_clients_cleaned": true
+    },
+    {
+      "cohort": "candidate-B",
+      "source_commit": "487effa",
+      "purpose": "pre_render_callback_regression",
+      "target": "B",
+      "status": "passed",
+      "app_sha256": "08da19285beb71b65931b54dfa2b0f48594741e6da6926a085048ff7e9089fc7",
+      "test_sha256": "1adc40e01ad954a87923dc9b4332e7220c0e5d1d7f33373c6c64568468bb3b28",
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#playerPaginationAndGiftHistoryAreReadOnlyAndSurviveStrictReopen",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#androidJsonDecoderRejectsMalformedAndPrivatePagesWithoutEchoingPayloads",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#actualClaimsBeliefsAndKnownTruthKeepDistinctOriginsAndObserverGrants",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#decoderRequiresValidTypedEvidenceAndEventMetadataAndNeverLinksWithheldEvidence",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#crossSceneSourcesNavigateToExactAcceptedEventsWithoutNewTurnsAndReopenStrictly",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#playerSourcesCannotGrantNpcFutureBranchOrOtherStoryEvents",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordScreenTest#collectedRecordPagesSearchOriginsAndGiftRefreshUseTheAuthoritativeSavedHead",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceScreenTest#sourceButtonsRestoreSearchedSecondPageAndFenceLinksAcrossSavedStories",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 8,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "own_app_stopped_after": true,
+      "prior_package_hashes_preserved": true,
+      "host_clients_cleaned": true
+    },
+    {
+      "cohort": "stale-callback-red-A",
+      "source_commit": "4e403f1",
+      "purpose": "negative_regression",
+      "target": "A",
+      "status": "failed",
+      "app_sha256": "08da19285beb71b65931b54dfa2b0f48594741e6da6926a085048ff7e9089fc7",
+      "test_sha256": "f36a9e558516c1172d027fbb88638149d956a8d012c61515989d139c22b60ae3",
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#playerPaginationAndGiftHistoryAreReadOnlyAndSurviveStrictReopen",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#androidJsonDecoderRejectsMalformedAndPrivatePagesWithoutEchoingPayloads",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#actualClaimsBeliefsAndKnownTruthKeepDistinctOriginsAndObserverGrants",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#decoderRequiresValidTypedEvidenceAndEventMetadataAndNeverLinksWithheldEvidence",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#crossSceneSourcesNavigateToExactAcceptedEventsWithoutNewTurnsAndReopenStrictly",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#playerSourcesCannotGrantNpcFutureBranchOrOtherStoryEvents",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordScreenTest#collectedRecordPagesSearchOriginsAndGiftRefreshUseTheAuthoritativeSavedHead",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceScreenTest#sourceButtonsRestoreSearchedSecondPageAndFenceLinksAcrossSavedStories",
+            "outcome": "failed"
+          }
+        ],
+        "failed": 1,
+        "final_success": false,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 7,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "failed"
+      },
+      "own_app_stopped_after": true,
+      "prior_package_hashes_preserved": true,
+      "host_clients_cleaned": true
+    },
+    {
+      "cohort": "final-A",
+      "source_commit": "f86d7d4",
+      "purpose": "corrected_final",
+      "target": "A",
+      "status": "passed",
+      "app_sha256": "fe06490170320f5510c792a1aefcb2a235729900e6c21b4f0122005c4875b711",
+      "test_sha256": "ee8fb475838f725f6ea5a4d2de08d6326acc43e53744f45fef654290b707e67c",
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#playerPaginationAndGiftHistoryAreReadOnlyAndSurviveStrictReopen",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#androidJsonDecoderRejectsMalformedAndPrivatePagesWithoutEchoingPayloads",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#actualClaimsBeliefsAndKnownTruthKeepDistinctOriginsAndObserverGrants",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#decoderRequiresValidTypedEvidenceAndEventMetadataAndNeverLinksWithheldEvidence",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#crossSceneSourcesNavigateToExactAcceptedEventsWithoutNewTurnsAndReopenStrictly",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#playerSourcesCannotGrantNpcFutureBranchOrOtherStoryEvents",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordScreenTest#collectedRecordPagesSearchOriginsAndGiftRefreshUseTheAuthoritativeSavedHead",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceScreenTest#sourceButtonsRestoreSearchedSecondPageAndFenceLinksAcrossSavedStories",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 8,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "own_app_stopped_after": true,
+      "prior_package_hashes_preserved": true,
+      "host_clients_cleaned": true
+    },
+    {
+      "cohort": "final-B",
+      "source_commit": "f86d7d4",
+      "purpose": "corrected_final",
+      "target": "B",
+      "status": "passed",
+      "app_sha256": "fe06490170320f5510c792a1aefcb2a235729900e6c21b4f0122005c4875b711",
+      "test_sha256": "ee8fb475838f725f6ea5a4d2de08d6326acc43e53744f45fef654290b707e67c",
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#playerPaginationAndGiftHistoryAreReadOnlyAndSurviveStrictReopen",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#androidJsonDecoderRejectsMalformedAndPrivatePagesWithoutEchoingPayloads",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#actualClaimsBeliefsAndKnownTruthKeepDistinctOriginsAndObserverGrants",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#decoderRequiresValidTypedEvidenceAndEventMetadataAndNeverLinksWithheldEvidence",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#crossSceneSourcesNavigateToExactAcceptedEventsWithoutNewTurnsAndReopenStrictly",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#playerSourcesCannotGrantNpcFutureBranchOrOtherStoryEvents",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordScreenTest#collectedRecordPagesSearchOriginsAndGiftRefreshUseTheAuthoritativeSavedHead",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceScreenTest#sourceButtonsRestoreSearchedSecondPageAndFenceLinksAcrossSavedStories",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 8,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "own_app_stopped_after": true,
+      "prior_package_hashes_preserved": true,
+      "host_clients_cleaned": true
+    },
+    {
+      "cohort": "lint-final-A",
+      "source_commit": "54847ac",
+      "purpose": "final_after_lint_cleanup",
+      "target": "A",
+      "status": "passed",
+      "app_sha256": "67bde4598020184da300ed69ea41991548317cb891a9f5950adbc7fce87871e9",
+      "test_sha256": "ee8fb475838f725f6ea5a4d2de08d6326acc43e53744f45fef654290b707e67c",
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#playerPaginationAndGiftHistoryAreReadOnlyAndSurviveStrictReopen",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#androidJsonDecoderRejectsMalformedAndPrivatePagesWithoutEchoingPayloads",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#actualClaimsBeliefsAndKnownTruthKeepDistinctOriginsAndObserverGrants",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#decoderRequiresValidTypedEvidenceAndEventMetadataAndNeverLinksWithheldEvidence",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#crossSceneSourcesNavigateToExactAcceptedEventsWithoutNewTurnsAndReopenStrictly",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#playerSourcesCannotGrantNpcFutureBranchOrOtherStoryEvents",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordScreenTest#collectedRecordPagesSearchOriginsAndGiftRefreshUseTheAuthoritativeSavedHead",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceScreenTest#sourceButtonsRestoreSearchedSecondPageAndFenceLinksAcrossSavedStories",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 8,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "own_app_stopped_after": true,
+      "prior_package_hashes_preserved": true,
+      "host_clients_cleaned": true
+    },
+    {
+      "cohort": "lint-final-B",
+      "source_commit": "54847ac",
+      "purpose": "final_after_lint_cleanup",
+      "target": "B",
+      "status": "passed",
+      "app_sha256": "67bde4598020184da300ed69ea41991548317cb891a9f5950adbc7fce87871e9",
+      "test_sha256": "ee8fb475838f725f6ea5a4d2de08d6326acc43e53744f45fef654290b707e67c",
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#playerPaginationAndGiftHistoryAreReadOnlyAndSurviveStrictReopen",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#androidJsonDecoderRejectsMalformedAndPrivatePagesWithoutEchoingPayloads",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#actualClaimsBeliefsAndKnownTruthKeepDistinctOriginsAndObserverGrants",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#decoderRequiresValidTypedEvidenceAndEventMetadataAndNeverLinksWithheldEvidence",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#crossSceneSourcesNavigateToExactAcceptedEventsWithoutNewTurnsAndReopenStrictly",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#playerSourcesCannotGrantNpcFutureBranchOrOtherStoryEvents",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordScreenTest#collectedRecordPagesSearchOriginsAndGiftRefreshUseTheAuthoritativeSavedHead",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceScreenTest#sourceButtonsRestoreSearchedSecondPageAndFenceLinksAcrossSavedStories",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 8,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "own_app_stopped_after": true,
+      "prior_package_hashes_preserved": true,
+      "host_clients_cleaned": true
+    }
+  ],
+  "unique_methods": 8,
+  "new_unique_methods": 4,
+  "final_source_passed": 16,
+  "final_source_failed": 0,
+  "all_attempts_passed": 55,
+  "all_attempts_failed": 1,
+  "all_attempts_skipped": 0,
+  "all_attempts_unfinished": 0,
+  "negative_regression": {
+    "target": "A",
+    "reproduced": true,
+    "failure": "retained rendered callback borrowed a same-numbered event from another story",
+    "canon_or_secret_violation_demonstrated": false,
+    "fix": "capture nondelegated immutable rendered context before constructing callback"
+  },
+  "scope_limits": [
+    "Current visible outgoing relationships remain seed-backed; no positive actual relationship-event link claimed",
+    "Withheld evidence cases are local malformed-frame mutations, not an engine-produced Withheld fixture",
+    "JVM lifecycle/late-result evidence does not establish new framework onStop or native IO interruption measurements",
+    "No phone, real model, ARM64 or 16KiB OS execution, performance, process-kill, hosted CI or release qualification",
+    "Partial M06.06; checklist acceptance belongs to owner; prerequisite PR64 remains unmerged"
+  ]
+}

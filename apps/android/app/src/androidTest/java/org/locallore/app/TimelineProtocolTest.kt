@@ -12,6 +12,38 @@ import org.junit.runner.RunWith
 /** Android JSONObject protocol checks. This fake transport does not prove SQLite replay. */
 @RunWith(AndroidJUnit4::class)
 class TimelineProtocolTest {
+    @Test fun retainedParentMetadataIsValidatedBeforeFiltering(): Unit = runBlocking {
+        fun retained(data: JSONObject) {
+            val rows = data.getJSONArray("branches")
+            val child = rows.getJSONObject(0).put("parent_branch", "parent").put("fork_revision", 3)
+            val root = rows.getJSONObject(1)
+            val parent = JSONObject().put("scope", JSONObject().put("story", "story-a").put("branch", "parent"))
+                .put("parent_branch", "main").put("fork_revision", 1).put("revision", 3).put("drafts", 0).put("retired", true)
+            data.put("branches", JSONArray().put(child).put(root).put(parent))
+        }
+        val transport = Protocol().also { it.changeCatalog = ::retained }
+        val gateway = DurableGateway(transport, autoCreateIfEmpty = false)
+        try {
+            assertEquals(listOf("child", "main"), gateway.initialize().timelines.map { it.branch })
+            assertEquals("child", gateway.resumeSaved(SavedStory("story-a", "child", "Original title", 3)).selected?.branch)
+        } finally { gateway.close() }
+        val mutations: List<(JSONObject) -> Unit> = listOf(
+            { it.getJSONArray("branches").getJSONObject(2).put("retired", "true") },
+            { it.getJSONArray("branches").getJSONObject(2).put("drafts", 1) },
+            { it.getJSONArray("branches").getJSONObject(1).put("retired", true) },
+            { it.getJSONArray("branches").getJSONObject(2).put("parent_branch", "absent") },
+            { it.getJSONArray("branches").getJSONObject(2).put("revision", 2) },
+        )
+        for (mutation in mutations) {
+            val malformed = Protocol().also { it.changeCatalog = { data -> retained(data); mutation(data) } }
+            val reader = DurableGateway(malformed, autoCreateIfEmpty = false)
+            try {
+                try { reader.initialize(); fail("Invalid retained ancestry accepted") }
+                catch (failure: WorkspaceFailure) { assertEquals("Malformed", failure.category) }
+                assertFalse(malformed.calls.any { it in setOf("submit", "prepare", "commit", "free_text", "create") })
+            } finally { reader.close() }
+        }
+    }
     private class Protocol(val storyId: String = "story-a") : WorkspaceTransport {
         var selected = "main"
         var receiptStory = storyId

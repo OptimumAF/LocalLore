@@ -8,6 +8,10 @@ export type HostCommand =
           op: "workspace";
       }
     | {
+          op: "branches";
+          story: string;
+      }
+    | {
           op: "resume";
           scope: Scope;
       }

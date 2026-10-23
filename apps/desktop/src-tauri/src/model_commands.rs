@@ -2,7 +2,7 @@ use crate::{models::ModelManager, WorkspaceState};
 use serde_json::Value;
 use std::sync::Arc;
 #[tauri::command]
-pub fn model_status(
+pub async fn model_status(
     window: tauri::WebviewWindow,
     workspace: tauri::State<'_, WorkspaceState>,
     models: tauri::State<'_, Arc<ModelManager>>,
@@ -11,7 +11,10 @@ pub fn model_status(
         .lease
         .capture(window.label())
         .map_err(str::to_owned)?;
-    models.status()
+    let manager = models.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || manager.status())
+        .await
+        .map_err(|_| "Internal".to_owned())?
 }
 #[tauri::command]
 pub fn model_cancel(

@@ -122,6 +122,8 @@ const files = [
     "../../crates/locallore-local-runtime/src/lib.rs",
     "../../crates/locallore-local-runtime/src/adapter.rs",
     "../../native/llama-worker/profile-v1.json",
+    "../../native/llama-worker/main.cpp",
+    "../../native/llama-worker/generate.inc",
     "src-tauri/runtime/locallore-llama-worker.exe",
     "../../crates/locallore/src/host.rs",
     "../../crates/locallore-workspace/src/lib.rs",

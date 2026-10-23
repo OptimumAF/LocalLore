@@ -8,10 +8,12 @@ for (const args of [
     ["check-contract.mjs"],
     ["check-export-controller.mjs"],
     ["check-model-controller.mjs"],
+    ["check-early-cancel.mjs"],
     ["check-model-refresh.mjs"],
     ["check-inspection-controller.mjs"],
     ["check-trace-controller.mjs"],
     ["check-evaluation-controller.mjs"],
+    ["check-archive-controller.mjs"],
 ]) {
     const code = await new Promise((resolve, reject) => {
         const child = spawn(process.execPath, args, {
@@ -43,6 +45,8 @@ for (const marker of [
     "d06-external-wait",
     "d07-native-evaluation-checkpoints",
     "harness_evaluation_case",
+    "harness_archive_case",
+    "d08-native-durable-workspace",
     "legacy-v1-native-migrated-resume",
     "export-snapshot-independent-of-later-turn",
 ])

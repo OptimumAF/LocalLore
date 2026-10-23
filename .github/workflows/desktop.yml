@@ -1,0 +1,87 @@
+name: Desktop build checks
+
+on:
+    pull_request:
+    push:
+        branches: [main]
+
+permissions:
+    contents: read
+
+concurrency:
+    group: desktop-${{ github.event.pull_request.number || github.ref }}
+    cancel-in-progress: true
+
+# Public source and synthetic unit fixtures only. No cache, upload, model or app launch.
+defaults:
+    run:
+        shell: pwsh
+
+env:
+    CARGO_PROFILE_DEV_DEBUG: "0"
+    CARGO_PROFILE_TEST_DEBUG: "0"
+    CARGO_INCREMENTAL: "0"
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+jobs:
+    windows-x64:
+        runs-on: windows-2025
+        timeout-minutes: 45
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1; MIT; node24
+              with:
+                  persist-credentials: false
+            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0; MIT; node24
+              with:
+                  node-version: "24.22.1"
+                  architecture: x64
+                  package-manager-cache: false
+            - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0; MIT; node24
+              with:
+                  python-version: "3.14.9"
+                  architecture: x64
+            - name: Check selected tools and provision pinned Rust
+              run: |
+                  if ((node --version) -ne 'v24.22.1') { throw 'Unexpected Node version' }
+                  if ((npm --version) -ne '11.19.1') { throw 'Unexpected npm version' }
+                  if ((python --version) -ne 'Python 3.14.9') { throw 'Unexpected Python version' }
+                  rustup toolchain install 1.93.1 --profile minimal --component rustfmt --component clippy
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                  rustc +1.93.1 -vV
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            - name: Install locked frontend dependencies without lifecycle scripts
+              run: npm --prefix apps/desktop ci --ignore-scripts --no-audit --no-fund
+            - name: Check normal frontend and actual controller contracts
+              run: |
+                  npm --prefix apps/desktop run check
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                  npm --prefix apps/desktop run format:check
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                  git diff --exit-code -- apps/desktop/ui/host.generated.ts
+            - name: Check package policy with synthetic files
+              run: |
+                  node scripts/desktop-package-workflow-check.mjs
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                  python scripts/desktop-package-tests.py
+            # This crate is a standalone workspace, excluded from cargo test at repo root.
+            # Build the ordinary fixture executable before unit tests locate it beside deps/.
+            - name: Build synthetic runtime protocol fixture
+              run: cargo +1.93.1 build --manifest-path crates/locallore-local-runtime/Cargo.toml --features development-worker,engine-adapter --bin protocol-fixture --locked
+            - name: Check standalone runtime formatting
+              run: cargo +1.93.1 fmt --manifest-path crates/locallore-local-runtime/Cargo.toml -- --check
+            - name: Test synthetic runtime and engine adapter
+              run: cargo +1.93.1 test --manifest-path crates/locallore-local-runtime/Cargo.toml --all-targets --features development-worker,engine-adapter --locked
+            - name: Check synthetic runtime and engine adapter
+              run: cargo +1.93.1 clippy --manifest-path crates/locallore-local-runtime/Cargo.toml --all-targets --features development-worker,engine-adapter --locked -- -D warnings
+            - name: Check native formatting
+              run: cargo +1.93.1 fmt --manifest-path apps/desktop/src-tauri/Cargo.toml -- --check
+            - name: Check normal native code
+              run: cargo +1.93.1 clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --locked -- -D warnings
+            - name: Run synthetic native unit tests
+              run: cargo +1.93.1 test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
+            - name: Check development-only native code
+              run: cargo +1.93.1 clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --features dev-harness --locked -- -D warnings
+            - name: Run development-only unit and compile-contract tests
+              run: cargo +1.93.1 test --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness --locked
+            - name: Build normal native executable without development features
+              run: cargo +1.93.1 rustc --manifest-path apps/desktop/src-tauri/Cargo.toml --bin locallore-desktop-spike --no-default-features --locked -- -C link-arg=/Brepro

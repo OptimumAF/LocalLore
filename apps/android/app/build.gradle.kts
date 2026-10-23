@@ -81,18 +81,31 @@ val reliefOption = providers.gradleProperty("locallore.capacityReliefTest").orNu
 require(reliefOption == null || reliefOption == "false" || reliefOption == "true") {
     "locallore.capacityReliefTest must be absent, false or true"
 }
-val reliefTest = reliefOption == "true"
+val reliefFaultOption = providers.gradleProperty("locallore.capacityReliefFaultTest").orNull
+require(reliefFaultOption == null || reliefFaultOption == "false" || reliefFaultOption == "true") {
+    "locallore.capacityReliefFaultTest must be absent, false or true"
+}
+val reliefFaultTest = reliefFaultOption == "true"
+require(!(reliefFaultTest && reliefOption == "true")) { "Relief and helper-fault modes are mutually exclusive" }
+val reliefTest = reliefOption == "true" || reliefFaultTest
 require(!(capacityTest && reliefTest)) { "Capacity and capacity-relief modes are mutually exclusive" }
 require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention).none { it == "true" } || !(capacityTest || reliefTest)) {
     "Archive verification and capacity modes are mutually exclusive"
 }
-val capacityCache = rootProject.file(".gradle-capacity").canonicalFile
-val reliefCache = rootProject.file(".gradle-capacity-relief").canonicalFile
+val capacityCache = rootProject.file(".gradle-capacity-v3").canonicalFile
+val reliefCache = rootProject.file(".gradle-capacity-relief-v3").canonicalFile
+val reliefFaultCache = rootProject.file(".gradle-capacity-faults-v3").canonicalFile
 val selectedCache = gradle.startParameter.projectCacheDir?.canonicalFile
+val historicalCapacityCaches = setOf(rootProject.file(".gradle-capacity").canonicalFile,
+    rootProject.file(".gradle-capacity-relief").canonicalFile)
+require(selectedCache !in historicalCapacityCaches) {
+    "Historical capacity caches must remain untouched; use the exclusive schema3 v3 cache."
+}
 require(when {
     capacityTest -> selectedCache == capacityCache
+    reliefFaultTest -> selectedCache == reliefFaultCache
     reliefTest -> selectedCache == reliefCache
-    else -> selectedCache != capacityCache && selectedCache != reliefCache
+    else -> selectedCache !in setOf(capacityCache, reliefCache, reliefFaultCache)
 }) {
     "Capacity modes require their separate project caches; use the corresponding scripts/android_capacity*_probe.py build"
 }
@@ -100,21 +113,27 @@ val capacityProfile = Properties().apply {
     rootProject.file("capacity-profile.properties").inputStream().use { load(it) }
 }
 require(capacityProfile == Properties().apply {
-    setProperty("sqlite.maxPageCount", "15")
+    setProperty("sqlite.maxPageCount", "17")
     setProperty("fixture.prefixTurns", "0")
+    setProperty("fixture.format", "2")
+    setProperty("database.schemaVersion", "3")
 }) { "Capacity profile changed; recalibrate and review the fixed test binary before updating this guard" }
 val reliefProfile = Properties().apply {
     rootProject.file("capacity-relief-profile.properties").inputStream().use { load(it) }
 }
 require(reliefProfile == Properties().apply {
     setProperty("sqlite.maxPageCount", "32")
-    setProperty("fixture.format", "1")
+    setProperty("fixture.format", "2")
+    setProperty("database.schemaVersion", "3")
+    setProperty("fixture.initialPages", "17")
+    setProperty("fixture.paddingRows", "14")
 }) { "Relief profile changed; recalibrate and review the fixed test binary before updating this guard" }
 extra["localloreCapacityTest"] = capacityTest || reliefTest
-extra["localloreCapacityMode"] = when { capacityTest -> "full"; reliefTest -> "relief"; else -> "ordinary" }
-extra["localloreCapacityPages"] = when { capacityTest -> 15; reliefTest -> 32; else -> 0 }
-if (capacityTest) layout.buildDirectory.set(layout.projectDirectory.dir("build-capacity"))
-if (reliefTest) layout.buildDirectory.set(layout.projectDirectory.dir("build-capacity-relief"))
+extra["localloreCapacityMode"] = when { capacityTest -> "full"; reliefFaultTest -> "faults"; reliefTest -> "relief"; else -> "ordinary" }
+extra["localloreCapacityPages"] = when { capacityTest -> 17; reliefTest -> 32; else -> 0 }
+if (capacityTest) layout.buildDirectory.set(layout.projectDirectory.dir("build-capacity-v3"))
+if (reliefTest) layout.buildDirectory.set(layout.projectDirectory.dir(
+    if (reliefFaultTest) "build-capacity-faults-v3" else "build-capacity-relief-v3"))
 
 android {
     namespace = "org.locallore.app"
@@ -125,8 +144,9 @@ android {
 
     defaultConfig {
         applicationId = when {
-            capacityTest -> "org.locallore.app.capacity"
-            reliefTest -> "org.locallore.app.capacityrelief"
+            capacityTest -> "org.locallore.app.capacityv3"
+            reliefFaultTest -> "org.locallore.app.capacityfaultsv3"
+            reliefTest -> "org.locallore.app.capacityreliefv3"
             else -> "org.locallore.app"
         }
         minSdk = 26
@@ -156,7 +176,8 @@ android {
         }
     }
     if (reliefTest) {
-        sourceSets["debug"].manifest.srcFile("src/capacityReliefTest/ReliefAppManifest.xml")
+        sourceSets["debug"].manifest.srcFile(if (reliefFaultTest)
+            "src/capacityReliefTest/FaultsAppManifest.xml" else "src/capacityReliefTest/ReliefAppManifest.xml")
         sourceSets["androidTest"].setRoot("src/capacityReliefTest")
     }
 }

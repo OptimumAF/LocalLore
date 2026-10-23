@@ -75,7 +75,7 @@ class SqliteCapacityInstrumentedTest {
             val calls = f.main.replies.calls.size
             compose.runOnIdle {
                 val disposed = model.state.value
-                model.submit(DemoAction.GIVE_POTION); model.recover(); model.reset(); model.resume(baseline.selected)
+                model.submit(DemoAction.GIVE_POTION); model.recover(); model.reset(); model.resume(checkNotNull(baseline.selected))
                 assertEquals(disposed, model.state.value)
             }
             assertEquals(calls, f.main.replies.calls.size)

@@ -46,6 +46,11 @@ fn run(directory: PathBuf, prefix: usize, expect_full: bool) -> Result<Value, &'
     std::fs::create_dir(&directory).map_err(|_| "fresh_directory")?;
     let path = directory.join("stories.sqlite");
     let host = locallore_workspace::open(&path, false).map_err(|_| "open")?;
+    let workspace = call(&host, json!({"op":"workspace"}));
+    require(
+        workspace["status"] == "ok" && workspace["data"]["database_schema_version"] == 3,
+        "schema3",
+    )?;
     let created = call(&host, json!({"op":"create","seed":"lantern-quay-v1"}));
     require(created["status"] == "ok", "create")?;
     let session = created["data"]["session"].as_str().ok_or("session")?;
@@ -168,7 +173,10 @@ fn run(directory: PathBuf, prefix: usize, expect_full: bool) -> Result<Value, &'
         require(reopened_key == committed, "reopened_receipt")?;
     }
     Ok(
-        json!({"version":1,"prefix":prefix,"dialogue_bytes":2048,"turn_id_bytes":36,
+        json!({"version":2,"database_schema_version":3,"page_bytes":4096,
+        "initial_pages":initial_bytes / 4096,"draft_pages":after_draft / 4096,
+        "ready_pages":after_ready / 4096,"commit_pages":after_commit / 4096,
+        "prefix":prefix,"dialogue_bytes":2048,"turn_id_bytes":36,
         "initial_bytes":initial_bytes,"prefix_commit_bytes":prefix_sizes,"before_draft_bytes":before_draft,
         "after_draft_bytes":after_draft,"after_ready_bytes":after_ready,"after_commit_bytes":after_commit,
         "commit_full":full,"same_key_ready_after_full":retained,"canonical_unchanged_after_full":canonical_unchanged,
@@ -205,7 +213,7 @@ fn main() {
     match result {
         Ok(report) => println!("{report}"),
         Err(stage) => {
-            eprintln!("{}", json!({"version":1,"status":"failed","stage":stage}));
+            eprintln!("{}", json!({"version":2,"status":"failed","stage":stage}));
             std::process::exit(1);
         }
     }

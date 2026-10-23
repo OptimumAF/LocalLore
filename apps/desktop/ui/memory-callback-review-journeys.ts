@@ -35,5 +35,19 @@ export async function memoryCallbackReviewJourneys() {
             check(c.get().reply === null && !c.get().busy && c.get().error === null, `${action}-${retire}-no-old-result-or-error`);
         }
     }
+    for(const retire of ["context","dispose"]) {
+        let next=0;
+        const c=new MemoryMaintenanceController(async(name,args)=>{
+            if(name==="archive_cancel")return {version:1,operation_id:3,running:true,phase:"memory_maintenance",error:null,result:null};
+            const action=(args!.request as {action:MemoryAction}).action;
+            if(action==="step")return {version:1,operation_id:3,running:true,phase:"memory_maintenance",error:null,result:null};
+            return {version:1,operation_id:++next,running:false,phase:"completed",error:null,result:{version:1,kind:"memory_maintenance",session:context.session,scope:context.scope,expected_head:1,action,maintenance:{version:1,scope:context.scope,head:1,action,job:action==="admit"?{status:"ready",basis_revision:1,next_from:0,generation:1,last_error:null}:null}}};
+        });
+        c.contextChanged(context);await c.act("status");c.consent(true);await c.act("admit");await c.act("step");
+        let armed=true;
+        c.subscribe(()=>{if(armed&&!c.get().busy&&c.get().operation?.running){armed=false;if(retire==="dispose")c.dispose();else c.contextChanged({...context,session:"session-2",epoch:2});}});
+        await c.stop();
+        check(c.get().notice===""&&c.get().reply===null&&c.get().error===null,`stop-${retire}-terminal-notification-cannot-install-old-followup-notice`);
+    }
     return checks;
 }

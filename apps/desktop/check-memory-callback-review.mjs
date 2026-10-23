@@ -12,6 +12,6 @@ const compiled = await build({entryPoints:[fileURLToPath(new URL("ui/memory-call
 await writeFile(target, compiled.outputFiles[0].contents);
 const {memoryCallbackReviewJourneys} = await import(pathToFileURL(target).href);
 const checks = await memoryCallbackReviewJourneys();
-assert.equal(checks.length,30);
+assert.equal(checks.length,32);
 await writeFile(path.join(output,"memory-callback-review.json"),JSON.stringify({backend:"mock",passed:true,checks},null,2));
 console.log(`PASS: ${checks.length} actual-controller callback assertions with mocked IPC.`);

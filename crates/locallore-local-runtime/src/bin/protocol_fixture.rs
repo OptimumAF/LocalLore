@@ -19,6 +19,10 @@ fn main() {
         let Ok(req) = serde_json::from_str::<serde_json::Value>(&line) else {
             return;
         };
+        if req["op"] == "cancel" {
+            // Like the packaged worker, cancellation has no separate ack frame.
+            continue;
+        }
         if mode == "die" {
             return;
         }

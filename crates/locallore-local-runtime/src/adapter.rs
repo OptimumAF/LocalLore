@@ -267,6 +267,10 @@ impl InferenceProvider for RuntimeProvider {
             }
         }
         if self.active.is_none() {
+            if self.completed.is_none() && identity.role != "director" {
+                self.metrics = None;
+                return Poll::Ready(Err(Error::RetryMismatch));
+            }
             if let Some((previous, result)) = &self.completed {
                 if identity == *previous {
                     return Poll::Ready(result.clone());
@@ -386,6 +390,21 @@ mod tests {
         let mut invalid = req;
         invalid.budget.max_output_tokens = 351;
         assert_eq!(compile(&invalid).err(), Some(Error::Rule));
+    }
+    #[test]
+    fn narrator_cannot_start_a_turn_but_rejected_call_does_not_poison_director() {
+        let (shared, dir) = owner("valid");
+        let mut provider = RuntimeProvider::new(shared.clone());
+        let cancel = Cancellation::default();
+        assert_eq!(
+            provider.poll(&request("narrator"), &cancel),
+            Poll::Ready(Err(Error::RetryMismatch))
+        );
+        assert!(poll_to_ready(&mut provider, &request("director"), &cancel).is_ok());
+        assert!(poll_to_ready(&mut provider, &request("narrator"), &cancel).is_ok());
+        drop(provider);
+        drop(shared);
+        std::fs::remove_dir_all(dir).unwrap();
     }
     #[test]
     fn repeated_polls_and_sequential_roles_reuse_one_owner() {

@@ -25,6 +25,32 @@ pub const RUNTIME_COMMIT: &str = "620d2225cc436ab0b001e3200e590e3b286ef9ab";
 const MAX_FRAME: usize = 32_768;
 const MAX_PIPE: usize = 65_536;
 
+#[cfg(all(test, feature = "development-worker"))]
+thread_local! {
+    static AFTER_REPLY_DELAY: std::cell::Cell<Option<Duration>> = const { std::cell::Cell::new(None) };
+}
+
+#[cfg(all(test, windows, feature = "development-worker"))]
+thread_local! {
+    static FAIL_PIPE_STAGE: std::cell::Cell<Option<usize>> = const { std::cell::Cell::new(None) };
+    static STARTED_CHILD: std::cell::RefCell<Option<std::os::windows::io::OwnedHandle>> = const { std::cell::RefCell::new(None) };
+}
+
+fn spawn_pipe(
+    stage: usize,
+    task: impl FnOnce() + Send + 'static,
+) -> std::io::Result<JoinHandle<()>> {
+    #[cfg(all(test, windows, feature = "development-worker"))]
+    if FAIL_PIPE_STAGE.with(|fail| fail.get() == Some(stage)) {
+        return Err(std::io::Error::other(
+            "synthetic pipe-thread resource failure",
+        ));
+    }
+    thread::Builder::new()
+        .name(format!("locallore-pipe-{stage}"))
+        .spawn(task)
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub enum Error {
     InvalidRequest,
@@ -307,24 +333,52 @@ impl LocalRuntime {
         if cancel() {
             return Err(Error::Cancelled);
         }
-        let mut child = command.spawn().map_err(|_| Error::WorkerUnavailable)?;
-        let mut stdin = child.stdin.take().ok_or(Error::WorkerUnavailable)?;
-        let mut stdout = child.stdout.take().ok_or(Error::WorkerUnavailable)?;
-        let mut stderr = child.stderr.take().ok_or(Error::WorkerUnavailable)?;
         let fault = Arc::new(AtomicBool::new(false));
         let (writer, writes) = mpsc::sync_channel::<Vec<u8>>(2);
         let (results, replies) = mpsc::sync_channel(2);
+        // Allocate before process creation, then establish the cleanup owner before
+        // taking pipes or starting any fallible thread. Every partial path runs Drop.
+        let threads = Vec::with_capacity(3);
+        let child = command.spawn().map_err(|_| Error::WorkerUnavailable)?;
+        let mut owner = Self {
+            child,
+            writer: Some(writer),
+            replies,
+            fault: fault.clone(),
+            threads,
+            _model: file,
+            _ancestors: vec![],
+            _worker: None,
+            _worker_ancestors: vec![],
+            worker_sha256: String::new(),
+            next_id: 0,
+            status: Status::Unloaded,
+            deadline: Duration::from_secs(60),
+            last_metrics: None,
+        };
+        #[cfg(all(test, windows, feature = "development-worker"))]
+        if FAIL_PIPE_STAGE.with(|fail| fail.get().is_some()) {
+            use std::os::windows::io::AsHandle;
+            STARTED_CHILD.with(|handle| {
+                *handle.borrow_mut() = Some(owner.child.as_handle().try_clone_to_owned().unwrap())
+            });
+        }
+        let mut stdin = owner.child.stdin.take().ok_or(Error::WorkerUnavailable)?;
+        let mut stdout = owner.child.stdout.take().ok_or(Error::WorkerUnavailable)?;
+        let mut stderr = owner.child.stderr.take().ok_or(Error::WorkerUnavailable)?;
         let write_fault = fault.clone();
-        let write_thread = thread::spawn(move || {
+        let write_thread = spawn_pipe(1, move || {
             while let Ok(frame) = writes.recv() {
                 if stdin.write_all(&frame).and_then(|_| stdin.flush()).is_err() {
                     write_fault.store(true, Ordering::SeqCst);
                     break;
                 }
             }
-        });
+        })
+        .map_err(|_| Error::WorkerUnavailable)?;
+        owner.threads.push(write_thread);
         let read_fault = fault.clone();
-        let read_thread = thread::spawn(move || loop {
+        let read_thread = spawn_pipe(2, move || loop {
             let mut frame = vec![];
             loop {
                 let mut byte = [0];
@@ -342,9 +396,11 @@ impl LocalRuntime {
                 read_fault.store(true, Ordering::SeqCst);
                 return;
             }
-        });
+        })
+        .map_err(|_| Error::WorkerUnavailable)?;
+        owner.threads.push(read_thread);
         let error_fault = fault.clone();
-        let error_thread = thread::spawn(move || {
+        let error_thread = spawn_pipe(3, move || {
             let mut count = 0;
             let mut block = [0; 4096];
             loop {
@@ -359,23 +415,10 @@ impl LocalRuntime {
                     }
                 }
             }
-        });
-        Ok(Self {
-            child,
-            writer: Some(writer),
-            replies,
-            fault,
-            threads: vec![write_thread, read_thread, error_thread],
-            _model: file,
-            _ancestors: vec![],
-            _worker: None,
-            _worker_ancestors: vec![],
-            worker_sha256: String::new(),
-            next_id: 0,
-            status: Status::Unloaded,
-            deadline: Duration::from_secs(60),
-            last_metrics: None,
         })
+        .map_err(|_| Error::WorkerUnavailable)?;
+        owner.threads.push(error_thread);
+        Ok(owner)
     }
     /// Identity of the exact read-only executable handle retained across process creation.
     pub fn worker_sha256(&self) -> &str {
@@ -448,11 +491,22 @@ impl LocalRuntime {
                         Err(e) => return self.fail(e),
                     };
                     self.last_metrics = Some(reply.metrics.clone());
+                    #[cfg(all(test, feature = "development-worker"))]
+                    AFTER_REPLY_DELAY.with(|delay| {
+                        if let Some(duration) = delay.take() {
+                            thread::sleep(duration);
+                        }
+                    });
                     if let Some((_, reason)) = cancelled {
                         return Err(reason);
                     }
                     if cancel() {
                         return Err(Error::Cancelled);
+                    }
+                    // Receipt may arrive after the pre-wait deadline check. A valid
+                    // late terminal reply drains the worker but cannot publish success.
+                    if started.elapsed() >= self.deadline {
+                        return Err(Error::Timeout);
                     }
                     if reply.status == "error" {
                         return Err(match reply.error.as_deref() {
@@ -739,7 +793,7 @@ mod tests {
         std::fs::remove_dir(ancestor).unwrap();
         std::fs::remove_dir_all(dir).unwrap();
     }
-    pub(super) fn fixture(mode: &str) -> (LocalRuntime, std::path::PathBuf) {
+    fn fixture_start(mode: &str) -> (Result<LocalRuntime, Error>, std::path::PathBuf) {
         let dir = std::env::temp_dir().join(format!(
             "locallore-runtime-{}-{}",
             std::process::id(),
@@ -756,8 +810,52 @@ mod tests {
         } else {
             "protocol-fixture"
         });
-        let owner = LocalRuntime::start(&exe, &path, file).unwrap();
+        let owner = LocalRuntime::start(&exe, &path, file);
         (owner, dir)
+    }
+    pub(super) fn fixture(mode: &str) -> (LocalRuntime, std::path::PathBuf) {
+        let (owner, dir) = fixture_start(mode);
+        (owner.unwrap(), dir)
+    }
+    #[cfg(windows)]
+    #[test]
+    fn each_partial_pipe_start_failure_reaps_child_and_joins_started_threads() {
+        use std::os::windows::io::AsRawHandle;
+        #[link(name = "kernel32")]
+        extern "system" {
+            fn WaitForSingleObject(handle: *mut std::ffi::c_void, milliseconds: u32) -> u32;
+        }
+        for stage in 1..=3 {
+            FAIL_PIPE_STAGE.with(|fail| fail.set(Some(stage)));
+            let start = Instant::now();
+            let (result, dir) = fixture_start("hang");
+            FAIL_PIPE_STAGE.with(|fail| fail.set(None));
+            assert_eq!(result.err(), Some(Error::WorkerUnavailable));
+            assert!(start.elapsed() < Duration::from_secs(4));
+            let handle = STARTED_CHILD.with(|child| child.borrow_mut().take().unwrap());
+            // Duplicated exact-child handle: signaled proves the child is terminal,
+            // without enumerating or killing any unrelated process by name/PID.
+            assert_eq!(unsafe { WaitForSingleObject(handle.as_raw_handle(), 0) }, 0);
+            drop(handle);
+            std::fs::remove_dir_all(dir).unwrap();
+        }
+    }
+    #[test]
+    fn terminal_reply_after_deadline_cannot_publish_success() {
+        let (mut owner, dir) = fixture("valid");
+        owner.load(|| false).unwrap();
+        owner.deadline = Duration::from_secs(1);
+        // Delay only after a parsed terminal response, not on a cancellation
+        // callback whose invocation count varies with scheduler/poll timing.
+        AFTER_REPLY_DELAY.with(|delay| delay.set(Some(Duration::from_millis(1100))));
+        let result = owner.call("status", None, || false);
+        assert!(AFTER_REPLY_DELAY.with(|delay| delay.take().is_none()));
+        assert_eq!(result.err(), Some(Error::Timeout));
+        // Terminal response was drained, so a later operation remains coherent.
+        owner.deadline = Duration::from_secs(5);
+        assert!(owner.call("status", None, || false).is_ok());
+        drop(owner);
+        std::fs::remove_dir_all(dir).unwrap();
     }
     #[test]
     fn hostile_frames_fail_closed() {

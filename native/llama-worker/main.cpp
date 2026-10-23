@@ -7,6 +7,7 @@
 #include "llama.h"
 #include "nlohmann/json.hpp"
 #include "schema_order.h"
+#include "worker_launch.h"
 #include <atomic>
 #include <chrono>
 #include <iostream>
@@ -93,8 +94,8 @@ static int worker(const std::string & model_path) {
                 auto g = req["generation"];
                 if (!g.is_object() || g.size()!=4 || !g.contains("role") || !g["role"].is_string() || (g["role"]!="director" && g["role"]!="narrator") || !g.contains("prompt") || !g["prompt"].is_string() || g["prompt"].get<std::string>().empty() || g["prompt"].get<std::string>().find('\0')!=std::string::npos || !g.contains("schema") || (!g["schema"].is_null() && !g["schema"].is_object()) || !g.contains("max_tokens") || !g["max_tokens"].is_number_unsigned() || g["max_tokens"]<1 || g["max_tokens"]>350) throw failure("invalid_request");
             }
-            cancelled.store(false); deadline=clock_type::now()+std::chrono::seconds(60); busy.store(true);
-            work=std::thread([&,req,id,op] {
+            cancelled.store(false); deadline=clock_type::now()+std::chrono::seconds(60);
+            if (!locallore_launch_work(work,busy,[&,req,id,op] {
                 json result;
                 try {
                     if (op=="load") {
@@ -113,7 +114,7 @@ static int worker(const std::string & model_path) {
                   catch (...) { result=response("runtime_failed"); }
                 // Publish only after per-call RAII contexts/samplers have been destroyed.
                 busy.store(false); publish(result,id);
-            });
+            })) publish(response("runtime_failed"),id);
         } catch (const failure & e) { publish(response(e.what()),id); }
           catch (...) { publish(response("invalid_request"),id); }
     }

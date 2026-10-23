@@ -37,3 +37,6 @@ add_executable(locallore-schema-order-test EXCLUDE_FROM_ALL schema_order_test.cp
 target_compile_features(locallore-schema-order-test PRIVATE cxx_std_17)
 target_include_directories(locallore-schema-order-test PRIVATE "${LLAMA_SOURCE_DIR}/src")
 target_link_libraries(locallore-schema-order-test PRIVATE llama-common llama vendor::nlohmann)
+
+add_executable(locallore-worker-launch-test EXCLUDE_FROM_ALL worker_launch_test.cpp)
+target_compile_features(locallore-worker-launch-test PRIVATE cxx_std_17)

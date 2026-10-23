@@ -21,4 +21,8 @@ if ($SchemaTest) {
     if ($LASTEXITCODE -ne 0) { throw 'schema ordering test build failed' }
     & (Join-Path $BuildDir 'locallore-schema-order-test.exe')
     if ($LASTEXITCODE -ne 0) { throw 'schema ordering test failed' }
+    & $taskCmake --build $BuildDir --target locallore-worker-launch-test --parallel 2
+    if ($LASTEXITCODE -ne 0) { throw 'worker launch test build failed' }
+    & (Join-Path $BuildDir 'locallore-worker-launch-test.exe')
+    if ($LASTEXITCODE -ne 0) { throw 'worker launch test failed' }
 }

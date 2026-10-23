@@ -84,11 +84,30 @@ export async function durableJourneys({
     try {
         if (config.failure) {
             await c.start();
-            check(c.get().visibleError === "Io" && c.get().workspace === null && c.get().sessions.length === 0, "storage-open-failure-is-visible-no-memory-fallback");
-            check(document.getElementById("root")!.textContent?.includes("Storage unavailable"), "storage-failure-rendered-in-app");
+            check(
+                c.get().visibleError === "Io" &&
+                    c.get().workspace === null &&
+                    c.get().sessions.length === 0,
+                "storage-open-failure-is-visible-no-memory-fallback",
+            );
+            check(
+                document
+                    .getElementById("root")!
+                    .textContent?.includes("Storage unavailable"),
+                "storage-failure-rendered-in-app",
+            );
             await checkpoint("durable-storage-error");
             await dispose();
-            await invoke("harness_finish", {report:{synthetic:true,passed:true,backend:config.backend,stage:"storage-failure",checks,errors:errors.snapshot()}});
+            await invoke("harness_finish", {
+                report: {
+                    synthetic: true,
+                    passed: true,
+                    backend: config.backend,
+                    stage: "storage-failure",
+                    checks,
+                    errors: errors.snapshot(),
+                },
+            });
             return;
         }
         const library = await c.library();
@@ -102,17 +121,25 @@ export async function durableJourneys({
         );
         if (config.stage !== "initial") {
             await c.start();
-            check(c.selected()?.scope.story === library.stories[0].scope.story, "startup-resumes-first-stable-library-entry");
+            check(
+                c.selected()?.scope.story === library.stories[0].scope.story,
+                "startup-resumes-first-stable-library-entry",
+            );
             const saved = library.stories.find((s) => s.revision > 0);
             check(saved, "saved-story-listed-after-reopen");
             await c.resume(saved!.scope);
-            check(saved!.drafts === 1 && c.get().notice.includes("not automatically"), "uncommitted-request-survives-with-warning-no-auto-commit");
+            check(
+                saved!.drafts === 1 &&
+                    c.get().notice.includes("not automatically"),
+                "uncommitted-request-survives-with-warning-no-auto-commit",
+            );
             check(
                 c.get().play!.receipts.length === 2,
                 "two-canonical-receipts-survive-reopen",
             );
             check(
-                !Object.hasOwn(c.get().play!.inventory, "potion") && Object.hasOwn(c.get().play!.inventory, "brass-key"),
+                !Object.hasOwn(c.get().play!.inventory, "potion") &&
+                    Object.hasOwn(c.get().play!.inventory, "brass-key"),
                 "spent-inventory-survives-reopen",
             );
             const receipt = c.get().play!.receipts[0];
@@ -143,9 +170,16 @@ export async function durableJourneys({
                 "unsent-draft-is-explicitly-session-local",
             );
             if (config.stage === "restart") {
-                const oldTurns = new Set(c.get().play!.receipts.map(r => r.request.turn));
-                c.setAction("wait"); await c.send();
-                check(c.get().turnStatus?.phase === "committed" && !oldTurns.has(c.get().turnStatus!.turn), "new-process-uses-distinct-turn-key");
+                const oldTurns = new Set(
+                    c.get().play!.receipts.map((r) => r.request.turn),
+                );
+                c.setAction("wait");
+                await c.send();
+                check(
+                    c.get().turnStatus?.phase === "committed" &&
+                        !oldTurns.has(c.get().turnStatus!.turn),
+                    "new-process-uses-distinct-turn-key",
+                );
             }
             await checkpoint(
                 config.stage === "restart"
@@ -256,9 +290,24 @@ export async function durableJourneys({
         );
         await checkpoint("durable-new");
         await c.resume(savedScope);
-        await g.base.call({op:"submit",session:c.selected()!.id,
-            request: request(savedScope, `orphan-${crypto.randomUUID()}`, c.get().play!.revision, "wait", ""), mode:"accepted"});
-        check((await c.library()).stories.find(s => s.scope.story === savedScope.story)?.drafts === 1, "submitted-uncommitted-request-is-durable");
+        await g.base.call({
+            op: "submit",
+            session: c.selected()!.id,
+            request: request(
+                savedScope,
+                `orphan-${crypto.randomUUID()}`,
+                c.get().play!.revision,
+                "wait",
+                "",
+            ),
+            mode: "accepted",
+        });
+        check(
+            (await c.library()).stories.find(
+                (s) => s.scope.story === savedScope.story,
+            )?.drafts === 1,
+            "submitted-uncommitted-request-is-durable",
+        );
         c.setDraft("Synthetic unsent draft");
         await invoke("harness_reopen");
     } catch {

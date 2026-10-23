@@ -1,5 +1,6 @@
 // Fixed synthetic durable native scenario. No desktop input, activation or capture.
-import { spawn } from "node:child_process";
+import { spawn, execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { mkdir, readFile, writeFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -41,12 +42,22 @@ await run("cargo", [
     "--features",
     "dev-harness",
 ]);
+const sourceRevision = (
+    await promisify(execFile)("git", ["rev-parse", "HEAD"], { cwd: root })
+).stdout.trim();
+const sourceDirty =
+    (
+        await promisify(execFile)("git", ["status", "--porcelain"], {
+            cwd: root,
+        })
+    ).stdout.trim().length > 0;
 const reports = [];
+let captures = 0;
 let checks = [];
 for (const stage of ["initial", "restart", "storage-failure"]) {
     const directory = path.join(folder, stage);
     const failedDb = path.join(folder, "invalid-root", "stories-v1.sqlite");
-    if (stage === "storage-failure") await mkdir(failedDb, {recursive:true});
+    if (stage === "storage-failure") await mkdir(failedDb, { recursive: true });
     await run(executable, [], {
         LOCALLORE_D02_HARNESS: "1",
         LOCALLORE_D02_ARTIFACT_DIR: directory,
@@ -55,6 +66,9 @@ for (const stage of ["initial", "restart", "storage-failure"]) {
         LOCALLORE_TEST_STORAGE_FAILURE: stage === "storage-failure" ? "1" : "0",
         LOCALLORE_TEST_RESTART: stage === "restart" ? "1" : "0",
     });
+    captures += (await readdir(directory)).filter((f) =>
+        f.endsWith(".png"),
+    ).length;
     const report = JSON.parse(
         await readFile(path.join(directory, "report.json"), "utf8"),
     );
@@ -80,6 +94,15 @@ const files = [
     "src-tauri/Cargo.toml",
     "host-v1.schema.json",
     "dist/app.js",
+    "src-tauri/target/debug/locallore-desktop-spike.exe",
+    "src-tauri/src/test_bridge.rs",
+    "src-tauri/src/harness.rs",
+    "ui/host.generated.ts",
+    "durable-harness.mjs",
+    "../../crates/locallore/src/host.rs",
+    "../../crates/locallore-workspace/src/lib.rs",
+    "../../crates/locallore-storage/src/catalog.rs",
+    "../../crates/locallore-storage/src/turns.rs",
 ];
 const inputSHA256 = Object.fromEntries(
     await Promise.all(
@@ -99,6 +122,9 @@ await writeFile(
             passed: true,
             desktopControl: false,
             actualProcessRestart: true,
+            sourceRevision,
+            sourceDirty,
+            captures,
             checks,
             reports,
             inputSHA256,

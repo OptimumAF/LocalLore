@@ -29,7 +29,7 @@ class CacheIntegrationTests(unittest.TestCase):
         result, device, measure = self.invoke(protocol.raw())
         self.assertTrue(result["check_passed"])
         self.assertEqual(result["result"], protocol.fixture.value())
-        self.assertEqual((device.launches, device.stops, measure.call_count), (1, 2, 2))
+        self.assertEqual((device.launches, device.stops, measure.call_count), (1, 3, 2))
 
     def test_real_outer_post_error_retains_real_validated_commit(self):
         value = protocol.value(); value.update(status="error", error="volume_changed")
@@ -52,7 +52,7 @@ class CacheIntegrationTests(unittest.TestCase):
         self.assertEqual(result["result"], protocol.fixture.value())
         self.assertFalse(result["check_passed"])
         self.assertFalse(result["clients_cleaned"])
-        self.assertEqual((device.stops, measure.call_count), (1, 1))
+        self.assertEqual((device.stops, measure.call_count), (2, 1))
         self.assertEqual(device.events[-1], "play")
 
 

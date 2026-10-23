@@ -78,6 +78,19 @@ distinguishes injected error replies from actual SQLite exhaustion.
 The [actual SQLite contention fixture](../../docs/native/SQLITE_CONTENTION_VERIFICATION_2026-10-22.md)
 adds a separate-process writer and unmodified Rust Busy recovery checks, without
 changing production code or introducing a gameplay SQL interface.
+The separate [capacity fixture](../../docs/native/CAPACITY_VERIFICATION_2026-10-22.md)
+uses a visibly labelled, test-only app with an immutable SQLite compile-time ceiling
+to exercise actual Full replies. Build/audit it explicitly with
+`python scripts/android_capacity_probe.py build --offline`; this never installs or
+runs a device. Its APKs live under `app/build-capacity`, with application ID
+`org.locallore.app.capacity`, separate from ordinary saves and instrumentation.
+The helper supplies a separate `.gradle-capacity` project cache: distinct task
+histories are required as well as distinct output directories, or Gradle can
+delete the previous mode's APKs as stale outputs. Property-only direct capacity
+builds are rejected. Only debug exists in capacity mode. Ordinary `scripts/check.py android` remains
+uncapped. Unset ambient `LIBSQLITE3_FLAGS` for either build; the reviewed native
+build owns that option. This immutable fixture cannot prove recovery after freeing
+capacity or partition-level exhaustion.
 Cancellation that reaches Rust before submit exists is reconciled as an uncommitted
 request. A late submit remains a draft; recovery does not regenerate or commit it.
 The earlier [ADR-0004](../../docs/adr/0004-android-engine-boundary.md) remains the

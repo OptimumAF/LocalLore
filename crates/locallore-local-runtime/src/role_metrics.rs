@@ -56,6 +56,7 @@ pub struct RoleMetrics {
     pub parent_elapsed_ms: u64,
     pub adapter_terminal: AdapterTerminal,
     pub adapter_error: Option<AdapterError>,
+    /// Native client's operation result, not raw worker-frame status when the client returns an error.
     pub native_terminal: NativeTerminal,
     pub native_error: Option<Error>,
     /// Present only for a validated, completed native reply; failed partial timings are unknown.

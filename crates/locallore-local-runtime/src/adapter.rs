@@ -208,6 +208,7 @@ impl Observation {
 struct Job {
     identity: Identity,
     cancel: Cancellation,
+    external: Cancellation,
     receiver: mpsc::Receiver<Outcome>,
     thread: Option<JoinHandle<()>>,
     observation: Option<Observation>,
@@ -279,10 +280,13 @@ impl RuntimeProvider {
                 self.metrics = outcome.metrics.clone();
                 self.failure = outcome.failure;
                 if let Some(observation) = &job.observation {
-                    let status = job
-                        .observed_error
-                        .map_or(AdapterTerminal::Dropped, |e| terminal(Some(e)));
-                    observation.finish(&outcome, status, job.observed_error, true);
+                    let error = job.observed_error.or_else(|| {
+                        job.external
+                            .is_cancelled()
+                            .then_some(AdapterError::Cancelled)
+                    });
+                    let status = error.map_or(AdapterTerminal::Dropped, |e| terminal(Some(e)));
+                    observation.finish(&outcome, status, error, true);
                 }
             } else if let Some(observation) = &job.observation {
                 observation.finish(
@@ -313,6 +317,7 @@ impl RuntimeProvider {
         let deadline = Duration::from_millis(request.budget.deadline_ms.min(60_000));
         let bytes = request.budget.max_output_bytes;
         let (sender, receiver) = mpsc::sync_channel(1);
+        let observed_external = external.clone();
         #[cfg(all(test, feature = "development-worker"))]
         let reply_delay = crate::AFTER_REPLY_DELAY.with(|delay| delay.take());
         let worker = thread::Builder::new()
@@ -400,6 +405,7 @@ impl RuntimeProvider {
         self.active = Some(Job {
             identity,
             cancel,
+            external: observed_external,
             receiver,
             thread: Some(worker),
             observation,
@@ -887,7 +893,8 @@ mod tests {
 
     #[test]
     fn role_metrics_cancel_drop_and_active_identity_keep_original_attempt() {
-        for changed_identity in [false, true] {
+        for variant in 0..3 {
+            let changed_identity = variant == 1;
             let (shared, dir) = owner("blocked-generation-observed");
             let log = RoleMetricsLog::new();
             let mut provider = RuntimeProvider::with_metrics(shared.clone(), log.clone());
@@ -904,7 +911,9 @@ mod tests {
                 );
             } else {
                 cancel.cancel();
-                assert!(provider.poll(&original, &cancel).is_pending());
+                if variant == 0 {
+                    assert!(provider.poll(&original, &cancel).is_pending());
+                }
             }
             drop(provider);
             let snapshot = log.snapshot();

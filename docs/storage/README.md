@@ -3,9 +3,10 @@
 The Rust SQLite owner under [ticket #8](https://github.com/OptimumAF/LocalLore/issues/8)
 persists validated original seeds and initializes the scoped schema. The
 [durability follow-on](DURABILITY.md) adds atomic root turns and validated
-save/resume. Existing app adapters still use their in-memory engines. M04.01 is
-in #38, stacked on ownership fix #35; the follow-on stacks on #38. Prerequisites
-must be owner-accepted/landed in order; no merge is performed by implementation.
+save/resume. Both production app adapters now use the
+[shared native workspace](APP_INTEGRATION.md), with separate app-local files,
+library selection and receipt-derived history. The foundation and turn layer
+landed through #38/#39; current task status and acceptance remain on #8.
 
 Run the deterministic checks without models, Android tools or ADB:
 

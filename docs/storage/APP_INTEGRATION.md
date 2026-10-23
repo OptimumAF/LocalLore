@@ -60,6 +60,9 @@ See [desktop app proof](../desktop/APP_DURABILITY.md),
 counts, environment and unrun checks. These are local verification records;
 ticket acceptance and merge remain the owner's decision.
 
+The [dated integrated verification](APP_VERIFICATION_2026-10-22.md) records the
+final source identity, packaging checks and remaining device limits.
+
 This work used separate worktrees and build outputs. It issued no ADB commands,
 stopped no shared build daemons and sent no input to desktop windows. Android
 builds use a separate Gradle user home populated from read-only dependency caches.

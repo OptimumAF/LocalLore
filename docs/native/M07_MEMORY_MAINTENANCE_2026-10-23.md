@@ -26,7 +26,7 @@ Host::memory_maintenance(
 
 The trusted native Persistence port receives the actual cached selected `&Engine`, expected head, typed action and cancellation function. Its default is `Unsupported`. No `HostCommand`, JSON schema, deserializable grant, native handle or renderer-controlled observer is added. The Repository fixes the observer to `selected.seed().player`.
 
-`MaintenanceReply` is Serialize-only: version1, selected scope, requested current head, action and optional job view. The job view contains only closed status/failure enums and basis revision, cursor and generation. It has no job ID, packet/event IDs, packet text, model context, prompts, paths, source hash or hidden-exclusion metadata. Host validates matching identity/action/version, coherent bounded counters and at most4096 serialized bytes. Errors are fixed typed categories; arbitrary persistence strings map to `Internal`.
+`MaintenanceReply` is Serialize-only: version1, selected scope, requested current head, action and optional job view. The job view contains only closed status/failure enums and basis revision, cursor and generation. It has no job ID, packet/event IDs, packet text, model context, prompts, paths, source hash or hidden-exclusion metadata. Host validates matching identity/action/version, coherent bounded counters and at most4096 serialized bytes. Errors are fixed typed categories; arbitrary persistence strings map to `Internal`. `last_error` is the historical persisted job failure: a passive Stale view may retain its previous blocked error without claiming the current source is itself blocked. Persisted Blocked still requires an error, and Ready/Complete/Cancelled views require none.
 
 ## Explicit operations
 
@@ -60,12 +60,63 @@ Cancelling an operation aborts that particular computation/publication, retainin
 
 One chunk bounds output/work admission according to existing Core limits; it is not a hard real-time deadline. Strict Engine replay and whole-source fingerprinting still have existing history-dependent cost and cancellation checkpoints. No independent process termination, arbitrary timeout, new benchmark or latency claim is introduced.
 
-## Verification status
+## Retained failures and narrow correction
 
-At this initial documentation freeze, only source reads, format and whitespace checks ran. The coordinator owns the compiler slot for the separate Play consumer. No Rust tests or Clippy, Gradle/JVM/JNI, native app/WebView, worker/model, device/ADB/CUA, download, settings, protected resource, PR or merge ran for this slice yet. Source/tests are implemented but **unverified/in_progress**, not a passing service.
+Coordinator source review found that the initial DTO guard rejected a legitimate Store view: a formerly Blocked job becomes passively Stale after a canonical append, while retaining its persisted `last_error`. Two additional oracles were frozen **before execution/fix** at `40064fb517c1cb87771d35cec151a1595424bcd0`. The actual Store fixture changes only derived status to Blocked/Budget, commits a normal accepted append through Store and requires Stale/SomeBudget with database bytes unchanged by lookup. It passed1/1. The actual Host test uses a fixed native port returning that same metadata shape; it failed1/1 at its preserved `unwrap`, receiving Integrity. This is a real executed regression, not a compile-fail stand-in or claim that a production workload exhausted its budget.
 
-Frozen planned focused checks are six actual Store lookup/admission tests, eight actual Host admission/lifecycle tests with fixed test ports, and six actual Host/Repository/SQLite integration tests. The129-receipt fixture deliberately exceeds Core's128-receipt chunk bound; the test requires exactly one verified packet after the first explicit Step and unchanged canonical receipts/state across completion and reopen. Other cases cover passive byte preservation, current-owner handle reissue, player/head/scope and receipt replacement, cancelled/pruned/re-admitted jobs, ignored true/panic callbacks, pending/poison guards, AtomicBool cancellation outside Host lock and separate NPC/player partitions. Fixed test ports are not SQLite or native UI evidence.
+`029e0fcf03a100c07276f1820fce136afd68c99f` changes only the new DTO guard to permit a historical closed failure on Stale, while preserving the stricter Blocked and other-status rules. No DDL, persisted parser, job status, canonical invariant or oracle changed. The unchanged Host regression then passed.
 
-Blocked-state forwarding is source-reviewed; existing accepted Store tests cover derived blocked-state refusal/prune. This slice does not claim a valid workload actually exhausted the production packet budget. No oracles or budgets are changed to force that outcome.
+The first full nine-Host-test run had8PASS/1FAIL: the fixed test port's `status()` returned Unsupported, so the actual Host's post-generation durable draft observation could not reach Ready. This is retained as a test-fixture failure, not a service semantic pass. Test-only `545273be896cfa781e63b976dc22abf91a1142f9` retains its one submitted draft and returns that matching draft on status. All queued/running/Ready Busy and other original assertions remain unchanged, use actual Host admission/prepare, and then passed. The initial source and failed logs remain available.
 
-Next: obtain an exclusive coordinator build slot, execute the frozen focused tests with locked/offline/debug0/incremental0/jobs1 in an own D target, preserve setup/semantic failures, run appropriate strict scoped checks, update this report with exact source/environment/results and hand off immutable commits for independent review. Root then integrates actual maintenance ownership and the verified Play consumer. Full milestone, model-quality, device and final package gates stay open.
+## Actual focused verification
+
+Final tested source **`545273be896cfa781e63b976dc22abf91a1142f9`**, Windows x64, Rust `1.93.1 (01f6ddf75 2026-02-11)`, Cargo `1.93.1 (083ac5135 2025-12-15)`. The coordinator released an exclusive sequential Cargo slot. Target `maintenance-rust` and artifacts/TEMP/TMP `maintenance-artifacts` are private task-owned D directories outside Git. Debug info0, incremental0, jobs1, locked/offline; no ambient SQLite flags, new dependencies or downloads. All owned build/test processes exited before the slot was released.
+
+| Actual check | Result |
+| --- | --- |
+| Host maintenance guard/lifecycle unit selection |9PASS/0FAIL/0ignored,28 other tests filtered; test0.01s |
+| Actual Store selected lookup/admission integration |7PASS/0FAIL/0ignored/0filtered; test0.30s |
+| Actual Host/Repository/SQLite service integration |6PASS/0FAIL/0ignored/0filtered; test3.63s |
+| Three-package all-target/all-feature strict Clippy |PASS,21.10s |
+| `cargo +1.93.1 fmt --all -- --check` / `git diff --check` |PASS / PASS |
+
+These are **22 distinct focused tests**, not a full workspace test run. The earlier actual Store shape check and failing Host selection are repeated subsets, not additional passing cases. The strict Clippy command compiles/checks other targets; it does not execute their test bodies or erase unrelated historical suite failures.
+
+The129-receipt fixture exceeds Core's128-receipt chunk bound. It actually published exactly one verified packet after the first explicit Step, with cursor strictly between0 and current head; each later separately authorized Step advanced one generation, ending Complete. Reopen preserved the first cursor without admission or extra work. A repeated Step at Complete and late Cancel preserved the completed view. Canonical state and exact receipts remained unchanged by maintenance.
+
+Other executed cases prove passive database-byte preservation, current-owner-only handle reissue after reopen, player/head/scope and valid same-seed/head receipt replacement refusal, old prepared/handle rejection after public delete/import/new-ID admission, stale-view/explicit retarget, terminal cancellation/prune/re-admit, ignored true/panic callback latching, all cached-session queued/running/Ready guards, poison/default/ephemeral failures, cancellation via AtomicBool outside the held Host lock, and separate NPC/player partition identities. Fixed test ports prove Host boundaries, not SQLite or native UI execution.
+
+The historical blocked-error path has actual Store and actual Host fixed-port coverage, plus source review of their direct Repository mapping. It is not one combined Android/native-app blocked workload, nor proof that a valid workload exhausted the production packet budget. Existing accepted Store tests cover derived blocked-state refusal/prune. No budget was altered to manufacture an outcome.
+
+Commands, from this worktree, using the process-local environment and target described above:
+
+```powershell
+cargo +1.93.1 test -p locallore --features host --lib host::memory_maintenance::tests::passive_stale_view_preserves_historical_blocked_failure --locked --offline --jobs 1 --target-dir <own-target> -- --exact --test-threads=1
+cargo +1.93.1 test -p locallore-storage --test memory_job_lookup stale_lookup_preserves_historical_blocked_error_without_rewriting_job --locked --offline --jobs 1 --target-dir <own-target> -- --exact --test-threads=1
+cargo +1.93.1 test -p locallore --features host --lib host::memory_maintenance::tests --locked --offline --jobs 1 --target-dir <own-target> -- --test-threads=1
+cargo +1.93.1 test -p locallore-storage --test memory_job_lookup --locked --offline --jobs 1 --target-dir <own-target> -- --test-threads=1
+cargo +1.93.1 test -p locallore-workspace --test memory_maintenance_host --locked --offline --jobs 1 --target-dir <own-target> -- --test-threads=1
+cargo +1.93.1 clippy -p locallore -p locallore-storage -p locallore-workspace --all-targets --all-features --locked --offline --jobs 1 --target-dir <own-target> -- -D warnings
+cargo +1.93.1 fmt --all -- --check
+git diff --check
+```
+
+Private retained log hashes:
+
+| File | SHA-256 |
+| --- | --- |
+| `stale-metadata-red.log` |903f1306dbe664c583f86823d28745a84233b9335244e7be49b57a3980edc095 |
+| `stale-actual-store.log` |777c750b3c019f7c08f24197615b6e04f9b8214afc57cd11fdd0a22db6981adc |
+| `host-focused.log` (8PASS/1 fixtureFAIL) |8640de93f7a9a1275c0b65b56d14096f91f7e6e82d5b3d6702446dd4f03891d6 |
+| `host-focused-fixed.log` |2e5bb5f00fdd4a8f795f2f893dc52893714c6be33cc2d887af5793baf70c281e |
+| `store-focused.log` |f9e98856a46ffb10149905d4c3ffb06f847fea89c579377ea1f60926694e9a09 |
+| `workspace-focused.log` |1e7bc67c16954675c5e2f7b12a96365638acd600f511884ac17eb937ee6b8922 |
+| `clippy.log` |1513084573bc830bfde88ba044493f4a2a97e52c1f56262ec81c4063554a80ec |
+
+Final test source hashes: Store lookup `1299d5da59fdfcfce29bce0ac43a96a29f1d4e19bc8117ad3cffba6a9ddca16c`; Host units `275865ee31da300101657139e27ff0e755d543bab29ec3b8bcc5d33884db1abf`; Repository integration `424c3544e23b0e7095f3317d8734c39ce1257ef7120efc7dca93590f9818e4f5`.
+
+## Reviewable gate and next integration
+
+The native library slice is focused-verified and **in_review**, not self-approved. No Gradle/JVM/JNI, native application/WebView, worker/model, device/ADB/CUA, download, OS/settings, protected-resource, PR or merge action ran here. No existing HostCommand/schema or public job-handle serialization changed. The separately advancing production Play2.4/Host generation-forwarding source is not part of this tested baseline and requires coordinator integration checks.
+
+Handoff authored commits in order: `a96056d`, `3847970`, `40064fb`, `029e0fc`, `545273b`, then the final report-only update. Root owns the shared comparator/bridge and must reconcile its current Host/Repository sources rather than import the duplicate comparator dependency. Root next independently reviews/integrates, qualifies the combined portable/platform source and adds actual native operation ownership/cancellation/retirement around this synchronous API. Full milestone, model-quality, device and final package gates stay open.

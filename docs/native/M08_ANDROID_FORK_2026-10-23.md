@@ -75,3 +75,22 @@ At correctionc1eafb6, actual controller14 **PASS14/0fail/0skip** (.184s XML;21s 
 A NEW fifteenth actual-controller regression is frozen before correction: restore a saved identity without any selected context, perform readonly lookup, require lookupOnly stays true and retry dispatches nothing. Source currently calculates null origin!=null context as false after lookup. Authority already refuses confirmation without context, but the presentation must honestly remain lookup-only. Coordinator requested measured RED then narrow correction; original14 tests/production remain unchanged at this test freeze.
 
 Actual selected15th regression at51edb92 **FAIL0PASS/1FAIL**,19s, after readonly lookup the recovered startup identity was labeled executable (`lookupOnly=false`). Initial log SHA256 `c670cd3ccdec8d85d59f7f616a7121669a11914f3e6878be99ebf59acc5bfe04`; copied XML `7b6a0bc23dfc04daed35b1faef1866a341cef6d8729a176011be4501032da6a0`. Root-authorized one-line correction preserves lookup-only whenever origin is absent; confirmation/admission guards are unchanged. All original15 oracles remain unchanged. Full15 follows this committed source.
+
+## Final focused handoff
+
+Final behavioral source **2fcbead**; initial new module9ea923a, compile-only correction877b0b1, lifecycle correctionc1eafb6, final one-line lookup-only correction2fcbead. New-only regression freezesac401fd/12668df/2bf1010/51edb92 preserve every earlier oracle. Root-owned baseline fixture dependencyda8df0c was **not** imported. The base remains5e44ea91bfa9e93ecf583e31a26937efdfa96366; coordinator must reconcile later accepted Core/maintenance changes and independently review before publication.
+
+| Executed check | Exact scope/result |
+| --- | --- |
+| Rust integration |9/9 PASS at9ea923a, actual WorkspaceRegistry/Host/Store public paths |
+| Rust module |2/2 PASS after877b0b1 test-literal fix; actual locks/own threads |
+| Rust strict |`cargo +1.93.1 clippy -p locallore-android --all-targets --all-features --locked --offline --jobs 1 --target-dir <own>/target -- -D warnings` PASS12.25s; no subsequent Rust edits |
+| Rust format/whitespace |`cargo +1.93.1 fmt --all -- --check`, `git diff --check` PASS at2fcbead |
+| Ordinary JNI compilation |Both x86_64 and arm64-v8a release libraries compiled by Gradle; **no JNI execution** |
+| Actual controller JVM |**15 PASS/0FAIL/0ERROR/0SKIP** at2fcbead; .188s XML /19s Gradle |
+
+Final JVM command is the same filtered whole-class offline invocation printed above, with explicit JBR17.0.6/SDK36/NDK29 and task-local init script redirecting root/app build output. Initial release builds took2m50s and2m30s. Followups reused their exact ordinary uncapped outputs; no compiler-option override or task exclusion. The final15 includes both ordinary/cancellation stale callback variants, accepted metadata cancellation retaining success, and restored no-context lookup-only/no-dispatch. No test thresholds, existing assertions, canonical source or Host grant were weakened.
+
+Private immutable final log `android-fork-artifacts/jvm-controller-final15.log` SHA256 `f251db3489bef44769531eebb3342e0317aae3d5b1f59e5aaa6b10c2f9fb0d8c`; copied XML `b4c21cc8d8349e17edac4a70dfde5a25e789f7045269cde8d7186d8e488d6e0b`. Strict log SHA256 `db7ccb3cafd85e0539addd1ee4acb3d604d2131993e9813ddfc46c3591dec605`; module-green log `a079f722f6a33a1ed6ce800e343bd6a273aac9addd8af5f3deb6f6266b899bb9`. Full private source/log inventory: `android-fork-artifacts/final-focused-report.json`, SHA256 `ecbb54a8a1805ef8d13e9d427ef1a0639440fc41cc25a072bdc7e4085c5a1822`.
+
+Heavy compiler/JVM slot explicitly released after final15. No process remains owned by this packet. No broad JVM suite, androidTest compilation/execution, APK/lint/audit, Activity/UI integration, actual Android lifecycle/device/ARM64 runtime or model check is claimed. Four JSONObject wire tests and two JNI instrumented cases are **source only**. Full M08/D08, correction/rewind UI, arbitrary fork boundaries beyond Rust validation, durable recovery-store implementation, and actual device caller parity remain future gates. Root wiring must preserve the injected synchronous recovery-save contract and existing single workspace lifecycle, and then run the new instrumented cases on an authorized device separately. Protected chat/resources were untouched.

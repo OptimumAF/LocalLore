@@ -66,7 +66,11 @@ export async function queryJourneys({
         });
     const capture = async (label: string) => {
         await new Promise((r) => setTimeout(r, 100));
-        if (["d05-diff", "d05-source"].includes(label))
+        if (label === "d05-source")
+            [...document.querySelectorAll(".record-detail")]
+                .at(-1)
+                ?.scrollIntoView({ block: "start" });
+        else if (["d05-diff"].includes(label))
             document
                 .querySelector(".record-detail")
                 ?.scrollIntoView({ block: "start" });
@@ -299,7 +303,61 @@ export async function queryJourneys({
             "historical-turn-diff-potion-before-present-after-absent",
         );
         c.selectInspection(change!.key);
+        await c.whyInspection(change!);
+        check(
+            page().view === "provenance" &&
+                page().revision === 0 &&
+                page().rows.some(
+                    (r) =>
+                        r.kind === "provenance" &&
+                        r.sources.some((source) => source.kind === "seed"),
+                ),
+            "removed-potion-why-shows-prior-seed-provenance-at-r0",
+        );
+        check(
+            c.get().query.trace?.stage === "prior_provenance" &&
+                c.get().query.trace?.change.after === null &&
+                c.get().query.notice.includes("absent at r1"),
+            "removed-field-provenance-is-not-labelled-current-state",
+        );
         await capture("d05-diff");
+        await c.showChangeTurnHistory();
+        check(
+            page().view === "history" &&
+                page().revision === 1 &&
+                page().rows.some(
+                    (r) =>
+                        r.kind === "event" &&
+                        r.event.sequence === 1 &&
+                        r.event.consequence.effect === "given" &&
+                        r.event.consequence.item === "potion",
+                ),
+            "removed-potion-why-links-accepted-gift-in-completed-turn",
+        );
+        check(
+            c.get().query.trace?.change.before_revision === 0 &&
+                c.get().query.trace?.change.after_revision === 1,
+            "cause-history-retains-explicit-before-after-change-boundary",
+        );
+        await capture("d05-source");
+        const recordedMessage = page().rows.find((r) => r.kind === "message");
+        check(!!recordedMessage, "fixture-has-player-display-record-to-trace");
+        await c.whyInspection(recordedMessage!);
+        check(
+            page().view === "history" &&
+                page().rows.some(
+                    (r) => r.kind === "event" && r.event.sequence === 1,
+                ),
+            "message-why-routes-to-accepted-event-not-field-provenance",
+        );
+        await c.whyInspection(page().rows.find((r) => r.kind === "event")!);
+        check(
+            page().view === "history" &&
+                page().rows.some(
+                    (r) => r.kind === "event" && r.event.sequence === 1,
+                ),
+            "event-why-resolves-own-accepted-source",
+        );
         await read("knowledge");
         check(
             page().rows.some((r) => r.origin === "recorded_statement") &&
@@ -356,7 +414,21 @@ export async function queryJourneys({
             "independent-trust-dimension-preserved",
         );
         await capture("d05-relationships");
+        await c.whyInspection(
+            page().rows.find((r) => r.kind === "relationship")!,
+        );
+        check(
+            c.get().query.search.length > 0 &&
+                c.get().query.atRevision !== null,
+            "lab-why-key-is-explicitly-derived-private-query-state",
+        );
         c.setObserver("sable");
+        check(
+            c.get().query.search === "" &&
+                c.get().query.atRevision === null &&
+                c.get().query.trace === null,
+            "observer-switch-clears-derived-lab-query-key-and-revision",
+        );
         await until(() => !!page() && !c.get().query.busy);
         await read("history");
         check(
@@ -374,8 +446,22 @@ export async function queryJourneys({
                 names.some((r) => r.kind === "field" && r.actor === "sable"),
             "duplicate-display-names-retain-distinct-actor-ids",
         );
-        c.setView("play");
-        await until(() => !!page() && !c.get().query.busy);
+        await c.whyInspection(names[0]);
+        c.returnToPlay();
+        check(
+            c.get().view === "play" &&
+                c.get().observer === "player" &&
+                !c.get().query.shown &&
+                c.get().inspection === null,
+            "return-to-play-restores-player-mode-not-legacy-private-inspector",
+        );
+        check(
+            c.get().query.search === "" &&
+                c.get().query.atRevision === null &&
+                c.get().query.trace === null,
+            "return-to-play-clears-private-query-parameters",
+        );
+        await c.showQuery();
         await read("profiles", "", null, 6);
         const first = page().rows.map((r) => r.key);
         check(!!page().next_cursor, "bounded-page-has-continuation");
@@ -414,7 +500,7 @@ export async function queryJourneys({
             ),
             "source-link-resolves-accepted-event",
         );
-        await capture("d05-source");
+
         await read("promises");
         check(
             page().rows.some(
@@ -514,6 +600,12 @@ export async function queryJourneys({
                 page()?.scope.story === c.selected()?.scope.story &&
                 page()?.head === 0,
             "late-page-cannot-cross-new-story-session",
+        );
+        check(
+            c.get().query.search === "" &&
+                c.get().query.atRevision === null &&
+                c.get().query.trace === null,
+            "story-switch-clears-derived-query-parameters-and-trace",
         );
         await read("history");
         check(page().total === 0, "new-story-has-no-prior-history");

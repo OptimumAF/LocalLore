@@ -98,7 +98,34 @@ export interface InspectionPage {
     next_cursor: string | null;
     unsupported: string[];
 }
+export type ChangeTrace = {
+    change: Extract<Row, { kind: "change" }>;
+    stage: "prior_provenance" | "field_provenance" | "turn_history";
+};
+export function whyLabel(row: Row): string {
+    switch (row.kind) {
+        case "change":
+            return row.after ? "Why did this change?" : "Why was this removed?";
+        case "event":
+            return "View accepted source";
+        case "message":
+            return row.event_ids.length
+                ? "View supporting events"
+                : "No accepted source available";
+        case "provenance":
+            return "Source record shown";
+        default:
+            return "Why is this true?";
+    }
+}
+export function canInspectWhy(row: Row) {
+    return (
+        row.kind !== "provenance" &&
+        (row.kind !== "message" || row.event_ids.length > 0)
+    );
+}
 export interface QueryState {
+    trace: ChangeTrace | null;
     shown: boolean;
     view: InspectionView;
     atRevision: number | null;
@@ -113,6 +140,7 @@ export interface QueryState {
     notice: string;
 }
 export const initialQuery = (): QueryState => ({
+    trace: null,
     shown: false,
     view: "profiles",
     atRevision: null,

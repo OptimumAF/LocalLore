@@ -633,7 +633,7 @@ export class Controller {
         this.setDraft(draft);
     }
     private async invalidate() {
-        this.clearQuery();
+        this.clearQuery(true);
         await this.cancelExport();
         const old = this.operation ?? this.unresolved;
         if (old) {
@@ -757,7 +757,7 @@ export class Controller {
     private queryPatch(value: Partial<State["query"]>) {
         this.patch({ query: { ...this.state.query, ...value } });
     }
-    private clearQuery() {
+    private clearQuery(resetContext = false) {
         this.queryEpoch++;
         this.queryPatch({
             page: null,
@@ -767,7 +767,13 @@ export class Controller {
             cursor: null,
             cursors: [],
             notice: "",
+            trace: null,
+            ...(resetContext ? { search: "", atRevision: null } : {}),
         });
+    }
+    returnToPlay() {
+        void this.showQuery(false);
+        this.setView("play");
     }
     async showQuery(shown = true) {
         this.clearQuery();
@@ -899,31 +905,160 @@ export class Controller {
             this.queryPatch({ selectedKey: key });
     }
     async followInspectionSource(source: Source) {
-        if (source.kind === "withheld") return;
-        await this.browseInspection(
+        if (source.kind === "withheld") return null;
+        const pending = this.browseInspection(
             source.kind === "seed"
                 ? { view: "profiles", atRevision: 0, search: "" }
                 : { view: "history", search: `"sequence":${source.value},` },
         );
-        const row = this.state.query.page?.rows.find(
+        const sequence = this.queryEpoch;
+        await pending;
+        if (sequence !== this.queryEpoch || !this.state.query.page) return null;
+        const row = this.state.query.page.rows.find(
             (r) =>
                 source.kind === "seed" ||
                 (r.kind === "event" && r.event.sequence === source.value),
         );
         if (row) this.selectInspection(row.key);
+        return row ? sequence : null;
     }
     async whyInspection(row: Row) {
+        const page = this.state.query.page;
+        // A delayed click must not transplant a row from a previous private lens.
+        if (!page?.rows.includes(row)) return;
+        if (row.kind === "provenance") {
+            this.queryPatch({
+                notice: "This record already lists its permitted sources.",
+            });
+            return;
+        }
+        if (row.kind === "event") {
+            const sourceEpoch = await this.followInspectionSource({
+                kind: "event",
+                value: row.event.sequence,
+            });
+            if (
+                sourceEpoch !== null &&
+                sourceEpoch === this.queryEpoch &&
+                this.state.query.page?.rows.some(
+                    (r) =>
+                        r.kind === "event" &&
+                        r.event.sequence === row.event.sequence,
+                )
+            )
+                this.queryPatch({
+                    notice: "Accepted event source; this observation has no separate field-provenance row.",
+                });
+            return;
+        }
+        if (row.kind === "message") {
+            if (!row.event_ids.length) {
+                this.queryPatch({
+                    notice: "No accepted event source is attached to this recorded message.",
+                });
+                return;
+            }
+            const pending = this.browseInspection({
+                view: "history",
+                atRevision: page.revision,
+                search: `"turn":${JSON.stringify(row.turn)},`,
+            });
+            const sequence = this.queryEpoch;
+            await pending;
+            if (sequence !== this.queryEpoch || !this.state.query.page) return;
+            const event = this.state.query.page.rows.find(
+                (r) =>
+                    r.kind === "event" &&
+                    row.event_ids.includes(r.event.sequence),
+            );
+            if (event) this.selectInspection(event.key);
+            this.queryPatch({
+                notice: event
+                    ? "Permitted accepted events support this display record; the message itself is not canonical truth."
+                    : "No supporting accepted event is visible in this lens and page.",
+            });
+            return;
+        }
         const underlying =
             row.kind === "change" ? (row.after ?? row.before!) : row;
-        await this.browseInspection({
+        const revision =
+            row.kind === "change"
+                ? row.after
+                    ? row.after_revision
+                    : row.before_revision
+                : page.revision;
+        const pending = this.browseInspection({
             view: "provenance",
-            search:
-                underlying.kind === "event"
-                    ? JSON.stringify({
-                          kind: "event",
-                          value: underlying.event.sequence,
-                      })
-                    : JSON.stringify(underlying.key),
+            atRevision: revision,
+            search: JSON.stringify(underlying.key),
+        });
+        const sequence = this.queryEpoch;
+        await pending;
+        if (sequence !== this.queryEpoch || !this.state.query.page) return;
+        const record = this.state.query.page.rows.find(
+            (r) => r.kind === "provenance" && r.key === underlying.key,
+        );
+        if (record) this.selectInspection(record.key);
+        this.queryPatch({
+            trace:
+                row.kind === "change"
+                    ? {
+                          change: row,
+                          stage: row.after
+                              ? "field_provenance"
+                              : "prior_provenance",
+                      }
+                    : null,
+            notice: record
+                ? row.kind === "change" && !row.after
+                    ? `Prior field provenance at r${revision}; the field is absent at r${row.after_revision}. This is not a current field.`
+                    : "Permitted field provenance at the inspected revision."
+                : "Field provenance is unavailable in this lens and snapshot. No substitute evidence is asserted.",
+        });
+    }
+    async showChangeTurnHistory() {
+        const trace = this.state.query.trace;
+        if (!trace) return;
+        const change = trace.change;
+        // Resolve the boundary event through the same observer-filtered API. Never
+        // look up raw Player receipts to discover a private turn ID for an NPC.
+        let pending = this.browseInspection({
+            view: "history",
+            atRevision: change.after_revision,
+            search: `"sequence":${change.after_revision},`,
+        });
+        let sequence = this.queryEpoch;
+        await pending;
+        if (sequence !== this.queryEpoch || !this.state.query.page) return;
+        const boundary = this.state.query.page.rows.find(
+            (r) =>
+                r.kind === "event" &&
+                r.event.sequence === change.after_revision,
+        );
+        if (boundary?.kind !== "event") {
+            this.queryPatch({
+                trace: { change, stage: "turn_history" },
+                notice: "The completed-head event is not visible to this lens. Causal event evidence is unavailable; no hidden turn is inferred.",
+            });
+            return;
+        }
+        pending = this.browseInspection({
+            view: "history",
+            atRevision: change.after_revision,
+            search: `"turn":${JSON.stringify(boundary.event.turn)},`,
+        });
+        sequence = this.queryEpoch;
+        await pending;
+        if (sequence !== this.queryEpoch || !this.state.query.page) return;
+        const event = this.state.query.page.rows.find(
+            (r) =>
+                r.kind === "event" &&
+                r.event.sequence === change.after_revision,
+        );
+        if (event) this.selectInspection(event.key);
+        this.queryPatch({
+            trace: { change, stage: "turn_history" },
+            notice: "Permitted accepted history for the completed turn in which this change occurred. A turn may contain several effects; no single-event cause is inferred.",
         });
     }
     async traceReceipt() {
@@ -1075,7 +1210,7 @@ export class Controller {
         if (confirmed) this.setView("lab");
     }
     setView(view: State["view"]) {
-        this.clearQuery();
+        this.clearQuery(true);
         if (
             view === "play" &&
             ["full", "database"].includes(this.state.exports.mode)
@@ -1093,7 +1228,7 @@ export class Controller {
     }
     setObserver(observer: string) {
         if (this.state.view !== "lab") return;
-        this.clearQuery();
+        this.clearQuery(true);
         this.patch({ observer });
         void this.inspect();
         if (this.state.query.shown) void this.queryInspection();

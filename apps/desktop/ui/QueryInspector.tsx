@@ -1,8 +1,16 @@
 import { useEffect, useState } from "react";
 import type { Controller } from "./controller";
 import type { State } from "./model";
-import { views, words, rowLabel, rowValue, rowSources } from "./query-model";
-import type { Row, Source, InspectionView } from "./query-model";
+import {
+    views,
+    words,
+    rowLabel,
+    rowValue,
+    rowSources,
+    whyLabel,
+    canInspectWhy,
+} from "./query-model";
+import type { Row, Source, InspectionView, ChangeTrace } from "./query-model";
 function Sources({ row, c }: { row: Row; c: Controller }) {
     return (
         <span className="source-links">
@@ -24,13 +32,30 @@ function Sources({ row, c }: { row: Row; c: Controller }) {
         </span>
     );
 }
-function RecordDetail({ row, c }: { row: Row; c: Controller }) {
+function RecordDetail({
+    row,
+    c,
+    trace,
+}: {
+    row: Row;
+    c: Controller;
+    trace?: ChangeTrace | null;
+}) {
     return (
         <section
             className="record-detail"
             aria-label="Selected inspection record"
         >
             <h3>{rowLabel(row)}</h3>
+            {trace && (
+                <p className="scope">
+                    {trace.stage === "turn_history"
+                        ? "Accepted turn evidence"
+                        : "Field-origin evidence"}{" "}
+                    · change boundary r{trace.change.before_revision} → r
+                    {trace.change.after_revision}
+                </p>
+            )}
             <p className="origin">{words(row.origin)}</p>
             {row.kind === "change" ? (
                 <div className="comparison">
@@ -118,9 +143,7 @@ export function QueryInspector({
                         character knowledge.
                     </p>
                 </div>
-                <button onClick={() => void c.showQuery(false)}>
-                    Return to play
-                </button>
+                <button onClick={() => c.returnToPlay()}>Return to play</button>
             </div>
             <div className="query-context">
                 <strong>
@@ -293,6 +316,58 @@ export function QueryInspector({
                     Refresh current head & retry
                 </button>
             )}
+            {q.trace && (
+                <section
+                    className="record-detail"
+                    aria-label="Change provenance"
+                >
+                    <h3>
+                        {q.trace.stage === "prior_provenance"
+                            ? "Prior provenance for a removed field"
+                            : q.trace.stage === "turn_history"
+                              ? "Accepted history of the completed turn"
+                              : "Field provenance after the change"}
+                    </h3>
+                    <p>
+                        Change boundary · r{q.trace.change.before_revision} → r
+                        {q.trace.change.after_revision}.{" "}
+                        {q.trace.change.after
+                            ? "The after-value belongs to this inspected historical head."
+                            : "The field is absent after this turn; prior provenance describes the former field."}
+                    </p>
+                    <div className="comparison">
+                        <section>
+                            <h4>Before · r{q.trace.change.before_revision}</h4>
+                            <p>
+                                {q.trace.change.before
+                                    ? rowValue(q.trace.change.before)
+                                    : "Absent"}
+                            </p>
+                        </section>
+                        <section>
+                            <h4>After · r{q.trace.change.after_revision}</h4>
+                            <p>
+                                {q.trace.change.after
+                                    ? rowValue(q.trace.change.after)
+                                    : "Absent"}
+                            </p>
+                        </section>
+                    </div>
+                    <button
+                        disabled={q.busy}
+                        onClick={() => void c.showChangeTurnHistory()}
+                    >
+                        View accepted turn history · r
+                        {q.trace.change.before_revision} → r
+                        {q.trace.change.after_revision}
+                    </button>
+                    <p className="muted">
+                        Prior field origin and the accepted turn are separate
+                        evidence. Turn history uses only records visible to this
+                        inspection lens.
+                    </p>
+                </section>
+            )}
             {p?.unsupported.length ? (
                 <details
                     className="unsupported"
@@ -389,8 +464,11 @@ export function QueryInspector({
                         >
                             Copy selected record
                         </button>
-                        <button onClick={() => void c.whyInspection(selected)}>
-                            Why is this true?
+                        <button
+                            disabled={!canInspectWhy(selected)}
+                            onClick={() => void c.whyInspection(selected)}
+                        >
+                            {whyLabel(selected)}
                         </button>
                         {selected.kind === "event" && (
                             <button
@@ -402,7 +480,7 @@ export function QueryInspector({
                             </button>
                         )}
                     </div>
-                    <RecordDetail row={selected} c={c} />
+                    <RecordDetail row={selected} c={c} trace={q.trace} />
                 </>
             )}
             {q.notice && !q.error && <p role="status">{q.notice}</p>}

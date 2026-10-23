@@ -1,0 +1,12 @@
+[package]
+name = "locallore-storage"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Single Rust owner for LocalLore's scoped SQLite schema and migrations"
+
+[dependencies]
+locallore = { path = "../locallore" }
+rusqlite = { version = "=0.40.2", default-features = false, features = ["bundled", "backup"] }
+serde_json.workspace = true

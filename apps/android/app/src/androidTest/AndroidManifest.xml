@@ -1,6 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
+        <!-- UID-checked fixture setup only; no document grants or file API. -->
+        <provider
+            android:name="org.locallore.app.ChooserArchiveProvider$Control"
+            android:authorities="${chooserTestAuthority}.control"
+            android:exported="true"
+            android:process=":chooser_test_provider" />
+        <!-- System picker integration only; never packaged in the application APK. -->
+        <provider
+            android:name="org.locallore.app.ChooserArchiveProvider"
+            android:authorities="${chooserTestAuthority}"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS"
+            android:process=":chooser_test_provider">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
         <provider
             android:name="org.locallore.app.ArchiveDocumentProvider"
             android:authorities="${archiveTestAuthority}"

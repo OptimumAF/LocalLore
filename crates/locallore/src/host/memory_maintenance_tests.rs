@@ -80,6 +80,26 @@ struct Port {
 }
 impl Persistence for Port {
     required_port!();
+    fn begin_bound(
+        &mut self,
+        request: &Request,
+        basis: &crate::engine::AcceptedHistoryBasis,
+    ) -> Result<SavedTurn, String> {
+        assert!(basis.matches_request(request));
+        assert!(self.engine.matches_accepted_history(basis).unwrap());
+        self.begin(request)
+    }
+    fn status_bound(
+        &mut self,
+        request: &Request,
+        basis: &crate::engine::AcceptedHistoryBasis,
+    ) -> Result<SavedTurn, String> {
+        assert!(basis.covers_request(request));
+        assert!(self.engine.matches_accepted_history(basis).unwrap());
+        let saved = self.status(&request.scope, &request.turn)?;
+        assert_eq!(saved.request, *request);
+        Ok(saved)
+    }
     fn memory_maintenance(
         &mut self,
         selected: &Engine,

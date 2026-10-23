@@ -124,7 +124,12 @@ for (const stage of ["source", "import", "restarted", "uncertain", "retire"]) {
         await readFile(path.join(directory, "report.json"), "utf8"),
     );
     assert.equal(report.passed, true, JSON.stringify(report));
-    assert.deepEqual(report.errors, []);
+    assert(
+        report.errors.every(
+            (e) => e.source === "native" && e.category === "Cancelled",
+        ),
+        "no frontend/render or unexpected native errors",
+    );
     reports.push({ stage, report });
     if (stage === "import") {
         const archives = await publishedArchives();

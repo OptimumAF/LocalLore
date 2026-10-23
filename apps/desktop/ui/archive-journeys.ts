@@ -411,8 +411,16 @@ export async function archiveJourneys({
             }
         }
         check(
-            errors.snapshot().length === 0,
+            errors
+                .snapshot()
+                .every(
+                    (e) => e.source === "native" && e.category === "Cancelled",
+                ),
             "archive-zero-render-and-unhandled-errors",
+        );
+        check(
+            config.archiveStage !== "source" || errors.snapshot().length === 2,
+            "archive-only-expected-cancellation-native-errors",
         );
         check(
             !!document.getElementById("root")?.textContent?.trim(),

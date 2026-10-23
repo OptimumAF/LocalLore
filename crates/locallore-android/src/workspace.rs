@@ -4,7 +4,7 @@ use locallore::host::{Host, MAX_INPUT, MAX_OUTPUT};
 use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
-    path::Path,
+    path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
@@ -14,6 +14,7 @@ use std::{
 #[derive(Default)]
 pub struct WorkspaceRegistry {
     entries: Mutex<RegistryState>,
+    mutation: Mutex<()>,
 }
 #[derive(Default)]
 struct RegistryState {
@@ -31,6 +32,7 @@ impl Drop for Opening<'_> {
 }
 struct Lease {
     host: Host,
+    database: PathBuf,
     closed: AtomicBool,
     control: Mutex<()>,
 }
@@ -61,6 +63,7 @@ fn rejected(category: &str) -> Value {
 impl WorkspaceRegistry {
     /// The path is supplied by native app construction, never a Host wire command.
     pub fn open(&self, path: &Path) -> Result<u64, String> {
+        let _mutation = self.mutation.lock().map_err(|_| "Internal")?;
         let id = {
             let mut entries = self.entries.lock().map_err(|_| "Internal")?;
             if entries.leases.len() + entries.opening >= 4 {
@@ -78,11 +81,13 @@ impl WorkspaceRegistry {
         let _opening = Opening(self);
         // Database validation/replay can block. Other owners must still be able to cancel/close.
         let host = locallore_workspace::open(path, false)?;
+        let database = path.canonicalize().map_err(|_| "Io")?;
         crate::play_fixture::configure(&host)?;
         self.entries.lock().map_err(|_| "Internal")?.leases.insert(
             id,
             Arc::new(Lease {
                 host,
+                database,
                 closed: AtomicBool::new(false),
                 control: Mutex::new(()),
             }),
@@ -98,6 +103,16 @@ impl WorkspaceRegistry {
             let Some(lease) = lease else {
                 return rejected("InvalidHandle");
             };
+            // Prepare can run a slow provider. Its completion is fenced by Host session
+            // invalidation; submit/commit/resume/open cannot cross a deletion transaction.
+            let prepare = serde_json::from_slice::<Value>(bytes)
+                .ok()
+                .is_some_and(|value| value["command"]["op"] == "prepare");
+            let _mutation = if prepare {
+                None
+            } else {
+                Some(self.mutation.lock().unwrap())
+            };
             lease.call(bytes)
         }))
         .unwrap_or_else(|_| rejected("Internal"));
@@ -109,6 +124,7 @@ impl WorkspaceRegistry {
         }
     }
     pub fn close(&self, handle: u64) {
+        let _mutation = self.mutation.lock().unwrap();
         // Remove before waiting for the Host; no new work can acquire this handle.
         let lease = self.entries.lock().unwrap().leases.remove(&handle);
         if let Some(lease) = lease {
@@ -116,6 +132,31 @@ impl WorkspaceRegistry {
             lease.closed.store(true, Ordering::SeqCst);
             lease.host.close_all();
         }
+    }
+    /// Serialize accepted deletion and in-process session invalidation with all
+    /// session-creating and committing calls. No entries lock is held during Host work.
+    pub fn with_story_deletion<T>(
+        &self,
+        database: &Path,
+        story: &str,
+        delete: impl FnOnce() -> Result<T, &'static str>,
+    ) -> Result<T, &'static str> {
+        let _mutation = self.mutation.lock().map_err(|_| "Internal")?;
+        let database = database.canonicalize().map_err(|_| "Io")?;
+        let leases: Vec<_> = self
+            .entries
+            .lock()
+            .map_err(|_| "Internal")?
+            .leases
+            .values()
+            .filter(|lease| lease.database == database)
+            .cloned()
+            .collect();
+        let deleted = delete()?;
+        for lease in leases {
+            lease.host.invalidate_story(story);
+        }
+        Ok(deleted)
     }
 }
 
@@ -173,10 +214,12 @@ mod tests {
         // Ephemeral Host is sufficient to test the app lease, independently of SQLite startup.
         let lease = Arc::new(Lease {
             host: Host::new(false),
+            database: PathBuf::new(),
             closed: AtomicBool::new(false),
             control: Mutex::new(()),
         });
         let registry = WorkspaceRegistry {
+            mutation: Mutex::new(()),
             entries: Mutex::new(RegistryState {
                 next: 1,
                 opening: 0,
@@ -193,7 +236,7 @@ mod tests {
 }
 
 #[cfg(target_os = "android")]
-mod android {
+pub(crate) mod android {
     use super::*;
     use jni::{
         objects::{JByteArray, JObject, JString},
@@ -202,7 +245,7 @@ mod android {
     };
     use std::sync::OnceLock;
     static REGISTRY: OnceLock<WorkspaceRegistry> = OnceLock::new();
-    fn registry() -> &'static WorkspaceRegistry {
+    pub(crate) fn registry() -> &'static WorkspaceRegistry {
         REGISTRY.get_or_init(WorkspaceRegistry::default)
     }
 

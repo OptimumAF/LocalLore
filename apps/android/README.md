@@ -247,6 +247,13 @@ SQLite Full, exact rollback and cache-only relief before fresh consent/retry.
 Its fixture JNI and 96-page SQLite default are absent from ordinary builds.
 This is a bounded page-limit proof, not physical device ENOSPC qualification.
 
+The [whole-story deletion checks](../../docs/native/STORY_DELETION_VERIFICATION_2026-10-23.md)
+use the separate `.storydelete` debug package and exclusive
+`.gradle-story-deletion` cache. The real Store preview, explicit consent,
+three-timeline removal, retained story, cancellation, and durable empty-library
+flows run without deleting existing demo saves. Branch-only deletion is pending;
+external copies and forensic erasure remain outside the logical-delete promise.
+
 Host tests cover strict bytes, scoped IDs, ownership, idempotency, provider
 failures, cancellation/commit races and cleanup. JVM tests cover publication,
 cancellation/disposal and uncertain outcomes. JNI instrumentation exercises

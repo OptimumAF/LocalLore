@@ -475,6 +475,22 @@ impl Host {
             trace.set_enabled(false);
         }
     }
+    /// Trusted storage lifecycle notification, never an LLM/Host wire command.
+    /// The adapter fences new submit/commit/resume calls through the deletion transaction.
+    pub fn invalidate_story(&self, story: &str) {
+        let mut state = self.state.lock().unwrap();
+        state.sessions.retain(|_, session| {
+            if session.engine.scope().story != story {
+                return true;
+            }
+            for turn in session.turns.values() {
+                turn.cancel.cancel();
+            }
+            false
+        });
+        // Clear outstanding trace handles too; no retained per-story metadata survives.
+        self.trace.lock().unwrap().clear();
+    }
     /// Trusted adapter lifecycle evidence, without story content or wire authority.
     pub fn live_counts(&self) -> (usize, usize) {
         let state = self.state.lock().unwrap();

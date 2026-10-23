@@ -286,7 +286,7 @@ class StoryRecordViewModelTest {
             if (result is DemoResult.Accepted) saved = saved.copy(
                 revision = result.revision,
                 potionOwner = result.potionOwner,
-                selected = saved.selected.copy(revision = result.revision),
+                selected = checkNotNull(saved.selected).copy(revision = result.revision),
             )
             return result
         }

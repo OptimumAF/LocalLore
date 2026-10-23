@@ -17,7 +17,11 @@ internal interface WorkspaceTransport {
 }
 
 /** No gameplay rules or ledger live here. Only authoritative player snapshots reach the UI. */
-internal class DurableGateway(private val transport: WorkspaceTransport) : DemoGateway {
+internal class DurableGateway(
+    private val transport: WorkspaceTransport,
+    autoCreateIfEmpty: Boolean = true,
+) : DemoGateway {
+    private var mayAutoCreate = autoCreateIfEmpty
     override val durable = true
     override val storyRecords = true
     private var session: String? = null
@@ -63,12 +67,35 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
 
     override suspend fun initialize(): SavedSnapshot {
         if (session != null) return snapshot()
-        val workspace = call(command("workspace"))
-        check(workspace.getBoolean("persistent"))
+        return openLibrary(mayAutoCreate)
+    }
+    private suspend fun workspace(): JSONObject = call(command("workspace")).also {
+        check(it.getBoolean("persistent") && it.getInt("schema_version") == 1)
+        check(it.getInt("database_schema_version") == 2)
+        it.getString("location")
+        it.getJSONArray("stories")
+    }
+    private suspend fun openLibrary(allowCreate: Boolean): SavedSnapshot {
+        val workspace = workspace()
         val saved = workspace.getJSONArray("stories")
+        // Automatic bootstrap is a one-time compatibility option. Never repeat an uncertain create.
+        mayAutoCreate = false
+        if (saved.length() == 0 && !allowCreate) return emptySnapshot(workspace)
         attach(if (saved.length() == 0) call(command("create").put("seed", "lantern-quay-v1"))
             else call(command("resume").put("scope", saved.getJSONObject(0).getJSONObject("scope"))))
         return snapshot()
+    }
+    private fun emptySnapshot(workspace: JSONObject): SavedSnapshot {
+        check(workspace.getJSONArray("stories").length() == 0)
+        return SavedSnapshot(0, "", emptyList(), workspace.getString("location"), 1,
+            emptyList(), null, databaseSchemaVersion = workspace.getInt("database_schema_version"))
+    }
+    override suspend fun reconcileSaved(): SavedSnapshot {
+        mayAutoCreate = false
+        operation?.cancelled = true
+        operation = null
+        closeSession()
+        return openLibrary(allowCreate = false)
     }
     private fun attach(data: JSONObject) {
         session = data.getString("session")
@@ -77,6 +104,7 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
         operation = null
     }
     override suspend fun snapshot(): SavedSnapshot {
+        if (session == null) return openLibrary(allowCreate = false)
         // Open refreshes revision from validated persisted canon before coherent player inspection.
         val opened = call(scoped("open"))
         check(sameScope(opened.getJSONObject("scope"), checkNotNull(scope)))
@@ -103,8 +131,7 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
             messages += SceneMessage(i * 2L + 1, playerText, true)
             messages += SceneMessage(i * 2L + 2, receipt.getString("narration"), false)
         }
-        val workspace = call(command("workspace"))
-        check(workspace.getBoolean("persistent") && workspace.getInt("schema_version") == 1)
+        val workspace = workspace()
         // Host-v1's workspace contract and the SQLite implementation have separate versions.
         val databaseSchema = workspace.getInt("database_schema_version")
         check(databaseSchema == 2)
@@ -202,7 +229,7 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
     }
     override suspend fun commitAsync(result: DemoResult): DemoResult {
         if (result !is DemoResult.Prepared) return result
-        val pending = checkNotNull(operation)
+        val pending = operation ?: return DemoResult.Rejected("Cancelled")
         if (pending.cancelled || result.operation != pending.serial) return DemoResult.Rejected("Cancelled")
         val data = try { call(scoped("commit", pending)) }
             catch (failure: Exception) {
@@ -255,10 +282,28 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
         }
         return snapshot()
     }
+    private suspend fun closeSession() {
+        if (session != null) {
+            try { call(scoped("close")) }
+            catch (failure: WorkspaceFailure) {
+                if (failure.category != "Closed") throw failure
+            }
+        }
+        session = null; scope = null; revision = 0
+    }
     private suspend fun release() {
-        cancelSaved()
-        call(scoped("close"))
-        session = null; scope = null
+        operation?.let { pending ->
+            pending.cancelled = true
+            try {
+                val status = submissionGate.withLock { call(scoped("cancel", pending)) }
+                if (status.getString("phase") == "committed") result(status, pending)
+                else if (operation === pending) operation = null
+            } catch (failure: WorkspaceFailure) {
+                if (failure.category !in setOf("Closed", "UnknownTurn")) throw failure
+                if (operation === pending) operation = null
+            }
+        }
+        closeSession()
     }
     override suspend fun createSaved(): SavedSnapshot {
         release()

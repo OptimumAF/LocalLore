@@ -14,6 +14,7 @@ class ShellViewModel internal constructor(
     private val gateway: DemoGateway,
     private val diagnosticLog: DiagnosticLog = DiagnosticLog(),
     archiveGateway: ArchiveGateway? = null,
+    deletionGateway: StoryDeletionGateway? = null,
 ) : ViewModel() {
     private val mutable = MutableStateFlow(ShellState())
     val state: StateFlow<ShellState> = mutable.asStateFlow()
@@ -30,11 +31,31 @@ class ShellViewModel internal constructor(
     val archive = archiveController?.state ?: MutableStateFlow(ArchiveUiState()).asStateFlow()
     private var archiveImportPicker: Long? = null
     private var archiveExportPicker: Long? = null
+    internal val deletionController = deletionGateway?.let { StoryDeletionController(viewModelScope, it, ::deletionClosed) }
+    internal val deletion = deletionController?.state ?: MutableStateFlow(StoryDeletionUiState()).asStateFlow()
+
+    fun openDeletion() {
+        val controller = deletionController ?: return
+        val before = mutable.value
+        if (disposed || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired || !before.persistent) return
+        val selected = before.selectedStory ?: return
+        diagnosticController.dismiss()
+        recordController.dismiss()
+        mutable.value = before.copy(deletionActive = true)
+        controller.open(selected)
+    }
+    private fun deletionClosed(deleted: StoryDeleted?) {
+        if (disposed) return
+        mutable.value = mutable.value.copy(deletionActive = false)
+        savedOperation(if (deleted == null) "Saved-story library refreshed." else "Story and all its timelines deleted.") {
+            gateway.reconcileSaved()
+        }
+    }
 
     fun openArchive() {
         val controller = archiveController ?: return
         val before = mutable.value
-        if (disposed || before.archiveActive || before.busy || before.recoveryRequired || !before.persistent) return
+        if (disposed || before.archiveActive || before.deletionActive || before.busy || before.recoveryRequired || !before.persistent) return
         val story = before.selectedStory ?: return
         diagnosticController.dismiss()
         recordController.dismiss()
@@ -123,19 +144,19 @@ class ShellViewModel internal constructor(
     }
 
     fun recover() {
-        if (!disposed && !mutable.value.busy && !mutable.value.archiveActive && gateway.durable) savedOperation("Saved progress recovered.") {
+        if (!disposed && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && gateway.durable) savedOperation("Saved progress recovered.") {
             if (mutable.value.storageLocation == null) gateway.initialize() else gateway.recoverSaved()
         }
     }
     fun resume(story: SavedStory) {
-        if (!disposed && !mutable.value.busy && !mutable.value.archiveActive && gateway.durable) savedOperation("Saved story resumed.") { gateway.resumeSaved(story) }
+        if (!disposed && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && gateway.durable) savedOperation("Saved story resumed.") { gateway.resumeSaved(story) }
     }
 
-    fun openDiagnostics() { if (!disposed && !mutable.value.busy && !mutable.value.archiveActive) { recordController.dismiss(); diagnosticController.open() } }
+    fun openDiagnostics() { if (!disposed && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive) { recordController.dismiss(); diagnosticController.open() } }
     fun openStoryRecord() {
         val current = mutable.value
         val story = current.selectedStory ?: return
-        if (!disposed && gateway.storyRecords && current.persistent && !current.busy && !current.archiveActive && !current.recoveryRequired) {
+        if (!disposed && gateway.storyRecords && current.persistent && !current.busy && !current.archiveActive && !current.deletionActive && !current.recoveryRequired) {
             diagnosticController.dismiss()
             recordController.open(StoryRecordContext(story, current.revision))
         }
@@ -160,7 +181,7 @@ class ShellViewModel internal constructor(
     fun completeDiagnosticExport(writer: (suspend (ByteArray) -> Unit)?) = diagnosticController.completeExport(writer)
 
     fun setMode(mode: DemoMode) {
-        if (!disposed && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.recoveryRequired) mutable.value = mutable.value.copy(mode = mode, notice = null)
+        if (!disposed && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && !mutable.value.recoveryRequired) mutable.value = mutable.value.copy(mode = mode, notice = null)
     }
 
     fun submit(action: DemoAction) = submitResponse(action.description()) { before ->
@@ -168,7 +189,8 @@ class ShellViewModel internal constructor(
     }
 
     fun submitText(input: PlayInput) {
-        if (disposed || mutable.value.busy || mutable.value.archiveActive || mutable.value.recoveryRequired) return
+        if (disposed || mutable.value.busy || mutable.value.archiveActive || mutable.value.deletionActive || mutable.value.recoveryRequired ||
+            (gateway.durable && mutable.value.selectedStory == null)) return
         if (mutable.value.textProvider == TextProvider.UNAVAILABLE || !validPlayInput(input)) {
             mutable.value = mutable.value.copy(notice = "Text input is unavailable or invalid. Nothing changed.")
             return
@@ -177,7 +199,8 @@ class ShellViewModel internal constructor(
     }
 
     private fun submitResponse(playerText: String, prepare: suspend (ShellState) -> DemoResult) {
-        if (disposed || mutable.value.busy || mutable.value.archiveActive || mutable.value.recoveryRequired) return
+        if (disposed || mutable.value.busy || mutable.value.archiveActive || mutable.value.deletionActive || mutable.value.recoveryRequired ||
+            (gateway.durable && mutable.value.selectedStory == null)) return
         recordController.dismiss()
         val before = mutable.value
         val ticket = ++generation
@@ -259,7 +282,7 @@ class ShellViewModel internal constructor(
 
     fun reset() {
         // A retained UI callback must not reopen a native session after onCleared.
-        if (disposed || mutable.value.archiveActive) return
+        if (disposed || mutable.value.archiveActive || mutable.value.deletionActive) return
         if (gateway.durable && mutable.value.busy) return
         val start = System.nanoTime()
         diagnosticController.dismiss()
@@ -276,6 +299,7 @@ class ShellViewModel internal constructor(
     override fun onCleared() {
         disposed = true
         archiveController?.dispose()
+        deletionController?.dispose()
         archiveImportPicker = null
         archiveExportPicker = null
         diagnosticController.dispose()

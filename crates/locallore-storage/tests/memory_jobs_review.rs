@@ -268,7 +268,12 @@ fn historical_schema3_retired_catalog_stays_readable_without_job_tables_or_write
 fn inconsistent_complete_cursor_is_rejected_instead_of_advertised_as_finished() {
     let temp = Temp::new();
     let path = temp.path("derived-status.sqlite");
-    let (mut store, request, admitted) = populated(&path);
+    let (store, request, _) = populated(&path);
+    // Pinned staging deliberately refuses an external rollback-journal writer.
+    // Finish staging, then exercise corruption of an ordinary active workspace.
+    drop(store);
+    let mut store = Store::open(&path, None).unwrap();
+    let admitted = store.ensure_memory_job(&request, &|| false).unwrap();
     assert_eq!(admitted.next_from, 0);
     assert_eq!(admitted.basis_revision, 1);
     let before = store

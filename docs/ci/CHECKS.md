@@ -80,3 +80,12 @@ by OS. These host tests do not launch ADB. The explicit
 [cross-platform runner](../native/PLATFORM_ROUNDTRIP_VERIFICATION_2026-10-23.md)
 requires already installed, hash-matching test APKs and an authorized selected
 device; it is not part of default CI and performs no model provisioning.
+
+The explicit [archive recovery runner](../native/ARCHIVE_RECOVERY_VERIFICATION_2026-10-23.md)
+also requires matching installed isolated APKs and an authorized selected device.
+It deliberately force-stops only that verified app after a live-PID readiness
+check, then requires a real passing relaunch test. It is not part of default CI.
+Its Python fault tests and three host Store transaction-interruption tests run
+in the normal host suite. The latter invoke one explicitly ignored IPC worker;
+that entry is not an additional standalone qualification test. No model or
+private save is provisioned, and no directory is recursively deleted by them.

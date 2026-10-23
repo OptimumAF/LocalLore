@@ -457,7 +457,7 @@ class SdkWorker:
             if results:
                 result = results[0]
                 parsed = sdk_response(result.stdout)
-                if result.status == "completed" and result.returncode == 0 and parsed:
+                if result.status == "completed" and type(result.returncode) is int and result.returncode == 0 and parsed:
                     output, metrics = parsed
                     status, code = "completed", 0
                 else:
@@ -599,6 +599,9 @@ class NativeWorker:
                 output = result.stdout
                 if result.status != "completed" and not requested:
                     status = result.status
+                elif result.status == "completed" and (type(result.returncode) is not int or result.returncode != 0):
+                    status, failure = "owner_failed", "native_wait_worker"
+                    output = b""
             if not cleanup:
                 status = "cleanup_failed"
                 failure, cleanup_failure = phase, "native_verify_reap"
@@ -668,6 +671,32 @@ def safe_sdk_metrics(raw):
     safe.update({k: raw[k] for k in SDK_NUMBER_METRICS & raw.keys() if type(raw[k]) in (int, float)
                  and 0 <= raw[k] <= 2 ** 31 and math.isfinite(raw[k])})
     return safe
+
+
+def sdk_diagnostic(sdk, native, oracle_binary, mode):
+    rows = []
+    report = {"version": 1, "scope": "android_sdk_boundary_smoke", "mode": mode,
+              "status": "oracle_failed", "check_passed": False, "oracle_runs": rows}
+    fixture = oracle(ObservedOracle(native, rows), oracle_binary, "fixture", "gift")
+    if not fixture or not isinstance(fixture.get("director"), dict):
+        return report
+    try:
+        result = sdk.run("unused", [], json.dumps(fixture["director"]).encode("utf-8"), deadline=80)
+    except Exception:
+        result = RemoteResult("owner_failed", 0, False, failure_stage="invoke_worker")
+    metadata = remote_metadata(result)
+    parsed = host.parse_worker(result.stdout)
+    metrics = safe_sdk_metrics(result.metrics)
+    report.update(metadata)
+    report.update(status=metadata["process_status"], sdk=metrics,
+                  worker_status=parsed["status"] if parsed else None,
+                  worker_error=parsed["error"] if parsed else None)
+    expected = {"metadata": None, "missing": "model_missing", "corrupt": "model_invalid", "cancel": None}
+    report["check_passed"] = bool(metadata["process_status"] == "completed" and metadata["cleanup_complete"]
+        and metadata["adb_cleanup_complete"] and metadata["worker_exit_code"] == 0 and parsed
+        and parsed["error"] == expected[mode] and (mode != "cancel"
+        or (metrics.get("cancel_terminal_callback") is True and metrics.get("reload_completed") is True)))
+    return report
 
 
 def experiment(device, worker, binary, oracle_binary, model, case="gift", cancel_after=None,
@@ -804,19 +833,7 @@ def main():
                     report = experiment(device, sdk, "unused", oracle_binary, "private_model", args.case,
                                         args.cancel_after, runtime="litert", oracle_worker=native)
                 else:
-                    fixture = oracle(native, oracle_binary, "fixture", "gift")
-                    result = sdk.run("unused", [], json.dumps(fixture["director"]).encode("utf-8"), deadline=80)
-                    parsed = host.parse_worker(result.stdout)
-                    report = {"version": 1, "scope": "android_sdk_boundary_smoke", "mode": args.sdk_mode,
-                              "status": result.status, "cleanup_complete": result.cleanup_complete,
-                              "adb_cleanup_complete": result.adb_cleanup_complete, "sdk": result.metrics,
-                              "worker_status": parsed["status"] if parsed else None,
-                              "worker_error": parsed["error"] if parsed else None}
-                    expected = {"metadata": None, "missing": "model_missing", "corrupt": "model_invalid", "cancel": None}
-                    report["check_passed"] = bool(result.status == "completed" and result.cleanup_complete
-                        and result.adb_cleanup_complete and parsed and parsed["error"] == expected[args.sdk_mode]
-                        and (args.sdk_mode != "cancel" or (result.metrics.get("cancel_terminal_callback") is True
-                                                          and result.metrics.get("reload_completed") is True)))
+                    report = sdk_diagnostic(sdk, native, oracle_binary, args.sdk_mode)
         report.update(artifact=host.ARTIFACTS[args.runtime][0], model_sha256=host.ARTIFACTS[args.runtime][2])
     except (Failure, OSError, ValueError):
         report = {"version": 1, "status": "setup_failed", "attempted_roles": 0, "roles": []}

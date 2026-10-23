@@ -22,6 +22,19 @@ def envelope(metrics=None, output=None):
 
 
 class SdkEnvelopeTests(unittest.TestCase):
+    def test_diagnostic_oracle_failure_keeps_stage_and_never_launches_sdk(self):
+        sdk = SimpleNamespace(run=unittest.mock.Mock())
+        native = SimpleNamespace(run=lambda *args, **kwargs: spike.RemoteResult(
+            "setup_failed", 1, True, failure_stage="native_write_request", adb_cleanup_complete=True))
+        report = spike.sdk_diagnostic(sdk, native, "oracle", "corrupt")
+        self.assertEqual(report["status"], "oracle_failed")
+        self.assertEqual(report["oracle_runs"][0]["failure_stage"], "native_write_request")
+        sdk.run.assert_not_called()
+
+    def test_sdk_large_numeric_metadata_fails_closed_without_float_overflow(self):
+        raw = envelope().replace(b'"main_pulses": 3', b'"main_pulses": ' + b'9' * 1000)
+        self.assertIsNone(spike.sdk_response(raw))
+
     def test_expired_cancellation_budget_does_not_release_the_native_barrier(self):
         from test_android_runtime_ownership_review import ImmediateDevice
         device = ImmediateDevice()

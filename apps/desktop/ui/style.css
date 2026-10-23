@@ -915,3 +915,38 @@ summary {
 .evaluation-source {
     overflow-wrap: anywhere;
 }
+/* Playable archive metadata is inert and wraps private identifiers. */
+.archive-panel {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--line);
+    min-width: 0;
+}
+.archive-panel dl {
+    display: grid;
+    grid-template-columns: minmax(7rem, 1fr) minmax(0, 3fr);
+    gap: 0.5rem;
+}
+.archive-panel dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+.archive-panel table {
+    width: 100%;
+    table-layout: fixed;
+}
+.archive-panel td {
+    overflow-wrap: anywhere;
+}
+.archive-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.archive-preview label {
+    display: block;
+    padding-block: 1rem;
+}
+.archive-preview input {
+    width: auto;
+    margin-right: 0.5rem;
+}

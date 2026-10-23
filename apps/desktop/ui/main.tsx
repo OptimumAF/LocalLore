@@ -1,4 +1,5 @@
 import { EvaluationController } from "./evaluation-controller";
+import { ArchiveController } from "./archive-controller";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { Controller } from "./controller";
@@ -26,6 +27,8 @@ declare global {
             debugging?: boolean;
             legacy?: boolean;
             evaluating?: boolean;
+            archiving?: boolean;
+            archiveStage?: "source" | "import" | "restarted";
         };
     }
 }
@@ -40,11 +43,16 @@ const evaluation = new EvaluationController(invoke);
 const base = new IpcGateway(invoke, errors),
     gateway = driver ? new driver.FaultGateway(base) : base,
     controller = new Controller(gateway, errors);
+const archive = new ArchiveController(invoke, () => controller.library());
 // Invalidate evaluation replies before React observes a changed story/lens/Play
 // context. Evaluation is independent of gameplay; no gameplay controller changes.
 const syncEvaluationContext = () => {
     const s = controller.get();
     evaluation.contextChanged(
+        `${s.selectedId}|${s.view}|${s.observer}`,
+        s.view === "lab",
+    );
+    archive.contextChanged(
         `${s.selectedId}|${s.view}|${s.observer}`,
         s.view === "lab",
     );
@@ -58,10 +66,13 @@ const root = createRoot(document.getElementById("root")!, {
     onUncaughtError: () => errors.add("frontend", "RenderError"),
     onRecoverableError: () => errors.add("frontend", "RenderError"),
 });
-root.render(<App controller={controller} evaluation={evaluation} />);
+root.render(
+    <App controller={controller} evaluation={evaluation} archive={archive} />,
+);
 const dispose = async () => {
     releaseEvaluationContext();
     evaluation.dispose();
+    archive.dispose();
     await controller.dispose();
     root.unmount();
     window.removeEventListener("error", onError);
@@ -105,7 +116,17 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
                 : durableDriver
                   ? durableDriver.durableJourneys
                   : driver.journeys;
-    if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.evaluating) {
+    if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.archiving) {
+        const { archiveJourneys } = await import("./archive-journeys");
+        await archiveJourneys({
+            controller,
+            archive,
+            errors,
+            invoke,
+            dispose,
+            config: window.__LOCALLORE_TEST__,
+        });
+    } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.evaluating) {
         const { evaluationJourneys } = await import("./evaluation-journeys");
         await evaluationJourneys({
             controller,

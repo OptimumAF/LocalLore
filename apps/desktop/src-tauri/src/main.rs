@@ -3,6 +3,8 @@ use locallore::host::Host;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tauri::Manager;
+mod archive;
+mod archive_commands;
 mod evaluation;
 mod evaluation_commands;
 mod export_commands;
@@ -124,7 +126,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},legacy:{},evaluating:{},stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},legacy:{},evaluating:{},archiving:{},archiveStage:'{}',stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
@@ -133,6 +135,8 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
             std::env::var("LOCALLORE_D06_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_M07_LEGACY_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D07_HARNESS").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_D08_HARNESS").as_deref() == Ok("1"),
+            match std::env::var("LOCALLORE_D08_STAGE").as_deref(){Ok("import")=>"import",Ok("restarted")=>"restarted",_=>"source"},
             if reopened {
                 "reopened"
             } else if std::env::var("LOCALLORE_TEST_RESTART").as_deref() == Ok("1") {
@@ -245,15 +249,26 @@ fn main() {
         return;
     }
     let builder = tauri::Builder::default()
+        .manage(Arc::new(archive::ArchiveBroker::default()))
         .manage(Arc::new(tokio::sync::Semaphore::new(4)))
         .manage(Arc::new(exports::ExportBroker::default()));
     #[cfg(feature = "dev-harness")]
     let builder = builder
         .manage(Reopen(AtomicBool::new(false)))
         .manage(export_commands::TestExportState::default())
+        .manage(archive_commands::TestArchiveState::default())
         .manage(model_commands::TestModelState::default())
         .invoke_handler(tauri::generate_handler![
             host_call,
+            archive_commands::archive_catalog,
+            archive_commands::archive_export_preview,
+            archive_commands::archive_import_preview,
+            archive_commands::archive_export,
+            archive_commands::archive_import,
+            archive_commands::archive_status,
+            archive_commands::archive_cancel,
+            archive_commands::archive_discard,
+            archive_commands::harness_archive_case,
             evaluation_commands::evaluation_catalog,
             evaluation_commands::evaluation_start,
             evaluation_commands::evaluation_open,
@@ -287,6 +302,14 @@ fn main() {
     #[cfg(not(feature = "dev-harness"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         host_call,
+        archive_commands::archive_catalog,
+        archive_commands::archive_export_preview,
+        archive_commands::archive_import_preview,
+        archive_commands::archive_export,
+        archive_commands::archive_import,
+        archive_commands::archive_status,
+        archive_commands::archive_cancel,
+        archive_commands::archive_discard,
         evaluation_commands::evaluation_catalog,
         evaluation_commands::evaluation_start,
         evaluation_commands::evaluation_open,
@@ -385,11 +408,17 @@ fn main() {
                         .inner()
                         .clone();
                     evaluation_manager.retire(closed - 1);
+                    let archive_manager = window
+                        .state::<Arc<archive::ArchiveBroker>>()
+                        .inner()
+                        .clone();
+                    archive_manager.retire(closed - 1);
                     let retired = model_manager.retire();
                     let lease = state.lease.clone();
                     let host = state.ready();
                     tauri::async_runtime::spawn_blocking(move || {
                         evaluation_manager.drain(closed - 1);
+                        archive_manager.drain(closed - 1);
                         lease.finish_close(closed, || {
                             if let Some(host) = &host {
                                 host.close_all();

@@ -153,7 +153,7 @@ inferred from the current Node lane.
 
 Windows10.0.26300, explicit Node24.22.1 and preprovisioned locked dependencies;
 own D output/temp only. No download, native compile, app/worker/model launch,
-C UA/desktop/screenshot/device/ADB, protected resource, setting or merge operation.
+CUA/desktop/screenshot/device/ADB, protected resource, setting or merge operation.
 The coordinator's App/main/native files are still unwired in this checkout.
 
 ```text

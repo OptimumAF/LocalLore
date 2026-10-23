@@ -287,7 +287,7 @@ fn bounded_repair_keeps_same_request_schema_and_cancellation_never_commits() {
     assert_eq!(receipt.play().unwrap().repairs, 1);
     assert_eq!(
         receipt.play().unwrap().prompt_version,
-        "locallore-play-v2.3"
+        "locallore-play-v2.4"
     );
     assert_eq!(schema(&p.seen[0]), schema(&p.seen[1]));
     assert_eq!(p.seen.len(), 3);
@@ -433,7 +433,7 @@ fn frozen_actual_v22_history_restores_forks_and_retries_without_becoming_a_fresh
     assert_eq!(fresh.canonical_bytes(), before);
     for version in [
         "locallore-play-v2.0",
-        "locallore-play-v2.4",
+        "locallore-play-v2.5",
         "locallore-play-v9",
     ] {
         let mut bad = fixture["receipt"].clone();

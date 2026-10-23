@@ -493,6 +493,67 @@ fn saved(r: locallore_storage::TurnRecord) -> locallore::host::SavedTurn {
     }
 }
 impl locallore::host::Persistence for FaultStore {
+    fn begin_bound(
+        &mut self,
+        request: &locallore::contracts::Request,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+    ) -> Result<locallore::host::SavedTurn, String> {
+        self.store
+            .begin_bound(request, basis)
+            .map(saved)
+            .map_err(|e| e.to_string())
+    }
+    fn status_bound(
+        &mut self,
+        request: &locallore::contracts::Request,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+    ) -> Result<locallore::host::SavedTurn, String> {
+        if self.fail_status_once {
+            self.fail_status_once = false;
+            return Err("Busy".into());
+        }
+        self.store
+            .turn_status_bound(request, basis)
+            .map(saved)
+            .map_err(|e| e.to_string())
+    }
+    fn commit_prepared_bound(
+        &mut self,
+        receipt: &locallore::contracts::Receipt,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+    ) -> Result<locallore::contracts::Receipt, String> {
+        let receipt = self
+            .store
+            .commit_prepared_bound(receipt, basis)
+            .map_err(|e| e.to_string())?;
+        if self.lose_ack {
+            self.lose_ack = false;
+            Err("Database".into())
+        } else {
+            Ok(receipt)
+        }
+    }
+    fn finish_bound(
+        &mut self,
+        request: &locallore::contracts::Request,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+        phase: locallore::host::DraftDisposition,
+    ) -> Result<locallore::host::SavedTurn, String> {
+        let phase = match phase {
+            locallore::host::DraftDisposition::Cancelled => {
+                if self.fail_cancel {
+                    return Err("Busy".into());
+                }
+                locallore_storage::TurnPhase::Cancelled
+            }
+            locallore::host::DraftDisposition::Failed => locallore_storage::TurnPhase::Failed,
+            locallore::host::DraftDisposition::Stale => locallore_storage::TurnPhase::Stale,
+        };
+        self.store
+            .finish_bound(request, basis, phase)
+            .map(saved)
+            .map_err(|e| e.to_string())
+    }
     fn location(&self) -> &str {
         "synthetic-local-test"
     }

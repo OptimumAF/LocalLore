@@ -84,8 +84,20 @@ fn require(condition: bool) -> Result<()> {
     condition.then_some(()).ok_or("Mismatch")
 }
 fn directory(path: &Path) -> Result<()> {
-    let metadata = fs::symlink_metadata(path).map_err(|_| "Io")?;
-    require(metadata.is_dir() && !linked(&metadata)).map_err(|_| "Io")
+    let absolute = if path.is_absolute() {
+        path.to_owned()
+    } else {
+        std::env::current_dir().map_err(|_| "Io")?.join(path)
+    };
+    // Inspect from the filesystem root down, before following any selected ancestor.
+    // No creation or file read occurs until every existing component is a real directory.
+    // This is path validation for the explicit fixture, not a same-UID race defense.
+    let ancestors: Vec<_> = absolute.ancestors().collect();
+    for ancestor in ancestors.into_iter().rev() {
+        let metadata = fs::symlink_metadata(ancestor).map_err(|_| "Io")?;
+        require(metadata.is_dir() && !linked(&metadata)).map_err(|_| "Io")?;
+    }
+    Ok(())
 }
 fn linked(metadata: &fs::Metadata) -> bool {
     #[cfg(windows)]
@@ -110,6 +122,7 @@ fn fresh_directory(path: &Path) -> Result<PathBuf> {
     path.canonicalize().map_err(|_| "Io")
 }
 fn read(root: &Path, name: &str) -> Result<Vec<u8>> {
+    directory(root).map_err(|_| "Input")?;
     let path = root.join(name);
     let metadata = fs::symlink_metadata(&path).map_err(|_| "Input")?;
     if !metadata.is_file() || linked(&metadata) {
@@ -130,6 +143,7 @@ fn read(root: &Path, name: &str) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 fn write(root: &Path, name: &str, bytes: &[u8]) -> Result<()> {
+    directory(root)?;
     if bytes.len() > LIMIT {
         return Err("Bounds");
     }
@@ -892,5 +906,53 @@ mod tests {
             Err("Io")
         );
         assert!(!actual.join("new").exists());
+    }
+    #[cfg(windows)]
+    #[test]
+    fn earlier_windows_junction_ancestor_cannot_redirect_reads_or_new_outputs() {
+        let root = temp();
+        let external = root.join("external-control");
+        let nested = external.join("nested");
+        let deep = nested.join("deep");
+        fs::create_dir(&external).unwrap();
+        fs::create_dir(&nested).unwrap();
+        fs::create_dir(&deep).unwrap();
+        fs::write(deep.join("android-final.json"), b"PRIVATE-EXTERNAL-CONTROL").unwrap();
+        let junction = root.join("junction");
+        let command = PathBuf::from(std::env::var_os("SystemRoot").unwrap())
+            .join("System32/WindowsPowerShell/v1.0/powershell.exe");
+        let created = std::process::Command::new(command)
+            .args(["-NoProfile", "-NonInteractive", "-Command", "New-Item -ItemType Junction -Path $env:LOCALLORE_TEST_JUNCTION -Target $env:LOCALLORE_TEST_TARGET -ErrorAction Stop | Out-Null"])
+            .env("LOCALLORE_TEST_JUNCTION", &junction)
+            .env("LOCALLORE_TEST_TARGET", &external)
+            .output()
+            .unwrap();
+        assert!(created.status.success(), "test junction creation failed");
+        assert!(linked(&fs::symlink_metadata(&junction).unwrap()));
+        let indirect = junction.join("nested").join("deep");
+        assert!(!linked(&fs::symlink_metadata(&indirect).unwrap()));
+        assert_eq!(directory(&indirect), Err("Io"));
+        assert_eq!(read(&indirect, "android-final.json"), Err("Input"));
+        assert_eq!(write(&indirect, "new.json", b"replacement"), Err("Io"));
+        assert_eq!(
+            run(args("generate", &indirect.join("new-output"), None, None)),
+            Err("Io")
+        );
+        let safe_output = root.join("safe-output");
+        assert_eq!(
+            run(args(
+                "check-final",
+                &safe_output,
+                Some(&indirect),
+                Some(&external)
+            )),
+            Err("Io")
+        );
+        assert!(!safe_output.exists());
+        assert_eq!(fs::read_dir(&deep).unwrap().count(), 1);
+        assert_eq!(
+            fs::read(deep.join("android-final.json")).unwrap(),
+            b"PRIVATE-EXTERNAL-CONTROL"
+        );
     }
 }

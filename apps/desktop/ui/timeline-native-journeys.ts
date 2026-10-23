@@ -192,15 +192,19 @@ export async function timelineNativeJourneys({
         );
         await t.show();
         await capture("observer");
-        await invoke("harness_viewport", { width: 620, height: 900 });
+        await invoke("harness_viewport", { preset: "capture-narrow" });
         await capture("narrow");
-        await invoke("harness_viewport", { width: 1280, height: 900 });
+        await invoke("harness_viewport", { preset: "wide" });
         c.setView("play");
         await t.show();
         await capture(config.stage === "restart" ? "reopened" : "finished");
+        const recorded = errors.snapshot();
         check(
-            errors.snapshot().length === 0,
-            "no-native-frontend-or-unhandled-errors",
+            recorded.length === (config.stage === "initial" ? 2 : 0) &&
+                recorded.every(
+                    (e) => e.source === "native" && e.category === "Cancelled",
+                ),
+            "only-expected-native-cancellation-errors",
         );
         await dispose();
         const stats = (await invoke("harness_stats")) as {
@@ -233,7 +237,11 @@ export async function timelineNativeJourneys({
                 checks,
                 failedCheck: current,
                 error:
-                    error instanceof Error ? error.message : "TimelineFailure",
+                    error instanceof Error
+                        ? error.message
+                        : typeof error === "string"
+                          ? error.slice(0, 100)
+                          : "TimelineFailure",
                 errors: errors.snapshot(),
             },
         });

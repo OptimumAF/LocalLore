@@ -178,7 +178,7 @@ async function actualChildResume() {
                             scope: scope("main"),
                             title: "Original synthetic story",
                             revision: 1,
-                            drafts: 0,
+                            drafts: 3,
                         },
                     ],
                 };
@@ -222,6 +222,10 @@ async function actualChildResume() {
     check(
         c.selected()?.name === "Original synthetic story",
         "child-resume-uses-canonical-story-title",
+    );
+    check(
+        !c.get().notice.includes("Saved uncommitted requests"),
+        "root-draft-count-does-not-describe-child",
     );
     check(
         c.get().play.receipts[0].request.scope.branch === "main" &&

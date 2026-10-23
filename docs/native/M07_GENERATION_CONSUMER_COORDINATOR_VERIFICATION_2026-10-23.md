@@ -90,6 +90,33 @@ Retained actual logs: `generation-final-historical-submit-red.log`, `generation-
 
 The30735 ordinary Android compatibility invocation succeeded in3m56s: actual release compilation of x86_64 in1m45s and ARM64, APK packaging, test-APK compatibility, JVM and lint tasks. The JVM/lint/test Kotlin tasks were **UP-TO-DATE**, not fresh execution; no fresh147-test claim follows. This run predates the final passive-refresh correction. Log `generation-final-android-ordinary.log`. Current final-source compilation and deliberate JVM rerun remain pending.
 
-Pending: final-source broad/strict/native/Android compatibility, focused PR and exact-tree merge verification. Actual scripted-role tests are engine/native-library execution, not model inference, app WebView execution or Android JNI/device execution. Existing native render and model evidence belongs to its recorded source and cannot substitute for current integration checks.
+### Final qualified source
+
+Final production is `f4860432b4847f664fbcad8750cc08dea16a2732`. Formatting-only `42ca071` changes the two new review files' wrapping, with no assertion/expected-value change; their8 valid cases passed again, with the one superseded oracle explicitly ignored, and targeted strict Clippy passed2.24s. All changed Rust files passed rustfmt checks and Git whitespace checks. The original frozen source hashes remain in the independent reports.
+
+| Current check | Actual result / local log |
+| --- | --- |
+| `cargo test -p locallore -p locallore-workspace -p locallore-android --all-targets --all-features --locked --offline --jobs 1 --no-fail-fast --target-dir <own-target>` | **403PASS/0FAIL/3 explicit ignores**, one complete invocation atf486 (2 historical fixture-capture helpers and1 superseded bad Open oracle); compile41.06s; `generation-final-allfeatures-refresh.log` |
+| Complete Store suite | **192PASS/0FAIL/5 explicit ignores** at1816; Store production unchanged afterward; `generation-final-storage-all.log` |
+| Four portable packages all-target/all-feature strict Clippy | PASS afterf486; `generation-final-portable-refresh-strict.log` |
+| Normal desktop native Rust | **54PASS/0FAIL/1 Windows symlink privilege ignore** afterf486, test12.16s; `generation-final-desktop-refresh-normal.log` |
+| Development desktop native Rust + contract | **57PASS/0FAIL/1 same ignore**, plus **2/2 contractPASS**; `generation-final-desktop-refresh-dev.log` |
+| All-target/all-feature desktop strict Clippy | PASS10.15s; actual current Core/Store/workspace/runtime/eval/native packages checked; `generation-final-desktop-refresh-strict.log` |
+| Full frontend verifier | PASS; unchanged frontend/schema source, current action/schema/types/all existing controllers/normal-hook exclusion; `generation-final-frontend.log` |
+| Ordinary Android debug + test APK + deliberate JVM rerun + lint | **BUILD SUCCESSFUL59s**,78 tasks(7 executed/71 up-to-date); **147 freshly executed JVM cases/0FAIL/0ERROR/0SKIP**; test APK Kotlin and lint analysis up-to-date; `generation-final-android-refresh-resumed.log` |
+| Ordinary APK audit | PASS exact package/sole signature receiver permission, both supported JNI ABIs, uncompressed native libraries and16KiB ELF load alignment; `generation-final-android-apk-audit.log` |
+
+The final Android command is the existing ordinary command with **`:app:testDebugUnitTest --rerun`**, no task exclusion or test-capacity flags:
+
+```powershell
+.\apps\android\gradlew.bat -p apps/android :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest --rerun :app:lintDebug --offline --no-daemon --max-workers 1 --init-script <own-output-init.gradle> -Pandroid.builder.sdkDownload=false
+python scripts/audit_apk.py <own-output>/outputs/apk/debug/app-debug.apk
+```
+
+`generation-final-android-refresh.log` retains an interrupted first attempt: x86_64 release compiled1m58s, then ARM64 compilation began without a terminal outcome. At continuation the tool handle was missing, no owned compiler/Gradle process remained and the ARM64 output still had its previous timestamp; this was not called success or restarted merely for a timeout. The resumed ordinary command reused current x86_64 (.53s), compiled the actual remaining ARM64 JNI crate in15.37s, repackaged and deliberately executed the JVM task. The fresh147 XML timestamps are16:08:33 local. Lint has0 errors and **1 existing GradleDependency warning**, suggesting kotlinx-coroutines-android1.11.0 instead of pinned1.10.2; no dependency update was silently made. Final APK SHA-256 is `4acee3ceab1c80d7b14f01f2b426d8644d9755ce3b0687c67eb0f5a9f8677061`.
+
+Environment: Windows11Pro10.0.26300; Rust/Cargo1.93.1; Node24.22.1; existing JBR17.0.6, Gradle8.11.1, AGP8.10.1/Kotlin2.2.21, SDK36/NDK29.0.14206865. Build dependencies are locked/offline; process-local one compiler, no incremental/debug info, ordinary uncapped SQLite and task-owned targets/TEMP. No installation or download is part of qualification.
+
+Pending: focused PR and exact-tree merge verification. Actual scripted-role tests are engine/native-library execution, not model inference, app WebView execution or Android JNI/device execution. Existing native render and model evidence belongs to its recorded source and cannot substitute for current integration checks. The next desktop fork/native cohort must requalify actual current WebView/IPC after integration; explicit maintenance UI remains independently owned and unmerged. No performance saving, narrative-quality improvement, physical-phone qualification or complete M07/D07 acceptance follows from this partial PR.
 
 No desktop control, injected input, window activation, desktop capture, device/ADB operation, settings change, hosted inference, download or protected-thread action is part of this verification. The owner has separately authorized existing-account merge bypass; it does not fabricate an independent human approval or weaken a repository setting. Broad task boxes remain unchecked.

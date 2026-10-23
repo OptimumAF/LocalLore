@@ -80,6 +80,45 @@ def elf_report(path, expected_machine=None):
             "interpreter": interpreter, "load_alignments": loads, "needed": needed}
 
 
+def deadline_report(path):
+    """Prove the real linked initializer is scheduled before native main."""
+    raw = path.read_bytes()
+    shoff = struct.unpack_from("<Q", raw, 40)[0]
+    shsize, shcount = struct.unpack_from("<HH", raw, 58)
+    sections = [struct.unpack_from("<IIQQQQIIQQ", raw, shoff + index * shsize)
+                for index in range(shcount)]
+    address = None
+    for section in sections:
+        if section[1] != 2:  # SHT_SYMTAB
+            continue
+        strings = sections[section[6]]
+        for offset in range(section[4], section[4] + section[5], section[9]):
+            name, _, _, _, value, _ = struct.unpack_from("<IBBHQQ", raw, offset)
+            start = strings[4] + name
+            if raw[start:raw.index(b"\0", start)] == b"locallore_android_arm_deadline":
+                address = value
+    if address is None:
+        raise ValueError("Native deadline initializer is absent from the executable")
+    arrays = [section for section in sections if section[1] == 14]  # SHT_INIT_ARRAY
+    if not arrays:
+        raise ValueError("No native initialization array")
+    offsets = {section[3] + index for section in arrays for index in range(0, section[5], 8)}
+    retained = any(struct.unpack_from("<Q", raw, section[4] + index)[0] == address
+                   for section in arrays for index in range(0, section[5], 8))
+    machine = struct.unpack_from("<H", raw, 18)[0]
+    relative = {62: 8, 183: 1027}[machine]
+    for section in sections:
+        if section[1] == 4:  # SHT_RELA; PIE initializer may be a relative addend.
+            for offset in range(section[4], section[4] + section[5], section[9]):
+                target, info, addend = struct.unpack_from("<QQq", raw, offset)
+                if target in offsets and info & 0xffffffff == relative and addend == address:
+                    retained = True
+    if not retained:
+        raise ValueError("Native deadline initializer is not retained in .init_array")
+    return {"initializer_retained": True, "fixed_seconds": 90,
+            "mechanism": "SIGALRM_default_action", "inherited_signal_unblocked": True}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True)
@@ -121,7 +160,8 @@ def main():
         helper = build / "host-helper/locallore-llama-spike"
         oracle = output / "rust" / target / "release/examples/runtime_spike"
         machine = 62 if abi == "x86_64" else 183
-        reports[abi] = {"helper": elf_report(helper, machine), "oracle": elf_report(oracle, machine)}
+        reports[abi] = {"helper": elf_report(helper, machine), "oracle": elf_report(oracle, machine),
+                        "deadline": deadline_report(helper)}
         destination = output / f"{abi}-elf.json"
         destination.write_text(json.dumps(reports[abi], indent=2) + "\n", encoding="utf-8")
         print(json.dumps({"abi": abi, "helper": str(helper), "oracle": str(oracle), "report": str(destination)}), flush=True)

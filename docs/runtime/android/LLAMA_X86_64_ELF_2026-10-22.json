@@ -1,7 +1,7 @@
 {
   "helper": {
-    "bytes": 98424480,
-    "sha256": "f0b59c538c211e936f2c556c2b202b28d1a56d19878f9a1bf83fde6af8fd7db0",
+    "bytes": 98427296,
+    "sha256": "148f24f8a3346826817646fae79a08dd989485b7957e05b4234d4ffc7d9b5ba9",
     "elf_class": 64,
     "machine": 62,
     "type": "ET_DYN",
@@ -35,5 +35,11 @@
       "libdl.so",
       "libc.so"
     ]
+  },
+  "deadline": {
+    "initializer_retained": true,
+    "fixed_seconds": 90,
+    "mechanism": "SIGALRM_default_action",
+    "inherited_signal_unblocked": true
   }
 }

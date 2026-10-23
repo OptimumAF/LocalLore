@@ -42,6 +42,19 @@ congruence at 16 KiB, and only reviewed system shared libraries. It emits a
 sanitized size/hash/dependency report per ABI. ELF alignment is build evidence,
 not execution on a 16 KiB OS or ARM64 hardware.
 
+An Android-only translation unit arms a fixed 90-second `SIGALRM` deadline
+before native `main`, covering request input, model loading and inference. It
+restores the default action and unblocks an inherited signal mask. Setup errors
+exit immediately with status 124. The constructor is linked directly into this
+standalone executable; the byte audit checks that `.init_array` retains its
+address, including PIE relative relocations. This deadline survives host/ADB
+client death. Its default signal action terminates the OS process abruptly;
+it does not demonstrate cooperative model unloading, session recovery, exact
+real-time scheduling, or cleanup of hypothetical descendants. The helper
+exposes no child-process entry point. The Rust oracle is unchanged and does
+not receive this helper-specific initializer. Device launch/identity/termination
+and actual deadline execution checks belong to the coordinator.
+
 Outputs for each ABI:
 
 - `target/android-runtime/llama/<abi>/host-helper/locallore-llama-spike`

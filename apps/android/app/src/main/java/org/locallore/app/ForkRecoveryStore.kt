@@ -122,8 +122,11 @@ internal class AtomicForkRecoveryStore(context: Context) : ForkRecoveryPersisten
         }
     }
     private fun syncDirectory(source: File) {
-        val descriptor = Os.open(source.absolutePath, OsConstants.O_RDONLY or OsConstants.O_DIRECTORY or OsConstants.O_CLOEXEC, 0)
-        try { Os.fsync(descriptor) } finally { Os.close(descriptor) }
+        val descriptor = Os.open(source.absolutePath, OsConstants.O_RDONLY or OsConstants.O_CLOEXEC, 0)
+        try {
+            check(OsConstants.S_ISDIR(Os.fstat(descriptor).st_mode))
+            Os.fsync(descriptor)
+        } finally { Os.close(descriptor) }
     }
     private companion object {
         const val LIMIT = 4096

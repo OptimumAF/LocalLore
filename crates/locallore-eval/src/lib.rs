@@ -1,4 +1,5 @@
-//! Synthetic deterministic evaluation. No model, user-story import, GUI or network lane.
+//! Synthetic shared-Host evaluation: deterministic defaults and an explicit local-model lane.
+//! No user-story import, GUI automation or network-observation lane.
 use locallore::{
     context_compiler::{self, Budget, CompileRequest, Role},
     contracts::*,

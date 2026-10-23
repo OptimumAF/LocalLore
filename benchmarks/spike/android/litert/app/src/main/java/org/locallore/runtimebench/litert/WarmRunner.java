@@ -21,11 +21,12 @@ final class WarmRunner {
     interface Role extends AutoCloseable {
         void start() throws Exception;
         boolean await(long milliseconds) throws Exception;
+        default boolean hasOutput() { return false; }
         void cancel() throws Exception;
         JsonObject result(double loadMs) throws Exception;
         @Override void close() throws Exception;
     }
-    static final class Failure extends Exception {
+    static class Failure extends Exception {
         final String category;
         Failure(String category) { super(category); this.category = category; }
     }

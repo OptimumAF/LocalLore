@@ -141,6 +141,16 @@ impl Engine {
     pub fn scope(&self) -> &Scope {
         &self.scope
     }
+    /// Compare two validated native snapshots without granting mutation or
+    /// observer authority. Matching IDs/revisions alone do not identify history.
+    /// Another owner's append is allowed only to the exact immutable prefix.
+    pub fn extends_accepted_history(&self, previous: &Engine) -> Result<bool, Error> {
+        Ok(self.scope == previous.scope
+            && self.seed == previous.seed
+            && self.revision() >= previous.revision()
+            && self.receipts.starts_with(&previous.receipts)
+            && self.memory_lineage_binding()? == previous.memory_lineage_binding()?)
+    }
     pub(crate) fn memory_lineage_binding(
         &self,
     ) -> Result<Vec<crate::scope::LineageBindingEntry>, Error> {

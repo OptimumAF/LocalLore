@@ -93,6 +93,12 @@ explicit export writes exactly the reviewed JSON through the system picker.
 Exports are plaintext and their selected provider may sync them. See
 [diagnostic verification and limits](docs/diagnostics/VERIFICATION_2026-10-22.md).
 
+**Story archive** adds explicit full-private export/import previews through the
+system document picker. The shared Rust Store validates and replays every import
+before committing; existing IDs conflict and accepted history remains authoritative.
+See [Android archive checks and limits](docs/native/ANDROID_ARCHIVE_VERIFICATION_2026-10-23.md).
+This partial adapter is under review; it does not establish cross-device or model support.
+
 ## Initial technical direction
 
 The [shared SQLite owner](docs/storage/README.md) provides scoped seed storage,

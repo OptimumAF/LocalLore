@@ -64,7 +64,7 @@ visible. Simulated delay is not a performance measurement.
 Accepted state survives Activity recreation and native/process owner recreation.
 Startup resumes a default saved story; use **Saved stories** to select another.
 The displayed path is the actual database in app-private `noBackupFilesDir`,
-with shared schema version 1. Uncommitted responses remain separate from canon;
+with workspace contract version 1 and database schema version 2. Uncommitted responses remain separate from canon;
 resuming does not regenerate or automatically apply them. Closing the app does
 not delete saves. All SQLite/replay/JNI work runs on IO workers. Generation runs
 outside the canonical lock and SQLite transaction. A lost commit acknowledgement
@@ -87,6 +87,34 @@ cargo run --locked --offline -p locallore --example android_fixtures -- --check
 
 The exporter regenerates apps/android/app/src/test/lantern_quay_cases.json;
 preserve UTF-8/LF without BOM after intentional changes.
+
+## Transfer a playable story
+
+Open **Story archive** while the saved story is idle. **Capture export preview**
+captures accepted history for every timeline, including hidden facts, messages,
+and model/provenance/timing references. Review the full-private plaintext warning
+before **Export this full private archive** opens the system document picker.
+The writer refuses an opened destination that is nonempty, nonregular, or not
+seekable. A cancelled or failed write can leave a partial new document.
+
+**Choose archive to validate** reads a bounded document, validates it through
+the shared Rust archive contract, then shows a preview. **Import validated
+archive** is separate consent. Rust replays into a fresh private staging Store
+and cleans that stage before the target transaction. Existing story IDs conflict;
+imports never overwrite/remap them. **Open imported story** is explicit and starts
+a fresh session. Closing refreshes the accepted saved-story library.
+
+Model weights, separate diagnostics/raw prompt logs, caches, and uncommitted
+operations are excluded. The document provider may sync plaintext elsewhere.
+Checksums establish consistency, not authorship. Cancellation can race an
+already committed import; refresh the library before retrying. A provider that
+does not return can delay cancellation cleanup; Close holds the shell guard
+until active work and outstanding picker callbacks drain.
+
+The [narrow native boundary](../../docs/native/ANDROID_ARCHIVE_BOUNDARY.md),
+[verification](../../docs/native/ANDROID_ARCHIVE_VERIFICATION_2026-10-23.md), and
+[shared format](../../docs/storage/M08_PLAYABLE_ARCHIVE_V1.md) describe limits.
+This adds no inference dependency, network/storage permission, or automatic upload.
 
 ## Review local diagnostics
 

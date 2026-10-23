@@ -4,6 +4,10 @@ M08.04/.06 bounded Android integration, based on accepted shared archive v1.
 The shared Store validator/transaction is the only archive authority. No new
 format, gameplay rule, schema, Host command, model or shared Store change.
 
+Implemented for review. See [actual checks and remaining gates](ANDROID_ARCHIVE_VERIFICATION_2026-10-23.md).
+Workspace wire contract v1 and database schema v2 are distinct fields; the
+gateway checks both independently. No schema migration is introduced here.
+
 ## Native interface (frozen for parallel implementation)
 
 JNI class `org.locallore.app.NativeArchive` loads `locallore_android` and exposes:

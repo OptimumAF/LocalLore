@@ -8,6 +8,7 @@ for (const args of [
     ["check-contract.mjs"],
     ["check-export-controller.mjs"],
     ["check-model-controller.mjs"],
+    ["check-model-refresh.mjs"],
 ]) {
     const code = await new Promise((resolve, reject) => {
         const child = spawn(process.execPath, args, {

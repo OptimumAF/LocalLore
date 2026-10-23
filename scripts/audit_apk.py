@@ -75,7 +75,7 @@ def audit_zip(path):
 
 def audit_manifest(badging, tree, package="org.locallore.app"):
     require(package in ("org.locallore.app", "org.locallore.app.capacity", "org.locallore.app.capacityrelief", "org.locallore.app.capacityv3",
-                        "org.locallore.app.capacityreliefv3"),
+                        "org.locallore.app.capacityreliefv3", "org.locallore.app.capacityfaultsv3"),
             "Unreviewed app package")
     permission = package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
     require(re.search(r"^package: name='" + re.escape(package) + r"' ", badging, re.M), "Wrong app package")

@@ -13,6 +13,7 @@ import kotlinx.coroutines.withContext
 import org.junit.runners.model.MultipleFailureException
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
@@ -29,13 +30,25 @@ internal object PaddingFormat {
     const val TABLE = "locallore_capacity_pad_v1"
     const val CREATE = "CREATE TABLE locallore_capacity_pad_v1 (id INTEGER PRIMARY KEY, owner TEXT NOT NULL, payload BLOB NOT NULL)"
     const val INSERT = "INSERT INTO locallore_capacity_pad_v1 (owner,payload) VALUES (?,zeroblob(3500))"
+    const val FAULT_MARKER = ".capacity-helper-faults-v1"
+    fun faultMarker(token: String) = "locallore-capacity-helper-faults-v1\n$token\n"
 }
+
+/** Fixed synthetic outcomes only; no arbitrary command, SQL, deadline or output input. */
+internal enum class PaddingFault { NONE, MALFORMED, OVERSIZE, TIMEOUT, AFTER_FILL_EXIT, MARKER_DRIFT_AFTER_RO }
+internal data class PaddingObservation(val started: Boolean = false, val reaped: Boolean = false,
+    val readersStopped: Boolean = false, val destroyRequested: Boolean = false, val forceRequested: Boolean = false,
+    val deadlineExpired: Boolean = false, val overflow: Boolean = false, val readFailed: Boolean = false,
+    val shutdownReadFailure: Boolean = false, val unexpectedReadFailure: Boolean = false,
+    val bytesSeen: Int = 0, val exitCode: Int? = null)
 
 /** Each helper closes SQL and exits before the parent can resume any Rust call. */
 internal class PaddingOwner(private val database: File, private val token: String) {
     companion object {
         private val processOwnershipClean = AtomicBoolean(true)
+        private val starts = AtomicInteger()
         fun ownershipKnown() = processOwnershipClean.get()
+        fun startedCount() = starts.get()
     }
     var restored = true
         private set
@@ -46,10 +59,12 @@ internal class PaddingOwner(private val database: File, private val token: Strin
     private var filled = false
     private var ownedProcess: Process? = null
     private var ownedReaders = emptyList<Thread>()
-    suspend fun fill() {
+    var observation = PaddingObservation()
+        private set
+    suspend fun fill(fault: PaddingFault = PaddingFault.NONE) {
         check(!attempted && restored)
         attempted = true; restored = false
-        val result = invoke("fill")
+        val result = invoke("fill", fault)
         check(result[4].toIntOrNull() == PaddingFormat.EXPECTED_ROWS && result[5] == "32" && result[6] == "0") { "padding_fill_profile" }
         baseline = result[7]
         filled = true
@@ -63,30 +78,39 @@ internal class PaddingOwner(private val database: File, private val token: Strin
         baseline = result[7]
         restored = true
     }
-    private suspend fun invoke(mode: String): List<String> = withContext(Dispatchers.IO) {
+    private suspend fun invoke(mode: String, fault: PaddingFault = PaddingFault.NONE): List<String> = withContext(Dispatchers.IO) {
         check(Looper.myLooper() != Looper.getMainLooper())
         check(Build.VERSION.SDK_INT >= 28 && !unknownProcess && ownershipKnown())
+        SqliteReliefFixture.requireIdentity(faultsRequired = fault != PaddingFault.NONE)
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val apks = listOf(instrumentation.context.applicationInfo.sourceDir, instrumentation.targetContext.applicationInfo.sourceDir)
         check(apks.all { File(it).isFile && File(it).canRead() && !File(it).canWrite() })
         val process = try {
             ProcessBuilder("/system/bin/app_process", "/", "org.locallore.app.SqlitePaddingProcess\$Main",
-                mode, database.canonicalPath, token).also { it.environment()["CLASSPATH"] = apks.joinToString(":") }.start()
+                mode, database.canonicalPath, token, fault.name).also { it.environment()["CLASSPATH"] = apks.joinToString(":") }.start()
         } catch (_: Exception) {
             unknownProcess = true; processOwnershipClean.set(false)
             throw IllegalStateException("padding_spawn_failed")
         }
         ownedProcess = process
+        starts.incrementAndGet()
+        observation = PaddingObservation(started = true)
         val output = ByteArrayOutputStream()
         val guard = Any()
         val total = AtomicInteger()
         val overflow = AtomicBoolean()
         val readFailed = AtomicBoolean()
+        val ownedTerminationRequested = AtomicBoolean()
+        val shutdownReadFailure = AtomicBoolean()
+        val unexpectedReadFailure = AtomicBoolean()
         var readers = emptyList<Thread>()
         val failures = mutableListOf<Throwable>()
         var result: List<String>? = null
         var exited = false
         var knownRefusal = false
+        var deadlineExpired = false
+        var destroyRequested = false
+        var forceRequested = false
         try {
             readers = listOf(process.inputStream, process.errorStream).mapIndexed { index, stream ->
                 Thread({
@@ -98,13 +122,20 @@ internal class PaddingOwner(private val database: File, private val token: Strin
                             if (total.addAndGet(count) > 8192) { overflow.set(true); break }
                             if (index == 0) synchronized(guard) { output.write(bytes, 0, count) }
                         }
-                    } catch (_: Exception) { readFailed.set(true) }
+                    } catch (failure: Exception) {
+                        readFailed.set(true)
+                        // Android 15 UNIXProcess.destroy closes the process streams itself.
+                        // Record only observation order/type, never infer healthy protocol or SQL.
+                        if (failure is IOException && ownedTerminationRequested.get()) shutdownReadFailure.set(true)
+                        else unexpectedReadFailure.set(true)
+                    }
                 }, "locallore-padding-pipe-$index").also { it.isDaemon = true }
             }
             ownedReaders = readers
             readers.forEach { it.start() }
             process.outputStream.close()
             exited = process.waitFor(12, TimeUnit.SECONDS)
+            deadlineExpired = !exited
             check(exited) { "padding_child_deadline" }
             readers.forEach { it.join(1_000) }
             check(readers.none { it.isAlive } && !overflow.get() && !readFailed.get()) { "padding_pipe_unknown" }
@@ -131,8 +162,14 @@ internal class PaddingOwner(private val database: File, private val token: Strin
         } catch (failure: Throwable) { failures += failure }
         finally {
             try {
-                if (!exited) { process.destroy(); exited = process.waitFor(1, TimeUnit.SECONDS) }
-                if (!exited) { process.destroyForcibly(); exited = process.waitFor(2, TimeUnit.SECONDS) }
+                if (!exited) {
+                    destroyRequested = true; ownedTerminationRequested.set(true)
+                    process.destroy(); exited = process.waitFor(1, TimeUnit.SECONDS)
+                }
+                if (!exited) {
+                    forceRequested = true; ownedTerminationRequested.set(true)
+                    process.destroyForcibly(); exited = process.waitFor(2, TimeUnit.SECONDS)
+                }
                 if (exited) {
                     readers.forEach { if (it.isAlive) it.join(1_000) }
                     if (readers.none { it.isAlive }) {
@@ -149,6 +186,12 @@ internal class PaddingOwner(private val database: File, private val token: Strin
             } catch (failure: Throwable) {
                 unknownProcess = true; processOwnershipClean.set(false); failures += failure
             }
+            observation = PaddingObservation(started = true, reaped = exited && !process.isAlive,
+                readersStopped = readers.none { it.isAlive }, destroyRequested = destroyRequested,
+                forceRequested = forceRequested, deadlineExpired = deadlineExpired, overflow = overflow.get(),
+                readFailed = readFailed.get(), shutdownReadFailure = shutdownReadFailure.get(),
+                unexpectedReadFailure = unexpectedReadFailure.get(), bytesSeen = total.get(),
+                exitCode = if (exited && !process.isAlive) process.exitValue() else null)
         }
         MultipleFailureException.assertEmpty(failures)
         checkNotNull(result)
@@ -163,20 +206,25 @@ class SqlitePaddingProcess {
             val finished = AtomicBoolean(false)
             Thread({ Thread.sleep(30_000); if (!finished.get()) kotlin.system.exitProcess(74) },
                 "locallore-padding-lease").also { it.isDaemon = true; it.start() }
-            var code = 71 // Fixed stage only: 71 input,72 path/marker,73 RO baseline,75 SQL,76 check,77 close,78 RW open.
+            var code = 71 // Fixed stages: 71 input,72 marker,73 RO baseline,75 SQL,76 check,77 close,78 RW open,80 post-RO drift.
             var database: SQLiteDatabase? = null
             try {
-                check(Build.VERSION.SDK_INT >= 28 && arguments.size == 3 && arguments[0] in setOf("fill", "drop"))
+                check(Build.VERSION.SDK_INT >= 28 && arguments.size == 4 && arguments[0] in setOf("fill", "drop"))
                 val mode = arguments[0]
                 val path = File(arguments[1])
                 val token = arguments[2]
+                val fault = PaddingFault.entries.single { it.name == arguments[3] }
+                check(fault == PaddingFault.NONE || mode == "fill")
                 code = 72
                 check(token.matches(Regex("[0-9a-f]{32}")))
                 check(path.isAbsolute && path.canonicalFile == path.absoluteFile && path.isFile)
                 check(path.name == "stories.sqlite3" && path.parentFile?.name == "workspace-v1")
                 val root = checkNotNull(path.parentFile?.parentFile)
                 check(root.name.matches(Regex("synthetic-capacity-relief-v3-[0-9a-f-]{36}")))
-                check(root.parentFile?.name == "no_backup" && root.parentFile?.parentFile?.name == "org.locallore.app.capacityreliefv3")
+                check(root.parentFile?.name == "no_backup")
+                val packageName = root.parentFile?.parentFile?.name
+                check(packageName in setOf("org.locallore.app.capacityreliefv3", "org.locallore.app.capacityfaultsv3"))
+                check(fault == PaddingFault.NONE || packageName == "org.locallore.app.capacityfaultsv3")
                 val marker = File(root, PaddingFormat.MARKER)
                 data class FileIdentity(val device: Long, val inode: Long, val size: Long, val mode: Int,
                     val modifiedSeconds: Long, val modifiedNanos: Long, val changedSeconds: Long, val changedNanos: Long)
@@ -194,15 +242,15 @@ class SqlitePaddingProcess {
                     check(stat.st_mode and OsConstants.S_IFMT == OsConstants.S_IFDIR)
                     return stat.st_dev to stat.st_ino
                 }
-                fun markerContent(): String = marker.inputStream().use { input ->
-                    val buffer = ByteArray(193)
+                fun boundedContent(file: File, maximum: Int): String = file.inputStream().use { input ->
+                    val buffer = ByteArray(maximum + 1)
                     var count = 0
                     while (count < buffer.size) {
                         val read = input.read(buffer, count, buffer.size - count)
                         if (read < 0) break
                         check(read > 0); count += read
                     }
-                    check(count <= 192)
+                    check(count <= maximum)
                     String(buffer, 0, count, Charsets.US_ASCII)
                 }
                 var databaseIdentity = fileIdentity(path)
@@ -210,13 +258,20 @@ class SqlitePaddingProcess {
                 check(markerIdentity.size <= 192)
                 val rootIdentity = directoryIdentity(root)
                 val workspaceIdentity = directoryIdentity(checkNotNull(path.parentFile))
-                var expectedMarker = markerContent()
+                var expectedMarker = boundedContent(marker, 192)
+                val faultMarker = if (packageName == "org.locallore.app.capacityfaultsv3") File(root, PaddingFormat.FAULT_MARKER) else null
+                val faultMarkerIdentity = faultMarker?.let { fileIdentity(it).also { stamp -> check(stamp.size <= 128) } }
+                faultMarker?.let { check(boundedContent(it, 128) == PaddingFormat.faultMarker(token)) }
                 fun ownershipUnchanged() {
                     check(directoryIdentity(root) == rootIdentity)
                     check(directoryIdentity(checkNotNull(path.parentFile)) == workspaceIdentity)
                     check(fileIdentity(path) == databaseIdentity)
-                    check(fileIdentity(marker) == markerIdentity && markerContent() == expectedMarker)
+                    check(fileIdentity(marker) == markerIdentity && boundedContent(marker, 192) == expectedMarker)
                     check(fileIdentity(marker) == markerIdentity)
+                    faultMarker?.let {
+                        check(fileIdentity(it) == faultMarkerIdentity && boundedContent(it, 128) == PaddingFormat.faultMarker(token))
+                        check(fileIdentity(it) == faultMarkerIdentity)
+                    }
                 }
                 fun recordDatabaseWrite() {
                     val after = fileIdentity(path)
@@ -287,7 +342,15 @@ class SqlitePaddingProcess {
                 }
                 // Detect path/marker/file replacement during the read-only inspection.
                 // This is a trusted app-private boundary, not race-proof same-UID protection.
+                code = 80 // A changed boundary is uncertain even though this child has not opened RW.
+                if (fault == PaddingFault.MARKER_DRIFT_AFTER_RO) marker.appendText("drift\n", Charsets.US_ASCII)
                 ownershipUnchanged()
+                when (fault) {
+                    PaddingFault.MALFORMED -> { println("MALFORMED"); System.out.flush(); kotlin.system.exitProcess(0) }
+                    PaddingFault.OVERSIZE -> { System.out.write(ByteArray(8193) { 'X'.code.toByte() }); System.out.flush(); kotlin.system.exitProcess(0) }
+                    PaddingFault.TIMEOUT -> { Thread.sleep(25_000); kotlin.system.exitProcess(74) }
+                    else -> Unit
+                }
                 code = 78 // Every refusal from the writable-open attempt onward poisons ownership.
                 val opened = SQLiteDatabase.openDatabase(path, SQLiteDatabase.OpenParams.Builder()
                     .setOpenFlags(SQLiteDatabase.OPEN_READWRITE or SQLiteDatabase.NO_LOCALIZED_COLLATORS)
@@ -353,6 +416,7 @@ class SqlitePaddingProcess {
                 code = 77
                 opened.close(); database = null
                 ownershipUnchanged()
+                if (fault == PaddingFault.AFTER_FILL_EXIT) kotlin.system.exitProcess(79)
                 // Acknowledgement follows close, never a held transaction/connection.
                 println("${if (mode == "fill") "FILLED" else "DROPPED"} $token ${android.os.Process.myPid()} ${android.os.Process.myUid()} $count $pages $free $before")
                 System.out.flush()

@@ -156,6 +156,33 @@ restart under Full or partition ENOSPC. The ordinary, 17-page and relief modes
 are mutually exclusive and keep independent task histories and APKs.
 The [schema3 Android qualification](../../docs/native/SCHEMA3_CAPACITY_VERIFICATION_2026-10-23.md)
 records both-emulator results, artifact bindings, retained attempts and limits.
+The opt-in [helper-failure boundary](../../docs/native/HELPER_FAILURE_CONTRACT.md)
+has a separate `org.locallore.app.capacityfaultsv3` installation. Build/audit it
+with `python scripts/android_capacity_fault_probe.py build --offline`; its
+exclusive outputs/cache are `app/build-capacity-faults-v3` and
+`.gradle-capacity-faults-v3`. Fixed fault controls require this debug/testOnly
+identity and exact `faults_format=1` metadata.
+The helper requests a complete, nonincremental Kotlin test-module compilation.
+Select each nested
+`SqliteHelperFaultTest` class in a fresh instrumentation process; poisoning has
+no reset API. Default discovery retains the three normal relief cases. Existing
+ordinary/full/relief packages and their artifacts stay separate.
+The [dated helper-failure verification](../../docs/native/HELPER_FAILURE_VERIFICATION_2026-10-23.md)
+records final results, earlier failed attempts, artifact identities and limits.
+After verifying the selected authorized device, installed app/test hashes and
+absence of other owners, use this instrumentation argument set for each of
+`MarkerDrift`, `DispatchFence`, `Malformed`, `Oversize`, `Timeout` and `AfterFill`:
+
+```powershell
+adb -s <authorized-emulator> shell am instrument -w -r -e class 'org.locallore.app.SqliteHelperFaultTest$MarkerDrift' org.locallore.app.capacityfaultsv3.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Run each selector separately; use the same runner without `-e class` for default
+discovery. The qualification used a 180-second bounded client per invocation,
+verified task-owned package stops before/after, and checked client/process
+termination plus unchanged prior installed identities. A timeout or uncertain
+owner is a failed check, not permission to continue. Retain failed synthetic
+roots; do not clear app data to reset the process fence.
 Cancellation that reaches Rust before submit exists is reconciled as an uncommitted
 request. A late submit remains a draft; recovery does not regenerate or commit it.
 The earlier [ADR-0004](../../docs/adr/0004-android-engine-boundary.md) remains the

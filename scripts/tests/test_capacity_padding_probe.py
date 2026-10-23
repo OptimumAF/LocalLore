@@ -193,6 +193,53 @@ class CapacityPaddingGuards(unittest.TestCase):
             self.rejected("action", "other")
         connect.assert_not_called()
 
+    def test_unknown_fault_is_refused_before_any_connection(self):
+        with mock.patch.object(PROBE.sqlite3, "connect") as connect:
+            with self.assertRaisesRegex(PROBE.Rejected, "^fault$"):
+                PROBE.execute_fault(str(self.directory), self.owner, "fill", "arbitrary-script")
+        connect.assert_not_called()
+
+    def test_fault_requires_matching_additional_owned_marker(self):
+        for marker in (None, self.owner + "\ntimeout"):
+            with self.subTest(marker=marker):
+                if marker is not None:
+                    (self.directory / ".capacity-fault").write_text(marker, encoding="ascii")
+                with mock.patch.object(PROBE.sqlite3, "connect") as connect:
+                    with self.assertRaisesRegex(PROBE.Rejected, "^fault_marker$"):
+                        PROBE.execute_fault(str(self.directory), self.owner, "fill", "malformed")
+                connect.assert_not_called()
+
+    def test_fault_cannot_select_an_unrelated_remove_operation(self):
+        with mock.patch.object(PROBE.sqlite3, "connect") as connect:
+            with self.assertRaisesRegex(PROBE.Rejected, "^fault_action$"):
+                PROBE.execute_fault(str(self.directory), self.owner, "remove", "timeout")
+        connect.assert_not_called()
+
+    def test_cleanup_refusal_validates_readonly_then_preserves_padding(self):
+        self.padding()
+        (self.directory / ".capacity-fault").write_text(self.owner + "\ncleanup-refusal", encoding="ascii")
+        before = self.connection.execute("SELECT * FROM locallore_capacity_pad_v1").fetchall()
+        connect = sqlite3.connect
+        opened = []
+
+        def observe(database, *args, **kwargs):
+            opened.append(str(database))
+            return connect(database, *args, **kwargs)
+
+        with mock.patch.object(PROBE.sqlite3, "connect", side_effect=observe):
+            with self.assertRaisesRegex(PROBE.Rejected, "^injected_cleanup_refusal$"):
+                PROBE.execute_fault(str(self.directory), self.owner, "remove", "cleanup-refusal")
+        self.assertTrue(any("?mode=ro" in path for path in opened))
+        self.assertFalse(any("?mode=rw" in path for path in opened))
+        self.assertEqual(self.connection.execute("SELECT * FROM locallore_capacity_pad_v1").fetchall(), before)
+
+    def test_fault_cannot_bypass_old_schema_refusal(self):
+        self.padding()
+        (self.directory / ".capacity-fault").write_text(self.owner + "\ncleanup-refusal", encoding="ascii")
+        self.connection.execute("PRAGMA user_version=2")
+        with self.assertRaisesRegex(PROBE.Rejected, "^identity$"):
+            PROBE.execute_fault(str(self.directory), self.owner, "remove", "cleanup-refusal")
+
     def test_full_fallback_requires_exact_fixed_sqlite_message(self):
         self.assertTrue(PROBE.is_full(sqlite3.OperationalError("database or disk is full")))
         self.assertFalse(PROBE.is_full(sqlite3.OperationalError("database is locked")))

@@ -259,6 +259,7 @@ private val timelineId = Regex("[A-Za-z0-9_-]{1,64}")
 
 /** Metadata validation only. Replay, history eligibility and gameplay remain Rust-owned. */
 private fun decodeTimelines(data: JSONObject, root: SavedStory): List<SavedTimeline> = try {
+    check(data.toString().toByteArray(Charsets.UTF_8).size <= 60 * 1024)
     fun fields(value: JSONObject, expected: Set<String>) {
         check(value.keys().asSequence().toSet() == expected)
     }
@@ -287,7 +288,7 @@ private fun decodeTimelines(data: JSONObject, root: SavedStory): List<SavedTimel
         val fork = if (row.isNull("fork_revision")) null else count(row, "fork_revision")
         val head = count(row, "revision")
         val drafts = count(row, "drafts")
-        check(drafts <= Int.MAX_VALUE && (parent == null) == (fork == null))
+        check(drafts <= 4096 && (parent == null) == (fork == null))
         check((branch == root.branch) == (parent == null) && (fork == null || fork <= head))
         SavedTimeline(story, branch, parent, fork, head, drafts.toInt())
     }

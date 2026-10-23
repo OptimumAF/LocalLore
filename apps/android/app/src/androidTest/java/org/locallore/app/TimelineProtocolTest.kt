@@ -12,17 +12,17 @@ import org.junit.runner.RunWith
 /** Android JSONObject protocol checks. This fake transport does not prove SQLite replay. */
 @RunWith(AndroidJUnit4::class)
 class TimelineProtocolTest {
-    private class Protocol : WorkspaceTransport {
+    private class Protocol(val storyId: String = "story-a") : WorkspaceTransport {
         var selected = "main"
-        var receiptStory = "story-a"
+        var receiptStory = storyId
         var changeCatalog: (JSONObject) -> Unit = {}
         val calls = mutableListOf<String>()
         var closed = false
-        private fun scope(branch: String, story: String = "story-a") =
+        private fun scope(branch: String, story: String = storyId) =
             JSONObject().put("story", story).put("branch", branch)
         private fun ok(data: JSONObject) = JSONObject().put("version", 1).put("status", "ok").put("data", data)
         private fun head() = if (selected == "main") 2L else 3L
-        fun catalog() = JSONObject().put("version", 1).put("story_id", "story-a").put("title", "Original title")
+        fun catalog() = JSONObject().put("version", 1).put("story_id", storyId).put("title", "Original title")
             .put("root_branch", "main").put("branches", JSONArray()
                 .put(JSONObject().put("scope", scope("child")).put("parent_branch", "main").put("fork_revision", 1)
                     .put("revision", 3).put("drafts", 2))
@@ -36,11 +36,11 @@ class TimelineProtocolTest {
                     .put("stories", JSONArray().put(JSONObject().put("scope", scope("main"))
                         .put("title", "Original title").put("revision", 2).put("drafts", 0))))
                 "branches" -> {
-                    assertEquals("story-a", command.getString("story"))
+                    assertEquals(storyId, command.getString("story"))
                     ok(catalog().also(changeCatalog))
                 }
                 "resume" -> {
-                    assertEquals("story-a", command.getJSONObject("scope").getString("story"))
+                    assertEquals(storyId, command.getJSONObject("scope").getString("story"))
                     selected = command.getJSONObject("scope").getString("branch")
                     check(selected in setOf("main", "child"))
                     ok(JSONObject().put("session", "session-$selected").put("scope", scope(selected)).put("revision", head()))
@@ -100,6 +100,7 @@ class TimelineProtocolTest {
             { it.getJSONArray("branches").getJSONObject(0).getJSONObject("scope").put("story", "other-story") },
             { it.getJSONArray("branches").getJSONObject(0).put("revision", -1) },
             { it.getJSONArray("branches").getJSONObject(0).put("drafts", 2147483648L) },
+            { it.getJSONArray("branches").getJSONObject(0).put("drafts", 4097) },
             { it.getJSONArray("branches").getJSONObject(0).put("revision", "3") },
             { it.getJSONArray("branches").getJSONObject(0).put("revision", 3.5) },
             { it.getJSONArray("branches").getJSONObject(0).put("parent_branch", "absent") },
@@ -122,6 +123,31 @@ class TimelineProtocolTest {
                 assertFalse(transport.calls.any { it in setOf("submit", "prepare", "commit", "free_text", "create") })
             } finally { gateway.close() }
         }
+    }
+
+    @Test fun oversizedStructurallyValidCatalogFailsSerializedBodyBudget(): Unit = runBlocking {
+        val story = "s".repeat(64)
+        val transport = Protocol(story).also { protocol -> protocol.changeCatalog = { data ->
+            // Exactly 256 sorted, unique, bounded-ID rows with a depth-three
+            // lineage. Only the serialized catalog budget is exceeded.
+            val root = data.getJSONArray("branches").getJSONObject(1)
+            val parent = "a".repeat(64)
+            fun row(branch: String, ancestor: String) = JSONObject()
+                .put("scope", JSONObject().put("story", story).put("branch", branch))
+                .put("parent_branch", ancestor).put("fork_revision", 1)
+                .put("revision", 3).put("drafts", 0)
+            val rows = JSONArray().put(row(parent, "main"))
+            repeat(254) { index -> rows.put(row("b" + index.toString().padStart(3, '0') + "x".repeat(60), parent)) }
+            rows.put(root); data.put("branches", rows)
+            assertEquals(256, rows.length())
+            assertTrue(data.toString().toByteArray(Charsets.UTF_8).size > 60 * 1024)
+        } }
+        val gateway = DurableGateway(transport, autoCreateIfEmpty = false)
+        try {
+            try { gateway.initialize(); fail("Oversized catalog was accepted") }
+            catch (failure: WorkspaceFailure) { assertEquals("Malformed", failure.category) }
+            assertFalse(transport.calls.any { it in setOf("submit", "prepare", "commit", "create") })
+        } finally { gateway.close() }
     }
 
     @Test fun racedChildHeadAndForeignReceiptFailClosedThenFreshRecoveryWorks(): Unit = runBlocking {

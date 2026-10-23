@@ -1,0 +1,314 @@
+import type { Envelope as HostEnvelope } from "./host.generated";
+export type Command = HostEnvelope["command"];
+export type Request = Extract<Command, { op: "submit" }>["request"];
+export type Scope = Request["scope"];
+export type FakeMode = Extract<Command, { op: "submit" }>["mode"];
+export type Action = "give" | "ability" | "wait" | "dialogue";
+export type Json =
+    null | boolean | number | string | Json[] | { [key: string]: Json };
+export interface Receipt {
+    request: Request;
+    proposal: Json;
+    events: { sequence: number; scope: Scope; turn: string; outcome: Json }[];
+    narration: string;
+}
+export interface Context {
+    revision: number;
+    scope: Scope;
+    observer: string;
+    self_state: { name: string; energy: number; location: string };
+    observations: Json[];
+    facts: Record<string, string>;
+    beliefs: Json[];
+}
+export interface PlayView {
+    revision: number;
+    scope: Scope;
+    player: Context;
+    inventory: Record<string, Json>;
+    receipts: Receipt[];
+}
+export interface Session {
+    id: string;
+    scope: Scope;
+    name: string;
+    revision: number;
+}
+export interface TurnStatus {
+    turn: string;
+    scope: Scope;
+    expected_revision: number;
+    phase: string;
+    error: string | null;
+    receipt: Receipt | null;
+}
+export interface Pending {
+    session: string;
+    scope: Scope;
+    turn: string;
+    expectedRevision: number;
+    stage: string;
+}
+export interface ErrorRecord {
+    source: "native" | "frontend";
+    category: string;
+}
+export interface Diff {
+    path: string;
+    before: Json;
+    after: Json;
+}
+export interface State {
+    sessions: Session[];
+    selectedId: string | null;
+    view: "play" | "lab";
+    observer: string;
+    play: PlayView | null;
+    inspection: Json;
+    inspectionRevision: number | null;
+    inspectionObserver: string | null;
+    pending: Pending | null;
+    turnStatus: TurnStatus | null;
+    visibleError: string | null;
+    draft: string;
+    action: Action;
+    fakeMode: FakeMode;
+    inspectorOpen: boolean;
+    receiptTurn: string | null;
+    page: number;
+    sidebarSize: number;
+    inspectorSize: number;
+    textScale: number;
+    diff: Diff[];
+    diffRevision: number | null;
+    notice: string;
+    disposed: boolean;
+}
+export const PAGE_SIZE = 12;
+export const categories = new Set([
+    "Version",
+    "Scope",
+    "Stale",
+    "RetryMismatch",
+    "Malformed",
+    "TooLarge",
+    "Agency",
+    "AuthorUiRequired",
+    "ClarificationRequired",
+    "UnknownReference",
+    "DeadActor",
+    "Location",
+    "Inventory",
+    "Resource",
+    "Ability",
+    "Knowledge",
+    "Rule",
+    "Cancelled",
+    "Provider",
+    "Timeout",
+    "Narration",
+    "CorruptHistory",
+    "Closed",
+    "UnknownTurn",
+    "NotReady",
+    "TurnLimit",
+    "SessionLimit",
+    "WorkerLimit",
+    "Busy",
+    "Forbidden",
+    "Unsupported",
+    "Transport",
+    "TransportUnknown",
+    "Wire",
+    "UnhandledError",
+    "RenderError",
+    "CopyFailed",
+    "SessionRequired",
+    "DraftRequired",
+    "Disposed",
+]);
+export function category(error: unknown): string {
+    const value =
+        error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "";
+    return categories.has(value) ? value : "Transport";
+}
+export class ErrorBuffer {
+    private records: ErrorRecord[] = [];
+    add(source: ErrorRecord["source"], value: unknown) {
+        this.records = [
+            ...this.records.slice(-63),
+            { source, category: category(value) },
+        ];
+    }
+    snapshot() {
+        return this.records.map((value) => ({ ...value }));
+    }
+}
+export interface Gateway {
+    call(command: Command): Promise<unknown>;
+}
+export class IpcGateway implements Gateway {
+    constructor(
+        private invoke: (
+            command: string,
+            args: Record<string, unknown>,
+        ) => Promise<unknown>,
+        readonly errors: ErrorBuffer,
+    ) {}
+    async call(command: Command): Promise<unknown> {
+        try {
+            const reply = (await this.invoke("host_call", {
+                input: JSON.stringify({ version: 1, command }),
+            })) as {
+                version?: number;
+                status?: string;
+                data?: unknown;
+                error?: unknown;
+            };
+            if (reply?.version !== 1) throw new Error("Wire");
+            if (reply.status !== "ok") throw new Error(category(reply.error));
+            if (
+                reply.data &&
+                typeof reply.data === "object" &&
+                "error" in reply.data &&
+                typeof reply.data.error === "string"
+            )
+                this.errors.add("native", reply.data.error);
+            return reply.data;
+        } catch (error) {
+            const value = category(error);
+            this.errors.add("native", value);
+            throw new Error(value);
+        }
+    }
+}
+export function request(
+    scope: Scope,
+    turn: string,
+    revision: number,
+    action: Action,
+    draft: string,
+): Request {
+    return {
+        version: 1,
+        scope,
+        turn,
+        expected_revision: revision,
+        intent:
+            action === "dialogue"
+                ? {
+                      kind: "dialogue",
+                      value: { text: draft, audience: ["mira"] },
+                  }
+                : {
+                      kind: "actions",
+                      value:
+                          action === "give"
+                              ? [
+                                    {
+                                        op: "give",
+                                        item: "potion",
+                                        to: "mira",
+                                        quantity: 1,
+                                    },
+                                ]
+                              : action === "ability"
+                                ? [{ op: "use_ability", ability: "teleport" }]
+                                : [{ op: "wait", ticks: 1 }],
+                  },
+    };
+}
+export function sameScope(a: Scope, b: Scope) {
+    return a.story === b.story && a.branch === b.branch;
+}
+export function composerShortcut(event: {
+    key: string;
+    shiftKey: boolean;
+    isComposing: boolean;
+}) {
+    return event.key === "Enter" && !event.shiftKey && !event.isComposing
+        ? "submit"
+        : "edit";
+}
+export function structural(value: unknown): string {
+    if (Array.isArray(value)) return `[${value.map(structural).join(",")}]`;
+    if (value && typeof value === "object")
+        return `{${Object.entries(value)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([key, v]) => `${JSON.stringify(key)}:${structural(v)}`)
+            .join(",")}}`;
+    return JSON.stringify(value);
+}
+export function playView(
+    value: unknown,
+    scope: Scope,
+    revision: number,
+): PlayView {
+    const view = value as PlayView;
+    if (
+        !view ||
+        view.revision !== revision ||
+        !view.scope ||
+        !sameScope(view.scope, scope) ||
+        view.player?.revision !== revision ||
+        view.player.observer !== "player" ||
+        !view.player.self_state ||
+        !view.inventory ||
+        typeof view.inventory !== "object" ||
+        !Array.isArray(view.receipts) ||
+        view.receipts.some(
+            (r) =>
+                !r ||
+                !r.request?.scope ||
+                !sameScope(r.request.scope, scope) ||
+                !Array.isArray(r.events) ||
+                r.events.some(
+                    (e) =>
+                        !e ||
+                        !e.scope ||
+                        !Number.isSafeInteger(e.sequence) ||
+                        e.sequence > revision ||
+                        !sameScope(e.scope, scope),
+                ) ||
+                typeof r.narration !== "string",
+        )
+    )
+        throw new Error("Wire");
+    return view;
+}
+// Presentation-only comparison of two server snapshots. Never applies a gameplay effect.
+export function difference(
+    before: unknown,
+    after: unknown,
+    path = "",
+    output: Diff[] = [],
+): Diff[] {
+    if (
+        output.length >= 128 ||
+        JSON.stringify(before) === JSON.stringify(after)
+    )
+        return output;
+    if (
+        before &&
+        after &&
+        typeof before === "object" &&
+        typeof after === "object" &&
+        !Array.isArray(before) &&
+        !Array.isArray(after)
+    ) {
+        const a = before as Record<string, unknown>,
+            b = after as Record<string, unknown>;
+        for (const key of new Set([...Object.keys(a), ...Object.keys(b)]))
+            difference(a[key], b[key], `${path}/${key}`, output);
+    } else
+        output.push({
+            path,
+            before: (before ?? null) as Json,
+            after: (after ?? null) as Json,
+        });
+    return output;
+}

@@ -9,7 +9,20 @@ license = "Apache-2.0"
 locallore = { path = "../../../crates/locallore", features = ["host"] }
 serde_json = "=1.0.154"
 tauri = { version = "=2.12.5", default-features = false, features = ["wry", "compression", "common-controls-v6", "custom-protocol"] }
-tokio = { version = "=1.54.1", features = ["sync"] }
+tokio = { version = "=1.54.1", features = ["sync", "time"] }
+
+[features]
+default = []
+dev-harness = ["dep:webview2-com", "dep:windows"]
+
+[target.'cfg(windows)'.dependencies]
+webview2-com = { version = "=0.39.1", optional = true }
+windows = { version = "=0.62.2", optional = true, features = ["Win32_System_Com", "Win32_UI_Shell"] }
+
+[[test]]
+name = "harness_contract"
+path = "tests/harness_contract.rs"
+required-features = ["dev-harness"]
 
 [build-dependencies]
 tauri-build = { version = "=2.7.4", features = [] }

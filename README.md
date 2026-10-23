@@ -97,11 +97,14 @@ The existing Compose/desktop demos still use in-memory sessions. Their UI
 save/resume wiring remains a separate integration step. No model is needed;
 Android cross-build evidence is separate from actual device execution/support.
 
-The [desktop D01 spike](apps/desktop/README.md) adds a native Windows window over
-the same Rust engine, with fake inference, in-memory turns and explicit Story Lab
-inspection. [ADR-0006](docs/adr/0006-desktop-host.md) proposes Tauri for owner review.
+The [desktop Play/Story Lab shell](apps/desktop/README.md) adds a native Windows
+window over the same Rust engine, with typed fixture actions, finalized receipts,
+fake inference, in-memory sessions and explicit spoiler-bearing inspection.
+[D02 verification](docs/desktop/D02_VERIFICATION_2026-10-22.md) records native IPC,
+app-only rendering and compatibility checks. [ADR-0006](docs/adr/0006-desktop-host.md)
+records the Tauri choice.
 See [desktop epic #21](https://github.com/OptimumAF/LocalLore/issues/21) for the
-staged playable-app plan; the spike does not implement real models or saves.
+staged playable-app plan; this shell does not implement real models or saves.
 
 The proposed first target is Android, with a Kotlin/Jetpack Compose interface, a portable Rust story engine, and SQLite persistence. One locally loaded model initially performs director, narrator, and archivist roles sequentially. A narrow inference interface allows backend replacement without committing to multiple production integrations.
 

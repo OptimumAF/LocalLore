@@ -20,6 +20,8 @@ use std::{
 };
 
 pub(crate) const SCHEMA_SQL: &str = include_str!("../migrations/004_memory_jobs.sql");
+#[cfg(test)]
+mod pressure_tests;
 pub const MAX_STORE_JOBS: usize = 256;
 pub const MAX_PARTITION_JOBS: usize = 8;
 const MAX_BASIS_BYTES: usize = 64 * 1024 * 1024;

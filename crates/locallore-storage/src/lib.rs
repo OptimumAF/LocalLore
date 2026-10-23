@@ -89,8 +89,17 @@ fn identity(connection: &Connection) -> Result<(u32, u32)> {
         connection.pragma_query_value(None, "user_version", |r| r.get(0))?,
     ))
 }
+fn supported_identity(application: u32, version: u32) -> Result<()> {
+    if version > SCHEMA_VERSION {
+        return Err(StorageError::FutureVersion);
+    }
+    if application != 0 && application != APPLICATION_ID {
+        return Err(StorageError::ForeignDatabase);
+    }
+    Ok(())
+}
 fn schema_rows(connection: &Connection) -> Result<Vec<(String, String, String, String)>> {
-    let mut query = connection.prepare("SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name")?;
+    let mut query = connection.prepare("SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*' ORDER BY type,name")?;
     let rows = query.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
     Ok(rows.collect::<std::result::Result<Vec<_>, _>>()?)
 }
@@ -139,11 +148,12 @@ impl Reserved {
                     StorageError::Io
                 }
             })?;
-        file.sync_all().map_err(|_| StorageError::Io)?;
-        Ok(Self {
+        let reserved = Self {
             path: path.into(),
             keep: false,
-        })
+        };
+        file.sync_all().map_err(|_| StorageError::Io)?;
+        Ok(reserved)
     }
 }
 impl Drop for Reserved {
@@ -209,15 +219,16 @@ impl Store {
         };
         let mut connection = connect(path, false)?;
         let (application, version) = identity(&connection)?;
-        if version > SCHEMA_VERSION {
-            return Err(StorageError::FutureVersion);
-        }
-        if application != 0 && application != APPLICATION_ID {
-            return Err(StorageError::ForeignDatabase);
-        }
+        supported_identity(application, version)?;
         if version == 0 {
             let transaction =
                 connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            // A second process may have changed identity while this opener waited for the lock.
+            let locked_identity = identity(&transaction)?;
+            supported_identity(locked_identity.0, locked_identity.1)?;
+            if locked_identity != (application, version) {
+                return Err(StorageError::Busy);
+            }
             if !schema_rows(&transaction)?.is_empty() {
                 return Err(StorageError::ForeignDatabase);
             }

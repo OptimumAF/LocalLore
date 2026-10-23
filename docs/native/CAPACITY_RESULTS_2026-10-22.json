@@ -1,0 +1,486 @@
+{
+  "version": 1,
+  "date": "2026-10-22",
+  "task": "M04.04",
+  "status": "in_review_partial",
+  "scope": "actual_SQLite_Full_through_separate_capacity_test_binary",
+  "base_pr": 50,
+  "base_head": "ae94623532766f6a598eaceed592197850f62e03",
+  "fixture_source_commit": "cbdc394",
+  "build_isolation_fix": "04321a9",
+  "profile": {
+    "package": "org.locallore.app.capacity",
+    "sqlite_max_page_count": 15,
+    "prefix_turns": 0,
+    "page_size_source": "pinned_SQLite_default_4096_not_PRAGMA_measurement",
+    "relief_recovery_proven": false
+  },
+  "calibration": {
+    "author_reported_positive_executions": 6,
+    "captured_samples": [
+      {
+        "sample": "uncapped_K0",
+        "result": {
+          "after_commit_bytes": 65536,
+          "after_draft_bytes": 61440,
+          "after_ready_bytes": 61440,
+          "before_draft_bytes": 61440,
+          "canonical_unchanged_after_full": false,
+          "commit_full": false,
+          "dialogue_bytes": 2048,
+          "initial_bytes": 61440,
+          "original_key_reopened": true,
+          "prefix": 0,
+          "prefix_commit_bytes": [],
+          "relief_recovery_proven": false,
+          "reopen_revision": 1,
+          "same_key_ready_after_full": false,
+          "status": "passed",
+          "turn_id_bytes": 36,
+          "version": 1
+        }
+      },
+      {
+        "sample": "uncapped_K1_control",
+        "result": {
+          "after_commit_bytes": 81920,
+          "after_draft_bytes": 81920,
+          "after_ready_bytes": 81920,
+          "before_draft_bytes": 81920,
+          "canonical_unchanged_after_full": false,
+          "commit_full": false,
+          "dialogue_bytes": 2048,
+          "initial_bytes": 61440,
+          "original_key_reopened": true,
+          "prefix": 1,
+          "prefix_commit_bytes": [
+            81920
+          ],
+          "relief_recovery_proven": false,
+          "reopen_revision": 2,
+          "same_key_ready_after_full": false,
+          "status": "passed",
+          "turn_id_bytes": 36,
+          "version": 1
+        }
+      },
+      {
+        "sample": "capped_K0",
+        "result": {
+          "after_commit_bytes": 61440,
+          "after_draft_bytes": 61440,
+          "after_ready_bytes": 61440,
+          "before_draft_bytes": 61440,
+          "canonical_unchanged_after_full": true,
+          "commit_full": true,
+          "dialogue_bytes": 2048,
+          "initial_bytes": 61440,
+          "original_key_reopened": true,
+          "prefix": 0,
+          "prefix_commit_bytes": [],
+          "relief_recovery_proven": false,
+          "reopen_revision": 0,
+          "same_key_ready_after_full": true,
+          "status": "passed",
+          "turn_id_bytes": 36,
+          "version": 1
+        }
+      },
+      {
+        "sample": "capped_K0_repeat",
+        "result": {
+          "after_commit_bytes": 61440,
+          "after_draft_bytes": 61440,
+          "after_ready_bytes": 61440,
+          "before_draft_bytes": 61440,
+          "canonical_unchanged_after_full": true,
+          "commit_full": true,
+          "dialogue_bytes": 2048,
+          "initial_bytes": 61440,
+          "original_key_reopened": true,
+          "prefix": 0,
+          "prefix_commit_bytes": [],
+          "relief_recovery_proven": false,
+          "reopen_revision": 0,
+          "same_key_ready_after_full": true,
+          "status": "passed",
+          "turn_id_bytes": 36,
+          "version": 1
+        }
+      }
+    ],
+    "snapshot_scope": "Host_player_projection_and_receipts"
+  },
+  "build_attempts": [
+    {
+      "attempt": "native1",
+      "status": "failed",
+      "category": "Kotlin_script_Properties_shadow"
+    },
+    {
+      "attempt": "native2",
+      "status": "passed",
+      "crossbuilt_abis": [
+        "x86_64",
+        "arm64-v8a"
+      ]
+    },
+    {
+      "attempt": "capacity_full1",
+      "gradle": "passed",
+      "executed_tasks": 76,
+      "up_to_date_tasks": 1,
+      "fresh_jvm_tests": 47,
+      "audit": "failed_AAPT_format"
+    },
+    {
+      "attempt": "ordinary_full1",
+      "gradle": "passed",
+      "executed_tasks": 35,
+      "up_to_date_tasks": 43,
+      "fresh_jvm_tests": 47,
+      "audit": "passed",
+      "capacity_apk_outputs_removed": true
+    },
+    {
+      "attempt": "capacity_full2_separate_cache",
+      "gradle": "passed",
+      "executed_tasks": 77,
+      "up_to_date_tasks": 0,
+      "fresh_jvm_tests": 47,
+      "audit": "passed",
+      "same_capacity_apk_hashes": true
+    },
+    {
+      "attempt": "ordinary_alternation",
+      "gradle": "passed",
+      "executed_tasks": 8,
+      "up_to_date_tasks": 70,
+      "fresh_jvm_tests": 0,
+      "audit": "passed"
+    },
+    {
+      "attempt": "capacity_alternation",
+      "gradle": "passed",
+      "executed_tasks": 1,
+      "up_to_date_tasks": 76,
+      "fresh_jvm_tests": 0,
+      "audit": "passed"
+    }
+  ],
+  "host_checks": {
+    "scripts_python_tests_final": 43,
+    "rust_format": "passed",
+    "focused_example_clippy": "passed",
+    "complete_workspace_host_gate_fresh": false
+  },
+  "configuration_checks": [
+    {
+      "case": "ambient-default",
+      "passed": true,
+      "returncode": 1
+    },
+    {
+      "case": "ambient-capacity",
+      "passed": true,
+      "returncode": 1
+    },
+    {
+      "case": "malformed-mode",
+      "passed": true,
+      "returncode": 1
+    },
+    {
+      "case": "capacity-cache-required",
+      "passed": true,
+      "returncode": 1
+    },
+    {
+      "case": "ordinary-cannot-use-capacity-cache",
+      "passed": true,
+      "returncode": 1
+    },
+    {
+      "case": "capacity-release-disabled",
+      "passed": true,
+      "returncode": 1
+    },
+    {
+      "case": "explicit-false-output",
+      "passed": true,
+      "returncode": 0
+    }
+  ],
+  "artifact_comparison": {
+    "apks": {
+      "build/debug/app-debug.apk": "8481182cfb7e4776df66022e72545349e72c8a4a7cf0e8dcc0fcbe9754ef2558",
+      "build/androidTest/debug/app-debug-androidTest.apk": "395ec5e33bb2216cc9afcf7e6f09d5f8fbb0205c102d9ca8093a5e2b9ca82162",
+      "build-capacity/debug/app-debug.apk": "8ffe81c0bdefcf2e9e6fa1d569a94e8409c3c9066b326887cc92e9e73bf0feb9",
+      "build-capacity/androidTest/debug/app-debug-androidTest.apk": "88276c2a7a202bf90e80d1e157858ecf781eadf4f36a1e8fc41e79d5be564843"
+    },
+    "limits": {
+      "build": {
+        "x86_64": [
+          "MAX_PAGE_COUNT=0xfffffffe"
+        ],
+        "arm64-v8a": [
+          "MAX_PAGE_COUNT=0xfffffffe"
+        ]
+      },
+      "build-capacity": {
+        "x86_64": [
+          "MAX_PAGE_COUNT=15"
+        ],
+        "arm64-v8a": [
+          "MAX_PAGE_COUNT=15"
+        ]
+      }
+    },
+    "jvm": {
+      "build": {
+        "tests": 47,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "build-capacity": {
+        "tests": 47,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    }
+  },
+  "all_four_apk_hashes_retained_after_both_alternations": true,
+  "lint": {
+    "errors": 0,
+    "warnings": 1,
+    "warning_ids": [
+      "GradleDependency"
+    ]
+  },
+  "capacity_fixture_compile_deprecation_warnings": 2,
+  "preflight": {
+    "inventory": {
+      "emulators": 5,
+      "physical_phones": 0
+    },
+    "targets": [
+      {
+        "target": "A",
+        "properties": {
+          "ro.build.version.release": "15",
+          "ro.build.version.sdk": "35",
+          "ro.product.cpu.abi": "x86_64",
+          "ro.product.model": "sdk_gphone64_x86_64"
+        },
+        "page_bytes": 4096,
+        "capacity_packages_absent": true,
+        "ordinary_apk_hashes_unchanged": true,
+        "ready": true,
+        "clients_cleaned": true
+      },
+      {
+        "target": "B",
+        "properties": {
+          "ro.build.version.release": "15",
+          "ro.build.version.sdk": "35",
+          "ro.product.cpu.abi": "x86_64",
+          "ro.product.model": "sdk_gphone64_x86_64"
+        },
+        "page_bytes": 4096,
+        "capacity_packages_absent": true,
+        "ordinary_apk_hashes_unchanged": true,
+        "ready": true,
+        "clients_cleaned": true
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "attempt": "A-attempt1",
+      "app_absent": true,
+      "app_sha256": "8ffe81c0bdefcf2e9e6fa1d569a94e8409c3c9066b326887cc92e9e73bf0feb9",
+      "clients_cleaned": true,
+      "event": "finished",
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      },
+      "ordinary_apk_hashes_unchanged": true,
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteCapacityInstrumentedTest#cancellingActualFullTurnPersistsCancellationAndReopenCannotApplyItsOriginalRequest",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteCapacityInstrumentedTest#composedActualFullKeepsLastCanonBlocksCallbacksAndRepeatedRecoveryThenFencesDisposal",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteCapacityInstrumentedTest#actualReadyFullRetriesKeepOriginalKeyAndCanonThenReopenAsUncommittedDraft",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 3,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "stage": "finished",
+      "status": "passed",
+      "target": "A",
+      "test_sha256": "88276c2a7a202bf90e80d1e157858ecf781eadf4f36a1e8fc41e79d5be564843"
+    },
+    {
+      "attempt": "B-attempt1",
+      "app_absent": false,
+      "app_sha256": "8ffe81c0bdefcf2e9e6fa1d569a94e8409c3c9066b326887cc92e9e73bf0feb9",
+      "clients_cleaned": true,
+      "event": "finished",
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      },
+      "ordinary_apk_hashes_unchanged": false,
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteCapacityInstrumentedTest#cancellingActualFullTurnPersistsCancellationAndReopenCannotApplyItsOriginalRequest",
+            "outcome": "failed"
+          },
+          {
+            "case": "org.locallore.app.SqliteCapacityInstrumentedTest#composedActualFullKeepsLastCanonBlocksCallbacksAndRepeatedRecoveryThenFencesDisposal",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteCapacityInstrumentedTest#actualReadyFullRetriesKeepOriginalKeyAndCanonThenReopenAsUncommittedDraft",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 1,
+        "final_success": false,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 2,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "failed"
+      },
+      "stage": "finished",
+      "status": "failed",
+      "target": "B",
+      "test_sha256": "88276c2a7a202bf90e80d1e157858ecf781eadf4f36a1e8fc41e79d5be564843"
+    },
+    {
+      "attempt": "B-final",
+      "app_absent": true,
+      "app_sha256": "8ffe81c0bdefcf2e9e6fa1d569a94e8409c3c9066b326887cc92e9e73bf0feb9",
+      "clients_cleaned": true,
+      "event": "finished",
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      },
+      "ordinary_apk_hashes_unchanged": true,
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteCapacityInstrumentedTest#cancellingActualFullTurnPersistsCancellationAndReopenCannotApplyItsOriginalRequest",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteCapacityInstrumentedTest#composedActualFullKeepsLastCanonBlocksCallbacksAndRepeatedRecoveryThenFencesDisposal",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteCapacityInstrumentedTest#actualReadyFullRetriesKeepOriginalKeyAndCanonThenReopenAsUncommittedDraft",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 3,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "stage": "finished",
+      "status": "passed",
+      "target": "B",
+      "test_sha256": "88276c2a7a202bf90e80d1e157858ecf781eadf4f36a1e8fc41e79d5be564843"
+    }
+  ],
+  "initial_B_failure": {
+    "classification": "ActivityScenario_teardown_DESTROYED_not_reached_last_PAUSED",
+    "cause_known": false,
+    "fixed": false,
+    "original_cleanup_unverified": true
+  },
+  "initial_B_supplemental_cleanup": {
+    "target": "B",
+    "cap_installed_hashes_verified": true,
+    "app_absent": true,
+    "ordinary_apk_hashes_unchanged": true,
+    "clients_cleaned": true,
+    "boot_ready": true,
+    "original_cleanup_unverified": true
+  },
+  "B_final_readiness": {
+    "boot_complete": true,
+    "activity_service": true,
+    "window_service": true,
+    "clients_cleaned": true
+  },
+  "final_cohorts": {
+    "attempts": [
+      "A-attempt1",
+      "B-final"
+    ],
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "unfinished": 0,
+    "unique_methods": 3,
+    "actual_Full_commit_assertions": 16
+  },
+  "all_attempt_totals": {
+    "passed": 8,
+    "failed": 1,
+    "skipped": 0,
+    "unfinished": 0,
+    "attempts": 3,
+    "reliability_abort_free_claim": false
+  },
+  "source_sha256": {
+    "apps/android/app/src/capacityTest/java/org/locallore/app/SqliteCapacityInstrumentedTest.kt": "fd58de344bb6d4a1dc1418a19282885bbd7f16bea894e3d03b4d349471e0be1a",
+    "apps/android/app/build.gradle.kts": "1b240460d243982b0b1b2c61172c296dcce248a6b2d23254e0bd0a7e9bef0ab4",
+    "apps/android/native-build.gradle.kts": "c94d255f7f1356e4fadaeb264cc179e48ec9cdafa98a30f6165a276a9332cff6",
+    "apps/android/capacity-profile.properties": "d4f3184f46ff689a14a4bb6b80938c3d0afb0f6ef171f8ec8cd28cc3ddfe42b9",
+    "scripts/android_capacity_probe.py": "58f6127de06dfc7b81e7b4af7ffb5219c7d9e747e953422241e7042be41ab3f3",
+    "crates/locallore-workspace/examples/capacity_probe.rs": "f823a98fc26107e35a366c459571febf794f76042ed633940eceab48b3e74901"
+  },
+  "limits": [
+    "immutable_cap_no_capacity_relief_recovery",
+    "not_partition_ENOSPC",
+    "player_snapshot_not_omniscient_world_audit",
+    "framework_teardown_cause_unknown",
+    "no_physical_phone",
+    "no_ARM64_execution",
+    "no_real_model_app_integration",
+    "no_16KiB_OS_execution",
+    "no_heap_or_power_loss_qualification",
+    "no_hosted_CI_or_release",
+    "no_merge"
+  ]
+}

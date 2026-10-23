@@ -70,7 +70,7 @@ intent_guard::validate_action(&Engine, &Request, &Proposal) -> Result<(), Error>
 The compiler recognizes finite give/consume/drink/use/learn/move/go/wait/discover/
 believe forms, with optional I/trailing period and documented limited articles.
 Examples: “I give my last potion to Mira.”, “use ability blink”, “move to pier”,
-“wait for one tide tick”, “discover fact beacon-mark”, “believe claim event42”.
+“wait for one tide tick”, “discover fact beacon-mark”, “believe claim event 42”.
 Actor identifiers are exact and case-sensitive; display names resolve only when
 unique among living co-located actors. Item/ability/location/fact identifiers
 retain their literal case and unavailable values. Engine still owns Inventory,

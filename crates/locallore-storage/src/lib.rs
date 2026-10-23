@@ -486,21 +486,16 @@ impl Store {
         })
     }
     fn memory_engine(
-        &mut self,
+        connection: &Connection,
         scope: &Scope,
         cancel: &dyn Fn() -> bool,
     ) -> std::result::Result<Engine, derived_memory::MemoryError> {
         use derived_memory::{check, MemoryError};
         check(cancel)?;
-        if identity(&self.connection)
-            .map_err(|_| MemoryError::Database)?
-            .1
-            != SCHEMA_VERSION
-        {
+        if identity(connection).map_err(|_| MemoryError::Database)?.1 != SCHEMA_VERSION {
             return Err(MemoryError::Unsupported);
         }
-        let engine = self
-            .resume(scope)
+        let engine = turns::read_engine(connection, scope)
             .map_err(|error| match error {
                 TurnError::Engine(error) => MemoryError::from(error),
                 TurnError::Storage(StorageError::Busy) => MemoryError::Busy,
@@ -525,31 +520,51 @@ impl Store {
         request: &derived_memory::PrepareRequest,
         cancel: &dyn Fn() -> bool,
     ) -> std::result::Result<derived_memory::PreparedMemory, derived_memory::MemoryError> {
-        let engine = self.memory_engine(&request.scope, cancel)?;
-        derived_memory::prepare(&engine, request, cancel)
+        let tx = self.connection.transaction()?;
+        let engine = Self::memory_engine(&tx, &request.scope, cancel)?;
+        let prepared = derived_memory::prepare(&engine, request, cancel)?;
+        derived_memory::check(cancel)?;
+        tx.commit()?;
+        Ok(prepared)
     }
     pub fn publish_memory(
         &mut self,
         prepared: derived_memory::PreparedMemory,
         cancel: &dyn Fn() -> bool,
     ) -> std::result::Result<derived_memory::PublishOutcome, derived_memory::MemoryError> {
-        derived_memory::publish(&mut self.connection, prepared, cancel)
+        derived_memory::check(cancel)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let engine = Self::memory_engine(&tx, prepared.scope(), cancel)?;
+        let outcome = derived_memory::publish_in_snapshot(&tx, &engine, prepared, cancel)?;
+        derived_memory::check(cancel)?;
+        tx.commit()?;
+        Ok(outcome)
     }
     pub fn read_memory(
         &mut self,
         request: &derived_memory::PrepareRequest,
         cancel: &dyn Fn() -> bool,
     ) -> std::result::Result<derived_memory::SummaryPacket, derived_memory::MemoryError> {
-        let engine = self.memory_engine(&request.scope, cancel)?;
-        derived_memory::read(&self.connection, &engine, request, cancel)
+        let tx = self.connection.transaction()?;
+        let engine = Self::memory_engine(&tx, &request.scope, cancel)?;
+        let packet = derived_memory::read_in_snapshot(&tx, &engine, request, cancel)?;
+        derived_memory::check(cancel)?;
+        tx.commit()?;
+        Ok(packet)
     }
     pub fn search_memory(
         &mut self,
         request: &derived_memory::SearchRequest,
         cancel: &dyn Fn() -> bool,
     ) -> std::result::Result<Vec<derived_memory::SearchHit>, derived_memory::MemoryError> {
-        let engine = self.memory_engine(&request.scope, cancel)?;
-        derived_memory::search(&self.connection, &engine, request, cancel)
+        let tx = self.connection.transaction()?;
+        let engine = Self::memory_engine(&tx, &request.scope, cancel)?;
+        let hits = derived_memory::search_in_snapshot(&tx, &engine, request, cancel)?;
+        derived_memory::check(cancel)?;
+        tx.commit()?;
+        Ok(hits)
     }
     pub fn invalidate_memory(
         &mut self,
@@ -558,17 +573,18 @@ impl Store {
         expected_revision: u64,
         cancel: &dyn Fn() -> bool,
     ) -> std::result::Result<(), derived_memory::MemoryError> {
-        let engine = self.memory_engine(scope, cancel)?;
+        derived_memory::check(cancel)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let engine = Self::memory_engine(&tx, scope, cancel)?;
         if !engine.state().actors.contains_key(observer) {
             return Err(derived_memory::MemoryError::NotFound);
         }
-        derived_memory::invalidate(
-            &mut self.connection,
-            scope,
-            observer,
-            expected_revision,
-            cancel,
-        )
+        derived_memory::invalidate_in_snapshot(&tx, scope, observer, expected_revision, cancel)?;
+        derived_memory::check(cancel)?;
+        tx.commit()?;
+        Ok(())
     }
     pub fn create_story(&mut self, title: &str, seed: Seed) -> Result<()> {
         self.create_story_bounded(title, seed, false)

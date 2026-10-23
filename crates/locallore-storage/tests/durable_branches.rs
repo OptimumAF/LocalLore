@@ -701,6 +701,6 @@ fn child_compiler_and_query_work_while_derived_cache_remains_explicitly_unsuppor
     };
     assert!(matches!(
         store.prepare_memory(&request, &|| false),
-        Err(derived_memory::MemoryError::Unsupported)
+        Err(derived_memory::MemoryError::NotFound)
     ));
 }

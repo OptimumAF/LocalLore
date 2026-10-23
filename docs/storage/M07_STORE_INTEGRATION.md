@@ -155,6 +155,19 @@ setting the existing SDK path for that command produced the passing audit.
 Failure logs remain alongside the final `store-temp-policy-*` logs. No device or
 emulator execution, SDK download, system setting or protected resource changed.
 
+The subsequent [native legacy qualification](M07_NATIVE_COMPAT_LEGACY_2026-10-23.md)
+passed **29 distinct assertions/8 captures**, plus the existing export suite's
+**36/14 and four publications**, using clean `34bea07` including the temporary
+storage fix. This resolves the separate pending synthetic-v1 native journey
+above. Exact original receipt/state, one retained readonly-v1 backup, migration
+to2, old-key retry, observer isolation and actual process restart are verified.
+The coordinator independently read the new helper/launcher/journey and viewed
+the final resumed receipt, Mira and Sable PNGs: the schema2/contract1 labels are
+visible and legible, and Sable's history is empty. Only the synthetic path text
+is redacted in the development capture; receipt/state/lens values are real
+controller/native output. The root tree `f91cf53` differs from tested34bea07
+only by an independent review document; later changes are evidence documents.
+
 ## Remaining gates
 
 No LLM archivist, durable job cursor/queue, automatic chapter detection,

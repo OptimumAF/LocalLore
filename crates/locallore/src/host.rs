@@ -552,7 +552,10 @@ impl Host {
         let ephemeral = state.persistence.is_none().then(|| selected.engine.clone());
         check_generation_cancel(cancel)?;
         let snapshot = if let Some(port) = state.persistence.as_mut() {
-            port.generation_snapshot(scope, expected_head, &selected_seed.player, cancel)
+            // Overrides receive the same panic-safe cancellation boundary as
+            // the default port, so callbacks cannot unwind through this owner.
+            let safe_cancel = || check_generation_cancel(cancel).is_err();
+            port.generation_snapshot(scope, expected_head, &selected_seed.player, &safe_cancel)
                 .map_err(generation_read_error)?
         } else {
             HostGenerationSnapshot {

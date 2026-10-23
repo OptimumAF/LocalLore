@@ -70,12 +70,56 @@ not delete saves. All SQLite/replay/JNI work runs on IO workers. Generation runs
 outside the canonical lock and SQLite transaction. A lost commit acknowledgement
 is looked up with its original turn key; **Recover saved progress** retries
 uncertain work without allocating a new key. See [app durability](../../docs/native/APP_DURABILITY.md).
+Full or Busy storage errors show fixed recovery guidance and retain the original
+request. The confirmed snapshot stays visible until recovery obtains an accepted
+native outcome; new turns and mode changes stay disabled during uncertainty.
+The [storage recovery report](../../docs/native/STORAGE_RECOVERY_VERIFICATION_2026-10-22.md)
+distinguishes injected error replies from actual SQLite exhaustion.
+The [actual SQLite contention fixture](../../docs/native/SQLITE_CONTENTION_VERIFICATION_2026-10-22.md)
+adds a separate-process writer and unmodified Rust Busy recovery checks, without
+changing production code or introducing a gameplay SQL interface.
+The separate [capacity fixture](../../docs/native/CAPACITY_VERIFICATION_2026-10-22.md)
+uses a visibly labelled, test-only app with an immutable SQLite compile-time ceiling
+to exercise actual Full replies. Build/audit it explicitly with
+`python scripts/android_capacity_probe.py build --offline`; this never installs or
+runs a device. Its APKs live under `app/build-capacity`, with application ID
+`org.locallore.app.capacity`, separate from ordinary saves and instrumentation.
+The helper supplies a separate `.gradle-capacity` project cache: distinct task
+histories are required as well as distinct output directories, or Gradle can
+delete the previous mode's APKs as stale outputs. Property-only direct capacity
+builds are rejected. Only debug exists in capacity mode. Ordinary `scripts/check.py android` remains
+uncapped. Unset ambient `LIBSQLITE3_FLAGS` for either build; the reviewed native
+build owns that option. This immutable fixture cannot prove recovery after freeing
+capacity or partition-level exhaustion.
+The [capacity lifecycle follow-up](../../docs/native/CAPACITY_LIFECYCLE_VERIFICATION_2026-10-22.md)
+separates native-only proofs from the single Compose case and adds an explicit
+ordered cohort with Activity-only controls. Default capacity discovery runs the
+original three proofs once; the historical UI-class selector now runs only its
+one UI method. The report explains nested-suite selection and remote-shell quoting.
+The distinct [capacity-relief fixture](../../docs/native/CAPACITY_RELIEF_VERIFICATION_2026-10-22.md)
+uses `python scripts/android_capacity_relief_probe.py build --offline`, application
+ID `org.locallore.app.capacityrelief`, `app/build-capacity-relief` and the helper's
+mandatory `.gradle-capacity-relief` cache. It is debug/testOnly, with a fixed
+32-page native ceiling and separate test sources. Its one-shot helper fills then
+drops only a verified owned padding table in a fresh synthetic workspace. Padding
+temporarily violates the exact schema contract; it is removed before any new
+Android native owner opens. Production schema checks stay unchanged. This probes
+same-live-owner commit recovery after freeing pages, not ordinary valid-schema
+restart under Full or partition ENOSPC. The ordinary, 15-page and relief modes
+are mutually exclusive and keep independent task histories and APKs.
+Cancellation that reaches Rust before submit exists is reconciled as an uncommitted
+request. A late submit remains a draft; recovery does not regenerate or commit it.
 The earlier [ADR-0004](../../docs/adr/0004-android-engine-boundary.md) remains the
 legacy in-memory boundary fixture; production now uses the shared Host-v1 adapter.
 
 Disposal is terminal: retained Reset callbacks cannot reopen native sessions.
 The [ownership follow-up](../../docs/native/OWNERSHIP_FOLLOWUP_2026-10-22.md)
 records the regression and additional lifecycle/worker replacement checks.
+The [current durable-transport verification](../../docs/native/APP_DEVICE_VERIFICATION_2026-10-22.md)
+adds actual production IO/async-close ownership checks. The explicit
+[process-restart runner](../../docs/native/APP_DEVICE_RUNNER.md) runs two test-only
+phases around a verified app stop, retaining existing saves. These phases skip
+ordinary discovery without their coordination argument; do not count skips as passes.
 
 The recorded adapter/samples live only in src/test. The legacy NativeDemoGateway
 and Registry remain boundary-test fixtures; MainActivity selects DurableGateway
@@ -121,6 +165,29 @@ transfers original fixture bytes through actual Rust/JNI and verifies replay,
 branch snapshots and continued play. It uses a headless Windows fixture tool;
 full system-chooser and desktop UI transfer remain separate gates.
 
+## Write an Action or Dialogue
+
+The saved-story shell now offers **Write a turn**. It identifies its native provider
+as **Scripted fixture · no language model**. Select Action or Dialogue, edit the
+original text and press **Send**. **Potion example** only fills the Action draft;
+it never sends automatically. The fixture proposes that gift and literal dialogue;
+other actions may be rejected by the existing Rust intent guard/mechanical rules.
+Dialogue records words as a statement, not world truth. There is no text-to-command
+compiler in Kotlin and no cloud fallback.
+
+Input is bounded to 2048 UTF-8 bytes with valid Unicode. Text remains unchanged
+across the native request and exact-key recovery. Pending work disables editing;
+**Cancel** stops preparation. Drafts remain after rejection or an accepted head
+update, and reset on story/branch changes or composition disposal. Accepted prose
+and state come from saved engine receipts. Existing typed sample actions and fake
+modes remain available as separate regression fixtures.
+
+The potion example, literal dialogue, cancellation, lost acknowledgements,
+disposal, saved-story isolation and strict reopen passed on both API 35 x86_64
+test emulators. No model is loaded and the real local-backend/physical-phone gate
+remains open. Read [dated evidence](../../docs/native/ANDROID_INPUT_VERIFICATION_2026-10-23.md)
+and [all attempts](../../docs/native/ANDROID_INPUT_RESULTS_2026-10-23.json).
+
 ## Review local diagnostics
 
 Open **Local diagnostics** while the demo is idle to review its frozen JSON.
@@ -136,6 +203,32 @@ collector, crash-report SDK, new dependency or storage permission. A provider
 that ignores cancellation can delay future exports; provider I/O and its
 cancellation listener remain off the UI thread. See [diagnostic evidence](../../docs/diagnostics/VERIFICATION_2026-10-22.md)
 and [privacy boundaries](../../docs/PRIVACY_AND_THREAT_MODEL.md).
+
+## Browse the player story record
+
+Open **Story record** from an idle saved story to inspect **Progression**, **History**,
+**Relationships**, or **Knowledge**. Each read uses the Rust engine's player lens at
+the selected story's accepted revision. Search is literal, limited to visible rows;
+pages contain at most eight records. Seed/event references explain recorded values.
+Statements, beliefs, discoveries, narration, and known world facts retain separate labels.
+
+Browsing never submits a turn, invokes inference, advances time, or changes accepted
+history. Closing, leaving the foreground, starting a turn, switching stories, recovery,
+and disposal revoke pending publication. An unavailable or stale read displays a fixed
+error; it cannot repair saves or promote a summary into canonical state. Native reads
+already executing may finish on their IO worker after dismissal; their results are discarded.
+
+Use **Open event #N** on a visible record to read its eligible accepted event at the
+same story/head. Event story time and the frozen accepted head have separate labels.
+**Back to records** or platform Back restores the same section, search and page;
+**Close** dismisses the whole record. Seed and withheld sources have no event link.
+Opening the source of a statement or belief shows its recorded origin, without
+establishing its proposition as a world fact. No NPC/omniscient controls are offered.
+
+Unsupported engine fields remain explicitly limited. See
+[record verification](../../docs/native/ANDROID_RECORD_VERIFICATION_2026-10-23.md)
+and [event navigation verification](../../docs/native/ANDROID_EVENT_VERIFICATION_2026-10-23.md)
+for exact checks and the remaining milestone gates.
 
 ## Verification and limits
 
@@ -161,6 +254,7 @@ actual events/resources, invalid arrays and repeated cancellation/disposal;
 Compose tests cover flows, reset/recreation/disposal and doubled-font layout.
 Exact evidence is in [native verification](../../docs/native/VERIFICATION_2026-10-22.md).
 
-Shared durability is wired to the app; real-device/process-kill instrumentation
-and M01 physical/model feasibility remain separate unmeasured gates.
+Shared durability is wired to the app; the reports above record explicit
+process-stop/resume checks on two selected API 35 x86_64 emulators. Physical
+phones, ARM64 execution and M01 model feasibility remain separate unmeasured gates.
 Local build checks do not establish hosted CI execution or release readiness.

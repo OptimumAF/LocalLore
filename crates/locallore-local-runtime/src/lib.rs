@@ -2,6 +2,13 @@
 //! Bounded local native inference owner. No engine, database, network or model downloads.
 #[cfg(feature = "engine-adapter")]
 pub mod adapter;
+#[cfg(feature = "engine-adapter")]
+mod role_metrics;
+#[cfg(feature = "engine-adapter")]
+pub use role_metrics::{
+    AdapterError, AdapterTerminal, MetricRole, NativeTerminal, RoleMetrics, RoleMetricsLog,
+    RoleMetricsSnapshot, MAX_ROLE_METRICS,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};

@@ -2,8 +2,10 @@
 
 Scope: [M03.03 / #7](https://github.com/OptimumAF/LocalLore/issues/7).
 The native library contains the actual Rust engine and deterministic fake
-inference provider. It supplies no model weights, inference backend, saved-story
-database, network transport, or physical-device qualification.
+inference provider, plus the [shared SQLite workspace owner](APP_DURABILITY.md).
+It supplies no model weights, real inference backend, network transport, or
+physical-device qualification. Original in-memory boundary evidence and
+[current durable-app verification](APP_DEVICE_VERIFICATION_2026-10-22.md) are separate.
 
 The application applies `apps/android/native-build.gradle.kts` after its Android
 application plugin. `preBuild` depends on `buildRustAndroid`; regular APK and
@@ -143,6 +145,20 @@ retains the reasons for the Java/Kotlin/Compose pins. This native build does not
 choose a production model/runtime or establish supported device/RAM tiers.
 
 ## Evidence boundary
+
+An explicit synthetic capacity build is described in
+[the capacity report](CAPACITY_VERIFICATION_2026-10-22.md). The opt-in
+`-Plocallore.capacityTest=true --project-cache-dir <android-root>/.gradle-capacity`
+selects a fixed reviewed profile, separate app ID,
+test-only label/manifest, source roots and `build-capacity` directory (including
+Cargo and generated JNI libraries). Both mode and project-cache selection are
+guarded; the helper supplies these arguments. Separate task histories prevent
+Gradle deleting the other mode's packaged outputs as stale. Non-debug variants
+are disabled in this mode.
+The default build explicitly clears `LIBSQLITE3_FLAGS` in the Cargo child;
+nonempty ambient values are rejected during configuration, even if tasks would
+otherwise be up-to-date. No runtime/native fault command or production SQL
+capability is added. No dependency/version/license is changed by this fixture.
 
 The coordinator's dated native verification report and ticket #7 record actual
 build, JNI instrumentation, cancellation/resource ownership and packaging checks.

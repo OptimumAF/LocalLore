@@ -1,0 +1,1147 @@
+{
+  "version": 1,
+  "scope": "M03.03_and_bounded_M04_durable_app_verification",
+  "date": "2026-10-22",
+  "accepted_main": "26120014affc3ba1bd3d82f4cf4beb9fa40ae10c",
+  "production_fix": "e6af9c7",
+  "inference": "deterministic_fake",
+  "host": {
+    "rust_workspace_entries": 123,
+    "python_tests": 211,
+    "fixture_comparisons": 4,
+    "linker_tests": 3
+  },
+  "android_build": {
+    "jvm_tests": 38,
+    "abis_built": [
+      "x86_64",
+      "arm64-v8a"
+    ],
+    "lint_errors": 0,
+    "existing_dependency_version_advisories": 1,
+    "apk_audit": "passed"
+  },
+  "targets": {
+    "count": 2,
+    "model": "sdk_gphone64_x86_64",
+    "android": "15",
+    "api": 35,
+    "executed_abi": "x86_64",
+    "page_bytes": 4096,
+    "other_emulators_untouched": 3,
+    "physical_phones_available": 0
+  },
+  "artifact_hashes": {
+    "baseline-apks": {
+      "app_sha256": "dad3567cf9dabeffe7606dbf205d86dda3394810f7d7da29943e2e5ba6634c67",
+      "test_apk_sha256": "7c95d54f8ce232ad5c7e3327dc40a4d149233be58c89eb6a954db5ef8ec7e58b"
+    },
+    "candidate-1-apks": {
+      "app_sha256": "dad3567cf9dabeffe7606dbf205d86dda3394810f7d7da29943e2e5ba6634c67",
+      "test_apk_sha256": "254050ebbe764b974d39ea57ee69928cce9bcafd96647a2f92f6a72a63f07eec"
+    },
+    "regression-apks": {
+      "app_sha256": "dad3567cf9dabeffe7606dbf205d86dda3394810f7d7da29943e2e5ba6634c67",
+      "test_apk_sha256": "ab116c176524f13493105941cbc1e6bf79707d5e1fa72f8cb444f94596ca7651"
+    },
+    "final-apks": {
+      "app_sha256": "56ec9d0c20736a772ed7bda9372cdccb300ed8ef1ce609a3158c926e75839ebb",
+      "test_apk_sha256": "ab116c176524f13493105941cbc1e6bf79707d5e1fa72f8cb444f94596ca7651"
+    }
+  },
+  "attempts": [
+    {
+      "attempt": "A-initial-baseline-full",
+      "status": "unverified",
+      "reason": "host_collector_attribute_error_before_output_save"
+    },
+    {
+      "attempt": "B-initial-baseline-durable",
+      "status": "unverified",
+      "reason": "host_collector_attribute_error_before_output_save"
+    },
+    {
+      "attempt": "A-baseline-full-retry",
+      "passed": 29,
+      "failed": 4,
+      "skipped": 0,
+      "cases": [
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#exactMaximumByteCountIsAccepted",
+          "current": "1",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#repeatedWritesDoNotLeaveDescriptorsOwnedByTheWriter",
+          "current": "2",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#outputFailureStillClosesTheOpenedDescriptor",
+          "current": "3",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#actualContentResolverWritesExactFrozenBytesTruncatesAndCloses",
+          "current": "4",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#invalidSchemesAndOversizedPayloadsAreRejectedBeforeProviderAccess",
+          "current": "5",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#mainDispatcherRemainsResponsiveWhileRemoteOpenIsPendingAndCancellationReleasesIt",
+          "current": "6",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#synchronousLocalCancellationListenerRunsOffMainAndHoldsTheSingleExportSlot",
+          "current": "7",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#providerErrorsAndNullDescriptorsFailWithoutLeakingOwnedResources",
+          "current": "8",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsDialogTest#hiddenPreviewDoesNotRenderOrInvokeActions",
+          "current": "9",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsDialogTest#systemBackRequestsDismissWithoutWriting",
+          "current": "10",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsDialogTest#busyExportDisablesClearAndExportButCloseCanCancel",
+          "current": "11",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsDialogTest#smallViewportAndDoubleFontKeepActionsAndNoticeReachable",
+          "current": "12",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsDialogTest#previewIsExactAndActionsAreExplicitAndStateless",
+          "current": "13",
+          "total": "35"
+        },
+        {
+          "code": -2,
+          "case": "org.locallore.app.DiagnosticsIntegrationTest#cancelAndMalformedGenerationProduceOnlyFixedDiagnosticCategories",
+          "current": "14",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsIntegrationTest#actualNativeOutcomesAreSanitizedAndClearingCannotChangeCanon",
+          "current": "15",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsIntegrationTest#reviewedSnapshotAndPendingConsentSurviveActivityRecreation",
+          "current": "16",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsIntegrationTest#revokingPickerAndLateResultDoesNotOpenDestination",
+          "current": "17",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#actualJniProcessOwnerReopenRestoresCommittedTranscriptAndIndependentStories",
+          "current": "18",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#lateCancelledPrepareCannotClearTheReplacementOperationKey",
+          "current": "19",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#lostCommitAcknowledgementRecoversSameTurnAndNeverDuplicatesActualSqliteReceipt",
+          "current": "20",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#failedCancellationTransportCannotTurnRecoveryIntoACommit",
+          "current": "21",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#actualJniCancellationReleasesLiveOwnerWithoutDeletingSavedStory",
+          "current": "22",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.NativeBoundaryTest#twentyCancelDestroyCyclesReleaseRetainedSessionsWorkersAndOperations",
+          "current": "23",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.NativeBoundaryTest#nullOversizedMalformedForeignAndDestroyedInputsFailClosedThroughJni",
+          "current": "24",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.NativeBoundaryTest#cancelBeforeRunAndAfterPrepareNeverCommits",
+          "current": "25",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.NativeBoundaryTest#actualEnginePreparesWithoutCommitAndIdempotentlyOwnsEventsAndResources",
+          "current": "26",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.NativeLifecycleOwnershipTest#retainedResetAfterDisposalCannotAllocateAnUnownedNativeSession",
+          "current": "27",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.NativeLifecycleOwnershipTest#replacingRunningSessionsCannotCancelFreshWorkOrLeakOldOwners",
+          "current": "28",
+          "total": "35"
+        },
+        {
+          "code": -2,
+          "case": "org.locallore.app.ShellInstrumentedTest#recreationRetainsAcceptedStateAndCancelsPendingWork",
+          "current": "29",
+          "total": "35"
+        },
+        {
+          "code": -2,
+          "case": "org.locallore.app.ShellInstrumentedTest#cancelAndResetDuringDelayCannotPublishOldResult",
+          "current": "30",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#activityDisposalRetainsDurableSavedStoryAndTranscript",
+          "current": "31",
+          "total": "35"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#launchShowsHonestFixtureLabelAndNoPlatformCapabilities",
+          "current": "32",
+          "total": "35"
+        },
+        {
+          "code": -2,
+          "case": "org.locallore.app.ShellInstrumentedTest#giftUsesRustAcceptedResultAndReuseCannotDuplicateIt",
+          "current": "33",
+          "total": "35"
+        }
+      ],
+      "final_code_minus_one": false,
+      "junit_ok": false,
+      "status": "failed_or_incomplete",
+      "host_status": "timeout",
+      "deadline_seconds": 180,
+      "client_cleanup": true,
+      "expected_cases": 35,
+      "started_unfinished": 1,
+      "not_started": 1
+    },
+    {
+      "attempt": "A-candidate-1-shell",
+      "passed": 4,
+      "failed": 2,
+      "skipped": 0,
+      "cases": [
+        {
+          "code": -2,
+          "case": "org.locallore.app.ShellInstrumentedTest#recreationRetainsAcceptedStateAndCancelsPendingWork",
+          "current": "1",
+          "total": "6"
+        },
+        {
+          "code": -2,
+          "case": "org.locallore.app.ShellInstrumentedTest#cancelAndResetDuringDelayCannotPublishOldResult",
+          "current": "2",
+          "total": "6"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#activityDisposalRetainsDurableSavedStoryAndTranscript",
+          "current": "3",
+          "total": "6"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#launchShowsHonestFixtureLabelAndNoPlatformCapabilities",
+          "current": "4",
+          "total": "6"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#giftUsesRustAcceptedResultAndReuseCannotDuplicateIt",
+          "current": "5",
+          "total": "6"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#unlearnedAbilityAndBadProviderModesLeaveStateUnchanged",
+          "current": "6",
+          "total": "6"
+        }
+      ],
+      "final_code_minus_one": true,
+      "junit_ok": false,
+      "status": "failed_or_incomplete"
+    },
+    {
+      "attempt": "A-final-diagnostics",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#exactMaximumByteCountIsAccepted",
+          "current": "1",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#repeatedWritesDoNotLeaveDescriptorsOwnedByTheWriter",
+          "current": "2",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#outputFailureStillClosesTheOpenedDescriptor",
+          "current": "3",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#actualContentResolverWritesExactFrozenBytesTruncatesAndCloses",
+          "current": "4",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#invalidSchemesAndOversizedPayloadsAreRejectedBeforeProviderAccess",
+          "current": "5",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#mainDispatcherRemainsResponsiveWhileRemoteOpenIsPendingAndCancellationReleasesIt",
+          "current": "6",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#synchronousLocalCancellationListenerRunsOffMainAndHoldsTheSingleExportSlot",
+          "current": "7",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#providerErrorsAndNullDescriptorsFailWithoutLeakingOwnedResources",
+          "current": "8",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsDialogTest#hiddenPreviewDoesNotRenderOrInvokeActions",
+          "current": "9",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsDialogTest#systemBackRequestsDismissWithoutWriting",
+          "current": "10",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsDialogTest#busyExportDisablesClearAndExportButCloseCanCancel",
+          "current": "11",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsDialogTest#smallViewportAndDoubleFontKeepActionsAndNoticeReachable",
+          "current": "12",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsDialogTest#previewIsExactAndActionsAreExplicitAndStateless",
+          "current": "13",
+          "total": "13"
+        }
+      ],
+      "final_code_minus_one": true,
+      "junit_ok": true,
+      "status": "passed",
+      "transport": {
+        "status": "completed",
+        "returncode": 0,
+        "client_cleanup": true,
+        "elapsed_ms": 47203
+      }
+    },
+    {
+      "attempt": "A-final-native",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "code": 0,
+          "case": "org.locallore.app.NativeBoundaryTest#twentyCancelDestroyCyclesReleaseRetainedSessionsWorkersAndOperations",
+          "current": "1",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.NativeBoundaryTest#nullOversizedMalformedForeignAndDestroyedInputsFailClosedThroughJni",
+          "current": "2",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.NativeBoundaryTest#cancelBeforeRunAndAfterPrepareNeverCommits",
+          "current": "3",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.NativeBoundaryTest#actualEnginePreparesWithoutCommitAndIdempotentlyOwnsEventsAndResources",
+          "current": "4",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.NativeLifecycleOwnershipTest#retainedResetAfterDisposalCannotAllocateAnUnownedNativeSession",
+          "current": "5",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.NativeLifecycleOwnershipTest#replacingRunningSessionsCannotCancelFreshWorkOrLeakOldOwners",
+          "current": "6",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#actualJniProcessOwnerReopenRestoresCommittedTranscriptAndIndependentStories",
+          "current": "7",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#lateCancelledPrepareCannotClearTheReplacementOperationKey",
+          "current": "8",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#lostCommitAcknowledgementRecoversSameTurnAndNeverDuplicatesActualSqliteReceipt",
+          "current": "9",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#failedCancellationTransportCannotTurnRecoveryIntoACommit",
+          "current": "10",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#actualJniCancellationReleasesLiveOwnerWithoutDeletingSavedStory",
+          "current": "11",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableTransportOwnershipTest#productionTransportCancelsActiveRustWorkAndRepeatedMainCloseReleasesEverySlot",
+          "current": "12",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableTransportOwnershipTest#productionTransportDisposalReleasesItsOwnerAndCannotCommitALatePreparedResult",
+          "current": "13",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableCancellationReviewTest#cancellationBeforeSubmitExistsDoesNotFailOrRegenerateTheLateOriginalRequest",
+          "current": "14",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableCancellationReviewTest#lateCancelledSubmitCannotClearOrCommitTheReplacementOperation",
+          "current": "15",
+          "total": "15"
+        }
+      ],
+      "final_code_minus_one": true,
+      "junit_ok": true,
+      "status": "passed",
+      "transport": {
+        "status": "completed",
+        "returncode": 0,
+        "client_cleanup": true,
+        "elapsed_ms": 3187
+      }
+    },
+    {
+      "attempt": "A-final-ui",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#cancelAndResetDuringDelayCannotPublishOldResult",
+          "current": "1",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#activityDisposalRetainsDurableSavedStoryAndTranscript",
+          "current": "2",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#launchShowsHonestFixtureLabelAndNoPlatformCapabilities",
+          "current": "3",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#recreationRetainsAcceptedStateAndAnAlreadyCancelledDraft",
+          "current": "4",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#giftUsesRustAcceptedResultAndReuseCannotDuplicateIt",
+          "current": "5",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#unlearnedAbilityAndBadProviderModesLeaveStateUnchanged",
+          "current": "6",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellLayoutTest#smallViewportAndDoubleFontScaleKeepControlsReachable",
+          "current": "7",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellLayoutTest#pendingResponseCancelControlInvokesItsCallback",
+          "current": "8",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsIntegrationTest#cancelAndMalformedGenerationProduceOnlyFixedDiagnosticCategories",
+          "current": "9",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsIntegrationTest#actualNativeOutcomesAreSanitizedAndClearingCannotChangeCanon",
+          "current": "10",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsIntegrationTest#reviewedSnapshotAndPendingConsentSurviveActivityRecreation",
+          "current": "11",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsIntegrationTest#revokingPickerAndLateResultDoesNotOpenDestination",
+          "current": "12",
+          "total": "12"
+        }
+      ],
+      "final_code_minus_one": true,
+      "junit_ok": true,
+      "status": "passed",
+      "transport": {
+        "status": "completed",
+        "returncode": 0,
+        "client_cleanup": true,
+        "elapsed_ms": 151813
+      }
+    },
+    {
+      "attempt": "B-baseline-durable-retry",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#actualJniProcessOwnerReopenRestoresCommittedTranscriptAndIndependentStories",
+          "current": "1",
+          "total": "5"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#lateCancelledPrepareCannotClearTheReplacementOperationKey",
+          "current": "2",
+          "total": "5"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#lostCommitAcknowledgementRecoversSameTurnAndNeverDuplicatesActualSqliteReceipt",
+          "current": "3",
+          "total": "5"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#failedCancellationTransportCannotTurnRecoveryIntoACommit",
+          "current": "4",
+          "total": "5"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#actualJniCancellationReleasesLiveOwnerWithoutDeletingSavedStory",
+          "current": "5",
+          "total": "5"
+        }
+      ],
+      "final_code_minus_one": true,
+      "junit_ok": true,
+      "status": "passed"
+    },
+    {
+      "attempt": "B-candidate-1-diagnostics",
+      "passed": 3,
+      "failed": 1,
+      "skipped": 0,
+      "cases": [
+        {
+          "code": -2,
+          "case": "org.locallore.app.DiagnosticsIntegrationTest#cancelAndMalformedGenerationProduceOnlyFixedDiagnosticCategories",
+          "current": "1",
+          "total": "4"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsIntegrationTest#actualNativeOutcomesAreSanitizedAndClearingCannotChangeCanon",
+          "current": "2",
+          "total": "4"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsIntegrationTest#reviewedSnapshotAndPendingConsentSurviveActivityRecreation",
+          "current": "3",
+          "total": "4"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsIntegrationTest#revokingPickerAndLateResultDoesNotOpenDestination",
+          "current": "4",
+          "total": "4"
+        }
+      ],
+      "final_code_minus_one": true,
+      "junit_ok": false,
+      "status": "failed_or_incomplete"
+    },
+    {
+      "attempt": "B-candidate-1-transport",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableTransportOwnershipTest#productionTransportCancelsActiveRustWorkAndRepeatedMainCloseReleasesEverySlot",
+          "current": "1",
+          "total": "2"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableTransportOwnershipTest#productionTransportDisposalReleasesItsOwnerAndCannotCommitALatePreparedResult",
+          "current": "2",
+          "total": "2"
+        }
+      ],
+      "final_code_minus_one": true,
+      "junit_ok": true,
+      "status": "passed"
+    },
+    {
+      "attempt": "B-final-diagnostics",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#exactMaximumByteCountIsAccepted",
+          "current": "1",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#repeatedWritesDoNotLeaveDescriptorsOwnedByTheWriter",
+          "current": "2",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#outputFailureStillClosesTheOpenedDescriptor",
+          "current": "3",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#actualContentResolverWritesExactFrozenBytesTruncatesAndCloses",
+          "current": "4",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#invalidSchemesAndOversizedPayloadsAreRejectedBeforeProviderAccess",
+          "current": "5",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#mainDispatcherRemainsResponsiveWhileRemoteOpenIsPendingAndCancellationReleasesIt",
+          "current": "6",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#synchronousLocalCancellationListenerRunsOffMainAndHoldsTheSingleExportSlot",
+          "current": "7",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticWriterTest#providerErrorsAndNullDescriptorsFailWithoutLeakingOwnedResources",
+          "current": "8",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsDialogTest#hiddenPreviewDoesNotRenderOrInvokeActions",
+          "current": "9",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsDialogTest#systemBackRequestsDismissWithoutWriting",
+          "current": "10",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsDialogTest#busyExportDisablesClearAndExportButCloseCanCancel",
+          "current": "11",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsDialogTest#smallViewportAndDoubleFontKeepActionsAndNoticeReachable",
+          "current": "12",
+          "total": "13"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsDialogTest#previewIsExactAndActionsAreExplicitAndStateless",
+          "current": "13",
+          "total": "13"
+        }
+      ],
+      "final_code_minus_one": true,
+      "junit_ok": true,
+      "status": "passed",
+      "transport": {
+        "status": "completed",
+        "returncode": 0,
+        "client_cleanup": true,
+        "elapsed_ms": 39890
+      }
+    },
+    {
+      "attempt": "B-final-native",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "code": 0,
+          "case": "org.locallore.app.NativeBoundaryTest#twentyCancelDestroyCyclesReleaseRetainedSessionsWorkersAndOperations",
+          "current": "1",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.NativeBoundaryTest#nullOversizedMalformedForeignAndDestroyedInputsFailClosedThroughJni",
+          "current": "2",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.NativeBoundaryTest#cancelBeforeRunAndAfterPrepareNeverCommits",
+          "current": "3",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.NativeBoundaryTest#actualEnginePreparesWithoutCommitAndIdempotentlyOwnsEventsAndResources",
+          "current": "4",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.NativeLifecycleOwnershipTest#retainedResetAfterDisposalCannotAllocateAnUnownedNativeSession",
+          "current": "5",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.NativeLifecycleOwnershipTest#replacingRunningSessionsCannotCancelFreshWorkOrLeakOldOwners",
+          "current": "6",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#actualJniProcessOwnerReopenRestoresCommittedTranscriptAndIndependentStories",
+          "current": "7",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#lateCancelledPrepareCannotClearTheReplacementOperationKey",
+          "current": "8",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#lostCommitAcknowledgementRecoversSameTurnAndNeverDuplicatesActualSqliteReceipt",
+          "current": "9",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#failedCancellationTransportCannotTurnRecoveryIntoACommit",
+          "current": "10",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#actualJniCancellationReleasesLiveOwnerWithoutDeletingSavedStory",
+          "current": "11",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableTransportOwnershipTest#productionTransportCancelsActiveRustWorkAndRepeatedMainCloseReleasesEverySlot",
+          "current": "12",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableTransportOwnershipTest#productionTransportDisposalReleasesItsOwnerAndCannotCommitALatePreparedResult",
+          "current": "13",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableCancellationReviewTest#cancellationBeforeSubmitExistsDoesNotFailOrRegenerateTheLateOriginalRequest",
+          "current": "14",
+          "total": "15"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableCancellationReviewTest#lateCancelledSubmitCannotClearOrCommitTheReplacementOperation",
+          "current": "15",
+          "total": "15"
+        }
+      ],
+      "final_code_minus_one": true,
+      "junit_ok": true,
+      "status": "passed",
+      "transport": {
+        "status": "completed",
+        "returncode": 0,
+        "client_cleanup": true,
+        "elapsed_ms": 3141
+      }
+    },
+    {
+      "attempt": "B-final-ui",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#cancelAndResetDuringDelayCannotPublishOldResult",
+          "current": "1",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#activityDisposalRetainsDurableSavedStoryAndTranscript",
+          "current": "2",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#launchShowsHonestFixtureLabelAndNoPlatformCapabilities",
+          "current": "3",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#recreationRetainsAcceptedStateAndAnAlreadyCancelledDraft",
+          "current": "4",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#giftUsesRustAcceptedResultAndReuseCannotDuplicateIt",
+          "current": "5",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#unlearnedAbilityAndBadProviderModesLeaveStateUnchanged",
+          "current": "6",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellLayoutTest#smallViewportAndDoubleFontScaleKeepControlsReachable",
+          "current": "7",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellLayoutTest#pendingResponseCancelControlInvokesItsCallback",
+          "current": "8",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsIntegrationTest#cancelAndMalformedGenerationProduceOnlyFixedDiagnosticCategories",
+          "current": "9",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsIntegrationTest#actualNativeOutcomesAreSanitizedAndClearingCannotChangeCanon",
+          "current": "10",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsIntegrationTest#reviewedSnapshotAndPendingConsentSurviveActivityRecreation",
+          "current": "11",
+          "total": "12"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DiagnosticsIntegrationTest#revokingPickerAndLateResultDoesNotOpenDestination",
+          "current": "12",
+          "total": "12"
+        }
+      ],
+      "final_code_minus_one": true,
+      "junit_ok": true,
+      "status": "passed",
+      "transport": {
+        "status": "completed",
+        "returncode": 0,
+        "client_cleanup": true,
+        "elapsed_ms": 133469
+      }
+    },
+    {
+      "attempt": "B-regression-before-fix",
+      "passed": 0,
+      "failed": 2,
+      "skipped": 0,
+      "cases": [
+        {
+          "code": -2,
+          "case": "org.locallore.app.DurableCancellationReviewTest#cancellationBeforeSubmitExistsDoesNotFailOrRegenerateTheLateOriginalRequest",
+          "current": "1",
+          "total": "2"
+        },
+        {
+          "code": -2,
+          "case": "org.locallore.app.DurableCancellationReviewTest#lateCancelledSubmitCannotClearOrCommitTheReplacementOperation",
+          "current": "2",
+          "total": "2"
+        }
+      ],
+      "final_code_minus_one": true,
+      "junit_ok": false,
+      "status": "failed_or_incomplete"
+    }
+  ],
+  "candidate_restart_B": {
+    "version": 1,
+    "scope": "android_test_only_app_process_restart",
+    "status": "passed",
+    "apk_sha256": "dad3567cf9dabeffe7606dbf205d86dda3394810f7d7da29943e2e5ba6634c67",
+    "test_apk_sha256": "254050ebbe764b974d39ea57ee69928cce9bcafd96647a2f92f6a72a63f07eec",
+    "attempts": [
+      {
+        "phase": "checkpoint",
+        "passed": true,
+        "failure_stage": "none",
+        "adb_clients_cleaned": true
+      },
+      {
+        "phase": "process_stop",
+        "passed": true,
+        "failure_stage": "none",
+        "adb_clients_cleaned": true
+      },
+      {
+        "phase": "resume",
+        "passed": true,
+        "failure_stage": "none",
+        "adb_clients_cleaned": true
+      }
+    ],
+    "adb_clients_cleaned": true,
+    "app_process_absent": true,
+    "final_cleanup_stage": "none",
+    "failure_stage": "none"
+  },
+  "final": {
+    "A": {
+      "ordinary_instrumentation_passed": 40,
+      "explicit_restart_phase_passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "restart": {
+        "version": 1,
+        "scope": "android_test_only_app_process_restart",
+        "status": "passed",
+        "apk_sha256": "56ec9d0c20736a772ed7bda9372cdccb300ed8ef1ce609a3158c926e75839ebb",
+        "test_apk_sha256": "ab116c176524f13493105941cbc1e6bf79707d5e1fa72f8cb444f94596ca7651",
+        "attempts": [
+          {
+            "phase": "checkpoint",
+            "passed": true,
+            "failure_stage": "none",
+            "adb_clients_cleaned": true
+          },
+          {
+            "phase": "process_stop",
+            "passed": true,
+            "failure_stage": "none",
+            "adb_clients_cleaned": true
+          },
+          {
+            "phase": "resume",
+            "passed": true,
+            "failure_stage": "none",
+            "adb_clients_cleaned": true
+          }
+        ],
+        "adb_clients_cleaned": true,
+        "app_process_absent": true,
+        "final_cleanup_stage": "none",
+        "failure_stage": "none"
+      }
+    },
+    "B": {
+      "ordinary_instrumentation_passed": 40,
+      "explicit_restart_phase_passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "restart": {
+        "version": 1,
+        "scope": "android_test_only_app_process_restart",
+        "status": "passed",
+        "apk_sha256": "56ec9d0c20736a772ed7bda9372cdccb300ed8ef1ce609a3158c926e75839ebb",
+        "test_apk_sha256": "ab116c176524f13493105941cbc1e6bf79707d5e1fa72f8cb444f94596ca7651",
+        "attempts": [
+          {
+            "phase": "checkpoint",
+            "passed": true,
+            "failure_stage": "none",
+            "adb_clients_cleaned": true
+          },
+          {
+            "phase": "process_stop",
+            "passed": true,
+            "failure_stage": "none",
+            "adb_clients_cleaned": true
+          },
+          {
+            "phase": "resume",
+            "passed": true,
+            "failure_stage": "none",
+            "adb_clients_cleaned": true
+          }
+        ],
+        "adb_clients_cleaned": true,
+        "app_process_absent": true,
+        "final_cleanup_stage": "none",
+        "failure_stage": "none"
+      }
+    }
+  },
+  "limits": [
+    "no_physical_phone",
+    "no_arm64_execution",
+    "no_real_model_app_integration",
+    "no_hardware_power_loss_qualification",
+    "no_heap_profile",
+    "no_hosted_ci_claim",
+    "no_upstream_merge_or_release"
+  ],
+  "private_data_policy": "No transport IDs, checkpoint tokens, process IDs, private paths, raw logs or story records in this report."
+}

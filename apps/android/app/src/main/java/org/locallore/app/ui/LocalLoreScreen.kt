@@ -42,6 +42,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import org.locallore.app.DemoAction
 import org.locallore.app.DemoMode
+import org.locallore.app.PlayInput
+import org.locallore.app.PlayInputKind
 import org.locallore.app.ShellState
 import org.locallore.app.SavedStory
 
@@ -61,10 +63,17 @@ fun LocalLoreScreen(
     onDiagnostics: () -> Unit = {},
     onResume: (SavedStory) -> Unit = {},
     onRecover: () -> Unit = {},
+    onStoryRecord: (() -> Unit)? = null,
+    onText: ((PlayInput) -> Unit)? = null,
     archiveAvailable: Boolean = false,
     onArchive: () -> Unit = {},
     overlay: @Composable () -> Unit = {},
 ) {
+    // Keep unsent text in this composition, including when its lazy item scrolls off screen.
+    // A new accepted head retains it; a different story/branch or disposal forgets it.
+    var playInput by remember(state.selectedStory?.story, state.selectedStory?.branch) {
+        mutableStateOf(PlayInput(PlayInputKind.ACTION, ""))
+    }
     MaterialTheme(
         colorScheme = lightColorScheme(
             primary = Teal,
@@ -216,6 +225,16 @@ fun LocalLoreScreen(
                             )
                         }
                     }
+                    if (onText != null) item(key = "play-composer") {
+                        PlayInputComposer(
+                            input = playInput,
+                            provider = state.textProvider,
+                            busy = state.busy || state.archiveActive,
+                            recoveryRequired = state.recoveryRequired,
+                            onInput = { playInput = it },
+                            onSend = onText,
+                        )
+                    }
                     item(key = "actions") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (state.persistent && state.recoveryRequired) OutlinedButton(
@@ -261,6 +280,15 @@ fun LocalLoreScreen(
                                     .testTag("try-ability"),
                             ) { Text("Try unlearned ability") }
                         }
+                    }
+                    if (onStoryRecord != null) item(key = "story-record") {
+                        OutlinedButton(
+                            onClick = onStoryRecord,
+                            enabled = state.persistent && state.selectedStory != null &&
+                                !state.busy && !state.archiveActive && !state.recoveryRequired,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .testTag("story-record-open"),
+                        ) { Text("Story record") }
                     }
                     item(key = "diagnostics") {
                         TextButton(onClick = onDiagnostics, enabled = !state.busy && !state.archiveActive,

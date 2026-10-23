@@ -76,8 +76,12 @@ Always rebuild the normal frontend with `npm run build` after using a developmen
 harness, then rebuild the native executable without `--features dev-harness`.
 Node, Playwright and a dev server are not shipped runtimes. React and CSS bundle
 into local assets; the executable uses the installed WebView2. The desktop is a
-separate Cargo workspace, so Tauri is not an Android dependency. Android now
-enables the portable host feature through the shared workspace/storage adapter.
+member of the repository Cargo workspace and uses the root `Cargo.lock`. The four
+portable packages remain default members; portable `--workspace` test/Clippy
+commands must explicitly exclude `locallore-desktop-spike`, as `scripts/check.py`
+does. Android selects its JNI crate and does not depend on Tauri. Runtime and
+evaluation crates retain their separate workspaces and locks. See the
+[workspace alignment evidence](../../docs/desktop/D09_WORKSPACE_ALIGNMENT_2026-10-23.md).
 
 Enter submits the selected typed action; Shift+Enter adds a newline, and IME
 composition does not submit. Native form controls support keyboard navigation;

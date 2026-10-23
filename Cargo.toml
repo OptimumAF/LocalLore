@@ -1,6 +1,7 @@
 [workspace]
-members = ["crates/locallore", "crates/locallore-android", "crates/locallore-storage", "crates/locallore-workspace"]
-exclude = ["apps/desktop/src-tauri"]
+members = ["crates/locallore", "crates/locallore-android", "crates/locallore-storage", "crates/locallore-workspace", "apps/desktop/src-tauri"]
+default-members = ["crates/locallore", "crates/locallore-android", "crates/locallore-storage", "crates/locallore-workspace"]
+exclude = ["crates/locallore-local-runtime", "crates/locallore-eval"]
 resolver = "2"
 
 [workspace.package]

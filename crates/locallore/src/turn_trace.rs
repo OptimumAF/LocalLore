@@ -1,7 +1,11 @@
 //! Passive bounded metadata only. This module has no engine, provider, storage or I/O authority.
 use crate::contracts::Scope;
 use serde::Serialize;
-use std::{collections::VecDeque, sync::Arc, time::Instant};
+use std::{
+    collections::VecDeque,
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 
 pub const TRACE_VERSION: u16 = 1;
 pub const MAX_ATTEMPTS: usize = 32;
@@ -142,6 +146,7 @@ pub enum ErrorCategory {
     Knowledge,
     Provider,
     CorruptHistory,
+    Unsupported,
 }
 impl ErrorCategory {
     /// Preserve existing M03.06/core fixed categories without retaining Display/error text.
@@ -225,6 +230,80 @@ pub enum HookStatus {
 pub struct AttemptHandle {
     owner: Arc<()>,
     sequence: u64,
+}
+/// Explicit stage interval. It carries no authority, content or caller-supplied clock values.
+pub struct StageTimer {
+    started: Instant,
+}
+pub struct StageMeasurement {
+    stage: Stage,
+    outcome: Outcome,
+    counts: Counts,
+    error: Option<ErrorCategory>,
+    started: Instant,
+    ended: Instant,
+}
+impl StageMeasurement {
+    pub fn duration_us(&self) -> u64 {
+        micros(self.ended.duration_since(self.started))
+    }
+}
+impl StageTimer {
+    pub fn start() -> Self {
+        Self {
+            started: Instant::now(),
+        }
+    }
+    pub fn finish(
+        self,
+        stage: Stage,
+        outcome: Outcome,
+        counts: Counts,
+        error: Option<ErrorCategory>,
+    ) -> StageMeasurement {
+        StageMeasurement {
+            stage,
+            outcome,
+            counts,
+            error,
+            started: self.started,
+            ended: Instant::now(),
+        }
+    }
+}
+/// Trusted metadata hook only. Production callers must isolate failure and ignore trace status.
+pub trait TraceSink {
+    fn matches(&mut self, scope: &Scope, base_revision: u64, observer: &str, turn: &str) -> bool;
+    fn record(&mut self, measurement: StageMeasurement);
+}
+/// Short, nonblocking diagnostic adapter. Busy/poisoned locks and stale handles drop metadata.
+pub struct RingSink {
+    ring: Arc<Mutex<TraceRing>>,
+    handle: AttemptHandle,
+}
+impl RingSink {
+    pub fn new(ring: Arc<Mutex<TraceRing>>, handle: AttemptHandle) -> Self {
+        Self { ring, handle }
+    }
+}
+impl TraceSink for RingSink {
+    fn matches(&mut self, scope: &Scope, base_revision: u64, observer: &str, turn: &str) -> bool {
+        let Ok(ring) = self.ring.try_lock() else {
+            return false;
+        };
+        ring.position(&self.handle).is_some_and(|index| {
+            let key = &ring.attempts[index].data.identity;
+            &key.scope == scope
+                && key.base_revision == base_revision
+                && key.observer == observer
+                && key.turn == turn
+        })
+    }
+    fn record(&mut self, measurement: StageMeasurement) {
+        if let Ok(mut ring) = self.ring.try_lock() {
+            let _ = ring.record_measured(&self.handle, measurement);
+        }
+    }
 }
 pub struct Begin {
     pub status: HookStatus,
@@ -420,7 +499,46 @@ impl TraceRing {
         let Some(index) = self.position(handle) else {
             return HookStatus::Dropped;
         };
+        let live = &self.attempts[index];
+        let now = Instant::now();
+        let record = StageRecord {
+            stage,
+            outcome,
+            started_us: micros(live.last.duration_since(live.started)),
+            duration_us: micros(now.duration_since(live.last)),
+            counts,
+            error,
+        };
+        self.append(index, record, now)
+    }
+    pub fn record_measured(
+        &mut self,
+        handle: &AttemptHandle,
+        measurement: StageMeasurement,
+    ) -> HookStatus {
+        if !self.enabled {
+            return HookStatus::Disabled;
+        }
+        let Some(index) = self.position(handle) else {
+            return HookStatus::Dropped;
+        };
+        let live = &self.attempts[index];
+        if measurement.started < live.last || measurement.ended < measurement.started {
+            return HookStatus::InvalidMetadata;
+        }
+        let record = StageRecord {
+            stage: measurement.stage,
+            outcome: measurement.outcome,
+            started_us: micros(measurement.started.duration_since(live.started)),
+            duration_us: micros(measurement.ended.duration_since(measurement.started)),
+            counts: measurement.counts,
+            error: measurement.error,
+        };
+        self.append(index, record, measurement.ended)
+    }
+    fn append(&mut self, index: usize, record: StageRecord, now: Instant) -> HookStatus {
         let live = &mut self.attempts[index];
+        let sequence = live.sequence;
         if live.data.outcome != Outcome::Running {
             return HookStatus::Dropped;
         }
@@ -430,19 +548,11 @@ impl TraceRing {
             self.trim();
             return HookStatus::Truncated;
         }
-        let now = Instant::now();
-        live.data.stages.push(StageRecord {
-            stage,
-            outcome,
-            started_us: micros(live.last.duration_since(live.started)),
-            duration_us: micros(now.duration_since(live.last)),
-            counts,
-            error,
-        });
+        live.data.stages.push(record);
         live.last = now;
         live.data.elapsed_us = micros(now.duration_since(live.started));
         self.trim();
-        if self.position(handle).is_some() {
+        if self.attempts.iter().any(|a| a.sequence == sequence) {
             HookStatus::Recorded
         } else {
             HookStatus::Dropped

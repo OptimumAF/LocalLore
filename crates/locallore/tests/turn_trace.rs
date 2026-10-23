@@ -1,8 +1,5 @@
-// Temporarily include the pure module until the coordinator wires the shared public library.
-pub use locallore::contracts;
-#[path = "../src/turn_trace.rs"]
-mod turn_trace;
 use contracts::Scope;
+use locallore::{contracts, turn_trace};
 use turn_trace::*;
 
 fn scope() -> Scope {

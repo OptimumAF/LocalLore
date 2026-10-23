@@ -35,6 +35,7 @@ interface Operation {
 export class Controller {
     private state: State = {
         workspace: null,
+        ephemeral: false,
         starting: false,
         sessions: [],
         selectedId: null,
@@ -108,7 +109,25 @@ export class Controller {
     async library() {
         const value = (await this.gateway.call({
             op: "workspace",
-        })) as Workspace;
+        })) as
+            | Workspace
+            | {
+                  persistent: false;
+                  location: null;
+                  schema_version: null;
+                  stories: [];
+              };
+        if (value && value.persistent === false) {
+            if (
+                value.location !== null ||
+                value.schema_version !== null ||
+                !Array.isArray(value.stories) ||
+                value.stories.length !== 0
+            )
+                throw new Error("Wire");
+            this.patch({ workspace: null, ephemeral: true });
+            return value;
+        }
         if (
             !value ||
             value.persistent !== true ||
@@ -124,7 +143,7 @@ export class Controller {
             )
         )
             throw new Error("Wire");
-        this.patch({ workspace: value });
+        this.patch({ workspace: value, ephemeral: false });
         return value;
     }
     async start() {
@@ -132,7 +151,7 @@ export class Controller {
         try {
             const workspace = await this.library();
             // Shared library ordering is deterministic story-ID ordering.
-            if (workspace.stories.length)
+            if (workspace?.stories.length)
                 await this.resume(workspace.stories[0].scope);
             else await this.create();
         } catch (error) {
@@ -836,6 +855,7 @@ export class Controller {
         return {
             version: 1,
             workspace: s.workspace,
+            ephemeral: s.ephemeral,
             synthetic: true,
             uiRevision: s.play?.revision ?? 0,
             view: s.view,

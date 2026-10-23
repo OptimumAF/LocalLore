@@ -117,6 +117,17 @@ export async function journeys({
         const root = document.getElementById("root")!;
         const semantic = c.semantic();
         check(
+            semantic.ephemeral &&
+                root.textContent?.includes("In-memory only · not saved"),
+            `${label}:honest-memory-label`,
+        );
+        check(
+            !root.textContent?.includes("Storage unavailable") &&
+                !root.textContent?.includes("saved story remains") &&
+                !root.textContent?.includes("keep save"),
+            `${label}:no-false-save-or-failure-label`,
+        );
+        check(
             semantic.receipt === null ||
                 semantic.receipt.request.scope.story ===
                     semantic.session?.scope.story,
@@ -153,6 +164,16 @@ export async function journeys({
         });
     };
     try {
+        const workspace = await c.library();
+        check(
+            workspace.persistent === false && c.get().ephemeral,
+            "memory-mode-from-native-workspace",
+        );
+        await pause();
+        check(
+            !document.querySelector<HTMLButtonElement>(".new")!.disabled,
+            "memory-fixture-creation-enabled",
+        );
         if (config.stage === "reopened") {
             const stats = (await invoke("harness_stats")) as {
                 sessions: number;

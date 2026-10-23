@@ -36,7 +36,7 @@ export interface SavedStory {
     drafts: number;
 }
 export interface Workspace {
-    persistent: boolean;
+    persistent: true;
     location: string;
     schema_version: number;
     stories: SavedStory[];
@@ -73,6 +73,7 @@ export interface Diff {
 }
 export interface State {
     workspace: Workspace | null;
+    ephemeral: boolean;
     starting: boolean;
     sessions: Session[];
     selectedId: string | null;

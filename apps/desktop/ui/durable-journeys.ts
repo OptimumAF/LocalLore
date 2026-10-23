@@ -111,6 +111,7 @@ export async function durableJourneys({
             return;
         }
         const library = await c.library();
+        if (!library.persistent) throw new Error("ExpectedDurableWorkspace");
         check(
             library.persistent && library.schema_version === 1,
             "real-workspace-schema-v1",

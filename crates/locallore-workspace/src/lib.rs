@@ -4,7 +4,8 @@ use locallore::{
     contracts::*,
     engine::Engine,
     host::{
-        Host, Persistence, SavedTurn, WorkspaceBranch, WorkspaceBranchCatalog, WorkspaceSummary,
+        Host, Persistence, SavedTurn, WorkspaceBranch, WorkspaceBranchCatalog,
+        WorkspaceForkOutcome, WorkspaceForkRequest, WorkspaceSummary,
     },
 };
 use locallore_storage::{StorageError, Store, TurnError, TurnPhase, TurnRecord};
@@ -131,6 +132,32 @@ impl Persistence for Repository {
                     retired: branch.retired,
                 })
                 .collect(),
+        })
+    }
+    fn fork_branch(
+        &mut self,
+        request: &WorkspaceForkRequest,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<WorkspaceForkOutcome, String> {
+        let outcome = self
+            .store
+            .fork_branch(
+                &locallore_storage::ForkRequest {
+                    parent: request.parent.clone(),
+                    child_branch: request.child_branch.clone(),
+                    expected_parent_revision: request.expected_parent_revision,
+                    at_revision: request.at_revision,
+                },
+                cancel,
+            )
+            .map_err(turn)?;
+        Ok(WorkspaceForkOutcome {
+            version: 1,
+            scope: outcome.scope,
+            parent: outcome.parent,
+            fork_revision: outcome.fork_revision,
+            head_revision: outcome.head_revision,
+            created: outcome.created,
         })
     }
     fn create(&mut self) -> Result<Engine, String> {

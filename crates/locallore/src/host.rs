@@ -245,6 +245,7 @@ struct Session {
     engine: Engine,
     turns: BTreeMap<String, Turn>,
     trace_owner: TraceOwner,
+    work_owner: Arc<()>,
 }
 #[derive(Default)]
 struct State {
@@ -1177,6 +1178,7 @@ impl Host {
                         engine,
                         turns: BTreeMap::new(),
                         trace_owner: TraceOwner::default(),
+                        work_owner: Arc::new(()),
                     },
                 );
                 ok(data)
@@ -1526,7 +1528,24 @@ impl Host {
                         .resume(scope)
                         .map_err(reject)?;
                     let revision = engine.revision();
-                    get_session(state, session, scope)?.engine = engine;
+                    let selected = get_session(state, session, scope)?;
+                    // Explicit selection starts a new native incarnation even
+                    // when IDs and accepted prefix match. Old workers and cached
+                    // receipts cannot become results of the newly selected source.
+                    for turn in selected.turns.values() {
+                        turn.cancel.cancel();
+                        if turn.phase.active() {
+                            self.trace_finish(turn.trace.as_ref(), Outcome::Cancelled);
+                        }
+                    }
+                    selected.turns.clear();
+                    selected.work_owner = Arc::new(());
+                    selected.trace_owner.retire();
+                    if let Ok(mut trace) = self.trace.try_lock() {
+                        trace.revoke_details(&selected.trace_owner);
+                    }
+                    selected.trace_owner = TraceOwner::default();
+                    selected.engine = engine;
                     Ok(ok(
                         json!({"session":session,"scope":scope,"revision":revision}),
                     ))
@@ -1973,6 +1992,7 @@ impl Host {
             if let Some(turn) = state
                 .sessions
                 .get_mut(&work.session)
+                .filter(|session| Arc::ptr_eq(&session.work_owner, &work.owner))
                 .and_then(|session| session.turns.get_mut(&work.turn))
             {
                 if turn.phase == Phase::Running {
@@ -2043,6 +2063,7 @@ impl Host {
             state: self.state.clone(),
             session: session.into(),
             turn: turn.into(),
+            owner: s.work_owner.clone(),
             engine: s.engine.clone(),
             request: t.request.clone(),
             mode: t.mode,
@@ -2102,6 +2123,13 @@ impl Host {
     }
     fn finish_work_inner(&self, work: &Work, result: Result<Receipt, Error>) -> Value {
         let mut state = self.state.lock().unwrap();
+        if !state
+            .sessions
+            .get(&work.session)
+            .is_some_and(|session| Arc::ptr_eq(&session.work_owner, &work.owner))
+        {
+            return reject("Closed");
+        }
         // Generation runs without the owner lock. Another process may have finalized
         // this key meanwhile; its persisted outcome must win over this worker.
         if state.persistence.is_some() && state.sessions.contains_key(&work.session) {
@@ -2307,6 +2335,7 @@ struct Work {
     state: Arc<Mutex<State>>,
     session: String,
     turn: String,
+    owner: Arc<()>,
     engine: Engine,
     request: Request,
     mode: Mode,
@@ -2500,6 +2529,7 @@ fn attach_engine(state: &mut State, engine: Engine) -> Value {
             engine,
             turns: BTreeMap::new(),
             trace_owner: TraceOwner::default(),
+            work_owner: Arc::new(()),
         },
     );
     ok(data)

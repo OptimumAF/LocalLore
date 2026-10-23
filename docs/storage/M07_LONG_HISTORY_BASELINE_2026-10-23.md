@@ -97,9 +97,10 @@ Engine replay; it is not a global 2,072-event index benchmark. Exact visitor
 lookup is a public actor-observation scan, not proof of constant-time indexing.
 Literal inspection search and compiler selection have their own different work
 and output contracts. No comparison among those timings implies one is a faster
-replacement. v2 coverage, durable maintenance, verified-memory compiler forwarding,
-embeddings and a production cache consumer are not implemented or claimed by this
-test. There is no transcript-only versus verified-memory model comparison.
+replacement. Accepted pure v2 coverage APIs are not exercised here. No durable
+maintenance, verified-memory compiler forwarding, embeddings or production cache
+consumer is implemented or qualified by this test. There is no transcript-only
+versus verified-memory model comparison.
 
 ## Execution, resource failure and results
 

@@ -1,5 +1,9 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Optional shared-engine provider. This adapter never validates or commits canonical outcomes.
+use crate::{
+    role_metrics::digest, AdapterError, AdapterTerminal, MetricRole, NativeTerminal, RoleMetrics,
+    RoleMetricsLog,
+};
 use crate::{Error as RuntimeError, Generation, LocalRuntime, Metrics, Role, PROFILE};
 use locallore::{
     contracts::Error,
@@ -10,7 +14,7 @@ use std::{
     sync::{mpsc, Arc, Mutex, TryLockError},
     task::Poll,
     thread::{self, JoinHandle},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 pub type SharedRuntime = Arc<Mutex<LocalRuntime>>;
@@ -100,16 +104,114 @@ fn compile(request: &GenerationRequest) -> Result<(Identity, Generation), Error>
     ))
 }
 
-type Outcome = (
-    Result<Vec<u8>, Error>,
-    Option<Metrics>,
-    Option<RuntimeError>,
-);
+struct Outcome {
+    result: Result<Vec<u8>, Error>,
+    metrics: Option<Metrics>,
+    failure: Option<RuntimeError>,
+    native: NativeTerminal,
+}
+impl Outcome {
+    fn unavailable(failure: RuntimeError, native: NativeTerminal) -> Self {
+        Self {
+            result: Err(if failure == RuntimeError::Cancelled {
+                Error::Cancelled
+            } else {
+                Error::Provider
+            }),
+            metrics: None,
+            failure: Some(failure),
+            native,
+        }
+    }
+}
+fn metric_error(error: &Error) -> AdapterError {
+    match error {
+        Error::Cancelled => AdapterError::Cancelled,
+        Error::Timeout => AdapterError::Timeout,
+        Error::TooLarge => AdapterError::TooLarge,
+        Error::RetryMismatch => AdapterError::RetryMismatch,
+        Error::Rule | Error::Malformed => AdapterError::InvalidRequest,
+        _ => AdapterError::Provider,
+    }
+}
+fn terminal(error: Option<AdapterError>) -> AdapterTerminal {
+    match error {
+        None => AdapterTerminal::Completed,
+        Some(AdapterError::Cancelled) => AdapterTerminal::Cancelled,
+        Some(AdapterError::Timeout) => AdapterTerminal::Timeout,
+        Some(_) => AdapterTerminal::Failed,
+    }
+}
+struct Observation {
+    log: RoleMetricsLog,
+    turn: String,
+    request: String,
+    role: MetricRole,
+    director_attempt: Option<u8>,
+    ordinal: u8,
+    started: Instant,
+}
+impl Observation {
+    fn new(log: &RoleMetricsLog, identity: &Identity, directors: u8) -> Option<Self> {
+        let Ok(turn) = serde_json::to_vec(&json!({"story":identity.story,"branch":identity.branch,
+            "turn":identity.turn,"revision":identity.revision,"profile":identity.profile}))
+        else {
+            log.lost();
+            return None;
+        };
+        let turn = digest(&turn);
+        log.bind(&turn);
+        let director = identity.role == "director";
+        Some(Self {
+            log: log.clone(),
+            turn,
+            request: digest(&identity.full),
+            role: if director {
+                MetricRole::Director
+            } else {
+                MetricRole::Narrator
+            },
+            director_attempt: director.then_some(directors - 1),
+            ordinal: if director { directors - 1 } else { directors },
+            started: Instant::now(),
+        })
+    }
+    fn finish(
+        &self,
+        outcome: &Outcome,
+        status: AdapterTerminal,
+        error: Option<AdapterError>,
+        dropped: bool,
+    ) {
+        self.log.record(
+            &self.turn,
+            RoleMetrics {
+                role: self.role,
+                director_attempt: self.director_attempt,
+                ordinal: self.ordinal,
+                request_sha256: self.request.clone(),
+                parent_elapsed_ms: self.started.elapsed().as_millis().min(u64::MAX as u128) as u64,
+                adapter_terminal: status,
+                adapter_error: error,
+                native_terminal: outcome.native,
+                native_error: outcome.failure,
+                worker_metrics: if outcome.native == NativeTerminal::Completed {
+                    outcome.metrics.clone()
+                } else {
+                    None
+                },
+                drained_on_drop: dropped,
+            },
+        );
+    }
+}
 struct Job {
     identity: Identity,
     cancel: Cancellation,
     receiver: mpsc::Receiver<Outcome>,
     thread: Option<JoinHandle<()>>,
+    observation: Option<Observation>,
+    observed_error: Option<AdapterError>,
 }
 /// Create one provider per turn. It accepts a director, at most one director repair, then a narrator;
 /// repeated identical polls are idempotent. A new turn needs a fresh provider from the factory.
@@ -121,6 +223,7 @@ pub struct RuntimeProvider {
     failure: Option<RuntimeError>,
     poisoned: bool,
     directors_started: u8,
+    log: Option<RoleMetricsLog>,
 }
 impl RuntimeProvider {
     pub fn new(runtime: SharedRuntime) -> Self {
@@ -132,7 +235,14 @@ impl RuntimeProvider {
             failure: None,
             poisoned: false,
             directors_started: 0,
+            log: None,
         }
+    }
+    /// Optional passive per-turn recorder; all log loss is independent of inference results.
+    pub fn with_metrics(runtime: SharedRuntime, log: RoleMetricsLog) -> Self {
+        let mut provider = Self::new(runtime);
+        provider.log = Some(log);
+        provider
     }
     pub fn metrics(&self) -> Option<&Metrics> {
         self.metrics.as_ref()
@@ -147,17 +257,40 @@ impl RuntimeProvider {
                 if thread.join().is_err() {
                     self.failure = Some(RuntimeError::Cleanup);
                     self.poisoned = true;
-                    let mut owner = self
-                        .runtime
-                        .lock()
-                        .unwrap_or_else(|poisoned| poisoned.into_inner());
-                    let _ = owner.fail::<()>(RuntimeError::Cleanup);
+                    {
+                        let mut owner = self
+                            .runtime
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner());
+                        let _ = owner.fail::<()>(RuntimeError::Cleanup);
+                    }
+                    if let Some(observation) = &job.observation {
+                        observation.finish(
+                            &Outcome::unavailable(RuntimeError::Cleanup, NativeTerminal::Unknown),
+                            AdapterTerminal::Failed,
+                            Some(AdapterError::Cleanup),
+                            true,
+                        );
+                    }
                     return;
                 }
             }
-            if let Ok((_, metrics, failure)) = job.receiver.try_recv() {
-                self.metrics = metrics;
-                self.failure = failure;
+            if let Ok(outcome) = job.receiver.try_recv() {
+                self.metrics = outcome.metrics.clone();
+                self.failure = outcome.failure;
+                if let Some(observation) = &job.observation {
+                    let status = job
+                        .observed_error
+                        .map_or(AdapterTerminal::Dropped, |e| terminal(Some(e)));
+                    observation.finish(&outcome, status, job.observed_error, true);
+                }
+            } else if let Some(observation) = &job.observation {
+                observation.finish(
+                    &Outcome::unavailable(RuntimeError::Cleanup, NativeTerminal::Unknown),
+                    AdapterTerminal::Failed,
+                    Some(AdapterError::Cleanup),
+                    true,
+                );
             }
         }
     }
@@ -170,30 +303,45 @@ impl RuntimeProvider {
     ) -> Result<(), Error> {
         self.metrics = None;
         self.failure = None;
+        let observation = self
+            .log
+            .as_ref()
+            .and_then(|log| Observation::new(log, &identity, self.directors_started));
         let runtime = self.runtime.clone();
         let local = Cancellation::default();
         let cancel = local.clone();
         let deadline = Duration::from_millis(request.budget.deadline_ms.min(60_000));
         let bytes = request.budget.max_output_bytes;
         let (sender, receiver) = mpsc::sync_channel(1);
+        #[cfg(all(test, feature = "development-worker"))]
+        let reply_delay = crate::AFTER_REPLY_DELAY.with(|delay| delay.take());
         let worker = thread::Builder::new()
             .name("locallore-local-role".into())
             .spawn(move || {
+                #[cfg(all(test, feature = "development-worker"))]
+                crate::AFTER_REPLY_DELAY.with(|delay| delay.set(reply_delay));
                 let mut guard = match runtime.try_lock() {
                     Ok(g) => g,
                     Err(TryLockError::WouldBlock) => {
-                        let _ = sender.send((Err(Error::Provider), None, Some(RuntimeError::Busy)));
+                        let _ = sender.send(Outcome::unavailable(
+                            RuntimeError::Busy,
+                            NativeTerminal::NotRun,
+                        ));
                         return;
                     }
                     Err(TryLockError::Poisoned(_)) => {
-                        let _ =
-                            sender.send((Err(Error::Provider), None, Some(RuntimeError::Cleanup)));
+                        let _ = sender.send(Outcome::unavailable(
+                            RuntimeError::Cleanup,
+                            NativeTerminal::NotRun,
+                        ));
                         return;
                     }
                 };
                 if local.is_cancelled() || external.is_cancelled() {
-                    let _ =
-                        sender.send((Err(Error::Cancelled), None, Some(RuntimeError::Cancelled)));
+                    let _ = sender.send(Outcome::unavailable(
+                        RuntimeError::Cancelled,
+                        NativeTerminal::NotRun,
+                    ));
                     return;
                 }
                 let previous = guard.deadline;
@@ -203,6 +351,12 @@ impl RuntimeProvider {
                 });
                 guard.deadline = previous;
                 let metrics = guard.last_metrics().cloned();
+                let native = match &result {
+                    Ok(_) => NativeTerminal::Completed,
+                    Err(RuntimeError::Cancelled) => NativeTerminal::Cancelled,
+                    Err(RuntimeError::Timeout) => NativeTerminal::Timeout,
+                    Err(_) => NativeTerminal::Failed,
+                };
                 let (result, failure) = match result {
                     Ok(r) if r.text.len() <= bytes => (Ok(r.text.into_bytes()), None),
                     Ok(_) => (Err(Error::TooLarge), None),
@@ -216,14 +370,40 @@ impl RuntimeProvider {
                         Some(e),
                     ),
                 };
-                let _ = sender.send((result, metrics, failure));
-            })
-            .map_err(|_| Error::Provider)?;
+                drop(guard);
+                let _ = sender.send(Outcome {
+                    result,
+                    metrics,
+                    failure,
+                    native,
+                });
+            });
+        let worker = match worker {
+            Ok(worker) => worker,
+            Err(_) => {
+                if let Some(observation) = &observation {
+                    observation.finish(
+                        &Outcome {
+                            result: Err(Error::Provider),
+                            metrics: None,
+                            failure: None,
+                            native: NativeTerminal::NotRun,
+                        },
+                        AdapterTerminal::Failed,
+                        Some(AdapterError::Provider),
+                        false,
+                    );
+                }
+                return Err(Error::Provider);
+            }
+        };
         self.active = Some(Job {
             identity,
             cancel,
             receiver,
             thread: Some(worker),
+            observation,
+            observed_error: None,
         });
         Ok(())
     }
@@ -243,25 +423,28 @@ impl InferenceProvider for RuntimeProvider {
             Err(error) => {
                 self.metrics = None;
                 self.failure = None;
-                if let Some(job) = &self.active {
+                if let Some(job) = &mut self.active {
                     job.cancel.cancel();
+                    job.observed_error = Some(metric_error(&error));
                     self.poisoned = true;
                 }
                 return Poll::Ready(Err(error));
             }
         };
-        if let Some(job) = &self.active {
+        if let Some(job) = &mut self.active {
             if job.identity != identity {
                 self.metrics = None;
                 job.cancel.cancel();
+                job.observed_error = Some(AdapterError::RetryMismatch);
                 self.poisoned = true;
                 return Poll::Ready(Err(Error::RetryMismatch));
             }
         }
         if cancel.is_cancelled() {
             self.metrics = None;
-            if let Some(job) = &self.active {
+            if let Some(job) = &mut self.active {
                 job.cancel.cancel();
+                job.observed_error = Some(AdapterError::Cancelled);
             } else {
                 return Poll::Ready(Err(Error::Cancelled));
             }
@@ -294,7 +477,7 @@ impl InferenceProvider for RuntimeProvider {
             Ok(result) => result,
             Err(mpsc::TryRecvError::Empty) => return Poll::Pending,
             Err(mpsc::TryRecvError::Disconnected) => {
-                (Err(Error::Provider), None, Some(RuntimeError::Cleanup))
+                Outcome::unavailable(RuntimeError::Cleanup, NativeTerminal::Unknown)
             }
         };
         let mut job = self.active.take().unwrap();
@@ -302,21 +485,35 @@ impl InferenceProvider for RuntimeProvider {
             if thread.join().is_err() {
                 self.failure = Some(RuntimeError::Cleanup);
                 self.poisoned = true;
-                let mut owner = self
-                    .runtime
-                    .lock()
-                    .unwrap_or_else(|poisoned| poisoned.into_inner());
-                let _ = owner.fail::<()>(RuntimeError::Cleanup);
+                {
+                    let mut owner = self
+                        .runtime
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    let _ = owner.fail::<()>(RuntimeError::Cleanup);
+                }
+                if let Some(observation) = &job.observation {
+                    observation.finish(
+                        &Outcome::unavailable(RuntimeError::Cleanup, NativeTerminal::Unknown),
+                        AdapterTerminal::Failed,
+                        Some(AdapterError::Cleanup),
+                        false,
+                    );
+                }
                 return Poll::Ready(Err(Error::Provider));
             }
         }
-        self.metrics = result.1;
-        self.failure = result.2;
+        self.metrics = result.metrics.clone();
+        self.failure = result.failure;
         if cancel.is_cancelled() {
-            result.0 = Err(Error::Cancelled);
+            result.result = Err(Error::Cancelled);
         }
-        self.completed = Some((job.identity, result.0.clone()));
-        Poll::Ready(result.0)
+        if let Some(observation) = &job.observation {
+            let error = result.result.as_ref().err().map(metric_error);
+            observation.finish(&result, terminal(error), error, false);
+        }
+        self.completed = Some((job.identity, result.result.clone()));
+        Poll::Ready(result.result)
     }
 }
 impl Drop for RuntimeProvider {
@@ -578,6 +775,372 @@ mod tests {
             provider.poll(&changed, &cancel),
             Poll::Ready(Err(Error::RetryMismatch))
         );
+        drop(provider);
+        drop(shared);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn role_metrics_order_repair_identity_and_cached_polls_are_bounded() {
+        let (shared, dir) = owner("valid");
+        let log = RoleMetricsLog::new();
+        let mut provider = RuntimeProvider::with_metrics(shared.clone(), log.clone());
+        let cancel = Cancellation::default();
+        let director = request("director");
+        let original_digest = digest(&compile(&director).unwrap().0.full);
+        let first = poll_to_ready(&mut provider, &director, &cancel).unwrap();
+        assert_eq!(provider.poll(&director, &cancel), Poll::Ready(Ok(first)));
+        let mut repair = director.clone();
+        if let Input::Structured { prompt, .. } = &mut repair.input {
+            *prompt = "one synthetic repair".into();
+        }
+        assert!(poll_to_ready(&mut provider, &repair, &cancel).is_ok());
+        let mut wrong = repair.clone();
+        wrong.scope.branch = "other".into();
+        assert_eq!(
+            provider.poll(&wrong, &cancel),
+            Poll::Ready(Err(Error::RetryMismatch))
+        );
+        assert!(poll_to_ready(&mut provider, &request("narrator"), &cancel).is_ok());
+        drop(provider);
+        let snapshot = log.snapshot();
+        assert!(snapshot.available && !snapshot.incomplete);
+        assert_eq!(snapshot.records.len(), 3);
+        assert_eq!(snapshot.records[0].request_sha256, original_digest);
+        for (index, record) in snapshot.records.iter().enumerate() {
+            assert_eq!(record.ordinal as usize, index);
+            assert_eq!(record.director_attempt, (index < 2).then_some(index as u8));
+            assert_eq!(
+                record.role,
+                if index < 2 {
+                    MetricRole::Director
+                } else {
+                    MetricRole::Narrator
+                }
+            );
+            assert_eq!(record.adapter_terminal, AdapterTerminal::Completed);
+            assert_eq!(record.native_terminal, NativeTerminal::Completed);
+            assert!(record.worker_metrics.is_some());
+            assert!(!record.drained_on_drop);
+        }
+        let encoded = serde_json::to_string(&snapshot).unwrap();
+        for private in [
+            "synthetic-story",
+            "synthetic-turn",
+            "original synthetic prompt",
+            "one synthetic repair",
+        ] {
+            assert!(!encoded.contains(private));
+        }
+        drop(shared);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn role_metrics_busy_and_unavailable_never_reuse_prior_metrics() {
+        let (shared, dir) = owner("valid");
+        let cancel = Cancellation::default();
+        let busy_log = RoleMetricsLog::new();
+        let held = shared.lock().unwrap();
+        let mut busy = RuntimeProvider::with_metrics(shared.clone(), busy_log.clone());
+        assert_eq!(
+            poll_to_ready(&mut busy, &request("director"), &cancel),
+            Err(Error::Provider)
+        );
+        drop(held);
+        drop(busy);
+        let record = busy_log.snapshot().records.remove(0);
+        assert_eq!(record.native_terminal, NativeTerminal::NotRun);
+        assert_eq!(record.native_error, Some(RuntimeError::Busy));
+        assert!(record.worker_metrics.is_none());
+        let log = RoleMetricsLog::new();
+        let mut provider = RuntimeProvider::with_metrics(shared.clone(), log.clone());
+        assert!(poll_to_ready(&mut provider, &request("director"), &cancel).is_ok());
+        let _ = shared.lock().unwrap().fail::<()>(RuntimeError::Runtime);
+        assert_eq!(
+            poll_to_ready(&mut provider, &request("narrator"), &cancel),
+            Err(Error::Provider)
+        );
+        let snapshot = log.snapshot();
+        assert!(snapshot.records[0].worker_metrics.is_some());
+        assert!(snapshot.records[1].worker_metrics.is_none());
+        assert_eq!(snapshot.records[1].native_terminal, NativeTerminal::Failed);
+        assert_eq!(
+            snapshot.records[1].native_error,
+            Some(RuntimeError::WorkerUnavailable)
+        );
+        drop(provider);
+        drop(shared);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    fn await_generation(dir: &std::path::Path) {
+        let marker = dir
+            .join("blocked-generation-observed")
+            .with_extension("generation-started");
+        let start = Instant::now();
+        while !marker.is_file() {
+            assert!(start.elapsed() < Duration::from_secs(5));
+            thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    #[test]
+    fn role_metrics_cancel_drop_and_active_identity_keep_original_attempt() {
+        for changed_identity in [false, true] {
+            let (shared, dir) = owner("blocked-generation-observed");
+            let log = RoleMetricsLog::new();
+            let mut provider = RuntimeProvider::with_metrics(shared.clone(), log.clone());
+            let cancel = Cancellation::default();
+            let original = request("director");
+            assert!(provider.poll(&original, &cancel).is_pending());
+            await_generation(&dir);
+            if changed_identity {
+                let mut changed = original.clone();
+                changed.scope.story = "foreign".into();
+                assert_eq!(
+                    provider.poll(&changed, &cancel),
+                    Poll::Ready(Err(Error::RetryMismatch))
+                );
+            } else {
+                cancel.cancel();
+                assert!(provider.poll(&original, &cancel).is_pending());
+            }
+            drop(provider);
+            let snapshot = log.snapshot();
+            assert_eq!(snapshot.records.len(), 1);
+            let record = &snapshot.records[0];
+            assert_eq!(
+                record.request_sha256,
+                digest(&compile(&original).unwrap().0.full)
+            );
+            assert_eq!(
+                record.adapter_terminal,
+                if changed_identity {
+                    AdapterTerminal::Failed
+                } else {
+                    AdapterTerminal::Cancelled
+                }
+            );
+            assert_eq!(
+                record.adapter_error,
+                Some(if changed_identity {
+                    AdapterError::RetryMismatch
+                } else {
+                    AdapterError::Cancelled
+                })
+            );
+            assert!(record.drained_on_drop);
+            assert!(record.worker_metrics.is_none());
+            assert!(shared.lock().unwrap().child.try_wait().unwrap().is_some());
+            drop(shared);
+            std::fs::remove_dir_all(dir).unwrap();
+        }
+    }
+
+    #[test]
+    fn role_metrics_distinguish_native_completion_from_late_cancel_and_drop() {
+        for late_cancel in [false, true] {
+            let (shared, dir) = owner("valid");
+            let log = RoleMetricsLog::new();
+            let mut provider = RuntimeProvider::with_metrics(shared.clone(), log.clone());
+            let cancel = Cancellation::default();
+            let req = request("director");
+            // Enter the production admission helper without receiving its terminal channel yet.
+            let (identity, generation) = compile(&req).unwrap();
+            provider.directors_started = 1;
+            provider
+                .start(identity, generation, &req, cancel.clone())
+                .unwrap();
+            let start = Instant::now();
+            while !provider
+                .active
+                .as_ref()
+                .unwrap()
+                .thread
+                .as_ref()
+                .unwrap()
+                .is_finished()
+            {
+                assert!(start.elapsed() < Duration::from_secs(5));
+                thread::sleep(Duration::from_millis(5));
+            }
+            if late_cancel {
+                cancel.cancel();
+                assert_eq!(
+                    provider.poll(&req, &cancel),
+                    Poll::Ready(Err(Error::Cancelled))
+                );
+            }
+            drop(provider);
+            let record = log.snapshot().records.remove(0);
+            assert_eq!(record.native_terminal, NativeTerminal::Completed);
+            assert!(record.worker_metrics.is_some());
+            assert_eq!(
+                record.adapter_terminal,
+                if late_cancel {
+                    AdapterTerminal::Cancelled
+                } else {
+                    AdapterTerminal::Dropped
+                }
+            );
+            assert_eq!(record.drained_on_drop, !late_cancel);
+            drop(shared);
+            std::fs::remove_dir_all(dir).unwrap();
+        }
+    }
+
+    #[test]
+    fn role_metrics_timeout_is_not_a_completed_zero_metric_sample() {
+        let (shared, dir) = owner("valid");
+        let log = RoleMetricsLog::new();
+        let mut provider = RuntimeProvider::with_metrics(shared.clone(), log.clone());
+        let mut req = request("director");
+        req.budget.deadline_ms = 20;
+        // Reuse the native client's existing test-only delayed-terminal hook on the role thread.
+        crate::AFTER_REPLY_DELAY.with(|delay| delay.set(Some(Duration::from_millis(40))));
+        assert_eq!(
+            poll_to_ready(&mut provider, &req, &Cancellation::default()),
+            Err(Error::Timeout)
+        );
+        let record = log.snapshot().records.remove(0);
+        assert_eq!(record.adapter_terminal, AdapterTerminal::Timeout);
+        assert_eq!(record.native_terminal, NativeTerminal::Timeout);
+        assert!(record.worker_metrics.is_none());
+        drop(provider);
+        drop(shared);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn role_metrics_unacknowledged_deadline_is_cleanup_failure_not_fake_timeout() {
+        let (shared, dir) = owner("blocked-generation");
+        let log = RoleMetricsLog::new();
+        let mut provider = RuntimeProvider::with_metrics(shared.clone(), log.clone());
+        let mut req = request("director");
+        req.budget.deadline_ms = 40;
+        assert_eq!(
+            poll_to_ready(&mut provider, &req, &Cancellation::default()),
+            Err(Error::Provider)
+        );
+        let record = log.snapshot().records.remove(0);
+        assert_eq!(record.adapter_terminal, AdapterTerminal::Failed);
+        assert_eq!(record.native_error, Some(RuntimeError::Cleanup));
+        assert!(record.worker_metrics.is_none());
+        assert!(shared.lock().unwrap().child.try_wait().unwrap().is_some());
+        drop(provider);
+        drop(shared);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn disabled_enabled_and_poisoned_recorders_preserve_actual_pipeline_failure_and_canon() {
+        use locallore::{
+            contracts::{Intent, PlayInputKind, Seed},
+            engine::Engine,
+            play::{self, PlayProfile},
+        };
+        let seed: Seed =
+            serde_json::from_str(include_str!("../../../fixtures/lantern_quay.json")).unwrap();
+        let profile = PlayProfile {
+            id: PROFILE.into(),
+            model_sha256: crate::MODEL_SHA256.into(),
+            runtime_revision: crate::RUNTIME_COMMIT.into(),
+            template_sha256: "57f1fd00f0013a2be96aa79b857391f27e23df5b5f847072b524c897e24d0361"
+                .into(),
+            worker_sha256: "0".repeat(64),
+            profile_manifest_sha256: "0".repeat(64),
+            context_tokens: 4096,
+            director_tokens: 350,
+            narrator_tokens: 350,
+            deadline_ms: 120_000,
+            repair_limit: 1,
+        };
+        let (shared, dir) = owner("valid");
+        let clean = RoleMetricsLog::new();
+        let poisoned = RoleMetricsLog::new();
+        poisoned.poison_for_test();
+        let mut expected = None;
+        for log in [None, Some(clean.clone()), Some(poisoned.clone())] {
+            let mut engine = Engine::new(seed.clone()).unwrap();
+            let before = engine.canonical_bytes();
+            let req = engine.request(
+                "synthetic-metrics-golden",
+                Intent::FreeText {
+                    kind: PlayInputKind::Action,
+                    text: "I give my last potion to Mira.".into(),
+                },
+            );
+            let mut provider = match log {
+                None => RuntimeProvider::new(shared.clone()),
+                Some(log) => RuntimeProvider::with_metrics(shared.clone(), log),
+            };
+            // Actual synthetic process returns empty text; the production parser/one repair rejects it.
+            let result = play::execute(
+                &mut engine,
+                &req,
+                &mut provider,
+                &Cancellation::default(),
+                &profile,
+            )
+            .err();
+            assert!(result.is_some());
+            assert_eq!(provider.directors_started, 2);
+            if let Some(expected) = &expected {
+                assert_eq!(&result, expected);
+            } else {
+                expected = Some(result);
+            }
+            drop(provider);
+            assert_eq!(before, engine.canonical_bytes());
+        }
+        assert_eq!(clean.snapshot().records.len(), 2);
+        assert!(!poisoned.snapshot().available);
+        drop(shared);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn recorder_disabled_full_poison_and_foreign_turn_do_not_change_results() {
+        let (shared, dir) = owner("valid");
+        let cancel = Cancellation::default();
+        let mut disabled = RuntimeProvider::new(shared.clone());
+        assert!(disabled.log.is_none());
+        let expected = poll_to_ready(&mut disabled, &request("director"), &cancel);
+        drop(disabled);
+        let full = RoleMetricsLog::new();
+        let mut filled = RuntimeProvider::with_metrics(shared.clone(), full.clone());
+        let director = request("director");
+        assert_eq!(poll_to_ready(&mut filled, &director, &cancel), expected);
+        let mut repair = director.clone();
+        if let Input::Structured { prompt, .. } = &mut repair.input {
+            *prompt = "repair".into();
+        }
+        assert_eq!(poll_to_ready(&mut filled, &repair, &cancel), expected);
+        assert_eq!(
+            poll_to_ready(&mut filled, &request("narrator"), &cancel),
+            expected
+        );
+        drop(filled);
+        let poisoned = RoleMetricsLog::new();
+        poisoned.poison_for_test();
+        for log in [full.clone(), poisoned.clone()] {
+            let mut provider = RuntimeProvider::with_metrics(shared.clone(), log);
+            assert_eq!(poll_to_ready(&mut provider, &director, &cancel), expected);
+        }
+        assert_eq!(full.snapshot().records.len(), 3);
+        assert!(full.snapshot().incomplete);
+        assert!(!poisoned.snapshot().available);
+        let scoped = RoleMetricsLog::new();
+        let mut provider = RuntimeProvider::with_metrics(shared.clone(), scoped.clone());
+        assert_eq!(poll_to_ready(&mut provider, &director, &cancel), expected);
+        drop(provider);
+        let mut foreign = director;
+        foreign.turn = "other-turn".into();
+        let mut provider = RuntimeProvider::with_metrics(shared.clone(), scoped.clone());
+        assert_eq!(poll_to_ready(&mut provider, &foreign, &cancel), expected);
+        assert_eq!(scoped.snapshot().records.len(), 1);
+        assert!(scoped.snapshot().incomplete);
         drop(provider);
         drop(shared);
         std::fs::remove_dir_all(dir).unwrap();

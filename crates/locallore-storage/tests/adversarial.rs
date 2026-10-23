@@ -117,7 +117,7 @@ fn new_reopened_and_second_owner_connections_preserve_two_independent_stories() 
         let concurrent = Store::open(&database, None).unwrap();
         for store in [&owner, &concurrent] {
             let info = store.info().unwrap();
-            assert_eq!(info.schema_version, 1);
+            assert_eq!(info.schema_version, locallore_storage::SCHEMA_VERSION);
             assert!(info.foreign_keys);
             assert!(!info.sqlite_version.is_empty());
             assert_seed(store.load_seed(&first.scope).unwrap(), &first);
@@ -147,7 +147,10 @@ fn existing_empty_migration_requires_backup_and_keeps_a_readable_original_versio
     );
     assert_eq!(fs::read(&database).unwrap(), before);
     let store = Store::open(&database, Some(&backup)).unwrap();
-    assert_eq!(store.info().unwrap().schema_version, 1);
+    assert_eq!(
+        store.info().unwrap().schema_version,
+        locallore_storage::SCHEMA_VERSION
+    );
     let original = Connection::open(&backup).unwrap();
     assert_eq!(
         original
@@ -225,7 +228,7 @@ fn foreign_future_and_negative_versions_refuse_without_mutation_or_backup() {
         (
             "future",
             APPLICATION_ID,
-            2,
+            i64::from(locallore_storage::SCHEMA_VERSION + 1),
             Some(StorageError::FutureVersion),
         ),
         ("negative", APPLICATION_ID, -1, None),
@@ -315,7 +318,10 @@ fn migration_rechecks_version_after_waiting_for_an_existing_writer() {
     empty_database(&database, APPLICATION_ID, 0);
     let writer = Connection::open(&database).unwrap();
     writer
-        .execute_batch("BEGIN IMMEDIATE; PRAGMA user_version=2;")
+        .execute_batch(&format!(
+            "BEGIN IMMEDIATE; PRAGMA user_version={};",
+            locallore_storage::SCHEMA_VERSION + 1
+        ))
         .unwrap();
     let path = database.clone();
     let destination = backup.clone();
@@ -343,7 +349,7 @@ fn migration_rechecks_version_after_waiting_for_an_existing_writer() {
         writer
             .pragma_query_value::<i64, _>(None, "user_version", |r| r.get(0))
             .unwrap(),
-        2
+        i64::from(locallore_storage::SCHEMA_VERSION + 1)
     );
 }
 

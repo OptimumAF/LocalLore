@@ -1,5 +1,5 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
-//! Prototype derived cache helpers for the sole Store owner. Not yet wired to production.
+//! Derived cache helpers for the sole Store owner.
 //! Never open a connection, migrate a database, accept wire history, or establish canon here.
 use locallore::{contracts::*, engine::Engine};
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
@@ -14,26 +14,7 @@ pub const MAX_QUERY_BYTES: usize = 256;
 pub const MAX_SEARCH_TERMS: usize = 16;
 pub const MAX_HITS: usize = 16;
 
-/// Proposed schema-2 addition, executed ONLY on test-owned fixtures until Store migration review.
-/// The owner must integrate this into its exact schema verification and backed-up v1 migration.
-pub(crate) const DERIVED_SCHEMA_SQL: &str = r#"
-CREATE TABLE derived_memory (
-    story_id TEXT NOT NULL,
-    branch_id TEXT NOT NULL,
-    observer_kind TEXT NOT NULL DEFAULT 'actor' CHECK(observer_kind='actor'),
-    observer_id TEXT NOT NULL,
-    cache_key TEXT NOT NULL CHECK(length(CAST(cache_key AS BLOB)) BETWEEN 1 AND 512),
-    source_revision INTEGER NOT NULL CHECK(source_revision>=0),
-    summary_version INTEGER NOT NULL CHECK(summary_version=1),
-    method TEXT NOT NULL CHECK(method='deterministic-event-extractive-v1'),
-    visibility TEXT NOT NULL CHECK(visibility='actor_observations'),
-    packet_json TEXT NOT NULL CHECK(json_valid(packet_json) AND length(CAST(packet_json AS BLOB))<=65536),
-    PRIMARY KEY(story_id,branch_id,observer_id,cache_key),
-    FOREIGN KEY(story_id,branch_id) REFERENCES branches(story_id,branch_id),
-    FOREIGN KEY(story_id,branch_id,observer_kind,observer_id)
-        REFERENCES branch_entities(story_id,branch_id,kind,entity_id)
-) STRICT, WITHOUT ROWID;
-"#;
+pub(crate) const DERIVED_SCHEMA_SQL: &str = include_str!("../migrations/002_derived_memory.sql");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemoryError {
@@ -47,6 +28,7 @@ pub enum MemoryError {
     Integrity,
     Database,
     Busy,
+    Full,
 }
 impl From<rusqlite::Error> for MemoryError {
     fn from(error: rusqlite::Error) -> Self {
@@ -54,6 +36,7 @@ impl From<rusqlite::Error> for MemoryError {
             Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked) => {
                 Self::Busy
             }
+            Some(rusqlite::ErrorCode::DiskFull) => Self::Full,
             _ => Self::Database,
         }
     }
@@ -224,7 +207,7 @@ fn valid_id(value: &str) -> bool {
 fn cancelled(cancel: &dyn Fn() -> bool) -> bool {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(cancel)).unwrap_or(true)
 }
-fn check(cancel: &dyn Fn() -> bool) -> Result<()> {
+pub(crate) fn check(cancel: &dyn Fn() -> bool) -> Result<()> {
     if cancelled(cancel) {
         Err(MemoryError::Cancelled)
     } else {

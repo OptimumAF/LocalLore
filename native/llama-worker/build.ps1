@@ -2,7 +2,8 @@ param(
     [Parameter(Mandatory = $true)][string]$SourceDir,
     [Parameter(Mandatory = $true)][string]$BuildDir,
     [Parameter(Mandatory = $true)][string]$CmakePath,
-    [string]$VisualStudioPath = 'C:/Program Files/Microsoft Visual Studio/2022/Community'
+    [string]$VisualStudioPath = 'C:/Program Files/Microsoft Visual Studio/2022/Community',
+    [switch]$SchemaTest
 )
 $ErrorActionPreference = 'Stop'
 $taskSource = (Resolve-Path -LiteralPath $SourceDir).Path
@@ -15,3 +16,9 @@ Enter-VsDevShell -VsInstallPath $VisualStudioPath -SkipAutomaticLocation -Arch a
 if ($LASTEXITCODE -ne 0) { throw 'llama worker configuration failed' }
 & $taskCmake --build $BuildDir --target locallore-llama-worker --parallel 4
 if ($LASTEXITCODE -ne 0) { throw 'llama worker build failed' }
+if ($SchemaTest) {
+    & $taskCmake --build $BuildDir --target locallore-schema-order-test --parallel 2
+    if ($LASTEXITCODE -ne 0) { throw 'schema ordering test build failed' }
+    & (Join-Path $BuildDir 'locallore-schema-order-test.exe')
+    if ($LASTEXITCODE -ne 0) { throw 'schema ordering test failed' }
+}

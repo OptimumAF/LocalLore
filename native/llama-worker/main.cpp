@@ -6,6 +6,7 @@
 #include "sampling.h"
 #include "llama.h"
 #include "nlohmann/json.hpp"
+#include "schema_order.h"
 #include <atomic>
 #include <chrono>
 #include <iostream>

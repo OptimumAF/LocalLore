@@ -18,7 +18,10 @@ static json generate(llama_model * model, const json & req) {
     inputs.tool_choice = COMMON_CHAT_TOOL_CHOICE_NONE;
     inputs.parallel_tool_calls = false;
     inputs.force_pure_content = true;
-    if (!req["schema"].is_null()) inputs.json_schema = req["schema"].dump();
+    // Both template schema formatting and grammar compilation consume the same
+    // insertion-ordered schema; never reserialize it through the sorted transport map.
+    const auto ordered_schema=locallore_ordered_schema(req["schema"]);
+    if (!req["schema"].is_null()) inputs.json_schema = ordered_schema.dump();
     common_chat_session chat(templates.get(), vocab, inputs);
     // The official template tracks input parts; user text cannot create role tokens.
     std::vector<llama_token> tokens;
@@ -56,7 +59,7 @@ static json generate(llama_model * model, const json & req) {
         // Pure-content chat formatting does not necessarily install its schema.
         // Apply the official converter explicitly; generated JSON starts at root.
         sp.grammar = {COMMON_GRAMMAR_TYPE_USER,
-            json_schema_to_grammar(common_json::parse(req["schema"].dump()))};
+            json_schema_to_grammar(ordered_schema)};
         sp.grammar_lazy = false;
         sp.generation_prompt.clear();
     }

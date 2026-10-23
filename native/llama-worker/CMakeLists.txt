@@ -31,3 +31,9 @@ add_subdirectory("${LLAMA_SOURCE_DIR}" llama)
 add_executable(locallore-llama-worker main.cpp)
 target_compile_features(locallore-llama-worker PRIVATE cxx_std_17)
 target_link_libraries(locallore-llama-worker PRIVATE llama-common llama vendor::nlohmann)
+
+# Explicit development target only; never linked into or packaged with the application worker.
+add_executable(locallore-schema-order-test EXCLUDE_FROM_ALL schema_order_test.cpp)
+target_compile_features(locallore-schema-order-test PRIVATE cxx_std_17)
+target_include_directories(locallore-schema-order-test PRIVATE "${LLAMA_SOURCE_DIR}/src")
+target_link_libraries(locallore-schema-order-test PRIVATE llama-common llama vendor::nlohmann)

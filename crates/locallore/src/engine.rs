@@ -506,7 +506,7 @@ impl Engine {
         Ok(result)
     }
 
-    /// Forks only at completed turn boundaries. Rebuild from seed, never clone a stale projection.
+    /// Fork only at completed turn boundaries using this already validated snapshot.
     pub fn fork(&self, child: &str, at: u64) -> Result<Self, Error> {
         if !valid_id(child) {
             return Err(Error::Rule);

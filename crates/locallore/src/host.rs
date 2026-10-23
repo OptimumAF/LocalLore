@@ -76,6 +76,9 @@ pub struct Envelope {
 pub enum HostCommand {
     Capabilities {},
     Workspace {},
+    Branches {
+        story: String,
+    },
     Resume {
         scope: Scope,
     },
@@ -243,6 +246,22 @@ pub struct WorkspaceSummary {
     pub revision: u64,
     pub drafts: usize,
 }
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+pub struct WorkspaceBranch {
+    pub scope: Scope,
+    pub parent_branch: Option<String>,
+    pub fork_revision: Option<u64>,
+    pub revision: u64,
+    pub drafts: usize,
+}
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+pub struct WorkspaceBranchCatalog {
+    pub version: u16,
+    pub story_id: String,
+    pub title: String,
+    pub root_branch: String,
+    pub branches: Vec<WorkspaceBranch>,
+}
 pub struct SavedTurn {
     pub request: Request,
     pub phase: String,
@@ -255,6 +274,9 @@ pub trait Persistence: Send {
     }
     fn location(&self) -> &str;
     fn list(&mut self) -> Result<Vec<WorkspaceSummary>, String>;
+    fn branches(&mut self, _story: &str) -> Result<WorkspaceBranchCatalog, String> {
+        Err("Unsupported".into())
+    }
     fn create(&mut self) -> Result<Engine, String>;
     fn resume(&mut self, scope: &Scope) -> Result<Engine, String>;
     fn begin(&mut self, request: &Request) -> Result<SavedTurn, String>;
@@ -721,6 +743,7 @@ impl Host {
                 ok(json!({"persistent":false,"location":null,"schema_version":null,"stories":[]}))
             }
             HostCommand::Resume { .. } => reject("Unsupported"),
+            HostCommand::Branches { .. } => reject("Unsupported"),
             HostCommand::Capabilities {} => {
                 ok(json!({"domain_version":VERSION,"seed":"lantern-quay-v1",
                 "typed_actions":true,"free_text":state.local_play.is_some(),"persistence":false,"snapshot_export":false,
@@ -1044,6 +1067,19 @@ impl Host {
                     Ok(ok(
                         json!({"persistent":true,"location":port.location(),"schema_version":1,"database_schema_version":port.database_schema_version(),"stories":stories}),
                     ))
+                }
+                HostCommand::Branches { story } => {
+                    let catalog = state
+                        .persistence
+                        .as_mut()
+                        .unwrap()
+                        .branches(story)
+                        .map_err(reject)?;
+                    let reply = ok(json!(catalog));
+                    if serde_json::to_vec(&reply).map_or(true, |bytes| bytes.len() > 64 * 1024) {
+                        return Err(reject("TooLarge"));
+                    }
+                    Ok(reply)
                 }
                 HostCommand::Create { seed } => {
                     if seed != "lantern-quay-v1" {

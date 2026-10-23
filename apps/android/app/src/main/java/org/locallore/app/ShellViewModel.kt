@@ -39,10 +39,11 @@ class ShellViewModel internal constructor(
         val before = mutable.value
         if (disposed || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired || !before.persistent) return
         val selected = before.selectedStory ?: return
+        val root = before.stories.firstOrNull { it.story == selected.story } ?: return
         diagnosticController.dismiss()
         recordController.dismiss()
         mutable.value = before.copy(deletionActive = true)
-        controller.open(selected)
+        controller.open(root)
     }
     private fun deletionClosed(deleted: StoryDeleted?) {
         if (disposed) return
@@ -119,6 +120,7 @@ class ShellViewModel internal constructor(
         uncommittedDrafts = saved.uncommittedDrafts,
         rulesProfile = saved.rulesProfile,
         databaseSchemaVersion = saved.databaseSchemaVersion,
+        timelines = saved.timelines,
         textProvider = saved.textProvider,
         recoveryRequired = false, notice = notice,
     )
@@ -150,6 +152,18 @@ class ShellViewModel internal constructor(
     }
     fun resume(story: SavedStory) {
         if (!disposed && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && gateway.durable) savedOperation("Saved story resumed.") { gateway.resumeSaved(story) }
+    }
+    fun resumeTimeline(timeline: SavedTimeline) {
+        val before = mutable.value
+        if (disposed || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired ||
+            !before.persistent || !gateway.durable || before.selectedStory?.story != timeline.story ||
+            before.timelines.none { it === timeline }) return
+        val root = before.stories.firstOrNull { it.story == timeline.story } ?: return
+        diagnosticController.dismiss()
+        recordController.dismiss()
+        savedOperation("Saved timeline resumed.") {
+            gateway.resumeSaved(SavedStory(timeline.story, timeline.branch, root.title, timeline.revision))
+        }
     }
 
     fun openDiagnostics() { if (!disposed && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive) { recordController.dismiss(); diagnosticController.open() } }

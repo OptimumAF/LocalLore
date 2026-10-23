@@ -98,6 +98,11 @@ The [shared check runner/CI instructions](docs/ci/CHECKS.md) document offline
 mode, prerequisites and separate authorized emulator commands. Build/static
 checks do not establish hosted execution or device qualification.
 
+**Timelines** selects existing validated branches, including their inherited
+accepted transcript and independent progress. Gameplay and lineage checks remain
+in Rust. See the [catalog contract](docs/native/TIMELINE_CATALOG_CONTRACT.md).
+Creating or deleting an individual timeline is not exposed by this selector.
+
 **Local diagnostics** previews a bounded memory-only log of timing/error enums;
 explicit export writes exactly the reviewed JSON through the system picker.
 Exports are plaintext and their selected provider may sync them. See

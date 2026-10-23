@@ -120,7 +120,11 @@ internal class DurableGateway(
         for (i in 0 until receipts.length()) {
             val receipt = receipts.getJSONObject(i)
             val request = receipt.getJSONObject("request")
-            check(sameScope(request.getJSONObject("scope"), checkNotNull(scope)))
+            // Inherited accepted receipts keep their original ancestor scope. Rust's
+            // player snapshot owns lineage/fork filtering; never rewrite those requests.
+            val originalScope = request.getJSONObject("scope")
+            check(originalScope.getString("story") == checkNotNull(scope).getString("story"))
+            check(timelineId.matches(originalScope.getString("branch")))
             val intent = request.getJSONObject("intent")
             val playerText = when (intent.getString("kind")) {
                 "actions" -> intent.getJSONArray("value").toString()
@@ -139,13 +143,18 @@ internal class DurableGateway(
             val row = rows.getJSONObject(it); val s = row.getJSONObject("scope")
             SavedStory(s.getString("story"), s.getString("branch"), row.getString("title"), row.getLong("revision"))
         } }
-        val current = checkNotNull(stories.find { it.story == scope!!.getString("story") && it.branch == scope!!.getString("branch") })
+        val selectedScope = checkNotNull(scope)
+        val root = checkNotNull(stories.singleOrNull { it.story == selectedScope.getString("story") })
+        val timelines = decodeTimelines(call(command("branches").put("story", root.story)), root)
+        val current = checkNotNull(timelines.singleOrNull { it.branch == selectedScope.getString("branch") })
+        // A concurrent owner can advance between calls. Fail closed and recover a new
+        // coherent snapshot rather than attaching a different head's catalog metadata.
+        if (current.revision != revision) throw WorkspaceFailure("Stale")
         textProvider = readTextProvider()
         return SavedSnapshot(revision, if (view.getJSONObject("inventory").has("potion")) "You" else "Not in your inventory",
-            messages.takeLast(40), workspace.getString("location"), 1, stories, current,
-            workspace.getJSONArray("stories").let { rows -> (0 until rows.length()).map { rows.getJSONObject(it) }
-                .first { sameScope(it.getJSONObject("scope"), checkNotNull(scope)) }.optInt("drafts", 0) },
-            view.getString("rules"), textProvider, databaseSchemaVersion = databaseSchema)
+            messages.takeLast(40), workspace.getString("location"), 1, stories,
+            SavedStory(current.story, current.branch, root.title, current.revision), current.uncommittedDrafts,
+            view.getString("rules"), textProvider, databaseSchemaVersion = databaseSchema, timelines = timelines)
     }
     private suspend fun readTextProvider(): TextProvider {
         val capabilities = call(command("capabilities"))
@@ -320,6 +329,61 @@ internal class DurableGateway(
     }
 }
 internal class WorkspaceFailure(val category: String) : Exception("Workspace operation failed")
+private val timelineId = Regex("[A-Za-z0-9_-]{1,64}")
+
+/** Metadata validation only. Replay, history eligibility and gameplay remain Rust-owned. */
+private fun decodeTimelines(data: JSONObject, root: SavedStory): List<SavedTimeline> = try {
+    check(data.toString().toByteArray(Charsets.UTF_8).size <= 60 * 1024)
+    fun fields(value: JSONObject, expected: Set<String>) {
+        check(value.keys().asSequence().toSet() == expected)
+    }
+    fun text(value: JSONObject, key: String): String = value.get(key) as? String ?: error("Wire")
+    fun count(value: JSONObject, key: String): Long {
+        val raw = value.get(key)
+        check(raw is Int || raw is Long)
+        return (raw as Number).toLong().also { check(it >= 0) }
+    }
+    fields(data, setOf("version", "story_id", "title", "root_branch", "branches"))
+    check(count(data, "version") == 1L && text(data, "story_id") == root.story)
+    check(text(data, "title") == root.title && text(data, "root_branch") == root.branch)
+    check(timelineId.matches(root.story) && timelineId.matches(root.branch))
+    val rows = data.get("branches") as? JSONArray ?: error("Wire")
+    check(rows.length() in 1..256)
+    val timelines = (0 until rows.length()).map { index ->
+        val row = rows.get(index) as? JSONObject ?: error("Wire")
+        fields(row, setOf("scope", "parent_branch", "fork_revision", "revision", "drafts"))
+        val itemScope = row.get("scope") as? JSONObject ?: error("Wire")
+        fields(itemScope, setOf("story", "branch"))
+        val story = text(itemScope, "story")
+        val branch = text(itemScope, "branch")
+        check(story == root.story && timelineId.matches(branch))
+        val parent = if (row.isNull("parent_branch")) null else text(row, "parent_branch")
+        check(parent == null || timelineId.matches(parent))
+        val fork = if (row.isNull("fork_revision")) null else count(row, "fork_revision")
+        val head = count(row, "revision")
+        val drafts = count(row, "drafts")
+        check(drafts <= 4096 && (parent == null) == (fork == null))
+        check((branch == root.branch) == (parent == null) && (fork == null || fork <= head))
+        SavedTimeline(story, branch, parent, fork, head, drafts.toInt())
+    }
+    check(timelines.zipWithNext().all { (left, right) -> left.branch < right.branch })
+    val byBranch = timelines.associateBy { it.branch }
+    check(byBranch[root.branch]?.revision == root.revision)
+    for (timeline in timelines) {
+        var cursor = timeline
+        val seen = mutableSetOf<String>()
+        while (true) {
+            check(seen.add(cursor.branch) && seen.size <= 32)
+            val parent = cursor.parentBranch ?: break
+            val ancestor = byBranch[parent] ?: error("Wire")
+            check(checkNotNull(cursor.forkRevision) <= ancestor.revision)
+            cursor = ancestor
+        }
+    }
+    java.util.Collections.unmodifiableList(timelines)
+} catch (_: Exception) {
+    throw WorkspaceFailure("Malformed")
+}
 private fun sameScope(left: JSONObject, right: JSONObject) =
     left.getString("story") == right.getString("story") && left.getString("branch") == right.getString("branch")
 private fun sameJson(left: Any?, right: Any?): Boolean = when {

@@ -3,7 +3,9 @@
 use locallore::{
     contracts::*,
     engine::Engine,
-    host::{Host, Persistence, SavedTurn, WorkspaceSummary},
+    host::{
+        Host, Persistence, SavedTurn, WorkspaceBranch, WorkspaceBranchCatalog, WorkspaceSummary,
+    },
 };
 use locallore_storage::{StorageError, Store, TurnError, TurnPhase, TurnRecord};
 use std::path::Path;
@@ -102,6 +104,26 @@ impl Persistence for Repository {
                 drafts: s.drafts,
             })
             .collect())
+    }
+    fn branches(&mut self, story: &str) -> Result<WorkspaceBranchCatalog, String> {
+        let catalog = self.store.branch_catalog(story, &|| false).map_err(turn)?;
+        Ok(WorkspaceBranchCatalog {
+            version: catalog.version,
+            story_id: catalog.story_id,
+            title: catalog.title,
+            root_branch: catalog.root_branch,
+            branches: catalog
+                .branches
+                .into_iter()
+                .map(|branch| WorkspaceBranch {
+                    scope: branch.scope,
+                    parent_branch: branch.parent_branch,
+                    fork_revision: branch.fork_revision,
+                    revision: branch.revision,
+                    drafts: branch.drafts,
+                })
+                .collect(),
+        })
     }
     fn create(&mut self) -> Result<Engine, String> {
         let seed: Seed = serde_seed();

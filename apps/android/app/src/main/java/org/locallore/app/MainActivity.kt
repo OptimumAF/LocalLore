@@ -71,7 +71,8 @@ class MainActivity : ComponentActivity() {
                 onStoryRecord = if (model.hasStoryRecords) model::openStoryRecord else null,
                 onText = model::submitText,
                 archiveAvailable = model.archiveController != null, onArchive = model::openArchive,
-                deletionAvailable = model.deletionController != null, onDelete = model::openDeletion) {
+                deletionAvailable = model.deletionController != null, onDelete = model::openDeletion,
+                onTimeline = model::resumeTimeline) {
                 model.deletionController?.let { controller ->
                     StoryDeletionDialog(deletion, controller::dismiss, controller::cancel, controller::confirm)
                 }

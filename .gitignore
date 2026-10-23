@@ -19,6 +19,8 @@ apps/android/app/build-archive-capacity/
 apps/android/.gradle-archive-capacity/
 apps/android/.gradle-story-deletion/
 apps/android/app/build-story-deletion/
+apps/android/.gradle-timeline/
+apps/android/app/build-timeline/
 apps/android/app/build-capacity/
 apps/android/.gradle-capacity/
 apps/android/app/build-capacity-relief/

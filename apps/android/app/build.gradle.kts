@@ -13,7 +13,9 @@ val archiveCapacity = providers.gradleProperty("localLoreArchiveCapacityVerifica
 require(archiveCapacity == null || archiveCapacity == "true")
 val storyDeletion = providers.gradleProperty("localLoreStoryDeletionVerification").orNull
 require(storyDeletion == null || storyDeletion == "true")
-require(listOf(archiveVerification, archiveCapacity, storyDeletion).count { it == "true" } <= 1) {
+val timelineVerification = providers.gradleProperty("localLoreTimelineVerification").orNull
+require(timelineVerification == null || timelineVerification == "true")
+require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification).count { it == "true" } <= 1) {
     "Verification installations must be selected individually."
 }
 require(archiveVerification != "true" || archiveCapacity != "true") {
@@ -21,6 +23,12 @@ require(archiveVerification != "true" || archiveCapacity != "true") {
 }
 val capacityProjectCache = rootProject.file(".gradle-archive-capacity").canonicalFile
 val selectedProjectCache = (gradle.startParameter.projectCacheDir ?: rootProject.file(".gradle")).canonicalFile
+require((timelineVerification == "true") == (selectedProjectCache == rootProject.file(".gradle-timeline").canonicalFile)) {
+    "Timeline verification requires its exclusive .gradle-timeline project cache."
+}
+require(timelineVerification != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
+    "Timeline verification is for local debug verification only."
+}
 require((storyDeletion == "true") == (selectedProjectCache == rootProject.file(".gradle-story-deletion").canonicalFile)) {
     "Story deletion verification requires its exclusive .gradle-story-deletion project cache."
 }
@@ -39,8 +47,11 @@ if (archiveVerification == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-archive-capacity"))
 } else if (storyDeletion == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-story-deletion"))
+} else if (timelineVerification == "true") {
+    layout.buildDirectory.set(layout.projectDirectory.dir("build-timeline"))
 }
 val verificationSuffix = when {
+    timelineVerification == "true" -> ".timelineverify"
     storyDeletion == "true" -> ".storydelete"
     archiveCapacity == "true" -> ".archivecapacity"
     archiveVerification == "true" -> ".archiveverify"
@@ -61,7 +72,7 @@ require(reliefOption == null || reliefOption == "false" || reliefOption == "true
 }
 val reliefTest = reliefOption == "true"
 require(!(capacityTest && reliefTest)) { "Capacity and capacity-relief modes are mutually exclusive" }
-require(listOf(archiveVerification, archiveCapacity, storyDeletion).none { it == "true" } || !(capacityTest || reliefTest)) {
+require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification).none { it == "true" } || !(capacityTest || reliefTest)) {
     "Archive verification and capacity modes are mutually exclusive"
 }
 val capacityCache = rootProject.file(".gradle-capacity").canonicalFile
@@ -116,7 +127,7 @@ android {
         manifestPlaceholders["chooserTestAuthority"] = "org.locallore.app$verificationSuffix.test.chooser"
         if (verificationSuffix.isNotEmpty()) {
             applicationIdSuffix = verificationSuffix
-            versionNameSuffix = when { storyDeletion == "true" -> "-story-deletion"; archiveCapacity == "true" -> "-archive-capacity"; else -> "-archive-verification" }
+            versionNameSuffix = when { timelineVerification == "true" -> "-timeline-verification"; storyDeletion == "true" -> "-story-deletion"; archiveCapacity == "true" -> "-archive-capacity"; else -> "-archive-verification" }
         }
         ndk { abiFilters += listOf("x86_64", "arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -147,7 +158,7 @@ androidComponents {
 
 androidComponents {
     beforeVariants(selector().withBuildType("release")) {
-        if (archiveCapacity == "true" || storyDeletion == "true") it.enable = false
+        if (archiveCapacity == "true" || storyDeletion == "true" || timelineVerification == "true") it.enable = false
     }
 }
 

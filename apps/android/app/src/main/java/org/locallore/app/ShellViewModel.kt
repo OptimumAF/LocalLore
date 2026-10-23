@@ -39,6 +39,7 @@ class ShellViewModel(
         schemaVersion = saved.schemaVersion, stories = saved.stories, selectedStory = saved.selected,
         uncommittedDrafts = saved.uncommittedDrafts,
         rulesProfile = saved.rulesProfile,
+        textProvider = saved.textProvider,
         recoveryRequired = false, notice = notice,
     )
 
@@ -102,7 +103,20 @@ class ShellViewModel(
         if (!mutable.value.busy && !mutable.value.recoveryRequired) mutable.value = mutable.value.copy(mode = mode, notice = null)
     }
 
-    fun submit(action: DemoAction) {
+    fun submit(action: DemoAction) = submitResponse(action.description()) { before ->
+        gateway.respond(action, before.revision, before.mode)
+    }
+
+    fun submitText(input: PlayInput) {
+        if (disposed || mutable.value.busy || mutable.value.recoveryRequired) return
+        if (mutable.value.textProvider == TextProvider.UNAVAILABLE || !validPlayInput(input)) {
+            mutable.value = mutable.value.copy(notice = "Text input is unavailable or invalid. Nothing changed.")
+            return
+        }
+        submitResponse(input.text) { before -> gateway.respondText(input, before.revision) }
+    }
+
+    private fun submitResponse(playerText: String, prepare: suspend (ShellState) -> DemoResult) {
         if (disposed || mutable.value.busy || mutable.value.recoveryRequired) return
         recordController.dismiss()
         val before = mutable.value
@@ -112,7 +126,7 @@ class ShellViewModel(
             var committing = false
             var start = System.nanoTime()
             try {
-                val prepared = gateway.respond(action, before.revision, before.mode)
+                val prepared = prepare(before)
                 // A cancelled/reset/obsolete session never attaches a late completion.
                 if (ticket != generation || mutable.value.revision != before.revision) {
                     if (!disposed) diagnosticLog.record(DiagnosticPhase.PREPARE, DiagnosticOutcome.STALE, elapsedMillis(start))
@@ -132,7 +146,7 @@ class ShellViewModel(
                         revision = result.revision,
                         potionOwner = result.potionOwner,
                         messages = (before.messages + listOf(
-                            SceneMessage(++messageId, action.description(), true),
+                            SceneMessage(++messageId, playerText, true),
                             SceneMessage(++messageId, result.narration, false),
                         )).takeLast(40),
                         notice = "Outcome accepted by the local engine.",

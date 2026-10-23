@@ -12,5 +12,17 @@ enum class TextProvider(val label: String) {
 }
 internal const val MAX_PLAY_INPUT_BYTES = 2048
 internal fun validPlayInput(input: PlayInput) = input.text.isNotBlank() &&
+    validUnicode(input.text) &&
     input.text.toByteArray(Charsets.UTF_8).size <= MAX_PLAY_INPUT_BYTES &&
     input.text.none { it.isISOControl() && it != '\n' && it != '\t' }
+
+private fun validUnicode(text: String): Boolean {
+    var i = 0
+    while (i < text.length) {
+        val c = text[i++]
+        if (c.isHighSurrogate()) {
+            if (i == text.length || !text[i++].isLowSurrogate()) return false
+        } else if (c.isLowSurrogate()) return false
+    }
+    return true
+}

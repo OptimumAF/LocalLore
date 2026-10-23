@@ -15,7 +15,11 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.runner.lifecycle.ActivityLifecycleCallback
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import java.io.ByteArrayOutputStream
+import java.util.concurrent.atomic.AtomicReference
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -83,6 +87,7 @@ class ArchiveActivityTest {
 
     @Test fun realOpenDocumentCancellationDrainsRetainedTicketAfterActivityRecreation(): Unit {
         val before = retained.state.value
+        val originalActivity = compose.activity
         archiveButton().performClick()
         pickerRequested = true
         compose.onNodeWithTag("archive-import-pick").performScrollTo().performClick()
@@ -91,10 +96,26 @@ class ArchiveActivityTest {
         assertTrue(retained.archive.value.awaitingPicker)
         assertTrue("No document has been selected or validated", retained.archive.value.prepared == null)
 
-        compose.activityRule.scenario.recreate()
-        compose.activityRule.scenario.onActivity {
-            assertSame("The pending picker belongs to the retained ViewModel", retained,
-                ViewModelProvider(it)[ShellViewModel::class.java])
+        // ActivityScenario.recreate first waits for RESUMED, which an external picker
+        // deliberately prevents. Recreate the actual stopped Activity and observe its
+        // replacement instead of forcing it foreground or dismissing the picker early.
+        val replacement = AtomicReference<MainActivity>()
+        val monitor = ActivityLifecycleMonitorRegistry.getInstance()
+        val callback = ActivityLifecycleCallback { activity, stage ->
+            if (activity is MainActivity && activity !== originalActivity && stage == Stage.CREATED)
+                replacement.set(activity)
+        }
+        try {
+            instrumentation.runOnMainSync { monitor.addLifecycleCallback(callback); originalActivity.recreate() }
+            val deadline = SystemClock.elapsedRealtime() + 10_000
+            while (replacement.get() == null && SystemClock.elapsedRealtime() < deadline) Thread.sleep(10)
+            assertNotNull("The stopped Activity must be recreated while the picker is open", replacement.get())
+            instrumentation.runOnMainSync {
+                assertSame("The pending picker belongs to the retained ViewModel", retained,
+                    ViewModelProvider(requireNotNull(replacement.get()))[ShellViewModel::class.java])
+            }
+        } finally {
+            instrumentation.runOnMainSync { monitor.removeLifecycleCallback(callback) }
         }
         awaitDocumentsUi()
         assertTrue(retained.archive.value.awaitingPicker)

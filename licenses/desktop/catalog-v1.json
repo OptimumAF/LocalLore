@@ -225,6 +225,60 @@
         "evidence": "Read-only installed exact MSVC/SDK files and retained PE/COFF evidence; official texts linked. No proprietary toolchain license text copied."
       },
       "sha256": "2329c8e2ffe7c6023d837de5233266dac9ea6ff66cea8b366925b64c84b87820"
+    },
+    {
+      "bytes": 2491,
+      "origin": "resource",
+      "output": "NOTICES/native/nlohmann-json-header-notices.txt",
+      "path": "texts/nlohmann-json-header-notices.txt",
+      "provenance": {
+        "conditional_applicability": "Abseil Apache-2.0 utility fallback lies under #else of JSON_HAS_CPP_14 at lines3219/3227; worker uses C++17. Conservative notice inclusion is not proof that fallback code contributes linked symbols. Hoehrmann/Loitsch headers are outside that conditional block.",
+        "coverage": "All distinct SPDX copyright holders observed in exact selected header: Niels Lohmann, Evan Nemerson, The Abseil Authors, Bjorn Hoehrmann, Florian Loitsch; no per-symbol attribution claim.",
+        "inclusive_line_ranges": [
+          [
+            6,
+            7
+          ],
+          [
+            340,
+            347
+          ],
+          [
+            3198,
+            3200
+          ],
+          [
+            3233,
+            3234
+          ],
+          [
+            17609,
+            17611
+          ],
+          [
+            17635,
+            17637
+          ],
+          [
+            17655,
+            17663
+          ],
+          [
+            19869,
+            19869
+          ]
+        ],
+        "license_members": [
+          "NOTICES/native/nlohmann-json-MIT.txt",
+          "NOTICES/rust-standard-library/Apache-2.0.txt"
+        ],
+        "path": "vendor/nlohmann/json.hpp",
+        "revision": "620d2225cc436ab0b001e3200e590e3b286ef9ab",
+        "source_file_sha256": "f9ce5c0a1ac99e20ef92daeb60eb571e2146988daa553ac0269755348843efd7",
+        "text_normalization": "Exact source notice excerpts, LF line endings; first-party source/range/conditional applicability labels added.",
+        "url": "https://github.com/ggml-org/llama.cpp/blob/620d2225cc436ab0b001e3200e590e3b286ef9ab/vendor/nlohmann/json.hpp"
+      },
+      "sha256": "c81b7f95cf00d14e71d32c3586e690cc012e6f3bb9eee9dc914d6a2154bda24e"
     }
   ],
   "distribution_approved": false,

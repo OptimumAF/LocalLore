@@ -308,6 +308,25 @@ class LicenseTests(unittest.TestCase):
                              {'MSVCP140.dll', 'VCOMP140.DLL', 'VCRUNTIME140.dll', 'VCRUNTIME140_1.dll'})
             self.assertEqual(p['retained_binary_evidence']['worker']['sha256'], REAL_WORKER)
 
+    def test_actual_embedded_json_notices_bind_all_distinct_header_authors(self):
+        with patch.object(package, 'ROOT', REAL_ROOT), patch.object(package, 'WORKER_SHA', REAL_WORKER):
+            c, _ = package.license_catalog()
+            notices = {n['output']: n for n in c['additional_notices']}
+            name = 'NOTICES/native/nlohmann-json-header-notices.txt'
+            self.assertIn(name, package.expected_license_materials(c))
+            n = notices[name]; provenance = n['provenance']
+            self.assertEqual(provenance['path'], 'vendor/nlohmann/json.hpp')
+            self.assertEqual(provenance['source_file_sha256'],
+                             'f9ce5c0a1ac99e20ef92daeb60eb571e2146988daa553ac0269755348843efd7')
+            text = (REAL_ROOT / 'licenses/desktop' / n['path']).read_text(encoding='utf-8')
+            for author in ['Niels Lohmann', 'Evan Nemerson', 'The Abseil Authors',
+                           'Bj\u00f6rn Hoehrmann', 'Florian Loitsch']:
+                self.assertIn(author, text)
+            self.assertIn('#else of JSON_HAS_CPP_14', provenance['conditional_applicability'])
+            self.assertIn('not proof', provenance['conditional_applicability'])
+            for reference in provenance['license_members']:
+                self.assertIn(reference, package.expected_license_materials(c))
+
 
 if __name__ == '__main__':
     unittest.main()

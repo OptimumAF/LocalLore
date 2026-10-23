@@ -83,7 +83,9 @@ rendering but no public `Engine.tokenize`; no host API parity is inferred.
 
 **Callback visibility limit:** the pinned `Conversation.kt` `jsonToMessage`
 parses top-level native `channels` into the public `Message.channels` map,
-separate from `contents`; the worker omits that map. For each native content
+separate from `contents`; the worker rejects any nonempty map before appending
+content. Literal `<think>`/`</think>` tags also fail after final text assembly.
+For each native content
 object, however, the SDK maps only `type == "text"` and its `text` value into
 `Content.Text`. It does not preserve a per-item channel field and silently skips
 other native types. The AAR's `Conversation$Companion` bytecode was inspected

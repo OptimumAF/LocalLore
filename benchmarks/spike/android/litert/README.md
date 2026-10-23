@@ -78,7 +78,8 @@ absence. Abrupt termination is never reported as cooperative cancellation or
 native disposal.
 
 The public SDK separates a `Message.channels` map from `Message.contents`.
-This worker never copies that map. However, SDK `jsonToMessage` converts native
+This worker rejects any nonempty map before copying content, and rejects literal
+`<think>`/`</think>` tags after assembling the final text. However, SDK `jsonToMessage` converts native
 content objects using only `type` and `text`, dropping per-item channel metadata
 and unknown native content types before the callback. The callback boundary
 therefore cannot prove that arbitrary native text was final-channel content or

@@ -222,15 +222,16 @@ public final class SpikeInstrumentation extends Instrumentation {
         }
     }
 
-    private static final class Stream implements MessageCallback {
+    static final class Stream implements MessageCallback {
         final CountDownLatch first = new CountDownLatch(1), done = new CountDownLatch(1);
         private final StringBuilder output = new StringBuilder();
         private String error;
         private boolean ended;
         @Override public synchronized void onMessage(Message message) {
             if (ended) return;
+            if (!message.getChannels().isEmpty()) { error = "unsupported_output"; return; }
             if (!message.getToolCalls().isEmpty()) { error = "unsupported_output"; return; }
-            // Read SDK contents only; its separate channels map is never copied.
+            // Exposed SDK channels fail closed; their text is never copied.
             // Per-item channel metadata is not exposed by this API; see source limitations.
             for (Content item : message.getContents().getContents()) {
                 if (!(item instanceof Content.Text)) { error = "unsupported_output"; continue; }
@@ -248,7 +249,10 @@ public final class SpikeInstrumentation extends Instrumentation {
         synchronized String text() throws Failure {
             if (error != null) throw new Failure(error);
             if (output.length() == 0) throw new Failure("unsupported_output");
-            return output.toString();
+            String text = output.toString();
+            String lower = text.toLowerCase(java.util.Locale.ROOT);
+            if (lower.contains("<think>") || lower.contains("</think>")) throw new Failure("unsupported_output");
+            return text;
         }
     }
 

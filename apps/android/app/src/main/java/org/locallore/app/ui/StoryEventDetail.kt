@@ -33,7 +33,7 @@ import org.locallore.app.StoryRecordProblem
 internal fun StoryEventDetail(
     detail: StoryRecordEventDetail,
     context: StoryRecordContext?,
-    onRetry: (() -> Unit)? = null,
+    onRetry: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.testTag("story-event-detail")) {

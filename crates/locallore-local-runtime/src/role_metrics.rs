@@ -1,5 +1,5 @@
 //! Opt-in, bounded, per-turn metadata. No callbacks, text, I/O or gameplay authority.
-use crate::{Error, Metrics};
+use crate::{Error, Metrics, ResourceMetrics};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::sync::{
@@ -62,6 +62,8 @@ pub struct RoleMetrics {
     /// Present only for a validated, completed native reply; failed partial timings are unknown.
     pub worker_metrics: Option<Metrics>,
     pub drained_on_drop: bool,
+    /// None means resource sampling disabled or operation not run.
+    pub resources: Option<ResourceMetrics>,
 }
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct RoleMetricsSnapshot {
@@ -132,7 +134,7 @@ impl RoleMetricsLog {
     pub fn snapshot(&self) -> RoleMetricsSnapshot {
         match self.0.state.try_lock() {
             Ok(state) => RoleMetricsSnapshot {
-                version: 1,
+                version: 2,
                 available: true,
                 incomplete: self.0.incomplete.load(Ordering::Relaxed),
                 turn_sha256: state.turn.clone(),
@@ -141,7 +143,7 @@ impl RoleMetricsLog {
             Err(_) => {
                 self.lost();
                 RoleMetricsSnapshot {
-                    version: 1,
+                    version: 2,
                     available: false,
                     incomplete: true,
                     turn_sha256: None,
@@ -188,6 +190,18 @@ mod tests {
                 abort_callbacks: u32::MAX,
             }),
             drained_on_drop: false,
+            resources: Some(ResourceMetrics {
+                status: crate::ResourceStatus::Partial,
+                error: Some(crate::ResourceError::QueryFailed),
+                sample_interval_ms: 250,
+                successful_samples: 262,
+                failed_samples: 262,
+                observed_ms: Some(u64::MAX),
+                sampled_peak_working_set_bytes: Some(u64::MAX),
+                sampled_peak_private_committed_bytes: Some(u64::MAX),
+                process_lifetime_peak_working_set_bytes: Some(u64::MAX),
+                limit_reached: true,
+            }),
         }
     }
     #[test]
@@ -208,7 +222,7 @@ mod tests {
         assert!(snapshot.incomplete);
         assert_eq!(snapshot.turn_sha256.as_deref(), Some(turn.as_str()));
         assert_eq!(snapshot.records.len(), 3);
-        assert!(serde_json::to_vec(&snapshot).unwrap().len() < 4096);
+        assert!(serde_json::to_vec(&snapshot).unwrap().len() < 8192);
     }
     #[test]
     fn contention_and_poison_return_honest_unavailable_snapshots() {

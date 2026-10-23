@@ -1,10 +1,13 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Optional shared-engine provider. This adapter never validates or commits canonical outcomes.
 use crate::{
+    resource_metrics::Sampler, Error as RuntimeError, Generation, LocalRuntime, Metrics,
+    ResourceMetrics, Role, PROFILE,
+};
+use crate::{
     role_metrics::digest, AdapterError, AdapterTerminal, MetricRole, NativeTerminal, RoleMetrics,
     RoleMetricsLog,
 };
-use crate::{Error as RuntimeError, Generation, LocalRuntime, Metrics, Role, PROFILE};
 use locallore::{
     contracts::Error,
     inference::{Cancellation, GenerationRequest, InferenceProvider, Input},
@@ -109,6 +112,7 @@ struct Outcome {
     metrics: Option<Metrics>,
     failure: Option<RuntimeError>,
     native: NativeTerminal,
+    resources: Option<ResourceMetrics>,
 }
 impl Outcome {
     fn unavailable(failure: RuntimeError, native: NativeTerminal) -> Self {
@@ -121,6 +125,7 @@ impl Outcome {
             metrics: None,
             failure: Some(failure),
             native,
+            resources: None,
         }
     }
 }
@@ -201,6 +206,7 @@ impl Observation {
                     None
                 },
                 drained_on_drop: dropped,
+                resources: outcome.resources.clone(),
             },
         );
     }
@@ -225,6 +231,7 @@ pub struct RuntimeProvider {
     poisoned: bool,
     directors_started: u8,
     log: Option<RoleMetricsLog>,
+    sample_resources: bool,
 }
 impl RuntimeProvider {
     pub fn new(runtime: SharedRuntime) -> Self {
@@ -237,12 +244,19 @@ impl RuntimeProvider {
             poisoned: false,
             directors_started: 0,
             log: None,
+            sample_resources: false,
         }
     }
     /// Optional passive per-turn recorder; all log loss is independent of inference results.
     pub fn with_metrics(runtime: SharedRuntime, log: RoleMetricsLog) -> Self {
         let mut provider = Self::new(runtime);
         provider.log = Some(log);
+        provider
+    }
+    /// Opt-in private owned-worker sampling; no change to provider or canonical authority.
+    pub fn with_resource_metrics(runtime: SharedRuntime, log: RoleMetricsLog) -> Self {
+        let mut provider = Self::with_metrics(runtime, log);
+        provider.sample_resources = true;
         provider
     }
     pub fn metrics(&self) -> Option<&Metrics> {
@@ -312,6 +326,7 @@ impl RuntimeProvider {
             .as_ref()
             .and_then(|log| Observation::new(log, &identity, self.directors_started));
         let runtime = self.runtime.clone();
+        let sample_resources = self.sample_resources;
         let local = Cancellation::default();
         let cancel = local.clone();
         let deadline = Duration::from_millis(request.budget.deadline_ms.min(60_000));
@@ -349,12 +364,14 @@ impl RuntimeProvider {
                     ));
                     return;
                 }
+                let sampler = sample_resources.then(|| Sampler::start(&guard.child));
                 let previous = guard.deadline;
                 guard.deadline = deadline;
                 let result = guard.generate(generation, || {
                     local.is_cancelled() || external.is_cancelled()
                 });
                 guard.deadline = previous;
+                let resources = sampler.map(Sampler::finish);
                 let metrics = guard.last_metrics().cloned();
                 let native = match &result {
                     Ok(_) => NativeTerminal::Completed,
@@ -381,6 +398,7 @@ impl RuntimeProvider {
                     metrics,
                     failure,
                     native,
+                    resources,
                 });
             });
         let worker = match worker {
@@ -393,6 +411,7 @@ impl RuntimeProvider {
                             metrics: None,
                             failure: None,
                             native: NativeTerminal::NotRun,
+                            resources: None,
                         },
                         AdapterTerminal::Failed,
                         Some(AdapterError::Provider),
@@ -575,6 +594,98 @@ mod tests {
         let (mut runtime, dir) = crate::tests::fixture(mode);
         runtime.load(|| false).unwrap();
         (Arc::new(Mutex::new(runtime)), dir)
+    }
+    #[test]
+    fn resource_sampling_is_opt_in_per_role_cached_and_cancellation_drains() {
+        let (shared, dir) = owner("valid");
+        let req = request("director");
+        let cancel = Cancellation::default();
+        let mut plain = RuntimeProvider::new(shared.clone());
+        assert!(!plain.sample_resources);
+        let expected = poll_to_ready(&mut plain, &req, &cancel);
+        drop(plain);
+        let log = RoleMetricsLog::new();
+        let mut passive = RuntimeProvider::with_metrics(shared.clone(), log.clone());
+        assert!(!passive.sample_resources);
+        assert_eq!(poll_to_ready(&mut passive, &req, &cancel), expected);
+        assert!(log.snapshot().records[0].resources.is_none());
+        drop(passive);
+        let log = RoleMetricsLog::new();
+        let mut sampled = RuntimeProvider::with_resource_metrics(shared.clone(), log.clone());
+        assert_eq!(poll_to_ready(&mut sampled, &req, &cancel), expected);
+        assert_eq!(sampled.poll(&req, &cancel), Poll::Ready(expected));
+        assert_eq!(log.snapshot().records.len(), 1);
+        assert!(poll_to_ready(&mut sampled, &request("narrator"), &cancel).is_ok());
+        drop(sampled);
+        let snapshot = log.snapshot();
+        assert_eq!(snapshot.version, 2);
+        assert_eq!(snapshot.records.len(), 2);
+        for record in &snapshot.records {
+            let resources = record.resources.as_ref().unwrap();
+            assert!(resources.successful_samples >= 1);
+            assert!(resources.sampled_peak_working_set_bytes.unwrap() > 0);
+            assert!(resources.sampled_peak_private_committed_bytes.unwrap() > 0);
+        }
+        let encoded = serde_json::to_string(&snapshot).unwrap();
+        assert!(!encoded.contains("synthetic prompt"));
+        assert!(!encoded.contains(dir.to_str().unwrap()));
+        drop(shared);
+        std::fs::remove_dir_all(dir).unwrap();
+
+        let (shared, dir) = owner("blocked-generation");
+        let log = RoleMetricsLog::new();
+        let mut sampled = RuntimeProvider::with_resource_metrics(shared.clone(), log.clone());
+        let cancel = Cancellation::default();
+        assert!(sampled.poll(&request("director"), &cancel).is_pending());
+        let started = Instant::now();
+        while shared.try_lock().is_ok() {
+            assert!(started.elapsed() < Duration::from_secs(5));
+            thread::sleep(Duration::from_millis(5));
+        }
+        thread::sleep(Duration::from_millis(30));
+        cancel.cancel();
+        drop(sampled); // Both native cancellation cleanup and sampling are drained.
+        assert!(started.elapsed() < Duration::from_secs(5));
+        let snapshot = log.snapshot();
+        assert_eq!(snapshot.records.len(), 1);
+        assert_eq!(
+            snapshot.records[0].adapter_terminal,
+            AdapterTerminal::Cancelled
+        );
+        assert!(snapshot.records[0].drained_on_drop);
+        assert!(snapshot.records[0].resources.is_some());
+        assert!(shared.lock().unwrap().child.try_wait().unwrap().is_some());
+        drop(shared);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[test]
+    fn resource_sampling_busy_admission_never_reports_prior_role_resources() {
+        let (shared, dir) = owner("valid");
+        let log = RoleMetricsLog::new();
+        let mut provider = RuntimeProvider::with_resource_metrics(shared.clone(), log.clone());
+        assert!(poll_to_ready(
+            &mut provider,
+            &request("director"),
+            &Cancellation::default()
+        )
+        .is_ok());
+        let held = shared.lock().unwrap();
+        assert_eq!(
+            poll_to_ready(
+                &mut provider,
+                &request("narrator"),
+                &Cancellation::default()
+            ),
+            Err(Error::Provider)
+        );
+        drop(held);
+        drop(provider);
+        let snapshot = log.snapshot();
+        assert!(snapshot.records[0].resources.is_some());
+        assert_eq!(snapshot.records[1].native_terminal, NativeTerminal::NotRun);
+        assert!(snapshot.records[1].resources.is_none());
+        drop(shared);
+        std::fs::remove_dir_all(dir).unwrap();
     }
     #[test]
     fn structured_input_profile_role_and_budget_are_frozen() {
@@ -1070,7 +1181,12 @@ mod tests {
         let poisoned = RoleMetricsLog::new();
         poisoned.poison_for_test();
         let mut expected = None;
-        for log in [None, Some(clean.clone()), Some(poisoned.clone())] {
+        for (log, resources) in [
+            (None, false),
+            (Some(clean.clone()), false),
+            (Some(poisoned.clone()), false),
+            (Some(RoleMetricsLog::new()), true),
+        ] {
             let mut engine = Engine::new(seed.clone()).unwrap();
             let before = engine.canonical_bytes();
             let req = engine.request(
@@ -1082,6 +1198,9 @@ mod tests {
             );
             let mut provider = match log {
                 None => RuntimeProvider::new(shared.clone()),
+                Some(log) if resources => {
+                    RuntimeProvider::with_resource_metrics(shared.clone(), log)
+                }
                 Some(log) => RuntimeProvider::with_metrics(shared.clone(), log),
             };
             // Actual synthetic process returns empty text; the production parser/one repair rejects it.

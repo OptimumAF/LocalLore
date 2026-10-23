@@ -1,5 +1,104 @@
 # Windows pinned new Store — staging prerequisite, 2026-10-23
 
+## Current corrected contract — sidecar blocker reproduced and repaired
+
+**The leaf-only `889cbfb` implementation below was blocked before acceptance.**
+Desktop review found an actual planted `staging.sqlite-journal` symlink could
+overwrite another valid synthetic Store. Independent shared reproduction
+`a2add43` failed against that implementation with
+`sidecar=-journal, accepted=true, outside_bytes_changed=true`. The failure log is
+retained as `pinned-new-sidecar-repro-before.log`; the native repro is `78e04fe`.
+The original 91-test results did not exercise this hole and do not establish
+safety against sidecar attacks.
+
+Corrected source: `9ed53a4af0ec83da2050d12a3ca0fd07ac3ee932`, on the original
+isolated staging branch. Reopened claims #12 comment 6362065095 / #31 6362065399.
+The coordinator explicitly approved the following narrower **disposable staging
+only** contract. Independent review/native adoption remain required.
+
+Before **any SQLite call**, `create_new_pinned` atomically reserves all four exact
+names: main file, `-journal`, `-wal`, `-shm`. Any existing entry, even an empty
+ordinary sidecar, fails with Io before SQLite can inspect/recover it. Main-file
+sharing permits READ/WRITE for SQLite. Sidecar sharing permits **READ only**;
+every guard denies DELETE. Thus a compatible watcher cannot fill an empty
+sidecar with hot-journal/WAL bytes, rename it or redirect it before connection.
+Opened-handle regular/nonreparse checks still apply. All guards live in a private
+Store field after Connection, so they release after SQLite closes.
+
+The dedicated staging connection first selects `journal_mode=MEMORY` and verifies
+the readback, then applies normal connection configuration and the unchanged
+normal initializer/schema verification. No public Store API exposes a later mode
+switch. Normal `Store::open` configuration/transactions remain unchanged, and a
+normal reopen after staging drop uses DELETE journaling in the actual unit test.
+
+**MEMORY mode alone is not the fix.** In the exact bundled SQLite amalgamation,
+both `journal_mode` (pragma entry line 144413) and `synchronous` (144585) carry
+`PragFlg_NeedSchema`; `sqlite3Pragma` loads schema at 145180. Pager shared-lock
+acquisition calls `hasHotJournal` (64739/64887). Consequently even preparing the
+pragma can inspect recovery state before its mode change executes. The exact
+sidecars are already newly owned, empty, write/delete protected at that point.
+The empty-main benign journal-delete attempt in `hasHotJournal` cannot delete
+the guard and does not redirect a later write; actual constructor/import tests
+exercise this path. The SQLite source inspected is the existing pinned
+`libsqlite3-sys 0.38.2/sqlite3/sqlite3.c`, not a modified VFS.
+
+This API is **not a crash-durable active-workspace opener**. In-memory rollback
+is appropriate only for disposable staging: process death can leave partial
+staging data which must be discarded, never resumed as an accepted durable save.
+The durable destination import is a separate normal Store transaction. The
+caller retains its trusted ancestor handles and private staging namespace; this
+does not prevent a same-user process from directly modifying the main file's
+shared-write contents. No ATTACH/multi-database SQL API is exposed, so SQLite
+super-journal `-mj*` files are not a supported staging path. TEMP storage remains
+the configured/read-back MEMORY policy.
+
+Failures may leave only exclusively created main/sidecar placeholders or a partial
+owned staging DB. No path deletion/reopen cleanup gap was added. The trusted
+staging owner must clean its own namespace after all handles close. It must also
+close the Store before publishing/renaming the staged main file. Non-Windows
+still fails closed; no weaker portable reservation guarantee is substituted.
+
+Actual corrected checks, same Rust 1.93.1/locked/offline/own target and TEMP as
+below:
+
+- Default storage suite: **92 passed, 0 failed, 2 privileged cases ignored**.
+- All-feature storage suite: **92 passed, 0 failed, 2 privileged cases ignored**.
+- Explicit `--test pinned_new_store -- --ignored --nocapture`: **2 passed**.
+- Full integration `--include-ignored`: **8 passed**, plus three fixed-hook unit
+  cases passed separately.
+- Strict all-target Clippy in default and all-feature configurations, fmt and
+  whitespace checks passed.
+
+New/strengthened assertions cover every sidecar's empty/ordinary/hardlink refusal,
+file-symlink-to-valid-Store and dangling-symlink refusal with unchanged outside
+bytes/canonical replay, no-connect hooks on sidecar refusal, and exact pre-SQLite
+WRITE/delete/rename/replacement denial for all sidecars. Sidecars remain empty and
+unwritable during actual turns/archive import. The initializer hook verifies
+MEMORY mode before its first transaction; normal reopen verifies DELETE mode.
+Original live-guard/drop-release/fork/retry/import/partial-failure cases remain.
+
+Corrected logs: `pinned-new-sidecar-first-fix.log`,
+`pinned-new-sidecar-strengthened.log`, `pinned-new-sidecar-hooks.log`,
+`pinned-new-sidecar-storage-default.log`, `pinned-new-sidecar-storage-allfeatures.log`,
+`pinned-new-sidecar-explicit-reparse.log`, `pinned-new-sidecar-clippy.log`,
+`pinned-new-sidecar-clippy-default.log`.
+
+| Corrected file | SHA-256 |
+| --- | --- |
+| storage/src/lib.rs | `fe9895815393fa48969ae3b6d925257ff11cdcbca5a246515f29bed1fa03089b` |
+| storage/tests/pinned_new_store.rs | `86759d53eecb1ed2359fa69cb5b6a179ab689f7235fb4441660e87242eb58589` |
+
+No actual native/UI rerun is attributed to this author. The native owner must
+rerun its specific corruption regression and staging flow. Full D08/D09 remains
+open. D06 review was paused to repair this blocker; no D06 production changes
+were made.
+
+## Historical leaf-only proposal and evidence — superseded
+
+The remainder records `889cbfb`/`7839c44` before the concrete sidecar attack. Its
+leaf-only contract and old test/hash counts are historical, not the current
+constructor security or durability contract. Use the corrected section above.
+
 Status: implemented/locally tested, in_review, not full D08/D09 acceptance.
 Contributor `/root/app_storage_review`; claims #12 comment 6361679628 and #31
 6361679983. Isolated branch `impl/m08-pinned-new-store`, accepted base

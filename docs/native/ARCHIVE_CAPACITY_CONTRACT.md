@@ -9,7 +9,7 @@ Accepted events, projections and engine validation remain the production authori
 `localLoreArchiveCapacityVerification=true` selects application ID
 `org.locallore.app.archivecapacity`, its own provider authorities, the separate
 `build-archive-capacity` directory and the `archive-capacity-fixture` Rust feature.
-Use a separate Gradle project cache (`.gradle-archive-capacity`). It cannot be
+The build enforces a separate Gradle project cache (`.gradle-archive-capacity`). It cannot be
 combined with `localLoreArchiveVerification`; release variants are disabled.
 Ordinary builds explicitly clear `LIBSQLITE3_FLAGS` and omit the fixture feature.
 No dependency version or schema changes are required.
@@ -53,7 +53,10 @@ actual Compose test Activity, real ShellViewModel and real native gateways. A
 test Context redirects only its own no-backup workspace into the fresh fixture.
 It is not the production MainActivity callback test; PR78 covers those callbacks.
 The existing instrumentation-only DocumentsProvider and actual system selection
-still supply the product's temporary URI grant.
+still supply the product's temporary URI grant. Root titles and selectors include
+the exact instrumentation package so coexisting verification providers cannot be
+confused by a shared human label. Each selected preview must match the fixture's
+source story ID before confirmation.
 
 The test must observe a real native `Full` while confirming import, render the
 storage guidance, remove consumed consent and refuse an old native token.
@@ -65,7 +68,8 @@ selection/validation and explicit consent must import the exact original archive
 Before continued play, native reexport must equal the original bytes. Explicit
 opening, one potion gift, duplicate refusal and reopened accepted history follow.
 
-Only after all checks, document descriptors and native-owner fences pass may the
+Only after all checks, document descriptors and both four-slot archive/workspace
+owner fences pass may the
 test write a create-new `capacity-verified.json`. Its eight exact fields are
 `version`, `run`, `status`, `archive_sha256`, `source_revision`,
 `continued_revision`, `full_count`, `cache_only_relief` (1, exact run, verified,

@@ -206,6 +206,9 @@ const fork = new ForkController(
         }
     },
 );
+const releaseBrokerConsumption = [archive, fork, maintenance].map((surface) =>
+    surface.subscribe(brokerRetention.refreshConsumption),
+);
 try {
     const saved = localStorage.getItem(forkRecoveryKey);
     if (saved !== null)
@@ -280,6 +283,7 @@ root.render(
     />,
 );
 const dispose = async () => {
+    for (const release of releaseBrokerConsumption) release();
     releaseEvaluationContext();
     evaluation.dispose();
     archive.dispose();

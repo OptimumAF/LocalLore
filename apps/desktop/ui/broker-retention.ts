@@ -23,6 +23,7 @@ interface Retained {
     unknown: boolean;
     acknowledgedUnresolved: boolean;
     recoveringMemory: boolean;
+    consumed: boolean;
 }
 function identity(value: BrokerIdentity): BrokerIdentity {
     if (
@@ -86,16 +87,28 @@ export class BrokerRetention {
         for (const f of this.listeners) f();
     }
     private blocked() {
+        this.refreshConsumption();
         const r = this.retained;
         return (
             !!r &&
             !r.acknowledgedUnresolved &&
-            (r.inFlight ||
-                r.unknown ||
-                !r.terminal ||
-                this.awaitingConsumption(r.identity.surface))
+            (r.inFlight || r.unknown || !r.terminal || !r.consumed)
         );
     }
+    // Consumption is latched while the previous controller is idle. A later
+    // pending notification belongs to the next action, not the old result.
+    refreshConsumption = () => {
+        const r = this.retained;
+        if (
+            r &&
+            !r.consumed &&
+            !r.inFlight &&
+            !r.unknown &&
+            r.terminal &&
+            !this.awaitingConsumption(r.identity.surface)
+        )
+            this.patch({ consumed: true });
+    };
     async start(
         value: BrokerIdentity,
         work: () => Promise<unknown>,
@@ -110,6 +123,7 @@ export class BrokerRetention {
             unknown: false,
             acknowledgedUnresolved: false,
             recoveringMemory: false,
+            consumed: false,
         };
         this.patch({});
         try {
@@ -119,6 +133,7 @@ export class BrokerRetention {
                 inFlight: false,
                 ...(this.retained?.operation === null ? { unknown: true } : {}),
             });
+            this.refreshConsumption();
             return result;
         } catch (error) {
             const name = error instanceof Error ? error.message : String(error);
@@ -221,6 +236,7 @@ export class BrokerRetention {
             terminal: !v.running,
             unknown: unresolved,
         });
+        this.refreshConsumption();
     }
     async recoverMemory(value: BrokerIdentity, work: () => Promise<unknown>) {
         const selected = identity(value),

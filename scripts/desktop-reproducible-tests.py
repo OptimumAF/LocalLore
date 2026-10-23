@@ -14,6 +14,9 @@ import zipfile
 spec = importlib.util.spec_from_file_location("repro", Path(__file__).with_name("desktop-reproducible.py"))
 repro = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(repro)
+package_spec = importlib.util.spec_from_file_location("package", Path(__file__).with_name("desktop-package.py"))
+package = importlib.util.module_from_spec(package_spec)
+package_spec.loader.exec_module(package)
 
 
 def synthetic_pe(text=b"synthetic section"):
@@ -78,6 +81,7 @@ class ReproTests(unittest.TestCase):
         self.assertFalse(result["equal"])
         self.assertTrue(result["folder_inventory_equal"])
         self.assertFalse(result["zip_metadata_and_member_order_equal"])
+        self.assertEqual(result["changed_member_payloads"], [])
 
     def test_zip_member_order_difference_fails(self):
         result = repro.compare_packages(self.package("first"), self.package("second", reverse=True))
@@ -193,6 +197,37 @@ class ReproTests(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             repro.write_new(path, {"second": True})
         self.assertEqual(json.loads(path.read_bytes()), {"first": True})
+
+    def test_packager_internal_source_mapping_is_one_argument_with_spaces(self):
+        args = argparse.Namespace(target_dir=self.root / "target", output=self.root / "output",
+            worker=self.root / "unused-worker.exe", node=self.root / "Node tools/node.exe",
+            npm_cli=self.root / "npm-cli.js")
+        source = self.root / "source with ASCII spaces"
+        with patch.object(package.sys, "platform", "win32"), patch.object(package, "ROOT", source), \
+             patch.dict(os.environ, {"PATH": "trusted-path"}, clear=True), \
+             patch.object(package, "validate_worker", return_value=b"not executed"), \
+             patch.object(package, "source_inventory", return_value=("synthetic", {})), \
+             patch.object(package, "run", side_effect=RuntimeError("stop before tool")) as run:
+            with self.assertRaisesRegex(RuntimeError, "stop before tool"):
+                package.build(args)
+        env = run.call_args.kwargs["env"]
+        self.assertEqual(env["CARGO_ENCODED_RUSTFLAGS"].split("\x1f"),
+                         [f"--remap-path-prefix={source}=/locallore-source"])
+        self.assertNotIn("RUSTFLAGS", env)
+        self.assertFalse(args.output.exists())
+
+    def test_packager_ambient_flags_refuse_before_worker_or_build(self):
+        args = argparse.Namespace(target_dir=self.root / "target", output=self.root / "output",
+            worker=self.root / "unused.exe", node=self.root / "node.exe", npm_cli=self.root / "npm-cli.js")
+        for flag in ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS"):
+            with self.subTest(flag=flag), patch.object(package.sys, "platform", "win32"), \
+                 patch.dict(os.environ, {flag: "hostile flag"}, clear=True), \
+                 patch.object(package, "validate_worker") as worker, \
+                 patch.object(package, "run") as run:
+                with self.assertRaisesRegex(ValueError, "Remove build override"):
+                    package.build(args)
+                worker.assert_not_called()
+                run.assert_not_called()
 
 
 if __name__ == "__main__":

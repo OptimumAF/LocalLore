@@ -162,12 +162,11 @@ def tool_inventory(args: argparse.Namespace, env: dict) -> dict:
     sysroot = Path(command(["rustc", TOOLCHAIN, "--print", "sysroot"], ROOT, env))
     selected_rust = {p.name: {"path": str(p), **fingerprint(p, MAX_TREE)}
                      for p in (sysroot / "bin").iterdir() if p.is_file() and p.suffix.lower() in {".exe", ".dll"}}
-    configs = {}
-    for directory in {ROOT, *ROOT.parents, Path(os.environ.get("CARGO_HOME", Path.home() / ".cargo"))}:
-        for path in (directory / ".cargo/config", directory / ".cargo/config.toml",
-                     directory / "config.toml" if directory.name == ".cargo" else directory / ".cargo/unused-config-placeholder"):
-            if path.is_file():
-                configs[str(path)] = fingerprint(path)
+    cargo_home = Path(os.environ.get("CARGO_HOME", Path.home() / ".cargo"))
+    config_paths = {cargo_home / "config", cargo_home / "config.toml"}
+    for directory in (ROOT, *ROOT.parents):
+        config_paths.update((directory / ".cargo/config", directory / ".cargo/config.toml"))
+    configs = {str(path): fingerprint(path) for path in sorted(config_paths) if path.is_file()}
     return {"files": files, "versions": versions, "selected_rust": selected_rust,
             "cargo_config_hashes": configs, "environment": {k: env.get(k, "") for k in ENV_KEYS}}
 
@@ -230,12 +229,15 @@ def compare_packages(left: Path, right: Path) -> dict:
     a_by_name, b_by_name = {e["filename"]: e for e in a}, {e["filename"]: e for e in b}
     changed = [name for name in sorted(a_by_name.keys() | b_by_name.keys())
                if a_by_name.get(name) != b_by_name.get(name)]
+    changed_payloads = [name for name in sorted(a_by_name.keys() | b_by_name.keys())
+                        if a_by_name.get(name, {}).get("sha256") != b_by_name.get(name, {}).get("sha256")]
     executable = compare_bytes(ordinary(left / "LocalLore Desktop.exe"), ordinary(right / "LocalLore Desktop.exe"))
     archive = compare_bytes(ordinary(left_zip), ordinary(right_zip))
     folder_a, folder_b = tree_inventory(left), tree_inventory(right)
     return {"equal": executable["equal"] and archive["equal"] and a == b and folder_a == folder_b,
             "executable": executable, "archive": archive, "zip_metadata_and_member_order_equal": a == b,
             "changed_zip_members_or_metadata": changed, "folder_inventory_equal": folder_a == folder_b,
+            "changed_member_payloads": changed_payloads,
             "left_pe": pe_inventory(ordinary(left / "LocalLore Desktop.exe")),
             "right_pe": pe_inventory(ordinary(right / "LocalLore Desktop.exe")),
             "left_zip_members": a, "right_zip_members": b}
@@ -348,6 +350,7 @@ def run(args: argparse.Namespace) -> dict:
               "tools": tools, "dependencies": dependencies, "builds": []}
     try:
         for label in ("first source", "second longer source"):
+            print(f"Building fixed source in {label}; independent empty native target.", flush=True)
             source = args.output / label / "source tree"
             source.parent.mkdir()
             command(["git", "worktree", "add", "--detach", str(source), args.source_commit], ROOT)

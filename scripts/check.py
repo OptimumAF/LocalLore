@@ -38,6 +38,8 @@ def host_commands(root, offline):
         [sys.executable, "-m", "unittest", "discover", "-s", "benchmarks", "-p", "test_*.py"],
         [sys.executable, "-m", "unittest", "discover", "-s", "benchmarks/spike/litert", "-p", "test_*.py"],
         [sys.executable, "-m", "unittest", "discover", "-s", "benchmarks/spike/llama", "-p", "test_*.py"],
+        [sys.executable, "-m", "unittest", "discover", "-s", "benchmarks/spike/android/litert", "-p", "test_*.py"],
+        [sys.executable, "-m", "unittest", "discover", "-s", "benchmarks/spike/android/llama", "-p", "test_*.py"],
         [sys.executable, "-m", "unittest", "discover", "-s", "scripts/tests", "-p", "test_*.py"],
         ["rustfmt", "+" + RUST_VERSION, "--check", "--edition", "2021", "apps/android/native-linker.rs"],
         ["rustc", "+" + RUST_VERSION, "--test", "--edition", "2021", "apps/android/native-linker.rs", "-o", str(executable)],

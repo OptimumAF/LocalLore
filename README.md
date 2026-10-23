@@ -64,6 +64,11 @@ CPU. It adds no Android inference backend. Host compatibility, strict synthetic
 proposal acceptance and process cleanup do not establish phone support or prose
 quality; those gates remain pending.
 
+The [isolated Android runtime experiment](docs/runtime/android/README.md) runs
+both candidates and the existing Rust oracle on authorized emulators. It adds
+no production inference dependency; physical-device and reliability gates remain
+open, with failures retained in the dated results.
+
 ## Run the Android engine demo
 
 The minimal Compose app calls the actual Rust engine through bounded JNI. It

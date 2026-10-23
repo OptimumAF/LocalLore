@@ -23,6 +23,12 @@ checks never install inference packages, build third-party runtimes or load or
 download model weights. Real local calls require the separate explicit commands
 in [the spike instructions](../runtime/spike/README.md).
 
+The isolated Android experiment adds stdlib-only ownership/envelope and artifact
+audits to `host`. They never invoke ADB, build a runtime, load/download a model
+or install the SDK harness. Explicit native/SDK builds and emulator commands live
+in [Android experiment instructions](../runtime/android/README.md). Its known
+SDK lint metadata limitation does not weaken the production Android check gate.
+
 `android` runs debug app and instrumentation APK assembly, JVM tests, lint and the
 coordinator-owned debug APK packaging/manifest audit (`scripts/audit_apk.py`).
 It does not install APKs or run device tests. `--clean` cleans Android outputs

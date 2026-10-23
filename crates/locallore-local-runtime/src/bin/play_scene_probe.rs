@@ -71,7 +71,7 @@ fn scenario(
     });
     let role_metrics = RoleMetricsLog::new();
     let mut provider = RecordedProvider {
-        inner: RuntimeProvider::with_metrics(runtime, role_metrics.clone()),
+        inner: RuntimeProvider::with_resource_metrics(runtime, role_metrics.clone()),
         outputs: vec![],
     };
     let mut candidate = engine.clone();
@@ -283,8 +283,30 @@ fn main() {
                     .iter()
                     .all(|r| r["native_terminal"] == "completed" && !r["worker_metrics"].is_null())
         });
-    let scene_pass = scene_pass && mechanical_ability_refusal && per_role_metrics_complete;
-    let report = json!({"synthetic":true,"execution":"native CPU worker plus shared Rust engine/store; no desktop IPC or render","scope":scope,"profile":profile,"load":load,"scene_pass":scene_pass,"per_role_metrics_complete":per_role_metrics_complete,"gift_committed":gift_committed,"restart_equal":restarted_equal,"exact_retry_without_inference":exact_retry,"speaker_scoped_secret":speaker_scoped,"replay_without_inference":replay_equal,"results":results,"total_ms":overall.elapsed().as_millis(),"quality_accepted":false,"network_blocked":false});
+    let resource_metrics_observed = results
+        .iter()
+        .filter(|result| result["outcome"]["status"] == "committed")
+        .flat_map(|result| result["native_role_metrics"]["records"].as_array().unwrap())
+        .all(|record| {
+            let resources = &record["resources"];
+            resources["status"] == "sampled"
+                && resources["successful_samples"]
+                    .as_u64()
+                    .is_some_and(|n| n > 0)
+                && resources["failed_samples"] == 0
+                && resources["sampled_peak_working_set_bytes"]
+                    .as_u64()
+                    .is_some_and(|n| n > 0)
+                && resources["sampled_peak_private_committed_bytes"]
+                    .as_u64()
+                    .is_some_and(|n| n > 0)
+                && resources["limit_reached"] == false
+        });
+    let scene_pass = scene_pass
+        && mechanical_ability_refusal
+        && per_role_metrics_complete
+        && resource_metrics_observed;
+    let report = json!({"synthetic":true,"execution":"native CPU worker plus shared Rust engine/store; no desktop IPC or render","scope":scope,"profile":profile,"load":load,"scene_pass":scene_pass,"per_role_metrics_complete":per_role_metrics_complete,"resource_metrics_observed":resource_metrics_observed,"gift_committed":gift_committed,"restart_equal":restarted_equal,"exact_retry_without_inference":exact_retry,"speaker_scoped_secret":speaker_scoped,"replay_without_inference":replay_equal,"results":results,"total_ms":overall.elapsed().as_millis(),"quality_accepted":false,"network_blocked":false});
     std::fs::write(
         output.join("report.json"),
         serde_json::to_vec_pretty(&report).unwrap(),

@@ -3,7 +3,13 @@
 #[cfg(feature = "engine-adapter")]
 pub mod adapter;
 #[cfg(feature = "engine-adapter")]
+mod resource_metrics;
+#[cfg(feature = "engine-adapter")]
 mod role_metrics;
+#[cfg(feature = "engine-adapter")]
+pub use resource_metrics::{
+    ResourceError, ResourceMetrics, ResourceStatus, RESOURCE_SAMPLE_INTERVAL_MS,
+};
 #[cfg(feature = "engine-adapter")]
 pub use role_metrics::{
     AdapterError, AdapterTerminal, MetricRole, NativeTerminal, RoleMetrics, RoleMetricsLog,

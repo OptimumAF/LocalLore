@@ -347,7 +347,7 @@ class WarmSdkSession:
         return metadata
 
 
-def run_warm(session, native, oracle_binary, case="gift"):
+def _run_warm(session, native, oracle_binary, case="gift"):
     report = {"version": 1, "scope": "android_sdk_shared_engine_smoke", "status": "not_started",
               "attempted_roles": 0, "roles": [], "oracle_runs": [], "phone_qualified": False,
               "quality_assessed": False, "durable_state": False, "failure_stage": "none"}
@@ -428,6 +428,15 @@ def run_warm(session, native, oracle_binary, case="gift"):
         report.update(status=error.category, failure_stage=error.stage)
     except Exception:
         report.update(status="oracle_failed", failure_stage="commit")
+    return report
+
+
+def run_warm(session, native, oracle_binary, case="gift"):
+    began = time.monotonic()
+    report = _run_warm(session, native, oracle_binary, case)
+    # Includes fixture/validation/commit plus model/control/cleanup; provisioning
+    # precedes this timer. No UI display, persistence or prefill timing is implied.
+    report["turn_wall_ms"] = min(2 ** 31, round((time.monotonic() - began) * 1000))
     return report
 
 

@@ -65,3 +65,15 @@ Normal frontend verifier must exclude fixed journey/hook markers. Compiler check
 controller-mock tests, native Rust Host/SQLite tests, native IPC and actual WebView
 rendering are reported separately; unavailable checks remain unavailable. No CUA,
 input injection, desktop activation/capture, model/device/ADB/protected resource.
+
+Source-audit follow-up before native execution: at `c91b772`, the unchanged old
+timeline mock suite actually failed `no-unimplemented-author-controls` because
+it required the obsolete sentence that forking was unavailable. Claim addendum
+#30 comment6375170773 / #12 comment6375171045 covers that one existing test.
+It now requires preserved original, no automatic downstream replay, author
+corrections unavailable and no author control. All catalog/schema/scope/retired/
+stale/selection oracles remain unchanged. Same small suite then passed all83
+checks, MOCK transport/inert semantic rendering only. Both actual logs are local
+`desktop-fork-artifacts/timeline-copy-{red-c91b772,green}.log`; no native/full
+frontend suite or app execution is inferred from them. Expanded actual fork
+controller mock suite atc91 passed60; initial56 remains historical.

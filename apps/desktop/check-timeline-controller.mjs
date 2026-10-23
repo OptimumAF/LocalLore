@@ -393,7 +393,10 @@ check(
 );
 check(
     !markup.includes(">Fork timeline<") &&
-        markup.includes("are unavailable in this view"),
+        markup.includes("preserves the original") &&
+        markup.includes("downstream choices are never replayed automatically") &&
+        markup.includes("corrections remain unavailable") &&
+        !markup.includes(">Apply author correction<"),
     "no-unimplemented-author-controls",
 );
 for (const [label, changed] of [

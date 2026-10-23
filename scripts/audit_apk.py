@@ -74,7 +74,8 @@ def audit_zip(path):
 
 
 def audit_manifest(badging, tree, package="org.locallore.app"):
-    require(package in ("org.locallore.app", "org.locallore.app.capacity", "org.locallore.app.capacityrelief"),
+    require(package in ("org.locallore.app", "org.locallore.app.capacity", "org.locallore.app.capacityrelief", "org.locallore.app.capacityv3",
+                        "org.locallore.app.capacityreliefv3"),
             "Unreviewed app package")
     permission = package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
     require(re.search(r"^package: name='" + re.escape(package) + r"' ", badging, re.M), "Wrong app package")
@@ -99,6 +100,23 @@ def audit_manifest(badging, tree, package="org.locallore.app"):
     require(re.search(r':name\([^)]*\)="' + re.escape(permission) + r'"', declarations[0]), "Permission owner changed")
     require(re.search(r':protectionLevel\([^)]*\)=0x0*2\b', declarations[0]), "Receiver permission must be signature protected")
     return uses
+
+
+def audit_fixed_metadata(tree, namespace, expected):
+    """Require one exact typed profile, separate from unrelated AndroidX metadata."""
+    require(namespace in ("org.locallore.capacity.", "org.locallore.capacity.relief."),
+            "Unreviewed profile namespace")
+    require(expected and all(type(value) is int and value >= 0 for value in expected.values()),
+            "Invalid fixed profile")
+    names = re.findall(r':name\([^)]*\)="(org\.locallore\.capacity[^\"]*)"', tree)
+    require(sorted(names) == sorted(namespace + key for key in expected),
+            "Unexpected, missing or duplicate capacity profile metadata")
+    for key, value in expected.items():
+        pattern = (r'E: meta-data \([^\n]*\)\s+[^\n]*:name\([^)]*\)="'
+                   + re.escape(namespace + key)
+                   + r'"[^\n]*\n\s+[^\n]*:value\([^)]*\)='
+                   + str(value) + r'[ \t]*\r?$')
+        require(len(re.findall(pattern, tree, re.M)) == 1, "Wrong fixed capacity metadata value")
 
 
 def aapt2_path():

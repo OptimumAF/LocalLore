@@ -9,11 +9,20 @@ from unittest.mock import Mock, patch
 from test_android_cache_control import control, FakeDevice, response, model, sample, INSTALLED, UUID
 from test_android_cache_result import raw
 from test_android_role_observation import packet
+import test_android_sdk_phase_control as phase_fixture
 
 PIN = '9' * 64
 
 
 class RoleControlTests(unittest.TestCase):
+    def test_final_qualified_role_pin_dispatches_reader_without_replacing_the_old_readback_pin(self):
+        reader = phase_fixture.reader; pin = control.ROLE_OBSERVATION_APK_SHA256
+        self.assertIn(pin, control.SUPPORTED_APKS); self.assertNotEqual(pin, reader.READBACK_APK_SHA256)
+        self.assertEqual(reader.READBACK_APK_SHA256, control.TRACED_APK_SHA256)
+        with patch.object(phase_fixture, 'PIN', pin):
+            result = reader.read_phase(phase_fixture.Device(), pin, phase_fixture.NONCE, Mock())
+        self.assertTrue(result['journal_verified']); self.assertTrue(result['process_absent'])
+
     def invoke(self, value):
         data = raw(value)
         def override(_, event, __):

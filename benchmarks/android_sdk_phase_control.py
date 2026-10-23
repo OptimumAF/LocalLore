@@ -8,7 +8,7 @@ import shlex
 import android_cache_control as cache
 import android_sdk_phase_result as decoder
 
-# Only the qualified readback-capable artifact, never legacy play pins.
+# Known readback-capable artifacts only; legacy play pins remain excluded.
 READBACK_APK_SHA256 = cache.TRACED_APK_SHA256
 
 def _uid(client):

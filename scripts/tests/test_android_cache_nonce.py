@@ -19,7 +19,7 @@ class CacheNonceTests(unittest.TestCase):
                 result = control.run_control(device, pin, 'gift', UUID,
                     Mock(side_effect=[sample(), sample()]), lambda: model(), lambda _: None, session_nonce='f'*32)
         self.assertTrue(result['check_passed']); profile.assert_called_once_with(pin)
-        self.assertEqual(control.SUPPORTED_APKS, {control.APK_SHA256, control.GUARDED_APK_SHA256, pin})
+        self.assertEqual(control.SUPPORTED_APKS, {control.APK_SHA256, control.GUARDED_APK_SHA256, pin, control.ROLE_OBSERVATION_APK_SHA256})
 
     def test_explicit_nonce_is_dispatched_once_and_never_exported(self):
         nonce = 'e' * 32; device = FakeDevice()

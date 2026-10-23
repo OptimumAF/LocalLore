@@ -25,6 +25,19 @@ fn frozen_corpus_and_full_scripted_baseline() {
                 .filter(|c| c.status == Status::Failed)
                 .collect::<Vec<_>>()
         );
+        let director_turns = case
+            .provider_requests
+            .iter()
+            .filter(|capture| capture.role == "director")
+            .map(|capture| &capture.turn)
+            .collect::<BTreeSet<_>>();
+        let checked_turns = case
+            .checks
+            .iter()
+            .filter(|check| check.id.ends_with("-director-context"))
+            .map(|check| check.turn.as_ref().unwrap())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(checked_turns, director_turns);
     }
     assert!(report.completed);
     assert_eq!(report.cases.len(), 6);
@@ -33,6 +46,24 @@ fn frozen_corpus_and_full_scripted_baseline() {
     assert_eq!(report.provenance["coverage"]["cancelled"], 1);
     assert_eq!(report.provenance["coverage"]["inference_completed"], 17);
     assert!(!report.quality_accepted);
+}
+#[test]
+fn role_exclusions_follow_actual_scope_without_hiding_player_secret_from_director() {
+    for story in corpus().unwrap().stories {
+        for step in &story.steps {
+            let forbidden = forbidden_by_role(&story, step);
+            let foreign = format!("FOREIGN-ONLY-{}", story.id);
+            assert!(forbidden.director.contains(&foreign));
+            assert!(forbidden.narrator.contains(&foreign));
+            assert!(!forbidden.director.iter().any(|s| s == "SECRET-TIDE-731"));
+            assert!(forbidden.narrator.iter().any(|s| s == "SECRET-TIDE-731"));
+            for marker in ["PARENT-FUTURE-MIST", "SIBLING-ONLY-SALT"] {
+                let excluded = story.lineage && step.branch == "child";
+                assert_eq!(forbidden.director.iter().any(|s| s == marker), excluded);
+                assert_eq!(forbidden.narrator.iter().any(|s| s == marker), excluded);
+            }
+        }
+    }
 }
 #[test]
 fn pause_resume_subset_and_immutable_completed_story_do_not_double_count() {
@@ -452,7 +483,7 @@ fn recording_repeated_polls_role_cap_and_poison_do_not_create_authority() {
         Box::new(Ready(calls.clone())),
         state.clone(),
         vec![],
-        vec![],
+        ForbiddenByRole::default(),
     );
     let mut request = GenerationRequest {
         version: 1,
@@ -508,8 +539,12 @@ fn recording_repeated_polls_role_cap_and_poison_do_not_create_authority() {
         let _guard = p.state.lock().unwrap();
         panic!("synthetic recording poison");
     });
-    let mut provider =
-        RecordingProvider::new(Box::new(Ready(calls)), poisoned.clone(), vec![], vec![]);
+    let mut provider = RecordingProvider::new(
+        Box::new(Ready(calls)),
+        poisoned.clone(),
+        vec![],
+        ForbiddenByRole::default(),
+    );
     assert_eq!(
         provider.poll(&request, &cancel),
         Poll::Ready(Ok(b"{}".to_vec()))

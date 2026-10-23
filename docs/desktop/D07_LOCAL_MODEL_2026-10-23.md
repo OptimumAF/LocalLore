@@ -186,8 +186,12 @@ The knowledge story's terminal Mira/Sable context assertions are conditional on
 successful preceding turns and were also **not run**. This native cohort therefore
 does not verify real old-promise retrieval or the discovery/terminal-observer
 journey. The scripted baseline covers their declared mechanics. The passing
-lineage case does verify its actual director source scope and parent/sibling
-exclusions. Guard-only cases make no inference-quality contribution.
+lineage case verifies its actual director required ancestor source scope. Review
+after the cohort found that director absence of parent/sibling/foreign canaries
+was checked only through the separate compiler result, not on the actual submitted
+director envelope. Narrator checks did inspect actual requests. Historical c76
+therefore does **not** prove those actual-director exclusions. Guard-only cases
+make no inference-quality contribution.
 
 There is also an intentional model-free regression for a known finite policy
 false-negative: unsupported ability/energy prose can pass the current narrow

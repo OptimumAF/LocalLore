@@ -1,6 +1,6 @@
 //! Opt-in curated synthetic stories over the existing durable Host and production Play path.
 use super::*;
-use crate::local_recording::{RawRef, Recording, RecordingProvider};
+use crate::local_recording::{ForbiddenByRole, RawRef, Recording, RecordingProvider};
 use std::{
     fs::File,
     path::PathBuf,
@@ -153,7 +153,7 @@ impl LaneFactory {
         &self,
         step: &LocalStep,
         state: Arc<Recording>,
-        forbidden: Vec<String>,
+        forbidden: ForbiddenByRole,
     ) -> Box<dyn InferenceProvider + Send> {
         #[cfg(feature = "local-model")]
         if let Self::Native { runtime, .. } = self {
@@ -705,6 +705,15 @@ fn context_checks(out: &mut CaseResult, current: &Engine, spec: &ContextSpec) {
         }
     }
 }
+fn forbidden_by_role(story: &Story, step: &LocalStep) -> ForbiddenByRole {
+    let mut director = vec![format!("FOREIGN-ONLY-{}", story.id)];
+    if story.lineage && step.branch == "child" {
+        director.extend(["PARENT-FUTURE-MIST".into(), "SIBLING-ONLY-SALT".into()]);
+    }
+    let mut narrator = director.clone();
+    narrator.push("SECRET-TIDE-731".into());
+    ForbiddenByRole { director, narrator }
+}
 fn run_story(
     story: &Story,
     directory: &Path,
@@ -768,13 +777,7 @@ fn run_story(
         let make = factory.clone();
         let spec = step.clone();
         let capture = records.clone();
-        let mut forbidden = vec![
-            "SECRET-TIDE-731".into(),
-            format!("FOREIGN-ONLY-{}", story.id),
-        ];
-        if story.lineage && step.branch == "child" {
-            forbidden.extend(["PARENT-FUTURE-MIST".into(), "SIBLING-ONLY-SALT".into()]);
-        }
+        let forbidden = forbidden_by_role(story, step);
         let provider = Arc::new(move || make.provider(&spec, capture.clone(), forbidden.clone()));
         let profile = factory.profile()?;
         if factory.native() {
@@ -1000,6 +1003,20 @@ fn run_story(
                     json!(c.prompt_targets_present),
                 );
             }
+        }
+        if data
+            .captures
+            .iter()
+            .any(|capture| capture.role == "director")
+        {
+            check(
+                &mut out,
+                format!("{}-director-context", step.id),
+                Some(step.id.clone()),
+                "observer",
+                json!(false),
+                json!(data.forbidden_director_prompt),
+            );
         }
         check(
             &mut out,

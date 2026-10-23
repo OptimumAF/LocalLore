@@ -15,8 +15,14 @@ pub(crate) struct Records {
     pub captures: Vec<Capture>,
     pub outputs: Vec<(String, Vec<u8>)>,
     pub role_metrics: Option<Value>,
+    pub forbidden_director_prompt: bool,
     pub forbidden_narrator_prompt: bool,
     pub forbidden_narrator_output: bool,
+}
+#[derive(Clone, Default)]
+pub(crate) struct ForbiddenByRole {
+    pub director: Vec<String>,
+    pub narrator: Vec<String>,
 }
 pub(crate) struct Recording {
     pub state: Mutex<Records>,
@@ -87,7 +93,7 @@ pub(crate) struct RecordingProvider {
     inner: Option<Box<dyn InferenceProvider + Send>>,
     state: Arc<Recording>,
     targets: Vec<Target>,
-    forbidden: Vec<String>,
+    forbidden: ForbiddenByRole,
     identity: Option<Identity>,
     terminal_recorded: bool,
     #[cfg(feature = "local-model")]
@@ -98,7 +104,7 @@ impl RecordingProvider {
         inner: Box<dyn InferenceProvider + Send>,
         state: Arc<Recording>,
         targets: Vec<Target>,
-        forbidden: Vec<String>,
+        forbidden: ForbiddenByRole,
     ) -> Self {
         Self {
             inner: Some(inner),
@@ -162,7 +168,12 @@ impl RecordingProvider {
                 } else {
                     self.state.lost.store(true, Ordering::Relaxed);
                 }
-                if role == "narrator" && self.forbidden.iter().any(|v| prompt.contains(v)) {
+                if role == "director" && self.forbidden.director.iter().any(|v| prompt.contains(v))
+                {
+                    records.forbidden_director_prompt = true;
+                }
+                if role == "narrator" && self.forbidden.narrator.iter().any(|v| prompt.contains(v))
+                {
                     records.forbidden_narrator_prompt = true;
                 }
             }
@@ -219,6 +230,7 @@ impl InferenceProvider for RecordingProvider {
                             if role == "narrator"
                                 && self
                                     .forbidden
+                                    .narrator
                                     .iter()
                                     .any(|v| String::from_utf8_lossy(bytes).contains(v))
                             {

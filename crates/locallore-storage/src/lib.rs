@@ -66,10 +66,6 @@ fn configure(connection: &Connection) -> Result<()> {
     connection.busy_timeout(Duration::from_millis(250))?;
     connection.pragma_update(None, "foreign_keys", true)?;
     connection.pragma_update(None, "trusted_schema", false)?;
-    connection.set_db_config(
-        rusqlite::config::DbConfig::SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION,
-        false,
-    )?;
     connection.pragma_update(None, "synchronous", "FULL")?;
     let enabled: bool = connection.pragma_query_value(None, "foreign_keys", |r| r.get(0))?;
     if !enabled {
@@ -371,9 +367,13 @@ mod tests {
             .pragma_query_value(None, "foreign_keys", |r| r.get(0))
             .unwrap();
         assert!(enabled);
-        assert!(!connection
-            .db_config(rusqlite::config::DbConfig::SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION)
-            .unwrap());
+        let extension_error = connection
+            .query_row::<i64, _, _>("SELECT load_extension('never-loaded')", [], |r| r.get(0))
+            .unwrap_err();
+        assert!(
+            matches!(extension_error, rusqlite::Error::SqliteFailure(_, Some(ref message))
+            if message == "not authorized")
+        );
         let trusted: bool = connection
             .pragma_query_value(None, "trusted_schema", |r| r.get(0))
             .unwrap();

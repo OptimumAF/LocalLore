@@ -161,7 +161,9 @@ has a separate `org.locallore.app.capacityfaultsv3` installation. Build/audit it
 with `python scripts/android_capacity_fault_probe.py build --offline`; its
 exclusive outputs/cache are `app/build-capacity-faults-v3` and
 `.gradle-capacity-faults-v3`. Fixed fault controls require this debug/testOnly
-identity and exact `faults_format=1` metadata. Select each nested
+identity and exact `faults_format=1` metadata.
+The helper requests a complete, nonincremental Kotlin test-module compilation.
+Select each nested
 `SqliteHelperFaultTest` class in a fresh instrumentation process; poisoning has
 no reset API. Default discovery retains the three normal relief cases. Existing
 ordinary/full/relief packages and their artifacts stay separate.

@@ -29,6 +29,8 @@ class FaultProfileAuditTests(unittest.TestCase):
         self.assertEqual(actual.argv[-3:], ('-Plocallore.capacityReliefFaultTest=true', '--project-cache-dir',
                                           str(root / 'apps/android/.gradle-capacity-faults-v3')))
         self.assertNotEqual(actual.argv, normal.argv)
+        self.assertIn('-Pkotlin.incremental=false', actual.argv)
+        self.assertNotIn('-Pkotlin.incremental=false', normal.argv)
         self.assertEqual(actual.cwd, ordinary.cwd)
 
     def test_exact_fault_profile_admitted(self):

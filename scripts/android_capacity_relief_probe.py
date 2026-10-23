@@ -22,7 +22,10 @@ def relief_build_command(root, offline, *, faults=False):
     command = check.android_commands(root, offline, False)[0]
     option = "capacityReliefFaultTest" if faults else "capacityReliefTest"
     cache = ".gradle-capacity-faults-v3" if faults else ".gradle-capacity-relief-v3"
-    return check.Command(command.argv + ("-Plocallore." + option + "=true", "--project-cache-dir",
+    # Recompile the complete test module; partial K2 recompilation has rejected
+    # unchanged internal fixture declarations after observation-type changes.
+    complete_module = ("-Pkotlin.incremental=false",) if faults else ()
+    return check.Command(command.argv + complete_module + ("-Plocallore." + option + "=true", "--project-cache-dir",
                                          str(root / "apps/android" / cache)), command.cwd)
 
 

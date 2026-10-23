@@ -442,6 +442,9 @@ export class MemoryMaintenanceController {
             operation: observing ? prior : null,
         });
         try {
+            // Subscribers may synchronously retire this selection while the
+            // pending state is announced. Do not dispatch retired work.
+            if (epoch !== this.epoch || this.disposed) return;
             const raw = await this.invoke(
                 observing ? "archive_status" : "memory_maintenance_start",
                 observing
@@ -485,6 +488,7 @@ export class MemoryMaintenanceController {
         const epoch = ++this.epoch;
         this.patch({ busy: true, error: null });
         try {
+            if (epoch !== this.epoch || this.disposed) return;
             const result = decodeMemoryOperation(
                 await this.invoke("archive_cancel", {
                     operationId: operation.operation_id,

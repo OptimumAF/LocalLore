@@ -70,7 +70,7 @@ public class PlayRunnerTest {
                 case "cancel": cancelled = true; pending = null; notifyAll(); events.add("host_cancel"); return ok(view(request, "cancelled", null));
                 case "commit": {
                     assertTrue("Engine must be closed before canon", modelCloses > 0);
-                    assertFalse("Native executor must be joined before canon", preparation.isAlive());
+                    assertTrue("Native prepare must finish before canon", events.contains("native_finished"));
                     if (failCommit) throw new IllegalStateException("private commit error");
                     commits++; events.add("commit");
                     JsonObject receipt = new JsonObject(); receipt.add("request", request.deepCopy());

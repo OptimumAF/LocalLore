@@ -6,7 +6,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -143,7 +142,11 @@ internal class BranchForkController(
                         uncertain = false, notice = "Timeline fork confirmed. The original is preserved; select the child explicitly to resume it.")
                     // Metadata refresh failure cannot hide an already confirmed canonical outcome.
                     try { onResolved(outcome) }
-                    catch (_: Exception) { mutable.value = mutable.value.copy(notice = "Fork confirmed. Saved timeline metadata could not be refreshed.") }
+                    catch (_: Exception) {
+                        // Canonical success remains known even if metadata refresh is cancelled.
+                        // A callback may synchronously change context before it throws.
+                        if (current(ticket)) mutable.value = mutable.value.copy(notice = "Fork confirmed. Saved timeline metadata could not be refreshed.")
+                    }
                 }
                 BranchForkPhase.REJECTED -> {
                     if (status.outcome != null || status.error == null) throw BranchForkFailure("InvalidResponse")
@@ -223,14 +226,17 @@ internal class BranchForkController(
                 throw cancelled
             } catch (failure: Exception) {
                 if (current(ticket)) mutable.value = mutable.value.copy(notice = forkNotice((failure as? BranchForkFailure)?.category), uncertain = true)
-            } finally {
-                if (active === currentCoroutineContext()[Job]) {
-                    active = null
-                    if (!disposed) mutable.value = mutable.value.copy(busy = false)
-                }
             }
         }
         active = job
+        // Completion also runs when cancellation precedes the first dispatcher entry;
+        // a coroutine-body finally alone cannot release that unentered worker slot.
+        job.invokeOnCompletion {
+            if (active === job) {
+                active = null
+                if (!disposed) mutable.value = mutable.value.copy(busy = false)
+            }
+        }
         job.start()
     }
 }

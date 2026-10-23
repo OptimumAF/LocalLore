@@ -1,0 +1,2103 @@
+{
+  "version": 1,
+  "synthetic": true,
+  "stories": [
+    {
+      "id": "gift-agency",
+      "seed": {
+        "version": 1,
+        "id": "lantern-quay-v1",
+        "scope": {
+          "story": "local-gift-agency",
+          "branch": "main"
+        },
+        "profile": "fantasy_v1",
+        "player": "player",
+        "locations": [
+          "quay",
+          "pier",
+          "tower",
+          "dry-well",
+          "old-ruins"
+        ],
+        "routes": [
+          [
+            "quay",
+            "pier"
+          ],
+          [
+            "pier",
+            "quay"
+          ],
+          [
+            "quay",
+            "dry-well"
+          ],
+          [
+            "dry-well",
+            "quay"
+          ]
+        ],
+        "actors": {
+          "player": {
+            "name": "Rowan",
+            "location": "quay",
+            "alive": true,
+            "energy": 2,
+            "abilities": {
+              "steady": 1
+            },
+            "attributes": {
+              "resolve": 3
+            },
+            "injuries": [
+              "cut-hand"
+            ],
+            "affiliations": [
+              "quay-keepers"
+            ],
+            "goals": [
+              "repair-beacon"
+            ]
+          },
+          "mira": {
+            "name": "Mira",
+            "location": "quay",
+            "alive": true,
+            "energy": 2,
+            "abilities": {
+              "steady": 1,
+              "beacon": 1
+            },
+            "attributes": {},
+            "injuries": [
+              "sprained-ankle"
+            ],
+            "affiliations": [
+              "quay-keepers"
+            ],
+            "goals": [
+              "repair-beacon"
+            ]
+          },
+          "oren": {
+            "name": "Oren",
+            "location": "pier",
+            "alive": true,
+            "energy": 0,
+            "abilities": {},
+            "attributes": {},
+            "injuries": [],
+            "affiliations": [],
+            "goals": [
+              "recover-key"
+            ]
+          },
+          "sable": {
+            "name": "Oren",
+            "location": "tower",
+            "alive": true,
+            "energy": 0,
+            "abilities": {},
+            "attributes": {},
+            "injuries": [],
+            "affiliations": [],
+            "goals": []
+          }
+        },
+        "items": {
+          "potion": {
+            "owner": "player",
+            "quantity": 1,
+            "return_to": null,
+            "healing": true
+          },
+          "brass-key": {
+            "owner": "player",
+            "quantity": 1,
+            "return_to": "oren",
+            "healing": false
+          }
+        },
+        "abilities": {
+          "steady": {
+            "cost": 2,
+            "prerequisite": null,
+            "teacher": "mira",
+            "max_rank": 1
+          },
+          "beacon": {
+            "cost": 1,
+            "prerequisite": "steady",
+            "teacher": "mira",
+            "max_rank": 1
+          },
+          "blink": {
+            "cost": 5,
+            "prerequisite": "beacon",
+            "teacher": "sable",
+            "max_rank": 1
+          }
+        },
+        "facts": {
+          "relic-location": {
+            "proposition": "Tideglass lies in dry-well: SECRET-TIDE-731.",
+            "discoverable_at": "dry-well",
+            "known_by": [
+              "player"
+            ]
+          },
+          "beacon-mark": {
+            "proposition": "An old repair mark is scratched inside the dry well.",
+            "discoverable_at": "dry-well",
+            "known_by": []
+          },
+          "ancestry": {
+            "proposition": "Rowan was born to ordinary quay keepers.",
+            "discoverable_at": null,
+            "known_by": [
+              "player"
+            ]
+          }
+        },
+        "relationships": [
+          {
+            "from": "mira",
+            "to": "player",
+            "respect": 4,
+            "trust": -3,
+            "obligation": 0
+          },
+          {
+            "from": "player",
+            "to": "mira",
+            "respect": 1,
+            "trust": 2,
+            "obligation": 0
+          },
+          {
+            "from": "oren",
+            "to": "player",
+            "respect": 0,
+            "trust": 0,
+            "obligation": 0
+          }
+        ],
+        "story_time": 100,
+        "beliefs": [
+          {
+            "believer": "mira",
+            "proposition": "The tideglass relic is in old-ruins.",
+            "source_claim": null,
+            "source": {
+              "kind": "seed",
+              "value": "lantern-quay-v1"
+            },
+            "confidence": "believed"
+          },
+          {
+            "believer": "oren",
+            "proposition": "Rowan may possess the tideglass relic.",
+            "source_claim": null,
+            "source": {
+              "kind": "seed",
+              "value": "lantern-quay-v1"
+            },
+            "confidence": "suspected"
+          }
+        ],
+        "commitments": {
+          "return-key": {
+            "from": "player",
+            "to": "oren",
+            "terms": "Return the borrowed brass key by tide tick 120.",
+            "deadline": 120,
+            "source": {
+              "kind": "seed",
+              "value": "lantern-quay-v1"
+            },
+            "return_item": "brass-key",
+            "completed_by": null
+          }
+        }
+      },
+      "setup_waits": 0,
+      "lineage": false,
+      "steps": [
+        {
+          "id": "gift",
+          "branch": "main",
+          "kind": "action",
+          "text": "I give my last potion to mira.",
+          "error": null,
+          "commands": [
+            {
+              "op": "give",
+              "item": "potion",
+              "to": "mira",
+              "quantity": 1
+            }
+          ],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/items/potion/owner",
+              "equals": "mira"
+            },
+            {
+              "pointer": "/actors/mira/injuries",
+              "equals": [
+                "sprained-ankle"
+              ]
+            },
+            {
+              "pointer": "/relationships/0/obligation",
+              "equals": 1
+            },
+            {
+              "pointer": "/relationships/0/trust",
+              "equals": -3
+            },
+            {
+              "pointer": "/relationships/1/obligation",
+              "equals": 0
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        },
+        {
+          "id": "thanks",
+          "branch": "main",
+          "kind": "dialogue",
+          "text": "I appreciate your help.",
+          "error": null,
+          "commands": [
+            {
+              "op": "say",
+              "text": "I appreciate your help.",
+              "audience": [
+                "mira"
+              ]
+            }
+          ],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/claims/0/text",
+              "equals": "I appreciate your help."
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        },
+        {
+          "id": "spent",
+          "branch": "main",
+          "kind": "action",
+          "text": "I give another potion to mira.",
+          "error": "Inventory",
+          "commands": [],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/items/potion/owner",
+              "equals": "mira"
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        },
+        {
+          "id": "power-claim",
+          "branch": "main",
+          "kind": "dialogue",
+          "text": "I can now use blink without paying energy.",
+          "error": null,
+          "commands": [
+            {
+              "op": "say",
+              "text": "I can now use blink without paying energy.",
+              "audience": [
+                "mira"
+              ]
+            }
+          ],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/actors/player/abilities",
+              "equals": {
+                "steady": 1
+              }
+            },
+            {
+              "pointer": "/actors/player/energy",
+              "equals": 2
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        }
+      ],
+      "context_assertions": [
+        {
+          "observer": "sable",
+          "query": "",
+          "required": [],
+          "forbidden": [
+            "SECRET-TIDE-731",
+            "potion"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "loan-promise",
+      "seed": {
+        "version": 1,
+        "id": "lantern-quay-v1",
+        "scope": {
+          "story": "local-loan-promise",
+          "branch": "main"
+        },
+        "profile": "fantasy_v1",
+        "player": "player",
+        "locations": [
+          "quay",
+          "pier",
+          "tower",
+          "dry-well",
+          "old-ruins"
+        ],
+        "routes": [
+          [
+            "quay",
+            "pier"
+          ],
+          [
+            "pier",
+            "quay"
+          ],
+          [
+            "quay",
+            "dry-well"
+          ],
+          [
+            "dry-well",
+            "quay"
+          ]
+        ],
+        "actors": {
+          "player": {
+            "name": "Rowan",
+            "location": "quay",
+            "alive": true,
+            "energy": 2,
+            "abilities": {
+              "steady": 1
+            },
+            "attributes": {
+              "resolve": 3
+            },
+            "injuries": [
+              "cut-hand"
+            ],
+            "affiliations": [
+              "quay-keepers"
+            ],
+            "goals": [
+              "repair-beacon"
+            ]
+          },
+          "mira": {
+            "name": "Mira",
+            "location": "quay",
+            "alive": true,
+            "energy": 2,
+            "abilities": {
+              "steady": 1,
+              "beacon": 1
+            },
+            "attributes": {},
+            "injuries": [
+              "sprained-ankle"
+            ],
+            "affiliations": [
+              "quay-keepers"
+            ],
+            "goals": [
+              "repair-beacon"
+            ]
+          },
+          "oren": {
+            "name": "Oren",
+            "location": "pier",
+            "alive": true,
+            "energy": 0,
+            "abilities": {},
+            "attributes": {},
+            "injuries": [],
+            "affiliations": [],
+            "goals": [
+              "recover-key"
+            ]
+          },
+          "sable": {
+            "name": "Oren",
+            "location": "tower",
+            "alive": true,
+            "energy": 0,
+            "abilities": {},
+            "attributes": {},
+            "injuries": [],
+            "affiliations": [],
+            "goals": []
+          }
+        },
+        "items": {
+          "potion": {
+            "owner": "player",
+            "quantity": 1,
+            "return_to": null,
+            "healing": true
+          },
+          "brass-key": {
+            "owner": "player",
+            "quantity": 1,
+            "return_to": "oren",
+            "healing": false
+          }
+        },
+        "abilities": {
+          "steady": {
+            "cost": 2,
+            "prerequisite": null,
+            "teacher": "mira",
+            "max_rank": 1
+          },
+          "beacon": {
+            "cost": 1,
+            "prerequisite": "steady",
+            "teacher": "mira",
+            "max_rank": 1
+          },
+          "blink": {
+            "cost": 5,
+            "prerequisite": "beacon",
+            "teacher": "sable",
+            "max_rank": 1
+          }
+        },
+        "facts": {
+          "relic-location": {
+            "proposition": "Tideglass lies in dry-well: SECRET-TIDE-731.",
+            "discoverable_at": "dry-well",
+            "known_by": [
+              "player"
+            ]
+          },
+          "beacon-mark": {
+            "proposition": "An old repair mark is scratched inside the dry well.",
+            "discoverable_at": "dry-well",
+            "known_by": []
+          },
+          "ancestry": {
+            "proposition": "Rowan was born to ordinary quay keepers.",
+            "discoverable_at": null,
+            "known_by": [
+              "player"
+            ]
+          }
+        },
+        "relationships": [
+          {
+            "from": "mira",
+            "to": "player",
+            "respect": 4,
+            "trust": -3,
+            "obligation": 0
+          },
+          {
+            "from": "player",
+            "to": "mira",
+            "respect": 1,
+            "trust": 2,
+            "obligation": 0
+          },
+          {
+            "from": "oren",
+            "to": "player",
+            "respect": 0,
+            "trust": 0,
+            "obligation": 0
+          }
+        ],
+        "story_time": 100,
+        "beliefs": [
+          {
+            "believer": "mira",
+            "proposition": "The tideglass relic is in old-ruins.",
+            "source_claim": null,
+            "source": {
+              "kind": "seed",
+              "value": "lantern-quay-v1"
+            },
+            "confidence": "believed"
+          },
+          {
+            "believer": "oren",
+            "proposition": "Rowan may possess the tideglass relic.",
+            "source_claim": null,
+            "source": {
+              "kind": "seed",
+              "value": "lantern-quay-v1"
+            },
+            "confidence": "suspected"
+          }
+        ],
+        "commitments": {
+          "return-key": {
+            "from": "player",
+            "to": "oren",
+            "terms": "Return the borrowed brass key by tide tick 120.",
+            "deadline": 120,
+            "source": {
+              "kind": "seed",
+              "value": "lantern-quay-v1"
+            },
+            "return_item": "brass-key",
+            "completed_by": null
+          }
+        }
+      },
+      "setup_waits": 32,
+      "lineage": false,
+      "steps": [
+        {
+          "id": "borrowed-refusal",
+          "branch": "main",
+          "kind": "action",
+          "text": "I give the brass-key to mira.",
+          "error": "Inventory",
+          "commands": [],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/items/brass-key/owner",
+              "equals": "player"
+            },
+            {
+              "pointer": "/items/brass-key/return_to",
+              "equals": "oren"
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        },
+        {
+          "id": "to-lender",
+          "branch": "main",
+          "kind": "action",
+          "text": "I move to pier.",
+          "error": null,
+          "commands": [
+            {
+              "op": "move",
+              "to": "pier"
+            }
+          ],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/actors/player/location",
+              "equals": "pier"
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        },
+        {
+          "id": "old-promise",
+          "branch": "main",
+          "kind": "dialogue",
+          "text": "I remember my promise to return the brass key.",
+          "error": null,
+          "commands": [
+            {
+              "op": "say",
+              "text": "I remember my promise to return the brass key.",
+              "audience": [
+                "oren"
+              ]
+            }
+          ],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [
+            {
+              "kind": "commitment",
+              "contains": "return-key",
+              "source": {
+                "kind": "seed",
+                "value": "lantern-quay-v1"
+              }
+            }
+          ],
+          "assertions": [],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        },
+        {
+          "id": "return-key",
+          "branch": "main",
+          "kind": "action",
+          "text": "I give the brass-key to oren.",
+          "error": null,
+          "commands": [
+            {
+              "op": "give",
+              "item": "brass-key",
+              "to": "oren",
+              "quantity": 1
+            }
+          ],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/items/brass-key/owner",
+              "equals": "oren"
+            },
+            {
+              "pointer": "/items/brass-key/return_to",
+              "equals": null
+            },
+            {
+              "pointer": "/commitments/return-key/completed_by",
+              "equals": null
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        }
+      ],
+      "context_assertions": []
+    },
+    {
+      "id": "ability-cost",
+      "seed": {
+        "version": 1,
+        "id": "lantern-quay-v1",
+        "scope": {
+          "story": "local-ability-cost",
+          "branch": "main"
+        },
+        "profile": "fantasy_v1",
+        "player": "player",
+        "locations": [
+          "quay",
+          "pier",
+          "tower",
+          "dry-well",
+          "old-ruins"
+        ],
+        "routes": [
+          [
+            "quay",
+            "pier"
+          ],
+          [
+            "pier",
+            "quay"
+          ],
+          [
+            "quay",
+            "dry-well"
+          ],
+          [
+            "dry-well",
+            "quay"
+          ]
+        ],
+        "actors": {
+          "player": {
+            "name": "Rowan",
+            "location": "quay",
+            "alive": true,
+            "energy": 2,
+            "abilities": {
+              "steady": 1
+            },
+            "attributes": {
+              "resolve": 3
+            },
+            "injuries": [
+              "cut-hand"
+            ],
+            "affiliations": [
+              "quay-keepers"
+            ],
+            "goals": [
+              "repair-beacon"
+            ]
+          },
+          "mira": {
+            "name": "Mira",
+            "location": "quay",
+            "alive": true,
+            "energy": 2,
+            "abilities": {
+              "steady": 1,
+              "beacon": 1
+            },
+            "attributes": {},
+            "injuries": [
+              "sprained-ankle"
+            ],
+            "affiliations": [
+              "quay-keepers"
+            ],
+            "goals": [
+              "repair-beacon"
+            ]
+          },
+          "oren": {
+            "name": "Oren",
+            "location": "pier",
+            "alive": true,
+            "energy": 0,
+            "abilities": {},
+            "attributes": {},
+            "injuries": [],
+            "affiliations": [],
+            "goals": [
+              "recover-key"
+            ]
+          },
+          "sable": {
+            "name": "Oren",
+            "location": "tower",
+            "alive": true,
+            "energy": 0,
+            "abilities": {},
+            "attributes": {},
+            "injuries": [],
+            "affiliations": [],
+            "goals": []
+          }
+        },
+        "items": {
+          "potion": {
+            "owner": "player",
+            "quantity": 1,
+            "return_to": null,
+            "healing": true
+          },
+          "brass-key": {
+            "owner": "player",
+            "quantity": 1,
+            "return_to": "oren",
+            "healing": false
+          }
+        },
+        "abilities": {
+          "steady": {
+            "cost": 2,
+            "prerequisite": null,
+            "teacher": "mira",
+            "max_rank": 1
+          },
+          "beacon": {
+            "cost": 1,
+            "prerequisite": "steady",
+            "teacher": "mira",
+            "max_rank": 1
+          },
+          "blink": {
+            "cost": 5,
+            "prerequisite": "beacon",
+            "teacher": "sable",
+            "max_rank": 1
+          }
+        },
+        "facts": {
+          "relic-location": {
+            "proposition": "Tideglass lies in dry-well: SECRET-TIDE-731.",
+            "discoverable_at": "dry-well",
+            "known_by": [
+              "player"
+            ]
+          },
+          "beacon-mark": {
+            "proposition": "An old repair mark is scratched inside the dry well.",
+            "discoverable_at": "dry-well",
+            "known_by": []
+          },
+          "ancestry": {
+            "proposition": "Rowan was born to ordinary quay keepers.",
+            "discoverable_at": null,
+            "known_by": [
+              "player"
+            ]
+          }
+        },
+        "relationships": [
+          {
+            "from": "mira",
+            "to": "player",
+            "respect": 4,
+            "trust": -3,
+            "obligation": 0
+          },
+          {
+            "from": "player",
+            "to": "mira",
+            "respect": 1,
+            "trust": 2,
+            "obligation": 0
+          },
+          {
+            "from": "oren",
+            "to": "player",
+            "respect": 0,
+            "trust": 0,
+            "obligation": 0
+          }
+        ],
+        "story_time": 100,
+        "beliefs": [
+          {
+            "believer": "mira",
+            "proposition": "The tideglass relic is in old-ruins.",
+            "source_claim": null,
+            "source": {
+              "kind": "seed",
+              "value": "lantern-quay-v1"
+            },
+            "confidence": "believed"
+          },
+          {
+            "believer": "oren",
+            "proposition": "Rowan may possess the tideglass relic.",
+            "source_claim": null,
+            "source": {
+              "kind": "seed",
+              "value": "lantern-quay-v1"
+            },
+            "confidence": "suspected"
+          }
+        ],
+        "commitments": {
+          "return-key": {
+            "from": "player",
+            "to": "oren",
+            "terms": "Return the borrowed brass key by tide tick 120.",
+            "deadline": 120,
+            "source": {
+              "kind": "seed",
+              "value": "lantern-quay-v1"
+            },
+            "return_item": "brass-key",
+            "completed_by": null
+          }
+        }
+      },
+      "setup_waits": 0,
+      "lineage": false,
+      "steps": [
+        {
+          "id": "unlearned",
+          "branch": "main",
+          "kind": "action",
+          "text": "I use blink.",
+          "error": "Ability",
+          "commands": [],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/actors/player/abilities",
+              "equals": {
+                "steady": 1
+              }
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        },
+        {
+          "id": "spend",
+          "branch": "main",
+          "kind": "action",
+          "text": "I use steady.",
+          "error": null,
+          "commands": [
+            {
+              "op": "use_ability",
+              "ability": "steady"
+            }
+          ],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/actors/player/energy",
+              "equals": 0
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        },
+        {
+          "id": "exhausted",
+          "branch": "main",
+          "kind": "action",
+          "text": "I use steady.",
+          "error": "Resource",
+          "commands": [],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/actors/player/energy",
+              "equals": 0
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        },
+        {
+          "id": "learn",
+          "branch": "main",
+          "kind": "action",
+          "text": "I learn beacon.",
+          "error": null,
+          "commands": [
+            {
+              "op": "learn",
+              "ability": "beacon"
+            }
+          ],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/actors/player/abilities",
+              "equals": {
+                "steady": 1,
+                "beacon": 1
+              }
+            },
+            {
+              "pointer": "/actors/player/energy",
+              "equals": 0
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        }
+      ],
+      "context_assertions": []
+    },
+    {
+      "id": "knowledge-boundary",
+      "seed": {
+        "version": 1,
+        "id": "lantern-quay-v1",
+        "scope": {
+          "story": "local-knowledge-boundary",
+          "branch": "main"
+        },
+        "profile": "fantasy_v1",
+        "player": "player",
+        "locations": [
+          "quay",
+          "pier",
+          "tower",
+          "dry-well",
+          "old-ruins"
+        ],
+        "routes": [
+          [
+            "quay",
+            "pier"
+          ],
+          [
+            "pier",
+            "quay"
+          ],
+          [
+            "quay",
+            "dry-well"
+          ],
+          [
+            "dry-well",
+            "quay"
+          ]
+        ],
+        "actors": {
+          "player": {
+            "name": "Rowan",
+            "location": "quay",
+            "alive": true,
+            "energy": 2,
+            "abilities": {
+              "steady": 1
+            },
+            "attributes": {
+              "resolve": 3
+            },
+            "injuries": [
+              "cut-hand"
+            ],
+            "affiliations": [
+              "quay-keepers"
+            ],
+            "goals": [
+              "repair-beacon"
+            ]
+          },
+          "mira": {
+            "name": "Mira",
+            "location": "quay",
+            "alive": true,
+            "energy": 2,
+            "abilities": {
+              "steady": 1,
+              "beacon": 1
+            },
+            "attributes": {},
+            "injuries": [
+              "sprained-ankle"
+            ],
+            "affiliations": [
+              "quay-keepers"
+            ],
+            "goals": [
+              "repair-beacon"
+            ]
+          },
+          "oren": {
+            "name": "Oren",
+            "location": "pier",
+            "alive": true,
+            "energy": 0,
+            "abilities": {},
+            "attributes": {},
+            "injuries": [],
+            "affiliations": [],
+            "goals": [
+              "recover-key"
+            ]
+          },
+          "sable": {
+            "name": "Oren",
+            "location": "tower",
+            "alive": true,
+            "energy": 0,
+            "abilities": {},
+            "attributes": {},
+            "injuries": [],
+            "affiliations": [],
+            "goals": []
+          }
+        },
+        "items": {
+          "potion": {
+            "owner": "player",
+            "quantity": 1,
+            "return_to": null,
+            "healing": true
+          },
+          "brass-key": {
+            "owner": "player",
+            "quantity": 1,
+            "return_to": "oren",
+            "healing": false
+          }
+        },
+        "abilities": {
+          "steady": {
+            "cost": 2,
+            "prerequisite": null,
+            "teacher": "mira",
+            "max_rank": 1
+          },
+          "beacon": {
+            "cost": 1,
+            "prerequisite": "steady",
+            "teacher": "mira",
+            "max_rank": 1
+          },
+          "blink": {
+            "cost": 5,
+            "prerequisite": "beacon",
+            "teacher": "sable",
+            "max_rank": 1
+          }
+        },
+        "facts": {
+          "relic-location": {
+            "proposition": "Tideglass lies in dry-well: SECRET-TIDE-731.",
+            "discoverable_at": "dry-well",
+            "known_by": [
+              "player"
+            ]
+          },
+          "beacon-mark": {
+            "proposition": "An old repair mark is scratched inside the dry well.",
+            "discoverable_at": "dry-well",
+            "known_by": []
+          },
+          "ancestry": {
+            "proposition": "Rowan was born to ordinary quay keepers.",
+            "discoverable_at": null,
+            "known_by": [
+              "player"
+            ]
+          }
+        },
+        "relationships": [
+          {
+            "from": "mira",
+            "to": "player",
+            "respect": 4,
+            "trust": -3,
+            "obligation": 0
+          },
+          {
+            "from": "player",
+            "to": "mira",
+            "respect": 1,
+            "trust": 2,
+            "obligation": 0
+          },
+          {
+            "from": "oren",
+            "to": "player",
+            "respect": 0,
+            "trust": 0,
+            "obligation": 0
+          }
+        ],
+        "story_time": 100,
+        "beliefs": [
+          {
+            "believer": "mira",
+            "proposition": "The tideglass relic is in old-ruins.",
+            "source_claim": null,
+            "source": {
+              "kind": "seed",
+              "value": "lantern-quay-v1"
+            },
+            "confidence": "believed"
+          },
+          {
+            "believer": "oren",
+            "proposition": "Rowan may possess the tideglass relic.",
+            "source_claim": null,
+            "source": {
+              "kind": "seed",
+              "value": "lantern-quay-v1"
+            },
+            "confidence": "suspected"
+          }
+        ],
+        "commitments": {
+          "return-key": {
+            "from": "player",
+            "to": "oren",
+            "terms": "Return the borrowed brass key by tide tick 120.",
+            "deadline": 120,
+            "source": {
+              "kind": "seed",
+              "value": "lantern-quay-v1"
+            },
+            "return_item": "brass-key",
+            "completed_by": null
+          }
+        }
+      },
+      "setup_waits": 0,
+      "lineage": false,
+      "steps": [
+        {
+          "id": "claim",
+          "branch": "main",
+          "kind": "dialogue",
+          "text": "I saw a silver dragon at the tower.",
+          "error": null,
+          "commands": [
+            {
+              "op": "say",
+              "text": "I saw a silver dragon at the tower.",
+              "audience": [
+                "mira"
+              ]
+            }
+          ],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/claims/0/text",
+              "equals": "I saw a silver dragon at the tower."
+            },
+            {
+              "pointer": "/beliefs/0/proposition",
+              "equals": "The tideglass relic is in old-ruins."
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        },
+        {
+          "id": "to-well",
+          "branch": "main",
+          "kind": "action",
+          "text": "I move to dry-well.",
+          "error": null,
+          "commands": [
+            {
+              "op": "move",
+              "to": "dry-well"
+            }
+          ],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/actors/player/location",
+              "equals": "dry-well"
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        },
+        {
+          "id": "discovery",
+          "branch": "main",
+          "kind": "action",
+          "text": "I discover beacon-mark.",
+          "error": null,
+          "commands": [
+            {
+              "op": "discover",
+              "fact": "beacon-mark"
+            }
+          ],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/discoveries/beacon-mark",
+              "equals": [
+                "player"
+              ]
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        },
+        {
+          "id": "return",
+          "branch": "main",
+          "kind": "action",
+          "text": "I move to quay.",
+          "error": null,
+          "commands": [
+            {
+              "op": "move",
+              "to": "quay"
+            }
+          ],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/actors/player/location",
+              "equals": "quay"
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        }
+      ],
+      "context_assertions": [
+        {
+          "observer": "mira",
+          "query": "silver dragon",
+          "required": [
+            {
+              "kind": "statement",
+              "contains": "I saw a silver dragon at the tower.",
+              "source": {
+                "kind": "event",
+                "value": 1
+              }
+            }
+          ],
+          "forbidden": [
+            "SECRET-TIDE-731",
+            "An old repair mark"
+          ]
+        },
+        {
+          "observer": "sable",
+          "query": "",
+          "required": [],
+          "forbidden": [
+            "SECRET-TIDE-731",
+            "An old repair mark",
+            "I saw a silver dragon at the tower."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "same-name",
+      "seed": {
+        "version": 1,
+        "id": "lantern-quay-v1",
+        "scope": {
+          "story": "local-same-name",
+          "branch": "main"
+        },
+        "profile": "fantasy_v1",
+        "player": "player",
+        "locations": [
+          "quay",
+          "pier",
+          "tower",
+          "dry-well",
+          "old-ruins"
+        ],
+        "routes": [
+          [
+            "quay",
+            "pier"
+          ],
+          [
+            "pier",
+            "quay"
+          ],
+          [
+            "quay",
+            "dry-well"
+          ],
+          [
+            "dry-well",
+            "quay"
+          ]
+        ],
+        "actors": {
+          "player": {
+            "name": "Rowan",
+            "location": "quay",
+            "alive": true,
+            "energy": 2,
+            "abilities": {
+              "steady": 1
+            },
+            "attributes": {
+              "resolve": 3
+            },
+            "injuries": [
+              "cut-hand"
+            ],
+            "affiliations": [
+              "quay-keepers"
+            ],
+            "goals": [
+              "repair-beacon"
+            ]
+          },
+          "mira": {
+            "name": "Mira",
+            "location": "quay",
+            "alive": true,
+            "energy": 2,
+            "abilities": {
+              "steady": 1,
+              "beacon": 1
+            },
+            "attributes": {},
+            "injuries": [
+              "sprained-ankle"
+            ],
+            "affiliations": [
+              "quay-keepers"
+            ],
+            "goals": [
+              "repair-beacon"
+            ]
+          },
+          "oren": {
+            "name": "Oren",
+            "location": "quay",
+            "alive": true,
+            "energy": 0,
+            "abilities": {},
+            "attributes": {},
+            "injuries": [],
+            "affiliations": [],
+            "goals": [
+              "recover-key"
+            ]
+          },
+          "sable": {
+            "name": "Oren",
+            "location": "quay",
+            "alive": true,
+            "energy": 0,
+            "abilities": {},
+            "attributes": {},
+            "injuries": [],
+            "affiliations": [],
+            "goals": []
+          }
+        },
+        "items": {
+          "potion": {
+            "owner": "player",
+            "quantity": 1,
+            "return_to": null,
+            "healing": true
+          },
+          "brass-key": {
+            "owner": "player",
+            "quantity": 1,
+            "return_to": "oren",
+            "healing": false
+          }
+        },
+        "abilities": {
+          "steady": {
+            "cost": 2,
+            "prerequisite": null,
+            "teacher": "mira",
+            "max_rank": 1
+          },
+          "beacon": {
+            "cost": 1,
+            "prerequisite": "steady",
+            "teacher": "mira",
+            "max_rank": 1
+          },
+          "blink": {
+            "cost": 5,
+            "prerequisite": "beacon",
+            "teacher": "sable",
+            "max_rank": 1
+          }
+        },
+        "facts": {
+          "relic-location": {
+            "proposition": "Tideglass lies in dry-well: SECRET-TIDE-731.",
+            "discoverable_at": "dry-well",
+            "known_by": [
+              "player"
+            ]
+          },
+          "beacon-mark": {
+            "proposition": "An old repair mark is scratched inside the dry well.",
+            "discoverable_at": "dry-well",
+            "known_by": []
+          },
+          "ancestry": {
+            "proposition": "Rowan was born to ordinary quay keepers.",
+            "discoverable_at": null,
+            "known_by": [
+              "player"
+            ]
+          }
+        },
+        "relationships": [
+          {
+            "from": "mira",
+            "to": "player",
+            "respect": 4,
+            "trust": -3,
+            "obligation": 0
+          },
+          {
+            "from": "player",
+            "to": "mira",
+            "respect": 1,
+            "trust": 2,
+            "obligation": 0
+          },
+          {
+            "from": "oren",
+            "to": "player",
+            "respect": 0,
+            "trust": 0,
+            "obligation": 0
+          }
+        ],
+        "story_time": 100,
+        "beliefs": [
+          {
+            "believer": "mira",
+            "proposition": "The tideglass relic is in old-ruins.",
+            "source_claim": null,
+            "source": {
+              "kind": "seed",
+              "value": "lantern-quay-v1"
+            },
+            "confidence": "believed"
+          },
+          {
+            "believer": "oren",
+            "proposition": "Rowan may possess the tideglass relic.",
+            "source_claim": null,
+            "source": {
+              "kind": "seed",
+              "value": "lantern-quay-v1"
+            },
+            "confidence": "suspected"
+          }
+        ],
+        "commitments": {
+          "return-key": {
+            "from": "player",
+            "to": "oren",
+            "terms": "Return the borrowed brass key by tide tick 120.",
+            "deadline": 120,
+            "source": {
+              "kind": "seed",
+              "value": "lantern-quay-v1"
+            },
+            "return_item": "brass-key",
+            "completed_by": null
+          }
+        }
+      },
+      "setup_waits": 0,
+      "lineage": false,
+      "steps": [
+        {
+          "id": "ambiguous",
+          "branch": "main",
+          "kind": "action",
+          "text": "I give the potion to Oren.",
+          "error": "ClarificationRequired",
+          "commands": [],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/items/potion/owner",
+              "equals": "player"
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        },
+        {
+          "id": "exact-id",
+          "branch": "main",
+          "kind": "action",
+          "text": "I give the potion to oren.",
+          "error": null,
+          "commands": [
+            {
+              "op": "give",
+              "item": "potion",
+              "to": "oren",
+              "quantity": 1
+            }
+          ],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/items/potion/owner",
+              "equals": "oren"
+            },
+            {
+              "pointer": "/actors/sable/name",
+              "equals": "Oren"
+            },
+            {
+              "pointer": "/actors/oren/name",
+              "equals": "Oren"
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        },
+        {
+          "id": "wrong-lender",
+          "branch": "main",
+          "kind": "action",
+          "text": "I give the brass-key to sable.",
+          "error": "Inventory",
+          "commands": [],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/items/brass-key/owner",
+              "equals": "player"
+            },
+            {
+              "pointer": "/items/brass-key/return_to",
+              "equals": "oren"
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        },
+        {
+          "id": "leave-collision",
+          "branch": "main",
+          "kind": "action",
+          "text": "I move to pier.",
+          "error": null,
+          "commands": [
+            {
+              "op": "move",
+              "to": "pier"
+            }
+          ],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/actors/player/location",
+              "equals": "pier"
+            },
+            {
+              "pointer": "/items/potion/owner",
+              "equals": "oren"
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        }
+      ],
+      "context_assertions": []
+    },
+    {
+      "id": "lineage",
+      "seed": {
+        "version": 1,
+        "id": "lantern-quay-v1",
+        "scope": {
+          "story": "local-lineage",
+          "branch": "main"
+        },
+        "profile": "fantasy_v1",
+        "player": "player",
+        "locations": [
+          "quay",
+          "pier",
+          "tower",
+          "dry-well",
+          "old-ruins"
+        ],
+        "routes": [
+          [
+            "quay",
+            "pier"
+          ],
+          [
+            "pier",
+            "quay"
+          ],
+          [
+            "quay",
+            "dry-well"
+          ],
+          [
+            "dry-well",
+            "quay"
+          ]
+        ],
+        "actors": {
+          "player": {
+            "name": "Rowan",
+            "location": "quay",
+            "alive": true,
+            "energy": 2,
+            "abilities": {
+              "steady": 1
+            },
+            "attributes": {
+              "resolve": 3
+            },
+            "injuries": [
+              "cut-hand"
+            ],
+            "affiliations": [
+              "quay-keepers"
+            ],
+            "goals": [
+              "repair-beacon"
+            ]
+          },
+          "mira": {
+            "name": "Mira",
+            "location": "quay",
+            "alive": true,
+            "energy": 2,
+            "abilities": {
+              "steady": 1,
+              "beacon": 1
+            },
+            "attributes": {},
+            "injuries": [
+              "sprained-ankle"
+            ],
+            "affiliations": [
+              "quay-keepers"
+            ],
+            "goals": [
+              "repair-beacon"
+            ]
+          },
+          "oren": {
+            "name": "Oren",
+            "location": "pier",
+            "alive": true,
+            "energy": 0,
+            "abilities": {},
+            "attributes": {},
+            "injuries": [],
+            "affiliations": [],
+            "goals": [
+              "recover-key"
+            ]
+          },
+          "sable": {
+            "name": "Oren",
+            "location": "tower",
+            "alive": true,
+            "energy": 0,
+            "abilities": {},
+            "attributes": {},
+            "injuries": [],
+            "affiliations": [],
+            "goals": []
+          }
+        },
+        "items": {
+          "potion": {
+            "owner": "player",
+            "quantity": 1,
+            "return_to": null,
+            "healing": true
+          },
+          "brass-key": {
+            "owner": "player",
+            "quantity": 1,
+            "return_to": "oren",
+            "healing": false
+          }
+        },
+        "abilities": {
+          "steady": {
+            "cost": 2,
+            "prerequisite": null,
+            "teacher": "mira",
+            "max_rank": 1
+          },
+          "beacon": {
+            "cost": 1,
+            "prerequisite": "steady",
+            "teacher": "mira",
+            "max_rank": 1
+          },
+          "blink": {
+            "cost": 5,
+            "prerequisite": "beacon",
+            "teacher": "sable",
+            "max_rank": 1
+          }
+        },
+        "facts": {
+          "relic-location": {
+            "proposition": "Tideglass lies in dry-well: SECRET-TIDE-731.",
+            "discoverable_at": "dry-well",
+            "known_by": [
+              "player"
+            ]
+          },
+          "beacon-mark": {
+            "proposition": "An old repair mark is scratched inside the dry well.",
+            "discoverable_at": "dry-well",
+            "known_by": []
+          },
+          "ancestry": {
+            "proposition": "Rowan was born to ordinary quay keepers.",
+            "discoverable_at": null,
+            "known_by": [
+              "player"
+            ]
+          }
+        },
+        "relationships": [
+          {
+            "from": "mira",
+            "to": "player",
+            "respect": 4,
+            "trust": -3,
+            "obligation": 0
+          },
+          {
+            "from": "player",
+            "to": "mira",
+            "respect": 1,
+            "trust": 2,
+            "obligation": 0
+          },
+          {
+            "from": "oren",
+            "to": "player",
+            "respect": 0,
+            "trust": 0,
+            "obligation": 0
+          }
+        ],
+        "story_time": 100,
+        "beliefs": [
+          {
+            "believer": "mira",
+            "proposition": "The tideglass relic is in old-ruins.",
+            "source_claim": null,
+            "source": {
+              "kind": "seed",
+              "value": "lantern-quay-v1"
+            },
+            "confidence": "believed"
+          },
+          {
+            "believer": "oren",
+            "proposition": "Rowan may possess the tideglass relic.",
+            "source_claim": null,
+            "source": {
+              "kind": "seed",
+              "value": "lantern-quay-v1"
+            },
+            "confidence": "suspected"
+          }
+        ],
+        "commitments": {
+          "return-key": {
+            "from": "player",
+            "to": "oren",
+            "terms": "Return the borrowed brass key by tide tick 120.",
+            "deadline": 120,
+            "source": {
+              "kind": "seed",
+              "value": "lantern-quay-v1"
+            },
+            "return_item": "brass-key",
+            "completed_by": null
+          }
+        }
+      },
+      "setup_waits": 0,
+      "lineage": true,
+      "steps": [
+        {
+          "id": "child-gift",
+          "branch": "child",
+          "kind": "action",
+          "text": "I give the potion to mira.",
+          "error": null,
+          "commands": [
+            {
+              "op": "give",
+              "item": "potion",
+              "to": "mira",
+              "quantity": 1
+            }
+          ],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [
+            {
+              "kind": "observation",
+              "contains": "ROOT-VISIBLE-BELL",
+              "source": {
+                "story": "local-lineage",
+                "branch": "main"
+              }
+            }
+          ],
+          "assertions": [
+            {
+              "pointer": "/items/potion/owner",
+              "equals": "mira"
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        },
+        {
+          "id": "child-memory",
+          "branch": "child",
+          "kind": "dialogue",
+          "text": "Do you remember ROOT-VISIBLE-BELL?",
+          "error": null,
+          "commands": [
+            {
+              "op": "say",
+              "text": "Do you remember ROOT-VISIBLE-BELL?",
+              "audience": [
+                "mira"
+              ]
+            }
+          ],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        },
+        {
+          "id": "parent-gift",
+          "branch": "main",
+          "kind": "action",
+          "text": "I give the potion to mira.",
+          "error": null,
+          "commands": [
+            {
+              "op": "give",
+              "item": "potion",
+              "to": "mira",
+              "quantity": 1
+            }
+          ],
+          "narration": "The moment is recorded.",
+          "cancel": false,
+          "prompt_targets": [],
+          "assertions": [
+            {
+              "pointer": "/items/potion/owner",
+              "equals": "mira"
+            }
+          ],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        },
+        {
+          "id": "cancel",
+          "branch": "child",
+          "kind": "action",
+          "text": "I wait for one tide tick.",
+          "error": "Cancelled",
+          "commands": [
+            {
+              "op": "wait",
+              "ticks": 1
+            }
+          ],
+          "narration": "The moment is recorded.",
+          "cancel": true,
+          "prompt_targets": [],
+          "assertions": [],
+          "prohibited_narration": [
+            "gain the blink ability",
+            "infinite energy"
+          ]
+        }
+      ],
+      "context_assertions": [
+        {
+          "observer": "player",
+          "query": "ROOT-VISIBLE-BELL",
+          "required": [
+            {
+              "kind": "statement",
+              "contains": "ROOT-VISIBLE-BELL",
+              "source": {
+                "kind": "event",
+                "value": 1
+              }
+            }
+          ],
+          "forbidden": [
+            "PARENT-FUTURE-MIST",
+            "SIBLING-ONLY-SALT"
+          ]
+        }
+      ]
+    }
+  ]
+}

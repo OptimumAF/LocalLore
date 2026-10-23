@@ -134,8 +134,19 @@ name = "locallore-eval"
 version = "0.1.0"
 dependencies = [
  "locallore",
+ "locallore-local-runtime",
  "locallore-storage",
  "locallore-workspace",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "locallore-local-runtime"
+version = "0.1.0"
+dependencies = [
+ "locallore",
  "serde",
  "serde_json",
  "sha2",

@@ -212,6 +212,7 @@ def build(args: argparse.Namespace) -> None:
     env.update({"PATH": str(args.node.absolute().parent) + os.pathsep + env["PATH"],
                 "CARGO_PROFILE_DEV_DEBUG": "0", "CARGO_PROFILE_TEST_DEBUG": "0",
                 "CARGO_INCREMENTAL": "0", "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD": "1",
+                "CARGO_ENCODED_RUSTFLAGS": f"--remap-path-prefix={ROOT}=/locallore-source",
                 "CARGO_TARGET_DIR": str(target)})
     # This script is not a dependency provisioner: npm dependencies and Cargo cache
     # must already be available. All subprocesses have argv vectors, never a shell.
@@ -250,6 +251,7 @@ def build(args: argparse.Namespace) -> None:
                 "node_options": env.get("NODE_OPTIONS", ""),
                 "rust": rust,
                 "cargo_profile": "dev; debug=0; incremental=0; no-default-features; final-link=/Brepro",
+                "source_path_mapping": "all-rustc; source-root=/locallore-source",
                 "target": "x86_64-pc-windows-msvc", "dev_harness": False,
                 "model_weights_included": False, "worker_sha256": WORKER_SHA,
                 "runtime_commit": RUNTIME_COMMIT, "installer_qualified": False,

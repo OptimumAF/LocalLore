@@ -16,6 +16,24 @@ For every distributed dependency/artifact, record publisher/source, exact revisi
 
 Do not equate 'open weights' with a universal guarantee that a model meets every open-source definition or usage requirement. Verify each artifact at the time of selection. The research shortlist is not an approved redistribution inventory.
 
+The Windows developer packager has a versioned, exact selected-dependency
+[notice/source catalog](../licenses/desktop/catalog-v1.json). Its
+[scoped audit evidence](desktop/D09_LICENSE_AUDIT_2026-10-23.md) distinguishes
+mechanical material coverage from independent review and distribution approval.
+The legacy `license_audit_complete` flag remains false. Included upstream MPL
+source archives are public dependency source, separate from user stories and
+model weights; the package still contains no weights. This implements inventory
+checks under the policy above and does not change any applicable license.
+
+The additive [MSVC notice/provenance record](desktop/D09_MSVC_NOTICE_ADDENDUM_2026-10-23.md)
+separates STL header/template notices, embedded native CRT startup material and
+external runtime DLL prerequisites. It preserves the original audit evidence and
+keeps independent review and distribution approval pending.
+
+The separate [embedded JSON header attribution correction](desktop/D09_JSON_NOTICE_CORRECTION_2026-10-23.md)
+records a failed actual-collector review regression, its focused resource fix and
+the conditional applicability of notices retained from the pinned header.
+
 ## Contributions and generated material
 
 Contributors submit only material they have rights to contribute, under Apache-2.0 for first-party changes unless agreed otherwise. There is no CLA or copyright-assignment requirement at bootstrap. Material AI assistance should be disclosed; it does not remove responsibility for provenance and review.

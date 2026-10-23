@@ -253,21 +253,95 @@ fn newly_valid_request_is_not_failed_against_a_stale_local_cache() {
 
 #[test]
 fn generation_holds_neither_host_nor_database_writer_lock() {
+    use locallore::{contracts::Error, inference::*, play::PlayProfile};
+    use std::sync::{mpsc, Arc, Mutex};
+    use std::task::Poll;
+    struct HeldProvider {
+        entered: Option<mpsc::Sender<()>>,
+        release: Arc<Mutex<mpsc::Receiver<()>>>,
+    }
+    impl InferenceProvider for HeldProvider {
+        fn poll(
+            &mut self,
+            r: &GenerationRequest,
+            _: &Cancellation,
+        ) -> Poll<Result<Vec<u8>, Error>> {
+            let Input::Structured { role, .. } = &r.input else {
+                return Poll::Ready(Err(Error::Provider));
+            };
+            if let Some(entered) = self.entered.take() {
+                entered.send(()).unwrap();
+                // A bounded watchdog prevents a lock regression from hanging the suite.
+                if self
+                    .release
+                    .lock()
+                    .unwrap()
+                    .recv_timeout(Duration::from_secs(5))
+                    .is_err()
+                {
+                    return Poll::Ready(Err(Error::Timeout));
+                }
+            }
+            let out = if role == "director" {
+                json!({"commands":[{"op":"give","item":"potion","to":"mira","quantity":1}]})
+            } else {
+                json!({"text":"You place the potion in Mira's hand.","speaker":"narrator","event_ids":[1]})
+            };
+            Poll::Ready(Ok(serde_json::to_vec(&out).unwrap()))
+        }
+    }
     let tmp = Temp::new();
     let first = tmp.host(false);
     let (a, scope) = create(&first);
     let second = tmp.host(false);
     let b = resume(&second, &scope);
-    submit(&first, &a, &request(&scope, "delayed", 0, true), "delayed");
+    let (entered_tx, entered_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let release = Arc::new(Mutex::new(release_rx));
+    first
+        .configure_local_provider(
+            PlayProfile {
+                id: "held-provider-test".into(),
+                model_sha256: "a".repeat(64),
+                runtime_revision: "b".repeat(40),
+                template_sha256: "c".repeat(64),
+                worker_sha256: "d".repeat(64),
+                profile_manifest_sha256: "e".repeat(64),
+                context_tokens: 4096,
+                director_tokens: 350,
+                narrator_tokens: 220,
+                deadline_ms: 10_000,
+                repair_limit: 0,
+            },
+            Arc::new(move || {
+                Box::new(HeldProvider {
+                    entered: Some(entered_tx.clone()),
+                    release: release.clone(),
+                })
+            }),
+        )
+        .unwrap();
+    let req = json!({"version":1,"scope":scope,"turn":"held","expected_revision":0,"intent":{"kind":"free_text","value":{"kind":"action","text":"I give my potion to Mira."}}});
+    assert_eq!(
+        submit(&first, &a, &req, "accepted")["data"]["phase"],
+        "queued"
+    );
     std::thread::scope(|threads| {
-        let running = threads.spawn(|| op(&first, &a, &scope, "delayed", "prepare"));
-        await_worker(&first);
+        let running = threads.spawn(|| op(&first, &a, &scope, "held", "prepare"));
+        entered_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("provider entry signal");
         assert_eq!(call(&first, json!({"op":"workspace"}))["status"], "ok");
         assert_eq!(
             submit(&second, &b, &request(&scope, "other", 0, false), "accepted")["data"]["phase"],
             "queued"
         );
-        assert_eq!(first.live_counts().1,1,"bounded delayed inference should still be running after independent control/SQL operations");
+        assert_eq!(
+            first.live_counts().1,
+            1,
+            "provider is held until explicit release"
+        );
+        release_tx.send(()).unwrap();
         assert_eq!(running.join().unwrap()["data"]["phase"], "ready");
     });
 }

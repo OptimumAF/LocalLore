@@ -34,9 +34,15 @@ struct PersistedReceipt {
     proposal: Proposal,
     events: Vec<serde_json::Value>,
     narration: String,
+    play: Option<crate::play::PlayRecord>,
 }
 
 struct UniqueJson(serde_json::Value);
+
+pub(crate) fn parse_unique<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T, Error> {
+    let raw: UniqueJson = serde_json::from_slice(bytes).map_err(|_| Error::Malformed)?;
+    serde_json::from_value(raw.0).map_err(|_| Error::Malformed)
+}
 
 impl<'de> Deserialize<'de> for UniqueJson {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
@@ -166,7 +172,9 @@ impl Engine {
                 audience: audience.clone(),
             }],
             Intent::AuthorCorrection(_) => return Err(Error::AuthorUiRequired),
-            Intent::Thought(_) | Intent::Ambiguous(_) => return Err(Error::ClarificationRequired),
+            Intent::Thought(_) | Intent::Ambiguous(_) | Intent::FreeText { .. } => {
+                return Err(Error::ClarificationRequired)
+            }
         };
         Ok(Proposal {
             version: VERSION,
@@ -210,6 +218,16 @@ impl Engine {
             return Err(Error::Rule);
         }
         check_json_budget(request, MAX_PROPOSAL_BYTES)?;
+        if let Intent::FreeText { text, .. } = &request.intent {
+            if text.trim().is_empty()
+                || text.len() > MAX_TEXT_BYTES
+                || text
+                    .chars()
+                    .any(|c| c.is_control() && c != '\n' && c != '\t')
+            {
+                return Err(Error::TooLarge);
+            }
+        }
         if let Intent::Actions(commands) = &request.intent {
             if commands.is_empty() || commands.len() > MAX_COMMANDS {
                 return Err(Error::TooLarge);
@@ -234,7 +252,9 @@ impl Engine {
         if proposal.turn != request.turn || !valid_id(&request.turn) {
             return Err(Error::Rule);
         }
-        if Self::proposal(request)?.commands != proposal.commands {
+        if matches!(request.intent, Intent::FreeText { .. }) {
+            crate::play::validate_interpretation(self, request, proposal)?;
+        } else if Self::proposal(request)?.commands != proposal.commands {
             return Err(Error::Agency);
         }
         if proposal.commands.is_empty() || proposal.commands.len() > MAX_COMMANDS {
@@ -268,6 +288,7 @@ impl Engine {
             proposal: proposal.clone(),
             events,
             narration,
+            play: None,
         })
     }
 
@@ -281,6 +302,9 @@ impl Engine {
         if let Some(receipt) = self.recorded(request)? {
             return Ok(receipt);
         }
+        if matches!(request.intent, Intent::FreeText { .. }) {
+            return Err(Error::Agency);
+        }
         let receipt = self.preview(request, proposal)?;
         // The fake-provider proof accepts only exact engine-rendered prose. No semantic oracle claim.
         if narration != receipt.narration {
@@ -293,6 +317,41 @@ impl Engine {
         self.state = staged;
         self.receipts.push(receipt.clone());
         Ok(receipt)
+    }
+
+    /// Only a versioned generated-play record can relax v1's exact-rendered narration rule.
+    pub fn commit_play(
+        &mut self,
+        request: &Request,
+        proposal: &Proposal,
+        record: &crate::play::PlayRecord,
+    ) -> Result<Receipt, Error> {
+        if let Some(receipt) = self.recorded(request)? {
+            return Ok(receipt);
+        }
+        if !matches!(request.intent, Intent::FreeText { .. }) {
+            return Err(Error::Agency);
+        }
+        let mut receipt = self.preview(request, proposal)?;
+        crate::play::validate_record(self, &receipt, record)?;
+        receipt.narration = record.narration.text.clone();
+        receipt.play = Some(record.clone());
+        let mut staged = self.state.clone();
+        for (command, event) in proposal.commands.iter().zip(&receipt.events) {
+            let _ = resolve(&self.seed, &mut staged, command, event.sequence)?;
+        }
+        self.state = staged;
+        self.receipts.push(receipt.clone());
+        Ok(receipt)
+    }
+
+    /// Revalidate a prepared engine value; callers cannot supply accepted events as authority.
+    pub fn commit_prepared(&mut self, receipt: &Receipt) -> Result<Receipt, Error> {
+        if let Some(play) = receipt.play() {
+            self.commit_play(receipt.request(), receipt.proposal(), play)
+        } else {
+            self.commit(receipt.request(), receipt.proposal(), receipt.narration())
+        }
     }
 
     /// Restore bounded complete persisted root-history receipts, never a supplied projection.
@@ -327,9 +386,15 @@ impl Engine {
             {
                 return Err(Error::CorruptHistory);
             }
-            let rebuilt = engine
-                .commit(&recorded.request, &recorded.proposal, &recorded.narration)
-                .map_err(|_| Error::CorruptHistory)?;
+            let rebuilt = if let Some(play) = &recorded.play {
+                if play.narration.text != recorded.narration {
+                    return Err(Error::CorruptHistory);
+                }
+                engine.commit_play(&recorded.request, &recorded.proposal, play)
+            } else {
+                engine.commit(&recorded.request, &recorded.proposal, &recorded.narration)
+            }
+            .map_err(|_| Error::CorruptHistory)?;
             // Full JSON equality rejects unknown envelope/effect fields, forged witnesses,
             // provenance, order, scope, sequence and effects. Object key order is irrelevant.
             if serde_json::to_value(rebuilt).map_err(|_| Error::CorruptHistory)? != raw.0 {
@@ -346,7 +411,7 @@ impl Engine {
             if engine.recorded(&receipt.request)?.is_some() {
                 return Err(Error::CorruptHistory);
             }
-            let rebuilt = engine.commit(&receipt.request, &receipt.proposal, &receipt.narration)?;
+            let rebuilt = engine.commit_prepared(receipt)?;
             if &rebuilt != receipt {
                 return Err(Error::CorruptHistory);
             }
@@ -380,7 +445,7 @@ impl Engine {
                 break;
             }
             result.scope = receipt.request.scope.clone();
-            let rebuilt = result.commit(&receipt.request, &receipt.proposal, &receipt.narration)?;
+            let rebuilt = result.commit_prepared(receipt)?;
             if rebuilt != *receipt {
                 return Err(Error::CorruptHistory);
             }
@@ -453,7 +518,7 @@ impl Engine {
     }
 }
 
-fn valid_id(id: &str) -> bool {
+pub(crate) fn valid_id(id: &str) -> bool {
     !id.is_empty()
         && id.len() <= 64
         && id

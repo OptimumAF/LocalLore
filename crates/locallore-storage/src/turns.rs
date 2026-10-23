@@ -396,6 +396,23 @@ impl Store {
         proposal: &Proposal,
         narration: &str,
     ) -> Result<Receipt> {
+        self.commit_output(request, proposal, narration, None)
+    }
+    pub fn commit_prepared(&mut self, receipt: &Receipt) -> Result<Receipt> {
+        self.commit_output(
+            receipt.request(),
+            receipt.proposal(),
+            receipt.narration(),
+            receipt.play(),
+        )
+    }
+    fn commit_output(
+        &mut self,
+        request: &Request,
+        proposal: &Proposal,
+        narration: &str,
+        play: Option<&locallore::play::PlayRecord>,
+    ) -> Result<Receipt> {
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -420,10 +437,15 @@ impl Store {
             tx.commit()?;
             return Err(TurnError::Stale);
         }
-        let receipt = resumed
-            .engine
-            .commit(request, proposal, narration)
-            .map_err(TurnError::Engine)?;
+        let receipt = if let Some(play) = play {
+            if play.narration.text != narration {
+                return Err(TurnError::Integrity);
+            }
+            resumed.engine.commit_play(request, proposal, play)
+        } else {
+            resumed.engine.commit(request, proposal, narration)
+        }
+        .map_err(TurnError::Engine)?;
         let response = serde_json::to_string(&receipt).map_err(|_| TurnError::Integrity)?;
         let prior_bytes: i64 = tx.query_row("SELECT coalesce(sum(length(CAST(request_json AS BLOB))+coalesce(length(CAST(response_json AS BLOB)),0)),0) FROM turns WHERE story_id=?1 AND branch_id=?2",(&request.scope.story,&request.scope.branch),|r|r.get(0))?;
         if response.len() > MAX_RECEIPT_BYTES

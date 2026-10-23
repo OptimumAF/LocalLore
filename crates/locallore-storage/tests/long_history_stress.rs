@@ -314,13 +314,19 @@ fn accepted_thousand_event_retrieval_and_interference_baseline() {
         &mut store,
         &mut sibling_engine,
         "sibling-local",
-        vec![say(FORBIDDEN[1], &["courier"])],
+        vec![
+            say(FORBIDDEN[1], &["courier"]),
+            say("SIBLING-SECOND-ANCHOR", &["courier"]),
+        ],
     );
     apply(
         &mut store,
         &mut engine,
         "parent-future",
-        vec![say(FORBIDDEN[0], &["courier"])],
+        vec![
+            say(FORBIDDEN[0], &["courier"]),
+            say("PARENT-FUTURE-SECOND-ANCHOR", &["courier"]),
+        ],
     );
     let foreign_seed = seed("foreign-orchard");
     let foreign = foreign_seed.scope.clone();
@@ -328,15 +334,44 @@ fn accepted_thousand_event_retrieval_and_interference_baseline() {
         .create_story("Separate synthetic orchard", foreign_seed.clone())
         .unwrap();
     let mut foreign_engine = Engine::new(foreign_seed).unwrap();
+    // A second actual history gives the negative story exactly the selected
+    // revision. Scope isolation cannot pass merely because heads differ. These
+    // extra fixtures do not change the original primary child corpus.
+    for batch in 0..129 {
+        let commands = (0..8)
+            .map(|slot| {
+                say(
+                    &format!(
+                        "Foreign pebble register entry {} is an unrelated weather count.",
+                        batch * 8 + slot
+                    ),
+                    &["courier"],
+                )
+            })
+            .collect();
+        apply(
+            &mut store,
+            &mut foreign_engine,
+            &format!("foreign-distractors-{batch:03}"),
+            commands,
+        );
+    }
     apply(
         &mut store,
         &mut foreign_engine,
         "foreign-local",
-        vec![say(FORBIDDEN[2], &["courier"])],
+        vec![
+            say(FORBIDDEN[2], &["courier"]),
+            say("FOREIGN-SECOND-ANCHOR", &["courier"]),
+        ],
     );
+    assert_eq!(foreign_engine.revision(), CHILD_HEAD);
+    assert_eq!(sibling_engine.revision(), CHILD_HEAD);
+    assert_eq!(engine.revision(), CHILD_HEAD);
     // A descendant deliberately forks before its parent's birth. Original root
     // sources remain root-scoped; the selected lineage must apply the earlier cap.
     let prebirth = fork(&mut store, &child_engine, "prebirth", 8);
+    let all_fixture_us = micros(generation);
     drop(store);
     let reopen = Instant::now();
     let mut store = Store::open(&artifacts.database(), None).unwrap();
@@ -664,9 +699,9 @@ fn accepted_thousand_event_retrieval_and_interference_baseline() {
     for (scope, head, observer, after) in [
         (&child, CHILD_HEAD, "courier", ROOT_HEAD),
         (&child, CHILD_HEAD, "player", ROOT_HEAD),
-        (&root, 1033, "courier", ROOT_HEAD),
-        (&sibling, 1033, "courier", ROOT_HEAD),
-        (&foreign, 1, "courier", 0),
+        (&root, CHILD_HEAD, "courier", ROOT_HEAD),
+        (&sibling, CHILD_HEAD, "courier", ROOT_HEAD),
+        (&foreign, CHILD_HEAD, "courier", ROOT_HEAD),
     ] {
         publish(
             &mut store,
@@ -697,7 +732,7 @@ fn accepted_thousand_event_retrieval_and_interference_baseline() {
         &mut cases,
         "FTS-wrong-story-sibling-parent-future-excluded",
         forbidden_hits == vec![0, 0, 0],
-        json!({"hits":forbidden_hits}),
+        json!({"hits":forbidden_hits,"all_scope_heads":CHILD_HEAD,"all_observers":"courier"}),
     );
     let canonical_after = store.resume(&child).unwrap().engine.canonical_bytes();
     record(
@@ -728,8 +763,8 @@ fn accepted_thousand_event_retrieval_and_interference_baseline() {
             );
         }
     }
-    assert_eq!(unique_events.len(), 1037);
-    assert_eq!(unique_receipts.len(), 133);
+    assert_eq!(unique_events.len(), 2072);
+    assert_eq!(unique_receipts.len(), 262);
     let failures: Vec<_> = cases
         .iter()
         .filter(|c| c["pass"] != true)
@@ -746,7 +781,8 @@ fn accepted_thousand_event_retrieval_and_interference_baseline() {
         "source_base":"a13b80b8f7e37c1fb2aad714f5ba931f7bf37941","root_events_at_fork":ROOT_HEAD,"root_receipts_at_fork":129,
         "root_final_head":engine.revision(),"accepted_unique_events_all_scopes":unique_events.len(),"accepted_unique_receipts_all_scopes":unique_receipts.len(),
         "child_head":CHILD_HEAD,"child_receipts_including_inherited":child_engine.receipts().len(),
-        "generated_us":generation_us,"reopen_and_two_strict_replays_us":replay_us,"cases":cases,"failures":failures,
+        "primary_generated_us":generation_us,"all_scopes_fixture_us":all_fixture_us,
+        "extra_negative_fixture_events":1038,"reopen_and_two_strict_replays_us":replay_us,"cases":cases,"failures":failures,
         "timing_policy":"single observations; no wallclock pass threshold; debug0 test build; no model-use or quality measurement"});
     std::fs::write(
         artifacts.directory.join("metrics.json"),

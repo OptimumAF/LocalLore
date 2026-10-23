@@ -22,7 +22,12 @@
               "type": "string"
             }
           },
-          "required": ["op", "item", "to", "quantity"],
+          "required": [
+            "op",
+            "item",
+            "to",
+            "quantity"
+          ],
           "type": "object"
         },
         {
@@ -36,7 +41,10 @@
               "type": "string"
             }
           },
-          "required": ["op", "item"],
+          "required": [
+            "op",
+            "item"
+          ],
           "type": "object"
         },
         {
@@ -50,7 +58,10 @@
               "type": "string"
             }
           },
-          "required": ["op", "ability"],
+          "required": [
+            "op",
+            "ability"
+          ],
           "type": "object"
         },
         {
@@ -64,7 +75,10 @@
               "type": "string"
             }
           },
-          "required": ["op", "ability"],
+          "required": [
+            "op",
+            "ability"
+          ],
           "type": "object"
         },
         {
@@ -78,7 +92,10 @@
               "type": "string"
             }
           },
-          "required": ["op", "to"],
+          "required": [
+            "op",
+            "to"
+          ],
           "type": "object"
         },
         {
@@ -99,7 +116,11 @@
               "type": "string"
             }
           },
-          "required": ["op", "text", "audience"],
+          "required": [
+            "op",
+            "text",
+            "audience"
+          ],
           "type": "object"
         },
         {
@@ -115,7 +136,10 @@
               "type": "string"
             }
           },
-          "required": ["op", "claim_event"],
+          "required": [
+            "op",
+            "claim_event"
+          ],
           "type": "object"
         },
         {
@@ -129,7 +153,10 @@
               "type": "string"
             }
           },
-          "required": ["op", "fact"],
+          "required": [
+            "op",
+            "fact"
+          ],
           "type": "object"
         },
         {
@@ -148,7 +175,10 @@
               "type": "string"
             },
             "return_item": {
-              "type": ["string", "null"]
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "terms": {
               "type": "string"
@@ -157,7 +187,13 @@
               "type": "string"
             }
           },
-          "required": ["op", "id", "to", "terms", "deadline"],
+          "required": [
+            "op",
+            "id",
+            "to",
+            "terms",
+            "deadline"
+          ],
           "type": "object"
         },
         {
@@ -171,7 +207,10 @@
               "type": "string"
             }
           },
-          "required": ["op", "id"],
+          "required": [
+            "op",
+            "id"
+          ],
           "type": "object"
         },
         {
@@ -188,7 +227,10 @@
               "type": "integer"
             }
           },
-          "required": ["op", "ticks"],
+          "required": [
+            "op",
+            "ticks"
+          ],
           "type": "object"
         }
       ]
@@ -203,7 +245,9 @@
               "type": "string"
             }
           },
-          "required": ["op"],
+          "required": [
+            "op"
+          ],
           "type": "object"
         },
         {
@@ -214,7 +258,26 @@
               "type": "string"
             }
           },
-          "required": ["op"],
+          "required": [
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "branches",
+              "type": "string"
+            },
+            "story": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "story"
+          ],
           "type": "object"
         },
         {
@@ -228,7 +291,10 @@
               "$ref": "#/$defs/Scope"
             }
           },
-          "required": ["op", "scope"],
+          "required": [
+            "op",
+            "scope"
+          ],
           "type": "object"
         },
         {
@@ -242,7 +308,10 @@
               "type": "string"
             }
           },
-          "required": ["op", "seed"],
+          "required": [
+            "op",
+            "seed"
+          ],
           "type": "object"
         },
         {
@@ -259,7 +328,11 @@
               "type": "string"
             }
           },
-          "required": ["op", "session", "scope"],
+          "required": [
+            "op",
+            "session",
+            "scope"
+          ],
           "type": "object"
         },
         {
@@ -276,7 +349,11 @@
               "type": "string"
             }
           },
-          "required": ["op", "session", "scope"],
+          "required": [
+            "op",
+            "session",
+            "scope"
+          ],
           "type": "object"
         },
         {
@@ -296,7 +373,12 @@
               "type": "string"
             }
           },
-          "required": ["op", "session", "request", "mode"],
+          "required": [
+            "op",
+            "session",
+            "request",
+            "mode"
+          ],
           "type": "object"
         },
         {
@@ -316,7 +398,12 @@
               "type": "string"
             }
           },
-          "required": ["op", "session", "scope", "turn"],
+          "required": [
+            "op",
+            "session",
+            "scope",
+            "turn"
+          ],
           "type": "object"
         },
         {
@@ -336,7 +423,12 @@
               "type": "string"
             }
           },
-          "required": ["op", "session", "scope", "turn"],
+          "required": [
+            "op",
+            "session",
+            "scope",
+            "turn"
+          ],
           "type": "object"
         },
         {
@@ -356,7 +448,12 @@
               "type": "string"
             }
           },
-          "required": ["op", "session", "scope", "turn"],
+          "required": [
+            "op",
+            "session",
+            "scope",
+            "turn"
+          ],
           "type": "object"
         },
         {
@@ -376,7 +473,12 @@
               "type": "string"
             }
           },
-          "required": ["op", "session", "scope", "turn"],
+          "required": [
+            "op",
+            "session",
+            "scope",
+            "turn"
+          ],
           "type": "object"
         },
         {
@@ -424,7 +526,11 @@
               "type": "string"
             }
           },
-          "required": ["op", "session", "query"],
+          "required": [
+            "op",
+            "session",
+            "query"
+          ],
           "type": "object"
         },
         {
@@ -449,7 +555,13 @@
               "type": "string"
             }
           },
-          "required": ["op", "session", "scope", "expected_head", "enabled"],
+          "required": [
+            "op",
+            "session",
+            "scope",
+            "expected_head",
+            "enabled"
+          ],
           "type": "object"
         },
         {
@@ -458,7 +570,10 @@
             "attempt": {
               "format": "uint64",
               "minimum": 0,
-              "type": ["integer", "null"]
+              "type": [
+                "integer",
+                "null"
+              ]
             },
             "base_revision": {
               "format": "uint64",
@@ -484,7 +599,10 @@
               "type": "string"
             },
             "turn": {
-              "type": ["string", "null"]
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "required": [
@@ -516,7 +634,12 @@
               "type": "string"
             }
           },
-          "required": ["op", "session", "scope", "expected_head"],
+          "required": [
+            "op",
+            "session",
+            "scope",
+            "expected_head"
+          ],
           "type": "object"
         },
         {
@@ -527,7 +650,9 @@
               "type": "string"
             }
           },
-          "required": ["op"],
+          "required": [
+            "op"
+          ],
           "type": "object"
         },
         {
@@ -549,7 +674,12 @@
               "type": "string"
             }
           },
-          "required": ["op", "session", "scope", "expected_revision"],
+          "required": [
+            "op",
+            "session",
+            "scope",
+            "expected_revision"
+          ],
           "type": "object"
         },
         {
@@ -566,7 +696,11 @@
               "type": "string"
             }
           },
-          "required": ["op", "session", "request"],
+          "required": [
+            "op",
+            "session",
+            "request"
+          ],
           "type": "object"
         },
         {
@@ -588,7 +722,12 @@
               "type": "string"
             }
           },
-          "required": ["op", "session", "scope", "expected_revision"],
+          "required": [
+            "op",
+            "session",
+            "scope",
+            "expected_revision"
+          ],
           "type": "object"
         }
       ]
@@ -610,7 +749,10 @@
               "type": "array"
             }
           },
-          "required": ["kind", "value"],
+          "required": [
+            "kind",
+            "value"
+          ],
           "type": "object"
         },
         {
@@ -634,11 +776,17 @@
                   "type": "string"
                 }
               },
-              "required": ["text", "audience"],
+              "required": [
+                "text",
+                "audience"
+              ],
               "type": "object"
             }
           },
-          "required": ["kind", "value"],
+          "required": [
+            "kind",
+            "value"
+          ],
           "type": "object"
         },
         {
@@ -652,7 +800,10 @@
               "type": "string"
             }
           },
-          "required": ["kind", "value"],
+          "required": [
+            "kind",
+            "value"
+          ],
           "type": "object"
         },
         {
@@ -666,7 +817,10 @@
               "type": "string"
             }
           },
-          "required": ["kind", "value"],
+          "required": [
+            "kind",
+            "value"
+          ],
           "type": "object"
         },
         {
@@ -680,7 +834,10 @@
               "type": "string"
             }
           },
-          "required": ["kind", "value"],
+          "required": [
+            "kind",
+            "value"
+          ],
           "type": "object"
         },
         {
@@ -701,11 +858,17 @@
                   "type": "string"
                 }
               },
-              "required": ["kind", "text"],
+              "required": [
+                "kind",
+                "text"
+              ],
               "type": "object"
             }
           },
-          "required": ["kind", "value"],
+          "required": [
+            "kind",
+            "value"
+          ],
           "type": "object"
         }
       ]
@@ -731,7 +894,9 @@
               "type": "string"
             }
           },
-          "required": ["kind"],
+          "required": [
+            "kind"
+          ],
           "type": "object"
         },
         {
@@ -745,7 +910,10 @@
               "type": "string"
             }
           },
-          "required": ["kind", "id"],
+          "required": [
+            "kind",
+            "id"
+          ],
           "type": "object"
         },
         {
@@ -756,13 +924,18 @@
               "type": "string"
             }
           },
-          "required": ["kind"],
+          "required": [
+            "kind"
+          ],
           "type": "object"
         }
       ]
     },
     "PlayInputKind": {
-      "enum": ["action", "dialogue"],
+      "enum": [
+        "action",
+        "dialogue"
+      ],
       "type": "string"
     },
     "Query": {
@@ -771,10 +944,16 @@
         "at_revision": {
           "format": "uint64",
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "cursor": {
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "expected_head": {
           "description": "Current authoritative head, even when inspecting a historical completed turn.",
@@ -843,7 +1022,13 @@
           "type": "integer"
         }
       },
-      "required": ["version", "scope", "turn", "expected_revision", "intent"],
+      "required": [
+        "version",
+        "scope",
+        "turn",
+        "expected_revision",
+        "intent"
+      ],
       "type": "object"
     },
     "Scope": {
@@ -856,7 +1041,10 @@
           "type": "string"
         }
       },
-      "required": ["story", "branch"],
+      "required": [
+        "story",
+        "branch"
+      ],
       "type": "object"
     },
     "View": {
@@ -885,7 +1073,10 @@
       "const": 1
     }
   },
-  "required": ["version", "command"],
+  "required": [
+    "version",
+    "command"
+  ],
   "title": "Envelope",
   "type": "object"
 }

@@ -8,8 +8,19 @@ license.workspace = true
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+# Development SDK experiment only; production Android never enables these JNI exports.
+play-probe = []
+# Only the separately identified archive-capacity instrumentation build enables this.
+archive-capacity-fixture = ["locallore-storage/development-fixtures"]
+
+[[example]]
+name = "platform_roundtrip"
+test = true
+
 [dependencies]
 locallore = { path = "../locallore" }
+locallore-storage = { path = "../locallore-storage" }
 locallore-workspace = { path = "../locallore-workspace" }
 serde.workspace = true
 serde_json.workspace = true

@@ -88,8 +88,8 @@ class DurableCancellationReviewTest {
                 withContext(Dispatchers.IO) { gateway.close() }
                 gateway = DurableGateway(ActualTransport(path))
                 val reopened = gateway.initialize()
-                assertEquals(initial.selected.story, reopened.selected.story)
-                assertEquals(initial.selected.branch, reopened.selected.branch)
+                assertEquals(checkNotNull(initial.selected).story, checkNotNull(reopened.selected).story)
+                assertEquals(checkNotNull(initial.selected).branch, checkNotNull(reopened.selected).branch)
                 unchanged(reopened)
                 assertEquals(1, reopened.uncommittedDrafts)
             } finally {

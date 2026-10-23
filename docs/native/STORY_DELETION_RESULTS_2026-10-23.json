@@ -1,0 +1,415 @@
+{
+  "version": 1,
+  "task": "M08.05",
+  "status": "locally_verified_pending_owner_acceptance",
+  "base_commit": "dfb2aa258eaebe9b3bcff4ebb7ea6cf95dcf8997",
+  "source_commit": "4dc5c1e82411f655637a78383dfd8146b9382707",
+  "code_worktree_sha256": {
+    "apps/android/app/build.gradle.kts": "17b22c4ae9c29d6c097a026f9551797dc875689bfc3a8c072546e232b5ad63a0",
+    "apps/android/app/src/androidTest/java/org/locallore/app/ArchiveIntegrationTest.kt": "58331f42a1e28be18cf84673ae677ae31992670d0c0a9049fcd55d7a92567442",
+    "apps/android/app/src/androidTest/java/org/locallore/app/DurableDeletionRecoveryTest.kt": "d1019b27fd8521a557f51366133ad44d76a3ae9bdd69539124fd1e59e4e21c4c",
+    "apps/android/app/src/androidTest/java/org/locallore/app/DurableNativeTest.kt": "0720dfc8c8ef059cc4a808fd0484c73d804f0b66811ed6ec5e05578a50b68358",
+    "apps/android/app/src/androidTest/java/org/locallore/app/StoryDeletionActivityTest.kt": "89876ae009bef8f5aedec05d2559b50dcab0622d92752c29f89ff0dbd9edf8ce",
+    "apps/android/app/src/androidTest/java/org/locallore/app/StoryDeletionMainActivityTest.kt": "ee71ce4205ff5272def71d56d473b0b1cc0c206b3aaca3215d12309bc9213daa",
+    "apps/android/app/src/main/java/org/locallore/app/DurableGateway.kt": "8acda8eb878565b430544da820ee14f41337e7b24b393af4dbdc042172e7c9b0",
+    "apps/android/app/src/main/java/org/locallore/app/MainActivity.kt": "346384cb4c50e81800a9a5864f91ad313a59d1c5662a24dd4644a8c3e46040df",
+    "apps/android/app/src/main/java/org/locallore/app/NativeArchive.kt": "3191678fe5f86f8f13e2642f5546b5a25efe98d2c0553db8b04d4cf74c1cee64",
+    "apps/android/app/src/main/java/org/locallore/app/ShellState.kt": "6b86cce6cf13112868d651b0e473f965d558db816c78d8628ac8df6481cfdc99",
+    "apps/android/app/src/main/java/org/locallore/app/ShellViewModel.kt": "561dd22e12c120ef2bc588c8fd1674e4bb7dc5c2e9e36d3bb004cf7a81e1b9cd",
+    "apps/android/app/src/main/java/org/locallore/app/StoryDeletionController.kt": "57c7bd8eb4aee1cf5963ea9fad52b65792cdab0aabd2dbf2256c608994ceeb96",
+    "apps/android/app/src/main/java/org/locallore/app/ui/LocalLoreScreen.kt": "176eb6ad31de8a5fcc703bbb5d6e91d37abec57e1a383f4749c05d92b5a0736e",
+    "apps/android/app/src/main/java/org/locallore/app/ui/StoryDeletionDialog.kt": "1ca5471997db14e90deae87cc3a37c3f9994fff428985a93c517c18f23c69c93",
+    "apps/android/app/src/test/java/org/locallore/app/StoryDeletionControllerTest.kt": "ec06c8879a693b9e65c2536e079399e045fd13aaf0d0eabb3715d319be0551a4",
+    "apps/android/app/src/test/java/org/locallore/app/StoryDeletionShellTest.kt": "3b0d54bbf551070490c8b362bc5bbbfded5753c206fcc0acc9a7ad99b4f38ed0",
+    "crates/locallore-android/src/archive.rs": "97d264efd96de87965202be388a26e0d109d2eb36c97c339da55e740ef4322d2",
+    "crates/locallore-android/src/archive_jni.rs": "719c3163514740d6d0ad28b2c28e13ef3c33749dd0eb9b55010b6715ec74eadc",
+    "crates/locallore-android/src/workspace.rs": "b8c4e26f18b8998d1c4b71b965c324a577112ed49f4b424048c88d78591a12c1",
+    "crates/locallore-android/tests/story_deletion.rs": "6e11b91c0d01fe5ed69fc3ca93c8ecf38a06f14eb52c88e0170cbdc2892b461f",
+    "crates/locallore-storage/src/lib.rs": "c2723871f6c6cae26a69a2fdedc3e400965d4bb48478b655e5fdf011d15b581d",
+    "crates/locallore-storage/src/story_deletion.rs": "e592af2e1eedb50234eb82b0aa33317d1094ae40d8efa5f44428492064155319",
+    "crates/locallore-storage/tests/story_deletion.rs": "c1c44b96432b205997f9318dee9115001d5423213c8d4f683fbfbfd49742519f",
+    "crates/locallore/src/host.rs": "c56cd94716d0ef0a273856addd8be6aa346c9208e1445850df1cf8a50eab3d7c"
+  },
+  "environment": {
+    "rust": "1.93.1",
+    "java": "17.0.6",
+    "gradle": "8.11.1",
+    "agp": "8.10.1",
+    "kotlin": "2.2.21",
+    "compile_target_sdk": 36,
+    "ndk": "29.0.14206865",
+    "emulators": 2,
+    "emulator_api": 35,
+    "emulator_abi": "x86_64",
+    "physical_phones_observed": 0,
+    "arm64": "built_packaged_not_executed"
+  },
+  "host": {
+    "workspace_rust_passed": 327,
+    "linker_passed": 3,
+    "python_passed": 232,
+    "fixture_cases": 4,
+    "fmt": "passed",
+    "strict_clippy": "passed",
+    "log_sha256": "8d6fc1c5fd59a7f015d1f50ad747b2f57b4894a98c81aa58264ae11a654f3be8"
+  },
+  "jvm": {
+    "dedicated": {
+      "tests": 72,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "ordinary": {
+      "tests": 72,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "artifact_audit": {
+    "status": "passed",
+    "mode": "deletion",
+    "package": "org.locallore.app.storydelete",
+    "apk_sha256": {
+      "org.locallore.app.storydelete": "5bc796b6ec25d7d3a40915c0965e7e03473a532760314766e1b2b42210df4319",
+      "org.locallore.app.storydelete.test": "3181eea3396d4378b9250c9896e9dccc4823695c86536745e18d6e5a0fb8063b"
+    },
+    "permissions": [
+      "org.locallore.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+    ],
+    "libraries": [
+      {
+        "entry": "lib/arm64-v8a/libandroidx.graphics.path.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/x86_64/libandroidx.graphics.path.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/arm64-v8a/liblocallore_android.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/x86_64/liblocallore_android.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      }
+    ],
+    "native_symbols": {
+      "arm64-v8a": {
+        "archive": [
+          "cancel",
+          "close",
+          "commitDelete",
+          "commitImport",
+          "exportBytes",
+          "open",
+          "prepareDelete",
+          "prepareExport",
+          "prepareImport"
+        ],
+        "fixture": false
+      },
+      "x86_64": {
+        "archive": [
+          "cancel",
+          "close",
+          "commitDelete",
+          "commitImport",
+          "exportBytes",
+          "open",
+          "prepareDelete",
+          "prepareExport",
+          "prepareImport"
+        ],
+        "fixture": false
+      }
+    },
+    "library_sha256": {
+      "arm64-v8a": "2c41989da109c805737677dcdc0e0f6992fc8cb2baa762b4f3517cd7059b0657",
+      "x86_64": "fdf296077e898d011ddc002735e81261b125f10bd112ef1ccc5a88ccfc98a575"
+    },
+    "compile_cap_96_string": {
+      "arm64-v8a": false,
+      "x86_64": false
+    }
+  },
+  "ordinary_artifact_audit": {
+    "status": "passed",
+    "mode": "deletion",
+    "package": "org.locallore.app",
+    "apk_sha256": {
+      "org.locallore.app": "8a954e58bec7e76d4b8f16ab436eb7416b9efb87a6b4d76c3dfdc29442a2ce0b",
+      "org.locallore.app.test": "c47f7e3ba9193b845e2f874154feaece4fa163471a750e1a93221b31912ee9b7"
+    },
+    "permissions": [
+      "org.locallore.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+    ],
+    "libraries": [
+      {
+        "entry": "lib/arm64-v8a/libandroidx.graphics.path.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/x86_64/libandroidx.graphics.path.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/arm64-v8a/liblocallore_android.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/x86_64/liblocallore_android.so",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      }
+    ],
+    "native_symbols": {
+      "arm64-v8a": {
+        "archive": [
+          "cancel",
+          "close",
+          "commitDelete",
+          "commitImport",
+          "exportBytes",
+          "open",
+          "prepareDelete",
+          "prepareExport",
+          "prepareImport"
+        ],
+        "fixture": false
+      },
+      "x86_64": {
+        "archive": [
+          "cancel",
+          "close",
+          "commitDelete",
+          "commitImport",
+          "exportBytes",
+          "open",
+          "prepareDelete",
+          "prepareExport",
+          "prepareImport"
+        ],
+        "fixture": false
+      }
+    },
+    "library_sha256": {
+      "arm64-v8a": "2c41989da109c805737677dcdc0e0f6992fc8cb2baa762b4f3517cd7059b0657",
+      "x86_64": "fdf296077e898d011ddc002735e81261b125f10bd112ef1ccc5a88ccfc98a575"
+    },
+    "compile_cap_96_string": {
+      "arm64-v8a": false,
+      "x86_64": false
+    }
+  },
+  "configuration_guards": {
+    "bad-value": {
+      "status": "rejected_as_expected",
+      "evidence": "terminal_build_failed_expected_configuration_guard"
+    },
+    "missing-cache": {
+      "status": "rejected_as_expected",
+      "evidence": "terminal_build_failed_expected_configuration_guard"
+    },
+    "cache-without-property": {
+      "status": "rejected_as_expected",
+      "evidence": "terminal_build_failed_expected_configuration_guard"
+    },
+    "combined-archive": {
+      "status": "rejected_as_expected",
+      "evidence": "terminal_build_failed_expected_configuration_guard"
+    },
+    "combined-capacity": {
+      "status": "rejected_as_expected",
+      "evidence": "terminal_build_failed_expected_configuration_guard"
+    },
+    "release": {
+      "status": "rejected_as_expected",
+      "evidence": "terminal_build_failed_expected_configuration_guard"
+    }
+  },
+  "nonordinary_local_apk_files_preserved": 10,
+  "emulator_attempts": [
+    {
+      "alias": "A",
+      "attempt": "initial",
+      "status": "passed",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "unfinished": 0,
+      "raw_sha256": "1d99b44d0e13a07c63be0b0b0d46ccaae1a37e0b59a570ae6077819b620162a9",
+      "apks": {
+        "org.locallore.app.storydelete": "5bc796b6ec25d7d3a40915c0965e7e03473a532760314766e1b2b42210df4319",
+        "org.locallore.app.storydelete.test": "82f9cb4c3f12cff566b38d7e562eab6a41df5167daaff7c4dae796478556b05f"
+      },
+      "processes_absent": true,
+      "prior_packages_preserved": true,
+      "clients_cleaned": true,
+      "cohort": "superseded_test_apk",
+      "classes": {
+        "org.locallore.app.StoryDeletionActivityTest": 1,
+        "org.locallore.app.DurableDeletionRecoveryTest": 7
+      },
+      "collector_note": null
+    },
+    {
+      "alias": "A",
+      "attempt": "final",
+      "status": "passed",
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "unfinished": 0,
+      "raw_sha256": "ce0e3cf329f7b209596b51403672020edd1ec764848a1567902f2add0c556801",
+      "apks": {
+        "org.locallore.app.storydelete": "5bc796b6ec25d7d3a40915c0965e7e03473a532760314766e1b2b42210df4319",
+        "org.locallore.app.storydelete.test": "3181eea3396d4378b9250c9896e9dccc4823695c86536745e18d6e5a0fb8063b"
+      },
+      "processes_absent": true,
+      "prior_packages_preserved": true,
+      "clients_cleaned": true,
+      "cohort": "final",
+      "classes": {
+        "org.locallore.app.StoryDeletionActivityTest": 1,
+        "org.locallore.app.DurableDeletionRecoveryTest": 7,
+        "org.locallore.app.StoryDeletionMainActivityTest": 1
+      },
+      "collector_note": null
+    },
+    {
+      "alias": "B",
+      "attempt": "final",
+      "status": "passed",
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "unfinished": 0,
+      "raw_sha256": "6c7c8175237a31e754849b27a8cb1527508f540be403cfef16b0930efbc51955",
+      "apks": {
+        "org.locallore.app.storydelete": "5bc796b6ec25d7d3a40915c0965e7e03473a532760314766e1b2b42210df4319",
+        "org.locallore.app.storydelete.test": "3181eea3396d4378b9250c9896e9dccc4823695c86536745e18d6e5a0fb8063b"
+      },
+      "processes_absent": true,
+      "prior_packages_preserved": true,
+      "clients_cleaned": true,
+      "cohort": "final",
+      "classes": {
+        "org.locallore.app.StoryDeletionActivityTest": 1,
+        "org.locallore.app.DurableDeletionRecoveryTest": 7,
+        "org.locallore.app.StoryDeletionMainActivityTest": 1
+      },
+      "collector_note": null
+    },
+    {
+      "alias": "A",
+      "attempt": "regression",
+      "status": "passed",
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "unfinished": 0,
+      "raw_sha256": "8b17d176527ac70c8f290fe9d359d06e98318e29eaacbfd3e30dd9a90bffd434",
+      "apks": {
+        "org.locallore.app.storydelete": "5bc796b6ec25d7d3a40915c0965e7e03473a532760314766e1b2b42210df4319",
+        "org.locallore.app.storydelete.test": "3181eea3396d4378b9250c9896e9dccc4823695c86536745e18d6e5a0fb8063b"
+      },
+      "processes_absent": true,
+      "prior_packages_preserved": true,
+      "clients_cleaned": true,
+      "cohort": "final",
+      "classes": {
+        "org.locallore.app.ArchiveIntegrationTest": 6,
+        "org.locallore.app.ArchiveDocumentTest": 5,
+        "org.locallore.app.ArchiveDialogTest": 6,
+        "org.locallore.app.DurableNativeTest": 5,
+        "org.locallore.app.ArchiveActivityTest": 2,
+        "org.locallore.app.ArchiveChooserActivityTest": 2
+      },
+      "collector_note": "failed_expected_24_actual_26"
+    },
+    {
+      "alias": "B",
+      "attempt": "regression",
+      "status": "passed",
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "unfinished": 0,
+      "raw_sha256": "b3aa99f634cc59c34752b70a7f066682e5c55c50a7bc99009c8020de796d9ae0",
+      "apks": {
+        "org.locallore.app.storydelete": "5bc796b6ec25d7d3a40915c0965e7e03473a532760314766e1b2b42210df4319",
+        "org.locallore.app.storydelete.test": "3181eea3396d4378b9250c9896e9dccc4823695c86536745e18d6e5a0fb8063b"
+      },
+      "processes_absent": true,
+      "prior_packages_preserved": true,
+      "clients_cleaned": true,
+      "cohort": "final",
+      "classes": {
+        "org.locallore.app.ArchiveIntegrationTest": 6,
+        "org.locallore.app.ArchiveDocumentTest": 5,
+        "org.locallore.app.ArchiveDialogTest": 6,
+        "org.locallore.app.DurableNativeTest": 5,
+        "org.locallore.app.ArchiveActivityTest": 2,
+        "org.locallore.app.ArchiveChooserActivityTest": 2
+      },
+      "collector_note": "failed_expected_24_actual_26"
+    }
+  ],
+  "final_apk_passes": 70,
+  "all_emulator_attempts_passes": 78,
+  "attempt_notes": [
+    "Initial root native linker LNK1318 and dedicated Gradle mergeNative/dex failed when C: filled. Only root-generated target/debug cache was moved intact to task-owned D: directory; junction retains original path.",
+    "Initial root strict Clippy large_enum_variant failed; opaque plan boxed before final APK builds.",
+    "Native test author initial run had 4 pass/1 failure and two targeted diagnostic runs each 0 pass/1 failure: a child-scope preview assumption was corrected to root-only and explicit child Malformed assertion. Final 5 pass and strict Clippy pass.",
+    "Initial A8 checks passed on superseded test APK82f9; B was not executed on that test APK. Final source adds actual MainActivity test; final9 checks pass on each emulator.",
+    "Regression collectors expected24 because DurableNativeTest was miscounted3 instead of5. Both actual raw26-test runs passed; originals retained and strictly reparsed without device rerun.",
+    "First negative guard collector expected phrase requirement failed instead of actual Failed requirement. Existing correct rejection log was reparsed; remaining five actual guards then executed.",
+    "Reviewer report write/index write was interrupted by real host disk exhaustion; prior commits preserved. A subsequent reviewer unresolved UTF8 report used Windows default cp1252; explicit UTF8 raw-byte comparison confirmed corrected source."
+  ],
+  "limits": [
+    "whole_story_only",
+    "branch_only_retained_ancestry_pending",
+    "app_private_nonreplacement_boundary",
+    "logical_not_forensic_or_external_copy_erasure",
+    "no_running_prepare_with_accepted_delete_schedule_injected",
+    "no_post_sqlite_commit_cancel_schedule_injected",
+    "separately_captured_ui_archive_buffers_and_other_process_memory_not_revoked",
+    "desktop_delete_ui_not_implemented",
+    "no_real_model_or_physical_device_measurement",
+    "no_owner_acceptance_or_merge"
+  ]
+}

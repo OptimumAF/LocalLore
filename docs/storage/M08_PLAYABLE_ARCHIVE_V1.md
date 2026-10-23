@@ -118,6 +118,10 @@ or wall-clock limit. Import holds the writer while it verifies the inserted stor
 
 ## Remaining gates
 
+The bounded Android native/consent/document adapter is implemented for review;
+see [Android verification](../native/ANDROID_ARCHIVE_VERIFICATION_2026-10-23.md).
+This supplies partial evidence for the following gates, without accepting M08/D08.
+
 - Independent implementation review and central integration checks.
 - Native preview/consent tied to the exact bytes/token and window/session lifetime,
   bounded nonoverwrite file publication, and inert untrusted preview.
@@ -126,5 +130,5 @@ or wall-clock limit. Import holds the writer while it verifies the inserted stor
 - Explicit shared lineage support wherever context/compiler/query/cache callers
   still return Unsupported; this archive does not bypass those guards.
 
-No archive/correction UI, branch switching command, model portability, encrypted
-export, archive authenticity, or full M08/D08 acceptance is claimed.
+No correction UI, branch switching command, model portability, encrypted export,
+archive authenticity, or full M08/D08 acceptance is claimed.

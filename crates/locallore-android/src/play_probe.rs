@@ -1,0 +1,650 @@
+// Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
+//! Development-only external inference pump over the unchanged guarded Host/play pipeline.
+//! No Java references, inference threads, model/file handles or canonical rules live here.
+use locallore::{
+    contracts::{Error, Scope, VERSION},
+    host::{Host, MAX_INPUT, MAX_OUTPUT},
+    inference::{Cancellation, GenerationRequest, InferenceProvider, Input},
+    play::PlayProfile,
+};
+use serde_json::{json, Value};
+use std::{
+    collections::BTreeMap,
+    path::Path,
+    sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc, Mutex,
+    },
+    task::Poll,
+};
+
+pub const PROFILE_ID: &str = "android-litert-play-probe-v1";
+pub const MAX_PROFILE: usize = 4096;
+pub const MAX_RESPONSE: usize = 16_384;
+const MAX_WORKER_REQUEST: usize = 32_768;
+const MAX_POLL: usize = 40_000;
+
+#[derive(Default)]
+pub struct ProbeRegistry {
+    entries: Mutex<RegistryState>,
+    tickets: Arc<AtomicU64>,
+}
+#[derive(Default)]
+struct RegistryState {
+    next: u64,
+    opening: usize,
+    leases: BTreeMap<u64, Arc<Lease>>,
+}
+struct Opening<'a>(&'a ProbeRegistry);
+impl Drop for Opening<'_> {
+    fn drop(&mut self) {
+        if let Ok(mut state) = self.0.entries.lock() {
+            state.opening -= 1;
+        }
+    }
+}
+struct Lease {
+    host: Host,
+    bridge: Arc<Bridge>,
+    closed: AtomicBool,
+    control: Mutex<()>,
+}
+impl Lease {
+    fn call(&self, input: &[u8]) -> Value {
+        let prepare = serde_json::from_slice::<Value>(input)
+            .ok()
+            .is_some_and(|value| value["command"]["op"] == "prepare");
+        if prepare {
+            if self.closed.load(Ordering::SeqCst) {
+                return rejected("InvalidHandle");
+            }
+            self.host.call(input)
+        } else {
+            let Ok(_control) = self.control.lock() else {
+                return rejected("Internal");
+            };
+            if self.closed.load(Ordering::SeqCst) {
+                return rejected("InvalidHandle");
+            }
+            self.host.call(input)
+        }
+    }
+}
+impl ProbeRegistry {
+    /// Trusted experiment construction only; neither path nor profile comes from model text.
+    pub fn open(&self, path: &Path, profile_json: &[u8]) -> Result<u64, String> {
+        if profile_json.len() > MAX_PROFILE {
+            return Err("TooLarge".into());
+        }
+        let profile: PlayProfile = serde_json::from_slice(profile_json).map_err(|_| "Profile")?;
+        profile.validate().map_err(|_| "Profile")?;
+        if profile.id != PROFILE_ID || profile.context_tokens != 4096 {
+            return Err("Profile".into());
+        }
+        if !path.is_absolute() || path.to_str().is_none_or(|path| path.len() > 4096) {
+            return Err("Malformed".into());
+        }
+        let id = {
+            let mut state = self.entries.lock().map_err(|_| "Internal")?;
+            if state.leases.len() + state.opening >= 4 {
+                return Err("WorkspaceLimit".into());
+            }
+            let id = state
+                .next
+                .checked_add(1)
+                .filter(|id| *id <= i64::MAX as u64)
+                .ok_or("WorkspaceLimit")?;
+            state.next = id;
+            state.opening += 1;
+            id
+        };
+        let _opening = Opening(self);
+        let host = locallore_workspace::open(path, false).map_err(|_| "Workspace")?;
+        let bridge = Arc::new(Bridge {
+            state: Mutex::new(BridgeState::default()),
+            tickets: self.tickets.clone(),
+        });
+        let factory_bridge = bridge.clone();
+        let factory_profile = profile.clone();
+        host.configure_local_provider(
+            profile,
+            Arc::new(move || {
+                Box::new(BridgeProvider {
+                    bridge: factory_bridge.clone(),
+                    owner: Arc::new(()),
+                    profile: factory_profile.clone(),
+                    ticket: None,
+                })
+            }),
+        )
+        .map_err(|_| "Profile")?;
+        self.entries.lock().map_err(|_| "Internal")?.leases.insert(
+            id,
+            Arc::new(Lease {
+                host,
+                bridge,
+                closed: AtomicBool::new(false),
+                control: Mutex::new(()),
+            }),
+        );
+        Ok(id)
+    }
+    fn lease(&self, handle: u64) -> Option<Arc<Lease>> {
+        self.entries.lock().ok()?.leases.get(&handle).cloned()
+    }
+    pub fn call(&self, handle: u64, input: &[u8]) -> Vec<u8> {
+        bounded(MAX_OUTPUT, || {
+            if input.len() > MAX_INPUT {
+                return rejected("TooLarge");
+            }
+            match self.lease(handle) {
+                Some(lease) => lease.call(input),
+                None => rejected("InvalidHandle"),
+            }
+        })
+    }
+    /// Repeated polling returns the same immutable request until a one-shot response arrives.
+    pub fn poll(&self, handle: u64) -> Vec<u8> {
+        bounded(MAX_POLL, || {
+            let Some(lease) = self.lease(handle) else {
+                return rejected("InvalidHandle");
+            };
+            let Ok(state) = lease.bridge.state.lock() else {
+                return rejected("Internal");
+            };
+            if lease.closed.load(Ordering::SeqCst) || state.closed {
+                return rejected("InvalidHandle");
+            }
+            let pending = state
+                .active
+                .as_ref()
+                .filter(|active| !active.cancel.is_cancelled())
+                .and_then(|active| active.pending.as_ref())
+                .filter(|pending| pending.response.is_none());
+            ok(
+                json!({"pending":pending.map(|pending| json!({"ticket":pending.ticket,"request":pending.request.worker}))}),
+            )
+        })
+    }
+    pub fn respond(&self, handle: u64, ticket: u64, text: &[u8]) -> Vec<u8> {
+        bounded(MAX_POLL, || {
+            let Some(lease) = self.lease(handle) else {
+                return rejected("InvalidHandle");
+            };
+            let Ok(mut state) = lease.bridge.state.lock() else {
+                return rejected("Internal");
+            };
+            if lease.closed.load(Ordering::SeqCst) || state.closed {
+                return rejected("InvalidHandle");
+            }
+            let pending = state
+                .active
+                .as_mut()
+                .filter(|active| !active.cancel.is_cancelled())
+                .and_then(|active| active.pending.as_mut());
+            let Some(pending) =
+                pending.filter(|pending| pending.ticket == ticket && pending.response.is_none())
+            else {
+                return rejected("InvalidTicket");
+            };
+            if ticket == 0 || ticket > i64::MAX as u64 {
+                return rejected("InvalidTicket");
+            }
+            if text.len() > MAX_RESPONSE {
+                return rejected("TooLarge");
+            }
+            if std::str::from_utf8(text).is_err() {
+                return rejected("Malformed");
+            }
+            pending.response = Some(text.to_vec());
+            ok(json!({"accepted":true}))
+        })
+    }
+    pub fn close(&self, handle: u64) {
+        let lease = self
+            .entries
+            .lock()
+            .ok()
+            .and_then(|mut state| state.leases.remove(&handle));
+        if let Some(lease) = lease {
+            // Existing short control operations finish; model work never holds this gate.
+            let _control = lease
+                .control
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            lease.closed.store(true, Ordering::SeqCst);
+            let mut state = lease
+                .bridge
+                .state
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            state.closed = true;
+            state.active = None;
+            drop(state);
+            lease.host.close_all();
+        }
+    }
+}
+
+fn ok(data: Value) -> Value {
+    json!({"version":1,"status":"ok","data":data})
+}
+fn rejected(error: &str) -> Value {
+    json!({"version":1,"status":"rejected","error":error})
+}
+pub(crate) fn error_bytes(error: &str) -> Vec<u8> {
+    serde_json::to_vec(&rejected(error)).unwrap_or_default()
+}
+fn bounded(limit: usize, operation: impl FnOnce() -> Value) -> Vec<u8> {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(operation))
+        .unwrap_or_else(|_| rejected("Internal"));
+    match serde_json::to_vec(&result) {
+        Ok(bytes) if bytes.len() <= limit => bytes,
+        _ => error_bytes("TooLarge"),
+    }
+}
+
+struct Bridge {
+    state: Mutex<BridgeState>,
+    tickets: Arc<AtomicU64>,
+}
+#[derive(Default)]
+struct BridgeState {
+    closed: bool,
+    active: Option<Active>,
+}
+struct Active {
+    owner: Arc<()>,
+    scope: Scope,
+    turn: String,
+    revision: u64,
+    cancel: Cancellation,
+    pending: Option<Pending>,
+}
+struct Pending {
+    ticket: u64,
+    request: Packet,
+    response: Option<Vec<u8>>,
+}
+struct Packet {
+    worker: Value,
+    role: String,
+    prompt: String,
+    schema: Value,
+    max_tokens: u32,
+    schema_label: String,
+    max_output_bytes: usize,
+    max_pending_polls: u16,
+    deadline_ms: u64,
+}
+impl Packet {
+    fn new(request: &GenerationRequest, profile: &PlayProfile) -> Result<Self, Error> {
+        if request.version != VERSION || request.model_profile != profile.id {
+            return Err(Error::Provider);
+        }
+        let Input::Structured {
+            role,
+            prompt,
+            schema,
+        } = &request.input
+        else {
+            return Err(Error::Provider);
+        };
+        let cap = match role.as_str() {
+            "director" => profile.director_tokens,
+            "narrator" => profile.narrator_tokens,
+            _ => return Err(Error::Provider),
+        };
+        if request.budget.max_output_tokens == 0
+            || request.budget.max_output_tokens > u32::from(cap)
+        {
+            return Err(Error::Provider);
+        }
+        let worker = json!({"version":1,"role":role,"prompt":prompt,"max_tokens":request.budget.max_output_tokens,
+            "context_tokens":4096,"threads":4,"schema":schema});
+        if serde_json::to_vec(&worker)
+            .map_err(|_| Error::Provider)?
+            .len()
+            > MAX_WORKER_REQUEST
+        {
+            return Err(Error::TooLarge);
+        }
+        Ok(Self {
+            worker,
+            role: role.clone(),
+            prompt: prompt.clone(),
+            schema: schema.clone(),
+            max_tokens: request.budget.max_output_tokens,
+            schema_label: request.schema.clone(),
+            max_output_bytes: request.budget.max_output_bytes,
+            max_pending_polls: request.budget.max_pending_polls,
+            deadline_ms: request.budget.deadline_ms,
+        })
+    }
+    fn matches(&self, request: &GenerationRequest, profile: &PlayProfile) -> bool {
+        request.version == VERSION
+            && request.model_profile == profile.id
+            && request.budget.max_output_tokens == self.max_tokens
+            && request.schema == self.schema_label
+            && request.budget.max_output_bytes == self.max_output_bytes
+            && request.budget.max_pending_polls == self.max_pending_polls
+            && request.budget.deadline_ms == self.deadline_ms
+            && matches!(&request.input, Input::Structured { role, prompt, schema } if role == &self.role && prompt == &self.prompt && schema == &self.schema)
+    }
+}
+struct BridgeProvider {
+    bridge: Arc<Bridge>,
+    owner: Arc<()>,
+    profile: PlayProfile,
+    ticket: Option<u64>,
+}
+impl InferenceProvider for BridgeProvider {
+    fn poll(
+        &mut self,
+        request: &GenerationRequest,
+        cancel: &Cancellation,
+    ) -> Poll<Result<Vec<u8>, Error>> {
+        if cancel.is_cancelled() {
+            self.release();
+            return Poll::Ready(Err(Error::Cancelled));
+        }
+        let Ok(mut state) = self.bridge.state.lock() else {
+            return Poll::Ready(Err(Error::Provider));
+        };
+        if state.closed {
+            return Poll::Ready(Err(Error::Cancelled));
+        }
+        if let Some(active) = state.active.as_ref() {
+            if !Arc::ptr_eq(&active.owner, &self.owner) {
+                return Poll::Ready(Err(Error::Provider));
+            }
+            if active.cancel.is_cancelled() {
+                return Poll::Ready(Err(Error::Cancelled));
+            }
+            if active.scope != request.scope
+                || active.turn != request.turn
+                || active.revision != request.revision
+            {
+                return Poll::Ready(Err(Error::Provider));
+            }
+        }
+        if let Some(ticket) = self.ticket {
+            let pending = state
+                .active
+                .as_mut()
+                .and_then(|active| active.pending.as_mut());
+            let Some(pending) = pending.filter(|pending| pending.ticket == ticket) else {
+                return Poll::Ready(Err(Error::Provider));
+            };
+            if !pending.request.matches(request, &self.profile) {
+                return Poll::Ready(Err(Error::Provider));
+            }
+            if let Some(response) = pending.response.take() {
+                state.active.as_mut().unwrap().pending = None;
+                self.ticket = None;
+                return Poll::Ready(Ok(response));
+            }
+            return Poll::Pending;
+        }
+        let packet = match Packet::new(request, &self.profile) {
+            Ok(packet) => packet,
+            Err(error) => return Poll::Ready(Err(error)),
+        };
+        let ticket =
+            match self
+                .bridge
+                .tickets
+                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |last| {
+                    last.checked_add(1).filter(|next| *next <= i64::MAX as u64)
+                }) {
+                Ok(last) => last + 1,
+                Err(_) => return Poll::Ready(Err(Error::Provider)),
+            };
+        let active = state.active.get_or_insert_with(|| Active {
+            owner: self.owner.clone(),
+            scope: request.scope.clone(),
+            turn: request.turn.clone(),
+            revision: request.revision,
+            cancel: cancel.clone(),
+            pending: None,
+        });
+        active.pending = Some(Pending {
+            ticket,
+            request: packet,
+            response: None,
+        });
+        self.ticket = Some(ticket);
+        Poll::Pending
+    }
+}
+impl BridgeProvider {
+    fn release(&mut self) {
+        if let Ok(mut state) = self.bridge.state.lock() {
+            if state
+                .active
+                .as_ref()
+                .is_some_and(|active| Arc::ptr_eq(&active.owner, &self.owner))
+            {
+                state.active = None;
+            }
+        }
+        self.ticket = None;
+    }
+}
+impl Drop for BridgeProvider {
+    fn drop(&mut self) {
+        self.release();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use locallore::inference::Budget;
+    fn profile() -> PlayProfile {
+        PlayProfile {
+            id: PROFILE_ID.into(),
+            model_sha256: "a".repeat(64),
+            runtime_revision: "b".repeat(40),
+            template_sha256: "c".repeat(64),
+            worker_sha256: "d".repeat(64),
+            profile_manifest_sha256: "e".repeat(64),
+            context_tokens: 4096,
+            director_tokens: 350,
+            narrator_tokens: 220,
+            deadline_ms: 5000,
+            repair_limit: 1,
+        }
+    }
+    fn generation() -> GenerationRequest {
+        GenerationRequest {
+            version: 1,
+            scope: Scope {
+                story: "synthetic".into(),
+                branch: "main".into(),
+            },
+            turn: "first".into(),
+            revision: 0,
+            model_profile: PROFILE_ID.into(),
+            schema: "locallore-director-v2".into(),
+            budget: Budget {
+                max_output_tokens: 350,
+                ..Budget::default()
+            },
+            input: Input::Structured {
+                role: "director".into(),
+                prompt: "UNTRUSTED literal prompt\n\"canary\"".into(),
+                schema: json!({"oneOf":[{"const":"preserve this schema exactly"}]}),
+            },
+        }
+    }
+    fn bridge() -> Arc<Bridge> {
+        Arc::new(Bridge {
+            state: Mutex::new(BridgeState::default()),
+            tickets: Arc::new(AtomicU64::new(0)),
+        })
+    }
+    fn provider(bridge: &Arc<Bridge>) -> BridgeProvider {
+        BridgeProvider {
+            bridge: bridge.clone(),
+            owner: Arc::new(()),
+            profile: profile(),
+            ticket: None,
+        }
+    }
+
+    #[test]
+    fn packet_preserves_original_structured_prompt_schema_and_budget_without_extension() {
+        let request = generation();
+        let packet = Packet::new(&request, &profile()).unwrap();
+        let Input::Structured { prompt, schema, .. } = &request.input else {
+            unreachable!()
+        };
+        assert_eq!(
+            packet.worker,
+            json!({"version":1,"role":"director","prompt":prompt,"schema":schema,
+            "max_tokens":350,"context_tokens":4096,"threads":4})
+        );
+        assert!(packet.matches(&request, &profile()));
+        let mut changed = request;
+        changed.budget.max_output_tokens -= 1;
+        assert!(!packet.matches(&changed, &profile()));
+        changed.model_profile = "foreign-profile".into();
+        assert!(matches!(
+            Packet::new(&changed, &profile()),
+            Err(Error::Provider)
+        ));
+        changed = generation();
+        changed.input = Input::Structured {
+            role: "executor".into(),
+            prompt: String::new(),
+            schema: json!({}),
+        };
+        assert!(matches!(
+            Packet::new(&changed, &profile()),
+            Err(Error::Provider)
+        ));
+        changed.input = Input::Structured {
+            role: "director".into(),
+            prompt: "X".repeat(MAX_WORKER_REQUEST),
+            schema: json!({}),
+        };
+        assert!(matches!(
+            Packet::new(&changed, &profile()),
+            Err(Error::TooLarge)
+        ));
+    }
+    #[test]
+    fn competing_provider_and_old_provider_drop_cannot_clear_another_owners_pending_request() {
+        let bridge = bridge();
+        let request = generation();
+        let cancel = Cancellation::default();
+        let mut first = provider(&bridge);
+        assert!(matches!(first.poll(&request, &cancel), Poll::Pending));
+        let ticket = first.ticket.unwrap();
+        let mut second = provider(&bridge);
+        assert!(matches!(
+            second.poll(&request, &Cancellation::default()),
+            Poll::Ready(Err(Error::Provider))
+        ));
+        drop(second);
+        assert_eq!(
+            bridge
+                .state
+                .lock()
+                .unwrap()
+                .active
+                .as_ref()
+                .unwrap()
+                .pending
+                .as_ref()
+                .unwrap()
+                .ticket,
+            ticket
+        );
+        cancel.cancel();
+        assert!(matches!(
+            first.poll(&request, &cancel),
+            Poll::Ready(Err(Error::Cancelled))
+        ));
+        let mut replacement = provider(&bridge);
+        assert!(matches!(
+            replacement.poll(&request, &Cancellation::default()),
+            Poll::Pending
+        ));
+        let next = replacement.ticket.unwrap();
+        assert!(next > ticket);
+        drop(first);
+        assert_eq!(
+            bridge
+                .state
+                .lock()
+                .unwrap()
+                .active
+                .as_ref()
+                .unwrap()
+                .pending
+                .as_ref()
+                .unwrap()
+                .ticket,
+            next
+        );
+        drop(replacement);
+        assert!(bridge.state.lock().unwrap().active.is_none());
+    }
+    #[test]
+    fn pending_request_mutation_and_ticket_exhaustion_fail_closed() {
+        let mutations: Vec<fn(&mut GenerationRequest)> = vec![
+            |request| request.scope.story.push_str("-foreign"),
+            |request| request.scope.branch.push_str("-foreign"),
+            |request| request.turn.push_str("-foreign"),
+            |request| request.revision += 1,
+            |request| request.schema.push_str("-forged"),
+            |request| request.model_profile.push_str("-foreign"),
+            |request| request.budget.max_output_bytes -= 1,
+            |request| request.budget.max_output_tokens -= 1,
+            |request| request.budget.max_pending_polls += 1,
+            |request| request.budget.deadline_ms += 1,
+        ];
+        for mutate in mutations {
+            let bridge = bridge();
+            let mut provider = provider(&bridge);
+            let request = generation();
+            assert!(matches!(
+                provider.poll(&request, &Cancellation::default()),
+                Poll::Pending
+            ));
+            let mut changed = request.clone();
+            mutate(&mut changed);
+            assert!(matches!(
+                provider.poll(&changed, &Cancellation::default()),
+                Poll::Ready(Err(Error::Provider))
+            ));
+            drop(provider);
+            assert!(bridge.state.lock().unwrap().active.is_none());
+        }
+        let bridge = bridge();
+        let mut provider = provider(&bridge);
+        let mut request = generation();
+        assert!(matches!(
+            provider.poll(&request, &Cancellation::default()),
+            Poll::Pending
+        ));
+        if let Input::Structured { schema, .. } = &mut request.input {
+            *schema = json!({"forged":true});
+        }
+        assert!(matches!(
+            provider.poll(&request, &Cancellation::default()),
+            Poll::Ready(Err(Error::Provider))
+        ));
+        drop(provider);
+        assert!(bridge.state.lock().unwrap().active.is_none());
+        bridge.tickets.store(i64::MAX as u64, Ordering::SeqCst);
+        let mut provider = super::tests::provider(&bridge);
+        assert!(matches!(
+            provider.poll(&generation(), &Cancellation::default()),
+            Poll::Ready(Err(Error::Provider))
+        ));
+        assert!(bridge.state.lock().unwrap().active.is_none());
+    }
+}

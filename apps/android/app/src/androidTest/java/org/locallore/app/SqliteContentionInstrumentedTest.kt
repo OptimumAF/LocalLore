@@ -315,7 +315,7 @@ class SqliteContentionInstrumentedTest {
                 f.replies.assertOnlyOriginal()
             }
             val saved = withContext(Dispatchers.Main) { f.gateway.snapshot() }
-            accepted(f.reopened(saved.selected))
+            accepted(f.reopened(checkNotNull(saved.selected)))
         }
     }
 
@@ -356,7 +356,7 @@ class SqliteContentionInstrumentedTest {
             f.replies.assertOnlyOriginal()
             val saved = withContext(Dispatchers.Main) { f.gateway.recoverSaved() }
             accepted(saved)
-            accepted(f.reopened(saved.selected))
+            accepted(f.reopened(checkNotNull(saved.selected)))
         }
     }
 
@@ -401,7 +401,7 @@ class SqliteContentionInstrumentedTest {
             withTimeout(8_000) { while (model.state.value.busy) delay(5) }
             val saved = withContext(Dispatchers.Main) { f.gateway.snapshot() }
             initial(saved); assertEquals(0, saved.uncommittedDrafts)
-            initial(f.reopened(saved.selected))
+            initial(f.reopened(checkNotNull(saved.selected)))
         }
     }
 

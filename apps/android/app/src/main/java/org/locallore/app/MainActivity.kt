@@ -12,10 +12,30 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.locallore.app.ui.LocalLoreScreen
 import org.locallore.app.ui.DiagnosticsDialog
+import org.locallore.app.ui.ArchiveDialog
+import org.locallore.app.ui.StoryDeletionDialog
 import org.locallore.app.ui.StoryRecordDialog
 
 class MainActivity : ComponentActivity() {
     private lateinit var model: ShellViewModel
+    private val archiveImportPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (::model.isInitialized) {
+            if (uri == null) model.completeArchiveImport(null)
+            else {
+                val resolver = applicationContext.contentResolver
+                model.completeArchiveImport { readArchiveDocument(resolver, uri) }
+            }
+        }
+    }
+    private val archiveExportPicker = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (::model.isInitialized) {
+            if (uri == null) model.completeArchiveExport(null)
+            else {
+                val resolver = applicationContext.contentResolver
+                model.completeArchiveExport { bytes -> writeArchiveDocument(resolver, uri, bytes) }
+            }
+        }
+    }
     private val documentPicker = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (::model.isInitialized) {
             if (uri == null) model.completeDiagnosticExport(null)
@@ -33,18 +53,29 @@ class MainActivity : ComponentActivity() {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 require(modelClass == ShellViewModel::class.java)
-                return ShellViewModel(DurableGateway(NativeWorkspaceTransport(applicationContext))) as T
+                return ShellViewModel(DurableGateway(NativeWorkspaceTransport(applicationContext), autoCreateIfEmpty = false),
+                    archiveGateway = NativeArchiveGateway(applicationContext),
+                    deletionGateway = NativeArchiveGateway(applicationContext)) as T
             }
         }
         model = ViewModelProvider(this, factory)[ShellViewModel::class.java]
         setContent {
             val state by model.state.collectAsStateWithLifecycle()
             val diagnostics by model.diagnostics.collectAsStateWithLifecycle()
+            val archive by model.archive.collectAsStateWithLifecycle()
+            val deletion by model.deletion.collectAsStateWithLifecycle()
             val record by model.storyRecord.collectAsStateWithLifecycle()
             val renderedRecordContext = record.context
             LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::reset,
                 onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover,
-                onStoryRecord = if (model.hasStoryRecords) model::openStoryRecord else null) {
+                onStoryRecord = if (model.hasStoryRecords) model::openStoryRecord else null,
+                onText = model::submitText,
+                archiveAvailable = model.archiveController != null, onArchive = model::openArchive,
+                deletionAvailable = model.deletionController != null, onDelete = model::openDeletion,
+                onTimeline = model::resumeTimeline) {
+                model.deletionController?.let { controller ->
+                    StoryDeletionDialog(deletion, controller::dismiss, controller::cancel, controller::confirm)
+                }
                 StoryRecordDialog(record, model::closeStoryRecord, model::recordSection, model::recordSearch,
                     model::nextRecordPage, model::firstRecordPage, model::retryStoryRecord,
                     onEvent = { sequence -> model.openRecordEvent(sequence, renderedRecordContext) },
@@ -55,6 +86,21 @@ class MainActivity : ComponentActivity() {
                         try { documentPicker.launch("locallore-diagnostics.json") }
                         catch (_: Exception) { model.diagnosticPickerFailed() }
                     }
+                }
+                model.archiveController?.let { controller ->
+                    ArchiveDialog(archive, controller::dismiss, controller::cancel, controller::prepareExport,
+                        onImportPicker = {
+                            if (model.beginArchiveImportPicker()) {
+                                try { archiveImportPicker.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) }
+                                catch (_: Exception) { model.archiveImportPickerFailed() }
+                            }
+                        },
+                        onExportPicker = {
+                            if (model.beginArchiveExportPicker()) {
+                                try { archiveExportPicker.launch("locallore-private-story.json") }
+                                catch (_: Exception) { model.archiveExportPickerFailed() }
+                            }
+                        }, onConfirmImport = controller::confirmImport, onOpenImported = controller::openImported)
                 }
             }
         }

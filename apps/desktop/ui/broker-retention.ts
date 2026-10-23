@@ -18,6 +18,7 @@ interface Retained {
     terminal: boolean;
     unknown: boolean;
     acknowledgedUnresolved: boolean;
+    recoveringMemory: boolean;
 }
 function identity(value: BrokerIdentity): BrokerIdentity {
     if (!value || typeof value !== "object" || Object.keys(value).some(k=>!["surface","session","story","branch","head","action","token","child","at"].includes(k)) || !["memory","fork","archive"].includes(value.surface)) throw Error("InvalidInput");
@@ -40,7 +41,7 @@ export class BrokerRetention {
     async start(value: BrokerIdentity, work: ()=>Promise<unknown>): Promise<unknown> {
         const selected=identity(value);
         if(this.blocked())throw Error("ArchiveBusy");
-        this.retained={identity:selected,inFlight:true,operation:null,terminal:false,unknown:false,acknowledgedUnresolved:false};
+        this.retained={identity:selected,inFlight:true,operation:null,terminal:false,unknown:false,acknowledgedUnresolved:false,recoveringMemory:false};
         this.patch({});
         try {const result=await work();this.observe(result);this.patch({inFlight:false});return result;}
         catch(error) {const name=error instanceof Error?error.message:String(error);this.patch({inFlight:false,unknown:name!=="ArchiveBusy",terminal:name==="ArchiveBusy"});throw error;}
@@ -52,13 +53,19 @@ export class BrokerRetention {
         if(Object.keys(v).length!==6||!["version","operation_id","running","phase","error","result"].every(k=>Object.hasOwn(v,k))||v.version!==1||!Number.isSafeInteger(v.operation_id)||Number(v.operation_id)<1||typeof v.running!=="boolean"||!((v.error===null)||(typeof v.error==="string"&&v.error.length<=64)))return;
         if(r.operation!==null&&r.operation!==v.operation_id)return;
         if(v.running ? !["starting","memory_maintenance","forking","export_preview","import_preview","exporting","importing"].includes(String(v.phase))||v.result!==null||v.error!==null : v.phase==="completed" ? !v.result||typeof v.result!=="object"||v.error!==null : v.phase!=="error"||typeof v.error!=="string"||v.result!==null)return;
-        this.patch({operation:Number(v.operation_id),terminal:!v.running,unknown:false});
+        let unresolved = false;
+        if(r.recoveringMemory) {
+            const result=v.result as Record<string,unknown>|null;
+            const scope=result?.scope as Record<string,unknown>|undefined;
+            unresolved=v.running||v.phase!=="completed"||result?.kind!=="memory_maintenance"||result?.action!=="status"||result?.session!==r.identity.session||scope?.story!==r.identity.story||scope?.branch!==r.identity.branch||result?.expected_head!==r.identity.head;
+        }
+        this.patch({operation:Number(v.operation_id),terminal:!v.running,unknown:unresolved});
     }
     async recoverMemory(value: BrokerIdentity, work: ()=>Promise<unknown>) {
         const selected=identity(value),r=this.retained;
         if(!r||r.identity.surface!=="memory"||selected.surface!=="memory"||selected.action!=="status"||r.inFlight||!["session","story","branch","head"].every(k=>selected[k as keyof BrokerIdentity]===r.identity[k as keyof BrokerIdentity]))throw Error("ArchiveBusy");
         const oldOperation=r.operation;
-        this.patch({inFlight:true});
+        this.patch({inFlight:true,recoveringMemory:true});
         try {
             const result=await work();
             // A successful explicit passive read has a new broker operation.

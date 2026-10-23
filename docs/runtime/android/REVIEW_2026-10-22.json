@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "checked_date": "2026-10-22",
+  "scope": "Independent synthetic host ownership review; coordinator source snapshot, not a final integrated commit or emulator result",
+  "source_snapshot": [
+    {
+      "path": "benchmarks/android_runtime_spike.py",
+      "bytes": 17541,
+      "sha256": "4cf2edd20e89e5d2c1d898adef400d5841c461f8c5e419f68d269e9a035867fe"
+    },
+    {
+      "path": "benchmarks/spike/android/controller/remote_owner.c",
+      "bytes": 5836,
+      "sha256": "bb244457080768b8d5416acd4a2f91f062aa802d780d74c7e20af088f5ed3caf"
+    },
+    {
+      "path": "benchmarks/spike/android/controller/build.py",
+      "bytes": 1696,
+      "sha256": "352f6258396ca2af25a34f86af29f39e0da3612a7084ffe390d1cd27938f3748"
+    },
+    {
+      "path": "benchmarks/test_android_runtime_ownership_review.py",
+      "bytes": 11914,
+      "sha256": "ed3183724b9cb76600accbe7701eb8c190c0b081909b1b5ae9b7aa751413d162"
+    }
+  ],
+  "checks": [
+    {
+      "command": "python -B -m unittest discover -s benchmarks -p test_android_runtime_ownership_review.py -v",
+      "passed": 15,
+      "failed": 0,
+      "uses_adb": false,
+      "uses_model": false
+    },
+    {
+      "command": "LiteRT Android artifact audit unit suite",
+      "passed": 8,
+      "failed": 0,
+      "uses_adb": false,
+      "uses_model": false
+    },
+    {
+      "command": "llama Android build/ELF audit unit suite",
+      "passed": 13,
+      "failed": 0,
+      "uses_adb": false,
+      "uses_model": false
+    }
+  ],
+  "limits": [
+    "No Android process or native SDK execution by reviewer",
+    "Coordinator must rerun integrated tests after any source changes",
+    "No physical-device or production profile qualification"
+  ]
+}

@@ -5,7 +5,7 @@ The reviewer read the current #3/#5 tickets and claim 6353871377, AGENTS.md,
 the evaluation protocol and prior host evidence. This review introduces no
 production dependency and selects no Android backend or supported phone.
 
-The accompanying [JSON record](SOURCE_REVIEW_2026-10-22.json) records 16
+The accompanying [JSON record](SOURCE_REVIEW_2026-10-22.json) records 22
 independently retrieved official source/metadata URLs, byte lengths and SHA256
 digests. All retrievals succeeded. Runtime commits remain LiteRT-LM
 `bda624851d74be34d4e1f7fac1fc4155939539c7` and llama.cpp
@@ -61,6 +61,25 @@ notes record API 26. The ident is a build-target observation, not a measured
 minimum supported OS. API 24/25 compatibility and actual 16 KiB OS execution
 remain untested. ELF alignment also does not establish a future APK's ZIP
 alignment or successful native loading. Exact aggregate values are in JSON.
+
+## Native cancellation and close source follow-up
+
+The pinned [JNI implementation](https://github.com/google-ai-edge/LiteRT-LM/blob/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc)
+forwards cancellation and directly deletes a conversation on close. Its terminal
+callback releases the JNI global reference after the Java callback returns;
+observing a Java latch alone does not prove native callback teardown completed.
+The underlying [SessionAdvanced destructor](https://github.com/google-ai-edge/LiteRT-LM/blob/bda624851d74be34d4e1f7fac1fc4155939539c7/runtime/core/session_advanced.cc)
+waits for session work before releasing the session, but ignores that wait's
+error. A successful close call and independently observed package termination
+are stronger finite evidence than merely entering onDone. They still do not
+prove cleanup for every SDK failure or OS condition.
+
+The [session interface](https://github.com/google-ai-edge/LiteRT-LM/blob/bda624851d74be34d4e1f7fac1fc4155939539c7/runtime/engine/engine.h)
+explicitly leaves cancelled sessions unsupported for reuse. The experiment
+therefore needs fresh conversation/engine owners after cancellation. Independent
+process deadlines must remain effective during model load, native cancellation,
+close and any undrained stream; abruptly terminating the process is distinct
+from cooperative SDK disposal.
 
 The runtime [LiteRT-LM license](https://github.com/google-ai-edge/LiteRT-LM/blob/bda624851d74be34d4e1f7fac1fc4155939539c7/LICENSE)
 and POM state Apache-2.0; the pinned

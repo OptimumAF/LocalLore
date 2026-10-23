@@ -118,6 +118,48 @@
       "bytes": 368057,
       "sha256": "c5bb7aab81233348afbcaf95001944c5979ebdac4b5d29721388d19f266324a0",
       "retrieval": "verified"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc",
+      "resolved_url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc",
+      "bytes": 80608,
+      "sha256": "d592f16604868ec6f35e0a65c39ce693c9da45266eafffc51036a9225d3b776c",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/runtime/core/session_advanced.cc",
+      "resolved_url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/runtime/core/session_advanced.cc",
+      "bytes": 23789,
+      "sha256": "ed8e7a27f591d20754eee56a48ad58a294ea8b1d76e4ab2b9555ed583d394f17",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/runtime/core/session_advanced.h",
+      "resolved_url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/runtime/core/session_advanced.h",
+      "bytes": 12906,
+      "sha256": "6e67c7ae707d87195e4f83f90d068a7f25011fea326b7e7d329eb5102a9cb29c",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/runtime/core/cached_session.h",
+      "resolved_url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/runtime/core/cached_session.h",
+      "bytes": 7680,
+      "sha256": "cbfeaf5f055f19795bff064d19ef5087b6577a7d7a8b3417589ec2ec98057fe2",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/runtime/conversation/conversation.h",
+      "resolved_url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/runtime/conversation/conversation.h",
+      "bytes": 36490,
+      "sha256": "e86f23bb7c68f79966a581910aa9beda278d581dd74ad5a1c4733195eab2ae89",
+      "retrieval": "verified"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/runtime/engine/engine.h",
+      "resolved_url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/runtime/engine/engine.h",
+      "bytes": 20203,
+      "sha256": "5502b8fa3e4d1cf3ab31444ac9b7d7a81110ad9744c980414fa65510a48c4913",
+      "retrieval": "verified"
     }
   ],
   "limits": [

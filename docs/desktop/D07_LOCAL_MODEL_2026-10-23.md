@@ -264,3 +264,55 @@ product improvement based on the frozen wrong-action and narration false-negativ
 evidence. Real old-promise and discovery-dependent coverage remains pending until
 the preceding journey succeeds; changing the assertions to manufacture coverage
 is not a remedy. Preserve this failed cohort when qualifying future improvements.
+
+## Actual-director boundary review correction
+
+Claim extension
+[6369139902](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6369139902)
+reopened this narrow evidence issue before acceptance. The independent reviewer
+added `tests/local_model_review.rs` in `8c900f8` (imported unchanged as `e9cae06`).
+It path-includes the actual production recorder and passes fixed synthetic
+Structured requests through that recorder. With the frozen implementation,
+one test passed (player secret allowed in director input, forbidden in narrator
+input) and one **failed**: all three parent/sibling/foreign director canaries
+escaped every existing privacy-failure flag. The retained reviewer failure log
+`local-model-review/director-envelope-before.log` SHA256 is
+`551faabb2fa84b7fb737936a5f472bcfaf8d8c6cb1ac6e0968757c7cf33b1594`.
+The test supplies no retrieval targets; its matcher is an unreachable stub, not
+an alternate observer predicate or compiler.
+
+Repair `e1f1af2b39941767a00376052197e8f378a9c9c8` adds private typed role-specific
+lists and `forbidden_director_prompt`. The same actual request capture checks the
+whole director prompt for declared foreign canaries and, in child scope, later
+parent/sibling canaries. Narrator prompt/output additionally exclude the player's
+private secret; that secret stays legitimate director input. A separate observer
+report check records the actual director flag only when a director request was
+captured. Guard-only turns therefore do not acquire a fictional director check.
+The full fake baseline also verifies that these check identities match the turns
+with actual director requests. Policy tests cover all six stories/four steps,
+including legitimate parent scope and player-secret access.
+
+This changes evaluation evidence, not generation input or canonical authority.
+Neither the corpus nor prompt/core/Host/Store/runtime/model source changed. The
+initial native report/checkpoints/raw outputs and failed cohort are immutable;
+the new checks were not retroactively run against that model cohort. They require
+a new source-bound run for future actual-model absence evidence. New synthetic
+verification is recorded separately below; it does not turn historical missing
+coverage into a pass or provide quality acceptance.
+
+Final code/test source is **960e60c475538993a0750b152d1f497b4c03b009**. The
+reviewer's constructor adaptation `eb796fa` is imported as `960e60c`, and its
+public-API unknown-reservation regression `0567402` as `2d78ed4`. The latter uses
+a synthetic durable reservation fixture, not a killed worker: completed-story
+resume keeps that unknown admission's three roles/60 seconds charged and leaves
+the checkpoint unchanged without another admission or attempt.
+
+On this final source, the same locked/offline all-target commands above passed:
+**20 library + 3 independent integration = 23 default tests**;
+**21 library + 3 integration = 24 local-model feature tests**, zero failed/ignored.
+Both strict all-target Clippy variants, formatting and diff checks passed. Logs
+are `director-fix-{default,feature}-{tests,clippy}.log` under the local evidence
+root. The independent reviewer also ran its own source-bound checks; those are
+reviewer execution, not additional author measurements. No model was loaded or
+called for this correction. Historical 372/297-check reports and their SHA256s
+above remain unchanged and do not contain the new actual-director checks.

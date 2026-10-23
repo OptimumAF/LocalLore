@@ -224,6 +224,7 @@
     "supplied_assets": "intentionally nonexistent model/worker paths"
   },
   "known_limitations": [
+    "review correction: historical c76 required ancestor target checked actual director; parent/sibling/foreign absence checked separate compiler, not actual director envelope; no retroactive actual-model exclusion qualification",
     "four valid-shaped wrong-action proposals rejected without canonical projection change; five failed expectation checks per proposal",
     "old-promise and return-key dependent cases not_run",
     "knowledge return and terminal Mira/Sable context assertions not_run",
@@ -235,5 +236,37 @@
     "sampler and expected-worker helper unchanged stack dependencies subject to coordinator review/integration"
   ],
   "raw_outputs": "local only, excluded from public summary",
-  "human_quality_acceptance": false
+  "human_quality_acceptance": false,
+  "review_correction": {
+    "claim": 6369139902,
+    "historical_measured_source_unchanged": true,
+    "independent_failing_test_source": "8c900f8acdd45aaa0a09576eaff87ee07fb5221d",
+    "failing_test_log_sha256": "551faabb2fa84b7fb737936a5f472bcfaf8d8c6cb1ac6e0968757c7cf33b1594",
+    "before_result": {
+      "passed": 1,
+      "failed": 1
+    },
+    "repair_source": "e1f1af2b39941767a00376052197e8f378a9c9c8",
+    "actual_model_rerun": "not_run",
+    "historical_director_absence_qualification": false,
+    "final_code_test_source": "960e60c475538993a0750b152d1f497b4c03b009",
+    "independent_test_adaptation_source": "eb796fa2f65041cbdccfd9fe4b73b810babde6cf",
+    "unknown_reservation_test_source": "056740242133a6bdb789c9d5ac82bba45557ade5",
+    "after_author_tests": {
+      "default_lib": 20,
+      "default_review_integration": 3,
+      "default_total": 23,
+      "local_model_lib": 21,
+      "local_model_review_integration": 3,
+      "local_model_total": 24,
+      "failed": 0,
+      "ignored": 0,
+      "strict_clippy_default": "passed",
+      "strict_clippy_local_model": "passed",
+      "fmt": "passed",
+      "diff_check": "passed"
+    },
+    "reservation_probe": "synthetic durable unknown admission fixture, not actual worker kill",
+    "unchanged_historical_report_hashes": true
+  }
 }

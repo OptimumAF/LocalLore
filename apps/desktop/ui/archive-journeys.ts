@@ -274,6 +274,13 @@ export async function archiveJourneys({
                 const cancelled = a.confirm();
                 while (a.get().status?.phase !== "importing" && a.get().busy)
                     await new Promise((r) => setTimeout(r, 5));
+                check(
+                    a.get().busy &&
+                        a.get().status?.running &&
+                        a.get().status?.phase === "importing",
+                    "archive-pending-snapshot-is-actual-running-import",
+                );
+                await capture("pending");
                 await a.cancel();
                 await cancelled;
                 await fixed("release-import");
@@ -285,7 +292,6 @@ export async function archiveJourneys({
                     (await c.library()).stories.length === 1,
                     "archive-cancel-preserves-existing-saved-library",
                 );
-                await capture("pending");
                 await fixed("normal");
                 await a.previewImport();
                 a.consent(true);

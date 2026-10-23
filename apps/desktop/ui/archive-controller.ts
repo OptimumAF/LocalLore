@@ -182,7 +182,7 @@ export class ArchiveController {
                     preview: p,
                     consent: false,
                     result: null,
-                    notice: "Review this exact captured snapshot before confirming. Preview expires after ten idle minutes.",
+                    notice: "Review this exact captured snapshot before confirming. Preview expires ten minutes after creation.",
                 });
             } else {
                 this.patch({

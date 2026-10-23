@@ -258,7 +258,7 @@ impl Work {
 }
 impl ArchiveBroker {
     pub fn catalog(&self) -> Value {
-        json!({"version":1,"format":"locallore-playable-archive","archive_version":1,"privacy":"full_private","warning":PRIVATE,"caps":{"bytes":MAX_BYTES,"tokens":2,"idle_seconds":600,"workers":1},"branch_ui":false,"corrections":false})
+        json!({"version":1,"format":"locallore-playable-archive","archive_version":1,"privacy":"full_private","warning":PRIVATE,"caps":{"bytes":MAX_BYTES,"tokens":2,"preview_ttl_seconds":600,"workers":1},"branch_ui":false,"corrections":false})
     }
     fn snapshot(s: &State, epoch: u64, operation: u64) -> Result<Value> {
         let j = s
@@ -645,9 +645,9 @@ pub fn import(w: &Work, token: &str, destination: &Path) -> Result<Value> {
                 return Err("Unsupported".into());
             }
         }
-        // The shared owner atomically reserves the leaf and retains its no-delete
-        // handle through SQLite connection destruction. Parent pins alone cannot
-        // close create_new -> SQLite-open substitution races.
+        // The shared owner reserves main and all exact sidecars before SQLite,
+        // retaining their guards until the disposable MEMORY-journal Store closes.
+        // Parent pins alone cannot protect those SQLite pathname lookups.
         let mut store = Store::create_new_pinned(&stage_path).map_err(error)?;
         let outcome = store
             .import_archive(stage_token, &|| w.cancelled())

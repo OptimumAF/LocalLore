@@ -805,3 +805,75 @@ summary {
         padding: 1rem;
     }
 }
+
+.turn-debugger {
+    padding: 1.5rem;
+    border-bottom: 1px solid #354237;
+}
+.trace-controls {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.trace-controls label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.trace-controls input {
+    width: 7rem;
+}
+.trace-attempts button small,
+.trace-detail td small {
+    display: block;
+}
+.trace-detail {
+    margin-top: 1.5rem;
+}
+.trace-provenance > div {
+    display: grid;
+    grid-template-columns: minmax(9rem, 1fr) 3fr;
+    gap: 1rem;
+    padding: 0.4rem 0;
+}
+.trace-provenance dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+.trace-limits {
+    margin-top: 1.5rem;
+}
+@media (max-width: 760px) {
+    .turn-debugger {
+        padding: 1rem;
+    }
+    .trace-provenance > div {
+        display: block;
+    }
+}
+
+.turn-debugger .query-table th:nth-child(1) {
+    width: 24%;
+}
+.turn-debugger .query-table th:nth-child(2) {
+    width: 22%;
+}
+.turn-debugger .query-table th:nth-child(3) {
+    width: 20%;
+}
+.turn-debugger .query-table th:nth-child(4) {
+    width: 34%;
+}
+.turn-debugger .trace-attempts th:nth-child(1) {
+    width: 45%;
+}
+.turn-debugger .trace-attempts th:nth-child(2) {
+    width: 10%;
+}
+.turn-debugger .trace-attempts th:nth-child(3) {
+    width: 25%;
+}
+.turn-debugger .trace-attempts th:nth-child(4) {
+    width: 20%;
+}

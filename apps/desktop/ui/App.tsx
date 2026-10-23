@@ -1,3 +1,4 @@
+import { TurnDebugger } from "./TurnDebugger";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Controller } from "./controller";
 import { ModelPanel } from "./ModelPanel";
@@ -64,10 +65,20 @@ export function App({ controller: c }: { controller: Controller }) {
             className={`app text-${s.textScale} side-${s.sidebarSize} detail-${s.inspectorSize}`}
         >
             <a
-                href={s.query.shown ? "#memory-controls" : "#composer"}
+                href={
+                    s.trace.shown
+                        ? "#trace-controls"
+                        : s.query.shown
+                          ? "#memory-controls"
+                          : "#composer"
+                }
                 className="skip"
             >
-                {s.query.shown ? "Skip to memory controls" : "Skip to composer"}
+                {s.trace.shown
+                    ? "Skip to trace controls"
+                    : s.query.shown
+                      ? "Skip to memory controls"
+                      : "Skip to composer"}
             </a>
             <header className="brandbar">
                 <strong className="brand">LocalLore</strong>
@@ -102,7 +113,7 @@ export function App({ controller: c }: { controller: Controller }) {
             </header>
             {s.labPending && <LabAcknowledgement controller={c} />}
             <div
-                className={`workspace ${s.inspectorOpen && !s.query.shown ? "" : "collapsed"}`}
+                className={`workspace ${s.inspectorOpen && !s.query.shown && !s.trace.shown ? "" : "collapsed"}`}
             >
                 <aside className="sidebar" aria-label="Story sessions">
                     <h2>
@@ -128,6 +139,12 @@ export function App({ controller: c }: { controller: Controller }) {
                             aria-pressed={s.query.shown}
                         >
                             Memory & evidence
+                        </button>
+                        <button
+                            onClick={() => void c.showTrace(!s.trace.shown)}
+                            aria-pressed={s.trace.shown}
+                        >
+                            Turn debugger
                         </button>
                         <button onClick={() => c.showModel()}>
                             Local model management
@@ -305,6 +322,7 @@ export function App({ controller: c }: { controller: Controller }) {
                         <QueryInspector controller={c} state={s} />
                     ) : (
                         <>
+                            <TurnDebugger controller={c} state={s} />
                             <ModelPanel controller={c} state={s} />
                             <InspectionPanel controller={c} state={s} />
                             <div
@@ -621,7 +639,7 @@ export function App({ controller: c }: { controller: Controller }) {
                         </>
                     )}
                 </main>
-                {s.inspectorOpen && !s.query.shown && (
+                {s.inspectorOpen && !s.query.shown && !s.trace.shown && (
                     <aside
                         className="inspector"
                         aria-label="Revision inspector"

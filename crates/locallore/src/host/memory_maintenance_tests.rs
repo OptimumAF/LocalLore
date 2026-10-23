@@ -31,6 +31,7 @@ macro_rules! required_port {
             }
         }
         fn begin(&mut self, request: &Request) -> Result<SavedTurn, String> {
+            self.last = Some(request.clone());
             Ok(SavedTurn {
                 request: request.clone(),
                 receipt: None,
@@ -49,19 +50,30 @@ macro_rules! required_port {
         fn stale(&mut self, _: &Request) -> Result<SavedTurn, String> {
             Err("Unsupported".into())
         }
-        fn status(&mut self, _: &Scope, _: &str) -> Result<SavedTurn, String> {
-            Err("Unsupported".into())
+        fn status(&mut self, scope: &Scope, turn: &str) -> Result<SavedTurn, String> {
+            let request = self
+                .last
+                .as_ref()
+                .filter(|request| &request.scope == scope && request.turn == turn)
+                .ok_or("UnknownTurn")?;
+            Ok(SavedTurn {
+                request: request.clone(),
+                receipt: None,
+                phase: "draft".into(),
+            })
         }
     };
 }
 struct Legacy {
     engine: Engine,
+    last: Option<Request>,
 }
 impl Persistence for Legacy {
     required_port!();
 }
 struct Port {
     engine: Engine,
+    last: Option<Request>,
     mode: u8,
     calls: Arc<AtomicUsize>,
     entered: Option<mpsc::SyncSender<()>>,
@@ -134,6 +146,7 @@ fn fixture(mode: u8, lab: bool) -> (Host, String, Scope, Arc<AtomicUsize>) {
         lab,
         Box::new(Port {
             engine: engine(),
+            last: None,
             mode,
             calls: calls.clone(),
             entered: None,
@@ -144,7 +157,13 @@ fn fixture(mode: u8, lab: bool) -> (Host, String, Scope, Arc<AtomicUsize>) {
 }
 #[test]
 fn default_port_and_ephemeral_are_explicitly_unsupported() {
-    let host = Host::with_persistence(false, Box::new(Legacy { engine: engine() }));
+    let host = Host::with_persistence(
+        false,
+        Box::new(Legacy {
+            engine: engine(),
+            last: None,
+        }),
+    );
     let (session, scope) = create(&host);
     assert_eq!(
         host.memory_maintenance(&session, &scope, 0, MaintenanceAction::Status, &|| false),
@@ -302,6 +321,7 @@ fn owner_atomic_cancellation_does_not_need_host_lock() {
         false,
         Box::new(Port {
             engine: engine(),
+            last: None,
             mode: 3,
             calls,
             entered: Some(send),

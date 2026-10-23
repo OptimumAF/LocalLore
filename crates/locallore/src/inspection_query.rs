@@ -1,5 +1,5 @@
-//! Bounded read-only inspection of an immutable validated root-history Engine.
-//! This module derives views; it never supplies generation context or establishes knowledge.
+//! Read-only eligibility over an immutable validated root-history Engine.
+//! Shared views and an internal actor-context port never establish canonical knowledge.
 use crate::{contracts::*, engine::Engine};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -503,6 +503,28 @@ pub fn query(
         return Err(QueryError::TooLarge);
     }
     Ok(page)
+}
+
+/// Internal generation port: the exact actor lens shared with inspection, without
+/// any inspection privilege argument or raw Player/narrator transcript rows.
+/// The caller supplies an already validated coherent snapshot/current actor.
+pub(crate) fn actor_context_rows(
+    engine: &Engine,
+    actor: &str,
+    view: View,
+) -> Result<Vec<Row>, QueryError> {
+    if !matches!(
+        view,
+        View::Profiles | View::Knowledge | View::Relationships | View::Promises
+    ) {
+        return Err(QueryError::InvalidRequest);
+    }
+    let lens = Lens::new(engine, &Observer::Character { id: actor.into() }, true)?;
+    let rows = collect(engine, &lens, view)?;
+    if rows.len() > MAX_CANDIDATES {
+        return Err(QueryError::TooLarge);
+    }
+    Ok(rows)
 }
 
 fn state_rows(engine: &Engine, lens: &Lens) -> Result<Vec<Row>, QueryError> {

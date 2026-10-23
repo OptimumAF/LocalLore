@@ -326,6 +326,15 @@ impl Engine {
         proposal: &Proposal,
         record: &crate::play::PlayRecord,
     ) -> Result<Receipt, Error> {
+        self.commit_play_history(request, proposal, record, false)
+    }
+    fn commit_play_history(
+        &mut self,
+        request: &Request,
+        proposal: &Proposal,
+        record: &crate::play::PlayRecord,
+        recorded_history: bool,
+    ) -> Result<Receipt, Error> {
         if let Some(receipt) = self.recorded(request)? {
             return Ok(receipt);
         }
@@ -333,7 +342,7 @@ impl Engine {
             return Err(Error::Agency);
         }
         let mut receipt = self.preview(request, proposal)?;
-        crate::play::validate_record(self, &receipt, record)?;
+        crate::play::validate_record(self, &receipt, record, recorded_history)?;
         receipt.narration = record.narration.text.clone();
         receipt.play = Some(record.clone());
         let mut staged = self.state.clone();
@@ -349,6 +358,16 @@ impl Engine {
     pub fn commit_prepared(&mut self, receipt: &Receipt) -> Result<Receipt, Error> {
         if let Some(play) = receipt.play() {
             self.commit_play(receipt.request(), receipt.proposal(), play)
+        } else {
+            self.commit(receipt.request(), receipt.proposal(), receipt.narration())
+        }
+    }
+
+    // History paths alone retain the explicitly supported recorded prompt. A
+    // prepared value supplied for a new turn must still use the current prompt.
+    fn commit_recorded(&mut self, receipt: &Receipt) -> Result<Receipt, Error> {
+        if let Some(play) = receipt.play() {
+            self.commit_play_history(receipt.request(), receipt.proposal(), play, true)
         } else {
             self.commit(receipt.request(), receipt.proposal(), receipt.narration())
         }
@@ -390,7 +409,7 @@ impl Engine {
                 if play.narration.text != recorded.narration {
                     return Err(Error::CorruptHistory);
                 }
-                engine.commit_play(&recorded.request, &recorded.proposal, play)
+                engine.commit_play_history(&recorded.request, &recorded.proposal, play, true)
             } else {
                 engine.commit(&recorded.request, &recorded.proposal, &recorded.narration)
             }
@@ -411,7 +430,7 @@ impl Engine {
             if engine.recorded(&receipt.request)?.is_some() {
                 return Err(Error::CorruptHistory);
             }
-            let rebuilt = engine.commit_prepared(receipt)?;
+            let rebuilt = engine.commit_recorded(receipt)?;
             if &rebuilt != receipt {
                 return Err(Error::CorruptHistory);
             }
@@ -445,13 +464,78 @@ impl Engine {
                 break;
             }
             result.scope = receipt.request.scope.clone();
-            let rebuilt = result.commit_prepared(receipt)?;
+            let rebuilt = result.commit_recorded(receipt)?;
             if rebuilt != *receipt {
                 return Err(Error::CorruptHistory);
             }
         }
         result.scope = scope;
         Ok(result)
+    }
+
+    fn actor_event_eligible(
+        &self,
+        observer: &str,
+        scope: &Scope,
+        revision: u64,
+        event: &AcceptedEvent,
+    ) -> bool {
+        self.lineage
+            .eligible(scope, revision, &event.scope, event.sequence)
+            && event.witnesses.contains(observer)
+    }
+
+    /// Visit borrowed accepted observations after eligibility, without cloning history.
+    /// `revision` must be the current head; the range is (after, through]. A false
+    /// visitor stops normally. Cancellation is checked at least every 32 scanned
+    /// events, including hidden events, and before each eligible callback.
+    /// Actor selection is a trusted caller responsibility; this grants no wire privilege.
+    #[allow(clippy::too_many_arguments)] // Keep scope/basis/range explicit at this narrow read port.
+    pub fn visit_actor_observations(
+        &self,
+        observer: &str,
+        scope: &Scope,
+        revision: u64,
+        after: u64,
+        through: u64,
+        cancel: &dyn Fn() -> bool,
+        visitor: &mut dyn FnMut(&AcceptedEvent) -> bool,
+    ) -> Result<(), Error> {
+        if scope != &self.scope {
+            return Err(Error::Scope);
+        }
+        if revision != self.revision() {
+            return Err(Error::Stale);
+        }
+        if !self.state.actors.contains_key(observer) {
+            return Err(Error::UnknownReference);
+        }
+        if after > through || through > revision {
+            return Err(Error::Rule);
+        }
+        if cancel() {
+            return Err(Error::Cancelled);
+        }
+        for (index, event) in self.receipts.iter().flat_map(|r| &r.events).enumerate() {
+            if index % 32 == 0 && cancel() {
+                return Err(Error::Cancelled);
+            }
+            if event.sequence > after
+                && event.sequence <= through
+                && self.actor_event_eligible(observer, scope, revision, event)
+            {
+                if cancel() {
+                    return Err(Error::Cancelled);
+                }
+                if !visitor(event) {
+                    return Ok(());
+                }
+            }
+        }
+        if cancel() {
+            return Err(Error::Cancelled);
+        }
+        Ok(())
     }
 
     pub fn character_context(
@@ -491,11 +575,7 @@ impl Engine {
             .receipts
             .iter()
             .flat_map(|r| &r.events)
-            .filter(|event| {
-                self.lineage
-                    .eligible(scope, revision, &event.scope, event.sequence)
-                    && event.witnesses.contains(observer)
-            })
+            .filter(|event| self.actor_event_eligible(observer, scope, revision, event))
             .cloned()
             .collect();
         Ok(CharacterContext {

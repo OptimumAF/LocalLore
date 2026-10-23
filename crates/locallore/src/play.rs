@@ -3,7 +3,10 @@ use crate::{
     contracts::*,
     engine::Engine,
     inference::{generate, Budget, Cancellation, GenerationRequest, InferenceProvider, Input},
-    turn_trace::{Counts, ErrorCategory, Outcome, Stage, StageMeasurement, StageTimer, TraceSink},
+    turn_trace::{
+        Counts, ErrorCategory, Outcome, Stage, StageMeasurement, StageTimer, TokenBasis,
+        TokenCount, TraceSink,
+    },
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -100,7 +103,8 @@ fn remaining(clock: GameplayClock, overhead: Duration, deadline_ms: u64) -> Resu
 
 pub const PLAY_VERSION: u16 = 2;
 pub const NARRATION_POLICY: &str = "grounded-prose-v2.1";
-pub const PROMPT_VERSION: &str = "locallore-play-v2.1";
+pub const PROMPT_VERSION: &str = "locallore-play-v2.2";
+pub const RECORDED_PROMPT_VERSION: &str = "locallore-play-v2.1";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -218,11 +222,13 @@ pub(crate) fn validate_record(
     engine: &Engine,
     approved: &Receipt,
     record: &PlayRecord,
+    recorded_history: bool,
 ) -> Result<(), Error> {
     record.profile.validate()?;
     if record.version != PLAY_VERSION
         || record.policy != NARRATION_POLICY
-        || record.prompt_version != PROMPT_VERSION
+        || !(record.prompt_version == PROMPT_VERSION
+            || (recorded_history && record.prompt_version == RECORDED_PROMPT_VERSION))
         || record.repairs > record.profile.repair_limit
         || record.stages.len() > 8
         || record.stages.iter().any(|s| {
@@ -629,10 +635,59 @@ pub fn execute_traced(
     }
     let started = trace.clock();
     let mut stages = Vec::new();
-    trace.not_run(Stage::Retrieval);
+    let compiled = trace.counted(
+        Stage::Retrieval,
+        Outcome::Rejected,
+        || {
+            let reserved_tokens = 512.min(profile.context_tokens.saturating_sub(1));
+            crate::context_compiler::compile(
+                engine,
+                &crate::context_compiler::CompileRequest {
+                    version: crate::context_compiler::COMPILER_VERSION,
+                    scope: request.scope.clone(),
+                    expected_head: request.expected_revision,
+                    at_revision: None,
+                    observer: engine.seed().player.clone(),
+                    role: crate::context_compiler::Role::Director,
+                    // Literal Dialogue does not turn its contents into a factual search query.
+                    // The original bounded speech still reaches the exact-utterance schema below.
+                    query: if matches!(kind, PlayInputKind::Action) {
+                        text.clone()
+                    } else {
+                        String::new()
+                    },
+                    referenced_ids: vec![],
+                    budget: crate::context_compiler::Budget {
+                        estimated_tokens: profile.context_tokens,
+                        reserved_tokens,
+                        ..crate::context_compiler::Budget::default()
+                    },
+                },
+            )
+            .map_err(|error| match error {
+                crate::context_compiler::CompileError::Scope => Error::Scope,
+                crate::context_compiler::CompileError::Stale => Error::Stale,
+                crate::context_compiler::CompileError::Observer => Error::Knowledge,
+                crate::context_compiler::CompileError::MandatoryBudget
+                | crate::context_compiler::CompileError::TooLarge => Error::TooLarge,
+                crate::context_compiler::CompileError::UnknownReference
+                | crate::context_compiler::CompileError::AmbiguousAlias => {
+                    Error::ClarificationRequired
+                }
+                _ => Error::Rule,
+            })
+        },
+        |package| Counts {
+            eligible_records: package.diagnostics.eligible_candidates as u32,
+            input_tokens: Some(TokenCount {
+                value: package.estimated_tokens,
+                basis: TokenBasis::Estimated,
+            }),
+            ..Counts::default()
+        },
+    )?;
     let (inventory, nearby, base, _) = trace.counted(Stage::Context, Outcome::Rejected, || {
-    let context =
-        engine.character_context(&engine.seed().player, engine.scope(), engine.revision())?;
+    let player_location = &engine.state().actors.get(&engine.seed().player).ok_or(Error::UnknownReference)?.location;
     let inventory: BTreeMap<_, _> = engine
         .state()
         .items
@@ -643,7 +698,7 @@ pub fn execute_traced(
         .state()
         .actors
         .iter()
-        .filter(|(_, a)| a.location == context.self_state.location && a.alive)
+        .filter(|(_, a)| &a.location == player_location && a.alive)
         .map(|(id, a)| (id, &a.name))
         .collect();
     if matches!(kind, PlayInputKind::Dialogue)
@@ -655,11 +710,15 @@ pub fn execute_traced(
         .seed()
         .routes
         .iter()
-        .filter(|(from, _)| from == &context.self_state.location)
+        .filter(|(from, _)| from == player_location)
         .map(|(_, to)| to)
         .collect();
-    let eligible = [context.facts.len(), context.observations.len(), context.beliefs.len(),
+    let eligible = [compiled.records.len(),
         inventory.len(), nearby.len(), routes.len(), 1].into_iter().fold(0usize, usize::saturating_add).min(u32::MAX as usize) as u32;
+    // Ranking/omission diagnostics are kept out of model data. Only the same
+    // compiler's selected typed, eligible records and their origins are supplied.
+    let records: Vec<_> = compiled.records.iter().map(|record| json!({"kind":record.kind,"source_revision":record.source_revision,"payload":record.payload})).collect();
+    let context = json!({"compiler_version":compiled.version,"observer":compiled.observer,"revision":compiled.revision,"records":records});
     let input = json!({"kind":kind,"player_text":text,"context":context,"inventory":inventory,"nearby":nearby,"routes":routes});
     crate::engine::check_json_budget(&input, 24_576)?;
     let instructions = match kind {
@@ -784,7 +843,7 @@ pub fn execute_traced(
     let before = trace.clock();
     if trace
         .run(Stage::NarrationValidation, Outcome::Rejected, || {
-            validate_record(engine, &approved, &record)
+            validate_record(engine, &approved, &record, false)
         })
         .is_err()
     {

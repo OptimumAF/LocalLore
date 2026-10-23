@@ -174,11 +174,14 @@ fn successful_actual_pipeline_has_equal_receipt_events_state_and_explicit_missin
             .iter()
             .any(|s| s.stage == stage && s.outcome == Outcome::Accepted));
     }
-    for stage in [Stage::Retrieval, Stage::MemoryMaintenance] {
-        assert!(stages.iter().any(|s| s.stage == stage
-            && s.outcome == Outcome::NotRun
-            && s.error == Some(ErrorCategory::Unsupported)));
-    }
+    assert!(stages.iter().any(|s| s.stage == Stage::MemoryMaintenance
+        && s.outcome == Outcome::NotRun
+        && s.error == Some(ErrorCategory::Unsupported)));
+    assert!(stages.iter().any(|s| s.stage == Stage::Retrieval
+        && s.outcome == Outcome::Accepted
+        && s.counts
+            .input_tokens
+            .is_some_and(|count| count.basis == TokenBasis::Estimated)));
     assert!(!stages
         .iter()
         .any(|s| s.stage == Stage::AtomicCommit || s.outcome == Outcome::Committed));

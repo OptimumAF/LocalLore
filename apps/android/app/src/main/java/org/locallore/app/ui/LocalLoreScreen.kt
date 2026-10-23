@@ -119,7 +119,7 @@ fun LocalLoreScreen(
                                 )
                                 TextButton(
                                     onClick = onReset,
-                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive,
+                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && (!state.persistent || !state.recoveryRequired),
                                     modifier = Modifier.heightIn(min = 48.dp)
                                         .testTag("reset-demo"),
                                 ) { Text(if (state.persistent) "New story" else "Reset demo") }
@@ -150,11 +150,11 @@ fun LocalLoreScreen(
                             if (state.persistent && state.stories.isNotEmpty()) {
                                 var libraryExpanded by remember { mutableStateOf(false) }
                                 Box {
-                                    TextButton(onClick = { libraryExpanded = true }, enabled = !state.busy && !state.archiveActive && !state.deletionActive,
+                                    TextButton(onClick = { libraryExpanded = true }, enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.recoveryRequired,
                                         modifier = Modifier.testTag("saved-library")) {
                                         Text("Saved stories · ${state.stories.size} · ${state.selectedStory?.story.orEmpty()}")
                                     }
-                                    DropdownMenu(expanded = libraryExpanded && !state.busy && !state.archiveActive && !state.deletionActive,
+                                    DropdownMenu(expanded = libraryExpanded && !state.busy && !state.archiveActive && !state.deletionActive && !state.recoveryRequired,
                                         onDismissRequest = { libraryExpanded = false }) {
                                         state.stories.forEach { story ->
                                             DropdownMenuItem(text = { Text("${story.title} · ${story.story} · revision ${story.revision}") },
@@ -302,7 +302,11 @@ fun LocalLoreScreen(
                                             strokeWidth = 2.dp,
                                         )
                                         Text(
-                                            if (state.preparingResponse) "Preparing local response…" else "Opening saved progress…",
+                                            when {
+                                                state.preparingResponse -> "Preparing local response…"
+                                                state.checkingCancellation -> "Checking cancellation…"
+                                                else -> "Opening saved progress…"
+                                            },
                                             style = MaterialTheme.typography.bodyMedium,
                                             modifier = Modifier.testTag("busy-status").semantics {
                                                 liveRegion = LiveRegionMode.Polite

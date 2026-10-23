@@ -562,6 +562,57 @@ fn fault_saved(record: locallore_storage::TurnRecord) -> locallore::host::SavedT
     }
 }
 impl locallore::host::Persistence for LostAck {
+    fn begin_bound(
+        &mut self,
+        request: &Request,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+    ) -> Result<locallore::host::SavedTurn, String> {
+        self.store
+            .begin_bound(request, basis)
+            .map(fault_saved)
+            .map_err(|e| e.to_string())
+    }
+    fn status_bound(
+        &mut self,
+        request: &Request,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+    ) -> Result<locallore::host::SavedTurn, String> {
+        if self.committed && self.lookup_failure {
+            self.lookup_failure = false;
+            return Err("Io".into());
+        }
+        self.store
+            .turn_status_bound(request, basis)
+            .map(fault_saved)
+            .map_err(|e| e.to_string())
+    }
+    fn commit_prepared_bound(
+        &mut self,
+        receipt: &Receipt,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+    ) -> Result<Receipt, String> {
+        self.store
+            .commit_prepared_bound(receipt, basis)
+            .map_err(|e| e.to_string())?;
+        self.committed = true;
+        Err("Io".into())
+    }
+    fn finish_bound(
+        &mut self,
+        request: &Request,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+        phase: locallore::host::DraftDisposition,
+    ) -> Result<locallore::host::SavedTurn, String> {
+        let phase = match phase {
+            locallore::host::DraftDisposition::Cancelled => locallore_storage::TurnPhase::Cancelled,
+            locallore::host::DraftDisposition::Failed => locallore_storage::TurnPhase::Failed,
+            locallore::host::DraftDisposition::Stale => locallore_storage::TurnPhase::Stale,
+        };
+        self.store
+            .finish_bound(request, basis, phase)
+            .map(fault_saved)
+            .map_err(|e| e.to_string())
+    }
     fn location(&self) -> &str {
         "private-test-store"
     }

@@ -63,9 +63,10 @@ def collect(checks, verify_boundary, clients_known, retain):
             known()
             return False
         report["retention_complete"] = True
-        if not known() and was_known:
-            # The changed fenced state was not retained; never retry that sink.
-            report["retention_complete"] = False
+        if not known():
+            if was_known:
+                # The changed fenced state was not retained; never retry that sink.
+                report["retention_complete"] = False
             halt("ownership_unknown")
             return False
         return True

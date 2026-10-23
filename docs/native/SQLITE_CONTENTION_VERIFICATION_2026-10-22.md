@@ -80,8 +80,9 @@ PID/same UID, normal child exit, drained pipes, native exchange drain, all four
 native owner slots and exact-root cleanup are assertions in the fixture. A
 passing method also requires the original request/key, unchanged accepted
 history while blocked, exact single gift after release or safe cancellation,
-and an actual Rust-owner reopen. These checks do not exercise forced destruction
-or the self-lease expiry path.
+and an actual Rust-owner reopen. These successful-cohort checks qualify normal
+release. Forced destruction and self-lease expiry were not deliberately exercised
+or independently qualified; the unfinished method's child lifecycle is unknown.
 
 The same frozen APKs passed these final groups on each target:
 

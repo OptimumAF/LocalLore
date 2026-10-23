@@ -546,7 +546,7 @@
     "test_holder_uses_API28_APIs",
     "no_new_physical_phone_or_real_model_evidence",
     "actual_Full_through_Compose_pending_separate_capacity_fixture",
-    "holder_forced_cleanup_and_self_lease_expiry_not_exercised",
+    "holder_forced_cleanup_and_self_lease_expiry_not_independently_qualified",
     "prior_graphics_abort_and_current_window_manager_watchdog_causes_unknown_unfixed",
     "no_heap_power_loss_or_hosted_CI_qualification",
     "PR49_restart_and_other_UI_results_are_separate_not_rerun_here",

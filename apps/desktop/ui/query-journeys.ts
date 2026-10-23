@@ -1,7 +1,7 @@
 // Fixed synthetic UI/query journey: no local-model or author-control endpoint.
 import type { Controller } from "./controller";
 import type { FaultGateway } from "./journeys";
-import { structural } from "./model";
+import { category, structural } from "./model";
 import type { ErrorBuffer, Request, Json } from "./model";
 import type { InspectionPage, Row } from "./query-model";
 interface Options {
@@ -216,6 +216,40 @@ export async function queryJourneys({
         await c.showQuery();
         const before = structural(await snap()),
             statsBefore = structural(await invoke("harness_stats"));
+        const queryBase = {
+            version: 1 as const,
+            scope: c.selected()!.scope,
+            expected_head: c.get().play!.revision,
+            at_revision: null,
+            observer: { kind: "player" as const },
+            view: "history" as const,
+            cursor: null,
+            limit: 12,
+            search: "",
+        };
+        for (const [patch, expected] of [
+            [{ scope: { ...queryBase.scope, branch: "sibling" } }, "Scope"],
+            [{ at_revision: queryBase.expected_head + 1 }, "InvalidBoundary"],
+            [{ cursor: "edited" }, "InvalidCursor"],
+            [{ limit: 65 }, "InvalidRequest"],
+            [{ search: "x".repeat(257) }, "InvalidRequest"],
+        ] as const) {
+            let rejected = "";
+            try {
+                await g.call({
+                    op: "inspection_query",
+                    session: c.selected()!.id,
+                    query: { ...queryBase, ...patch },
+                });
+            } catch (error) {
+                rejected = category(error);
+            }
+            check(
+                rejected === expected,
+                `native-query-api-denies-${expected}-${Object.keys(patch)[0]}`,
+            );
+        }
+
         await read("profiles", "potion", 0);
         check(
             page().rows.some(

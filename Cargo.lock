@@ -201,6 +201,7 @@ version = "0.1.0"
 dependencies = [
  "jni",
  "locallore",
+ "locallore-storage",
  "locallore-workspace",
  "serde",
  "serde_json",

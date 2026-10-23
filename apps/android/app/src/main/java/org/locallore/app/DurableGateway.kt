@@ -105,6 +105,9 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
         }
         val workspace = call(command("workspace"))
         check(workspace.getBoolean("persistent") && workspace.getInt("schema_version") == 1)
+        // Host-v1's workspace contract and the SQLite implementation have separate versions.
+        val databaseSchema = workspace.getInt("database_schema_version")
+        check(databaseSchema == 2)
         val stories = workspace.getJSONArray("stories").let { rows -> (0 until rows.length()).map {
             val row = rows.getJSONObject(it); val s = row.getJSONObject("scope")
             SavedStory(s.getString("story"), s.getString("branch"), row.getString("title"), row.getLong("revision"))
@@ -115,7 +118,7 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
             messages.takeLast(40), workspace.getString("location"), 1, stories, current,
             workspace.getJSONArray("stories").let { rows -> (0 until rows.length()).map { rows.getJSONObject(it) }
                 .first { sameScope(it.getJSONObject("scope"), checkNotNull(scope)) }.optInt("drafts", 0) },
-            view.getString("rules"), textProvider)
+            view.getString("rules"), textProvider, databaseSchemaVersion = databaseSchema)
     }
     private suspend fun readTextProvider(): TextProvider {
         val capabilities = call(command("capabilities"))

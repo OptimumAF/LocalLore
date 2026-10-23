@@ -6,6 +6,12 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Explicit local instrumentation variant; leave the user's installed demo/data intact.
+val archiveVerification = providers.gradleProperty("localLoreArchiveVerification").orNull
+require(archiveVerification == null || archiveVerification == "true")
+if (archiveVerification == "true") {
+    layout.buildDirectory.set(layout.projectDirectory.dir("build-archive-verification"))
+}
 // Explicit test binary; never change the ordinary application's SQLite limit.
 val capacityOption = providers.gradleProperty("locallore.capacityTest").orNull
 require(capacityOption == null || capacityOption == "false" || capacityOption == "true") {
@@ -21,6 +27,9 @@ require(reliefOption == null || reliefOption == "false" || reliefOption == "true
 }
 val reliefTest = reliefOption == "true"
 require(!(capacityTest && reliefTest)) { "Capacity and capacity-relief modes are mutually exclusive" }
+require(archiveVerification != "true" || !(capacityTest || reliefTest)) {
+    "Archive verification and capacity modes are mutually exclusive"
+}
 val capacityCache = rootProject.file(".gradle-capacity").canonicalFile
 val reliefCache = rootProject.file(".gradle-capacity-relief").canonicalFile
 val selectedCache = gradle.startParameter.projectCacheDir?.canonicalFile
@@ -68,6 +77,14 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0-shell"
+        manifestPlaceholders["diagnosticTestAuthority"] = if (archiveVerification == "true")
+            "org.locallore.app.archiveverify.test.diagnostics" else "org.locallore.app.test.diagnostics"
+        manifestPlaceholders["archiveTestAuthority"] = if (archiveVerification == "true")
+            "org.locallore.app.archiveverify.test.archives" else "org.locallore.app.test.archives"
+        if (archiveVerification == "true") {
+            applicationIdSuffix = ".archiveverify"
+            versionNameSuffix = "-archive-verification"
+        }
         ndk { abiFilters += listOf("x86_64", "arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

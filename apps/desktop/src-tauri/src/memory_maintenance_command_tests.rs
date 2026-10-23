@@ -235,3 +235,31 @@ fn stale_and_retired_native_owners_cannot_admit() {
     f.lease.finish_close(closed, || {});
     f.canon();
 }
+
+#[test]
+fn passive_stale_ready_row_requires_cancel_before_prune() {
+    let mut f = Fixture::new();
+    assert_eq!(f.run("admit")["job"]["status"], "ready");
+    let mut writer = Store::open_application(&f.root.join("synthetic.sqlite")).unwrap();
+    let request = f.engine.request(
+        "advance-for-stale-job",
+        Intent::Actions(vec![Command::Wait { ticks: 1 }]),
+    );
+    let proposal = Engine::proposal(&request).unwrap();
+    let receipt = f.engine.preview(&request, &proposal).unwrap();
+    writer.begin_turn(&request).unwrap();
+    writer.commit_prepared(&receipt).unwrap();
+    f.engine = writer.resume(f.engine.scope()).unwrap().engine;
+    drop(writer);
+    let opened = f.host.call(&serde_json::to_vec(&json!({"version":1,"command":{"op":"open","session":f.session,"scope":f.engine.scope()}})).unwrap());
+    assert_eq!(opened["status"], "ok");
+    assert_eq!(f.run("status")["job"]["status"], "stale");
+    let refused = f.wait(f.start("prune"));
+    assert_eq!(
+        refused["error"], "Busy",
+        "passive stale is not a persisted terminal transition"
+    );
+    assert_eq!(f.run("cancel")["job"]["status"], "cancelled");
+    assert!(f.run("prune")["job"].is_null());
+    f.canon();
+}

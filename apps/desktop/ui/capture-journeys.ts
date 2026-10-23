@@ -58,9 +58,30 @@ export async function captureJourneys({
                 synthetic: true,
                 uiRevision: c.get().play?.revision ?? 0,
                 checks: [...checks],
-                capture: privateCapture.get(),
+                capture: {
+                    ...privateCapture.get(),
+                    reply: privateCapture.get().reply
+                        ? {
+                              ...privateCapture.get().reply,
+                              details: {
+                                  ...privateCapture.get().reply!.details,
+                                  artifacts: privateCapture
+                                      .get()
+                                      .reply!.details.artifacts.map((a) => ({
+                                          kind: a.kind,
+                                          ordinal: a.ordinal,
+                                      })),
+                              },
+                          }
+                        : null,
+                },
                 trace: c.get().trace,
-                dom: { text: document.getElementById("root")?.textContent },
+                dom: {
+                    text: document
+                        .getElementById("root")
+                        ?.textContent?.slice(0, 16384),
+                    text_limit: 16384,
+                },
             },
         });
     };
@@ -377,13 +398,14 @@ export async function captureJourneys({
             },
         });
     } catch (error) {
+        const failedCheck = failed;
         await checkpoint("d06-private-failure").catch(() => {});
         await dispose().catch(() => {});
         await invoke("harness_finish", {
             report: {
                 synthetic: true,
                 passed: false,
-                failedCheck: failed,
+                failedCheck,
                 error: category(error),
                 checks,
                 errors: errors.snapshot(),

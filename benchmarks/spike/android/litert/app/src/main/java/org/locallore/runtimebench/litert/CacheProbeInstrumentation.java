@@ -64,7 +64,9 @@ public final class CacheProbeInstrumentation extends Instrumentation {
             if (!CacheVolume.PACKAGE.equals(getTargetContext().getPackageName())
                     || Looper.myLooper() == Looper.getMainLooper()) throw new CacheVolume.Problem("identity_invalid");
             CacheVolume.request(operation, uuid, session, playCase, profile);
-            File userdata = getTargetContext().getNoBackupFilesDir();
+            // Canonicalize the trusted framework root, matching the original spike:
+            // Android may expose it through the OS-owned /data/user/0 alias.
+            File userdata = getTargetContext().getNoBackupFilesDir().getCanonicalFile();
             long userdataDevice = Os.stat(userdata.getPath()).st_dev;
             List<CacheVolume.Candidate> candidates = discover();
             JsonArray volumes = new JsonArray();
@@ -224,7 +226,11 @@ public final class CacheProbeInstrumentation extends Instrumentation {
             try {
                 System.out.flush(); System.err.flush(); stdout = Os.dup(FileDescriptor.out); stderr = Os.dup(FileDescriptor.err);
                 FileDescriptor sink = Os.open("/dev/null", OsConstants.O_WRONLY, 0);
-                try { Os.dup2(sink, 1); Os.dup2(sink, 2); } finally { Os.close(sink); }
+                try { Os.dup2(sink, 1); Os.dup2(sink, 2); }
+                finally {
+                    try { Os.close(sink); }
+                    catch (Exception failure) { uncertain.set(true); throw failure; }
+                }
             } catch (Exception failure) {
                 try { close(); } catch (Exception cleanup) { failure.addSuppressed(cleanup); }
                 throw failure;

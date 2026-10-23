@@ -1,4 +1,5 @@
 import java.security.MessageDigest
+import java.io.File
 
 plugins { id("com.android.application") }
 // The publisher SDK has classfile major 65. Compile our Java 17 source with an
@@ -17,10 +18,11 @@ val cacheNative = providers.gradleProperty("localLoreCacheNativeDir").orNull
 require(cacheProbe == (cacheOutput != null && cacheNative != null)) { "Cache profile requires explicit output and JNI paths" }
 require(cacheProbe || (cacheOutput == null && cacheNative == null)) { "Cache paths require opt-in" }
 if (cacheProbe) {
-    fun markedOutput(value: String): java.io.File {
-        val path = java.io.File(value)
+    fun markedOutput(value: String): File {
+        val path = File(value)
         require(path.isAbsolute && path.toPath().normalize() == path.toPath()) { "Explicit absolute output required" }
         require(path.toPath().root.toString().equals("D:\\", ignoreCase = true)) { "Cache output must be on D" }
+        require(path.toPath().toRealPath() == path.toPath()) { "Cache output must resolve to its explicit D path" }
         return path
     }
     layout.buildDirectory.set(markedOutput(cacheOutput!!))
@@ -45,7 +47,7 @@ android {
     if (playProbe) {
         sourceSets["main"].jniLibs.srcDir(rootProject.file("../../../../target/android-play-probe/jniLibs"))
     }
-    if (cacheProbe) sourceSets["main"].jniLibs.srcDir(java.io.File(cacheNative!!))
+    if (cacheProbe) sourceSets["main"].jniLibs.srcDir(File(cacheNative!!))
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

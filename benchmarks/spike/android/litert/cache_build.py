@@ -114,6 +114,14 @@ def native_archive_audit(apk):
         return result
 
 
+def exports_audit(text):
+    prefix = "Java_org_locallore_runtimebench_litert_NativePlayProbe_"
+    expected = {prefix + method for method in ("open", "call", "poll", "respond", "close")}
+    actual = {word for line in text.splitlines() for word in line.split() if word.startswith(prefix)}
+    if actual != expected:
+        raise ValueError("unexpected_play_probe_exports")
+
+
 def analyzer_audit(output):
     actual = json.loads((output / "app-build/reports/analyzer-audit.json").read_text(encoding="utf-8"))
     expected = json.loads((build.ROOT / build.ANALYZER_LOCK).read_text(encoding="utf-8"))
@@ -180,6 +188,7 @@ def execute(java21, output, sdk):
         stage(output, "native-" + abi, command, build.ROOT, dict(overrides, **temp))
         source = output / "native/rust" / target / "release/liblocallore_android.so"
         audit_apk.elf_alignments(source.read_bytes(), audit_apk.ABIS[abi])
+        exports_audit(stage(output, "exports-" + abi, [str(llvm / "bin/llvm-nm.exe"), "-D", "--defined-only", str(source)], build.ROOT, temp))
         destination = output / "native/jniLibs" / abi / source.name
         destination.parent.mkdir(parents=True); shutil.copyfile(source, destination)
     log = stage(output, "gradle", gradle_command(java21, output), build.PROJECT, temp)

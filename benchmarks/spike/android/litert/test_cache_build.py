@@ -110,6 +110,15 @@ class CacheBuildTests(unittest.TestCase):
                     target.real_directory(parent)
             self.assertEqual(list(parent.iterdir()), [])
 
+    def test_play_probe_exports_are_complete_and_no_unknown_probe_entry_is_accepted(self):
+        prefix = 'Java_org_locallore_runtimebench_litert_NativePlayProbe_'
+        symbols = ['000123 T ' + prefix + method for method in ('open', 'call', 'poll', 'respond', 'close')]
+        target.exports_audit('\n'.join(symbols) + '\n00100 T unrelated_production_entry')
+        with self.assertRaisesRegex(ValueError, 'exports'):
+            target.exports_audit('\n'.join(symbols[:-1]))
+        with self.assertRaisesRegex(ValueError, 'exports'):
+            target.exports_audit('\n'.join(symbols) + '\n000234 T ' + prefix + 'unsafe')
+
 
 if __name__ == '__main__':
     unittest.main()

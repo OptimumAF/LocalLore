@@ -1,0 +1,210 @@
+{
+  "base_main": "da2ff017baa4b3d08ac7f7c21c26d978cb81a89d",
+  "catalog_sha256": "ce2399f4ef8991b78296929af386de636c5c906537b5aacc9404ad7465c329d8",
+  "checks": {
+    "check_runner_tests": {
+      "failed": 0,
+      "passed": 153,
+      "skipped": 0
+    },
+    "git_diff_check": "pass with narrowly approved third-party whitespace attributes",
+    "package_tests": {
+      "failed": 0,
+      "new_license_cases_included": 15,
+      "passed": 27,
+      "prior_cases_preserved": 12,
+      "skipped": 0
+    },
+    "repro_checker_tests": {
+      "failed": 0,
+      "passed": 20,
+      "skipped": 0
+    },
+    "resource_git_blob_bytes_match_checkout": true,
+    "workflow_policy": "pass"
+  },
+  "collection": {
+    "app_worker_model_executed": false,
+    "material_bytes": 2854428,
+    "material_file_count": 463,
+    "materials_only_validation_pass": true,
+    "new_native_build": false,
+    "new_package_zip_written": false,
+    "source_inventory_binds_license_assets_and_attributes": true,
+    "source_inventory_count": 283
+  },
+  "first_party_count": 6,
+  "legacy_report": {
+    "bytes": 10686423,
+    "license_scope_status": "legacy_unreviewed",
+    "members": 446,
+    "sha256": "3f13d9a22e64866b40c9e6e8fae05efa3867461b9fd5e5bc56088aea1f4e545b",
+    "source_commit": "6e576f473a4796c329468a6abf3eeaaf4323a89b",
+    "worker_sha256": "b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434"
+  },
+  "logs": {
+    "actual_collection": {
+      "exit": 0,
+      "sha256": "43c0e3c0388e5d20b1173bc725529019eba20b4ce7008fb3fc1a0f41d6ec896f"
+    },
+    "check_runner_tests": {
+      "exit": 0,
+      "sha256": "bae9a321633efabf8a9c66f3969073b2fb9dcaad716bd628754201fcdb3260d2"
+    },
+    "package_tests": {
+      "exit": 0,
+      "sha256": "7d2169d27b905cfb0132bcd4519c5481dd3956548a18c3c100ec384e54c8bbb2"
+    },
+    "repro_checker_tests": {
+      "exit": 0,
+      "sha256": "1ce9ec80926b9a43d4032214543b5ede5a4ac414fd30f3cd74935e81c54cb1a1"
+    },
+    "workflow_policy": {
+      "exit": 0,
+      "sha256": "aaaa61cb0ea9883f123353d1a356841f8a4570a86c9b405666dd85f51a0f6cd0"
+    }
+  },
+  "mpl_source_archives": [
+    {
+      "bytes": 56860,
+      "license": "MPL-2.0",
+      "name": "cssparser",
+      "output": "SOURCES/MPL/cssparser-0.37.0.crate",
+      "sha256": "8c9cdaae01d5ed7882b04d795e7f752f46ff52d2fa3b50a20d28c464510bba98",
+      "source_url": "https://static.crates.io/crates/cssparser/cssparser-0.37.0.crate",
+      "usage": "conservative selected graph including build/proc-macro dependencies; no claim each links in final executable",
+      "version": "0.37.0"
+    },
+    {
+      "bytes": 8197,
+      "license": "MPL-2.0",
+      "name": "cssparser-macros",
+      "output": "SOURCES/MPL/cssparser-macros-0.7.1.crate",
+      "sha256": "d045de693cb712d0b22c6a64be5b953f67b3ce00ab5ad3dd5d8b441886ab8e1a",
+      "source_url": "https://static.crates.io/crates/cssparser-macros/cssparser-macros-0.7.1.crate",
+      "usage": "conservative selected graph including build/proc-macro dependencies; no claim each links in final executable",
+      "version": "0.7.1"
+    },
+    {
+      "bytes": 8287,
+      "license": "MPL-2.0",
+      "name": "dtoa-short",
+      "output": "SOURCES/MPL/dtoa-short-0.3.5.crate",
+      "sha256": "cd1511a7b6a56299bd043a9c167a6d2bfb37bf84a6dfceaba651168adfb43c87",
+      "source_url": "https://static.crates.io/crates/dtoa-short/dtoa-short-0.3.5.crate",
+      "usage": "conservative selected graph including build/proc-macro dependencies; no claim each links in final executable",
+      "version": "0.3.5"
+    },
+    {
+      "bytes": 7345,
+      "license": "MPL-2.0",
+      "name": "option-ext",
+      "output": "SOURCES/MPL/option-ext-0.2.0.crate",
+      "sha256": "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d",
+      "source_url": "https://static.crates.io/crates/option-ext/option-ext-0.2.0.crate",
+      "usage": "conservative selected graph including build/proc-macro dependencies; no claim each links in final executable",
+      "version": "0.2.0"
+    },
+    {
+      "bytes": 69601,
+      "license": "MPL-2.0",
+      "name": "selectors",
+      "output": "SOURCES/MPL/selectors-0.38.0.crate",
+      "sha256": "8adfa1c298912827b8a28b223b3b874357397ae706e6190acd9bf28cee99114d",
+      "source_url": "https://static.crates.io/crates/selectors/selectors-0.38.0.crate",
+      "usage": "conservative selected graph including build/proc-macro dependencies; no claim each links in final executable",
+      "version": "0.38.0"
+    }
+  ],
+  "native_source_review": {
+    "closure_commands": 137,
+    "excluded_vendor_candidates": [
+      "base64",
+      "sheredom subprocess (disabled)",
+      "hash libraries (outside worker link closure)"
+    ],
+    "header_families": [
+      "nlohmann/json.hpp",
+      "cpp-httplib/httplib.h",
+      "llamafile/sgemm.cpp"
+    ],
+    "microsoft_sdk_version": "1.0.3800.47",
+    "msvc_header_review": {
+      "header": "include/xutility",
+      "official_license": "https://github.com/microsoft/STL/blob/main/LICENSE.txt",
+      "qualification": "Observed header declaration and official object-embedding exception; complete per-header attribution/toolchain redistribution assessment remains pending.",
+      "spdx": "Apache-2.0 WITH LLVM-exception",
+      "toolset": "14.34.31933"
+    },
+    "read_only_ninja_tools_only": true,
+    "revision": "620d2225cc436ab0b001e3200e590e3b286ef9ab",
+    "verified_cached_inputs": [
+      {
+        "bytes": 10500472,
+        "name": "webview2-com-sys",
+        "path": "x64/WebView2LoaderStatic.lib",
+        "sha256": "89c6b872783b8f6c3cedbff618adb42082d455c615453ae10cfc753f1e8f25d8",
+        "version": "0.39.1"
+      },
+      {
+        "bytes": 9507037,
+        "name": "libsqlite3-sys",
+        "path": "sqlite3/sqlite3.c",
+        "sha256": "0a409f1633283fa31a9126b11fbfd64a1991c5d30defad07e5745d4667f5e23d",
+        "version": "0.38.2"
+      }
+    ],
+    "worker_sha256": "b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434"
+  },
+  "not_claimed": [
+    "legal compliance or distribution approval",
+    "license_audit_complete=true",
+    "signed/public release readiness",
+    "new normal native package build or byte reproducibility",
+    "native WebView/app/worker/model/device execution",
+    "complete per-symbol linked-code attribution",
+    "offline traffic/installation or runtime prerequisite redistribution",
+    "resolution of GLib advisory or licensing changes"
+  ],
+  "package_identity_count": 256,
+  "registry_count": 250,
+  "retained_zip_unchanged": true,
+  "schema": "locallore-d09-license-evidence-v1",
+  "scope_report": {
+    "catalog_sha256": "ce2399f4ef8991b78296929af386de636c5c906537b5aacc9404ad7465c329d8",
+    "coverage_complete": true,
+    "coverage_meaning": "All exact catalog material bytes included; not legal or release approval.",
+    "distribution_approved": false,
+    "frontend_packages": 3,
+    "local_packages": 6,
+    "registry_packages": 250,
+    "remaining_gaps": [
+      "Independent review of this exact catalog, texts, source provenance and package rules remains pending.",
+      "This is a conservative selected-dependency/component notice inventory, not a complete per-symbol linker attribution or legal/distribution approval.",
+      "No Microsoft WebView2 Runtime or Visual C++ runtime distribution is authorized or bundled; prerequisite/offline-installation and any future redistribution remain separate reviews."
+    ],
+    "required_material_members": 462,
+    "required_materials_sha256": "efe7fb444060585864d9aa88962fafd4d32de6bb47a3b4716614880b780c76bc",
+    "review_complete": false,
+    "runtime_commit": "620d2225cc436ab0b001e3200e590e3b286ef9ab",
+    "runtime_profile_sha256": "77ca04648f1d1a232b2f950d71d5e489494145e314a56a0d9a9fdb1cb1eb9d80",
+    "rust_inventory_format": 2,
+    "schema": "locallore-desktop-license-scope-audit-v1",
+    "scope": "windows-x64-normal-developer-folder-component-notices-v1",
+    "selected_graph_sha256": "17b566ecb41d62de80a664673166065a15975fa4f701317c51c73a133b974551",
+    "source_archive_bytes": 150290,
+    "source_archives": 5,
+    "target": "x86_64-pc-windows-msvc",
+    "worker_sha256": "b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434"
+  },
+  "source_commit": "c11a79ddb89cb13c6f1629ac784b230a24f7cdf6",
+  "text_resource_bytes": 467314,
+  "text_resource_count": 16,
+  "tools": {
+    "cargo": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "node": "24.22.1",
+    "os": "Windows-11-10.0.26300-SP0",
+    "python": "3.14.9",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  }
+}

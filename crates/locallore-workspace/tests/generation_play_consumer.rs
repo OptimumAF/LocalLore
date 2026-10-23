@@ -313,11 +313,11 @@ fn actual_player_job_reaches_production_compiler_after_npc_inspection_without_ex
         after
             .character_context("mira", after.scope(), 265)
             .unwrap()
-            .known_facts,
+            .facts,
         before
             .character_context("mira", before.scope(), 264)
             .unwrap()
-            .known_facts
+            .facts
     );
 }
 
@@ -348,7 +348,7 @@ fn actual_external_append_after_submit_stops_before_any_provider_role() {
             .revision(),
         1
     );
-    assert_eq!(host.stats().workers, 0);
+    assert_eq!(host.live_counts().1, 0);
 }
 
 // A fake persistence port injects exact read errors; this is not SQLite evidence.
@@ -444,7 +444,7 @@ fn injected_transient_snapshot_errors_keep_original_key_queued_without_roles_or_
             );
             assert_eq!(*phase.lock().unwrap(), "draft");
             assert!(calls.lock().unwrap().is_empty());
-            assert_eq!(host.stats().workers, 0);
+            assert_eq!(host.live_counts().1, 0);
         }
     }
 }
@@ -464,6 +464,6 @@ fn injected_terminal_snapshot_errors_reconcile_stale_cancelled_and_strict_canon_
         assert_eq!(result["data"]["phase"], expected, "{result}");
         assert_eq!(*phase.lock().unwrap(), expected);
         assert!(calls.lock().unwrap().is_empty());
-        assert_eq!(host.stats().workers, 0);
+        assert_eq!(host.live_counts().1, 0);
     }
 }

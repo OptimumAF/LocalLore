@@ -150,6 +150,19 @@ class BranchForkControllerTest {
         assertEquals(outcome(Input), complete.state.value.outcome); assertFalse(complete.state.value.uncertain)
         assertFalse(complete.state.value.notice!!.contains("PRIVATE"))
     }
+    @Test fun cancellationBeforeFirstDispatchStillReleasesTheControllerWorkerSlot(): Unit = runTest {
+        val gateway = Gateway(); val controller = BranchForkController(this, gateway, {})
+        controller.contextChanged(Context); controller.prepare(0, "fixed-child")
+        controller.confirm(controller.state.value.input!!, true)
+        // No runCurrent/advance has allowed the actual controller coroutine to enter.
+        val replacement = Context.copy(epoch = 1)
+        controller.contextChanged(replacement); advanceUntilIdle()
+        assertTrue(gateway.registrations.isEmpty())
+        assertFalse("Cancelled pre-dispatch job must release the controller slot", controller.state.value.busy)
+        controller.restore(BranchForkRecovery(1, Input)); controller.lookup(); advanceUntilIdle()
+        assertEquals(listOf(Input), gateway.lookups)
+        assertTrue(controller.state.value.lookupOnly)
+    }
     private class Gateway : BranchForkGateway {
         val registrations = mutableListOf<Pair<BranchForkContext, BranchForkInput>>()
         val runs = mutableListOf<Long>(); val statuses = mutableListOf<Long>(); val lookups = mutableListOf<BranchForkInput>()

@@ -370,6 +370,69 @@ fn gc_tombstones_survive_export_reopen_and_original_fork_retry() {
 }
 
 #[test]
+fn imported_retired_prefix_stays_cache_free_and_children_can_trigger_recursive_gc() {
+    let temp = Temp::new();
+    let mut source = retired_source(&temp);
+    let archive = source
+        .store
+        .export_archive(&source.root.story, &|| false)
+        .unwrap();
+    let mut imported = Store::open(&temp.path("imported-gc.sqlite3"), None).unwrap();
+    imported
+        .import_archive(
+            validate_archive(archive.bytes(), &|| false).unwrap(),
+            &|| false,
+        )
+        .unwrap();
+    let root_canon = imported
+        .resume(&source.root)
+        .unwrap()
+        .engine
+        .canonical_bytes();
+    // Real deletion validates the cache-free retained-ancestor normal form before
+    // each new plan. It must work after import, not merely before an export.
+    retire(&mut imported, &source.child);
+    let between = imported
+        .export_archive(&source.root.story, &|| false)
+        .unwrap();
+    assert_eq!(between.preview().branch_heads.get("parent"), Some(&1));
+    let final_delete = retire(&mut imported, &source.rewind);
+    assert!(final_delete
+        .invalidated_branches
+        .contains(&source.parent.branch));
+    let after = imported
+        .export_archive(&source.root.story, &|| false)
+        .unwrap();
+    assert_eq!(after.preview().branch_heads.len(), 1);
+    assert_eq!(
+        after.preview().retired_branch_ids,
+        ["child", "discarded", "parent", "rewind"]
+    );
+    assert_eq!(
+        imported
+            .resume(&source.root)
+            .unwrap()
+            .engine
+            .canonical_bytes(),
+        root_canon
+    );
+    absent(&mut imported, &source.parent);
+    drop(imported);
+    let mut reopened = Store::open(&temp.path("imported-gc.sqlite3"), None).unwrap();
+    assert_eq!(
+        reopened
+            .export_archive(&source.root.story, &|| false)
+            .unwrap()
+            .bytes(),
+        after.bytes()
+    );
+    assert!(matches!(
+        reopened.fork_branch(&source.discarded_fork, &|| false),
+        Err(TurnError::Storage(StorageError::NotFound))
+    ));
+}
+
+#[test]
 fn strict_v2_retirement_metadata_rejects_downgrades_and_rehashed_malformed_inputs() {
     let temp = Temp::new();
     let mut source = retired_source(&temp);
@@ -520,20 +583,15 @@ fn static_schema2_v1_stays_active_and_schema3_without_retirement_exports_v1() {
         };
         let engine = target.resume(&scope).unwrap().engine;
         assert_eq!(engine.revision(), row["head_revision"].as_u64().unwrap());
-        let expected: Vec<_> = row["local_receipts"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|v| serde_json::from_value::<Receipt>(v.clone()).unwrap())
-            .collect();
+        let expected = row["local_receipts"].as_array().unwrap();
         assert_eq!(
             engine
                 .receipts()
                 .iter()
                 .filter(|r| r.request().scope == scope)
-                .cloned()
+                .map(|receipt| serde_json::to_value(receipt).unwrap())
                 .collect::<Vec<_>>(),
-            expected
+            *expected
         );
     }
     let exported = target

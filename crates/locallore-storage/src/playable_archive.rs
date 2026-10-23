@@ -361,9 +361,7 @@ fn validate_retirement(payload: &Payload, cancel: &dyn Fn() -> bool) -> Result<(
     }
     if retired.iter().any(|id| !valid_id(id))
         || retired.windows(2).any(|pair| pair[0] >= pair[1])
-        || retired
-            .iter()
-            .any(|id| *id == payload.story.seed.scope.branch)
+        || retired.contains(&payload.story.seed.scope.branch)
     {
         return Err(ArchiveError::Integrity);
     }
@@ -861,7 +859,15 @@ impl Store {
                     }
                 }
             }
-            tx.execute("INSERT INTO branch_projections(story_id,branch_id,revision,projection_version,projection_json) VALUES(?1,?2,?3,1,?4)",params![story.id,branch.branch.id,integer(branch.branch.head_revision)?,std::str::from_utf8(&branch.projection).map_err(|_|ArchiveError::Integrity)?])?;
+            // Retired prefixes are immutable replay sources, not playable cached
+            // targets. Keep the same cache-free normal form as real deletion.
+            if validated
+                .retired_branch_ids
+                .binary_search(&branch.branch.id)
+                .is_err()
+            {
+                tx.execute("INSERT INTO branch_projections(story_id,branch_id,revision,projection_version,projection_json) VALUES(?1,?2,?3,1,?4)",params![story.id,branch.branch.id,integer(branch.branch.head_revision)?,std::str::from_utf8(&branch.projection).map_err(|_|ArchiveError::Integrity)?])?;
+            }
         }
         for branch in &validated.branches {
             check(cancel)?;
@@ -870,8 +876,12 @@ impl Store {
                 branch: branch.branch.id.clone(),
             };
             let restored = turns::read_engine_retained(&tx, &scope)?;
+            let retired = validated
+                .retired_branch_ids
+                .binary_search(&scope.branch)
+                .is_ok();
             if restored.engine.canonical_bytes() != branch.projection
-                || restored.projection_needs_rebuild
+                || (!retired && restored.projection_needs_rebuild)
             {
                 return Err(ArchiveError::Integrity);
             }

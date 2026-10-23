@@ -3,7 +3,10 @@ use crate::contracts::Scope;
 use serde::Serialize;
 use std::{
     collections::VecDeque,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     time::Instant,
 };
 
@@ -235,10 +238,22 @@ pub struct AttemptHandle {
 }
 /// Opaque native capture namespace, not part of model/wire identity or serialized diagnostics.
 #[derive(Clone)]
-pub struct TraceOwner(Arc<()>);
+pub struct TraceOwner(Arc<AtomicBool>);
 impl Default for TraceOwner {
     fn default() -> Self {
-        Self(Arc::new(()))
+        Self(Arc::new(AtomicBool::new(true)))
+    }
+}
+impl TraceOwner {
+    #[cfg(any(feature = "host", test))]
+    pub(crate) fn retire(&self) {
+        self.0.store(false, Ordering::SeqCst);
+    }
+    pub(crate) fn live(&self) -> bool {
+        self.0.load(Ordering::SeqCst)
+    }
+    pub(crate) fn same(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
     }
 }
 fn same_owner(a: Option<&TraceOwner>, b: Option<&TraceOwner>) -> bool {
@@ -292,6 +307,8 @@ impl StageTimer {
 pub trait TraceSink {
     fn matches(&mut self, scope: &Scope, base_revision: u64, observer: &str, turn: &str) -> bool;
     fn record(&mut self, measurement: StageMeasurement);
+    /// Optional private data hook. Existing metadata sinks retain their default no-op.
+    fn capture(&mut self, _artifact: crate::turn_capture::Artifact<'_>) {}
 }
 /// Short, nonblocking diagnostic adapter. Busy/poisoned locks and stale handles drop metadata.
 pub struct RingSink {
@@ -319,6 +336,11 @@ impl TraceSink for RingSink {
     fn record(&mut self, measurement: StageMeasurement) {
         if let Ok(mut ring) = self.ring.try_lock() {
             let _ = ring.record_measured(&self.handle, measurement);
+        }
+    }
+    fn capture(&mut self, artifact: crate::turn_capture::Artifact<'_>) {
+        if let Ok(mut ring) = self.ring.try_lock() {
+            ring.capture_artifact(&self.handle, artifact);
         }
     }
 }
@@ -407,6 +429,7 @@ pub struct Snapshot {
 
 struct LiveAttempt {
     capture_owner: Option<TraceOwner>,
+    detail_epoch: Option<u64>,
     sequence: u64,
     started: Instant,
     last: Instant,
@@ -420,6 +443,7 @@ pub struct TraceRing {
     owner: Arc<()>,
     sequence: u64,
     attempts: VecDeque<LiveAttempt>,
+    details: crate::turn_capture::CaptureStore,
 }
 impl Default for TraceRing {
     fn default() -> Self {
@@ -434,6 +458,7 @@ impl TraceRing {
             owner: Arc::new(()),
             sequence: 0,
             attempts: VecDeque::new(),
+            details: crate::turn_capture::CaptureStore::default(),
         }
     }
     /// Disabling deletes retained metadata and invalidates outstanding handles.
@@ -445,6 +470,7 @@ impl TraceRing {
     }
     pub fn clear(&mut self) {
         self.attempts.clear();
+        self.details.clear();
     }
     pub fn request_full_capture(&self) -> HookStatus {
         HookStatus::Unsupported
@@ -488,8 +514,12 @@ impl TraceRing {
         };
         self.sequence = sequence;
         let now = Instant::now();
+        let detail_epoch = capture_owner
+            .as_ref()
+            .and_then(|owner| self.details.begin(owner, sequence, &identity));
         self.attempts.push_back(LiveAttempt {
             capture_owner,
+            detail_epoch,
             sequence,
             started: now,
             last: now,
@@ -522,6 +552,54 @@ impl TraceRing {
                     .position(|a| a.sequence == handle.sequence)
             })
             .flatten()
+    }
+    /// Caller must separately enforce current session/head and explicit local consent.
+    pub fn configure_details(&mut self, owner: &TraceOwner, scope: &Scope, enabled: bool) {
+        self.details.configure(owner, scope, enabled);
+    }
+    pub fn revoke_details(&mut self, owner: &TraceOwner) {
+        self.details.revoke(owner);
+    }
+    fn capture_artifact(
+        &mut self,
+        handle: &AttemptHandle,
+        artifact: crate::turn_capture::Artifact<'_>,
+    ) {
+        if !self.enabled {
+            return;
+        }
+        if let Some(index) = self.position(handle) {
+            let a = &self.attempts[index];
+            self.details.record(a.detail_epoch, a.sequence, artifact);
+        }
+    }
+    /// Full details require an explicit trusted Story Lab reader, even for player attempts.
+    pub fn read_details_for_owner(
+        &mut self,
+        owner: &TraceOwner,
+        selection: &Selection,
+        reader: &Reader,
+    ) -> Result<crate::turn_capture::DetailSnapshot, ReadError> {
+        if reader.observer.is_some() {
+            return Err(ReadError::Forbidden);
+        }
+        self.read_for_owner(owner, selection, reader)?;
+        if selection.turn.is_none() || selection.attempt.is_none() {
+            return Err(ReadError::InvalidSelection);
+        }
+        let sequence = self
+            .attempts
+            .iter()
+            .find(|a| {
+                same_owner(a.capture_owner.as_ref(), Some(owner))
+                    && a.data.identity.scope == selection.scope
+                    && a.data.identity.base_revision == selection.base_revision
+                    && a.data.identity.observer == selection.observer
+                    && selection.turn.as_ref() == Some(&a.data.identity.turn)
+                    && selection.attempt == Some(a.data.identity.attempt)
+            })
+            .map(|a| a.sequence);
+        Ok(self.details.read(owner, &selection.scope, sequence))
     }
     pub fn record(
         &mut self,

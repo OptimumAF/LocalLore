@@ -6,7 +6,10 @@ import { ForkPanel } from "./ForkPanel";
 import { MemoryMaintenancePanel } from "./MemoryMaintenancePanel";
 import { BrokerRetentionPanel } from "./BrokerRetentionPanel";
 import type { BrokerRetention } from "./broker-retention";
-import type { MemoryContext, MemoryMaintenanceController } from "./memory-maintenance-controller";
+import type {
+    MemoryContext,
+    MemoryMaintenanceController,
+} from "./memory-maintenance-controller";
 import type { ForkController } from "./fork-controller";
 import { timelineContext } from "./timeline-controller";
 import type { TimelineController } from "./timeline-controller";
@@ -357,8 +360,25 @@ export function App({
                             not change character knowledge or permissions.
                         </div>
                     )}
-                    {brokerRetention && <BrokerRetentionPanel retention={brokerRetention} />}
-                    {maintenance && maintenanceContext && selected && <MemoryMaintenancePanel maintenance={maintenance} context={maintenanceContext()} receipt={receipt?{turn:receipt.request.turn,revision:receipt.events.at(-1)?.sequence??0}:undefined} />}
+                    {brokerRetention && (
+                        <BrokerRetentionPanel retention={brokerRetention} />
+                    )}
+                    {maintenance && maintenanceContext && selected && (
+                        <MemoryMaintenancePanel
+                            maintenance={maintenance}
+                            context={maintenanceContext()}
+                            receipt={
+                                receipt
+                                    ? {
+                                          turn: receipt.request.turn,
+                                          revision:
+                                              receipt.events.at(-1)?.sequence ??
+                                              0,
+                                      }
+                                    : undefined
+                            }
+                        />
+                    )}
                     {timeline && selected && (
                         <TimelinePanel
                             timeline={timeline}

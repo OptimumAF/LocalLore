@@ -11,7 +11,7 @@ export function MemoryMaintenancePanel({
 }: {
     maintenance: MemoryMaintenanceController;
     context: MemoryContext | null;
-    receipt?: {turn:string;revision:number};
+    receipt?: { turn: string; revision: number };
 }) {
     const s = useSyncExternalStore(
         maintenance.subscribe,
@@ -45,7 +45,9 @@ export function MemoryMaintenancePanel({
                     <code>{context.player}</code>
                 </dd>
                 <dt>Inspection observer</dt>
-                <dd><code>{context.observer}</code> ({context.view})</dd>
+                <dd>
+                    <code>{context.observer}</code> ({context.view})
+                </dd>
                 <dt>Job status</dt>
                 <dd>{job?.status ?? (s.reply ? "No job" : "Not read")}</dd>
                 {job && (
@@ -78,7 +80,12 @@ export function MemoryMaintenancePanel({
                             : "Idle"}
                 </dd>
             </dl>
-            {receipt&&<p className="memory-receipt">Displayed player receipt: <code>{receipt.turn}</code>, accepted revision {receipt.revision}.</p>}
+            {receipt && (
+                <p className="memory-receipt">
+                    Displayed player receipt: <code>{receipt.turn}</code>,
+                    accepted revision {receipt.revision}.
+                </p>
+            )}
             {(!context.persistent ||
                 (context.view !== "play" &&
                     context.observer !== context.player)) && (

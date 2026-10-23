@@ -19,9 +19,12 @@ for (const args of [
     ["check-archive-controller.mjs"],
     ["check-timeline-controller.mjs"],
     ["check-fork-controller.mjs"],
+    ["check-fork-callback-review.mjs"],
+    ["check-fork-independent-review.mjs"],
     ["check-memory-maintenance-controller.mjs"],
     ["check-memory-callback-review.mjs"],
     ["check-broker-retention.mjs"],
+    ["check-broker-retention-review.mjs"],
 ]) {
     const code = await new Promise((resolve, reject) => {
         const child = spawn(process.execPath, args, {

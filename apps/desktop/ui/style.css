@@ -1015,7 +1015,8 @@ summary {
 .curated-evaluation select {
     max-width: 100%;
 }
-.memory-maintenance-panel, .broker-retention {
+.memory-maintenance-panel,
+.broker-retention {
     padding: 1rem 1.5rem;
     border-bottom: 1px solid var(--line);
     min-width: 0;
@@ -1024,11 +1025,20 @@ summary {
 .memory-maintenance-panel dl {
     display: grid;
     grid-template-columns: minmax(8rem, 1fr) minmax(0, 2fr);
-    gap: .4rem .75rem;
+    gap: 0.4rem 0.75rem;
 }
-.memory-maintenance-panel dd { margin: 0; }
-.memory-maintenance-panel input[type="checkbox"], .broker-retention input[type="checkbox"] { width: auto; }
-@media(max-width:700px) {
-    .memory-maintenance-panel dl { grid-template-columns: 1fr; }
-    .memory-maintenance-panel dd { margin-bottom: .4rem; }
+.memory-maintenance-panel dd {
+    margin: 0;
+}
+.memory-maintenance-panel input[type="checkbox"],
+.broker-retention input[type="checkbox"] {
+    width: auto;
+}
+@media (max-width: 700px) {
+    .memory-maintenance-panel dl {
+        grid-template-columns: 1fr;
+    }
+    .memory-maintenance-panel dd {
+        margin-bottom: 0.4rem;
+    }
 }

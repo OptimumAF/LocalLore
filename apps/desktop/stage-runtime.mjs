@@ -19,7 +19,12 @@ if (
     throw new Error("UnapprovedWorker");
 for (const destination of [
     path.join(root, "src-tauri", "runtime"),
-    path.join(root, "src-tauri", "target", "debug", "runtime"),
+    path.join(
+        process.env.LOCALLORE_D04_TARGET_DIR ??
+            path.join(root, "src-tauri", "target"),
+        "debug",
+        "runtime",
+    ),
 ]) {
     await mkdir(destination, { recursive: true });
     await writeFile(

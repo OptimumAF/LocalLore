@@ -6,7 +6,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID, createHash } from "node:crypto";
 const root = fileURLToPath(new URL(".", import.meta.url));
-const folder = path.join(root, "artifacts", `model-native-${randomUUID()}`);
+const artifactBase =
+    process.env.LOCALLORE_D04_ARTIFACT_ROOT ?? path.join(root, "artifacts");
+const target =
+    process.env.LOCALLORE_D04_TARGET_DIR ??
+    path.join(root, "src-tauri", "target");
+const folder = path.join(artifactBase, `model-native-${randomUUID()}`);
 await mkdir(folder, { recursive: true });
 const workspaceRoot = path.join(folder, "Unicode Qwen \u6a21\u578b \u00e9");
 await mkdir(workspaceRoot);
@@ -17,13 +22,7 @@ process.env.CARGO_PROFILE_TEST_DEBUG = "0";
 process.env.CARGO_INCREMENTAL = "0";
 if (!process.env.LOCALLORE_D04_MODEL_SOURCE)
     throw new Error("ApprovedModelSourceRequired");
-const executable = path.join(
-    root,
-    "src-tauri",
-    "target",
-    "debug",
-    "locallore-desktop-spike.exe",
-);
+const executable = path.join(target, "debug", "locallore-desktop-spike.exe");
 async function run(command, args, env = {}) {
     await new Promise((resolve, reject) => {
         const child = spawn(command, args, {
@@ -50,6 +49,8 @@ await run("cargo", [
     "--offline",
     "--features",
     "dev-harness",
+    "--target-dir",
+    target,
 ]);
 const sourceRevision = (
     await promisify(execFile)("git", ["rev-parse", "HEAD"], { cwd: root })
@@ -111,7 +112,7 @@ const files = [
     "src-tauri/Cargo.toml",
     "host-v1.schema.json",
     "dist/app.js",
-    "src-tauri/target/debug/locallore-desktop-spike.exe",
+    path.join(target, "debug", "locallore-desktop-spike.exe"),
     "src-tauri/src/test_bridge.rs",
     "src-tauri/src/harness.rs",
     "src-tauri/src/lease.rs",
@@ -137,9 +138,13 @@ const files = [
 const inputSHA256 = Object.fromEntries(
     await Promise.all(
         files.map(async (f) => [
-            f,
+            path.isAbsolute(f)
+                ? "<native-target>/debug/locallore-desktop-spike.exe"
+                : f,
             createHash("sha256")
-                .update(await readFile(path.join(root, f)))
+                .update(
+                    await readFile(path.isAbsolute(f) ? f : path.join(root, f)),
+                )
                 .digest("hex"),
         ]),
     ),

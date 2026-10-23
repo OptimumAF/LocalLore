@@ -645,12 +645,12 @@ fn future_parent_sibling_and_unwitnessed_child_text_never_enter_npc_context() {
 }
 
 #[test]
-fn child_context_compiler_and_derived_cache_remain_explicitly_unsupported() {
+fn child_compiler_and_query_work_while_derived_cache_remains_explicitly_unsupported() {
     let temp = Temp::new();
     let (mut store, root) = setup(&temp);
     let child = fork(&mut store, &root, "child", 0);
     let engine = store.resume(&child).unwrap().engine;
-    use locallore::context_compiler::{self, Budget, CompileError, CompileRequest, Role};
+    use locallore::context_compiler::{self, Budget, CompileRequest, Role};
     assert_eq!(
         context_compiler::compile(
             &engine,
@@ -666,10 +666,11 @@ fn child_context_compiler_and_derived_cache_remain_explicitly_unsupported() {
                 budget: Budget::default()
             }
         )
-        .err(),
-        Some(CompileError::UnsupportedBranch)
+        .unwrap()
+        .scope,
+        child
     );
-    use locallore::inspection_query::{self, Observer, Query, QueryError, View};
+    use locallore::inspection_query::{self, Observer, Query, View};
     assert_eq!(
         inspection_query::query(
             &engine,
@@ -686,8 +687,9 @@ fn child_context_compiler_and_derived_cache_remain_explicitly_unsupported() {
             },
             false
         )
-        .err(),
-        Some(QueryError::UnsupportedBranch)
+        .unwrap()
+        .scope,
+        child
     );
     let request = derived_memory::PrepareRequest {
         scope: child,

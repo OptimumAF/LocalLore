@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-evaluation-rerun"
+description = "Enables the evaluation_rerun command without any pre-configured scope."
+commands.allow = ["evaluation_rerun"]
+
+[[permission]]
+identifier = "deny-evaluation-rerun"
+description = "Denies the evaluation_rerun command without any pre-configured scope."
+commands.deny = ["evaluation_rerun"]

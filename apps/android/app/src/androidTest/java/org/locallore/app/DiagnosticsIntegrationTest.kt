@@ -72,7 +72,12 @@ class DiagnosticsIntegrationTest {
 
     @Test fun cancelAndMalformedGenerationProduceOnlyFixedDiagnosticCategories() {
         tag("mode-menu").performClick(); compose.onNodeWithTag("mode-DELAYED").performClick()
-        tag("give-potion").performClick(); tag("cancel-turn").performClick(); idle()
+        compose.runOnIdle {
+            model().submit(DemoAction.GIVE_POTION)
+            assertTrue(model().state.value.preparingResponse)
+            model().cancel()
+        }
+        idle()
         tag("mode-menu").performClick(); compose.onNodeWithTag("mode-MALFORMED").performClick()
         tag("give-potion").performClick(); idle(); preview()
         val json = model().diagnostics.value.preview

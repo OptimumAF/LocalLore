@@ -39,9 +39,18 @@ struct PersistedReceipt {
 
 struct UniqueJson(serde_json::Value);
 
-pub(crate) fn parse_unique<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T, Error> {
+/// Structural JSON validation only. Caller supplies its byte budget; this grants
+/// no accepted-history, engine, filesystem or permission authority.
+pub fn parse_unique_json(bytes: &[u8], max_bytes: usize) -> Result<serde_json::Value, Error> {
+    if bytes.len() > max_bytes {
+        return Err(Error::TooLarge);
+    }
     let raw: UniqueJson = serde_json::from_slice(bytes).map_err(|_| Error::Malformed)?;
-    serde_json::from_value(raw.0).map_err(|_| Error::Malformed)
+    Ok(raw.0)
+}
+
+pub(crate) fn parse_unique<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T, Error> {
+    serde_json::from_value(parse_unique_json(bytes, bytes.len())?).map_err(|_| Error::Malformed)
 }
 
 impl<'de> Deserialize<'de> for UniqueJson {
@@ -465,27 +474,24 @@ impl Engine {
         Ok(engine)
     }
 
-    /// Forks only at completed turn boundaries. Rebuild from seed, never clone a stale projection.
-    pub fn fork(&self, child: &str, at: u64) -> Result<Self, Error> {
-        if !valid_id(child) {
-            return Err(Error::Rule);
-        }
-        if at != 0
-            && !self
-                .receipts
-                .iter()
-                .any(|r| r.events.last().is_some_and(|e| e.sequence == at))
+    /// Read a completed historical boundary in this same branch and lineage.
+    /// Original receipt scopes/provenance are retained. This cannot add history,
+    /// grant observer access, create a branch or call inference.
+    pub fn at_revision(&self, at: u64) -> Result<Self, Error> {
+        if at > self.revision()
+            || (at != 0
+                && !self
+                    .receipts
+                    .iter()
+                    .any(|r| r.events.last().is_some_and(|e| e.sequence == at)))
         {
             return Err(Error::Rule);
         }
-        let mut lineage = self.lineage.clone();
-        lineage.fork(&self.scope, child, at, self.revision())?;
-        let scope = Scope {
-            story: self.scope.story.clone(),
-            branch: child.into(),
-        };
+        if at == self.revision() {
+            return Ok(self.clone());
+        }
         let mut result = Self::new(self.seed.clone())?;
-        result.lineage = lineage;
+        result.lineage = self.lineage.clone();
         for receipt in &self.receipts {
             if receipt.events.last().is_none_or(|e| e.sequence > at) {
                 break;
@@ -496,7 +502,23 @@ impl Engine {
                 return Err(Error::CorruptHistory);
             }
         }
-        result.scope = scope;
+        result.scope = self.scope.clone();
+        Ok(result)
+    }
+
+    /// Fork only at completed turn boundaries using this already validated snapshot.
+    pub fn fork(&self, child: &str, at: u64) -> Result<Self, Error> {
+        if !valid_id(child) {
+            return Err(Error::Rule);
+        }
+        let mut lineage = self.lineage.clone();
+        lineage.fork(&self.scope, child, at, self.revision())?;
+        let mut result = self.at_revision(at)?;
+        result.lineage = lineage;
+        result.scope = Scope {
+            story: self.scope.story.clone(),
+            branch: child.into(),
+        };
         Ok(result)
     }
 

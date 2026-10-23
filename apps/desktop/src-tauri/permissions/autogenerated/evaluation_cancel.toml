@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-evaluation-cancel"
+description = "Enables the evaluation_cancel command without any pre-configured scope."
+commands.allow = ["evaluation_cancel"]
+
+[[permission]]
+identifier = "deny-evaluation-cancel"
+description = "Denies the evaluation_cancel command without any pre-configured scope."
+commands.deny = ["evaluation_cancel"]

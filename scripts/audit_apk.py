@@ -73,12 +73,15 @@ def audit_zip(path):
     return libraries
 
 
-def audit_manifest(badging, tree):
-    require(re.search(r"^package: name='org\.locallore\.app' ", badging, re.M), "Wrong app package")
+def audit_manifest(badging, tree, package="org.locallore.app"):
+    require(package in ("org.locallore.app", "org.locallore.app.capacity", "org.locallore.app.capacityrelief"),
+            "Unreviewed app package")
+    permission = package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+    require(re.search(r"^package: name='" + re.escape(package) + r"' ", badging, re.M), "Wrong app package")
     require(re.search(r"^minSdkVersion:'26'$", badging, re.M), "Minimum SDK changed")
     require(re.search(r"^targetSdkVersion:'36'$", badging, re.M), "Target SDK changed")
     uses = re.findall(r"^uses-permission[^:]*: name='([^']+)'", badging, re.M)
-    require(uses == [PERMISSION], "Unexpected requested permissions")
+    require(uses == [permission], "Unexpected requested permissions")
     # Verify the one requested permission is defined with signature protection.
     declarations = []
     lines = tree.splitlines()
@@ -93,7 +96,7 @@ def audit_manifest(badging, tree):
             block.append(following)
         declarations.append("\n".join(block))
     require(len(declarations) == 1, "Unexpected permission declarations")
-    require(re.search(r':name\([^)]*\)="' + re.escape(PERMISSION) + r'"', declarations[0]), "Permission owner changed")
+    require(re.search(r':name\([^)]*\)="' + re.escape(permission) + r'"', declarations[0]), "Permission owner changed")
     require(re.search(r':protectionLevel\([^)]*\)=0x0*2\b', declarations[0]), "Receiver permission must be signature protected")
     return uses
 

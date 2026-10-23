@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-evaluation-read"
+description = "Enables the evaluation_read command without any pre-configured scope."
+commands.allow = ["evaluation_read"]
+
+[[permission]]
+identifier = "deny-evaluation-read"
+description = "Denies the evaluation_read command without any pre-configured scope."
+commands.deny = ["evaluation_read"]

@@ -192,27 +192,14 @@ fn snapshot<'a>(
     if request.expected_head != engine.revision() {
         return Err(CompileError::Stale);
     }
-    if engine.scope() != &engine.seed().scope {
-        return Err(CompileError::UnsupportedBranch);
-    }
     let revision = request.at_revision.unwrap_or(engine.revision());
     let snapshot = if revision == engine.revision() {
         Cow::Borrowed(engine)
     } else {
-        let count = if revision == 0 {
-            0
-        } else {
-            engine
-                .receipts()
-                .iter()
-                .position(|r| r.events().last().is_some_and(|e| e.sequence() == revision))
-                .map(|i| i + 1)
-                .ok_or(CompileError::Boundary)?
-        };
-        Cow::Owned(
-            Engine::replay(engine.seed().clone(), &engine.receipts()[..count])
-                .map_err(|_| CompileError::Source)?,
-        )
+        Cow::Owned(engine.at_revision(revision).map_err(|error| match error {
+            crate::contracts::Error::Rule => CompileError::Boundary,
+            _ => CompileError::Source,
+        })?)
     };
     if !valid_id(&request.observer)
         || !snapshot.state().actors.contains_key(&request.observer)
@@ -683,7 +670,7 @@ pub fn compile_cancelled(
             "SQLite FTS",
             "Summaries and invalidation",
             "Embeddings",
-            "Durable branch history",
+            "Branch-scoped derived caches",
         ],
     };
     for c in &candidates {

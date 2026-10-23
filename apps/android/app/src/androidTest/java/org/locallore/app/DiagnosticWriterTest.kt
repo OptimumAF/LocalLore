@@ -38,7 +38,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class DiagnosticWriterTest {
     private val resolver get() = InstrumentationRegistry.getInstrumentation().targetContext.contentResolver
-    private val authority get() = TestDiagnosticProvider.AUTHORITY
+    private val authority get() = InstrumentationRegistry.getInstrumentation().context.packageName + ".diagnostics"
     private fun uri(case: String) = Uri.parse("content://$authority/$case")
     private fun provider(method: String): Bundle = requireNotNull(resolver.call(authority, method, null, null))
     @Before fun resetProvider() { provider("reset") }

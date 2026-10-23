@@ -1,0 +1,326 @@
+{
+  "version": 1,
+  "date": "2026-10-22",
+  "task": "M04.04",
+  "status": "in_review_partial",
+  "scope": "capacity_fixture_Activity_ownership_and_ordered_controls",
+  "base_pr": 53,
+  "base_head": "53956e79f74ecb5ac94ccb4d594199f07fa28727",
+  "fixture_commit": "ba1df09",
+  "application_unchanged_from_parent": true,
+  "apk_hashes": {
+    "app_sha256": "8ffe81c0bdefcf2e9e6fa1d569a94e8409c3c9066b326887cc92e9e73bf0feb9",
+    "test_sha256": "1fdc11ff897471740d806582375f43ba09fd01645aaff459be4225eac389838e"
+  },
+  "baseline_test_apk_sha256": "88276c2a7a202bf90e80d1e157858ecf781eadf4f36a1e8fc41e79d5be564843",
+  "old_failure": {
+    "retained_in_parent_artifact": true,
+    "cause_known": false,
+    "fixed": false,
+    "reproduced_in_current_baseline": false
+  },
+  "build": {
+    "command": "python scripts/android_capacity_probe.py build --offline",
+    "status": "passed",
+    "executed_tasks": 7,
+    "up_to_date_tasks": 70,
+    "native_app_tasks": "reused",
+    "jvm_tests_fresh": 0,
+    "jvm_xml_tests_reused": 47,
+    "jvm_xml_failures_errors_skips": 0,
+    "lint_errors": 0,
+    "lint_warnings": 1,
+    "lint_warning_ids": [
+      "GradleDependency"
+    ],
+    "fixture_metadata_deprecation_warnings": 2,
+    "apk_audit": "passed",
+    "new_instrumentation_compiled_packaged": true
+  },
+  "preflight": {
+    "inventory": {
+      "emulators": 5,
+      "physical_phones": 0
+    },
+    "targets": [
+      {
+        "target": "A",
+        "properties": {
+          "ro.build.version.release": "15",
+          "ro.build.version.sdk": "35",
+          "ro.product.cpu.abi": "x86_64",
+          "ro.product.model": "sdk_gphone64_x86_64"
+        },
+        "page_bytes": 4096,
+        "expected_installed_hashes_verified": true,
+        "boot_and_services_ready": true,
+        "clients_cleaned": true
+      },
+      {
+        "target": "B",
+        "properties": {
+          "ro.build.version.release": "15",
+          "ro.build.version.sdk": "35",
+          "ro.product.cpu.abi": "x86_64",
+          "ro.product.model": "sdk_gphone64_x86_64"
+        },
+        "page_bytes": 4096,
+        "expected_installed_hashes_verified": true,
+        "boot_and_services_ready": true,
+        "clients_cleaned": true
+      }
+    ]
+  },
+  "declared_plan": [
+    "B_old_baseline_3",
+    "A_candidate_ordered_5",
+    "B_candidate_ordered_5",
+    "A_candidate_default_3"
+  ],
+  "expected_suite_order": [
+    "org.locallore.app.CapacityLifecycleCohort$Before#emptyComposeBeforeCapacityWorkClosesNormally",
+    "org.locallore.app.SqliteCapacityNativeTest#actualReadyFullRetriesKeepOriginalKeyAndCanonThenReopenAsUncommittedDraft",
+    "org.locallore.app.SqliteCapacityNativeTest#cancellingActualFullTurnPersistsCancellationAndReopenCannotApplyItsOriginalRequest",
+    "org.locallore.app.SqliteCapacityInstrumentedTest#composedActualFullKeepsLastCanonBlocksCallbacksAndRepeatedRecoveryThenFencesDisposal",
+    "org.locallore.app.CapacityLifecycleCohort$After#emptyComposeAfterCapacityWorkClosesNormally"
+  ],
+  "attempts": [
+    {
+      "attempt": "B-baseline",
+      "app_absent": true,
+      "app_sha256": "8ffe81c0bdefcf2e9e6fa1d569a94e8409c3c9066b326887cc92e9e73bf0feb9",
+      "clients_cleaned": true,
+      "event": "finished",
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      },
+      "ordinary_apk_hashes_unchanged": true,
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteCapacityInstrumentedTest#cancellingActualFullTurnPersistsCancellationAndReopenCannotApplyItsOriginalRequest",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteCapacityInstrumentedTest#composedActualFullKeepsLastCanonBlocksCallbacksAndRepeatedRecoveryThenFencesDisposal",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteCapacityInstrumentedTest#actualReadyFullRetriesKeepOriginalKeyAndCanonThenReopenAsUncommittedDraft",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 3,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "stage": "finished",
+      "status": "passed",
+      "target": "B",
+      "test_sha256": "88276c2a7a202bf90e80d1e157858ecf781eadf4f36a1e8fc41e79d5be564843"
+    },
+    {
+      "attempt": "A-suite",
+      "app_absent": true,
+      "app_sha256": "8ffe81c0bdefcf2e9e6fa1d569a94e8409c3c9066b326887cc92e9e73bf0feb9",
+      "clients_cleaned": true,
+      "cohort": "suite",
+      "event": "finished",
+      "exact_suite_order_verified": true,
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      },
+      "ordinary_apk_hashes_unchanged": true,
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.CapacityLifecycleCohort$Before#emptyComposeBeforeCapacityWorkClosesNormally",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteCapacityNativeTest#actualReadyFullRetriesKeepOriginalKeyAndCanonThenReopenAsUncommittedDraft",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteCapacityNativeTest#cancellingActualFullTurnPersistsCancellationAndReopenCannotApplyItsOriginalRequest",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteCapacityInstrumentedTest#composedActualFullKeepsLastCanonBlocksCallbacksAndRepeatedRecoveryThenFencesDisposal",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.CapacityLifecycleCohort$After#emptyComposeAfterCapacityWorkClosesNormally",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 5,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "stage": "finished",
+      "status": "passed",
+      "target": "A",
+      "test_sha256": "1fdc11ff897471740d806582375f43ba09fd01645aaff459be4225eac389838e"
+    },
+    {
+      "attempt": "B-suite",
+      "app_absent": true,
+      "app_sha256": "8ffe81c0bdefcf2e9e6fa1d569a94e8409c3c9066b326887cc92e9e73bf0feb9",
+      "clients_cleaned": true,
+      "cohort": "suite",
+      "event": "finished",
+      "exact_suite_order_verified": true,
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      },
+      "ordinary_apk_hashes_unchanged": true,
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.CapacityLifecycleCohort$Before#emptyComposeBeforeCapacityWorkClosesNormally",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteCapacityNativeTest#actualReadyFullRetriesKeepOriginalKeyAndCanonThenReopenAsUncommittedDraft",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteCapacityNativeTest#cancellingActualFullTurnPersistsCancellationAndReopenCannotApplyItsOriginalRequest",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteCapacityInstrumentedTest#composedActualFullKeepsLastCanonBlocksCallbacksAndRepeatedRecoveryThenFencesDisposal",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.CapacityLifecycleCohort$After#emptyComposeAfterCapacityWorkClosesNormally",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 5,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "stage": "finished",
+      "status": "passed",
+      "target": "B",
+      "test_sha256": "1fdc11ff897471740d806582375f43ba09fd01645aaff459be4225eac389838e"
+    },
+    {
+      "attempt": "A-default",
+      "app_absent": true,
+      "app_sha256": "8ffe81c0bdefcf2e9e6fa1d569a94e8409c3c9066b326887cc92e9e73bf0feb9",
+      "clients_cleaned": true,
+      "cohort": "default",
+      "event": "finished",
+      "exact_suite_order_verified": false,
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      },
+      "ordinary_apk_hashes_unchanged": true,
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteCapacityInstrumentedTest#composedActualFullKeepsLastCanonBlocksCallbacksAndRepeatedRecoveryThenFencesDisposal",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteCapacityNativeTest#actualReadyFullRetriesKeepOriginalKeyAndCanonThenReopenAsUncommittedDraft",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteCapacityNativeTest#cancellingActualFullTurnPersistsCancellationAndReopenCannotApplyItsOriginalRequest",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 3,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "stage": "finished",
+      "status": "passed",
+      "target": "A",
+      "test_sha256": "1fdc11ff897471740d806582375f43ba09fd01645aaff459be4225eac389838e"
+    }
+  ],
+  "candidate_totals": {
+    "cohorts": 3,
+    "passed": 13,
+    "failed": 0,
+    "skipped": 0,
+    "unfinished": 0,
+    "unique_methods": 5,
+    "original_capacity_methods": 3,
+    "control_method_executions": 4,
+    "actual_Full_commit_assertions": 24,
+    "native_Activity_boundary_snapshots": 12,
+    "scope": "no_monitor_visible_nonDESTROYED_Activity_at_boundary_only"
+  },
+  "current_all_attempt_totals": {
+    "cohorts": 4,
+    "passed": 16,
+    "failed": 0,
+    "skipped": 0,
+    "unfinished": 0,
+    "candidate_source_or_timeout_changes_during_candidate_cohorts": false,
+    "baseline_candidate_test_apk_intentionally_changed": true
+  },
+  "default_discovery": {
+    "passed": 3,
+    "original_methods_once": true,
+    "nested_suite_or_controls_discovered": false
+  },
+  "source_sha256": {
+    "apps/android/app/src/capacityTest/java/org/locallore/app/CapacityLifecycleCohort.kt": "a84526ae7ae229b9f3c02b871ab356f4c8a4a1e5ba7f595ce41bbca5efb26ca9",
+    "apps/android/app/src/capacityTest/java/org/locallore/app/CapacityTestFixture.kt": "92d2b8dd9967b98666b2d1185b5be13bd6b6a153ad7ef09993b7a53fe950d5f3",
+    "apps/android/app/src/capacityTest/java/org/locallore/app/SqliteCapacityInstrumentedTest.kt": "7fbcc8472ccf56bb33eb5d647c7207d113ccc5007bf1197cd07ad8eea1225108",
+    "apps/android/app/src/capacityTest/java/org/locallore/app/SqliteCapacityNativeTest.kt": "78e4af2a9c0a9820444ac0eb4276dfcec13d19444965e4232c882769f8344aaf"
+  },
+  "original_test_body_parity": {
+    "methods": 3,
+    "whitespace_ignored": true,
+    "all_equal": true
+  },
+  "limits": [
+    "unknown_parent_teardown_cause_not_fixed",
+    "finite_observation_not_race_absence",
+    "monitor_snapshots_not_continuous",
+    "fake_inference",
+    "immutable_cap_no_capacity_relief_recovery",
+    "not_partition_ENOSPC",
+    "no_physical_phone",
+    "no_ARM64_execution",
+    "no_16KiB_OS_execution",
+    "no_real_model_heap_power_loss_performance_or_hosted_CI",
+    "no_merge_release"
+  ]
+}

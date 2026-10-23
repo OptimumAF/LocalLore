@@ -174,8 +174,8 @@ fn source_scope_head_observer_and_completed_historical_boundary_precede_content(
     assert_eq!(compile(&e, &future), Err(CompileError::Boundary));
     let child = e.fork("child", e.revision()).unwrap();
     assert_eq!(
-        compile(&child, &request(&child)),
-        Err(CompileError::UnsupportedBranch)
+        compile(&child, &request(&child)).unwrap().scope,
+        *child.scope()
     );
     let mut sibling = q.clone();
     sibling.scope.branch = "sibling".into();

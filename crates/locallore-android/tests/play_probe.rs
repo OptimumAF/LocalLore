@@ -597,13 +597,21 @@ fn profiles_packet_bounds_and_untrusted_output_fail_closed_without_changing_cano
         assert_eq!(data(worker.join().unwrap())["phase"], "failed");
     });
     assert_eq!(workspace.snapshot(0), before);
-    // The optional bridge does not configure the ordinary application workspace adapter.
+    // The optional bridge does not replace the ordinary application's explicit scripted fixture.
     let normal = locallore_android::workspace::WorkspaceRegistry::default();
     let handle = normal.open(&workspace.root.join("normal.sqlite3")).unwrap();
     let caps: Value = serde_json::from_slice(
         &normal.call(handle, br#"{"version":1,"command":{"op":"capabilities"}}"#),
     )
     .unwrap();
-    assert_eq!(caps["data"]["free_text"], false);
+    assert_eq!(caps["data"]["free_text"], true);
+    let status: Value = serde_json::from_slice(
+        &normal.call(handle, br#"{"version":1,"command":{"op":"model_status"}}"#),
+    )
+    .unwrap();
+    assert_eq!(status["data"]["provider"], "android-scripted-play-v2");
+    assert_eq!(status["data"]["real_model"], false);
+    assert_eq!(status["data"]["loaded"], false);
+    assert_eq!(status["data"]["status"], "configured_fixture_owner");
     normal.close(handle);
 }

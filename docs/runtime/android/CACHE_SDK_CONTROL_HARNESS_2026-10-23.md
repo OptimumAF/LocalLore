@@ -11,12 +11,14 @@ device execution belong to separately admitted coordinator work.
 run_control(device, apk_sha, case, expected_uuid, measure, model_identity, raw_sink=None)
 ```
 
-The artifact pin is explicit. This initial packet targets cacheprobe APK
-SHA256 `50e6e60cfdb2194272d31cf651805f34452ae09a04443558049020664f60d107`,
-source `44cd85f`. That artifact does not implement the subsequently requested
-app-domain `verify_model` operation. It must not be presented as evidence of that
-new behavior. Coordinator work on a new verified artifact and explicit pin
-update remains a prerequisite to the next actual SDK control experiment.
+The artifact pin is explicit: cacheprobe APK SHA256
+`04eef96b7177aaef275574f9ee45d25efa9b181bab4fcb0a363d8077a4e4fb7d`,
+63,598,424 bytes, Java source `a033d08`. This separately qualified artifact adds
+app-domain `verify_model`; the older `50e6e60c...` artifact cannot substitute
+for it. Artifact qualification is described in
+[the model-verification report](CACHE_MODEL_VERIFY_HARNESS_2026-10-23.md).
+Fresh device/storage admission and actual app-domain model verification remain
+prerequisites to an SDK control experiment.
 
 ## Caller contract
 
@@ -107,14 +109,16 @@ not proof that model execution started. `phone_qualified` remains false.
 
 ## Verification and limits
 
-The author ran 25 independent controller tests against fake transports and a
+The author ran 26 independent controller tests against fake transports and a
 parser mock: exact request/profile, pre-refusal, stale volume, package
 and process identity failures, one launch, callback/client uncertainty, raw
 retention ordering, malformed output, and accepted-result preservation across
 SDK/cleanup/post-storage failures, verification-process stop, late APK changes,
-and unknown pre-play cleanup. The controller/parser/admission test selection
-passed 60 tests after integrating the coordinator's real parser module; the
+unknown pre-play cleanup, and profile-failure attribution. The earlier
+controller/parser/admission selection passed 61 tests; the final pin passed
+67 tests using the coordinator's current real parser (26 controller, 16 parser,
+25 admission). The
 controller tests still intentionally mock parser responses to isolate lifecycle
-behavior. No ADB, model read/copy, build, inference, device or GitHub mutation
-was performed by this controller packet. The new model-verification artifact
-and its explicit pin update remain subsequent gates.
+behavior. No ADB, model read/copy, inference, device or GitHub mutation was
+performed by the author. The separately authorized Java-only artifact
+qualification performed no SDK/model execution.

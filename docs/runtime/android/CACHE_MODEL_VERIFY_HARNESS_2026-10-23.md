@@ -94,6 +94,38 @@ read counts. A fresh regular-file NOFOLLOW read also passed on the installed
 Windows JVM provider. The synthetic stamp tests do not qualify Android syscall
 behavior or claim an actual OS symlink attack test. An initial JUnit command
 had a class-name typo and failed initialization before any test body; it is
-retained separately. Actual APK/JVM/lint qualification and device results are
-subsequent evidence; no model was read or SDK/ADB/device action executed by
-the author during these source tests.
+retained separately as one failed invocation, rather than failed test bodies.
+
+## Qualified artifact
+
+The Java-only qualification used source `a033d08` and froze APK SHA256
+`04eef96b7177aaef275574f9ee45d25efa9b181bab4fcb0a363d8077a4e4fb7d`
+(63,598,424 bytes), package `org.locallore.runtimebench.litert.cacheprobe`,
+with only the explicit `CacheProbeInstrumentation` runner and no permissions.
+The unchanged native pair was reused from the previous qualified build; both
+raw hashes matched its retained provenance, then the APK's two application
+libraries and two SDK libraries passed ABI/export, 16 KiB ELF and ZIP-alignment
+audits. This was not a fresh Rust compilation.
+
+Gradle completed successfully and its XML records 73 JVM tests with zero
+failures, errors or skips: identity 11, volume 9, PlayRunner 10, Request 10,
+Stream 5, WarmExchange 13 and WarmRunner 15. Analyzer/dependency checks passed.
+Lint reported zero errors and nine warnings: OldTargetApi 1, GradleDependency 1
+and UsableSpace 7. Usable-space readings are fresh observations, not reservations
+or proof of maximum future growth; the existing admission floors remain required.
+
+The first qualification controller stopped at the actual host-capacity guard
+after successful Gradle work and before starting the permissions audit. The
+failed controller and all successful intermediate results were retained. After
+separate preservation work and a fresh passing capacity check, one audit-only
+continuation completed permissions, manifest, native and alignment checks and
+created the frozen artifact. Neither Java nor Rust was rebuilt for that
+continuation. The original capacity policy was unchanged.
+
+Private retained evidence is under the dedicated model-verification evidence
+and build roots: the initial JUnit initialization error, corrected 20-test run,
+qualification controller/stage logs, native frozen-identity audit, 73-test XML,
+lint report, audit-continuation logs and create-new `verified/build-result.json`.
+No model was read, copied or executed and no SDK/ADB/device operation was
+performed by the author during these checks. Device-domain qualification and
+fresh provisioning/admission belong to separately authorized coordinator work.

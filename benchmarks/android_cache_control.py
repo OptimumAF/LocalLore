@@ -17,7 +17,7 @@ import android_runtime_spike as spike
 
 PACKAGE = "org.locallore.runtimebench.litert.cacheprobe"
 INSTRUMENTATION = "org.locallore.runtimebench.litert.CacheProbeInstrumentation"
-APK_SHA256 = "50e6e60cfdb2194272d31cf651805f34452ae09a04443558049020664f60d107"
+APK_SHA256 = "04eef96b7177aaef275574f9ee45d25efa9b181bab4fcb0a363d8077a4e4fb7d"
 MODEL_SHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
 MODEL_BYTES = 2_588_147_712
 MODEL_KEYS = {"verified", "volume_uuid", "sha256", "bytes", "diagnostic"}

@@ -1,0 +1,47 @@
+{
+  "observed_date": "2026-10-22",
+  "sources": [
+    {
+      "bytes": 15398,
+      "sha256": "c4c6c4917a5820554f91668139eb10e2dccfff0d06a065b02ef2b7109c0d3e69",
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/Config.kt"
+    },
+    {
+      "bytes": 32974,
+      "sha256": "b6e3f63a8a8b308f6b726709d778d20944ad25749d4e384c33bcbd7faf895822",
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/Conversation.kt"
+    },
+    {
+      "bytes": 8071,
+      "sha256": "fbfbe4abcb64b4bde36ccb9052978f075fb2a290903fbac18538b9fa0a016998",
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/Engine.kt"
+    },
+    {
+      "bytes": 22403,
+      "sha256": "080c7389377a91c5c4cc36c4af66987b13400d772dceef72b56d591bd8ce1aa3",
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/LiteRtLmJni.kt"
+    },
+    {
+      "bytes": 6955,
+      "sha256": "0b293e6b216f3e0fceb58cc898b857ced81d1f2d95a43236c3f7863ee22dc11e",
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/Message.kt"
+    },
+    {
+      "bytes": 11430,
+      "sha256": "b60d066ef2730dbe76b35bc827e865b8f32c9847971e13550febdd5f963f55e6",
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/ModelInfo.kt"
+    },
+    {
+      "bytes": 5677,
+      "sha256": "536a3d1376466c0189dc9b9bbd62f19c6231039ab787f6bf4fd9cee68eec78e5",
+      "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/NativeLibraryLoader.kt"
+    },
+    {
+      "bytes": 1215,
+      "sha256": "6374def0d2ff570bee0030a9ddbce1fb27cd7c8594e94e5b13d80dffa9f3381f",
+      "url": "https://dl.google.com/dl/android/maven2/com/google/ai/edge/litertlm/litertlm-android/maven-metadata.xml"
+    }
+  ],
+  "upstream_commit": "bda624851d74be34d4e1f7fac1fc4155939539c7",
+  "version": 1
+}

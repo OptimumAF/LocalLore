@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "tasks": ["M01.02", "M01.04", "M01.05"],
+  "claim": "https://github.com/OptimumAF/LocalLore/issues/5#issuecomment-6355406891",
+  "baseline": "07dbac7",
+  "sdk": "com.google.ai.edge.litertlm:litertlm-android:0.18.1",
+  "upstream_commit": "bda624851d74be34d4e1f7fac1fc4155939539c7",
+  "gradle_daemon": "existing Android Studio JBR 17.0.6",
+  "java_compiler": "existing JDK 21.0.4 targeting Java 17",
+  "dependencies_changed": false,
+  "manifest_changed": false,
+  "production_sources_changed": false,
+  "build": {
+    "command": "python benchmarks/spike/android/litert/build.py --java21 'C:/Program Files/Java/jdk-21' --offline --clean",
+    "exit": 0,
+    "executed_tasks": 51,
+    "up_to_date_tasks": 0,
+    "gradle_reported_seconds": 38,
+    "jvm_tests": 42,
+    "jvm_failures": 0,
+    "jvm_errors": 0,
+    "jvm_skipped": 0,
+    "test_classes": {
+      "RequestTest": 10,
+      "StreamTest": 4,
+      "WarmExchangeTest": 13,
+      "WarmRunnerTest": 15
+    },
+    "analyzer": "32.4.1",
+    "actual_locked_analyzer_and_sdk_dependency_model_verified": true,
+    "lint_errors": 0,
+    "unsuppressed_advisories": ["OldTargetApi", "GradleDependency: compileSdk 37 available"],
+    "apk_requested_permissions": 0,
+    "apk_native_abis": ["arm64-v8a", "x86_64"],
+    "apk_zip_alignment_bytes": 16384,
+    "apk_path": "benchmarks/spike/android/litert/app/build/outputs/apk/debug/app-debug.apk",
+    "apk_sha256": "82d5923a16a167d87816c8724807dd8cdf8534d67b2329bcb7af4f238d4bf939"
+  },
+  "python_audits": {
+    "command": "python -m unittest discover -s benchmarks/spike/android/litert -p 'test_*.py' -v",
+    "exit": 0,
+    "tests": 20,
+    "failures": 0
+  },
+  "diff_check": {"command": "git diff --check", "exit": 0},
+  "retained_failures_and_corrections": [
+    "Initial clean build failed compiling JVM tests: Files.readString/writeString unavailable in Android compile bootclasspath. Replaced test-only calls with explicit UTF8 byte APIs.",
+    "Independent read-only review found host marker newline mismatch; coordinator removed newline to match exact marker bytes.",
+    "Independent review found early foreign-result and legitimate cancel.partial gaps; checks and regressions added before final clean build.",
+    "Intermediate successful build was not frozen because source changed during it; final 51-task clean build above includes all Java edits."
+  ],
+  "agent_operations": {
+    "adb": false,
+    "model_load_or_generation": false,
+    "model_transfer_or_download": false,
+    "emulator_or_phone_execution": false,
+    "merge_or_push": false
+  },
+  "limits": [
+    "JVM lifecycle tests use injected owners, never native inference.",
+    "Coordinator owns both emulator executions and all model calls; see separate central evidence.",
+    "No physical-phone, ARM64 execution, quality, sustained memory or thermal qualification.",
+    "Single SDK publisher assumption; guarded atomic rename is not a hostile same-UID race defense.",
+    "APK build and runtime API inspection do not prove native cancellation or role isolation by themselves.",
+    "Existing SDK callback visibility, model/template and third-party licensing constraints remain."
+  ]
+}

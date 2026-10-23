@@ -1,0 +1,137 @@
+"""Synthetic SDK/process protocol checks. No device, native SDK or model required."""
+import base64
+import json
+import unittest
+from unittest.mock import patch
+from types import SimpleNamespace
+
+import android_runtime_spike as spike
+import android_control_probe as control
+
+
+def envelope(metrics=None, output=None):
+    if metrics is None:
+        metrics = dict(worker_off_main=True, owners_balanced=True, generated_text_logged=False,
+                       engines_opened=1, engines_closed=1, conversations_opened=1,
+                       conversations_closed=1, main_pulses=3)
+    if output is None:
+        output = dict(version=1, status="completed", text="Synthetic Lantern", error=None,
+                      load_ms=1, generation_ms=1, output_tokens=2, input_tokens=8,
+                      schema_enforced=False, thinking_disabled=True, template_applied=True)
+    return (b"INSTRUMENTATION_RESULT: result_base64=" + base64.b64encode(json.dumps(output).encode())
+            + b"\r\nINSTRUMENTATION_RESULT: metrics=" + json.dumps(metrics).encode() + b"\r\n")
+
+
+class SdkEnvelopeTests(unittest.TestCase):
+    def test_probe_native_recovery_retains_the_failed_oracle_stage(self):
+        failed = spike.RemoteResult("setup_failed", 1, True, failure_stage="native_write_request",
+                                    adb_cleanup_complete=True)
+        native = SimpleNamespace(run=lambda *args, **kwargs: failed)
+        recovery = {}
+        self.assertFalse(control.fixture_ok(native, "oracle", recovery))
+        self.assertEqual(recovery["oracle_runs"][0]["failure_stage"], "native_write_request")
+        self.assertFalse(recovery["check_passed"])
+
+    def test_probe_sdk_recovery_keeps_diagnostics_separate_from_the_original_fault(self):
+        failed = spike.RemoteResult("setup_failed", 1, True, failure_stage="native_create_run")
+        native = SimpleNamespace(run=unittest.mock.Mock(return_value=failed))
+        sdk = SimpleNamespace(run=unittest.mock.Mock(return_value=spike.RemoteResult(
+            "setup_failed", 1, True, failure_stage="sdk_write_request")))
+        recovery = {"check_passed": False, "status": "cleanup_failed",
+                    "cleanup_failure_stage": "sdk_stop_absence", "oracle_runs": []}
+        rows = []
+        with patch.object(spike, "NativeWorker", return_value=native), \
+                patch.object(control, "fixture_ok", return_value=True), \
+                patch.object(spike, "oracle", return_value={"director": {}}), \
+                patch.object(spike, "SdkWorker", return_value=sdk), \
+                patch.object(spike, "sdk_diagnostic", return_value=recovery):
+            control.probes(None, "owner", "oracle", "1" * 64, rows)
+        self.assertEqual(rows[3]["failure_stage"], "sdk_write_request")
+        self.assertEqual(rows[3]["recovery"]["cleanup_failure_stage"], "sdk_stop_absence")
+        self.assertFalse(rows[3]["passed"])
+
+    def test_probe_retains_failed_attempt_when_fresh_recovery_also_fails(self):
+        rows = []
+        failed = spike.RemoteResult("setup_failed", 1, True, failure_stage="native_create_run")
+        native = SimpleNamespace(run=unittest.mock.Mock(return_value=failed))
+        with patch.object(spike, "NativeWorker", return_value=native), \
+                patch.object(control, "fixture_ok", side_effect=spike.Failure("PRIVATE-731")):
+            with self.assertRaises(spike.Failure):
+                control.probes(None, "owner", "oracle", "1" * 64, rows)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["failure_stage"], "native_create_run")
+        self.assertFalse(rows[0]["passed"])
+        self.assertNotIn("PRIVATE-731", json.dumps(rows))
+
+    def test_diagnostic_oracle_failure_keeps_stage_and_never_launches_sdk(self):
+        sdk = SimpleNamespace(run=unittest.mock.Mock())
+        native = SimpleNamespace(run=lambda *args, **kwargs: spike.RemoteResult(
+            "setup_failed", 1, True, failure_stage="native_write_request", adb_cleanup_complete=True))
+        report = spike.sdk_diagnostic(sdk, native, "oracle", "corrupt")
+        self.assertEqual(report["status"], "oracle_failed")
+        self.assertEqual(report["oracle_runs"][0]["failure_stage"], "native_write_request")
+        sdk.run.assert_not_called()
+
+    def test_sdk_large_numeric_metadata_fails_closed_without_float_overflow(self):
+        raw = envelope().replace(b'"main_pulses": 3', b'"main_pulses": ' + b'9' * 1000)
+        self.assertIsNone(spike.sdk_response(raw))
+
+    def test_expired_cancellation_budget_does_not_release_the_native_barrier(self):
+        from test_android_runtime_ownership_review import ImmediateDevice
+        device = ImmediateDevice()
+        scripts = []
+        device.script = lambda command, **kwargs: scripts.append(command) or b""
+        # Windows Python 3.9 monotonic ticks can be coarser than a microsecond.
+        # Control the clock so this tests cancellation ordering, not scheduler timing.
+        with patch.object(spike.time, "monotonic", side_effect=iter([0.0] + [1.0] * 32)):
+            result = spike.NativeWorker(device, "/fixed/owner").run("/fixed/binary", [], cancel_after=.5)
+        self.assertEqual(result.status, "cancelled")
+        self.assertFalse(any(command.endswith("/release") for command in scripts))
+        self.assertTrue(any(command.endswith("/cancel") for command in scripts))
+
+    def test_valid_result_keeps_text_in_memory_and_only_numeric_metadata(self):
+        output, metrics = spike.sdk_response(envelope())
+        self.assertEqual(spike.host.parse_worker(output)["text"], "Synthetic Lantern")
+        self.assertNotIn("Synthetic Lantern", json.dumps(metrics))
+
+    def test_duplicate_result_records_or_invalid_base64_fail_closed(self):
+        for raw in (envelope() + envelope(), envelope().replace(b"result_base64=", b"result_base64=***")):
+            self.assertIsNone(spike.sdk_response(raw))
+
+    def test_unbalanced_owners_and_main_work_are_not_cleanup_evidence(self):
+        base = dict(worker_off_main=True, owners_balanced=True, generated_text_logged=False,
+                    engines_opened=1, engines_closed=1, conversations_opened=1, conversations_closed=1, main_pulses=3)
+        for key, value in (("worker_off_main", False), ("owners_balanced", False),
+                           ("generated_text_logged", True), ("engines_closed", 0),
+                           ("conversations_closed", 0), ("main_pulses", 0), ("engines_opened", True)):
+            with self.subTest(key=key):
+                self.assertIsNone(spike.sdk_response(envelope(dict(base, **{key: value}))))
+
+    def test_unknown_private_metrics_never_reach_public_aggregates(self):
+        raw = envelope().replace(b'"main_pulses": 3', b'"main_pulses": 3, "exception": "PRIVATE-731"')
+        result = spike.sdk_response(raw)
+        self.assertIsNotNone(result)
+        self.assertNotIn("PRIVATE-731", json.dumps(result[1]))
+
+    def test_duplicate_nonfinite_and_private_numeric_fields_are_rejected(self):
+        for change in (b'"main_pulses": 3, "main_pulses": 5', b'"main_pulses": NaN',
+                       b'"main_pulses": "PRIVATE-731"'):
+            self.assertIsNone(spike.sdk_response(envelope().replace(b'"main_pulses": 3', change)))
+
+    def test_apk_hash_mismatch_cannot_force_stop_an_unknown_package(self):
+        calls = []
+        def shell(*args, **kwargs):
+            calls.append(args)
+            return b"package:/data/app/base.apk\n" if args[0] == "pm" else b"0" * 64 + b"  /data/app/base.apk\n"
+        worker = spike.SdkWorker(SimpleNamespace(shell=shell), "1" * 64)
+        with self.assertRaises(spike.Failure):
+            worker.stop()
+        self.assertFalse(any(args[0] == "am" for args in calls))
+
+    def test_native_markers_accept_observed_windows_adb_newlines(self):
+        self.assertEqual(spike.parse_done(b"completed 0\r\n"), ("completed", 0))
+        self.assertIsNone(spike.parse_done(b"completed 0\r\nPRIVATE"))
+
+
+if __name__ == "__main__":
+    unittest.main()

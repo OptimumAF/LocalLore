@@ -1,0 +1,45 @@
+{
+  "helper": {
+    "bytes": 99469632,
+    "sha256": "b6de3131c851bfdb3eea36b9e1a42894473d8128310ba8393a6402011007ee39",
+    "elf_class": 64,
+    "machine": 183,
+    "type": "ET_DYN",
+    "pie": true,
+    "interpreter": "/system/bin/linker64",
+    "load_alignments": [
+      16384,
+      16384,
+      16384
+    ],
+    "needed": [
+      "libm.so",
+      "libdl.so",
+      "libc.so"
+    ]
+  },
+  "oracle": {
+    "bytes": 1334560,
+    "sha256": "8afded0df72c73ad47afa872e1cc8f2f94c20c4dcda433ca01a680c724c632d5",
+    "elf_class": 64,
+    "machine": 183,
+    "type": "ET_DYN",
+    "pie": true,
+    "interpreter": "/system/bin/linker64",
+    "load_alignments": [
+      16384,
+      16384,
+      16384
+    ],
+    "needed": [
+      "libdl.so",
+      "libc.so"
+    ]
+  },
+  "deadline": {
+    "initializer_retained": true,
+    "fixed_seconds": 90,
+    "mechanism": "SIGALRM_default_action",
+    "inherited_signal_unblocked": true
+  }
+}

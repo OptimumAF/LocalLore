@@ -1,6 +1,6 @@
 # System architecture
 
-Status: target architecture, 2026-10-22. The bounded [v1 host contract](DOMAIN_CONTRACT_V1.md) implements pure rules and fake-provider coordination in one Rust crate. Compose reaches it through JNI. The shared [SQLite owner](storage/DURABILITY.md) adds atomic root turns and validated save/resume; app adapters still use in-memory sessions. Production inference, app save/resume integration and broader memory behavior remain separate work. The proposed module layout is not a list of existing packages.
+Status: target architecture, 2026-10-22. The bounded [v1 host contract](DOMAIN_CONTRACT_V1.md) implements pure rules and fake-provider coordination. The [Compose shell](../apps/android/README.md) calls the actual Rust engine through bounded JNI, using fake inference and in-memory state. A separate [Android runtime experiment](runtime/android/README.md) exercises real local inference and the Rust oracle outside the app. The shared [SQLite owner](storage/DURABILITY.md) adds atomic root turns and validated save/resume; app adapters still use in-memory sessions. Production inference, app save/resume integration and broader memory behavior remain separate work. The proposed module layout is not a list of existing packages.
 
 ## 1. Authority and component boundaries
 

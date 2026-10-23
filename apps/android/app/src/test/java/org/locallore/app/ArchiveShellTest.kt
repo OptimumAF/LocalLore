@@ -25,11 +25,16 @@ class ArchiveShellTest {
     @After fun cleanup() { models.clear(); Dispatchers.resetMain() }
     private inner class StoryGateway : DemoGateway {
         override val durable = true
+        override val storyRecords = true
         var selected = original
         var importedExists = false
         var mutations = 0
         var resumes = 0
         var snapshots = 0
+        var textSubmissions = 0
+        override suspend fun respondText(input: PlayInput, revision: Long): DemoResult {
+            textSubmissions++; return DemoResult.Rejected("Inventory")
+        }
         override suspend fun respond(action: DemoAction, revision: Long, mode: DemoMode): DemoResult {
             mutations++; return DemoResult.Rejected("Inventory")
         }
@@ -40,7 +45,7 @@ class ArchiveShellTest {
         override suspend fun recoverSaved(): SavedSnapshot { mutations++; return saved() }
         private fun saved() = SavedSnapshot(selected.revision, "Not in your inventory", emptyList(),
             "/synthetic/stories.sqlite3", 1, if (importedExists) listOf(original, imported) else listOf(original),
-            selected, databaseSchemaVersion = 2)
+            selected, textProvider = TextProvider.SCRIPTED, databaseSchemaVersion = 2)
     }
     private inner class Archives(private val story: StoryGateway) : ArchiveGateway {
         private val preview = ArchivePreview(1, "imported", "Imported", "main", mapOf("main" to 1L),
@@ -85,6 +90,26 @@ class ArchiveShellTest {
         assertFalse(model.state.value.archiveActive)
         model.completeArchiveExport { writes++ }; advanceUntilIdle()
         assertEquals(0, writes)
+    }
+
+    @Test fun archiveConsentFencesTextAndRecordCallbacksUntilDismissed() = runTest(dispatcher) {
+        val story = StoryGateway(); val model = model(story, Archives(story))
+        advanceUntilIdle()
+        model.openStoryRecord(); advanceUntilIdle()
+        assertTrue(model.storyRecord.value.visible)
+        model.openArchive(); advanceUntilIdle()
+        assertTrue(model.state.value.archiveActive)
+        assertFalse(model.storyRecord.value.visible)
+        val input = PlayInput(PlayInputKind.ACTION, "I give my last potion to Mira.")
+        model.submitText(input); model.openStoryRecord(); advanceUntilIdle()
+        assertEquals(0, story.textSubmissions)
+        assertFalse(model.storyRecord.value.visible)
+        model.archiveController!!.dismiss(); advanceUntilIdle()
+        assertFalse(model.state.value.archiveActive)
+        model.submitText(input); advanceUntilIdle()
+        assertEquals(1, story.textSubmissions)
+        model.openStoryRecord(); advanceUntilIdle()
+        assertTrue(model.storyRecord.value.visible)
     }
 
     @Test fun confirmedImportDoesNotAutoResumeAndExplicitOpenCreatesFreshSession() = runTest(dispatcher) {

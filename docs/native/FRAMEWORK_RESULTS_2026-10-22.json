@@ -1,0 +1,377 @@
+{
+  "version": 1,
+  "date": "2026-10-22",
+  "tasks": [
+    "M04.04",
+    "M04.05"
+  ],
+  "prerequisite_pr": 44,
+  "prerequisite_source": "80c7196a8585e88e4aba5a99f29e0dd9c08cc11b",
+  "final_test_source": "dd11ab2f918217e574595cb57b02fe84c4b07bc7",
+  "production_changes": false,
+  "inference": "deterministic_fake",
+  "android_build": {
+    "offline": true,
+    "jvm_passed": 38,
+    "abis_built": [
+      "x86_64",
+      "arm64-v8a"
+    ],
+    "lint_errors": 0,
+    "existing_dependency_version_advisories": 1,
+    "apk_audit": "passed"
+  },
+  "runtime": {
+    "os": "Android 15",
+    "api": 35,
+    "abi": "x86_64",
+    "targets": 2,
+    "physical_phone_available": false,
+    "other_emulators_untouched": 3
+  },
+  "hashes": {
+    "first": {
+      "app_sha256": "56ec9d0c20736a772ed7bda9372cdccb300ed8ef1ce609a3158c926e75839ebb",
+      "test_sha256": "c77d182729b22eb9457004d8b4f45510906cf55409f6a48c28646271e781ad32"
+    },
+    "final": {
+      "app_sha256": "56ec9d0c20736a772ed7bda9372cdccb300ed8ef1ce609a3158c926e75839ebb",
+      "test_sha256": "e4d57cf5d735f642ea474f0ecbf3a098849377e559181e7eabf50134452024d3"
+    }
+  },
+  "attempts": [
+    {
+      "attempt": "A-first",
+      "passed": 1,
+      "failed": 2,
+      "skipped": 0,
+      "cases": [
+        {
+          "code": -2,
+          "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkDestructionFencesLateReplyAndRetainedCallbacksWithoutDeletingSavedCanon",
+          "current": "1",
+          "total": "3"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkRecreationCancelsRunningTurnAndRetainsOnlyTheCurrentAcceptedReceipt",
+          "current": "2",
+          "total": "3"
+        },
+        {
+          "code": -2,
+          "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkStopCancelsRunningTurnAndLateReplyCannotAttachToNewStory",
+          "current": "3",
+          "total": "3"
+        }
+      ],
+      "final_code_minus_one": true,
+      "junit_ok": false,
+      "transport": {
+        "status": "completed",
+        "returncode": 0,
+        "client_cleanup": true,
+        "elapsed_ms": 59297
+      }
+    },
+    {
+      "attempt": "A-final",
+      "passed": 3,
+      "failed": 1,
+      "skipped": 0,
+      "cases": [
+        {
+          "code": 0,
+          "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkDestructionFencesLateReplyAndRetainedCallbacksWithoutDeletingSavedCanon",
+          "current": "1",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkStopCancelsUndeliveredReadyTurnAndLateReplyCannotAttachToNewStory",
+          "current": "2",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkRecreationCancelsRunningTurnAndRetainsOnlyTheCurrentAcceptedReceipt",
+          "current": "3",
+          "total": "16"
+        },
+        {
+          "code": -2,
+          "case": "org.locallore.app.ShellInstrumentedTest#cancelAndResetDuringDelayCannotPublishOldResult",
+          "current": "4",
+          "total": "16"
+        }
+      ],
+      "final_code_minus_one": false,
+      "junit_ok": false,
+      "transport": {
+        "status": "completed",
+        "returncode": 0,
+        "client_cleanup": true,
+        "elapsed_ms": 126562
+      }
+    },
+    {
+      "attempt": "B-final",
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "code": 0,
+          "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkDestructionFencesLateReplyAndRetainedCallbacksWithoutDeletingSavedCanon",
+          "current": "1",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkStopCancelsUndeliveredReadyTurnAndLateReplyCannotAttachToNewStory",
+          "current": "2",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkRecreationCancelsRunningTurnAndRetainsOnlyTheCurrentAcceptedReceipt",
+          "current": "3",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#cancelAndResetDuringDelayCannotPublishOldResult",
+          "current": "4",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#activityDisposalRetainsDurableSavedStoryAndTranscript",
+          "current": "5",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#launchShowsHonestFixtureLabelAndNoPlatformCapabilities",
+          "current": "6",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#recreationRetainsAcceptedStateAndAnAlreadyCancelledDraft",
+          "current": "7",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#giftUsesRustAcceptedResultAndReuseCannotDuplicateIt",
+          "current": "8",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#unlearnedAbilityAndBadProviderModesLeaveStateUnchanged",
+          "current": "9",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#actualJniProcessOwnerReopenRestoresCommittedTranscriptAndIndependentStories",
+          "current": "10",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#lateCancelledPrepareCannotClearTheReplacementOperationKey",
+          "current": "11",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#lostCommitAcknowledgementRecoversSameTurnAndNeverDuplicatesActualSqliteReceipt",
+          "current": "12",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#failedCancellationTransportCannotTurnRecoveryIntoACommit",
+          "current": "13",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#actualJniCancellationReleasesLiveOwnerWithoutDeletingSavedStory",
+          "current": "14",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableTransportOwnershipTest#productionTransportCancelsActiveRustWorkAndRepeatedMainCloseReleasesEverySlot",
+          "current": "15",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableTransportOwnershipTest#productionTransportDisposalReleasesItsOwnerAndCannotCommitALatePreparedResult",
+          "current": "16",
+          "total": "16"
+        }
+      ],
+      "final_code_minus_one": true,
+      "junit_ok": true,
+      "transport": {
+        "status": "completed",
+        "returncode": 0,
+        "client_cleanup": true,
+        "elapsed_ms": 169093
+      }
+    },
+    {
+      "attempt": "A-final-retry",
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "code": 0,
+          "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkDestructionFencesLateReplyAndRetainedCallbacksWithoutDeletingSavedCanon",
+          "current": "1",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkStopCancelsUndeliveredReadyTurnAndLateReplyCannotAttachToNewStory",
+          "current": "2",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.FrameworkInterruptionTest#realFrameworkRecreationCancelsRunningTurnAndRetainsOnlyTheCurrentAcceptedReceipt",
+          "current": "3",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#cancelAndResetDuringDelayCannotPublishOldResult",
+          "current": "4",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#activityDisposalRetainsDurableSavedStoryAndTranscript",
+          "current": "5",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#launchShowsHonestFixtureLabelAndNoPlatformCapabilities",
+          "current": "6",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#recreationRetainsAcceptedStateAndAnAlreadyCancelledDraft",
+          "current": "7",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#giftUsesRustAcceptedResultAndReuseCannotDuplicateIt",
+          "current": "8",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.ShellInstrumentedTest#unlearnedAbilityAndBadProviderModesLeaveStateUnchanged",
+          "current": "9",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#actualJniProcessOwnerReopenRestoresCommittedTranscriptAndIndependentStories",
+          "current": "10",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#lateCancelledPrepareCannotClearTheReplacementOperationKey",
+          "current": "11",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#lostCommitAcknowledgementRecoversSameTurnAndNeverDuplicatesActualSqliteReceipt",
+          "current": "12",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#failedCancellationTransportCannotTurnRecoveryIntoACommit",
+          "current": "13",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableNativeTest#actualJniCancellationReleasesLiveOwnerWithoutDeletingSavedStory",
+          "current": "14",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableTransportOwnershipTest#productionTransportCancelsActiveRustWorkAndRepeatedMainCloseReleasesEverySlot",
+          "current": "15",
+          "total": "16"
+        },
+        {
+          "code": 0,
+          "case": "org.locallore.app.DurableTransportOwnershipTest#productionTransportDisposalReleasesItsOwnerAndCannotCommitALatePreparedResult",
+          "current": "16",
+          "total": "16"
+        }
+      ],
+      "final_code_minus_one": true,
+      "junit_ok": true,
+      "transport": {
+        "status": "completed",
+        "returncode": 0,
+        "client_cleanup": true,
+        "elapsed_ms": 163829
+      }
+    }
+  ],
+  "final": {
+    "selected_attempts": [
+      "A-final-retry",
+      "B-final"
+    ],
+    "passed_per_target": 16,
+    "total_passed": 32,
+    "failed": 0,
+    "skipped": 0,
+    "framework_cases_per_target": 3,
+    "regression_cases_per_target": 13,
+    "app_process_absent": true,
+    "adb_clients_cleaned": true
+  },
+  "unresolved_graphics_abort": {
+    "attempt": "A-final",
+    "category": "Android ReferenceQueueDaemon HardwareRenderer cleanup watchdog",
+    "source_or_environment_cause": "not_established",
+    "fixed": false
+  },
+  "cohorts": {
+    "recreation": "running observed before transition; native-in-flight required at framework pre-stop; persisted original key cancelled and zero canon",
+    "stop_resume": "actual ready reply held; native-inactive pre-stop; persisted key cancelled; late reply excluded after independent new story commit",
+    "destruction": "actual ready reply held; actual framework destroy; held and other wrapped exchanges drained; retained callbacks terminal; slots recovered; zero canonical receipts after reopen"
+  },
+  "limits": [
+    "finite_overlap_observation",
+    "no_physical_phone",
+    "no_arm64_execution",
+    "no_real_model_app_integration",
+    "no_heap_profile_or_power_loss_qualification",
+    "no_hosted_ci_claim",
+    "no_merge_or_release"
+  ],
+  "privacy": "Only fixed case names, APK digests and aggregate evidence; no raw story, scope, turn, process or device identifiers."
+}

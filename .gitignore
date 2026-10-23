@@ -15,6 +15,10 @@ Thumbs.db
 .kotlin/
 **/build/
 apps/android/app/build-archive-verification/
+apps/android/app/build-capacity/
+apps/android/.gradle-capacity/
+apps/android/app/build-capacity-relief/
+apps/android/.gradle-capacity-relief/
 target/
 *.apk
 *.aab

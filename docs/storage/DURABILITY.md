@@ -102,6 +102,11 @@ Fault hooks compile only into private unit tests, with no production environment
 remote control, SQL or general execution API. This does not simulate power loss,
 hostile filesystems or every possible OS/storage failure.
 
+The [native Android fault follow-up](ANDROID_FAULT_VERIFICATION_2026-10-22.md)
+executes these private tests on two selected emulators and adds actual
+last-potion page-exhaustion/reopen/retry cases. The cross-build helper's explicit
+`--unit-tests` mode builds audited native test executables without operating a device.
+
 Databases/backups are plaintext app-local data, subject to existing OS/backup
 policy. No upload occurs. Consistent backup uses the existing SQLite backup API,
 including WAL handling; no live main-file copy is introduced. No new dependency,

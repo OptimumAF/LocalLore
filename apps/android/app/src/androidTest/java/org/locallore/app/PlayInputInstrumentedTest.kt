@@ -24,6 +24,39 @@ class PlayInputInstrumentedTest {
     @Before fun noActivityBefore() = assertNoRecordActivities()
     @After fun noActivityAfter() = assertNoRecordActivities()
 
+    @Test fun malformedOrUnknownProviderMetadataCannotEnableTextOrSilentlySelectAnotherProvider() = runBlocking {
+        val mutations: List<Pair<String, (JSONObject) -> Unit>> = listOf(
+            "capabilities" to { it.put("free_text", "true") },
+            "model_status" to { it.put("real_model", "false") },
+            "model_status" to { it.put("provider", 7) },
+            "model_status" to { it.put("status", 7) },
+            "model_status" to { it.put("loaded", "false") },
+            "model_status" to { it.remove("loaded") },
+            "model_status" to { it.put("provider", "unknown-synthetic-provider") },
+            "model_status" to { it.put("real_model", true); it.put("loaded", false) },
+        )
+        for ((op, mutate) in mutations) withRecordFixture { fixture ->
+            val owner = fixture.owner()
+            var submissions = 0
+            val gateway = DurableGateway(object : WorkspaceTransport {
+                override suspend fun exchange(command: JSONObject): JSONObject {
+                    if (command.getString("op") == "free_text") submissions++
+                    return owner.transport.exchange(command).also {
+                        if (command.getString("op") == op) mutate(it.getJSONObject("data"))
+                    }
+                }
+                override fun close() = owner.transport.close()
+            })
+            val model = inputModel(fixture, gateway)
+            withTimeout(8_000) { while (model.state.value.busy) delay(5) }
+            assertEquals(TextProvider.UNAVAILABLE, model.state.value.textProvider)
+            withContext(Dispatchers.Main) { model.submitText(PotionInput) }
+            assertEquals(0, submissions)
+            assertEquals(0L, model.state.value.revision)
+            assertTrue(model.state.value.messages.isEmpty())
+        }
+    }
+
     @Test fun originalActionAndDialogueCommitAtomicallyAndReplayWithoutAnotherGeneration() = runBlocking {
         withRecordFixture { fixture ->
             var owner = fixture.owner()

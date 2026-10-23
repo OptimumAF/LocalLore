@@ -122,7 +122,11 @@ internal class AtomicForkRecoveryStore(context: Context) : ForkRecoveryPersisten
         }
     }
     private fun syncDirectory(source: File) {
-        val descriptor = Os.open(source.absolutePath, OsConstants.O_RDONLY or OsConstants.O_CLOEXEC, 0)
+        // O_CLOEXEC is public from API27. API26 retains the same directory-sync contract;
+        // this short-lived helper starts no child process and does not assert close-on-exec there.
+        val flags = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1)
+            OsConstants.O_RDONLY or OsConstants.O_CLOEXEC else OsConstants.O_RDONLY
+        val descriptor = Os.open(source.absolutePath, flags, 0)
         try {
             check(OsConstants.S_ISDIR(Os.fstat(descriptor).st_mode))
             Os.fsync(descriptor)

@@ -75,8 +75,26 @@ export async function timelineNativeJourneys({
                 ),
             `${label}-rendered-selected-timeline`,
         );
+        if (c.get().pending)
+            check(
+                document
+                    .querySelector(".pending")
+                    ?.textContent?.includes(c.get().pending!.turn),
+                `${label}-pending-operation-visible`,
+            );
+        if (c.get().turnStatus?.phase === "cancelled")
+            check(
+                document
+                    .querySelector(".message.notice")
+                    ?.textContent?.includes("Cancelled before commit"),
+                `${label}-cancelled-state-visible`,
+            );
         document
-            .querySelector(".timeline-panel")
+            .querySelector(
+                ["pending", "cancelled", "retry"].includes(label)
+                    ? ".message.notice"
+                    : ".timeline-panel",
+            )
             ?.scrollIntoView({ block: "start" });
         await new Promise((r) => setTimeout(r, 60));
         check(

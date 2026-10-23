@@ -78,7 +78,7 @@ class TimelineActivityTest {
             assertEquals(4, childMessages.size)
             assertFalse(childMessages.any { it.text.contains("PLATFORM_SIBLING_CANARY") })
             compose.onNodeWithTag("potion-owner").performScrollTo().assertTextEquals("Healing potion · Not in your inventory")
-            compose.onNodeWithTag("give-potion").performScrollTo().performClick()
+            clickInStory("give-potion")
             compose.waitUntil(15_000) { !model.state.value.busy }
             assertEquals(2L, model.state.value.revision); assertEquals(childMessages, model.state.value.messages)
             select("sibling", 2)
@@ -104,7 +104,7 @@ class TimelineActivityTest {
             assertEquals(3L, model.state.value.stories.first { it.story == "platform-windows-v1" }.revision)
             disposeOwner(); newOwner(); awaitBranch("main", 3)
             select("child", 2)
-            compose.onNodeWithTag("delete-story").performScrollTo().performClick()
+            clickInStory("delete-story")
             compose.waitUntil(15_000) { model.deletion.value.prepared != null }
             val preview = requireNotNull(model.deletion.value.prepared).preview
             assertEquals("main", preview.rootBranch)
@@ -124,8 +124,13 @@ class TimelineActivityTest {
         }
     }
     private fun select(branch: String, head: Long) {
-        compose.onNodeWithTag("timeline-library").performScrollTo().performClick()
+        clickInStory("timeline-library")
         compose.onNodeWithTag("timeline-$branch").performClick(); awaitBranch(branch, head)
+    }
+    private fun clickInStory(tag: String) {
+        // LazyColumn must compose an off-screen item before its descendant can be found.
+        compose.onNodeWithTag("story-list").performScrollToNode(hasTestTag(tag))
+        compose.onNodeWithTag(tag).performClick()
     }
     private fun awaitBranch(branch: String, head: Long) {
         compose.waitUntil(15_000) { !model.state.value.busy && !model.state.value.recoveryRequired &&

@@ -78,6 +78,7 @@ impl WorkspaceRegistry {
         let _opening = Opening(self);
         // Database validation/replay can block. Other owners must still be able to cancel/close.
         let host = locallore_workspace::open(path, false)?;
+        crate::play_fixture::configure(&host)?;
         self.entries.lock().map_err(|_| "Internal")?.leases.insert(
             id,
             Arc::new(Lease {
@@ -121,6 +122,52 @@ impl WorkspaceRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn scripted_prepare_bypasses_control_gate_and_close_drains_host_worker() {
+        let host = Host::new(false);
+        crate::play_fixture::configure(&host).unwrap();
+        let lease = Arc::new(Lease {
+            host,
+            closed: AtomicBool::new(false),
+            control: Mutex::new(()),
+        });
+        let registry = Arc::new(WorkspaceRegistry {
+            entries: Mutex::new(RegistryState {
+                next: 1,
+                opening: 0,
+                leases: BTreeMap::from([(1, lease.clone())]),
+            }),
+        });
+        let invoke = |command: Value| {
+            serde_json::from_slice::<Value>(&registry.call(
+                1,
+                &serde_json::to_vec(&json!({"version":1,"command":command})).unwrap(),
+            ))
+            .unwrap()
+        };
+        let session = invoke(json!({"op":"create","seed":"lantern-quay-v1"}))["data"].clone();
+        let request = json!({"version":1,"scope":session["scope"],"turn":"close-fixture","expected_revision":0,
+            "intent":{"kind":"free_text","value":{"kind":"action","text":"I give my last potion to Mira."}}});
+        assert_eq!(
+            invoke(json!({"op":"free_text","session":session["session"],"request":request}))
+                ["data"]["phase"],
+            "queued"
+        );
+        std::thread::scope(|threads| {
+            let worker = threads.spawn(|| invoke(json!({"op":"prepare","session":session["session"],"scope":session["scope"],"turn":"close-fixture"})));
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+            while lease.host.live_counts().1 == 0 {
+                assert!(
+                    std::time::Instant::now() < deadline,
+                    "scripted worker did not start"
+                );
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+            registry.close(1);
+            assert_eq!(worker.join().unwrap()["error"], "Closed");
+        });
+        assert_eq!(lease.host.live_counts(), (0, 0));
+    }
     #[test]
     fn lease_acquired_before_close_cannot_allocate_a_new_session_after_disposal() {
         // Ephemeral Host is sufficient to test the app lease, independently of SQLite startup.

@@ -45,7 +45,7 @@ function LabAcknowledgement({ controller: c }: { controller: Controller }) {
                 player.
             </p>
             <button autoFocus onClick={() => c.acknowledgeLab(true)}>
-                I understand � reveal spoilers
+                I understand; reveal spoilers
             </button>
             <button onClick={() => c.acknowledgeLab(false)}>
                 Stay in Play

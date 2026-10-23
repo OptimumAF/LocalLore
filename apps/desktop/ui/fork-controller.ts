@@ -249,7 +249,7 @@ export class ForkController {
         } finally { this.preparing = false; }
     }
     restore(value: unknown) {
-        if (this.disposed || this.state.busy) return;
+        if (this.disposed || this.preparing || this.state.busy) return;
         try {
             const request = decodeForkRequest(value);
             this.requestKey = "";
@@ -286,6 +286,7 @@ export class ForkController {
             context = this.context;
         if (
             this.disposed ||
+            this.preparing ||
             this.state.busy ||
             !request ||
             !context?.persistent ||
@@ -372,6 +373,7 @@ export class ForkController {
                 throw Error("Wire");
             operation = v.operation_id;
             this.patch({ operation });
+            if (!this.live(epoch)) return;
             if (!v.running) {
                 if (v.error) throw Error(String(v.error));
                 if (
@@ -387,7 +389,7 @@ export class ForkController {
                     error: null,
                     notice: "Saved timeline confirmed. Open it explicitly through the existing timeline picker; no downstream turn was replayed.",
                 });
-                await this.refreshLibrary().catch(() => {});
+                if (this.live(epoch)) await this.refreshLibrary().catch(() => {});
                 return;
             }
             await new Promise((r) => setTimeout(r, 25));
@@ -411,6 +413,7 @@ export class ForkController {
         const request = this.state.request;
         if (
             this.disposed ||
+            this.preparing ||
             this.state.busy ||
             !request ||
             !this.context?.persistent ||
@@ -441,7 +444,7 @@ export class ForkController {
                     ? "Existing child verified at its current accepted head. Open it explicitly."
                     : "No matching saved child exists in this catalog snapshot. Recovery never creates it; absence is not a rollback guarantee.",
             });
-            if (result) await this.refreshLibrary().catch(() => {});
+            if (result && this.live(epoch)) await this.refreshLibrary().catch(() => {});
         } catch (e) {
             if (this.live(epoch)) this.failure(e);
         }

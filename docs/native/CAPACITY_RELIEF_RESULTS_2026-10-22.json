@@ -1,0 +1,429 @@
+{
+  "version": 1,
+  "date": "2026-10-22",
+  "task": "M04.04",
+  "status": "host_verified_android_execution_blocked",
+  "scope": "actual_SQLite_page_capacity_relief_same_live_Ready_key",
+  "base_pr": 56,
+  "base_head": "666f524898d141db0ec50ea654e8ba11d390b865",
+  "code_head": "61b3432c0e317d2776c7fadda5fad368cfc7cf89",
+  "android_compiled_source_head": "260714b",
+  "production_engine_schema_wire_changed": false,
+  "new_dependencies": false,
+  "fault_fixture_temporarily_invalid_schema": true,
+  "canonical_tables_written_by_helper": false,
+  "internal_schema_version_reset": false,
+  "host": {
+    "python": "3.9.12",
+    "helper_sqlite": "3.38.2",
+    "rust_bundled_sqlite": "3.53.2",
+    "author_commit": "417ae0323b8411c3805d0449e78130d158c08ea0",
+    "integrated_commit": "e0b7c43",
+    "guard_tests": 16,
+    "fmt": "passed",
+    "focused_offline_clippy_deny_warnings": "passed",
+    "attempts": [
+      {
+        "attempt": "initial_path_guard",
+        "status": "failed",
+        "exit_code": 1,
+        "stage": "helper_result",
+        "helper_report": {
+          "stage": "directory",
+          "status": "failed",
+          "version": 1
+        }
+      },
+      {
+        "attempt": "initial_uri_guard",
+        "status": "failed",
+        "exit_code": 1,
+        "stage": "helper_result",
+        "helper_report": {
+          "stage": "helper",
+          "status": "failed",
+          "version": 1
+        }
+      },
+      {
+        "attempt": "first_ready_before_padding_accept",
+        "status": "passed",
+        "exit_code": 0,
+        "recorded_in": "tool_output",
+        "frozen_final_source": false
+      },
+      {
+        "attempt": "initial_cancel",
+        "status": "passed",
+        "exit_code": 0,
+        "report": {
+          "accepted_receipts": 0,
+          "cancelled_while_full": true,
+          "ceiling_pages": 32,
+          "extra_schema_rejected": true,
+          "fill": {
+            "action": "fill",
+            "errorcode_api": false,
+            "free_pages": 0,
+            "initial_pages": 15,
+            "insert_attempts": 17,
+            "pages": 32,
+            "rows": 16,
+            "sqlite_full": true,
+            "sqlite_version": "3.38.2",
+            "status": "passed",
+            "version": 1
+          },
+          "full_commits": 2,
+          "original_key_terminal_after_relief": true,
+          "physical_enospc_proven": false,
+          "player_snapshot_unchanged_after_full": true,
+          "post_relief_prepares": 0,
+          "post_relief_submits": 0,
+          "prefix": 0,
+          "real_model_proven": false,
+          "remove": {
+            "action": "remove",
+            "free_pages": 17,
+            "initial_pages": 32,
+            "pages": 32,
+            "rows_removed": 16,
+            "schema_restored": true,
+            "sqlite_version": "3.38.2",
+            "status": "passed",
+            "version": 1
+          },
+          "revision": 0,
+          "same_key_reopened": true,
+          "status": "passed",
+          "version": 1
+        }
+      },
+      {
+        "attempt": "final_accept",
+        "status": "passed",
+        "exit_code": 0,
+        "frozen_final_source": true,
+        "report": {
+          "accepted_receipts": 1,
+          "ceiling_pages": 32,
+          "extra_schema_rejected": true,
+          "fill": {
+            "action": "fill",
+            "errorcode_api": false,
+            "free_pages": 0,
+            "initial_pages": 15,
+            "insert_attempts": 17,
+            "pages": 32,
+            "rows": 16,
+            "sqlite_full": true,
+            "sqlite_version": "3.38.2",
+            "status": "passed",
+            "version": 1
+          },
+          "full_commits": 2,
+          "physical_enospc_proven": false,
+          "player_snapshot_unchanged_after_full": true,
+          "post_relief_prepares": 0,
+          "post_relief_submits": 0,
+          "prefix": 0,
+          "real_model_proven": false,
+          "remove": {
+            "action": "remove",
+            "free_pages": 17,
+            "initial_pages": 32,
+            "pages": 32,
+            "rows_removed": 16,
+            "schema_restored": true,
+            "sqlite_version": "3.38.2",
+            "status": "passed",
+            "version": 1
+          },
+          "revision": 1,
+          "same_key_reopened": true,
+          "same_live_owner_ready_key_accepted": true,
+          "status": "passed",
+          "version": 1
+        }
+      },
+      {
+        "attempt": "final_cancel",
+        "status": "passed",
+        "exit_code": 0,
+        "frozen_final_source": true,
+        "report": {
+          "accepted_receipts": 0,
+          "cancelled_while_full": true,
+          "ceiling_pages": 32,
+          "extra_schema_rejected": true,
+          "fill": {
+            "action": "fill",
+            "errorcode_api": false,
+            "free_pages": 0,
+            "initial_pages": 15,
+            "insert_attempts": 17,
+            "pages": 32,
+            "rows": 16,
+            "sqlite_full": true,
+            "sqlite_version": "3.38.2",
+            "status": "passed",
+            "version": 1
+          },
+          "full_commits": 2,
+          "original_key_terminal_after_relief": true,
+          "physical_enospc_proven": false,
+          "player_snapshot_unchanged_after_full": true,
+          "post_relief_prepares": 0,
+          "post_relief_submits": 0,
+          "prefix": 0,
+          "real_model_proven": false,
+          "remove": {
+            "action": "remove",
+            "free_pages": 17,
+            "initial_pages": 32,
+            "pages": 32,
+            "rows_removed": 16,
+            "schema_restored": true,
+            "sqlite_version": "3.38.2",
+            "status": "passed",
+            "version": 1
+          },
+          "revision": 0,
+          "same_key_reopened": true,
+          "status": "passed",
+          "version": 1
+        }
+      }
+    ]
+  },
+  "android_build": {
+    "command": "python scripts/android_capacity_relief_probe.py build --offline",
+    "gradle_status": "passed",
+    "gradle_executed_tasks": 77,
+    "gradle_up_to_date_tasks": 0,
+    "initial_wrapper_exit": 1,
+    "initial_audit_failure": "all_metadata_count_included_expected_AndroidX_startup",
+    "audit_corrected_without_APK_rebuild": true,
+    "final_audit_status": "passed",
+    "fresh_jvm_tests": 47,
+    "metadata_deprecation_warnings": 2,
+    "ordinary_check": {
+      "status": "passed",
+      "executed_tasks": 9,
+      "up_to_date_tasks": 69,
+      "fresh_jvm_tests": 0
+    },
+    "capacity15_check": {
+      "status": "passed",
+      "executed_tasks": 9,
+      "up_to_date_tasks": 68,
+      "fresh_jvm_tests": 0
+    },
+    "jvm_xml": {
+      "ordinary": {
+        "tests": 47,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "suites": 5
+      },
+      "capacity15": {
+        "tests": 47,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "suites": 5
+      },
+      "relief32": {
+        "tests": 47,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "suites": 5
+      }
+    },
+    "lint": {
+      "ordinary": {
+        "errors": 0,
+        "warnings": 1,
+        "issue_ids": [
+          "GradleDependency"
+        ]
+      },
+      "capacity15": {
+        "errors": 0,
+        "warnings": 1,
+        "issue_ids": [
+          "GradleDependency"
+        ]
+      },
+      "relief32": {
+        "errors": 0,
+        "warnings": 1,
+        "issue_ids": [
+          "GradleDependency"
+        ]
+      }
+    }
+  },
+  "configuration_rejections": [
+    {
+      "case": "relief_default_cache",
+      "returncode": 1,
+      "expected_rejection": "separate project caches",
+      "status": "passed"
+    },
+    {
+      "case": "relief_old_cache",
+      "returncode": 1,
+      "expected_rejection": "separate project caches",
+      "status": "passed"
+    },
+    {
+      "case": "old_relief_cache",
+      "returncode": 1,
+      "expected_rejection": "separate project caches",
+      "status": "passed"
+    },
+    {
+      "case": "ordinary_relief_cache",
+      "returncode": 1,
+      "expected_rejection": "separate project caches",
+      "status": "passed"
+    },
+    {
+      "case": "ordinary_old_cache",
+      "returncode": 1,
+      "expected_rejection": "separate project caches",
+      "status": "passed"
+    },
+    {
+      "case": "both_modes",
+      "returncode": 1,
+      "expected_rejection": "mutually exclusive",
+      "status": "passed"
+    },
+    {
+      "case": "invalid_relief",
+      "returncode": 1,
+      "expected_rejection": "must be absent, false or true",
+      "status": "passed"
+    },
+    {
+      "case": "invalid_old",
+      "returncode": 1,
+      "expected_rejection": "must be absent, false or true",
+      "status": "passed"
+    },
+    {
+      "case": "ambient_flags",
+      "returncode": 1,
+      "expected_rejection": "Unset LIBSQLITE3_FLAGS",
+      "status": "passed"
+    }
+  ],
+  "python_script_tests": {
+    "tests": 64,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0
+  },
+  "local_artifacts": {
+    "hashes": {
+      "ordinary": {
+        "app_sha256": "8481182cfb7e4776df66022e72545349e72c8a4a7cf0e8dcc0fcbe9754ef2558",
+        "test_sha256": "395ec5e33bb2216cc9afcf7e6f09d5f8fbb0205c102d9ca8093a5e2b9ca82162"
+      },
+      "capacity15": {
+        "app_sha256": "8ffe81c0bdefcf2e9e6fa1d569a94e8409c3c9066b326887cc92e9e73bf0feb9",
+        "test_sha256": "1fdc11ff897471740d806582375f43ba09fd01645aaff459be4225eac389838e"
+      },
+      "relief32": {
+        "app_sha256": "7968c0e15ae7058c89a03f88a1ed6c79899a1fa6aefd7bac7befba79c395c1c0",
+        "test_sha256": "81366501c6876470e7639c00f14bb439c3a256b50a4792159079d0586cac1708"
+      }
+    },
+    "prior_four_hashes_preserved_after_three_mode_builds": true,
+    "relief_Dex_symbols_present_only_relief_test_APK": true,
+    "all_three_APK_audits": "passed",
+    "native_ABIs_built": [
+      "x86_64",
+      "arm64-v8a"
+    ],
+    "native_execution_in_this_packet": []
+  },
+  "device_preflight": {
+    "inventory": {
+      "emulators": 5,
+      "physical_phones": 0
+    },
+    "targets": [
+      {
+        "target": "A",
+        "properties": {
+          "ro.build.version.release": "15",
+          "ro.build.version.sdk": "35",
+          "ro.product.cpu.abi": "x86_64",
+          "ro.product.model": "sdk_gphone64_x86_64"
+        },
+        "page_bytes": 4096,
+        "relief_packages_absent": true,
+        "boot_ready": true,
+        "clients_cleaned": true,
+        "preserved_installed_hashes_verified_at_preflight": true
+      },
+      {
+        "target": "B",
+        "properties": {
+          "ro.build.version.release": "15",
+          "ro.build.version.sdk": "35",
+          "ro.product.cpu.abi": "x86_64",
+          "ro.product.model": "sdk_gphone64_x86_64"
+        },
+        "page_bytes": 4096,
+        "relief_packages_absent": true,
+        "boot_ready": true,
+        "clients_cleaned": true,
+        "preserved_installed_hashes_verified_at_preflight": true
+      }
+    ]
+  },
+  "device_plan": [
+    "A_default_three_cases",
+    "B_default_three_cases_same_APKs"
+  ],
+  "device_dispatch_attempts": [
+    {
+      "attempt": "A-initial",
+      "status": "failed_before_installation",
+      "failure_stage": "preserved_package_identity",
+      "instrumentation_started": false,
+      "method_executions": 0,
+      "local_ADB_clients_cleaned": true,
+      "final_app_absence": "unverified_targets_unavailable",
+      "final_preserved_installed_hashes": "unverified_targets_unavailable"
+    }
+  ],
+  "current_device_gate": {
+    "status": "blocked",
+    "observation": "ADB lists zero devices; no emulator/qemu process observed",
+    "cause": "unknown",
+    "new_APK_installation_attempted": false,
+    "instrumentation_methods_executed": 0,
+    "B_dispatch": "not_attempted_after_A_identity_failure",
+    "relaunch_reset_reboot_performed": false
+  },
+  "unqualified": [
+    "Android relief runtime/discovery/normal cleanup",
+    "forced cleanup/self-lease/poison paths",
+    "valid-schema Full restart",
+    "partition ENOSPC",
+    "physical phone",
+    "real-model app inference",
+    "ARM64/16KiB OS/API26/36 execution",
+    "heap/power-loss/performance",
+    "hosted CI",
+    "prior framework teardown cause"
+  ],
+  "next_task": "Restore authorized selected emulator availability; reverify prior APK identities, then run the fixed three-case cohort on A and B."
+}

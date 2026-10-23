@@ -69,6 +69,13 @@ branch's namespace remain valid. All current legacy context/visitor and
 generated-play paths refuse Domain 2 with existing `Error::Version` until the
 coordinator closes compiler/query/Play 2.5 and Store/schema 5 integration.
 
+One explicitly reconciled native DTO detail: `ObservationSource::Event {
+source: EventRef }` uses an explicit named source field (serialized with
+`kind: "event"`), rather than the contract sketch's `Event(EventRef)` syntax.
+The coordinator accepted this actor-safe shape on 2026-10-23. It identifies the
+actual eligible observation, never its private truth/author source. This is not
+a new current wire capability.
+
 ## Oracles awaiting execution
 
 - Known player/NPC A survives private world correction to B; actor views omit

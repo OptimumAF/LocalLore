@@ -406,3 +406,66 @@ fn direct_bound_begin_admits_and_retries_exact_request_and_committed_winner() {
     assert_eq!(retry.receipt, Some(winner));
     assert_eq!(std::fs::read(fixture.path()).unwrap(), bytes);
 }
+
+#[test]
+fn full_selected_basis_reads_and_cancels_legitimate_historical_draft_after_append() {
+    let fixture = Fixture::new();
+    let empty = create(&fixture);
+    let mut store = fixture.store();
+    let candidate = preview(&empty, "legitimate-historical-draft", 1);
+    let original_basis = empty.accepted_history_basis().unwrap();
+    store
+        .begin_bound(candidate.request(), &original_basis)
+        .unwrap();
+    let current = commit(
+        &mut fixture.store(),
+        &empty,
+        "legitimate-independent-append",
+    );
+    let selected_basis = current.accepted_history_basis().unwrap();
+    assert_eq!(candidate.request().expected_revision, 0);
+    assert_eq!(current.revision(), 1);
+    assert!(selected_basis.covers_request(candidate.request()));
+    assert!(!selected_basis.matches_request(candidate.request()));
+    let bytes = std::fs::read(fixture.path()).unwrap();
+    let status = store
+        .turn_status_bound(candidate.request(), &selected_basis)
+        .unwrap();
+    assert_eq!(status.phase, TurnPhase::Draft);
+    assert_eq!(status.request, *candidate.request());
+    assert!(status.receipt.is_none());
+    // A stronger selected basis is for reads/cleanup only. Neither admission nor
+    // acceptance may use it to bypass the exact Request revision requirement.
+    assert!(matches!(
+        store.begin_bound(candidate.request(), &selected_basis),
+        Err(TurnError::Stale)
+    ));
+    assert!(matches!(
+        store.commit_prepared_bound(&candidate, &selected_basis),
+        Err(TurnError::Stale)
+    ));
+    unchanged(&fixture, &current, candidate.request(), &bytes);
+    let cancelled = store
+        .finish_bound(candidate.request(), &selected_basis, TurnPhase::Cancelled)
+        .unwrap();
+    assert_eq!(cancelled.phase, TurnPhase::Cancelled);
+    assert_eq!(cancelled.request, *candidate.request());
+    assert!(cancelled.receipt.is_none());
+    let actual = store.resume(current.scope()).unwrap().engine;
+    assert_eq!(actual.canonical_bytes(), current.canonical_bytes());
+    assert_eq!(actual.receipts(), current.receipts());
+    let bytes = std::fs::read(fixture.path()).unwrap();
+    let retry = store
+        .finish_bound(candidate.request(), &selected_basis, TurnPhase::Cancelled)
+        .unwrap();
+    assert_eq!(retry.phase, TurnPhase::Cancelled);
+    assert_eq!(retry.request, *candidate.request());
+    assert_eq!(
+        store
+            .turn_status_bound(candidate.request(), &selected_basis)
+            .unwrap()
+            .phase,
+        TurnPhase::Cancelled
+    );
+    assert_eq!(std::fs::read(fixture.path()).unwrap(), bytes);
+}

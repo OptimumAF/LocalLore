@@ -144,3 +144,48 @@ No real-model inference, physical Android round trip, full offline/package gate,
 committed-history editing, fork/correction UI, or full D08 acceptance is claimed.
 The next runnable gate is completion of the coordinator's source-bound strengthened
 native rerun and render inspection, then owner review and a focused partial PR.
+
+## Actual image finding and title/draft repair addendum
+
+After the initial report freeze, the coordinator inspected the old `2214cfb`
+images and found a concrete visible defect: child/sibling sidebar session names
+were `Lantern Quay`, although the actual story title was
+`Synthetic saved timelines`. The existing resume lookup matched the full selected
+scope against the workspace library's root-only entries, so a child missed its
+story's title and took the unrelated hardcoded fallback. This finding comes from
+the coordinator's actual image review, not reviewer native execution.
+
+Reviewed coordinator source fixes
+`8c7f7d3ad7314c0793af1f8345c55c1fa0725496` and
+`f3947f788d0d71a6b5025fd230496cd07f87026a`. Story title lookup now matches story
+ID and uses the honest generic `Saved story` fallback. The original branch-specific
+saved-request fallback remains separately guarded by full scope equality. This
+separation matters: the first title repair also accidentally made root draft
+counts describe the child if its resume reply omitted drafts; the coordinator
+caught that coupling and corrected it in `f3947f7` before final handoff.
+
+The actual gameplay-controller MOCK test now supplies a root library entry with
+its real synthetic title and three root drafts, resumes a child whose native
+reply omits drafts, and asserts both the child's correct story title and absence
+of a false saved-uncommitted-request notice. These are meaningful distinct
+regressions: shared story title does not imply shared branch draft state.
+Every native capture additionally checks the selected session's canonical story
+title and rendered root text. The final source changes no request scope,
+receipt, revision, observer, branch history or generation grant. Both repairs
+are source-resolved; no further product boundary finding was found.
+
+The coordinator reports the title regression RED then GREEN, root-draft coupling
+regression RED then GREEN, all 83 timeline MOCK checks and the strict frontend
+verifier/normal-hook exclusion PASS. Native Rust source is unchanged by the two
+title commits; the coordinator reports default 54 tests, development 57 plus two
+contract tests, one existing ignore, and strict checks passing on the preceding
+render-strengthened source. At this addendum's freeze the final title-aware native
+cohort is running, so no later cohort result is invented here. The reviewer ran
+only exact source diff reads and `git diff daaa012c..f3947f7 --check` (PASS), with
+no additional build or native process.
+
+Addendum claim
+[6372508863](https://github.com/OptimumAF/LocalLore/issues/30#issuecomment-6372508863)
+owns this report only. Final actual native assertions, images, process restart,
+source cleanliness and artifact hashes remain coordinator evidence on the final
+source. Full D08, real inference, Android and release gates remain unclaimed.

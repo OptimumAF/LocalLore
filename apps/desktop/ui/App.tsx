@@ -268,9 +268,9 @@ export function App({ controller: c }: { controller: Controller }) {
                             <div className="empty">
                                 <h2>Lantern Quay</h2>
                                 <p>
-                                    Exercise the original fixture with explicit
-                                    actions or dialogue. Only accepted engine
-                                    receipts enter this transcript.
+                                    {s.playMode === "local"
+                                        ? "Write an attempted action or speak dialogue through the local director and narrator. Only approved engine receipts enter this transcript."
+                                        : "Exercise the original fixture with explicit actions or dialogue. Only accepted engine receipts enter this transcript."}
                                 </p>
                                 <p className="muted">
                                     Rowan has one potion. Mira is nearby; Sable
@@ -346,7 +346,8 @@ export function App({ controller: c }: { controller: Controller }) {
                     <div className="message notice" role="status">
                         {s.pending ? (
                             <span className="pending">
-                                {s.pending.stage} · {s.pending.turn}
+                                {s.pending.stage} · {s.pending.turn} - Not
+                                canonical until accepted
                             </span>
                         ) : (
                             s.notice ||
@@ -468,7 +469,11 @@ export function App({ controller: c }: { controller: Controller }) {
                             id="draft"
                             value={s.draft}
                             maxLength={2048}
-                            placeholder="Draft dialogue for Mira. Select ‘Say draft aloud’ to submit it."
+                            placeholder={
+                                s.playMode === "local"
+                                    ? "Describe an attempted action, or choose Dialogue to speak. Your text cannot grant author powers."
+                                    : "Draft dialogue for Mira. Select Say draft aloud to submit it."
+                            }
                             onChange={(e) => c.setDraft(e.target.value)}
                             onKeyDown={(e) => {
                                 if (

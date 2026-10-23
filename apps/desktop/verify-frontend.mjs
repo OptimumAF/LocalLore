@@ -29,7 +29,9 @@ for (const marker of [
     "harness:durable",
     "restart-retry-does-not-double-apply",
     "harness_oracle",
-    "harness_export_case", "harness_model_case", "real-free-text-potion-committed",
+    "harness_export_case",
+    "harness_model_case",
+    "real-free-text-potion-committed",
     "export-snapshot-independent-of-later-turn",
 ])
     assert(

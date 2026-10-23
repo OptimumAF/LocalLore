@@ -61,7 +61,7 @@ export class FaultGateway implements Gateway {
             this.failLookup = false;
             throw new Error("Transport");
         }
-        if (command.op === "submit")
+        if (command.op === "submit" || command.op === "free_text")
             this.submissions.push(command.request.turn);
         const result = await this.base.call(command);
         if (command.op === "turn_status" && this.corruptRecovery) {
@@ -83,7 +83,10 @@ export class FaultGateway implements Gateway {
             this.dropCommit = false;
             throw new Error("Transport");
         }
-        if (command.op === "submit" && this.dropSubmit) {
+        if (
+            (command.op === "submit" || command.op === "free_text") &&
+            this.dropSubmit
+        ) {
             this.dropSubmit = false;
             throw new Error("Transport");
         }

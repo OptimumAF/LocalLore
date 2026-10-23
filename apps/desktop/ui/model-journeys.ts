@@ -181,6 +181,18 @@ export async function modelJourneys({
                 c.get().play!.receipts.some((r) => r.play?.version === 2),
                 "v2-provenance-restores-without-loaded-model",
             );
+            const original = c
+                .get()
+                .play!.receipts.find((r) => r.play?.version === 2)!.request;
+            const retried = (await g.call({
+                op: "free_text",
+                session: c.selected()!.id,
+                request: original,
+            })) as { phase: string };
+            check(
+                retried.phase === "committed",
+                "exact-original-real-key-resolves-saved-receipt-without-loaded-model",
+            );
             await capture("model-restarted");
         }
         if (config.stage === "initial" && c.get().model?.imported)
@@ -229,6 +241,7 @@ export async function modelJourneys({
         c.setInputKind("action");
         c.setDraft("I give my last potion to Mira.");
         const before = c.get().play!.revision;
+        g.dropCommit = true;
         const sending = c.send();
         await until(() => !!c.get().pending);
         check(
@@ -249,6 +262,10 @@ export async function modelJourneys({
         check(
             c.get().turnStatus?.receipt?.play?.version === 2,
             "real-receipt-records-v2-profile-and-policy",
+        );
+        check(
+            c.get().play!.receipts.length === 1,
+            "lost-native-commit-ack-resolves-one-original-v2-receipt",
         );
         await capture("model-receipt");
         await play("double-spend", "I give another potion to Mira.");

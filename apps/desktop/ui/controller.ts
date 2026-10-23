@@ -940,12 +940,15 @@ export class Controller {
                           this.state.action,
                           this.state.draft,
                       ),
-            mode: this.state.fakeMode,
+            mode:
+                this.state.playMode === "local"
+                    ? "accepted"
+                    : this.state.fakeMode,
             submitted: false,
             cancelled: false,
             promise: Promise.resolve(),
         };
-        const mode = this.state.fakeMode;
+        const mode = op.mode;
         this.operation = op;
         this.patch({
             pending: {
@@ -1175,12 +1178,20 @@ export class Controller {
             } catch (error) {
                 if (!this.current(op) || this.unresolved !== op) return;
                 if (category(error) !== "UnknownTurn") throw error;
-                status = (await this.gateway.call({
-                    op: "submit",
-                    session: op.session.id,
-                    request: op.request,
-                    mode: op.mode,
-                })) as TurnStatus;
+                status = (await this.gateway.call(
+                    op.request.intent.kind === "free_text"
+                        ? {
+                              op: "free_text",
+                              session: op.session.id,
+                              request: op.request,
+                          }
+                        : {
+                              op: "submit",
+                              session: op.session.id,
+                              request: op.request,
+                              mode: op.mode,
+                          },
+                )) as TurnStatus;
                 op.submitted = true;
             }
             if (!this.current(op) || this.unresolved !== op) return;

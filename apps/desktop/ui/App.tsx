@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { Controller } from "./controller";
+import { ModelPanel } from "./ModelPanel";
 import { InspectionPanel } from "./InspectionPanel";
 import { PAGE_SIZE, composerShortcut } from "./model";
 import type { Action, FakeMode, Receipt } from "./model";
@@ -10,13 +11,15 @@ const actions: Record<Action, string> = {
     dialogue: "Say draft aloud to Mira",
 };
 function intent(r: Receipt) {
-    return r.request.intent.kind === "dialogue"
+    return r.request.intent.kind === "free_text"
         ? r.request.intent.value.text
-        : r.request.intent.kind === "actions"
-          ? r.request.intent.value
-                .map((c) => c.op.replaceAll("_", " "))
-                .join(", ")
-          : r.request.intent.kind;
+        : r.request.intent.kind === "dialogue"
+          ? r.request.intent.value.text
+          : r.request.intent.kind === "actions"
+            ? r.request.intent.value
+                  .map((c) => c.op.replaceAll("_", " "))
+                  .join(", ")
+            : r.request.intent.kind;
 }
 export function App({ controller: c }: { controller: Controller }) {
     const s = useSyncExternalStore(c.subscribe, c.get),
@@ -48,7 +51,11 @@ export function App({ controller: c }: { controller: Controller }) {
                     </button>
                 </nav>
                 <span className="limitation">
-                    Local Rust | Fake inference |{" "}
+                    Local Rust |{" "}
+                    {s.playMode === "local"
+                        ? "Experimental local CPU"
+                        : "Fake fixture inference"}{" "}
+                    |{" "}
                     {s.workspace
                         ? "Saved locally"
                         : s.ephemeral
@@ -78,6 +85,9 @@ export function App({ controller: c }: { controller: Controller }) {
                         </button>
                     ))}
                     <div className="export-actions">
+                        <button onClick={() => c.showModel()}>
+                            Local model management
+                        </button>
                         <button onClick={() => c.showExports()}>
                             Inspection snapshots
                         </button>
@@ -120,8 +130,8 @@ export function App({ controller: c }: { controller: Controller }) {
                     </p>
                     <p>
                         Unsubmitted composer text stays in this session only.
-                        Fake inference; arbitrary story creation and model
-                        import are unavailable.
+                        Arbitrary story creation remains unavailable. Local
+                        inference is an explicit experimental CPU profile.
                     </p>
                     {s.workspace && (
                         <details>
@@ -225,7 +235,14 @@ export function App({ controller: c }: { controller: Controller }) {
                         >
                             <span>Revision {s.play?.revision ?? "—"}</span>
                             <span>Rules: {s.play?.rules ?? "unavailable"}</span>
-                            <span>Provider: deterministic fake v1</span>
+                            <span>
+                                Provider:{" "}
+                                {s.playMode === "local"
+                                    ? s.model?.loaded
+                                        ? "Qwen3 local CPU (experimental)"
+                                        : "Local model unavailable"
+                                    : "deterministic fake v1"}
+                            </span>
                             <span>
                                 Turn:{" "}
                                 {s.pending?.stage ??
@@ -240,6 +257,7 @@ export function App({ controller: c }: { controller: Controller }) {
                             not change character knowledge or permissions.
                         </div>
                     )}
+                    <ModelPanel controller={c} state={s} />
                     <InspectionPanel controller={c} state={s} />
                     <div
                         className="transcript"
@@ -278,6 +296,16 @@ export function App({ controller: c }: { controller: Controller }) {
                                 </div>
                                 <p className="intent">You: {intent(r)}</p>
                                 <p>{r.narration}</p>
+                                {r.play && (
+                                    <p className="muted">
+                                        Local play v{r.play.version} -{" "}
+                                        {r.play.fallback
+                                            ? "Engine fallback narration after validation"
+                                            : "Generated narration accepted by shared policy"}
+                                        ; repairs {r.play.repairs}. Profile{" "}
+                                        {String(r.play.profile.id)}
+                                    </p>
+                                )}
                             </article>
                         ))}
                     </div>
@@ -335,57 +363,104 @@ export function App({ controller: c }: { controller: Controller }) {
                             void c.send();
                         }}
                     >
-                        <div className="compose-row">
-                            <label>
-                                Explicit fixture action
-                                <select
-                                    value={s.action}
-                                    disabled={!!s.pending}
-                                    onChange={(e) =>
-                                        c.setAction(e.target.value as Action)
-                                    }
+                        <label>
+                            Inference profile{" "}
+                            <select
+                                value={s.playMode}
+                                disabled={!!s.pending}
+                                onChange={(e) =>
+                                    c.setPlayMode(
+                                        e.target.value as "fixture" | "local",
+                                    )
+                                }
+                            >
+                                <option value="fixture">
+                                    Deterministic fake fixture
+                                </option>
+                                <option
+                                    value="local"
+                                    disabled={!s.model?.loaded}
                                 >
-                                    {Object.entries(actions).map(
-                                        ([key, label]) => (
-                                            <option key={key} value={key}>
-                                                {label}
-                                            </option>
-                                        ),
-                                    )}
-                                </select>
-                            </label>
+                                    Experimental local Qwen CPU
+                                </option>
+                            </select>
+                        </label>
+                        {s.playMode === "local" ? (
                             <label>
-                                Fake provider behavior
+                                Player input{" "}
                                 <select
-                                    value={s.fakeMode}
+                                    value={s.inputKind}
                                     disabled={!!s.pending}
                                     onChange={(e) =>
-                                        c.setFakeMode(
-                                            e.target.value as FakeMode,
+                                        c.setInputKind(
+                                            e.target.value as
+                                                "action" | "dialogue",
                                         )
                                     }
                                 >
-                                    <option value="accepted">
-                                        Accepted plumbing
+                                    <option value="action">
+                                        Attempt an action
                                     </option>
-                                    <option value="delayed">
-                                        Delayed plumbing
-                                    </option>
-                                    <option value="malformed">
-                                        Malformed output
-                                    </option>
-                                    <option value="rejected">
-                                        Invalid proposal
-                                    </option>
-                                    <option value="failed">
-                                        Provider failure
-                                    </option>
-                                    <option value="cancelled">
-                                        Provider cancellation
+                                    <option value="dialogue">
+                                        Speak dialogue
                                     </option>
                                 </select>
                             </label>
-                        </div>
+                        ) : (
+                            <div className="compose-row">
+                                <label>
+                                    Explicit fixture action
+                                    <select
+                                        value={s.action}
+                                        disabled={!!s.pending}
+                                        onChange={(e) =>
+                                            c.setAction(
+                                                e.target.value as Action,
+                                            )
+                                        }
+                                    >
+                                        {Object.entries(actions).map(
+                                            ([key, label]) => (
+                                                <option key={key} value={key}>
+                                                    {label}
+                                                </option>
+                                            ),
+                                        )}
+                                    </select>
+                                </label>
+                                <label>
+                                    Fake provider behavior
+                                    <select
+                                        value={s.fakeMode}
+                                        disabled={!!s.pending}
+                                        onChange={(e) =>
+                                            c.setFakeMode(
+                                                e.target.value as FakeMode,
+                                            )
+                                        }
+                                    >
+                                        <option value="accepted">
+                                            Accepted plumbing
+                                        </option>
+                                        <option value="delayed">
+                                            Delayed plumbing
+                                        </option>
+                                        <option value="malformed">
+                                            Malformed output
+                                        </option>
+                                        <option value="rejected">
+                                            Invalid proposal
+                                        </option>
+                                        <option value="failed">
+                                            Provider failure
+                                        </option>
+                                        <option value="cancelled">
+                                            Provider cancellation
+                                        </option>
+                                    </select>
+                                </label>
+                            </div>
+                        )}
                         <label className="sr-only" htmlFor="draft">
                             Dialogue draft
                         </label>
@@ -410,8 +485,9 @@ export function App({ controller: c }: { controller: Controller }) {
                         />
                         <p className="hint">
                             Enter submits the selected action · Shift+Enter adds
-                            a newline. Free-text interpretation is unavailable;
-                            dialogue never grants author powers.
+                            a newline. Pending generation is not canonical; only
+                            finalized approved receipts change the story.
+                            Dialogue never grants author powers.
                         </p>
                         <div className="send-row">
                             <button

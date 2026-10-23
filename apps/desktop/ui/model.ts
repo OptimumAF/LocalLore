@@ -6,7 +6,34 @@ export type FakeMode = Extract<Command, { op: "submit" }>["mode"];
 export type Action = "give" | "ability" | "wait" | "dialogue";
 export type Json =
     null | boolean | number | string | Json[] | { [key: string]: Json };
+export interface ModelState {
+    resident: boolean;
+    phase: string;
+    percent: number;
+    imported: boolean;
+    loaded: boolean;
+    error: string | null;
+    profile: Record<string, Json> | null;
+    available_profile: {
+        id: string;
+        model_bytes: number;
+        model_sha256: string;
+        runtime_revision: string;
+        device: string;
+        qualification: string;
+    };
+}
 export interface Receipt {
+    version?: number;
+    play?: {
+        version: number;
+        policy: string;
+        prompt_version: string;
+        fallback: boolean;
+        repairs: number;
+        profile: Record<string, Json>;
+        stages: { stage: string; elapsed_ms: number }[];
+    };
     request: Request;
     proposal: Json;
     events: { sequence: number; scope: Scope; turn: string; outcome: Json }[];
@@ -102,6 +129,11 @@ export interface ExportState {
     notice: string;
 }
 export interface State {
+    model: ModelState | null;
+    modelBusy: boolean;
+    modelShown: boolean;
+    playMode: "fixture" | "local";
+    inputKind: "action" | "dialogue";
     exports: ExportState;
     workspace: Workspace | null;
     ephemeral: boolean;
@@ -133,6 +165,16 @@ export interface State {
 }
 export const PAGE_SIZE = 12;
 export const categories = new Set([
+    "ModelInvalid",
+    "ModelUnavailable",
+    "ModelLoaded",
+    "ModelExists",
+    "WorkerUnavailable",
+    "Protocol",
+    "Runtime",
+    "Cleanup",
+    "Timeout",
+    "InsufficientSpace",
     "InvalidExport",
     "PreviewLimit",
     "UnknownExport",
@@ -230,6 +272,11 @@ export interface Gateway {
     ): Promise<unknown>;
 }
 export type NativeAction =
+    | "model_status"
+    | "model_import"
+    | "model_load"
+    | "model_unload"
+    | "model_cancel"
     | "inspection_database_preview"
     | "inspection_preview"
     | "inspection_save"

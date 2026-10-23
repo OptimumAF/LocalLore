@@ -46,6 +46,9 @@ export async function forkNativeJourneys({
         return t.get().catalog!;
     };
     const capture = async (label: string) => {
+        // Close only this application's metadata panel so the fork and receipt
+        // context remain in one native viewport. No desktop/window control.
+        t.hide();
         await new Promise((r) => setTimeout(r, 100));
         const root = document.getElementById("root")!,
             panel = root.querySelector(".fork-panel");
@@ -63,6 +66,19 @@ export async function forkNativeJourneys({
                     c.get().view === "play" ? "player" : c.get().observer,
                 ),
             `${label}-selected-branch-observer-revision-visible`,
+        );
+        const receipt = c.receipt();
+        check(
+            !!receipt &&
+                panel
+                    ?.querySelector(".fork-receipt")
+                    ?.textContent?.includes(receipt.request.turn) &&
+                panel
+                    ?.querySelector(".fork-receipt")
+                    ?.textContent?.includes(
+                        `accepted revision ${receipt.events.at(-1)?.sequence}`,
+                    ),
+            `${label}-displayed-player-receipt-visible`,
         );
         if (f.get().request)
             check(

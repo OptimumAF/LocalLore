@@ -36,6 +36,7 @@ export function ForkPanel({
     ].sort((a, b) => a - b);
     const sameParent =
         !!s.request && sameScope(s.request.parent, context.scope);
+    const receipt = gameplay.receipt();
     if (!shown)
         return (
             <button onClick={() => setShown(true)}>
@@ -60,6 +61,22 @@ export function ForkPanel({
                 Selected story <code>{context.scope.story}</code> · parent{" "}
                 <code>{context.scope.branch}</code> · head {context.revision} ·
                 observer <code>{context.observer}</code>.
+            </p>
+            <p className="fork-receipt muted">
+                Selected player receipt:{" "}
+                {receipt ? (
+                    <>
+                        <code>{receipt.request.turn}</code> · accepted revision{" "}
+                        {receipt.events.at(-1)?.sequence} · original scope{" "}
+                        <code>
+                            {receipt.request.scope.story} /{" "}
+                            {receipt.request.scope.branch}
+                        </code>
+                        .
+                    </>
+                ) : (
+                    "No accepted receipt selected."
+                )}
             </p>
             {!context.persistent ? (
                 <p role="status">

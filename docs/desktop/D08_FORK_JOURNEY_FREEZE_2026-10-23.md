@@ -82,3 +82,12 @@ checks, MOCK transport/inert semantic rendering only. Both actual logs are local
 `desktop-fork-artifacts/timeline-copy-{red-c91b772,green}.log`; no native/full
 frontend suite or app execution is inferred from them. Expanded actual fork
 controller mock suite atc91 passed60; initial56 remains historical.
+
+Native image inspection follow-up: the full112 and then consent-coherent118
+assertion cohorts completed all14 frames. Expanded catalog scroll could leave
+the receipt inspector offscreen in finished/restart frames, despite complete
+semantic JSON. Add compact selected-player-receipt identity/revision/originalscope
+in ForkPanel itself and require it in every frame (+14 assertions). The capture
+helper closes only its own catalog through existing TimelineController.hide,
+then focuses the same app panel. No desktop capture/control or canonical change;
+all prior oracles and imagecount remain fixed.

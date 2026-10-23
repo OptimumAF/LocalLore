@@ -1,7 +1,7 @@
 import { useState, useSyncExternalStore, useEffect } from "react";
 import type { CaptureController } from "./capture-controller";
 import type { Controller } from "./controller";
-import type { Receipt } from "./model";
+import type { Receipt, Session } from "./model";
 import { object } from "./capture-model";
 const scalar = (value: unknown) =>
     typeof value === "string" || typeof value === "number"
@@ -11,10 +11,12 @@ export function CapturePanel({
     controller: c,
     gameplay,
     receipts,
+    session,
 }: {
     controller: CaptureController;
     gameplay: Controller;
     receipts: Receipt[];
+    session: Session | null;
 }) {
     const s = useSyncExternalStore(c.subscribe, c.get);
     const [consent, setConsent] = useState(false),
@@ -230,7 +232,10 @@ export function CapturePanel({
                             </details>
                             <button
                                 onClick={() =>
+                                    session &&
                                     void gameplay.capturedEvidence(
+                                        session.id,
+                                        receipt.request.scope,
                                         receipt.request.turn,
                                         receipt.request.expected_revision,
                                     )

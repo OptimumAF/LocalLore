@@ -216,6 +216,22 @@ export class CaptureController {
         if (epoch === this.epoch)
             this.patch({ enabled: revoked ? false : null });
     }
+    async metadataControl(work: () => Promise<void>) {
+        this.epoch++;
+        this.clear();
+        this.patch({ enabled: null });
+        const epoch = this.epoch,
+            session = this.session;
+        await this.control(async () => {
+            const revoked = await this.revoke(session);
+            try {
+                await work();
+            } finally {
+                if (epoch === this.epoch)
+                    this.patch({ enabled: revoked ? false : null });
+            }
+        });
+    }
     async read() {
         const q = this.query();
         if (!q || this.state.busy || this.state.controlBusy) return;

@@ -363,6 +363,7 @@ export function App({
                                     controller={capture}
                                     gameplay={c}
                                     receipts={receipts}
+                                    session={selected}
                                 />
                             )}
                             <ModelPanel controller={c} state={s} />

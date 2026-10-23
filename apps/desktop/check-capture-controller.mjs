@@ -316,20 +316,47 @@ await c.disable();
 assert.equal(c.get().enabled, false);
 await c.dispose();
 let metadataEnabled = true;
+let includeReceipt = false,
+    heldInspection = null;
+const inspectionQueries = [];
 const combinedGateway = {
     native: gateway.native,
     async call(q) {
-        if (q.op === "open") return { revision: 0 };
+        if (q.op === "open") return { revision: includeReceipt ? 1 : 0 };
         if (q.op === "play_snapshot")
             return {
                 scope: q.scope,
-                revision: 0,
+                revision: includeReceipt ? 1 : 0,
                 rules: "fantasy_v1",
                 inventory: {},
-                receipts: [],
+                receipts: includeReceipt
+                    ? [
+                          {
+                              request: {
+                                  version: 1,
+                                  scope: q.scope,
+                                  turn: "coincident-turn",
+                                  expected_revision: 0,
+                                  intent: {
+                                      kind: "actions",
+                                      value: [{ op: "wait", ticks: 1 }],
+                                  },
+                              },
+                              proposal: {},
+                              narration: "Synthetic accepted",
+                              events: [
+                                  {
+                                      scope: q.scope,
+                                      sequence: 1,
+                                      turn: "coincident-turn",
+                                  },
+                              ],
+                          },
+                      ]
+                    : [],
                 player: {
                     scope: q.scope,
-                    revision: 0,
+                    revision: includeReceipt ? 1 : 0,
                     observer: "player",
                     self_state: { name: "Rowan", energy: 2, location: "quay" },
                     facts: {},
@@ -338,6 +365,32 @@ const combinedGateway = {
                 },
             };
         if (["inspect", "close"].includes(q.op)) return {};
+        if (q.op === "inspection_query") {
+            inspectionQueries.push(structuredClone(q));
+            const x = q.query;
+            const page = {
+                version: 1,
+                scope: x.scope,
+                head: x.expected_head,
+                revision: x.at_revision ?? x.expected_head,
+                story_time: 100,
+                observer: x.observer,
+                view: x.view,
+                privacy: "private_omniscient",
+                status: "supported",
+                total: 0,
+                rows: [],
+                next_cursor: null,
+                unsupported: [],
+            };
+            if (heldInspection) {
+                const held = heldInspection;
+                heldInspection = null;
+                held.entered();
+                await held.waiting;
+            }
+            return page;
+        }
         if (q.op === "trace_read")
             return {
                 scope: q.scope,
@@ -377,9 +430,7 @@ const gameplay = new Controller(
     combinedGateway,
     undefined,
     "capture-control-test",
-    () => {
-        void raw.disable();
-    },
+    (work) => raw.metadataControl(work),
 );
 await gameplay.attach(session);
 await gameplay.showTrace();
@@ -405,7 +456,73 @@ for (const action of ["clear", "disable"]) {
     assert.equal(enabled, false);
 }
 await raw.dispose();
+includeReceipt = true;
+const secondSession = {
+    ...session,
+    id: "second-native-session",
+    scope: { story: "second-story", branch: "main" },
+};
+await gameplay.attach(secondSession);
+gameplay.requestLab();
+gameplay.acknowledgeLab(true);
+await gameplay.capturedEvidence(
+    session.id,
+    session.scope,
+    "coincident-turn",
+    0,
+);
+assert.equal(
+    inspectionQueries.length,
+    0,
+    "captured old-story closure cannot follow a coincident turn in new story",
+);
+const reopened = { ...secondSession, id: "reopened-native-session" };
+await gameplay.attach(reopened);
+await gameplay.capturedEvidence(
+    secondSession.id,
+    secondSession.scope,
+    "coincident-turn",
+    0,
+);
+assert.equal(
+    inspectionQueries.length,
+    0,
+    "captured old native session cannot follow same-story reopened session",
+);
+await gameplay.capturedEvidence(
+    reopened.id,
+    reopened.scope,
+    "coincident-turn",
+    0,
+);
+assert(
+    inspectionQueries.some((q) => q.query.view === "turn_diff"),
+    "valid current session/scope can navigate canonical field diff",
+);
+await gameplay.browseInspection({ view: "profiles" });
+await gameplay.showQuery(false);
+inspectionQueries.length = 0;
+heldInspection = gate();
+const inspected = heldInspection;
+const opening = gameplay.capturedEvidence(
+    reopened.id,
+    reopened.scope,
+    "coincident-turn",
+    0,
+);
+await inspected.ready;
+await gameplay.attach({
+    ...session,
+    id: "third-native-session",
+    scope: { story: "third-story", branch: "main" },
+});
+inspected.release();
+await opening;
+assert(
+    !inspectionQueries.some((q) => q.query.view === "turn_diff"),
+    "late source-open cannot redirect coincident IDs after switch",
+);
 await gameplay.dispose();
 console.log(
-    "PASS: MOCK actual capture/gameplay controllers and decoder consent, retention states, hostile replies, head advance, late read/configure/preview, lens/session revoke, token-only second-consent save, Busy revocation honesty and metadata clear/disable coupling.",
+    "PASS: MOCK actual capture/gameplay controllers and decoder consent, retention states, hostile replies, head advance, late replies, token-only second-consent save, Busy revocation, metadata coupling and scope/native-session/late-source navigation fences.",
 );

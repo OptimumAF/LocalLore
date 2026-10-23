@@ -45,9 +45,9 @@ const driver =
 const evaluation = new EvaluationController(invoke);
 const base = new IpcGateway(invoke, errors),
     gateway = driver ? new driver.FaultGateway(base) : base;
-const controller = new Controller(gateway, errors, undefined, () => {
-    void capture.disable();
-});
+const controller = new Controller(gateway, errors, undefined, (work) =>
+    capture.metadataControl(work),
+);
 const archive = new ArchiveController(invoke, () => controller.library());
 const capture = new CaptureController(gateway, () => controller.readTrace());
 // Invalidate evaluation replies before React observes a changed story/lens/Play

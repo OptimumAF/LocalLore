@@ -14,6 +14,20 @@ const MAX_JSON: usize = 256 * 1024;
 const MAX_PNG: usize = 16 * 1024 * 1024;
 const MAX_CHECKPOINTS: usize = 40;
 const LABELS: &[&str] = &[
+    "memory-native-passive",
+    "memory-native-admitted",
+    "memory-native-pending",
+    "memory-native-cancelled",
+    "memory-native-pruned",
+    "memory-native-unknown",
+    "memory-native-observer",
+    "memory-native-switched",
+    "memory-native-other",
+    "memory-native-turn-busy",
+    "memory-native-complete",
+    "memory-native-narrow",
+    "memory-native-restarted",
+    "memory-native-reopened",
     "fork-prepared",
     "fork-rejected",
     "fork-accepted",

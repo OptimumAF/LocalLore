@@ -44,13 +44,16 @@ export async function memoryNativeJourneys({controller:c,maintenance:m,brokerRet
             m.consent(true);await action("prune");check(m.get().reply?.maintenance.job===null,"explicit-terminal-prune");await capture("memory-native-pruned");
             await fixture("lose-ack");m.consent(true);await m.act("admit");check(m.get().uncertain&&retention.get()?.unknown,"lost-start-ack-retains-original-identity");check(!m.can("step"),"unknown-ack-never-repeats-mutation");await capture("memory-native-unknown");
             c.setView("lab");c.setObserver("sable");await until(()=>c.get().inspectionObserver==="sable");
-            check(!m.can("status")&&!m.can("step")&&m.get().reply===null,"observer-switch-clears-old-job-and-disables-maintenance");check(retention.get()?.unknown&&retention.get()?.identity.story==="memory-controls-synthetic","observer-switch-preserves-original-unknown-barrier");await capture("memory-native-observer");
+            check(!m.can("status")&&!m.can("step")&&m.get().reply===null,"observer-switch-clears-old-job-and-disables-maintenance");check(!structural(c.get().inspection).includes("MEMORY_ORIGINAL_MIRA_ONLY"),"unwitnessed-sable-inspection-excludes-original-mira-observation");check(retention.get()?.unknown&&retention.get()?.identity.story==="memory-controls-synthetic","observer-switch-preserves-original-unknown-barrier");await capture("memory-native-observer");
             c.setView("play");await action("status");check(m.get().reply?.maintenance.job?.status==="ready"&&!retention.get()?.unknown,"exact-original-passive-recovery-finds-saved-admission");
             await fixture("hold");await m.act("step");const oldId=m.get().operation!.operation_id;
             c.setView("lab");c.setObserver("sable");await fixture("release");await until(()=>!m.get().busy);check(m.get().reply===null&&m.get().operation===null,"late-old-context-operation-never-installs-result");
             // Observe ONLY the previously known ID; no current-operation endpoint.
             for(let i=0;i<800;i++){const status=await invoke("archive_status",{operationId:oldId}) as {running:boolean};if(!status.running)break;await pause();}
-            await capture("memory-native-switched");c.setView("play");await action("status");
+            await capture("memory-native-switched");c.setView("play");
+            await c.resume({story:"memory-controls-other",branch:"main"});check(m.get().reply===null&&m.get().context?.expected_head===0,"session-switch-never-installs-original-job-metadata");await capture("memory-native-other");
+            await c.resume({story:"memory-controls-synthetic",branch:"main"});await action("status");
+            c.setFakeMode("delayed");c.setAction("wait");const turn=c.send();await until(()=>c.get().pending?.stage==="generating");await m.act("step");check(m.get().error==="Busy"&&m.get().uncertain,"queued-turn-blocks-memory-mutation-with-honest-busy");await capture("memory-native-turn-busy");await c.cancel();await turn;c.setFakeMode("accepted");await action("status");
             await action("step");check(m.get().reply?.maintenance.job?.status==="complete"&&m.get().reply?.maintenance.job?.next_from===1,"one-explicit-chunk-completes-fixed-history");await capture("memory-native-complete");
             await invoke("harness_viewport",{preset:"capture-narrow"});await capture("memory-native-narrow");
             check(structural(c.get().play)===before&&structural(c.get().play?.receipts)===receiptBefore,"maintenance-never-mutates-canon-player-context-or-receipts");

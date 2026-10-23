@@ -13,7 +13,7 @@ await writeFile(target,compiled.outputFiles[0].contents);
 const {BrokerRetention}=await import(pathToFileURL(target).href);
 const checks=[];const check=(v,label)=>{assert(v,label);checks.push(label);};
 const identity={surface:"memory",session:"session-1",story:"memory-controls-synthetic",branch:"main",head:1,action:"step"};
-const op=(running,id=1)=>({version:1,operation_id:id,running,phase:running?"memory_maintenance":"completed",error:null,result:running?null:{kind:"memory_maintenance"}});
+const op=(running,id=1)=>({version:1,operation_id:id,running,phase:running?"memory_maintenance":"completed",error:null,result:running?null:{kind:"memory_maintenance",action:"status",session:identity.session,scope:{story:identity.story,branch:identity.branch},expected_head:identity.head}});
 let busy=true;const gate=new BrokerRetention(()=>busy);
 let resolve;const held=new Promise(r=>resolve=r);
 const pending=gate.start(identity,()=>held);

@@ -19,6 +19,9 @@ for (const args of [
     ["check-archive-controller.mjs"],
     ["check-timeline-controller.mjs"],
     ["check-fork-controller.mjs"],
+    ["check-memory-maintenance-controller.mjs"],
+    ["check-memory-callback-review.mjs"],
+    ["check-broker-retention.mjs"],
 ]) {
     const code = await new Promise((resolve, reject) => {
         const child = spawn(process.execPath, args, {
@@ -66,6 +69,9 @@ for (const marker of [
     "d08-timeline-native-durable-workspace",
     "d08-fork-native-durable-workspace",
     "harness_fork_case",
+    "harness_memory_case",
+    "memory-native-durable-selected-fixture",
+    "MEMORY_ORIGINAL_MIRA_ONLY",
     "legacy-v1-native-migrated-resume",
     "export-snapshot-independent-of-later-turn",
 ])

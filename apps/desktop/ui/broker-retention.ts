@@ -52,7 +52,7 @@ export class BrokerRetention {
         const v=value as Record<string,unknown>;
         if(Object.keys(v).length!==6||!["version","operation_id","running","phase","error","result"].every(k=>Object.hasOwn(v,k))||v.version!==1||!Number.isSafeInteger(v.operation_id)||Number(v.operation_id)<1||typeof v.running!=="boolean"||!((v.error===null)||(typeof v.error==="string"&&v.error.length<=64)))return;
         if(r.operation!==null&&r.operation!==v.operation_id)return;
-        if(v.running ? !["starting","memory_maintenance","forking","export_preview","import_preview","exporting","importing"].includes(String(v.phase))||v.result!==null||v.error!==null : v.phase==="completed" ? !v.result||typeof v.result!=="object"||v.error!==null : v.phase!=="error"||typeof v.error!=="string"||v.result!==null)return;
+        if(v.running ? !["starting","memory_maintenance","forking","capturing","validating","writing","staging","importing"].includes(String(v.phase))||v.result!==null||v.error!==null : v.phase==="completed" ? !v.result||typeof v.result!=="object"||v.error!==null : v.phase!=="error"||typeof v.error!=="string"||v.result!==null)return;
         let unresolved = false;
         if(r.recoveringMemory) {
             const result=v.result as Record<string,unknown>|null;

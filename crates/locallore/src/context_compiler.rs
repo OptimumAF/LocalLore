@@ -6,7 +6,10 @@ use crate::{
     inspection_query::{self, FieldValue, Row, Source, ValueOrigin, View},
 };
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, BTreeSet},
+};
 
 pub const COMPILER_VERSION: u16 = 1;
 pub const MAX_CONTEXT_BYTES: usize = 24_576;
@@ -54,6 +57,7 @@ pub struct CompileRequest {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CompileError {
+    Cancelled,
     Version,
     Scope,
     Stale,
@@ -168,7 +172,17 @@ fn valid_id(id: &str) -> bool {
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b"-_".contains(&b))
 }
-fn snapshot(engine: &Engine, request: &CompileRequest) -> Result<Engine, CompileError> {
+fn check(cancel: &dyn Fn() -> bool) -> Result<(), CompileError> {
+    if std::panic::catch_unwind(std::panic::AssertUnwindSafe(cancel)).unwrap_or(true) {
+        Err(CompileError::Cancelled)
+    } else {
+        Ok(())
+    }
+}
+fn snapshot<'a>(
+    engine: &'a Engine,
+    request: &CompileRequest,
+) -> Result<Cow<'a, Engine>, CompileError> {
     if request.version != COMPILER_VERSION {
         return Err(CompileError::Version);
     }
@@ -183,7 +197,7 @@ fn snapshot(engine: &Engine, request: &CompileRequest) -> Result<Engine, Compile
     }
     let revision = request.at_revision.unwrap_or(engine.revision());
     let snapshot = if revision == engine.revision() {
-        engine.clone()
+        Cow::Borrowed(engine)
     } else {
         let count = if revision == 0 {
             0
@@ -195,8 +209,10 @@ fn snapshot(engine: &Engine, request: &CompileRequest) -> Result<Engine, Compile
                 .map(|i| i + 1)
                 .ok_or(CompileError::Boundary)?
         };
-        Engine::replay(engine.seed().clone(), &engine.receipts()[..count])
-            .map_err(|_| CompileError::Source)?
+        Cow::Owned(
+            Engine::replay(engine.seed().clone(), &engine.receipts()[..count])
+                .map_err(|_| CompileError::Source)?,
+        )
     };
     if !valid_id(&request.observer)
         || !snapshot.state().actors.contains_key(&request.observer)
@@ -370,6 +386,39 @@ fn fits(package: &mut ContextPackage, budget: Budget) -> Result<bool, CompileErr
 }
 
 pub fn compile(engine: &Engine, request: &CompileRequest) -> Result<ContextPackage, CompileError> {
+    compile_cancelled(engine, request, &|| false)
+}
+
+fn push_row(
+    rows: &mut Vec<(Row, String)>,
+    bytes: &mut usize,
+    row: Row,
+    cancel: &dyn Fn() -> bool,
+) -> Result<(), CompileError> {
+    check(cancel)?;
+    if rows.len() >= MAX_CANDIDATES {
+        return Err(CompileError::TooLarge);
+    }
+    let encoded = serde_json::to_string(&row).map_err(|_| CompileError::Source)?;
+    *bytes = bytes
+        .checked_add(encoded.len())
+        .ok_or(CompileError::TooLarge)?;
+    if *bytes > MAX_CANDIDATE_BYTES {
+        return Err(CompileError::TooLarge);
+    }
+    rows.push((row, encoded));
+    check(cancel)
+}
+
+/// Cooperative checks around compiler stages and each retained row. Historical
+/// replay and the existing shared actor-row collector remain synchronous work;
+/// this does not promise a hard whole-operation cancellation deadline.
+pub fn compile_cancelled(
+    engine: &Engine,
+    request: &CompileRequest,
+    cancel: &dyn Fn() -> bool,
+) -> Result<ContextPackage, CompileError> {
+    check(cancel)?;
     let b = request.budget;
     if !(1024..=MAX_CONTEXT_BYTES).contains(&b.max_bytes)
         || b.estimated_tokens == 0
@@ -386,17 +435,19 @@ pub fn compile(engine: &Engine, request: &CompileRequest) -> Result<ContextPacka
         return Err(CompileError::InvalidRequest);
     }
     let snapshot = snapshot(engine, request)?;
-    let context = snapshot
-        .character_context(&request.observer, snapshot.scope(), snapshot.revision())
-        .map_err(|_| CompileError::Observer)?;
+    check(cancel)?;
     let mut rows = vec![];
+    let mut row_bytes = 0;
     for view in [
         View::Profiles,
         View::Knowledge,
         View::Promises,
         View::Relationships,
     ] {
-        rows.extend(actor_rows(&snapshot, &request.observer, view)?);
+        check(cancel)?;
+        for row in actor_rows(&snapshot, &request.observer, view)? {
+            push_row(&mut rows, &mut row_bytes, row, cancel)?;
+        }
     }
     #[derive(Deserialize)]
     struct Metadata {
@@ -404,39 +455,69 @@ pub fn compile(engine: &Engine, request: &CompileRequest) -> Result<ContextPacka
         story_time: u64,
         participants: BTreeSet<String>,
     }
-    // These events have ALREADY passed authoritative branch/time/witness eligibility.
-    for event in &context.observations {
-        let metadata: Metadata =
-            serde_json::from_value(serde_json::to_value(event).map_err(|_| CompileError::Source)?)
-                .map_err(|_| CompileError::Source)?;
-        rows.push(Row::Event {
-            key: format!("event:{:020}", event.sequence()),
-            event: inspection_query::EventRow {
-                sequence: event.sequence(),
-                scope: event.scope().clone(),
-                turn: metadata.turn,
-                story_time: metadata.story_time,
-                participants: metadata.participants,
-                witnesses: event.witnesses().clone(),
-                consequence: event.outcome().clone(),
+    // The core filters branch/time/witness eligibility BEFORE this callback.
+    // Never clone the complete observation history just to enforce a row cap.
+    let mut row_failure = None;
+    snapshot
+        .visit_actor_observations(
+            &request.observer,
+            snapshot.scope(),
+            snapshot.revision(),
+            0,
+            snapshot.revision(),
+            &|| check(cancel).is_err(),
+            &mut |event| {
+                let result = (|| {
+                    check(cancel)?;
+                    if rows.len() >= MAX_CANDIDATES {
+                        return Err(CompileError::TooLarge);
+                    }
+                    let metadata: Metadata = serde_json::from_value(
+                        serde_json::to_value(event).map_err(|_| CompileError::Source)?,
+                    )
+                    .map_err(|_| CompileError::Source)?;
+                    push_row(
+                        &mut rows,
+                        &mut row_bytes,
+                        Row::Event {
+                            key: format!("event:{:020}", event.sequence()),
+                            event: inspection_query::EventRow {
+                                sequence: event.sequence(),
+                                scope: event.scope().clone(),
+                                turn: metadata.turn,
+                                story_time: metadata.story_time,
+                                participants: metadata.participants,
+                                witnesses: event.witnesses().clone(),
+                                consequence: event.outcome().clone(),
+                            },
+                            origin: ValueOrigin::RecordedObservation,
+                        },
+                        cancel,
+                    )
+                })();
+                if let Err(error) = result {
+                    row_failure = Some(error);
+                    false
+                } else {
+                    true
+                }
             },
-            origin: ValueOrigin::RecordedObservation,
-        });
+        )
+        .map_err(|error| match error {
+            crate::contracts::Error::Cancelled => CompileError::Cancelled,
+            _ => CompileError::Source,
+        })?;
+    if let Some(error) = row_failure {
+        return Err(error);
     }
-    if rows.len() > MAX_CANDIDATES {
-        return Err(CompileError::TooLarge);
-    }
-    rows.sort_by(|a, b| a.key().cmp(b.key()));
+    check(cancel)?;
+    rows.sort_by(|(a, _), (b, _)| a.key().cmp(b.key()));
+    check(cancel)?;
     let mut candidates = vec![];
     let mut known = BTreeSet::new();
     let mut known_actors = BTreeSet::new();
-    let mut bytes = 0usize;
-    for row in rows {
-        let encoded = serde_json::to_string(&row).map_err(|_| CompileError::Source)?;
-        bytes = bytes.saturating_add(encoded.len());
-        if bytes > MAX_CANDIDATE_BYTES {
-            return Err(CompileError::TooLarge);
-        }
+    for (row, encoded) in rows {
+        check(cancel)?;
         let (ids, actors) = identifiers(&row);
         known.extend(ids.iter().cloned());
         known_actors.extend(actors);
@@ -456,6 +537,7 @@ pub fn compile(engine: &Engine, request: &CompileRequest) -> Result<ContextPacka
     }
     let mut aliases: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for actor in &known_actors {
+        check(cancel)?;
         if let Some(state) = snapshot.state().actors.get(actor) {
             if state.name.len() > 256 {
                 return Err(CompileError::TooLarge);
@@ -484,6 +566,7 @@ pub fn compile(engine: &Engine, request: &CompileRequest) -> Result<ContextPacka
             .cloned(),
     );
     for (name, actors) in aliases {
+        check(cancel)?;
         let name_tokens = tokens(&name);
         if !name_tokens.is_empty()
             && name_tokens.is_subset(&query_tokens)
@@ -499,6 +582,7 @@ pub fn compile(engine: &Engine, request: &CompileRequest) -> Result<ContextPacka
     }
     let mut mandatory: BTreeMap<String, Reason> = BTreeMap::new();
     for c in &candidates {
+        check(cancel)?;
         let reason = match &c.row {
             Row::Field { .. } => Some(Reason::CurrentState),
             Row::Knowledge {
@@ -523,11 +607,13 @@ pub fn compile(engine: &Engine, request: &CompileRequest) -> Result<ContextPacka
         .collect();
     events.sort_by_key(|c| c.revision);
     for c in events.iter().rev().take(usize::from(b.recent_events)) {
+        check(cancel)?;
         mandatory
             .entry(c.row.key().into())
             .or_insert(Reason::Recent);
     }
     for id in &references {
+        check(cancel)?;
         if let Some(c) = events.iter().rev().find(|c| c.ids.contains(id)) {
             mandatory
                 .entry(c.row.key().into())
@@ -547,6 +633,7 @@ pub fn compile(engine: &Engine, request: &CompileRequest) -> Result<ContextPacka
         })
         .collect();
     for c in &events {
+        check(cancel)?;
         if required_sources.contains(&c.revision) {
             mandatory
                 .entry(c.row.key().into())
@@ -600,11 +687,13 @@ pub fn compile(engine: &Engine, request: &CompileRequest) -> Result<ContextPacka
         ],
     };
     for c in &candidates {
+        check(cancel)?;
         if let Some(reason) = mandatory.get(c.row.key()) {
             package.records.push(selected(c, *reason, 0, true));
         }
     }
     for actor in references.intersection(&known_actors) {
+        check(cancel)?;
         if let Some(state) = snapshot.state().actors.get(actor) {
             package.records.push(Selected {
                 id: format!("alias:{actor}"),
@@ -628,6 +717,7 @@ pub fn compile(engine: &Engine, request: &CompileRequest) -> Result<ContextPacka
         .iter()
         .filter(|c| !mandatory.contains_key(c.row.key()))
         .map(|c| {
+            check(cancel)?;
             let exact = c.ids.intersection(&references).count() as u32;
             let words = tokens(&format!("{} {}", c.encoded, tags(&c.row)));
             let lexical = query_tokens.intersection(&words).count() as u32;
@@ -641,9 +731,10 @@ pub fn compile(engine: &Engine, request: &CompileRequest) -> Result<ContextPacka
             } else {
                 Reason::NotRelevant
             };
-            (c, score, reason)
+            Ok((c, score, reason))
         })
-        .collect();
+        .collect::<Result<_, CompileError>>()?;
+    check(cancel)?;
     optional.sort_by(|(a, sa, _), (b, sb, _)| {
         sb.cmp(sa)
             .then_with(|| b.revision.cmp(&a.revision))
@@ -651,6 +742,7 @@ pub fn compile(engine: &Engine, request: &CompileRequest) -> Result<ContextPacka
     });
     let mut accepted = 0;
     for (c, score, reason) in optional {
+        check(cancel)?;
         let omission = if score == 0 {
             Some(Reason::NotRelevant)
         } else if accepted >= b.optional_records {
@@ -679,6 +771,7 @@ pub fn compile(engine: &Engine, request: &CompileRequest) -> Result<ContextPacka
     }
     // Diagnostics themselves consume budget. Drop their optional detail first, never mandatory facts.
     while !fits(&mut package, b)? {
+        check(cancel)?;
         if package.diagnostics.omissions.pop().is_some() {
             package.diagnostics.omissions_truncated = true;
         } else if let Some(index) = package.records.iter().rposition(|r| !r.mandatory) {
@@ -689,5 +782,6 @@ pub fn compile(engine: &Engine, request: &CompileRequest) -> Result<ContextPacka
             return Err(CompileError::MandatoryBudget);
         }
     }
+    check(cancel)?;
     Ok(package)
 }

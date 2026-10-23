@@ -193,7 +193,7 @@ def cleanup_workspace(device, token):
     device.shell("run-as", spike.PACKAGE, "/system/bin/sh", "-c", script)
 
 
-def run_probe(device, apk_sha, case, allow_missing=False):
+def run_probe(device, apk_sha, case, allow_missing=False, raw_sink=None):
     if case not in CASES:
         raise ValueError("Invalid case")
     token = uuid.uuid4().hex
@@ -201,6 +201,7 @@ def run_probe(device, apk_sha, case, allow_missing=False):
               "result": None, "sdk": None, "process_absent": False, "clients_cleaned": False,
               "workspace_removed": False, "check_passed": False, "phone_qualified": False}
     report["model_verified"] = False
+    report["raw_protocol_retained"] = False
     sdk = spike.SdkWorker(device, apk_sha)
     started = time.monotonic()
     launched = False
@@ -227,6 +228,9 @@ def run_probe(device, apk_sha, case, allow_missing=False):
             "-e", "play_case", case, "-e", "profile_base64", profile, spike.PACKAGE + "/.SpikeInstrumentation"])
         launched = True
         execution = device.raw(["shell", remote], deadline=110)
+        if raw_sink is not None and len(execution.stdout) <= 131072:
+            raw_sink(execution.stdout)
+            report["raw_protocol_retained"] = True
         if execution.status != "completed" or execution.returncode != 0 or not execution.cleanup_complete:
             report["status"] = "invalid_terminal"
             return report
@@ -284,7 +288,13 @@ def main():
     with args.output.open("x", encoding="utf-8", newline="\n") as output:
         output.write(json.dumps({"event": "started", "version": 1, "case": args.case, "apk_sha256": identity}) + "\n")
         output.flush(); os.fsync(output.fileno())
-        report = run_probe(TrackedDevice(args.adb, args.serial), identity, args.case, args.allow_missing_model_probe)
+        def retain_raw(raw):
+            private = spike.ROOT / "target/android-play-probe/raw"
+            private.mkdir(parents=True, exist_ok=True)
+            name = hashlib.sha256(str(args.output.resolve()).encode("utf-8")).hexdigest() + ".txt"
+            with (private / name).open("xb") as protocol:
+                protocol.write(raw)
+        report = run_probe(TrackedDevice(args.adb, args.serial), identity, args.case, args.allow_missing_model_probe, retain_raw)
         report.update(event="finished", apk_sha256=identity)
         if spike.sha256(args.apk) != identity:
             report.update(status="artifact_changed", check_passed=False)

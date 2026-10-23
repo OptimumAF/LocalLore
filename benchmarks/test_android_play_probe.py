@@ -70,6 +70,14 @@ class Sdk:
 
 
 class ControllerTests(unittest.TestCase):
+    def test_raw_protocol_is_retained_privately_before_decoding_and_never_added_to_report(self):
+        captured = []
+        with patch.object(play.spike, "SdkWorker", Sdk), patch.object(play, "cleanup_workspace"):
+            report = play.run_probe(FakeDevice(), "a" * 64, "gift", raw_sink=captured.append)
+        self.assertEqual(captured, [raw()])
+        self.assertTrue(report["raw_protocol_retained"])
+        self.assertNotIn("INSTRUMENTATION", json.dumps(report))
+
     def test_cancel_outcome_cannot_substitute_an_inventory_error_and_completed_role(self):
         row = turn()
         row.update(outcome="cancelled", error="Inventory", roles=1, narrator_calls=0,

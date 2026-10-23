@@ -242,7 +242,7 @@ class ArchiveChooserActivityTest {
         awaitPackage { it in documents }
         // The drawer button is addressed by accessibility semantics, never screen coordinates.
         clickIfPresent { it.contentDescription?.toString() in setOf("Show roots", "Open navigation drawer", "Show locations") }
-        clickDocumentNode { it.text?.toString() == "LocalLore test archives" }
+        clickDocumentNode { it.text?.toString() == "LocalLore test archives (${instrumentation.context.packageName})" }
     }
     private fun clickDocumentNode(matches: (AccessibilityNodeInfo) -> Boolean): Unit {
         val deadline = SystemClock.elapsedRealtime() + 10_000

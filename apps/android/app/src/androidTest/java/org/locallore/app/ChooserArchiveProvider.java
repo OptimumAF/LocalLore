@@ -53,6 +53,10 @@ public final class ChooserArchiveProvider extends DocumentsProvider {
     private static final String ROOT_ID = "locallore-chooser-v1";
     private static final String ROOT_DOCUMENT = "root";
     private static final String TITLE = "LocalLore test archives";
+    // Several owned verification packages may coexist. The picker must distinguish their roots.
+    private String title() {
+        return TITLE + " (" + getContext().getPackageName() + ")";
+    }
     private static final String OUTPUT_TITLE = "locallore-private-story.json";
     private static final String MIME = "application/json";
     private static final String[] ROOT_COLUMNS = {
@@ -326,7 +330,7 @@ public final class ChooserArchiveProvider extends DocumentsProvider {
             Object value = null;
             if (Root.COLUMN_ROOT_ID.equals(column)) value = ROOT_ID;
             if (Root.COLUMN_DOCUMENT_ID.equals(column)) value = ROOT_DOCUMENT;
-            if (Root.COLUMN_TITLE.equals(column)) value = TITLE;
+            if (Root.COLUMN_TITLE.equals(column)) value = title();
             if (Root.COLUMN_FLAGS.equals(column)) value = Root.FLAG_LOCAL_ONLY
                     | Root.FLAG_SUPPORTS_CREATE | Root.FLAG_SUPPORTS_IS_CHILD;
             if (Root.COLUMN_MIME_TYPES.equals(column)) value = MIME;
@@ -371,7 +375,7 @@ public final class ChooserArchiveProvider extends DocumentsProvider {
         for (String column : cursor.getColumnNames()) {
             Object value = null;
             if (Document.COLUMN_DOCUMENT_ID.equals(column)) value = entry == null ? ROOT_DOCUMENT : entry.id;
-            if (Document.COLUMN_DISPLAY_NAME.equals(column)) value = entry == null ? TITLE : entry.title;
+            if (Document.COLUMN_DISPLAY_NAME.equals(column)) value = entry == null ? title() : entry.title;
             if (Document.COLUMN_MIME_TYPE.equals(column)) value = entry == null ? Document.MIME_TYPE_DIR : MIME;
             if (Document.COLUMN_FLAGS.equals(column)) value = entry == null ? Document.FLAG_DIR_SUPPORTS_CREATE
                     : entry.output && !entry.writeOpened ? Document.FLAG_SUPPORTS_WRITE : 0;

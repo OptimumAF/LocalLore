@@ -581,6 +581,17 @@ impl Host {
         if snapshot.engine.seed() != &selected_seed {
             return Err("Stale".into());
         }
+        // A matching seed/head does not identify immutable accepted history:
+        // an archive can replace a deleted scope with different receipts or
+        // ancestry. Permit another owner's append only to this exact prefix.
+        let selected = &state.sessions.get(session).ok_or("Closed")?.engine;
+        if snapshot.engine.revision() < selected.revision()
+            || !snapshot.engine.receipts().starts_with(selected.receipts())
+            || snapshot.engine.memory_lineage_binding().map_err(|_| "Stale")?
+                != selected.memory_lineage_binding().map_err(|_| "Stale")?
+        {
+            return Err("Stale".into());
+        }
         check_generation_cancel(&safe_cancel)?;
         Ok(snapshot)
     }

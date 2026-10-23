@@ -88,6 +88,7 @@ impl NativeSnapshot {
         }
     }
 }
+type StageProbe = Box<dyn FnOnce(&Path)>;
 pub struct Preview {
     bundle: NativeSnapshot,
     epoch: u64,
@@ -326,7 +327,7 @@ impl Preview {
         parent: &Path,
         finalize: impl FnOnce(&File, &Path, &Path) -> Result<(), String>,
         fail_after: Option<usize>,
-        stage_probe: Option<Box<dyn FnOnce(&Path)>>,
+        stage_probe: Option<StageProbe>,
     ) -> Result<Value, String> {
         if self
             .saving

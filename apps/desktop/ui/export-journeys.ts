@@ -39,6 +39,17 @@ export async function exportJourneys({
         checks.push(label);
     };
     const capture = async (label: string) => {
+        const target = document.querySelector(
+            label === "export-storage"
+                ? ".storage-reveal"
+                : label === "export-open-readonly" ||
+                    label === "export-restarted"
+                  ? ".export-open"
+                  : label === "export-narrow"
+                    ? ".export-panel"
+                    : ".export-panel",
+        );
+        target?.scrollIntoView({ block: "start" });
         await new Promise((r) => setTimeout(r, 100));
         const privatePaths = [
             c.get().workspace?.location,

@@ -502,6 +502,18 @@ mod tests {
             a["data"]["receipt"]["narration"],
             b["data"]["receipt"]["narration"]
         );
+        let state = |host: &Host, q: &Value| {
+            host.inspection_snapshot(
+                q["session"].as_str().unwrap(),
+                &serde_json::from_value(q["scope"].clone()).unwrap(),
+                1,
+                locallore::inspection::ExportMode::Full,
+            )
+            .unwrap()
+            .files["state.json"]
+                .clone()
+        };
+        assert_eq!(state(&off, &qoff), state(&on, &qon), "entire canonical projection is unchanged by capture opt-in; wall-clock Play timings are separate provenance");
         let (agency, qa, ra) = staged("agency", true);
         assert_eq!(ra["data"]["error"], "Agency");
         let view = call(&agency, qa);

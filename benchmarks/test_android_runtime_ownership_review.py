@@ -265,17 +265,14 @@ class SdkOwnershipFollowupTests(unittest.TestCase):
         self.assertNotIn(CANARY, repr(result))
 
     def test_cancelled_sdk_discards_late_completed_output_after_explicit_stop(self):
-        release = threading.Event()
         def raw(*args, **kwargs):
-            release.wait(1)
+            kwargs["cancel"].wait(1)
             return remote(stdout=self.envelope())
         device = SimpleNamespace(private_write=Mock(), raw=raw)
         worker = spike.SdkWorker(device, "1" * 64)
         worker.verify_package = Mock()
-        def stop():
-            release.set()
-            return True
-        worker.stop = stop
+        worker.stop = lambda: True
+        worker.cleanup_request = lambda: True
         result = worker.run("unused", [], b"synthetic", deadline=1, cancel_after=.01)
         self.assertEqual(result.status, "cancelled")
         self.assertEqual(result.stdout, b"")
@@ -286,8 +283,9 @@ class SdkOwnershipFollowupTests(unittest.TestCase):
         device = SimpleNamespace(shell=Mock(return_value=b"package:/data/app/base.apk\n"),
                                  private_write=Mock(), raw=Mock())
         worker = spike.SdkWorker(device, "1" * 64)
-        with self.assertRaises(spike.Failure):
-            worker.run("unused", [], b"synthetic")
+        result = worker.run("unused", [], b"synthetic")
+        self.assertEqual(result.status, "setup_failed")
+        self.assertEqual(result.failure_stage, "sdk_verify_package")
         device.private_write.assert_not_called()
         device.raw.assert_not_called()
         self.assertFalse(any(call.args[0] == "am" for call in device.shell.call_args_list))

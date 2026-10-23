@@ -2,8 +2,9 @@
 use serde_json::json;
 use std::io::{self, BufRead, Write};
 fn main() {
-    let mode = std::env::args()
-        .nth(2)
+    let model = std::env::args().nth(2);
+    let mode = model
+        .as_ref()
         .and_then(|p| {
             std::path::Path::new(&p)
                 .file_name()
@@ -22,6 +23,13 @@ fn main() {
         if req["op"] == "cancel" {
             // Like the packaged worker, cancellation has no separate ack frame.
             continue;
+        }
+        if mode == "blocked-generation-observed" && req["op"] == "generate" {
+            let marker =
+                std::path::Path::new(model.as_ref().unwrap()).with_extension("generation-started");
+            std::fs::write(marker, b"synthetic generation frame received").unwrap();
+            std::thread::sleep(std::time::Duration::from_secs(30));
+            return;
         }
         if mode == "die" {
             return;

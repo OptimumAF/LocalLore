@@ -539,12 +539,21 @@ mod tests {
     }
     #[test]
     fn cancellation_poll_is_prompt_and_drop_reaps_native_owner() {
-        let (shared, dir) = owner("blocked-generation");
+        let (shared, dir) = owner("blocked-generation-observed");
         let mut provider = RuntimeProvider::new(shared.clone());
         let cancel = Cancellation::default();
         let req = request("director");
         assert!(provider.poll(&req, &cancel).is_pending());
-        thread::sleep(Duration::from_millis(30));
+        // Synchronize with the synthetic child receiving generation, not a scheduler delay.
+        // Cancellation before the role thread starts legitimately preserves a loaded owner.
+        let marker = dir
+            .join("blocked-generation-observed")
+            .with_extension("generation-started");
+        let waiting = Instant::now();
+        while !marker.is_file() {
+            assert!(waiting.elapsed() < Duration::from_secs(5));
+            thread::sleep(Duration::from_millis(5));
+        }
         cancel.cancel();
         let start = Instant::now();
         assert!(provider.poll(&req, &cancel).is_pending());

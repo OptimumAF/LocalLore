@@ -10,6 +10,25 @@ than introducing a permissive legacy commit path. See the shared-core
 verification report for that explicit version disposition and actual limitations.
 Refs #9 (M05.01–M05.04), #25 (D04.04).
 
+The M07 production context integration advances the prompt to
+`locallore-play-v2.2`, retaining narration policy `grounded-prose-v2.1`. Fresh
+preparation/commit requires the current prompt. Private validated history rebuild
+accepts recorded `locallore-play-v2.1` under the same interpretation, mechanics,
+provenance and narration checks, including when rebuilding a fork. Exact retry
+returns the original receipt; neither replay nor restore calls inference. The
+unmerged prototype2.0 remains rejected. This is a prompt compatibility decision,
+not a SQLite schema migration or a license to accept arbitrary historical policy.
+
+The production director now consumes the portable bounded actor-only context
+compiler, reusing the shared inspection eligibility port without accepting an
+inspection grant. Only selected typed payloads enter model data; ranking and
+omission diagnostics stay separate. Literal dialogue is not a factual search
+query. Rules, owned inventory, current nearby entities, routes and the original
+intent guard remain authoritative. Byte-derived token estimates are labeled;
+the actual native tokenizer must still enforce templated input plus reserved
+output against the model context limit. See M07_CONTEXT_INTEGRATION.md for
+measurements and remaining memory gates.
+
 The v1 proof deliberately requires exact typed commands and engine-rendered
 narration. A real backend cannot turn this into free-text play by replacing
 the fake provider or deleting those comparisons. Preserve v1 fixtures, bytes

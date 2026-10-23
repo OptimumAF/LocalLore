@@ -130,8 +130,91 @@ python -m unittest discover -s scripts/tests -p test_capacity_integration_review
 python -m unittest discover -s scripts/tests -p test_audit_apk.py -v
 ```
 
-Frontend/native Rust and actual application-owned rendering results remain to be
-recorded before PR submission. No unexecuted check in this record is a PASS.
+## Desktop frontend, native Rust and actual rendering
+
+At3818dac (production inputs5e44), the full frontend verifier passed: normal
+bundle, strict TypeScript,25 original native fixtures plus current request
+builders against Rust schema, actual action/controller suites using explicitly
+mocked native transport,83 timeline checks, and exclusion of test-control hooks
+from the normal bundle. These are frontend/mock checks, not native UI execution.
+Node24.22.1 and existing locked dependencies were used without downloads.
+
+Native Rust checks passed: default **54 passed/0 failed/1 ignored**, dev-harness
+**57 passed/0 failed/1 ignored plus2 harness-contract tests passed**, and strict
+all-target/all-feature Clippy. The existing ignored model-cache reparse test
+requires Windows symlink privilege; no privilege/settings change occurred.
+The native metadata regression exercised supported database versions1–4 and
+future5 refusal. These are native Rust tests, not rendered UI journeys.
+
+```powershell
+# From apps/desktop:
+node verify-frontend.mjs
+node node_modules/prettier/bin/prettier.cjs --check ui/legacy-journeys.ts legacy-harness.mjs
+# From repository root, own uncapped target/TEMP, jobs1/debug0/incremental0:
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline -- --test-threads=1
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness --locked --offline -- --test-threads=1
+cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --all-features --locked --offline -- -D warnings
+```
+
+Source inspection found the older fixed legacy harness still required schema2
+and removed only v2 metadata when reconstructing v1. The untouched helper at
+da8df0c actually failed `FixtureReadOnly` after creating that invalid synthetic
+fixture (exit1); the original log and fixture are retained. `3818dac` removes
+only the added derived/retention objects when reconstructing original v1,
+verifies current schema via shared SCHEMA_VERSION, and updates current UI/runner
+expectations to4. Canonical/receipt fixtures and read-only/one-backup oracles are
+unchanged. A source-search invocation using wildcard path arguments also failed
+with Windows OS123; later directory searches completed. It is not a test result.
+
+The actual application-owned native runner at clean source
+`f955ac5375cf590dcd162df331a93c878898fc5a` then passed **29 assertions,8 WebView2
+captures,two app processes with a real process restart**:
+
+```powershell
+# Existing task-local Node, own artifact root and own native target:
+node legacy-harness.mjs
+```
+
+This uses the actual frontend controller, native IPC, shared Host and SQLite,
+then captures only its own invisible/unfocused WebView via CapturePreview.
+It does not capture/control the desktop, inject input, activate windows or
+operate unrelated apps. The fixture is reconstructed synthetic v1, not an
+actual released-app historical save. No model is loaded or called.
+
+Both processes resumed quay/main at revision1 with the original spent potion,
+one exact old-key receipt, actual SQLite schema4/workspace contract1/domain-v1
+labels and one unchanged read-only v1 backup. Exact retry/status and replay
+preserved projection SHA256
+`464abab4ac43ae8087657a524eeb09a32f5ca8d3c41ae58529e145b371166c87`
+and receipt SHA256
+`f1eee1ba28217d019f87e5c144e985f6a5462b7c638e739c6884052bffdb6b6f`.
+Mira's witnessed gift remains visible without player messages; uninvolved Sable
+sees zero history rows. Inspector browsing leaves canon unchanged. Each close
+reports zero owned Host sessions/generation workers. Frontend error buffers are
+empty in both runs. Two Chromium unregister-class error1412 stderr lines remain
+in the bounded local log; they are not suppressed or counted as zero native
+stderr. The own profile's Last Version records WebView155.0.4283.62; this is not
+an independent loaded-module inventory.
+
+Coordinator inspected all8 render images at1280×900: selected story/head,
+receipt, spent inventory, real current storage labels, distinct Mira/Sable
+inspection state and fake-provider/saved-locally notices agree with semantic
+snapshots. No overlap, clipped primary state or horizontal overflow was found.
+The inspection captures deliberately scroll to the read-only table. Narrow
+layout and new-job maintenance UI were not exercised by this legacy cohort.
+
+Local output directory: `memory-jobs-artifacts/native-render/legacy-native-f0ac5926-65d3-4ac0-aea6-e3842188c425`.
+Summary SHA256 `dff682cacdca6ad571300a364f4106d2f65f63a80c43dde2edd2a845d1374958`.
+All synthetic databases, raw logs, profiles, semantic snapshots and images remain
+local outside Git. No public/private user data was added to repository artifacts.
+
+| Additional local log | SHA256 |
+| --- | --- |
+| frontend-check.log |3f3859331b8256f3acb797af9d7978bf631c818249d5a52ea6cb774432da176e|
+| desktop-native-default.log |23519c7ddcfec1815b28fcae551aa93461f3368204863299ce343a962174addc|
+| desktop-native-dev.log |c2fcc10578b0546f53cbfc219b3bd0c4d40b61c62630db50ddcf8fdaf2e87260|
+| legacy-original-red.log |74be933522f4e39e893531eea3107dcb5ad78aece00c697564542d6069baa021|
+| legacy-native-current.log |068b08ffd0b1d5a2e4ef95e1e098ae36ad88586df18f024160b5dfc8165948bc|
 
 ## Separate capacity qualification and remaining work
 

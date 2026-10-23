@@ -1,7 +1,9 @@
 # Shared derived memory jobs and coherent context snapshots
 
 Refs #11 M07.03/.04 partial; #29 D07 prerequisite. Implementation and
-qualification are in progress, not full milestone acceptance.
+qualification are partial, not full milestone acceptance. Current integrated
+results and remaining limits are in the
+[coordinator verification](M07_DURABLE_JOBS_COORDINATOR_VERIFICATION_2026-10-23.md).
 Coordinator claim #11 comment6372984169. Root owns schema/migrations,
 Store protocol and integration; test/review contributors have isolated branches.
 
@@ -102,7 +104,7 @@ explicit new prompt/provenance version, UI state and actual model comparison
 remain separately required integration work. This Store API alone does not
 qualify those capabilities, performance, tokenizer savings or Android devices.
 
-## Qualification record (pending final cohort)
+## Qualification history
 
 Initial production `e98ff6a` compiled with locked/offline Cargo. Independent
 unchanged tests reproduced five cross-Store handle failures; `502cacd` bound
@@ -120,10 +122,10 @@ establishes zero free pages before the same fixed page clamp; actual SQLite Full
 and reopened same-boundary retry then passed. These failed attempts remain
 distinct from the final cohort. No test failure is hidden by a gate change.
 
-Final complete results, source revisions, commands, environment and limitations
-will be recorded before this change is proposed for merge. Capacity17/32 schema3
-profiles are not qualified by these unit tests and require separate schema4
-measurement/requalification; their historical reports are not re-labelled.
+The linked coordinator record supplies current results, source revisions,
+commands, environment and limitations. Capacity17/32 schema3 profiles are not
+qualified by these unit tests; separate schema4 measurement and requalification
+are recorded in the linked capacity packet. Historical reports are not relabeled.
 
 The schema4 preflight passed seven independent review regressions, seven retained
 branch tests and eight story-deletion tests. Two migration fixture assumptions

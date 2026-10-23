@@ -632,7 +632,10 @@ impl Engine {
                 serde_json::from_value(value.clone()).map_err(|_| Error::CorruptHistory)?;
             if record.events.is_empty()
                 || record.events.len() > MAX_COMMANDS
-                || self.recorded(&record.request)?.is_some()
+                || self
+                    .recorded(&record.request)
+                    .map_err(|_| Error::CorruptHistory)?
+                    .is_some()
             {
                 return Err(Error::CorruptHistory);
             }

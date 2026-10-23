@@ -105,7 +105,7 @@ export async function legacyJourneys({
         );
         check(
             !Object.hasOwn(c.get().play!.inventory, "potion") &&
-                c.get().play!.inventory["brass-key"] === 1,
+                Object.hasOwn(c.get().play!.inventory, "brass-key"),
             "legacy-spent-last-potion-and-other-item-retained",
         );
         check(

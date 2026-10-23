@@ -96,3 +96,8 @@ prepared-but-undelivered boundaries, late reply isolation and native reopen.
 They use test-only construction through the normal ViewModel store. The report
 also retains an unexplained Android graphics cleanup abort; successful later
 runs do not establish its cause or qualify graphics reliability.
+
+The opt-in [ordered cohort runner](GRAPHICS_RUNNER.md) records every bounded
+cancel-only, framework-before-cancel and reverse-order attempt in a sanitized
+append-only journal. [Dated investigation evidence](GRAPHICS_VERIFICATION_2026-10-22.md)
+keeps its observations separate from the original unexplained graphics abort.

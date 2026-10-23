@@ -42,14 +42,16 @@ one synthetic workspace and private test WebView profile. The normal bundle
 excludes the fixed fault/fixture journeys. Build/static/controller-mock checks,
 actual native IPC, native WebView rendering and device execution are separate
 evidence classes; consult the dated fork verification report for executed results.
+See [fork verification and limits](../../docs/desktop/D08_FORK_NATIVE_VERIFICATION_2026-10-23.md).
 
 Memory & evidence opens a read-only typed inspector for profiles, accepted
 history, directed relationships, knowledge, promises and evidence. It supports
 completed historical heads and before/after replay without changing the live
 player. Statement, belief and truth labels remain distinct; NPC lenses exclude
 private player display messages. Story Lab requires a spoiler acknowledgement.
-Summaries, semantic retrieval and alternate-branch history remain explicitly
-unsupported. See [D05 native inspection](../../docs/desktop/D05_NATIVE_INSPECTION.md)
+Summaries and semantic retrieval remain unavailable in this inspector. Saved
+timeline selection and prefix replay use the shared ancestry rules; author
+corrections remain unavailable. See [D05 native inspection](../../docs/desktop/D05_NATIVE_INSPECTION.md)
 and [verification](../../docs/desktop/D05_NATIVE_VERIFICATION_2026-10-22.md).
 
 Inspection snapshots now provide structural diagnostics by default, explicit

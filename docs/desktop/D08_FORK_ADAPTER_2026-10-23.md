@@ -1,6 +1,8 @@
 # D08.04 fixed-identity desktop fork adapter
 
 Status: partial implementation awaiting coordinator integration/native verification.
+This section records the original47ab8d7 packet; subsequent real UI/native
+integration and actual checks are in [the follow-up verification](D08_FORK_NATIVE_VERIFICATION_2026-10-23.md).
 Refs #30 D08.04 and #12 M08.01–.02. The full milestones remain unchecked.
 
 Coordinator delegated `/root/desktop_fork_adapter` from frozen

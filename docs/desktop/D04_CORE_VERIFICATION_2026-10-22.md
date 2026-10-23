@@ -62,6 +62,13 @@ The12 play-v2,7 action-guard,3 durable/ephemeral local-play Host and15 ownership
 cover wrong action/arguments/extras, missing resources, bounded repair, cancellation,
 stale work, provider panic, private-context canaries, exact speech, v1/v2 replay,
 tampered effects/policy, unloaded restart/retry and real SQLite writer races.
+After constructing the backend-only review boundary and adding the historical-
+failure correction, the complete159-test workspace suite and strict workspace
+Clippy passed again from that checkout. Its accepted-main desktop UI also passed
+`npm run check` (strict TypeScript,25 original fixtures/current action builders,
+hostile wire/keyboard/error checks and no normal-bundle test hooks) and
+`npm run format:check`. The schema received formatting only; its values did not
+change. These checks do not run a model or claim a native desktop scene.
 
 Android compatibility used installed JDK17.0.6, Gradle8.11.1, AGP8.10.1, Kotlin2.2.21,
 SDK36/build-tools35.0.0/NDK29.0.14206865. A task-only Gradle init script sets each

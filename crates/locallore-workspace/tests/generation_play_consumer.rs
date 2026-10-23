@@ -404,6 +404,10 @@ impl Persistence for ErrorPort {
         _: &str,
         _: &dyn Fn() -> bool,
     ) -> Result<HostGenerationSnapshot, String> {
+        assert_ne!(
+            self.error, "Panic",
+            "synthetic native snapshot override panic"
+        );
         Err(self.error.clone())
     }
     fn commit(&mut self, _: &Request, _: &Proposal, _: &str) -> Result<Receipt, String> {
@@ -421,6 +425,26 @@ impl Persistence for ErrorPort {
     fn status(&mut self, _: &Scope, _: &str) -> Result<SavedTurn, String> {
         Ok(self.saved())
     }
+}
+#[test]
+fn native_snapshot_override_panic_returns_internal_without_poisoning_host_owner() {
+    let (host, session, _) = error_host("Panic");
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        host.generation_snapshot(&session, &seed().scope, 0, &|| false)
+    }));
+    assert!(
+        result.is_ok(),
+        "native override panic escaped through the owner lock"
+    );
+    assert!(matches!(result.unwrap(), Err(error) if error == "Internal"));
+    assert_eq!(host.live_counts(), (1, 0));
+    assert_eq!(
+        call(
+            &host,
+            json!({"op":"snapshot","session":session,"scope":seed().scope,"observer":"player"})
+        )["status"],
+        "ok"
+    );
 }
 fn error_host(error: &str) -> (Host, String, Arc<Mutex<String>>) {
     let phase = Arc::new(Mutex::new("draft".into()));

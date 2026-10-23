@@ -169,7 +169,7 @@ internal class BranchForkController(
         if (disposed || active != null) return
         // This explicit action labels the original input scope, never a new selection's scope.
         mutable.value = BranchForkUiState(context = mutable.value.context, visible = true,
-            input = saved.input, lookupOnly = origin != mutable.value.context, uncertain = true)
+            input = saved.input, lookupOnly = origin == null || origin != mutable.value.context, uncertain = true)
         work { ticket ->
             val result = gateway.lookup(saved.input)
             if (result.found != (result.outcome != null) || result.outcome?.let { !matchesForkOutcome(it, saved.input) || it.created } == true)

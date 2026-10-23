@@ -1529,22 +1529,27 @@ impl Host {
                         .map_err(reject)?;
                     let revision = engine.revision();
                     let selected = get_session(state, session, scope)?;
-                    // Explicit selection starts a new native incarnation even
-                    // when IDs and accepted prefix match. Old workers and cached
-                    // receipts cannot become results of the newly selected source.
-                    for turn in selected.turns.values() {
-                        turn.cancel.cancel();
-                        if turn.phase.active() {
-                            self.trace_finish(turn.trace.as_ref(), Outcome::Cancelled);
+                    // Open also serves passive frontend refresh. Preserve work
+                    // and diagnostic consent for the same accepted source or an
+                    // exact append; only a replacement/rewind selects a new owner.
+                    if !engine
+                        .extends_accepted_history(&selected.engine)
+                        .map_err(reject)?
+                    {
+                        for turn in selected.turns.values() {
+                            turn.cancel.cancel();
+                            if turn.phase.active() {
+                                self.trace_finish(turn.trace.as_ref(), Outcome::Cancelled);
+                            }
                         }
+                        selected.turns.clear();
+                        selected.work_owner = Arc::new(());
+                        selected.trace_owner.retire();
+                        if let Ok(mut trace) = self.trace.try_lock() {
+                            trace.revoke_details(&selected.trace_owner);
+                        }
+                        selected.trace_owner = TraceOwner::default();
                     }
-                    selected.turns.clear();
-                    selected.work_owner = Arc::new(());
-                    selected.trace_owner.retire();
-                    if let Ok(mut trace) = self.trace.try_lock() {
-                        trace.revoke_details(&selected.trace_owner);
-                    }
-                    selected.trace_owner = TraceOwner::default();
                     selected.engine = engine;
                     Ok(ok(
                         json!({"session":session,"scope":scope,"revision":revision}),

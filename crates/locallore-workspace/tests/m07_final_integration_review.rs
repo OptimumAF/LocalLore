@@ -449,6 +449,7 @@ fn explicit_open_reselection_fences_held_old_work_from_same_key_new_owner() {
 }
 
 #[test]
+#[ignore = "superseded: same-source Open is passive refresh; see M07_OPEN_REFRESH_COMPATIBILITY_REVIEW_2026-10-23.md and m07_open_refresh_compatibility"]
 fn explicit_open_same_source_fences_cancelled_old_work_from_retried_draft() {
     let fixture = Fixture::new();
     let empty = create(&fixture);

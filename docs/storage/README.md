@@ -8,6 +8,10 @@ save/resume. Both production app adapters now use the
 library selection and receipt-derived history. The foundation and turn layer
 landed through #38/#39; current task status and acceptance remain on #8.
 
+The native-only [inspection snapshot v1](INSPECTION_SNAPSHOT_V1.md) captures one
+validated head through that same store. It creates derived read-only views,
+with explicit privacy modes, rather than a second playable story format.
+
 Run the deterministic checks without models, Android tools or ADB:
 
 ```powershell

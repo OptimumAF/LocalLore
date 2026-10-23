@@ -210,6 +210,14 @@ fn initialize(connection: &Connection, sql: &str) -> Result<()> {
 }
 
 impl Store {
+    /// Inspection/backup source only: never create, migrate or expose a writable connection.
+    pub fn open_read_only(path: &Path) -> Result<Self> {
+        let connection = connect(path, true)?;
+        let (application, version) = identity(&connection)?;
+        supported_identity(application, version)?;
+        verify(&connection)?;
+        Ok(Self { connection })
+    }
     /// A new path initializes v1. An existing empty v0 database needs an explicit safety backup.
     /// Foreign/nonempty v0, future versions and altered v1 schemas are refused, never adopted.
     pub fn open(path: &Path, migration_backup: Option<&Path>) -> Result<Self> {

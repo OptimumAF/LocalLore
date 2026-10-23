@@ -110,6 +110,20 @@ fn real_contract_records_original_free_text_and_generated_prose_then_replays_wit
         .unwrap()
         .iter()
         .all(|v| v["properties"]["op"]["const"] != "say"));
+    let give_schema = schema["properties"]["commands"]["items"]["oneOf"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|v| v["properties"]["op"]["const"] == "give")
+        .unwrap();
+    assert_eq!(
+        give_schema["properties"]["item"]["enum"],
+        json!(["brass-key", "potion"])
+    );
+    assert_eq!(
+        give_schema["properties"]["to"]["enum"],
+        json!(["mira", "player"])
+    );
     assert_eq!(p.seen.len(), 2);
     assert_eq!(receipt.request(), &r);
     assert!(!receipt.play().unwrap().fallback);

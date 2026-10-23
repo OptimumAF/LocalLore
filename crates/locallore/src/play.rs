@@ -390,6 +390,7 @@ fn director_schema_for(
     kind: &PlayInputKind,
     text: &str,
     nearby: &BTreeMap<&String, &String>,
+    inventory: &BTreeMap<&String, &Item>,
     player: &str,
 ) -> Value {
     let mut schema = director_schema();
@@ -398,8 +399,24 @@ fn director_schema_for(
         .expect("fixed director schema");
     variants.retain(|variant| {
         let speech = variant["properties"]["op"]["const"] == "say";
-        speech == matches!(kind, PlayInputKind::Dialogue)
+        let has_item = !matches!(
+            variant["properties"]["op"]["const"].as_str(),
+            Some("give" | "consume")
+        ) || !inventory.is_empty();
+        speech == matches!(kind, PlayInputKind::Dialogue) && has_item
     });
+    for variant in variants.iter_mut() {
+        let op = variant["properties"]["op"]["const"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned();
+        if matches!(op.as_str(), "give" | "consume") {
+            variant["properties"]["item"] = json!({"enum":inventory.keys().collect::<Vec<_>>()});
+        }
+        if op == "give" {
+            variant["properties"]["to"] = json!({"enum":nearby.keys().collect::<Vec<_>>()});
+        }
+    }
     if matches!(kind, PlayInputKind::Dialogue) {
         schema["properties"]["commands"]["maxItems"] = json!(1);
         let properties = &mut schema["properties"]["commands"]["items"]["oneOf"][0]["properties"];
@@ -537,7 +554,7 @@ pub fn execute(
             profile,
             "director",
             prompt,
-            director_schema_for(kind, text, &nearby, &engine.seed().player),
+            director_schema_for(kind, text, &nearby, &inventory, &engine.seed().player),
             remaining()?,
         );
         let bytes = generate(provider, &generation, cancel)?;

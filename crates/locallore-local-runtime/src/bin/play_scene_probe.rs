@@ -143,7 +143,8 @@ fn main() {
     let mut store = Store::open(&path, None).unwrap();
     let mut seed: Seed =
         serde_json::from_str(include_str!("../../../../fixtures/lantern_quay.json")).unwrap();
-    seed.scope.story = "real-synthetic-scene".into();
+    seed.scope.story = std::env::var("LOCALLORE_SYNTHETIC_SCENE_STORY")
+        .unwrap_or_else(|_| "real-synthetic-scene".into());
     let scope = seed.scope.clone();
     store.create_story("Synthetic local scene", seed).unwrap();
     let mut results = vec![];
@@ -264,7 +265,7 @@ fn main() {
     let mechanical_ability_refusal =
         results[5]["unchanged"] == true && results[5]["outcome"]["error"] == "Ability";
     let scene_pass = scene_pass && mechanical_ability_refusal;
-    let report = json!({"synthetic":true,"execution":"native CPU worker plus shared Rust engine/store; no desktop IPC or render","profile":profile,"load":load,"scene_pass":scene_pass,"gift_committed":gift_committed,"restart_equal":restarted_equal,"exact_retry_without_inference":exact_retry,"speaker_scoped_secret":speaker_scoped,"replay_without_inference":replay_equal,"results":results,"total_ms":overall.elapsed().as_millis(),"quality_accepted":false,"network_blocked":false});
+    let report = json!({"synthetic":true,"execution":"native CPU worker plus shared Rust engine/store; no desktop IPC or render","scope":scope,"profile":profile,"load":load,"scene_pass":scene_pass,"gift_committed":gift_committed,"restart_equal":restarted_equal,"exact_retry_without_inference":exact_retry,"speaker_scoped_secret":speaker_scoped,"replay_without_inference":replay_equal,"results":results,"total_ms":overall.elapsed().as_millis(),"quality_accepted":false,"network_blocked":false});
     std::fs::write(
         output.join("report.json"),
         serde_json::to_vec_pretty(&report).unwrap(),

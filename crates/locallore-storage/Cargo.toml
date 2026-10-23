@@ -6,6 +6,13 @@ rust-version.workspace = true
 license.workspace = true
 description = "Single Rust owner for LocalLore's scoped SQLite schema and migrations"
 
+[features]
+development-fixtures = ["locallore/host"]
+
+[[example]]
+name = "native_legacy_workspace"
+required-features = ["development-fixtures"]
+
 [dependencies]
 locallore = { path = "../locallore" }
 rusqlite = { version = "=0.40.2", default-features = false, features = ["bundled", "backup"] }

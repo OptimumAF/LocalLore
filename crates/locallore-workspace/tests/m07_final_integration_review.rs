@@ -253,3 +253,80 @@ fn uncached_exact_historical_draft_submit_is_read_only_after_independent_append(
     assert_eq!(restored.receipts(), current.receipts());
     assert_eq!(restored.canonical_bytes(), current.canonical_bytes());
 }
+
+fn explicit_open_rewind_cannot_reuse_cached_committed_result(operation: &str) {
+    let fixture = Fixture::new();
+    let empty = create(&fixture);
+    let mut store = fixture.store();
+    let prefix = commit(&mut store, &empty, "original-prefix");
+    let archive = store.export_archive(&prefix.scope().story, &|| false).unwrap();
+    let original = commit(&mut store, &prefix, "cached-accepted-key");
+    let winner = original.receipts()[1].clone();
+    let host = locallore_workspace::open(&fixture.path(), false).unwrap();
+    let session = select(&host, original.scope());
+    let cached = call(
+        &host,
+        json!({"op":"submit","session":session,"request":winner.request(),"mode":"accepted"}),
+    );
+    assert_eq!(cached["data"]["phase"], "committed", "{cached}");
+    let deletion = store
+        .prepare_story_deletion(original.scope(), original.revision(), &|| false)
+        .unwrap();
+    store.delete_story(deletion, &|| false).unwrap();
+    store
+        .import_archive(validate_archive(archive.bytes(), &|| false).unwrap(), &|| false)
+        .unwrap();
+    store.begin_turn(winner.request()).unwrap();
+    let opened = call(
+        &host,
+        json!({"op":"open","session":session,"scope":prefix.scope()}),
+    );
+    // An implementation may instead refuse incompatible Open and require a
+    // fresh selected session. In that case old-session reads must fail closed.
+    let selected = if opened["status"] == "ok" {
+        assert_eq!(opened["data"]["revision"], prefix.revision());
+        session
+    } else {
+        assert_eq!(opened["error"], "Stale", "{opened}");
+        let old = call(
+            &host,
+            json!({"op":"turn_status","session":session,"scope":prefix.scope(),"turn":winner.request().turn}),
+        );
+        assert_eq!(old["error"], "Stale", "{old}");
+        let closed = call(
+            &host,
+            json!({"op":"close","session":session,"scope":prefix.scope()}),
+        );
+        assert_eq!(closed["status"], "ok", "{closed}");
+        select(&host, prefix.scope())
+    };
+    let response = if operation == "submit" {
+        call(
+            &host,
+            json!({"op":"submit","session":selected,"request":winner.request(),"mode":"accepted"}),
+        )
+    } else {
+        call(
+            &host,
+            json!({"op":"turn_status","session":selected,"scope":prefix.scope(),"turn":winner.request().turn}),
+        )
+    };
+    assert_eq!(response["data"]["phase"], "queued", "{response}");
+    assert_eq!(response["data"]["receipt"], Value::Null);
+    let draft = store.turn_status(winner.request()).unwrap();
+    assert_eq!(draft.phase, locallore_storage::TurnPhase::Draft);
+    assert!(draft.receipt.is_none());
+    let actual = store.resume(prefix.scope()).unwrap().engine;
+    assert_eq!(actual.receipts(), prefix.receipts());
+    assert_eq!(actual.canonical_bytes(), prefix.canonical_bytes());
+}
+
+#[test]
+fn explicit_open_rewind_status_never_reports_an_old_cached_commit_as_current() {
+    explicit_open_rewind_cannot_reuse_cached_committed_result("status");
+}
+
+#[test]
+fn explicit_open_rewind_submit_never_reports_an_old_cached_commit_as_current() {
+    explicit_open_rewind_cannot_reuse_cached_committed_result("submit");
+}

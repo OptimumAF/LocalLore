@@ -131,6 +131,12 @@ def dependency_inventory(root: Path, lock: dict) -> dict:
             "verification": "installed lock fields and package versions; file hashes bind supplied tree, not registry authenticity"}
 
 
+def environment_snapshot(env: dict) -> dict:
+    # os.environ normalizes keys to uppercase on Windows; a copied dict does not
+    # provide its case-insensitive lookup behavior.
+    return {key: env.get(key, env.get(key.upper(), "")) for key in ENV_KEYS}
+
+
 def tool_inventory(args: argparse.Namespace, env: dict) -> dict:
     paths = {"node": args.node, "npm_cli": args.npm_cli, "python": Path(sys.executable)}
     for name in ("git", "cargo", "rustc", "cl", "link", "lib", "rc", "mt", "dumpbin"):
@@ -168,7 +174,7 @@ def tool_inventory(args: argparse.Namespace, env: dict) -> dict:
         config_paths.update((directory / ".cargo/config", directory / ".cargo/config.toml"))
     configs = {str(path): fingerprint(path) for path in sorted(config_paths) if path.is_file()}
     return {"files": files, "versions": versions, "selected_rust": selected_rust,
-            "cargo_config_hashes": configs, "environment": {k: env.get(k, "") for k in ENV_KEYS}}
+            "cargo_config_hashes": configs, "environment": environment_snapshot(env)}
 
 
 def pe_inventory(data: bytes) -> dict:

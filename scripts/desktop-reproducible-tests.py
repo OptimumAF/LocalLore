@@ -229,6 +229,13 @@ class ReproTests(unittest.TestCase):
                 worker.assert_not_called()
                 run.assert_not_called()
 
+    def test_windows_environment_snapshot_keeps_sdk_and_tool_selector_values(self):
+        env = {"VCTOOLSVERSION": "14.34.31933", "WINDOWSSDKVERSION": "10.0.19041.0\\", "PATH": "trusted"}
+        snapshot = repro.environment_snapshot(env)
+        self.assertEqual(snapshot["VCToolsVersion"], "14.34.31933")
+        self.assertEqual(snapshot["WindowsSDKVersion"], "10.0.19041.0\\")
+        self.assertEqual(snapshot["PATH"], "trusted")
+
 
 if __name__ == "__main__":
     unittest.main()

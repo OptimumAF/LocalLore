@@ -23,7 +23,7 @@ Correction was committed source-only while the compiler slot was occupied, as th
 Ordinary command, run from repository root for BOTH cohorts:
 
 ```powershell
-.ppsndroid\gradlew.bat -p apps/android :app:testDebugUnitTest --tests org.locallore.app.BranchForkControllerTest --tests org.locallore.app.BranchForkReviewTest --tests org.locallore.app.BranchForkRecoveryLifecycleTest --offline --no-daemon --max-workers 1 -Pandroid.builder.sdkDownload=false --init-script <own-D>/android-fork-callback-artifacts/fork-output.gradle
+.\apps\android\gradlew.bat -p apps/android :app:testDebugUnitTest --tests org.locallore.app.BranchForkControllerTest --tests org.locallore.app.BranchForkReviewTest --tests org.locallore.app.BranchForkRecoveryLifecycleTest --offline --no-daemon --max-workers 1 -Pandroid.builder.sdkDownload=false --init-script <own-D>/android-fork-callback-artifacts/fork-output.gradle
 ```
 
 Process-local environment points to existing Android Studio1 JBR17.0.6 (actual `java -version`:17.0.6+0-b2043.56-10027231), SDK36/NDK29.0.14206865 and task D Gradle cache; TEMP/TMP and all build outputs are on task D. CARGO_BUILD_JOBS=1/CARGO_INCREMENTAL=0, ambient LIBSQLITE3_FLAGS removed; ordinary Gradle native builder supplies its own empty uncapped flags. No task exclusions, SDK/JDK installation/settings changes or downloads. The init script reuses the original author's own D output cache; old cohort logs/XML were separately preserved. The accepted integration Core/JNI source rebuilt naturally on RED: x86_64 release PASS1m43s, arm64-v8a release PASS1m54s. GREEN's ordinary preBuild was naturally UP-TO-DATE because only Kotlin controller source differed. JNI compilation is **not JNI execution**.

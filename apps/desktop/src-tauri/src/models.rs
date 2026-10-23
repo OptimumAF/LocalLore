@@ -449,6 +449,24 @@ mod tests {
         }
     }
     #[test]
+    fn old_window_cancellation_cannot_reach_a_new_model_operation() {
+        let root = Root::new();
+        let manager = ModelManager::new(root.0.clone(), root.0.clone());
+        let lease = WindowLease::default();
+        let old = lease.begin().unwrap();
+        let closed = lease.invalidate("main-1").unwrap();
+        lease.finish_close(closed, || {});
+        let current = lease.begin().unwrap();
+        let (_, cancel) = manager.begin("loading").unwrap();
+        assert_eq!(
+            lease.dispatch(old, || manager.cancel()).unwrap_err(),
+            "Closed"
+        );
+        assert!(!cancel.load(Ordering::SeqCst));
+        assert!(lease.dispatch(current, || manager.cancel()).is_ok());
+        assert!(cancel.load(Ordering::SeqCst));
+    }
+    #[test]
     fn delayed_closed_operations_cannot_start_picker_or_unload_new_window() {
         let root = Root::new();
         let manager = ModelManager::new(root.0.clone(), root.0.clone());

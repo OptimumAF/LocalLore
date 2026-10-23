@@ -19,11 +19,11 @@ pub fn model_cancel(
     workspace: tauri::State<'_, WorkspaceState>,
     models: tauri::State<'_, Arc<ModelManager>>,
 ) -> Result<Value, String> {
-    workspace
+    let epoch = workspace
         .lease
         .capture(window.label())
         .map_err(str::to_owned)?;
-    models.cancel()
+    workspace.lease.dispatch(epoch, || models.cancel())
 }
 #[tauri::command]
 pub async fn model_import(

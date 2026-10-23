@@ -1751,10 +1751,23 @@ impl Host {
         }
     }
     fn prepare(&self, session: &str, scope: &Scope, turn: &str) -> Value {
-        let work = match self.begin_work(session, scope, turn) {
+        let mut work = match self.begin_work(session, scope, turn) {
             Ok(work) => work,
             Err(value) => return value,
         };
+        if matches!(work.request.intent, Intent::FreeText { .. }) && work.local_play.is_some() {
+            // Read actual Engine and proof together after releasing begin_work's
+            // lock. The returned native proof stays with precisely that Engine.
+            match self.generation_snapshot(session, scope, work.request.expected_revision, &|| {
+                work.cancel.is_cancelled()
+            }) {
+                Ok(snapshot) => {
+                    work.engine = snapshot.engine;
+                    work.coverage = Some(snapshot.coverage);
+                }
+                Err(error) => return self.generation_input_failure(work, error),
+            }
+        }
         // A clone of a coherent revision; no canonical lock or transaction during generation.
         let mut engine = work.engine.clone();
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -1764,7 +1777,7 @@ impl Host {
                         .trace
                         .clone()
                         .map(|handle| RingSink::new(Arc::clone(&self.trace), handle));
-                    crate::play::execute_traced(
+                    crate::play::execute_traced_with_coverage(
                         &mut engine,
                         &work.request,
                         &mut *(local.provider)(),
@@ -1772,6 +1785,7 @@ impl Host {
                         &local.profile,
                         sink.as_mut()
                             .map(|sink| sink as &mut dyn turn_trace::TraceSink),
+                        work.coverage.as_ref().expect("coherent free-text input"),
                     )
                 } else {
                     Err(Error::Provider)
@@ -1803,6 +1817,43 @@ impl Host {
         }))
         .unwrap_or(Err(Error::Provider));
         self.finish_work(work, result)
+    }
+    fn generation_input_failure(&self, work: Work, error: String) -> Value {
+        let terminal = match error.as_str() {
+            "Cancelled" | "Closed" => Some(Error::Cancelled),
+            "Stale" | "NotFound" => Some(Error::Stale),
+            "Scope" => Some(Error::Scope),
+            "TooLarge" => Some(Error::TooLarge),
+            "Integrity" => Some(Error::CorruptHistory),
+            _ => None,
+        };
+        if let Some(error) = terminal {
+            return self.finish_work(work, Err(error));
+        }
+        // A transient storage read did not run a provider or consume the key.
+        // Keep it queued; status/exact retry can observe another owner's commit.
+        if let Ok(mut state) = self.state.lock() {
+            if let Some(turn) = state
+                .sessions
+                .get_mut(&work.session)
+                .and_then(|session| session.turns.get_mut(&work.turn))
+            {
+                if turn.phase == Phase::Running {
+                    turn.phase = Phase::Queued;
+                    turn.error = None;
+                    turn.receipt = None;
+                }
+            }
+        }
+        self.trace_record(
+            work.trace.as_ref(),
+            StageTimer::start(),
+            Stage::Retrieval,
+            Outcome::Failed,
+            Some(trace_category(&error)),
+        );
+        self.trace_finish(work.trace.as_ref(), Outcome::Unknown);
+        reject(error)
     }
     fn begin_work(&self, session: &str, scope: &Scope, turn: &str) -> Result<Work, Value> {
         let mut state = self.state.lock().unwrap();
@@ -1851,6 +1902,7 @@ impl Host {
             cancel: t.cancel.clone(),
             local_play,
             trace: t.trace.clone(),
+            coverage: None,
         };
         state.workers += 1;
         Ok(work)
@@ -1965,10 +2017,10 @@ impl Host {
                     t.receipt = Some(receipt);
                 }
                 Err(e) => {
-                    t.phase = if e == Error::Cancelled {
-                        Phase::Cancelled
-                    } else {
-                        Phase::Failed
+                    t.phase = match e {
+                        Error::Cancelled => Phase::Cancelled,
+                        Error::Stale => Phase::Stale,
+                        _ => Phase::Failed,
                     };
                     t.error = Some(e.to_string());
                 }
@@ -2051,6 +2103,7 @@ struct Work {
     cancel: Cancellation,
     local_play: Option<LocalPlay>,
     trace: Option<AttemptHandle>,
+    coverage: Option<crate::memory_coverage::CoverageRead>,
 }
 fn trace_category(error: &str) -> ErrorCategory {
     match error {

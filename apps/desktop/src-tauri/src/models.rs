@@ -570,16 +570,13 @@ mod tests {
     }
     #[test]
     #[cfg(windows)]
-    fn abandoned_import_cleanup_preserves_active_unrelated_and_reparse_files() {
-        use std::os::windows::fs::{symlink_file, OpenOptionsExt};
+    fn abandoned_import_cleanup_preserves_active_unrelated_and_approved_files() {
+        use std::os::windows::fs::OpenOptionsExt;
         let root = Root::new();
         let stale = root
             .0
             .join(format!(".import-{}.part", exports::identifier().unwrap()));
         let active = root
-            .0
-            .join(format!(".import-{}.part", exports::identifier().unwrap()));
-        let link = root
             .0
             .join(format!(".import-{}.part", exports::identifier().unwrap()));
         let unrelated = root.0.join(".import-not-a-guid.part");
@@ -592,20 +589,33 @@ mod tests {
             .share_mode(1)
             .open(&active)
             .unwrap();
-        symlink_file(&unrelated, &link).unwrap();
         reap_imports(&root.0).unwrap();
         assert!(!stale.exists());
         for path in [&active, &unrelated, &approved] {
             assert_eq!(fs::read(path).unwrap(), b"synthetic");
         }
-        assert!(fs::symlink_metadata(&link)
-            .unwrap()
-            .file_type()
-            .is_symlink());
         drop(guard);
         reap_imports(&root.0).unwrap();
         assert!(!active.exists());
         assert_eq!(fs::read(&approved).unwrap(), b"synthetic");
+    }
+    #[test]
+    #[cfg(windows)]
+    #[ignore = "requires Windows symlink privilege; run explicitly when available"]
+    fn abandoned_import_reparse_file_is_preserved() {
+        let root = Root::new();
+        let source = root.0.join("unrelated");
+        fs::write(&source, b"synthetic").unwrap();
+        let link = root
+            .0
+            .join(format!(".import-{}.part", exports::identifier().unwrap()));
+        std::os::windows::fs::symlink_file(&source, &link).unwrap();
+        reap_imports(&root.0).unwrap();
+        assert!(fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        assert_eq!(fs::read(&source).unwrap(), b"synthetic");
     }
     #[test]
     fn poisoned_runtime_reports_failure_and_unload_finishes_before_error() {

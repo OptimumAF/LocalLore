@@ -230,8 +230,8 @@ public final class SpikeInstrumentation extends Instrumentation {
         @Override public synchronized void onMessage(Message message) {
             if (ended) return;
             if (!message.getToolCalls().isEmpty()) { error = "unsupported_output"; return; }
-            // Channels such as thought are intentionally ignored; only explicit final text
-            // content reaches the bounded result. Tools and multimodal output fail closed.
+            // Read SDK contents only; its separate channels map is never copied.
+            // Per-item channel metadata is not exposed by this API; see source limitations.
             for (Content item : message.getContents().getContents()) {
                 if (!(item instanceof Content.Text)) { error = "unsupported_output"; continue; }
                 String text = ((Content.Text) item).getText();

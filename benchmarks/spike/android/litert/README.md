@@ -77,6 +77,16 @@ enforce its deadline, force-stop only this benchmark package and verify process
 absence. Abrupt termination is never reported as cooperative cancellation or
 native disposal.
 
+The public SDK separates a `Message.channels` map from `Message.contents`.
+This worker never copies that map. However, SDK `jsonToMessage` converts native
+content objects using only `type` and `text`, dropping per-item channel metadata
+and unknown native content types before the callback. The callback boundary
+therefore cannot prove that arbitrary native text was final-channel content or
+that no unknown native content was present. Thinking is requested off, not
+semantically guaranteed absent. Returned SDK-visible text remains untrusted and
+must pass the Rust oracle. This experiment does not claim a general hidden
+reasoning filter or lossless native-output validator.
+
 The Android API has no public tokenizer equivalent to the Python API's
 `Engine.tokenize`. This spike checks native context/decode limits and actual
 benchmark token counts; it does not invent a tokenizer or claim preflight token

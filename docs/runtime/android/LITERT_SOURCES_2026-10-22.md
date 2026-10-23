@@ -80,3 +80,14 @@ warns cancellation does not roll internal state back. The experiment therefore
 drains the terminal callback, returns from native close, and creates a new
 engine/conversation for reload. Kotlin exposes benchmark counts and template
 rendering but no public `Engine.tokenize`; no host API parity is inferred.
+
+**Callback visibility limit:** the pinned `Conversation.kt` `jsonToMessage`
+parses top-level native `channels` into the public `Message.channels` map,
+separate from `contents`; the worker omits that map. For each native content
+object, however, the SDK maps only `type == "text"` and its `text` value into
+`Content.Text`. It does not preserve a per-item channel field and silently skips
+other native types. The AAR's `Conversation$Companion` bytecode was inspected
+with `javap -c -private` and matches those operations. No generic final-channel,
+hidden-reasoning or lossless unknown-content validation claim is possible at
+this callback boundary. Thinking configuration is a request. SDK-visible text
+remains untrusted; authoritative proposal validation stays in Rust.

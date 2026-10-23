@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
 const root = new URL(".", import.meta.url);
 for (const args of [
     ["build.mjs"],
@@ -13,6 +14,7 @@ for (const args of [
     ["check-inspection-controller.mjs"],
     ["check-trace-controller.mjs"],
     ["check-capture-controller.mjs"],
+    ["check-capture-review.mjs"],
     ["check-evaluation-controller.mjs"],
     ["check-archive-controller.mjs"],
 ]) {
@@ -21,6 +23,12 @@ for (const args of [
             cwd: root,
             stdio: "inherit",
             shell: false,
+            env: {
+                ...process.env,
+                LOCALLORE_CHECK_OUTPUT_DIR:
+                    process.env.LOCALLORE_CHECK_OUTPUT_DIR ??
+                    fileURLToPath(new URL("artifacts/checks/", root)),
+            },
         });
         child.on("error", reject);
         child.on("exit", resolve);

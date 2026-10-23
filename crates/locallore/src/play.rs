@@ -147,8 +147,9 @@ fn remaining(clock: GameplayClock, overhead: Duration, deadline_ms: u64) -> Resu
 
 pub const PLAY_VERSION: u16 = 2;
 pub const NARRATION_POLICY: &str = "grounded-prose-v2.1";
-pub const PROMPT_VERSION: &str = "locallore-play-v2.2";
+pub const PROMPT_VERSION: &str = "locallore-play-v2.3";
 pub const RECORDED_PROMPT_VERSION: &str = "locallore-play-v2.1";
+const RECORDED_PROMPT_V2_2: &str = "locallore-play-v2.2";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -272,7 +273,11 @@ pub(crate) fn validate_record(
     if record.version != PLAY_VERSION
         || record.policy != NARRATION_POLICY
         || !(record.prompt_version == PROMPT_VERSION
-            || (recorded_history && record.prompt_version == RECORDED_PROMPT_VERSION))
+            || (recorded_history
+                && matches!(
+                    record.prompt_version.as_str(),
+                    RECORDED_PROMPT_VERSION | RECORDED_PROMPT_V2_2
+                )))
         || record.repairs > record.profile.repair_limit
         || record.stages.len() > 8
         || record.stages.iter().any(|s| {
@@ -529,8 +534,26 @@ fn director_schema_for(
     nearby: &BTreeMap<&String, &String>,
     inventory: &BTreeMap<&String, &Item>,
     player: &str,
+    guarded_action: Option<&Command>,
 ) -> Value {
     let mut schema = director_schema();
+    if let Some(command) = guarded_action {
+        // The same finite guard result already passed Engine preflight. Constrain generation
+        // to that request, but never substitute this value for the provider's actual output.
+        let fields = serde_json::to_value(command).expect("typed command serializes");
+        let fields = fields.as_object().expect("tagged command is an object");
+        let properties: serde_json::Map<String, Value> = fields
+            .iter()
+            .map(|(name, value)| (name.clone(), json!({"const": value})))
+            .collect();
+        let required: Vec<_> = fields.keys().collect();
+        schema["properties"]["commands"]["items"]["oneOf"] = json!([{
+            "type":"object", "properties":properties, "required":required,
+            "additionalProperties":false
+        }]);
+        schema["properties"]["commands"]["maxItems"] = json!(1);
+        return schema;
+    }
     let variants = schema["properties"]["commands"]["items"]["oneOf"]
         .as_array_mut()
         .expect("fixed director schema");
@@ -660,10 +683,10 @@ pub fn execute_traced(
     let Intent::FreeText { kind, text } = &request.intent else {
         return Err(Error::Agency);
     };
-    if matches!(kind, PlayInputKind::Action) {
+    let guarded_action = if matches!(kind, PlayInputKind::Action) {
         // Refuse unsupported/ambiguous syntax before spending model work. The
         // generated proposal must match again during preview, commit and replay.
-        trace.run(Stage::Validation, Outcome::Rejected, || {
+        Some(trace.run(Stage::Validation, Outcome::Rejected, || {
             let expected = crate::intent_guard::compile_action(engine, text)?;
             engine.preview(
                 request,
@@ -672,11 +695,14 @@ pub fn execute_traced(
                     scope: request.scope.clone(),
                     turn: request.turn.clone(),
                     expected_revision: request.expected_revision,
-                    commands: vec![expected],
+                    commands: vec![expected.clone()],
                 },
-            )
-        })?;
-    }
+            )?;
+            Ok(expected)
+        })?)
+    } else {
+        None
+    };
     let started = trace.clock();
     let mut stages = Vec::new();
     let compiled = trace.counted(
@@ -790,7 +816,7 @@ pub fn execute_traced(
             profile,
             "director",
             prompt,
-            director_schema_for(kind, text, &nearby, &inventory, &engine.seed().player),
+            director_schema_for(kind, text, &nearby, &inventory, &engine.seed().player, guarded_action.as_ref()),
                     remaining(started, overhead, profile.deadline_ms)?,
         );
         Ok(generation)

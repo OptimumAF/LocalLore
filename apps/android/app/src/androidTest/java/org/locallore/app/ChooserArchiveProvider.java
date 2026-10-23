@@ -1,10 +1,14 @@
 /* Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0 */
 package org.locallore.app;
 
+import android.content.ContentProvider;
+import android.content.ContentValues;
+import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.MatrixCursor;
+import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.CancellationSignal;
@@ -69,6 +73,92 @@ public final class ChooserArchiveProvider extends DocumentsProvider {
     private int testUid = -1;
     private Handler closeCallbacks;
 
+    private static final class Identity {
+        final int target;
+        final int test;
+        final String authority;
+        Identity(int target, int test, String authority) {
+            this.target = target; this.test = test; this.authority = authority;
+        }
+    }
+    private static Identity identity(Context context) {
+        if (context == null) throw new IllegalStateException("Fixture context unavailable");
+        String testPackage = context.getPackageName();
+        if (!testPackage.endsWith(".test")) throw new IllegalStateException("Fixture package invalid");
+        String targetPackage = testPackage.substring(0, testPackage.length() - 5);
+        try {
+            PackageManager manager = context.getPackageManager();
+            ApplicationInfo target = manager.getApplicationInfo(targetPackage, 0);
+            ApplicationInfo own = manager.getApplicationInfo(testPackage, 0);
+            if (own.uid != Process.myUid() || target.uid == own.uid) {
+                throw new IllegalStateException("Fixture identity invalid");
+            }
+            return new Identity(target.uid, own.uid, testPackage + ".chooser");
+        } catch (PackageManager.NameNotFoundException failure) {
+            throw new IllegalStateException("Fixture identity unavailable");
+        }
+    }
+
+    /**
+     * Ordinary test-only control provider, SAME process as the protected DocumentsProvider.
+     * Acquisition needs no MANAGE_DOCUMENTS; authentication precedes payload parsing and
+     * privileged acquisition. It cannot delegate any document, URI-grant or arbitrary call.
+     */
+    public static final class Control extends ContentProvider {
+        private Identity identity;
+        @Override public boolean onCreate() {
+            identity = ChooserArchiveProvider.identity(getContext());
+            return true;
+        }
+        @Override public Bundle call(String method, String arg, Bundle extras) {
+            int caller = Binder.getCallingUid();
+            if (caller != identity.target && caller != identity.test) {
+                throw new SecurityException("Fixture control denied");
+            }
+            if (arg != null) throw new IllegalArgumentException("Fixture arguments invalid");
+            Bundle payload = null;
+            if ("configure".equals(method)) {
+                byte[][] data = configuration(extras);
+                payload = new Bundle();
+                payload.putByteArray("archive", data[0]);
+                payload.putByteArray("future", data[1]);
+                payload.putByteArray("malformed", data[2]);
+            } else if ("stats".equals(method)) {
+                if (extras != null && !extras.isEmpty()) {
+                    throw new IllegalArgumentException("Fixture arguments invalid");
+                }
+            } else {
+                throw new IllegalArgumentException("Fixture operation unsupported");
+            }
+            Uri endpoint = new Uri.Builder().scheme("content").authority(identity.authority).build();
+            long previous = Binder.clearCallingIdentity();
+            try {
+                Bundle result = getContext().getContentResolver().call(endpoint, method, null, payload);
+                if (result == null) throw new IllegalStateException("Fixture control unavailable");
+                return result;
+            } finally {
+                Binder.restoreCallingIdentity(previous);
+            }
+        }
+        @Override public Cursor query(Uri uri, String[] projection, String selection,
+                String[] selectionArgs, String sortOrder) { throw unsupported(); }
+        @Override public String getType(Uri uri) { throw unsupported(); }
+        @Override public Uri insert(Uri uri, ContentValues values) { throw unsupported(); }
+        @Override public int delete(Uri uri, String selection, String[] selectionArgs) { throw unsupported(); }
+        @Override public int update(Uri uri, ContentValues values, String selection,
+                String[] selectionArgs) { throw unsupported(); }
+        @Override public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
+            throw new FileNotFoundException("Fixture control operation unsupported");
+        }
+        @Override public ParcelFileDescriptor openFile(Uri uri, String mode, CancellationSignal signal)
+                throws FileNotFoundException {
+            throw new FileNotFoundException("Fixture control operation unsupported");
+        }
+        private static UnsupportedOperationException unsupported() {
+            return new UnsupportedOperationException("Fixture control operation unsupported");
+        }
+    }
+
     private static final class Run {
         final String token;
         final File directory;
@@ -100,23 +190,10 @@ public final class ChooserArchiveProvider extends DocumentsProvider {
     }
 
     @Override public boolean onCreate() {
-        if (getContext() == null) throw new IllegalStateException("Fixture context unavailable");
-        String testPackage = getContext().getPackageName();
-        if (!testPackage.endsWith(".test")) throw new IllegalStateException("Fixture package invalid");
-        String targetPackage = testPackage.substring(0, testPackage.length() - 5);
-        try {
-            PackageManager manager = getContext().getPackageManager();
-            ApplicationInfo target = manager.getApplicationInfo(targetPackage, 0);
-            ApplicationInfo own = manager.getApplicationInfo(testPackage, 0);
-            if (own.uid != Process.myUid() || target.uid == own.uid) {
-                throw new IllegalStateException("Fixture identity invalid");
-            }
-            targetUid = target.uid;
-            testUid = own.uid;
-        } catch (PackageManager.NameNotFoundException failure) {
-            throw new IllegalStateException("Fixture identity unavailable");
-        }
-        authority = testPackage + ".chooser";
+        Identity identity = identity(getContext());
+        targetUid = identity.target;
+        testUid = identity.test;
+        authority = identity.authority;
         base = new File(getContext().getNoBackupFilesDir(), "chooser-archives-v1");
         HandlerThread callbacks = new HandlerThread("chooser-fixture-close");
         callbacks.start();
@@ -151,21 +228,19 @@ public final class ChooserArchiveProvider extends DocumentsProvider {
         }
         return ((byte[]) value).clone();
     }
-    private Bundle configure(Bundle extras) {
-        byte[] archive;
-        byte[] future;
-        byte[] malformed;
+    private static byte[][] configuration(Bundle extras) {
         try {
             if (extras == null || !extras.keySet().equals(new HashSet<>(Arrays.asList(
                     "archive", "future", "malformed")))) {
                 throw new IllegalArgumentException("Fixture arguments invalid");
             }
-            archive = bytes(extras, "archive");
-            future = bytes(extras, "future");
-            malformed = bytes(extras, "malformed");
+            return new byte[][] { bytes(extras, "archive"), bytes(extras, "future"), bytes(extras, "malformed") };
         } catch (RuntimeException failure) {
             throw new IllegalArgumentException("Fixture arguments invalid");
         }
+    }
+    private Bundle configure(Bundle extras) {
+        byte[][] data = configuration(extras);
         Run run;
         synchronized (gate) {
             for (Run previous : runs) {
@@ -192,9 +267,9 @@ public final class ChooserArchiveProvider extends DocumentsProvider {
                 File directory = new File(base, "run-" + token);
                 Files.createDirectory(directory.toPath()); // Never adopt an earlier run.
                 run = new Run(token, directory);
-                source(run, "valid", "Valid archive.json", "valid.json", archive);
-                source(run, "future", "Future archive.json", "future.json", future);
-                source(run, "malformed", "Malformed archive.json", "malformed.json", malformed);
+                source(run, "valid", "Valid archive.json", "valid.json", data[0]);
+                source(run, "future", "Future archive.json", "future.json", data[1]);
+                source(run, "malformed", "Malformed archive.json", "malformed.json", data[2]);
                 // Publish only a completely written synthetic run; failed/partial runs stay retained.
                 for (Entry entry : run.entries) documents.put(entry.id, entry);
                 runs.add(run);

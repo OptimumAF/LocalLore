@@ -1,0 +1,99 @@
+{
+  "aar_bytes": 20905360,
+  "aar_sha256": "05c6bdc8acda834efcca12c0ad5d06d2cd8c83e60770f056d8d222f699f3012b",
+  "artifact_gate": "eligible_for_runtime_test",
+  "classes_sha256": "0ff0098f64407752c115bf2569a7cd3005c894ecb934e7fdbcd744037f398ce8",
+  "classfile_majors": [
+    65
+  ],
+  "conservative_api_floor": 26,
+  "coordinate": "com.google.ai.edge.litertlm:litertlm-android:0.18.1",
+  "declared_dependencies": [
+    {
+      "artifactId": "gson",
+      "groupId": "com.google.code.gson",
+      "scope": "compile",
+      "version": "2.14.0"
+    },
+    {
+      "artifactId": "kotlin-reflect",
+      "groupId": "org.jetbrains.kotlin",
+      "scope": "compile",
+      "version": "2.4.0"
+    },
+    {
+      "artifactId": "kotlinx-coroutines-android",
+      "groupId": "org.jetbrains.kotlinx",
+      "scope": "compile",
+      "version": "1.11.0"
+    }
+  ],
+  "license_sha256": "ec40a2da15ab0e8b44a9f787ab210203d3cad32572f5f99744a88eb90ff9ba4e",
+  "manifest_min_sdk": 24,
+  "manifest_permissions": [],
+  "manifest_sha256": "5c007de9f6123fd372ced98e7c9c6fea1b1510f2dd4379b91ab078ecd5311625",
+  "native": [
+    {
+      "abi": "arm64-v8a",
+      "android_ident": {
+        "api": 26,
+        "ndk": "r29",
+        "ndk_build": "14206865"
+      },
+      "bytes": 22155680,
+      "elf_16k_load_alignment": true,
+      "load_alignments": [
+        16384,
+        16384,
+        16384
+      ],
+      "needed": [
+        "libandroid.so",
+        "libz.so",
+        "libGLESv2.so",
+        "libEGL.so",
+        "libGLESv3.so",
+        "liblog.so",
+        "libdl.so",
+        "libm.so",
+        "libc.so"
+      ],
+      "path": "jni/arm64-v8a/liblitertlm_jni.so",
+      "sha256": "cf4c55139c6fc86425ecfe75f8a907e6193ca665ecc19fbabcaba7ab361bdc43"
+    },
+    {
+      "abi": "x86_64",
+      "android_ident": {
+        "api": 26,
+        "ndk": "r29",
+        "ndk_build": "14206865"
+      },
+      "bytes": 26353160,
+      "elf_16k_load_alignment": true,
+      "load_alignments": [
+        16384,
+        16384,
+        16384
+      ],
+      "needed": [
+        "libandroid.so",
+        "libz.so",
+        "libGLESv2.so",
+        "libEGL.so",
+        "libGLESv3.so",
+        "liblog.so",
+        "libdl.so",
+        "libm.so",
+        "libc.so"
+      ],
+      "path": "jni/x86_64/liblitertlm_jni.so",
+      "sha256": "ba879b2b46be1f7e08df8c8365a276cfc54c1e21383090e058a24f25e603cdd7"
+    }
+  ],
+  "notice_sha256": "52a70c82685debf85d4ea9d677615b8636ffd3b75435ce71f247bf5982fb2ba2",
+  "pom_sha256": "3d6ea70f41bc6305c5985a52c5f5d00da97402d6531c9a395f3145cb5c1a89a5",
+  "runtime_load_verified": false,
+  "target_abi": "x86_64",
+  "target_api": 35,
+  "version": 1
+}

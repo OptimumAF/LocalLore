@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:allowBackup="false" android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/extraction_rules" android:icon="@drawable/spike_icon"
+        android:label="LocalLore SDK experiment" android:supportsRtl="true" />
+    <instrumentation android:name=".SpikeInstrumentation"
+        android:targetPackage="org.locallore.runtimebench.litert"
+        android:label="Explicit local SDK experiment" />
+</manifest>

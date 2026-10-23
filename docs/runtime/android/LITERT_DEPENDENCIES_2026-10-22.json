@@ -1,0 +1,234 @@
+{
+  "dependencies": [
+    {
+      "artifacts": [
+        {
+          "bytes": 20905360,
+          "file": "litertlm-android-0.18.1.aar",
+          "sha256": "05c6bdc8acda834efcca12c0ad5d06d2cd8c83e60770f056d8d222f699f3012b",
+          "url": "https://dl.google.com/dl/android/maven2/com/google/ai/edge/litertlm/litertlm-android/0.18.1/litertlm-android-0.18.1.aar"
+        },
+        {
+          "bytes": 1543,
+          "file": "litertlm-android-0.18.1.pom",
+          "sha256": "3d6ea70f41bc6305c5985a52c5f5d00da97402d6531c9a395f3145cb5c1a89a5",
+          "url": "https://dl.google.com/dl/android/maven2/com/google/ai/edge/litertlm/litertlm-android/0.18.1/litertlm-android-0.18.1.pom"
+        }
+      ],
+      "coordinate": "com.google.ai.edge.litertlm:litertlm-android:0.18.1",
+      "declared_pom_license_names": [
+        "The Apache Software License, Version 2.0"
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 22768,
+          "file": "gson-2.14.0.pom",
+          "sha256": "1fa0122c0e3733192642861c36be4c6f799a795327a23bdd2922691b6e9ba480",
+          "url": "https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.14.0/gson-2.14.0.pom"
+        },
+        {
+          "bytes": 313604,
+          "file": "gson-2.14.0.jar",
+          "sha256": "2cbd119bf1961c28788310963dc80ba65f58cdeec1dd139c8bdb1240faa2c36f",
+          "url": "https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.14.0/gson-2.14.0.jar"
+        }
+      ],
+      "coordinate": "com.google.code.gson:gson:2.14.0",
+      "declared_pom_license_names": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 4252,
+          "file": "error_prone_annotations-2.48.0.pom",
+          "sha256": "189e09ad0489c325e90daaa9d5c8f406330602fa366609bca07cbcdad03ab9da",
+          "url": "https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.48.0/error_prone_annotations-2.48.0.pom"
+        },
+        {
+          "bytes": 20255,
+          "file": "error_prone_annotations-2.48.0.jar",
+          "sha256": "b49c5c958316ed67a09c699dda9aa749caf434d51d863dea599ef36a49b9c855",
+          "url": "https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.48.0/error_prone_annotations-2.48.0.jar"
+        }
+      ],
+      "coordinate": "com.google.errorprone:error_prone_annotations:2.48.0",
+      "declared_pom_license_names": [
+        "Apache 2.0"
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 384581,
+          "file": "junit-4.13.2.jar",
+          "sha256": "8e495b634469d64fb8acfa3495a065cbacc8a0fff55ce1e31007be4c16dc57d3",
+          "url": "https://repo.maven.apache.org/maven2/junit/junit/4.13.2/junit-4.13.2.jar"
+        }
+      ],
+      "coordinate": "junit:junit:4.13.2",
+      "declared_pom_license_names": []
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 45024,
+          "file": "hamcrest-core-1.3.jar",
+          "sha256": "66fdef91e9739348df7a096aa384a5685f4e875584cce89386a7a47251c4d8e9",
+          "url": "https://repo.maven.apache.org/maven2/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.jar"
+        }
+      ],
+      "coordinate": "org.hamcrest:hamcrest-core:1.3",
+      "declared_pom_license_names": []
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 3750099,
+          "file": "kotlin-reflect-2.4.0.jar",
+          "sha256": "f0d8e8908624eb4478bb131e9f887366680d2e239741195e548fa5c906963b90",
+          "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/2.4.0/kotlin-reflect-2.4.0.jar"
+        },
+        {
+          "bytes": 1349,
+          "file": "kotlin-reflect-2.4.0.pom",
+          "sha256": "9e181ee4f21d49c5c8550c3cfca7199c17590a8df3d1ea293e396798e4f10842",
+          "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/2.4.0/kotlin-reflect-2.4.0.pom"
+        }
+      ],
+      "coordinate": "org.jetbrains.kotlin:kotlin-reflect:2.4.0",
+      "declared_pom_license_names": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 12389,
+          "file": "kotlin-stdlib-2.4.0.module",
+          "sha256": "c24a47dcbd9295d776f443be41d77ac245309601ed053711dee2b0254be02db6",
+          "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.4.0/kotlin-stdlib-2.4.0.module"
+        },
+        {
+          "bytes": 1841929,
+          "file": "kotlin-stdlib-2.4.0.jar",
+          "sha256": "ccb14ff83fabcb11458b798dbc9824748ccdffeec79c9aba789e6ed1cda86b1c",
+          "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.4.0/kotlin-stdlib-2.4.0.jar"
+        },
+        {
+          "bytes": 2299,
+          "file": "kotlin-stdlib-2.4.0.pom",
+          "sha256": "8194ff79a9ee24a7fa3f74a6b179c04a1859de8b987a4f0983056e59451721de",
+          "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.4.0/kotlin-stdlib-2.4.0.pom"
+        }
+      ],
+      "coordinate": "org.jetbrains.kotlin:kotlin-stdlib:2.4.0",
+      "declared_pom_license_names": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 17819,
+          "file": "kotlinx-coroutines-android-1.11.0.jar",
+          "sha256": "c2cb206d27017c7d1bf5ff179787397543d13748dbabb0d7237e1585e0b29044",
+          "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-android/1.11.0/kotlinx-coroutines-android-1.11.0.jar"
+        },
+        {
+          "bytes": 4387,
+          "file": "kotlinx-coroutines-android-1.11.0.module",
+          "sha256": "7b7d1dddf188817deaad738e92e11faa5abdf937c87120cdf036102566ad4be3",
+          "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-android/1.11.0/kotlinx-coroutines-android-1.11.0.module"
+        },
+        {
+          "bytes": 2194,
+          "file": "kotlinx-coroutines-android-1.11.0.pom",
+          "sha256": "224567420d3e0ed5fef40f789fded45dfd51b162319e28d77d3c9a8dec4821b8",
+          "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-android/1.11.0/kotlinx-coroutines-android-1.11.0.pom"
+        }
+      ],
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0",
+      "declared_pom_license_names": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 4279,
+          "file": "kotlinx-coroutines-bom-1.11.0.pom",
+          "sha256": "f65860bce58a2bfadf05fdc516d38333421f0e387fef87e24449c0394c80d254",
+          "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.11.0/kotlinx-coroutines-bom-1.11.0.pom"
+        }
+      ],
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.11.0",
+      "declared_pom_license_names": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 2168,
+          "file": "kotlinx-coroutines-core-jvm-1.11.0.pom",
+          "sha256": "dd54b97aa3fab91fc24f5df2916c22be9429a339d2f45b7ff092332f6c19dc39",
+          "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.11.0/kotlinx-coroutines-core-jvm-1.11.0.pom"
+        },
+        {
+          "bytes": 1577052,
+          "file": "kotlinx-coroutines-core-jvm-1.11.0.jar",
+          "sha256": "d1d75aa01dffbb4d1c520e67e4c4e7f5f6174718e7cb4632412503f2f0e604fa",
+          "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.11.0/kotlinx-coroutines-core-jvm-1.11.0.jar"
+        },
+        {
+          "bytes": 4454,
+          "file": "kotlinx-coroutines-core-jvm-1.11.0.module",
+          "sha256": "5b255653ad6b1f21e0c46108605f129e3aa56ed9414849cc9f5b436441517528",
+          "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.11.0/kotlinx-coroutines-core-jvm-1.11.0.module"
+        }
+      ],
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.11.0",
+      "declared_pom_license_names": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 2030,
+          "file": "kotlinx-coroutines-core-1.11.0.pom",
+          "sha256": "41b6e78c1b0d11bc99de795390df9e4ece64dc113f482d6e308f1b7a421c1d30",
+          "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core/1.11.0/kotlinx-coroutines-core-1.11.0.pom"
+        },
+        {
+          "bytes": 47152,
+          "file": "kotlinx-coroutines-core-1.11.0.module",
+          "sha256": "1e19785d34728b7525d7a77ff32ead4547d51cc7a45d4ac44d4de608169b0c0d",
+          "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core/1.11.0/kotlinx-coroutines-core-1.11.0.module"
+        }
+      ],
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0",
+      "declared_pom_license_names": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 29371,
+          "file": "annotations-23.0.0.jar",
+          "sha256": "7b0f19724082cbfcbc66e5abea2b9bc92cf08a1ea11e191933ed43801eb3cd05",
+          "url": "https://repo.maven.apache.org/maven2/org/jetbrains/annotations/23.0.0/annotations-23.0.0.jar"
+        }
+      ],
+      "coordinate": "org.jetbrains:annotations:23.0.0",
+      "declared_pom_license_names": []
+    }
+  ],
+  "scope": "isolated_android_experiment_not_production",
+  "version": 1
+}

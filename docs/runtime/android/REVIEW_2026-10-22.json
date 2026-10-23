@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "checked_date": "2026-10-22",
+  "scope": "Independent synthetic host ownership review; coordinator source snapshot, not a final integrated commit or emulator result",
+  "source_snapshot": [
+    {
+      "path": "benchmarks/android_runtime_spike.py",
+      "bytes": 29651,
+      "sha256": "da32afe3170ca7c559dc682126958ca44dca4111419f5d664be515ed58648822"
+    },
+    {
+      "path": "benchmarks/spike/android/controller/remote_owner.c",
+      "bytes": 5836,
+      "sha256": "bb244457080768b8d5416acd4a2f91f062aa802d780d74c7e20af088f5ed3caf"
+    },
+    {
+      "path": "benchmarks/spike/android/controller/build.py",
+      "bytes": 1696,
+      "sha256": "352f6258396ca2af25a34f86af29f39e0da3612a7084ffe390d1cd27938f3748"
+    },
+    {
+      "path": "benchmarks/test_android_runtime_ownership_review.py",
+      "bytes": 16238,
+      "sha256": "d3b94146ff0b10d8014241cc00d84ff710304c3e53bcd102b0af00110c0149f6"
+    }
+  ],
+  "checks": [
+    {
+      "command": "python -B -m unittest discover -s benchmarks -p test_android_runtime_ownership_review.py -v",
+      "passed": 20,
+      "failed": 0,
+      "uses_adb": false,
+      "uses_model": false
+    },
+    {
+      "command": "LiteRT Android artifact audit unit suite",
+      "passed": 8,
+      "failed": 0,
+      "uses_adb": false,
+      "uses_model": false
+    },
+    {
+      "command": "llama Android build/ELF audit unit suite",
+      "passed": 13,
+      "failed": 0,
+      "uses_adb": false,
+      "uses_model": false
+    },
+    {
+      "command": "python -B -m unittest discover -s ../LocalLore/benchmarks -p test_android_runtime_spike.py -v",
+      "passed": 7,
+      "failed": 0,
+      "uses_adb": false,
+      "uses_model": false
+    }
+  ],
+  "limits": [
+    "No Android process or native SDK execution by reviewer",
+    "Coordinator must rerun integrated tests after any source changes",
+    "No physical-device or production profile qualification"
+  ],
+  "followup": "Five SDK/package/transfer ownership regressions added; transfer TimeoutExpired reproduced before correction; final independent suite passed20"
+}

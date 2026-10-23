@@ -1,0 +1,20 @@
+{
+  "apk_bytes": 51442039,
+  "apk_requested_permissions": [],
+  "apk_sha256": "a74b05b9123d43fda42989814cd57f9a27b95dac44bd66445ac1208250710f25",
+  "apk_zip_16k_alignment": "passed",
+  "assembly": "passed",
+  "build_helper_exit": 2,
+  "d8": "passed",
+  "device_tests_run_by_this_agent": 0,
+  "jvm_errors": 0,
+  "jvm_failures": 0,
+  "jvm_tests": 14,
+  "lint_dependency_metadata_analysis": "limited_kotlin_2.4_expected_2.1",
+  "lint_report": "No issues found",
+  "phone_qualified": false,
+  "python_failures": 0,
+  "python_tests": 12,
+  "scope": "agent_host_build_and_artifact_checks_only",
+  "version": 1
+}

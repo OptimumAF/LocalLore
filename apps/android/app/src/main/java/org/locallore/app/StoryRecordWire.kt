@@ -100,7 +100,7 @@ internal object StoryRecordWire {
                 require(query.section == StoryRecordSection.HISTORY && origin == StoryRecordOrigin.RECORDED_MESSAGE)
                 val kind = row.text("message_kind").also { require(it in setOf("original_input", "narration")) }
                 val ids = row.getJSONArray("event_ids").also { require(it.length() <= 64) }
-                row.text("turn", 512)
+                require(validStoryRecordTurn(row.text("turn", 64)))
                 val eventIds = (0 until ids.length()).map { ids.integer(it).also { id -> require(id <= query.context.revision) } }
                 require(eventIds.isNotEmpty() && eventIds.toSet().size == eventIds.size)
                 StoryRecordEntry(key, if (kind == "original_input") "Recorded player input" else "Recorded narration",
@@ -116,7 +116,7 @@ internal object StoryRecordWire {
                 val witnesses = event.getJSONArray("witnesses")
                 require(strings(witnesses).contains("player"))
                 strings(event.getJSONArray("participants"))
-                val turn = event.text("turn", 512).also { require(it.isNotEmpty()) }
+                val turn = event.text("turn", 64).also { require(validStoryRecordTurn(it)) }
                 StoryRecordEntry(key, "Event #$sequence", effect(event.getJSONObject("consequence"), query.context.revision),
                     origin, listOf("Event #$sequence"), listOf(sequence), StoryRecordEvent(sequence, turn, event.number("story_time")))
             }

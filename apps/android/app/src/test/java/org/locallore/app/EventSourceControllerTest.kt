@@ -83,6 +83,9 @@ class EventSourceControllerTest {
             { it.copy(entries = listOf(field())) },
             { it.copy(entries = listOf(it.entries.single().copy(event = StoryRecordEvent(3, "wrong-event", 100)))) },
             { it.copy(entries = listOf(it.entries.single().copy(event = StoryRecordEvent(2, "", 100)))) },
+            { it.copy(entries = listOf(it.entries.single().copy(event = StoryRecordEvent(2, "   ", 100)))) },
+            { it.copy(entries = listOf(it.entries.single().copy(event = StoryRecordEvent(2, "bad\nturn", 100)))) },
+            { it.copy(entries = listOf(it.entries.single().copy(event = StoryRecordEvent(2, "x".repeat(65), 100)))) },
             { it.copy(entries = listOf(it.entries.single().copy(event = StoryRecordEvent(2, "turn-id", 1001)))) },
         )
         for (change in changes) {

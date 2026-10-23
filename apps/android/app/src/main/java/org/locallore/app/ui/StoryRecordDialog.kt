@@ -69,7 +69,7 @@ fun StoryRecordDialog(
     val canQuery = state.context != null && !state.loading
 
     Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (state.eventDetail != null) onEventBack() else onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(

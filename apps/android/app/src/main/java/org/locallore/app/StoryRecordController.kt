@@ -143,10 +143,13 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         if (entry.origin == StoryRecordOrigin.RECORDED_OBSERVATION) {
             val event = checkNotNull(entry.event)
             check(query.section == StoryRecordSection.HISTORY && event.sequence in 1..query.context.revision &&
-                event.storyTime in 0..time && event.turn.isNotEmpty() && entry.eventSources == listOf(event.sequence))
+                event.storyTime in 0..time && validStoryRecordTurn(event.turn) && entry.eventSources == listOf(event.sequence))
         } else check(entry.event == null)
     }
 }
 
 internal fun validStoryRecordSearch(text: String) =
     text.toByteArray(Charsets.UTF_8).size <= STORY_RECORD_SEARCH_BYTES && text.none { it.isISOControl() }
+
+internal fun validStoryRecordTurn(value: String) = value.length in 1..64 &&
+    value.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '-' || it == '_' }

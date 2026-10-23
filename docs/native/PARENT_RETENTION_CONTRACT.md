@@ -1,8 +1,8 @@
 # Parent retirement and retained timelines
 
 Refs #12 (M08.05, supporting M08.01/M08.04/M08.06). Implemented in the shared
-Store, Host/native adapter and Android shell; owner acceptance is recorded on
-the ticket. See [ADR-0009](../adr/0009-retained-parent-deletion.md).
+Store, Host/native adapter and Android shell; owner acceptance remains pending
+on the ticket. See [ADR-0009](../adr/0009-retained-parent-deletion.md).
 
 ## Canonical ownership and migration
 

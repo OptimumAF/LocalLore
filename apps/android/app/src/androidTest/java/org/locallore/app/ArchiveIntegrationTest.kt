@@ -111,7 +111,7 @@ class ArchiveIntegrationTest {
                     assertEquals(original.messages, imported.messages)
                     assertEquals(original.revision, imported.revision)
                     assertEquals(original.potionOwner, imported.potionOwner)
-                    assertEquals(2, imported.databaseSchemaVersion)
+                    assertEquals(3, imported.databaseSchemaVersion)
                     assertTrue(gateway.respond(DemoAction.GIVE_POTION, imported.revision, DemoMode.ACCEPTED) is DemoResult.Rejected)
                     assertEquals(imported.messages, gateway.snapshot().messages)
                 } finally { gateway.close() }

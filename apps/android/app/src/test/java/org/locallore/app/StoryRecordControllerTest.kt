@@ -121,13 +121,21 @@ class StoryRecordControllerTest {
     }
 
     @Test fun laterPagesCannotChangeTheFrozenCountOrStoryClock() = runTest {
-        for (changeTime in listOf(false, true)) {
+        for (changeTime in listOf(false, true)) for (transportFailure in listOf(false, true)) {
+            var laterReads = 0
             val controller = StoryRecordController({ q ->
                 if (q.cursor == null) page(q, "cursor-1")
-                else if (changeTime) page(q).copy(storyTime = 4) else page(q).copy(total = 3)
+                else {
+                    laterReads++
+                    if (transportFailure && laterReads == 1) error("PRIVATE transport failure")
+                    if (changeTime) page(q).copy(storyTime = 4) else page(q).copy(total = 3)
+                }
             }, this)
             controller.open(context); advanceUntilIdle()
             controller.next(); advanceUntilIdle()
+            assertEquals(StoryRecordProblem.INVALID_RESPONSE, controller.state.value.problem)
+            assertTrue(controller.state.value.entries.isEmpty())
+            controller.retry(); advanceUntilIdle()
             assertEquals(StoryRecordProblem.INVALID_RESPONSE, controller.state.value.problem)
             assertTrue(controller.state.value.entries.isEmpty())
         }

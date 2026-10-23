@@ -15,6 +15,7 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
     private var generation = 0L
     private var pending: Job? = null
     private var disposed = false
+    private var pageBoundary: Pair<StoryRecordQuery, Pair<Int, Long>>? = null
 
     fun open(context: StoryRecordContext) {
         if (!disposed) load(StoryRecordQuery(context))
@@ -45,8 +46,9 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         if (!disposed && !current.loading) load(StoryRecordQuery(context, current.section, current.search, current.cursor))
     }
     private fun load(query: StoryRecordQuery) {
-        val previous = mutable.value.takeIf { query.cursor != null && it.context == query.context &&
-            it.section == query.section && it.search == query.search && it.problem == null && !it.loading }
+        val identity = query.copy(cursor = null)
+        if (query.cursor == null || pageBoundary?.first != identity) pageBoundary = null
+        val boundary = pageBoundary?.second
         val ticket = ++generation
         pending?.cancel()
         mutable.value = StoryRecordState(visible = true, loading = true, context = query.context,
@@ -62,9 +64,10 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
                 check(page.query == query && page.storyTime >= 0 && page.total in 0..65536)
                 check(page.entries.size <= STORY_RECORD_PAGE_ROWS && page.total >= page.entries.size)
                 check(page.entries.map { it.key }.toSet().size == page.entries.size)
-                if (previous != null) check(page.total == previous.total && page.storyTime == previous.storyTime)
+                if (boundary != null) check(page.total == boundary.first && page.storyTime == boundary.second)
                 check(page.nextCursor == null || (page.nextCursor != query.cursor && page.entries.isNotEmpty() &&
                     page.nextCursor.toByteArray(Charsets.UTF_8).size in 1..128))
+                pageBoundary = identity to (page.total to page.storyTime)
                 mutable.value = mutable.value.copy(loading = false, storyTime = page.storyTime, total = page.total,
                     entries = page.entries.map { it.copy(sources = it.sources.toList()) },
                     nextCursor = page.nextCursor, limitations = page.limitations.toList())
@@ -79,6 +82,7 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         generation++
         pending?.cancel()
         pending = null
+        pageBoundary = null
         mutable.value = StoryRecordState()
     }
     fun dispose() { disposed = true; dismiss() }

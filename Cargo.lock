@@ -146,6 +146,7 @@ version = "0.1.0"
 dependencies = [
  "jni",
  "locallore",
+ "locallore-workspace",
  "serde",
  "serde_json",
 ]
@@ -156,6 +157,15 @@ version = "0.1.0"
 dependencies = [
  "locallore",
  "rusqlite",
+ "serde_json",
+]
+
+[[package]]
+name = "locallore-workspace"
+version = "0.1.0"
+dependencies = [
+ "locallore",
+ "locallore-storage",
  "serde_json",
 ]
 

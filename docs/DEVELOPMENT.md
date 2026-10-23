@@ -53,7 +53,10 @@ Its [dependency inventory and official compatibility sources](storage/SOURCES_20
 cover exact rusqlite/libsqlite3-sys pins, bundled SQLite and C build helpers.
 Shared root-turn save/resume is implemented by the [durability follow-on](storage/DURABILITY.md),
 with model-free restart/retry/fault tests and an explicit `durable_smoke` example.
-App adapters have not yet switched from in-memory sessions.
+Both app adapters now open the shared native workspace factory on background IO
+workers. See [application storage integration](storage/APP_INTEGRATION.md) for
+paths, restart semantics, tests and remaining limits. In-memory Hosts remain
+available for explicit fixtures; production startup errors never select that fallback.
 
 Verified 2026-10-22 using official registry metadata, installed package manifests
 and `cargo metadata --locked --format-version 1`. All dependencies build with

@@ -7,12 +7,20 @@ the transcript; the inspector shows accepted events, requests and player-state
 differences. Play uses player context. Story Lab explicitly reveals spoilers and
 can inspect character or omniscient context without granting author mutations.
 
-Fake inference and in-memory-only progress remain visible. Up to four fixture
-sessions and their drafts live in this process. Cancel preserves a draft;
-reset/close discards the session; closing the app loses all progress. Arbitrary
-story generation, model choice/import, free-text interpretation, durable saves,
-export and author edits are unavailable. Real runtime spikes elsewhere in the
-repository are not integrated into this shell.
+Fake inference remains explicit. The production app stores accepted turns in
+`stories-v1.sqlite` under Tauri's app-local data directory, outside the source
+checkout. Startup resumes the first stable saved story; the library can resume
+any listed story. The saved workspace details show its actual path and schema.
+Close releases a live session and retains its save. New and Reset create distinct
+saved stories and retain earlier history. Up to four sessions can be open.
+Unsubmitted composer text remains session-local; submitted uncommitted requests
+are durable but are never automatically committed or cancelled on resume.
+Storage/replay errors appear explicitly with no temporary-memory fallback.
+
+Arbitrary story generation, model choice/import, free-text interpretation, export
+and author edits are unavailable. Real runtime spikes elsewhere in the repository
+are not integrated into this shell. Save files are local app data; OS-level backup,
+access control and device security still apply.
 
 See [ADR-0006](../../docs/adr/0006-desktop-host.md),
 [host-v1](../../docs/desktop/HOST_V1.md),
@@ -55,6 +63,7 @@ text; it cannot execute HTML, load external images or grant debug privileges.
 ```powershell
 npm --prefix apps/desktop run check
 npm --prefix apps/desktop run format:check
+npm --prefix apps/desktop run harness:durable
 npm --prefix apps/desktop run harness:native
 npm --prefix apps/desktop run harness:headless
 python scripts/check.py host --offline
@@ -73,7 +82,9 @@ First headless provisioning only: from `apps/desktop`, run
 `node node_modules/playwright/cli.js install chromium`. It downloads a public
 development browser. Native harness rendering requires only installed WebView2.
 The harness commands launch their own hidden native app or headless browser,
-exercise the same controller, and save synthetic JSON plus app-only PNGs under
+exercise the same controller. The durable native journey uses one synthetic SQLite
+database through app-owned WebView close/reopen and a separate executable process
+restart. The legacy D02 journeys explicitly retain memory fixtures. All runners and save synthetic JSON plus app-only PNGs under
 ignored `artifacts/`. They never activate a window, inject desktop input or
 capture the desktop. Native and headless evidence are labeled separately.
 

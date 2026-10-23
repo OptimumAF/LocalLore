@@ -22,11 +22,24 @@ export interface Context {
     beliefs: Json[];
 }
 export interface PlayView {
+    rules?: string;
     revision: number;
     scope: Scope;
     player: Context;
     inventory: Record<string, Json>;
     receipts: Receipt[];
+}
+export interface SavedStory {
+    scope: Scope;
+    title: string;
+    revision: number;
+    drafts: number;
+}
+export interface Workspace {
+    persistent: boolean;
+    location: string;
+    schema_version: number;
+    stories: SavedStory[];
 }
 export interface Session {
     id: string;
@@ -59,6 +72,8 @@ export interface Diff {
     after: Json;
 }
 export interface State {
+    workspace: Workspace | null;
+    starting: boolean;
     sessions: Session[];
     selectedId: string | null;
     view: "play" | "lab";
@@ -86,6 +101,23 @@ export interface State {
 }
 export const PAGE_SIZE = 12;
 export const categories = new Set([
+    "ForeignDatabase",
+    "BackupRequired",
+    "BackupExists",
+    "InvalidSeed",
+    "DuplicateStory",
+    "NotFound",
+    "Database",
+    "Integrity",
+    "Full",
+    "Io",
+    "InvalidInput",
+    "FutureVersion",
+    "SchemaMismatch",
+    "Storage",
+    "StorageUnavailable",
+    "Corrupt",
+    "Conflict",
     "Version",
     "Scope",
     "Stale",
@@ -257,6 +289,7 @@ export function playView(
         view.player?.revision !== revision ||
         view.player.observer !== "player" ||
         !view.player.self_state ||
+        (view.rules !== undefined && typeof view.rules !== "string") ||
         !view.inventory ||
         typeof view.inventory !== "object" ||
         !Array.isArray(view.receipts) ||

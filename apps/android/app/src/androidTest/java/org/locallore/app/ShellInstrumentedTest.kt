@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -24,6 +25,9 @@ class ShellInstrumentedTest {
             !ViewModelProvider(compose.activity)[ShellViewModel::class.java].state.value.busy
         }
         compose.waitForIdle()
+    }
+    @Before fun freshSavedStory() {
+        idle(); tag("reset-demo").performClick(); idle()
     }
     private fun choose(mode: DemoMode) {
         tag("mode-menu").performClick()
@@ -75,9 +79,8 @@ class ShellInstrumentedTest {
     @Test fun cancelAndResetDuringDelayCannotPublishOldResult() {
         choose(DemoMode.DELAYED); give()
         tag("cancel-turn").performClick(); idle()
-        tag("notice").assertTextContains("cancelled", substring = true)
+        tag("notice").assertTextContains("accepted saved history", substring = true)
         assertInitial()
-        give()
         tag("reset-demo").performClick(); idle()
         assertInitial()
         give(); idle()
@@ -88,22 +91,19 @@ class ShellInstrumentedTest {
         give(); idle()
         compose.activityRule.scenario.recreate(); idle()
         tag("potion-owner").assertTextEquals("Healing potion · Mira")
-        tag("reset-demo").performClick()
+        tag("reset-demo").performClick(); idle()
         choose(DemoMode.DELAYED); give()
         compose.activityRule.scenario.recreate(); idle()
         assertInitial()
-        tag("notice").assertTextContains("cancelled", substring = true)
+        tag("notice").assertTextContains("accepted saved history", substring = true)
     }
 
-    @Test fun activityDisposalCancelsNativeWorkerAndReleasesTheSession() {
-        choose(DemoMode.DELAYED); give()
-        fun count(field: String) = NativeBridge.exchange(0, NativeBridge.control("stats")).getInt(field)
-        compose.waitUntil(3_000) { count("workers") == 1 }
+    @Test fun activityDisposalRetainsDurableSavedStoryAndTranscript() {
+        give(); idle()
+        val before = ViewModelProvider(compose.activity)[ShellViewModel::class.java].state.value
+        val path = java.io.File(checkNotNull(before.storageLocation))
+        assertTrue(path.isFile)
         compose.activityRule.scenario.close()
-        val deadline = android.os.SystemClock.elapsedRealtime() + 3_000
-        while (listOf("live_sessions", "retained_sessions", "operations", "workers").any { count(it) != 0 }) {
-            check(android.os.SystemClock.elapsedRealtime() < deadline)
-            android.os.SystemClock.sleep(5)
-        }
+        assertTrue("Disposal must retain the workspace database", path.isFile)
     }
 }

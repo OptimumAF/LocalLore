@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import org.locallore.app.DemoAction
 import org.locallore.app.DemoMode
 import org.locallore.app.ShellState
+import org.locallore.app.SavedStory
 
 private val Paper = Color(0xFFF8F5EC)
 private val Ink = Color(0xFF202D2A)
@@ -58,6 +59,8 @@ fun LocalLoreScreen(
     onCancel: () -> Unit,
     onReset: () -> Unit,
     onDiagnostics: () -> Unit = {},
+    onResume: (SavedStory) -> Unit = {},
+    onRecover: () -> Unit = {},
     overlay: @Composable () -> Unit = {},
 ) {
     MaterialTheme(
@@ -99,9 +102,10 @@ fun LocalLoreScreen(
                                 )
                                 TextButton(
                                     onClick = onReset,
+                                    enabled = !state.busy,
                                     modifier = Modifier.heightIn(min = 48.dp)
                                         .testTag("reset-demo"),
-                                ) { Text("Reset demo") }
+                                ) { Text(if (state.persistent) "New story" else "Reset demo") }
                             }
                             Text(
                                 "Local Rust engine · fake inference",
@@ -109,10 +113,39 @@ fun LocalLoreScreen(
                                 color = MutedInk,
                             )
                             Text(
-                                "In-memory session · no saved progress",
+                                if (state.persistent) "Local saved progress · schema ${state.schemaVersion ?: "opening"}"
+                                    else "In-memory session · no saved progress",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MutedInk,
                             )
+                            state.storageLocation?.let { location ->
+                                Text(location, style = MaterialTheme.typography.labelSmall, color = MutedInk,
+                                    modifier = Modifier.testTag("storage-location"))
+                            }
+                            state.selectedStory?.let { story ->
+                                Text("Rules · ${state.rulesProfile ?: "unknown"} · ${story.story} / ${story.branch} · head ${state.revision}",
+                                    style = MaterialTheme.typography.labelSmall, color = MutedInk,
+                                    modifier = Modifier.testTag("workspace-detail"))
+                            }
+                            if (state.uncommittedDrafts > 0) Text(
+                                "${state.uncommittedDrafts} uncommitted response(s). They are retained outside accepted history.",
+                                style = MaterialTheme.typography.bodySmall, color = MutedInk)
+                            if (state.persistent && state.stories.isNotEmpty()) {
+                                var libraryExpanded by remember { mutableStateOf(false) }
+                                Box {
+                                    TextButton(onClick = { libraryExpanded = true }, enabled = !state.busy,
+                                        modifier = Modifier.testTag("saved-library")) {
+                                        Text("Saved stories · ${state.stories.size} · ${state.selectedStory?.story.orEmpty()}")
+                                    }
+                                    DropdownMenu(expanded = libraryExpanded && !state.busy,
+                                        onDismissRequest = { libraryExpanded = false }) {
+                                        state.stories.forEach { story ->
+                                            DropdownMenuItem(text = { Text("${story.title} · ${story.story} · revision ${story.revision}") },
+                                                onClick = { libraryExpanded = false; onResume(story) })
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                     item(key = "scene") {
@@ -178,6 +211,10 @@ fun LocalLoreScreen(
                     }
                     item(key = "actions") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (state.persistent && state.recoveryRequired) OutlinedButton(
+                                onClick = onRecover, enabled = !state.busy,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("recover-save"),
+                            ) { Text("Recover saved progress") }
                             AnimatedVisibility(visible = state.busy) {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Row(
@@ -190,14 +227,14 @@ fun LocalLoreScreen(
                                             strokeWidth = 2.dp,
                                         )
                                         Text(
-                                            "Preparing local response…",
+                                            if (state.preparingResponse) "Preparing local response…" else "Opening saved progress…",
                                             style = MaterialTheme.typography.bodyMedium,
                                             modifier = Modifier.testTag("busy-status").semantics {
                                                 liveRegion = LiveRegionMode.Polite
                                             },
                                         )
                                     }
-                                    OutlinedButton(
+                                    if (state.preparingResponse) OutlinedButton(
                                         onClick = onCancel,
                                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                             .testTag("cancel-turn"),

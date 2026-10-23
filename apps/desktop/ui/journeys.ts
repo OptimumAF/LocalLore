@@ -84,7 +84,10 @@ interface Options {
     errors: ErrorBuffer;
     invoke: (name: string, args?: Record<string, unknown>) => Promise<unknown>;
     dispose: () => Promise<void>;
-    config: { backend: "native" | "headless"; stage: "initial" | "reopened" };
+    config: {
+        backend: "native" | "headless";
+        stage: "initial" | "reopened" | "restart";
+    };
 }
 export async function journeys({
     controller: c,

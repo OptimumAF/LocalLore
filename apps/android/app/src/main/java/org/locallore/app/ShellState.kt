@@ -4,14 +4,29 @@ package org.locallore.app
 enum class DemoAction { GIVE_POTION, TRY_ABILITY }
 enum class DemoMode { ACCEPTED, MALFORMED, REJECTED, DELAYED, FAILED }
 data class SceneMessage(val id: Long, val text: String, val isPlayer: Boolean)
+data class SavedStory(val story: String, val branch: String, val title: String, val revision: Long)
+data class SavedSnapshot(
+    val revision: Long, val potionOwner: String, val messages: List<SceneMessage>,
+    val location: String, val schemaVersion: Int, val stories: List<SavedStory>, val selected: SavedStory,
+    val uncommittedDrafts: Int = 0,
+    val rulesProfile: String = "unknown",
+)
 data class ShellState(
     val busy: Boolean = false,
+    val preparingResponse: Boolean = false,
     val revision: Long = 0,
     val potionOwner: String = "You",
     val messages: List<SceneMessage> = emptyList(),
     val notice: String? = null,
     val mode: DemoMode = DemoMode.ACCEPTED,
     val recoveryRequired: Boolean = false,
+    val persistent: Boolean = false,
+    val storageLocation: String? = null,
+    val schemaVersion: Int? = null,
+    val stories: List<SavedStory> = emptyList(),
+    val selectedStory: SavedStory? = null,
+    val uncommittedDrafts: Int = 0,
+    val rulesProfile: String? = null,
 )
 
 sealed interface DemoResult {
@@ -27,4 +42,12 @@ fun interface DemoGateway {
     fun cancel() {}
     fun reset() {}
     fun close() {}
+    val durable: Boolean get() = false
+    suspend fun initialize(): SavedSnapshot? = null
+    suspend fun snapshot(): SavedSnapshot? = null
+    suspend fun commitAsync(result: DemoResult): DemoResult = commit(result)
+    suspend fun createSaved(): SavedSnapshot? { reset(); return null }
+    suspend fun resumeSaved(story: SavedStory): SavedSnapshot? = null
+    suspend fun recoverSaved(): SavedSnapshot? = snapshot()
+    suspend fun cancelSaved(): SavedSnapshot? { cancel(); return snapshot() }
 }

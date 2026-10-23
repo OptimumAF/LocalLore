@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.json.JSONObject
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -20,6 +21,7 @@ class DiagnosticsIntegrationTest {
         return compose.onNodeWithTag(name)
     }
     private fun idle() { compose.waitUntil(8_000) { !model().state.value.busy }; compose.waitForIdle() }
+    @Before fun freshSavedStory() { idle(); tag("reset-demo").performClick(); idle() }
     private fun gift() { tag("give-potion").performClick(); idle() }
     private fun preview() { tag("open-diagnostics").performClick(); compose.onNodeWithTag("diagnostics-dialog").assertIsDisplayed() }
 
@@ -35,7 +37,7 @@ class DiagnosticsIntegrationTest {
         assertEquals(0, JSONObject(model().diagnostics.value.preview).getInt("count"))
         compose.onNodeWithTag("diagnostics-close").performClick()
         assertEquals(1L, model().state.value.revision)
-        assertEquals("Mira", model().state.value.potionOwner)
+        assertEquals("Not in your inventory", model().state.value.potionOwner)
     }
 
     @Test fun reviewedSnapshotAndPendingConsentSurviveActivityRecreation() {

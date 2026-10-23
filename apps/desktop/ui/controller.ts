@@ -18,6 +18,8 @@ import type {
     PlayView,
     Request,
     Session,
+    Scope,
+    Workspace,
     State,
     TurnStatus,
 } from "./model";
@@ -32,6 +34,8 @@ interface Operation {
 }
 export class Controller {
     private state: State = {
+        workspace: null,
+        starting: false,
         sessions: [],
         selectedId: null,
         view: "play",
@@ -69,7 +73,7 @@ export class Controller {
     constructor(
         readonly gateway: Gateway,
         readonly errors = new ErrorBuffer(),
-        private prefix = "desktop",
+        private prefix = `desktop-${crypto.randomUUID()}`,
     ) {}
     get = () => this.state;
     subscribe = (listener: () => void) => {
@@ -100,6 +104,113 @@ export class Controller {
         const value = category(error);
         this.errors.add("frontend", value);
         this.patch({ visibleError: value });
+    }
+    async library() {
+        const value = (await this.gateway.call({
+            op: "workspace",
+        })) as Workspace;
+        if (
+            !value ||
+            value.persistent !== true ||
+            typeof value.location !== "string" ||
+            value.schema_version !== 1 ||
+            !Array.isArray(value.stories) ||
+            value.stories.length > 256 ||
+            value.stories.some(
+                (s) =>
+                    !s.scope ||
+                    typeof s.title !== "string" ||
+                    !Number.isSafeInteger(s.revision),
+            )
+        )
+            throw new Error("Wire");
+        this.patch({ workspace: value });
+        return value;
+    }
+    async start() {
+        this.patch({ starting: true, visibleError: null });
+        try {
+            const workspace = await this.library();
+            // Shared library ordering is deterministic story-ID ordering.
+            if (workspace.stories.length)
+                await this.resume(workspace.stories[0].scope);
+            else await this.create();
+        } catch (error) {
+            this.fail(error);
+        } finally {
+            this.patch({ starting: false });
+        }
+    }
+    async resume(scope: Scope) {
+        const existing = this.state.sessions.find((s) =>
+            sameScope(s.scope, scope),
+        );
+        if (existing) {
+            await this.switchSession(existing.id);
+            return;
+        }
+        if (this.state.sessions.length >= 4) {
+            this.fail("SessionLimit");
+            return;
+        }
+        if (this.state.selectedId)
+            this.drafts.set(this.state.selectedId, this.state.draft);
+        await this.invalidate();
+        const epoch = this.epoch;
+        try {
+            const reply = (await this.gateway.call({
+                op: "resume",
+                scope,
+            })) as {
+                session: string;
+                scope: Scope;
+                revision: number;
+                drafts?: number;
+            };
+            if (this.state.disposed || epoch !== this.epoch) {
+                await this.gateway.call({
+                    op: "close",
+                    session: reply.session,
+                    scope: reply.scope,
+                });
+                return;
+            }
+            if (
+                !sameScope(reply.scope, scope) ||
+                typeof reply.session !== "string" ||
+                !Number.isSafeInteger(reply.revision)
+            )
+                throw new Error("Wire");
+            const saved = this.state.workspace?.stories.find((s) =>
+                sameScope(s.scope, scope),
+            );
+            const session = {
+                id: reply.session,
+                scope,
+                revision: reply.revision,
+                name: saved?.title ?? "Lantern Quay",
+            };
+            this.patch({
+                sessions: [...this.state.sessions, session],
+                selectedId: session.id,
+                draft: "",
+                play: null,
+                pending: null,
+                turnStatus: null,
+                receiptTurn: null,
+                diff: [],
+                diffRevision: null,
+                visibleError: null,
+                page: 0,
+                notice:
+                    (reply.drafts ?? saved?.drafts ?? 0) > 0
+                        ? "Saved uncommitted requests exist. They are not automatically committed or cancelled."
+                        : "Resumed validated saved history.",
+            });
+            await this.refresh();
+        } catch (error) {
+            if (epoch === this.epoch) this.fail(error);
+        }
     }
     async create() {
         if (this.state.selectedId)
@@ -140,10 +251,13 @@ export class Controller {
                 diff: [],
                 diffRevision: null,
                 visibleError: null,
-                notice: "New in-memory session. Nothing is saved to disk.",
+                notice: this.state.workspace
+                    ? "New saved story. Earlier stories are retained."
+                    : "New in-memory test session.",
                 page: 0,
             });
             await this.refresh();
+            if (this.state.workspace) await this.library();
         } catch (error) {
             if (epoch === this.epoch) this.fail(error);
         }
@@ -584,7 +698,9 @@ export class Controller {
             if (!status.receipt) throw new Error("Wire");
             this.patch({
                 receiptTurn: status.receipt.request.turn,
-                notice: "Committed by the local Rust engine.",
+                notice: this.state.workspace
+                    ? "Committed and saved by the local Rust engine."
+                    : "Committed by the local Rust engine.",
             });
             if (
                 op.request.intent.kind === "dialogue" &&
@@ -600,6 +716,7 @@ export class Controller {
         )
             this.unresolved = null;
         await this.refresh();
+        if (this.state.workspace) await this.library();
         if (
             this.current(op) &&
             status.phase === "committed" &&
@@ -718,6 +835,7 @@ export class Controller {
             session = this.selected();
         return {
             version: 1,
+            workspace: s.workspace,
             synthetic: true,
             uiRevision: s.play?.revision ?? 0,
             view: s.view,
@@ -735,6 +853,7 @@ export class Controller {
                           observer: s.inspectionObserver,
                           data: s.inspection,
                       },
+            rules: s.play?.rules ?? null,
             player: s.play?.player ?? null,
             inventory: s.play?.inventory ?? null,
             transcript: {

@@ -9,7 +9,7 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Exercises the production gateway, including its IO coroutine and actual JNI registry. */
+/** Legacy in-memory fixture boundary; production durable JNI ownership is in DurableNativeTest. */
 @RunWith(AndroidJUnit4::class)
 class NativeLifecycleOwnershipTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()

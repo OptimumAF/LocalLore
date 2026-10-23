@@ -554,3 +554,8 @@ summary {
         transition: none !important;
     }
 }
+
+.storage-path {
+    overflow-wrap: anywhere;
+    font-size: 0.78rem;
+}

@@ -342,6 +342,33 @@ impl Store {
     pub fn fail_turn(&mut self, request: &Request) -> Result<TurnRecord> {
         self.finish_draft(request, "failed", TurnPhase::Failed)
     }
+    pub fn stale_turn(&mut self, request: &Request) -> Result<TurnRecord> {
+        self.finish_draft(request, "stale", TurnPhase::Stale)
+    }
+    /// Recover a persisted idempotency key without requiring an untrusted caller to supply its
+    /// original request. Scope/key and complete canonical history are still validated together.
+    pub fn lookup_turn(&mut self, scope: &Scope, turn: &str) -> Result<TurnRecord> {
+        if turn.is_empty() || turn.len() > 64 {
+            return Err(TurnError::UnknownTurn);
+        }
+        let tx = self.connection.transaction()?;
+        let resumed = read_engine(&tx, scope)?;
+        let input: Option<String> = tx
+            .query_row(
+                "SELECT request_json FROM turns WHERE story_id=?1 AND branch_id=?2 AND turn_id=?3",
+                (&scope.story, &scope.branch, turn),
+                |r| r.get(0),
+            )
+            .optional()?;
+        let request: Request = serde_json::from_str(&input.ok_or(TurnError::UnknownTurn)?)
+            .map_err(|_| TurnError::Integrity)?;
+        if request.scope != *scope || request.turn != turn {
+            return Err(TurnError::Integrity);
+        }
+        let saved = recorded(&tx, &request, &resumed.engine)?.ok_or(TurnError::Integrity)?;
+        tx.commit()?;
+        Ok(saved)
+    }
     fn finish_draft(
         &mut self,
         request: &Request,

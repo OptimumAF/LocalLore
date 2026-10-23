@@ -45,7 +45,16 @@ pub fn oracle(receipts: &Value) -> Value {
     json!({"equal":true,"revision":engine.revision(),"receipts":rows.len()})
 }
 pub fn run() {
-    let host = Arc::new(Host::new(true));
+    let host = Arc::new(
+        if std::env::var("LOCALLORE_TEST_MEMORY").as_deref() == Ok("1") {
+            Host::new(true)
+        } else {
+            let path = std::path::PathBuf::from(
+                std::env::var_os("LOCALLORE_TEST_WORKSPACE").expect("TestWorkspaceMissing"),
+            );
+            locallore_workspace::open(&path, true).expect("TestWorkspaceUnavailable")
+        },
+    );
     let output = Arc::new(Mutex::new(std::io::stdout()));
     let workers = Arc::new(AtomicUsize::new(0));
     let mut handles = vec![];

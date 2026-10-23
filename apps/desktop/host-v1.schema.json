@@ -210,6 +210,31 @@
           "additionalProperties": false,
           "properties": {
             "op": {
+              "const": "workspace",
+              "type": "string"
+            }
+          },
+          "required": ["op"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "resume",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            }
+          },
+          "required": ["op", "scope"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
               "const": "create",
               "type": "string"
             },

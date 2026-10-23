@@ -1,6 +1,8 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Rust's sole SQLite owner for validated seeds and atomic root-history turns.
+mod catalog;
 mod turns;
+pub use catalog::StorySummary;
 use locallore::{
     contracts::{Scope, Seed},
     engine::Engine,
@@ -258,6 +260,9 @@ impl Store {
         })
     }
     pub fn create_story(&mut self, title: &str, seed: Seed) -> Result<()> {
+        self.create_story_bounded(title, seed, false)
+    }
+    fn create_story_bounded(&mut self, title: &str, seed: Seed, bounded: bool) -> Result<()> {
         if title.is_empty() || title.chars().count() > 256 || title.contains('\0') {
             return Err(StorageError::InvalidInput);
         }
@@ -270,6 +275,12 @@ impl Store {
         let transaction = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if bounded
+            && transaction.query_row("SELECT count(*) FROM stories", [], |r| r.get::<_, i64>(0))?
+                >= 256
+        {
+            return Err(StorageError::InvalidInput);
+        }
         if transaction
             .query_row(
                 "SELECT 1 FROM stories WHERE story_id=?1",

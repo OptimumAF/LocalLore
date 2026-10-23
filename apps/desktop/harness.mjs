@@ -58,6 +58,11 @@ if (mode === "native") {
         env: {
             ...process.env,
             LOCALLORE_D02_HARNESS: "1",
+            LOCALLORE_TEST_MEMORY: "1",
+            LOCALLORE_TEST_WORKSPACE: path.join(
+                directory,
+                "legacy-unused.sqlite",
+            ),
             LOCALLORE_D02_ARTIFACT_DIR: directory,
         },
     });
@@ -71,6 +76,7 @@ if (mode === "native") {
             this.child = spawn(executable, ["--host-stdio"], {
                 cwd: root,
                 stdio: ["pipe", "pipe", "ignore"],
+                env: { ...process.env, LOCALLORE_TEST_MEMORY: "1" },
                 shell: false,
             });
             this.closed = new Promise((r) => this.child.once("exit", r));
@@ -173,7 +179,7 @@ if (mode === "native") {
     ]);
     await page.route("**/*", async (route) => {
         const url = new URL(route.request().url());
-        if (url.origin !== "http://locallore.test") {
+        if (url.origin !== "https://locallore.test") {
             unexpected.push("ExternalRequest");
             return route.abort();
         }
@@ -246,7 +252,7 @@ if (mode === "native") {
                 case "harness_reopen":
                     await bridge.close();
                     bridge = new Bridge();
-                    await page.goto("http://locallore.test/?reopened=1", {
+                    await page.goto("https://locallore.test/?reopened=1", {
                         waitUntil: "domcontentloaded",
                     });
                     return null;
@@ -285,7 +291,7 @@ if (mode === "native") {
     });
     let timeout;
     try {
-        await page.goto("http://locallore.test/", {
+        await page.goto("https://locallore.test/", {
             waitUntil: "domcontentloaded",
         });
         const pass = await Promise.race([

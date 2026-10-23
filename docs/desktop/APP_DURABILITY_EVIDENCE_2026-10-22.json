@@ -1,0 +1,140 @@
+{
+  "synthetic": true,
+  "passed": true,
+  "desktopControl": false,
+  "actualProcessRestart": true,
+  "sourceRevision": "1a18d12393082dc83186e3af24080d04d63b0b85",
+  "sourceDirty": false,
+  "captures": 11,
+  "checks": [
+    "real-workspace-schema-v1",
+    "actual-storage-path-reported",
+    "fresh-synthetic-root-is-empty",
+    "first-start-creates-saved-original-story",
+    "authoritative-rules-profile-before-first-turn",
+    "durable-ui-has-no-ephemeral-save-label",
+    "accepted-turn-committed-and-saved",
+    "only-authoritative-receipt-displayed",
+    "saved-head-rejects-stale-request",
+    "stale-request-does-not-append",
+    "cancel-does-not-create-canonical-receipt",
+    "cancel-retains-unsent-composer-text",
+    "startup-resumes-first-stable-library-entry",
+    "saved-story-listed-after-reopen",
+    "uncommitted-request-survives-with-warning-no-auto-commit",
+    "two-canonical-receipts-survive-reopen",
+    "spent-inventory-survives-reopen",
+    "old-exact-turn-retry-returns-stored-receipt",
+    "restart-retry-does-not-double-apply",
+    "resumed-receipts-equal-direct-engine",
+    "unsent-draft-is-explicitly-session-local",
+    "owned-resources-released",
+    "lost-commit-ack-is-unknown",
+    "uncertain-retry-resolves-original-key-once",
+    "close-keeps-saved-story",
+    "explicit-library-resume-restores-transcript",
+    "new-creates-distinct-story",
+    "new-retains-earlier-save",
+    "reset-keeps-previous-saves",
+    "submitted-uncommitted-request-is-durable",
+    "new-process-uses-distinct-turn-key",
+    "storage-open-failure-is-visible-no-memory-fallback",
+    "storage-failure-rendered-in-app"
+  ],
+  "reports": [
+    {
+      "stage": "initial",
+      "report": {
+        "backend": "native",
+        "checks": [
+          "real-workspace-schema-v1",
+          "actual-storage-path-reported",
+          "startup-resumes-first-stable-library-entry",
+          "saved-story-listed-after-reopen",
+          "uncommitted-request-survives-with-warning-no-auto-commit",
+          "two-canonical-receipts-survive-reopen",
+          "spent-inventory-survives-reopen",
+          "old-exact-turn-retry-returns-stored-receipt",
+          "restart-retry-does-not-double-apply",
+          "resumed-receipts-equal-direct-engine",
+          "unsent-draft-is-explicitly-session-local",
+          "owned-resources-released"
+        ],
+        "errors": [],
+        "passed": true,
+        "stage": "reopened",
+        "synthetic": true
+      }
+    },
+    {
+      "stage": "restart",
+      "report": {
+        "backend": "native",
+        "checks": [
+          "real-workspace-schema-v1",
+          "actual-storage-path-reported",
+          "startup-resumes-first-stable-library-entry",
+          "saved-story-listed-after-reopen",
+          "uncommitted-request-survives-with-warning-no-auto-commit",
+          "two-canonical-receipts-survive-reopen",
+          "spent-inventory-survives-reopen",
+          "old-exact-turn-retry-returns-stored-receipt",
+          "restart-retry-does-not-double-apply",
+          "resumed-receipts-equal-direct-engine",
+          "unsent-draft-is-explicitly-session-local",
+          "new-process-uses-distinct-turn-key",
+          "owned-resources-released"
+        ],
+        "errors": [],
+        "passed": true,
+        "stage": "restart",
+        "synthetic": true
+      }
+    },
+    {
+      "stage": "storage-failure",
+      "report": {
+        "backend": "native",
+        "checks": [
+          "storage-open-failure-is-visible-no-memory-fallback",
+          "storage-failure-rendered-in-app"
+        ],
+        "errors": [
+          {
+            "category": "Io",
+            "source": "native"
+          },
+          {
+            "category": "Io",
+            "source": "frontend"
+          }
+        ],
+        "passed": true,
+        "stage": "storage-failure",
+        "synthetic": true
+      }
+    }
+  ],
+  "inputSHA256": {
+    "ui/controller.ts": "8be353448bc1e4f385fb937dd93d7224dae3441f13bcb8fdbdb64c6e96e715b3",
+    "ui/model.ts": "daaa769a8cf0513c2ed4b1bb6f7304e6300192d3083e918654b0e85a9a47ff2c",
+    "ui/durable-journeys.ts": "2b47d02640157f3f433d5f2f07b7e1883ec5563a8f4b5566267c48b164d541aa",
+    "ui/App.tsx": "8ef6e79e7b89c456203fc01ea2d92fa5907b25d05f374c8284f67280fd0d51ed",
+    "ui/main.tsx": "5eb2765acddf84389ac11e511982a6a80388d914c25c320c711a8ebc13580228",
+    "src-tauri/src/main.rs": "8c72b95f56125a84a7a0c22c722e39f84ce28700b60559a18edd597f23d27576",
+    "src-tauri/Cargo.lock": "77df8d6270b03672a89fe5bc29ffbd774e9c497b0a678f14b645dfb9bedf0f11",
+    "src-tauri/Cargo.toml": "2997d59d78574dd4c0096f5e153f392cba5e4965ec4b0c4c6882104f2a7a40f3",
+    "host-v1.schema.json": "520e5e5d1cbf4ea04ec605d2780aca64f594c8271a53b46cbd20e9a52be85a70",
+    "dist/app.js": "9266f38ef543915b4af83995b1f4ef3d0d57d940df94251465da9bad1e5eed92",
+    "src-tauri/target/debug/locallore-desktop-spike.exe": "be916a67d1e265ce9929e2b2b6732c69473a8d2e6fa1d639b84f47304f2eb348",
+    "src-tauri/src/test_bridge.rs": "4399f40459d6ae850cfa41ba57a1b2d3ccc93611c3cf6398d70de4143d7661ba",
+    "src-tauri/src/harness.rs": "7d41c2da5ee25854ca8592c7e2f88657dc0ad116e61bd5ffb9ae329642e0074c",
+    "src-tauri/src/lease.rs": "6618d0d2a31df5ac482db454d707d1534ea4bc971395dd59c1ea5524b6b75e26",
+    "ui/host.generated.ts": "64b7010e22aee8d8c754fd5ef3ddcc19c58b814a74668b9e6b66297f57f6a7d2",
+    "durable-harness.mjs": "5882efaede919fd1c8bb1c866f538fdb1b36c19da5bea423d3767e681a6b17cf",
+    "../../crates/locallore/src/host.rs": "57796d6c8bfec5ad290e5368d95bc94961393025cc6c328745da95057f6c1e0d",
+    "../../crates/locallore-workspace/src/lib.rs": "2c8e0d8a36943ce70d1f8d5d6924930536941b00a36b78be7cf6a28999ec2928",
+    "../../crates/locallore-storage/src/catalog.rs": "ef893b10589569527bee213a8197173397ecb696a85a34fffcead40529f13cfc",
+    "../../crates/locallore-storage/src/turns.rs": "6d996029d7f5489ad3fbe7fa675af3b3bed387d4032f50ff2bd840ce46f5530d"
+  }
+}

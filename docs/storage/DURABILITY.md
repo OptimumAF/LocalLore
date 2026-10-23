@@ -107,11 +107,12 @@ policy. No upload occurs. Consistent backup uses the existing SQLite backup API,
 including WAL handling; no live main-file copy is introduced. No new dependency,
 migration or permission is added by the turn layer.
 
-Compose JNI and desktop host still use in-memory sessions. Next is an adapter
-slice that opens this Store on its owning worker and routes begin/status/commit/
-resume through it, with scoped native/app lifecycle tests. D03 owns workspace
-library/path policy and readable exports; this core change does not claim a
-working UI save button, archive format, author correction or milestone closure.
+The subsequent [application adapter slice](APP_INTEGRATION.md) opens this Store
+on background workers and routes Compose JNI and desktop begin/status/commit/
+resume through it, with saved-story library/path policy and native lifecycle
+tests. The original core turn layer remains independently testable. Readable
+inspection exports, archive formats and author corrections are separate work;
+current acceptance remains on #8 and #24.
 
 Primary behavior references checked 2026-10-22:
 [SQLite transactions](https://www.sqlite.org/lang_transaction.html),

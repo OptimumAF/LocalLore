@@ -10,6 +10,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 locallore = { path = "../locallore" }
+locallore-workspace = { path = "../locallore-workspace" }
 serde.workspace = true
 serde_json.workspace = true
 

@@ -252,6 +252,7 @@ pub struct WorkspaceBranch {
     pub fork_revision: Option<u64>,
     pub revision: u64,
     pub drafts: usize,
+    pub retired: bool,
 }
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub struct WorkspaceBranchCatalog {
@@ -267,6 +268,10 @@ pub struct SavedTurn {
     pub receipt: Option<Receipt>,
 }
 pub trait Persistence: Send {
+    /// Recheck public target admission even before returning process-cached work.
+    fn validate_scope(&mut self, _scope: &Scope) -> Result<(), String> {
+        Ok(())
+    }
     /// Actual SQLite implementation version; workspace host-v1 contract stays separate.
     fn database_schema_version(&self) -> u32 {
         1
@@ -491,6 +496,26 @@ impl Host {
         });
         // Clear outstanding trace handles too; no retained per-story metadata survives.
         self.trace.lock().unwrap().clear();
+    }
+    /// Remove only retired/collected targets. Retained descendant sessions stay live.
+    pub fn invalidate_branches(&self, story: &str, branches: &[String]) {
+        let mut state = self.state.lock().unwrap();
+        let mut owners = Vec::new();
+        state.sessions.retain(|_, session| {
+            let scope = session.engine.scope();
+            if scope.story != story || !branches.contains(&scope.branch) {
+                return true;
+            }
+            owners.push(session.trace_owner.clone());
+            for turn in session.turns.values() {
+                turn.cancel.cancel();
+            }
+            false
+        });
+        let mut trace = self.trace.lock().unwrap();
+        for owner in owners {
+            trace.clear_owner(&owner);
+        }
     }
     /// Trusted adapter lifecycle evidence, without story content or wire authority.
     pub fn live_counts(&self) -> (usize, usize) {
@@ -1781,13 +1806,25 @@ fn get_session<'a>(
     id: &str,
     scope: &Scope,
 ) -> Result<&'a mut Session, Value> {
-    let Some(s) = state.sessions.get_mut(id) else {
+    let Some(s) = state.sessions.get(id) else {
         return Err(reject("Closed"));
     };
     if s.engine.scope() != scope {
         return Err(reject("Scope"));
     }
-    Ok(s)
+    if let Some(port) = state.persistence.as_mut() {
+        if let Err(error) = port.validate_scope(scope) {
+            if error == "NotFound" {
+                if let Some(session) = state.sessions.remove(id) {
+                    for turn in session.turns.values() {
+                        turn.cancel.cancel();
+                    }
+                }
+            }
+            return Err(reject(error));
+        }
+    }
+    Ok(state.sessions.get_mut(id).unwrap())
 }
 fn refresh_session(state: &mut State, id: &str, scope: &Scope) -> Result<(), Value> {
     get_session(state, id, scope)?;

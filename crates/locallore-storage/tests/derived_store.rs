@@ -58,7 +58,7 @@ fn historical_v1(path: &std::path::Path) -> (Scope, Receipt) {
     let initial = include_str!("../migrations/001_initial.sql");
     let header = initial.split("CREATE TABLE stories").next().unwrap();
     let db = Connection::open(path).unwrap();
-    db.execute_batch(&format!("BEGIN; DROP TABLE derived_memory; DROP TABLE schema_migrations; {header} PRAGMA user_version=1; COMMIT;")).unwrap();
+    db.execute_batch(&format!("BEGIN; DROP TABLE branch_retention; DROP TABLE derived_memory; DROP TABLE schema_migrations; {header} PRAGMA user_version=1; COMMIT;")).unwrap();
     assert_eq!(
         Store::open_read_only(path)
             .unwrap()
@@ -115,7 +115,7 @@ fn actual_v1_migration_preserves_history_and_backup_is_exact_read_only_v1() {
             .info()
             .unwrap()
             .schema_version,
-        2
+        SCHEMA_VERSION
     );
 }
 
@@ -129,7 +129,7 @@ fn application_open_backs_up_once_and_never_adopts_tampered_v1() {
         std::fs::read_dir(&dir.0)
             .unwrap()
             .filter_map(Result::ok)
-            .filter(|entry| entry.file_name().to_string_lossy().contains(".before-v2-"))
+            .filter(|entry| entry.file_name().to_string_lossy().contains(".before-v3-"))
             .count()
     };
     assert_eq!(backups(), 1);

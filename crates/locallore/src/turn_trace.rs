@@ -446,6 +446,11 @@ impl TraceRing {
     pub fn clear(&mut self) {
         self.attempts.clear();
     }
+    /// Trusted native teardown; cannot clear another session's metadata.
+    pub fn clear_owner(&mut self, owner: &TraceOwner) {
+        self.attempts
+            .retain(|attempt| !same_owner(attempt.capture_owner.as_ref(), Some(owner)));
+    }
     pub fn request_full_capture(&self) -> HookStatus {
         HookStatus::Unsupported
     }

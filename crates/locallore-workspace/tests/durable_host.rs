@@ -52,7 +52,7 @@ fn real_shared_host_save_resume_and_original_turn_lookup() {
     let workspace = call(&h, json!({"op":"workspace"}));
     assert_eq!(workspace["data"]["persistent"], true);
     assert_eq!(workspace["data"]["schema_version"], 1);
-    assert_eq!(workspace["data"]["database_schema_version"], 2);
+    assert_eq!(workspace["data"]["database_schema_version"], 3);
     assert_eq!(
         call(
             &h,

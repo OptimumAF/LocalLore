@@ -25,6 +25,8 @@ pub struct BranchSummary {
     pub fork_revision: Option<u64>,
     pub revision: u64,
     pub drafts: usize,
+    /// Original ancestry remains visible as metadata but is never selectable.
+    pub retired: bool,
 }
 
 type Result<T> = std::result::Result<T, TurnError>;
@@ -101,6 +103,13 @@ impl Store {
                         .map_err(|_| TurnError::Integrity)?,
                     revision: head.try_into().map_err(|_| TurnError::Integrity)?,
                     drafts: drafts.try_into().map_err(|_| TurnError::Integrity)?,
+                    retired: crate::retention_state::retired(
+                        &tx,
+                        &Scope {
+                            story: story.into(),
+                            branch: row.get(0)?,
+                        },
+                    )?,
                 });
             }
         }
@@ -108,24 +117,25 @@ impl Store {
             .iter()
             .find(|b| b.scope.branch == root_branch)
             .ok_or(TurnError::Integrity)?;
-        if root.parent_branch.is_some() || root.fork_revision.is_some() {
+        if root.parent_branch.is_some() || root.fork_revision.is_some() || root.retired {
             return Err(TurnError::Integrity);
         }
         for branch in &branches {
             check(cancel)?;
-            let replayed = turns::read_engine(&tx, &branch.scope).map_err(|error| match error {
-                TurnError::Engine(_) | TurnError::Storage(StorageError::NotFound) => {
-                    TurnError::Integrity
-                }
-                other => other,
-            })?;
+            let replayed =
+                turns::read_engine_retained(&tx, &branch.scope).map_err(|error| match error {
+                    TurnError::Engine(_) | TurnError::Storage(StorageError::NotFound) => {
+                        TurnError::Integrity
+                    }
+                    other => other,
+                })?;
             if replayed.engine.revision() != branch.revision {
                 return Err(TurnError::Integrity);
             }
             check(cancel)?;
         }
         let result = BranchCatalog {
-            version: 1,
+            version: 2,
             story_id: story.into(),
             title,
             root_branch,

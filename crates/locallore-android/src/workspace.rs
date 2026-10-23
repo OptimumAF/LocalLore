@@ -157,6 +157,29 @@ impl WorkspaceRegistry {
         }
         Ok(deleted)
     }
+    pub fn with_branch_deletion<T>(
+        &self,
+        database: &Path,
+        story: &str,
+        delete: impl FnOnce() -> Result<(T, Vec<String>), &'static str>,
+    ) -> Result<T, &'static str> {
+        let _mutation = self.mutation.lock().map_err(|_| "Internal")?;
+        let database = database.canonicalize().map_err(|_| "Io")?;
+        let leases: Vec<_> = self
+            .entries
+            .lock()
+            .map_err(|_| "Internal")?
+            .leases
+            .values()
+            .filter(|lease| lease.database == database)
+            .cloned()
+            .collect();
+        let (deleted, invalidated) = delete()?;
+        for lease in leases {
+            lease.host.invalidate_branches(story, &invalidated);
+        }
+        Ok(deleted)
+    }
 }
 
 #[cfg(test)]

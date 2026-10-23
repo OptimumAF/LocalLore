@@ -6,9 +6,7 @@ pub mod archive_capacity_fixture;
 mod archive_full_tests;
 mod branch_catalog;
 mod branch_retention;
-pub use branch_retention::{
-    BranchDeletionOutcome, BranchDeletionPreview, PreparedBranchDeletion,
-};
+pub use branch_retention::{BranchDeletionOutcome, BranchDeletionPreview, PreparedBranchDeletion};
 mod branches;
 mod retention_state;
 pub use branch_catalog::{BranchCatalog, BranchSummary};

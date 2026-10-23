@@ -273,7 +273,7 @@ fn storage_metadata(reply: &Value, cleanup: Value) -> Result<Value, String> {
     if reply["data"]["schema_version"] != 1
         || !matches!(
             reply["data"]["database_schema_version"].as_u64(),
-            Some(1 | 2)
+            Some(1 | 2 | 3)
         )
     {
         return Err("Wire".into());

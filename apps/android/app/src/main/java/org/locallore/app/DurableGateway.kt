@@ -47,7 +47,7 @@ internal class DurableGateway(
     }
     private suspend fun workspace(): JSONObject = call(command("workspace")).also {
         check(it.getBoolean("persistent") && it.getInt("schema_version") == 1)
-        check(it.getInt("database_schema_version") == 2)
+        check(it.getInt("database_schema_version") == 3)
         it.getString("location")
         it.getJSONArray("stories")
     }
@@ -114,7 +114,7 @@ internal class DurableGateway(
         val workspace = workspace()
         // Host-v1's workspace contract and the SQLite implementation have separate versions.
         val databaseSchema = workspace.getInt("database_schema_version")
-        check(databaseSchema == 2)
+        check(databaseSchema == 3)
         val stories = workspace.getJSONArray("stories").let { rows -> (0 until rows.length()).map {
             val row = rows.getJSONObject(it); val s = row.getJSONObject("scope")
             SavedStory(s.getString("story"), s.getString("branch"), row.getString("title"), row.getLong("revision"))
@@ -270,14 +270,15 @@ private fun decodeTimelines(data: JSONObject, root: SavedStory): List<SavedTimel
         return (raw as Number).toLong().also { check(it >= 0) }
     }
     fields(data, setOf("version", "story_id", "title", "root_branch", "branches"))
-    check(count(data, "version") == 1L && text(data, "story_id") == root.story)
+    check(count(data, "version") == 2L && text(data, "story_id") == root.story)
     check(text(data, "title") == root.title && text(data, "root_branch") == root.branch)
     check(timelineId.matches(root.story) && timelineId.matches(root.branch))
     val rows = data.get("branches") as? JSONArray ?: error("Wire")
     check(rows.length() in 1..256)
+    val retiredBranches = mutableSetOf<String>()
     val timelines = (0 until rows.length()).map { index ->
         val row = rows.get(index) as? JSONObject ?: error("Wire")
-        fields(row, setOf("scope", "parent_branch", "fork_revision", "revision", "drafts"))
+        fields(row, setOf("scope", "parent_branch", "fork_revision", "revision", "drafts", "retired"))
         val itemScope = row.get("scope") as? JSONObject ?: error("Wire")
         fields(itemScope, setOf("story", "branch"))
         val story = text(itemScope, "story")
@@ -288,6 +289,11 @@ private fun decodeTimelines(data: JSONObject, root: SavedStory): List<SavedTimel
         val fork = if (row.isNull("fork_revision")) null else count(row, "fork_revision")
         val head = count(row, "revision")
         val drafts = count(row, "drafts")
+        val retired = row.get("retired") as? Boolean ?: error("Wire")
+        if (retired) {
+            check(branch != root.branch && drafts == 0L)
+            retiredBranches.add(branch)
+        }
         check(drafts <= 4096 && (parent == null) == (fork == null))
         check((branch == root.branch) == (parent == null) && (fork == null || fork <= head))
         SavedTimeline(story, branch, parent, fork, head, drafts.toInt())
@@ -306,7 +312,7 @@ private fun decodeTimelines(data: JSONObject, root: SavedStory): List<SavedTimel
             cursor = ancestor
         }
     }
-    java.util.Collections.unmodifiableList(timelines)
+    java.util.Collections.unmodifiableList(timelines.filter { it.branch !in retiredBranches })
 } catch (_: Exception) {
     throw WorkspaceFailure("Malformed")
 }

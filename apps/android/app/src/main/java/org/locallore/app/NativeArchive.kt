@@ -31,6 +31,8 @@ internal object NativeArchive {
     external fun commitImport(handle: Long, token: Long): ByteArray
     external fun prepareDelete(handle: Long, request: ByteArray): ByteArray
     external fun commitDelete(handle: Long, token: Long): ByteArray
+    external fun prepareBranchDelete(handle: Long, request: ByteArray): ByteArray
+    external fun commitBranchDelete(handle: Long, token: Long): ByteArray
     external fun cancel(handle: Long)
     external fun close(handle: Long)
 }
@@ -162,22 +164,23 @@ internal object ArchiveNativeWire {
         val p = data.getJSONObject("preview")
         p.keysExactly("version", "story_id", "title", "root_branch", "branch_heads", "committed_turns", "draft_turns",
             "noncommitted_turns", "derived_packets", "rows", "privacy_warning")
-        require(p.integer("version") == 1L)
+        val version = p.integer("version").also { require(it in 1..2) }
         val root = p.identifier("root_branch")
         val h = p.getJSONObject("branch_heads")
         require(h.length() in 1..256)
         val heads = h.keys().asSequence().associateWith { require(validArchiveId(it)); h.integer(it) }
         require(root in heads)
         val r = p.getJSONObject("rows")
-        r.keysExactly("derived_memory", "event_witnesses", "accepted_events", "turns", "branch_projections",
-            "branch_entities", "entities", "branches", "stories")
+        val tables = listOf("derived_memory", "event_witnesses", "accepted_events", "turns", "branch_projections",
+            "branch_entities", "entities", "branches", "stories") + if (version == 2L) listOf("branch_retention") else emptyList()
+        r.keysExactly(*tables.toTypedArray())
         val rows = r.keys().asSequence().associateWith { r.integer(it) }
         val committed = p.integer("committed_turns"); val noncommitted = p.integer("noncommitted_turns")
         val drafts = p.integer("draft_turns"); val derived = p.integer("derived_packets")
         require(rows.getValue("stories") == 1L && rows.getValue("branches") == heads.size.toLong())
         require(committed <= rows.getValue("turns") && noncommitted == rows.getValue("turns") - committed)
         require(drafts <= noncommitted && derived == rows.getValue("derived_memory"))
-        StoryDeletionPrepared(token, StoryDeletionPreview(1, p.identifier("story_id"), p.text("title", 1024),
+        StoryDeletionPrepared(token, StoryDeletionPreview(version.toInt(), p.identifier("story_id"), p.text("title", 1024),
             root, heads, committed, drafts, noncommitted, derived, rows, p.text("privacy_warning", 4096)))
     }
     fun deleted(bytes: ByteArray): StoryDeleted = decoded(bytes) { data ->
@@ -189,9 +192,11 @@ internal object ArchiveNativeWire {
         data.keysExactly("token", "preview")
         val token = data.integer("token").also { require(it > 0) }
         val preview = data.getJSONObject("preview")
-        preview.keysExactly("version", "story_id", "title", "root_branch", "branch_heads", "committed_turns", "bytes",
-            "payload_sha256", "privacy_warning", "noncommitted_workflow_transferred")
-        require(preview.integer("version") == 1L)
+        val version = preview.integer("version").also { require(it in 1..2) }
+        val fields = listOf("version", "story_id", "title", "root_branch", "branch_heads", "committed_turns", "bytes",
+            "payload_sha256", "privacy_warning", "noncommitted_workflow_transferred") +
+            if (version == 2L) listOf("retired_branch_ids") else emptyList()
+        preview.keysExactly(*fields.toTypedArray())
         val story = preview.identifier("story_id")
         val root = preview.identifier("root_branch")
         val headsObject = preview.getJSONObject("branch_heads")
@@ -200,12 +205,21 @@ internal object ArchiveNativeWire {
             require(validArchiveId(branch)); headsObject.integer(branch)
         }
         require(root in heads)
+        val retired = if (version == 2L) {
+            val ids = preview.getJSONArray("retired_branch_ids")
+            require(ids.length() in 1..256)
+            (0 until ids.length()).map { (ids.get(it) as String).also { id -> require(validArchiveId(id)) } }
+                .also { idsList ->
+                    require(idsList.zipWithNext().all { (a,b) -> a < b } && root !in idsList)
+                    require((heads.keys + idsList).size <= 256)
+                }
+        } else emptyList()
         val transferred = preview.get("noncommitted_workflow_transferred") as Boolean
         require(!transferred)
         val length = preview.integer("bytes").also { require(it in 1..MAX_ARCHIVE_BYTES.toLong()) }
         val hash = preview.text("payload_sha256", 64).also { require(it.matches(Regex("[a-f0-9]{64}"))) }
-        ArchivePrepared(token, ArchivePreview(1, story, preview.text("title", 1024), root, heads,
-            preview.count("committed_turns", 4096), length, hash, preview.text("privacy_warning", 4096), transferred))
+        ArchivePrepared(token, ArchivePreview(version.toInt(), story, preview.text("title", 1024), root, heads,
+            preview.count("committed_turns", 4096), length, hash, preview.text("privacy_warning", 4096), transferred, retired))
     }
     fun imported(bytes: ByteArray): ArchiveImported = decoded(bytes) { data ->
         data.keysExactly("root", "branches", "committed_turns")

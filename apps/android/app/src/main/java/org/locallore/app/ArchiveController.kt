@@ -24,6 +24,7 @@ data class ArchivePreview(
     val payloadSha256: String,
     val privacyWarning: String,
     val noncommittedWorkflowTransferred: Boolean,
+    val retiredBranchIds: List<String> = emptyList(),
 )
 data class ArchivePrepared(val token: Long, val preview: ArchivePreview)
 data class ArchiveImported(val story: String, val branch: String, val branches: Int, val committedTurns: Int)

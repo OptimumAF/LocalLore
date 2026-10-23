@@ -546,7 +546,7 @@ impl Host {
                 // All currently supported receipts resolve the player's explicit typed
                 // requests. This is not an omniscient event feed for future NPC jobs.
                 ok(
-                    json!({"scope":scope,"revision":expected_revision,"player":context,
+                    json!({"scope":scope,"revision":expected_revision,"rules":s.engine.seed().profile,"player":context,
                     "inventory":inventory,"receipts":s.engine.receipts()}),
                 )
             }

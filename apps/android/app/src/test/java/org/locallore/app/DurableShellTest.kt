@@ -117,4 +117,19 @@ class DurableShellTest {
         assertEquals(1, gateway.closes)
         assertTrue(model.state.value.messages.isEmpty())
     }
+    @Test fun surfaceStopCannotDiscardTheCompletionOfSavedStoryOpeningOrSwitching() = runTest(dispatcher) {
+        val switching = CompletableDeferred<SavedSnapshot>()
+        var cancels = 0
+        val gateway = object : Durable() {
+            override suspend fun resumeSaved(story: SavedStory): SavedSnapshot = switching.await()
+            override suspend fun cancelSaved(): SavedSnapshot { cancels++; return current }
+        }
+        val model = model(gateway); advanceUntilIdle()
+        model.resume(fresh); runCurrent()
+        model.cancel(); runCurrent()
+        assertTrue(model.state.value.busy)
+        switching.complete(saved(fresh)); advanceUntilIdle()
+        assertEquals(fresh, model.state.value.selectedStory)
+        assertEquals(0, cancels)
+    }
 }

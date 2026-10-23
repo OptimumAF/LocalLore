@@ -31,7 +31,7 @@ class ShellViewModel(
     }
 
     private fun publishSaved(saved: SavedSnapshot, notice: String): ShellState = mutable.value.copy(
-        busy = false, revision = saved.revision, potionOwner = saved.potionOwner,
+        busy = false, preparingResponse = false, revision = saved.revision, potionOwner = saved.potionOwner,
         messages = saved.messages, persistent = true, storageLocation = saved.location,
         schemaVersion = saved.schemaVersion, stories = saved.stories, selectedStory = saved.selected,
         uncommittedDrafts = saved.uncommittedDrafts,
@@ -40,7 +40,7 @@ class ShellViewModel(
 
     private fun savedOperation(notice: String, operation: suspend () -> SavedSnapshot?) {
         val ticket = ++generation
-        mutable.value = mutable.value.copy(busy = true, notice = null)
+        mutable.value = mutable.value.copy(busy = true, preparingResponse = false, notice = null)
         pending = viewModelScope.launch {
             try {
                 val saved = operation()
@@ -80,7 +80,7 @@ class ShellViewModel(
         if (disposed || mutable.value.busy || mutable.value.recoveryRequired) return
         val before = mutable.value
         val ticket = ++generation
-        mutable.value = before.copy(busy = true, notice = null)
+        mutable.value = before.copy(busy = true, preparingResponse = true, notice = null)
         pending = viewModelScope.launch {
             var committing = false
             var start = System.nanoTime()
@@ -130,7 +130,7 @@ class ShellViewModel(
                         else "Unable to confirm the outcome. Reset this in-memory demo to continue.",
                 ) else before.copy(notice = "Response failed. Nothing changed; try again.")
             } finally {
-                if (ticket == generation) mutable.value = mutable.value.copy(busy = false)
+                if (ticket == generation) mutable.value = mutable.value.copy(busy = false, preparingResponse = false)
             }
         }
     }
@@ -138,7 +138,7 @@ class ShellViewModel(
     fun cancel() {
         if (!mutable.value.busy) return
         // Opening storage has no cancellable turn. Closing the ViewModel still releases its handle.
-        if (gateway.durable && mutable.value.storageLocation == null) return
+        if (gateway.durable && !mutable.value.preparingResponse) return
         val start = System.nanoTime()
         generation++
         gateway.cancel()
@@ -149,7 +149,7 @@ class ShellViewModel(
             diagnosticLog.record(DiagnosticPhase.CANCEL, DiagnosticOutcome.COMPLETED, elapsedMillis(start))
             return
         }
-        mutable.value = mutable.value.copy(busy = false, notice = "Response cancelled. Nothing changed.")
+        mutable.value = mutable.value.copy(busy = false, preparingResponse = false, notice = "Response cancelled. Nothing changed.")
         diagnosticLog.record(DiagnosticPhase.CANCEL, DiagnosticOutcome.COMPLETED, elapsedMillis(start))
     }
 
@@ -175,7 +175,7 @@ class ShellViewModel(
         gateway.close()
         pending?.cancel()
         pending = null
-        mutable.value = mutable.value.copy(busy = false)
+        mutable.value = mutable.value.copy(busy = false, preparingResponse = false)
         super.onCleared()
     }
 }

@@ -12,6 +12,7 @@ data class SavedSnapshot(
 )
 data class ShellState(
     val busy: Boolean = false,
+    val preparingResponse: Boolean = false,
     val revision: Long = 0,
     val potionOwner: String = "You",
     val messages: List<SceneMessage> = emptyList(),

@@ -222,14 +222,14 @@ fun LocalLoreScreen(
                                             strokeWidth = 2.dp,
                                         )
                                         Text(
-                                            "Preparing local response…",
+                                            if (state.preparingResponse) "Preparing local response…" else "Opening saved progress…",
                                             style = MaterialTheme.typography.bodyMedium,
                                             modifier = Modifier.testTag("busy-status").semantics {
                                                 liveRegion = LiveRegionMode.Polite
                                             },
                                         )
                                     }
-                                    OutlinedButton(
+                                    if (state.preparingResponse) OutlinedButton(
                                         onClick = onCancel,
                                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                             .testTag("cancel-turn"),

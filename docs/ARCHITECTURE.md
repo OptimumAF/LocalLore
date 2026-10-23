@@ -17,7 +17,7 @@ Application / turn coordinator
   +--> Derived-memory jobs --> summaries/indexes (never canonical writes)
 ```
 
-The domain engine owns rules and state transitions. The persistence layer owns all migrations and writes. The coordinator owns cancellation, revision checks, inference budgets, and lifecycle. The UI consumes typed state and cannot secretly apply inventory changes. The model cannot call arbitrary SQL, native code, filesystem paths, or network endpoints.
+The domain engine owns rules and state transitions. The persistence layer owns all migrations and writes. The [SQLite foundation](storage/README.md) implements that Rust owner for schema initialization and validated seed storage; accepted-turn persistence remains future M04 work. The coordinator owns cancellation, revision checks, inference budgets, and lifecycle. The UI consumes typed state and cannot secretly apply inventory changes. The model cannot call arbitrary SQL, native code, filesystem paths, or network endpoints.
 
 Proposed implementation: Kotlin/Compose UI; Rust domain/persistence core; SQLite; a small native inference adapter chosen after measured spikes. JNI/FFI integration must be demonstrated before expanding the engine API. If the Rust integration imposes disproportionate mobile maintenance costs, propose an alternative in an ADR with tests and portability tradeoffs. Do not maintain two copies of the domain rules.
 

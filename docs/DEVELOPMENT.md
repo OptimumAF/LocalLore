@@ -47,6 +47,12 @@ belong in the verification report. No migration or save upgrade is introduced.
 
 ## Dependency inventory
 
+The [SQLite foundation](storage/README.md) is a separate Rust storage owner.
+Workspace tests include its model-free schema/migration/backup regressions.
+Its [dependency inventory and official compatibility sources](storage/SOURCES_2026-10-22.md)
+cover exact rusqlite/libsqlite3-sys pins, bundled SQLite and C build helpers.
+Accepted-turn save/resume is not implemented by this seed-storage slice.
+
 Verified 2026-10-22 using official registry metadata, installed package manifests
 and `cargo metadata --locked --format-version 1`. All dependencies build with
 Rust 1.93.1; compile/lint/tests are the compatibility evidence. Direct versions

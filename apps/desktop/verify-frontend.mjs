@@ -10,6 +10,7 @@ for (const args of [
     ["check-model-controller.mjs"],
     ["check-model-refresh.mjs"],
     ["check-inspection-controller.mjs"],
+    ["check-trace-controller.mjs"],
 ]) {
     const code = await new Promise((resolve, reject) => {
         const child = spawn(process.execPath, args, {
@@ -37,6 +38,8 @@ for (const marker of [
     "real-free-text-potion-committed",
     "query-native-durable-workspace",
     "d05-external-wait",
+    "d06-native-default-disabled",
+    "d06-external-wait",
     "export-snapshot-independent-of-later-turn",
 ])
     assert(

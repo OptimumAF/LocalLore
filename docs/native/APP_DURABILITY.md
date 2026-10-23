@@ -44,6 +44,12 @@ twice. Unknown errors use generic guidance without exception details. See the
 [storage recovery verification](STORAGE_RECOVERY_VERIFICATION_2026-10-22.md)
 for injected-error tests through the production Rust transport and their limits.
 
+The separate [SQLite contention fixture](SQLITE_CONTENTION_VERIFICATION_2026-10-22.md)
+holds a real writer reservation in an owned test process, requiring actual Rust
+Busy replies and original-key recovery through Compose. It adds no production
+transaction/fault command. Actual Full-through-Compose remains a separate
+capacity-fixture prerequisite.
+
 Cancellation may reach Rust before the IO submit has registered its turn. An
 explicit `UnknownTurn` reply on this cancellation path clears only that same
 pending operation. The captured request remains marked cancelled, so a late

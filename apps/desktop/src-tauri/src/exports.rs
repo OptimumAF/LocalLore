@@ -595,7 +595,7 @@ fn checked_path(path: &Path) -> Result<(), String> {
 }
 // Pin every approved ancestor without FILE_SHARE_DELETE, rejecting reparse points.
 // No destination path is supplied by renderer IPC.
-pub(crate) fn pin_directory(path: &Path) -> Result<Vec<File>, String> {
+fn pin_directory(path: &Path) -> Result<Vec<File>, String> {
     checked_path(path)?;
     let mut pins = Vec::new();
     let mut current = PathBuf::new();

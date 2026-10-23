@@ -615,6 +615,3 @@ summary {
     border-left: 2px solid #c48c5e;
     padding-left: 0.75rem;
 }
-
-.model-panel { padding: 1.5rem; border-bottom: 1px solid var(--line); }
-.model-panel pre { white-space: pre-wrap; overflow-wrap:anywhere; max-height:20rem; overflow:auto; }

@@ -1,6 +1,13 @@
 # ADR-0008: Versioned local play and recorded narration
 
 Status: implementation proposal; no D04/M05 acceptance inferred.
+
+The current experimental implementation uses guarded policy/prompt2.1 and the
+finite supported-English action compiler. Unknown or ambiguous syntax requires
+clarification; arbitrary-language understanding is not claimed. It preserves
+accepted v1 receipts and rejects unmerged synthetic prototype2.0 records rather
+than introducing a permissive legacy commit path. See the shared-core
+verification report for that explicit version disposition and actual limitations.
 Refs #9 (M05.01–M05.04), #25 (D04.04).
 
 The v1 proof deliberately requires exact typed commands and engine-rendered

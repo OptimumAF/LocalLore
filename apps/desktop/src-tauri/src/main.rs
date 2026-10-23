@@ -6,8 +6,6 @@ use tauri::Manager;
 mod export_commands;
 mod exports;
 mod lease;
-mod model_commands;
-mod models;
 use lease::WindowLease;
 #[cfg(feature = "dev-harness")]
 mod harness;
@@ -122,11 +120,10 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
-              std::env::var("LOCALLORE_D04_HARNESS").as_deref() == Ok("1"),
             if reopened {
                 "reopened"
             } else if std::env::var("LOCALLORE_TEST_RESTART").as_deref() == Ok("1") {
@@ -245,15 +242,8 @@ fn main() {
     let builder = builder
         .manage(Reopen(AtomicBool::new(false)))
         .manage(export_commands::TestExportState::default())
-        .manage(model_commands::TestModelState::default())
         .invoke_handler(tauri::generate_handler![
             host_call,
-            model_commands::harness_model_case,
-            model_commands::model_status,
-            model_commands::model_import,
-            model_commands::model_load,
-            model_commands::model_unload,
-            model_commands::model_cancel,
             export_commands::inspection_preview,
             export_commands::inspection_database_preview,
             export_commands::inspection_save,
@@ -272,11 +262,6 @@ fn main() {
     #[cfg(not(feature = "dev-harness"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         host_call,
-        model_commands::model_status,
-        model_commands::model_import,
-        model_commands::model_load,
-        model_commands::model_unload,
-        model_commands::model_cancel,
         export_commands::inspection_preview,
         export_commands::inspection_database_preview,
         export_commands::inspection_save,
@@ -297,24 +282,6 @@ fn main() {
             } else {
                 path
             };
-            let model_root = path
-                .parent()
-                .ok_or_else(|| std::io::Error::other("InvalidInput"))?
-                .join("models");
-            #[cfg(feature = "dev-harness")]
-            let model_root = if harness::active()
-                && std::env::var("LOCALLORE_D04_HARNESS").as_deref() == Ok("1")
-            {
-                std::env::var_os("LOCALLORE_D04_MODEL_ROOT")
-                    .map(std::path::PathBuf::from)
-                    .unwrap_or(model_root)
-            } else {
-                model_root
-            };
-            app.manage(Arc::new(models::ModelManager::new(
-                model_root,
-                app.path().resource_dir()?.join("runtime"),
-            )));
             app.manage(WorkspaceState {
                 path,
                 lease: Arc::new(WindowLease::default()),
@@ -326,13 +293,7 @@ fn main() {
                 app.manage(harness::HarnessState::from_env().map_err(std::io::Error::other)?);
                 let handle = app.handle().clone();
                 std::thread::spawn(move || {
-                    std::thread::sleep(std::time::Duration::from_secs(
-                        if std::env::var("LOCALLORE_D04_HARNESS").as_deref() == Ok("1") {
-                            900
-                        } else {
-                            180
-                        },
-                    ));
+                    std::thread::sleep(std::time::Duration::from_secs(180));
                     eprintln!("D02_NATIVE_HARNESS TIMEOUT");
                     handle.exit(2);
                 });
@@ -347,21 +308,14 @@ fn main() {
                     window
                         .state::<Arc<exports::ExportBroker>>()
                         .invalidate(closed - 1);
-                    let model_manager = window
-                        .app_handle()
-                        .state::<Arc<models::ModelManager>>()
-                        .inner()
-                        .clone();
-                    let retired = model_manager.retire();
                     let lease = state.lease.clone();
                     let host = state.ready();
                     tauri::async_runtime::spawn_blocking(move || {
                         lease.finish_close(closed, || {
-                            if let Some(host) = &host {
+                            if let Some(host) = host {
                                 host.close_all();
                             }
-                        });
-                        model_manager.close(host.as_deref(), retired);
+                        })
                     });
                 }
             }

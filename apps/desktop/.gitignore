@@ -2,5 +2,3 @@ node_modules/
 src-tauri/gen/
 dist/
 artifacts/
-
-src-tauri/runtime/

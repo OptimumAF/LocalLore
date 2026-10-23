@@ -25,9 +25,7 @@ public final class PhaseEvidenceInstrumentation extends Instrumentation {
         operation = args.getString("operation", ""); session = args.getString("session", ""); start();
     }
     @Override public void onStart() {
-        JsonObject report = new JsonObject(); report.addProperty("version", 1);
-        report.addProperty("status", "error"); report.addProperty("error", "phase_probe_failed");
-        report.addProperty("model_execution", false);
+        JsonObject report = errorReport();
         try {
             if (!PACKAGE.equals(getTargetContext().getPackageName()) || Looper.myLooper() == Looper.getMainLooper()
                     || !session.matches("[a-f0-9]{32}") || !(operation.equals("crash") || operation.equals("read")))
@@ -65,10 +63,16 @@ public final class PhaseEvidenceInstrumentation extends Instrumentation {
             Process.killProcess(Process.myPid()); return;
         } catch (Exception failure) {
             if (PhaseFailure.journalOwnershipUnknown(failure)) { Process.killProcess(Process.myPid()); return; }
+            report = errorReport(); // Discard partial observation fields on a failed read.
             // Fixed category; no path, nonce, PID, SDK text or exception prose.
         }
         Bundle result = new Bundle(); result.putString("phase_result", report.toString());
         finish(Activity.RESULT_OK, result);
+    }
+    private static JsonObject errorReport() {
+        JsonObject report = new JsonObject(); report.addProperty("version", 1);
+        report.addProperty("status", "error"); report.addProperty("error", "phase_probe_failed");
+        report.addProperty("model_execution", false); return report;
     }
     private static void realDirectory(Path path) throws Exception {
         for (Path cursor = path; cursor != null; cursor = cursor.getParent())

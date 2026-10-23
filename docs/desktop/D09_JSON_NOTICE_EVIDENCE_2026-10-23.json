@@ -1,0 +1,126 @@
+{
+  "actual_collection": {
+    "actual_json_header_notice_resealed_tamper_rejected": [
+      "modify",
+      "remove"
+    ],
+    "app_worker_model_executed": false,
+    "historical_zip_sha256_unchanged": "3f13d9a22e64866b40c9e6e8fae05efa3867461b9fd5e5bc56088aea1f4e545b",
+    "material_bytes": 2888215,
+    "material_file_count": 467,
+    "materials_only_validation_pass": true,
+    "new_native_build": false,
+    "new_package_zip_written": false,
+    "source_inventory_count": 287
+  },
+  "catalog_sha256": "07c8f47f8062e8bed24857e103be9f97bf8b2d2292ed0b17d0a90fe597986bf8",
+  "claim": 6371627124,
+  "distribution_approved": false,
+  "header_source": {
+    "path": "vendor/nlohmann/json.hpp",
+    "revision": "620d2225cc436ab0b001e3200e590e3b286ef9ab",
+    "sha256": "f9ce5c0a1ac99e20ef92daeb60eb571e2146988daa553ac0269755348843efd7"
+  },
+  "independent_regression": {
+    "after": {
+      "executed": 1,
+      "failed": 0,
+      "passed": 1
+    },
+    "before": {
+      "executed": 1,
+      "failed": 1,
+      "passed": 0
+    },
+    "initial_wrapper_zero_test_setup_is_not_pass": true,
+    "report": "04dcf25cb9b8434013001a1781d32c727c3c65f2",
+    "source": "264f4d5413009854bdd091f2816654ac0a604342",
+    "test_sha256": "4dd2429163c31b6a6a0250651be08925b9a10256958d93c6919169e368bdaeef"
+  },
+  "legacy_packet": {
+    "bytes": 10686423,
+    "license_scope_status": "legacy_unreviewed",
+    "members": 446,
+    "sha256": "3f13d9a22e64866b40c9e6e8fae05efa3867461b9fd5e5bc56088aea1f4e545b",
+    "source_commit": "6e576f473a4796c329468a6abf3eeaaf4323a89b",
+    "worker_sha256": "b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434"
+  },
+  "license_audit_complete": false,
+  "limitations": [
+    "Conservative header notices, not a per-symbol/conditional code linkage map.",
+    "Abseil fallback is under not-JSON_HAS_CPP_14, no claim of compiled C++17 fallback.",
+    "No new compiled package/app/worker/model run; flags remain false and complete independent review pending."
+  ],
+  "local_artifacts": {
+    "msvc-notice-artifacts/independent-review-test-original.py": {
+      "bytes": 2257,
+      "sha256": "4dd2429163c31b6a6a0250651be08925b9a10256958d93c6919169e368bdaeef"
+    },
+    "msvc-notice-artifacts/nlohmann-after.log": {
+      "bytes": 203,
+      "sha256": "a3beed96591d1b7468ae89e2c9dc3cb95c555b47134616d8ccbe5a38e5f71529"
+    },
+    "msvc-notice-artifacts/nlohmann-before.log": {
+      "bytes": 1200,
+      "sha256": "3ab814a90e0ba0928f58b3d3bdb1b18db03b757b9efc9f8df666ea821b447b53"
+    },
+    "msvc-notice-artifacts/nlohmann-wrapper-initial-zero-tests.log": {
+      "bytes": 213,
+      "sha256": "6b72531624253802e8f4aa1821c96adf3ac8aeff5529dcc75834c36be75c78a6"
+    },
+    "msvc-notice-artifacts/prepare-nlohmann.py": {
+      "bytes": 2829,
+      "sha256": "9902940b094f57427517cafda13ac4fbb6a7d6940466139c734e70d38f2f3f8f"
+    },
+    "msvc-notice-artifacts/run-review.py": {
+      "bytes": 610,
+      "sha256": "9de0ab84f5943b9cc9003707cfc1fe35425c30f5264b213eb8304a8c37c3094d"
+    },
+    "nlohmann-notice-artifacts/actual-collection-report-final.json": {
+      "bytes": 166223,
+      "sha256": "f8b28ffbc2cc41deb2c50f1eea880cc09e5b782671566cf45a6c4011ab8067cc"
+    },
+    "nlohmann-notice-artifacts/actual-collection-tamper.log": {
+      "bytes": 2897,
+      "sha256": "903a72cee10e4f90bbf0ce71ab5609c1f10178c564af4e6813e03fa93d7aea1c"
+    },
+    "nlohmann-notice-artifacts/collect-verify.py": {
+      "bytes": 2177,
+      "sha256": "a5e67e1b6bede5343c095971d1a5dba1d776fec68c36c683130e8139d8a3a031"
+    },
+    "nlohmann-notice-artifacts/package-tests.log": {
+      "bytes": 134,
+      "sha256": "1dc2d41a68f704c9602795ef47c6de19fa96d94ffe335e3a80992e6090dfd039"
+    },
+    "nlohmann-notice-artifacts/tamper-check.py": {
+      "bytes": 1036,
+      "sha256": "d3348a88667bb6fdf2fee3a16a522345e8285a1cad1851873d407814504bc46e"
+    }
+  },
+  "new_resource": {
+    "bytes": 2491,
+    "path": "licenses/desktop/texts/nlohmann-json-header-notices.txt",
+    "sha256": "c81b7f95cf00d14e71d32c3586e690cc012e6f3bb9eee9dc914d6a2154bda24e"
+  },
+  "package_checks": {
+    "failed": 0,
+    "passed": 30,
+    "skipped": 0
+  },
+  "prior_immutable_source": [
+    "c11a79ddb89cb13c6f1629ac784b230a24f7cdf6",
+    "c6be1620ae00b7052b7e9caf872cb01657575933",
+    "d6f663e89fc83659e8a61cadc4cce47ccfd52232",
+    "40ce967"
+  ],
+  "review_complete": false,
+  "schema": "locallore-json-notice-correction-evidence-v1",
+  "selected_graph": {
+    "local": 6,
+    "mpl_archive_bytes": 150290,
+    "mpl_archives": 5,
+    "registry": 250,
+    "sha256": "17b566ecb41d62de80a664673166065a15975fa4f701317c51c73a133b974551"
+  },
+  "tested_source": "c74c54ca078d1b2113caeb22d76bb364f5a96ef1"
+}

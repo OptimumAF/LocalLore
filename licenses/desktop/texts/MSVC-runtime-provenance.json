@@ -1,0 +1,199 @@
+{
+  "app_worker_model_executed": false,
+  "components": [
+    {
+      "embedded_object_family": true,
+      "evidence": "Retained worker main.cpp.obj: RuntimeLibrary=MD_DynamicRelease, DEFAULTLIB:msvcprt/MSVCRT/OLDNAMES; msvcrt.lib contains initializers/exe_main/gs_cookie members. Microsoft documents native CRT startup is always statically linked even with dynamically linked UCRT. Exact extracted object set is not reconstructed.",
+      "family": "MSVC native CRT startup and import glue",
+      "license_reference": "LicenseRef-Microsoft-Visual-Studio-Community-2022",
+      "source_header_notice": "Copyright (c) Microsoft Corporation. All rights reserved.",
+      "stl_license_does_not_relicense_this_family": true
+    },
+    {
+      "embedded_object_family": true,
+      "evidence": "Actual retained worker dependency graph includes installed STL headers; exact installed xutility and yvals_core.h bytes match pinned source. LLVM object-form exception is preserved, not replaced by a new license.",
+      "family": "MSVC STL header/template material",
+      "license_reference": "Apache-2.0 WITH LLVM-exception"
+    },
+    {
+      "family": "MSVC STL, VCRuntime and OpenMP DLLs",
+      "license_reference": "External Visual C++ x64 runtime prerequisite; any future bundling requires separate review.",
+      "redistributed": false,
+      "required_worker_imports": [
+        "MSVCP140.dll",
+        "VCOMP140.DLL",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll"
+      ]
+    },
+    {
+      "evidence": "Both retained app and worker have api-ms-win-crt imports; UCRT is a Windows component. No UCRT DLL/SDK library is copied into the developer folder.",
+      "family": "Universal CRT and Windows DLL/API-set dependencies",
+      "redistributed": false
+    }
+  ],
+  "distribution_approved": false,
+  "installed_input_fingerprints": {
+    "crt_initializers": {
+      "bytes": 6338,
+      "sha256": "14807cf50bd44e3b0c10ac453057678e40cb2a97c998612d9748d32ce9819e6b"
+    },
+    "msvcprt_import_lib": {
+      "bytes": 1982998,
+      "sha256": "9900ae0e93a47a7171af3ba5f5cde7d82a1d1f1ae23987426d9bbb1ec7e1a98e"
+    },
+    "msvcrt_startup_library": {
+      "bytes": 7964360,
+      "sha256": "044c2f59cee1b24e5fd0fb0b03932036eaf254e194afbb4ec70f23cb4d7ecb12"
+    },
+    "oldnames_lib": {
+      "bytes": 158706,
+      "sha256": "a24fcb0de7b8df4670c7988a19e7cd8d109296cef602729ecd5c66f5b047d137"
+    },
+    "ucrt_header": {
+      "bytes": 124489,
+      "sha256": "2f8969a33aa931b30eb0fc848b3b56ffc86f9e7b9c763a44e045b00367bc8c8b"
+    },
+    "ucrt_import_lib": {
+      "bytes": 285588,
+      "sha256": "7ef4eac926bf597d2f243f16cdfed7e0db22cb3ca34a1d7e088a84c994a03d66"
+    },
+    "vcruntime_header": {
+      "bytes": 11470,
+      "sha256": "167de9322ad4dcfa3a9631d025bdc4fc03cbc835a1db2d70c9cc306e09e83c31"
+    },
+    "vcruntime_import_lib": {
+      "bytes": 38478,
+      "sha256": "d8fe742a11b6babde717141b9316702fca0a876c7ef68055e9aedac66f31768c"
+    },
+    "xutility": {
+      "bytes": 258602,
+      "sha256": "a53b7959ce6fc7d28156ce77e1b8b6b1461e895d2794de69457cc2017ddc35d7"
+    },
+    "yvals_core": {
+      "bytes": 91840,
+      "sha256": "6b2fba2037fb14bad6adca9dbe947fe284fa52e93f0e4d32a1d4d2537dd84668"
+    }
+  },
+  "new_build": false,
+  "not_redistributed": [
+    "Visual C++ runtime DLLs",
+    "UCRT DLLs",
+    "WebView2 Evergreen Runtime",
+    "Visual Studio/compiler/linker/import libraries",
+    "MSVC or Windows SDK source headers"
+  ],
+  "official_references": [
+    {
+      "topic": "STL license and additional notices",
+      "url": "https://github.com/microsoft/STL/blob/af8adfa73b7433d4f902584bc1994c897297e492/LICENSE.txt"
+    },
+    {
+      "topic": "CRT/STL library and static startup roles",
+      "url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/crt-library-features?view=msvc-170"
+    },
+    {
+      "official_document_url": "https://visualstudio.microsoft.com/wp-content/uploads/2021/11/Visual-Studio-2022-Community-License-EN.docx",
+      "retrieved_document_bytes": 62859,
+      "retrieved_document_sha256": "41a207b10c8ab91d0d2f10a854715f73dca54509581692d2fe179aa3ffcb8540",
+      "topic": "Visual Studio Community2022 terms (linked, not copied into package)",
+      "url": "https://visualstudio.microsoft.com/license-terms/vs2022-ga-community/"
+    },
+    {
+      "installed_pointer_sha256": "da53b097e02b08e0fc69706102a60bc384fe756426ae4dc4a855e96f95cb2b9c",
+      "topic": "Installed Redist.txt official pointer",
+      "url": "https://aka.ms/vs/17/redist.txt"
+    },
+    {
+      "topic": "Visual C++ distribution rules and prerequisites",
+      "url": "https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files?view=msvc-170"
+    }
+  ],
+  "remaining_items": [
+    "Independent review of exact notice/catalog/runtime-family record remains pending.",
+    "Producer must assess applicable Visual Studio/toolchain terms and distribution conditions for embedded CRT startup; this record does not grant rights or represent owner acceptance.",
+    "Final combined package must bind its actual app/toolchain/source/import evidence; historical app fingerprints are preserved as historical only.",
+    "No runtime DLL or installer bundling is authorized. Missing-prerequisite and offline-installation qualification remain separate."
+  ],
+  "retained_binary_evidence": {
+    "historical_app": {
+      "bytes": 23616512,
+      "imports": [
+        "bcryptprimitives.dll",
+        "advapi32.dll",
+        "ntdll.dll",
+        "kernel32.dll",
+        "ole32.dll",
+        "combase.dll",
+        "api-ms-win-core-synch-l1-2-0.dll",
+        "user32.dll",
+        "shlwapi.dll",
+        "comctl32.dll",
+        "dwmapi.dll",
+        "gdi32.dll",
+        "shell32.dll",
+        "imm32.dll",
+        "oleaut32.dll",
+        "api-ms-win-core-winrt-error-l1-1-0.dll",
+        "KERNEL32.dll",
+        "ADVAPI32.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll"
+      ],
+      "qualification": "Historical normal package from clean02; no current rebuild or execution inferred.",
+      "sha256": "30be7cde451ab6d5515e27781021c54772dcf3122d4dda71d048a21bad6fc308",
+      "source_commit": "6e576f473a4796c329468a6abf3eeaaf4323a89b"
+    },
+    "worker": {
+      "bytes": 6014464,
+      "imports": [
+        "KERNEL32.dll",
+        "ADVAPI32.dll",
+        "MSVCP140.dll",
+        "VCOMP140.DLL",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll"
+      ],
+      "sha256": "b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434"
+    }
+  },
+  "review_complete": false,
+  "schema": "locallore-msvc-runtime-provenance-v1",
+  "scope": "Retained Windows x64 developer package component provenance; conservative library families, not a per-symbol link map",
+  "stl": {
+    "installed_headers_exact_match": [
+      "xutility",
+      "yvals_core.h"
+    ],
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "license_member": "NOTICES/native/MSVC-STL-LICENSE.txt",
+    "notice_coverage": "Conservative complete pinned STL NOTICE, including additional Boost, Kempf, Unicode, LLVM, fmt and public-domain notices; presence does not establish every such implementation is linked.",
+    "notice_member": "NOTICES/native/MSVC-STL-NOTICE.txt",
+    "revision": "af8adfa73b7433d4f902584bc1994c897297e492",
+    "tag": "vs-2022-17.4"
+  },
+  "tools": {
+    "architecture": "x64",
+    "compiler": "19.34.31937",
+    "linker": "14.34.31937",
+    "msvc_toolset": "14.34.31933",
+    "windows_sdk": "10.0.19041.0"
+  }
+}

@@ -14,6 +14,8 @@ scope/identity/revision metadata, no receipt, prose or model bytes. Restore is
 lookup-only. A known confirmed or absent child does not permanently block starting
 a separate explicit new request after selection changes. Unknown outcomes remain
 protected from accidental replacement. Rule/RetryMismatch are honest native errors.
+Native request parsing borrows and validates closed/bounded parent IDs before
+copying renderer-owned strings; oversized IDs fail without an unbounded clone.
 
 Development-only new fork_harness fixture: actual Store first receipt has two
 events (Mira-addressed statement + wait), followed by a later parent statement.

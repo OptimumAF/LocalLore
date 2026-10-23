@@ -114,7 +114,7 @@ export function ForkPanel({
                                 {s.request.parent.branch}
                             </code>
                         </dd>
-                        <dt>Creation guard / fork point</dt>
+                        <dt>Parent head / fork point</dt>
                         <dd>
                             {s.request.expected_parent_revision} /{" "}
                             {s.request.at_revision}

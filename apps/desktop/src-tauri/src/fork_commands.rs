@@ -27,8 +27,23 @@ pub fn request(value: &Value) -> Result<WorkspaceForkRequest, String> {
     if object.len() != keys.len() || object.keys().any(|k| !keys.contains(&k.as_str())) {
         return Err("InvalidForkInput".into());
     }
-    let parent: Scope =
-        serde_json::from_value(value["parent"].clone()).map_err(|_| "InvalidForkInput")?;
+    // Borrow/validate bounded IDs before copying any renderer-owned strings.
+    let parent_object = value["parent"].as_object().ok_or("InvalidForkInput")?;
+    if parent_object.len() != 2
+        || parent_object
+            .keys()
+            .any(|k| !["story", "branch"].contains(&k.as_str()))
+    {
+        return Err("InvalidForkInput".into());
+    }
+    let story = value["parent"]["story"]
+        .as_str()
+        .filter(|v| id(v))
+        .ok_or("InvalidForkInput")?;
+    let branch = value["parent"]["branch"]
+        .as_str()
+        .filter(|v| id(v))
+        .ok_or("InvalidForkInput")?;
     let child = value["child_branch"].as_str().ok_or("InvalidForkInput")?;
     let expected = value["expected_parent_revision"]
         .as_u64()
@@ -38,11 +53,14 @@ pub fn request(value: &Value) -> Result<WorkspaceForkRequest, String> {
         .as_u64()
         .filter(|v| *v <= expected)
         .ok_or("InvalidForkInput")?;
-    if !id(&parent.story) || !id(&parent.branch) || !id(child) || child == parent.branch {
+    if !id(child) || child == branch {
         return Err("InvalidForkInput".into());
     }
     Ok(WorkspaceForkRequest {
-        parent,
+        parent: Scope {
+            story: story.to_owned(),
+            branch: branch.to_owned(),
+        },
         child_branch: child.into(),
         expected_parent_revision: expected,
         at_revision: at,
@@ -286,6 +304,12 @@ mod fork_adapter_tests {
         }
         let mut bad = input();
         bad["parent"]["observer"] = json!("player");
+        assert!(request(&bad).is_err());
+        let mut bad = input();
+        bad["parent"]["story"] = json!("s".repeat(65));
+        assert!(request(&bad).is_err());
+        let mut bad = input();
+        bad["parent"]["branch"] = json!("b".repeat(65));
         assert!(request(&bad).is_err());
     }
     #[test]

@@ -226,7 +226,7 @@ export class ForkController {
                 error: null,
                 status: "prepared",
                 lookupOnly: false,
-                notice: "Create a new timeline at this completed boundary. Original and downstream choices stay on their existing timeline. Rust validates the boundary when confirmed.",
+                notice: "Create a new timeline at this completed boundary. Original and downstream choices stay on their existing timeline. The engine validates the boundary before saving.",
             });
         } catch (e) {
             this.patch({ error: errorName(e), status: "error" });

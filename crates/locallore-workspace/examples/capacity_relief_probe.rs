@@ -15,7 +15,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-const SCHEMA3_SHA256: &str = "c05ced1f0439fb767f97d2ff93a34ef44eb6fbc27da6814a75fad455fb0b2c17";
+const SCHEMA4_SHA256: &str = "e9f19f3b384c52c5c7bd360e23c1db9e76314152f750a5b9f07f7a14071f8362";
 
 fn require(condition: bool, stage: &'static str) -> Result<(), &'static str> {
     if condition {
@@ -215,8 +215,8 @@ fn helper(
         serde_json::from_slice(&bytes).map_err(|_| HelperFailure::new("helper_json", terminal))?;
     if !(status.success()
         && report["version"] == 2
-        && report["database_schema_version"] == 3
-        && report["schema_sha256"] == SCHEMA3_SHA256
+        && report["database_schema_version"] == 4
+        && report["schema_sha256"] == SCHEMA4_SHA256
         && report["status"] == "passed"
         && report["action"] == action)
     {
@@ -346,7 +346,7 @@ fn run_fault(
         && probes == 0
         && helpers == 2;
     Ok(
-        json!({"version":1,"scope":"host_synthetic_helper_fault_v1","database_schema_version":3,
+        json!({"version":1,"scope":"host_synthetic_helper_fault_v1","database_schema_version":4,
         "status":if passed {"passed"} else {"failed"},"fault":fault,"ceiling_pages":32,
         "original_failure":failure.report(),"cleanup":cleanup,"actual_fill_observed":filled,
         "padding_rows":if filled {Some(14)} else {None},"fill_insert_attempts":if filled {Some(15)} else {None},
@@ -370,7 +370,7 @@ fn run(
             .as_nanos()
             ^ u128::from(std::process::id())
     );
-    let owned = directory.join(format!("capacity-relief-{owner}"));
+    let owned = directory.join(format!("capacity-relief-v4-{owner}"));
     fs::create_dir(&owned).map_err(|_| "fresh_directory")?;
     let owned = fs::canonicalize(owned).map_err(|_| "directory")?;
     let mut marker = OpenOptions::new()
@@ -385,8 +385,8 @@ fn run(
     let host = open_workspace(&path).map_err(|_| "open")?;
     let workspace = call(&host, json!({"op":"workspace"}));
     require(
-        workspace["status"] == "ok" && workspace["data"]["database_schema_version"] == 3,
-        "schema3",
+        workspace["status"] == "ok" && workspace["data"]["database_schema_version"] == 4,
+        "schema4",
     )?;
     let created = call(&host, json!({"op":"create","seed":"lantern-quay-v1"}));
     require(created["status"] == "ok", "create")?;
@@ -432,7 +432,7 @@ fn run(
     };
     let failed: Result<(), &'static str> = (|| {
         require(
-            fill["initial_pages"] == 17
+            fill["initial_pages"] == 23
                 && fill["pages"] == 32
                 && fill["free_pages"] == 0
                 && fill["rows"] == 14
@@ -531,7 +531,7 @@ fn run(
             "reopened_cancel_snapshot",
         )?;
         return Ok(
-            json!({"version":2,"database_schema_version":3,"status":"passed","prefix":0,"ceiling_pages":32,"fill":fill,"remove":removed,
+            json!({"version":2,"database_schema_version":4,"status":"passed","prefix":0,"ceiling_pages":32,"fill":fill,"remove":removed,
             "extra_schema_rejected":true,"full_commits":2,"cancelled_while_full":true,
             "player_snapshot_unchanged_after_full":true,"original_key_terminal_after_relief":true,
             "post_relief_submits":0,"post_relief_prepares":0,"accepted_receipts":0,"revision":0,
@@ -585,7 +585,7 @@ fn run(
         "reopened_snapshot",
     )?;
     Ok(
-        json!({"version":2,"database_schema_version":3,"status":"passed","prefix":0,"ceiling_pages":32,"fill":fill,"remove":removed,
+        json!({"version":2,"database_schema_version":4,"status":"passed","prefix":0,"ceiling_pages":32,"fill":fill,"remove":removed,
         "extra_schema_rejected":true,"full_commits":2,"player_snapshot_unchanged_after_full":true,
         "same_live_owner_ready_key_accepted":true,"post_relief_submits":0,"post_relief_prepares":0,
         "accepted_receipts":1,"revision":1,"same_key_reopened":true,

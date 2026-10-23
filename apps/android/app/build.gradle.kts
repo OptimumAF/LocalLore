@@ -92,14 +92,17 @@ require(!(capacityTest && reliefTest)) { "Capacity and capacity-relief modes are
 require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention).none { it == "true" } || !(capacityTest || reliefTest)) {
     "Archive verification and capacity modes are mutually exclusive"
 }
-val capacityCache = rootProject.file(".gradle-capacity-v3").canonicalFile
-val reliefCache = rootProject.file(".gradle-capacity-relief-v3").canonicalFile
-val reliefFaultCache = rootProject.file(".gradle-capacity-faults-v3").canonicalFile
+val capacityCache = rootProject.file(".gradle-capacity-v4").canonicalFile
+val reliefCache = rootProject.file(".gradle-capacity-relief-v4").canonicalFile
+val reliefFaultCache = rootProject.file(".gradle-capacity-faults-v4").canonicalFile
 val selectedCache = gradle.startParameter.projectCacheDir?.canonicalFile
 val historicalCapacityCaches = setOf(rootProject.file(".gradle-capacity").canonicalFile,
-    rootProject.file(".gradle-capacity-relief").canonicalFile)
+    rootProject.file(".gradle-capacity-relief").canonicalFile,
+    rootProject.file(".gradle-capacity-v3").canonicalFile,
+    rootProject.file(".gradle-capacity-relief-v3").canonicalFile,
+    rootProject.file(".gradle-capacity-faults-v3").canonicalFile)
 require(selectedCache !in historicalCapacityCaches) {
-    "Historical capacity caches must remain untouched; use the exclusive schema3 v3 cache."
+    "Historical capacity caches must remain untouched; use the exclusive schema4 v4 cache."
 }
 require(when {
     capacityTest -> selectedCache == capacityCache
@@ -113,27 +116,27 @@ val capacityProfile = Properties().apply {
     rootProject.file("capacity-profile.properties").inputStream().use { load(it) }
 }
 require(capacityProfile == Properties().apply {
-    setProperty("sqlite.maxPageCount", "17")
+    setProperty("sqlite.maxPageCount", "23")
     setProperty("fixture.prefixTurns", "0")
-    setProperty("fixture.format", "2")
-    setProperty("database.schemaVersion", "3")
+    setProperty("fixture.format", "3")
+    setProperty("database.schemaVersion", "4")
 }) { "Capacity profile changed; recalibrate and review the fixed test binary before updating this guard" }
 val reliefProfile = Properties().apply {
     rootProject.file("capacity-relief-profile.properties").inputStream().use { load(it) }
 }
 require(reliefProfile == Properties().apply {
     setProperty("sqlite.maxPageCount", "32")
-    setProperty("fixture.format", "2")
-    setProperty("database.schemaVersion", "3")
-    setProperty("fixture.initialPages", "17")
+    setProperty("fixture.format", "3")
+    setProperty("database.schemaVersion", "4")
+    setProperty("fixture.initialPages", "23")
     setProperty("fixture.paddingRows", "14")
 }) { "Relief profile changed; recalibrate and review the fixed test binary before updating this guard" }
 extra["localloreCapacityTest"] = capacityTest || reliefTest
 extra["localloreCapacityMode"] = when { capacityTest -> "full"; reliefFaultTest -> "faults"; reliefTest -> "relief"; else -> "ordinary" }
-extra["localloreCapacityPages"] = when { capacityTest -> 17; reliefTest -> 32; else -> 0 }
-if (capacityTest) layout.buildDirectory.set(layout.projectDirectory.dir("build-capacity-v3"))
+extra["localloreCapacityPages"] = when { capacityTest -> 23; reliefTest -> 32; else -> 0 }
+if (capacityTest) layout.buildDirectory.set(layout.projectDirectory.dir("build-capacity-v4"))
 if (reliefTest) layout.buildDirectory.set(layout.projectDirectory.dir(
-    if (reliefFaultTest) "build-capacity-faults-v3" else "build-capacity-relief-v3"))
+    if (reliefFaultTest) "build-capacity-faults-v4" else "build-capacity-relief-v4"))
 
 android {
     namespace = "org.locallore.app"
@@ -144,9 +147,9 @@ android {
 
     defaultConfig {
         applicationId = when {
-            capacityTest -> "org.locallore.app.capacityv3"
-            reliefFaultTest -> "org.locallore.app.capacityfaultsv3"
-            reliefTest -> "org.locallore.app.capacityreliefv3"
+            capacityTest -> "org.locallore.app.capacityv4"
+            reliefFaultTest -> "org.locallore.app.capacityfaultsv4"
+            reliefTest -> "org.locallore.app.capacityreliefv4"
             else -> "org.locallore.app"
         }
         minSdk = 26

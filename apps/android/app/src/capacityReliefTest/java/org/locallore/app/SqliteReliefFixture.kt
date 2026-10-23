@@ -28,7 +28,7 @@ internal object SqliteReliefFixture {
     private val ownershipClean = AtomicBoolean(true)
     private val roots = AtomicInteger()
     private val ownerCreations = AtomicInteger()
-    const val FAULT_PACKAGE = "org.locallore.app.capacityfaultsv3"
+    const val FAULT_PACKAGE = "org.locallore.app.capacityfaultsv4"
     fun createdRoots() = roots.get()
     fun createdOwners() = ownerCreations.get()
     data class CleanupObservation(val ownersClosed: Boolean = false, val exchangesDrained: Boolean = false,
@@ -134,18 +134,18 @@ internal object SqliteReliefFixture {
     }
     fun requireIdentity(faultsRequired: Boolean = false): Context {
         val actual = InstrumentationRegistry.getInstrumentation().targetContext
-        check(actual.packageName in setOf("org.locallore.app.capacityreliefv3", FAULT_PACKAGE))
+        check(actual.packageName in setOf("org.locallore.app.capacityreliefv4", FAULT_PACKAGE))
         val faults = actual.packageName == FAULT_PACKAGE
         check(!faultsRequired || faults)
         @Suppress("DEPRECATION")
         val info = actual.packageManager.getApplicationInfo(actual.packageName, PackageManager.GET_META_DATA)
         check(info.flags and ApplicationInfo.FLAG_TEST_ONLY != 0)
-        val label = if (faults) "LocalLore \u00B7 SQLite helper faults v3" else "LocalLore \u00B7 SQLite capacity relief test v3"
+        val label = if (faults) "LocalLore \u00B7 SQLite helper faults v4" else "LocalLore \u00B7 SQLite capacity relief test v4"
         check(actual.packageManager.getApplicationLabel(info).toString() == label)
         val metadata = checkNotNull(info.metaData)
         check(metadata.get("org.locallore.capacity.relief.pages") == 32)
-        check(metadata.get("org.locallore.capacity.relief.format") == 2)
-        check(metadata.get("org.locallore.capacity.relief.schema_version") == 3)
+        check(metadata.get("org.locallore.capacity.relief.format") == 3)
+        check(metadata.get("org.locallore.capacity.relief.schema_version") == 4)
         check(metadata.get("org.locallore.capacity.relief.initial_pages") == PaddingFormat.INITIAL_PAGES)
         check(metadata.get("org.locallore.capacity.relief.padding_rows") == PaddingFormat.EXPECTED_ROWS)
         if (faults) check(metadata.get("org.locallore.capacity.relief.faults_format") == 1)
@@ -155,7 +155,7 @@ internal object SqliteReliefFixture {
     private fun context(): Pair<Context, String> {
         val actual = requireIdentity()
         val parent = actual.noBackupFilesDir.canonicalFile
-        val root = File(parent, "synthetic-capacity-relief-v3-${UUID.randomUUID()}")
+        val root = File(parent, "synthetic-capacity-relief-v4-${UUID.randomUUID()}")
         check(root.mkdir() && root.canonicalFile.parentFile == parent)
         roots.incrementAndGet()
         val token = UUID.randomUUID().toString().replace("-", "")
@@ -241,7 +241,7 @@ internal object SqliteReliefFixture {
     fun initial(saved: SavedSnapshot) {
         assertEquals(0L, saved.revision); assertEquals("You", saved.potionOwner)
         assertTrue(saved.messages.isEmpty()); assertEquals(1, saved.stories.size)
-        assertEquals(1, saved.schemaVersion); assertEquals(3, saved.databaseSchemaVersion)
+        assertEquals(1, saved.schemaVersion); assertEquals(4, saved.databaseSchemaVersion)
     }
     fun sameAccepted(before: SavedSnapshot, after: SavedSnapshot) {
         assertEquals(before.revision, after.revision); assertEquals(before.potionOwner, after.potionOwner)
@@ -255,7 +255,7 @@ internal object SqliteReliefFixture {
     fun accepted(saved: SavedSnapshot) {
         assertEquals(1L, saved.revision); assertEquals("Not in your inventory", saved.potionOwner)
         assertEquals(2, saved.messages.size); assertEquals(0, saved.uncommittedDrafts)
-        assertEquals(1, saved.schemaVersion); assertEquals(3, saved.databaseSchemaVersion)
+        assertEquals(1, saved.schemaVersion); assertEquals(4, saved.databaseSchemaVersion)
         assertEquals("You give 1 potion to mira.", saved.messages.single { !it.isPlayer }.text)
     }
     fun phase(status: JSONObject, phase: String) {

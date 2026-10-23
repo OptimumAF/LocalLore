@@ -17,7 +17,7 @@ class CapacityPaddingGuards(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.owner = "a" * 32
-        self.directory = Path(self.temp.name).resolve() / ("capacity-relief-" + self.owner)
+        self.directory = Path(self.temp.name).resolve() / ("capacity-relief-v4-" + self.owner)
         self.directory.mkdir()
         (self.directory / ".capacity-owner").write_text(self.owner, encoding="ascii")
         self.database = self.directory / "stories.sqlite"
@@ -26,7 +26,7 @@ class CapacityPaddingGuards(unittest.TestCase):
         for schema in PROBE.SCHEMAS:
             self.connection.executescript(schema.read_text(encoding="utf-8"))
         self.connection.execute("PRAGMA application_id=1280069458")
-        self.connection.execute("PRAGMA user_version=3")
+        self.connection.execute("PRAGMA user_version=4")
 
     def rejected(self, stage, action="fill", owner=None):
         with self.assertRaisesRegex(PROBE.Rejected, "^" + stage + "$"):
@@ -56,9 +56,9 @@ class CapacityPaddingGuards(unittest.TestCase):
         self.assertEqual(self.connection.execute("PRAGMA application_id").fetchone()[0], 99)
 
     def test_future_schema_version_is_preserved(self):
-        self.connection.execute("PRAGMA user_version=4")
+        self.connection.execute("PRAGMA user_version=5")
         self.rejected("identity")
-        self.assertEqual(self.connection.execute("PRAGMA user_version").fetchone()[0], 4)
+        self.assertEqual(self.connection.execute("PRAGMA user_version").fetchone()[0], 5)
 
     def assert_readonly_refusal(self, stage):
         opened = []
@@ -73,22 +73,22 @@ class CapacityPaddingGuards(unittest.TestCase):
         self.assertTrue(any("?mode=ro" in path for path in opened))
         self.assertFalse(any("?mode=rw" in path for path in opened))
 
-    def test_schema1_and_schema2_refused_before_writable_open(self):
-        for version in (1, 2):
+    def test_schema1_schema2_and_schema3_refused_before_writable_open(self):
+        for version in (1, 2, 3):
             with self.subTest(version=version):
                 self.connection.execute("PRAGMA user_version=" + str(version))
                 self.assert_readonly_refusal("identity")
                 self.assertEqual(self.connection.execute("PRAGMA user_version").fetchone()[0], version)
 
-    def test_exact_reference_schema3_digest_and_all_migrations(self):
+    def test_exact_reference_schema4_digest_and_all_migrations(self):
         self.assertEqual(PROBE.schema_digest(PROBE.baseline()),
-                         "c05ced1f0439fb767f97d2ff93a34ef44eb6fbc27da6814a75fad455fb0b2c17")
+                         "e9f19f3b384c52c5c7bd360e23c1db9e76314152f750a5b9f07f7a14071f8362")
         self.assertEqual(self.connection.execute("SELECT version,contract FROM schema_migrations ORDER BY version").fetchall(), PROBE.MIGRATION_ROWS)
 
     def test_missing_migration_record_refused_before_writable_open(self):
         self.connection.execute("DELETE FROM schema_migrations WHERE version=2")
         self.assert_readonly_refusal("migrations")
-        self.assertEqual(self.connection.execute("SELECT count(*) FROM schema_migrations").fetchone()[0], 2)
+        self.assertEqual(self.connection.execute("SELECT count(*) FROM schema_migrations").fetchone()[0], 3)
 
     def test_missing_schema3_object_refused_before_writable_open(self):
         self.connection.execute("DROP TABLE branch_retention")
@@ -143,7 +143,7 @@ class CapacityPaddingGuards(unittest.TestCase):
         self.assertEqual(self.connection.execute("SELECT * FROM schema_migrations").fetchall(), before)
         self.assertFalse(self.connection.in_transaction)
         self.assertEqual(report["version"], 2)
-        self.assertEqual(report["database_schema_version"], 3)
+        self.assertEqual(report["database_schema_version"], 4)
         self.assertEqual(report["schema_sha256"], PROBE.schema_digest(expected))
 
     def test_identity_rechecked_after_writable_open_before_drop(self):

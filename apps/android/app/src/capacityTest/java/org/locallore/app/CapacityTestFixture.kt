@@ -114,24 +114,24 @@ internal object CapacityTestFixture {
     fun requireCapacityIdentity(): Context {
         val actual = InstrumentationRegistry.getInstrumentation().targetContext
         // Check isolation before creating even a synthetic private root.
-        check(actual.packageName == "org.locallore.app.capacityv3")
+        check(actual.packageName == "org.locallore.app.capacityv4")
         @Suppress("DEPRECATION")
         val info = actual.packageManager.getApplicationInfo(actual.packageName, PackageManager.GET_META_DATA)
         check(info.flags and ApplicationInfo.FLAG_TEST_ONLY != 0)
-        check(actual.packageManager.getApplicationLabel(info).toString() == "LocalLore \u00B7 SQLite capacity test v3")
+        check(actual.packageManager.getApplicationLabel(info).toString() == "LocalLore \u00B7 SQLite capacity test v4")
         val metadata = checkNotNull(info.metaData)
         val pages = metadata.get("org.locallore.capacity.pages")
         val prefix = metadata.get("org.locallore.capacity.prefix_turns")
         check(pages is Int && pages in 8..256 && pages == CAPACITY_PAGES)
         check(prefix is Int && prefix in 0..8 && prefix == PREFIX_TURNS)
-        check(metadata.get("org.locallore.capacity.format") == 2)
-        check(metadata.get("org.locallore.capacity.schema_version") == 3)
+        check(metadata.get("org.locallore.capacity.format") == 3)
+        check(metadata.get("org.locallore.capacity.schema_version") == 4)
         return actual
     }
     private fun capacityContext(): Pair<Context, String> {
         val actual = requireCapacityIdentity()
         val parent = actual.noBackupFilesDir.canonicalFile
-        val root = File(parent, "synthetic-capacity-v3-${UUID.randomUUID()}")
+        val root = File(parent, "synthetic-capacity-v4-${UUID.randomUUID()}")
         check(root.mkdir() && root.canonicalFile.parentFile == parent)
         val marker = OWNER_FORMAT + UUID.randomUUID().toString().replace("-", "") + "\n"
         val owner = File(root, MARKER)
@@ -191,7 +191,7 @@ internal object CapacityTestFixture {
         assertEquals("You", saved.potionOwner)
         assertEquals(PREFIX_TURNS * 2, saved.messages.size)
         assertEquals(1, saved.stories.size)
-        assertEquals(1, saved.schemaVersion); assertEquals(3, saved.databaseSchemaVersion)
+        assertEquals(1, saved.schemaVersion); assertEquals(4, saved.databaseSchemaVersion)
     }
     fun sameAccepted(before: SavedSnapshot, after: SavedSnapshot) {
         assertEquals(before.revision, after.revision)
@@ -227,9 +227,9 @@ internal object CapacityTestFixture {
         assertEquals(PREFIX_TURNS.toLong(), status.getLong("expected_revision"))
     }
 
-    // Actual schema-3 Host calibration: no prefix turns; draft/Ready fits 17 pages,
-    // accepted gift needs an 18th page. This immutable cap is never raised.
-    const val CAPACITY_PAGES = 17
+    // Actual schema-4 Host calibration: no prefix turns; draft/Ready fits 23 pages,
+    // accepted gift needs a 24th page. The fixed v4 cap follows that measured boundary.
+    const val CAPACITY_PAGES = 23
     const val PREFIX_TURNS = 0
     const val FULL_NOTICE = "Local storage is full. Free space, then retry recovery. Saved progress is retained."
     private suspend fun released(path: File) = withContext(Dispatchers.IO) {

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-    <application android:label="LocalLore · SQLite capacity relief test v3" android:testOnly="true"
+    <application android:label="LocalLore · SQLite capacity relief test v4" android:testOnly="true"
         tools:replace="android:label">
         <meta-data android:name="org.locallore.capacity.relief.pages" android:value="32" />
-        <meta-data android:name="org.locallore.capacity.relief.format" android:value="2" />
-        <meta-data android:name="org.locallore.capacity.relief.schema_version" android:value="3" />
-        <meta-data android:name="org.locallore.capacity.relief.initial_pages" android:value="17" />
+        <meta-data android:name="org.locallore.capacity.relief.format" android:value="3" />
+        <meta-data android:name="org.locallore.capacity.relief.schema_version" android:value="4" />
+        <meta-data android:name="org.locallore.capacity.relief.initial_pages" android:value="23" />
         <meta-data android:name="org.locallore.capacity.relief.padding_rows" android:value="14" />
     </application>
 </manifest>

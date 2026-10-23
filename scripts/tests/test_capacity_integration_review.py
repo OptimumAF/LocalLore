@@ -22,15 +22,15 @@ class ActualCapacityHelperCliReview(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix="locallore-capacity-review-")
         self.addCleanup(self.temp.cleanup)
         self.owner = "c" * 32
-        self.directory = Path(self.temp.name).resolve() / ("capacity-relief-" + self.owner)
+        self.directory = Path(self.temp.name).resolve() / ("capacity-relief-v4-" + self.owner)
         self.directory.mkdir()
         (self.directory / ".capacity-owner").write_text(self.owner, encoding="ascii")
         self.path = self.directory / "stories.sqlite"
         with closing(sqlite3.connect(self.path, isolation_level=None)) as db:
-            for name in ("001_initial.sql", "002_derived_memory.sql", "003_branch_retention.sql"):
+            for name in ("001_initial.sql", "002_derived_memory.sql", "003_branch_retention.sql", "004_memory_jobs.sql"):
                 db.executescript((ROOT / "crates/locallore-storage/migrations" / name).read_text(encoding="utf-8"))
             db.execute("PRAGMA application_id=1280069458")
-            db.execute("PRAGMA user_version=3")
+            db.execute("PRAGMA user_version=4")
             seed = json.loads((ROOT / "fixtures/lantern_quay.json").read_text(encoding="utf-8"))
             db.execute("INSERT INTO stories(story_id,root_branch,title,seed_version,seed_json) VALUES(?,?,?,?,?)",
                        (seed["scope"]["story"], seed["scope"]["branch"], "Synthetic CLI control", 1, json.dumps(seed)))
@@ -66,8 +66,8 @@ class ActualCapacityHelperCliReview(unittest.TestCase):
         before = self.control_rows()
         value = self.cli(0)
         self.assertEqual(value["version"], 2)
-        self.assertEqual(value["database_schema_version"], 3)
-        self.assertEqual(value["schema_sha256"], "c05ced1f0439fb767f97d2ff93a34ef44eb6fbc27da6814a75fad455fb0b2c17")
+        self.assertEqual(value["database_schema_version"], 4)
+        self.assertEqual(value["schema_sha256"], "e9f19f3b384c52c5c7bd360e23c1db9e76314152f750a5b9f07f7a14071f8362")
         self.assertEqual(value["status"], "passed")
         self.assertEqual(value["rows_removed"], 1)
         self.assertTrue(value["schema_restored"])
@@ -75,7 +75,7 @@ class ActualCapacityHelperCliReview(unittest.TestCase):
         self.assertEqual(self.control_rows(), before)
         with closing(sqlite3.connect(self.path, isolation_level=None)) as db:
             self.assertEqual(db.execute("SELECT count(*) FROM sqlite_schema WHERE name=?", (PAD,)).fetchone()[0], 0)
-        # No claim of seeded Ready17, actual Full32, native recovery or gameplay.
+        # No claim of seeded Ready23, actual Full32, native recovery or gameplay.
 
     def test_unknown_main_schema_is_refused_by_actual_cli_without_touching_database(self):
         with closing(sqlite3.connect(self.path, isolation_level=None)) as db:

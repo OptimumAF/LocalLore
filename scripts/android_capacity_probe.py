@@ -12,15 +12,15 @@ import zipfile
 import audit_apk
 import check
 
-PACKAGE = "org.locallore.app.capacityv3"
-LABEL = "LocalLore \u00b7 SQLite capacity test v3"
-PAGES = 17
+PACKAGE = "org.locallore.app.capacityv4"
+LABEL = "LocalLore \u00b7 SQLite capacity test v4"
+PAGES = 23
 
 
 def capacity_build_command(root, offline):
     command = check.android_commands(root, offline, False)[0]
     return check.Command(command.argv + ("-Plocallore.capacityTest=true", "--project-cache-dir",
-                                         str(root / "apps/android/.gradle-capacity-v3")), command.cwd)
+                                         str(root / "apps/android/.gradle-capacity-v4")), command.cwd)
 
 
 def audit_capacity_manifests(badging, tree, test_badging, test_tree):
@@ -28,7 +28,7 @@ def audit_capacity_manifests(badging, tree, test_badging, test_tree):
     audit_apk.require("application-label:'" + LABEL + "'" in badging, "Missing capacity test label")
     audit_apk.require(re.search(r':testOnly\([^)]*\)=true\b', tree), "Capacity app must be testOnly")
     audit_apk.audit_fixed_metadata(tree, "org.locallore.capacity.",
-                                   {"pages": 17, "prefix_turns": 0, "format": 2, "schema_version": 3})
+                                   {"pages": 23, "prefix_turns": 0, "format": 3, "schema_version": 4})
     audit_apk.require(re.search(r"^package: name='" + re.escape(PACKAGE) + r"\.test' ", test_badging, re.M),
                       "Wrong capacity test package")
     blocks = []
@@ -52,7 +52,7 @@ def audit_capacity_manifests(badging, tree, test_badging, test_tree):
 
 
 def audit_capacity(root):
-    output = root / "apps/android/app/build-capacity-v3/outputs/apk"
+    output = root / "apps/android/app/build-capacity-v4/outputs/apk"
     app = output / "debug/app-debug.apk"
     test = output / "androidTest/debug/app-debug-androidTest.apk"
     libraries = audit_apk.audit_zip(app)
@@ -67,10 +67,10 @@ def audit_capacity(root):
     with zipfile.ZipFile(app) as archive:
         for abi in audit_apk.ABIS:
             data = archive.read("lib/" + abi + "/liblocallore_android.so")
-            audit_apk.require(b"MAX_PAGE_COUNT=17\x00" in data, "Missing fixed native SQLite compile option")
+            audit_apk.require(b"MAX_PAGE_COUNT=23\x00" in data, "Missing fixed native SQLite compile option")
             audit_apk.require(b"MAX_PAGE_COUNT=0xfffffffe\x00" not in data, "Default SQLite limit in capped binary")
     return {"status": "passed", "scope": "synthetic_capacity_test_binary", "pages": PAGES,
-            "prefix_turns": 0, "fixture_format": 2, "database_schema_version": 3,
+            "prefix_turns": 0, "fixture_format": 3, "database_schema_version": 4,
             "package": PACKAGE, "permissions": permissions, "libraries": libraries}
 
 

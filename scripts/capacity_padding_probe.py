@@ -17,13 +17,14 @@ CREATE = "CREATE TABLE locallore_capacity_pad_v1 (id INTEGER PRIMARY KEY, owner 
 MAX_PAGES = 32
 MAX_ROWS = 64
 PAYLOAD_BYTES = 3500
-INITIAL_PAGES = 17  # Measured schema3 seeded Host draft/Ready profile, not empty SQL.
+INITIAL_PAGES = 23  # Measured schema4 seeded Host draft/Ready profile, not empty SQL.
 MIGRATIONS = Path(__file__).resolve().parent.parent / "crates/locallore-storage/migrations"
 SCHEMAS = tuple(MIGRATIONS / name for name in (
-    "001_initial.sql", "002_derived_memory.sql", "003_branch_retention.sql"))
+    "001_initial.sql", "002_derived_memory.sql", "003_branch_retention.sql", "004_memory_jobs.sql"))
 MIGRATION_ROWS = [(1, "locallore-storage-v1"),
                   (2, "locallore-storage-v2-derived-memory"),
-                  (3, "locallore-storage-v3-branch-retention")]
+                  (3, "locallore-storage-v3-branch-retention"),
+                  (4, "locallore-storage-v4-memory-jobs")]
 FAULTS = ("malformed", "overflow", "timeout", "after-fill", "cleanup-refusal")
 
 
@@ -79,7 +80,7 @@ def owned_path(directory, owner):
             text = text[4:]
         return os.path.normcase(text)
     require(spelling(path.resolve()) == spelling(path), "directory")
-    require(path.name == "capacity-relief-" + owner, "directory_name")
+    require(path.name == "capacity-relief-v4-" + owner, "directory_name")
     marker = path / ".capacity-owner"
     require(marker.is_file() and not marker.is_symlink() and marker.stat().st_size == 32, "marker")
     require(marker.read_text(encoding="ascii") == owner, "marker")
@@ -92,7 +93,7 @@ def owned_path(directory, owner):
 
 def metadata(connection):
     require(scalar(connection, "PRAGMA application_id") == 0x4C4C4F52, "identity")
-    require(scalar(connection, "PRAGMA user_version") == 3, "identity")
+    require(scalar(connection, "PRAGMA user_version") == 4, "identity")
     require(scalar(connection, "PRAGMA journal_mode") == "delete", "journal")
     require(scalar(connection, "PRAGMA page_size") == 4096, "page_size")
     require(scalar(connection, "PRAGMA auto_vacuum") == 0, "auto_vacuum")
@@ -175,7 +176,7 @@ def execute(directory, owner, action):
             require(scalar(connection, "PRAGMA page_count") == MAX_PAGES, "full_pages")
             require(scalar(connection, "PRAGMA freelist_count") == 0, "full_freelist")
             require(not connection.in_transaction, "transaction")
-            return {"version": 2, "database_schema_version": 3, "schema_sha256": schema_digest(expected), "status": "passed", "action": action, "initial_pages": initial_pages,
+            return {"version": 2, "database_schema_version": 4, "schema_sha256": schema_digest(expected), "status": "passed", "action": action, "initial_pages": initial_pages,
                     "pages": MAX_PAGES, "free_pages": 0, "rows": inserted, "insert_attempts": attempts,
                     "sqlite_full": True, "sqlite_version": sqlite3.sqlite_version,
                     "errorcode_api": errorcode_api}
@@ -186,7 +187,7 @@ def execute(directory, owner, action):
         require(connection.execute("SELECT version,contract FROM schema_migrations ORDER BY version").fetchall() == MIGRATION_ROWS, "restored_migrations")
         free = scalar(connection, "PRAGMA freelist_count")
         require(free > 0, "relief")
-        return {"version": 2, "database_schema_version": 3, "schema_sha256": schema_digest(expected), "status": "passed", "action": action, "initial_pages": initial_pages,
+        return {"version": 2, "database_schema_version": 4, "schema_sha256": schema_digest(expected), "status": "passed", "action": action, "initial_pages": initial_pages,
                 "pages": scalar(connection, "PRAGMA page_count"), "free_pages": free,
                 "rows_removed": count, "schema_restored": True, "sqlite_version": sqlite3.sqlite_version}
     finally:

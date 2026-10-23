@@ -39,6 +39,7 @@ export class EvaluationController {
     private listeners = new Set<() => void>();
     constructor(private invoke: EvaluationInvoke) {}
     get = () => this.state;
+    presentationVersion = () => this.epoch;
     matchesContext(context: string) {
         return this.context === context;
     }
@@ -159,7 +160,8 @@ export class EvaluationController {
                         });
                     } catch (e) {
                         if (
-                            String(e).includes("EvaluationNotReady") &&
+                            (e instanceof Error ? e.message : String(e)) ===
+                                "EvaluationNotReady" &&
                             status.running
                         ) {
                         } else throw e;

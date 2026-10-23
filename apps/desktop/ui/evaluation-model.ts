@@ -111,7 +111,17 @@ export function decodeEvaluationStatus(v: unknown): EvaluationStatus {
             s.operation_id === null ||
             (integer(s.operation_id) && Number(s.operation_id) > 0)
         ) ||
-        !small(s.phase, 48) ||
+        ![
+            "retained",
+            "starting",
+            "validating_checkpoints",
+            "running",
+            "stopping_at_boundary",
+            "error",
+            "paused",
+            "completed",
+        ].includes(String(s.phase)) ||
+        s.running !== (s.operation_id !== null) ||
         !(s.error === null || evaluationErrors.has(String(s.error)))
     )
         throw Error("EvaluationInvalidReply");
@@ -166,10 +176,15 @@ export function decodeEvaluationReport(v: unknown): EvaluationReport {
         s.android_parity !== "not_run" ||
         typeof s.completed !== "boolean" ||
         typeof s.cancelled !== "boolean" ||
-        !small(s.binding_sha256, 64) ||
+        !(
+            typeof s.binding_sha256 === "string" &&
+            /^[a-f0-9]{64}$/.test(s.binding_sha256)
+        ) ||
         !Array.isArray(s.cases) ||
         s.cases.length > 32 ||
-        !Array.isArray(s.unsupported_lanes)
+        !Array.isArray(s.unsupported_lanes) ||
+        s.unsupported_lanes.length > 16 ||
+        !s.unsupported_lanes.every((x) => small(x, 128))
     )
         throw Error("EvaluationInvalidReply");
     const ids = new Set();
@@ -195,6 +210,8 @@ export function decodeEvaluationReport(v: unknown): EvaluationReport {
                 !small(x.id, 128) ||
                 !small(x.stage, 48) ||
                 !status(x.status) ||
+                !Object.hasOwn(x, "expected") ||
+                !Object.hasOwn(x, "actual") ||
                 !(x.turn === null || small(x.turn, 128))
             )
                 throw Error("EvaluationInvalidReply");
@@ -204,7 +221,13 @@ export function decodeEvaluationReport(v: unknown): EvaluationReport {
             if (
                 !small(x.id, 128) ||
                 !integer(x.revision) ||
-                !small(x.canonical_sha256, 64) ||
+                !(
+                    typeof x.canonical_sha256 === "string" &&
+                    /^[a-f0-9]{64}$/.test(x.canonical_sha256)
+                ) ||
+                !Object.hasOwn(x, "intent") ||
+                !Object.hasOwn(x, "phase") ||
+                !Object.hasOwn(x, "error") ||
                 !(x.narration === null || small(x.narration, 16384))
             )
                 throw Error("EvaluationInvalidReply");

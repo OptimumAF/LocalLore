@@ -229,6 +229,7 @@ export async function evaluationJourneys({
             errors.snapshot().length === 0,
             "evaluation-no-unhandled-render-errors",
         );
+        await capture("finished");
         if (config.stage === "initial") {
             c.requestLab();
             c.acknowledgeLab(true);

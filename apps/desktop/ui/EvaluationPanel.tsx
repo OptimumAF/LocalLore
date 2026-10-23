@@ -92,7 +92,8 @@ export function EvaluationPanel({
                         <button
                             disabled={!s.report || s.busy}
                             onClick={() => {
-                                const report = s.report;
+                                const report = s.report,
+                                    version = c.presentationVersion();
                                 if (report)
                                     void navigator.clipboard
                                         .writeText(
@@ -100,13 +101,21 @@ export function EvaluationPanel({
                                         )
                                         .then(
                                             () => {
-                                                if (c.matchesContext(context))
+                                                if (
+                                                    c.matchesContext(context) &&
+                                                    version ===
+                                                        c.presentationVersion()
+                                                )
                                                     setCopyNotice(
                                                         "Private synthetic report JSON copied.",
                                                     );
                                             },
                                             () => {
-                                                if (c.matchesContext(context))
+                                                if (
+                                                    c.matchesContext(context) &&
+                                                    version ===
+                                                        c.presentationVersion()
+                                                )
                                                     setCopyNotice(
                                                         "Clipboard unavailable; report JSON remains in local evaluation storage.",
                                                     );

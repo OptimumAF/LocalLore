@@ -364,6 +364,7 @@ export async function traceJourneys({
             );
             await capture("d06-stale");
             await c.refresh();
+            await c.readTrace();
             check(
                 c.get().trace.reply?.head === 2,
                 "explicit-gameplay-refresh-reconciles-trace-head",
@@ -374,6 +375,7 @@ export async function traceJourneys({
             const oldStoryRead = c.readTrace();
             await delayed.entered;
             await c.create();
+            await c.readTrace();
             delayed.release();
             await oldStoryRead;
             check(

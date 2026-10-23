@@ -212,12 +212,32 @@ await c.attach({
     name: "Other",
     revision: 0,
 });
+await c.readTrace();
 switching.release();
 await oldStory;
 assert.equal(c.get().trace.reply.scope.story, "other-synthetic");
 await c.controlTrace("disable");
 assert.equal(c.get().trace.reply.snapshot.status, "disabled");
 assert.equal(c.get().trace.reply.snapshot.attempts.length, 0);
+const slow = gate();
+hold = slow;
+let refreshed = false;
+const refreshing = c.refresh().then(() => {
+    refreshed = true;
+});
+await slow.entered;
+await new Promise(setImmediate);
+try {
+    assert.equal(
+        refreshed,
+        true,
+        "held diagnostic IPC must not delay gameplay snapshot refresh",
+    );
+} finally {
+    slow.release();
+}
+await refreshing;
+await c.readTrace();
 await c.dispose();
 assert.equal(c.get().trace.reply, null);
 assert(
@@ -227,5 +247,5 @@ assert(
     "debug reads/configuration never invoke gameplay",
 );
 console.log(
-    "PASS: trace opt-in, exact head/scope/observer wire checks, delayed lens/story/deletion fences and default-disabled non-generation controls.",
+    "PASS: trace opt-in, exact head/scope/observer wire checks, delayed lens/story/deletion fences default-disabled non-generation controls and passive held diagnostic refresh.",
 );

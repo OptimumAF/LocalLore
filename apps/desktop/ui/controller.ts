@@ -716,7 +716,7 @@ export class Controller {
                 });
                 await this.inspect();
                 if (this.state.query.shown) await this.queryInspection();
-                if (this.state.trace.shown) await this.readTrace();
+                if (this.state.trace.shown) void this.readTrace();
                 return;
             } catch (error) {
                 if (

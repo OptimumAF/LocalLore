@@ -416,6 +416,9 @@ export async function forkNativeJourneys({
                 passed: false,
                 checks,
                 failedCheck: current,
+                fork: f.get(),
+                selected: c.selected(),
+                playRevision: c.get().play?.revision,
                 error:
                     error instanceof Error
                         ? error.message

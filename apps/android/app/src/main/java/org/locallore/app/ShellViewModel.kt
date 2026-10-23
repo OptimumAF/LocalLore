@@ -314,8 +314,21 @@ class ShellViewModel internal constructor(
         pending?.cancel()
         pending = null
         if (gateway.durable) {
-            savedOperation("Response stopped. Showing the accepted saved history.") { gateway.cancelSaved() }
-            diagnosticLog.record(DiagnosticPhase.CANCEL, DiagnosticOutcome.COMPLETED, elapsedMillis(start))
+            savedOperation("Cancellation checked. Showing the accepted saved history.") {
+                try {
+                    gateway.cancelSaved().also {
+                        if (!disposed) diagnosticLog.record(DiagnosticPhase.CANCEL,
+                            DiagnosticOutcome.COMPLETED, elapsedMillis(start))
+                    }
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (failure: Exception) {
+                    if (!disposed) diagnosticLog.record(DiagnosticPhase.CANCEL,
+                        DiagnosticOutcome.UNKNOWN, elapsedMillis(start),
+                        if (failure is WorkspaceFailure) DiagnosticError.fromNative(failure.category)
+                        else DiagnosticError.TRANSPORT)
+                    throw failure
+                }
+            }
             return
         }
         mutable.value = mutable.value.copy(busy = false, preparingResponse = false, notice = "Response cancelled. Nothing changed.")

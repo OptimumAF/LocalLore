@@ -96,18 +96,18 @@ class ArchiveIntegrationTest {
             val original = saved(source, true); val unrelated = saved(target, false)
             val from = archive(source); val into = archive(target)
             try {
-                val bytes = capture(from, original.selected)
+                val bytes = capture(from, checkNotNull(original.selected))
                 val prepared = accepted(NativeArchive.prepareImport(into, bytes))
                 val outcome = accepted(NativeArchive.commitImport(into, prepared.getLong("token")))
-                assertEquals(original.selected.story, outcome.getJSONObject("root").getString("story"))
+                assertEquals(checkNotNull(original.selected).story, outcome.getJSONObject("root").getString("story"))
                 assertEquals(1, outcome.getInt("committed_turns"))
                 assertEquals(0, File(target, "staging").listFiles()!!.size)
                 val gateway = DurableGateway(Transport(File(target, "stories.sqlite3")))
                 try {
                     val library = gateway.initialize()
                     assertEquals(2, library.stories.size)
-                    assertTrue(library.stories.any { it.story == unrelated.selected.story })
-                    val imported = gateway.resumeSaved(library.stories.first { it.story == original.selected.story })
+                    assertTrue(library.stories.any { it.story == checkNotNull(unrelated.selected).story })
+                    val imported = gateway.resumeSaved(library.stories.first { it.story == checkNotNull(original.selected).story })
                     assertEquals(original.messages, imported.messages)
                     assertEquals(original.revision, imported.revision)
                     assertEquals(original.potionOwner, imported.potionOwner)
@@ -115,10 +115,10 @@ class ArchiveIntegrationTest {
                     assertTrue(gateway.respond(DemoAction.GIVE_POTION, imported.revision, DemoMode.ACCEPTED) is DemoResult.Rejected)
                     assertEquals(imported.messages, gateway.snapshot().messages)
                 } finally { gateway.close() }
-                assertArrayEquals(bytes, capture(into, original.selected))
+                assertArrayEquals(bytes, capture(into, checkNotNull(original.selected)))
                 val duplicate = accepted(NativeArchive.prepareImport(into, bytes))
                 rejected(NativeArchive.commitImport(into, duplicate.getLong("token")), "Conflict")
-                assertArrayEquals(bytes, capture(into, original.selected))
+                assertArrayEquals(bytes, capture(into, checkNotNull(original.selected)))
                 assertEquals(0, File(target, "staging").listFiles()!!.size)
             } finally { NativeArchive.close(from); NativeArchive.close(into) }
         }
@@ -130,13 +130,13 @@ class ArchiveIntegrationTest {
             val original = saved(source, false); saved(target, false)
             val from = archive(source); val into = archive(target)
             try {
-                val bytes = capture(from, original.selected)
+                val bytes = capture(from, checkNotNull(original.selected))
                 val prepared = accepted(NativeArchive.prepareImport(into, bytes))
                 accepted(NativeArchive.commitImport(into, prepared.getLong("token")))
                 val gateway = DurableGateway(Transport(File(target, "stories.sqlite3")))
                 try {
                     val library = gateway.initialize()
-                    val imported = gateway.resumeSaved(library.stories.first { it.story == original.selected.story })
+                    val imported = gateway.resumeSaved(library.stories.first { it.story == checkNotNull(original.selected).story })
                     assertEquals(0L, imported.revision)
                     assertTrue(gateway.commitAsync(gateway.respond(DemoAction.GIVE_POTION, 0, DemoMode.ACCEPTED)) is DemoResult.Accepted)
                     val committed = gateway.snapshot()
@@ -154,19 +154,19 @@ class ArchiveIntegrationTest {
         withContext(Dispatchers.IO) {
             val directory = fresh(); val original = saved(directory, false); val handle = archive(directory)
             try {
-                val first = accepted(NativeArchive.prepareExport(handle, control(original.selected))).getLong("token")
+                val first = accepted(NativeArchive.prepareExport(handle, control(checkNotNull(original.selected)))).getLong("token")
                 rejected(NativeArchive.commitImport(handle, first), "InvalidToken")
                 assertTrue(NativeArchive.exportBytes(handle, first).isNotEmpty())
                 try { NativeArchive.exportBytes(handle, first); fail("Repeated export token accepted") }
                 catch (expected: IllegalStateException) { assertEquals("InvalidToken", expected.message) }
-                val second = accepted(NativeArchive.prepareExport(handle, control(original.selected))).getLong("token")
+                val second = accepted(NativeArchive.prepareExport(handle, control(checkNotNull(original.selected)))).getLong("token")
                 NativeArchive.cancel(handle)
                 try { NativeArchive.exportBytes(handle, second); fail("Cancelled export token accepted") }
                 catch (expected: IllegalStateException) { assertEquals("InvalidToken", expected.message) }
-                rejected(NativeArchive.prepareExport(handle, control(original.selected, 1)), "Stale")
-                assertTrue(capture(handle, original.selected).isNotEmpty())
+                rejected(NativeArchive.prepareExport(handle, control(checkNotNull(original.selected), 1)), "Stale")
+                assertTrue(capture(handle, checkNotNull(original.selected)).isNotEmpty())
             } finally { NativeArchive.close(handle) }
-            rejected(NativeArchive.prepareExport(handle, control(original.selected)), "InvalidHandle")
+            rejected(NativeArchive.prepareExport(handle, control(checkNotNull(original.selected))), "InvalidHandle")
         }
     }
 
@@ -176,7 +176,7 @@ class ArchiveIntegrationTest {
             val original = saved(source, true); val existing = saved(target, false)
             val from = archive(source); val into = archive(target)
             try {
-                val bytes = capture(from, original.selected)
+                val bytes = capture(from, checkNotNull(original.selected))
                 rejected(NativeArchive.prepareImport(into, "{\"version\":1,\"version\":1}".toByteArray()), "Malformed")
                 val future = JSONObject(bytes.toString(Charsets.UTF_8)).put("version", 999).toString().toByteArray()
                 rejected(NativeArchive.prepareImport(into, future), "Unsupported")

@@ -2,8 +2,8 @@
 //! App-private Android archive ownership. Store/archive v1 alone validates and commits canon.
 //! Ancestors are trusted application construction; this is not a same-UID filesystem boundary.
 use locallore_storage::{
-    playable_archive::MAX_ARCHIVE_BYTES, validate_archive, ArchiveError, StorageError, Store,
-    ValidatedArchive,
+    playable_archive::MAX_ARCHIVE_BYTES, validate_archive, ArchiveError, DeletionError,
+    PreparedStoryDeletion, StorageError, Store, ValidatedArchive,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -18,6 +18,7 @@ use std::{
 };
 
 pub const MAX_CONTROL_BYTES: usize = 16 * 1024;
+pub const MAX_DELETION_BYTES: usize = 64 * 1024;
 static NEXT: AtomicU64 = AtomicU64::new(0);
 type Result<T> = std::result::Result<T, &'static str>;
 fn next() -> Result<u64> {
@@ -65,6 +66,7 @@ struct Pending {
     capability: Capability,
 }
 enum Capability {
+    Delete(PreparedStoryDeletion),
     Export(Vec<u8>),
     Import {
         bytes: Vec<u8>,
@@ -73,6 +75,7 @@ enum Capability {
 }
 #[derive(Clone, Copy)]
 enum Kind {
+    Delete,
     Export,
     Import,
 }
@@ -80,7 +83,9 @@ impl Capability {
     fn kind(&self, kind: Kind) -> bool {
         matches!(
             (self, kind),
-            (Self::Export(_), Kind::Export) | (Self::Import { .. }, Kind::Import)
+            (Self::Export(_), Kind::Export)
+                | (Self::Import { .. }, Kind::Import)
+                | (Self::Delete(_), Kind::Delete)
         )
     }
 }
@@ -369,6 +374,66 @@ impl ArchiveRegistry {
             )
         })
     }
+    pub fn prepare_delete(&self, handle: u64, request: &[u8]) -> Vec<u8> {
+        control(|| {
+            let op = self.begin(handle)?;
+            if request.len() > MAX_CONTROL_BYTES {
+                return Err("TooLarge");
+            }
+            let request: ExportRequest =
+                serde_json::from_slice(request).map_err(|_| "Malformed")?;
+            op.check()?;
+            regular(&op.lease.database)?;
+            let mut store = Store::open_read_only(&op.lease.database).map_err(storage_error)?;
+            let prepared = store
+                .prepare_story_deletion(
+                    &locallore::contracts::Scope {
+                        story: request.story,
+                        branch: request.branch,
+                    },
+                    request.expected_revision,
+                    &|| op.cancelled(),
+                )
+                .map_err(deletion_error)?;
+            let reply = success_bounded(
+                json!({"token":op.id,"preview":prepared.preview()}),
+                MAX_DELETION_BYTES,
+            )?;
+            drop(store);
+            op.publish(Capability::Delete(prepared))?;
+            Ok(reply)
+        })
+    }
+    pub fn commit_delete(
+        &self,
+        handle: u64,
+        token: u64,
+        workspaces: &crate::workspace::WorkspaceRegistry,
+    ) -> Vec<u8> {
+        control(|| {
+            let (op, capability) = self.consume(handle, token, Kind::Delete)?;
+            let Capability::Delete(prepared) = capability else {
+                return Err("InvalidToken");
+            };
+            let story = prepared.preview().story_id.clone();
+            let deleted = workspaces.with_story_deletion(&op.lease.database, &story, || {
+                op.check()?;
+                regular(&op.lease.database)?;
+                let mut store = Store::open(&op.lease.database, None).map_err(storage_error)?;
+                #[cfg(test)]
+                op.hook("before-delete", &op.lease.database);
+                store
+                    .delete_story(prepared, &|| op.cancelled())
+                    .map_err(deletion_error)
+            })?;
+            #[cfg(test)]
+            op.hook("target-deleted", &op.lease.database);
+            // Accepted deletion already invalidated all matching native sessions.
+            // A late cancellation is uncertain to the caller: always reconcile the library.
+            op.check()?;
+            success(json!(deleted))
+        })
+    }
     pub fn cancel(&self, handle: u64) {
         if let Ok(lease) = self.lease(handle) {
             invalidate(&lease);
@@ -446,9 +511,12 @@ impl Stage {
     }
 }
 fn success(data: Value) -> Result<Vec<u8>> {
+    success_bounded(data, MAX_CONTROL_BYTES)
+}
+fn success_bounded(data: Value, cap: usize) -> Result<Vec<u8>> {
     let bytes = serde_json::to_vec(&json!({"version":1,"status":"ok","data":data}))
         .map_err(|_| "Internal")?;
-    if bytes.len() > MAX_CONTROL_BYTES {
+    if bytes.len() > cap {
         Err("TooLarge")
     } else {
         Ok(bytes)
@@ -474,6 +542,20 @@ fn archive_error(error: ArchiveError) -> &'static str {
         ArchiveError::Full => "Full",
         ArchiveError::Database => "Database",
         ArchiveError::NotFound => "NotFound",
+    }
+}
+fn deletion_error(error: DeletionError) -> &'static str {
+    match error {
+        DeletionError::Malformed => "Malformed",
+        DeletionError::NotFound => "NotFound",
+        DeletionError::Stale => "Stale",
+        DeletionError::Cancelled => "Cancelled",
+        DeletionError::Busy => "Busy",
+        DeletionError::Full => "Full",
+        DeletionError::Integrity => "Integrity",
+        DeletionError::Database => "Database",
+        DeletionError::Io => "Io",
+        DeletionError::TooLarge => "TooLarge",
     }
 }
 fn storage_error(error: StorageError) -> &'static str {

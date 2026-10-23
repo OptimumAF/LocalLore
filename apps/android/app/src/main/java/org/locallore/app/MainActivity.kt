@@ -13,6 +13,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.locallore.app.ui.LocalLoreScreen
 import org.locallore.app.ui.DiagnosticsDialog
 import org.locallore.app.ui.ArchiveDialog
+import org.locallore.app.ui.StoryDeletionDialog
 
 class MainActivity : ComponentActivity() {
     private lateinit var model: ShellViewModel
@@ -51,8 +52,9 @@ class MainActivity : ComponentActivity() {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 require(modelClass == ShellViewModel::class.java)
-                return ShellViewModel(DurableGateway(NativeWorkspaceTransport(applicationContext)),
-                    archiveGateway = NativeArchiveGateway(applicationContext)) as T
+                return ShellViewModel(DurableGateway(NativeWorkspaceTransport(applicationContext), autoCreateIfEmpty = false),
+                    archiveGateway = NativeArchiveGateway(applicationContext),
+                    deletionGateway = NativeArchiveGateway(applicationContext)) as T
             }
         }
         model = ViewModelProvider(this, factory)[ShellViewModel::class.java]
@@ -60,9 +62,14 @@ class MainActivity : ComponentActivity() {
             val state by model.state.collectAsStateWithLifecycle()
             val diagnostics by model.diagnostics.collectAsStateWithLifecycle()
             val archive by model.archive.collectAsStateWithLifecycle()
+            val deletion by model.deletion.collectAsStateWithLifecycle()
             LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::reset,
                 onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover,
-                archiveAvailable = model.archiveController != null, onArchive = model::openArchive) {
+                archiveAvailable = model.archiveController != null, onArchive = model::openArchive,
+                deletionAvailable = model.deletionController != null, onDelete = model::openDeletion) {
+                model.deletionController?.let { controller ->
+                    StoryDeletionDialog(deletion, controller::dismiss, controller::cancel, controller::confirm)
+                }
                 DiagnosticsDialog(diagnostics, model::closeDiagnostics, model::clearDiagnostics) {
                     if (model.beginDiagnosticExport()) {
                         try { documentPicker.launch("locallore-diagnostics.json") }

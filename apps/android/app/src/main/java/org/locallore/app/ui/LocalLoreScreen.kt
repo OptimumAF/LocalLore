@@ -63,6 +63,8 @@ fun LocalLoreScreen(
     onRecover: () -> Unit = {},
     archiveAvailable: Boolean = false,
     onArchive: () -> Unit = {},
+    deletionAvailable: Boolean = false,
+    onDelete: () -> Unit = {},
     overlay: @Composable () -> Unit = {},
 ) {
     MaterialTheme(
@@ -104,7 +106,7 @@ fun LocalLoreScreen(
                                 )
                                 TextButton(
                                     onClick = onReset,
-                                    enabled = !state.busy && !state.archiveActive,
+                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive,
                                     modifier = Modifier.heightIn(min = 48.dp)
                                         .testTag("reset-demo"),
                                 ) { Text(if (state.persistent) "New story" else "Reset demo") }
@@ -135,11 +137,11 @@ fun LocalLoreScreen(
                             if (state.persistent && state.stories.isNotEmpty()) {
                                 var libraryExpanded by remember { mutableStateOf(false) }
                                 Box {
-                                    TextButton(onClick = { libraryExpanded = true }, enabled = !state.busy && !state.archiveActive,
+                                    TextButton(onClick = { libraryExpanded = true }, enabled = !state.busy && !state.archiveActive && !state.deletionActive,
                                         modifier = Modifier.testTag("saved-library")) {
                                         Text("Saved stories · ${state.stories.size} · ${state.selectedStory?.story.orEmpty()}")
                                     }
-                                    DropdownMenu(expanded = libraryExpanded && !state.busy && !state.archiveActive,
+                                    DropdownMenu(expanded = libraryExpanded && !state.busy && !state.archiveActive && !state.deletionActive,
                                         onDismissRequest = { libraryExpanded = false }) {
                                         state.stories.forEach { story ->
                                             DropdownMenuItem(text = { Text("${story.title} · ${story.story} · revision ${story.revision}") },
@@ -150,12 +152,20 @@ fun LocalLoreScreen(
                             }
                             if (archiveAvailable && state.persistent) {
                                 OutlinedButton(onClick = onArchive,
-                                    enabled = !state.busy && !state.archiveActive && !state.recoveryRequired && state.selectedStory != null,
+                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.recoveryRequired && state.selectedStory != null,
                                     modifier = Modifier.testTag("story-archive")) { Text("Story archive") }
+                            }
+                            if (deletionAvailable && state.persistent && state.selectedStory != null) {
+                                OutlinedButton(onClick = onDelete,
+                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.recoveryRequired,
+                                    modifier = Modifier.heightIn(min = 48.dp).testTag("delete-story")) { Text("Delete story...") }
                             }
                         }
                     }
-                    item(key = "scene") {
+                    if (state.persistent && state.selectedStory == null) item(key = "empty-library") {
+                        Text("No saved stories. Choose New story to begin.", modifier = Modifier.testTag("empty-library"))
+                    }
+                    if (!state.persistent || state.selectedStory != null) item(key = "scene") {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             HorizontalDivider(color = MutedInk.copy(alpha = 0.3f))
                             Text(
@@ -172,7 +182,7 @@ fun LocalLoreScreen(
                             )
                         }
                     }
-                    item(key = "state") {
+                    if (!state.persistent || state.selectedStory != null) item(key = "state") {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
                                 "Healing potion · ${state.potionOwner}",
@@ -219,7 +229,7 @@ fun LocalLoreScreen(
                     item(key = "actions") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (state.persistent && state.recoveryRequired) OutlinedButton(
-                                onClick = onRecover, enabled = !state.busy && !state.archiveActive,
+                                onClick = onRecover, enabled = !state.busy && !state.archiveActive && !state.deletionActive,
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("recover-save"),
                             ) { Text("Recover saved progress") }
                             AnimatedVisibility(visible = state.busy) {
@@ -250,26 +260,26 @@ fun LocalLoreScreen(
                             }
                             Button(
                                 onClick = { onAction(DemoAction.GIVE_POTION) },
-                                enabled = !state.busy && !state.archiveActive && !state.recoveryRequired,
+                                enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.recoveryRequired && (!state.persistent || state.selectedStory != null),
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                     .testTag("give-potion"),
                             ) { Text("Give potion to Mira") }
                             OutlinedButton(
                                 onClick = { onAction(DemoAction.TRY_ABILITY) },
-                                enabled = !state.busy && !state.archiveActive && !state.recoveryRequired,
+                                enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.recoveryRequired && (!state.persistent || state.selectedStory != null),
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                     .testTag("try-ability"),
                             ) { Text("Try unlearned ability") }
                         }
                     }
                     item(key = "diagnostics") {
-                        TextButton(onClick = onDiagnostics, enabled = !state.busy && !state.archiveActive,
+                        TextButton(onClick = onDiagnostics, enabled = !state.busy && !state.archiveActive && !state.deletionActive,
                             modifier = Modifier.heightIn(min = 48.dp).testTag("open-diagnostics")) {
                             Text("Local diagnostics")
                         }
                     }
                     item(key = "demo-controls") {
-                        DemoResponses(state.mode, state.busy || state.archiveActive || state.recoveryRequired, onMode)
+                        DemoResponses(state.mode, state.busy || state.archiveActive || state.deletionActive || state.recoveryRequired || (state.persistent && state.selectedStory == null), onMode)
                     }
                 }
             }

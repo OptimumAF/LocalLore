@@ -5,6 +5,10 @@ pub mod archive_capacity_fixture;
 #[cfg(test)]
 mod archive_full_tests;
 mod branches;
+mod story_deletion;
+pub use story_deletion::{
+    DeletionError, PreparedStoryDeletion, StoryDeletionOutcome, StoryDeletionPreview,
+};
 pub mod playable_archive;
 pub use playable_archive::{
     validate_archive, ArchiveError, ArchivePreview, ImportOutcome, PlayableArchive,

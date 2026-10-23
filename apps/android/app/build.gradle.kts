@@ -9,11 +9,22 @@ val archiveVerification = providers.gradleProperty("localLoreArchiveVerification
 require(archiveVerification == null || archiveVerification == "true")
 val archiveCapacity = providers.gradleProperty("localLoreArchiveCapacityVerification").orNull
 require(archiveCapacity == null || archiveCapacity == "true")
+val storyDeletion = providers.gradleProperty("localLoreStoryDeletionVerification").orNull
+require(storyDeletion == null || storyDeletion == "true")
+require(listOf(archiveVerification, archiveCapacity, storyDeletion).count { it == "true" } <= 1) {
+    "Verification installations must be selected individually."
+}
 require(archiveVerification != "true" || archiveCapacity != "true") {
     "Archive verification and capacity verification are separate installations."
 }
 val capacityProjectCache = rootProject.file(".gradle-archive-capacity").canonicalFile
 val selectedProjectCache = (gradle.startParameter.projectCacheDir ?: rootProject.file(".gradle")).canonicalFile
+require((storyDeletion == "true") == (selectedProjectCache == rootProject.file(".gradle-story-deletion").canonicalFile)) {
+    "Story deletion verification requires its exclusive .gradle-story-deletion project cache."
+}
+require(storyDeletion != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
+    "Story deletion verification is for local debug verification only."
+}
 require((archiveCapacity == "true") == (selectedProjectCache == capacityProjectCache)) {
     "Capacity verification requires its exclusive .gradle-archive-capacity project cache."
 }
@@ -24,8 +35,11 @@ if (archiveVerification == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-archive-verification"))
 } else if (archiveCapacity == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-archive-capacity"))
+} else if (storyDeletion == "true") {
+    layout.buildDirectory.set(layout.projectDirectory.dir("build-story-deletion"))
 }
 val verificationSuffix = when {
+    storyDeletion == "true" -> ".storydelete"
     archiveCapacity == "true" -> ".archivecapacity"
     archiveVerification == "true" -> ".archiveverify"
     else -> ""
@@ -49,7 +63,7 @@ android {
         manifestPlaceholders["chooserTestAuthority"] = "org.locallore.app$verificationSuffix.test.chooser"
         if (verificationSuffix.isNotEmpty()) {
             applicationIdSuffix = verificationSuffix
-            versionNameSuffix = if (archiveCapacity == "true") "-archive-capacity" else "-archive-verification"
+            versionNameSuffix = when { storyDeletion == "true" -> "-story-deletion"; archiveCapacity == "true" -> "-archive-capacity"; else -> "-archive-verification" }
         }
         ndk { abiFilters += listOf("x86_64", "arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -64,7 +78,7 @@ android {
 
 androidComponents {
     beforeVariants(selector().withBuildType("release")) {
-        if (archiveCapacity == "true") it.enable = false
+        if (archiveCapacity == "true" || storyDeletion == "true") it.enable = false
     }
 }
 

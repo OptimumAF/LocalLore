@@ -128,6 +128,37 @@ pub extern "system" fn Java_org_locallore_app_NativeArchive_commitImport(
     )
 }
 #[no_mangle]
+pub extern "system" fn Java_org_locallore_app_NativeArchive_prepareDelete(
+    env: JNIEnv<'_>,
+    _: JClass<'_>,
+    handle: jlong,
+    request: JByteArray<'_>,
+) -> jbyteArray {
+    let bytes = guarded(|| match input(&env, request, MAX_CONTROL_BYTES) {
+        Ok(bytes) => registry().prepare_delete(handle as u64, &bytes),
+        Err(error) => registry().reject_prepare(handle as u64, error),
+    });
+    output(&env, &bytes)
+}
+#[no_mangle]
+pub extern "system" fn Java_org_locallore_app_NativeArchive_commitDelete(
+    env: JNIEnv<'_>,
+    _: JClass<'_>,
+    handle: jlong,
+    token: jlong,
+) -> jbyteArray {
+    output(
+        &env,
+        &guarded(|| {
+            registry().commit_delete(
+                handle as u64,
+                token as u64,
+                crate::workspace::android::registry(),
+            )
+        }),
+    )
+}
+#[no_mangle]
 pub extern "system" fn Java_org_locallore_app_NativeArchive_cancel(
     _: JNIEnv<'_>,
     _: JClass<'_>,

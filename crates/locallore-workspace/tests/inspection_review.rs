@@ -1,7 +1,7 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Independent privacy and snapshot-ownership checks with synthetic real SQLite stories.
 use locallore::{
-    contracts::{Belief, Confidence, Evidence, Fact, Scope, Seed},
+    contracts::{Belief, Commitment, Confidence, Evidence, Fact, Scope, Seed},
     host::Host,
     inspection::{ExportMode, InspectionBundle},
 };
@@ -11,6 +11,7 @@ use std::{collections::BTreeSet, path::PathBuf};
 const HIDDEN_FACT: &str = "PRIVATE-NPC-FACT-CANARY-483";
 const HIDDEN_BELIEF: &str = "PRIVATE-NPC-BELIEF-CANARY-702";
 const HIDDEN_SHEET: &str = "PRIVATE-NPC-SHEET-CANARY-963";
+const HIDDEN_THREAD: &str = "PRIVATE-INCOMING-THREAD-CANARY-516";
 struct Temp(PathBuf);
 impl Temp {
     fn new() -> Self {
@@ -48,6 +49,18 @@ impl Temp {
             confidence: Confidence::Believed,
         });
         seed.actors.get_mut("sable").unwrap().name = HIDDEN_SHEET.into();
+        seed.commitments.insert(
+            "private-incoming".into(),
+            Commitment {
+                from: "sable".into(),
+                to: "player".into(),
+                terms: HIDDEN_THREAD.into(),
+                deadline: 120,
+                source: Evidence::Seed(seed.id.clone()),
+                return_item: None,
+                completed_by: None,
+            },
+        );
         let scope = seed.scope.clone();
         let mut store =
             locallore_storage::Store::open(&self.0.join("synthetic.sqlite"), None).unwrap();
@@ -111,7 +124,7 @@ fn player_export_filters_every_file_and_manifest_without_erasing_known_player_fa
         .inspection_snapshot(&id, &scope, 1, ExportMode::Player)
         .unwrap();
     let text = joined(&bundle);
-    for secret in [HIDDEN_FACT, HIDDEN_BELIEF, HIDDEN_SHEET] {
+    for secret in [HIDDEN_FACT, HIDDEN_BELIEF, HIDDEN_SHEET, HIDDEN_THREAD] {
         assert!(!text.contains(secret), "player export leaked {secret}");
     }
     assert!(
@@ -143,7 +156,7 @@ fn full_export_requires_native_lab_authority_and_keeps_explicit_hidden_inspectio
         .inspection_snapshot(&id, &scope, 0, ExportMode::Full)
         .unwrap();
     let text = joined(&full);
-    for secret in [HIDDEN_FACT, HIDDEN_BELIEF, HIDDEN_SHEET] {
+    for secret in [HIDDEN_FACT, HIDDEN_BELIEF, HIDDEN_SHEET, HIDDEN_THREAD] {
         assert!(
             text.contains(secret),
             "full inspection omitted implemented {secret}"
@@ -249,6 +262,7 @@ fn default_diagnostics_are_structural_and_do_not_include_seed_or_story_prose() {
         HIDDEN_FACT,
         HIDDEN_BELIEF,
         HIDDEN_SHEET,
+        HIDDEN_THREAD,
         "SECRET-TIDE-731",
         "Rowan",
         "You give",
@@ -442,4 +456,51 @@ fn export_racing_a_real_independent_commit_is_old_head_or_explicitly_stale() {
             1
         );
     }
+}
+
+#[test]
+fn snapshot_excludes_uncommitted_request_prose_and_does_not_finalize_its_draft() {
+    const DRAFT: &str = "UNCOMMITTED-DRAFT-CANARY-257";
+    let dir = Temp::new();
+    let scope = dir.seed();
+    let h = dir.host(true);
+    let id = resume(&h, &scope);
+    let request = json!({"version":1,"scope":scope,"turn":"pending-dialogue","expected_revision":0,"intent":{"kind":"dialogue","value":{"text":DRAFT,"audience":["mira"]}}});
+    assert_eq!(
+        call(
+            &h,
+            json!({"op":"submit","session":id,"request":request,"mode":"accepted"})
+        )["data"]["phase"],
+        "queued"
+    );
+    let captured = h
+        .inspection_snapshot(&id, &scope, 0, ExportMode::Full)
+        .unwrap();
+    assert!(!joined(&captured).contains(DRAFT));
+    assert_eq!(
+        call(
+            &h,
+            json!({"op":"turn_status","session":id,"scope":scope,"turn":"pending-dialogue"})
+        )["data"]["phase"],
+        "queued"
+    );
+    assert_eq!(
+        call(
+            &h,
+            json!({"op":"prepare","session":id,"scope":scope,"turn":"pending-dialogue"})
+        )["data"]["phase"],
+        "ready"
+    );
+    assert_eq!(
+        call(
+            &h,
+            json!({"op":"commit","session":id,"scope":scope,"turn":"pending-dialogue"})
+        )["data"]["phase"],
+        "committed"
+    );
+    let next = h
+        .inspection_snapshot(&id, &scope, 1, ExportMode::Player)
+        .unwrap();
+    assert!(joined(&next).contains(DRAFT));
+    assert!(!joined(&captured).contains(DRAFT));
 }

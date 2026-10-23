@@ -123,6 +123,8 @@ analysis. Selected prior sealed inputs were rechecked unchanged.
 
 The earlier SDK timeout and storage failure remain failed. No model-quality,
 runtime/profile, physical-phone or ARM execution qualification follows here.
-The next runnable work is host-only review of retained cache-stat differences
-and deterministic drift fixtures, preserving the distinction between metadata
-mismatch and unavailable content-integrity evidence.
+Retained cache-stat differences remain available for host-only review, with
+metadata mismatch distinct from unavailable content-integrity evidence. The
+coordinator's next runnable task is recorded in the
+[integration verification](PRESERVATION_VERIFICATION_2026-10-23.md); this report
+admits no further device or inference operation.

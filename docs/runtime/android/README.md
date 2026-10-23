@@ -251,6 +251,12 @@ samples. It performs no device operation and changes no admission limit. Its
 [verification](STORAGE_EXPLANATION_VERIFICATION_2026-10-23.md) reproduces the
 retained blocked verdict without attributing host-wide consumption to an app.
 
+The [preservation collector](PRESERVATION_COLLECTION_V1.md) records independent
+metadata, canonical-file, journal, storage and inventory observations after a
+safe mismatch. Unknown ownership, identity or process state still stops later
+reads. Its [verification](PRESERVATION_VERIFICATION_2026-10-23.md) distinguishes
+complete observation from successful preservation.
+
 The native [process owner](../../../benchmarks/spike/android/controller/README.md)
 owns/reaps one trusted direct child. An ADB-client exit is never native cleanup
 evidence. Package termination is limited to the hash-verified isolated SDK app;

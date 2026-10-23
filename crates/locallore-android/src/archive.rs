@@ -66,7 +66,7 @@ struct Pending {
     capability: Capability,
 }
 enum Capability {
-    Delete(PreparedStoryDeletion),
+    Delete(Box<PreparedStoryDeletion>),
     Export(Vec<u8>),
     Import {
         bytes: Vec<u8>,
@@ -400,7 +400,7 @@ impl ArchiveRegistry {
                 MAX_DELETION_BYTES,
             )?;
             drop(store);
-            op.publish(Capability::Delete(prepared))?;
+            op.publish(Capability::Delete(Box::new(prepared)))?;
             Ok(reply)
         })
     }
@@ -423,7 +423,7 @@ impl ArchiveRegistry {
                 #[cfg(test)]
                 op.hook("before-delete", &op.lease.database);
                 store
-                    .delete_story(prepared, &|| op.cancelled())
+                    .delete_story(*prepared, &|| op.cancelled())
                     .map_err(deletion_error)
             })?;
             #[cfg(test)]

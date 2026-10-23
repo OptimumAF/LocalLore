@@ -39,6 +39,8 @@ fn shutdown_owner<T>(
     }
 }
 struct Inner {
+    evaluation: Option<u64>,
+    evaluation_sequence: u64,
     phase: &'static str,
     percent: u64,
     error: Option<String>,
@@ -52,12 +54,28 @@ pub struct ModelManager {
     resource: PathBuf,
     inner: Mutex<Inner>,
 }
+pub struct EvaluationReservation {
+    owner: Arc<ModelManager>,
+    ticket: u64,
+    pub resource: PathBuf,
+    pub model: PathBuf,
+}
+impl Drop for EvaluationReservation {
+    fn drop(&mut self) {
+        let mut s = self.owner.inner.lock().unwrap_or_else(|p| p.into_inner());
+        if s.evaluation == Some(self.ticket) {
+            s.evaluation = None;
+        }
+    }
+}
 impl ModelManager {
     pub fn new(root: PathBuf, resource: PathBuf) -> Self {
         Self {
             root,
             resource,
             inner: Mutex::new(Inner {
+                evaluation: None,
+                evaluation_sequence: 0,
                 phase: "unloaded",
                 percent: 0,
                 error: None,
@@ -89,6 +107,9 @@ impl ModelManager {
     }
     fn begin(&self, phase: &'static str) -> Result<(u64, Arc<AtomicBool>), String> {
         let mut s = self.inner.lock().map_err(|_| "Internal")?;
+        if s.evaluation.is_some() {
+            return Err("Busy".into());
+        }
         if matches!(
             s.phase,
             "choosing" | "checking" | "copying" | "loading" | "unloading"
@@ -107,6 +128,31 @@ impl ModelManager {
         s.percent = 0;
         s.error = None;
         Ok((s.job, s.cancel.clone()))
+    }
+    /// Atomic exclusion with ordinary model ownership. Trusted paths stay native-only;
+    /// the existing curated runner reserves startup and verifies actual assets itself.
+    pub fn reserve_evaluation(self: &Arc<Self>) -> Result<EvaluationReservation, String> {
+        let mut s = self.inner.lock().map_err(|_| "Internal")?;
+        if s.evaluation.is_some()
+            || matches!(
+                s.phase,
+                "choosing" | "checking" | "copying" | "loading" | "unloading"
+            )
+        {
+            return Err("Busy".into());
+        }
+        if s.runtime.is_some() {
+            return Err("ModelLoaded".into());
+        }
+        s.evaluation_sequence = s.evaluation_sequence.checked_add(1).ok_or("TooLarge")?;
+        let ticket = s.evaluation_sequence;
+        s.evaluation = Some(ticket);
+        Ok(EvaluationReservation {
+            owner: self.clone(),
+            ticket,
+            resource: self.resource.clone(),
+            model: self.path(),
+        })
     }
     fn progress(&self, job: u64, phase: &'static str, percent: u64) {
         if let Ok(mut s) = self.inner.lock() {
@@ -571,6 +617,30 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+    #[test]
+    fn evaluation_reservation_is_atomic_and_raii_released_without_asset_access() {
+        let root = Root::new();
+        let manager = Arc::new(ModelManager::new(
+            root.0.join("models"),
+            root.0.join("missing-worker"),
+        ));
+        let lease = WindowLease::default();
+        let epoch = lease.begin().unwrap();
+        let first = manager.reserve_evaluation().unwrap();
+        assert!(matches!(manager.reserve_evaluation(),Err(e) if e=="Busy"));
+        assert_eq!(
+            manager.load(&Host::new(true), &lease, epoch).unwrap_err(),
+            "Busy"
+        );
+        assert_eq!(
+            manager.unload(&Host::new(true), &lease, epoch).unwrap_err(),
+            "Busy"
+        );
+        drop(first);
+        let second = manager.reserve_evaluation().unwrap();
+        drop(second);
+        assert_eq!(manager.status().unwrap()["operation_id"], 0);
     }
     #[test]
     #[cfg(windows)]

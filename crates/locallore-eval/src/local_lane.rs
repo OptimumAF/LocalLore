@@ -1183,6 +1183,31 @@ fn run_story(
     }
     Ok((out, metadata))
 }
+fn curated_basis(
+    stories: &[Story],
+    profile: PlayProfile,
+    native: bool,
+    preowned: bool,
+) -> Result<Value> {
+    let seed_hashes: BTreeMap<_, _> = stories
+        .iter()
+        .map(|s| Ok((s.id.clone(), digest(&encode(&s.seed)?))))
+        .collect::<Result<_>>()?;
+    let basis = json!({"version":1,"suite":"curated-local-v1","suite_sha256":digest(FIXTURES),"seed_sha256":seed_hashes,"selected_stories":stories.iter().map(|s|&s.id).collect::<Vec<_>>(),"profile":profile,"native":native,"preowned_runtime":preowned,"source":binding(&builtin()?,None)?,"limits":{"admissions":MAX_ADMISSIONS,"roles":MAX_ROLES,"active_ms":MAX_ACTIVE_MS,"turn_ms":TURN_MS,"preparation_reservation_ms":PREPARATION_MS,"raw_role_bytes":16384,"repair_limit":1}});
+    Ok(basis)
+}
+
+fn coverage(
+    metadata: &[LocalMetadata],
+    selected_stories: usize,
+    checkpointed_stories: usize,
+) -> Value {
+    let evidence: Vec<_> = metadata.iter().flat_map(|m| &m.turns).collect();
+    let count = |class: &str| evidence.iter().filter(|e| e.execution == class).count();
+    let coverage = json!({"selected_stories":selected_stories,"declared_turn_cases":selected_stories*4,"checkpointed_stories":checkpointed_stories,"executed_turn_cases":evidence.len(),"inference_completed":count("inference_completed"),"inference_failed":count("inference_failed"),"guard_only":count("guard_only"),"cancelled":count("cancelled"),"not_run":metadata.iter().map(|m|m.not_run.len()).sum::<usize>(),"quality_candidates":evidence.iter().filter(|e|e.quality_candidate).count(),"fallbacks":evidence.iter().filter(|e|e.fallback==Some(true)).count()});
+    coverage
+}
+
 struct Session {
     directory: PathBuf,
     _lock: File,
@@ -1210,11 +1235,7 @@ impl Session {
             .into_iter()
             .filter(|s| selected.is_none_or(|id| s.id == id))
             .collect();
-        let seed_hashes: BTreeMap<_, _> = stories
-            .iter()
-            .map(|s| Ok((s.id.clone(), digest(&encode(&s.seed)?))))
-            .collect::<Result<_>>()?;
-        let basis = json!({"version":1,"suite":"curated-local-v1","suite_sha256":digest(FIXTURES),"seed_sha256":seed_hashes,"selected_stories":stories.iter().map(|s|&s.id).collect::<Vec<_>>(),"profile":profile,"native":native,"preowned_runtime":preowned,"source":binding(&builtin()?,None)?,"limits":{"admissions":MAX_ADMISSIONS,"roles":MAX_ROLES,"active_ms":MAX_ACTIVE_MS,"turn_ms":TURN_MS,"preparation_reservation_ms":PREPARATION_MS,"raw_role_bytes":16384,"repair_limit":1}});
+        let basis = curated_basis(&stories, profile.clone(), native, preowned)?;
         let bytes = encode(&basis)?;
         if bytes.len() > 128 * 1024 {
             return Err("BindingBudget".into());
@@ -1285,75 +1306,7 @@ impl Session {
         })
     }
     fn restore(&self, index: usize, story: &Story) -> Result<Option<LocalStored>> {
-        let path = self.directory.join(format!("case-{index:02}.json"));
-        if !path.exists() {
-            return Ok(None);
-        }
-        let saved: LocalStored =
-            serde_json::from_slice(&read(&path, MAX_CASE)?).map_err(|_| "CheckpointIntegrity")?;
-        if saved.version != 1
-            || saved.binding_sha256 != self.binding
-            || saved.result.id != story.id
-            || saved.attempt >= 32
-            || saved.result_sha256
-                != digest(&encode(
-                    &json!({"result":saved.result,"metadata":saved.metadata,"attempt":saved.attempt}),
-                )?)
-            || saved.metadata.turns.len() > 4
-            || saved.metadata.not_run.len() > 4
-        {
-            return Err("CheckpointIntegrity".into());
-        }
-        if saved.result.turns.len() != saved.metadata.turns.len()
-            || saved.result.provider_requests.len() > 12
-            || saved
-                .metadata
-                .turns
-                .iter()
-                .zip(&story.steps)
-                .any(|(turn, step)| {
-                    turn.id != step.id
-                        || turn.roles > 3
-                        || turn.raw.len() > 3
-                        || turn.native_epoch.is_some_and(|epoch| epoch >= 32)
-                        || !matches!(
-                            turn.execution.as_str(),
-                            "guard_only" | "inference_completed" | "inference_failed" | "cancelled"
-                        )
-                })
-            || saved
-                .result
-                .turns
-                .iter()
-                .zip(&story.steps)
-                .any(|(turn, step)| turn.id != step.id)
-            || saved.metadata.not_run
-                != story
-                    .steps
-                    .iter()
-                    .skip(saved.metadata.turns.len())
-                    .map(|s| s.id.clone())
-                    .collect::<Vec<_>>()
-        {
-            return Err("CheckpointIntegrity".into());
-        }
-        let attempt = self
-            .directory
-            .join(format!("case-{index:02}-attempt-{:02}", saved.attempt));
-        for (n, raw) in saved.metadata.turns.iter().flat_map(|t| &t.raw).enumerate() {
-            if n >= 12
-                || raw.file != format!("raw-{n:02}.json")
-                || raw.bytes > 16_384
-                || !matches!(raw.role.as_str(), "director" | "narrator")
-            {
-                return Err("CheckpointIntegrity".into());
-            }
-            let bytes = read(&attempt.join(&raw.file), 16_384)?;
-            if bytes.len() != raw.bytes || digest(&bytes) != raw.sha256 {
-                return Err("CheckpointIntegrity".into());
-            }
-        }
-        Ok(Some(saved))
+        restore_case(&self.directory, &self.binding, index, story)
     }
     fn execute(
         mut self,
@@ -1461,9 +1414,8 @@ impl Session {
     fn finalize(mut self) -> Result<Report> {
         self.report.completed = self.report.cases.len() == self.stories.len();
         self.ledger.finish()?;
-        let evidence: Vec<_> = self.metadata.iter().flat_map(|m| &m.turns).collect();
-        let count = |class: &str| evidence.iter().filter(|e| e.execution == class).count();
-        self.report.provenance["coverage"] = json!({"selected_stories":self.stories.len(),"declared_turn_cases":self.stories.len()*4,"checkpointed_stories":self.report.cases.len(),"executed_turn_cases":evidence.len(),"inference_completed":count("inference_completed"),"inference_failed":count("inference_failed"),"guard_only":count("guard_only"),"cancelled":count("cancelled"),"not_run":self.metadata.iter().map(|m|m.not_run.len()).sum::<usize>(),"quality_candidates":evidence.iter().filter(|e|e.quality_candidate).count(),"fallbacks":evidence.iter().filter(|e|e.fallback==Some(true)).count()});
+        self.report.provenance["coverage"] =
+            coverage(&self.metadata, self.stories.len(), self.report.cases.len());
         self.report.provenance["local_cases"] =
             serde_json::to_value(&self.metadata).map_err(|_| "Encoding")?;
         self.report.provenance["budget"] = json!({"admissions_across_attempts":self.ledger.admissions,"roles_charged":self.ledger.charged_roles,"active_ms_charged":self.ledger.charged_ms,"invocations":self.ledger.invocations,"max_admissions":MAX_ADMISSIONS,"max_roles":MAX_ROLES,"max_active_ms":MAX_ACTIVE_MS,"exceeded":self.ledger.charged_ms>MAX_ACTIVE_MS,"unknown_work":"conservatively_reserved_not_refunded","cleanup":"cooperative_not_hard_realtime"});
@@ -1471,6 +1423,81 @@ impl Session {
         Ok(self.report)
     }
 }
+fn restore_case(
+    directory: &Path,
+    binding_hash: &str,
+    index: usize,
+    story: &Story,
+) -> Result<Option<LocalStored>> {
+    let path = directory.join(format!("case-{index:02}.json"));
+    if !path.exists() {
+        return Ok(None);
+    }
+    let saved: LocalStored =
+        serde_json::from_slice(&read(&path, MAX_CASE)?).map_err(|_| "CheckpointIntegrity")?;
+    if saved.version != 1
+        || saved.binding_sha256 != binding_hash
+        || saved.result.id != story.id
+        || saved.attempt >= 32
+        || saved.result_sha256
+            != digest(&encode(
+                &json!({"result":saved.result,"metadata":saved.metadata,"attempt":saved.attempt}),
+            )?)
+        || saved.metadata.turns.len() > 4
+        || saved.metadata.not_run.len() > 4
+    {
+        return Err("CheckpointIntegrity".into());
+    }
+    if saved.result.turns.len() != saved.metadata.turns.len()
+        || saved.result.provider_requests.len() > 12
+        || saved
+            .metadata
+            .turns
+            .iter()
+            .zip(&story.steps)
+            .any(|(turn, step)| {
+                turn.id != step.id
+                    || turn.roles > 3
+                    || turn.raw.len() > 3
+                    || turn.native_epoch.is_some_and(|epoch| epoch >= 32)
+                    || !matches!(
+                        turn.execution.as_str(),
+                        "guard_only" | "inference_completed" | "inference_failed" | "cancelled"
+                    )
+            })
+        || saved
+            .result
+            .turns
+            .iter()
+            .zip(&story.steps)
+            .any(|(turn, step)| turn.id != step.id)
+        || saved.metadata.not_run
+            != story
+                .steps
+                .iter()
+                .skip(saved.metadata.turns.len())
+                .map(|s| s.id.clone())
+                .collect::<Vec<_>>()
+    {
+        return Err("CheckpointIntegrity".into());
+    }
+    let attempt = directory.join(format!("case-{index:02}-attempt-{:02}", saved.attempt));
+    for (n, raw) in saved.metadata.turns.iter().flat_map(|t| &t.raw).enumerate() {
+        if n >= 12
+            || raw.file != format!("raw-{n:02}.json")
+            || raw.bytes > 16_384
+            || !matches!(raw.role.as_str(), "director" | "narrator")
+        {
+            return Err("CheckpointIntegrity".into());
+        }
+        let bytes = read(&attempt.join(&raw.file), 16_384)?;
+        if bytes.len() != raw.bytes || digest(&bytes) != raw.sha256 {
+            return Err("CheckpointIntegrity".into());
+        }
+    }
+    Ok(Some(saved))
+}
+
 /// Built-in synthetic fixtures only. Existing checkpoints are immutable at four-turn story boundaries.
 /// Already-owned runtime startup is honestly outside this API's measured/budgeted invocation.
 pub fn run_curated(
@@ -1513,26 +1540,9 @@ pub(crate) fn publish_local_report(directory: &Path, report: &Report) -> Result<
     Ok(())
 }
 
-/// Trusted native assets; only the compiled reviewed worker identity is permitted.
 #[cfg(feature = "local-model")]
-pub struct NativeAssets<'a> {
-    pub resource_dir: &'a Path,
-    pub model: &'a Path,
-}
-/// Native CLI entry: reserve preparation BEFORE hashing/loading, then use the same runner.
-#[cfg(feature = "local-model")]
-pub fn run_native_curated(
-    directory: &Path,
-    resume: bool,
-    selected: Option<&str>,
-    cancel: &Cancellation,
-    max_new_stories: usize,
-    assets: NativeAssets<'_>,
-) -> Result<Report> {
-    use locallore_local_runtime::{LocalRuntime, MODEL_SHA256, PROFILE, RUNTIME_COMMIT};
-    if !(1..=6).contains(&max_new_stories) {
-        return Err("CaseBudget".into());
-    }
+fn native_profile() -> Result<PlayProfile> {
+    use locallore_local_runtime::{MODEL_SHA256, PROFILE, RUNTIME_COMMIT};
     let manifest: Value =
         serde_json::from_str(include_str!("../../../native/llama-worker/profile-v1.json"))
             .map_err(|_| "Profile")?;
@@ -1549,6 +1559,30 @@ pub fn run_native_curated(
         deadline_ms: 120_000,
         repair_limit: 1,
     };
+    Ok(profile)
+}
+
+/// Trusted native assets; only the compiled reviewed worker identity is permitted.
+#[cfg(feature = "local-model")]
+pub struct NativeAssets<'a> {
+    pub resource_dir: &'a Path,
+    pub model: &'a Path,
+}
+/// Native CLI entry: reserve preparation BEFORE hashing/loading, then use the same runner.
+#[cfg(feature = "local-model")]
+pub fn run_native_curated(
+    directory: &Path,
+    resume: bool,
+    selected: Option<&str>,
+    cancel: &Cancellation,
+    max_new_stories: usize,
+    assets: NativeAssets<'_>,
+) -> Result<Report> {
+    use locallore_local_runtime::LocalRuntime;
+    if !(1..=6).contains(&max_new_stories) {
+        return Err("CaseBudget".into());
+    }
+    let profile = native_profile()?;
     let mut session = Session::open(directory, resume, selected, true, profile.clone(), false)?;
     if session.all_saved()? {
         return session.restore_completed();
@@ -1661,3 +1695,6 @@ pub fn cli(args: &[String]) -> Result<Report> {
 
 #[cfg(test)]
 mod tests;
+
+// Read-only desktop adapter: it shares the runner's actual checkpoint validator.
+pub mod desktop_api;

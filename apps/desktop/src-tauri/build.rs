@@ -25,6 +25,7 @@ fn main() {
                 "archive_discard",
                 "harness_archive_case",
                 "evaluation_catalog",
+                "evaluation_curated",
                 "evaluation_start",
                 "evaluation_open",
                 "evaluation_status",

@@ -244,3 +244,176 @@ assert.equal(wrongContext, "");
 console.log(
     "PASS: evaluation controller late catalog/start/context fencing, bounded synthetic-only decoder, report-internal source selection, inert expected/actual failure-row MOCK render and explicit unavailable D05/D06 bridges.",
 );
+
+// Curated adapter tests use the SAME actual controller; all replies in this block are MOCK.
+const scope = { story: "mock-evaluated-story", branch: "main" };
+const curatedCatalog = {
+    version: 1,
+    cases: Array.from({ length: 6 }, (_, i) => ({
+        id: i === 0 ? "spent-potion" : `mock-case-${i}`,
+        turns: 4,
+        sources: Array.from({ length: 4 }, (_, n) => ({
+            turn: n === 0 ? "gift-0" : `mock-turn-${n}`,
+            scope,
+        })),
+    })),
+    runs: [],
+    location: "<synthetic curated>",
+    caps: {},
+    approved_profile: null,
+    model: {},
+};
+const curatedReport = {
+    ...structuredClone(report),
+    lane: "scripted_curated_shared_host",
+};
+const curatedStatus = {
+    ...status,
+    lane: "scripted",
+    client_id: id,
+    source_binding: "a".repeat(64),
+    snapshot: {
+        version: 1,
+        binding_sha256: "a".repeat(64),
+        resume_compatible: true,
+        completed: true,
+        checkpointed_stories: 1,
+        budget: { roles_charged: 2 },
+        report: curatedReport,
+    },
+};
+const roleText = "<img src=x onerror=alert(1)>";
+const evidence = {
+    version: 1,
+    run_token: token,
+    run_id: id,
+    evidence: {
+        version: 1,
+        case_id: "spent-potion",
+        turn_id: "gift-0",
+        binding_sha256: "a".repeat(64),
+        scope: { branch: "main", story: scope.story },
+        revision: 1,
+        canonical_sha256: "b".repeat(64),
+        observer: { kind: "omniscient" },
+        page: {
+            version: 1,
+            scope,
+            head: 1,
+            revision: 1,
+            story_time: 100,
+            observer: { kind: "omniscient" },
+            view: "turn_diff",
+            privacy: "private_omniscient",
+            status: "supported",
+            total: 0,
+            rows: [],
+            next_cursor: null,
+            unsupported: [],
+        },
+        receipt: { synthetic_mock: true },
+        outputs: [
+            {
+                role: "director",
+                text: roleText,
+                bytes: new TextEncoder().encode(roleText).length,
+                sha256: "c".repeat(64),
+            },
+        ],
+        role_metrics: null,
+        missing: ["historical_context"],
+        exact_reconstruction: false,
+        read_only: true,
+        generation_grant: false,
+    },
+};
+let loseAck = true,
+    originalClient,
+    heldEvidence = null,
+    badEvidence = null;
+const curatedCalls = [];
+const cu = new EvaluationController(async (name, args) => {
+    curatedCalls.push({ name, args: structuredClone(args) });
+    if (name === "evaluation_catalog") return catalog;
+    assert.equal(name, "evaluation_curated");
+    if (args.action === "catalog") return curatedCatalog;
+    if (args.action === "start") {
+        originalClient = args.query.clientId;
+        if (loseAck) {
+            loseAck = false;
+            throw Error("EvaluationIo");
+        }
+        return { ...curatedStatus, client_id: originalClient };
+    }
+    if (args.action === "lookup") {
+        assert.equal(args.query.clientId, originalClient);
+        return { ...curatedStatus, client_id: originalClient };
+    }
+    if (args.action === "evidence") {
+        if (heldEvidence) return await heldEvidence;
+        return badEvidence ?? evidence;
+    }
+    return { ...curatedStatus, client_id: originalClient };
+});
+cu.contextChanged("curated|lab|omniscient", true);
+await cu.show();
+await cu.curatedShow();
+await cu.curatedStart("scripted");
+assert.equal(cu.get().pendingClient, originalClient);
+assert.equal(cu.get().curatedError, "EvaluationIo");
+await cu.curatedRecover();
+assert.equal(cu.get().curatedStatus.client_id, originalClient);
+assert.equal(cu.get().pendingClient, null);
+cu.curatedSelectTurn("gift-0");
+await cu.curatedInspect();
+assert(
+    cu.get().curatedEvidence,
+    "actual controller admits bound evaluated evidence",
+);
+const curatedMarkup = renderToStaticMarkup(
+    createElement(EvaluationPanel, {
+        controller: cu,
+        context: "curated|lab|omniscient",
+        allowed: true,
+    }),
+);
+assert(curatedMarkup.includes("&lt;img"));
+assert(!curatedMarkup.includes("<img"));
+assert(curatedMarkup.includes("not retained"));
+for (const mutate of [
+    (v) => (v.evidence.binding_sha256 = "d".repeat(64)),
+    (v) => (v.run_id = token),
+    (v) => (v.evidence.scope.story = "foreign"),
+    (v) => (v.evidence.revision = 2),
+    (v) => (v.evidence.outputs[0].bytes = 1),
+    (v) => (v.evidence.generation_grant = true),
+]) {
+    badEvidence = structuredClone(evidence);
+    mutate(badEvidence);
+    await cu.curatedInspect();
+    assert.equal(cu.get().curatedEvidence, null);
+    assert.equal(cu.get().curatedError, "EvaluationInvalidReply");
+}
+badEvidence = null;
+let releaseEvidence;
+heldEvidence = new Promise((r) => (releaseEvidence = r));
+const oldEvidence = cu.curatedInspect();
+await new Promise((r) => setImmediate(r));
+cu.contextChanged("other|play|player", false);
+releaseEvidence(evidence);
+await oldEvidence;
+assert.equal(cu.get().curatedEvidence, null);
+assert.equal(cu.get().curatedStatus, null);
+let releaseCatalog;
+const lateCurated = new EvaluationController(
+    async () => await new Promise((r) => (releaseCatalog = r)),
+);
+lateCurated.contextChanged("first|lab|omniscient", true);
+const loading = lateCurated.curatedShow();
+lateCurated.contextChanged("second|lab|player", true);
+releaseCatalog(curatedCatalog);
+await loading;
+assert.equal(lateCurated.get().curatedCatalog, null);
+console.log(
+    "PASS: MOCK actual curated controller preserves lost-ack identity, rejects foreign/binding/revision/raw-size/grant evidence, clears late context, and escapes raw report/output in SSR. This is not native runner/UI execution.",
+);

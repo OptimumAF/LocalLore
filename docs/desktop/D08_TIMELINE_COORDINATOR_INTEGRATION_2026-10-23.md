@@ -77,7 +77,8 @@ resumes at5 after process restart. A delayed child snapshot cannot overwrite
 the selected sibling. Sable cannot inspect unwitnessed inherited dialogue;
 inspection leaves canonical Play unchanged. Root remains at4. All owned Host
 sessions/workers are released. The development fixture cannot overwrite or
-reseed an existing database. No provider/model executes for this fixture.
+reseed an existing database. Seeding uses typed commands; continuation uses the
+explicitly labeled fake provider. No actual model executes.
 
 Root inspected representative final app-owned PNGs for child receipt/title,
 pending/cancel/retry controls, narrow catalog and restarted child; earlier

@@ -1,7 +1,7 @@
 // Bundled only into the explicit DEVELOPMENT harness, never the normal frontend.
 import { Controller } from "./controller";
 import { category, ErrorBuffer, structural, composerShortcut } from "./model";
-import type { Command, Gateway, Session } from "./model";
+import type { Command, Gateway, Session, NativeAction } from "./model";
 function gate() {
     let release!: () => void;
     let ready!: () => void;
@@ -21,6 +21,34 @@ export class FaultGateway implements Gateway {
     corruptRecovery = false;
     submissions: string[] = [];
     constructor(readonly base: Gateway) {}
+    forgeExportSave = false;
+    heldExportCancel: ReturnType<typeof gate> | null = null;
+    heldExportPreview: ReturnType<typeof gate> | null = null;
+    async native(command: NativeAction, args: Record<string, unknown>) {
+        if (!this.base.native) throw new Error("Unsupported");
+        if (command === "inspection_save" && this.forgeExportSave) {
+            this.forgeExportSave = false;
+            args = {
+                ...args,
+                mode: "full",
+                files: { "state.json": "forged renderer content" },
+            };
+        }
+        const result = await this.base.native(command, args);
+        const holder =
+            command === "inspection_cancel"
+                ? this.heldExportCancel
+                : command === "inspection_preview"
+                  ? this.heldExportPreview
+                  : null;
+        if (holder) {
+            if (command === "inspection_cancel") this.heldExportCancel = null;
+            else this.heldExportPreview = null;
+            holder.ready();
+            await holder.waiting;
+        }
+        return result;
+    }
     async call(command: Command): Promise<unknown> {
         if (command.op === "turn_status" && this.heldLookup) {
             const g = this.heldLookup;

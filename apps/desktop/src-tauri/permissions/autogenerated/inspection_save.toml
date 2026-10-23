@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-inspection-save"
+description = "Enables the inspection_save command without any pre-configured scope."
+commands.allow = ["inspection_save"]
+
+[[permission]]
+identifier = "deny-inspection-save"
+description = "Denies the inspection_save command without any pre-configured scope."
+commands.deny = ["inspection_save"]

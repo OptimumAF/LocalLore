@@ -22,6 +22,9 @@ import type {
     Workspace,
     State,
     TurnStatus,
+    ExportMode,
+    ExportPreview,
+    NativeAction,
 } from "./model";
 interface Operation {
     session: Session;
@@ -34,6 +37,19 @@ interface Operation {
 }
 export class Controller {
     private state: State = {
+        exports: {
+            shown: false,
+            imported: false,
+            mode: "diagnostics",
+            busy: false,
+            preview: null,
+            savedLocation: null,
+            selectedFile: "manifest.json",
+            opened: null,
+            storage: null,
+            error: null,
+            notice: "",
+        },
         workspace: null,
         ephemeral: false,
         starting: false,
@@ -71,6 +87,7 @@ export class Controller {
     private operation: Operation | null = null;
     private unresolved: Operation | null = null;
     private outstanding = new Set<Promise<void>>();
+    private exportEpoch = 0;
     constructor(
         readonly gateway: Gateway,
         readonly errors = new ErrorBuffer(),
@@ -105,6 +122,279 @@ export class Controller {
         const value = category(error);
         this.errors.add("frontend", value);
         this.patch({ visibleError: value });
+    }
+    private exportPatch(value: Partial<State["exports"]>) {
+        this.patch({ exports: { ...this.state.exports, ...value } });
+    }
+    private native(command: NativeAction, args: Record<string, unknown> = {}) {
+        if (!this.gateway.native)
+            return Promise.reject(new Error("Unsupported"));
+        return this.gateway.native(command, args);
+    }
+    showExports(shown = true) {
+        this.exportPatch({ shown });
+    }
+    private clearExportPreview() {
+        const token = this.state.exports.preview?.token;
+        this.exportEpoch++;
+        this.exportPatch({
+            preview: null,
+            imported: false,
+            busy: false,
+            opened: null,
+            savedLocation: null,
+            error: null,
+            notice: "",
+        });
+        if (token)
+            void this.native("inspection_cancel", { token }).catch(() => {});
+    }
+    setExportMode(mode: ExportMode) {
+        if (
+            !["diagnostics", "player", "full", "database"].includes(mode) ||
+            this.state.exports.busy
+        )
+            return;
+        this.clearExportPreview();
+        this.exportPatch({ mode });
+    }
+    async previewExport() {
+        const session = this.selected(),
+            play = this.state.play;
+        if (!session || !play || this.state.exports.busy) return;
+        await this.cancelExport();
+        const seq = ++this.exportEpoch,
+            epoch = this.epoch,
+            mode = this.state.exports.mode;
+        this.exportPatch({
+            busy: true,
+            error: null,
+            notice: "Capturing one authoritative head...",
+        });
+        try {
+            const value = (await this.native(
+                mode === "database"
+                    ? "inspection_database_preview"
+                    : "inspection_preview",
+                {
+                    session: session.id,
+                    scope: session.scope,
+                    expectedRevision: play.revision,
+                    mode,
+                },
+            )) as ExportPreview;
+            if (
+                !value ||
+                typeof value.token !== "string" ||
+                value.token.length > 64 ||
+                !value.manifest?.scope ||
+                !sameScope(value.manifest.scope, session.scope) ||
+                (mode !== "database" &&
+                    value.manifest.revision !== play.revision) ||
+                value.manifest.mode !== mode ||
+                !Array.isArray(value.files) ||
+                value.files.length > 9 ||
+                value.files.some(
+                    (f) =>
+                        !f ||
+                        typeof f.path !== "string" ||
+                        !Number.isSafeInteger(f.bytes),
+                )
+            )
+                throw new Error("Wire");
+            if (
+                seq !== this.exportEpoch ||
+                epoch !== this.epoch ||
+                session.id !== this.state.selectedId
+            ) {
+                await this.native("inspection_cancel", { token: value.token });
+                return;
+            }
+            this.exportPatch({
+                preview: value,
+                imported: false,
+                selectedFile: "manifest.json",
+                savedLocation: null,
+                opened: null,
+                notice: "Preview captured. Saving writes these exact bytes, even if play advances.",
+            });
+        } catch (error) {
+            if (seq === this.exportEpoch)
+                this.exportPatch({
+                    error: category(error),
+                    notice: "No snapshot was saved.",
+                });
+        } finally {
+            if (seq === this.exportEpoch) this.exportPatch({ busy: false });
+        }
+    }
+    async saveExport() {
+        const preview = this.state.exports.preview;
+        if (!preview || this.state.exports.busy) return;
+        const seq = this.exportEpoch;
+        this.exportPatch({
+            busy: true,
+            error: null,
+            notice: "Choose a destination in the native folder picker.",
+        });
+        try {
+            const result = (await this.native("inspection_save", {
+                token: preview.token,
+            })) as { status: string; location?: string };
+            if (seq !== this.exportEpoch) return;
+            if (result.status === "cancelled")
+                this.exportPatch({
+                    notice: "Folder selection cancelled. Canon and preview are unchanged.",
+                });
+            else if (
+                result.status === "saved" &&
+                typeof result.location === "string"
+            )
+                this.exportPatch({
+                    savedLocation: result.location,
+                    notice: "Inspection snapshot saved. It is a derived, read-only view; editing it cannot change canon.",
+                });
+            else throw new Error("Wire");
+        } catch (error) {
+            if (seq === this.exportEpoch)
+                this.exportPatch({
+                    error: category(error),
+                    notice: "The snapshot was not published. Canon is unchanged.",
+                });
+        } finally {
+            if (seq === this.exportEpoch) this.exportPatch({ busy: false });
+        }
+    }
+    async cancelExport() {
+        const preview = this.state.exports.preview;
+        if (preview) {
+            try {
+                const result = (await this.native("inspection_cancel", {
+                    token: preview.token,
+                })) as { status: string };
+                if (result.status === "saved" && this.state.exports.busy) {
+                    this.exportPatch({
+                        notice: "Save completed before cancellation.",
+                    });
+                    return;
+                }
+            } catch {
+                /* Expiry/window destruction already revokes the native preview. */
+            }
+        }
+        this.exportEpoch++;
+        this.exportPatch({
+            preview: null,
+            imported: false,
+            busy: false,
+            opened: null,
+            savedLocation: null,
+            error: null,
+            notice: "",
+        });
+    }
+    selectExportFile(selectedFile: string) {
+        if (
+            this.state.exports.preview?.files.some(
+                (f) => f.path === selectedFile,
+            )
+        )
+            this.exportPatch({ selectedFile, opened: null });
+    }
+    async openExport() {
+        const e = this.state.exports;
+        if (!e.preview || !e.savedLocation || e.busy) return;
+        const seq = this.exportEpoch;
+        this.exportPatch({ busy: true, error: null });
+        try {
+            const value = (await this.native("inspection_open", {
+                token: e.preview.token,
+                file: e.selectedFile,
+            })) as {
+                read_only: boolean;
+                text: string;
+                truncated: boolean;
+                bytes: number;
+                path: string;
+            };
+            if (
+                !value ||
+                value.read_only !== true ||
+                typeof value.text !== "string" ||
+                value.text.length > 65536 ||
+                value.path !== e.selectedFile
+            )
+                throw new Error("Wire");
+            if (seq === this.exportEpoch)
+                this.exportPatch({
+                    opened: value,
+                    notice: "Verified saved files opened read-only in this app.",
+                });
+        } catch (error) {
+            if (seq === this.exportEpoch)
+                this.exportPatch({ error: category(error), opened: null });
+        } finally {
+            if (seq === this.exportEpoch) this.exportPatch({ busy: false });
+        }
+    }
+    async loadExport() {
+        if (this.state.exports.busy) return;
+        await this.cancelExport();
+        const seq = ++this.exportEpoch;
+        this.exportPatch({ shown: true, busy: true, error: null });
+        try {
+            const result = (await this.native("inspection_load")) as {
+                status: string;
+                preview?: ExportPreview & { location: string };
+            };
+            if (seq !== this.exportEpoch) return;
+            if (result.status === "cancelled") {
+                this.exportPatch({ notice: "Folder selection cancelled." });
+                return;
+            }
+            const preview = result.preview;
+            if (
+                !preview ||
+                result.status !== "opened" ||
+                typeof preview.token !== "string" ||
+                !preview.manifest ||
+                !Array.isArray(preview.files) ||
+                preview.files.length > 9
+            )
+                throw new Error("Wire");
+            this.exportPatch({
+                preview,
+                imported: true,
+                mode: preview.manifest.mode,
+                savedLocation: preview.location,
+                selectedFile: "manifest.json",
+                opened: null,
+                notice: "Local inspection validated. Checksums establish file consistency, not authorship. These files are never imported into canon.",
+            });
+        } catch (error) {
+            if (seq === this.exportEpoch)
+                this.exportPatch({ error: category(error) });
+        } finally {
+            if (seq === this.exportEpoch) this.exportPatch({ busy: false });
+        }
+    }
+    async revealStorage() {
+        try {
+            const value = (await this.native("inspection_storage")) as {
+                location: string;
+                schema_version: number;
+                read_only: boolean;
+            };
+            if (
+                !value ||
+                value.read_only !== true ||
+                typeof value.location !== "string"
+            )
+                throw new Error("Wire");
+            this.exportPatch({ shown: true, storage: value, error: null });
+        } catch (error) {
+            this.exportPatch({ error: category(error) });
+        }
     }
     async library() {
         const value = (await this.gateway.call({
@@ -345,6 +635,7 @@ export class Controller {
         this.setDraft(draft);
     }
     private async invalidate() {
+        await this.cancelExport();
         const old = this.operation ?? this.unresolved;
         if (old) {
             old.cancelled = true;
@@ -462,6 +753,10 @@ export class Controller {
         }
     }
     setView(view: State["view"]) {
+        if (view === "play" && this.state.exports.mode === "full") {
+            this.clearExportPreview();
+            this.exportPatch({ mode: "diagnostics" });
+        }
         this.patch({
             view,
             observer: view === "play" ? "player" : "omniscient",
@@ -854,6 +1149,7 @@ export class Controller {
             session = this.selected();
         return {
             version: 1,
+            exports: s.exports,
             workspace: s.workspace,
             ephemeral: s.ephemeral,
             synthetic: true,

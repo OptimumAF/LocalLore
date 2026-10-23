@@ -316,3 +316,52 @@ root. The independent reviewer also ran its own source-bound checks; those are
 reviewer execution, not additional author measurements. No model was loaded or
 called for this correction. Historical 372/297-check reports and their SHA256s
 above remain unchanged and do not contain the new actual-director checks.
+
+## Coordinator accepted-main integration
+
+Clean production `61a54e6ff1e4692bce1315a49436910335367b0b` integrates the frozen
+lane, independent regressions and director-recorder repair onto accepted main
+`aec8ad02a662b87b960723da8878f4ead4f0a28d` (#93). Accepted #90/#91 supply the
+same sampler and expected-worker interfaces; their author-stack duplicates were
+not imported. The coordinator corrected the crate-level description to identify
+the optional local-model lane. No scenario, generation prompt, model or receipt
+rule was changed during integration.
+
+On Windows/Rust1.93.1, locked/offline, debug=0/incremental=0, task-owned D targets
+and UUID TEMP/TMP, the command templates above passed again: **23 default and
+24 local-model all-target tests**, zero failures/ignores; strict both-mode
+all-target Clippy, formatting and diff checks passed. The original deterministic
+nine-case tests remain included and unchanged. Logs use `d07-integrated-*` under
+the task's `local-model-final-target`.
+
+An actual final scripted CLI run completed **6 stories, 24 turn-cases and
+390/390 checks**, including the repaired actual-director checks. This is fake
+inference, not a new model measurement. Completed resume preserved all six
+checkpoint SHA-256s and kept admissions at24 and charged roles at35; its two
+invocations charged2802ms. The retained proof is
+`d07-integrated-scripted-checkpoints-corrected.json`. Final resumed report
+SHA-256 is `1fb7d438826546f80fab73bfc77230f737e12da0cfee491ee4394fd3a57e8331`;
+local directory `local-model-final-artifacts/integrated-scripted-5f4a0fec-ef00-45b8-b49d-f22ab4c49cbd`.
+No additional model cohort was run after the recorder repair; the historical
+native failures and missing actual-director absence coverage remain historical.
+
+Desktop compatibility also passed: **44 native modules + 2 harness contracts**,
+one existing ignore, strict native Clippy and normal frontend verification. The
+actual invisible/unfocused native evaluation UI/controller/IPC harness passed
+**26 assertions/14 application-owned renders** across executable restart.
+That UI still runs its original deterministic suite (nine passing plus three
+explicit unsupported cases); it does not run the new curated/native CLI lane.
+The coordinator inspected the populated results and narrow expected/actual
+views; labels, wrapping and unsupported/qualityfalse state were readable.
+No desktop control or system screenshot was used. Native summary SHA-256:
+`ce7fe9d2e5c38e22fd55588c6f5983e7a7bdb6339265ba621ef908c058042a15`;
+local directory `d07-curated-integration-artifacts/evaluation-native-0e36abbd-83c2-4d91-8f0b-d94d11ec855e`.
+Logs are `d07-curated-integrated-*` under the task's native target.
+
+The new curated lane currently has CLI JSON/inert HTML reports. Wiring that lane
+into the desktop results/rerun panel, full D05/D06 report-source navigation,
+transcript-only versus verified-memory comparisons, generated long-session
+quality/human review, complete load/latency/RSS qualification and desktop/Android
+parity remain separate required work. This integration adds no Store/schema or
+JNI source and makes no new Android/device claim. All full D07 boxes remain
+unchecked, and a passing scripted run never changes quality_accepted to true.

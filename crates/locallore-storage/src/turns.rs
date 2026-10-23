@@ -163,6 +163,22 @@ fn read_engine(connection: &Connection, scope: &Scope) -> Result<ResumedStory> {
     if event_rows.next()?.is_some() {
         return Err(TurnError::Integrity);
     }
+    // Also detect scoped orphan rows introduced outside this owner after open-time FK checks.
+    // Per-event checks above alone would never visit a witness for a nonexistent sequence.
+    let witness_count: i64 = connection.query_row(
+        "SELECT count(*) FROM event_witnesses WHERE story_id=?1 AND branch_id=?2",
+        (&scope.story, &scope.branch),
+        |r| r.get(0),
+    )?;
+    let expected_witnesses: usize = engine
+        .receipts()
+        .iter()
+        .flat_map(|r| r.events())
+        .map(|e| e.witnesses().len())
+        .sum();
+    if witness_count != expected_witnesses as i64 {
+        return Err(TurnError::Integrity);
+    }
     let cache: Option<(i64,u16,String)> = connection.query_row(
         "SELECT revision,projection_version,projection_json FROM branch_projections WHERE story_id=?1 AND branch_id=?2",
         (&scope.story,&scope.branch), |r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;

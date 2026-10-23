@@ -8,6 +8,7 @@ for (const args of [
     ["check-contract.mjs"],
     ["check-export-controller.mjs"],
     ["check-model-controller.mjs"],
+    ["check-early-cancel.mjs"],
     ["check-model-refresh.mjs"],
     ["check-inspection-controller.mjs"],
     ["check-trace-controller.mjs"],

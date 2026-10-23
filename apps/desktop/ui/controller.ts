@@ -638,12 +638,12 @@ export class Controller {
         this.setDraft(draft);
     }
     private async invalidate() {
+        const old = this.operation ?? this.unresolved;
+        if (old) old.cancelled = true;
         this.clearTrace(true);
         this.clearQuery(true);
         await this.cancelExport();
-        const old = this.operation ?? this.unresolved;
-        if (old) {
-            old.cancelled = true;
+        if (old?.submitted) {
             try {
                 await this.control(old, "cancel");
             } catch {
@@ -1808,6 +1808,9 @@ export class Controller {
                 ? { ...this.state.pending, stage: "cancelling" }
                 : null,
         });
+        // Admission is still in flight. run() observes this flag after the
+        // acknowledgement and cancels the original key before preparing it.
+        if (!op.submitted) return;
         try {
             const status = await this.control(op, "cancel");
             if (this.current(op))

@@ -870,14 +870,29 @@ fn branches_do_not_copy_jobs_or_packets_and_original_scopes_remain_isolated() {
 #[test]
 fn retired_parent_loses_its_job_without_breaking_live_child_or_reusing_ids() {
     let (_temp, mut store, root) = fixture();
+    // Root retirement is intentionally forbidden. Exercise the actual supported
+    // non-root parent retirement with a retained grandchild instead.
+    let parent_scope = store
+        .fork_branch(
+            &ForkRequest {
+                parent: root.scope().clone(),
+                child_branch: "retiring-parent".into(),
+                expected_parent_revision: EVENTS,
+                at_revision: EVENTS,
+            },
+            &|| false,
+        )
+        .unwrap()
+        .scope;
+    let parent = store.resume(&parent_scope).unwrap().engine;
     let old = store
-        .ensure_memory_job(&request(&root, "agent"), &|| false)
+        .ensure_memory_job(&request(&parent, "agent"), &|| false)
         .unwrap();
     drain(&mut store, &old.handle);
     let child = store
         .fork_branch(
             &ForkRequest {
-                parent: root.scope().clone(),
+                parent: parent.scope().clone(),
                 child_branch: "retained-child".into(),
                 expected_parent_revision: EVENTS,
                 at_revision: EVENTS,
@@ -892,7 +907,7 @@ fn retired_parent_loses_its_job_without_breaking_live_child_or_reusing_ids() {
         .unwrap();
     drain(&mut store, &child_job.handle);
     let prepared = store
-        .prepare_branch_deletion(root.scope(), EVENTS, &|| false)
+        .prepare_branch_deletion(parent.scope(), EVENTS, &|| false)
         .unwrap();
     store.delete_branch(prepared, &|| false).unwrap();
     assert!(matches!(
@@ -900,7 +915,7 @@ fn retired_parent_loses_its_job_without_breaking_live_child_or_reusing_ids() {
         Err(MemoryError::NotFound)
     ));
     assert!(matches!(
-        store.ensure_memory_job(&request(&root, "agent"), &|| false),
+        store.ensure_memory_job(&request(&parent, "agent"), &|| false),
         Err(MemoryError::NotFound)
     ));
     assert_eq!(
@@ -912,6 +927,7 @@ fn retired_parent_loses_its_job_without_breaking_live_child_or_reusing_ids() {
     );
     verified(&mut store, &child_engine, &request(&child_engine, "agent"));
     assert_canon(&mut store, &child_engine);
+    assert_canon(&mut store, &root);
 }
 
 #[test]

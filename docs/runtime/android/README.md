@@ -245,6 +245,12 @@ separately pinned artifact and hostile resource-ownership tests, and the
 failed gift, measured buffered output, storage/preservation failures and
 independent canonical replay.
 
+The [offline storage explanation](STORAGE_EXPLANATION_V1.md) shows the existing
+per-physical-host reserves and growth allowances using supplied before/after
+samples. It performs no device operation and changes no admission limit. Its
+[verification](STORAGE_EXPLANATION_VERIFICATION_2026-10-23.md) reproduces the
+retained blocked verdict without attributing host-wide consumption to an app.
+
 The native [process owner](../../../benchmarks/spike/android/controller/README.md)
 owns/reaps one trusted direct child. An ADB-client exit is never native cleanup
 evidence. Package termination is limited to the hash-verified isolated SDK app;

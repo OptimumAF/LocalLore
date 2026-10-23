@@ -1697,7 +1697,15 @@ impl Host {
                         return Err(reject("NotReady"));
                     }
                     let prepared = t.receipt.clone().unwrap();
-                    let basis = t.basis.clone().ok_or_else(|| reject("NotReady"))?;
+                    let original_basis = t.basis.as_ref().ok_or_else(|| reject("NotReady"))?;
+                    if !s
+                        .engine
+                        .matches_accepted_history(original_basis)
+                        .map_err(reject)?
+                    {
+                        return Err(reject("Stale"));
+                    }
+                    let basis = s.engine.accepted_history_basis().map_err(reject)?;
                     let trace = t.trace.clone();
                     let request = t.request.clone();
                     let mode = t.mode;
@@ -1709,12 +1717,26 @@ impl Host {
                         return Err(reject("TooLarge"));
                     }
                     let timer = StageTimer::start();
-                    match state
-                        .persistence
-                        .as_mut()
-                        .unwrap()
-                        .commit_prepared_bound(&prepared, &basis)
-                    {
+                    let port = state.persistence.as_mut().unwrap();
+                    let committed = if basis.matches_request(&request) {
+                        port.commit_prepared_bound(&prepared, &basis)
+                    } else {
+                        // The selected source has advanced. Terminalize only
+                        // under its stronger full prefix, never the old candidate's
+                        // shorter prefix after a separate status/read operation.
+                        port.finish_bound(&request, &basis, DraftDisposition::Stale)
+                            .and_then(|saved| {
+                                saved.receipt.ok_or_else(|| {
+                                    match saved.phase.as_str() {
+                                        "cancelled" => "Cancelled",
+                                        "failed" => "Failed",
+                                        _ => "Stale",
+                                    }
+                                    .into()
+                                })
+                            })
+                    };
+                    match committed {
                         Ok(receipt) => {
                             self.trace_record(
                                 trace.as_ref(),
@@ -2143,6 +2165,24 @@ impl Host {
         let Some(s) = state.sessions.get_mut(&work.session) else {
             return reject("Closed");
         };
+        if !matches!(s.engine.matches_accepted_history(&work.basis), Ok(true)) {
+            let t = s.turns.get_mut(&work.turn).unwrap();
+            t.phase = Phase::Stale;
+            t.error = Some("Stale".into());
+            t.receipt = None;
+            return ok(t.view());
+        }
+        let terminal_basis = match s.engine.accepted_history_basis() {
+            Ok(basis) => basis,
+            Err(error) => {
+                if let Some(t) = s.turns.get_mut(&work.turn) {
+                    if t.phase == Phase::Running {
+                        t.phase = Phase::Queued;
+                    }
+                }
+                return reject(error);
+            }
+        };
         let t = s.turns.get_mut(&work.turn).unwrap();
         if !t.phase.active() {
             return ok(t.view());
@@ -2174,14 +2214,18 @@ impl Host {
         let reply = ok(t.view());
         if let Some(port) = state.persistence.as_mut() {
             let saved = match phase {
-                Phase::Cancelled => {
-                    Some(port.finish_bound(&work.request, &work.basis, DraftDisposition::Cancelled))
-                }
-                Phase::Failed => {
-                    Some(port.finish_bound(&work.request, &work.basis, DraftDisposition::Failed))
-                }
+                Phase::Cancelled => Some(port.finish_bound(
+                    &work.request,
+                    &terminal_basis,
+                    DraftDisposition::Cancelled,
+                )),
+                Phase::Failed => Some(port.finish_bound(
+                    &work.request,
+                    &terminal_basis,
+                    DraftDisposition::Failed,
+                )),
                 Phase::Stale => {
-                    Some(port.finish_bound(&work.request, &work.basis, DraftDisposition::Stale))
+                    Some(port.finish_bound(&work.request, &terminal_basis, DraftDisposition::Stale))
                 }
                 _ => None,
             };

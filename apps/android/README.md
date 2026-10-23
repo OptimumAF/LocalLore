@@ -167,6 +167,22 @@ Select each nested
 `SqliteHelperFaultTest` class in a fresh instrumentation process; poisoning has
 no reset API. Default discovery retains the three normal relief cases. Existing
 ordinary/full/relief packages and their artifacts stay separate.
+The [dated helper-failure verification](../../docs/native/HELPER_FAILURE_VERIFICATION_2026-10-23.md)
+records final results, earlier failed attempts, artifact identities and limits.
+After verifying the selected authorized device, installed app/test hashes and
+absence of other owners, use this instrumentation argument set for each of
+`MarkerDrift`, `DispatchFence`, `Malformed`, `Oversize`, `Timeout` and `AfterFill`:
+
+```powershell
+adb -s <authorized-emulator> shell am instrument -w -r -e class 'org.locallore.app.SqliteHelperFaultTest$MarkerDrift' org.locallore.app.capacityfaultsv3.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Run each selector separately; use the same runner without `-e class` for default
+discovery. The qualification used a 180-second bounded client per invocation,
+verified task-owned package stops before/after, and checked client/process
+termination plus unchanged prior installed identities. A timeout or uncertain
+owner is a failed check, not permission to continue. Retain failed synthetic
+roots; do not clear app data to reset the process fence.
 Cancellation that reaches Rust before submit exists is reconciled as an uncommitted
 request. A late submit remains a draft; recovery does not regenerate or commit it.
 The earlier [ADR-0004](../../docs/adr/0004-android-engine-boundary.md) remains the

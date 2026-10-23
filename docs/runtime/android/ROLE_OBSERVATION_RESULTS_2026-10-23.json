@@ -1,0 +1,399 @@
+{
+  "version": 1,
+  "scope": "synthetic_emulator_role_observation",
+  "task_ids": [
+    "M01.04",
+    "M01.05"
+  ],
+  "full_task_acceptance": false,
+  "source": {
+    "base": "a5a0fae10743c0132ff68285faca9a7333f454c3",
+    "java": "604cb991ade7cb922ef3c89b08e6a296ecab4b4b",
+    "controller_pin_commit": "1344ac9",
+    "native": "ba31932665eab2079c54a02a0182857f598fa0c4"
+  },
+  "environment": {
+    "api": 35,
+    "abi": "x86_64",
+    "runtime": "LiteRT-LM Android 0.18.1",
+    "sdk_revision": "bda624851d74be34d4e1f7fac1fc4155939539c7",
+    "backend": "CPU",
+    "threads": 4,
+    "context_tokens": 4096,
+    "director_tokens": 350,
+    "narrator_tokens": 220,
+    "repair_limit": 1,
+    "turn_deadline_ms": 60000,
+    "app_watchdog_ms": 90000,
+    "client_deadline_seconds": 110,
+    "cohort_deadline_seconds": 180,
+    "model_bytes": 2588147712,
+    "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+  },
+  "checks": {
+    "script_tests": 360,
+    "benchmark_tests": 140,
+    "sdk_helper_tests": 34,
+    "jvm_tests": 132,
+    "jvm_failures": 0,
+    "jvm_errors": 0,
+    "jvm_skips": 0,
+    "lint_errors": 0,
+    "lint_warnings": 9,
+    "dependency_manifest_native_alignment_audits": true,
+    "new_native_build": false
+  },
+  "artifact": {
+    "bytes": 63666936,
+    "sha256": "9417a3e914975918d018c8a7d8954f192c09e40e10320b08c86be8a50fd7217f",
+    "native_libraries_unchanged": true
+  },
+  "superseded_artifact": {
+    "bytes": 63666936,
+    "sha256": "655de0c55b27c11d77bf83c505883b3b1e4313ed660d60bfac06aa7246fef58b",
+    "jvm_tests": 123,
+    "installed": false,
+    "reason": "source_review_findings_before_device_admission"
+  },
+  "measurement_correction": {
+    "prior_ordinary_first_output_flag": "unmeasured",
+    "prior_timeout_cleanup_and_replay_preserved": true,
+    "prior_raw_and_aggregate_unchanged": true
+  },
+  "preparation": {
+    "owned_process": {
+      "version": 1,
+      "status": "completed",
+      "returncode": 0,
+      "elapsed_ms": 67672,
+      "cleanup_complete": true,
+      "stdout_bytes": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_bytes": 0
+    },
+    "command_counts": {
+      "commands": 382,
+      "known_clean": 382,
+      "exit_zero": 379,
+      "exit_one": 3,
+      "exit_37": 0
+    },
+    "source_integrity_complete_passes": 2,
+    "source_integrity_elapsed_ms": 22313,
+    "source_and_fingerprint_verified": true,
+    "UID_and_app_root_preserved": true,
+    "old_session_hashes_preserved_before_inference": true,
+    "package_counts": {
+      "A": 21,
+      "B": 23
+    },
+    "only_selected_B_APK_updated": true,
+    "model_copy_calls": 0,
+    "sdk_calls": 0
+  },
+  "critical": {
+    "owned_process": {
+      "version": 1,
+      "status": "completed",
+      "returncode": 2,
+      "elapsed_ms": 122562,
+      "cleanup_complete": true,
+      "stdout_bytes": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_bytes": 0
+    },
+    "command_counts": {
+      "commands": 329,
+      "known_clean": 329,
+      "exit_zero": 309,
+      "exit_one": 19,
+      "exit_37": 1
+    },
+    "sampler_calls": 2,
+    "app_model_identity_calls": 1,
+    "SDK_retry": false,
+    "read_phase_retry": false,
+    "controller": {
+      "status": "observed",
+      "result": {
+        "outcome": "failed",
+        "error": "timeout",
+        "roles": 1,
+        "director_calls": 1,
+        "narrator_calls": 0,
+        "repairs": 0,
+        "revision_before": 0,
+        "revision_after": 0,
+        "receipts_before": 0,
+        "receipts_after": 0,
+        "exact_retry": false,
+        "reopen_equal": true,
+        "canon_unchanged": true,
+        "model_initialized": true,
+        "fallback": false,
+        "first_output_observed": true,
+        "owner_drained": true,
+        "version": 1,
+        "case": "gift",
+        "gift_seeded": false,
+        "workspace_retained": true,
+        "turns": [
+          {
+            "outcome": "failed",
+            "error": "timeout",
+            "generations": [
+              {
+                "role": "director",
+                "status": "error",
+                "error": "timeout",
+                "load_ms": 8726.0237,
+                "generation_ms": 49043.3789,
+                "input_tokens": null,
+                "output_tokens": null,
+                "schema_enforced": false,
+                "thinking_disabled": false,
+                "template_applied": false,
+                "output_observation": "observed",
+                "first_output_elapsed_ms": 46075.8019,
+                "terminal_observation": {
+                  "version": 1,
+                  "callback_messages": 15,
+                  "buffered_text_bytes": 56,
+                  "callback_error": "generation_failed",
+                  "benchmark_available": true,
+                  "sdk_input_tokens": 1855,
+                  "sdk_output_tokens": 16,
+                  "configuration": {
+                    "schema_requested": true,
+                    "thinking_disabled_requested": true,
+                    "template_rendered": true,
+                    "max_tokens": 350,
+                    "prompt_utf8_bytes": 7111,
+                    "schema_utf8_bytes": 355
+                  }
+                }
+              }
+            ],
+            "roles": 1,
+            "director_calls": 1,
+            "narrator_calls": 0,
+            "repairs": 0,
+            "revision_before": 0,
+            "revision_after": 0,
+            "receipts_before": 0,
+            "receipts_after": 0,
+            "exact_retry": false,
+            "reopen_equal": true,
+            "canon_unchanged": true,
+            "model_initialized": true,
+            "fallback": false,
+            "first_output_observed": true,
+            "owner_drained": true
+          }
+        ]
+      },
+      "sdk": {
+        "engines_opened": 1,
+        "engines_closed": 1,
+        "conversations_opened": 1,
+        "conversations_closed": 1,
+        "cleanup_requires_process_termination": false,
+        "play_roles": 1,
+        "play_load_ms": 8726.1595,
+        "play_generation_ms": 0,
+        "play_input_tokens": 0,
+        "play_output_tokens": 0,
+        "cancel_call_ms": 28.8084,
+        "cancel_called": true,
+        "generation_main_pulses": 2884,
+        "cancel_terminal_callback": true,
+        "terminal_callback": true,
+        "main_pulses": 3848,
+        "owners_balanced": true
+      },
+      "model_verified": true,
+      "model_diagnostic": "verified",
+      "failure_stage": "none",
+      "cleanup_failure_stage": "none",
+      "worker_status": "completed",
+      "worker_error": null,
+      "storage_samples_valid": true,
+      "transport_valid": true,
+      "process_absent": true,
+      "clients_cleaned": true,
+      "check_passed": false,
+      "raw_protocol_retained": true,
+      "artifacts_retained": true,
+      "admission": {
+        "version": 1,
+        "phase": "before",
+        "status": "admitted",
+        "reasons": [],
+        "bytes": {
+          "cache_bytes": 2365238344,
+          "cache_free_bytes": 3619602432,
+          "cache_host_free_bytes": 322707947520,
+          "evidence_free_bytes": 322707947520,
+          "userdata_free_bytes": 1674461184,
+          "userdata_host_free_bytes": 12667879424
+        },
+        "model_copy_bytes": 0
+      },
+      "post": {
+        "version": 1,
+        "phase": "after",
+        "status": "blocked",
+        "reasons": [
+          "host_consumption_budget"
+        ],
+        "bytes": {
+          "cache_bytes": 3153651114,
+          "cache_free_bytes": 2831179776,
+          "cache_host_free_bytes": 321902133248,
+          "evidence_free_bytes": 321902133248,
+          "userdata_free_bytes": 1674371072,
+          "userdata_host_free_bytes": 10284752896
+        },
+        "observed_deltas": {
+          "cache_growth_bytes": 788412770,
+          "userdata_net_consumption_bytes": 90112,
+          "cache_net_consumption_bytes": 788422656
+        }
+      },
+      "storage_checks_passed": false,
+      "dispatched": true,
+      "phone_qualified": false,
+      "wall_ms": 92203
+    },
+    "closure": {
+      "failure": {
+        "category": "AssertionError"
+      },
+      "boundary": "old_guarded_cache_metadata_equality",
+      "changed_fields": [
+        "directory_inode",
+        "owner_marker_mtime",
+        "owner_marker_ctime"
+      ],
+      "cause": "unestablished",
+      "final_old_failed_database_preservation_verified": false,
+      "final_inventory_completed": false,
+      "final_package_maps_match_precritical": true,
+      "final_package_counts": {
+        "A": 21,
+        "B": 23
+      },
+      "further_device_calls": 0
+    }
+  },
+  "phase_readback": {
+    "version": 1,
+    "scope": "android_sdk_phase_readback",
+    "status": "observed",
+    "result": {
+      "version": 1,
+      "status": "completed",
+      "error": "none",
+      "model_execution": false,
+      "journal_valid": true,
+      "checkpoint_count": 27,
+      "last_phase": "terminal",
+      "last_role": "none",
+      "fresh_reader_process": true,
+      "exit_history_available": true,
+      "exit_records_examined": 1,
+      "exit_instance_matches": 1,
+      "exit_instance_matched": true,
+      "exit_reason": 10,
+      "exit_status": 0
+    },
+    "failure_stage": "none",
+    "cleanup_failure_stage": "none",
+    "dispatched": true,
+    "raw_protocol_retained": true,
+    "clients_cleaned": true,
+    "process_absent": true,
+    "journal_verified": true,
+    "instance_matched": true
+  },
+  "canonical_replay": {
+    "snapshot": {
+      "version": 1,
+      "status": "captured",
+      "files": [
+        {
+          "name": "stories.sqlite3",
+          "bytes": 65536,
+          "sha256": "fea955219d41d9fecedafd3934cfda82a335f8c9e53b058f24cb0b15e32a4019"
+        }
+      ],
+      "absent": [
+        "stories.sqlite3-wal",
+        "stories.sqlite3-shm",
+        "stories.sqlite3-journal"
+      ],
+      "source_facts_stable": true,
+      "process_absent": true,
+      "clients_cleaned": true
+    },
+    "process": {
+      "version": 1,
+      "status": "completed",
+      "returncode": 0,
+      "cleanup_complete": true,
+      "elapsed_ms": 250,
+      "stdout_bytes": 586,
+      "stdout_sha256": "0c95f9f8b7ad7586bfd09a1e673061f44d9700eef64d4c81cd81971f17b382ef",
+      "stderr_bytes": 0,
+      "model_execution": false
+    },
+    "result": {
+      "branch_summaries": [
+        {
+          "accepted_events": 0,
+          "accepted_given_events": 0,
+          "accepted_player_to_mira_sole_potion_events": 0,
+          "accepted_receipts": 0,
+          "branch_index": 0,
+          "draft_turns": 0,
+          "potion_owner": "player",
+          "potion_quantity": 1,
+          "projection_needs_rebuild": false,
+          "requested_turn_has_receipt": false,
+          "requested_turn_phase": "failed",
+          "revision": 0,
+          "story_index": 0,
+          "strict_replay": true
+        }
+      ],
+      "branches": 1,
+      "foreign_keys": true,
+      "input_main_unchanged": true,
+      "integrity": "validated_schema_and_replay",
+      "model_execution": false,
+      "schema_version": 2,
+      "scope": "copied_snapshot_only",
+      "status": "passed",
+      "stories": 1,
+      "version": 1
+    },
+    "preservation": {
+      "version": 1,
+      "pristine_unchanged": true,
+      "working_main_unchanged": true
+    }
+  },
+  "limitations": [
+    "One new B attempt; A metadata only",
+    "Real gift failed director timeout; no narrator or commit",
+    "First output duration is a polling upper bound, not SDK TTFT or final-response latency",
+    "Callback bytes do not establish valid generated text",
+    "Cancelled SDK counters are best effort; aggregate zero token totals remain defaults",
+    "Requested schema/thinking settings and nonempty render do not prove enforcement",
+    "Post host consumption exceeded unchanged bound; cause not attributed",
+    "Old guarded cache metadata changed; cause unestablished and final old-database preservation unverified",
+    "No retry, model copy/download, AVD lifecycle or physical phone/ARM execution",
+    "No quality, sustained memory/thermal or production profile qualification",
+    "No post-SDK whole-model hash; only pre-SDK app-domain verification and later metadata observations"
+  ]
+}

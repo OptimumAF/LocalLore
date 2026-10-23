@@ -92,7 +92,8 @@ and working main-file bytes remained unchanged. Replay called no model.
 Pre-SDK volume-aware admission passed with verified independent cache backing
 and stable sampled physical-host identities. Post-SDK admission was blocked:
 host free space fell from 12,667,879,424 to 10,284,752,896 bytes, exceeding the
-1 GiB consumption allowance. The drop's attribution is unestablished. Observed
+C/userdata-host 64 MiB consumption allowance. D/cache has a separate 1 GiB
+growth allowance. The drop's attribution is unestablished. Observed
 cache growth was 788,412,770 bytes and userdata net consumption was 90,112 bytes;
 those observations do not override the host-budget failure. The later bounded
 capture admission still met its separate floors. Final storage accounting was

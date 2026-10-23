@@ -434,8 +434,11 @@ class SdkWorker:
             host_cancel.set()
             if thread is not None and thread.ident is not None:
                 thread.join(timeout=8)
-            adb_cleaned = thread is None or bool((thread.ident is None or (results and results[0].cleanup_complete is True))
-                                                and not thread.is_alive())
+            launcher_cleaned = thread is None or bool((thread.ident is None or (results and results[0].cleanup_complete is True))
+                                                     and not thread.is_alive())
+            adb_cleaned = launcher_cleaned
+            if results and results[0].status == "spawn_failed":
+                failure = "sdk_launch_instrumentation"
             try:
                 cleanup = self.stop()  # Reverify the installed bytes before every stop.
                 if not cleanup:
@@ -446,7 +449,7 @@ class SdkWorker:
                 adb_cleaned = adb_cleaned and getattr(cleanup_error, "command_cleaned", False) is True
                 cleanup = False if self.stop_stage != "none" else cleanup
                 cleanup_failure = self.stop_stage if self.stop_stage != "none" else "sdk_request_cleanup"
-            if not adb_cleaned:
+            if not launcher_cleaned:
                 cleanup_failure = "sdk_join_adb"
                 cleanup = False
         if cleanup and adb_cleaned and failure == "none" and status not in ("cancelled", "timeout"):
@@ -602,11 +605,14 @@ class NativeWorker:
         except Exception as error:
             commands_cleaned = getattr(error, "command_cleaned", False) is True
             failure, cleanup_failure = phase, "native_verify_reap"
+            if results and results[0].status == "spawn_failed":
+                failure = "native_launch_owner"
             status = "cleanup_failed"
             try:
                 device.script(": > " + shlex.quote(run + "/cancel"))
-            except Failure:
-                pass
+            except Exception as cleanup_error:
+                commands_cleaned = commands_cleaned and getattr(cleanup_error, "command_cleaned", False) is True
+                cleanup_failure = "native_cancel"
         finally:
             host_cancel.set()
             thread.join(timeout=8)
@@ -618,8 +624,9 @@ class NativeWorker:
                 except Exception as cleanup_error:
                     commands_cleaned = commands_cleaned and getattr(cleanup_error, "command_cleaned", False) is True
                     cleanup_failure = "native_remove_run"
-        adb_cleaned = bool(commands_cleaned and results and results[0].cleanup_complete is True and not thread.is_alive())
-        if not adb_cleaned:
+        launcher_cleaned = bool(results and results[0].cleanup_complete is True and not thread.is_alive())
+        adb_cleaned = commands_cleaned and launcher_cleaned
+        if not launcher_cleaned:
             cleanup_failure = "native_join_adb"
         return RemoteResult(status, round((time.monotonic() - start) * 1000), cleanup,
                             output, code, adb_cleaned, directory_cleanup, failure_stage=failure,

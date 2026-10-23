@@ -188,3 +188,29 @@ ignored helper**. It still has not been compiled, run, or used to launch a child
 Source formatting/Git whitespace checks are the only local executable checks so
 far. Root will provide the owner-bound/reset-corrected module hash and resource
 slot; production remains entirely outside this author's ownership.
+
+## Coordinator compile evidence and integer-only correction
+
+Coordinator imported the two frozen test commits and independently attempted a
+first compile on actual source `1828d6e26d325d6b8b30bf8ba88569f5903eb562`.
+That attempt failed with **eight E0277 SQL integer trait errors in this new test**;
+**zero tests ran**. This is coordinator-reported actual compile evidence, not an
+execution by this author. Original tool output is retained by the coordinator;
+no log hash or passing result is invented here.
+
+The errors were `u64` values supplied to rusqlite `ToSql` and `u64` requested via
+`FromSql`. Follow-up `4acafab95e8a55f24ed8cc87d09b79d073a7b7ed` changes only
+the new test: checked `u64`→`i64` for bindings, and checked `i64`→`u64` for row
+values with a proper rusqlite conversion error on a negative value. No assertion,
+fixed corpus, expected outcome, quota or budget changes. Fixed test SHA-256:
+`17c485a3c5259937354c079c731e27d85939c234593b7d11adebbe9808dc508f`.
+Source formatting and diff checks passed; compilation/test execution of this
+correction remains with the coordinator until another explicit resource go.
+
+Own worktree imported coordinator fixes
+`502cacd18b9c43c3719b42ab37bd642b4ff363c6` (native owner binding/corrupt-cache
+recovery; local dependency729015f) and
+`368043756f9a9b0841c21845f56575a16a95d30a` (read-only schema3 retired graph;
+local dependency8c38b7b). None of those production changes is this test author's
+work. The same-read-snapshot callback position remains unchanged in those
+context/memory_engine paths. Root owns any further compatibility changes.

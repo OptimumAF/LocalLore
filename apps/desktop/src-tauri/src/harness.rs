@@ -14,6 +14,20 @@ const MAX_JSON: usize = 256 * 1024;
 const MAX_PNG: usize = 16 * 1024 * 1024;
 const MAX_CHECKPOINTS: usize = 40;
 const LABELS: &[&str] = &[
+    "fork-prepared",
+    "fork-rejected",
+    "fork-accepted",
+    "fork-pending",
+    "fork-cancelled",
+    "fork-switched",
+    "fork-unknown",
+    "fork-retry",
+    "fork-observer",
+    "fork-narrow",
+    "fork-finished",
+    "fork-restarted",
+    "fork-missing",
+    "fork-reopened",
     "curated-library",
     "curated-lost-ack",
     "curated-completed",

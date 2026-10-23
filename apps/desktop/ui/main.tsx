@@ -1,5 +1,6 @@
 import { EvaluationController } from "./evaluation-controller";
 import { ArchiveController } from "./archive-controller";
+import { ForkController } from "./fork-controller";
 import { CaptureController } from "./capture-controller";
 import {
     TimelineController,
@@ -37,14 +38,29 @@ declare global {
             curated?: boolean;
             archiving?: boolean;
             timelining?: boolean;
+            forking?: boolean;
             archiveStage?:
                 "source" | "import" | "restarted" | "uncertain" | "retire";
         };
     }
 }
 const errors = new ErrorBuffer();
-const invoke = (command: string, args: Record<string, unknown> = {}) =>
-    window.__TAURI__.core.invoke(command, args);
+const invoke = (command: string, args: Record<string, unknown> = {}) => {
+    // One native broker retains one operation result. Keep the other surface
+    // from replacing a completed result before its frontend consumes the reply.
+    if (
+        (command === "fork_start" && archive.get().busy) ||
+        ([
+            "archive_export_preview",
+            "archive_import_preview",
+            "archive_export",
+            "archive_import",
+        ].includes(command) &&
+            fork.get().busy)
+    )
+        return Promise.reject("ArchiveBusy");
+    return window.__TAURI__.core.invoke(command, args);
+};
 const driver =
     __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.enabled
         ? await import("./journeys")
@@ -58,6 +74,25 @@ const controller = new Controller(gateway, errors, undefined, (work) =>
     capture.metadataControl(work),
 );
 const archive = new ArchiveController(invoke, () => controller.library());
+const forkRecoveryKey = "locallore-fork-recovery-v1";
+const fork = new ForkController(
+    invoke,
+    () => controller.library(),
+    (request) => {
+        try {
+            localStorage.setItem(forkRecoveryKey, JSON.stringify(request));
+        } catch {
+            throw Error("StorageUnavailable");
+        }
+    },
+);
+try {
+    const saved = localStorage.getItem(forkRecoveryKey);
+    if (saved !== null)
+        fork.restore(saved.length <= 1024 ? JSON.parse(saved) : null);
+} catch {
+    fork.restore(null);
+}
 const capture = new CaptureController(gateway, () => controller.readTrace());
 const timeline = new TimelineController(gateway, (scope) =>
     resumeTimeline(controller, scope),
@@ -67,6 +102,7 @@ const timeline = new TimelineController(gateway, (scope) =>
 const syncEvaluationContext = () => {
     const s = controller.get();
     timeline.contextChanged(timelineContext(controller));
+    fork.contextChanged(timelineContext(controller));
     capture.contextChanged(
         controller.selected(),
         s.play?.revision ?? 0,
@@ -101,6 +137,7 @@ root.render(
         archive={archive}
         capture={capture}
         timeline={timeline}
+        fork={fork}
     />,
 );
 const dispose = async () => {
@@ -108,6 +145,7 @@ const dispose = async () => {
     evaluation.dispose();
     archive.dispose();
     timeline.dispose();
+    fork.dispose();
     await capture.dispose();
     await controller.dispose();
     root.unmount();
@@ -152,7 +190,18 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
                 : durableDriver
                   ? durableDriver.durableJourneys
                   : driver.journeys;
-    if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.timelining) {
+    if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.forking) {
+        const { forkNativeJourneys } = await import("./fork-native-journeys");
+        await forkNativeJourneys({
+            controller,
+            fork,
+            timeline,
+            errors,
+            invoke,
+            dispose,
+            config: window.__LOCALLORE_TEST__,
+        });
+    } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.timelining) {
         const { timelineNativeJourneys } =
             await import("./timeline-native-journeys");
         await timelineNativeJourneys({

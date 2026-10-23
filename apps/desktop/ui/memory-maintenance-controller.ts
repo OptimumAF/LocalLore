@@ -129,7 +129,7 @@ export function memoryContextIdentity(v: MemoryContext | null): string {
 }
 export function decodeMemoryOperation(
     value: unknown,
-    context: MemoryContext,
+    context: Pick<MemoryContext, "session" | "scope" | "expected_head">,
     action: MemoryAction,
     operation?: number,
 ): MemoryOperation {

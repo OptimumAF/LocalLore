@@ -134,7 +134,7 @@ the relief app. No diagnostic provider is registered by the relief test APK.
 
 Nine actual configuration probes rejected both flags, invalid values, ambient
 SQLite flags and every mismatched special-cache pairing. Each mode owns distinct
-app ID/source/build/native/Cargo/tool outputs and Gradle project cache. Only debug
+app ID/test-source root/build/native/Cargo/tool outputs and Gradle project cache. Only debug
 exists for capped modes. After ordinary → 15 → relief builds, all four previous
 local APK hashes remained unchanged; all six current hashes are in the artifact.
 Local ordinary APKs differ from the older installed pair verified at preflight;
@@ -143,6 +143,10 @@ they are not described as the same binaries.
 ## Compiled Android cases; execution blocked
 
 Expected default discovery is three methods, **not yet runtime verified**:
+
+The APK keeps minSdk 26; these fixture classes use an API 28 minimum guard for
+their helper APIs. That guard does not establish older platform SQLite
+compatibility. Intended API 35 execution remains blocked.
 
 - `SqliteReliefNativeTest#actualFullThenOwnedPaddingRemovalCommitsOnlyOriginalReadyKeyOnce`
 - `SqliteReliefNativeTest#cancelledFullReadyTurnRemainsUnspentAfterPaddingRemovalAndReopen`

@@ -273,6 +273,7 @@ pub struct WorkspaceBranch {
     pub fork_revision: Option<u64>,
     pub revision: u64,
     pub drafts: usize,
+    pub retired: bool,
 }
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub struct WorkspaceBranchCatalog {
@@ -288,6 +289,10 @@ pub struct SavedTurn {
     pub receipt: Option<Receipt>,
 }
 pub trait Persistence: Send {
+    /// Recheck public target admission even before returning process-cached work.
+    fn validate_scope(&mut self, _scope: &Scope) -> Result<(), String> {
+        Ok(())
+    }
     /// Actual SQLite implementation version; workspace host-v1 contract stays separate.
     fn database_schema_version(&self) -> u32 {
         1
@@ -543,6 +548,33 @@ impl Host {
             trace.clear();
         }
     }
+    /// Remove only retired/collected targets. Retained descendant sessions stay live.
+    pub fn invalidate_branches(&self, story: &str, branches: &[String]) {
+        // Lifecycle cleanup must revoke capabilities even after gameplay poison;
+        // recovering this guard does not clear poison or authorize more gameplay.
+        let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
+        let mut owners = Vec::new();
+        state.sessions.retain(|_, session| {
+            let scope = session.engine.scope();
+            if scope.story != story || !branches.contains(&scope.branch) {
+                return true;
+            }
+            session.trace_owner.retire();
+            owners.push(session.trace_owner.clone());
+            for turn in session.turns.values() {
+                turn.cancel.cancel();
+            }
+            false
+        });
+        drop(state);
+        // Retired owner liveness fences late private writes independently of a
+        // busy/poisoned diagnostic lock. Preserve unrelated live owner metadata.
+        if let Ok(mut trace) = self.trace.try_lock() {
+            for owner in owners {
+                trace.clear_owner(&owner);
+            }
+        }
+    }
     /// Trusted adapter lifecycle evidence, without story content or wire authority.
     pub fn live_counts(&self) -> (usize, usize) {
         let state = self.state.lock().unwrap();
@@ -554,7 +586,17 @@ impl Host {
                 if !self.story_lab {
                     return Err(reject("Forbidden"));
                 }
-                let owner = get_session(state, session, scope)?.trace_owner.clone();
+                // Revocation only removes optional copies. Resolve the live
+                // in-memory lease without canonical Store admission or replay:
+                // unavailable storage must not prevent narrowing access.
+                let selected = state
+                    .sessions
+                    .get(session)
+                    .ok_or_else(|| reject("Closed"))?;
+                if selected.engine.scope() != scope {
+                    return Err(reject("Scope"));
+                }
+                let owner = selected.trace_owner.clone();
                 // No persistence read, head assertion or canonical mutation is
                 // needed to revoke this owner's optional diagnostic copies.
                 self.trace_control()?.revoke_details(&owner);
@@ -1941,13 +1983,26 @@ fn get_session<'a>(
     id: &str,
     scope: &Scope,
 ) -> Result<&'a mut Session, Value> {
-    let Some(s) = state.sessions.get_mut(id) else {
+    let Some(s) = state.sessions.get(id) else {
         return Err(reject("Closed"));
     };
     if s.engine.scope() != scope {
         return Err(reject("Scope"));
     }
-    Ok(s)
+    if let Some(port) = state.persistence.as_mut() {
+        if let Err(error) = port.validate_scope(scope) {
+            if error == "NotFound" {
+                if let Some(session) = state.sessions.remove(id) {
+                    session.trace_owner.retire();
+                    for turn in session.turns.values() {
+                        turn.cancel.cancel();
+                    }
+                }
+            }
+            return Err(reject(error));
+        }
+    }
+    Ok(state.sessions.get_mut(id).unwrap())
 }
 fn refresh_session(state: &mut State, id: &str, scope: &Scope) -> Result<(), Value> {
     get_session(state, id, scope)?;
@@ -2514,6 +2569,123 @@ mod tests {
         assert_eq!(view["data"]["receipts"].as_array().unwrap().len(), 1);
     }
     #[test]
+    fn branch_invalidation_retires_target_owner_and_preserves_same_story_child() {
+        let h = Host::new(true);
+        let (parent, scope) = session(&h);
+        let (child, target_owner, child_owner) = {
+            let mut state = h.state.lock().unwrap();
+            let engine = state.sessions[&parent]
+                .engine
+                .fork("retained-child", 0)
+                .unwrap();
+            let child = attach_engine(&mut state, engine)["data"]["session"]
+                .as_str()
+                .unwrap()
+                .to_owned();
+            (
+                child.clone(),
+                state.sessions[&parent].trace_owner.clone(),
+                state.sessions[&child].trace_owner.clone(),
+            )
+        };
+        h.invalidate_branches(&scope.story, std::slice::from_ref(&scope.branch));
+        assert!(
+            !target_owner.live(),
+            "removed target must fence late private writes"
+        );
+        assert!(child_owner.live());
+        let state = h.state.lock().unwrap();
+        assert!(!state.sessions.contains_key(&parent));
+        assert!(state.sessions.contains_key(&child));
+    }
+    #[test]
+    fn branch_retirement_retires_only_targets_with_busy_trace_and_poisoned_state() {
+        for poison in [false, true] {
+            let h = Host::new(true);
+            let (target, scope) = session(&h);
+            let (other, _) = session(&h);
+            let (selected, retained) = {
+                let state = h.state.lock().unwrap();
+                (
+                    state.sessions[&target].trace_owner.clone(),
+                    state.sessions[&other].trace_owner.clone(),
+                )
+            };
+            if poison {
+                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let _state = h.state.lock().unwrap();
+                    panic!("synthetic retirement cleanup poison");
+                }));
+            }
+            let held_trace = h.trace.lock().unwrap();
+            h.invalidate_branches(&scope.story, std::slice::from_ref(&scope.branch));
+            assert!(!selected.live());
+            assert!(retained.live());
+            let state = h.state.lock().unwrap_or_else(|p| p.into_inner());
+            assert_eq!(state.sessions.len(), 1);
+            assert!(state.sessions.contains_key(&other));
+            assert_eq!(h.state.is_poisoned(), poison);
+            drop(state);
+            drop(held_trace);
+        }
+    }
+    #[test]
+    fn public_scope_retirement_retires_owner_before_removing_cached_session() {
+        struct AdmissionOnly(&'static str);
+        impl Persistence for AdmissionOnly {
+            fn validate_scope(&mut self, _: &Scope) -> Result<(), String> {
+                Err(self.0.into())
+            }
+            fn location(&self) -> &str {
+                "synthetic-admission-only"
+            }
+            fn list(&mut self) -> Result<Vec<WorkspaceSummary>, String> {
+                unreachable!()
+            }
+            fn create(&mut self) -> Result<Engine, String> {
+                unreachable!()
+            }
+            fn resume(&mut self, _: &Scope) -> Result<Engine, String> {
+                unreachable!()
+            }
+            fn begin(&mut self, _: &Request) -> Result<SavedTurn, String> {
+                unreachable!()
+            }
+            fn commit(&mut self, _: &Request, _: &Proposal, _: &str) -> Result<Receipt, String> {
+                unreachable!()
+            }
+            fn cancel(&mut self, _: &Request) -> Result<SavedTurn, String> {
+                unreachable!()
+            }
+            fn fail(&mut self, _: &Request) -> Result<SavedTurn, String> {
+                unreachable!()
+            }
+            fn stale(&mut self, _: &Request) -> Result<SavedTurn, String> {
+                unreachable!()
+            }
+            fn status(&mut self, _: &Scope, _: &str) -> Result<SavedTurn, String> {
+                unreachable!()
+            }
+        }
+        for error in ["NotFound", "Busy"] {
+            let h = Host::new(true);
+            let (id, scope) = session(&h);
+            let mut state = h.state.lock().unwrap();
+            let owner = state.sessions[&id].trace_owner.clone();
+            state.persistence = Some(Box::new(AdmissionOnly(error)));
+            assert_eq!(
+                get_session(&mut state, &id, &scope).err().unwrap()["error"],
+                error
+            );
+            assert_eq!(state.sessions.contains_key(&id), error != "NotFound");
+            assert_eq!(
+                owner.live(),
+                error != "NotFound",
+                "retired admission must fence late captures; Busy must retain the session"
+            );
+        }
+    }
+    #[test]
     fn private_capture_owner_retires_even_when_trace_lock_is_busy_but_not_on_model_unload() {
         let h = Host::new(true);
         let (id, _) = session(&h);
@@ -2588,6 +2760,9 @@ mod tests {
         use crate::turn_trace::TraceSink;
         struct Unreadable;
         impl Persistence for Unreadable {
+            fn validate_scope(&mut self, _: &Scope) -> Result<(), String> {
+                panic!("revocation must not validate an unavailable canonical Store")
+            }
             fn location(&self) -> &str {
                 "synthetic-unavailable"
             }

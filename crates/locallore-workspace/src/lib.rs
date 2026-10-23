@@ -82,6 +82,13 @@ pub fn inspection_database_copy(
         .collect())
 }
 impl Persistence for Repository {
+    fn validate_scope(&mut self, scope: &Scope) -> Result<(), String> {
+        if self.store.is_branch_active(scope).map_err(storage)? {
+            Ok(())
+        } else {
+            Err("NotFound".into())
+        }
+    }
     fn database_schema_version(&self) -> u32 {
         DATABASE_SCHEMA_VERSION
     }
@@ -121,6 +128,7 @@ impl Persistence for Repository {
                     fork_revision: branch.fork_revision,
                     revision: branch.revision,
                     drafts: branch.drafts,
+                    retired: branch.retired,
                 })
                 .collect(),
         })

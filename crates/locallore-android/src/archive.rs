@@ -3,7 +3,7 @@
 //! Ancestors are trusted application construction; this is not a same-UID filesystem boundary.
 use locallore_storage::{
     playable_archive::MAX_ARCHIVE_BYTES, validate_archive, ArchiveError, DeletionError,
-    PreparedStoryDeletion, StorageError, Store, ValidatedArchive,
+    PreparedBranchDeletion, PreparedStoryDeletion, StorageError, Store, ValidatedArchive,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -66,6 +66,7 @@ struct Pending {
     capability: Capability,
 }
 enum Capability {
+    BranchDelete(Box<PreparedBranchDeletion>),
     Delete(Box<PreparedStoryDeletion>),
     Export(Vec<u8>),
     Import {
@@ -75,6 +76,7 @@ enum Capability {
 }
 #[derive(Clone, Copy)]
 enum Kind {
+    BranchDelete,
     Delete,
     Export,
     Import,
@@ -86,6 +88,7 @@ impl Capability {
             (Self::Export(_), Kind::Export)
                 | (Self::Import { .. }, Kind::Import)
                 | (Self::Delete(_), Kind::Delete)
+                | (Self::BranchDelete(_), Kind::BranchDelete)
         )
     }
 }
@@ -332,6 +335,9 @@ impl ArchiveRegistry {
                     .import_archive(staged, &|| op.cancelled())
                     .map_err(archive_error)?;
                 for (branch, head) in &validated.preview().branch_heads {
+                    if validated.preview().retired_branch_ids.contains(branch) {
+                        continue; // Import already internally replayed these ancestry prefixes.
+                    }
                     op.check()?;
                     let scope = locallore::contracts::Scope {
                         story: validated.preview().story_id.clone(),
@@ -431,6 +437,62 @@ impl ArchiveRegistry {
             // Accepted deletion already invalidated all matching native sessions.
             // A late cancellation is uncertain to the caller: always reconcile the library.
             op.check()?;
+            success(json!(deleted))
+        })
+    }
+    pub fn prepare_branch_delete(&self, handle: u64, request: &[u8]) -> Vec<u8> {
+        control(|| {
+            let op = self.begin(handle)?;
+            if request.len() > MAX_CONTROL_BYTES {
+                return Err("TooLarge");
+            }
+            let request: ExportRequest =
+                serde_json::from_slice(request).map_err(|_| "Malformed")?;
+            op.check()?;
+            regular(&op.lease.database)?;
+            let mut store = Store::open_read_only(&op.lease.database).map_err(storage_error)?;
+            let prepared = store
+                .prepare_branch_deletion(
+                    &locallore::contracts::Scope {
+                        story: request.story,
+                        branch: request.branch,
+                    },
+                    request.expected_revision,
+                    &|| op.cancelled(),
+                )
+                .map_err(deletion_error)?;
+            let reply = success_bounded(
+                json!({"token":op.id,"preview":prepared.preview()}),
+                MAX_DELETION_BYTES,
+            )?;
+            drop(store);
+            op.publish(Capability::BranchDelete(Box::new(prepared)))?;
+            Ok(reply)
+        })
+    }
+    pub fn commit_branch_delete(
+        &self,
+        handle: u64,
+        token: u64,
+        workspaces: &crate::workspace::WorkspaceRegistry,
+    ) -> Vec<u8> {
+        control(|| {
+            let (op, capability) = self.consume(handle, token, Kind::BranchDelete)?;
+            let Capability::BranchDelete(prepared) = capability else {
+                return Err("InvalidToken");
+            };
+            let story = prepared.preview().scope.story.clone();
+            let deleted = workspaces.with_branch_deletion(&op.lease.database, &story, || {
+                op.check()?;
+                regular(&op.lease.database)?;
+                let mut store = Store::open(&op.lease.database, None).map_err(storage_error)?;
+                let result = store
+                    .delete_branch(*prepared, &|| op.cancelled())
+                    .map_err(deletion_error)?;
+                let invalidated = result.invalidated_branches.clone();
+                Ok((result, invalidated))
+            })?;
+            op.check()?; // A late cancellation requires actual library reconciliation.
             success(json!(deleted))
         })
     }

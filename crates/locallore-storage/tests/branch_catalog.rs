@@ -231,7 +231,7 @@ fn sorted_catalog_validates_nested_rewind_and_exact_scoped_drafts_without_mutati
     let before = f.rows();
     let canonical = f.canonical();
     let catalog = f.catalog();
-    assert_eq!(catalog.version, 1);
+    assert_eq!(catalog.version, 2);
     assert_eq!(catalog.story_id, f.root.story);
     assert_eq!(catalog.title, "Synthetic timelines");
     assert_eq!(catalog.root_branch, f.root.branch);

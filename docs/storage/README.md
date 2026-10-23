@@ -26,12 +26,13 @@ workspace checks include storage tests. The explicit `storage_smoke` example and
 their commands and actual host/emulator evidence appear in the [dated verification](VERIFICATION_2026-10-22.md).
 The cross-build helper neither operates devices nor downloads SDKs or weights.
 
-`Store::open(path, migration_backup)` initializes schema2 or verifies an owned
-current database. Schema2 adds a bounded derived-memory cache without changing
-canonical v1 tables or receipts. An exact owned schema1 or empty version0 needs
+`Store::open(path, migration_backup)` initializes schema3 or verifies an owned
+current database. Schema2 adds a bounded derived-memory cache; schema3 adds
+retired branch-ID metadata for safe retained ancestry. Neither rewrites original
+canonical tables or receipts. An exact owned schema1/2 or empty version0 needs
 a new backup path before upgrade; otherwise it returns `BackupRequired`.
 `Store::open_application` supplies a unique nonoverwrite sibling backup for the
-trusted app-private path. `open_read_only` also verifies historical schema1
+trusted app-private path. `open_read_only` also verifies historical schema1/2
 without migrating it. Nonempty unversioned databases and future
 versions are refused. `create_story` accepts a typed seed only after `Engine::new`
 validation, then stores the seed, root namespace, typed entity memberships and
@@ -58,3 +59,7 @@ and [review](REVIEW_2026-10-22.md). Branch inheritance, event semantics, eligibi
 and canonical replay still require engine validation; foreign keys alone do not
 prove them. No physical phone, ARM64 execution, durable accepted gameplay or
 release qualification follows from a host test or Android cross-build.
+
+See the [parent-retention contract](../native/PARENT_RETENTION_CONTRACT.md) for
+public admission, private retained replay, namespace limits, schema3 migration
+and archive-v2 compatibility.

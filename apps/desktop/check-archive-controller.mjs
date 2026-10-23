@@ -52,6 +52,50 @@ const preview = {
         noncommitted_workflow_transferred: false,
     },
 };
+const retirement = structuredClone(preview);
+retirement.preview.version = 2;
+retirement.preview.branch_heads = { main: 1, parent: 1, child: 1 };
+retirement.preview.retired_branch_ids = ["collected", "parent"];
+assert.equal(decodePreview(retirement).preview.version, 2);
+for (const mutate of [
+    (v) => {
+        v.preview.version = 3;
+    },
+    (v) => {
+        v.preview.version = 1;
+    },
+    (v) => {
+        v.preview.retired_branch_ids = [];
+    },
+    (v) => {
+        v.preview.retired_branch_ids = ["parent", "parent"];
+    },
+    (v) => {
+        v.preview.retired_branch_ids = ["parent", "collected"];
+    },
+    (v) => {
+        v.preview.retired_branch_ids = ["main"];
+    },
+    (v) => {
+        v.preview.retired_branch_ids = ["bad/id"];
+    },
+    (v) => {
+        v.preview.retired_branch_ids = Array.from(
+            { length: 257 },
+            (_, i) => `retired-${String(i).padStart(3, "0")}`,
+        );
+    },
+    (v) => {
+        v.preview.retired_branch_ids = Array.from(
+            { length: 255 },
+            (_, i) => `retired-${String(i).padStart(3, "0")}`,
+        );
+    },
+]) {
+    const bad = structuredClone(retirement);
+    mutate(bad);
+    assert.throws(() => decodePreview(bad), /Wire/);
+}
 let release;
 const calls = [];
 const invoke = async (name, args) => {
@@ -131,6 +175,35 @@ assert(!html.includes("<img"));
 assert(html.includes("Confirm staged import"));
 assert(html.includes("Existing story identity always conflicts"));
 assert(html.includes("Hidden") || html.includes("hidden facts"));
+const retiredUi = new ArchiveController(
+    async () => ({
+        version: 1,
+        operation_id: 88,
+        running: false,
+        phase: "completed",
+        error: null,
+        result: retirement,
+    }),
+    async () => {},
+);
+retiredUi.contextChanged("A|lab|omniscient", true);
+retiredUi.show();
+await retiredUi.previewImport();
+const retiredHtml = renderToStaticMarkup(
+    createElement(ArchivePanel, {
+        archive: retiredUi,
+        controller: {
+            get: () => ({ play: { revision: 1 } }),
+            selected: () => ({ id: "session", scope }),
+        },
+        context: "A|lab|omniscient",
+        allowed: true,
+    }),
+);
+assert(retiredHtml.includes("Retired ancestry only"));
+assert(retiredHtml.includes("Reserved retired identities"));
+assert(retiredHtml.includes("collected, parent"));
+assert(retiredHtml.includes("Playable"));
 const n = calls.length;
 await c.confirm();
 assert.equal(calls.length, n, "Play cannot confirm");

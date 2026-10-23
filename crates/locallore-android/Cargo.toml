@@ -18,6 +18,10 @@ archive-capacity-fixture = ["locallore-storage/development-fixtures"]
 name = "platform_roundtrip"
 test = true
 
+[[example]]
+name = "parent_retention_fixture"
+test = true
+
 [dependencies]
 locallore = { path = "../locallore" }
 locallore-storage = { path = "../locallore-storage" }

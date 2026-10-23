@@ -63,8 +63,11 @@ export function App({ controller: c }: { controller: Controller }) {
         <div
             className={`app text-${s.textScale} side-${s.sidebarSize} detail-${s.inspectorSize}`}
         >
-            <a href="#composer" className="skip">
-                Skip to composer
+            <a
+                href={s.query.shown ? "#memory-controls" : "#composer"}
+                className="skip"
+            >
+                {s.query.shown ? "Skip to memory controls" : "Skip to composer"}
             </a>
             <header className="brandbar">
                 <strong className="brand">LocalLore</strong>

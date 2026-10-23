@@ -196,6 +196,12 @@ export async function queryJourneys({
             "typed-profile-has-no-generated-description",
         );
         check(
+            document.querySelector(".skip")?.getAttribute("href") ===
+                "#memory-controls" &&
+                !!document.getElementById("memory-controls"),
+            "memory-workspace-has-a-valid-keyboard-skip-target",
+        );
+        check(
             document.querySelector("table caption") &&
                 document.querySelector("label select"),
             "table-caption-and-native-labelled-controls",

@@ -105,6 +105,8 @@ export function QueryInspector({
 
     return (
         <section
+            id="memory-controls"
+            tabIndex={-1}
             className="memory-workspace"
             aria-label="Read-only memory inspector"
         >

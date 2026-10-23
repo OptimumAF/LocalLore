@@ -33,6 +33,17 @@ data class StoryRecordEntry(
     val text: String,
     val origin: StoryRecordOrigin,
     val sources: List<String> = emptyList(),
+    val eventSources: List<Long> = emptyList(),
+    val event: StoryRecordEvent? = null,
+)
+
+data class StoryRecordEvent(val sequence: Long, val turn: String, val storyTime: Long)
+
+data class StoryRecordEventDetail(
+    val reference: Long,
+    val loading: Boolean = true,
+    val entry: StoryRecordEntry? = null,
+    val problem: StoryRecordProblem? = null,
 )
 data class StoryRecordPage(
     val query: StoryRecordQuery,
@@ -48,6 +59,7 @@ enum class StoryRecordProblem(val message: String) {
     INVALID_RESPONSE("The local engine returned an invalid record. Nothing was changed by browsing."),
     BAD_SEARCH("The search is too long or contains unsupported characters."),
     TOO_LARGE("This record is too large to display safely."),
+    EVENT_UNAVAILABLE("This event is not available in the current player view."),
 }
 class StoryRecordFailure(val problem: StoryRecordProblem) : Exception("Story record unavailable")
 fun interface StoryRecordReader {
@@ -66,6 +78,7 @@ data class StoryRecordState(
     val nextCursor: String? = null,
     val limitations: List<String> = emptyList(),
     val problem: StoryRecordProblem? = null,
+    val eventDetail: StoryRecordEventDetail? = null,
 )
 
 internal const val STORY_RECORD_PAGE_ROWS = 8

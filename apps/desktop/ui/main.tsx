@@ -49,7 +49,7 @@ declare global {
     }
 }
 const errors = new ErrorBuffer();
-const brokerRetention = new BrokerRetention(surface => surface === "archive" ? archive.get().busy || !!archive.get().error : surface === "fork" ? fork.get().busy || fork.get().status === "uncertain" : maintenance.get().busy || maintenance.get().uncertain);
+const brokerRetention = new BrokerRetention(surface => surface === "archive" ? archive.get().busy || ["Wire","Transport"].includes(archive.get().error??"") : surface === "fork" ? fork.get().busy || fork.get().status === "uncertain" : maintenance.get().busy || maintenance.get().uncertain);
 const invoke = (command: string, args: Record<string, unknown> = {}) => {
     // One native broker retains one operation result. Keep the other surface
     // from replacing a completed result before its frontend consumes the reply.

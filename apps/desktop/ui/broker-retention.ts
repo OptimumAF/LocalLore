@@ -43,7 +43,7 @@ export class BrokerRetention {
         if(this.blocked())throw Error("ArchiveBusy");
         this.retained={identity:selected,inFlight:true,operation:null,terminal:false,unknown:false,acknowledgedUnresolved:false,recoveringMemory:false};
         this.patch({});
-        try {const result=await work();this.observe(result);this.patch({inFlight:false});return result;}
+        try {const result=await work();this.observe(result);this.patch({inFlight:false,...(this.retained?.operation===null?{unknown:true}:{})});return result;}
         catch(error) {const name=error instanceof Error?error.message:String(error);this.patch({inFlight:false,unknown:name!=="ArchiveBusy",terminal:name==="ArchiveBusy"});throw error;}
     }
     observe(value: unknown) {

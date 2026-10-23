@@ -499,6 +499,7 @@ export class MemoryMaintenanceController {
             );
             if (epoch !== this.epoch || this.disposed) return;
             this.accept(result);
+            if (epoch !== this.epoch || this.disposed) return;
             if (result.running)
                 this.patch({
                     notice: "Stop requested. Read status to learn the saved outcome; cancellation is not rollback.",

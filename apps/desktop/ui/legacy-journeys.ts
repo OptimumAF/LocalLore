@@ -37,7 +37,13 @@ export async function legacyJourneys({
                 node.querySelector("summary")?.textContent ===
                 "Saved workspace",
         ) as HTMLDetailsElement | undefined;
-        if (workspace) workspace.open = true;
+        if (workspace) {
+            workspace.open = true;
+            const displayedPath = workspace.querySelector(".storage-path");
+            if (displayedPath)
+                displayedPath.textContent =
+                    "<synthetic legacy workspace>/stories-v1.sqlite";
+        }
         if (inspector)
             document
                 .querySelector(".query-table")

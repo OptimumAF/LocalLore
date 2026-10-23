@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-archive-discard"
+description = "Enables the archive_discard command without any pre-configured scope."
+commands.allow = ["archive_discard"]
+
+[[permission]]
+identifier = "deny-archive-discard"
+description = "Denies the archive_discard command without any pre-configured scope."
+commands.deny = ["archive_discard"]

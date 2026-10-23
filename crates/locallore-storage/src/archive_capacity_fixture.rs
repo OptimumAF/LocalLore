@@ -279,6 +279,31 @@ struct Baseline {
     source_sha256: String,
     control_sha256: String,
     mira: Value,
+    control_rows: Vec<u32>,
+}
+fn rows(store: &Store, story: &str) -> Result<Vec<u32>> {
+    [
+        "stories",
+        "branches",
+        "turns",
+        "entities",
+        "branch_entities",
+        "accepted_events",
+        "event_witnesses",
+        "branch_projections",
+    ]
+    .into_iter()
+    .map(|table| {
+        store
+            .connection
+            .query_row(
+                &format!("SELECT count(*) FROM {table} WHERE story_id=?1"),
+                [story],
+                |row| row.get(0),
+            )
+            .map_err(|_| "Store")
+    })
+    .collect()
 }
 fn baseline(root: &Path) -> Result<Baseline> {
     let bytes = read(&root.join("fixture-baseline.json"), LIMIT)?;
@@ -287,6 +312,7 @@ fn baseline(root: &Path) -> Result<Baseline> {
     Ok(baseline)
 }
 fn check_control(root: &Path, store: &mut Store, baseline: &Baseline) -> Result<()> {
+    require(rows(store, CONTROL)? == baseline.control_rows)?;
     let bytes = export(store, CONTROL)?;
     require(bytes == read(&root.join("control-baseline.json"), LIMIT)?)?;
     require(digest(&bytes) == baseline.control_sha256)?;
@@ -392,6 +418,7 @@ fn setup(root: &Path) -> Result<Value> {
             .map_err(|_| "Memory")?
             .json()
             .clone(),
+        control_rows: rows(&store, CONTROL)?,
     };
     write(
         &root.join("fixture-baseline.json"),
@@ -420,6 +447,9 @@ fn inspect(root: &Path, mode: &str, imported: bool, pressured: bool) -> Result<V
     let stories = store.stories().map_err(|_| "Store")?;
     require(stories.len() == if imported { 2 } else { 1 })?;
     require(stories.iter().any(|story| story.scope.story == SOURCE) == imported)?;
+    if !imported {
+        require(rows(&store, SOURCE)?.iter().all(|count| *count == 0))?;
+    }
     if imported {
         require(export(&mut store, SOURCE)? == bytes)?;
         check_source(&mut store)?;

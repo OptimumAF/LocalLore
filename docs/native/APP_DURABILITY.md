@@ -8,7 +8,8 @@ Kotlin contains no SQL, gameplay reducer, replay implementation, or second
 canonical transcript.
 
 The native app chooses `noBackupFilesDir/workspace-v1/stories.sqlite3`.
-The actual canonical database path and schema version 1 appear in the app.
+The actual canonical database path, schema version 1, engine rules profile,
+story/branch scope and accepted head revision appear in the app.
 No path or model handle is accepted through the Host wire protocol. Native
 workspace opening fails explicitly; the app never silently falls back to an
 in-memory game or resets an unreadable database. The existing backup exclusions

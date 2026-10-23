@@ -35,6 +35,7 @@ class ShellViewModel(
         messages = saved.messages, persistent = true, storageLocation = saved.location,
         schemaVersion = saved.schemaVersion, stories = saved.stories, selectedStory = saved.selected,
         uncommittedDrafts = saved.uncommittedDrafts,
+        rulesProfile = saved.rulesProfile,
         recoveryRequired = false, notice = notice,
     )
 

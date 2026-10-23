@@ -9,6 +9,7 @@ data class SavedSnapshot(
     val revision: Long, val potionOwner: String, val messages: List<SceneMessage>,
     val location: String, val schemaVersion: Int, val stories: List<SavedStory>, val selected: SavedStory,
     val uncommittedDrafts: Int = 0,
+    val rulesProfile: String = "unknown",
 )
 data class ShellState(
     val busy: Boolean = false,
@@ -25,6 +26,7 @@ data class ShellState(
     val stories: List<SavedStory> = emptyList(),
     val selectedStory: SavedStory? = null,
     val uncommittedDrafts: Int = 0,
+    val rulesProfile: String? = null,
 )
 
 sealed interface DemoResult {

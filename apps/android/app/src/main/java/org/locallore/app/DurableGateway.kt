@@ -88,7 +88,8 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
         return SavedSnapshot(revision, if (view.getJSONObject("inventory").has("potion")) "You" else "Not in your inventory",
             messages.takeLast(40), workspace.getString("location"), 1, stories, current,
             workspace.getJSONArray("stories").let { rows -> (0 until rows.length()).map { rows.getJSONObject(it) }
-                .first { sameScope(it.getJSONObject("scope"), checkNotNull(scope)) }.optInt("drafts", 0) })
+                .first { sameScope(it.getJSONObject("scope"), checkNotNull(scope)) }.optInt("drafts", 0) },
+            view.getString("rules"))
     }
     override suspend fun respond(action: DemoAction, revision: Long, mode: DemoMode): DemoResult {
         check(operation == null)

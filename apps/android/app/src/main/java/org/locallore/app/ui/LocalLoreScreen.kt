@@ -122,6 +122,11 @@ fun LocalLoreScreen(
                                 Text(location, style = MaterialTheme.typography.labelSmall, color = MutedInk,
                                     modifier = Modifier.testTag("storage-location"))
                             }
+                            state.selectedStory?.let { story ->
+                                Text("Rules · ${state.rulesProfile ?: "unknown"} · ${story.story} / ${story.branch} · head ${state.revision}",
+                                    style = MaterialTheme.typography.labelSmall, color = MutedInk,
+                                    modifier = Modifier.testTag("workspace-detail"))
+                            }
                             if (state.uncommittedDrafts > 0) Text(
                                 "${state.uncommittedDrafts} uncommitted response(s). They are retained outside accepted history.",
                                 style = MaterialTheme.typography.bodySmall, color = MutedInk)

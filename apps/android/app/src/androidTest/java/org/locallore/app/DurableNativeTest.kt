@@ -36,6 +36,7 @@ class DurableNativeTest {
         try {
             val initial = gateway.initialize()
             assertTrue(initial.location.endsWith("stories.sqlite3")); assertEquals(1, initial.schemaVersion)
+            assertEquals("fantasy_v1", initial.rulesProfile)
             val prepared = gateway.respond(DemoAction.GIVE_POTION, 0, DemoMode.ACCEPTED)
             assertTrue(prepared is DemoResult.Prepared)
             assertTrue(gateway.commitAsync(prepared) is DemoResult.Accepted)

@@ -30,7 +30,7 @@ class DurableShellTest {
     private fun saved(selected: SavedStory = old) = SavedSnapshot(selected.revision,
         if (selected == old) "Not in your inventory" else "You",
         if (selected == old) listOf(SceneMessage(1, "Recorded action", true), SceneMessage(2, "Saved narration", false)) else emptyList(),
-        "/synthetic/no-backup/stories.sqlite3", 1, listOf(old, fresh), selected)
+        "/synthetic/no-backup/stories.sqlite3", 1, listOf(old, fresh), selected, rulesProfile = "fantasy_v1")
     private fun model(gateway: DemoGateway) = ShellViewModel(gateway).also { store.put("model", it) }
     private open inner class Durable : DemoGateway {
         override val durable = true
@@ -52,6 +52,7 @@ class DurableShellTest {
         advanceUntilIdle()
         assertTrue(model.state.value.persistent)
         assertEquals(1, model.state.value.schemaVersion)
+        assertEquals("fantasy_v1", model.state.value.rulesProfile)
         assertEquals(1L, model.state.value.revision)
         assertEquals("Saved narration", model.state.value.messages.last().text)
         assertEquals(2, model.state.value.stories.size)

@@ -124,3 +124,60 @@ artifacts remain retained with a separate evidence index. Direct JDK tests do
 not qualify the Android API classpath or actual callback/benchmark behavior.
 Those remain coordinator-owned compilation/device gates for a new explicitly
 pinned artifact; historical APKs and historical receipts are unchanged.
+
+## Integrated offline Android qualification
+
+The coordinator integrated the runner, DTO, actual SDK adapter, bounded callback
+observations and Stream tests at
+`22f2561497159f6e93a5a6702a8376d9fd9957e7`. An independent offline build qualified
+a fresh cacheprobe APK from that exact source, with unchanged per-file Java,
+manifest, Gradle and wrapper input hashes before/after the build.
+
+The new APK is **63,666,936 bytes**, SHA256:
+
+```text
+655de0c55b27c11d77bf83c505883b3b1e4313ed660d60bfac06aa7246fef58b
+```
+
+The exact package is `org.locallore.runtimebench.litert.cacheprobe`; its only
+instrumentation is `org.locallore.runtimebench.litert.CacheProbeInstrumentation`.
+Manifest permissions are empty. This new hash must be used with the new strict
+observation-aware decoder. Equal byte length does not make it interchangeable
+with the older `f4d247f3...` APK.
+
+The native pair was extracted only from the hash-verified previously qualified
+`f4d247f3e24c302a7e8d2431d7ee8c9fccc476909c0d82789ea1f84083ddfd81`
+APK. Its full native inventory matched its frozen prior receipt. Production
+native inputs remained identical to the original `ba31932` native compilation
+source; the only native-scope delta was a test. Both copied Rust ABI libraries
+were checked for byte identity, five expected PlayProbe JNI exports and ELF
+alignment. All four final SDK/Rust ABI library entries remained byte-identical
+to the prior APK. No native rebuild, runtime upgrade or download was performed.
+
+The explicit offline Gradle invocation ran `:app:assembleDebug`,
+`:app:testDebugUnitTest`, `:app:lintDebug` and `:app:auditLintAnalyzer` with fresh
+D-volume project/output/temp directories, cacheprobe true, legacy play false,
+phaseprobe false, no daemon and downloads disabled. The build reported success
+in 37 seconds with **50 tasks, all executed**. The bounded Windows Job controller
+completed in 40,640 ms with exit 0, no stderr and known cleanup. A stdin-EOF
+barrier preceded all trusted-child work, and the existing maximum 180-second
+controller budget was retained. Every stage checked the existing C/D capacity
+floors. No attempt in this qualification packet failed or was refused.
+
+Actual JVM XML across 12 suites records **123 tests, 0 failures, 0 errors,
+0 skipped**. That includes the ten new runner tests, four coordinator DTO tests,
+four new callback Stream tests and all previous Java tests. Lint records
+**0 errors and 9 warnings**: OldTargetApi 1, GradleDependency 1 and UsableSpace 7.
+UsableSpace remains a nonreserving capacity observation, not a guarantee that
+future writes fit. Locked SDK/test binary identities, actual pinned lint analyzer
+and dependency metadata, manifest/permission identity, native inventory and
+16-KiB ELF/ZIP alignment audits all passed.
+
+The private evidence root retains the qualification script, native provenance,
+full stage commands/logs/results, before/after input hashes, JVM XML, lint and
+analyzer metadata, staged native libraries and frozen APK. A separate immutable
+hash index binds the handoff. Previous evidence roots and artifacts were not
+modified. This is offline artifact qualification only: the author ran no ADB,
+installation, device operation, model read or SDK inference. Device storage
+admission, app-domain model identity and any actual SDK attempt remain separate
+coordinator-owned gates.

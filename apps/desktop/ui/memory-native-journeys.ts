@@ -293,9 +293,31 @@ export async function memoryNativeJourneys({
                 "queued-turn-blocks-memory-mutation-with-honest-busy",
             );
             await capture("memory-native-turn-busy");
+            check(
+                errors.snapshot().length === 0,
+                "zero-errors-before-intentional-gameplay-cancellation",
+            );
             await c.cancel();
             held.release();
             await turn;
+            check(
+                c.get().turnStatus?.phase === "cancelled" &&
+                    c.get().turnStatus?.error === "Cancelled" &&
+                    c.get().pending === null &&
+                    c.get().visibleError === null,
+                "actual-held-prepare-turn-is-cancelled-without-visible-failure",
+            );
+            check(
+                errors.snapshot().length === 2 &&
+                    errors
+                        .snapshot()
+                        .every(
+                            (e) =>
+                                e.source === "native" &&
+                                e.category === "Cancelled",
+                        ),
+                "exact-two-expected-native-cancelled-status-replies",
+            );
             await action("status");
             await action("step");
             check(
@@ -332,8 +354,14 @@ export async function memoryNativeJourneys({
             await capture("memory-native-reopened");
         }
         check(
-            errors.snapshot().length === 0,
-            "no-unexpected-frontend-or-gameplay-errors",
+            errors.snapshot().length === (config.stage === "initial" ? 2 : 0) &&
+                errors
+                    .snapshot()
+                    .every(
+                        (e) =>
+                            e.source === "native" && e.category === "Cancelled",
+                    ),
+            "no-errors-beyond-exact-intentional-native-cancellation-pair",
         );
         await dispose();
         const stats = (await invoke("harness_stats")) as {

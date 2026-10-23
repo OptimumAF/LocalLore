@@ -43,6 +43,8 @@ four error fields (`version=1`, `status=error`, `error=sdk_phase_read_failed`,
 No nonce, PID, path, prompt, generated text or exception prose is exported by
 this result. A fresh process and exact exit-instance match strengthen diagnostic
 identity, not interpretation of the phase or OS reason.
+The controller's final verified force-stop can itself create an exit record
+after a successful SDK operation; a matching record does not imply a crash.
 
 ## Host boundary
 

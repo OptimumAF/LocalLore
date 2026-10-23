@@ -75,9 +75,12 @@ fn scenario(
     };
     let mut candidate = engine.clone();
     let start = Instant::now();
-    let result = play::execute(&mut candidate, &request, &mut provider, &cancel, profile);
+    let mut result = play::execute(&mut candidate, &request, &mut provider, &cancel, profile);
     if let Some(c) = canceller {
         c.join().unwrap();
+    }
+    if cancel.is_cancelled() {
+        result = Err(Error::Cancelled);
     }
     let metrics = provider.inner.metrics().cloned();
     let failure = provider.inner.last_failure();
@@ -239,6 +242,15 @@ fn main() {
         && [1usize, 2, 4].iter().all(|&i| {
             results[i]["unchanged"] == true && results[i]["outcome"]["status"] == "rejected"
         })
+        && results[1]["outcome"]["error"] == "Inventory"
+        && [
+            "Ability",
+            "UnknownReference",
+            "ClarificationRequired",
+            "Agency",
+        ]
+        .iter()
+        .any(|error| results[2]["outcome"]["error"] == *error)
         && results[4]["outcome"]["error"] == "Cancelled";
     let report = json!({"synthetic":true,"execution":"native CPU worker plus shared Rust engine/store; no desktop IPC or render","profile":profile,"load":load,"scene_pass":scene_pass,"gift_committed":gift_committed,"restart_equal":restarted_equal,"exact_retry_without_inference":exact_retry,"speaker_scoped_secret":speaker_scoped,"replay_without_inference":replay_equal,"results":results,"total_ms":overall.elapsed().as_millis(),"quality_accepted":false,"network_blocked":false});
     std::fs::write(

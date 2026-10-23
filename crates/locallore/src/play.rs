@@ -299,7 +299,7 @@ pub fn director_schema() -> Value {
         ("discover", json!({"fact":{"type":"string"}})),
         (
             "wait",
-            json!({"ticks":{"type":"integer","minimum":1,"maximum":65535}}),
+            json!({"ticks":{"type":"integer","minimum":1,"maximum":100}}),
         ),
     ];
     for (op, mut properties) in specs {
@@ -314,7 +314,12 @@ pub fn narration_schema(events: &[AcceptedEvent]) -> Value {
     json!({"type":"object","properties":{"text":{"type":"string","maxLength":4096},"event_ids":{"const":events.iter().map(|e|e.sequence()).collect::<Vec<_>>()},"speaker":{"const":"narrator"}},"required":["text","event_ids","speaker"],"additionalProperties":false})
 }
 
-fn director_schema_for(kind: &PlayInputKind) -> Value {
+fn director_schema_for(
+    kind: &PlayInputKind,
+    text: &str,
+    nearby: &BTreeMap<&String, &String>,
+    player: &str,
+) -> Value {
     let mut schema = director_schema();
     let variants = schema["properties"]["commands"]["items"]["oneOf"]
         .as_array_mut()
@@ -325,6 +330,11 @@ fn director_schema_for(kind: &PlayInputKind) -> Value {
     });
     if matches!(kind, PlayInputKind::Dialogue) {
         schema["properties"]["commands"]["maxItems"] = json!(1);
+        let properties = &mut schema["properties"]["commands"]["items"]["oneOf"][0]["properties"];
+        properties["text"] = json!({"const":text});
+        let audience: Vec<_> = nearby.keys().filter(|id| id.as_str() != player).collect();
+        properties["audience"]["items"] = json!({"enum":audience});
+        properties["audience"]["uniqueItems"] = json!(true);
     }
     schema
 }
@@ -396,6 +406,11 @@ pub fn execute(
         .filter(|(_, a)| a.location == context.self_state.location && a.alive)
         .map(|(id, a)| (id, &a.name))
         .collect();
+    if matches!(kind, PlayInputKind::Dialogue)
+        && !nearby.keys().any(|id| id.as_str() != engine.seed().player)
+    {
+        return Err(Error::ClarificationRequired);
+    }
     let routes: Vec<_> = engine
         .seed()
         .routes
@@ -433,7 +448,7 @@ pub fn execute(
             profile,
             "director",
             prompt,
-            director_schema_for(kind),
+            director_schema_for(kind, text, &nearby, &engine.seed().player),
             remaining()?,
         );
         let bytes = generate(provider, &generation, cancel)?;

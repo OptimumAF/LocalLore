@@ -257,6 +257,12 @@ fn dialogue_preserves_player_words_and_cannot_turn_into_a_gift_or_rewrite_the_qu
             Err(Error::Agency)
         );
         assert_eq!(e.canonical_bytes(), before);
+        let Input::Structured { schema, .. } = &p.seen[0].input else {
+            panic!("structured dialogue")
+        };
+        let properties = &schema["properties"]["commands"]["items"]["oneOf"][0]["properties"];
+        assert_eq!(properties["text"]["const"], "Hello Mira");
+        assert_eq!(properties["audience"]["items"]["enum"], json!(["mira"]));
     }
 }
 

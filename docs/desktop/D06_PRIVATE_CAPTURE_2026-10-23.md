@@ -83,6 +83,10 @@ runs even when semantic receipts and canonical state agree.
 
 ## Executed checks and limits
 
+These initial results are historical development cohorts. The final integration
+cohort and failures/retries are recorded at the end; do not add counts from
+different source revisions together.
+
 Windows, Rust/Cargo 1.93.1, locked/offline; task `m07-context` target/TEMP/TMP,
 DEV/TEST debug=0, incremental=0. Frontend Node24.22.1 with pinned checked-in lock
 dependencies. All new test providers are synthetic; no model or desktop control.
@@ -161,3 +165,52 @@ capture/export preview, summary maintenance trace, pause/re-run sandbox or full
 D06 acceptance is implied. Existing actual metadata/inspector/evaluation panels
 remain available; missing capabilities must remain visibly unavailable until
 their corresponding shared/UI work is implemented.
+
+## Final accepted-main integration cohort
+
+Production source `744b722` includes accepted main
+`bffa7e66bf888411a6a5fce47165965fa247a2ce` (#86) and the new private-owner
+retirement fix for the accepted #81 whole-story deletion path. The coordinator
+did not modify the concurrent Android work. `Host::invalidate_story` retires
+every matching session owner before cancellation/removal, preserves unrelated
+owners, and recovers a poisoned state guard only for cleanup without clearing
+the poison. It releases that guard before a best-effort trace lock. Private
+copies behind a busy diagnostic lock become inaccessible immediately and are
+pruned on the next access; this is not an immediate physical-erasure promise.
+
+Windows Rust/Cargo 1.93.1; Node 24.22.1/npm 11.19.1; development/test debug=0,
+incremental=0; locked/offline Rust dependencies and task-owned D-drive targets.
+Exact final commands use the command templates above, with these results:
+
+| Check | Final result |
+| --- | --- |
+| Workspace `test --workspace --all-features` | 388 passed, 0 failed, 4 existing qualification tests ignored |
+| Workspace default and all-feature `clippy --all-targets -- -D warnings` | Both passed |
+| Native desktop `test --features dev-harness` | 30 module + 2 harness contract tests passed; 1 existing ignored |
+| Native desktop strict dev-harness Clippy | Passed |
+| Workspace fmt, frontend verifier, frontend Prettier, diff whitespace | Passed |
+| Android debug + debug-test APKs, JVM tests and lint | Both Rust JNI ABIs built; 128 JVM tests, 0 failures/errors/skips; BUILD SUCCESSFUL in 1m53s, 78 tasks (29 executed, 49 up-to-date) |
+| Current APK permission and ELF alignment audit | Passed; all four native library entries have 16KiB load alignment |
+
+The final workspace first attempt failed in the existing database-copy test's
+temporary-directory constructor with Windows AlreadyExists (code 183), before
+its story checks. Repeating the complete workspace suite with a new UUID
+task-owned TEMP/TMP directory passed all 388 tests. The failure log remains
+`private-capture-final-workspace.log`; the complete passing retry is
+`private-capture-final-workspace-retry.log`. No production or test assertion was
+changed to make that retry pass.
+
+The first combined Android build failed while compressing three stale generated
+fixture asset JARs in a reused task-owned build directory. Both Rust ABIs had
+compiled. The coordinator moved only those exact three generated files to a
+local retained failure directory, then repeated all four Gradle tasks. That
+retry and the subsequent audit passed on source `744b722`; the earlier audit of
+an old APK is not counted. Logs: `private-capture-gate-android.log`,
+`private-capture-gate-android-retry.log`,
+`private-capture-gate-apk-audit-retry.log`. Existing Android instrumentation
+compiler warnings remain visible. No device/emulator was operated.
+
+Final Rust/native/frontend logs use `private-capture-final-*` under the task's
+`m07-context` target. The independent review document records its own source
+and checks separately. No UI for private artifact capture, raw export, real
+model capture journey, summary maintenance or D06 exit gate is claimed here.

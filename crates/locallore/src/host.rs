@@ -1558,6 +1558,11 @@ impl Host {
                                 })
                             })?,
                     };
+                    if !s.engine.matches_accepted_history(&basis).map_err(reject)? {
+                        return Err(reject("Stale"));
+                    }
+                    let selected_basis = s.engine.accepted_history_basis().map_err(reject)?;
+                    let historical = request.expected_revision != s.engine.revision();
                     if matches!(request.intent, Intent::FreeText { .. })
                         && state.local_play.is_none()
                     {
@@ -1565,7 +1570,7 @@ impl Host {
                             .persistence
                             .as_mut()
                             .unwrap()
-                            .status_bound(request, &basis)
+                            .status_bound(request, &selected_basis)
                             .map_err(|e| {
                                 reject(if e == "UnknownTurn" {
                                     "Unsupported".to_owned()
@@ -1587,12 +1592,22 @@ impl Host {
                             .insert(request.turn.clone(), t);
                         return Ok(reply);
                     }
-                    let saved = state
-                        .persistence
-                        .as_mut()
-                        .unwrap()
-                        .begin_bound(request, &basis)
-                        .map_err(reject)?;
+                    let port = state.persistence.as_mut().unwrap();
+                    // Historical retries are reads. A shorter request prefix must
+                    // never admit a new draft if another owner rewinds the source
+                    // between refresh and the persistence transaction.
+                    let saved = if historical {
+                        port.status_bound(request, &selected_basis)
+                            .map_err(|error| {
+                                reject(if error == "UnknownTurn" {
+                                    "Stale".to_owned()
+                                } else {
+                                    error
+                                })
+                            })?
+                    } else {
+                        port.begin_bound(request, &selected_basis).map_err(reject)?
+                    };
                     refresh_session(state, session, &request.scope)?;
                     let s = get_session(state, session, &request.scope)?;
                     if saved.phase != "draft" {
@@ -1604,7 +1619,7 @@ impl Host {
                     if let Some(t) = s.turns.get(&request.turn) {
                         return Ok(ok(t.view()));
                     }
-                    if !matches!(request.intent, Intent::FreeText { .. }) {
+                    if !historical && !matches!(request.intent, Intent::FreeText { .. }) {
                         if let Err(error) =
                             Engine::proposal(request).and_then(|p| s.engine.preview(request, &p))
                         {

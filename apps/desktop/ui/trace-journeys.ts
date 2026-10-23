@@ -64,6 +64,11 @@ export async function traceJourneys({
             document.documentElement.scrollWidth <= innerWidth + 2,
             `${label}-no-horizontal-overflow`,
         );
+        const panel = document.querySelector<HTMLElement>(".turn-debugger");
+        check(
+            !panel || panel.scrollWidth <= panel.clientWidth + 2,
+            `${label}-debugger-no-nested-overflow`,
+        );
         await invoke("harness_checkpoint", {
             label,
             snapshot: {
@@ -188,6 +193,7 @@ export async function traceJourneys({
                 c.debugReceipt()?.request.turn === accepted?.identity.turn,
                 "only-exact-canonical-receipt-linked",
             );
+            await capture("d06-context");
             await capture("d06-committed");
             await c.traceToInspection();
             check(
@@ -210,8 +216,8 @@ export async function traceJourneys({
                 "rejected-fake-proposal-keeps-head",
             );
             check(
-                c.traceAttempt()?.stages.some((r) => r.error === "ability"),
-                "observed-fake-failure-has-fixed-ability-category",
+                c.traceAttempt()?.stages.some((r) => r.error === "agency"),
+                "observed-fake-failure-has-fixed-agency-category",
             );
             check(
                 c.debugReceipt() === null,
@@ -416,13 +422,14 @@ export async function traceJourneys({
             },
         });
     } catch (error) {
+        const failedCheck = failed;
         await capture("d06-failure").catch(() => {});
         await dispose().catch(() => {});
         await invoke("harness_finish", {
             report: {
                 synthetic: true,
                 passed: false,
-                failedCheck: failed,
+                failedCheck,
                 error: category(error),
                 checks,
                 errors: errors.snapshot(),

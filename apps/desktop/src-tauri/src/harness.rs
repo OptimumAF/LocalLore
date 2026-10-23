@@ -16,6 +16,7 @@ const MAX_CHECKPOINTS: usize = 40;
 const LABELS: &[&str] = &[
     "d06-disabled",
     "d06-committed",
+    "d06-context",
     "d06-failed",
     "d06-pending",
     "d06-cancelled",

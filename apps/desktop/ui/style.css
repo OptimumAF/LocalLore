@@ -852,3 +852,28 @@ summary {
         display: block;
     }
 }
+
+.turn-debugger .query-table th:nth-child(1) {
+    width: 24%;
+}
+.turn-debugger .query-table th:nth-child(2) {
+    width: 22%;
+}
+.turn-debugger .query-table th:nth-child(3) {
+    width: 20%;
+}
+.turn-debugger .query-table th:nth-child(4) {
+    width: 34%;
+}
+.turn-debugger .trace-attempts th:nth-child(1) {
+    width: 45%;
+}
+.turn-debugger .trace-attempts th:nth-child(2) {
+    width: 10%;
+}
+.turn-debugger .trace-attempts th:nth-child(3) {
+    width: 25%;
+}
+.turn-debugger .trace-attempts th:nth-child(4) {
+    width: 20%;
+}

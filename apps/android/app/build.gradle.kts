@@ -86,9 +86,14 @@ require(!(capacityTest && reliefTest)) { "Capacity and capacity-relief modes are
 require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention).none { it == "true" } || !(capacityTest || reliefTest)) {
     "Archive verification and capacity modes are mutually exclusive"
 }
-val capacityCache = rootProject.file(".gradle-capacity").canonicalFile
-val reliefCache = rootProject.file(".gradle-capacity-relief").canonicalFile
+val capacityCache = rootProject.file(".gradle-capacity-v3").canonicalFile
+val reliefCache = rootProject.file(".gradle-capacity-relief-v3").canonicalFile
 val selectedCache = gradle.startParameter.projectCacheDir?.canonicalFile
+val historicalCapacityCaches = setOf(rootProject.file(".gradle-capacity").canonicalFile,
+    rootProject.file(".gradle-capacity-relief").canonicalFile)
+require(selectedCache !in historicalCapacityCaches) {
+    "Historical capacity caches must remain untouched; use the exclusive schema3 v3 cache."
+}
 require(when {
     capacityTest -> selectedCache == capacityCache
     reliefTest -> selectedCache == reliefCache
@@ -100,21 +105,26 @@ val capacityProfile = Properties().apply {
     rootProject.file("capacity-profile.properties").inputStream().use { load(it) }
 }
 require(capacityProfile == Properties().apply {
-    setProperty("sqlite.maxPageCount", "15")
+    setProperty("sqlite.maxPageCount", "17")
     setProperty("fixture.prefixTurns", "0")
+    setProperty("fixture.format", "2")
+    setProperty("database.schemaVersion", "3")
 }) { "Capacity profile changed; recalibrate and review the fixed test binary before updating this guard" }
 val reliefProfile = Properties().apply {
     rootProject.file("capacity-relief-profile.properties").inputStream().use { load(it) }
 }
 require(reliefProfile == Properties().apply {
     setProperty("sqlite.maxPageCount", "32")
-    setProperty("fixture.format", "1")
+    setProperty("fixture.format", "2")
+    setProperty("database.schemaVersion", "3")
+    setProperty("fixture.initialPages", "17")
+    setProperty("fixture.paddingRows", "14")
 }) { "Relief profile changed; recalibrate and review the fixed test binary before updating this guard" }
 extra["localloreCapacityTest"] = capacityTest || reliefTest
 extra["localloreCapacityMode"] = when { capacityTest -> "full"; reliefTest -> "relief"; else -> "ordinary" }
-extra["localloreCapacityPages"] = when { capacityTest -> 15; reliefTest -> 32; else -> 0 }
-if (capacityTest) layout.buildDirectory.set(layout.projectDirectory.dir("build-capacity"))
-if (reliefTest) layout.buildDirectory.set(layout.projectDirectory.dir("build-capacity-relief"))
+extra["localloreCapacityPages"] = when { capacityTest -> 17; reliefTest -> 32; else -> 0 }
+if (capacityTest) layout.buildDirectory.set(layout.projectDirectory.dir("build-capacity-v3"))
+if (reliefTest) layout.buildDirectory.set(layout.projectDirectory.dir("build-capacity-relief-v3"))
 
 android {
     namespace = "org.locallore.app"
@@ -125,8 +135,8 @@ android {
 
     defaultConfig {
         applicationId = when {
-            capacityTest -> "org.locallore.app.capacity"
-            reliefTest -> "org.locallore.app.capacityrelief"
+            capacityTest -> "org.locallore.app.capacityv3"
+            reliefTest -> "org.locallore.app.capacityreliefv3"
             else -> "org.locallore.app"
         }
         minSdk = 26

@@ -47,3 +47,9 @@ models/
 local-diagnostics/
 __pycache__/
 *.pyc
+
+# Exact-schema3 capacity verification preserves historical profiles.
+apps/android/app/build-capacity-v3/
+apps/android/.gradle-capacity-v3/
+apps/android/app/build-capacity-relief-v3/
+apps/android/.gradle-capacity-relief-v3/

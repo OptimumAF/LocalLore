@@ -11,31 +11,23 @@ import zipfile
 import audit_apk
 import check
 
-PACKAGE = "org.locallore.app.capacityrelief"
-LABEL = "LocalLore \u00b7 SQLite capacity relief test"
+PACKAGE = "org.locallore.app.capacityreliefv3"
+LABEL = "LocalLore \u00b7 SQLite capacity relief test v3"
 PAGES = 32
 
 
 def relief_build_command(root, offline):
     command = check.android_commands(root, offline, False)[0]
     return check.Command(command.argv + ("-Plocallore.capacityReliefTest=true", "--project-cache-dir",
-                                         str(root / "apps/android/.gradle-capacity-relief")), command.cwd)
+                                         str(root / "apps/android/.gradle-capacity-relief-v3")), command.cwd)
 
 
 def audit_relief_manifests(badging, tree, test_badging, test_tree):
     permissions = audit_apk.audit_manifest(badging, tree, PACKAGE)
     audit_apk.require("application-label:'" + LABEL + "'" in badging, "Missing capacity relief test label")
     audit_apk.require(re.search(r':testOnly\([^)]*\)=true\b', tree), "Relief app must be testOnly")
-    # AAPT's typed integer records, paired within each metadata element.
-    for key, value in (("pages", "32"), ("format", "1")):
-        audit_apk.require(len(re.findall(
-            r'E: meta-data \([^\n]*\)\s+[^\n]*:name\([^)]*\)="org\.locallore\.capacity\.relief\.'
-            + key + r'"[^\n]*\n\s+[^\n]*:value\([^)]*\)=' + value + r'\b', tree)) == 1,
-            "Missing or duplicate fixed relief metadata")
-    profile_names = re.findall(r':name\([^)]*\)="(org\.locallore\.capacity[^\"]*)"', tree)
-    audit_apk.require(sorted(profile_names) == ["org.locallore.capacity.relief.format",
-                                               "org.locallore.capacity.relief.pages"],
-                      "Unexpected relief profile metadata")
+    audit_apk.audit_fixed_metadata(tree, "org.locallore.capacity.relief.",
+                                   {"pages": 32, "format": 2, "schema_version": 3, "initial_pages": 17, "padding_rows": 14})
     audit_apk.require(re.search(r"^package: name='" + re.escape(PACKAGE) + r"\.test' ", test_badging, re.M),
                       "Wrong capacity relief test package")
     blocks = []
@@ -59,7 +51,7 @@ def audit_relief_manifests(badging, tree, test_badging, test_tree):
 
 
 def audit_relief(root):
-    output = root / "apps/android/app/build-capacity-relief/outputs/apk"
+    output = root / "apps/android/app/build-capacity-relief-v3/outputs/apk"
     app = output / "debug/app-debug.apk"
     test = output / "androidTest/debug/app-debug-androidTest.apk"
     libraries = audit_apk.audit_zip(app)
@@ -76,9 +68,10 @@ def audit_relief(root):
             data = archive.read("lib/" + abi + "/liblocallore_android.so")
             audit_apk.require(b"MAX_PAGE_COUNT=32\x00" in data, "Missing fixed native SQLite compile option")
             audit_apk.require(b"MAX_PAGE_COUNT=0xfffffffe\x00" not in data, "Default SQLite limit in capped binary")
-            audit_apk.require(b"MAX_PAGE_COUNT=15\x00" not in data, "Other test profile in relief binary")
+            audit_apk.require(b"MAX_PAGE_COUNT=17\x00" not in data, "Other test profile in relief binary")
     return {"status": "passed", "scope": "synthetic_capacity_relief_test_binary", "pages": PAGES,
-            "fixture_format": 1, "package": PACKAGE, "permissions": permissions, "libraries": libraries}
+            "fixture_format": 2, "database_schema_version": 3,
+            "package": PACKAGE, "permissions": permissions, "libraries": libraries}
 
 
 def main(argv=None):

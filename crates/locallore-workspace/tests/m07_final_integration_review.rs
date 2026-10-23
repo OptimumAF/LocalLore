@@ -5,15 +5,19 @@ use locallore::{
     contracts::*,
     engine::{AcceptedHistoryBasis, Engine},
     host::{Host, Persistence, SavedTurn, WorkspaceSummary},
+    inference::{Cancellation, GenerationRequest, InferenceProvider, Input},
+    play::PlayProfile,
 };
 use locallore_storage::{playable_archive::validate_archive, Store, TurnError, TurnRecord};
 use serde_json::{json, Value};
 use std::{
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
-        Arc,
+        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
+        mpsc, Arc, Mutex,
     },
+    task::Poll,
+    time::Duration,
 };
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -329,4 +333,117 @@ fn explicit_open_rewind_status_never_reports_an_old_cached_commit_as_current() {
 #[test]
 fn explicit_open_rewind_submit_never_reports_an_old_cached_commit_as_current() {
     explicit_open_rewind_cannot_reuse_cached_committed_result("submit");
+}
+
+struct HeldDirector {
+    entered: mpsc::SyncSender<()>,
+    release: Arc<Mutex<mpsc::Receiver<()>>>,
+    calls: Arc<AtomicUsize>,
+}
+impl InferenceProvider for HeldDirector {
+    fn poll(
+        &mut self,
+        request: &GenerationRequest,
+        _: &Cancellation,
+    ) -> Poll<Result<Vec<u8>, Error>> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        let Input::Structured { role, .. } = &request.input else {
+            panic!("actual structured production input required")
+        };
+        let output = if role == "director" {
+            self.entered.send(()).unwrap();
+            self.release.lock().unwrap().recv_timeout(Duration::from_secs(5))
+                .expect("bounded owned director release");
+            json!({"commands":[{"op":"wait","ticks":1}]})
+        } else {
+            assert_eq!(role, "narrator");
+            json!({"text":"Time passes.","event_ids":[request.revision+1],"speaker":"narrator"})
+        };
+        Poll::Ready(Ok(serde_json::to_vec(&output).unwrap()))
+    }
+}
+struct ReleaseOnDrop(Option<mpsc::SyncSender<()>>);
+impl Drop for ReleaseOnDrop {
+    fn drop(&mut self) {
+        if let Some(sender) = self.0.take() {
+            let _ = sender.try_send(());
+        }
+    }
+}
+
+#[test]
+fn explicit_open_reselection_fences_held_old_work_from_same_key_new_owner() {
+    let fixture = Fixture::new();
+    let empty = create(&fixture);
+    let mut store = fixture.store();
+    let original = commit(&mut store, &empty, "original-prefix");
+    let alternate = Fixture::new();
+    let other_empty = create(&alternate);
+    let changed = commit(&mut alternate.store(), &other_empty, "different-prefix");
+    assert_eq!(original.seed(), changed.seed());
+    assert_eq!(original.revision(), changed.revision());
+    assert_eq!(original.canonical_bytes(), changed.canonical_bytes());
+    assert_ne!(original.receipts(), changed.receipts());
+    let archive = alternate.store().export_archive(&changed.scope().story, &|| false).unwrap();
+    let host = Arc::new(locallore_workspace::open(&fixture.path(), false).unwrap());
+    let session = select(&host, original.scope());
+    let request = original.request("same-key-new-incarnation", Intent::FreeText {
+        kind: PlayInputKind::Action,
+        text: "I wait for one tide tick.".into(),
+    });
+    let (entered_send, entered_receive) = mpsc::sync_channel(1);
+    let (release_send, release_receive) = mpsc::sync_channel(1);
+    let release_receive = Arc::new(Mutex::new(release_receive));
+    let calls = Arc::new(AtomicUsize::new(0));
+    let factory_calls = calls.clone();
+    host.configure_fixture_provider(PlayProfile {
+        id: "synthetic-final-open-review".into(),
+        model_sha256: "a".repeat(64), runtime_revision: "b".repeat(40),
+        template_sha256: "c".repeat(64), worker_sha256: "d".repeat(64),
+        profile_manifest_sha256: "e".repeat(64), context_tokens: 4096,
+        director_tokens: 350, narrator_tokens: 220, deadline_ms: 5000, repair_limit: 1,
+    }, Arc::new(move || Box::new(HeldDirector {
+        entered: entered_send.clone(), release: release_receive.clone(), calls: factory_calls.clone(),
+    }))).unwrap();
+    let submitted = call(&host, json!({"op":"free_text","session":session,"request":request}));
+    assert_eq!(submitted["data"]["phase"], "queued", "{submitted}");
+    std::thread::scope(|threads| {
+        let worker = threads.spawn(|| call(&host, json!({
+            "op":"prepare","session":session,"scope":request.scope,"turn":request.turn,
+        })));
+        let mut release = ReleaseOnDrop(Some(release_send));
+        entered_receive.recv_timeout(Duration::from_secs(5))
+            .expect("actual production director reached held poll");
+        let deletion = store.prepare_story_deletion(original.scope(), original.revision(), &|| false).unwrap();
+        store.delete_story(deletion, &|| false).unwrap();
+        store.import_archive(validate_archive(archive.bytes(), &|| false).unwrap(), &|| false).unwrap();
+        store.begin_turn(&request).unwrap();
+        let opened = call(&host, json!({"op":"open","session":session,"scope":changed.scope()}));
+        let selected = if opened["status"] == "ok" {
+            session.clone()
+        } else {
+            assert_eq!(opened["error"], "Stale", "{opened}");
+            let closed = call(&host, json!({"op":"close","session":session,"scope":changed.scope()}));
+            assert_eq!(closed["status"], "ok", "{closed}");
+            select(&host, changed.scope())
+        };
+        let fresh = call(&host, json!({"op":"free_text","session":selected,"request":request}));
+        assert_eq!(fresh["data"]["phase"], "queued", "{fresh}");
+        release.0.take().unwrap().send(()).unwrap();
+        let retired = worker.join().expect("retired work must not panic on missing/reused turn");
+        assert!(retired["error"]=="Closed" || retired["error"]=="Stale" || retired["error"]=="Cancelled"
+            || retired["data"]["phase"]=="stale" || retired["data"]["phase"]=="cancelled", "{retired}");
+        let status = call(&host, json!({"op":"turn_status","session":selected,"scope":request.scope,"turn":request.turn}));
+        assert_eq!(status["data"]["phase"], "queued", "old work overwrote new incarnation: {status}");
+        assert_eq!(status["data"]["receipt"], Value::Null);
+        let draft = store.turn_status(&request).unwrap();
+        assert_eq!(draft.phase, locallore_storage::TurnPhase::Draft);
+        assert_eq!(draft.request, request);
+        assert!(draft.receipt.is_none());
+        let current = store.resume(changed.scope()).unwrap().engine;
+        assert_eq!(current.receipts(), changed.receipts());
+        assert_eq!(current.canonical_bytes(), changed.canonical_bytes());
+        assert_eq!(calls.load(Ordering::SeqCst), 1, "no new provider or narrator work");
+        assert_eq!(host.live_counts().1, 0);
+    });
 }

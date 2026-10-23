@@ -950,3 +950,16 @@ summary {
     width: auto;
     margin-right: 0.5rem;
 }
+.private-capture {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.private-capture details {
+    min-width: 0;
+}
+.private-capture pre {
+    max-width: 100%;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}

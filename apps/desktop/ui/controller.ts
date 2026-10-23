@@ -112,6 +112,9 @@ export class Controller {
         readonly gateway: Gateway,
         readonly errors = new ErrorBuffer(),
         private prefix = `desktop-${crypto.randomUUID()}`,
+        private coordinatePrivateMetadata: (
+            work: () => Promise<void>,
+        ) => Promise<void> = (work) => work(),
     ) {}
     get = () => this.state;
     subscribe = (listener: () => void) => {
@@ -875,46 +878,50 @@ export class Controller {
         this.traceControlPending = true;
         this.clearTrace();
         this.tracePatch({ controlBusy: true });
-        let succeeded = false;
-        try {
-            const command: Command =
-                action === "clear"
-                    ? {
-                          op: "trace_clear",
-                          session: query.session,
-                          scope: query.scope,
-                          expected_head: query.expected_head,
-                      }
-                    : {
-                          op: "trace_configure",
-                          session: query.session,
-                          scope: query.scope,
-                          expected_head: query.expected_head,
-                          enabled: action === "enable",
-                      };
-            const value = (await this.gateway.call(command)) as Record<
-                string,
-                unknown
-            >;
-            if (
-                !value ||
-                value.configuration_scope !== "window_host" ||
-                value.capture !== "metadata_only" ||
-                value.full_capture !== "unsupported" ||
-                (action === "clear"
-                    ? value.cleared !== true
-                    : value.enabled !== (action === "enable"))
-            )
-                throw new Error("Wire");
-            succeeded = true;
-        } catch (error) {
-            if (this.sameTraceContext(query))
-                this.tracePatch({ error: category(error), enabled: null });
-        } finally {
-            this.traceControlPending = false;
-            this.tracePatch({ controlBusy: false });
-        }
-        if (succeeded && this.state.trace.shown) await this.readTrace();
+        const work = async () => {
+            let succeeded = false;
+            try {
+                const command: Command =
+                    action === "clear"
+                        ? {
+                              op: "trace_clear",
+                              session: query.session,
+                              scope: query.scope,
+                              expected_head: query.expected_head,
+                          }
+                        : {
+                              op: "trace_configure",
+                              session: query.session,
+                              scope: query.scope,
+                              expected_head: query.expected_head,
+                              enabled: action === "enable",
+                          };
+                const value = (await this.gateway.call(command)) as Record<
+                    string,
+                    unknown
+                >;
+                if (
+                    !value ||
+                    value.configuration_scope !== "window_host" ||
+                    value.capture !== "metadata_only" ||
+                    value.full_capture !== "unsupported" ||
+                    (action === "clear"
+                        ? value.cleared !== true
+                        : value.enabled !== (action === "enable"))
+                )
+                    throw new Error("Wire");
+                succeeded = true;
+            } catch (error) {
+                if (this.sameTraceContext(query))
+                    this.tracePatch({ error: category(error), enabled: null });
+            } finally {
+                this.traceControlPending = false;
+                this.tracePatch({ controlBusy: false });
+            }
+            if (succeeded && this.state.trace.shown) await this.readTrace();
+        };
+        if (action === "enable") await work();
+        else await this.coordinatePrivateMetadata(work);
     }
     selectTrace(selected: string) {
         if (
@@ -1295,6 +1302,44 @@ export class Controller {
         if (!receipt) return;
         if (!this.state.query.shown) await this.showQuery();
         await this.inspectEventTurn(receipt.request.turn);
+    }
+    async capturedEvidence(
+        nativeSessionId: string,
+        expectedScope: Scope,
+        turn: string,
+        baseRevision: number,
+    ) {
+        const session = this.selected(),
+            epoch = this.epoch,
+            head = this.state.play?.revision;
+        if (
+            !session ||
+            session.id !== nativeSessionId ||
+            !sameScope(expectedScope, session.scope) ||
+            this.state.view !== "lab" ||
+            this.state.observer !== "omniscient"
+        )
+            return;
+        const receipt = this.state.play?.receipts.find(
+            (r) =>
+                r.request.turn === turn &&
+                r.request.expected_revision === baseRevision &&
+                sameScope(r.request.scope, session.scope),
+        );
+        if (!receipt) return;
+        const opening = this.showQuery(true),
+            queryEpoch = this.queryEpoch;
+        await opening;
+        if (
+            !this.current({ session, epoch }) ||
+            this.queryEpoch !== queryEpoch ||
+            !this.state.query.shown ||
+            this.state.view !== "lab" ||
+            this.state.observer !== "omniscient" ||
+            this.state.play?.revision !== head
+        )
+            return;
+        await this.inspectEventTurn(turn);
     }
     async inspectEventTurn(turn: string) {
         const boundary = this.state.play?.receipts

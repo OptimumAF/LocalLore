@@ -259,3 +259,47 @@ fn historical_schema3_retired_catalog_stays_readable_without_job_tables_or_write
         .iter()
         .any(|row| row.scope == child.scope && !row.retired));
 }
+
+#[test]
+fn inconsistent_complete_cursor_is_rejected_instead_of_advertised_as_finished() {
+    let temp = Temp::new();
+    let path = temp.path("derived-status.sqlite");
+    let (mut store, request, admitted) = populated(&path);
+    assert_eq!(admitted.next_from, 0);
+    assert_eq!(admitted.basis_revision, 1);
+    let before = store
+        .resume(&request.scope)
+        .unwrap()
+        .engine
+        .canonical_bytes();
+    // Only a derived status label changes; canonical tables and fingerprints are
+    // untouched. A DDL constraint or a read-time invariant may reject it.
+    let db = rusqlite::Connection::open(&path).unwrap();
+    let tamper = db.execute(
+        "UPDATE memory_jobs SET status='complete' WHERE job_id=?1",
+        [i64::try_from(admitted.handle.id()).unwrap()],
+    );
+    drop(db);
+    let advertised = store.memory_job_status(&admitted.handle, &|| false);
+    assert_eq!(
+        store
+            .resume(&request.scope)
+            .unwrap()
+            .engine
+            .canonical_bytes(),
+        before
+    );
+    match tamper {
+        Ok(1) => assert_eq!(
+            advertised,
+            Err(MemoryError::Integrity),
+            "zero covered revisions must not be advertised as completed head1"
+        ),
+        Err(error)
+            if error.sqlite_error_code() == Some(rusqlite::ErrorCode::ConstraintViolation) =>
+        {
+            assert_eq!(advertised, Ok(admitted));
+        }
+        other => panic!("unexpected derived-row mutation result: {other:?}"),
+    }
+}

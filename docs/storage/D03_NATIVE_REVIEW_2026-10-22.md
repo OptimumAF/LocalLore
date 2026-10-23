@@ -132,6 +132,43 @@ expiry/cancel/mode/scope behavior must be checked on the specialist's final sour
 
 No broad Tauri build, actual picker, native window, desktop control, input event,
 unrelated process operation, ADB or model execution was performed by this review.
-Protected chat/runtime resources remain outside its write scope. This draft
-review does not accept the D03 native/export gate or claim any of the reported
-findings has been resolved.
+Protected chat/runtime resources remain outside its write scope.
+
+## Final source disposition
+
+The specialist's clean commit `571846a`, including `bb8317a` and `5f26ed5`, was
+independently reread after the findings above. Coordinator `e5ad25d` supplies the
+coherent pre-allocation database budget. No unresolved blocking defect was found
+in this final reviewed source scope.
+
+| Initial finding | Final implementation inspected |
+|---|---|
+| Lock inversion | `open_current` checks native epoch before/after read-only open without holding the lease gate while waiting for `saved`. A barrier regression covers concurrent save/open. |
+| Replaceable staging directory | A non-reparse staging handle holds DELETE access without delete sharing. Files are written while that directory cannot be renamed/replaced; publication renames the owned handle itself through Windows `SetFileInformationByHandle`. A pinned-stage replacement test is present. |
+| Missing normal action | `inspection_load` is registered in the normal native handler as well as the development handler. |
+| Wrong injected scenario | Development allowlist and save injection both use `disk-full`. |
+| Wrong privacy label during cancellation | Mode/view changes clear local preview/opened content and advance export epoch synchronously, before background native cancellation. |
+| Oversized temporary database copy | Source transaction is sized before any destination allocation; its same snapshot is backed up. |
+| Error after successful publication | Successful owned-handle rename is the publication boundary; fallible staging-path checks after success are removed. |
+| Interrupted private cache retention | Startup cleanup inspects a bounded native cache namespace, accepts only generated GUID directories and known snapshot/sidecar names, rejects reparse/foreign entries and skips active pinned directories. Cleanup counts/limited/unavailable status are retained explicitly. It does not recursively delete arbitrary paths or user-selected saved exports. |
+| Loaded-manifest formatting mismatch | The native Loaded variant retains original manifest bytes alongside parsed metadata. Open verifies those exact bytes. A compact-manifest/later-edit regression is present. |
+| Old save result crossing selection | `cancelExport` clears presentation and advances export epoch before awaiting native cancellation, including an already-saved outcome. Delayed save acknowledgements cannot repopulate an invalidated selection. |
+
+Both ignored actual-controller proofs were rebundled against `571846a` and run
+with `--expect-fixed`, each returning exit 0. Mode transition observed the null
+preview shown earlier; the story-switch proof now observed:
+
+```json
+{"selectedStory":"new-story","previewStory":null,"oldSavePublishedIntoNewSelection":false}
+```
+
+The specialist also added the tracked `apps/desktop/check-export-controller.mjs`
+regression, covering deferred cancellation, pending Full preview and save-result
+fencing. This reviewer inspected that test but did not count a new execution of
+it or the native broker unit suite. Coordinator/specialist evidence must identify
+their actual runs, native IPC/render checkpoints, fault cases and source hashes.
+
+The final disposition is a source/race review with two independently executed
+controller proofs, not an actual-window/picker execution, power-loss guarantee,
+other-platform qualification or owner approval. External files remain untrusted
+even after checksums validate; they never become canon or generation authority.

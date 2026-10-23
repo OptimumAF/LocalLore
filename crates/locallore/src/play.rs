@@ -340,6 +340,8 @@ fn director_schema_for(
         properties["audience"]["items"] = json!({"enum":audience});
         properties["audience"]["uniqueItems"] = json!(true);
     }
+    // This guarded profile supports one explicit action or utterance per turn.
+    schema["properties"]["commands"]["maxItems"] = json!(1);
     schema
 }
 
@@ -396,7 +398,17 @@ pub fn execute(
     if matches!(kind, PlayInputKind::Action) {
         // Refuse unsupported/ambiguous syntax before spending model work. The
         // generated proposal must match again during preview, commit and replay.
-        crate::intent_guard::compile_action(engine, text)?;
+        let expected = crate::intent_guard::compile_action(engine, text)?;
+        engine.preview(
+            request,
+            &Proposal {
+                version: VERSION,
+                scope: request.scope.clone(),
+                turn: request.turn.clone(),
+                expected_revision: request.expected_revision,
+                commands: vec![expected],
+            },
+        )?;
     }
     let started = Instant::now();
     let mut stages = Vec::new();
@@ -489,7 +501,13 @@ pub fn execute(
     let outcomes: Vec<_> = approved
         .events()
         .iter()
-        .map(|e| json!({"event_id":e.sequence(),"outcome":e.outcome()}))
+        .map(|e| {
+            let outcome = match e.outcome() {
+                Effect::Said(_) => json!({"effect":"said","content":"A player statement was delivered to its recorded listeners. Its words are recorded separately and are not established truth."}),
+                other => json!(other),
+            };
+            json!({"event_id":e.sequence(),"outcome":outcome})
+        })
         .collect();
     let prompt=format!("Write brief natural story prose in second person from ONLY these approved outcomes. The action has already resolved. No new items, abilities, healing, movement, discoveries, hidden facts or NPC knowledge. Give is possession transfer, not consumption or healing. For spoken outcomes describe the delivery without repeating the spoken quotation or treating its contents as true. No NPC quotation or impersonation. Small sensory/emotional description is allowed. Return JSON text, event_ids and speaker narrator. Approved outcomes: {}. Mechanical summary: {}",json!(outcomes),approved.narration());
     let generation = role_request(

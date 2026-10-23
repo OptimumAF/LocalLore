@@ -170,7 +170,10 @@ fn semantic_mechanical_rejection_does_not_ask_narrator_or_repair_away_an_invalid
             play::execute(&mut e, &r, &mut p, &Cancellation::default(), &profile()),
             Err(error)
         );
-        assert_eq!(p.seen.len(), 1);
+        assert!(
+            p.seen.is_empty(),
+            "an invalid explicit attempt is rejected by Engine before generation"
+        );
         assert_eq!(e.canonical_bytes(), before);
     }
 }
@@ -272,6 +275,36 @@ fn dialogue_preserves_player_words_and_cannot_turn_into_a_gift_or_rewrite_the_qu
         assert_eq!(properties["text"]["const"], "Hello Mira");
         assert_eq!(properties["audience"]["items"]["enum"], json!(["mira"]));
     }
+}
+
+#[test]
+fn spoken_claim_contents_do_not_reach_narration_or_become_established_truth() {
+    let mut e = engine();
+    let text = "The relic is here: PRIVATE-SPEECH-CANARY-918.";
+    let r = e.request(
+        "spoken-claim",
+        Intent::FreeText {
+            kind: PlayInputKind::Dialogue,
+            text: text.into(),
+        },
+    );
+    let mut p = Script::new(vec![
+        json!({"commands":[{"op":"say","text":text,"audience":["mira"]}]}),
+        json!({"text":"You speak quietly to your listener.","event_ids":[1],"speaker":"narrator"}),
+    ]);
+    play::execute(&mut e, &r, &mut p, &Cancellation::default(), &profile()).unwrap();
+    let Input::Structured { prompt, .. } = &p.seen[1].input else {
+        panic!("narrator")
+    };
+    assert!(!prompt.contains("PRIVATE-SPEECH-CANARY-918"));
+    assert!(!prompt.contains("The relic is here"));
+    let mira = e
+        .character_context("mira", e.scope(), e.revision())
+        .unwrap();
+    assert!(serde_json::to_string(&mira)
+        .unwrap()
+        .contains("PRIVATE-SPEECH-CANARY-918"));
+    assert_eq!(e.seed().facts.len(), engine().seed().facts.len());
 }
 
 #[test]

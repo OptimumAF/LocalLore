@@ -587,7 +587,10 @@ impl Host {
         let selected = &state.sessions.get(session).ok_or("Closed")?.engine;
         if snapshot.engine.revision() < selected.revision()
             || !snapshot.engine.receipts().starts_with(selected.receipts())
-            || snapshot.engine.memory_lineage_binding().map_err(|_| "Stale")?
+            || snapshot
+                .engine
+                .memory_lineage_binding()
+                .map_err(|_| "Stale")?
                 != selected.memory_lineage_binding().map_err(|_| "Stale")?
         {
             return Err("Stale".into());

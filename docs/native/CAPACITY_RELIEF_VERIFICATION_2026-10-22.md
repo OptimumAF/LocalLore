@@ -215,9 +215,11 @@ repeating tests. Local APK hashes still match the frozen candidates.
 No wipe/reset/data-clear/uninstall/root/configuration edit occurred. Saved
 snapshot/graphics arguments were reused; no comparison with the prior live
 cohort's runtime state is inferred. The two relaunched emulators remain running;
-only the identified relief app processes were stopped. All raw logs,
-paths/tokens/PIDs and synthetic databases remain private under ignored `target/`;
-public results contain only sanitized stages, fixed cases/counts and hashes.
+only the identified relief app processes were stopped. Host raw logs, private
+protocol details and calibration databases remain under ignored `target/`.
+Android synthetic roots were app-private; passing cleanup removed them. Unknown
+cleanup would retain those roots on-device. Public results contain only
+sanitized stages, fixed cases/counts and hashes.
 
 ## Handoff and remaining gates
 

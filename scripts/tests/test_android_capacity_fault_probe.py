@@ -27,7 +27,7 @@ class FaultProfileAuditTests(unittest.TestCase):
             actual = faults.fault_build_command(root, True)
             normal = relief.relief_build_command(root, True)
         self.assertEqual(actual.argv[-3:], ('-Plocallore.capacityReliefFaultTest=true', '--project-cache-dir',
-                                          str(root / 'apps/android/.gradle-capacity-faults-v3')))
+                                          str(root / 'apps/android/.gradle-capacity-faults-v4')))
         self.assertNotEqual(actual.argv, normal.argv)
         self.assertIn('-Pkotlin.incremental=false', actual.argv)
         self.assertNotIn('-Pkotlin.incremental=false', normal.argv)

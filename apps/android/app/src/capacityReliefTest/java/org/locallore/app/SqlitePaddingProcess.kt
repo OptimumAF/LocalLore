@@ -23,10 +23,11 @@ import java.util.concurrent.atomic.AtomicInteger
 internal object PaddingFormat {
     const val MARKER = ".capacity-padding-owner-v2"
     const val OWNER_FORMAT = "locallore-capacity-padding-v2"
-    const val SCHEMA = "c05ced1f0439fb767f97d2ff93a34ef44eb6fbc27da6814a75fad455fb0b2c17"
-    const val INITIAL_PAGES = 17
-    const val EXPECTED_ROWS = 14
-    const val FREED_PAGES = 15
+    const val SCHEMA = "e9f19f3b384c52c5c7bd360e23c1db9e76314152f750a5b9f07f7a14071f8362"
+    const val INITIAL_PAGES = 23
+    // Actual fixed schema4 Host/helper measurement; Android execution remains separate.
+    const val EXPECTED_ROWS = 8
+    const val FREED_PAGES = 9
     const val TABLE = "locallore_capacity_pad_v1"
     const val CREATE = "CREATE TABLE locallore_capacity_pad_v1 (id INTEGER PRIMARY KEY, owner TEXT NOT NULL, payload BLOB NOT NULL)"
     const val INSERT = "INSERT INTO locallore_capacity_pad_v1 (owner,payload) VALUES (?,zeroblob(3500))"
@@ -220,11 +221,11 @@ class SqlitePaddingProcess {
                 check(path.isAbsolute && path.canonicalFile == path.absoluteFile && path.isFile)
                 check(path.name == "stories.sqlite3" && path.parentFile?.name == "workspace-v1")
                 val root = checkNotNull(path.parentFile?.parentFile)
-                check(root.name.matches(Regex("synthetic-capacity-relief-v3-[0-9a-f-]{36}")))
+                check(root.name.matches(Regex("synthetic-capacity-relief-v4-[0-9a-f-]{36}")))
                 check(root.parentFile?.name == "no_backup")
                 val packageName = root.parentFile?.parentFile?.name
-                check(packageName in setOf("org.locallore.app.capacityreliefv3", "org.locallore.app.capacityfaultsv3"))
-                check(fault == PaddingFault.NONE || packageName == "org.locallore.app.capacityfaultsv3")
+                check(packageName in setOf("org.locallore.app.capacityreliefv4", "org.locallore.app.capacityfaultsv4"))
+                check(fault == PaddingFault.NONE || packageName == "org.locallore.app.capacityfaultsv4")
                 val marker = File(root, PaddingFormat.MARKER)
                 data class FileIdentity(val device: Long, val inode: Long, val size: Long, val mode: Int,
                     val modifiedSeconds: Long, val modifiedNanos: Long, val changedSeconds: Long, val changedNanos: Long)
@@ -259,7 +260,7 @@ class SqlitePaddingProcess {
                 val rootIdentity = directoryIdentity(root)
                 val workspaceIdentity = directoryIdentity(checkNotNull(path.parentFile))
                 var expectedMarker = boundedContent(marker, 192)
-                val faultMarker = if (packageName == "org.locallore.app.capacityfaultsv3") File(root, PaddingFormat.FAULT_MARKER) else null
+                val faultMarker = if (packageName == "org.locallore.app.capacityfaultsv4") File(root, PaddingFormat.FAULT_MARKER) else null
                 val faultMarkerIdentity = faultMarker?.let { fileIdentity(it).also { stamp -> check(stamp.size <= 128) } }
                 faultMarker?.let { check(boundedContent(it, 128) == PaddingFormat.faultMarker(token)) }
                 fun ownershipUnchanged() {
@@ -287,11 +288,11 @@ class SqlitePaddingProcess {
                 ownershipUnchanged()
                 fun scalar(db: SQLiteDatabase, query: String): Long = db.rawQuery(query, null).use { check(it.moveToFirst()); it.getLong(0) }
                 fun identity(db: SQLiteDatabase) {
-                    check(scalar(db, "PRAGMA application_id") == 0x4c4c4f52L && scalar(db, "PRAGMA user_version") == 3L)
+                    check(scalar(db, "PRAGMA application_id") == 0x4c4c4f52L && scalar(db, "PRAGMA user_version") == 4L)
                     check(scalar(db, "PRAGMA page_size") == 4096L && scalar(db, "PRAGMA auto_vacuum") == 0L)
                     db.rawQuery("PRAGMA journal_mode", null).use { check(it.moveToFirst() && it.getString(0) == "delete") }
                     val contracts = listOf("locallore-storage-v1", "locallore-storage-v2-derived-memory",
-                        "locallore-storage-v3-branch-retention")
+                        "locallore-storage-v3-branch-retention", "locallore-storage-v4-memory-jobs")
                     db.rawQuery("SELECT version,contract FROM schema_migrations ORDER BY version", null).use { rows ->
                         for ((index, contract) in contracts.withIndex()) {
                             check(rows.moveToNext() && rows.getLong(0) == index + 1L && rows.getString(1) == contract)

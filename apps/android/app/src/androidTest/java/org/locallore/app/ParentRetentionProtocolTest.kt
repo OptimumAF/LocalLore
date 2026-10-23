@@ -59,6 +59,54 @@ class ParentRetentionProtocolTest {
         )
         mutations.forEach { mutation -> rejects { ArchiveNativeWire.branchDeleted(bytes(result().also(mutation))) } }
     }
+    @Test fun schemaFourDeletionCountsHaveExactVersionedKeysAndPacketTotals() {
+        fun currentBranch() = prepared().also { value ->
+            val preview = value.getJSONObject("preview").put("version", 2)
+            preview.getJSONObject("removed_rows").put("memory_jobs", 1).put("memory_job_packets", 3)
+        }
+        val branch = ArchiveNativeWire.branchDeletionPrepared(bytes(currentBranch())).preview
+        assertEquals(2, branch.version); assertEquals(3L, branch.removedRows["memory_job_packets"])
+        val branchMutations: List<(JSONObject) -> Unit> = listOf(
+            { it.put("version", 3) },
+            { it.getJSONObject("removed_rows").remove("memory_jobs") },
+            { it.getJSONObject("removed_rows").put("memory_job_packets", -1) },
+            { it.getJSONObject("removed_rows").put("foreign_table", 0) },
+            { it.put("version", 1) },
+        )
+        branchMutations.forEach { mutation -> rejects {
+            ArchiveNativeWire.branchDeletionPrepared(bytes(currentBranch().also { mutation(it.getJSONObject("preview")) }))
+        } }
+        fun story(version: Int): JSONObject {
+            val rows = JSONObject().put("derived_memory", 2).put("event_witnesses", 1)
+                .put("accepted_events", 1).put("turns", 2).put("branch_projections", 1)
+                .put("branch_entities", 4).put("entities", 4).put("branches", 1).put("stories", 1)
+            if (version >= 2) rows.put("branch_retention", 0)
+            if (version == 3) rows.put("memory_jobs", 1).put("memory_job_packets", 3)
+            return JSONObject().put("token", 9).put("preview", JSONObject().put("version", version)
+                .put("story_id", "original-story").put("title", "Original story").put("root_branch", "main")
+                .put("branch_heads", JSONObject().put("main", 5)).put("committed_turns", 1)
+                .put("draft_turns", 1).put("noncommitted_turns", 1)
+                .put("derived_packets", if (version == 3) 5 else 2).put("rows", rows)
+                .put("privacy_warning", "Export copies remain."))
+        }
+        for (version in 1..3) {
+            val preview = ArchiveNativeWire.deletionPrepared(bytes(story(version))).preview
+            assertEquals(version, preview.version)
+            assertEquals(if (version == 3) 5L else 2L, preview.derivedPackets)
+        }
+        val storyMutations: List<(JSONObject) -> Unit> = listOf(
+            { it.put("version", 4) }, { it.put("version", 2) },
+            { it.getJSONObject("rows").remove("memory_jobs") },
+            { it.getJSONObject("rows").put("memory_job_packets", -1) },
+            { it.getJSONObject("rows").put("foreign_table", 0) },
+            { it.put("derived_packets", 2) }, { it.put("derived_packets", 6) },
+            { it.getJSONObject("rows").put("derived_memory", Long.MAX_VALUE)
+                .put("memory_job_packets", Long.MAX_VALUE); it.put("derived_packets", Long.MAX_VALUE) },
+        )
+        storyMutations.forEach { mutation -> rejects {
+            ArchiveNativeWire.deletionPrepared(bytes(story(3).also { mutation(it.getJSONObject("preview")) }))
+        } }
+    }
     @Test fun archiveV2RequiresNonemptySortedRetirementMetadataAndPreservesV1() {
         fun data() = JSONObject().put("token", 1).put("preview", JSONObject()
             .put("version", 2).put("story_id", "original-story").put("title", "Original story").put("root_branch", "main")

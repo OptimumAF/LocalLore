@@ -763,8 +763,12 @@ mod tests {
             let mut historical: Value = serde_json::from_slice(golden).unwrap();
             let current: Value = serde_json::from_slice(&generated).unwrap();
             assert_eq!(historical["payload"]["source_database_schema_version"], 2);
-            assert_eq!(current["payload"]["source_database_schema_version"], 3);
-            historical["payload"]["source_database_schema_version"] = json!(3);
+            assert_eq!(
+                current["payload"]["source_database_schema_version"],
+                locallore_storage::SCHEMA_VERSION
+            );
+            historical["payload"]["source_database_schema_version"] =
+                json!(locallore_storage::SCHEMA_VERSION);
             historical["integrity"]["payload_sha256"] =
                 current["integrity"]["payload_sha256"].clone();
             assert_eq!(

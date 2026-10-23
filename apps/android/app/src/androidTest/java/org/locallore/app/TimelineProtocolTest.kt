@@ -44,7 +44,7 @@ class TimelineProtocolTest {
             } finally { reader.close() }
         }
     }
-    private class Protocol(val storyId: String = "story-a") : WorkspaceTransport {
+    private class Protocol(val storyId: String = "story-a", var databaseSchemaVersion: Int = 4) : WorkspaceTransport {
         var selected = "main"
         var receiptStory = storyId
         var changeCatalog: (JSONObject) -> Unit = {}
@@ -65,7 +65,7 @@ class TimelineProtocolTest {
             return when (op) {
                 "capabilities" -> ok(JSONObject().put("free_text", false))
                 "workspace" -> ok(JSONObject().put("persistent", true).put("schema_version", 1)
-                    .put("database_schema_version", 3).put("location", "/synthetic/workspace.sqlite3")
+                    .put("database_schema_version", databaseSchemaVersion).put("location", "/synthetic/workspace.sqlite3")
                     .put("stories", JSONArray().put(JSONObject().put("scope", scope("main"))
                         .put("title", "Original title").put("revision", 2).put("drafts", 0).put("retired", false))))
                 "branches" -> {
@@ -101,6 +101,42 @@ class TimelineProtocolTest {
             }
         }
         override fun close() { closed = true }
+    }
+
+    @Test fun currentSchemaFourKeepsWorkspaceProtocolOne(): Unit = runBlocking {
+        val transport = Protocol(); val gateway = DurableGateway(transport, autoCreateIfEmpty = false)
+        try {
+            val current = gateway.initialize()
+            assertEquals(1, current.schemaVersion)
+            assertEquals(4, current.databaseSchemaVersion)
+            assertEquals("main", current.selected?.branch)
+            assertFalse(transport.calls.any { it in setOf("create", "submit", "prepare", "commit", "free_text") })
+        } finally { gateway.close() }
+    }
+
+    @Test fun incompatibleLiveSchemaRefusesBeforeResumeOrAnyGameplay(): Unit = runBlocking {
+        // Archive source schema is independent. An old archive can be imported
+        // by Rust; a LIVE workspace reply must match this application's owner.
+        for (schema in listOf(2, 3, 5)) {
+            val transport = Protocol(databaseSchemaVersion = schema)
+            val gateway = DurableGateway(transport, autoCreateIfEmpty = false)
+            try {
+                try { gateway.initialize(); fail("Incompatible live schema was accepted") }
+                catch (_: IllegalStateException) { /* Strict current owner check, no adoption. */ }
+                assertEquals(listOf("workspace"), transport.calls)
+            } finally { gateway.close() }
+        }
+    }
+
+    @Test fun refreshCannotPublishLaterIncompatibleLiveSchema(): Unit = runBlocking {
+        val transport = Protocol(); val gateway = DurableGateway(transport, autoCreateIfEmpty = false)
+        try {
+            assertEquals(4, gateway.initialize().databaseSchemaVersion)
+            transport.databaseSchemaVersion = 5
+            try { gateway.snapshot(); fail("Incompatible live schema refresh was published") }
+            catch (_: IllegalStateException) { /* Preserve the strict refresh fence too. */ }
+            assertFalse(transport.calls.any { it in setOf("create", "submit", "prepare", "commit", "free_text") })
+        } finally { gateway.close() }
     }
 
     @Test fun childResumePreservesAncestorTextAndUsesCatalogMetadataWithoutGameplay(): Unit = runBlocking {

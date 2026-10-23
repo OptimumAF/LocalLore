@@ -116,73 +116,86 @@ distinguishes injected error replies from actual SQLite exhaustion.
 The [actual SQLite contention fixture](../../docs/native/SQLITE_CONTENTION_VERIFICATION_2026-10-22.md)
 adds a separate-process writer and unmodified Rust Busy recovery checks, without
 changing production code or introducing a gameplay SQL interface.
-The separate [schema3 capacity fixtures](../../docs/native/SCHEMA3_CAPACITY_HOST_2026-10-23.md)
-uses a visibly labelled, test-only app with an immutable SQLite compile-time ceiling
-to exercise actual Full replies. Build/audit it explicitly with
-`python scripts/android_capacity_probe.py build --offline`; this never installs or
-runs a device. The measured schema3/format2 profile has a fixed 17-page ceiling:
-Ready fits17 pages and the gift needs18. Its APKs live under `app/build-capacity-v3`,
-with application ID `org.locallore.app.capacityv3`, separate from ordinary saves
-and instrumentation. The helper supplies `.gradle-capacity-v3`: distinct task
-histories are required as well as distinct output directories, or Gradle can
-delete the previous mode's APKs as stale outputs. Property-only direct capacity
-builds and historical `.gradle-capacity` / `.gradle-capacity-relief` caches are
-rejected. Historical [15-page evidence](../../docs/native/CAPACITY_VERIFICATION_2026-10-22.md)
-and its artifacts remain dated; that ceiling cannot seed schema3. Only debug exists
-in capacity mode. Ordinary `scripts/check.py android` remains
-uncapped. Unset ambient `LIBSQLITE3_FLAGS` for either build; the reviewed native
-build owns that option. This immutable fixture cannot prove recovery after freeing
-capacity or partition-level exhaustion.
-The [capacity lifecycle follow-up](../../docs/native/CAPACITY_LIFECYCLE_VERIFICATION_2026-10-22.md)
-separates native-only proofs from the single Compose case and adds an explicit
-ordered cohort with Activity-only controls. Default capacity discovery runs the
-original three proofs once; the historical UI-class selector now runs only its
-one UI method. The report explains nested-suite selection and remote-shell quoting.
-The distinct capacity-relief fixture (with separate
-[historical schema1 evidence](../../docs/native/CAPACITY_RELIEF_VERIFICATION_2026-10-22.md))
-uses `python scripts/android_capacity_relief_probe.py build --offline`, application
-ID `org.locallore.app.capacityreliefv3`, `app/build-capacity-relief-v3` and the helper's
-mandatory `.gradle-capacity-relief-v3` cache. It is debug/testOnly, schema3/format2, with a fixed
-32-page native ceiling and separate test sources. Its one-shot helper fills then
-drops only a verified owned padding table in a fresh synthetic workspace. The exact
-schema3 baseline is17 pages;14 fixed padding rows fill32 pages and their removal
-frees15 pages. Known schema/migration, marker and file identities are checked
-read-only before writable admission and rechecked around mutations. Unknown
-helper ownership fences subsequent native calls. Padding
-temporarily violates the exact schema contract; it is removed before any new
-Android native owner opens. Production schema checks stay unchanged. This probes
-same-live-owner commit recovery after freeing pages, not ordinary valid-schema
-restart under Full or partition ENOSPC. The ordinary, 17-page and relief modes
-are mutually exclusive and keep independent task histories and APKs.
-The [schema3 Android qualification](../../docs/native/SCHEMA3_CAPACITY_VERIFICATION_2026-10-23.md)
-records both-emulator results, artifact bindings, retained attempts and limits.
+The separate [current schema4 capacity profile](../../docs/native/SCHEMA4_CAPACITY_VERIFICATION_2026-10-23.md)
+uses visibly labelled test-only apps with fixed SQLite compile-time ceilings.
+Build/audit the Full fixture explicitly with
+`python scripts/android_capacity_probe.py build --offline`; this command never
+installs or runs a device. The current profile is SQLite schema4, fixture format3,
+with v4 package/cache identities. Host/helper JSON wire version2 and the padding
+owner marker formatv2 retain their existing shapes.
+
+The current Full profile is23 pages: the unchanged Windows Host measured Ready23
+and gift24; a23-page build reached Ready and returned repeated actual Full while
+preserving the original key and canonical snapshot.17 failed at workspace open;
+22 failed at story creation. The current Android APK output is
+`app/build-capacity-v4`, application ID `org.locallore.app.capacityv4`, with the
+helper's required `.gradle-capacity-v4` project cache. Task histories and outputs
+must both be separate. Historical unversioned/v3 capacity caches are rejected,
+and all modes are debug/testOnly and mutually exclusive. Ordinary
+`scripts/check.py android` remains uncapped. Unset ambient `LIBSQLITE3_FLAGS`;
+the reviewed native build owns the option. Host measurements do not qualify an
+Android rebuild, device execution or partition-level exhaustion.
+
+Historical [15-page evidence](../../docs/native/CAPACITY_VERIFICATION_2026-10-22.md),
+[schema3 Host calibration](../../docs/native/SCHEMA3_CAPACITY_HOST_2026-10-23.md)
+and [schema3 Android qualification](../../docs/native/SCHEMA3_CAPACITY_VERIFICATION_2026-10-23.md)
+remain dated and unchanged. Their v3/17-page device results are not results for
+this schema4/v4 source. The [capacity lifecycle follow-up](../../docs/native/CAPACITY_LIFECYCLE_VERIFICATION_2026-10-22.md)
+explains the original native/Compose selector split: default discovery runs the
+three original proofs once; the historical UI-class selector runs its one UI
+method. No device control is performed by the build/audit commands above.
+
+The distinct relief fixture uses
+`python scripts/android_capacity_relief_probe.py build --offline`, application ID
+`org.locallore.app.capacityreliefv4`, `app/build-capacity-relief-v4` and mandatory
+`.gradle-capacity-relief-v4` cache. The fixed ceiling remains32 and padding payload
+remains3500 zero bytes. The measured Windows Host/helper schema4 baseline is23
+pages:8 fixed padding rows fill32; attempt9 returns actual Full; dropping only the
+verified owned table frees9 pages and restores the exact schema. The current
+reference includes all four migration contracts and schema SHA-256
+`e9f19f3b384c52c5c7bd360e23c1db9e76314152f750a5b9f07f7a14071f8362`.
+
+Schema/migration, marker and file identities are checked read-only before
+writable helper admission and rechecked around mutations. Unknown helper
+ownership fences subsequent native calls. Padding temporarily violates the exact
+schema contract and is removed before a new Android native owner opens. Normal
+production schema checks remain unchanged. Actual Windows Host tests preserve the
+same Ready key through repeated Full, then commit once after relief or preserve
+cancellation through relief/reopen. This is same-live-owner recovery after
+freeing pages; it is not ordinary valid-schema restart under Full or partition
+ENOSPC. The initial old14/15 expectation failed and cleaned up successfully;
+that [measurement](../../docs/native/SCHEMA4_CAPACITY_CALIBRATION_2026-10-23.md)
+is retained. Historical [schema1 relief evidence](../../docs/native/CAPACITY_RELIEF_VERIFICATION_2026-10-22.md)
+and schema3 device results remain separate.
+
 The opt-in [helper-failure boundary](../../docs/native/HELPER_FAILURE_CONTRACT.md)
-has a separate `org.locallore.app.capacityfaultsv3` installation. Build/audit it
-with `python scripts/android_capacity_fault_probe.py build --offline`; its
-exclusive outputs/cache are `app/build-capacity-faults-v3` and
-`.gradle-capacity-faults-v3`. Fixed fault controls require this debug/testOnly
-identity and exact `faults_format=1` metadata.
-The helper requests a complete, nonincremental Kotlin test-module compilation.
-Select each nested
-`SqliteHelperFaultTest` class in a fresh instrumentation process; poisoning has
-no reset API. Default discovery retains the three normal relief cases. Existing
-ordinary/full/relief packages and their artifacts stay separate.
-The [dated helper-failure verification](../../docs/native/HELPER_FAILURE_VERIFICATION_2026-10-23.md)
-records final results, earlier failed attempts, artifact identities and limits.
-After verifying the selected authorized device, installed app/test hashes and
-absence of other owners, use this instrumentation argument set for each of
-`MarkerDrift`, `DispatchFence`, `Malformed`, `Oversize`, `Timeout` and `AfterFill`:
+has the separate `org.locallore.app.capacityfaultsv4` installation. Build/audit it
+with `python scripts/android_capacity_fault_probe.py build --offline`; outputs/cache
+are `app/build-capacity-faults-v4` and `.gradle-capacity-faults-v4`. Fixed fault
+controls require this debug/testOnly identity and exact `faults_format=1`.
+The helper requests complete nonincremental Kotlin test-module compilation.
+Select each nested `SqliteHelperFaultTest` class in a fresh instrumentation
+process: poisoning has no reset API. Default discovery retains the three normal
+relief cases. Ordinary/full/relief/fault packages and historical artifacts remain
+separate.
+
+The current Windows Host cohort exercised five fixed helper faults with zero
+later Host calls/workspace opens; it does not qualify Android process/reader
+behavior. The [dated schema3 helper-failure verification](../../docs/native/HELPER_FAILURE_VERIFICATION_2026-10-23.md)
+retains its actual device results. Current Android native/APK/device verification
+is still required before reusing those claims. For a separately authorized,
+verified selected device and installed v4 app/test hashes, the selector shape is:
 
 ```powershell
-adb -s <authorized-emulator> shell am instrument -w -r -e class 'org.locallore.app.SqliteHelperFaultTest$MarkerDrift' org.locallore.app.capacityfaultsv3.test/androidx.test.runner.AndroidJUnitRunner
+adb -s <authorized-emulator> shell am instrument -w -r -e class 'org.locallore.app.SqliteHelperFaultTest$MarkerDrift' org.locallore.app.capacityfaultsv4.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
-Run each selector separately; use the same runner without `-e class` for default
-discovery. The qualification used a 180-second bounded client per invocation,
-verified task-owned package stops before/after, and checked client/process
-termination plus unchanged prior installed identities. A timeout or uncertain
-owner is a failed check, not permission to continue. Retain failed synthetic
-roots; do not clear app data to reset the process fence.
+This documentation update did not execute that command. Run `MarkerDrift`,
+`DispatchFence`, `Malformed`, `Oversize`, `Timeout` and `AfterFill` separately;
+use the same runner without `-e class` for default discovery. Retain the existing
+bounded client/process ownership checks. A timeout or uncertain owner is a failed
+check; retain failed synthetic roots instead of clearing app data to reset the
+process fence.
 Cancellation that reaches Rust before submit exists is reconciled as an uncommitted
 request. A late submit remains a draft; recovery does not regenerate or commit it.
 The earlier [ADR-0004](../../docs/adr/0004-android-engine-boundary.md) remains the

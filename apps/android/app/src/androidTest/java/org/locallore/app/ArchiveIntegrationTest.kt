@@ -76,7 +76,7 @@ class ArchiveIntegrationTest {
             val first = DurableGateway(Transport(database))
             val before = try { first.initialize() } finally { first.close() }
             assertEquals(1, before.schemaVersion)
-            assertEquals(3, before.databaseSchemaVersion)
+            assertEquals(4, before.databaseSchemaVersion)
             val second = DurableGateway(Transport(database))
             try {
                 val after = second.initialize()
@@ -84,7 +84,7 @@ class ArchiveIntegrationTest {
                 assertEquals(before.revision, after.revision)
                 assertEquals(before.messages, after.messages)
                 assertEquals(1, after.schemaVersion)
-                assertEquals(3, after.databaseSchemaVersion)
+                assertEquals(4, after.databaseSchemaVersion)
             } finally { second.close() }
             // Retain this private synthetic workspace as evidence; never delete shared/default saves.
         }
@@ -111,7 +111,7 @@ class ArchiveIntegrationTest {
                     assertEquals(original.messages, imported.messages)
                     assertEquals(original.revision, imported.revision)
                     assertEquals(original.potionOwner, imported.potionOwner)
-                    assertEquals(3, imported.databaseSchemaVersion)
+                    assertEquals(4, imported.databaseSchemaVersion)
                     assertTrue(gateway.respond(DemoAction.GIVE_POTION, imported.revision, DemoMode.ACCEPTED) is DemoResult.Rejected)
                     assertEquals(imported.messages, gateway.snapshot().messages)
                 } finally { gateway.close() }

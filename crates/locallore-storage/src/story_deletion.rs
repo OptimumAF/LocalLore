@@ -16,7 +16,9 @@ use std::{
     time::SystemTime,
 };
 
-const TABLES: [&str; 10] = [
+const TABLES: [&str; 12] = [
+    "memory_job_packets",
+    "memory_jobs",
     "branch_retention",
     "derived_memory",
     "event_witnesses",
@@ -260,7 +262,7 @@ fn preview(
     let (committed, draft, noncommitted): (i64,i64,i64) = connection.query_row(
         "SELECT coalesce(sum(status='committed'),0),coalesce(sum(status='draft'),0),coalesce(sum(status<>'committed'),0) FROM turns WHERE story_id=?1", [&scope.story], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
     let result = StoryDeletionPreview {
-        version: 2,
+        version: 3,
         story_id: scope.story.clone(),
         title,
         root_branch,
@@ -270,7 +272,7 @@ fn preview(
         noncommitted_turns: noncommitted
             .try_into()
             .map_err(|_| DeletionError::Integrity)?,
-        derived_packets: counts["derived_memory"],
+        derived_packets: counts["derived_memory"] + counts["memory_job_packets"],
         rows: counts,
         privacy_warning: WARNING.into(),
     };

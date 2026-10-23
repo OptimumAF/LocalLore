@@ -362,7 +362,7 @@ fn parent_retirement_preserves_all_children_original_history_context_and_unrelat
     let all = f.rows(&parent.story);
     let plan = f.prepare(&parent);
     let p = plan.preview();
-    assert_eq!(p.version, 1);
+    assert_eq!(p.version, 2);
     assert_eq!(p.retained_heads[&parent.branch], 9);
     assert_eq!(p.retained_descendants.len(), 3);
     assert_eq!(p.removed_committed_turns, 2);
@@ -370,7 +370,9 @@ fn parent_retirement_preserves_all_children_original_history_context_and_unrelat
     assert_eq!(p.removed_rows["accepted_events"], 3);
     assert_eq!(p.removed_rows["turns"], 6);
     assert_eq!(p.removed_rows["branch_entities"], 0);
-    assert_eq!(p.removed_rows.len(), 7);
+    assert_eq!(p.removed_rows.len(), 9);
+    assert_eq!(p.removed_rows["memory_jobs"], 0);
+    assert_eq!(p.removed_rows["memory_job_packets"], 0);
     assert!(serde_json::to_vec(p).unwrap().len() <= 60 * 1024);
     same(&all, &f.rows(&parent.story));
     let outcome = f.store.delete_branch(plan, &|| false).unwrap();

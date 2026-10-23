@@ -4,8 +4,8 @@ The desktop and Android shells use `locallore-workspace::open` and the same
 `locallore-storage` owner. Each application has a local SQLite database. Shared
 means shared implementation and contracts, not cross-device synchronization.
 The canonical ledger/receipt contract remains v1. The current Store upgrades its
-SQLite implementation to schema3 for bounded derived memory and retained-branch
-metadata, without a new model
+SQLite implementation to schema4 for bounded derived memory, retained-branch
+metadata and restart-safe derived work, without a new model
 dependency or a second persistence owner.
 
 Native startup chooses a private directory outside the source tree. Desktop uses
@@ -16,19 +16,25 @@ location, schema/rules versions and selected story/branch/head. These directorie
 do not protect against a compromised OS, user backups or explicit file copying.
 
 Before an exact owned old database is upgraded, the private factory makes a new
-consistent, fsynced sibling backup named `.before-v3-<unique>.sqlite`. It never
+consistent, fsynced sibling backup named `.before-v4-<unique>.sqlite`. It never
 overwrites, deletes or automatically restores the backup. Backup/schema/space
 failures prevent migration and surface through the existing fixed error path.
 These retained plaintext backups contain private stories and drafts. Foreign or
-altered databases are refused before backup/migration. Historical schema1/2
+altered databases are refused before backup/migration. Historical schema1/2/3
 remain verifiable through the owner's read-only API.
 
 Host `workspace.schema_version` remains the compatible workspace contract1 used
 by existing desktop/Android clients. Additive `database_schema_version` reports
-the actual SQLite version3 separately. Native storage inspection and database-
+the actual SQLite version4 separately. Native storage inspection and database-
 copy manifests use that actual version. Canonical readable inspection bundles
 keep their distinct export schema1; they are not SQLite schemas or playable
 archives. Normal non-database exports omit the derived cache.
+
+The [schema4 job protocol](M07_DURABLE_JOBS_2026-10-23.md) adds no automatic
+background maintenance or inference. Current deletion previews use branch
+version2 and story version3 to include the new derived row counts in explicit
+consent. Android keeps exact historical preview key sets and rejects unknown
+versions or inconsistent counts. The workspace wire contract remains1.
 
 The bounded `workspace` operation returns metadata for up to 256 stories in
 deterministic story-ID order. Startup resumes the first entry, or creates a new

@@ -470,7 +470,8 @@ pub fn validate_archive(bytes: &[u8], cancel: &dyn Fn() -> bool) -> Result<Valid
     if envelope.privacy != "full_private"
         || payload.domain_version != VERSION
         || !(1..=SCHEMA_VERSION).contains(&payload.source_database_schema_version)
-        || envelope.version == ARCHIVE_VERSION && payload.source_database_schema_version != 3
+        || envelope.version == ARCHIVE_VERSION
+            && !(3..=4).contains(&payload.source_database_schema_version)
         || payload.story.seed.version != VERSION
         || payload.transcript != TRANSCRIPT
     {

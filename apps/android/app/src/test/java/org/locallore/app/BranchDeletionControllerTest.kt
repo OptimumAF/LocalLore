@@ -60,7 +60,7 @@ class BranchDeletionControllerTest {
     @Test fun mismatchedNativePreviewNeverPublishesConsentOrCommits(): Unit = runTest {
         val mutations: List<(BranchDeletionPrepared) -> BranchDeletionPrepared> = listOf(
             { it.copy(token = 0) },
-            { it.copy(preview = it.preview.copy(version = 2)) },
+            { it.copy(preview = it.preview.copy(version = 3)) },
             { it.copy(preview = it.preview.copy(storyId = "other-story")) },
             { it.copy(preview = it.preview.copy(branchId = "sibling")) },
             { it.copy(preview = it.preview.copy(rootBranch = "parent")) },

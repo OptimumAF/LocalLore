@@ -14,7 +14,9 @@ use std::{
     path::PathBuf,
 };
 
-const TABLES: [&str; 7] = [
+const TABLES: [&str; 9] = [
+    "memory_job_packets",
+    "memory_jobs",
     "derived_memory",
     "event_witnesses",
     "accepted_events",
@@ -132,6 +134,9 @@ fn required_cap(nodes: &BTreeMap<String, Node>, id: &str) -> Result<Option<u64>>
 }
 fn graph(connection: &Connection, story: &str, cancel: &dyn Fn() -> bool) -> Result<Graph> {
     check(cancel)?;
+    let schema_version = crate::identity(connection)
+        .map_err(|_| DeletionError::Integrity)?
+        .1;
     let metadata: Option<(String, String)> = connection
         .query_row(
             "SELECT title,root_branch FROM stories WHERE story_id=?1",
@@ -222,7 +227,17 @@ fn graph(connection: &Connection, story: &str, cancel: &dyn Fn() -> bool) -> Res
             if required_cap(&nodes, id)? != Some(node.head) {
                 return Err(DeletionError::Integrity);
             }
-            for table in ["derived_memory", "branch_projections"] {
+            for table in [
+                "memory_job_packets",
+                "memory_jobs",
+                "derived_memory",
+                "branch_projections",
+            ] {
+                // Historical schema3 inspection is read-only and has no v2
+                // job tables. Check their emptiness only when they exist.
+                if schema_version < 4 && matches!(table, "memory_job_packets" | "memory_jobs") {
+                    continue;
+                }
                 if count(
                     connection,
                     &format!(
@@ -393,7 +408,7 @@ fn make_plan(
     }
     removed_branches.sort();
     let preview = BranchDeletionPreview {
-        version: 1,
+        version: 2,
         scope: scope.clone(),
         title: graph.title.clone(),
         root_branch: graph.root.clone(),

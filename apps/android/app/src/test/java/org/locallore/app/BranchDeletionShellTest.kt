@@ -39,7 +39,7 @@ class BranchDeletionShellTest {
         var initializeGate: CompletableDeferred<Unit>? = null
         fun saved(): SavedSnapshot {
             if (empty) return SavedSnapshot(0, "", emptyList(), "/synthetic/stories.sqlite3", 1,
-                emptyList(), null, databaseSchemaVersion = 3, textProvider = TextProvider.SCRIPTED)
+                emptyList(), null, databaseSchemaVersion = 4, textProvider = TextProvider.SCRIPTED)
             val root = SavedStory("synthetic-story", "main", "Original title", 8)
             val timelines = listOfNotNull(
                 SavedTimeline(root.story, "main", null, null, 8, 0),
@@ -51,7 +51,7 @@ class BranchDeletionShellTest {
                 "Confirmed ${current.branch}", false)), "/synthetic/stories.sqlite3", 1,
                 listOf(root), root.copy(branch = current.branch, revision = current.revision,
                     title = if (current.branch == "main") root.title else "Selected display title"),
-                current.uncommittedDrafts, databaseSchemaVersion = 3, timelines = timelines,
+                current.uncommittedDrafts, databaseSchemaVersion = 4, timelines = timelines,
                 textProvider = TextProvider.SCRIPTED)
         }
         override suspend fun readStoryRecord(query: StoryRecordQuery): StoryRecordPage {
@@ -92,10 +92,11 @@ class BranchDeletionShellTest {
         var cancels = 0
         var loseAcknowledgement = false
         var previewGate: CompletableDeferred<Unit>? = null
+        var previewVersion = 1
         override suspend fun prepareBranch(story: SavedStory): BranchDeletionPrepared {
             requests += story
             previewGate?.let { withContext(NonCancellable) { it.await() } }
-            return BranchDeletionPrepared(23, BranchDeletionPreview(1, story.story, story.branch,
+            return BranchDeletionPrepared(23, BranchDeletionPreview(previewVersion, story.story, story.branch,
                 story.title, "main", story.revision, mapOf("child" to 13L), mapOf("parent" to 10L),
                 emptyList(), mapOf("turns" to 3L), 1, 2, "Synthetic native retention warning"))
         }
@@ -127,6 +128,18 @@ class BranchDeletionShellTest {
     private fun model(stories: Stories, deletes: Deletes, whole: WholeDeletes? = null, archives: Archives? = null) =
         ShellViewModel(stories, archiveGateway = archives, deletionGateway = whole,
             branchDeletionGateway = deletes).also { owners.put("branch", it) }
+
+    @Test fun currentPreviewVersionTwoIsAcceptedAndFutureThreeRefused() = runTest(dispatcher) {
+        for (version in listOf(2, 3)) {
+            val stories = Stories(); val deletes = Deletes(stories).apply { previewVersion = version }
+            val model = model(stories, deletes); advanceUntilIdle(); model.openBranchDeletion(); advanceUntilIdle()
+            val state = checkNotNull(model.branchDeletionController).state.value
+            if (version == 2) assertEquals(2, checkNotNull(state.prepared).preview.version)
+            else { assertNull(state.prepared); assertEquals(1, deletes.cancels) }
+            assertTrue(deletes.commits.isEmpty()); assertEquals(0, stories.mutations)
+            owners.clear(); advanceUntilIdle()
+        }
+    }
 
     @Test fun childConsentUsesOriginalTitleAndCurrentChildHeadAndGuardsAllCompetingActions() = runTest(dispatcher) {
         val stories = Stories(); val deletes = Deletes(stories); val whole = WholeDeletes()

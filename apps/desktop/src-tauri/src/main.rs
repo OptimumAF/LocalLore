@@ -122,11 +122,12 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
               std::env::var("LOCALLORE_D04_HARNESS").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_D05_HARNESS").as_deref() == Ok("1"),
             if reopened {
                 "reopened"
             } else if std::env::var("LOCALLORE_TEST_RESTART").as_deref() == Ok("1") {

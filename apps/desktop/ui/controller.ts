@@ -1,3 +1,5 @@
+import { initialQuery, checkedPage } from "./query-model";
+import type { InspectionQuery, Source, Row } from "./query-model";
 import {
     category,
     difference,
@@ -38,6 +40,8 @@ interface Operation {
 }
 export class Controller {
     private state: State = {
+        query: initialQuery(),
+        labPending: false,
         model: null,
         modelBusy: false,
         modelCancelReady: false,
@@ -92,6 +96,7 @@ export class Controller {
     private drafts = new Map<string, string>();
     private epoch = 0;
     private inspectionEpoch = 0;
+    private queryEpoch = 0;
     private readSequence = 0;
     private nextTurn = 0;
     private operation: Operation | null = null;
@@ -628,6 +633,7 @@ export class Controller {
         this.setDraft(draft);
     }
     private async invalidate() {
+        this.clearQuery();
         await this.cancelExport();
         const old = this.operation ?? this.unresolved;
         if (old) {
@@ -678,6 +684,8 @@ export class Controller {
                         this.state.play.revision > view.revision)
                 )
                     return;
+                if (this.state.play?.revision !== view.revision)
+                    this.clearQuery();
                 this.patch({
                     play: view,
                     sessions: this.state.sessions.map((s) =>
@@ -694,6 +702,7 @@ export class Controller {
                     ),
                 });
                 await this.inspect();
+                if (this.state.query.shown) await this.queryInspection();
                 return;
             } catch (error) {
                 if (
@@ -743,6 +752,212 @@ export class Controller {
             });
         } catch (error) {
             if (epoch === this.inspectionEpoch) this.fail(error);
+        }
+    }
+    private queryPatch(value: Partial<State["query"]>) {
+        this.patch({ query: { ...this.state.query, ...value } });
+    }
+    private clearQuery() {
+        this.queryEpoch++;
+        this.queryPatch({
+            page: null,
+            busy: false,
+            error: null,
+            selectedKey: null,
+            cursor: null,
+            cursors: [],
+            notice: "",
+        });
+    }
+    async showQuery(shown = true) {
+        this.clearQuery();
+        this.queryPatch({ shown });
+        if (shown) await this.queryInspection();
+    }
+    async browseInspection(
+        value: Partial<
+            Pick<State["query"], "view" | "atRevision" | "search" | "limit">
+        >,
+    ) {
+        this.clearQuery();
+        this.queryPatch(value);
+        await this.queryInspection();
+    }
+    async queryInspection(cursor: string | null = this.state.query.cursor) {
+        const session = this.selected(),
+            play = this.state.play;
+        if (!session || !play || !this.state.query.shown) return;
+        const seq = ++this.queryEpoch,
+            epoch = this.epoch;
+        const observer: InspectionQuery["observer"] =
+            this.state.view === "play" || this.state.observer === "player"
+                ? { kind: "player" }
+                : this.state.observer === "omniscient"
+                  ? { kind: "omniscient" }
+                  : { kind: "character", id: this.state.observer };
+        const state = this.state.query;
+        const query: InspectionQuery = {
+            version: 1,
+            scope: { ...session.scope },
+            expected_head: play.revision,
+            at_revision: state.atRevision,
+            observer,
+            view: state.view,
+            cursor,
+            limit: state.limit,
+            search: state.search,
+        };
+        const key = structural({
+            session: session.id,
+            query,
+            view: this.state.view,
+        });
+        const stillCurrent = () =>
+            seq === this.queryEpoch &&
+            this.current({ session, epoch }) &&
+            this.state.query.shown &&
+            key ===
+                structural({
+                    session: this.state.selectedId,
+                    query: {
+                        ...query,
+                        expected_head: this.state.play?.revision,
+                        at_revision: this.state.query.atRevision,
+                        observer:
+                            this.state.view === "play" ||
+                            this.state.observer === "player"
+                                ? { kind: "player" }
+                                : this.state.observer === "omniscient"
+                                  ? { kind: "omniscient" }
+                                  : {
+                                        kind: "character",
+                                        id: this.state.observer,
+                                    },
+                        view: this.state.query.view,
+                        search: this.state.query.search,
+                        limit: this.state.query.limit,
+                        cursor: this.state.query.cursor,
+                    },
+                    view: this.state.view,
+                });
+        this.queryPatch({
+            busy: true,
+            error: null,
+            page: null,
+            selectedKey: null,
+            cursor,
+            notice: "",
+        });
+        try {
+            const page = checkedPage(
+                await this.gateway.call({
+                    op: "inspection_query",
+                    session: session.id,
+                    query,
+                }),
+                query,
+            );
+            if (!stillCurrent()) return;
+            this.queryPatch({ page });
+        } catch (error) {
+            if (stillCurrent())
+                this.queryPatch({
+                    error: category(error),
+                    notice:
+                        category(error) === "Stale"
+                            ? "Story changed. Refresh the current head before inspecting again."
+                            : category(error) === "InvalidBoundary"
+                              ? "Choose revision 0, current, or the end of a completed turn. Partial turns cannot be inspected."
+                              : category(error) === "InvalidRequest"
+                                ? "Search allows 256 UTF-8 bytes without control characters. No inspection data is shown."
+                                : category(error) === "UnsupportedBranch"
+                                  ? "Historical inspection for this branch is not implemented."
+                                  : "No inspection data is shown for this request.",
+                });
+        } finally {
+            if (stillCurrent()) this.queryPatch({ busy: false });
+        }
+    }
+    async nextInspection() {
+        const q = this.state.query;
+        if (q.busy || !q.page?.next_cursor) return;
+        this.queryPatch({ cursors: [...q.cursors, q.cursor] });
+        await this.queryInspection(q.page.next_cursor);
+    }
+    async previousInspection() {
+        const q = this.state.query;
+        if (q.busy || !q.cursors.length) return;
+        const cursors = [...q.cursors],
+            cursor = cursors.pop()!;
+        this.queryPatch({ cursors });
+        await this.queryInspection(cursor);
+    }
+    selectInspection(key: string) {
+        if (this.state.query.page?.rows.some((row) => row.key === key))
+            this.queryPatch({ selectedKey: key });
+    }
+    async followInspectionSource(source: Source) {
+        if (source.kind === "withheld") return;
+        await this.browseInspection(
+            source.kind === "seed"
+                ? { view: "profiles", atRevision: 0, search: "" }
+                : { view: "history", search: `"sequence":${source.value},` },
+        );
+        const row = this.state.query.page?.rows.find(
+            (r) =>
+                source.kind === "seed" ||
+                (r.kind === "event" && r.event.sequence === source.value),
+        );
+        if (row) this.selectInspection(row.key);
+    }
+    async whyInspection(row: Row) {
+        const underlying =
+            row.kind === "change" ? (row.after ?? row.before!) : row;
+        await this.browseInspection({
+            view: "provenance",
+            search:
+                underlying.kind === "event"
+                    ? JSON.stringify({
+                          kind: "event",
+                          value: underlying.event.sequence,
+                      })
+                    : JSON.stringify(underlying.key),
+        });
+    }
+    async inspectEventTurn(turn: string) {
+        const boundary = this.state.play?.receipts
+            .find((r) => r.request.turn === turn)
+            ?.events.at(-1)?.sequence;
+        if (boundary === undefined) {
+            this.queryPatch({
+                notice: "Completed turn boundary is unavailable in this snapshot.",
+            });
+            return;
+        }
+        await this.browseInspection({
+            view: "turn_diff",
+            atRevision: boundary,
+            search: "",
+        });
+    }
+    async copyInspection(write: (text: string) => Promise<void>) {
+        const q = this.state.query,
+            row = q.page?.rows.find((r) => r.key === q.selectedKey);
+        if (!row || !q.page || q.busy) return;
+        const context = {
+            scope: q.page.scope,
+            head: q.page.head,
+            revision: q.page.revision,
+            observer: q.page.observer,
+            privacy: q.page.privacy,
+        };
+        try {
+            await write(JSON.stringify({ context, row }, null, 2));
+            this.queryPatch({
+                notice: "Selected read-only record copied by your explicit action.",
+            });
+        } catch {
+            this.queryPatch({ error: "CopyFailed" });
         }
     }
     showModel() {
@@ -844,7 +1059,15 @@ export class Controller {
             if (this.modelOperation === operation) this.fail(error);
         }
     }
+    requestLab() {
+        this.patch({ labPending: true });
+    }
+    acknowledgeLab(confirmed: boolean) {
+        this.patch({ labPending: false });
+        if (confirmed) this.setView("lab");
+    }
     setView(view: State["view"]) {
+        this.clearQuery();
         if (
             view === "play" &&
             ["full", "database"].includes(this.state.exports.mode)
@@ -858,11 +1081,14 @@ export class Controller {
             visibleError: null,
         });
         void this.inspect();
+        if (this.state.query.shown) void this.queryInspection();
     }
     setObserver(observer: string) {
         if (this.state.view !== "lab") return;
+        this.clearQuery();
         this.patch({ observer });
         void this.inspect();
+        if (this.state.query.shown) void this.queryInspection();
     }
     setDraft(draft: string) {
         this.patch({ draft: draft.slice(0, 2048) });
@@ -899,8 +1125,15 @@ export class Controller {
             this.state.play?.receipts.some(
                 (r) => r.request.turn === receiptTurn,
             )
-        )
+        ) {
             this.patch({ receiptTurn, inspectorOpen: true });
+            if (this.state.query.shown)
+                void this.browseInspection({
+                    view: "turn_diff",
+                    atRevision: this.receipt()?.events.at(-1)?.sequence ?? null,
+                    search: "",
+                });
+        }
     }
     private control(
         op: Operation,
@@ -1288,6 +1521,7 @@ export class Controller {
             session = this.selected();
         return {
             version: 1,
+            query: s.query,
             model: s.model,
             playMode: s.playMode,
             inputKind: s.inputKind,

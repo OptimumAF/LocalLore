@@ -14,6 +14,21 @@ const MAX_JSON: usize = 256 * 1024;
 const MAX_PNG: usize = 16 * 1024 * 1024;
 const MAX_CHECKPOINTS: usize = 40;
 const LABELS: &[&str] = &[
+    "d05-profile",
+    "d05-history",
+    "d05-knowledge",
+    "d05-npc",
+    "d05-relationships",
+    "d05-diff",
+    "d05-source",
+    "d05-pagination",
+    "d05-unsupported",
+    "d05-stale",
+    "d05-switch",
+    "d05-narrow",
+    "d05-restart",
+    "d05-finished",
+    "d05-failure",
     "export-diagnostics-preview",
     "export-diagnostics-saved",
     "export-player-preview",

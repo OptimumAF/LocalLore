@@ -1,6 +1,7 @@
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Controller } from "./controller";
 import { ModelPanel } from "./ModelPanel";
+import { QueryInspector } from "./QueryInspector";
 import { InspectionPanel } from "./InspectionPanel";
 import { PAGE_SIZE, composerShortcut } from "./model";
 import type { Action, FakeMode, Receipt } from "./model";
@@ -20,6 +21,37 @@ function intent(r: Receipt) {
                   .map((c) => c.op.replaceAll("_", " "))
                   .join(", ")
             : r.request.intent.kind;
+}
+function LabAcknowledgement({ controller: c }: { controller: Controller }) {
+    const dialog = useRef<HTMLDialogElement>(null);
+    useEffect(() => {
+        dialog.current?.showModal();
+        return () => dialog.current?.close();
+    }, []);
+    return (
+        <dialog
+            ref={dialog}
+            className="spoiler-dialog"
+            aria-labelledby="spoiler-title"
+            onCancel={(event) => {
+                event.preventDefault();
+                c.acknowledgeLab(false);
+            }}
+        >
+            <h2 id="spoiler-title">Open Story Lab?</h2>
+            <p>
+                Private character and omniscient inspection can reveal spoilers.
+                This lens never grants characters knowledge or changes the
+                player.
+            </p>
+            <button autoFocus onClick={() => c.acknowledgeLab(true)}>
+                I understand � reveal spoilers
+            </button>
+            <button onClick={() => c.acknowledgeLab(false)}>
+                Stay in Play
+            </button>
+        </dialog>
+    );
 }
 export function App({ controller: c }: { controller: Controller }) {
     const s = useSyncExternalStore(c.subscribe, c.get),
@@ -45,7 +77,7 @@ export function App({ controller: c }: { controller: Controller }) {
                     </button>
                     <button
                         aria-pressed={s.view === "lab"}
-                        onClick={() => c.setView("lab")}
+                        onClick={() => c.requestLab()}
                     >
                         Story Lab · spoilers
                     </button>
@@ -65,7 +97,10 @@ export function App({ controller: c }: { controller: Controller }) {
                             : "Storage unavailable"}
                 </span>
             </header>
-            <div className={`workspace ${s.inspectorOpen ? "" : "collapsed"}`}>
+            {s.labPending && <LabAcknowledgement controller={c} />}
+            <div
+                className={`workspace ${s.inspectorOpen && !s.query.shown ? "" : "collapsed"}`}
+            >
                 <aside className="sidebar" aria-label="Story sessions">
                     <h2>
                         {s.ephemeral ? "Fixture sessions" : "Saved stories"}
@@ -85,6 +120,12 @@ export function App({ controller: c }: { controller: Controller }) {
                         </button>
                     ))}
                     <div className="export-actions">
+                        <button
+                            onClick={() => void c.showQuery(!s.query.shown)}
+                            aria-pressed={s.query.shown}
+                        >
+                            Memory & evidence
+                        </button>
                         <button onClick={() => c.showModel()}>
                             Local model management
                         </button>
@@ -257,302 +298,327 @@ export function App({ controller: c }: { controller: Controller }) {
                             not change character knowledge or permissions.
                         </div>
                     )}
-                    <ModelPanel controller={c} state={s} />
-                    <InspectionPanel controller={c} state={s} />
-                    <div
-                        className="transcript"
-                        aria-label="Finalized transcript"
-                        aria-live="polite"
-                    >
-                        {!rows.length && (
-                            <div className="empty">
-                                <h2>Lantern Quay</h2>
-                                <p>
-                                    {s.playMode === "local"
-                                        ? "Write an attempted action or speak dialogue through the local director and narrator. Only approved engine receipts enter this transcript."
-                                        : "Exercise the original fixture with explicit actions or dialogue. Only accepted engine receipts enter this transcript."}
-                                </p>
-                                <p className="muted">
-                                    Rowan has one potion. Mira is nearby; Sable
-                                    is unwitnessed.
-                                </p>
-                            </div>
-                        )}
-                        {rows.map((r) => (
-                            <article className="turn" key={r.request.turn}>
-                                <div className="turn-head">
-                                    <small>
-                                        {r.request.turn} · accepted revision{" "}
-                                        {r.events.at(-1)?.sequence}
-                                    </small>
-                                    <button
-                                        onClick={() =>
-                                            c.selectReceipt(r.request.turn)
-                                        }
-                                        aria-label={`Inspect receipt ${r.request.turn}`}
+                    {s.query.shown ? (
+                        <QueryInspector controller={c} state={s} />
+                    ) : (
+                        <>
+                            <ModelPanel controller={c} state={s} />
+                            <InspectionPanel controller={c} state={s} />
+                            <div
+                                className="transcript"
+                                aria-label="Finalized transcript"
+                                aria-live="polite"
+                            >
+                                {!rows.length && (
+                                    <div className="empty">
+                                        <h2>Lantern Quay</h2>
+                                        <p>
+                                            {s.playMode === "local"
+                                                ? "Write an attempted action or speak dialogue through the local director and narrator. Only approved engine receipts enter this transcript."
+                                                : "Exercise the original fixture with explicit actions or dialogue. Only accepted engine receipts enter this transcript."}
+                                        </p>
+                                        <p className="muted">
+                                            Rowan has one potion. Mira is
+                                            nearby; Sable is unwitnessed.
+                                        </p>
+                                    </div>
+                                )}
+                                {rows.map((r) => (
+                                    <article
+                                        className="turn"
+                                        key={r.request.turn}
                                     >
-                                        Inspect receipt
+                                        <div className="turn-head">
+                                            <small>
+                                                {r.request.turn} · accepted
+                                                revision{" "}
+                                                {r.events.at(-1)?.sequence}
+                                            </small>
+                                            <button
+                                                onClick={() =>
+                                                    c.selectReceipt(
+                                                        r.request.turn,
+                                                    )
+                                                }
+                                                aria-label={`Inspect receipt ${r.request.turn}`}
+                                            >
+                                                Inspect receipt
+                                            </button>
+                                        </div>
+                                        <p className="intent">
+                                            You: {intent(r)}
+                                        </p>
+                                        <p>{r.narration}</p>
+                                        {r.play && (
+                                            <p className="muted">
+                                                Local play v{r.play.version} -{" "}
+                                                {r.play.fallback
+                                                    ? "Engine fallback narration after validation"
+                                                    : "Generated narration accepted by shared policy"}
+                                                ; repairs {r.play.repairs}.
+                                                Profile{" "}
+                                                {String(r.play.profile.id)}
+                                            </p>
+                                        )}
+                                    </article>
+                                ))}
+                            </div>
+                            {receipts.length > PAGE_SIZE && (
+                                <nav
+                                    className="pagination"
+                                    aria-label="Transcript pages"
+                                >
+                                    <button
+                                        disabled={s.page === 0}
+                                        onClick={() => c.page(s.page - 1)}
+                                    >
+                                        Previous
                                     </button>
+                                    <span>
+                                        Page {s.page + 1} /{" "}
+                                        {Math.ceil(receipts.length / PAGE_SIZE)}{" "}
+                                        · {receipts.length} accepted turns
+                                    </span>
+                                    <button
+                                        disabled={
+                                            (s.page + 1) * PAGE_SIZE >=
+                                            receipts.length
+                                        }
+                                        onClick={() => c.page(s.page + 1)}
+                                    >
+                                        Next
+                                    </button>
+                                </nav>
+                            )}
+                            {s.visibleError && (
+                                <div className="message error" role="alert">
+                                    {s.visibleError} ·{" "}
+                                    {s.visibleError === "TransportUnknown"
+                                        ? "Outcome uncertain. Retry checks the original turn; no rollback is assumed."
+                                        : "No new transcript entry was added by this failed attempt."}
                                 </div>
-                                <p className="intent">You: {intent(r)}</p>
-                                <p>{r.narration}</p>
-                                {r.play && (
-                                    <p className="muted">
-                                        Local play v{r.play.version} -{" "}
-                                        {r.play.fallback
-                                            ? "Engine fallback narration after validation"
-                                            : "Generated narration accepted by shared policy"}
-                                        ; repairs {r.play.repairs}. Profile{" "}
-                                        {String(r.play.profile.id)}
+                            )}
+                            {s.visibleError === "ClarificationRequired" && (
+                                <p className="message" role="note">
+                                    Please rephrase as one clear supported
+                                    action. This experimental profile supports a
+                                    limited set of English scene actions; it
+                                    does not guess alternate effects. Try: I
+                                    give my last potion to Mira. Choose Dialogue
+                                    to speak your exact words.
+                                </p>
+                            )}
+                            <div className="message notice" role="status">
+                                {s.pending ? (
+                                    <span className="pending">
+                                        {s.pending.stage} · {s.pending.turn} -
+                                        Not canonical until accepted
+                                    </span>
+                                ) : (
+                                    s.notice ||
+                                    (s.turnStatus?.phase === "cancelled"
+                                        ? "Cancelled before commit. Draft preserved."
+                                        : "")
+                                )}
+                            </div>
+                            <form
+                                id="composer"
+                                className="compose"
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    void c.send();
+                                }}
+                            >
+                                <label>
+                                    Inference profile{" "}
+                                    <select
+                                        value={s.playMode}
+                                        disabled={!!s.pending}
+                                        onChange={(e) =>
+                                            c.setPlayMode(
+                                                e.target.value as
+                                                    "fixture" | "local",
+                                            )
+                                        }
+                                    >
+                                        <option value="fixture">
+                                            Deterministic fake fixture
+                                        </option>
+                                        <option
+                                            value="local"
+                                            disabled={!s.model?.loaded}
+                                        >
+                                            Experimental local Qwen CPU
+                                        </option>
+                                    </select>
+                                </label>
+                                {s.playMode === "local" ? (
+                                    <label>
+                                        Player input{" "}
+                                        <select
+                                            value={s.inputKind}
+                                            disabled={!!s.pending}
+                                            onChange={(e) =>
+                                                c.setInputKind(
+                                                    e.target.value as
+                                                        "action" | "dialogue",
+                                                )
+                                            }
+                                        >
+                                            <option value="action">
+                                                Attempt an action
+                                            </option>
+                                            <option value="dialogue">
+                                                Speak dialogue
+                                            </option>
+                                        </select>
+                                    </label>
+                                ) : (
+                                    <div className="compose-row">
+                                        <label>
+                                            Explicit fixture action
+                                            <select
+                                                value={s.action}
+                                                disabled={!!s.pending}
+                                                onChange={(e) =>
+                                                    c.setAction(
+                                                        e.target
+                                                            .value as Action,
+                                                    )
+                                                }
+                                            >
+                                                {Object.entries(actions).map(
+                                                    ([key, label]) => (
+                                                        <option
+                                                            key={key}
+                                                            value={key}
+                                                        >
+                                                            {label}
+                                                        </option>
+                                                    ),
+                                                )}
+                                            </select>
+                                        </label>
+                                        <label>
+                                            Fake provider behavior
+                                            <select
+                                                value={s.fakeMode}
+                                                disabled={!!s.pending}
+                                                onChange={(e) =>
+                                                    c.setFakeMode(
+                                                        e.target
+                                                            .value as FakeMode,
+                                                    )
+                                                }
+                                            >
+                                                <option value="accepted">
+                                                    Accepted plumbing
+                                                </option>
+                                                <option value="delayed">
+                                                    Delayed plumbing
+                                                </option>
+                                                <option value="malformed">
+                                                    Malformed output
+                                                </option>
+                                                <option value="rejected">
+                                                    Invalid proposal
+                                                </option>
+                                                <option value="failed">
+                                                    Provider failure
+                                                </option>
+                                                <option value="cancelled">
+                                                    Provider cancellation
+                                                </option>
+                                            </select>
+                                        </label>
+                                    </div>
+                                )}
+                                {s.playMode === "local" && (
+                                    <p className="hint">
+                                        Experimental English single-action
+                                        support: try "I give my last potion to
+                                        Mira." Use Dialogue for exact spoken
+                                        words. Unknown, ambiguous, negated or
+                                        compound actions require clarification.
                                     </p>
                                 )}
-                            </article>
-                        ))}
-                    </div>
-                    {receipts.length > PAGE_SIZE && (
-                        <nav
-                            className="pagination"
-                            aria-label="Transcript pages"
-                        >
-                            <button
-                                disabled={s.page === 0}
-                                onClick={() => c.page(s.page - 1)}
-                            >
-                                Previous
-                            </button>
-                            <span>
-                                Page {s.page + 1} /{" "}
-                                {Math.ceil(receipts.length / PAGE_SIZE)} ·{" "}
-                                {receipts.length} accepted turns
-                            </span>
-                            <button
-                                disabled={
-                                    (s.page + 1) * PAGE_SIZE >= receipts.length
-                                }
-                                onClick={() => c.page(s.page + 1)}
-                            >
-                                Next
-                            </button>
-                        </nav>
-                    )}
-                    {s.visibleError && (
-                        <div className="message error" role="alert">
-                            {s.visibleError} ·{" "}
-                            {s.visibleError === "TransportUnknown"
-                                ? "Outcome uncertain. Retry checks the original turn; no rollback is assumed."
-                                : "No new transcript entry was added by this failed attempt."}
-                        </div>
-                    )}
-                    {s.visibleError === "ClarificationRequired" && (
-                        <p className="message" role="note">
-                            Please rephrase as one clear supported action. This
-                            experimental profile supports a limited set of
-                            English scene actions; it does not guess alternate
-                            effects. Try: I give my last potion to Mira. Choose
-                            Dialogue to speak your exact words.
-                        </p>
-                    )}
-                    <div className="message notice" role="status">
-                        {s.pending ? (
-                            <span className="pending">
-                                {s.pending.stage} · {s.pending.turn} - Not
-                                canonical until accepted
-                            </span>
-                        ) : (
-                            s.notice ||
-                            (s.turnStatus?.phase === "cancelled"
-                                ? "Cancelled before commit. Draft preserved."
-                                : "")
-                        )}
-                    </div>
-                    <form
-                        id="composer"
-                        className="compose"
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            void c.send();
-                        }}
-                    >
-                        <label>
-                            Inference profile{" "}
-                            <select
-                                value={s.playMode}
-                                disabled={!!s.pending}
-                                onChange={(e) =>
-                                    c.setPlayMode(
-                                        e.target.value as "fixture" | "local",
-                                    )
-                                }
-                            >
-                                <option value="fixture">
-                                    Deterministic fake fixture
-                                </option>
-                                <option
-                                    value="local"
-                                    disabled={!s.model?.loaded}
-                                >
-                                    Experimental local Qwen CPU
-                                </option>
-                            </select>
-                        </label>
-                        {s.playMode === "local" ? (
-                            <label>
-                                Player input{" "}
-                                <select
-                                    value={s.inputKind}
-                                    disabled={!!s.pending}
-                                    onChange={(e) =>
-                                        c.setInputKind(
-                                            e.target.value as
-                                                "action" | "dialogue",
-                                        )
+                                <label className="sr-only" htmlFor="draft">
+                                    Dialogue draft
+                                </label>
+                                <textarea
+                                    id="draft"
+                                    value={s.draft}
+                                    maxLength={2048}
+                                    placeholder={
+                                        s.playMode === "local"
+                                            ? "Describe an attempted action, or choose Dialogue to speak. Your text cannot grant author powers."
+                                            : "Draft dialogue for Mira. Select Say draft aloud to submit it."
                                     }
-                                >
-                                    <option value="action">
-                                        Attempt an action
-                                    </option>
-                                    <option value="dialogue">
-                                        Speak dialogue
-                                    </option>
-                                </select>
-                            </label>
-                        ) : (
-                            <div className="compose-row">
-                                <label>
-                                    Explicit fixture action
-                                    <select
-                                        value={s.action}
-                                        disabled={!!s.pending}
-                                        onChange={(e) =>
-                                            c.setAction(
-                                                e.target.value as Action,
-                                            )
+                                    onChange={(e) => c.setDraft(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (
+                                            composerShortcut({
+                                                key: e.key,
+                                                shiftKey: e.shiftKey,
+                                                isComposing:
+                                                    e.nativeEvent.isComposing,
+                                            }) === "submit"
+                                        ) {
+                                            e.preventDefault();
+                                            if (!s.pending) void c.send();
                                         }
+                                    }}
+                                />
+                                <p className="hint">
+                                    Enter submits the selected action ·
+                                    Shift+Enter adds a newline. Pending
+                                    generation is not canonical; only finalized
+                                    approved receipts change the story. Dialogue
+                                    never grants author powers.
+                                </p>
+                                <div className="send-row">
+                                    <button
+                                        className="primary"
+                                        disabled={!selected || !!s.pending}
                                     >
-                                        {Object.entries(actions).map(
-                                            ([key, label]) => (
-                                                <option key={key} value={key}>
-                                                    {label}
-                                                </option>
-                                            ),
-                                        )}
-                                    </select>
-                                </label>
-                                <label>
-                                    Fake provider behavior
-                                    <select
-                                        value={s.fakeMode}
-                                        disabled={!!s.pending}
-                                        onChange={(e) =>
-                                            c.setFakeMode(
-                                                e.target.value as FakeMode,
-                                            )
+                                        Submit action
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={
+                                            !s.pending ||
+                                            s.pending.stage === "cancelling"
                                         }
+                                        onClick={() => void c.cancel()}
                                     >
-                                        <option value="accepted">
-                                            Accepted plumbing
-                                        </option>
-                                        <option value="delayed">
-                                            Delayed plumbing
-                                        </option>
-                                        <option value="malformed">
-                                            Malformed output
-                                        </option>
-                                        <option value="rejected">
-                                            Invalid proposal
-                                        </option>
-                                        <option value="failed">
-                                            Provider failure
-                                        </option>
-                                        <option value="cancelled">
-                                            Provider cancellation
-                                        </option>
-                                    </select>
-                                </label>
-                            </div>
-                        )}
-                        {s.playMode === "local" && (
-                            <p className="hint">
-                                Experimental English single-action support: try
-                                "I give my last potion to Mira." Use Dialogue
-                                for exact spoken words. Unknown, ambiguous,
-                                negated or compound actions require
-                                clarification.
-                            </p>
-                        )}
-                        <label className="sr-only" htmlFor="draft">
-                            Dialogue draft
-                        </label>
-                        <textarea
-                            id="draft"
-                            value={s.draft}
-                            maxLength={2048}
-                            placeholder={
-                                s.playMode === "local"
-                                    ? "Describe an attempted action, or choose Dialogue to speak. Your text cannot grant author powers."
-                                    : "Draft dialogue for Mira. Select Say draft aloud to submit it."
-                            }
-                            onChange={(e) => c.setDraft(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (
-                                    composerShortcut({
-                                        key: e.key,
-                                        shiftKey: e.shiftKey,
-                                        isComposing: e.nativeEvent.isComposing,
-                                    }) === "submit"
-                                ) {
-                                    e.preventDefault();
-                                    if (!s.pending) void c.send();
-                                }
-                            }}
-                        />
-                        <p className="hint">
-                            Enter submits the selected action · Shift+Enter adds
-                            a newline. Pending generation is not canonical; only
-                            finalized approved receipts change the story.
-                            Dialogue never grants author powers.
-                        </p>
-                        <div className="send-row">
-                            <button
-                                className="primary"
-                                disabled={!selected || !!s.pending}
-                            >
-                                Submit action
-                            </button>
-                            <button
-                                type="button"
-                                disabled={
-                                    !s.pending ||
-                                    s.pending.stage === "cancelling"
-                                }
-                                onClick={() => void c.cancel()}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                disabled={
-                                    !!s.pending ||
-                                    !s.turnStatus ||
-                                    s.turnStatus.phase === "committed"
-                                }
-                                onClick={() => void c.retry()}
-                            >
-                                Retry
-                            </button>
-                            <button
-                                type="button"
-                                disabled={!selected}
-                                onClick={() => void c.reset()}
-                            >
-                                {s.ephemeral
-                                    ? "Reset fixture"
-                                    : "Reset as new story"}
-                            </button>
-                        </div>
-                    </form>
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={
+                                            !!s.pending ||
+                                            !s.turnStatus ||
+                                            s.turnStatus.phase === "committed"
+                                        }
+                                        onClick={() => void c.retry()}
+                                    >
+                                        Retry
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={!selected}
+                                        onClick={() => void c.reset()}
+                                    >
+                                        {s.ephemeral
+                                            ? "Reset fixture"
+                                            : "Reset as new story"}
+                                    </button>
+                                </div>
+                            </form>
+                        </>
+                    )}
                 </main>
-                {s.inspectorOpen && (
+                {s.inspectorOpen && !s.query.shown && (
                     <aside
                         className="inspector"
                         aria-label="Revision inspector"

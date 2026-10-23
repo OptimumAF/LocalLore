@@ -73,6 +73,7 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
             val playerText = when (intent.getString("kind")) {
                 "actions" -> intent.getJSONArray("value").toString()
                 "dialogue" -> intent.getJSONObject("value").getString("text")
+                "free_text" -> intent.getJSONObject("value").getString("text")
                 else -> "Recorded intention"
             }
             messages += SceneMessage(i * 2L + 1, playerText, true)

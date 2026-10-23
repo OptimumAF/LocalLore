@@ -1,10 +1,10 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Legacy in-memory fixture boundary and production shared durable workspace adapter.
 //! JNI owns no Java references or native threads.
-pub mod workspace;
 pub mod archive;
 #[cfg(target_os = "android")]
 mod archive_jni;
+pub mod workspace;
 use locallore::{contracts::*, engine::Engine, inference::*};
 use serde::Deserialize;
 use serde_json::{json, Value};

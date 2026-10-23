@@ -26,6 +26,8 @@ android {
         versionName = "0.1.0-shell"
         manifestPlaceholders["diagnosticTestAuthority"] = if (archiveVerification == "true")
             "org.locallore.app.archiveverify.test.diagnostics" else "org.locallore.app.test.diagnostics"
+        manifestPlaceholders["archiveTestAuthority"] = if (archiveVerification == "true")
+            "org.locallore.app.archiveverify.test.archives" else "org.locallore.app.test.archives"
         if (archiveVerification == "true") {
             applicationIdSuffix = ".archiveverify"
             versionNameSuffix = "-archive-verification"

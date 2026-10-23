@@ -29,6 +29,7 @@ data class ShellState(
     val uncommittedDrafts: Int = 0,
     val rulesProfile: String? = null,
     val databaseSchemaVersion: Int? = null,
+    val archiveActive: Boolean = false,
 )
 
 sealed interface DemoResult {

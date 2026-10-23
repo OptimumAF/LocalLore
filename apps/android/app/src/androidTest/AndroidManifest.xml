@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
+        <provider
+            android:name="org.locallore.app.ArchiveDocumentProvider"
+            android:authorities="${archiveTestAuthority}"
+            android:exported="true"
+            android:process=":archive_test_provider" />
         <!-- Test APK only: separate process proves actual ContentResolver descriptor ownership. -->
         <provider
             android:name="org.locallore.app.TestDiagnosticProvider"

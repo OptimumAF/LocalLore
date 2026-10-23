@@ -10,9 +10,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class ShellViewModel(
+class ShellViewModel internal constructor(
     private val gateway: DemoGateway,
     private val diagnosticLog: DiagnosticLog = DiagnosticLog(),
+    archiveGateway: ArchiveGateway? = null,
 ) : ViewModel() {
     private val mutable = MutableStateFlow(ShellState())
     val state: StateFlow<ShellState> = mutable.asStateFlow()
@@ -22,6 +23,62 @@ class ShellViewModel(
     private val diagnosticController = DiagnosticsController(diagnosticLog, viewModelScope)
     val diagnostics = diagnosticController.state
     private var disposed = false
+    internal val archiveController = archiveGateway?.let { ArchiveController(it, viewModelScope, ::archiveClosed) }
+    val archive = archiveController?.state ?: MutableStateFlow(ArchiveUiState()).asStateFlow()
+    private var archiveImportPicker: Long? = null
+    private var archiveExportPicker: Long? = null
+
+    fun openArchive() {
+        val controller = archiveController ?: return
+        val before = mutable.value
+        if (disposed || before.archiveActive || before.busy || before.recoveryRequired || !before.persistent) return
+        val story = before.selectedStory ?: return
+        diagnosticController.dismiss()
+        mutable.value = before.copy(archiveActive = true)
+        controller.open(story)
+    }
+    private fun archiveClosed(imported: ArchiveImported?) {
+        if (disposed) return
+        mutable.value = mutable.value.copy(archiveActive = false)
+        savedOperation(if (imported == null) "Saved-story library refreshed." else "Imported story opened from accepted history.") {
+            val saved = gateway.snapshot() ?: return@savedOperation null
+            if (imported == null) saved else {
+                val selected = saved.stories.firstOrNull { it.story == imported.story && it.branch == imported.branch }
+                    ?: error("Imported story unavailable")
+                gateway.resumeSaved(selected)
+            }
+        }
+    }
+    internal fun beginArchiveImportPicker(): Boolean {
+        val ticket = archiveController?.beginImportPicker() ?: return false
+        archiveImportPicker = ticket
+        return true
+    }
+    internal fun completeArchiveImport(reader: (suspend () -> ByteArray)?) {
+        val ticket = archiveImportPicker ?: return
+        archiveImportPicker = null
+        archiveController?.completeImport(ticket, reader)
+    }
+    internal fun archiveImportPickerFailed() {
+        val ticket = archiveImportPicker ?: return
+        archiveImportPicker = null
+        archiveController?.pickerFailed(ticket)
+    }
+    internal fun beginArchiveExportPicker(): Boolean {
+        val ticket = archiveController?.beginExportPicker() ?: return false
+        archiveExportPicker = ticket
+        return true
+    }
+    internal fun completeArchiveExport(writer: (suspend (ByteArray) -> Unit)?) {
+        val ticket = archiveExportPicker ?: return
+        archiveExportPicker = null
+        archiveController?.completeExport(ticket, writer)
+    }
+    internal fun archiveExportPickerFailed() {
+        val ticket = archiveExportPicker ?: return
+        archiveExportPicker = null
+        archiveController?.pickerFailed(ticket)
+    }
 
     init {
         if (gateway.durable) {
@@ -59,15 +116,15 @@ class ShellViewModel(
     }
 
     fun recover() {
-        if (!disposed && !mutable.value.busy && gateway.durable) savedOperation("Saved progress recovered.") {
+        if (!disposed && !mutable.value.busy && !mutable.value.archiveActive && gateway.durable) savedOperation("Saved progress recovered.") {
             if (mutable.value.storageLocation == null) gateway.initialize() else gateway.recoverSaved()
         }
     }
     fun resume(story: SavedStory) {
-        if (!disposed && !mutable.value.busy && gateway.durable) savedOperation("Saved story resumed.") { gateway.resumeSaved(story) }
+        if (!disposed && !mutable.value.busy && !mutable.value.archiveActive && gateway.durable) savedOperation("Saved story resumed.") { gateway.resumeSaved(story) }
     }
 
-    fun openDiagnostics() { if (!disposed && !mutable.value.busy) diagnosticController.open() }
+    fun openDiagnostics() { if (!disposed && !mutable.value.busy && !mutable.value.archiveActive) diagnosticController.open() }
     fun closeDiagnostics() = diagnosticController.dismiss()
     fun clearDiagnostics() = diagnosticController.clear()
     fun beginDiagnosticExport() = diagnosticController.beginExport()
@@ -75,11 +132,11 @@ class ShellViewModel(
     fun completeDiagnosticExport(writer: (suspend (ByteArray) -> Unit)?) = diagnosticController.completeExport(writer)
 
     fun setMode(mode: DemoMode) {
-        if (!mutable.value.busy && !mutable.value.recoveryRequired) mutable.value = mutable.value.copy(mode = mode, notice = null)
+        if (!disposed && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.recoveryRequired) mutable.value = mutable.value.copy(mode = mode, notice = null)
     }
 
     fun submit(action: DemoAction) {
-        if (disposed || mutable.value.busy || mutable.value.recoveryRequired) return
+        if (disposed || mutable.value.busy || mutable.value.archiveActive || mutable.value.recoveryRequired) return
         val before = mutable.value
         val ticket = ++generation
         mutable.value = before.copy(busy = true, preparingResponse = true, notice = null)
@@ -157,7 +214,7 @@ class ShellViewModel(
 
     fun reset() {
         // A retained UI callback must not reopen a native session after onCleared.
-        if (disposed) return
+        if (disposed || mutable.value.archiveActive) return
         if (gateway.durable && mutable.value.busy) return
         val start = System.nanoTime()
         diagnosticController.dismiss()
@@ -172,6 +229,9 @@ class ShellViewModel(
 
     override fun onCleared() {
         disposed = true
+        archiveController?.dispose()
+        archiveImportPicker = null
+        archiveExportPicker = null
         diagnosticController.dispose()
         generation++
         gateway.close()

@@ -127,5 +127,137 @@ export async function runForkIndependentReview() {
             },
         );
     }
+    for (const action of ["confirm", "lookup", "restore"] as const) {
+        await run(
+            `second recovery save blocks nested ${action} admission`,
+            async () => {
+                const calls: string[] = [];
+                const saved: string[] = [];
+                const nested: Promise<void>[] = [];
+                let unchangedDuringSave = false;
+                const controller = new ForkController(
+                    async (name) => {
+                        calls.push(name);
+                        throw Error("UnexpectedIPC");
+                    },
+                    async () => {},
+                    (request) => {
+                        saved.push(request.child_branch);
+                        if (saved.length !== 2) return;
+                        const before = controller.get();
+                        if (action === "confirm")
+                            nested.push(controller.confirm(true));
+                        else if (action === "lookup")
+                            nested.push(controller.lookup());
+                        else
+                            controller.restore({
+                                parent: original.scope,
+                                child_branch: "nested-restored-child",
+                                expected_parent_revision: 4,
+                                at_revision: 1,
+                            });
+                        unchangedDuringSave = controller.get() === before;
+                    },
+                );
+                controller.contextChanged(original);
+                controller.prepare(2, "first-review-child");
+                controller.prepare(1, "second-review-child");
+                await Promise.all(nested);
+                require(saved.length === 2, "both explicit saves exercised");
+                require(
+                    saved[0] === "first-review-child" &&
+                        saved[1] === "second-review-child",
+                    "no nested recovery identity save",
+                );
+                require(
+                    unchangedDuringSave,
+                    "nested control cannot publish during synchronous save",
+                );
+                require(calls.length === 0, "no nested start or lookup IPC");
+                require(
+                    controller.get().request?.child_branch === saved[1],
+                    "final presentation matches the durably saved identity",
+                );
+                require(
+                    controller.get().status === "prepared" &&
+                        !controller.get().busy &&
+                        !controller.get().lookupOnly &&
+                        !controller.get().consent &&
+                        controller.get().result === null,
+                    "new request needs its own explicit consent",
+                );
+                controller.dispose();
+            },
+        );
+    }
+
+    for (const path of ["confirm", "lookup"] as const) {
+        for (const action of ["switch", "dispose"] as const) {
+            await run(
+                `${path} result notification ${action} prevents stale refresh`,
+                async () => {
+                    const calls: string[] = [];
+                    let refreshes = 0;
+                    const controller = new ForkController(
+                        async (name, args) => {
+                            calls.push(name);
+                            if (name === "archive_cancel") return {};
+                            const reply = completed(args!.input as ForkRequest);
+                            if (name === "fork_start") return reply;
+                            require(name === "fork_lookup", "closed lookup path");
+                            return {
+                                version: 1,
+                                kind: "fork_lookup",
+                                found: true,
+                                outcome: {
+                                    ...reply.result.outcome,
+                                    created: false,
+                                },
+                            };
+                        },
+                        async () => {
+                            refreshes++;
+                        },
+                        () => {},
+                    );
+                    controller.contextChanged(original);
+                    controller.prepare(2, "review-child");
+                    let notified = false;
+                    const release = controller.subscribe(() => {
+                        if (!notified && controller.get().result !== null) {
+                            notified = true;
+                            if (action === "switch")
+                                controller.contextChanged(replacement);
+                            else controller.dispose();
+                        }
+                    });
+                    if (path === "confirm") await controller.confirm(true);
+                    else await controller.lookup();
+                    require(notified, "result subscriber exercised");
+                    require(
+                        controller.get().result === null &&
+                            !controller.get().consent,
+                        "replacement/disposed presentation stays cleared",
+                    );
+                    require(
+                        refreshes === 0,
+                        "result notification retirement fences later refresh",
+                    );
+                    require(
+                        calls.filter((name) => name === "fork_start").length ===
+                            (path === "confirm" ? 1 : 0),
+                        "lookup and selection change never create a child",
+                    );
+                    require(
+                        calls.filter((name) => name === "fork_lookup").length ===
+                            (path === "lookup" ? 1 : 0),
+                        "no reentrant lookup",
+                    );
+                    release();
+                    controller.dispose();
+                },
+            );
+        }
+    }
     return { kind: "actual-controller-mock-ipc", results };
 }

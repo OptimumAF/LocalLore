@@ -38,6 +38,7 @@ data class ShellState(
     val databaseSchemaVersion: Int? = null,
     val archiveActive: Boolean = false,
     val deletionActive: Boolean = false,
+    val forkActive: Boolean = false,
     val timelines: List<SavedTimeline> = emptyList(),
 )
 

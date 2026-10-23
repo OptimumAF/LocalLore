@@ -93,13 +93,13 @@ fn submit(host: &Host, session: &str, request: &Request) {
     );
     assert_eq!(v["data"]["phase"], "queued", "{v}");
 }
-fn commit(host: &Host, session: &str, request: &Request) -> Receipt {
+fn commit(host: &Host, session: &str, request: &Request) -> Value {
     submit(host, session, request);
     let v = op(host, session, &request.scope, &request.turn, "prepare");
     assert_eq!(v["data"]["phase"], "ready", "{v}");
     let v = op(host, session, &request.scope, &request.turn, "commit");
     assert_eq!(v["data"]["phase"], "committed", "{v}");
-    serde_json::from_value(v["data"]["receipt"].clone()).unwrap()
+    v["data"]["receipt"].clone()
 }
 fn fork(parent: &Scope, child: &str, expected: u64, at: u64) -> WorkspaceForkRequest {
     WorkspaceForkRequest {
@@ -139,7 +139,7 @@ fn completed_fork_preserves_original_scopes_and_excludes_future_and_sibling() {
     let temp = Temp::new();
     let host = temp.host();
     let (session, root) = create(&host);
-    let inherited = commit(
+    let inherited_wire = commit(
         &host,
         &session,
         &request(
@@ -149,6 +149,8 @@ fn completed_fork_preserves_original_scopes_and_excludes_future_and_sibling() {
             vec![say("shared-prefix"), Command::Wait { ticks: 1 }],
         ),
     );
+    let inherited = temp.engine(&root).receipts()[0].clone();
+    assert_eq!(serde_json::to_value(&inherited).unwrap(), inherited_wire);
     assert_eq!(inherited.events().len(), 2);
     let before = temp.engine(&root).canonical_bytes();
     let counts = host.live_counts();
@@ -197,30 +199,33 @@ fn completed_fork_preserves_original_scopes_and_excludes_future_and_sibling() {
         &request(&child.scope, 2, "child-only", vec![say("CHILD-PRESENT")]),
     );
     let engine = temp.engine(&child.scope);
-    assert_eq!(engine.receipts(), [inherited.clone(), child_receipt]);
+    assert_eq!(engine.receipts().len(), 2);
+    assert_eq!(engine.receipts()[0], inherited);
+    assert_eq!(
+        serde_json::to_value(&engine.receipts()[1]).unwrap(),
+        child_receipt
+    );
     assert_eq!(engine.receipts()[0].request().scope, root);
     assert!(engine.receipts()[0]
         .events()
         .iter()
         .all(|event| event.scope() == &root));
-    let mira = host
-        .inspection_query(
-            &child_session,
-            &full_query(&child.scope, 3, Observer::Character { id: "mira".into() }),
-        )
-        .unwrap();
+    let mira = engine.character_context("mira", &child.scope, 3).unwrap();
     let visible = serde_json::to_string(&mira).unwrap();
     assert!(visible.contains("shared-prefix") && visible.contains("CHILD-PRESENT"));
     assert!(!visible.contains("PARENT-FUTURE") && !visible.contains("SIBLING-FUTURE"));
-    let sable = host
-        .inspection_query(
-            &child_session,
-            &full_query(&child.scope, 3, Observer::Character { id: "sable".into() }),
-        )
-        .unwrap();
+    let sable = engine.character_context("sable", &child.scope, 3).unwrap();
     assert!(!serde_json::to_string(&sable)
         .unwrap()
         .contains("shared-prefix"));
+    assert_eq!(
+        host.inspection_query(
+            &child_session,
+            &full_query(&child.scope, 3, Observer::Character { id: "mira".into() })
+        )
+        .unwrap_err(),
+        "Forbidden"
+    );
     assert_eq!(
         host.inspection_query(
             &child_session,

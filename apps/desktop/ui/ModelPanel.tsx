@@ -61,14 +61,16 @@ export function ModelPanel({
                 </p>
             )}
             <p role="status">
-                {model?.phase ?? "Checking status"}
+                {model?.phase === "unloading"
+                    ? "Unloading and waiting for local work to stop"
+                    : (model?.phase ?? "Checking status")}
                 {s.modelBusy ? ` - ${model?.percent ?? 0}%` : ""}
             </p>
             {s.modelBusy && (
                 <progress
                     max={100}
                     value={model?.percent ?? 0}
-                    aria-label="Model import progress"
+                    aria-label="Model operation progress"
                 />
             )}
             {model?.error && (

@@ -140,6 +140,9 @@ impl ModelManager {
         if s.job != operation_id {
             return Err("StaleModelOperation".into());
         }
+        if s.phase == "unloading" {
+            return Ok(json!({"status":"finishing_cleanup"}));
+        }
         if !matches!(
             s.phase,
             "choosing" | "checking" | "copying" | "loading" | "unloading"
@@ -157,6 +160,7 @@ impl ModelManager {
     ) -> Result<Value, String> {
         let (job, cancel) = lease.dispatch(epoch, || self.begin("choosing"))?;
         let result = (|| {
+            reap_imports(&self.root)?;
             if cancel.load(Ordering::SeqCst) || !lease.valid(epoch) {
                 return Err("Closed".into());
             }
@@ -198,6 +202,7 @@ impl ModelManager {
             if !lease.valid(epoch) {
                 return Err("Closed".into());
             }
+            reap_imports(&self.root)?;
             let mut runtime =
                 LocalRuntime::spawn_packaged_cancelled(&self.resource, &self.path(), || {
                     cancel.load(Ordering::SeqCst) || !lease.valid(epoch)
@@ -304,6 +309,81 @@ impl ModelManager {
 }
 fn runtime_error(error: locallore_local_runtime::Error) -> String {
     format!("{error:?}")
+}
+// A live import denies a second DELETE-access open. Reap only abandoned files
+// in this exact app-owned GUID namespace; never recurse or resolve a file after pinning.
+fn reap_imports(root: &Path) -> Result<(), String> {
+    if !root.exists() {
+        return Ok(());
+    }
+    let _pins = exports::pin_directory(root)?;
+    for entry in fs::read_dir(root).map_err(|_| "Io")?.take(128) {
+        let entry = entry.map_err(|_| "Io")?;
+        let name = entry.file_name();
+        let Some(id) = name
+            .to_str()
+            .and_then(|s| s.strip_prefix(".import-"))
+            .and_then(|s| s.strip_suffix(".part"))
+        else {
+            continue;
+        };
+        if id.len() != 36
+            || !id.bytes().enumerate().all(|(i, b)| {
+                if [8, 13, 18, 23].contains(&i) {
+                    b == b'-'
+                } else {
+                    b.is_ascii_hexdigit()
+                }
+            })
+        {
+            continue;
+        }
+        let _ = remove_abandoned_import(&entry.path());
+    }
+    Ok(())
+}
+fn remove_abandoned_import(path: &Path) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::{
+            fs::{MetadataExt, OpenOptionsExt},
+            io::AsRawHandle,
+        };
+        use windows::Win32::{
+            Foundation::HANDLE,
+            Storage::FileSystem::{
+                FileDispositionInfo, SetFileInformationByHandle, FILE_DISPOSITION_INFO,
+            },
+        };
+        let handle = OpenOptions::new()
+            .read(true)
+            .access_mode(0x80000000 | 0x00010000)
+            .share_mode(1)
+            .custom_flags(0x00200000)
+            .open(path)
+            .map_err(|_| "Io")?;
+        let meta = handle.metadata().map_err(|_| "Io")?;
+        if !meta.is_file() || meta.file_attributes() & 0x400 != 0 || meta.len() > MODEL_BYTES {
+            return Err("InvalidInput".into());
+        }
+        let info = FILE_DISPOSITION_INFO {
+            DeleteFile: true.into(),
+        };
+        unsafe {
+            SetFileInformationByHandle(
+                HANDLE(handle.as_raw_handle()),
+                FileDispositionInfo,
+                (&info as *const FILE_DISPOSITION_INFO).cast(),
+                std::mem::size_of::<FILE_DISPOSITION_INFO>() as u32,
+            )
+        }
+        .map_err(|_| "Io".to_owned())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = path;
+        Err("Unsupported".into())
+    }
 }
 fn copy_model(
     source: &Path,
@@ -487,6 +567,45 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+    #[test]
+    #[cfg(windows)]
+    fn abandoned_import_cleanup_preserves_active_unrelated_and_reparse_files() {
+        use std::os::windows::fs::{symlink_file, OpenOptionsExt};
+        let root = Root::new();
+        let stale = root
+            .0
+            .join(format!(".import-{}.part", exports::identifier().unwrap()));
+        let active = root
+            .0
+            .join(format!(".import-{}.part", exports::identifier().unwrap()));
+        let link = root
+            .0
+            .join(format!(".import-{}.part", exports::identifier().unwrap()));
+        let unrelated = root.0.join(".import-not-a-guid.part");
+        let approved = root.0.join("Qwen3-0.6B-Q8_0.gguf");
+        for path in [&stale, &active, &unrelated, &approved] {
+            fs::write(path, b"synthetic").unwrap();
+        }
+        let guard = OpenOptions::new()
+            .write(true)
+            .share_mode(1)
+            .open(&active)
+            .unwrap();
+        symlink_file(&unrelated, &link).unwrap();
+        reap_imports(&root.0).unwrap();
+        assert!(!stale.exists());
+        for path in [&active, &unrelated, &approved] {
+            assert_eq!(fs::read(path).unwrap(), b"synthetic");
+        }
+        assert!(fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        drop(guard);
+        reap_imports(&root.0).unwrap();
+        assert!(!active.exists());
+        assert_eq!(fs::read(&approved).unwrap(), b"synthetic");
     }
     #[test]
     fn poisoned_runtime_reports_failure_and_unload_finishes_before_error() {

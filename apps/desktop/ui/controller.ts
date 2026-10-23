@@ -777,13 +777,9 @@ export class Controller {
                     op.id === null &&
                     Number.isSafeInteger(model.operation_id) &&
                     model.operation_id > op.baseline &&
-                    [
-                        "choosing",
-                        "checking",
-                        "copying",
-                        "loading",
-                        "unloading",
-                    ].includes(model.phase)
+                    ["choosing", "checking", "copying", "loading"].includes(
+                        model.phase,
+                    )
                 ) {
                     op.id = model.operation_id;
                     this.patch({ modelCancelReady: true });

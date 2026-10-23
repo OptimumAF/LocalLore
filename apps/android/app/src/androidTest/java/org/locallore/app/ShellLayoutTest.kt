@@ -17,6 +17,16 @@ import org.locallore.app.ui.LocalLoreScreen
 class ShellLayoutTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun pendingResponseCancelControlInvokesItsCallback() {
+        var cancelled = false
+        compose.setContent {
+            LocalLoreScreen(ShellState(busy = true, preparingResponse = true), {}, {}, { cancelled = true }, {})
+        }
+        compose.onNodeWithTag("story-list").performScrollToNode(hasTestTag("cancel-turn"))
+        compose.onNodeWithTag("cancel-turn").assertIsDisplayed().performClick()
+        assertTrue(cancelled)
+    }
+
     @Test fun smallViewportAndDoubleFontScaleKeepControlsReachable() {
         var given = false
         var reset = false

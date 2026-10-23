@@ -188,7 +188,7 @@ class SqlitePaddingProcess {
             val finished = AtomicBoolean(false)
             Thread({ Thread.sleep(30_000); if (!finished.get()) kotlin.system.exitProcess(74) },
                 "locallore-padding-lease").also { it.isDaemon = true; it.start() }
-            var code = 71 // Fixed stage only: 71 input,72 path/marker,73 RO baseline,75 SQL,76 check,77 close,78 RW open.
+            var code = 71 // Fixed stages: 71 input,72 marker,73 RO baseline,75 SQL,76 check,77 close,78 RW open,80 post-RO drift.
             var database: SQLiteDatabase? = null
             try {
                 check(Build.VERSION.SDK_INT >= 28 && arguments.size == 4 && arguments[0] in setOf("fill", "drop"))
@@ -324,6 +324,7 @@ class SqlitePaddingProcess {
                 }
                 // Detect path/marker/file replacement during the read-only inspection.
                 // This is a trusted app-private boundary, not race-proof same-UID protection.
+                code = 80 // A changed boundary is uncertain even though this child has not opened RW.
                 if (fault == PaddingFault.MARKER_DRIFT_AFTER_RO) marker.appendText("drift\n", Charsets.US_ASCII)
                 ownershipUnchanged()
                 when (fault) {

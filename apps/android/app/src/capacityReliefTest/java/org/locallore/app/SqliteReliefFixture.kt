@@ -55,6 +55,7 @@ internal object SqliteReliefFixture {
                     else command.optString("turn").takeUnless { it.isEmpty() }
                 if (op == "submit") submits += JSONObject(command.toString())
                 if (op == "commit") beforeFirstCommit?.also { beforeFirstCommit = null }?.invoke()
+                check(ownershipClean.get() && PaddingOwner.ownershipKnown()) { "relief_ownership_unknown" }
                 nativeDispatches.incrementAndGet()
                 val reply = actual.exchange(command)
                 val data = if (reply.getString("status") == "ok") reply.getJSONObject("data") else null

@@ -134,6 +134,9 @@ fn required_cap(nodes: &BTreeMap<String, Node>, id: &str) -> Result<Option<u64>>
 }
 fn graph(connection: &Connection, story: &str, cancel: &dyn Fn() -> bool) -> Result<Graph> {
     check(cancel)?;
+    let schema_version = crate::identity(connection)
+        .map_err(|_| DeletionError::Integrity)?
+        .1;
     let metadata: Option<(String, String)> = connection
         .query_row(
             "SELECT title,root_branch FROM stories WHERE story_id=?1",
@@ -230,6 +233,11 @@ fn graph(connection: &Connection, story: &str, cancel: &dyn Fn() -> bool) -> Res
                 "derived_memory",
                 "branch_projections",
             ] {
+                // Historical schema3 inspection is read-only and has no v2
+                // job tables. Check their emptiness only when they exist.
+                if schema_version < 4 && matches!(table, "memory_job_packets" | "memory_jobs") {
+                    continue;
+                }
                 if count(
                     connection,
                     &format!(

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- No ordinary diagnostic provider or fixed authority in this separate test APK. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:label="LocalLore capacity relief instrumentation" />
+</manifest>

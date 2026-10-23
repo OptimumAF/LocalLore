@@ -1,0 +1,524 @@
+{
+  "version": 1,
+  "date": "2026-10-23",
+  "scope": "bounded_m05_05_android_original_text_plumbing_with_scripted_provider",
+  "status": "locally_verified_pending_owner_acceptance",
+  "prerequisite_prs": [
+    67,
+    64
+  ],
+  "base_commit": "8cc976a2663ca84437fa7bc2ffc0006aa895b449",
+  "final_executable_source": "77dcda9",
+  "no_new_dependency": true,
+  "schema_changed": false,
+  "real_model_loaded": false,
+  "physical_phone_executed": false,
+  "host": {
+    "command": "python scripts/check.py host --offline",
+    "status": "passed",
+    "workspace_rust": 243,
+    "native_linker": 3,
+    "python": 191,
+    "fmt_clippy_fixture_drift": "passed",
+    "prior_attempt": {
+      "status": "failed",
+      "rust_tests_passed": 243,
+      "python_suite_attempted": 116,
+      "python_errors": 1,
+      "failure": "existing Windows process-ownership 0.5-second test timed out with no captured child-PID stdout; cleanup assertion passed, then int(empty stdout) raised ValueError; capture cause unproven",
+      "followup": "targeted test passed 1/1, then full unchanged runner passed; no benchmark code or deadline changed"
+    }
+  },
+  "build_attempts": [
+    {
+      "attempt": 1,
+      "scope": "initial clean JVM (also built both native ABIs)",
+      "status": "failed",
+      "jvm_tests": 77,
+      "jvm_failures": 1,
+      "failure": "new fake TextGateway default cancelSaved invoked cancel a second time; fixture overrides cancelSaved to match durable gateway semantics"
+    },
+    {
+      "attempt": 2,
+      "scope": "integrated full build before new Android instrumentation sources",
+      "status": "passed",
+      "jvm_passed": 77,
+      "native_fresh_both_abis": true,
+      "lint_errors": 0,
+      "lint_warnings": 1
+    },
+    {
+      "attempt": 3,
+      "scope": "full build including new instrumentation and metadata test",
+      "status": "passed",
+      "jvm_passed": 77,
+      "native_task_reused": true,
+      "lint_errors": 0,
+      "lint_warnings": 1
+    },
+    {
+      "attempt": 4,
+      "scope": "final full build with structural original-request assertion correction",
+      "status": "passed",
+      "jvm_passed": 77,
+      "native_task_reused": true,
+      "lint_errors": 0,
+      "lint_warnings": 1
+    }
+  ],
+  "jvm_suites": [
+    {
+      "name": "org.locallore.app.DiagnosticsControllerTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "org.locallore.app.DiagnosticsTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "org.locallore.app.DurableShellTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "org.locallore.app.EventSourceControllerTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "org.locallore.app.EventSourceViewModelTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "org.locallore.app.PlayInputViewModelTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "org.locallore.app.ShellViewModelTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "org.locallore.app.StoryRecordControllerTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "org.locallore.app.StoryRecordViewModelTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "apk_audit": {
+    "status": "passed",
+    "no_internet_permission": true,
+    "abis": [
+      "x86_64",
+      "arm64-v8a"
+    ],
+    "elf_load_alignment_bytes": 16384,
+    "zip_alignment": "passed",
+    "arm64_packaged_not_executed": true
+  },
+  "emulator_environment": {
+    "count": 2,
+    "android_release": "15",
+    "api": 35,
+    "abi": "x86_64",
+    "page_bytes": 4096,
+    "known_prior_build_identities_guarded": true,
+    "install": "replace preserving app data",
+    "unrelated_emulators_untouched": true
+  },
+  "cohorts": [
+    {
+      "cohort": "initial-A",
+      "status": "failed",
+      "app_sha256": "652a7bd3f0ab157bdb0fa07e8191b27210ce03e0dbb28f5e79766dd51062fd43",
+      "test_sha256": "b4b048514a9a2867c110979770e77db86e57aabe65de393b48551b83631373b7",
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#playerPaginationAndGiftHistoryAreReadOnlyAndSurviveStrictReopen",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#androidJsonDecoderRejectsMalformedAndPrivatePagesWithoutEchoingPayloads",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#actualClaimsBeliefsAndKnownTruthKeepDistinctOriginsAndObserverGrants",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#decoderRequiresValidTypedEvidenceAndEventMetadataAndNeverLinksWithheldEvidence",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#crossSceneSourcesNavigateToExactAcceptedEventsWithoutNewTurnsAndReopenStrictly",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#playerSourcesCannotGrantNpcFutureBranchOrOtherStoryEvents",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#realUnknownTurnAndLostAcknowledgementsRecoverTheExactOriginalFreeTextKey",
+            "outcome": "failed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#cancellingOrDisposingActualPendingPreparationPreservesCanonAndReleasesOwners",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#cancelAndDisposalFenceADeferredSubmissionBeforeTheNativeExchange",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#malformedOrUnknownProviderMetadataCannotEnableTextOrSilentlySelectAnotherProvider",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#originalActionAndDialogueCommitAtomicallyAndReplayWithoutAnotherGeneration",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordScreenTest#collectedRecordPagesSearchOriginsAndGiftRefreshUseTheAuthoritativeSavedHead",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceScreenTest#sourceButtonsRestoreSearchedSecondPageAndFenceLinksAcrossSavedStories",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputScreenTest#exampleOnlyEditsAndAcceptedOriginalDraftsSurviveHeadsButNotStorySwitches",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputScreenTest#validationRejectionDuplicatePendingCancelAndDisposalKeepDraftsAndCanonSafe",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 1,
+        "final_success": false,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 14,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "failed"
+      },
+      "owned_app_stopped": true,
+      "prior_packages_preserved": true,
+      "clients_cleaned": true,
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      }
+    },
+    {
+      "cohort": "initial-B",
+      "status": "failed",
+      "app_sha256": "652a7bd3f0ab157bdb0fa07e8191b27210ce03e0dbb28f5e79766dd51062fd43",
+      "test_sha256": "b4b048514a9a2867c110979770e77db86e57aabe65de393b48551b83631373b7",
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#playerPaginationAndGiftHistoryAreReadOnlyAndSurviveStrictReopen",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#androidJsonDecoderRejectsMalformedAndPrivatePagesWithoutEchoingPayloads",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#actualClaimsBeliefsAndKnownTruthKeepDistinctOriginsAndObserverGrants",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#decoderRequiresValidTypedEvidenceAndEventMetadataAndNeverLinksWithheldEvidence",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#crossSceneSourcesNavigateToExactAcceptedEventsWithoutNewTurnsAndReopenStrictly",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#playerSourcesCannotGrantNpcFutureBranchOrOtherStoryEvents",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#realUnknownTurnAndLostAcknowledgementsRecoverTheExactOriginalFreeTextKey",
+            "outcome": "failed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#cancellingOrDisposingActualPendingPreparationPreservesCanonAndReleasesOwners",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#cancelAndDisposalFenceADeferredSubmissionBeforeTheNativeExchange",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#malformedOrUnknownProviderMetadataCannotEnableTextOrSilentlySelectAnotherProvider",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#originalActionAndDialogueCommitAtomicallyAndReplayWithoutAnotherGeneration",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordScreenTest#collectedRecordPagesSearchOriginsAndGiftRefreshUseTheAuthoritativeSavedHead",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceScreenTest#sourceButtonsRestoreSearchedSecondPageAndFenceLinksAcrossSavedStories",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputScreenTest#exampleOnlyEditsAndAcceptedOriginalDraftsSurviveHeadsButNotStorySwitches",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputScreenTest#validationRejectionDuplicatePendingCancelAndDisposalKeepDraftsAndCanonSafe",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 1,
+        "final_success": false,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 14,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "failed"
+      },
+      "owned_app_stopped": true,
+      "prior_packages_preserved": true,
+      "clients_cleaned": true,
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      }
+    },
+    {
+      "cohort": "final-A",
+      "status": "passed",
+      "app_sha256": "652a7bd3f0ab157bdb0fa07e8191b27210ce03e0dbb28f5e79766dd51062fd43",
+      "test_sha256": "8a3a479d9f83c4f2f487fe101aa4b521ddf0c6396a42377a0977eb1f93540236",
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#playerPaginationAndGiftHistoryAreReadOnlyAndSurviveStrictReopen",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#androidJsonDecoderRejectsMalformedAndPrivatePagesWithoutEchoingPayloads",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#actualClaimsBeliefsAndKnownTruthKeepDistinctOriginsAndObserverGrants",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#decoderRequiresValidTypedEvidenceAndEventMetadataAndNeverLinksWithheldEvidence",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#crossSceneSourcesNavigateToExactAcceptedEventsWithoutNewTurnsAndReopenStrictly",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#playerSourcesCannotGrantNpcFutureBranchOrOtherStoryEvents",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#originalActionAndDialogueCommitAtomicallyAndSurviveExactRetryAndReopen",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#realUnknownTurnAndLostAcknowledgementsRecoverTheExactOriginalFreeTextKey",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#cancellingOrDisposingActualPendingPreparationPreservesCanonAndReleasesOwners",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#cancelAndDisposalFenceADeferredSubmissionBeforeTheNativeExchange",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#malformedOrUnknownProviderMetadataCannotEnableTextOrSilentlySelectAnotherProvider",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordScreenTest#collectedRecordPagesSearchOriginsAndGiftRefreshUseTheAuthoritativeSavedHead",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceScreenTest#sourceButtonsRestoreSearchedSecondPageAndFenceLinksAcrossSavedStories",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputScreenTest#exampleOnlyEditsAndAcceptedOriginalDraftsSurviveHeadsButNotStorySwitches",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputScreenTest#validationRejectionDuplicatePendingCancelAndDisposalKeepDraftsAndCanonSafe",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 15,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "owned_app_stopped": true,
+      "prior_packages_preserved": true,
+      "clients_cleaned": true,
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      }
+    },
+    {
+      "cohort": "final-B",
+      "status": "passed",
+      "app_sha256": "652a7bd3f0ab157bdb0fa07e8191b27210ce03e0dbb28f5e79766dd51062fd43",
+      "test_sha256": "8a3a479d9f83c4f2f487fe101aa4b521ddf0c6396a42377a0977eb1f93540236",
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#playerPaginationAndGiftHistoryAreReadOnlyAndSurviveStrictReopen",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#androidJsonDecoderRejectsMalformedAndPrivatePagesWithoutEchoingPayloads",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordInstrumentedTest#actualClaimsBeliefsAndKnownTruthKeepDistinctOriginsAndObserverGrants",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#decoderRequiresValidTypedEvidenceAndEventMetadataAndNeverLinksWithheldEvidence",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#crossSceneSourcesNavigateToExactAcceptedEventsWithoutNewTurnsAndReopenStrictly",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceInstrumentedTest#playerSourcesCannotGrantNpcFutureBranchOrOtherStoryEvents",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#originalActionAndDialogueCommitAtomicallyAndSurviveExactRetryAndReopen",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#realUnknownTurnAndLostAcknowledgementsRecoverTheExactOriginalFreeTextKey",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#cancellingOrDisposingActualPendingPreparationPreservesCanonAndReleasesOwners",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#cancelAndDisposalFenceADeferredSubmissionBeforeTheNativeExchange",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputInstrumentedTest#malformedOrUnknownProviderMetadataCannotEnableTextOrSilentlySelectAnotherProvider",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.StoryRecordScreenTest#collectedRecordPagesSearchOriginsAndGiftRefreshUseTheAuthoritativeSavedHead",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.EventSourceScreenTest#sourceButtonsRestoreSearchedSecondPageAndFenceLinksAcrossSavedStories",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputScreenTest#exampleOnlyEditsAndAcceptedOriginalDraftsSurviveHeadsButNotStorySwitches",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.PlayInputScreenTest#validationRejectionDuplicatePendingCancelAndDisposalKeepDraftsAndCanonSafe",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 15,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "owned_app_stopped": true,
+      "prior_packages_preserved": true,
+      "clients_cleaned": true,
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      }
+    }
+  ],
+  "all_attempt_totals": {
+    "passed": 58,
+    "failed": 2,
+    "skipped": 0,
+    "unfinished": 0
+  },
+  "final_source_totals": {
+    "passed": 30,
+    "failed": 0,
+    "skipped": 0,
+    "unfinished": 0
+  },
+  "android_failure_disposition": "Both initial cohorts failed one new recovery assertion comparing JSONObject serialization property order. All original fields matched. Corrected independent recursive comparator keeps exact key sets, values, array order and scalar types; resubmission identity/text/kind/scope/head/turn checks retained. Initial first-fault-loop failure did not prove later fault variants; all three variants passed on both final cohorts.",
+  "limitations": [
+    "scripted plumbing is not the M05.05 real-local-backend gate",
+    "no language model, physical phone, ARM64 execution, 16KiB-page OS execution or model/narrative performance evidence",
+    "native Running observation does not prove entry into provider poll; separate Rust unit tests Pending cancellation",
+    "Compose pending windows use explicit test transport gates, not model timing",
+    "device exact-retry/reopen lacks an independent provider invocation counter",
+    "strict reopen is not process-death continuity",
+    "initial benchmark timeout is retained; no process-ownership implementation fix claimed",
+    "full M05.05 and milestone checkboxes remain unchecked pending owner acceptance and missing real-backend/phone gates"
+  ]
+}

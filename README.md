@@ -82,8 +82,18 @@ SDK 36, NDK 29.0.14206865 and both Rust Android targets installed:
 python scripts/check.py android
 ```
 
+The **Write a turn** composer now sends Action/Dialogue input through Rust's
+guarded play-v2 flow using an explicitly scripted fixture, with no language model.
+**Potion example** fills a draft; **Send** proposes the gift for engine validation.
+Dialogue records the player's literal statement without establishing world truth.
+Cancellation, exact-key recovery and saved-story reopen were exercised on both
+test emulators. This is input plumbing, not the real-backend/reference-phone demo.
+See [verification and limitations](docs/native/ANDROID_INPUT_VERIFICATION_2026-10-23.md).
+
 See [Android build and sample instructions](apps/android/README.md) and
 [dated native/emulator verification](docs/native/VERIFICATION_2026-10-22.md).
+The [durable-app FFI follow-up](docs/native/APP_DEVICE_VERIFICATION_2026-10-22.md)
+records current production-transport cancellation, disposal and process-restart checks.
 The [shared check runner/CI instructions](docs/ci/CHECKS.md) document offline
 mode, prerequisites and separate authorized emulator commands. Build/static
 checks do not establish hosted execution or device qualification.

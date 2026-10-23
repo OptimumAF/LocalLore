@@ -19,6 +19,10 @@ apps/android/app/build-archive-capacity/
 apps/android/.gradle-archive-capacity/
 apps/android/.gradle-story-deletion/
 apps/android/app/build-story-deletion/
+apps/android/app/build-capacity/
+apps/android/.gradle-capacity/
+apps/android/app/build-capacity-relief/
+apps/android/.gradle-capacity-relief/
 target/
 *.apk
 *.aab

@@ -19,10 +19,15 @@ class StoryDeletionShellTest {
     @After fun cleanup() { owners.clear(); Dispatchers.resetMain() }
     private inner class Stories : DemoGateway {
         override val durable = true
+        override val storyRecords = true
+        var textSubmissions = 0
+        override suspend fun respondText(input: PlayInput, revision: Long): DemoResult {
+            textSubmissions++; return DemoResult.Rejected("Inventory")
+        }
         var mutations = 0; var reconciles = 0; var empty = false
         fun saved() = SavedSnapshot(if (empty) 0 else 1, if (empty) "" else "Not in your inventory", emptyList(),
             "/synthetic/stories.sqlite3", 1, if (empty) emptyList() else listOf(original),
-            if (empty) null else original, databaseSchemaVersion = 2)
+            if (empty) null else original, textProvider = TextProvider.SCRIPTED, databaseSchemaVersion = 2)
         override suspend fun initialize() = saved()
         override suspend fun reconcileSaved(): SavedSnapshot { reconciles++; return saved() }
         override suspend fun respond(action: DemoAction, revision: Long, mode: DemoMode): DemoResult {
@@ -61,6 +66,8 @@ class StoryDeletionShellTest {
         assertNull(model.state.value.selectedStory); assertTrue(model.state.value.stories.isEmpty())
         assertEquals(0L, model.state.value.revision); assertTrue(model.state.value.messages.isEmpty())
         model.submit(DemoAction.GIVE_POTION); advanceUntilIdle(); assertEquals(0, stories.mutations)
+        model.submitText(PlayInput(PlayInputKind.ACTION, "I give my last potion to Mira."))
+        advanceUntilIdle(); assertEquals(0, stories.textSubmissions)
         model.reset(); advanceUntilIdle(); assertEquals(1, stories.mutations)
     }
     @Test fun disposedOwnerClosesGatewayAndRetainedCallbacksCannotReopen() = runTest(dispatcher) {
@@ -69,5 +76,20 @@ class StoryDeletionShellTest {
         advanceUntilIdle(); model.openDeletion(); advanceUntilIdle(); owners.clear()
         model.openDeletion(); model.reset(); advanceUntilIdle()
         assertEquals(1, deletes.closes); assertEquals(0, stories.mutations); assertEquals(0, stories.reconciles)
+    }
+    @Test fun deletionConsentFencesTextAndRecordCallbacksUntilDismissed() = runTest(dispatcher) {
+        val stories = Stories(); val model = ShellViewModel(stories, deletionGateway = Deletes(stories))
+            .also { owners.put("delete", it) }
+        advanceUntilIdle(); model.openStoryRecord(); advanceUntilIdle()
+        assertTrue(model.storyRecord.value.visible)
+        model.openDeletion(); advanceUntilIdle()
+        assertTrue(model.state.value.deletionActive); assertFalse(model.storyRecord.value.visible)
+        val input = PlayInput(PlayInputKind.ACTION, "I give my last potion to Mira.")
+        model.submitText(input); model.openStoryRecord(); advanceUntilIdle()
+        assertEquals(0, stories.textSubmissions); assertFalse(model.storyRecord.value.visible)
+        model.deletionController!!.dismiss(); advanceUntilIdle()
+        assertFalse(model.state.value.deletionActive)
+        model.submitText(input); advanceUntilIdle(); assertEquals(1, stories.textSubmissions)
+        model.openStoryRecord(); advanceUntilIdle(); assertTrue(model.storyRecord.value.visible)
     }
 }

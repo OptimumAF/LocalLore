@@ -543,15 +543,30 @@ mod tests {
             .unwrap();
         connection.pragma_update(None, "user_version", 1).unwrap();
         let original = schema_rows(&connection).unwrap();
-        {
+        for (sql, expected) in [
+            (
+                format!(
+                    "{} INSERT INTO absent_migration_table VALUES(1);",
+                    derived_memory::DERIVED_SCHEMA_SQL
+                ),
+                StorageError::Database,
+            ),
+            (
+                format!(
+                    "{} CREATE TABLE unexpected(data TEXT);",
+                    derived_memory::DERIVED_SCHEMA_SQL
+                ),
+                StorageError::SchemaMismatch,
+            ),
+        ] {
             let tx = connection
                 .transaction_with_behavior(TransactionBehavior::Immediate)
                 .unwrap();
-            let broken = format!(
-                "{} INSERT INTO absent_migration_table VALUES(1);",
-                derived_memory::DERIVED_SCHEMA_SQL
-            );
-            assert_eq!(migrate_v1(&tx, &broken), Err(StorageError::Database));
+            assert_eq!(migrate_v1(&tx, &sql), Err(expected));
+            drop(tx);
+            assert_eq!(identity(&connection).unwrap(), (APPLICATION_ID, 1));
+            assert_eq!(schema_rows(&connection).unwrap(), original);
+            verify_version(&connection, 1).unwrap();
         }
         assert_eq!(identity(&connection).unwrap(), (APPLICATION_ID, 1));
         assert_eq!(schema_rows(&connection).unwrap(), original);

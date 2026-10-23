@@ -25,6 +25,50 @@ struct GameplayClock {
     overhead: Duration,
 }
 impl Trace<'_> {
+    fn capture(&mut self, artifact: crate::turn_capture::Artifact<'_>) {
+        if let Some(sink) = self.sink.as_deref_mut() {
+            let before = Instant::now();
+            let failed =
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| sink.capture(artifact)))
+                    .is_err();
+            self.overhead = self.overhead.saturating_add(before.elapsed());
+            if failed {
+                self.sink = None;
+            }
+        }
+    }
+    fn generate(
+        &mut self,
+        stage: Stage,
+        provider: &mut (impl InferenceProvider + ?Sized),
+        cancel: &Cancellation,
+        build: impl FnOnce() -> Result<GenerationRequest, Error>,
+    ) -> Result<(Vec<u8>, u64), Error> {
+        let timer = StageTimer::start();
+        let result = (|| {
+            if cancel.is_cancelled() {
+                return Err(Error::Cancelled);
+            }
+            let request = build()?;
+            self.capture(crate::turn_capture::Artifact::Request(&request));
+            let started = Instant::now();
+            let bytes = generate(provider, &request, cancel)?;
+            Ok((bytes, started.elapsed().as_millis() as u64))
+        })();
+        let (outcome, error) = match &result {
+            Ok(_) => (Outcome::Accepted, None),
+            Err(error) => (
+                match error {
+                    Error::Cancelled => Outcome::Cancelled,
+                    Error::Stale => Outcome::Stale,
+                    _ => Outcome::Failed,
+                },
+                Some(ErrorCategory::from_engine(error)),
+            ),
+        };
+        self.emit(timer.finish(stage, outcome, Counts::default(), error));
+        result
+    }
     fn clock(&self) -> GameplayClock {
         GameplayClock {
             started: Instant::now(),
@@ -688,6 +732,7 @@ pub fn execute_traced(
             ..Counts::default()
         },
     )?;
+    trace.capture(crate::turn_capture::Artifact::Context(&compiled));
     let (inventory, nearby, base, _) = trace.counted(Stage::Context, Outcome::Rejected, || {
     let player_location = &engine.state().actors.get(&engine.seed().player).ok_or(Error::UnknownReference)?.location;
     let inventory: BTreeMap<_, _> = engine
@@ -734,8 +779,7 @@ pub fn execute_traced(
     let proposal = loop {
         let before = trace.clock();
         let overhead = trace.overhead;
-        let bytes = trace.run(if repairs == 0 { Stage::Director } else { Stage::Repair }, Outcome::Failed, || {
-        if cancel.is_cancelled() { return Err(Error::Cancelled); }
+        let (bytes, _) = trace.generate(if repairs == 0 { Stage::Director } else { Stage::Repair }, provider, cancel, || {
         let prompt = if repairs == 0 {
             base.clone()
         } else {
@@ -749,8 +793,9 @@ pub fn execute_traced(
             director_schema_for(kind, text, &nearby, &inventory, &engine.seed().player),
                     remaining(started, overhead, profile.deadline_ms)?,
         );
-        generate(provider, &generation, cancel)
+        Ok(generation)
         })?;
+        trace.capture(crate::turn_capture::Artifact::DirectorOutput(&bytes));
         stages.push(StageTiming {
             stage: if repairs == 0 { "director" } else { "repair" }.into(),
             elapsed_ms: trace.elapsed(before).as_millis() as u64,
@@ -779,6 +824,7 @@ pub fn execute_traced(
             Err(_) => return Err(Error::Malformed),
         }
     };
+    trace.capture(crate::turn_capture::Artifact::Proposal(&proposal));
     let before = trace.clock();
     let approved = trace.counted(
         Stage::Validation,
@@ -790,12 +836,13 @@ pub fn execute_traced(
             ..Counts::default()
         },
     )?;
+    trace.capture(crate::turn_capture::Artifact::ApprovedPlan(&approved));
     stages.push(StageTiming {
         stage: "validation".into(),
         elapsed_ms: trace.elapsed(before).as_millis() as u64,
     });
     let overhead = trace.overhead;
-    let (bytes, narrator_elapsed_ms) = trace.run(Stage::Narration, Outcome::Failed, || {
+    let (bytes, narrator_elapsed_ms) = trace.generate(Stage::Narration, provider, cancel, || {
     let outcomes: Vec<_> = approved
         .events()
         .iter()
@@ -816,10 +863,9 @@ pub fn execute_traced(
         narration_schema(approved.events()),
                 remaining(started, overhead, profile.deadline_ms)?,
     );
-    let generation_started = Instant::now();
-    let bytes = generate(provider, &generation, cancel)?;
-    Ok((bytes, generation_started.elapsed().as_millis() as u64))
+    Ok(generation)
     })?;
+    trace.capture(crate::turn_capture::Artifact::NarratorOutput(&bytes));
     stages.push(StageTiming {
         stage: "narrator".into(),
         elapsed_ms: narrator_elapsed_ms,
@@ -872,6 +918,7 @@ pub fn execute_traced(
         }
         engine.commit_play(request, &proposal, &record)
     })?;
+    trace.capture(crate::turn_capture::Artifact::Candidate(&receipt));
     trace.not_run(Stage::MemoryMaintenance);
     Ok(receipt)
 }

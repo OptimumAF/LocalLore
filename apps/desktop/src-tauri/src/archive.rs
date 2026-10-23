@@ -171,6 +171,8 @@ pub struct ArchiveBroker {
     fail_spawn: AtomicBool,
     #[cfg(test)]
     before_spawn: Mutex<Option<(Arc<std::sync::Barrier>, Arc<std::sync::Barrier>)>>,
+    #[cfg(test)]
+    stage_attack: Mutex<Option<(PathBuf, bool)>>,
 }
 impl Default for ArchiveBroker {
     fn default() -> Self {
@@ -188,6 +190,8 @@ impl Default for ArchiveBroker {
             fail_spawn: AtomicBool::new(false),
             #[cfg(test)]
             before_spawn: Mutex::new(None),
+            #[cfg(test)]
+            stage_attack: Mutex::new(None),
         }
     }
 }
@@ -617,7 +621,25 @@ pub fn import(w: &Work, token: &str, destination: &Path) -> Result<Value> {
     let staged: Result<()> = (|| {
         w.check()?;
         let stage_token = validate_archive(&bytes, &|| w.cancelled()).map_err(error)?;
-        let mut store = Store::open(&directory.join("staging.sqlite"), None).map_err(error)?;
+        let stage_path = directory.join("staging.sqlite");
+        #[cfg(test)]
+        if let Some((source, symlink)) = w.broker.stage_attack.lock().unwrap().take() {
+            #[cfg(windows)]
+            if symlink {
+                std::os::windows::fs::symlink_file(source, &stage_path).map_err(|_| "ArchiveIo")?;
+            } else {
+                fs::hard_link(source, &stage_path).map_err(|_| "ArchiveIo")?;
+            }
+            #[cfg(not(windows))]
+            {
+                let _ = (source, symlink);
+                return Err("Unsupported".into());
+            }
+        }
+        // The shared owner atomically reserves the leaf and retains its no-delete
+        // handle through SQLite connection destruction. Parent pins alone cannot
+        // close create_new -> SQLite-open substitution races.
+        let mut store = Store::create_new_pinned(&stage_path).map_err(error)?;
         let outcome = store
             .import_archive(stage_token, &|| w.cancelled())
             .map_err(error)?;
@@ -1072,5 +1094,127 @@ mod tests {
             assert_eq!(fs::read(actual.join("input.json")).unwrap(), b"{}");
             fs::remove_dir(&junction).unwrap();
         }
+    }
+    fn stage_leaf_attack(symlink: bool) {
+        let (root, b, l, e) = setup();
+        let input = root.join("archive.json");
+        fs::write(&input, source(&root.join("source.sqlite"))).unwrap();
+        let outside = root.join("unrelated-valid.sqlite");
+        let mut s = Store::open(&outside, None).unwrap();
+        let mut kept = seed();
+        kept.scope.story = "kept-unrelated-story".into();
+        let scope = kept.scope.clone();
+        s.create_story("Unrelated private fixture", kept).unwrap();
+        let canonical = s.resume(&scope).unwrap().engine.canonical_bytes();
+        drop(s);
+        let original = fs::read(&outside).unwrap();
+        let target = root.join("destination.sqlite");
+        Store::open_application(&target).unwrap();
+        let token = preview(&b, &l, e, input);
+        *b.stage_attack.lock().unwrap() = Some((outside.clone(), symlink));
+        let path = target.clone();
+        let r = run(&b, &l, e, move |w| import(w, &token, &path));
+        assert_eq!(r["result"]["status"], "failed");
+        assert_eq!(r["result"]["error"], "Io");
+        assert_eq!(
+            fs::read(&outside).unwrap(),
+            original,
+            "refuse before SQLite can open another valid Store"
+        );
+        let mut reader = Store::open_read_only(&outside).unwrap();
+        assert_eq!(reader.stories().unwrap().len(), 1);
+        assert_eq!(
+            reader.resume(&scope).unwrap().engine.canonical_bytes(),
+            canonical
+        );
+        assert!(Store::open_read_only(&target)
+            .unwrap()
+            .stories()
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            r["result"]["staging_cleanup_complete"], !symlink,
+            "untrusted reparse leaf is retained with explicit cleanup failure"
+        );
+    }
+    #[test]
+    fn planted_existing_hardlink_cannot_adopt_another_valid_store() {
+        stage_leaf_attack(false)
+    }
+    #[cfg(windows)]
+    #[test]
+    fn planted_leaf_reparse_cannot_import_into_another_valid_store() {
+        stage_leaf_attack(true)
+    }
+    #[test]
+    fn immutable_unicode_preview_survives_file_edits_and_tokens_cannot_change_mode() {
+        let (root, b, l, e) = setup();
+        let input = root.join("Private archive 試験 é.json");
+        fs::write(&input, source(&root.join("source.sqlite"))).unwrap();
+        let target = root.join("target.sqlite");
+        Store::open_application(&target).unwrap();
+        let token = preview(&b, &l, e, input.clone());
+        fs::write(&input, b"later untrusted edit").unwrap();
+        let path = target.clone();
+        assert_eq!(
+            run(&b, &l, e, move |w| import(w, &token, &path))["result"]["status"],
+            "imported"
+        );
+        assert_eq!(
+            Store::open_read_only(&target)
+                .unwrap()
+                .resume(&seed().scope)
+                .unwrap()
+                .engine
+                .revision(),
+            1
+        );
+        fs::write(&input, source(&root.join("second-source.sqlite"))).unwrap();
+        let token = preview(&b, &l, e, input);
+        let folder = root.join("out");
+        fs::create_dir(&folder).unwrap();
+        let destination = folder.clone();
+        assert_eq!(
+            run(&b, &l, e, move |w| publish(
+                w,
+                &token,
+                Some(destination),
+                None
+            ))["error"],
+            "InvalidArchiveInput"
+        );
+        assert_eq!(fs::read_dir(folder).unwrap().count(), 0);
+    }
+    #[test]
+    fn expired_or_foreign_window_preview_cannot_start_staging() {
+        let (root, b, l, e) = setup();
+        let input = root.join("input.json");
+        fs::write(&input, source(&root.join("source.sqlite"))).unwrap();
+        let target = root.join("target.sqlite");
+        Store::open_application(&target).unwrap();
+        let token = preview(&b, &l, e, input.clone());
+        b.state
+            .lock()
+            .unwrap()
+            .tokens
+            .get_mut(&token)
+            .unwrap()
+            .created = Instant::now() - TTL - Duration::from_secs(1);
+        let path = target.clone();
+        assert_eq!(
+            run(&b, &l, e, move |w| import(w, &token, &path))["error"],
+            "UnknownArchivePreview"
+        );
+        assert!(!root.join("archive-staging-v1").exists());
+        let token = preview(&b, &l, e, input);
+        let closed = l.invalidate("main-1").unwrap();
+        b.retire(e);
+        b.drain(e);
+        l.finish_close(closed, || {});
+        let fresh = l.begin().unwrap();
+        assert_eq!(
+            run(&b, &l, fresh, move |w| import(w, &token, &target))["error"],
+            "UnknownArchivePreview"
+        );
     }
 }

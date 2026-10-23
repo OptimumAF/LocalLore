@@ -400,7 +400,7 @@ export async function archiveJourneys({
                 a.get().error === "Conflict",
                 "archive-same-story-conflict-never-overwrites",
             );
-            await capture("failed");
+            if (config.archiveStage !== "uncertain") await capture("failed");
             if (config.archiveStage === "restarted") {
                 c.returnToPlay();
                 c.setAction("wait");

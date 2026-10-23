@@ -117,13 +117,60 @@ pub async fn fork_start(
         .capture(window.label())
         .map_err(str::to_owned)?;
     let host = workspace.get(epoch).await?;
+    #[cfg(feature = "dev-harness")]
+    let fixture = {
+        use tauri::Manager;
+        crate::fork_harness::active().then(|| {
+            window
+                .state::<Arc<crate::fork_harness::ForkHarnessState>>()
+                .inner()
+                .clone()
+        })
+    };
     let lease = workspace.lease.clone();
     let broker = broker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        broker.start(lease, epoch, move |work| {
+        #[cfg(feature = "dev-harness")]
+        let lose_ack = fixture
+            .as_ref()
+            .is_some_and(|s| s.lose_ack.swap(false, std::sync::atomic::Ordering::SeqCst));
+        #[cfg(feature = "dev-harness")]
+        let status_lease = lease.clone();
+        let result = broker.start(lease, epoch, move |work| {
             work.phase("forking")?;
+            #[cfg(feature = "dev-harness")]
+            if let Some(fixture) = fixture {
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+                while fixture.hold.load(std::sync::atomic::Ordering::SeqCst) {
+                    work.check()?;
+                    if std::time::Instant::now() >= deadline {
+                        return Err("Transport".into());
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(5));
+                }
+            }
             execute(&host, &session, &input, &|| work.cancelled())
-        })
+        });
+        #[cfg(feature = "dev-harness")]
+        if lose_ack {
+            let id = result
+                .as_ref()
+                .ok()
+                .and_then(|v| v["operation_id"].as_u64())
+                .ok_or("SyntheticStart")?;
+            for _ in 0..1000 {
+                let status = broker.status(&status_lease, epoch, id)?;
+                if status["running"] == false {
+                    if status["error"] != Value::Null {
+                        return Err("SyntheticForkFailed".into());
+                    }
+                    return Err("Transport".into());
+                }
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            return Err("SyntheticTimeout".into());
+        }
+        result
     })
     .await
     .map_err(|_| "Transport".to_owned())?

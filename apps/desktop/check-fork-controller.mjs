@@ -132,6 +132,8 @@ for (const error of [
     "Mismatch",
     "Integrity",
     "Transport",
+    "Rule",
+    "RetryMismatch",
 ]) {
     const s = setup(() => {
         throw Error(error);

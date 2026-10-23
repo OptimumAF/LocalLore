@@ -104,6 +104,8 @@ const errors = new Set([
     "Full",
     "Integrity",
     "Malformed",
+    "Rule",
+    "RetryMismatch",
     "TooLarge",
     "Internal",
     "ArchiveInternal",
@@ -185,7 +187,14 @@ export class ForkController {
             result: null,
             error: null,
             lookupOnly: !!this.state.request,
-            status: this.state.request ? "uncertain" : "idle",
+            status: this.state.request
+                ? this.state.status === "complete" ||
+                  this.state.status === "not_found"
+                    ? this.state.status
+                    : this.state.status === "prepared"
+                      ? "not_found"
+                      : "uncertain"
+                : "idle",
             notice: this.state.request
                 ? "Selection changed. Recover this exact identity by lookup; no fork will run automatically."
                 : "",

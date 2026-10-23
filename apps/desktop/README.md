@@ -17,6 +17,32 @@ Unsubmitted composer text remains session-local; submitted uncommitted requests
 are durable but are never automatically committed or cancelled on resume.
 Storage/replay errors appear explicitly with no temporary-memory fallback.
 
+**Alternate timeline** creates a saved child at a completed accepted-turn
+boundary. Review the original parent/head, fork point and stable child identity,
+then confirm. The original and later choices remain intact; opening the child is
+a separate explicit action. Replacing a committed turn means choosing the
+boundary before it, then writing a new turn on the child. Author corrections
+remain unavailable. A small application-local recovery record saves the exact
+fork identity before dispatch. Lost acknowledgements retain that identity;
+same-session retry is explicit, and restart recovery only checks existing saved
+children. Cancellation never claims an earlier commit was rolled back.
+
+The fixed synthetic fork harness exercises these controls through the actual
+frontend controller/native IPC and captures only the hidden application-owned
+WebView. It never activates or captures the desktop:
+
+```powershell
+$env:LOCALLORE_D08_FORK_ARTIFACT_ROOT='<task-owned-local-output>'
+$env:LOCALLORE_D08_TARGET_DIR='<task-owned-ordinary-Rust-target>'
+node apps/desktop/fork-harness.mjs
+```
+
+This builds the development frontend/native binary and uses two processes with
+one synthetic workspace and private test WebView profile. The normal bundle
+excludes the fixed fault/fixture journeys. Build/static/controller-mock checks,
+actual native IPC, native WebView rendering and device execution are separate
+evidence classes; consult the dated fork verification report for executed results.
+
 Memory & evidence opens a read-only typed inspector for profiles, accepted
 history, directed relationships, knowledge, promises and evidence. It supports
 completed historical heads and before/after replay without changing the live

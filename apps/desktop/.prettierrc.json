@@ -1,0 +1,7 @@
+{
+    "tabWidth": 4,
+    "printWidth": 80,
+    "overrides": [
+        { "files": "host-v1.schema.json", "options": { "tabWidth": 2 } }
+    ]
+}

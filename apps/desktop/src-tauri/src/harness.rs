@@ -1,6 +1,5 @@
 //! Application-owned synthetic development evidence. This module is compiled only
 //! with `dev-harness`; main must register its commands only under that same cfg.
-#![cfg(feature = "dev-harness")]
 
 use serde_json::{json, Value};
 use std::{
@@ -128,7 +127,7 @@ fn checked_json(value: &Value, snapshot: bool) -> Result<Vec<u8>, &'static str> 
     Ok(bytes)
 }
 
-#[cfg_attr(not(test), tauri::command)]
+#[tauri::command]
 pub async fn harness_checkpoint(
     window: tauri::WebviewWindow,
     state: tauri::State<'_, HarnessState>,
@@ -159,7 +158,7 @@ pub async fn harness_checkpoint(
 }
 
 /// Resize only this application's own test WebView. No activation or input.
-#[cfg_attr(not(test), tauri::command)]
+#[tauri::command]
 pub fn harness_viewport(
     window: tauri::WebviewWindow,
     state: tauri::State<'_, HarnessState>,
@@ -176,7 +175,7 @@ pub fn harness_viewport(
         .map_err(|_| "ViewportUnavailable")
 }
 
-#[cfg_attr(not(test), tauri::command)]
+#[tauri::command]
 pub fn harness_finish(
     window: tauri::WebviewWindow,
     state: tauri::State<'_, HarnessState>,

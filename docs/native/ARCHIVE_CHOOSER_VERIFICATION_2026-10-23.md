@@ -3,6 +3,8 @@
 M08.06 partial implementation evidence. Stacked on open PR77 and its open PR76
 prerequisite. Owner acceptance and the complete milestone exit gate remain open.
 See the [test boundary](ARCHIVE_CHOOSER_CONTRACT.md).
+The [independent review](ARCHIVE_CHOOSER_REVIEW_2026-10-23.md) audits actual
+source and retained evidence; it is not a separate device run or owner acceptance.
 
 ## Reproduction
 

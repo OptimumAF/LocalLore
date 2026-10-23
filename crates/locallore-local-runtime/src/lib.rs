@@ -153,10 +153,13 @@ fn pin_file(path: &Path, error: Error) -> Result<PinnedFile, Error> {
         ancestors,
     })
 }
-fn hash_file(file: &mut File, error: Error) -> Result<String, Error> {
+fn hash_file(file: &mut File, error: Error, cancel: &impl Fn() -> bool) -> Result<String, Error> {
     let mut digest = Sha256::new();
     let mut chunk = vec![0; 65_536];
     loop {
+        if cancel() {
+            return Err(Error::Cancelled);
+        }
         let count = file.read(&mut chunk).map_err(|_| error)?;
         if count == 0 {
             break;
@@ -165,7 +168,10 @@ fn hash_file(file: &mut File, error: Error) -> Result<String, Error> {
     }
     Ok(format!("{:x}", digest.finalize()))
 }
-fn verified_model(path: &Path) -> Result<PinnedFile, Error> {
+fn verified_model(path: &Path, cancel: &impl Fn() -> bool) -> Result<PinnedFile, Error> {
+    if cancel() {
+        return Err(Error::Cancelled);
+    }
     let mut pinned = pin_file(path, Error::ModelInvalid)?;
     if pinned
         .file
@@ -173,7 +179,7 @@ fn verified_model(path: &Path) -> Result<PinnedFile, Error> {
         .map_err(|_| Error::ModelInvalid)?
         .len()
         != MODEL_BYTES
-        || hash_file(&mut pinned.file, Error::ModelInvalid)? != MODEL_SHA256
+        || hash_file(&mut pinned.file, Error::ModelInvalid, cancel)? != MODEL_SHA256
     {
         return Err(Error::ModelInvalid);
     }
@@ -224,14 +230,32 @@ pub struct LocalRuntime {
 }
 impl LocalRuntime {
     pub fn spawn_packaged(resource_dir: &Path, model: &Path) -> Result<Self, Error> {
-        Self::spawn(&resource_dir.join("locallore-llama-worker.exe"), model)
+        Self::spawn_packaged_cancelled(resource_dir, model, || false)
+    }
+    pub fn spawn_packaged_cancelled(
+        resource_dir: &Path,
+        model: &Path,
+        cancel: impl Fn() -> bool,
+    ) -> Result<Self, Error> {
+        Self::spawn_cancelled(
+            &resource_dir.join("locallore-llama-worker.exe"),
+            model,
+            &cancel,
+        )
     }
     #[cfg(feature = "development-worker")]
     pub fn spawn_development(executable: &Path, model: &Path) -> Result<Self, Error> {
-        Self::spawn(executable, model)
+        Self::spawn_cancelled(executable, model, &|| false)
     }
-    fn spawn(executable: &Path, model: &Path) -> Result<Self, Error> {
-        let model = verified_model(model)?;
+    fn spawn_cancelled(
+        executable: &Path,
+        model: &Path,
+        cancel: &impl Fn() -> bool,
+    ) -> Result<Self, Error> {
+        let model = verified_model(model, cancel)?;
+        if cancel() {
+            return Err(Error::Cancelled);
+        }
         let mut worker = pin_file(executable, Error::WorkerUnavailable)?;
         let bytes = worker
             .file
@@ -241,15 +265,24 @@ impl LocalRuntime {
         if bytes == 0 || bytes > 128 * 1024 * 1024 {
             return Err(Error::WorkerUnavailable);
         }
-        let digest = hash_file(&mut worker.file, Error::WorkerUnavailable)?;
-        let mut owner = Self::start(&worker.path, &model.path, model.file)?;
+        let digest = hash_file(&mut worker.file, Error::WorkerUnavailable, cancel)?;
+        let mut owner = Self::start_cancelled(&worker.path, &model.path, model.file, cancel)?;
         owner._ancestors = model.ancestors;
         owner._worker = Some(worker.file);
         owner._worker_ancestors = worker.ancestors;
         owner.worker_sha256 = digest;
         Ok(owner)
     }
+    #[cfg(all(test, feature = "development-worker"))]
     fn start(executable: &Path, model: &Path, file: File) -> Result<Self, Error> {
+        Self::start_cancelled(executable, model, file, &|| false)
+    }
+    fn start_cancelled(
+        executable: &Path,
+        model: &Path,
+        file: File,
+        cancel: &impl Fn() -> bool,
+    ) -> Result<Self, Error> {
         let mut command = Command::new(executable);
         command
             .arg("--model")
@@ -270,6 +303,9 @@ impl LocalRuntime {
         {
             use std::os::windows::process::CommandExt;
             command.creation_flags(0x0800_0000);
+        }
+        if cancel() {
+            return Err(Error::Cancelled);
         }
         let mut child = command.spawn().map_err(|_| Error::WorkerUnavailable)?;
         let mut stdin = child.stdin.take().ok_or(Error::WorkerUnavailable)?;
@@ -372,6 +408,7 @@ impl LocalRuntime {
         generation: Option<&Generation>,
         cancel: impl Fn() -> bool,
     ) -> Result<GenerationResult, Error> {
+        self.last_metrics = None;
         if self.status == Status::Failed {
             return Err(Error::WorkerUnavailable);
         }
@@ -470,6 +507,7 @@ impl LocalRuntime {
         generation: Generation,
         cancel: impl Fn() -> bool,
     ) -> Result<GenerationResult, Error> {
+        self.last_metrics = None;
         if self.status != Status::Loaded {
             return Err(Error::WorkerUnavailable);
         }
@@ -557,6 +595,71 @@ mod tests {
         dir
     }
     #[test]
+    fn hashing_cancels_between_chunks_without_finishing_or_starting_child() {
+        use std::{cell::Cell, io::Seek};
+        let dir = resources();
+        let path = dir.join("synthetic hash input");
+        std::fs::write(&path, vec![0u8; 131_072]).unwrap();
+        let mut file = File::open(&path).unwrap();
+        let checks = Cell::new(0);
+        let result = hash_file(&mut file, Error::ModelInvalid, &|| {
+            let count = checks.get() + 1;
+            checks.set(count);
+            count >= 2
+        });
+        assert_eq!(result, Err(Error::Cancelled));
+        assert_eq!(file.stream_position().unwrap(), 65_536);
+        assert_eq!(
+            LocalRuntime::spawn_packaged_cancelled(&dir, &dir.join("missing model"), || true).err(),
+            Some(Error::Cancelled)
+        );
+        assert_eq!(
+            LocalRuntime::start_cancelled(&dir.join("missing worker"), &path, file, &|| true).err(),
+            Some(Error::Cancelled)
+        );
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[test]
+    fn invalid_and_unavailable_operations_clear_previous_metrics() {
+        let (mut owner, dir) = fixture("valid");
+        owner.load(|| false).unwrap();
+        assert!(owner.last_metrics().is_some());
+        assert_eq!(
+            owner
+                .generate(
+                    Generation {
+                        role: Role::Director,
+                        prompt: "fixture".into(),
+                        schema: None,
+                        max_tokens: 0
+                    },
+                    || false
+                )
+                .err(),
+            Some(Error::InvalidRequest)
+        );
+        assert!(owner.last_metrics().is_none());
+        owner.unload().unwrap();
+        assert!(owner.last_metrics().is_some());
+        assert_eq!(
+            owner
+                .generate(
+                    Generation {
+                        role: Role::Director,
+                        prompt: "fixture".into(),
+                        schema: None,
+                        max_tokens: 16
+                    },
+                    || false
+                )
+                .err(),
+            Some(Error::WorkerUnavailable)
+        );
+        assert!(owner.last_metrics().is_none());
+        drop(owner);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[test]
     fn profile_manifest_digest_is_canonical_and_matches_independent_vector() {
         // Independent Python json(sort_keys=True,separators=(',',':')) SHA-256 vector.
         assert_eq!(
@@ -595,7 +698,7 @@ mod tests {
         std::fs::write(&path, b"abc").unwrap();
         let mut pinned = pin_file(&path, Error::WorkerUnavailable).unwrap();
         assert_eq!(
-            hash_file(&mut pinned.file, Error::WorkerUnavailable).unwrap(),
+            hash_file(&mut pinned.file, Error::WorkerUnavailable, &|| false).unwrap(),
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
         assert!(pin_file(&nested.join("missing.exe"), Error::WorkerUnavailable).is_err());
@@ -694,7 +797,7 @@ mod tests {
         let path = std::env::temp_dir().join(format!("locallore-model-{}", std::process::id()));
         std::fs::write(&path, b"not a model").unwrap();
         assert_eq!(
-            LocalRuntime::spawn(Path::new("missing-worker"), &path).err(),
+            LocalRuntime::spawn_cancelled(Path::new("missing-worker"), &path, &|| false).err(),
             Some(Error::ModelInvalid)
         );
         std::fs::remove_file(path).unwrap();

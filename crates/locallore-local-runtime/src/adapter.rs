@@ -168,6 +168,8 @@ impl RuntimeProvider {
         request: &GenerationRequest,
         external: Cancellation,
     ) -> Result<(), Error> {
+        self.metrics = None;
+        self.failure = None;
         let runtime = self.runtime.clone();
         let local = Cancellation::default();
         let cancel = local.clone();
@@ -233,11 +235,14 @@ impl InferenceProvider for RuntimeProvider {
         cancel: &Cancellation,
     ) -> Poll<Result<Vec<u8>, Error>> {
         if self.poisoned {
+            self.metrics = None;
             return Poll::Ready(Err(Error::RetryMismatch));
         }
         let (identity, generation) = match compile(request) {
             Ok(value) => value,
             Err(error) => {
+                self.metrics = None;
+                self.failure = None;
                 if let Some(job) = &self.active {
                     job.cancel.cancel();
                     self.poisoned = true;
@@ -247,12 +252,14 @@ impl InferenceProvider for RuntimeProvider {
         };
         if let Some(job) = &self.active {
             if job.identity != identity {
+                self.metrics = None;
                 job.cancel.cancel();
                 self.poisoned = true;
                 return Poll::Ready(Err(Error::RetryMismatch));
             }
         }
         if cancel.is_cancelled() {
+            self.metrics = None;
             if let Some(job) = &self.active {
                 job.cancel.cancel();
             } else {
@@ -268,6 +275,7 @@ impl InferenceProvider for RuntimeProvider {
                     || !(identity.follows(previous)
                         || (self.directors_started < 2 && identity.repairs(previous)))
                 {
+                    self.metrics = None;
                     return Poll::Ready(Err(Error::RetryMismatch));
                 }
             }

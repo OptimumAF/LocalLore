@@ -132,12 +132,13 @@ fn read_engine(connection: &Connection, scope: &Scope) -> Result<ResumedStory> {
     for receipt in engine.receipts() {
         for event in receipt.events() {
             let row = event_rows.next()?.ok_or(TurnError::Integrity)?;
-            let stored: serde_json::Value = serde_json::from_str(&row.get::<_, String>(3)?)
-                .map_err(|_| TurnError::Integrity)?;
+            // This owner writes canonical bytes. Exact comparison also rejects duplicate keys
+            // that a generic JSON Value parser would silently collapse.
+            let stored: String = row.get(3)?;
             if row.get::<_, i64>(0)? != sql_revision(event.sequence())?
                 || row.get::<_, String>(1)? != receipt.request().turn
                 || row.get::<_, u16>(2)? != 1
-                || stored != serde_json::to_value(event).map_err(|_| TurnError::Integrity)?
+                || stored != serde_json::to_string(event).map_err(|_| TurnError::Integrity)?
             {
                 return Err(TurnError::Integrity);
             }
@@ -302,12 +303,15 @@ impl Store {
         let resumed = read_engine(&tx, scope)?;
         let mut result = Vec::new();
         {
-            let mut query = tx.prepare("SELECT request_json FROM turns WHERE story_id=?1 AND branch_id=?2 AND status='draft' ORDER BY turn_id")?;
+            let mut query = tx.prepare("SELECT turn_id,expected_revision,request_json FROM turns WHERE story_id=?1 AND branch_id=?2 AND status='draft' ORDER BY turn_id")?;
             let mut rows = query.query((&scope.story, &scope.branch))?;
             while let Some(row) = rows.next()? {
-                let request: Request = serde_json::from_str(&row.get::<_, String>(0)?)
+                let request: Request = serde_json::from_str(&row.get::<_, String>(2)?)
                     .map_err(|_| TurnError::Integrity)?;
-                if request.scope != *scope {
+                if request.scope != *scope
+                    || request.turn != row.get::<_, String>(0)?
+                    || sql_revision(request.expected_revision)? != row.get::<_, i64>(1)?
+                {
                     return Err(TurnError::Integrity);
                 }
                 result.push(recorded(&tx, &request, &resumed.engine)?.ok_or(TurnError::Integrity)?);

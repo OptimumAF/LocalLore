@@ -20,8 +20,8 @@ export async function brokerRetentionReviewJourneys() {
         ["wrong-memory-result-action", { ...valid(), action: "step" }],
         ["malformed-memory-job", { ...valid(), maintenance: { ...valid().maintenance, job: { status: "ready" } } }],
     ] as const) await test(name, async () => {
-        const gate = new BrokerRetention(() => controller.get().busy || controller.get().uncertain);
-        const controller = new MemoryMaintenanceController(() => gate.start(identity, async () => ({ version: 1, operation_id: 1, running: false, phase: "completed", error: null, result: payload })));
+        const gate: BrokerRetention = new BrokerRetention(() => controller.get().busy || controller.get().uncertain);
+        const controller: MemoryMaintenanceController = new MemoryMaintenanceController(() => gate.start(identity, async () => ({ version: 1, operation_id: 1, running: false, phase: "completed", error: null, result: payload })));
         controller.contextChanged(context);
         await controller.act("status");
         check(controller.get().error === "Wire" && controller.get().uncertain, "actual decoder rejects malformed acknowledgement");

@@ -138,11 +138,13 @@ Root selected additive schema 5 discriminators:
 
 - `turns.canonical_kind`: `legacy_play`, `play_v2`, `author_v1`, default
   `legacy_play` for unchanged existing rows; author kind requires committed status.
-- `accepted_events.record_kind`: `play` or `author_v1`, default `play`.
+- `accepted_events.record_kind`: `play` or `author_correction`, default `play`.
   Ordinary normalization remains the original AcceptedEvent; author normalization
-  is the **full Core author wrapper**, exactly compared to replay, with no
-  event_witnesses rows. `event_version=1` remains the contained record's own
-  version, separate from canonical wrapper `record_version=2`.
+  is exact `Serialize(AuthorCorrectionReceiptV1)`, meaning the validated Core
+  wrapper's `receipt` value, with no event_witnesses rows. Compare SQL
+  scope/turn/sequence, the full reconstructed author receipt and the regenerated
+  request index hash. `event_version=1` remains that receipt's own version,
+  separate from canonical wrapper `record_version=2` in turns.response_json.
 - Rebuild only the replaceable projection table as needed to admit version 1/2;
   compare its version and bytes against actual Engine domain/canonical bytes.
   A version 2 cache beside Domain 1, or converse, is a mismatched cache.
@@ -216,6 +218,12 @@ performed. No executable new test, DDL, SQLite migration, Cargo/Node/Gradle, app
 WebView, model, device, ADB, CUA, desktop control/capture, download, protected
 resource, setting, PR or merge operation ran in this review. Git
 `2.33.0.windows.2`, PowerShell `7.6.5`.
+
+Root clarified the author normalization after initial review commit `7159350`:
+the normalized envelope is the contained exact author receipt, not the full
+wrapper. This explicit follow-up supersedes that commit's shorthand; no DDL or
+executable oracle existed or was changed. Root also accepted the distinct Store
+plan name and exact displayed-preview recomparison during apply.
 
 Root should reconcile its Store contract with these selected decisions, freeze
 the exact DDL and executable real Store/Core oracle sources, then implement and

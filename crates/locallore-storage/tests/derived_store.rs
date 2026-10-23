@@ -151,6 +151,50 @@ fn application_open_backs_up_once_and_never_adopts_tampered_v1() {
 }
 
 #[test]
+fn v1_backup_collision_preserves_original_and_concurrent_openers_make_one_backup() {
+    let dir = Temp::new();
+    let path = dir.path("old.sqlite");
+    let (scope, receipt) = historical_v1(&path);
+    let collision = dir.path("existing-backup.sqlite");
+    std::fs::write(&collision, b"keep existing backup").unwrap();
+    let before = std::fs::read(&path).unwrap();
+    assert_eq!(
+        Store::open(&path, Some(&collision)).err(),
+        Some(StorageError::BackupExists)
+    );
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+    assert_eq!(std::fs::read(&collision).unwrap(), b"keep existing backup");
+    let barrier = std::sync::Arc::new(std::sync::Barrier::new(2));
+    let threads: Vec<_> = ["a.sqlite", "b.sqlite"]
+        .into_iter()
+        .map(|name| {
+            let path = path.clone();
+            let backup = dir.path(name);
+            let barrier = barrier.clone();
+            std::thread::spawn(move || {
+                barrier.wait();
+                Store::open(&path, Some(&backup))
+            })
+        })
+        .collect();
+    for thread in threads {
+        match thread.join().unwrap() {
+            Ok(store) => assert_eq!(store.info().unwrap().schema_version, 2),
+            Err(error) => assert_eq!(error, StorageError::Busy),
+        }
+    }
+    assert_eq!(
+        ["a.sqlite", "b.sqlite"]
+            .into_iter()
+            .filter(|name| dir.path(name).is_file())
+            .count(),
+        1
+    );
+    let mut store = Store::open(&path, None).unwrap();
+    assert_eq!(store.resume(&scope).unwrap().engine.receipts(), [receipt]);
+}
+
+#[test]
 fn real_owner_summary_search_reopen_cancel_stale_and_invalidation_preserve_canon() {
     let dir = Temp::new();
     let path = dir.path("story.sqlite");

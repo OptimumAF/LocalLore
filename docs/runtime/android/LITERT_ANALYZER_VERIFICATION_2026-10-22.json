@@ -1,0 +1,41 @@
+{
+  "agent_device_or_model_calls": 0,
+  "all_zip_entry_payloads_equal": true,
+  "analyzer_jar_count": 67,
+  "apk_bytes": 51427921,
+  "apk_permissions": [],
+  "apk_sha256": "5014b3952bedc4e84787421477fae553ae9fc289df01fb311207353d06535e85",
+  "apk_zip_16k_alignment": "passed",
+  "baseline_apk_sha256": "a74b05b9123d43fda42989814cd57f9a27b95dac44bd66445ac1208250710f25",
+  "baseline_commit": "91d2ec2ebf6ce3a8546901e2d13a2fd53e01c16b",
+  "check_dependencies": true,
+  "fresh_analysis_did_work": true,
+  "jvm_errors": 0,
+  "jvm_failures": 0,
+  "jvm_tests": 14,
+  "lint_errors": 0,
+  "lint_warnings": [
+    {
+      "id": "OldTargetApi",
+      "severity": "Warning"
+    },
+    {
+      "id": "GradleDependency",
+      "severity": "Warning"
+    }
+  ],
+  "negative_helper_exit": 2,
+  "negative_metadata_diagnostics": 39,
+  "negative_underlying_gradle_exit": 0,
+  "new_analyzer": "32.4.1",
+  "old_analyzer": "31.10.1",
+  "phone_qualified": false,
+  "positive_gradle_actions": 51,
+  "positive_helper_exit": 0,
+  "positive_metadata_diagnostics": 0,
+  "python_failures": 0,
+  "python_tests": 20,
+  "version": 1,
+  "zip_entry_count": 26,
+  "zip_entry_payload_manifest_sha256": "adc5cb794778b3085e30d6e620faa79548fcac04b890cd77f9a6c44809d5f1cf"
+}

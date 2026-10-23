@@ -1,0 +1,57 @@
+{
+  "documentation_urls": [
+    "https://developer.android.com/develop/ui/compose/tooling/lint",
+    "https://googlesamples.github.io/android-custom-lint-rules/usage/newer-lint.md.html",
+    "https://docs.gradle.org/8.11.1/userguide/compatibility.html"
+  ],
+  "embedded_compiler_primary_classfile_major": 52,
+  "embedded_compiler_version": "2.4.0-dev-2631-for-lint",
+  "lint_bridge_classfile_major": 61,
+  "observed_date": "2026-10-22",
+  "scope": "development_analyzer_only_not_runtime_or_production_toolchain",
+  "sources": [
+    {
+      "bytes": 25081,
+      "sha256": "144ce48735fed23519601b181b4642c3c8c718315b522457f3ba30b80ccfbbd9",
+      "url": "https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint-gradle/maven-metadata.xml"
+    },
+    {
+      "bytes": 3786739,
+      "sha256": "1808e08e459061c68b35672c08b000aa25b477f79a5e0aebe924ee86a12d89cf",
+      "url": "https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/8.10.1/gradle-8.10.1-sources.jar"
+    },
+    {
+      "bytes": 2274,
+      "sha256": "2b6e2c7b5a459b17970327e6abcda56cca18c8b27ab7a9c1ea17715fb7a4e9e5",
+      "url": "https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint-gradle/32.4.1/lint-gradle-32.4.1.pom"
+    },
+    {
+      "bytes": 919,
+      "sha256": "43b828ded88c77944c63b593fcf4e3891e1d4225336fd44fdf3bd70fba7fcbe8",
+      "url": "https://dl.google.com/dl/android/maven2/com/android/tools/external/com-intellij/kotlin-compiler/32.4.1/kotlin-compiler-32.4.1.pom"
+    },
+    {
+      "bytes": 66292,
+      "sha256": "e8f8ed063b7a62628c8dde69b742f8a86dd4b73a371acebd14c7b21c30624b63",
+      "url": "https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint-gradle/32.4.1/lint-gradle-32.4.1.jar"
+    },
+    {
+      "bytes": 52710921,
+      "sha256": "f7605ecd8e5157f1df689951e0f200ff7ccb0b1443e8c4ab35a595cb1ccdc886",
+      "url": "https://dl.google.com/dl/android/maven2/com/android/tools/external/com-intellij/kotlin-compiler/32.4.1/kotlin-compiler-32.4.1.jar"
+    },
+    {
+      "bytes": 122576,
+      "container": "gradle-8.10.1-sources.jar",
+      "entry": "com/android/build/gradle/internal/lint/AndroidLintInputs.kt",
+      "sha256": "76d01ac2f6207c0cab19bbf65b308f6b1bf2dbadf3fd81f2d756789088524654"
+    },
+    {
+      "bytes": 8603,
+      "container": "gradle-8.10.1-sources.jar",
+      "entry": "com/android/build/gradle/options/StringOption.kt",
+      "sha256": "35a538e6813acf92c7b177bec5a4791dacf6ff117a68e7a9c7885c177ba81492"
+    }
+  ],
+  "version": 1
+}

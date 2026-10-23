@@ -1,0 +1,409 @@
+{
+  "analyzer_version": "32.4.1",
+  "artifacts": [
+    {
+      "bytes": 11660305,
+      "coordinate": "com.android.tools.analytics-library:protos:32.4.1",
+      "file": "protos-32.4.1.jar",
+      "sha256": "54a932e1559e3b4a68dfd0d52f22bcf436802f063fef6cb32003f91c7dd43c60"
+    },
+    {
+      "bytes": 113753,
+      "coordinate": "com.android.tools.analytics-library:shared:32.4.1",
+      "file": "shared-32.4.1.jar",
+      "sha256": "6d1e9fe43d27fc1aa99e5792285905c7f8d081d96747aadb1e76cc08dffdb53d"
+    },
+    {
+      "bytes": 70245,
+      "coordinate": "com.android.tools.analytics-library:tracker:32.4.1",
+      "file": "tracker-32.4.1.jar",
+      "sha256": "a9b02daac32d0f5908a5ea62fbd140f9d3a6ba513ad71867dbeefbb2e2bfdd13"
+    },
+    {
+      "bytes": 721871,
+      "coordinate": "com.android.tools.build:aapt2-proto:9.4.1-15978811",
+      "file": "aapt2-proto-9.4.1-15978811.jar",
+      "sha256": "5bcdd71fde7863c68c67ee4a69cf86206fbd3a2de66f5a3e4625ce5fb4ead2b5"
+    },
+    {
+      "bytes": 143245,
+      "coordinate": "com.android.tools.build:builder-model:9.4.1",
+      "file": "builder-model-9.4.1.jar",
+      "sha256": "6fcae3cf38fa06c4b2d5eabe5616c8e0f5c9da86512cb9b1efbb69b2f8019b60"
+    },
+    {
+      "bytes": 272632,
+      "coordinate": "com.android.tools.build:manifest-merger:32.4.1",
+      "file": "manifest-merger-32.4.1.jar",
+      "sha256": "a8ade13523ccf3289fdb4946fcf23831d2eac8ad8b216f63a74850d46cdc8dd4"
+    },
+    {
+      "bytes": 683060,
+      "coordinate": "com.android.tools.ddms:ddmlib:32.4.1",
+      "file": "ddmlib-32.4.1.jar",
+      "sha256": "ad7b49fc07ca341d205fb7eb17cd0610a18cd1678e55b6b4a869bbdee3fbf0e3"
+    },
+    {
+      "bytes": 33923385,
+      "coordinate": "com.android.tools.external.com-intellij:intellij-core:32.4.1",
+      "file": "intellij-core-32.4.1.jar",
+      "sha256": "3aa6ed3c10d3c44ba6d2e75975cb05230851b6ce818ce63f20d7ffbbbc3cddaa"
+    },
+    {
+      "bytes": 52710921,
+      "coordinate": "com.android.tools.external.com-intellij:kotlin-compiler:32.4.1",
+      "file": "kotlin-compiler-32.4.1.jar",
+      "sha256": "f7605ecd8e5157f1df689951e0f200ff7ccb0b1443e8c4ab35a595cb1ccdc886"
+    },
+    {
+      "bytes": 1943059,
+      "coordinate": "com.android.tools.external.org-jetbrains:uast:32.4.1",
+      "file": "uast-32.4.1.jar",
+      "sha256": "9247a598b5cdbd32ed618f312b1dd64d2db247d87ffffe5566d313ab559f86ec"
+    },
+    {
+      "bytes": 126836,
+      "coordinate": "com.android.tools.layoutlib:layoutlib-api:32.4.1",
+      "file": "layoutlib-api-32.4.1.jar",
+      "sha256": "24d9d0877a956ebd6e586640147bc6bd52ce904f0e6ab740be0899271e354543"
+    },
+    {
+      "bytes": 1417813,
+      "coordinate": "com.android.tools.lint:lint-api:32.4.1",
+      "file": "lint-api-32.4.1.jar",
+      "sha256": "e6a6e0244b5a9a325580c0a8901b94e1a8b37e0cca7030f5fcb06186f7f46b61"
+    },
+    {
+      "bytes": 7256470,
+      "coordinate": "com.android.tools.lint:lint-checks:32.4.1",
+      "file": "lint-checks-32.4.1.jar",
+      "sha256": "61e6b0a90d6fe8a5ac5d4d8519fb1134fd064fbba12525dcfc08ce4b43ffd0ae"
+    },
+    {
+      "bytes": 66292,
+      "coordinate": "com.android.tools.lint:lint-gradle:32.4.1",
+      "file": "lint-gradle-32.4.1.jar",
+      "sha256": "e8f8ed063b7a62628c8dde69b742f8a86dd4b73a371acebd14c7b21c30624b63"
+    },
+    {
+      "bytes": 164882,
+      "coordinate": "com.android.tools.lint:lint-model:32.4.1",
+      "file": "lint-model-32.4.1.jar",
+      "sha256": "81ac1f03f390f0aa8308d389a8bbe4238f9bd843ff705556f68564f6ee257cf1"
+    },
+    {
+      "bytes": 9585,
+      "coordinate": "com.android.tools.lint:lint-typedef-remover:32.4.1",
+      "file": "lint-typedef-remover-32.4.1.jar",
+      "sha256": "e281e90a6ffc831800e64517be8f1b230a6367bec226f1b0ce1a80d4573deade"
+    },
+    {
+      "bytes": 991438,
+      "coordinate": "com.android.tools.lint:lint:32.4.1",
+      "file": "lint-32.4.1.jar",
+      "sha256": "e85c552d59a7d69e7f449bd04a8c86873da1a436b8c6015c42ff85ce5acfe341"
+    },
+    {
+      "bytes": 10677,
+      "coordinate": "com.android.tools:annotations:32.4.1",
+      "file": "annotations-32.4.1.jar",
+      "sha256": "32e90226ae4c7b59ed61b06689ae8356bab080cd79f6569455fd92925439a339"
+    },
+    {
+      "bytes": 570281,
+      "coordinate": "com.android.tools:common:32.4.1",
+      "file": "common-32.4.1.jar",
+      "sha256": "cace5b28f2342119fe1a2db5baa36f8bd3391a086788e04fb8326bb70d6c4989"
+    },
+    {
+      "bytes": 74879,
+      "coordinate": "com.android.tools:dvlib:32.4.1",
+      "file": "dvlib-32.4.1.jar",
+      "sha256": "ff910a7349bc7f22ed2601ee48ad27a6c5bd27b59f82c4610a12d0a4c468bf45"
+    },
+    {
+      "bytes": 186568,
+      "coordinate": "com.android.tools:play-sdk-proto:32.4.1",
+      "file": "play-sdk-proto-32.4.1.jar",
+      "sha256": "cf77b4790829089f12efc8a11d534ac59ccea4e8dacb2a1e7a14d361fd110602"
+    },
+    {
+      "bytes": 272256,
+      "coordinate": "com.android.tools:repository:32.4.1",
+      "file": "repository-32.4.1.jar",
+      "sha256": "9fd419f3307be633aaf7b02b52832521c1300d4bf9058cee83bb11139990a7f9"
+    },
+    {
+      "bytes": 1684326,
+      "coordinate": "com.android.tools:sdk-common:32.4.1",
+      "file": "sdk-common-32.4.1.jar",
+      "sha256": "0ef83f5f212f2fce8300a167ba256d1cd81e4cda6adc868f7025a8dbdd2ae14f"
+    },
+    {
+      "bytes": 1909475,
+      "coordinate": "com.android.tools:sdklib:32.4.1",
+      "file": "sdklib-32.4.1.jar",
+      "sha256": "d0bbe0e03155a7bdd9bac03567b6b26797f81a778f55d5eadc3e71e7a0a27434"
+    },
+    {
+      "bytes": 19936,
+      "coordinate": "com.google.code.findbugs:jsr305:3.0.2",
+      "file": "jsr305-3.0.2.jar",
+      "sha256": "766ad2a0783f2687962c8ad74ceecc38a28b9f72a2d085ee438b7813e928d0c7"
+    },
+    {
+      "bytes": 298435,
+      "coordinate": "com.google.code.gson:gson:2.11.0",
+      "file": "gson-2.11.0.jar",
+      "sha256": "57928d6e5a6edeb2abd3770a8f95ba44dce45f3b23b7a9dc2b309c581552a78b"
+    },
+    {
+      "bytes": 19401,
+      "coordinate": "com.google.errorprone:error_prone_annotations:2.36.0",
+      "file": "error_prone_annotations-2.36.0.jar",
+      "sha256": "77440e270b0bc9a249903c5a076c36a722c4886ca4f42675f2903a1c53ed61a5"
+    },
+    {
+      "bytes": 4740,
+      "coordinate": "com.google.guava:failureaccess:1.0.2",
+      "file": "failureaccess-1.0.2.jar",
+      "sha256": "8a8f81cf9b359e3f6dfa691a1e776985c061ef2f223c9b2c80753e1b458e8064"
+    },
+    {
+      "bytes": 3080298,
+      "coordinate": "com.google.guava:guava:33.4.0-jre",
+      "file": "guava-33.4.0-jre.jar",
+      "sha256": "b918c98a7e44dbe94ebd9fe3e40cddaadb5a93e6a78eb6008b42df237241e538"
+    },
+    {
+      "bytes": 2199,
+      "coordinate": "com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava",
+      "file": "listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar",
+      "sha256": "b372a037d4230aa57fbeffdef30fd6123f9c0c2db85d0aced00c91b974f33f99"
+    },
+    {
+      "bytes": 12467,
+      "coordinate": "com.google.j2objc:j2objc-annotations:3.0.0",
+      "file": "j2objc-annotations-3.0.0.jar",
+      "sha256": "88241573467ddca44ffd4d74aa04c2bbfd11bf7c17e0c342c94c9de7a70a7c64"
+    },
+    {
+      "bytes": 206691,
+      "coordinate": "com.google.jimfs:jimfs:1.1",
+      "file": "jimfs-1.1.jar",
+      "sha256": "c4828e28d7c0a930af9387510b3bada7daa5c04d7c25a75c7b8b081f1c257ddd"
+    },
+    {
+      "bytes": 1875414,
+      "coordinate": "com.google.protobuf:protobuf-java:3.25.5",
+      "file": "protobuf-java-3.25.5.jar",
+      "sha256": "8540247fad9e06baefa8fb45eb313802d019f485f14300e0f9d6b556ed88e753"
+    },
+    {
+      "bytes": 27156,
+      "coordinate": "com.sun.istack:istack-commons-runtime:3.0.8",
+      "file": "istack-commons-runtime-3.0.8.jar",
+      "sha256": "4ffabb06be454a05e4398e20c77fa2b6308d4b88dfbef7ca30a76b5b7d5505ef"
+    },
+    {
+      "bytes": 317195,
+      "coordinate": "com.sun.xml.fastinfoset:FastInfoset:1.2.16",
+      "file": "FastInfoset-1.2.16.jar",
+      "sha256": "056f3a1e144409f21ed16afc26805f58e9a21f3fce1543c42d400719d250c511"
+    },
+    {
+      "bytes": 372687,
+      "coordinate": "commons-codec:commons-codec:1.17.1",
+      "file": "commons-codec-1.17.1.jar",
+      "sha256": "f9f6cb103f2ddc3c99a9d80ada2ae7bf0685111fd6bffccb72033d1da4e6ff23"
+    },
+    {
+      "bytes": 508826,
+      "coordinate": "commons-io:commons-io:2.16.1",
+      "file": "commons-io-2.16.1.jar",
+      "sha256": "f41f7baacd716896447ace9758621f62c1c6b0a91d89acee488da26fc477c84f"
+    },
+    {
+      "bytes": 61829,
+      "coordinate": "commons-logging:commons-logging:1.2",
+      "file": "commons-logging-1.2.jar",
+      "sha256": "daddea1ea0be0f56978ab3006b8ac92834afeefbd9b7e4e6316fca57df0fa636"
+    },
+    {
+      "bytes": 44399,
+      "coordinate": "jakarta.activation:jakarta.activation-api:1.2.1",
+      "file": "jakarta.activation-api-1.2.1.jar",
+      "sha256": "8b0a0f52fa8b05c5431921a063ed866efaa41dadf2e3a7ee3e1961f2b0d9645b"
+    },
+    {
+      "bytes": 115498,
+      "coordinate": "jakarta.xml.bind:jakarta.xml.bind-api:2.3.2",
+      "file": "jakarta.xml.bind-api-2.3.2.jar",
+      "sha256": "69156304079bdeed9fc0ae3b39389f19b3cc4ba4443bc80508995394ead742ea"
+    },
+    {
+      "bytes": 2497,
+      "coordinate": "javax.inject:javax.inject:1",
+      "file": "javax.inject-1.jar",
+      "sha256": "91c77044a50c481636c32d916fd89c9118a72195390452c81065080f957de7ff"
+    },
+    {
+      "bytes": 2735878,
+      "coordinate": "net.java.dev.jna:jna-platform:5.6.0",
+      "file": "jna-platform-5.6.0.jar",
+      "sha256": "9ecea8bf2b1b39963939d18b70464eef60c508fed8820f9dcaba0c35518eabf7"
+    },
+    {
+      "bytes": 1509440,
+      "coordinate": "net.java.dev.jna:jna:5.6.0",
+      "file": "jna-5.6.0.jar",
+      "sha256": "5557e235a8aa2f9766d5dc609d67948f2a8832c2d796cea9ef1d6cbe0b3b7eaf"
+    },
+    {
+      "bytes": 43858,
+      "coordinate": "net.sf.kxml:kxml2:2.3.0",
+      "file": "kxml2-2.3.0.jar",
+      "sha256": "f264dd9f79a1fde10ce5ecc53221eff24be4c9331c830b7d52f2f08a7b633de2"
+    },
+    {
+      "bytes": 1087319,
+      "coordinate": "org.apache.commons:commons-compress:1.27.1",
+      "file": "commons-compress-1.27.1.jar",
+      "sha256": "293d80f54b536b74095dcd7ea3cf0a29bbfc3402519281332495f4420d370d16"
+    },
+    {
+      "bytes": 674238,
+      "coordinate": "org.apache.commons:commons-lang3:3.16.0",
+      "file": "commons-lang3-3.16.0.jar",
+      "sha256": "08709dd74d602b705ce4017d26544210056a4ba583d5b20c09373406fe7a00f8"
+    },
+    {
+      "bytes": 7714202,
+      "coordinate": "org.apache.groovy:groovy:4.0.29",
+      "file": "groovy-4.0.29.jar",
+      "sha256": "16b1259f5404bc43bf066556e043769b1f7570b2ca23fdaf169f12499677e936"
+    },
+    {
+      "bytes": 767140,
+      "coordinate": "org.apache.httpcomponents:httpclient:4.5.6",
+      "file": "httpclient-4.5.6.jar",
+      "sha256": "c03f813195e7a80e3608d0ddd8da80b21696a4c92a6a2298865bf149071551c7"
+    },
+    {
+      "bytes": 327891,
+      "coordinate": "org.apache.httpcomponents:httpcore:4.4.16",
+      "file": "httpcore-4.4.16.jar",
+      "sha256": "6c9b3dd142a09dc468e23ad39aad6f75a0f2b85125104469f026e52a474e464f"
+    },
+    {
+      "bytes": 41794,
+      "coordinate": "org.apache.httpcomponents:httpmime:4.5.6",
+      "file": "httpmime-4.5.6.jar",
+      "sha256": "0b2b1102c18d3c7e05a77214b9b7501a6f6056174ae5604e0e256776eda7553e"
+    },
+    {
+      "bytes": 1136565,
+      "coordinate": "org.bouncycastle:bcpkix-jdk18on:1.80.2",
+      "file": "bcpkix-jdk18on-1.80.2.jar",
+      "sha256": "d43bacacb557e7e9dd6e03f03ca56213214a646cee584e2c657b0e0b0db4a3f5"
+    },
+    {
+      "bytes": 8684703,
+      "coordinate": "org.bouncycastle:bcprov-jdk18on:1.80.2",
+      "file": "bcprov-jdk18on-1.80.2.jar",
+      "sha256": "b33227f07dce264daf1aac2e798ef109a4901f31abedac53635746dd93679d3b"
+    },
+    {
+      "bytes": 704813,
+      "coordinate": "org.bouncycastle:bcutil-jdk18on:1.80.2",
+      "file": "bcutil-jdk18on-1.80.2.jar",
+      "sha256": "bc78d32d7ffb141ee27e4fb77df04259d842c899e7e8eaf912f990d7253bd3b4"
+    },
+    {
+      "bytes": 231525,
+      "coordinate": "org.checkerframework:checker-qual:3.43.0",
+      "file": "checker-qual-3.43.0.jar",
+      "sha256": "3fbc2e98f05854c3df16df9abaa955b91b15b3ecac33623208ed6424640ef0f6"
+    },
+    {
+      "bytes": 1013367,
+      "coordinate": "org.glassfish.jaxb:jaxb-runtime:2.3.2",
+      "file": "jaxb-runtime-2.3.2.jar",
+      "sha256": "e6e0a1e89fb6ff786279e6a0082d5cef52dc2ebe67053d041800737652b4fd1b"
+    },
+    {
+      "bytes": 72080,
+      "coordinate": "org.glassfish.jaxb:txw2:2.3.2",
+      "file": "txw2-2.3.2.jar",
+      "sha256": "4a6a9f483388d461b81aa9a28c685b8b74c0597993bf1884b04eddbca95f48fe"
+    },
+    {
+      "bytes": 3298629,
+      "coordinate": "org.jetbrains.kotlin:kotlin-reflect:2.2.10",
+      "file": "kotlin-reflect-2.2.10.jar",
+      "sha256": "c48db4f8cd1bfd67f72d59255065fb41bfda43ca2942dac4d9deb897aa126ba4"
+    },
+    {
+      "bytes": 945,
+      "coordinate": "org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.2.10",
+      "file": "kotlin-stdlib-jdk7-2.2.10.jar",
+      "sha256": "cf95eccc6cc784dff479dee0b8834f3584b93292cc5d91972e82f5d7b9e13e3b"
+    },
+    {
+      "bytes": 951,
+      "coordinate": "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.10",
+      "file": "kotlin-stdlib-jdk8-2.2.10.jar",
+      "sha256": "8974bfdd08b1d81843fe8d11f0729ab6e5b3c1f88d671ebe0c006358129ce149"
+    },
+    {
+      "bytes": 1750374,
+      "coordinate": "org.jetbrains.kotlin:kotlin-stdlib:2.2.10",
+      "file": "kotlin-stdlib-2.2.10.jar",
+      "sha256": "9c67cc79efd6b9215b49d2a4308f5f3433537376c7c88e89bdd6729bd096e61a"
+    },
+    {
+      "bytes": 1463587,
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.9.0",
+      "file": "kotlinx-coroutines-core-jvm-1.9.0.jar",
+      "sha256": "ad89c2892235e670f222d819cb3d81188143cb19a05b59df9889ae4269f5c70a"
+    },
+    {
+      "bytes": 29371,
+      "coordinate": "org.jetbrains:annotations:23.0.0",
+      "file": "annotations-23.0.0.jar",
+      "sha256": "7b0f19724082cbfcbc66e5abea2b9bc92cf08a1ea11e191933ed43801eb3cd05"
+    },
+    {
+      "bytes": 38099,
+      "coordinate": "org.jvnet.staxex:stax-ex:1.8.1",
+      "file": "stax-ex-1.8.1.jar",
+      "sha256": "20522549056e9e50aa35ef0b445a2e47a53d06be0b0a9467d704e2483ffb049a"
+    },
+    {
+      "bytes": 35149,
+      "coordinate": "org.ow2.asm:asm-analysis:9.9",
+      "file": "asm-analysis-9.9.jar",
+      "sha256": "6a15d28e8bd29ba4fd5bca4baf9b50e8fba2d7b51fbf78cfa0c875a7214c678b"
+    },
+    {
+      "bytes": 74348,
+      "coordinate": "org.ow2.asm:asm-commons:9.9",
+      "file": "asm-commons-9.9.jar",
+      "sha256": "db2f6f26150bbe7c126606b4a1151836bcc22a1e05a423b3585698bece995ff8"
+    },
+    {
+      "bytes": 51947,
+      "coordinate": "org.ow2.asm:asm-tree:9.9",
+      "file": "asm-tree-9.9.jar",
+      "sha256": "42178f3775c9c63f9e5e1446747d29b4eca4d91bd6e75e5c43cfa372a47d38c6"
+    },
+    {
+      "bytes": 126122,
+      "coordinate": "org.ow2.asm:asm:9.9",
+      "file": "asm-9.9.jar",
+      "sha256": "03d99a74ad1ee5c71334ef67437f4ef4fe3488caa7c96d8645abc73c8e2017d4"
+    }
+  ],
+  "compiler_version": "2.4.0-dev-2631-for-lint",
+  "version": 1
+}

@@ -1,7 +1,7 @@
 """Build the isolated SDK APK with existing tools; never install or run it.
 
-Exit 2 also reports the known AGP 8.10 Kotlin 2.4 metadata-analysis limitation,
-even when assembly, Java unit tests and APK audits succeeded.
+An analyzer dependency/metadata audit fails closed even when Gradle and a lint
+issue report alone would have returned success.
 """
 
 import argparse
@@ -12,11 +12,49 @@ from pathlib import Path
 import subprocess
 import sys
 import zipfile
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[4]
 PROJECT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "scripts"))
 import check
+
+ANALYZER_LOCK = "docs/runtime/android/LITERT_ANALYZER_LOCK_2026-10-22.json"
+ANALYSIS_FAILURES = (
+    "incompatible version of kotlin", "incompatible version of metadata",
+    "unexpected failure during lint", "no such method", "nosuchmethoderror",
+    "noclassdeffounderror", "unsupportedclassversionerror", "incompatibleclasschangeerror",
+    "exception in thread", "could not initialize class", "lint infrastructure error",
+)
+
+
+def analysis_failed(log):
+    lower = log.lower()
+    return any(marker in lower for marker in ANALYSIS_FAILURES) or any(
+        line.lstrip().startswith("e: ") for line in lower.splitlines())
+
+
+def analyzer_audit(log):
+    if analysis_failed(log):
+        raise ValueError("Lint analyzer reported an incompatible dependency or infrastructure failure")
+    expected = json.loads((ROOT / ANALYZER_LOCK).read_text(encoding="utf-8"))
+    actual = json.loads((PROJECT / "app/build/reports/analyzer-audit.json").read_text(encoding="utf-8"))
+    if (actual.get("version") != 1 or actual.get("analyzer_version") != expected["analyzer_version"]
+            or actual.get("artifacts") != expected["artifacts"] or not actual.get("check_dependencies")):
+        raise ValueError("Actual AGP analyzer classpath or dependency analysis differs from the pinned audit")
+    model = (PROJECT / "app" / actual["model_directory"]).resolve()
+    if not model.is_relative_to((PROJECT / "app/build").resolve()):
+        raise ValueError("Analyzer model is outside this experiment's build output")
+    dependencies = ET.parse(model / "debug-artifact-dependencies.xml").getroot()
+    names = {element.get("name", "") for element in dependencies.iter()}
+    required = {"com.google.ai.edge.litertlm:litertlm-android:0.18.1@aar",
+                "org.jetbrains.kotlin:kotlin-reflect:2.4.0@jar", "org.jetbrains.kotlin:kotlin-stdlib:2.4.0@jar"}
+    if not required <= names:
+        raise ValueError("The analyzed model does not include the exact SDK and Kotlin dependencies")
+    issues = ET.parse(PROJECT / "app/build/reports/lint-results-debug.xml").getroot()
+    if any(issue.get("severity", "").lower() in ("error", "fatal") for issue in issues.findall("issue")):
+        raise ValueError("Lint reported an error")
+    print("Actual locked lint " + actual["analyzer_version"] + " analyzed the SDK/Kotlin dependency model without metadata failures")
 
 
 def dependency_audit():
@@ -56,6 +94,8 @@ def main():
     parser.add_argument("--java21", type=Path, required=True, help="Existing Java 21 JDK; never downloaded")
     parser.add_argument("--offline", action="store_true")
     parser.add_argument("--clean", action="store_true")
+    parser.add_argument("--probe-incompatible-analyzer", action="store_true",
+                        help="Negative lint-only experiment using original 8.10.1 analyzer; expected rejection returns 2")
     args = parser.parse_args()
     check.verify_wrapper(ROOT)
     compiler = args.java21 / "bin" / ("javac.exe" if os.name == "nt" else "javac")
@@ -68,7 +108,11 @@ def main():
             "org.gradle.wrapper.GradleWrapperMain"]
     if args.clean:
         argv.append("clean")
-    argv.extend([":app:assembleDebug", ":app:testDebugUnitTest", ":app:lintDebug", "--no-daemon", "--console=plain",
+    if args.probe_incompatible_analyzer:
+        argv.extend([":app:lintDebug", "-Pandroid.experimental.lint.version=8.10.1", "--rerun-tasks"])
+    else:
+        argv.extend([":app:assembleDebug", ":app:testDebugUnitTest", ":app:lintDebug", ":app:auditLintAnalyzer"])
+    argv.extend(["--no-daemon", "--console=plain",
                  "-Pandroid.builder.sdkDownload=false", "-Dorg.gradle.java.installations.auto-download=false"])
     if args.offline:
         argv.append("--offline")
@@ -82,13 +126,23 @@ def main():
     if result.returncode:
         print("Build failed; inspect ignored .gradle/spike-build.log")
         return result.returncode
+    text = log.read_text(encoding="utf-8", errors="replace")
+    if args.probe_incompatible_analyzer:
+        if ("incompatible version of Kotlin" in text and "metadata is 2.4.0" in text
+                and "expected version is 2.1.0" in text):
+            print("Original analyzer rejected actual SDK Kotlin 2.4 metadata (expected exit 2)")
+            return 2
+        print("Negative analyzer probe did not reproduce the required SDK metadata rejection")
+        return 3
     dependency_audit()
     apk_audit(PROJECT / "app/build/outputs/apk/debug/app-debug.apk", sdk)
-    # The exact pinned SDK uses Kotlin metadata 2.4; the exact pinned AGP analyzer
-    # expects 2.1. Cached lint tasks do not repeat the diagnostic, so absence from
-    # a later incremental log cannot upgrade this known incomplete analysis gate.
-    print("Assembly and JVM tests succeeded; lint dependency analysis is limited by Kotlin 2.4 metadata.")
-    return 2
+    try:
+        analyzer_audit(text)
+    except (ValueError, OSError, KeyError, ET.ParseError) as error:
+        print("Analyzer audit failed; inspect ignored .gradle/spike-build.log and analyzer-audit.json")
+        return 2
+    print("Assembly, JVM tests, lint analyzer and APK audits succeeded.")
+    return 0
 
 
 if __name__ == "__main__":

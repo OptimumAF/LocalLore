@@ -43,6 +43,7 @@ export async function curatedJourneys({
             run = s.curatedStatus;
         const overflow = document.documentElement.scrollWidth > innerWidth + 2,
             nested = !!panel && panel.scrollWidth > panel.clientWidth + 2;
+        failedCheck = `${label}-checkpoint`;
         await invoke("harness_checkpoint", {
             label,
             snapshot: {

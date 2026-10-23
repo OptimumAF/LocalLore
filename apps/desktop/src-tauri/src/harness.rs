@@ -25,6 +25,7 @@ const LABELS: &[&str] = &[
     "curated-lens",
     "curated-pending",
     "curated-cancelled",
+    "curated-retiring",
     "curated-retired",
     "curated-restarted",
     "curated-finished",

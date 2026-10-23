@@ -1,6 +1,7 @@
 # ADR-0006 — Tauri desktop shell over the shared Rust engine
 
-Status: proposed for owner review; implemented D01 spike, not release approval.
+Status: implemented and merged through D01 #33, D02 #36 and shared app storage
+#42; bounded Windows developer app, not release approval.
 Date: 2026-10-22. Decision authority: @OptimumAF. Tasks: D01.01–D01.05,
 [#22](https://github.com/OptimumAF/LocalLore/issues/22), parent
 [#21](https://github.com/OptimumAF/LocalLore/issues/21).
@@ -45,6 +46,14 @@ adds generated/schema-validated TypeScript types. Full Play/Story Lab, durable
 workspaces, real models and advanced memory remain their owning child tickets.
 
 ## Consequences and capability rules
+
+The original D01 observations below describe its memory-only spike. Accepted
+main `2612001` additionally uses the shared SQLite workspace factory in both
+production apps, opts Android into the shared host/schema dependency, and fences
+desktop calls with app-owned `main-<epoch>` window leases. Explicit D02 fixture
+harnesses remain memory-only. See the current [host-v1 contract](../desktop/HOST_V1.md)
+and [application storage integration](../storage/APP_INTEGRATION.md) for those
+extensions; framework choice and canonical authority are unchanged.
 
 `locallore::host` is an opt-in feature in the existing portable crate. Only
 schema derives are added to existing request types; domain rules, inference,

@@ -25,7 +25,8 @@ access control and device security still apply.
 See [ADR-0006](../../docs/adr/0006-desktop-host.md),
 [host-v1](../../docs/desktop/HOST_V1.md),
 [D02 harness](../../docs/desktop/D02_HARNESS.md) and
-[verification](../../docs/desktop/D02_VERIFICATION_2026-10-22.md).
+[original D02 verification](../../docs/desktop/D02_VERIFICATION_2026-10-22.md) and
+[current-main gate](../../docs/desktop/D02_CURRENT_GATE_2026-10-22.md).
 
 ## Build and run
 
@@ -48,7 +49,8 @@ Always rebuild the normal frontend with `npm run build` after using a developmen
 harness, then rebuild the native executable without `--features dev-harness`.
 Node, Playwright and a dev server are not shipped runtimes. React and CSS bundle
 into local assets; the executable uses the installed WebView2. The desktop is a
-separate Cargo workspace; Android does not enable the optional host feature.
+separate Cargo workspace, so Tauri is not an Android dependency. Android now
+enables the portable host feature through the shared workspace/storage adapter.
 
 Enter submits the selected typed action; Shift+Enter adds a newline, and IME
 composition does not submit. Native form controls support keyboard navigation;
@@ -84,7 +86,7 @@ development browser. Native harness rendering requires only installed WebView2.
 The harness commands launch their own hidden native app or headless browser,
 exercise the same controller. The durable native journey uses one synthetic SQLite
 database through app-owned WebView close/reopen and a separate executable process
-restart. The legacy D02 journeys explicitly retain memory fixtures. All runners and save synthetic JSON plus app-only PNGs under
+restart. The legacy D02 journeys explicitly retain memory fixtures. All runners save synthetic JSON plus app-only PNGs under
 ignored `artifacts/`. They never activate a window, inject desktop input or
 capture the desktop. Native and headless evidence are labeled separately.
 

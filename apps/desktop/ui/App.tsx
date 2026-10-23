@@ -50,14 +50,18 @@ export function App({ controller: c }: { controller: Controller }) {
                     Local Rust | Fake inference |{" "}
                     {s.workspace
                         ? "Saved locally"
-                        : s.starting
-                          ? "Opening storage..."
-                          : "Storage unavailable"}
+                        : s.ephemeral
+                          ? "In-memory only · not saved"
+                          : s.starting
+                            ? "Opening storage..."
+                            : "Storage unavailable"}
                 </span>
             </header>
             <div className={`workspace ${s.inspectorOpen ? "" : "collapsed"}`}>
                 <aside className="sidebar" aria-label="Story sessions">
-                    <h2>Saved stories</h2>
+                    <h2>
+                        {s.ephemeral ? "Fixture sessions" : "Saved stories"}
+                    </h2>
                     {s.workspace?.stories.map((story) => (
                         <button
                             className="session"
@@ -76,7 +80,9 @@ export function App({ controller: c }: { controller: Controller }) {
                     <button
                         className="new"
                         disabled={
-                            s.sessions.length >= 4 || s.starting || !s.workspace
+                            s.sessions.length >= 4 ||
+                            s.starting ||
+                            (!s.workspace && !s.ephemeral)
                         }
                         onClick={() => void c.create()}
                     >
@@ -99,8 +105,9 @@ export function App({ controller: c }: { controller: Controller }) {
                         ))}
                     </div>
                     <p>
-                        Close releases this window's session; the saved story
-                        remains. New and Reset create a separate saved story.
+                        {s.ephemeral
+                            ? "Progress stays in memory. Closing or resetting discards this fixture session; nothing is saved."
+                            : "Close releases this window's session; the saved story remains. New and Reset create a separate saved story."}
                     </p>
                     <p>
                         Unsubmitted composer text stays in this session only.
@@ -121,7 +128,7 @@ export function App({ controller: c }: { controller: Controller }) {
                             </p>
                         </details>
                     )}
-                    {!s.workspace && !s.starting && (
+                    {!s.workspace && !s.ephemeral && !s.starting && (
                         <button onClick={() => void c.start()}>
                             Retry opening saved workspace
                         </button>
@@ -429,7 +436,9 @@ export function App({ controller: c }: { controller: Controller }) {
                                 disabled={!selected}
                                 onClick={() => void c.reset()}
                             >
-                                Reset as new story
+                                {s.ephemeral
+                                    ? "Reset fixture"
+                                    : "Reset as new story"}
                             </button>
                         </div>
                     </form>
@@ -585,7 +594,9 @@ export function App({ controller: c }: { controller: Controller }) {
                             disabled={!selected}
                             onClick={() => void c.closeSession()}
                         >
-                            Close session | keep save
+                            {s.ephemeral
+                                ? "Close fixture session"
+                                : "Close session | keep save"}
                         </button>
                     </aside>
                 )}
@@ -595,7 +606,9 @@ export function App({ controller: c }: { controller: Controller }) {
                     Fake inference |{" "}
                     {s.workspace
                         ? "Accepted progress saved locally"
-                        : "Storage must open before play"}
+                        : s.ephemeral
+                          ? "In-memory progress · lost on close"
+                          : "Storage must open before play"}
                 </span>
                 <span>No real model, export or arbitrary story generator</span>
             </footer>

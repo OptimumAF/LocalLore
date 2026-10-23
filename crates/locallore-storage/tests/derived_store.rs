@@ -129,7 +129,12 @@ fn application_open_backs_up_once_and_never_adopts_tampered_v1() {
         std::fs::read_dir(&dir.0)
             .unwrap()
             .filter_map(Result::ok)
-            .filter(|entry| entry.file_name().to_string_lossy().contains(".before-v3-"))
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .contains(&format!(".before-v{SCHEMA_VERSION}-"))
+            })
             .count()
     };
     assert_eq!(backups(), 1);

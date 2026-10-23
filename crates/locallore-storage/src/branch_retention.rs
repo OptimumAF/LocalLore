@@ -408,7 +408,7 @@ fn make_plan(
     }
     removed_branches.sort();
     let preview = BranchDeletionPreview {
-        version: 1,
+        version: 2,
         scope: scope.clone(),
         title: graph.title.clone(),
         root_branch: graph.root.clone(),

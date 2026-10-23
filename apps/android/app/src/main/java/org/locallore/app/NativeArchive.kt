@@ -198,7 +198,7 @@ internal object ArchiveNativeWire {
         p.keysExactly("version", "scope", "title", "root_branch", "expected_revision", "retained_descendants",
             "retained_heads", "removed_branches", "removed_rows", "removed_committed_turns",
             "removed_noncommitted_turns", "privacy_warning")
-        require(p.integer("version") == 1L)
+        val version = p.integer("version").also { require(it in 1..2) }
         val scope = p.getJSONObject("scope").also { it.keysExactly("story", "branch") }
         val story = scope.identifier("story"); val branch = scope.identifier("branch")
         val root = p.identifier("root_branch").also { require(it != branch) }
@@ -210,13 +210,14 @@ internal object ArchiveNativeWire {
         require((branch in retained) != (branch in removed))
         if (descendants.isNotEmpty()) require(branch in retained)
         val rowsObject = p.getJSONObject("removed_rows")
-        rowsObject.keysExactly("derived_memory", "event_witnesses", "accepted_events", "turns", "branch_projections",
-            "branch_entities", "branches")
+        val tables = listOf("derived_memory", "event_witnesses", "accepted_events", "turns", "branch_projections",
+            "branch_entities", "branches") + if (version == 2L) listOf("memory_jobs", "memory_job_packets") else emptyList()
+        rowsObject.keysExactly(*tables.toTypedArray())
         val rows = rowsObject.keys().asSequence().associateWith { rowsObject.integer(it) }
         require(rows.getValue("branches") == removed.size.toLong())
         val committed = p.integer("removed_committed_turns"); val pending = p.integer("removed_noncommitted_turns")
         require(committed <= rows.getValue("turns") && pending == rows.getValue("turns") - committed)
-        BranchDeletionPrepared(token, BranchDeletionPreview(1, story, branch, p.text("title", 1024), root,
+        BranchDeletionPrepared(token, BranchDeletionPreview(version.toInt(), story, branch, p.text("title", 1024), root,
             p.integer("expected_revision"), descendants, retained, removed, rows, committed, pending, p.text("privacy_warning",4096)))
     }
     fun branchDeleted(bytes: ByteArray): BranchDeleted = decoded(bytes, 65536) { data ->
@@ -243,7 +244,7 @@ internal object ArchiveNativeWire {
         val p = data.getJSONObject("preview")
         p.keysExactly("version", "story_id", "title", "root_branch", "branch_heads", "committed_turns", "draft_turns",
             "noncommitted_turns", "derived_packets", "rows", "privacy_warning")
-        val version = p.integer("version").also { require(it in 1..2) }
+        val version = p.integer("version").also { require(it in 1..3) }
         val root = p.identifier("root_branch")
         val h = p.getJSONObject("branch_heads")
         require(h.length() in 1..256)
@@ -251,14 +252,17 @@ internal object ArchiveNativeWire {
         require(root in heads)
         val r = p.getJSONObject("rows")
         val tables = listOf("derived_memory", "event_witnesses", "accepted_events", "turns", "branch_projections",
-            "branch_entities", "entities", "branches", "stories") + if (version == 2L) listOf("branch_retention") else emptyList()
+            "branch_entities", "entities", "branches", "stories") +
+            (if (version >= 2L) listOf("branch_retention") else emptyList()) +
+            (if (version == 3L) listOf("memory_jobs", "memory_job_packets") else emptyList())
         r.keysExactly(*tables.toTypedArray())
         val rows = r.keys().asSequence().associateWith { r.integer(it) }
         val committed = p.integer("committed_turns"); val noncommitted = p.integer("noncommitted_turns")
         val drafts = p.integer("draft_turns"); val derived = p.integer("derived_packets")
         require(rows.getValue("stories") == 1L && rows.getValue("branches") == heads.size.toLong())
         require(committed <= rows.getValue("turns") && noncommitted == rows.getValue("turns") - committed)
-        require(drafts <= noncommitted && derived == rows.getValue("derived_memory"))
+        val v1Packets = rows.getValue("derived_memory")
+        require(drafts <= noncommitted && derived >= v1Packets && derived - v1Packets == (rows["memory_job_packets"] ?: 0L))
         StoryDeletionPrepared(token, StoryDeletionPreview(version.toInt(), p.identifier("story_id"), p.text("title", 1024),
             root, heads, committed, drafts, noncommitted, derived, rows, p.text("privacy_warning", 4096)))
     }

@@ -260,7 +260,7 @@ fn preview_is_bounded_read_only_and_covers_every_timeline_and_workflow_kind() {
             p.noncommitted_turns,
             p.derived_packets
         ),
-        (2, 4, 5, 1, 4, 2)
+        (3, 4, 5, 1, 4, 2)
     );
     assert_eq!(p.rows.len(), 12);
     assert_eq!(p.rows["memory_jobs"], 0);

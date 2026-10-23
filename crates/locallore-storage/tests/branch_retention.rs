@@ -362,7 +362,7 @@ fn parent_retirement_preserves_all_children_original_history_context_and_unrelat
     let all = f.rows(&parent.story);
     let plan = f.prepare(&parent);
     let p = plan.preview();
-    assert_eq!(p.version, 1);
+    assert_eq!(p.version, 2);
     assert_eq!(p.retained_heads[&parent.branch], 9);
     assert_eq!(p.retained_descendants.len(), 3);
     assert_eq!(p.removed_committed_turns, 2);

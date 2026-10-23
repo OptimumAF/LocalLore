@@ -262,7 +262,7 @@ fn preview(
     let (committed, draft, noncommitted): (i64,i64,i64) = connection.query_row(
         "SELECT coalesce(sum(status='committed'),0),coalesce(sum(status='draft'),0),coalesce(sum(status<>'committed'),0) FROM turns WHERE story_id=?1", [&scope.story], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
     let result = StoryDeletionPreview {
-        version: 2,
+        version: 3,
         story_id: scope.story.clone(),
         title,
         root_branch,

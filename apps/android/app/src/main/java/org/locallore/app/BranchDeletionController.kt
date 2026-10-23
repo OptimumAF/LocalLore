@@ -73,7 +73,7 @@ internal class BranchDeletionController(
         work(commit = false) { ticket ->
             val prepared = gateway.prepareBranch(story)
             val preview = prepared.preview
-            if (prepared.token <= 0 || preview.version != 1 || preview.storyId != story.story ||
+            if (prepared.token <= 0 || preview.version !in 1..2 || preview.storyId != story.story ||
                 preview.branchId != story.branch || preview.rootBranch != rootBranch ||
                 preview.expectedRevision != story.revision || preview.title != story.title ||
                 preview.branchId == preview.rootBranch) {

@@ -378,3 +378,68 @@ fn spoiler_bundle_cannot_be_relabelled_as_structural_diagnostics_or_playable_arc
         "inspection cannot advertise a playable archive"
     );
 }
+
+#[test]
+fn export_racing_a_real_independent_commit_is_old_head_or_explicitly_stale() {
+    for attempt in 0..6 {
+        let dir = Temp::new();
+        let scope = dir.seed();
+        let exporting = dir.host(true);
+        let a = resume(&exporting, &scope);
+        let writing = dir.host(false);
+        let b = resume(&writing, &scope);
+        let turn = format!("racing-{attempt}");
+        let request = json!({"version":1,"scope":scope,"turn":turn,"expected_revision":0,"intent":{"kind":"actions","value":[{"op":"give","item":"potion","to":"mira","quantity":1}]}});
+        assert_eq!(
+            call(
+                &writing,
+                json!({"op":"submit","session":b,"request":request,"mode":"accepted"})
+            )["data"]["phase"],
+            "queued"
+        );
+        assert_eq!(
+            call(
+                &writing,
+                json!({"op":"prepare","session":b,"scope":scope,"turn":turn})
+            )["data"]["phase"],
+            "ready"
+        );
+        let barrier = std::sync::Barrier::new(2);
+        let captured = std::thread::scope(|threads| {
+            let read = threads.spawn(|| {
+                barrier.wait();
+                exporting.inspection_snapshot(&a, &scope, 0, ExportMode::Full)
+            });
+            let write = threads.spawn(|| {
+                barrier.wait();
+                call(
+                    &writing,
+                    json!({"op":"commit","session":b,"scope":scope,"turn":turn}),
+                )
+            });
+            let result = read.join().unwrap();
+            assert_eq!(write.join().unwrap()["data"]["phase"], "committed");
+            result
+        });
+        match captured {
+            Ok(bundle) => {
+                bundle.validate().unwrap();
+                assert_eq!(bundle.manifest["revision"], 0);
+                assert!(bundle.files["events.jsonl"].is_empty());
+                let state: Value = serde_json::from_slice(&bundle.files["state.json"]).unwrap();
+                assert_eq!(state["items"]["potion"]["owner"], "player");
+            }
+            Err(category) => assert_eq!(category, "Stale"),
+        }
+        assert_eq!(
+            call(
+                &writing,
+                json!({"op":"play_snapshot","session":b,"scope":scope,"expected_revision":1})
+            )["data"]["receipts"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+}

@@ -161,3 +161,10 @@ discard, current-source/head publication fencing, paired hidden histories and
 large-history responsiveness using the actual derived-cache implementation. No
 implementation edit, PR, merge, release, model/device or owner acceptance is
 performed by this report.
+
+Follow-up source read: coordinator documentation-only
+`3cb807fb0e4171790dac87698884d519e40a1134` adds M07_BORROWED_OBSERVATIONS.md.
+Its explicit partial-cancellation discard, native caller authorization and
+O(total-history)/nonconstant-time limits match the contract above. Git diff confirms
+no Engine/test behavior change fromdcb6b5a; this follow-up does not add reviewer
+test execution or extend acceptance to the derived-memory consumer.

@@ -434,7 +434,12 @@ fn query2_is_read_only_paginated_and_source_scoped_for_mechanics_and_provenance(
         let value: Value = serde_json::to_value(&got).unwrap();
         assert!(!encode(value).contains("PRIVATE_AUTHOR_REASON"));
     }
-    let p = page(&e, Observer::Player, View::Relationships);
+    // Existing Give changes the recipient's directed obligation to the giver.
+    let p = page(
+        &e,
+        Observer::Character { id: "mira".into() },
+        View::Relationships,
+    );
     assert!(p.rows.iter().any(|r|matches!(r,Row::Relationship{source:Source::ScopedEvent{original_scope,sequence:2},..} if original_scope==e.scope())));
     assert_eq!(before, e.accepted_history_basis().unwrap());
     assert_eq!(records, e.canonical_records());

@@ -104,6 +104,13 @@ export async function traceJourneys({
     try {
         await c.start();
         check(c.get().workspace?.persistent, "d06-native-durable-workspace");
+        if (config.stage === "restart") {
+            const saved = c
+                .get()
+                .workspace?.stories.find((story) => story.revision > 0);
+            check(saved, "restart-finds-completed-saved-history");
+            await c.resume(saved!.scope);
+        }
         await c.showTrace();
         check(
             c.get().trace.reply?.snapshot.status === "disabled",
@@ -190,8 +197,16 @@ export async function traceJourneys({
                 !accepted?.stages.some((r) => r.stage === "director"),
                 "typed-fake-does-not-fabricate-production-role-spans",
             );
-            const stable = structural(await snap());
+            const stable = structural(await snap()),
+                beforeReads = g.submissions.length;
+            const liveBefore = await invoke("harness_stats");
             await c.readTrace();
+            check(
+                g.submissions.length === beforeReads &&
+                    structural(await invoke("harness_stats")) ===
+                        structural(liveBefore),
+                "metadata-read-never-starts-an-extra-turn-or-worker",
+            );
             check(
                 structural(await snap()) === stable,
                 "trace-refresh-does-not-change-canonical-receipt-or-state",

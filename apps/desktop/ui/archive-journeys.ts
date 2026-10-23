@@ -322,6 +322,7 @@ export async function archiveJourneys({
                     await c.resume(root);
                     await lab();
                 }
+                await c.refreshModel();
                 check(
                     c.get().model?.loaded === false,
                     "archive-import-never-loads-a-referenced-model",

@@ -75,6 +75,9 @@ request. The confirmed snapshot stays visible until recovery obtains an accepted
 native outcome; new turns and mode changes stay disabled during uncertainty.
 The [storage recovery report](../../docs/native/STORAGE_RECOVERY_VERIFICATION_2026-10-22.md)
 distinguishes injected error replies from actual SQLite exhaustion.
+The [actual SQLite contention fixture](../../docs/native/SQLITE_CONTENTION_VERIFICATION_2026-10-22.md)
+adds a separate-process writer and unmodified Rust Busy recovery checks, without
+changing production code or introducing a gameplay SQL interface.
 Cancellation that reaches Rust before submit exists is reconciled as an uncommitted
 request. A late submit remains a draft; recovery does not regenerate or commit it.
 The earlier [ADR-0004](../../docs/adr/0004-android-engine-boundary.md) remains the

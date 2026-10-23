@@ -97,9 +97,68 @@ zero requested/declared permissions, exact native ABI set/ELF alignment, ZIP
 alignment, locked analyzer graph/dependency model and lint are audited before a
 separate `verified/cacheprobe-debug.apk` is frozen.
 
-At initial source freeze, Python build-contract tests passed 15/15 (9 new and
-6 existing). The first attempt had one test-environment assumption failure:
-the test's temporary folder was correctly on D, rather than the C drive it
-assumed. The corrected test explicitly supplies a C path to exercise refusal.
-No build, JVM, device or inference result is claimed by that host-only check.
-Later actual qualification evidence belongs in the ticket/coordinator report.
+From the repository root, the full reproducible offline build template is:
+
+```powershell
+python -B benchmarks/spike/android/litert/cache_build.py --java21 "<installed-JDK21>" --output "D:/<fresh-owned-output>"
+```
+
+The output's parent must already be a real directory. The helper creates the
+new output itself and refuses an existing directory. It checks all ancestors
+for Windows reparse points, not merely the lexical drive. Direct opt-in Gradle
+properties also require absolute real D paths. Existing locked compiler/tool
+caches remain in use; temporary, project, app and root-project outputs are
+explicitly placed on D. Python bytecode output is disabled.
+
+After the coordinator has separately admitted setup, installed the audited new
+APK, and verified the intended mounted volume, the operation templates are:
+
+```powershell
+adb -s "<explicit-authorized-target>" shell am instrument -w -r -e operation inspect -e volume_uuid "<framework-UUID>" -e session "<new-32-lowerhex>" org.locallore.runtimebench.litert.cacheprobe/org.locallore.runtimebench.litert.CacheProbeInstrumentation
+adb -s "<explicit-authorized-target>" shell am instrument -w -r -e operation mmap -e volume_uuid "<same-framework-UUID>" -e session "<different-new-32-lowerhex>" org.locallore.runtimebench.litert.cacheprobe/org.locallore.runtimebench.litert.CacheProbeInstrumentation
+```
+
+These templates do not authorize device changes or model execution. A favorable
+sample JSON is not authorization or proof of backing identity, model integrity,
+or sufficient host capacity. No command stops or replaces the legacy SDK
+experiment. `play` requires a separate admitted model-provision/integrity/runtime
+experiment; this harness contains no model-copy or provisioning operation.
+
+## Actual host/build evidence
+
+Source `44cd85f7f21b600e1762eceb7007849d0b8948ab` qualified the new APK:
+
+| Check | Result |
+|---|---|
+| Complete Python SDK-helper test directory | 33 passed; includes 11 new cache-build tests |
+| Actual JVM XML | 62 passed, 0 failed/errors/skips; includes 9 CacheVolume cases |
+| JVM suites | CacheVolume 9, PlayRunner 10, Request 10, Stream 5, WarmExchange 13, WarmRunner 15 |
+| Gradle assembly/JVM/lint/analyzer | 50 tasks executed; successful in 47 seconds |
+| Actual Java compiler | 21.0.4; existing Java 17 launcher |
+| APK package/instrumentation | Exact new identity and only the explicit cache runner |
+| Capability/native audits | Zero requested/declared permissions; exact two-ABI/four-library set; ELF and ZIP 16 KiB alignment; five required Rust play JNI exports per ABI |
+| Dependencies/analyzer | Existing binary hashes, exact locked analyzer graph, SDK/Kotlin model, lint passed |
+| Frozen APK | 63,598,424 bytes; SHA256 `50e6e60cfdb2194272d31cf651805f34452ae09a04443558049020664f60d107` |
+
+All attempts remain in private task-owned evidence. The first build compiled
+both Rust ABIs but failed during Gradle configuration because the `java` extension
+shadowed `java.io.File`. The second compiled/audited both ABIs but failed Java
+compilation on an incorrect SDK logging-class import. Neither reached JVM tests.
+The final Java-only build copied the exact second attempt's native pair into
+fresh output, verified hashes/alignment/exports again, and recorded that the
+intervening changes touched only this Java/Gradle/build harness: no Rust, Cargo,
+fixtures or native-linker inputs changed. It did **not** compile Rust a third time.
+The normal CLI above still builds both current Rust ABIs.
+
+An actual isolation gap in the failed builds is retained: Gradle's root-project
+problems report used the legacy C checkout output before root-project output was
+explicitly redirected. The observed report was 127,166 bytes, SHA256
+`8561edc08c5973d589daf3588ac6edb856584b8101dca7e2abd2f3ecec40c748`;
+its prior identity is unknown. It was copied/recorded, not deleted. The final
+build uses explicit D app and root-project outputs. Two earlier Python attempts
+also failed while improving tests/guard error handling; their logs are retained.
+
+No agent-side ADB/device, model read/copy, AVD change, inference or installation
+occurred. API 26 source compatibility compiled, but actual runtime qualification
+is a separate gate. No Android mapping, cache growth, model correctness,
+physical-device or production-runtime success follows from these build checks.

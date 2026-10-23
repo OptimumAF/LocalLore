@@ -6,15 +6,82 @@ and [6360854924](https://github.com/OptimumAF/LocalLore/issues/25#issuecomment-6
 Contributor `/root/desktop_runtime_profile`, isolated
 `impl/d09-worker-adoption` / task-owned `source-worker-adoption`, initially
 accepted main `55ade00c1db8df39c62fb61cbe46c7c38edadd28`, reconciled with
-accepted `d5a76d2308a6863e49b3d088041d0eccadf8bb38` before final qualification.
-Final measured source is clean `b534fa781b9cabd4b7749a44f6ceb4ace58536e2`.
-This report is the subsequent documentation-only change.
+accepted `d5a76d2308a6863e49b3d088041d0eccadf8bb38` before initial qualification.
+The final combined-source qualification below incorporates accepted main
+`2f4efc29e989823a4cf6abf35e2a42fcfc8ee218`. Final measured source is clean
+`230ca5d52aa429561a3913376dbcca221399610a`; this report update is docs-only.
 
 The new fixed worker passes bounded native runtime/model/controller/render and
 developer-package checks. Both accepted native turns still use engine fallback
 narration. **Prose quality, observed offline operation, installation, sustained
 performance, device qualification and the complete D04/D09 gates remain open.**
 No merge, release, repository-setting change or public binary upload occurred.
+
+## Final combined-source qualification
+
+Claim addenda
+[6361366684](https://github.com/OptimumAF/LocalLore/issues/31#issuecomment-6361366684)
+and [6361366947](https://github.com/OptimumAF/LocalLore/issues/25#issuecomment-6361366947)
+preceded this follow-up. The coordinator's seven-file source/evidence review
+found no blocker. Accepted D07 panel, playable archive and lineage work merged
+without conflict as `396ec7c`. The only additional authorized edit is two existing
+dependency edges (`serde`, `sha2`) in the standalone runtime lockfile's storage
+package list, committed as `230ca5d`. No package version, download, product UI,
+runtime API, engine helper, main/native lock or accepted D07 source was changed.
+The final adoption diff against combined main has exactly eight owned paths.
+
+The final actual native model journey passed **52 distinct assertions,10 actual
+WebView2 PNGs and a real executable restart**, source clean `230ca5d`. Its output
+is `worker-adoption-artifacts/model-native-40cbe2ad-342b-433b-bd22-3f30da629b7f`;
+summary SHA256
+`775f61ab48dbbee3c153ba5cc268c920047172b7064ad21248d52d5215ca20f1`.
+All ten semantic DOM snapshots have nonempty text/headings and no horizontal
+overflow; all ten images were visually inspected. Loaded/pending/receipt/error/
+cancel/isolation/unload/restart remain legible and coherent. Ability and cancelled
+draft notices are visible in their captured viewport. Native process/model/IPC
+execution is distinct from image inspection; no desktop control or capture occurs.
+
+Both committed turns retain the new fixed worker provenance and fallback2/2,
+repairs0. Final single-run UI timings are load8318ms, potion9932ms,
+Dialogue9989ms, reload8535ms, restart load8475ms. Quality remains false. Initial
+bounded errors contain only the expected cancellation/resource/clarification/
+ability/unavailable categories; restart errors are empty. There are zero
+RenderError/UnhandledError entries. Successful process exits again emit the
+retained WebView shutdown1412 stderr message.
+
+| Repeated combined-source check | Actual result |
+| --- | --- |
+| Full workspace | 288 passed,0 failed/ignored;strict Clippy/fmt passed |
+| Standalone runtime | 23 passed,1 existing ignored;locked/offline scene-probe binaries build;strict all-target scene-probe Clippy/fmt passed |
+| Native development | 30 units +2 wrappers passed,1 existing ignored;strict Clippy passed |
+| Native default | 28 passed,1 existing ignored;strict Clippy/fmt passed |
+| Frontend | Current D07/controller/schema/strict TypeScript/error/privacy/hook-absence check and formatting passed |
+| Package policy | 12 adversarial tests and workflow policy passed |
+| Normal developer package | Build and independent verify passed;446 members;no app launch |
+
+The same commands below ran with the combined-source output name
+`worker-adoption-package/Combined accepted é`; logs are prefixed `combined-`.
+The normal package rebuild restores normal frontend assets/default executable
+after the harness. Final artifact binding:
+
+| Combined-source artifact | SHA256 |
+| --- | --- |
+| Normal executable,21,988,352 bytes | `9b5cacd612c7d96d88b3f58290cb163ba2b3fa1de78a8103424ab534ed65ab1d` |
+| Package manifest,96,782 bytes | `4882c57dda019147c06f0834d49d167d5c698b7396b1e40ec27005eeb8a2ff13` |
+| ZIP,10,233,276 bytes,446 members | `911ba754b3120fda9a802043394b84f5fb5e2714c9d26684b3a3075f210d0d9e` |
+
+Model size/hash/last-write time and old qualified worker hash were rechecked
+unchanged after this final run. Existing clean C++ comparison, standalone real
+runtime probe, shared scene and explicit reparse result below remain their
+original source-bound evidence; those were not relabelled new executions or
+repeated unnecessarily. The combined actual native model journey newly exercises
+the production canonical model path. Accepted-main Android evidence is separately
+owned by the coordinator; no new Android/device execution occurs here.
+
+The initial qualification record below is retained with its original source,
+counts and artifact hashes. This combined-source section supersedes it as the
+final application/package binding; all quality/offline/installer/Unicode-worker
+and distribution limits continue to apply.
 
 ## Fixed identity and scope
 
@@ -55,7 +122,7 @@ prompt `locallore-play-v2.2`, policy `grounded-prose-v2.1`. One resident model,
 fresh contexts per role, CPU4 threads/GPU0, context4096,350-token role caps,
 one repair and whole-turn120000ms remain unchanged.
 
-## Executed checks
+## Initial qualification checks
 
 Windows11 Pro10.0.26300 x64; Rust/Cargo1.93.1; Node24.22.1/npm11.19.1;
 Python3.14.9; installed WebView2 Runtime155.0.4283.62 (read from EdgeUpdate
@@ -95,7 +162,7 @@ qualification.
 
 ## Native UI, durable journeys and render evidence
 
-Definitive output: `worker-adoption-artifacts/`
+Initial pre-combined output: `worker-adoption-artifacts/`
 `model-native-c27c4eac-3ba9-4bd8-9877-b68967029f26`.
 Source binding is clean `b534fa7`; summary SHA256
 `43e1c62d8ec40629d1d6a87e7b3090bb34968c1a57458766f9bbe24f5049e2a6`.
@@ -230,7 +297,7 @@ Android/physical-phone or full desktop acceptance matrix was executed by this
 slice. Android/core/storage contracts have no adoption changes; accepted-main
 Android evidence remains separately attributed, not a new run.
 
-Status: in_review, coordinator acceptance/PR pending; no milestone checkbox is
+Status: in_review after combined-source qualification; coordinator acceptance/PR pending; no milestone checkbox is
 completed here. Next runnable task is independent adoption diff/evidence review,
 then coordinator publication and separately scoped offline/package-installation/
 quality qualification.

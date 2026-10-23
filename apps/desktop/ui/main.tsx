@@ -1,3 +1,4 @@
+import { EvaluationController } from "./evaluation-controller";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { Controller } from "./controller";
@@ -24,6 +25,7 @@ declare global {
             inspecting?: boolean;
             debugging?: boolean;
             legacy?: boolean;
+            evaluating?: boolean;
         };
     }
 }
@@ -34,6 +36,7 @@ const driver =
     __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.enabled
         ? await import("./journeys")
         : null;
+const evaluation = new EvaluationController(invoke);
 const base = new IpcGateway(invoke, errors),
     gateway = driver ? new driver.FaultGateway(base) : base,
     controller = new Controller(gateway, errors);
@@ -44,8 +47,9 @@ const root = createRoot(document.getElementById("root")!, {
     onUncaughtError: () => errors.add("frontend", "RenderError"),
     onRecoverableError: () => errors.add("frontend", "RenderError"),
 });
-root.render(<App controller={controller} />);
+root.render(<App controller={controller} evaluation={evaluation} />);
 const dispose = async () => {
+    evaluation.dispose();
     await controller.dispose();
     root.unmount();
     window.removeEventListener("error", onError);
@@ -89,14 +93,25 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
                 : durableDriver
                   ? durableDriver.durableJourneys
                   : driver.journeys;
-    await run({
-        controller,
-        gateway: gateway as InstanceType<typeof driver.FaultGateway>,
-        errors,
-        invoke,
-        dispose,
-        config: window.__LOCALLORE_TEST__,
-    });
+    if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.evaluating) {
+        const { evaluationJourneys } = await import("./evaluation-journeys");
+        await evaluationJourneys({
+            controller,
+            evaluation,
+            errors,
+            invoke,
+            dispose,
+            config: window.__LOCALLORE_TEST__,
+        });
+    } else
+        await run({
+            controller,
+            gateway: gateway as InstanceType<typeof driver.FaultGateway>,
+            errors,
+            invoke,
+            dispose,
+            config: window.__LOCALLORE_TEST__,
+        });
 } else {
     await controller.start();
 }

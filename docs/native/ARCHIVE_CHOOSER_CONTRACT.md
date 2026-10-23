@@ -11,8 +11,10 @@ Only the instrumentation APK contains ChooserArchiveProvider. It is a genuine
 DocumentsProvider in a separate process, protected by MANAGE_DOCUMENTS with
 temporary URI grants. The application receives no storage permission or provider.
 The fixed root is `LocalLore test archives`; its authority is the instrumentation
-package plus `.chooser`. Custom configure/stats calls are bounded and restricted
-to the exact target/test UID. They do not grant document access. The product I/O
+package plus `.chooser`. A separate `.control` test authority has only bounded
+configure/stats calls, restricted to the exact target/test UID before dispatch.
+It delegates to the protected provider under its own process identity and never
+grants document access. The product I/O
 uses the actual URI returned by the system picker, without adopted permissions.
 
 The provider retains fresh, synthetic run directories and create-new outputs.

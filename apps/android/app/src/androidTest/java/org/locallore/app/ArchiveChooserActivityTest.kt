@@ -84,7 +84,7 @@ class ArchiveChooserActivityTest {
             putByteArray("archive", archive); putByteArray("future", future)
             putByteArray("malformed", "{\"version\":1,\"version\":1}".toByteArray(Charsets.UTF_8))
         }
-        val configured = io { requireNotNull(instrumentation.context.contentResolver.call(authority, "configure", null, extras)) }
+        val configured = io { requireNotNull(context.contentResolver.call(authority + ".control", "configure", null, extras)) }
         run = requireNotNull(configured.getString("run"))
         verify(Regex("[a-f0-9]{32}").matches(run), "Provider run identifier is invalid")
         for (kind in listOf("valid", "future", "malformed")) {
@@ -300,7 +300,7 @@ class ArchiveChooserActivityTest {
     private fun drainedStats(): Bundle {
         val deadline = SystemClock.elapsedRealtime() + 10_000
         while (SystemClock.elapsedRealtime() < deadline) {
-            val stats = io { requireNotNull(instrumentation.context.contentResolver.call(authority, "stats", null, null)) }
+            val stats = io { requireNotNull(context.contentResolver.call(authority + ".control", "stats", null, null)) }
             if (stats.getInt("active_count") == 0 && stats.getInt("opened_count") == stats.getInt("closed_count")) {
                 verify(stats.getInt("close_failure_count") == 0, "Provider descriptor close must succeed")
                 return stats
@@ -371,7 +371,12 @@ class ArchiveChooserActivityTest {
     } }
     private fun safe(block: () -> Unit): Unit {
         try { block() } catch (failure: AssertionError) { throw failure }
-        catch (_: Exception) { throw AssertionError("Synthetic chooser boundary failed") }
+        catch (failure: Exception) {
+            // Preserve source locations and type for fixture debugging, never exception prose/paths.
+            throw AssertionError("Synthetic chooser boundary failed (${failure.javaClass.simpleName})").also {
+                it.stackTrace = failure.stackTrace
+            }
+        }
     }
     private fun verify(condition: Boolean, message: String): Unit { if (!condition) throw AssertionError(message) }
 }

@@ -1,6 +1,10 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Independent actual-Store owner-capability regressions. No canonical SQL edits.
-use locallore::{contracts::*, engine::Engine};
+use locallore::{
+    contracts::*,
+    engine::Engine,
+    memory_coverage::{CoverageRead, FallbackReason},
+};
 use locallore_storage::{
     derived_memory::MemoryError,
     memory_jobs::{MemoryJobInfo, MemoryJobRequest},
@@ -273,14 +277,30 @@ fn inconsistent_complete_cursor_is_rejected_instead_of_advertised_as_finished() 
         .engine
         .canonical_bytes();
     // Only a derived status label changes; canonical tables and fingerprints are
-    // untouched. A DDL constraint or a read-time invariant may reject it.
+    // untouched. A foreign writer may bypass CHECK constraints, so read guards
+    // and safe context fallback must still reject false progress.
     let db = rusqlite::Connection::open(&path).unwrap();
-    let tamper = db.execute(
-        "UPDATE memory_jobs SET status='complete' WHERE job_id=?1",
-        [i64::try_from(admitted.handle.id()).unwrap()],
+    db.pragma_update(None, "ignore_check_constraints", true)
+        .unwrap();
+    assert_eq!(
+        db.execute(
+            "UPDATE memory_jobs SET status='complete' WHERE job_id=?1",
+            [i64::try_from(admitted.handle.id()).unwrap()],
+        )
+        .unwrap(),
+        1
     );
+    let before_row: (String, i64, i64) = db
+        .query_row(
+            "SELECT status,next_from,generation FROM memory_jobs WHERE job_id=?1",
+            [i64::try_from(admitted.handle.id()).unwrap()],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .unwrap();
     drop(db);
     let advertised = store.memory_job_status(&admitted.handle, &|| false);
+    let admission = store.ensure_memory_job(&request, &|| false);
+    let snapshot = store.context_snapshot(&request, &|| false);
     assert_eq!(
         store
             .resume(&request.scope)
@@ -289,17 +309,32 @@ fn inconsistent_complete_cursor_is_rejected_instead_of_advertised_as_finished() 
             .canonical_bytes(),
         before
     );
-    match tamper {
-        Ok(1) => assert_eq!(
-            advertised,
-            Err(MemoryError::Integrity),
-            "zero covered revisions must not be advertised as completed head1"
+    let db = rusqlite::Connection::open(&path).unwrap();
+    let after_row: (String, i64, i64) = db
+        .query_row(
+            "SELECT status,next_from,generation FROM memory_jobs WHERE job_id=?1",
+            [i64::try_from(admitted.handle.id()).unwrap()],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!(
+        after_row, before_row,
+        "read/admission must not silently repair corrupt metadata"
+    );
+    assert_eq!(
+        advertised,
+        Err(MemoryError::Integrity),
+        "zero covered revisions must not be advertised as completed head1"
+    );
+    assert_eq!(admission, Err(MemoryError::Integrity));
+    assert!(
+        matches!(
+            snapshot,
+            Ok(locallore_storage::memory_jobs::ContextSnapshot {
+                coverage: CoverageRead::RawFallback(FallbackReason::Malformed),
+                ..
+            })
         ),
-        Err(error)
-            if error.sqlite_error_code() == Some(rusqlite::ErrorCode::ConstraintViolation) =>
-        {
-            assert_eq!(advertised, Ok(admitted));
-        }
-        other => panic!("unexpected derived-row mutation result: {other:?}"),
-    }
+        "malformed derived metadata must fall back without failing valid canonical context"
+    );
 }

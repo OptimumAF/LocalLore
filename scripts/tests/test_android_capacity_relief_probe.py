@@ -97,7 +97,8 @@ class ReliefAuditTests(unittest.TestCase):
                 capacity.audit_relief_manifests(BADGING, TREE, test_badging, test_tree)
 
     def test_schema3_relief_counts_and_identity_are_fixed(self):
-        for tree in (TREE.replace("=3\n", "=1\n"), TREE.replace("=17\n", "=15\n"),
+        for tree in (TREE.replace("=3\n", "=1\n"), TREE.replace("=32\n", "=32.0\n"),
+                     TREE.replace("=32\n", "=32!\n"), TREE.replace("=17\n", "=15\n"),
                      TREE.replace("=14\n", "=16\n"), TREE.replace("=2\n", "=1\n"),
                      TREE.replace("capacity.relief.padding_rows", "capacity.padding_rows")):
             with self.subTest(tree=tree), self.assertRaises(audit_apk.AuditError):

@@ -79,7 +79,8 @@ class CapacityAuditTests(unittest.TestCase):
                 capacity.audit_capacity_manifests(BADGING, TREE, test_badging, test_tree)
 
     def test_schema3_profile_cannot_mix_legacy_or_duplicate_metadata(self):
-        for tree in (TREE.replace("=17\n", "=15\n"), TREE.replace("=3\n", "=2\n"),
+        for tree in (TREE.replace("=17\n", "=15\n"), TREE.replace("=17\n", "=17.0\n"),
+                     TREE.replace("=17\n", "=17!\n"), TREE.replace("=3\n", "=2\n"),
                      TREE.replace("=2\n", "=1\n"),
                      TREE + TREE[TREE.index('    E: meta-data'):],
                      TREE.replace("capacity.schema_version", "capacity.unexpected")):

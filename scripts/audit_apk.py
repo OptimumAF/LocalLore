@@ -115,8 +115,8 @@ def audit_fixed_metadata(tree, namespace, expected):
         pattern = (r'E: meta-data \([^\n]*\)\s+[^\n]*:name\([^)]*\)="'
                    + re.escape(namespace + key)
                    + r'"[^\n]*\n\s+[^\n]*:value\([^)]*\)='
-                   + str(value) + r'\b')
-        require(len(re.findall(pattern, tree)) == 1, "Wrong fixed capacity metadata value")
+                   + str(value) + r'[ \t]*\r?$')
+        require(len(re.findall(pattern, tree, re.M)) == 1, "Wrong fixed capacity metadata value")
 
 
 def aapt2_path():

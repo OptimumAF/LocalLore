@@ -76,6 +76,9 @@ Public reports contain fixed categories,numeric/bool metrics,hashes. Role rows
 are admissions, not necessarily opened Conversations. Parser rejects contradictory
 turn/aggregate data, owner counts, unknown fields, duplicate terminals and wrong
 named errors. Safe model rejection is still a failed playable case.
+The SDK's `workspace_retained=true` describes its handoff before controller
+cleanup; the controller's later `workspace_removed=true` describes verified
+removal after process/owner drain. They refer to different lifecycle stages.
 Bounded raw instrumentation is retained privately under ignored
 target/android-play-probe/raw, exposing only a Boolean publicly. Keep raw text
 and weights out of Git. Confirmed package/process/client absence precedes removal

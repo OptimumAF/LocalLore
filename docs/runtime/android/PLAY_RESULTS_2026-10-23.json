@@ -3,6 +3,8 @@
   "date": "2026-10-23",
   "scope": "optional_current_rust_play_sdk_probe",
   "base_commit": "d5a76d2308a6863e49b3d088041d0eccadf8bb38",
+  "later_main_commit": "2f4efc29e989823a4cf6abf35e2a42fcfc8ee218",
+  "later_main_compatibility_verified": false,
   "executable_commit": "1e5c1da",
   "controller_evidence_commit": "7a1e5ec",
   "runtime": "LiteRT-LM Android 0.18.1 CPU",

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-inspection-cancel"
+description = "Enables the inspection_cancel command without any pre-configured scope."
+commands.allow = ["inspection_cancel"]
+
+[[permission]]
+identifier = "deny-inspection-cancel"
+description = "Denies the inspection_cancel command without any pre-configured scope."
+commands.deny = ["inspection_cancel"]

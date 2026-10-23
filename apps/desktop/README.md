@@ -1,4 +1,4 @@
-# Desktop Play & Story Lab (D02)
+# Desktop Play & Story Lab
 
 A native Windows shell over the shared Rust engine. The original Lantern Quay
 fixture supports giving the last potion to Mira, waiting, attempting an
@@ -17,7 +17,16 @@ Unsubmitted composer text remains session-local; submitted uncommitted requests
 are durable but are never automatically committed or cancelled on resume.
 Storage/replay errors appear explicitly with no temporary-memory fallback.
 
-Arbitrary story generation, model choice/import, free-text interpretation, export
+Inspection snapshots now provide structural diagnostics by default, explicit
+private Player/Full readable views, and a separate private consistent SQLite
+copy for deliberate inspection. Preview identifies scope, revision, included
+files and privacy. A native folder picker saves the exact captured bytes without
+overwriting existing files; existing readable inspection folders open as untrusted,
+read-only text within this app. Reveal storage shows app-owned location metadata.
+See [D03 native inspection](../../docs/desktop/D03_NATIVE_EXPORT.md) and
+[verification](../../docs/desktop/D03_NATIVE_VERIFICATION_2026-10-22.md).
+
+Arbitrary story generation, model choice/import, free-text interpretation
 and author edits are unavailable. Real runtime spikes elsewhere in the repository
 are not integrated into this shell. Save files are local app data; OS-level backup,
 access control and device security still apply.
@@ -65,6 +74,7 @@ text; it cannot execute HTML, load external images or grant debug privileges.
 ```powershell
 npm --prefix apps/desktop run check
 npm --prefix apps/desktop run format:check
+npm --prefix apps/desktop run harness:export
 npm --prefix apps/desktop run harness:durable
 npm --prefix apps/desktop run harness:native
 npm --prefix apps/desktop run harness:headless

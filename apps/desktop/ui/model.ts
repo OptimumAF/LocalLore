@@ -71,7 +71,38 @@ export interface Diff {
     before: Json;
     after: Json;
 }
+export type ExportMode = "diagnostics" | "player" | "full" | "database";
+export interface ExportPreview {
+    token: string;
+    manifest: {
+        scope: Scope;
+        revision: number;
+        mode: ExportMode;
+        [key: string]: unknown;
+    };
+    expires_seconds: number;
+    files: { path: string; bytes: number }[];
+}
+export interface ExportState {
+    shown: boolean;
+    imported: boolean;
+    mode: ExportMode;
+    busy: boolean;
+    preview: ExportPreview | null;
+    savedLocation: string | null;
+    selectedFile: string;
+    opened: {
+        text: string;
+        truncated: boolean;
+        bytes: number;
+        path: string;
+    } | null;
+    storage: { location: string; schema_version: number } | null;
+    error: string | null;
+    notice: string;
+}
 export interface State {
+    exports: ExportState;
     workspace: Workspace | null;
     ephemeral: boolean;
     starting: boolean;
@@ -102,6 +133,16 @@ export interface State {
 }
 export const PAGE_SIZE = 12;
 export const categories = new Set([
+    "InvalidExport",
+    "PreviewLimit",
+    "UnknownExport",
+    "ExpiredExport",
+    "AlreadySaved",
+    "NotSaved",
+    "ChangedExport",
+    "ExportExists",
+    "UnsafeDestination",
+    "PickerUnavailable",
     "ForeignDatabase",
     "BackupRequired",
     "BackupExists",
@@ -183,7 +224,19 @@ export class ErrorBuffer {
 }
 export interface Gateway {
     call(command: Command): Promise<unknown>;
+    native?(
+        command: NativeAction,
+        args: Record<string, unknown>,
+    ): Promise<unknown>;
 }
+export type NativeAction =
+    | "inspection_database_preview"
+    | "inspection_preview"
+    | "inspection_save"
+    | "inspection_cancel"
+    | "inspection_open"
+    | "inspection_storage"
+    | "inspection_load";
 export class IpcGateway implements Gateway {
     constructor(
         private invoke: (
@@ -192,6 +245,18 @@ export class IpcGateway implements Gateway {
         ) => Promise<unknown>,
         readonly errors: ErrorBuffer,
     ) {}
+    async native(
+        command: NativeAction,
+        args: Record<string, unknown>,
+    ): Promise<unknown> {
+        try {
+            return await this.invoke(command, args);
+        } catch (error) {
+            const value = category(error);
+            this.errors.add("native", value);
+            throw new Error(value);
+        }
+    }
     async call(command: Command): Promise<unknown> {
         try {
             const reply = (await this.invoke("host_call", {

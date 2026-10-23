@@ -89,6 +89,9 @@ pub struct Store {
     // Field order is intentional: SQLite closes BEFORE all staging reservations.
     connection: Connection,
     _staging_guards: Vec<std::fs::File>,
+    // Native job capabilities belong to one Store instance, including when two
+    // owners open identical or cloned databases with colliding persisted IDs.
+    memory_job_owner: std::sync::Arc<()>,
 }
 
 #[cfg(windows)]
@@ -353,6 +356,7 @@ impl Store {
         Self {
             connection,
             _staging_guards: Vec::new(),
+            memory_job_owner: std::sync::Arc::new(()),
         }
     }
     /// Create a disposable Windows staging Store, with MEMORY rollback journal.

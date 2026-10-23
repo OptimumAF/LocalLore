@@ -14,7 +14,10 @@ use locallore::{
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use std::io::{self, Write};
+use std::{
+    io::{self, Write},
+    sync::Arc,
+};
 
 pub(crate) const SCHEMA_SQL: &str = include_str!("../migrations/004_memory_jobs.sql");
 pub const MAX_STORE_JOBS: usize = 256;
@@ -46,12 +49,22 @@ impl MemoryJobRequest {
     }
 }
 /// Native capability for this partition; no public constructor or Deserialize.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct MemoryJobHandle {
     id: u64,
     scope: Scope,
     observer: String,
+    owner: Arc<()>,
 }
+impl PartialEq for MemoryJobHandle {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+            && self.scope == other.scope
+            && self.observer == other.observer
+            && Arc::ptr_eq(&self.owner, &other.owner)
+    }
+}
+impl Eq for MemoryJobHandle {}
 impl MemoryJobHandle {
     pub fn id(&self) -> u64 {
         self.id
@@ -253,7 +266,11 @@ fn read_job(connection: &Connection, handle: &MemoryJobHandle) -> Result<Job> {
         },
     })
 }
-fn find_job(connection: &Connection, request: &MemoryJobRequest) -> Result<Option<Job>> {
+fn find_job(
+    connection: &Connection,
+    request: &MemoryJobRequest,
+    owner: &Arc<()>,
+) -> Result<Option<Job>> {
     let id:Option<i64>=connection.query_row("SELECT job_id FROM memory_jobs WHERE story_id=?1 AND branch_id=?2 AND observer_id=?3 AND method=?4",params![request.scope.story,request.scope.branch,request.observer,coverage::METHOD],|r|r.get(0)).optional()?;
     id.map(|id| {
         read_job(
@@ -262,6 +279,7 @@ fn find_job(connection: &Connection, request: &MemoryJobRequest) -> Result<Optio
                 id: unsigned(id)?,
                 scope: request.scope.clone(),
                 observer: request.observer.clone(),
+                owner: owner.clone(),
             },
         )
     })
@@ -334,6 +352,13 @@ fn next_generation(value: u64) -> Result<u64> {
 }
 
 impl Store {
+    fn require_memory_job_owner(&self, handle: &MemoryJobHandle) -> Result<()> {
+        if Arc::ptr_eq(&self.memory_job_owner, &handle.owner) {
+            Ok(())
+        } else {
+            Err(MemoryError::NotFound)
+        }
+    }
     /// Idempotent admission/retarget. A cancelled job never resumes implicitly.
     /// A new head keeps only sealed chunks reverified against that actual Engine.
     pub fn ensure_memory_job(
@@ -347,7 +372,7 @@ impl Store {
             let engine = Self::memory_engine(&tx, &request.scope, cancel)?;
             validate(&engine, request, cancel)?;
             let source = basis(&tx, &engine, cancel)?;
-            let old = find_job(&tx, request)?;
+            let old = find_job(&tx, request, &self.memory_job_owner)?;
             let bytes = old
                 .as_ref()
                 .map(|j| packets(&tx, &j.info.handle))
@@ -361,8 +386,14 @@ impl Store {
                 return Ok(job.info.clone());
             }
             if job.basis == source && job.info.basis_revision == request.expected_head {
-                prefix(&engine, request, job, &bytes, cancel)?;
-                return Ok(job.info.clone());
+                match prefix(&engine, request, job, &bytes, cancel) {
+                    Ok(()) => return Ok(job.info.clone()),
+                    // A derived cache can be discarded; canonical validation
+                    // has already succeeded. Retarget below advances generation
+                    // and keeps only independently reverified sealed coverage.
+                    Err(MemoryError::Integrity) => {}
+                    Err(error) => return Err(error),
+                }
             }
         }
         // Drop an old OpenTail BEFORE whole-set verification. A head change can
@@ -404,7 +435,7 @@ impl Store {
         if basis(&tx, &actual, cancel)? != source {
             return Err(MemoryError::Stale);
         }
-        let current = find_job(&tx, request)?;
+        let current = find_job(&tx, request, &self.memory_job_owner)?;
         if current.as_ref().map(|j| (&j.info, &j.basis))
             != old.as_ref().map(|j| (&j.info, &j.basis))
         {
@@ -433,6 +464,7 @@ impl Store {
                 id: unsigned(tx.last_insert_rowid())?,
                 scope: request.scope.clone(),
                 observer: request.observer.clone(),
+                owner: self.memory_job_owner.clone(),
             }
         };
         for (from, through, bytes) in retained {
@@ -449,6 +481,7 @@ impl Store {
         cancel: &dyn Fn() -> bool,
     ) -> Result<MemoryJobInfo> {
         check(cancel)?;
+        self.require_memory_job_owner(handle)?;
         let tx = self.connection.transaction()?;
         let job = read_job(&tx, handle)?;
         let engine = Self::memory_engine(&tx, &handle.scope, cancel)?;
@@ -472,6 +505,7 @@ impl Store {
         cancel: &dyn Fn() -> bool,
     ) -> Result<PreparedMemoryJobStep> {
         check(cancel)?;
+        self.require_memory_job_owner(handle)?;
         let (job, engine, count) = {
             let tx = self.connection.transaction()?;
             let job = read_job(&tx, handle)?;
@@ -496,6 +530,7 @@ impl Store {
         cancel: &dyn Fn() -> bool,
     ) -> Result<MemoryJobInfo> {
         check(cancel)?;
+        self.require_memory_job_owner(&prepared.job.info.handle)?;
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -561,6 +596,7 @@ impl Store {
         cancel: &dyn Fn() -> bool,
     ) -> Result<MemoryJobInfo> {
         check(cancel)?;
+        self.require_memory_job_owner(handle)?;
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -583,6 +619,7 @@ impl Store {
         cancel: &dyn Fn() -> bool,
     ) -> Result<()> {
         check(cancel)?;
+        self.require_memory_job_owner(handle)?;
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -608,7 +645,7 @@ impl Store {
         let engine = Self::memory_engine(&tx, &request.scope, cancel)?;
         validate(&engine, request, cancel)?;
         // No writes, admission, cursor repair, or canonical mutation on a read.
-        let bytes = match find_job(&tx, request)? {
+        let bytes = match find_job(&tx, request, &self.memory_job_owner)? {
             Some(job) => packets(&tx, &job.info.handle)?,
             None => vec![],
         };

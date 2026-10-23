@@ -86,3 +86,9 @@ The counts and APK above remain evidence for d5a76d2 plus this packet, not
 that newer combined tree. Rebase/current-main compatibility verification is an
 additional pending PR gate; the newer archive/lineage code was not rewritten
 or substituted into the already measured artifact.
+
+That compatibility gate was subsequently verified against the exact captured
+a2bb663 + PR executable tree in the separate
+[compatibility follow-up](PLAY_COMPAT_VERIFICATION_2026-10-23.md). Its new APK,
+counts and two device observations remain separate from this original cohort.
+Model-backed gates described above are still pending.

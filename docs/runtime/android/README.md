@@ -14,6 +14,8 @@ older fixture oracle. Its [dated verification](PLAY_VERIFICATION_2026-10-23.md)
 currently establishes build/host and missing-model cleanup only; model-backed
 acceptance and active SDK cancellation remain pending. It adds no production
 backend or Compose inference dependency.
+The separate [compatibility follow-up](PLAY_COMPAT_VERIFICATION_2026-10-23.md)
+verifies the captured newer accepted main plus the same experimental source.
 
 The earlier [dated verification](VERIFICATION_2026-10-22.md) and
 [all-attempt aggregate results](RESULTS_2026-10-22.json) distinguish successful

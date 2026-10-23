@@ -1,0 +1,367 @@
+{
+  "version": 1,
+  "date": "2026-10-23",
+  "scope": "optional_sdk_play_captured_main_compatibility",
+  "accepted_main": "a2bb6639eacaa9ac416788caf2fc7a6b70bf1392",
+  "pr_executable_head": "dbc2d6973feac00aa744243999fe259df5d944fb",
+  "initial_test_merge": "b3eb20baa0f40c4550c3804381f0f49351c561c4",
+  "verified_source_commit": "e7beb858b271aa4636f2f5e7b34deedda1fc3f21",
+  "verified_source_tree": "71f155de92b4fc73c9ae916f4d1c60ac330648e6",
+  "independent_union_tree_matches": true,
+  "initial_host": {
+    "workspace_rust": 288,
+    "linker": 3,
+    "python": 217,
+    "passed": true
+  },
+  "final_host": {
+    "workspace_rust": 288,
+    "linker": 3,
+    "python": 217,
+    "passed": true,
+    "format_clippy_and_four_fixture_comparisons_passed": true
+  },
+  "feature_android_crate_tests": 25,
+  "strict_all_features_clippy_passed": true,
+  "sdk": {
+    "jvm_tests": 53,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "apk_sha256": "715a6c4521592256b1ee6e1bf9ec4d0f3f1974dcdde040781269163efbc534a6",
+    "apk_bytes": 62187164,
+    "requested_permissions": [],
+    "lint": [
+      {
+        "id": "OldTargetApi",
+        "severity": "Warning"
+      },
+      {
+        "id": "GradleDependency",
+        "severity": "Warning"
+      }
+    ],
+    "packaged_native_entries": [
+      {
+        "entry": "lib/arm64-v8a/liblitertlm_jni.so",
+        "bytes": 22155672,
+        "sha256": "ea95bd78bdd9b56ea9c1df001e1db1c2d2ff499859bacb7041850bd534f7b46f",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/arm64-v8a/liblocallore_android.so",
+        "bytes": 5115904,
+        "sha256": "ff59eefe775e945911adb9921c35abe8d0afa2ad6c9c639a4590b3a2be7484f5",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/x86_64/liblitertlm_jni.so",
+        "bytes": 26353152,
+        "sha256": "1ca0399b12484016d44bc6f9997a40c504416533381d7a065c436b74bb030fbf",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "entry": "lib/x86_64/liblocallore_android.so",
+        "bytes": 5605800,
+        "sha256": "5e84544db6878beac77c5d25a5eb2ce8f9867cadee9645dbf2dd9f7590c4b65e",
+        "elf_load_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      }
+    ],
+    "unstripped_native_build": {
+      "version": 1,
+      "scope": "optional_sdk_play_probe",
+      "native_feature": "play-probe",
+      "libraries": [
+        {
+          "abi": "x86_64",
+          "bytes": 6693688,
+          "sha256": "7aa154a0369bdd407f2061013bbc584546f9173a4c94968df78db201af4c2a70",
+          "elf_load_alignment": [
+            16384,
+            16384,
+            16384
+          ]
+        },
+        {
+          "abi": "arm64-v8a",
+          "bytes": 6615800,
+          "sha256": "7070192bd6187d26022c681d1fee5ce11ce67d25359ba1477c05e2baea0e4370",
+          "elf_load_alignment": [
+            16384,
+            16384,
+            16384
+          ]
+        }
+      ]
+    }
+  },
+  "production_android": {
+    "files": 4,
+    "tests": 38,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "lint_categories": [
+      {
+        "id": "GradleDependency",
+        "severity": "Warning"
+      }
+    ],
+    "apk_sha256": "257f3f61fedc292e6b2376b83807389f4a4458d5ef930e564b17d0394c8bed0f",
+    "passed": true,
+    "build_tasks": {
+      "actionable": 79,
+      "executed": 78,
+      "up_to_date": 1
+    },
+    "scope": "offline_clean_build_jvm_lint_apk_audit_no_device_execution"
+  },
+  "experimental_jni_exports": [
+    {
+      "abi": "x86_64",
+      "optional_count": 5,
+      "production_count": 0
+    },
+    {
+      "abi": "arm64-v8a",
+      "optional_count": 5,
+      "production_count": 0
+    }
+  ],
+  "targets": {
+    "count": 2,
+    "api": 35,
+    "abi": "x86_64",
+    "page_bytes": 4096
+  },
+  "attempts": [
+    {
+      "target_alias": "A",
+      "installation": {
+        "event": "finished",
+        "target_alias": "A",
+        "status": "installed",
+        "apk_sha256": "715a6c4521592256b1ee6e1bf9ec4d0f3f1974dcdde040781269163efbc534a6",
+        "prior_packages_preserved": true,
+        "clients_cleaned": true,
+        "process_absent": true,
+        "model_provisioned": false
+      },
+      "observation": {
+        "version": 1,
+        "scope": "android_current_rust_play_probe",
+        "case": "gift",
+        "status": "observed",
+        "result": {
+          "outcome": "failed",
+          "error": "model_missing",
+          "roles": 1,
+          "director_calls": 1,
+          "narrator_calls": 0,
+          "repairs": 0,
+          "revision_before": 0,
+          "revision_after": 0,
+          "receipts_before": 0,
+          "receipts_after": 0,
+          "exact_retry": false,
+          "reopen_equal": true,
+          "canon_unchanged": true,
+          "model_initialized": false,
+          "fallback": false,
+          "first_output_observed": false,
+          "owner_drained": true,
+          "version": 1,
+          "case": "gift",
+          "gift_seeded": false,
+          "workspace_retained": true,
+          "turns": [
+            {
+              "outcome": "failed",
+              "error": "model_missing",
+              "generations": [
+                {
+                  "role": "director",
+                  "status": "error",
+                  "error": "model_missing",
+                  "load_ms": 0.050715,
+                  "generation_ms": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "schema_enforced": false,
+                  "thinking_disabled": false,
+                  "template_applied": false
+                }
+              ],
+              "roles": 1,
+              "director_calls": 1,
+              "narrator_calls": 0,
+              "repairs": 0,
+              "revision_before": 0,
+              "revision_after": 0,
+              "receipts_before": 0,
+              "receipts_after": 0,
+              "exact_retry": false,
+              "reopen_equal": true,
+              "canon_unchanged": true,
+              "model_initialized": false,
+              "fallback": false,
+              "first_output_observed": false,
+              "owner_drained": true
+            }
+          ]
+        },
+        "sdk": {
+          "reload_completed": false,
+          "worker_off_main": true,
+          "cancel_called": false,
+          "terminal_callback": false,
+          "generated_text_logged": false,
+          "owners_balanced": true,
+          "conversations_opened": 0,
+          "conversations_closed": 0,
+          "main_pulses": 12,
+          "engines_opened": 0,
+          "engines_closed": 0
+        },
+        "process_absent": true,
+        "clients_cleaned": true,
+        "workspace_removed": true,
+        "check_passed": true,
+        "phone_qualified": false,
+        "model_verified": false,
+        "raw_protocol_retained": true,
+        "wall_ms": 1641,
+        "event": "finished",
+        "apk_sha256": "715a6c4521592256b1ee6e1bf9ec4d0f3f1974dcdde040781269163efbc534a6"
+      }
+    },
+    {
+      "target_alias": "B",
+      "installation": {
+        "event": "finished",
+        "target_alias": "B",
+        "status": "installed",
+        "apk_sha256": "715a6c4521592256b1ee6e1bf9ec4d0f3f1974dcdde040781269163efbc534a6",
+        "prior_packages_preserved": true,
+        "clients_cleaned": true,
+        "process_absent": true,
+        "model_provisioned": false
+      },
+      "observation": {
+        "version": 1,
+        "scope": "android_current_rust_play_probe",
+        "case": "gift",
+        "status": "observed",
+        "result": {
+          "outcome": "failed",
+          "error": "model_missing",
+          "roles": 1,
+          "director_calls": 1,
+          "narrator_calls": 0,
+          "repairs": 0,
+          "revision_before": 0,
+          "revision_after": 0,
+          "receipts_before": 0,
+          "receipts_after": 0,
+          "exact_retry": false,
+          "reopen_equal": true,
+          "canon_unchanged": true,
+          "model_initialized": false,
+          "fallback": false,
+          "first_output_observed": false,
+          "owner_drained": true,
+          "version": 1,
+          "case": "gift",
+          "gift_seeded": false,
+          "workspace_retained": true,
+          "turns": [
+            {
+              "outcome": "failed",
+              "error": "model_missing",
+              "generations": [
+                {
+                  "role": "director",
+                  "status": "error",
+                  "error": "model_missing",
+                  "load_ms": 0.245,
+                  "generation_ms": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "schema_enforced": false,
+                  "thinking_disabled": false,
+                  "template_applied": false
+                }
+              ],
+              "roles": 1,
+              "director_calls": 1,
+              "narrator_calls": 0,
+              "repairs": 0,
+              "revision_before": 0,
+              "revision_after": 0,
+              "receipts_before": 0,
+              "receipts_after": 0,
+              "exact_retry": false,
+              "reopen_equal": true,
+              "canon_unchanged": true,
+              "model_initialized": false,
+              "fallback": false,
+              "first_output_observed": false,
+              "owner_drained": true
+            }
+          ]
+        },
+        "sdk": {
+          "terminal_callback": false,
+          "generated_text_logged": false,
+          "cancel_called": false,
+          "reload_completed": false,
+          "worker_off_main": true,
+          "owners_balanced": true,
+          "main_pulses": 14,
+          "engines_opened": 0,
+          "engines_closed": 0,
+          "conversations_closed": 0,
+          "conversations_opened": 0
+        },
+        "process_absent": true,
+        "clients_cleaned": true,
+        "workspace_removed": true,
+        "check_passed": true,
+        "phone_qualified": false,
+        "model_verified": false,
+        "raw_protocol_retained": true,
+        "wall_ms": 2000,
+        "event": "finished",
+        "apk_sha256": "715a6c4521592256b1ee6e1bf9ec4d0f3f1974dcdde040781269163efbc534a6"
+      }
+    }
+  ],
+  "real_generations": 0,
+  "active_sdk_cancellation_observations": 0,
+  "model_transfers": 0,
+  "phone_qualified": false,
+  "production_backend_selected": false,
+  "limitations": [
+    "Missing-model cleanup only; no initialized SDK teardown or constrained generation.",
+    "Original D5 observations remain a separate cohort; this does not relabel them.",
+    "Captured accepted main a2 plus PR executable head only; future main changes require assessment.",
+    "Production app built, not installed; existing Compose app/data preserved.",
+    "Physical phone, ARM64 execution, sustained performance, quality and enjoyment remain unqualified."
+  ]
+}

@@ -5,6 +5,8 @@ Rust free-text pipeline. It selects no production backend and adds no inference
 to Compose. Refs #5 (M01.03, bounded M01.02/M01.05), #9 (M05.05 preparation).
 See [verification](PLAY_VERIFICATION_2026-10-23.md), [profile](PLAY_PROFILE_V1.json)
 and [review](PLAY_REVIEW_2026-10-23.md).
+The later [captured-main compatibility proof](PLAY_COMPAT_VERIFICATION_2026-10-23.md)
+records a separate build and emulator cohort without rewriting the original.
 
 ## Build and run
 

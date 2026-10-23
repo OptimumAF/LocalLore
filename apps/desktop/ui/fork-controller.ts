@@ -142,6 +142,7 @@ export class ForkController {
     private epoch = 0;
     private disposed = false;
     private cancelRequested = false;
+    private preparing = false;
     private listeners = new Set<() => void>();
     constructor(
         private invoke: Invoke,
@@ -203,7 +204,7 @@ export class ForkController {
         });
     }
     prepare(at: number, child: string) {
-        if (this.disposed || this.state.busy || !this.context?.persistent)
+        if (this.disposed || this.preparing || this.state.busy || !this.context?.persistent)
             return;
         // Replacing an unresolved request requires the caller to retain its saved
         // recovery identity. Do not silently discard an uncertain native outcome.
@@ -212,15 +213,26 @@ export class ForkController {
             ["pending", "uncertain"].includes(this.state.status)
         )
             return;
+        const epoch = this.epoch, key = this.key, context = this.context;
+        this.preparing = true;
         try {
             const request = decodeForkRequest({
-                parent: this.context.scope,
+                parent: context.scope,
                 child_branch: child,
-                expected_parent_revision: this.context.revision,
+                expected_parent_revision: context.revision,
                 at_revision: at,
             });
             this.saveRecovery(request); // Persist identity BEFORE native dispatch.
-            this.requestKey = this.key;
+            if (this.disposed) return;
+            if (this.epoch !== epoch || this.key !== key || this.context !== context) {
+                this.requestKey = "";
+                this.patch({ request, result: null, operation: null, error: null,
+                    status: "uncertain", lookupOnly: true, consent: false,
+                    notice: "Recovery identity saved for the original selection. Lookup never creates a missing timeline.",
+                });
+                return;
+            }
+            this.requestKey = key;
             this.patch({
                 request,
                 result: null,
@@ -232,8 +244,9 @@ export class ForkController {
                 notice: "Request a new timeline at this revision. The engine verifies that it is a completed turn boundary before saving. The original and its later choices stay intact.",
             });
         } catch (e) {
-            this.patch({ error: errorName(e), status: "error" });
-        }
+            if (!this.disposed && this.epoch === epoch && this.key === key && this.context === context)
+                this.patch({ error: errorName(e), status: "error" });
+        } finally { this.preparing = false; }
     }
     restore(value: unknown) {
         if (this.disposed || this.state.busy) return;
@@ -296,6 +309,7 @@ export class ForkController {
             notice: "Fork pending. Cancellation or a lost acknowledgement does not prove the child is absent.",
         });
         try {
+            if (!this.live(epoch)) return;
             const initial = await this.invoke("fork_start", {
                 session: context.session,
                 input: request,
@@ -406,6 +420,7 @@ export class ForkController {
         const epoch = ++this.epoch;
         this.patch({ busy: true, error: null, result: null });
         try {
+            if (!this.live(epoch)) return;
             const value = await this.invoke("fork_lookup", { input: request });
             if (!this.live(epoch)) return;
             if (

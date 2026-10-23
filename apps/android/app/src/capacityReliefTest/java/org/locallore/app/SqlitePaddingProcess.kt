@@ -13,6 +13,7 @@ import kotlinx.coroutines.withContext
 import org.junit.runners.model.MultipleFailureException
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
@@ -38,6 +39,7 @@ internal enum class PaddingFault { NONE, MALFORMED, OVERSIZE, TIMEOUT, AFTER_FIL
 internal data class PaddingObservation(val started: Boolean = false, val reaped: Boolean = false,
     val readersStopped: Boolean = false, val destroyRequested: Boolean = false, val forceRequested: Boolean = false,
     val deadlineExpired: Boolean = false, val overflow: Boolean = false, val readFailed: Boolean = false,
+    val shutdownReadFailure: Boolean = false, val unexpectedReadFailure: Boolean = false,
     val bytesSeen: Int = 0, val exitCode: Int? = null)
 
 /** Each helper closes SQL and exits before the parent can resume any Rust call. */
@@ -98,6 +100,9 @@ internal class PaddingOwner(private val database: File, private val token: Strin
         val total = AtomicInteger()
         val overflow = AtomicBoolean()
         val readFailed = AtomicBoolean()
+        val ownedTerminationRequested = AtomicBoolean()
+        val shutdownReadFailure = AtomicBoolean()
+        val unexpectedReadFailure = AtomicBoolean()
         var readers = emptyList<Thread>()
         val failures = mutableListOf<Throwable>()
         var result: List<String>? = null
@@ -117,7 +122,13 @@ internal class PaddingOwner(private val database: File, private val token: Strin
                             if (total.addAndGet(count) > 8192) { overflow.set(true); break }
                             if (index == 0) synchronized(guard) { output.write(bytes, 0, count) }
                         }
-                    } catch (_: Exception) { readFailed.set(true) }
+                    } catch (failure: Exception) {
+                        readFailed.set(true)
+                        // Android 15 UNIXProcess.destroy closes the process streams itself.
+                        // Record only observation order/type, never infer healthy protocol or SQL.
+                        if (failure is IOException && ownedTerminationRequested.get()) shutdownReadFailure.set(true)
+                        else unexpectedReadFailure.set(true)
+                    }
                 }, "locallore-padding-pipe-$index").also { it.isDaemon = true }
             }
             ownedReaders = readers
@@ -151,8 +162,14 @@ internal class PaddingOwner(private val database: File, private val token: Strin
         } catch (failure: Throwable) { failures += failure }
         finally {
             try {
-                if (!exited) { destroyRequested = true; process.destroy(); exited = process.waitFor(1, TimeUnit.SECONDS) }
-                if (!exited) { forceRequested = true; process.destroyForcibly(); exited = process.waitFor(2, TimeUnit.SECONDS) }
+                if (!exited) {
+                    destroyRequested = true; ownedTerminationRequested.set(true)
+                    process.destroy(); exited = process.waitFor(1, TimeUnit.SECONDS)
+                }
+                if (!exited) {
+                    forceRequested = true; ownedTerminationRequested.set(true)
+                    process.destroyForcibly(); exited = process.waitFor(2, TimeUnit.SECONDS)
+                }
                 if (exited) {
                     readers.forEach { if (it.isAlive) it.join(1_000) }
                     if (readers.none { it.isAlive }) {
@@ -172,7 +189,8 @@ internal class PaddingOwner(private val database: File, private val token: Strin
             observation = PaddingObservation(started = true, reaped = exited && !process.isAlive,
                 readersStopped = readers.none { it.isAlive }, destroyRequested = destroyRequested,
                 forceRequested = forceRequested, deadlineExpired = deadlineExpired, overflow = overflow.get(),
-                readFailed = readFailed.get(), bytesSeen = total.get(),
+                readFailed = readFailed.get(), shutdownReadFailure = shutdownReadFailure.get(),
+                unexpectedReadFailure = unexpectedReadFailure.get(), bytesSeen = total.get(),
                 exitCode = if (exited && !process.isAlive) process.exitValue() else null)
         }
         MultipleFailureException.assertEmpty(failures)

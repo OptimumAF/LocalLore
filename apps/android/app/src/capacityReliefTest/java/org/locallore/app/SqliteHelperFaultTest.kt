@@ -71,7 +71,14 @@ class SqliteHelperFaultTest {
                     assertTrue("owned_child_started", child.started)
                     assertTrue("owned_child_reaped", child.reaped)
                     assertTrue("owned_readers_stopped", child.readersStopped)
-                    assertFalse("pipe_read_failed", child.readFailed)
+                    assertFalse("unexpected_pipe_read_failed", child.unexpectedReadFailure)
+                    if (fault == PaddingFault.TIMEOUT) {
+                        // destroy() may close a blocked reader; this never restores protocol/SQL certainty.
+                        assertEquals("owned_shutdown_read_observation", child.readFailed, child.shutdownReadFailure)
+                    } else {
+                        assertFalse("pipe_read_failed", child.readFailed)
+                        assertFalse("unrequested_shutdown_read_failed", child.shutdownReadFailure)
+                    }
                     assertTrue("bounded_pipe_bytes", child.bytesSeen in 0..9216)
                     assertFalse("unknown_completion_is_sticky", PaddingOwner.ownershipKnown())
                     assertTrue("owner_unknown_completion", f.padding.hasUnknownOwnership)

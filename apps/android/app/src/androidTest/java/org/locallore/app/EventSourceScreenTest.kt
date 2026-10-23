@@ -82,7 +82,8 @@ class EventSourceScreenTest {
                     onResume = model::resume, onRecover = model::recover, onStoryRecord = model::openStoryRecord) {
                     StoryRecordDialog(records, model::closeStoryRecord, model::recordSection, model::recordSearch,
                         model::nextRecordPage, model::firstRecordPage, model::retryStoryRecord,
-                        onEvent = model::openRecordEvent, onEventBack = model::backToStoryRecord,
+                        onEvent = { sequence -> model.openRecordEvent(sequence, record.context) },
+                        onEventBack = model::backToStoryRecord,
                         onEventRetry = model::retryRecordEvent)
                 }
             }

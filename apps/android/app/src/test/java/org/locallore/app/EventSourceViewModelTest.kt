@@ -154,6 +154,7 @@ class EventSourceViewModelTest {
         advanceUntilIdle()
         model.openStoryRecord(); advanceUntilIdle()
         model.openRecordEvent(2); advanceUntilIdle()
+        val oldContext = model.storyRecord.value.context
         model.resume(SecondStory); advanceUntilIdle()
         val beforeOpen = gateway.reads.size
         model.openRecordEvent(2); advanceUntilIdle()
@@ -169,6 +170,10 @@ class EventSourceViewModelTest {
 
         gateway.references = { listOf(2) }
         model.retryStoryRecord(); advanceUntilIdle()
+        val currentGrant = gateway.reads.size
+        model.openRecordEvent(2, oldContext); advanceUntilIdle()
+        assertEquals(currentGrant, gateway.reads.size)
+        assertNull(model.storyRecord.value.eventDetail)
         model.openRecordEvent(2); advanceUntilIdle()
         assertEquals(StoryRecordContext(SecondStory, 12), gateway.reads.last().context)
         assertEquals("Visible event in ${SecondStory.story}", model.storyRecord.value.eventDetail!!.entry!!.text)

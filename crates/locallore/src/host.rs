@@ -14,6 +14,7 @@ use std::{
 };
 
 pub const HOST_VERSION: u16 = 1;
+pub mod memory_maintenance;
 pub const MAX_INPUT: usize = 24_576;
 pub const MAX_OUTPUT: usize = 262_144;
 pub const MAX_SESSIONS: usize = 4;
@@ -344,6 +345,17 @@ pub struct SavedTurn {
     pub receipt: Option<Receipt>,
 }
 pub trait Persistence: Send {
+    /// Trusted native maintenance uses the existing selected canonical source.
+    /// Unsupported ports cannot silently create a competing maintenance owner.
+    fn memory_maintenance(
+        &mut self,
+        _selected: &Engine,
+        _expected_head: u64,
+        _action: memory_maintenance::MaintenanceAction,
+        _cancel: &dyn Fn() -> bool,
+    ) -> Result<memory_maintenance::MaintenanceReply, memory_maintenance::MaintenanceError> {
+        Err(memory_maintenance::MaintenanceError::Unsupported)
+    }
     /// Recheck public target admission even before returning process-cached work.
     fn validate_scope(&mut self, _scope: &Scope) -> Result<(), String> {
         Ok(())

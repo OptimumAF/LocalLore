@@ -10,6 +10,7 @@ use locallore::{
 };
 use locallore_storage::{StorageError, Store, TurnError, TurnPhase, TurnRecord};
 use std::path::Path;
+mod maintenance;
 pub const DATABASE_SCHEMA_VERSION: u32 = locallore_storage::SCHEMA_VERSION;
 
 struct Repository {
@@ -99,6 +100,18 @@ pub fn inspection_database_copy(
         .collect())
 }
 impl Persistence for Repository {
+    fn memory_maintenance(
+        &mut self,
+        selected: &Engine,
+        expected_head: u64,
+        action: locallore::host::memory_maintenance::MaintenanceAction,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<
+        locallore::host::memory_maintenance::MaintenanceReply,
+        locallore::host::memory_maintenance::MaintenanceError,
+    > {
+        maintenance::run(self, selected, expected_head, action, cancel)
+    }
     fn validate_scope(&mut self, scope: &Scope) -> Result<(), String> {
         if self.store.is_branch_active(scope).map_err(storage)? {
             Ok(())

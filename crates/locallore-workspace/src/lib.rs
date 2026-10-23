@@ -100,6 +100,41 @@ pub fn inspection_database_copy(
         .collect())
 }
 impl Persistence for Repository {
+    fn status_bound(
+        &mut self,
+        request: &Request,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+    ) -> Result<SavedTurn, String> {
+        self.store
+            .turn_status_bound(request, basis)
+            .map(saved)
+            .map_err(turn)
+    }
+    fn commit_prepared_bound(
+        &mut self,
+        receipt: &Receipt,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+    ) -> Result<Receipt, String> {
+        self.store
+            .commit_prepared_bound(receipt, basis)
+            .map_err(turn)
+    }
+    fn finish_bound(
+        &mut self,
+        request: &Request,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+        phase: locallore::host::DraftDisposition,
+    ) -> Result<SavedTurn, String> {
+        let phase = match phase {
+            locallore::host::DraftDisposition::Cancelled => TurnPhase::Cancelled,
+            locallore::host::DraftDisposition::Failed => TurnPhase::Failed,
+            locallore::host::DraftDisposition::Stale => TurnPhase::Stale,
+        };
+        self.store
+            .finish_bound(request, basis, phase)
+            .map(saved)
+            .map_err(turn)
+    }
     fn memory_maintenance(
         &mut self,
         selected: &Engine,

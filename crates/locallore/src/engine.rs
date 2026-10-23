@@ -378,17 +378,44 @@ impl Engine {
     /// random rules require an explicit recorded-outcome contract; they must not reroll here.
     /// No inference provider or random source is used. No partially restored engine is returned.
     pub fn restore(seed: Seed, history: &[String]) -> Result<Self, Error> {
-        if history.len() > MAX_HISTORY_RECEIPTS {
+        let mut engine = Self::new(seed)?;
+        engine.restore_saved(history)?;
+        Ok(engine)
+    }
+
+    /// Restore branch-local recorded receipts onto this validated engine, retaining
+    /// original ancestor scopes and lineage. No provider runs and no partial value escapes.
+    /// This history-only path retains the same supported recorded Play policy as restore;
+    /// fresh prepared commits still require the current policy.
+    pub fn restore_continuation(&self, history: &[String]) -> Result<Self, Error> {
+        let mut engine = self.clone();
+        engine.restore_saved(history)?;
+        Ok(engine)
+    }
+
+    fn restore_saved(&mut self, history: &[String]) -> Result<(), Error> {
+        if self.receipts.len().saturating_add(history.len()) > MAX_HISTORY_RECEIPTS {
             return Err(Error::TooLarge);
         }
         let mut total = 0usize;
+        for receipt in &self.receipts {
+            let bytes = serde_json::to_vec(receipt)
+                .map_err(|_| Error::CorruptHistory)?
+                .len();
+            if bytes > MAX_RECEIPT_BYTES {
+                return Err(Error::TooLarge);
+            }
+            total = total.checked_add(bytes).ok_or(Error::TooLarge)?;
+        }
         for receipt in history {
             total = total.checked_add(receipt.len()).ok_or(Error::TooLarge)?;
             if receipt.len() > MAX_RECEIPT_BYTES || total > MAX_HISTORY_BYTES {
                 return Err(Error::TooLarge);
             }
         }
-        let mut engine = Self::new(seed)?;
+        if total > MAX_HISTORY_BYTES {
+            return Err(Error::TooLarge);
+        }
         for receipt in history {
             // Value normally accepts repeated object keys. Reject them recursively before typed
             // parsing so hidden first/last-wins fields cannot survive archive validation.
@@ -398,7 +425,7 @@ impl Engine {
                 serde_json::from_value(raw.0.clone()).map_err(|_| Error::CorruptHistory)?;
             if recorded.events.is_empty()
                 || recorded.events.len() > MAX_COMMANDS
-                || engine
+                || self
                     .recorded(&recorded.request)
                     .map_err(|_| Error::CorruptHistory)?
                     .is_some()
@@ -409,9 +436,9 @@ impl Engine {
                 if play.narration.text != recorded.narration {
                     return Err(Error::CorruptHistory);
                 }
-                engine.commit_play_history(&recorded.request, &recorded.proposal, play, true)
+                self.commit_play_history(&recorded.request, &recorded.proposal, play, true)
             } else {
-                engine.commit(&recorded.request, &recorded.proposal, &recorded.narration)
+                self.commit(&recorded.request, &recorded.proposal, &recorded.narration)
             }
             .map_err(|_| Error::CorruptHistory)?;
             // Full JSON equality rejects unknown envelope/effect fields, forged witnesses,
@@ -420,7 +447,7 @@ impl Engine {
                 return Err(Error::CorruptHistory);
             }
         }
-        Ok(engine)
+        Ok(())
     }
 
     /// Replay engine-created typed outcomes under the same deterministic v1 rules as restore.

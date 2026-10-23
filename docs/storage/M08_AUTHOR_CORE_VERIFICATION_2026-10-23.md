@@ -1,7 +1,7 @@
-# M08 pure Core author-correction source freeze — 2026-10-23
+# M08 pure Core author-correction verification — 2026-10-23
 
-Refs #12 (M08.03), #30 (D08.05 prerequisite). Status: implementation under
-Core verification. This is neither native authoring acceptance
+Refs #12 (M08.03), #30 (D08.05 prerequisite). Status: `in_review`, pure Core
+implementation and scoped verification complete. This is neither native authoring acceptance
 nor permission to expose Domain 2 through the current applications.
 
 ## Binding and ownership
@@ -101,7 +101,8 @@ a new current wire capability.
 
 ## Actual local checks and queued commands
 
-Only standalone formatting and whitespace checks have run:
+At the original source-only freeze, only standalone formatting and whitespace
+checks had run:
 
 ```text
 rustfmt --edition 2021 --config skip_children=true crates/locallore/src/engine.rs crates/locallore/src/author_correction.rs crates/locallore/src/lib.rs crates/locallore/tests/m08_author_core.rs crates/locallore/tests/m08_author_legacy.rs
@@ -154,9 +155,7 @@ Narrow production fix `9a9a616` reinstates only the closed `CorruptHistory`
 mapping in `author_correction.rs`. The identical nine existing restore tests
 plus all 16 frozen tests then passed: **25 passed, zero failed/ignored**;
 compile 7.47 s, restore 0.93 s. Log `03-restore-corrected.log` retained.
-Full default/all-feature and strict Clippy reruns remain pending at this
-intermediate report. All commands add `--offline`; no app/device/model check
-has been performed.
+The final reruns are below. No app/device/model check has been performed.
 
 Frozen test file SHA-256 (unchanged through this fix):
 
@@ -164,3 +163,51 @@ Frozen test file SHA-256 (unchanged through this fix):
 m08_author_core.rs    10617971e8029f82baaaeb036225ce32e76ee8175d32970382044fd2eb12c279
 m08_author_legacy.rs  c2151b3ea252777c8c0d815dcb70f0d439f91a64e3c8366ab8f80e2ff8552843
 ```
+
+## Final actual scoped gates
+
+All final production checks use `9a9a6160ca3ed230d403e1d3691833557edad609`;
+subsequent commits only update this report. No frozen test assertion changed.
+
+| Actual command | Result |
+| --- | --- |
+| `cargo test --locked --offline -p locallore --test restore --test m08_author_core --test m08_author_legacy --jobs 1` | 25 passed, zero failed/ignored |
+| `cargo test --locked --offline -p locallore --all-targets --jobs 1` | 191 passed, zero failed, 2 existing ignores; 30 binaries |
+| `cargo test --locked --offline -p locallore --all-targets --all-features --jobs 1` | 248 passed, zero failed, 2 existing ignores; 30 binaries |
+| `cargo clippy --locked --offline -p locallore --all-targets --jobs 1 -- -D warnings` | PASS, 10.69 s |
+| `cargo clippy --locked --offline -p locallore --all-targets --all-features --jobs 1 -- -D warnings` | PASS, 10.89 s |
+| owned-file `rustfmt --edition 2021 --config skip_children=true --check` | PASS |
+| `git diff --check`, clean worktree | PASS |
+
+The explicit all-feature focused command in the original plan was subsumed by
+the complete all-feature command, which ran those identical 16 tests. Both
+ignores are unchanged one-time Play 2.3 fixture/hash-capture helpers, not an
+author test waiver. Existing Host lifecycle/capture and legacy compact Play
+2.1–2.4 byte/retry checks ran under all features. This does not verify future
+Domain 2 Host/compiler/Store integration.
+
+Cost is not hidden: the existing 26-test contracts binary, including its
+10,000-attempt conservation/replay case, took 125.03 s on the corrected default
+run and 111.08 s under all features. Mixed-history admission currently scans
+and serializes canonical records to enforce encoded budgets; this is bounded
+but adds work. These are local debug-run timings, without an old-source paired
+measurement, wall-clock acceptance threshold, or performance claim.
+
+Immutable local log SHA-256 bindings (logs stay outside the repository):
+
+```text
+01-focused-frozen.log        b512460261517c8312aff245bddd172008eb85a9e027185f40cfdb614204edcd
+02-core-default.log          c44ce98e3a024c29329ea098890519075a8ce632a158c6db78cd11565326f878
+03-restore-corrected.log      9d218f71946aa5b39354c94fc14cbeb1102a73954fb6775b920329c7fe35a8c0
+04-core-default-corrected.log 5904dfb5d76cd320397da8bbb792211f81f90bed895a382b6cc2e2ba1cc29eb9
+05-core-all-features.log      6b65002e5123ad20e55827ce744d1c53cd2dc752a863167dbc504e076ae67652
+06-clippy-default.log         83554aa81c39562d79aaf62ca61b95e29c781a956b70fa92434972a98a144648
+07-clippy-all-features.log    89e172d42747e8cffb7dacc5020487f6f1961a6104f485d0eaee47fcd53db838
+```
+
+The exclusive heavy slot was released immediately after these checks. Claims
+on the listed files are handed back to the coordinator for independent source
+review and integration. The next runnable task is privacy/version closure of
+actual compiler/query/Play 2.5 and mixed Store/schema 5 paths, then their real
+transactional and native caller gates. No milestone checkbox, merge, release,
+legal approval, model quality or human acceptance is supplied by this report.

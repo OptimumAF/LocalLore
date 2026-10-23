@@ -457,7 +457,10 @@ impl Host {
     }
     /// Window/process teardown invalidates all outstanding leases before dropping sessions.
     pub fn close_all(&self) {
-        if let Ok(mut state) = self.state.lock() {
+        {
+            // Cleanup must revoke leases even if gameplay previously poisoned
+            // State. Do not clear poison or resume gameplay with this guard.
+            let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
             for session in state.sessions.values() {
                 session.trace_owner.retire();
                 for turn in session.turns.values() {
@@ -2355,6 +2358,28 @@ mod tests {
             "close revokes access independently of the busy diagnostic lock"
         );
         assert!(h.state.lock().unwrap().sessions.is_empty());
+        drop(held_trace);
+    }
+    #[test]
+    fn teardown_retires_private_capture_owner_with_poisoned_state_and_busy_trace() {
+        let h = Host::new(true);
+        let (id, _) = session(&h);
+        let owner = h.state.lock().unwrap().sessions[&id].trace_owner.clone();
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _state = h.state.lock().unwrap();
+            panic!("synthetic state poison");
+        }));
+        let held_trace = h.trace.lock().unwrap();
+        h.close_all();
+        assert!(!owner.live());
+        assert!(h
+            .state
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .sessions
+            .is_empty());
+        // Cleanup does not clear poison or resume gameplay through untrusted state.
+        assert!(h.state.is_poisoned());
         drop(held_trace);
     }
 }

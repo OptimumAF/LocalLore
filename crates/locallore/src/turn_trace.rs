@@ -245,6 +245,7 @@ impl Default for TraceOwner {
     }
 }
 impl TraceOwner {
+    #[cfg(any(feature = "host", test))]
     pub(crate) fn retire(&self) {
         self.0.store(false, Ordering::SeqCst);
     }

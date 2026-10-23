@@ -547,6 +547,29 @@ fn exact_21_22_23_history_bytes_replay_and_retry_without_model_or_current_profil
         let mut e = Engine::restore(seed.clone(), &[fixture["receipt"].to_string()]).unwrap();
         let receipt = e.receipts()[0].clone();
         assert_eq!(serde_json::to_value(&receipt).unwrap(), fixture["receipt"]);
+        // Independently measured on original 5e44 production, frozen probe b769b99.
+        let (length, expected) = match receipt.play().unwrap().prompt_version.as_str() {
+            "locallore-play-v2.1" => (
+                1905,
+                "4e95baa09c8d0646f5465945bf6a3f659d600ba6ee86b45a45a26d70fc49e234",
+            ),
+            "locallore-play-v2.2" => (
+                1788,
+                "348f33142a818744bfc1a6a542244fd0a59bae0bbdd7f141d250766cb09bf119",
+            ),
+            "locallore-play-v2.3" => (
+                1760,
+                "e9a1c58aa02236e97041658fae7910b8571ad8d487266a45201c7aa1fa8614e0",
+            ),
+            other => panic!("unexpected historical version {other}"),
+        };
+        let compact = serde_json::to_vec(&receipt).unwrap();
+        assert_eq!(compact.len(), length);
+        assert_eq!(
+            format!("{:x}", Sha256::digest(&compact)),
+            expected,
+            "exact original compact Receipt bytes"
+        );
         assert!(receipt.play().unwrap().context.is_none());
         assert_eq!(
             Engine::replay(seed.clone(), e.receipts())
@@ -791,4 +814,33 @@ fn snapshot_verified_entry_uses_identical_proof_path_and_retry_ignores_new_sourc
         r2
     );
     assert!(no_model.seen.is_empty());
+}
+
+/// Run only on original 2.3 production; prints public synthetic hashes, no writer.
+#[test]
+#[ignore = "original-source compact serialization measurement, requires 2.3 checkout"]
+fn original_source_compact_receipt_hash_probe() {
+    use sha2::{Digest, Sha256};
+    assert_eq!(play::PROMPT_VERSION, "locallore-play-v2.3");
+    for text in [
+        include_str!("fixtures/accepted_play_v2_1.json"),
+        include_str!("fixtures/accepted_play_v2_2.json"),
+        include_str!("fixtures/accepted_play_v2_3.json"),
+    ] {
+        let fixture: Value = serde_json::from_str(text).unwrap();
+        let restored = Engine::restore(
+            serde_json::from_value(fixture["seed"].clone()).unwrap(),
+            &[fixture["receipt"].to_string()],
+        )
+        .unwrap();
+        let receipt = &restored.receipts()[0];
+        assert_eq!(serde_json::to_value(receipt).unwrap(), fixture["receipt"]);
+        let bytes = serde_json::to_vec(receipt).unwrap();
+        println!(
+            "original {} bytes={} sha256={:x}",
+            receipt.play().unwrap().prompt_version,
+            bytes.len(),
+            Sha256::digest(&bytes)
+        );
+    }
 }

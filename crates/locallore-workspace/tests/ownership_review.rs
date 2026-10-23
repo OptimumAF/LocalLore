@@ -402,6 +402,7 @@ struct FaultStore {
     store: locallore_storage::Store,
     fail_cancel: bool,
     lose_ack: bool,
+    fail_status_once: bool,
 }
 fn saved(r: locallore_storage::TurnRecord) -> locallore::host::SavedTurn {
     locallore::host::SavedTurn {
@@ -513,6 +514,10 @@ impl locallore::host::Persistence for FaultStore {
         s: &locallore::contracts::Scope,
         id: &str,
     ) -> Result<locallore::host::SavedTurn, String> {
+        if self.fail_status_once {
+            self.fail_status_once = false;
+            return Err("Busy".into());
+        }
         self.store
             .lookup_turn(s, id)
             .map(saved)
@@ -526,8 +531,45 @@ fn fault_host(tmp: &Temp, fail_cancel: bool, lose_ack: bool) -> Host {
             store: locallore_storage::Store::open(&tmp.0.join("synthetic.sqlite"), None).unwrap(),
             fail_cancel,
             lose_ack,
+            fail_status_once: false,
         }),
     )
+}
+
+#[test]
+fn transient_post_generation_status_failure_releases_the_running_lease_for_retry() {
+    let tmp = Temp::new();
+    let h = Host::with_persistence(
+        false,
+        Box::new(FaultStore {
+            store: locallore_storage::Store::open(&tmp.0.join("synthetic.sqlite"), None).unwrap(),
+            fail_cancel: false,
+            lose_ack: false,
+            fail_status_once: true,
+        }),
+    );
+    let (id, scope) = create(&h);
+    let req = request(&scope, "transient-status", 0, true);
+    assert_eq!(submit(&h, &id, &req, "accepted")["data"]["phase"], "queued");
+    assert_eq!(
+        op(&h, &id, &scope, "transient-status", "prepare")["error"],
+        "Busy"
+    );
+    assert_eq!(h.live_counts().1, 0);
+    let recovered = op(&h, &id, &scope, "transient-status", "turn_status");
+    assert_eq!(
+        recovered["data"]["phase"], "queued",
+        "a completed worker must not strand a durable draft in running: {recovered}"
+    );
+    let accepted = commit(&h, &id, &scope, "transient-status");
+    assert_eq!(submit(&h, &id, &req, "accepted"), accepted);
+    assert_eq!(
+        snapshot(&h, &id, &scope, 1)["data"]["receipts"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
 }
 
 #[test]

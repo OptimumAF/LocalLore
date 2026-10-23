@@ -33,9 +33,11 @@ pub struct ResourceMetrics {
     pub status: ResourceStatus,
     pub error: Option<ResourceError>,
     pub sample_interval_ms: u64,
+    /// Retained summary counts; unavailable/panicked summaries do not reconstruct OS calls.
     pub successful_samples: u16,
     pub failed_samples: u16,
-    pub observed_ms: u64,
+    /// None when sampler setup or its result was unavailable; never a fabricated zero interval.
+    pub observed_ms: Option<u64>,
     /// Maximum sampled resident working set. A lower bound, not the exact role peak.
     pub sampled_peak_working_set_bytes: Option<u64>,
     /// Maximum sampled private committed bytes, NOT private working set or resident bytes.
@@ -56,7 +58,7 @@ impl ResourceMetrics {
             sample_interval_ms: RESOURCE_SAMPLE_INTERVAL_MS,
             successful_samples: 0,
             failed_samples: 0,
-            observed_ms: 0,
+            observed_ms: None,
             sampled_peak_working_set_bytes: None,
             sampled_peak_private_committed_bytes: None,
             process_lifetime_peak_working_set_bytes: None,
@@ -179,7 +181,7 @@ mod windows {
                 break;
             }
         }
-        metrics.observed_ms = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
+        metrics.observed_ms = Some(started.elapsed().as_millis().min(u64::MAX as u128) as u64);
         metrics.status = if metrics.successful_samples == 0 {
             ResourceStatus::Unavailable
         } else if metrics.failed_samples != 0 || metrics.limit_reached {
@@ -289,6 +291,7 @@ mod windows {
                 let metrics = Sampler::unavailable(error).finish();
                 assert_eq!(metrics.status, ResourceStatus::Unavailable);
                 assert_eq!(metrics.error, Some(error));
+                assert_eq!(metrics.observed_ms, None);
                 assert_eq!(metrics.sampled_peak_working_set_bytes, None);
                 assert_eq!(metrics.sampled_peak_private_committed_bytes, None);
             }
@@ -299,6 +302,7 @@ mod windows {
             };
             let metrics = sampler.finish();
             assert_eq!(metrics.error, Some(ResourceError::SamplerFailed));
+            assert_eq!(metrics.observed_ms, None);
             assert_eq!(metrics.successful_samples, 0);
             assert_eq!(metrics.process_lifetime_peak_working_set_bytes, None);
         }

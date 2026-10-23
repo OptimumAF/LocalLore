@@ -196,7 +196,7 @@ mod tests {
                 sample_interval_ms: 250,
                 successful_samples: 262,
                 failed_samples: 262,
-                observed_ms: u64::MAX,
+                observed_ms: Some(u64::MAX),
                 sampled_peak_working_set_bytes: Some(u64::MAX),
                 sampled_peak_private_committed_bytes: Some(u64::MAX),
                 process_lifetime_peak_working_set_bytes: Some(u64::MAX),

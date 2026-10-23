@@ -204,7 +204,12 @@ export class ForkController {
         });
     }
     prepare(at: number, child: string) {
-        if (this.disposed || this.preparing || this.state.busy || !this.context?.persistent)
+        if (
+            this.disposed ||
+            this.preparing ||
+            this.state.busy ||
+            !this.context?.persistent
+        )
             return;
         // Replacing an unresolved request requires the caller to retain its saved
         // recovery identity. Do not silently discard an uncertain native outcome.
@@ -213,7 +218,9 @@ export class ForkController {
             ["pending", "uncertain"].includes(this.state.status)
         )
             return;
-        const epoch = this.epoch, key = this.key, context = this.context;
+        const epoch = this.epoch,
+            key = this.key,
+            context = this.context;
         this.preparing = true;
         try {
             const request = decodeForkRequest({
@@ -224,10 +231,20 @@ export class ForkController {
             });
             this.saveRecovery(request); // Persist identity BEFORE native dispatch.
             if (this.disposed) return;
-            if (this.epoch !== epoch || this.key !== key || this.context !== context) {
+            if (
+                this.epoch !== epoch ||
+                this.key !== key ||
+                this.context !== context
+            ) {
                 this.requestKey = "";
-                this.patch({ request, result: null, operation: null, error: null,
-                    status: "uncertain", lookupOnly: true, consent: false,
+                this.patch({
+                    request,
+                    result: null,
+                    operation: null,
+                    error: null,
+                    status: "uncertain",
+                    lookupOnly: true,
+                    consent: false,
                     notice: "Recovery identity saved for the original selection. Lookup never creates a missing timeline.",
                 });
                 return;
@@ -244,9 +261,16 @@ export class ForkController {
                 notice: "Request a new timeline at this revision. The engine verifies that it is a completed turn boundary before saving. The original and its later choices stay intact.",
             });
         } catch (e) {
-            if (!this.disposed && this.epoch === epoch && this.key === key && this.context === context)
+            if (
+                !this.disposed &&
+                this.epoch === epoch &&
+                this.key === key &&
+                this.context === context
+            )
                 this.patch({ error: errorName(e), status: "error" });
-        } finally { this.preparing = false; }
+        } finally {
+            this.preparing = false;
+        }
     }
     restore(value: unknown) {
         if (this.disposed || this.preparing || this.state.busy) return;
@@ -389,7 +413,8 @@ export class ForkController {
                     error: null,
                     notice: "Saved timeline confirmed. Open it explicitly through the existing timeline picker; no downstream turn was replayed.",
                 });
-                if (this.live(epoch)) await this.refreshLibrary().catch(() => {});
+                if (this.live(epoch))
+                    await this.refreshLibrary().catch(() => {});
                 return;
             }
             await new Promise((r) => setTimeout(r, 25));
@@ -444,7 +469,8 @@ export class ForkController {
                     ? "Existing child verified at its current accepted head. Open it explicitly."
                     : "No matching saved child exists in this catalog snapshot. Recovery never creates it; absence is not a rollback guarantee.",
             });
-            if (result && this.live(epoch)) await this.refreshLibrary().catch(() => {});
+            if (result && this.live(epoch))
+                await this.refreshLibrary().catch(() => {});
         } catch (e) {
             if (this.live(epoch)) this.failure(e);
         }

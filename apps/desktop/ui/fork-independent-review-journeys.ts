@@ -73,7 +73,8 @@ export async function runForkIndependentReview() {
                     async (name, args) => {
                         calls.push(name);
                         if (name === "archive_cancel") return {};
-                        require(name === "fork_start", "only explicit fork start");
+                        require(name ===
+                            "fork_start", "only explicit fork start");
                         starts++;
                         return completed(args!.input as ForkRequest);
                     },
@@ -102,26 +103,19 @@ export async function runForkIndependentReview() {
                 await controller.confirm(true);
                 require(starts === 1, "one originally authorized start");
                 require(notified, "terminal operation notification exercised");
-                require(
-                    controller.get().result === null,
-                    "old terminal result cannot repopulate replacement/disposed owner",
-                );
-                require(
-                    controller.get().status !== "complete",
-                    "old completion cannot label replacement/disposed owner",
-                );
-                require(!controller.get().consent, "old consent remains cleared");
+                require(controller.get().result ===
+                    null, "old terminal result cannot repopulate replacement/disposed owner");
+                require(controller.get().status !==
+                    "complete", "old completion cannot label replacement/disposed owner");
+                require(!controller.get()
+                    .consent, "old consent remains cleared");
                 require(!controller.get().busy, "no replacement busy state");
                 require(refreshes === 0, "no stale post-notification refresh");
-                require(
-                    calls.filter((name) => name === "fork_start").length === 1,
-                    "no replacement or automatic fork start",
-                );
+                require(calls.filter((name) => name === "fork_start").length ===
+                    1, "no replacement or automatic fork start");
                 if (action === "switch")
-                    require(
-                        controller.get().lookupOnly,
-                        "saved identity remains lookup-only for replacement",
-                    );
+                    require(controller.get()
+                        .lookupOnly, "saved identity remains lookup-only for replacement");
                 release();
                 controller.dispose();
             },
@@ -164,28 +158,19 @@ export async function runForkIndependentReview() {
                 controller.prepare(1, "second-review-child");
                 await Promise.all(nested);
                 require(saved.length === 2, "both explicit saves exercised");
-                require(
-                    saved[0] === "first-review-child" &&
-                        saved[1] === "second-review-child",
-                    "no nested recovery identity save",
-                );
-                require(
-                    unchangedDuringSave,
-                    "nested control cannot publish during synchronous save",
-                );
+                require(saved[0] === "first-review-child" &&
+                    saved[1] ===
+                        "second-review-child", "no nested recovery identity save");
+                require(unchangedDuringSave, "nested control cannot publish during synchronous save");
                 require(calls.length === 0, "no nested start or lookup IPC");
-                require(
-                    controller.get().request?.child_branch === saved[1],
-                    "final presentation matches the durably saved identity",
-                );
-                require(
-                    controller.get().status === "prepared" &&
-                        !controller.get().busy &&
-                        !controller.get().lookupOnly &&
-                        !controller.get().consent &&
-                        controller.get().result === null,
-                    "new request needs its own explicit consent",
-                );
+                require(controller.get().request?.child_branch ===
+                    saved[1], "final presentation matches the durably saved identity");
+                require(controller.get().status === "prepared" &&
+                    !controller.get().busy &&
+                    !controller.get().lookupOnly &&
+                    !controller.get().consent &&
+                    controller.get().result ===
+                        null, "new request needs its own explicit consent");
                 controller.dispose();
             },
         );
@@ -204,7 +189,8 @@ export async function runForkIndependentReview() {
                             if (name === "archive_cancel") return {};
                             const reply = completed(args!.input as ForkRequest);
                             if (name === "fork_start") return reply;
-                            require(name === "fork_lookup", "closed lookup path");
+                            require(name ===
+                                "fork_lookup", "closed lookup path");
                             return {
                                 version: 1,
                                 kind: "fork_lookup",
@@ -234,25 +220,19 @@ export async function runForkIndependentReview() {
                     if (path === "confirm") await controller.confirm(true);
                     else await controller.lookup();
                     require(notified, "result subscriber exercised");
-                    require(
-                        controller.get().result === null &&
-                            !controller.get().consent,
-                        "replacement/disposed presentation stays cleared",
-                    );
-                    require(
-                        refreshes === 0,
-                        "result notification retirement fences later refresh",
-                    );
-                    require(
-                        calls.filter((name) => name === "fork_start").length ===
-                            (path === "confirm" ? 1 : 0),
-                        "lookup and selection change never create a child",
-                    );
-                    require(
-                        calls.filter((name) => name === "fork_lookup").length ===
-                            (path === "lookup" ? 1 : 0),
-                        "no reentrant lookup",
-                    );
+                    require(controller.get().result === null &&
+                        !controller.get()
+                            .consent, "replacement/disposed presentation stays cleared");
+                    require(refreshes ===
+                        0, "result notification retirement fences later refresh");
+                    require(calls.filter((name) => name === "fork_start")
+                        .length ===
+                        (path === "confirm"
+                            ? 1
+                            : 0), "lookup and selection change never create a child");
+                    require(calls.filter((name) => name === "fork_lookup")
+                        .length ===
+                        (path === "lookup" ? 1 : 0), "no reentrant lookup");
                     release();
                     controller.dispose();
                 },

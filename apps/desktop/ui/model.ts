@@ -452,6 +452,7 @@ export function playView(
                         !e ||
                         !e.scope ||
                         !Number.isSafeInteger(e.sequence) ||
+                        e.sequence < 1 ||
                         e.sequence > revision ||
                         !sameScope(e.scope, r.request.scope),
                 ) ||

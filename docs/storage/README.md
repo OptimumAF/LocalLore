@@ -1,10 +1,11 @@
 # Scoped SQLite foundation
 
-M04.01, [ticket #8](https://github.com/OptimumAF/LocalLore/issues/8). This Rust
-storage owner persists validated original seeds and initializes the first scoped
-SQLite schema. Accepted-turn save/resume and outcome replay remain M04.02/.03.
-The Compose app still uses its in-memory engine. This implementation PR is
-stacked on the unmerged ownership fix #35; that prerequisite must land first.
+The Rust SQLite owner under [ticket #8](https://github.com/OptimumAF/LocalLore/issues/8)
+persists validated original seeds and initializes the scoped schema. The
+[durability follow-on](DURABILITY.md) adds atomic root turns and validated
+save/resume. Existing app adapters still use their in-memory engines. M04.01 is
+in #38, stacked on ownership fix #35; the follow-on stacks on #38. Prerequisites
+must be owner-accepted/landed in order; no merge is performed by implementation.
 
 Run the deterministic checks without models, Android tools or ADB:
 

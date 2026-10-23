@@ -89,10 +89,13 @@ Exports are plaintext and their selected provider may sync them. See
 
 ## Initial technical direction
 
-The [SQLite foundation](docs/storage/README.md) adds one Rust migration owner,
-scoped foreign keys, consistent safety backups and validated seed persistence.
-It does not yet provide accepted-turn saves or Compose save/resume. Its host tests
-need no model; explicit Android smoke evidence is separate from device support.
+The [shared SQLite owner](docs/storage/README.md) provides scoped seed storage,
+atomic root-branch turns and validated save/resume with exact durable retries.
+Run `cargo run -p locallore-storage --example durable_smoke --locked --offline -- --directory target/my-fresh-durability-proof`
+for a synthetic potion-spend/reopen/retry/backup proof; the directory must be new.
+The existing Compose/desktop demos still use in-memory sessions. Their UI
+save/resume wiring remains a separate integration step. No model is needed;
+Android cross-build evidence is separate from actual device execution/support.
 
 The [desktop D01 spike](apps/desktop/README.md) adds a native Windows window over
 the same Rust engine, with fake inference, in-memory turns and explicit Story Lab

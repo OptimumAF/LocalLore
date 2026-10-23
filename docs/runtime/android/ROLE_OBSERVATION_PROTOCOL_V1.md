@@ -59,8 +59,10 @@ category: `none`, `unsupported_output`, `output_too_large` or
 channel/tool/nontext/oversize rejection. No rejected text or exception prose is
 copied into diagnostics. Existing primary text-validation behavior is retained.
 
-The adapter makes one best-effort benchmark query only at the live/drained
-boundary. If available, both raw SDK counters are integers 0–2^31−1. If
+The adapter makes one optional terminal-snapshot benchmark query only at the
+live/drained boundary. A successful `result()` has its own existing required
+benchmark read, so the successful path can make two queries. If available,
+both raw SDK counters are integers 0–2^31−1. If
 unavailable, both are null. SDK zero can be a default or an incomplete-turn
 counter; it does not prove zero work. Raw diagnostic counts may exceed gameplay
 caps without authorizing any output. Normal successful-generation validation
@@ -74,9 +76,12 @@ byte count. These describe arguments and a nonempty template render, not proven
 schema enforcement, disabled hidden reasoning or complete template semantics.
 The older successful-generation feature flags retain that same limitation.
 
-Pinned SDK source supports reading benchmark metadata before close, including
-after acknowledged cancellation, but does not promise complete cancelled-turn
-measurements. Cancellation poisons the Conversation for further generation.
+The pinned implementation has an alive-only benchmark query path without an
+explicit cancelled-state rejection. This is implementation evidence, not a
+guarantee of complete or valid cancelled-turn metrics. The best-effort read
+occurs while alive after acknowledged terminal; failing/incomplete observations
+remain unavailable or ambiguous. Cancellation poisons the session and subsequent
+operations can fail. No extra generation is allowed after cancellation.
 No cancelled Conversation is reused. The official
 [Conversation implementation](https://github.com/google-ai-edge/LiteRT-LM/blob/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/Conversation.kt)
 and [JNI counters](https://github.com/google-ai-edge/LiteRT-LM/blob/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc)

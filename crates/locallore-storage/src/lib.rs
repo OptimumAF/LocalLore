@@ -1,6 +1,8 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Rust's sole SQLite owner for validated seeds and atomic root-history turns.
+mod catalog;
 mod turns;
+pub use catalog::StorySummary;
 use locallore::{
     contracts::{Scope, Seed},
     engine::Engine,

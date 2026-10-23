@@ -160,6 +160,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "locallore-workspace"
+version = "0.1.0"
+dependencies = [
+ "locallore",
+ "locallore-storage",
+ "serde_json",
+]
+
+[[package]]
 name = "log"
 version = "0.4.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"

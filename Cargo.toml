@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/locallore", "crates/locallore-android", "crates/locallore-storage"]
+members = ["crates/locallore", "crates/locallore-android", "crates/locallore-storage", "crates/locallore-workspace"]
 exclude = ["apps/desktop/src-tauri"]
 resolver = "2"
 

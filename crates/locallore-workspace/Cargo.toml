@@ -1,0 +1,12 @@
+[package]
+name = "locallore-workspace"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Shared native app adapter to the single Rust SQLite owner"
+
+[dependencies]
+locallore = { path = "../locallore", features = ["host"] }
+locallore-storage = { path = "../locallore-storage" }
+serde_json.workspace = true

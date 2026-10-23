@@ -71,6 +71,10 @@ pub struct Envelope {
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HostCommand {
     Capabilities {},
+    Workspace {},
+    Resume {
+        scope: Scope,
+    },
     Create {
         seed: String,
     },
@@ -187,6 +191,39 @@ struct State {
     next: u64,
     workers: usize,
     sessions: BTreeMap<String, Session>,
+    persistence: Option<Box<dyn Persistence>>,
+}
+
+/// Trusted native persistence boundary. Implemented by the one SQLite owner adapter,
+/// never deserialized from a model, UI path or accepted-event wire payload.
+#[derive(Clone, Debug, Serialize)]
+pub struct WorkspaceSummary {
+    pub scope: Scope,
+    pub title: String,
+    pub revision: u64,
+    pub drafts: usize,
+}
+pub struct SavedTurn {
+    pub request: Request,
+    pub phase: String,
+    pub receipt: Option<Receipt>,
+}
+pub trait Persistence: Send {
+    fn location(&self) -> &str;
+    fn list(&mut self) -> Result<Vec<WorkspaceSummary>, String>;
+    fn create(&mut self) -> Result<Engine, String>;
+    fn resume(&mut self, scope: &Scope) -> Result<Engine, String>;
+    fn begin(&mut self, request: &Request) -> Result<SavedTurn, String>;
+    fn commit(
+        &mut self,
+        request: &Request,
+        proposal: &Proposal,
+        narration: &str,
+    ) -> Result<Receipt, String>;
+    fn cancel(&mut self, request: &Request) -> Result<SavedTurn, String>;
+    fn fail(&mut self, request: &Request) -> Result<SavedTurn, String>;
+    fn stale(&mut self, request: &Request) -> Result<SavedTurn, String>;
+    fn status(&mut self, scope: &Scope, turn: &str) -> Result<SavedTurn, String>;
 }
 
 /// Only trusted native construction grants spoiler inspection. JSON cannot grant capabilities.
@@ -200,6 +237,11 @@ impl Default for Host {
     }
 }
 impl Host {
+    pub fn with_persistence(story_lab: bool, persistence: Box<dyn Persistence>) -> Self {
+        let host = Self::new(story_lab);
+        host.state.lock().unwrap().persistence = Some(persistence);
+        host
+    }
     pub fn new(story_lab: bool) -> Self {
         Self {
             state: Arc::default(),
@@ -252,7 +294,16 @@ impl Host {
         (state.sessions.len(), state.workers)
     }
     fn dispatch(&self, state: &mut State, command: HostCommand) -> Value {
+        if state.persistence.is_some() {
+            if let Some(reply) = self.dispatch_durable(state, &command) {
+                return reply;
+            }
+        }
         match command {
+            HostCommand::Workspace {} => {
+                ok(json!({"persistent":false,"location":null,"schema_version":null,"stories":[]}))
+            }
+            HostCommand::Resume { .. } => reject("Unsupported"),
             HostCommand::Capabilities {} => {
                 ok(json!({"domain_version":VERSION,"seed":"lantern-quay-v1",
                 "typed_actions":true,"free_text":false,"persistence":false,"snapshot_export":false,
@@ -522,6 +573,264 @@ impl Host {
             HostCommand::Prepare { .. } => unreachable!(),
         }
     }
+
+    fn dispatch_durable(&self, state: &mut State, command: &HostCommand) -> Option<Value> {
+        let result = (|| -> Result<Value, Value> {
+            match command {
+                HostCommand::Capabilities {} => Ok(ok(
+                    json!({"domain_version":VERSION,"seed":"lantern-quay-v1",
+                    "typed_actions":true,"free_text":false,"persistence":true,"snapshot_export":false,
+                    "author":false,"story_lab":self.story_lab,"max_sessions":MAX_SESSIONS,"max_turns":MAX_TURNS}),
+                )),
+                HostCommand::Workspace {} => {
+                    let port = state.persistence.as_mut().unwrap();
+                    let stories = port.list().map_err(reject)?;
+                    Ok(ok(
+                        json!({"persistent":true,"location":port.location(),"schema_version":1,"stories":stories}),
+                    ))
+                }
+                HostCommand::Create { seed } => {
+                    if seed != "lantern-quay-v1" {
+                        return Err(reject("UnsupportedSeed"));
+                    }
+                    if state.sessions.len() >= MAX_SESSIONS {
+                        return Err(reject("SessionLimit"));
+                    }
+                    let engine = state
+                        .persistence
+                        .as_mut()
+                        .unwrap()
+                        .create()
+                        .map_err(reject)?;
+                    Ok(attach_engine(state, engine))
+                }
+                HostCommand::Resume { scope } => {
+                    if let Some((id, s)) = state
+                        .sessions
+                        .iter()
+                        .find(|(_, s)| s.engine.scope() == scope)
+                    {
+                        return Ok(ok(
+                            json!({"session":id,"scope":scope,"revision":s.engine.revision()}),
+                        ));
+                    }
+                    if state.sessions.len() >= MAX_SESSIONS {
+                        return Err(reject("SessionLimit"));
+                    }
+                    let engine = state
+                        .persistence
+                        .as_mut()
+                        .unwrap()
+                        .resume(scope)
+                        .map_err(reject)?;
+                    Ok(attach_engine(state, engine))
+                }
+                HostCommand::Open { session, scope } => {
+                    get_session(state, session, scope)?;
+                    let engine = state
+                        .persistence
+                        .as_mut()
+                        .unwrap()
+                        .resume(scope)
+                        .map_err(reject)?;
+                    let revision = engine.revision();
+                    get_session(state, session, scope)?.engine = engine;
+                    Ok(ok(
+                        json!({"session":session,"scope":scope,"revision":revision}),
+                    ))
+                }
+                HostCommand::Submit {
+                    session,
+                    request,
+                    mode,
+                } => {
+                    let s = get_session(state, session, &request.scope)?;
+                    if let Some(t) = s.turns.get(&request.turn) {
+                        if t.request != *request || t.mode != *mode {
+                            return Err(reject("RetryMismatch"));
+                        }
+                    } else if s.turns.len() >= MAX_TURNS {
+                        return Err(reject("TurnLimit"));
+                    }
+                    let saved = state
+                        .persistence
+                        .as_mut()
+                        .unwrap()
+                        .begin(request)
+                        .map_err(reject)?;
+                    let s = get_session(state, session, &request.scope)?;
+                    if saved.phase != "draft" {
+                        let t = saved_turn(saved, *mode)?;
+                        let reply = ok(t.view());
+                        s.turns.insert(request.turn.clone(), t);
+                        return Ok(reply);
+                    }
+                    if let Some(t) = s.turns.get(&request.turn) {
+                        return Ok(ok(t.view()));
+                    }
+                    if let Err(error) =
+                        Engine::proposal(request).and_then(|p| s.engine.preview(request, &p))
+                    {
+                        let _ = state.persistence.as_mut().unwrap().fail(request);
+                        return Err(reject(error));
+                    }
+                    let t = saved_turn(saved, *mode)?;
+                    let reply = ok(t.view());
+                    get_session(state, session, &request.scope)?
+                        .turns
+                        .insert(request.turn.clone(), t);
+                    Ok(reply)
+                }
+                HostCommand::TurnStatus {
+                    session,
+                    scope,
+                    turn,
+                } => {
+                    get_session(state, session, scope)?;
+                    let saved = state
+                        .persistence
+                        .as_mut()
+                        .unwrap()
+                        .status(scope, turn)
+                        .map_err(reject)?;
+                    let s = get_session(state, session, scope)?;
+                    if saved.phase == "draft" {
+                        if let Some(t) = s.turns.get(turn) {
+                            return Ok(ok(t.view()));
+                        }
+                    }
+                    let mode = s.turns.get(turn).map_or(Mode::Accepted, |t| t.mode);
+                    Ok(ok(saved_turn(saved, mode)?.view()))
+                }
+                HostCommand::Cancel {
+                    session,
+                    scope,
+                    turn,
+                } => {
+                    let s = get_session(state, session, scope)?;
+                    if let Some(t) = s.turns.get_mut(turn) {
+                        t.cancel.cancel();
+                    }
+                    let original = state
+                        .persistence
+                        .as_mut()
+                        .unwrap()
+                        .status(scope, turn)
+                        .map_err(reject)?;
+                    let saved = state
+                        .persistence
+                        .as_mut()
+                        .unwrap()
+                        .cancel(&original.request)
+                        .map_err(reject)?;
+                    let s = get_session(state, session, scope)?;
+                    let mode = s.turns.get(turn).map_or(Mode::Accepted, |t| t.mode);
+                    let t = saved_turn(saved, mode)?;
+                    let reply = ok(t.view());
+                    s.turns.insert(turn.clone(), t);
+                    Ok(reply)
+                }
+                HostCommand::Commit {
+                    session,
+                    scope,
+                    turn,
+                } => {
+                    get_session(state, session, scope)?;
+                    let stored = state
+                        .persistence
+                        .as_mut()
+                        .unwrap()
+                        .status(scope, turn)
+                        .map_err(reject)?;
+                    if stored.phase != "draft" {
+                        return Ok(ok(saved_turn(stored, Mode::Accepted)?.view()));
+                    }
+                    let s = get_session(state, session, scope)?;
+                    let t = s.turns.get_mut(turn).ok_or_else(|| reject("NotReady"))?;
+                    if t.cancel.is_cancelled() {
+                        return Err(reject("Cancelled"));
+                    }
+                    if t.phase != Phase::Ready {
+                        return Err(reject("NotReady"));
+                    }
+                    let prepared = t.receipt.clone().unwrap();
+                    let request = t.request.clone();
+                    let mode = t.mode;
+                    let reply = ok(
+                        json!({"turn":turn,"scope":scope,"expected_revision":request.expected_revision,
+                        "phase":"committed","error":null,"receipt":prepared}),
+                    );
+                    if serde_json::to_vec(&reply).unwrap().len() > MAX_OUTPUT {
+                        return Err(reject("TooLarge"));
+                    }
+                    match state.persistence.as_mut().unwrap().commit(
+                        &request,
+                        prepared.proposal(),
+                        prepared.narration(),
+                    ) {
+                        Ok(receipt) => {
+                            let s = get_session(state, session, scope)?;
+                            // Store is the writer. This cache update cannot invent a different result;
+                            // Open always reloads canonical storage before a refreshed UI snapshot.
+                            let _ =
+                                s.engine
+                                    .commit(&request, receipt.proposal(), receipt.narration());
+                            let t = saved_turn(
+                                SavedTurn {
+                                    request,
+                                    phase: "committed".into(),
+                                    receipt: Some(receipt),
+                                },
+                                mode,
+                            )?;
+                            let reply = ok(t.view());
+                            s.turns.insert(turn.clone(), t);
+                            Ok(reply)
+                        }
+                        Err(error) => {
+                            // A failed acknowledgement may still have committed. Lookup before
+                            // reporting failure; if lookup also fails, preserve recoverable ownership.
+                            let lookup = state.persistence.as_mut().unwrap().status(scope, turn);
+                            match lookup {
+                                Ok(saved) if saved.phase != "draft" => {
+                                    let t = saved_turn(saved, mode)?;
+                                    let reply = ok(t.view());
+                                    get_session(state, session, scope)?
+                                        .turns
+                                        .insert(turn.clone(), t);
+                                    Ok(reply)
+                                }
+                                Ok(_) => Err(reject(error)),
+                                Err(_) => Err(reject("TransportUnknown")),
+                            }
+                        }
+                    }
+                }
+                HostCommand::Close { session, scope } => {
+                    let s = get_session(state, session, scope)?;
+                    let active: Vec<_> = s
+                        .turns
+                        .values()
+                        .filter(|t| t.phase.active())
+                        .map(|t| {
+                            t.cancel.cancel();
+                            t.request.clone()
+                        })
+                        .collect();
+                    for request in active {
+                        let _ = state.persistence.as_mut().unwrap().cancel(&request);
+                    }
+                    state.sessions.remove(session);
+                    Ok(ok(json!({"closed":true,"saved":true})))
+                }
+                _ => return Ok(Value::Null),
+            }
+        })();
+        match result {
+            Ok(Value::Null) => None,
+            Ok(value) | Err(value) => Some(value),
+        }
+    }
     fn prepare(&self, session: &str, scope: &Scope, turn: &str) -> Value {
         let work = match self.begin_work(session, scope, turn) {
             Ok(work) => work,
@@ -569,6 +878,9 @@ impl Host {
             return reject("Closed");
         };
         let t = s.turns.get_mut(&work.turn).unwrap();
+        if !t.phase.active() {
+            return ok(t.view());
+        }
         if t.phase == Phase::Cancelled || work.cancel.is_cancelled() {
             t.phase = Phase::Cancelled;
             t.error = Some("Cancelled".into());
@@ -593,7 +905,31 @@ impl Host {
                 }
             }
         }
-        ok(t.view())
+        let phase = t.phase;
+        let reply = ok(t.view());
+        if let Some(port) = state.persistence.as_mut() {
+            let saved = match phase {
+                Phase::Cancelled => Some(port.cancel(&work.request)),
+                Phase::Failed => Some(port.fail(&work.request)),
+                Phase::Stale => Some(port.stale(&work.request)),
+                _ => None,
+            };
+            if let Some(Ok(saved)) = saved {
+                if saved.phase == "committed" {
+                    if let Ok(t) = saved_turn(saved, work.mode) {
+                        let reply = ok(t.view());
+                        state
+                            .sessions
+                            .get_mut(&work.session)
+                            .unwrap()
+                            .turns
+                            .insert(work.turn.clone(), t);
+                        return reply;
+                    }
+                }
+            }
+        }
+        reply
     }
 }
 impl Drop for Host {
@@ -629,6 +965,45 @@ fn get_session<'a>(
         return Err(reject("Scope"));
     }
     Ok(s)
+}
+fn attach_engine(state: &mut State, engine: Engine) -> Value {
+    let Some(next) = state.next.checked_add(1) else {
+        return reject("IdExhausted");
+    };
+    state.next = next;
+    let id = format!("session-{next}");
+    let data = json!({"session":id,"scope":engine.scope(),"revision":engine.revision()});
+    state.sessions.insert(
+        id,
+        Session {
+            engine,
+            turns: BTreeMap::new(),
+        },
+    );
+    ok(data)
+}
+fn saved_turn(saved: SavedTurn, mode: Mode) -> Result<Turn, Value> {
+    let phase = match saved.phase.as_str() {
+        "draft" => Phase::Queued,
+        "committed" => Phase::Committed,
+        "cancelled" => Phase::Cancelled,
+        "failed" => Phase::Failed,
+        "stale" => Phase::Stale,
+        _ => return Err(reject("Integrity")),
+    };
+    Ok(Turn {
+        request: saved.request,
+        mode,
+        cancel: Cancellation::default(),
+        phase,
+        receipt: saved.receipt,
+        error: match phase {
+            Phase::Cancelled => Some("Cancelled".into()),
+            Phase::Stale => Some("Stale".into()),
+            Phase::Failed => Some("Provider".into()),
+            _ => None,
+        },
+    })
 }
 fn ok(data: Value) -> Value {
     json!({"version":HOST_VERSION,"status":"ok","data":data})

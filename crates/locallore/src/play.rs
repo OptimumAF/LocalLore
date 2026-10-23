@@ -147,9 +147,10 @@ fn remaining(clock: GameplayClock, overhead: Duration, deadline_ms: u64) -> Resu
 
 pub const PLAY_VERSION: u16 = 2;
 pub const NARRATION_POLICY: &str = "grounded-prose-v2.1";
-pub const PROMPT_VERSION: &str = "locallore-play-v2.3";
+pub const PROMPT_VERSION: &str = "locallore-play-v2.4";
 pub const RECORDED_PROMPT_VERSION: &str = "locallore-play-v2.1";
 const RECORDED_PROMPT_V2_2: &str = "locallore-play-v2.2";
+const RECORDED_PROMPT_V2_3: &str = "locallore-play-v2.3";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -224,6 +225,160 @@ pub struct PlayRecord {
     pub fallback: bool,
     pub narration: NarrationDocument,
     pub stages: Vec<StageTiming>,
+    /// Count-only construction provenance, never a cache proof or knowledge grant.
+    /// Absent from exact historical 2.1/2.2/2.3 bytes; required for new 2.4.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<PlayContextRecord>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlayCoverageMode {
+    Raw,
+    Verified,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlayMemoryFallback {
+    Missing,
+    Budget,
+    Malformed,
+    Unsupported,
+    Binding,
+    Gap,
+    Overlap,
+    OpenTailBeforeEnd,
+    UnprovableClosure,
+    SourceMismatch,
+}
+impl From<crate::memory_coverage::FallbackReason> for PlayMemoryFallback {
+    fn from(reason: crate::memory_coverage::FallbackReason) -> Self {
+        use crate::memory_coverage::FallbackReason as F;
+        match reason {
+            F::Missing => Self::Missing,
+            F::Budget => Self::Budget,
+            F::Malformed => Self::Malformed,
+            F::Unsupported => Self::Unsupported,
+            F::Binding => Self::Binding,
+            F::Gap => Self::Gap,
+            F::Overlap => Self::Overlap,
+            F::OpenTailBeforeEnd => Self::OpenTailBeforeEnd,
+            F::UnprovableClosure => Self::UnprovableClosure,
+            F::SourceMismatch => Self::SourceMismatch,
+        }
+    }
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlayCoverageRecord {
+    /// Verified means the compiler accepted a proof, not that every packet was used.
+    pub mode: PlayCoverageMode,
+    pub set_fallback_reason: Option<PlayMemoryFallback>,
+    pub packets_used: usize,
+    pub packets_fell_back: usize,
+    pub timespan_fallback_packets: usize,
+    pub mandatory_fallback_packets: usize,
+    pub covered_through: u64,
+    pub raw_delta_after: u64,
+    pub cached_event_candidates: usize,
+    pub raw_event_candidates: usize,
+}
+/// Bounded receipt metadata describing the actual compiler call. Persisted counts
+/// cannot authenticate its source cache or demonstrate saved work/model quality.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlayContextRecord {
+    pub version: u16,
+    pub compiler_version: u16,
+    pub scope: Scope,
+    pub head: u64,
+    pub observer: String,
+    /// Native source rejection, distinct from the compiler's own raw Missing.
+    /// Absent means the input made no source-fallback claim, not a cache hit.
+    pub source_fallback_reason: Option<PlayMemoryFallback>,
+    pub coverage: PlayCoverageRecord,
+}
+impl PlayContextRecord {
+    fn from_compilation(
+        value: &crate::context_compiler::MemoryCompilation,
+        source_fallback_reason: Option<PlayMemoryFallback>,
+    ) -> Self {
+        use crate::context_compiler::{CoverageMode as M, MemoryFallbackReason as F};
+        let c = &value.coverage;
+        Self {
+            version: 1,
+            compiler_version: value.package.version,
+            scope: value.package.scope.clone(),
+            head: value.package.head,
+            observer: value.package.observer.clone(),
+            source_fallback_reason,
+            coverage: PlayCoverageRecord {
+                mode: match c.mode {
+                    M::Raw => PlayCoverageMode::Raw,
+                    M::Verified => PlayCoverageMode::Verified,
+                },
+                set_fallback_reason: c.set_fallback_reason.map(|reason| match reason {
+                    F::Missing => PlayMemoryFallback::Missing,
+                    F::Budget => PlayMemoryFallback::Budget,
+                    F::Malformed => PlayMemoryFallback::Malformed,
+                    F::Unsupported => PlayMemoryFallback::Unsupported,
+                    F::Binding => PlayMemoryFallback::Binding,
+                    F::Gap => PlayMemoryFallback::Gap,
+                    F::Overlap => PlayMemoryFallback::Overlap,
+                    F::OpenTailBeforeEnd => PlayMemoryFallback::OpenTailBeforeEnd,
+                    F::UnprovableClosure => PlayMemoryFallback::UnprovableClosure,
+                    F::SourceMismatch => PlayMemoryFallback::SourceMismatch,
+                }),
+                packets_used: c.packets_used,
+                packets_fell_back: c.packets_fell_back,
+                timespan_fallback_packets: c.timespan_fallback_packets,
+                mandatory_fallback_packets: c.mandatory_fallback_packets,
+                covered_through: c.covered_through,
+                raw_delta_after: c.raw_delta_after,
+                cached_event_candidates: c.cached_event_candidates,
+                raw_event_candidates: c.raw_event_candidates,
+            },
+        }
+    }
+    fn valid(&self, engine: &Engine, approved: &Receipt) -> bool {
+        let c = &self.coverage;
+        // Finite encoding limits and binding checks, not authentication of counts.
+        let max_events = MAX_HISTORY_RECEIPTS * MAX_COMMANDS;
+        let packets = c.packets_used.checked_add(c.packets_fell_back);
+        let fallbacks = c
+            .timespan_fallback_packets
+            .checked_add(c.mandatory_fallback_packets);
+        let events = c
+            .cached_event_candidates
+            .checked_add(c.raw_event_candidates);
+        self.version == 1
+            && self.compiler_version == crate::context_compiler::COMPILER_VERSION
+            && self.scope == approved.request().scope
+            && self.scope == *engine.scope()
+            && self.head == approved.request().expected_revision
+            && self.head == engine.revision()
+            && self.observer == engine.seed().player
+            && (self.source_fallback_reason.is_none()
+                || (c.mode == PlayCoverageMode::Raw
+                    && c.set_fallback_reason == Some(PlayMemoryFallback::Missing)))
+            && packets.is_some_and(|n| n <= crate::memory_coverage::MAX_PACKETS)
+            && fallbacks.is_some_and(|n| n <= c.packets_fell_back)
+            && events.is_some_and(|n| n <= max_events)
+            && c.covered_through <= self.head
+            && c.raw_delta_after == c.covered_through
+            && match c.mode {
+                PlayCoverageMode::Raw => {
+                    c.set_fallback_reason.is_some()
+                        && c.packets_used == 0
+                        && c.cached_event_candidates == 0
+                        && c.covered_through == 0
+                        && c.raw_delta_after == 0
+                        && c.timespan_fallback_packets == 0
+                        && c.mandatory_fallback_packets == 0
+                }
+                PlayCoverageMode::Verified => c.set_fallback_reason.is_none(),
+            }
+    }
 }
 
 pub(crate) fn validate_interpretation(
@@ -276,8 +431,16 @@ pub(crate) fn validate_record(
             || (recorded_history
                 && matches!(
                     record.prompt_version.as_str(),
-                    RECORDED_PROMPT_VERSION | RECORDED_PROMPT_V2_2
+                    RECORDED_PROMPT_VERSION | RECORDED_PROMPT_V2_2 | RECORDED_PROMPT_V2_3
                 )))
+        || if record.prompt_version == PROMPT_VERSION {
+            !record
+                .context
+                .as_ref()
+                .is_some_and(|context| context.valid(engine, approved))
+        } else {
+            record.context.is_some()
+        }
         || record.repairs > record.profile.repair_limit
         || record.stages.len() > 8
         || record.stages.iter().any(|s| {
@@ -646,6 +809,74 @@ pub fn execute_traced(
     profile: &PlayProfile,
     sink: Option<&mut dyn TraceSink>,
 ) -> Result<Receipt, Error> {
+    execute_traced_with_memory(engine, request, provider, cancel, profile, sink, None)
+}
+
+/// Trusted native-only input to the same production path. The accepted compiler
+/// rechecks retained coverage against this actual Engine before selecting data.
+/// Coverage rejection/fallback stays authoritative in that compiler. This cannot
+/// grant observer access, bypass mandatory context or authorize canonical changes.
+/// The candidate still requires a separate authoritative Host/Store commit.
+pub fn execute_traced_with_memory(
+    engine: &mut Engine,
+    request: &Request,
+    provider: &mut (impl InferenceProvider + ?Sized),
+    cancel: &Cancellation,
+    profile: &PlayProfile,
+    sink: Option<&mut dyn TraceSink>,
+    coverage: Option<&crate::memory_coverage::VerifiedCoverage>,
+) -> Result<Receipt, Error> {
+    execute_with_context_input(
+        engine,
+        request,
+        provider,
+        cancel,
+        profile,
+        sink,
+        MemoryInput {
+            proof: coverage,
+            source_fallback_reason: None,
+        },
+    )
+}
+
+/// Snapshot-source variant preserving its closed raw-fallback reason separately
+/// from compiler diagnostics. Raw input remains the same compiler raw path;
+/// the source label never constructs a proof or becomes prompt/knowledge data.
+pub fn execute_traced_with_coverage(
+    engine: &mut Engine,
+    request: &Request,
+    provider: &mut (impl InferenceProvider + ?Sized),
+    cancel: &Cancellation,
+    profile: &PlayProfile,
+    sink: Option<&mut dyn TraceSink>,
+    coverage: &crate::memory_coverage::CoverageRead,
+) -> Result<Receipt, Error> {
+    let input = match coverage {
+        crate::memory_coverage::CoverageRead::Verified(proof) => MemoryInput {
+            proof: Some(proof),
+            source_fallback_reason: None,
+        },
+        crate::memory_coverage::CoverageRead::RawFallback(reason) => MemoryInput {
+            proof: None,
+            source_fallback_reason: Some((*reason).into()),
+        },
+    };
+    execute_with_context_input(engine, request, provider, cancel, profile, sink, input)
+}
+struct MemoryInput<'a> {
+    proof: Option<&'a crate::memory_coverage::VerifiedCoverage>,
+    source_fallback_reason: Option<PlayMemoryFallback>,
+}
+fn execute_with_context_input(
+    engine: &mut Engine,
+    request: &Request,
+    provider: &mut (impl InferenceProvider + ?Sized),
+    cancel: &Cancellation,
+    profile: &PlayProfile,
+    sink: Option<&mut dyn TraceSink>,
+    input: MemoryInput<'_>,
+) -> Result<Receipt, Error> {
     let mut trace = Trace {
         sink,
         overhead: Duration::ZERO,
@@ -705,12 +936,12 @@ pub fn execute_traced(
     };
     let started = trace.clock();
     let mut stages = Vec::new();
-    let compiled = trace.counted(
+    let compilation = trace.counted(
         Stage::Retrieval,
         Outcome::Rejected,
         || {
             let reserved_tokens = 512.min(profile.context_tokens.saturating_sub(1));
-            crate::context_compiler::compile_cancelled(
+            crate::context_compiler::compile_verified_cancelled(
                 engine,
                 &crate::context_compiler::CompileRequest {
                     version: crate::context_compiler::COMPILER_VERSION,
@@ -733,6 +964,7 @@ pub fn execute_traced(
                         ..crate::context_compiler::Budget::default()
                     },
                 },
+                input.proof,
                 &|| cancel.is_cancelled(),
             )
             .map_err(|error| match error {
@@ -750,14 +982,17 @@ pub fn execute_traced(
             })
         },
         |package| Counts {
-            eligible_records: package.diagnostics.eligible_candidates as u32,
+            eligible_records: package.package.diagnostics.eligible_candidates as u32,
             input_tokens: Some(TokenCount {
-                value: package.estimated_tokens,
+                value: package.package.estimated_tokens,
                 basis: TokenBasis::Estimated,
             }),
             ..Counts::default()
         },
     )?;
+    let context_record =
+        PlayContextRecord::from_compilation(&compilation, input.source_fallback_reason);
+    let compiled = compilation.package;
     trace.capture(crate::turn_capture::Artifact::Context(&compiled));
     let (inventory, nearby, base, _) = trace.counted(Stage::Context, Outcome::Rejected, || {
     let player_location = &engine.state().actors.get(&engine.seed().player).ok_or(Error::UnknownReference)?.location;
@@ -913,6 +1148,7 @@ pub fn execute_traced(
                 speaker: String::new(),
             }),
         stages,
+        context: Some(context_record),
     };
     let before = trace.clock();
     if trace

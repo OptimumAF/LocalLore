@@ -184,6 +184,17 @@ fn unloaded_new_free_text_does_not_persist_a_draft_and_provider_panic_releases_w
         json!({"op":"play_snapshot","session":id,"scope":scope,"expected_revision":0}),
     );
     assert!(view["data"]["inventory"].get("potion").is_some());
+    drop(h);
+    let h = temp.host();
+    let resumed = call(&h, json!({"op":"resume","scope":scope}));
+    let id = resumed["data"]["session"].as_str().unwrap();
+    let historical_failure = op(&h, id, &scope, "turn_status");
+    assert_eq!(historical_failure["data"]["phase"], "failed");
+    assert_eq!(
+        historical_failure["data"]["error"],
+        Value::Null,
+        "a terminal phase does not establish an unrecorded historical cause"
+    );
 }
 
 #[test]

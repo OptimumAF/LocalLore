@@ -1246,7 +1246,9 @@ fn saved_turn(saved: SavedTurn, mode: Mode) -> Result<Turn, Value> {
         error: match phase {
             Phase::Cancelled => Some("Cancelled".into()),
             Phase::Stale => Some("Stale".into()),
-            Phase::Failed => Some("Provider".into()),
+            // The existing durable port records the terminal phase, not its cause.
+            // Do not fabricate a provider failure when an old validation failed.
+            Phase::Failed => None,
             _ => None,
         },
     })

@@ -252,3 +252,56 @@ Follow-up findings sent to coordinator for final disposition:
 These follow-up observations are source/controller fault-injection findings,
 not owner acceptance, a release gate, or evidence that normal operation exposed
 private data. Final coordinator evidence must record their disposition.
+
+## Final source follow-up before rerunning integrated evidence
+
+Reviewed the formatted coordinator source with controller SHA-256
+`29535e936437a27f82b07cc62f5e1d0fb82e0b68eab9beb9115aad6bc5d3e135`, model
+`04fa5aab6a63af4ae85dc5549fbd73609f0e80e6d6c0387fe50692eb9b17c2a4`, journeys
+`e5205bd73bccd5ef42503537a8ab76220ec0869f6444b6841f58fee69eddfec3`, and runner
+`8ab69b39d9e142f699ddacb24d804c66a7a5cfa6aa0567c9348387915949d303`.
+
+Confirmed source changes resolving the prior follow-up findings:
+
+- `cancel()` reconciles the original native key even without a submit
+  acknowledgement; `recover()` applies cancellation intent and publishes the
+  authoritative terminal outcome. `publishResult()` clears terminal unresolved
+  ownership. Journeys now contain
+  `cancel-during-uncertain-recovery-resolves-original` and
+  `retry-after-recovery-cancel-not-stuck`.
+- Status/request/receipt validation precedes status publication, and play-view
+  parsing explicitly rejects null/malformed receipt/event/scope shapes as Wire.
+- Headless journey timeout is cleared in `finally`; bridge calls have 15-second
+  deadlines and bridge close has a five-second kill fallback. The summary now
+  includes SHA-256 input content identifiers. Final source commit and rerun
+  results remain coordinator evidence; older 109/112 assertion results do not
+  prove the subsequently added cancellation cases ran.
+- The standalone command-attribute workaround above is superseded. Cargo's
+  `harness_contract` target now points to `tests/harness_contract.rs`, which
+  imports the same module in a module context; command attributes remain
+  enabled. Main's feature cfg and the test target's required feature retain the
+  boundary. This addresses Tauri command macro context in all-target checks.
+
+Two final concrete guard issues were sent to the coordinator before its final
+reruns:
+
+1. A terminal branch in `recover()` cleared `unresolved` before
+   `publishResult()` validated the recovered receipt. A malformed committed
+   reply could therefore throw Wire after ownership was lost; the catch's
+   ownership guard would swallow it and a later Retry could allocate a new ID.
+   Preserve unresolved ownership until successful validated publication; the
+   publication helper already performs that terminal clear.
+2. Executed a temporary-bundle controller race: defer preparation reply; await
+   `cancel()` publishing authoritative `cancelled`; reject the old preparation
+   reply with Transport. Observed `afterCancel:"cancelled"` followed by
+   `finalPhase:"unknown",finalError:"TransportUnknown"`. The `run()` catch
+   needed the same unresolved-ownership guard as recovery so a stale failure
+   cannot overwrite an already validated terminal outcome. The analogous
+   winning-commit acknowledgement race must preserve known commitment and
+   prevent a new-ID duplicate.
+
+No other concrete defect was identified in this bounded reread. These hashes
+identify the reviewed snapshot with those final guard requests still present;
+they do not identify final fixed source or establish owner acceptance. Record
+the two guards' disposition and fresh integrated regression results before
+treating this review as resolved. No desktop-control operation occurred.

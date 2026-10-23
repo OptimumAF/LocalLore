@@ -29,10 +29,13 @@ python benchmarks/spike/android/litert/build.py --java21 <existing-jdk21> --offl
 
 The llama source must be exactly `620d2225cc436ab0b001e3200e590e3b286ef9ab`.
 Build scripts do not download it, install SDKs, operate devices or load weights.
-The LiteRT helper deliberately returns **2** for the known AGP lint/Kotlin2.4
-metadata analysis limitation even though assembly/D8, fourteen JVM tests and APK
-audits pass. Treat that limitation as unresolved; do not relabel it a full lint
-pass. See [SDK sources/build](LITERT_SOURCES_2026-10-22.md) and
+The isolated LiteRT project pins a newer, separately audited analyzer while
+retaining AGP and the production toolchain. Its normal build now returns zero
+only after assembly/D8, fourteen JVM tests, APK checks and actual SDK/Kotlin
+dependency analysis pass. `--probe-incompatible-analyzer` deliberately uses the
+original analyzer and must return **2** for its reproduced metadata failure.
+See [analyzer compatibility and limitations](LITERT_ANALYZER_2026-10-22.md),
+[SDK sources/build](LITERT_SOURCES_2026-10-22.md) and
 [native build](LLAMA_BUILD_2026-10-22.md) for exact pins, hashes and licenses.
 No model weight, compiled runtime or APK belongs in Git.
 
@@ -73,6 +76,22 @@ closed. Provisioning reserves at least 1GiB free storage; do not exhaust a devic
 to simulate failure. The coordinator removed its verified Qwen cache before
 provisioning the larger Gemma model. The benchmark APK and private Gemma files
 remain on the two selected emulators for subsequent explicit experiments.
+
+## Exercise control failures without inference weights
+
+Install the exact source-built isolated SDK APK first, then run explicitly:
+
+```powershell
+python benchmarks/android_control_probe.py --adb <adb> --serial <authorized-target> --owner target/android-runtime/controller/remote-owner-x86_64 --oracle target/android-runtime/llama/rust/x86_64-linux-android/release/examples/runtime_spike --apk benchmarks/spike/android/litert/app/build/outputs/apk/debug/app-debug.apk --output target/android-control.json
+```
+
+Repeat on the second authorized target. This issues actual native/SDK operations
+and six deliberately injected host-control failures, checking fail-closed results
+and fresh recovery; three additional corrupt-file SDK diagnostics need no model
+weights. Every attempted check is retained before recovery. Successful fault
+assertions are not successful generations. No ADB invocation enters default
+checks. The [control verification](CONTROL_VERIFICATION_2026-10-22.md) preserves
+the earlier unexplained transients separately from this follow-up.
 
 ## Bounds and authority
 

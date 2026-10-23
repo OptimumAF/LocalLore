@@ -28,6 +28,9 @@ PACKAGE = "org.locallore.runtimebench.litert"
 
 class Failure(Exception):
     """Internal fixed category only; never retain stderr or private exception text."""
+    def __init__(self, category, command_cleaned=False):
+        super().__init__(category)
+        self.command_cleaned = command_cleaned is True
 
 
 def sha256(path):
@@ -80,6 +83,43 @@ class RemoteResult:
     adb_cleanup_complete: bool = False
     directory_cleanup_complete: bool = False
     metrics: dict = field(default_factory=dict, repr=False)
+    failure_stage: str = field(default="none", repr=False)
+    cleanup_failure_stage: str = field(default="none", repr=False)
+
+
+CONTROL_STAGES = {"none", "unknown", "invoke_worker", "native_create_run", "native_link_worker",
+    "native_write_request", "native_launch_owner", "native_read_owner", "native_verify_owner",
+    "native_release_owner", "native_wait_worker", "native_read_done", "native_verify_reap",
+    "native_cancel", "native_remove_run", "native_join_adb", "sdk_verify_package", "sdk_write_request",
+    "sdk_launch_instrumentation", "sdk_wait_instrumentation", "sdk_stop_identity", "sdk_stop_command",
+    "sdk_stop_absence", "sdk_parse_worker", "sdk_join_adb", "sdk_request_cleanup"}
+CONTROL_STATUSES = {"completed", "failed", "cancelled", "timeout", "output_limit", "spawn_failed",
+                    "cleanup_failed", "setup_failed", "owner_failed", "invalid_worker_response"}
+
+
+def remote_metadata(result):
+    """Project only fixed enums and bounded numbers, even for a defective adapter."""
+    def stage(name):
+        value = getattr(result, name, "none")
+        return value if type(value) is str and value in CONTROL_STAGES else "unknown"
+    elapsed = getattr(result, "elapsed_ms", 0)
+    elapsed = round(elapsed) if type(elapsed) in (int, float) and 0 <= elapsed <= 2 ** 31 and math.isfinite(elapsed) else 0
+    status = getattr(result, "status", None)
+    status = status if type(status) is str and status in CONTROL_STATUSES else "owner_failed"
+    code = getattr(result, "returncode", None)
+    code = code if type(code) is int and 0 <= code <= 255 else None
+    return {"process_status": status, "wall_ms": elapsed, "worker_exit_code": code,
+            "cleanup_complete": getattr(result, "cleanup_complete", None) is True,
+            "adb_cleanup_complete": getattr(result, "adb_cleanup_complete", None) is True,
+            "directory_cleanup_complete": getattr(result, "directory_cleanup_complete", None) is True,
+            "failure_stage": stage("failure_stage"), "cleanup_failure_stage": stage("cleanup_failure_stage")}
+
+
+def remove_run(device, run):
+    """Only a UUID this invocation created, after all possible writers are drained."""
+    device.shell("rm", "-f", "--", *[run + "/" + name for name in
+                 ("worker", "request", "owner", "owner.tmp", "done", "done.tmp", "release", "cancel")])
+    device.shell("rmdir", run)
 
 
 class Device:
@@ -97,7 +137,7 @@ class Device:
         # adb shell joins its argv into shell text; quote every remote argument ourselves.
         result = self.raw(["shell", shlex.join(str(arg) for arg in args)], request, deadline)
         if result.status != "completed" or result.returncode != 0 or not result.cleanup_complete:
-            raise Failure("device_command_failed")
+            raise Failure("device_command_failed", command_cleaned=result.cleanup_complete)
         return result.stdout
 
     def script(self, command, deadline=20):
@@ -118,7 +158,7 @@ class Device:
     def put(self, path, destination):
         result = self.raw(["push", str(path), destination], deadline=180)
         if result.status != "completed" or result.returncode != 0 or not result.cleanup_complete:
-            raise Failure("transfer_failed")
+            raise Failure("transfer_failed", command_cleaned=result.cleanup_complete)
 
     def put_bytes(self, data, destination):
         if len(data) > 131072:
@@ -172,7 +212,7 @@ class Device:
         command = shlex.join(["run-as", PACKAGE, "/system/bin/sh", "-c", "cat > files/request.json"])
         result = self.raw(["exec-in", command], request=data)
         if result.status != "completed" or result.returncode != 0 or not result.cleanup_complete:
-            raise Failure("transfer_failed")
+            raise Failure("transfer_failed", command_cleaned=result.cleanup_complete)
 
     def provision_private_model(self, path):
         if host.verify_model("litert", path):
@@ -255,7 +295,7 @@ def sdk_response(raw):
                 return None
             safe[key] = value[key]
         for key in SDK_NUMBER_METRICS & value.keys():
-            if type(value[key]) not in (int, float) or not math.isfinite(value[key]) or not 0 <= value[key] <= 2 ** 31:
+            if type(value[key]) not in (int, float) or not 0 <= value[key] <= 2 ** 31 or not math.isfinite(value[key]):
                 return None
             safe[key] = value[key]
         if not safe["worker_off_main"] or not safe["owners_balanced"] or safe["generated_text_logged"]:
@@ -276,34 +316,90 @@ class SdkWorker:
         if mode not in ("generate", "metadata", "missing", "corrupt", "cancel"):
             raise Failure("invalid_budget")
         self.device, self.apk_sha256, self.mode = device, apk_sha256, mode
+        self.stop_stage = "none"
 
     def verify_package(self):
         path = self.device.shell("pm", "path", PACKAGE).strip()
         if not path.startswith(b"package:") or b"\n" in path:
-            raise Failure("package_identity_failed")
+            raise Failure("package_identity_failed", command_cleaned=True)
         installed = path[len(b"package:"):].decode("utf-8")
         observed = self.device.shell("sha256sum", installed)
         if not observed or observed.split()[0].decode("ascii") != self.apk_sha256:
-            raise Failure("package_identity_failed")
+            raise Failure("package_identity_failed", command_cleaned=True)
 
     def stop(self):
+        self.stop_stage = "sdk_stop_identity"
         self.verify_package()
+        self.stop_stage = "sdk_stop_command"
         self.device.shell("am", "force-stop", PACKAGE)
+        self.stop_stage = "sdk_stop_absence"
         until = time.monotonic() + 5
         while time.monotonic() < until:
-            if not self.device.script("pidof " + PACKAGE + " || true").strip():
+            state = self.device.script("pidof " + PACKAGE + " >/dev/null; result=$?; "
+                "case $result in 0) printf running;; 1) printf absent;; *) exit 1;; esac").strip()
+            if state == b"absent":
+                self.stop_stage = "none"
                 return True
+            if state != b"running":
+                raise Failure("invalid_process_probe", command_cleaned=True)
             time.sleep(.05)
         return False
+
+    def cleanup_request(self):
+        # The private request/corrupt test artifact can survive failed instrumentation.
+        # Never touch files in a package whose installed bytes have changed.
+        self.verify_package()
+        self.device.shell("run-as", PACKAGE, "rm", "-f", "--", "files/request.json", "files/corrupt-spike-model.litertlm")
+        self.device.shell("run-as", PACKAGE, "/system/bin/sh", "-c",
+                          "[ ! -e files/request.json ] && [ ! -L files/request.json ] && "
+                          "[ ! -e files/corrupt-spike-model.litertlm ] && [ ! -L files/corrupt-spike-model.litertlm ]")
+        return True
 
     def run(self, binary, args, data=b"", deadline=60, cancel_after=None):
         del binary, args
         if not 1 <= deadline <= 90 or (cancel_after is not None and not 0 < cancel_after <= deadline):
             raise Failure("invalid_budget")
         start = time.monotonic()
-        self.verify_package()
-        if self.mode in ("generate", "cancel"):
-            self.device.private_write(data)
+        phase, failure, cleanup_failure = "sdk_verify_package", "none", "none"
+        try:
+            self.verify_package()
+            if not self.stop():
+                return RemoteResult("cleanup_failed", round((time.monotonic() - start) * 1000), False,
+                                    failure_stage="sdk_stop_absence", cleanup_failure_stage="sdk_stop_absence")
+            phase = "sdk_write_request"
+            if self.mode in ("generate", "cancel"):
+                self.device.private_write(data)
+        except Exception as error:
+            # No new instrumentation was launched. Failed preparation is still reported,
+            # and cleanup will require a newly verified package rather than assumed ownership.
+            phase = self.stop_stage if self.stop_stage != "none" else phase
+            cleaned, files = False, False
+            adb_cleaned = getattr(error, "command_cleaned", False) is True
+            try:
+                cleaned = self.stop()
+                if not cleaned:
+                    cleanup_failure = "sdk_stop_absence"
+                elif adb_cleaned:
+                    files = self.cleanup_request()
+            except Exception as cleanup_error:
+                adb_cleaned = adb_cleaned and getattr(cleanup_error, "command_cleaned", False) is True
+                cleanup_failure = self.stop_stage if self.stop_stage != "none" else "sdk_request_cleanup"
+            return RemoteResult("setup_failed", round((time.monotonic() - start) * 1000), cleaned,
+                                adb_cleanup_complete=adb_cleaned, directory_cleanup_complete=files,
+                                failure_stage=phase, cleanup_failure_stage=cleanup_failure)
+        elapsed = time.monotonic() - start
+        expired = "cancelled" if cancel_after is not None and elapsed >= cancel_after else "timeout" if elapsed >= deadline else None
+        if expired:
+            files = False
+            try:
+                files = self.cleanup_request()
+            except Exception as cleanup_error:
+                adb_cleaned = getattr(cleanup_error, "command_cleaned", False) is True
+                cleanup_failure = "sdk_request_cleanup"
+            return RemoteResult(expired, round((time.monotonic() - start) * 1000), True,
+                                adb_cleanup_complete=adb_cleaned if cleanup_failure != "none" else True, directory_cleanup_complete=files,
+                                failure_stage="sdk_wait_instrumentation" if expired == "timeout" else "none",
+                                cleanup_failure_stage=cleanup_failure)
         results, finished, host_cancel = [], threading.Event(), threading.Event()
         def execute():
             try:
@@ -314,10 +410,13 @@ class SdkWorker:
                 results.append(host.ProcessResult("spawn_failed", 0))
             finally:
                 finished.set()
-        thread = threading.Thread(target=execute, daemon=True)
-        thread.start()
-        status, output, code, cleanup, metrics = "owner_failed", b"", None, False, {}
+        thread = None
+        status, output, code, cleanup, files, metrics = "owner_failed", b"", None, False, False, {}
         try:
+            phase = "sdk_launch_instrumentation"
+            thread = threading.Thread(target=execute, daemon=True)
+            thread.start()
+            phase = "sdk_wait_instrumentation"
             while not finished.wait(.01):
                 elapsed = time.monotonic() - start
                 if cancel_after is not None and elapsed >= cancel_after:
@@ -325,29 +424,51 @@ class SdkWorker:
                     break
                 if elapsed >= deadline:
                     status = "timeout"
+                    failure = phase
                     break
-            cleanup = self.stop()  # Only this hash-verified, isolated benchmark package.
-            if not finished.wait(7):
-                host_cancel.set()
-                finished.wait(8)
-            if status not in ("cancelled", "timeout") and results:
+        except Exception:
+            failure = phase
+        finally:
+            # Drain the only local launcher before the final package stop. Stopping first
+            # permits a delayed launcher to create another process after an absence check.
+            host_cancel.set()
+            if thread is not None and thread.ident is not None:
+                thread.join(timeout=8)
+            launcher_cleaned = thread is None or bool((thread.ident is None or (results and results[0].cleanup_complete is True))
+                                                     and not thread.is_alive())
+            adb_cleaned = launcher_cleaned
+            if results and results[0].status == "spawn_failed":
+                failure = "sdk_launch_instrumentation"
+            try:
+                cleanup = self.stop()  # Reverify the installed bytes before every stop.
+                if not cleanup:
+                    cleanup_failure = "sdk_stop_absence"
+                elif adb_cleaned:
+                    files = self.cleanup_request()
+            except Exception as cleanup_error:
+                adb_cleaned = adb_cleaned and getattr(cleanup_error, "command_cleaned", False) is True
+                cleanup = False if self.stop_stage != "none" else cleanup
+                cleanup_failure = self.stop_stage if self.stop_stage != "none" else "sdk_request_cleanup"
+            if not launcher_cleaned:
+                cleanup_failure = "sdk_join_adb"
+                cleanup = False
+        if cleanup and adb_cleaned and failure == "none" and status not in ("cancelled", "timeout"):
+            phase = "sdk_parse_worker"
+            if results:
                 result = results[0]
                 parsed = sdk_response(result.stdout)
-                if result.status == "completed" and result.returncode == 0 and parsed:
+                if result.status == "completed" and type(result.returncode) is int and result.returncode == 0 and parsed:
                     output, metrics = parsed
                     status, code = "completed", 0
                 else:
                     status = "invalid_worker_response"
-        except (Failure, OSError):
-            cleanup = False
-        finally:
-            host_cancel.set()
-            thread.join(timeout=8)
-        adb_cleaned = bool(results and results[0].cleanup_complete and not thread.is_alive())
+                    failure = phase
         if not cleanup or not adb_cleaned:
             status = "cleanup_failed"
+        if status != "completed":
+            output, metrics = b"", {}
         return RemoteResult(status, round((time.monotonic() - start) * 1000), cleanup,
-                            output, code, adb_cleaned, True, metrics)
+                            output, code, adb_cleaned, files, metrics, failure, cleanup_failure)
 
 
 class NativeWorker:
@@ -360,12 +481,28 @@ class NativeWorker:
         start = time.monotonic()
         run = REMOTE + "/runs/" + uuid.uuid4().hex
         device = self.device
+        created, phase = False, "native_create_run"
+        def setup_failure(adb_cleaned):
+            files, cleanup_failure = False, "none"
+            if created and adb_cleaned:
+                try:
+                    remove_run(device, run)
+                    files = True
+                except Exception as cleanup_error:
+                    adb_cleaned = adb_cleaned and getattr(cleanup_error, "command_cleaned", False) is True
+                    cleanup_failure = "native_remove_run"
+            # No native launcher was started, independently of directory/ADB cleanup.
+            return RemoteResult("setup_failed", round((time.monotonic() - start) * 1000), True,
+                                adb_cleanup_complete=adb_cleaned, directory_cleanup_complete=files,
+                                failure_stage=phase, cleanup_failure_stage=cleanup_failure)
         try:
             device.shell("mkdir", "-m", "700", run)
+            created, phase = True, "native_link_worker"
             device.shell("ln", "-s", binary, run + "/worker")
+            phase = "native_write_request"
             device.put_bytes(data, run + "/request")
-        except (Failure, OSError):
-            return RemoteResult("setup_failed", round((time.monotonic() - start) * 1000), False)
+        except Exception as error:
+            return setup_failure(getattr(error, "command_cleaned", False) is True)
         command = [self.owner, run, str(math.ceil(deadline)), run + "/worker"] + list(args)
         stopped = threading.Event()
         host_cancel = threading.Event()
@@ -379,28 +516,44 @@ class NativeWorker:
                 results.append(host.ProcessResult("spawn_failed", 0))
             finally:
                 stopped.set()
-        thread = threading.Thread(target=execute, daemon=True)
-        thread.start()
+        phase = "native_launch_owner"
+        try:
+            thread = threading.Thread(target=execute, daemon=True)
+            thread.start()
+        except Exception:
+            if "thread" not in locals() or thread.ident is None:
+                return setup_failure(True)
+            host_cancel.set()
+            try:
+                device.script(": > " + shlex.quote(run + "/cancel"))
+            except Exception:
+                pass
+            thread.join(timeout=8)
+            return RemoteResult("cleanup_failed", round((time.monotonic() - start) * 1000), False,
+                                failure_stage=phase, cleanup_failure_stage="native_verify_reap")
         pid, identity = None, None
         status, cleanup, directory_cleanup = "owner_failed", False, False
         output, code = b"", None
+        failure, cleanup_failure, commands_cleaned = "none", "none", True
         try:
+            phase = "native_read_owner"
             until = time.monotonic() + min(8, deadline)
             while time.monotonic() < until:
                 raw = device.read_optional(run + "/owner")
                 if raw:
                     if re.fullmatch(rb"[1-9][0-9]{0,9}\r?\n", raw) is None:
-                        raise Failure("invalid_owner")
+                        raise Failure("invalid_owner", command_cleaned=True)
                     pid = int(raw)
+                    phase = "native_verify_owner"
                     identity = device.identity(pid)
                     if identity is None or identity[1] != [arg.encode("utf-8") for arg in command]:
-                        raise Failure("invalid_owner")
+                        raise Failure("invalid_owner", command_cleaned=True)
                     break
                 if stopped.is_set():
-                    raise Failure("owner_failed")
+                    raise Failure("owner_failed", command_cleaned=True)
                 time.sleep(.02)
             if identity is None:
-                raise Failure("owner_failed")
+                raise Failure("owner_failed", command_cleaned=True)
             requested = None
             elapsed = time.monotonic() - start
             if cancel_after is not None and elapsed >= cancel_after:
@@ -408,7 +561,9 @@ class NativeWorker:
             elif elapsed >= deadline:
                 requested = "timeout"
             if release and requested is None:
+                phase = "native_release_owner"
                 device.script(": > " + shlex.quote(run + "/release"))
+            phase = "native_wait_worker"
             while not stopped.wait(.01):
                 if requested:
                     break
@@ -420,14 +575,17 @@ class NativeWorker:
                     requested = "timeout"
                     break
             if requested:
+                phase = "native_cancel"
                 device.script(": > " + shlex.quote(run + "/cancel"))
             if not stopped.wait(7):
                 host_cancel.set()
                 stopped.wait(8)
             result = results[0] if results else None
+            phase = "native_read_done"
             done = parse_done(device.read_optional(run + "/done"))
             if done:
                 status, code = done
+                phase = "native_verify_reap"
                 until = time.monotonic() + 3
                 while time.monotonic() < until:
                     observed = device.identity(pid)
@@ -441,35 +599,48 @@ class NativeWorker:
                 output = result.stdout
                 if result.status != "completed" and not requested:
                     status = result.status
+                elif result.status == "completed" and (type(result.returncode) is not int or result.returncode != 0):
+                    status, failure = "owner_failed", "native_wait_worker"
+                    output = b""
             if not cleanup:
                 status = "cleanup_failed"
-        except (Failure, OSError):
+                failure, cleanup_failure = phase, "native_verify_reap"
+        except Exception as error:
+            commands_cleaned = getattr(error, "command_cleaned", False) is True
+            failure, cleanup_failure = phase, "native_verify_reap"
+            if results and results[0].status == "spawn_failed":
+                failure = "native_launch_owner"
             status = "cleanup_failed"
             try:
                 device.script(": > " + shlex.quote(run + "/cancel"))
-            except Failure:
-                pass
+            except Exception as cleanup_error:
+                commands_cleaned = commands_cleaned and getattr(cleanup_error, "command_cleaned", False) is True
+                cleanup_failure = "native_cancel"
         finally:
             host_cancel.set()
             thread.join(timeout=8)
             if cleanup:
                 # Only known files in the exact UUID directory; never recursive deletion.
                 try:
-                    device.shell("rm", "-f", "--", *[run + "/" + name for name in
-                                 ("worker", "request", "owner", "owner.tmp", "done", "done.tmp", "release", "cancel")])
-                    device.shell("rmdir", run)
+                    remove_run(device, run)
                     directory_cleanup = True
-                except (Failure, OSError):
-                    pass
-        adb_cleaned = bool(results and results[0].cleanup_complete and not thread.is_alive())
+                except Exception as cleanup_error:
+                    commands_cleaned = commands_cleaned and getattr(cleanup_error, "command_cleaned", False) is True
+                    cleanup_failure = "native_remove_run"
+        launcher_cleaned = bool(results and results[0].cleanup_complete is True and not thread.is_alive())
+        adb_cleaned = commands_cleaned and launcher_cleaned
+        if not launcher_cleaned:
+            cleanup_failure = "native_join_adb"
         return RemoteResult(status, round((time.monotonic() - start) * 1000), cleanup,
-                            output, code, adb_cleaned, directory_cleanup)
+                            output, code, adb_cleaned, directory_cleanup, failure_stage=failure,
+                            cleanup_failure_stage=cleanup_failure)
 
 
 def oracle(worker, binary, operation, case, data=b""):
     result = worker.run(binary, [operation, case], data, deadline=10)
-    if (result.status != "completed" or not result.cleanup_complete or not result.adb_cleanup_complete
-            or result.returncode != 0):
+    metadata = remote_metadata(result)
+    if (metadata["process_status"] != "completed" or not metadata["cleanup_complete"] or not metadata["adb_cleanup_complete"]
+            or metadata["worker_exit_code"] != 0):
         return None
     try:
         value = strict_json(result.stdout)
@@ -478,12 +649,62 @@ def oracle(worker, binary, operation, case, data=b""):
     return value if isinstance(value, dict) else None
 
 
+class ObservedOracle:
+    """Retain fixed per-call diagnostics when an oracle cannot even start."""
+    def __init__(self, worker, rows):
+        self.worker, self.rows = worker, rows
+
+    def run(self, binary, args, data=b"", **kwargs):
+        operation = args[0] if args and args[0] in ("fixture", "validate", "commit") else "unknown"
+        try:
+            result = self.worker.run(binary, args, data, **kwargs)
+        except Exception:
+            result = RemoteResult("owner_failed", 0, False, failure_stage="invoke_worker")
+        self.rows.append(dict(operation=operation, **remote_metadata(result)))
+        return result
+
+
+def safe_sdk_metrics(raw):
+    if not isinstance(raw, dict):
+        return {}
+    safe = {k: raw[k] for k in SDK_BOOL_METRICS & raw.keys() if type(raw[k]) is bool}
+    safe.update({k: raw[k] for k in SDK_NUMBER_METRICS & raw.keys() if type(raw[k]) in (int, float)
+                 and 0 <= raw[k] <= 2 ** 31 and math.isfinite(raw[k])})
+    return safe
+
+
+def sdk_diagnostic(sdk, native, oracle_binary, mode):
+    rows = []
+    report = {"version": 1, "scope": "android_sdk_boundary_smoke", "mode": mode,
+              "status": "oracle_failed", "check_passed": False, "oracle_runs": rows}
+    fixture = oracle(ObservedOracle(native, rows), oracle_binary, "fixture", "gift")
+    if not fixture or not isinstance(fixture.get("director"), dict):
+        return report
+    try:
+        result = sdk.run("unused", [], json.dumps(fixture["director"]).encode("utf-8"), deadline=80)
+    except Exception:
+        result = RemoteResult("owner_failed", 0, False, failure_stage="invoke_worker")
+    metadata = remote_metadata(result)
+    parsed = host.parse_worker(result.stdout)
+    metrics = safe_sdk_metrics(result.metrics)
+    report.update(metadata)
+    report.update(status=metadata["process_status"], sdk=metrics,
+                  worker_status=parsed["status"] if parsed else None,
+                  worker_error=parsed["error"] if parsed else None)
+    expected = {"metadata": None, "missing": "model_missing", "corrupt": "model_invalid", "cancel": None}
+    report["check_passed"] = bool(metadata["process_status"] == "completed" and metadata["cleanup_complete"]
+        and metadata["adb_cleanup_complete"] and metadata["worker_exit_code"] == 0 and parsed
+        and parsed["error"] == expected[mode] and (mode != "cancel"
+        or (metrics.get("cancel_terminal_callback") is True and metrics.get("reload_completed") is True)))
+    return report
+
+
 def experiment(device, worker, binary, oracle_binary, model, case="gift", cancel_after=None,
                runtime="llama", oracle_worker=None):
     report = {"version": 1, "scope": "android_x86_64_cold_smoke", "runtime": runtime,
               "case": case, "status": "not_started", "attempted_roles": 0, "roles": [],
-              "phone_qualified": False, "quality_assessed": False, "durable_state": False}
-    oracle_worker = oracle_worker or worker
+              "phone_qualified": False, "quality_assessed": False, "durable_state": False, "oracle_runs": []}
+    oracle_worker = ObservedOracle(oracle_worker or worker, report["oracle_runs"])
     fixture = oracle(oracle_worker, oracle_binary, "fixture", case)
     if not fixture:
         report["status"] = "oracle_failed"
@@ -510,27 +731,24 @@ def experiment(device, worker, binary, oracle_binary, model, case="gift", cancel
         try:
             result = worker.run(binary, ["--model", model], json.dumps(request).encode("utf-8"), deadline=remaining,
                                 cancel_after=cancel_after if role == "director" else None)
-        except (Failure, OSError):
-            result = RemoteResult("owner_failed", 0, False)
-        aggregate = {"role": role, "process_status": result.status, "wall_ms": result.elapsed_ms,
-                     "cleanup_complete": result.cleanup_complete, "adb_cleanup_complete": result.adb_cleanup_complete,
-                     "directory_cleanup_complete": getattr(result, "directory_cleanup_complete", False),
-                     "worker_exit_code": result.returncode}
+        except Exception:
+            result = RemoteResult("owner_failed", 0, False, failure_stage="invoke_worker")
+        aggregate = dict(role=role, **remote_metadata(result))
         report["roles"].append(aggregate)
         if getattr(result, "metrics", None):
-            aggregate["sdk"] = result.metrics
-        if result.status != "completed":
-            report["status"] = result.status
-            if result.status == "failed" and result.cleanup_complete and result.adb_cleanup_complete:
+            aggregate["sdk"] = safe_sdk_metrics(result.metrics)
+        if aggregate["process_status"] != "completed":
+            report["status"] = aggregate["process_status"]
+            if aggregate["process_status"] == "failed" and aggregate["cleanup_complete"] and aggregate["adb_cleanup_complete"]:
                 error_reply = host.parse_worker(result.stdout)
                 if error_reply and error_reply["status"] == "error":
                     aggregate.update({key: value for key, value in error_reply.items() if key not in ("version", "text")})
                     report["status"] = error_reply["error"]
             return report
-        if not result.cleanup_complete or not result.adb_cleanup_complete:
+        if not aggregate["cleanup_complete"] or not aggregate["adb_cleanup_complete"]:
             report["status"] = "cleanup_failed"
             return report
-        if result.returncode != 0:
+        if aggregate["worker_exit_code"] != 0:
             report["status"] = "worker_failed"
             return report
         generated = host.parse_worker(result.stdout)
@@ -615,19 +833,7 @@ def main():
                     report = experiment(device, sdk, "unused", oracle_binary, "private_model", args.case,
                                         args.cancel_after, runtime="litert", oracle_worker=native)
                 else:
-                    fixture = oracle(native, oracle_binary, "fixture", "gift")
-                    result = sdk.run("unused", [], json.dumps(fixture["director"]).encode("utf-8"), deadline=80)
-                    parsed = host.parse_worker(result.stdout)
-                    report = {"version": 1, "scope": "android_sdk_boundary_smoke", "mode": args.sdk_mode,
-                              "status": result.status, "cleanup_complete": result.cleanup_complete,
-                              "adb_cleanup_complete": result.adb_cleanup_complete, "sdk": result.metrics,
-                              "worker_status": parsed["status"] if parsed else None,
-                              "worker_error": parsed["error"] if parsed else None}
-                    expected = {"metadata": None, "missing": "model_missing", "corrupt": "model_invalid", "cancel": None}
-                    report["check_passed"] = bool(result.status == "completed" and result.cleanup_complete
-                        and result.adb_cleanup_complete and parsed and parsed["error"] == expected[args.sdk_mode]
-                        and (args.sdk_mode != "cancel" or (result.metrics.get("cancel_terminal_callback") is True
-                                                          and result.metrics.get("reload_completed") is True)))
+                    report = sdk_diagnostic(sdk, native, oracle_binary, args.sdk_mode)
         report.update(artifact=host.ARTIFACTS[args.runtime][0], model_sha256=host.ARTIFACTS[args.runtime][2])
     except (Failure, OSError, ValueError):
         report = {"version": 1, "status": "setup_failed", "attempted_roles": 0, "roles": []}

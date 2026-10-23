@@ -6,6 +6,7 @@ from unittest.mock import patch
 from types import SimpleNamespace
 
 import android_runtime_spike as spike
+import android_control_probe as control
 
 
 def envelope(metrics=None, output=None):
@@ -22,6 +23,59 @@ def envelope(metrics=None, output=None):
 
 
 class SdkEnvelopeTests(unittest.TestCase):
+    def test_probe_native_recovery_retains_the_failed_oracle_stage(self):
+        failed = spike.RemoteResult("setup_failed", 1, True, failure_stage="native_write_request",
+                                    adb_cleanup_complete=True)
+        native = SimpleNamespace(run=lambda *args, **kwargs: failed)
+        recovery = {}
+        self.assertFalse(control.fixture_ok(native, "oracle", recovery))
+        self.assertEqual(recovery["oracle_runs"][0]["failure_stage"], "native_write_request")
+        self.assertFalse(recovery["check_passed"])
+
+    def test_probe_sdk_recovery_keeps_diagnostics_separate_from_the_original_fault(self):
+        failed = spike.RemoteResult("setup_failed", 1, True, failure_stage="native_create_run")
+        native = SimpleNamespace(run=unittest.mock.Mock(return_value=failed))
+        sdk = SimpleNamespace(run=unittest.mock.Mock(return_value=spike.RemoteResult(
+            "setup_failed", 1, True, failure_stage="sdk_write_request")))
+        recovery = {"check_passed": False, "status": "cleanup_failed",
+                    "cleanup_failure_stage": "sdk_stop_absence", "oracle_runs": []}
+        rows = []
+        with patch.object(spike, "NativeWorker", return_value=native), \
+                patch.object(control, "fixture_ok", return_value=True), \
+                patch.object(spike, "oracle", return_value={"director": {}}), \
+                patch.object(spike, "SdkWorker", return_value=sdk), \
+                patch.object(spike, "sdk_diagnostic", return_value=recovery):
+            control.probes(None, "owner", "oracle", "1" * 64, rows)
+        self.assertEqual(rows[3]["failure_stage"], "sdk_write_request")
+        self.assertEqual(rows[3]["recovery"]["cleanup_failure_stage"], "sdk_stop_absence")
+        self.assertFalse(rows[3]["passed"])
+
+    def test_probe_retains_failed_attempt_when_fresh_recovery_also_fails(self):
+        rows = []
+        failed = spike.RemoteResult("setup_failed", 1, True, failure_stage="native_create_run")
+        native = SimpleNamespace(run=unittest.mock.Mock(return_value=failed))
+        with patch.object(spike, "NativeWorker", return_value=native), \
+                patch.object(control, "fixture_ok", side_effect=spike.Failure("PRIVATE-731")):
+            with self.assertRaises(spike.Failure):
+                control.probes(None, "owner", "oracle", "1" * 64, rows)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["failure_stage"], "native_create_run")
+        self.assertFalse(rows[0]["passed"])
+        self.assertNotIn("PRIVATE-731", json.dumps(rows))
+
+    def test_diagnostic_oracle_failure_keeps_stage_and_never_launches_sdk(self):
+        sdk = SimpleNamespace(run=unittest.mock.Mock())
+        native = SimpleNamespace(run=lambda *args, **kwargs: spike.RemoteResult(
+            "setup_failed", 1, True, failure_stage="native_write_request", adb_cleanup_complete=True))
+        report = spike.sdk_diagnostic(sdk, native, "oracle", "corrupt")
+        self.assertEqual(report["status"], "oracle_failed")
+        self.assertEqual(report["oracle_runs"][0]["failure_stage"], "native_write_request")
+        sdk.run.assert_not_called()
+
+    def test_sdk_large_numeric_metadata_fails_closed_without_float_overflow(self):
+        raw = envelope().replace(b'"main_pulses": 3', b'"main_pulses": ' + b'9' * 1000)
+        self.assertIsNone(spike.sdk_response(raw))
+
     def test_expired_cancellation_budget_does_not_release_the_native_barrier(self):
         from test_android_runtime_ownership_review import ImmediateDevice
         device = ImmediateDevice()

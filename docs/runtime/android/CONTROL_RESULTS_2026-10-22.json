@@ -1,0 +1,2189 @@
+{
+  "version": 1,
+  "observed_date": "2026-10-22",
+  "task_ids": [
+    "M01.02",
+    "M01.05"
+  ],
+  "scope": "android_development_control_and_analyzer_followup",
+  "implementation_commit": "6783500",
+  "integrated_source_commit": "93c7beeb3c23194742ee4587f92f472073af49fe",
+  "accepted_base": "a4b762a",
+  "phone_qualified": false,
+  "quality_assessed": false,
+  "original_transients_explained": false,
+  "production_backend_selected": false,
+  "original_attempts_preserved_in": "RESULTS_2026-10-22.json",
+  "control_probes": [
+    {
+      "emulator": "A",
+      "phase": "initial",
+      "result": {
+        "version": 1,
+        "scope": "android_control_fault_recovery",
+        "passed": true,
+        "checks": [
+          {
+            "check": "native_create_run",
+            "injected": true,
+            "passed": true,
+            "process_status": "setup_failed",
+            "wall_ms": 0,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": false,
+            "failure_stage": "native_create_run",
+            "cleanup_failure_stage": "none",
+            "launcher_calls": 0,
+            "owned_directory_absent": true,
+            "fresh_fixture_valid": true
+          },
+          {
+            "check": "native_link_worker",
+            "injected": true,
+            "passed": true,
+            "process_status": "setup_failed",
+            "wall_ms": 234,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "native_link_worker",
+            "cleanup_failure_stage": "none",
+            "launcher_calls": 0,
+            "owned_directory_absent": true,
+            "fresh_fixture_valid": true
+          },
+          {
+            "check": "native_write_request",
+            "injected": true,
+            "passed": true,
+            "process_status": "setup_failed",
+            "wall_ms": 313,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "native_write_request",
+            "cleanup_failure_stage": "none",
+            "launcher_calls": 0,
+            "owned_directory_absent": true,
+            "fresh_fixture_valid": true
+          },
+          {
+            "check": "sdk_clean_start",
+            "injected": true,
+            "passed": true,
+            "process_status": "setup_failed",
+            "wall_ms": 1125,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "sdk_stop_command",
+            "cleanup_failure_stage": "none",
+            "launcher_calls": 0,
+            "output_discarded": true,
+            "fresh_missing_valid": true
+          },
+          {
+            "check": "sdk_sdk_request",
+            "injected": true,
+            "passed": true,
+            "process_status": "setup_failed",
+            "wall_ms": 1469,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "sdk_write_request",
+            "cleanup_failure_stage": "none",
+            "launcher_calls": 0,
+            "output_discarded": true,
+            "fresh_missing_valid": true
+          },
+          {
+            "check": "sdk_final_stop",
+            "injected": true,
+            "passed": true,
+            "process_status": "cleanup_failed",
+            "wall_ms": 1187,
+            "worker_exit_code": null,
+            "cleanup_complete": false,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": false,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "sdk_stop_command",
+            "launcher_calls": 1,
+            "output_discarded": true,
+            "fresh_missing_valid": true
+          },
+          {
+            "check": "sdk_corrupt",
+            "repetition": 1,
+            "injected": false,
+            "passed": true,
+            "result": {
+              "version": 1,
+              "scope": "android_sdk_boundary_smoke",
+              "mode": "corrupt",
+              "status": "completed",
+              "check_passed": true,
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 922,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ],
+              "process_status": "completed",
+              "wall_ms": 1641,
+              "worker_exit_code": 0,
+              "cleanup_complete": true,
+              "adb_cleanup_complete": true,
+              "directory_cleanup_complete": true,
+              "failure_stage": "none",
+              "cleanup_failure_stage": "none",
+              "sdk": {
+                "owners_balanced": true,
+                "worker_off_main": true,
+                "reload_completed": false,
+                "generated_text_logged": false,
+                "cancel_called": false,
+                "native_invalid_model_rejected": true,
+                "terminal_callback": false,
+                "conversations_opened": 0,
+                "engines_opened": 0,
+                "engines_closed": 0,
+                "main_pulses": 2,
+                "conversations_closed": 0
+              },
+              "worker_status": "error",
+              "worker_error": "model_invalid"
+            }
+          },
+          {
+            "check": "sdk_corrupt",
+            "repetition": 2,
+            "injected": false,
+            "passed": true,
+            "result": {
+              "version": 1,
+              "scope": "android_sdk_boundary_smoke",
+              "mode": "corrupt",
+              "status": "completed",
+              "check_passed": true,
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 796,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ],
+              "process_status": "completed",
+              "wall_ms": 1704,
+              "worker_exit_code": 0,
+              "cleanup_complete": true,
+              "adb_cleanup_complete": true,
+              "directory_cleanup_complete": true,
+              "failure_stage": "none",
+              "cleanup_failure_stage": "none",
+              "sdk": {
+                "owners_balanced": true,
+                "worker_off_main": true,
+                "reload_completed": false,
+                "generated_text_logged": false,
+                "cancel_called": false,
+                "native_invalid_model_rejected": true,
+                "terminal_callback": false,
+                "conversations_opened": 0,
+                "engines_opened": 0,
+                "engines_closed": 0,
+                "main_pulses": 3,
+                "conversations_closed": 0
+              },
+              "worker_status": "error",
+              "worker_error": "model_invalid"
+            }
+          },
+          {
+            "check": "sdk_corrupt",
+            "repetition": 3,
+            "injected": false,
+            "passed": true,
+            "result": {
+              "version": 1,
+              "scope": "android_sdk_boundary_smoke",
+              "mode": "corrupt",
+              "status": "completed",
+              "check_passed": true,
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 906,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ],
+              "process_status": "completed",
+              "wall_ms": 1703,
+              "worker_exit_code": 0,
+              "cleanup_complete": true,
+              "adb_cleanup_complete": true,
+              "directory_cleanup_complete": true,
+              "failure_stage": "none",
+              "cleanup_failure_stage": "none",
+              "sdk": {
+                "owners_balanced": true,
+                "worker_off_main": true,
+                "reload_completed": false,
+                "generated_text_logged": false,
+                "cancel_called": false,
+                "native_invalid_model_rejected": true,
+                "terminal_callback": false,
+                "conversations_opened": 0,
+                "engines_opened": 0,
+                "engines_closed": 0,
+                "main_pulses": 2,
+                "conversations_closed": 0
+              },
+              "worker_status": "error",
+              "worker_error": "model_invalid"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "emulator": "A",
+      "phase": "traced",
+      "result": {
+        "version": 1,
+        "scope": "android_control_fault_recovery",
+        "passed": true,
+        "checks": [
+          {
+            "check": "native_create_run",
+            "injected": true,
+            "passed": true,
+            "process_status": "setup_failed",
+            "wall_ms": 0,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": false,
+            "failure_stage": "native_create_run",
+            "cleanup_failure_stage": "none",
+            "recovery": {
+              "status": "fixture_valid",
+              "check_passed": true,
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1360,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ]
+            },
+            "launcher_calls": 0,
+            "owned_directory_absent": true,
+            "fresh_fixture_valid": true
+          },
+          {
+            "check": "native_link_worker",
+            "injected": true,
+            "passed": true,
+            "process_status": "setup_failed",
+            "wall_ms": 265,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "native_link_worker",
+            "cleanup_failure_stage": "none",
+            "recovery": {
+              "status": "fixture_valid",
+              "check_passed": true,
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1172,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ]
+            },
+            "launcher_calls": 0,
+            "owned_directory_absent": true,
+            "fresh_fixture_valid": true
+          },
+          {
+            "check": "native_write_request",
+            "injected": true,
+            "passed": true,
+            "process_status": "setup_failed",
+            "wall_ms": 515,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "native_write_request",
+            "cleanup_failure_stage": "none",
+            "recovery": {
+              "status": "fixture_valid",
+              "check_passed": true,
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1250,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ]
+            },
+            "launcher_calls": 0,
+            "owned_directory_absent": true,
+            "fresh_fixture_valid": true
+          },
+          {
+            "check": "sdk_clean_start",
+            "injected": true,
+            "passed": true,
+            "setup_oracle_runs": [
+              {
+                "operation": "fixture",
+                "process_status": "completed",
+                "wall_ms": 953,
+                "worker_exit_code": 0,
+                "cleanup_complete": true,
+                "adb_cleanup_complete": true,
+                "directory_cleanup_complete": true,
+                "failure_stage": "none",
+                "cleanup_failure_stage": "none"
+              }
+            ],
+            "process_status": "setup_failed",
+            "wall_ms": 1765,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "sdk_stop_command",
+            "cleanup_failure_stage": "none",
+            "recovery": {
+              "status": "completed",
+              "check_passed": true,
+              "version": 1,
+              "scope": "android_sdk_boundary_smoke",
+              "mode": "missing",
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1219,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ],
+              "process_status": "completed",
+              "wall_ms": 3797,
+              "worker_exit_code": 0,
+              "cleanup_complete": true,
+              "adb_cleanup_complete": true,
+              "directory_cleanup_complete": true,
+              "failure_stage": "none",
+              "cleanup_failure_stage": "none",
+              "sdk": {
+                "terminal_callback": false,
+                "native_invalid_model_rejected": true,
+                "generated_text_logged": false,
+                "worker_off_main": true,
+                "cancel_called": false,
+                "reload_completed": false,
+                "owners_balanced": true,
+                "conversations_closed": 0,
+                "engines_closed": 0,
+                "conversations_opened": 0,
+                "engines_opened": 0,
+                "main_pulses": 5
+              },
+              "worker_status": "error",
+              "worker_error": "model_missing"
+            },
+            "launcher_calls": 0,
+            "output_discarded": true,
+            "fresh_missing_valid": true
+          },
+          {
+            "check": "sdk_sdk_request",
+            "injected": true,
+            "passed": true,
+            "setup_oracle_runs": [
+              {
+                "operation": "fixture",
+                "process_status": "completed",
+                "wall_ms": 2719,
+                "worker_exit_code": 0,
+                "cleanup_complete": true,
+                "adb_cleanup_complete": true,
+                "directory_cleanup_complete": true,
+                "failure_stage": "none",
+                "cleanup_failure_stage": "none"
+              }
+            ],
+            "process_status": "setup_failed",
+            "wall_ms": 1687,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "sdk_write_request",
+            "cleanup_failure_stage": "none",
+            "recovery": {
+              "status": "completed",
+              "check_passed": true,
+              "version": 1,
+              "scope": "android_sdk_boundary_smoke",
+              "mode": "missing",
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1641,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ],
+              "process_status": "completed",
+              "wall_ms": 2125,
+              "worker_exit_code": 0,
+              "cleanup_complete": true,
+              "adb_cleanup_complete": true,
+              "directory_cleanup_complete": true,
+              "failure_stage": "none",
+              "cleanup_failure_stage": "none",
+              "sdk": {
+                "terminal_callback": false,
+                "native_invalid_model_rejected": true,
+                "generated_text_logged": false,
+                "worker_off_main": true,
+                "cancel_called": false,
+                "reload_completed": false,
+                "owners_balanced": true,
+                "conversations_closed": 0,
+                "engines_closed": 0,
+                "conversations_opened": 0,
+                "engines_opened": 0,
+                "main_pulses": 2
+              },
+              "worker_status": "error",
+              "worker_error": "model_missing"
+            },
+            "launcher_calls": 0,
+            "output_discarded": true,
+            "fresh_missing_valid": true
+          },
+          {
+            "check": "sdk_final_stop",
+            "injected": true,
+            "passed": true,
+            "setup_oracle_runs": [
+              {
+                "operation": "fixture",
+                "process_status": "completed",
+                "wall_ms": 1234,
+                "worker_exit_code": 0,
+                "cleanup_complete": true,
+                "adb_cleanup_complete": true,
+                "directory_cleanup_complete": true,
+                "failure_stage": "none",
+                "cleanup_failure_stage": "none"
+              }
+            ],
+            "process_status": "cleanup_failed",
+            "wall_ms": 1719,
+            "worker_exit_code": null,
+            "cleanup_complete": false,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": false,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "sdk_stop_command",
+            "recovery": {
+              "status": "completed",
+              "check_passed": true,
+              "version": 1,
+              "scope": "android_sdk_boundary_smoke",
+              "mode": "missing",
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1250,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ],
+              "process_status": "completed",
+              "wall_ms": 2500,
+              "worker_exit_code": 0,
+              "cleanup_complete": true,
+              "adb_cleanup_complete": true,
+              "directory_cleanup_complete": true,
+              "failure_stage": "none",
+              "cleanup_failure_stage": "none",
+              "sdk": {
+                "terminal_callback": false,
+                "native_invalid_model_rejected": true,
+                "generated_text_logged": false,
+                "worker_off_main": true,
+                "cancel_called": false,
+                "reload_completed": false,
+                "owners_balanced": true,
+                "conversations_closed": 0,
+                "engines_closed": 0,
+                "conversations_opened": 0,
+                "engines_opened": 0,
+                "main_pulses": 2
+              },
+              "worker_status": "error",
+              "worker_error": "model_missing"
+            },
+            "launcher_calls": 1,
+            "output_discarded": true,
+            "fresh_missing_valid": true
+          },
+          {
+            "check": "sdk_corrupt",
+            "repetition": 1,
+            "injected": false,
+            "passed": true,
+            "result": {
+              "version": 1,
+              "scope": "android_sdk_boundary_smoke",
+              "mode": "corrupt",
+              "status": "completed",
+              "check_passed": true,
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1766,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ],
+              "process_status": "completed",
+              "wall_ms": 2703,
+              "worker_exit_code": 0,
+              "cleanup_complete": true,
+              "adb_cleanup_complete": true,
+              "directory_cleanup_complete": true,
+              "failure_stage": "none",
+              "cleanup_failure_stage": "none",
+              "sdk": {
+                "terminal_callback": false,
+                "native_invalid_model_rejected": true,
+                "generated_text_logged": false,
+                "worker_off_main": true,
+                "cancel_called": false,
+                "reload_completed": false,
+                "owners_balanced": true,
+                "conversations_closed": 0,
+                "engines_closed": 0,
+                "conversations_opened": 0,
+                "engines_opened": 0,
+                "main_pulses": 3
+              },
+              "worker_status": "error",
+              "worker_error": "model_invalid"
+            }
+          },
+          {
+            "check": "sdk_corrupt",
+            "repetition": 2,
+            "injected": false,
+            "passed": true,
+            "result": {
+              "version": 1,
+              "scope": "android_sdk_boundary_smoke",
+              "mode": "corrupt",
+              "status": "completed",
+              "check_passed": true,
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1297,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ],
+              "process_status": "completed",
+              "wall_ms": 2000,
+              "worker_exit_code": 0,
+              "cleanup_complete": true,
+              "adb_cleanup_complete": true,
+              "directory_cleanup_complete": true,
+              "failure_stage": "none",
+              "cleanup_failure_stage": "none",
+              "sdk": {
+                "terminal_callback": false,
+                "native_invalid_model_rejected": true,
+                "generated_text_logged": false,
+                "worker_off_main": true,
+                "cancel_called": false,
+                "reload_completed": false,
+                "owners_balanced": true,
+                "conversations_closed": 0,
+                "engines_closed": 0,
+                "conversations_opened": 0,
+                "engines_opened": 0,
+                "main_pulses": 2
+              },
+              "worker_status": "error",
+              "worker_error": "model_invalid"
+            }
+          },
+          {
+            "check": "sdk_corrupt",
+            "repetition": 3,
+            "injected": false,
+            "passed": true,
+            "result": {
+              "version": 1,
+              "scope": "android_sdk_boundary_smoke",
+              "mode": "corrupt",
+              "status": "completed",
+              "check_passed": true,
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1078,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ],
+              "process_status": "completed",
+              "wall_ms": 2078,
+              "worker_exit_code": 0,
+              "cleanup_complete": true,
+              "adb_cleanup_complete": true,
+              "directory_cleanup_complete": true,
+              "failure_stage": "none",
+              "cleanup_failure_stage": "none",
+              "sdk": {
+                "terminal_callback": false,
+                "native_invalid_model_rejected": true,
+                "generated_text_logged": false,
+                "worker_off_main": true,
+                "cancel_called": false,
+                "reload_completed": false,
+                "owners_balanced": true,
+                "conversations_closed": 0,
+                "engines_closed": 0,
+                "conversations_opened": 0,
+                "engines_opened": 0,
+                "main_pulses": 2
+              },
+              "worker_status": "error",
+              "worker_error": "model_invalid"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "emulator": "B",
+      "phase": "initial",
+      "result": {
+        "version": 1,
+        "scope": "android_control_fault_recovery",
+        "passed": true,
+        "checks": [
+          {
+            "check": "native_create_run",
+            "injected": true,
+            "passed": true,
+            "process_status": "setup_failed",
+            "wall_ms": 0,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": false,
+            "failure_stage": "native_create_run",
+            "cleanup_failure_stage": "none",
+            "launcher_calls": 0,
+            "owned_directory_absent": true,
+            "fresh_fixture_valid": true
+          },
+          {
+            "check": "native_link_worker",
+            "injected": true,
+            "passed": true,
+            "process_status": "setup_failed",
+            "wall_ms": 250,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "native_link_worker",
+            "cleanup_failure_stage": "none",
+            "launcher_calls": 0,
+            "owned_directory_absent": true,
+            "fresh_fixture_valid": true
+          },
+          {
+            "check": "native_write_request",
+            "injected": true,
+            "passed": true,
+            "process_status": "setup_failed",
+            "wall_ms": 390,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "native_write_request",
+            "cleanup_failure_stage": "none",
+            "launcher_calls": 0,
+            "owned_directory_absent": true,
+            "fresh_fixture_valid": true
+          },
+          {
+            "check": "sdk_clean_start",
+            "injected": true,
+            "passed": true,
+            "process_status": "setup_failed",
+            "wall_ms": 1422,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "sdk_stop_command",
+            "cleanup_failure_stage": "none",
+            "launcher_calls": 0,
+            "output_discarded": true,
+            "fresh_missing_valid": true
+          },
+          {
+            "check": "sdk_sdk_request",
+            "injected": true,
+            "passed": true,
+            "process_status": "setup_failed",
+            "wall_ms": 1531,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "sdk_write_request",
+            "cleanup_failure_stage": "none",
+            "launcher_calls": 0,
+            "output_discarded": true,
+            "fresh_missing_valid": true
+          },
+          {
+            "check": "sdk_final_stop",
+            "injected": true,
+            "passed": true,
+            "process_status": "cleanup_failed",
+            "wall_ms": 1453,
+            "worker_exit_code": null,
+            "cleanup_complete": false,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": false,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "sdk_stop_command",
+            "launcher_calls": 1,
+            "output_discarded": true,
+            "fresh_missing_valid": true
+          },
+          {
+            "check": "sdk_corrupt",
+            "repetition": 1,
+            "injected": false,
+            "passed": true,
+            "result": {
+              "version": 1,
+              "scope": "android_sdk_boundary_smoke",
+              "mode": "corrupt",
+              "status": "completed",
+              "check_passed": true,
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1422,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ],
+              "process_status": "completed",
+              "wall_ms": 1891,
+              "worker_exit_code": 0,
+              "cleanup_complete": true,
+              "adb_cleanup_complete": true,
+              "directory_cleanup_complete": true,
+              "failure_stage": "none",
+              "cleanup_failure_stage": "none",
+              "sdk": {
+                "owners_balanced": true,
+                "worker_off_main": true,
+                "native_invalid_model_rejected": true,
+                "generated_text_logged": false,
+                "terminal_callback": false,
+                "cancel_called": false,
+                "reload_completed": false,
+                "conversations_closed": 0,
+                "conversations_opened": 0,
+                "engines_closed": 0,
+                "main_pulses": 2,
+                "engines_opened": 0
+              },
+              "worker_status": "error",
+              "worker_error": "model_invalid"
+            }
+          },
+          {
+            "check": "sdk_corrupt",
+            "repetition": 2,
+            "injected": false,
+            "passed": true,
+            "result": {
+              "version": 1,
+              "scope": "android_sdk_boundary_smoke",
+              "mode": "corrupt",
+              "status": "completed",
+              "check_passed": true,
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1140,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ],
+              "process_status": "completed",
+              "wall_ms": 2141,
+              "worker_exit_code": 0,
+              "cleanup_complete": true,
+              "adb_cleanup_complete": true,
+              "directory_cleanup_complete": true,
+              "failure_stage": "none",
+              "cleanup_failure_stage": "none",
+              "sdk": {
+                "owners_balanced": true,
+                "worker_off_main": true,
+                "native_invalid_model_rejected": true,
+                "generated_text_logged": false,
+                "terminal_callback": false,
+                "cancel_called": false,
+                "reload_completed": false,
+                "conversations_closed": 0,
+                "conversations_opened": 0,
+                "engines_closed": 0,
+                "main_pulses": 2,
+                "engines_opened": 0
+              },
+              "worker_status": "error",
+              "worker_error": "model_invalid"
+            }
+          },
+          {
+            "check": "sdk_corrupt",
+            "repetition": 3,
+            "injected": false,
+            "passed": true,
+            "result": {
+              "version": 1,
+              "scope": "android_sdk_boundary_smoke",
+              "mode": "corrupt",
+              "status": "completed",
+              "check_passed": true,
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1063,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ],
+              "process_status": "completed",
+              "wall_ms": 2156,
+              "worker_exit_code": 0,
+              "cleanup_complete": true,
+              "adb_cleanup_complete": true,
+              "directory_cleanup_complete": true,
+              "failure_stage": "none",
+              "cleanup_failure_stage": "none",
+              "sdk": {
+                "owners_balanced": true,
+                "worker_off_main": true,
+                "native_invalid_model_rejected": true,
+                "generated_text_logged": false,
+                "terminal_callback": false,
+                "cancel_called": false,
+                "reload_completed": false,
+                "conversations_closed": 0,
+                "conversations_opened": 0,
+                "engines_closed": 0,
+                "main_pulses": 2,
+                "engines_opened": 0
+              },
+              "worker_status": "error",
+              "worker_error": "model_invalid"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "emulator": "B",
+      "phase": "traced",
+      "result": {
+        "version": 1,
+        "scope": "android_control_fault_recovery",
+        "passed": true,
+        "checks": [
+          {
+            "check": "native_create_run",
+            "injected": true,
+            "passed": true,
+            "process_status": "setup_failed",
+            "wall_ms": 0,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": false,
+            "failure_stage": "native_create_run",
+            "cleanup_failure_stage": "none",
+            "recovery": {
+              "status": "fixture_valid",
+              "check_passed": true,
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1172,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ]
+            },
+            "launcher_calls": 0,
+            "owned_directory_absent": true,
+            "fresh_fixture_valid": true
+          },
+          {
+            "check": "native_link_worker",
+            "injected": true,
+            "passed": true,
+            "process_status": "setup_failed",
+            "wall_ms": 313,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "native_link_worker",
+            "cleanup_failure_stage": "none",
+            "recovery": {
+              "status": "fixture_valid",
+              "check_passed": true,
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1312,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ]
+            },
+            "launcher_calls": 0,
+            "owned_directory_absent": true,
+            "fresh_fixture_valid": true
+          },
+          {
+            "check": "native_write_request",
+            "injected": true,
+            "passed": true,
+            "process_status": "setup_failed",
+            "wall_ms": 531,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "native_write_request",
+            "cleanup_failure_stage": "none",
+            "recovery": {
+              "status": "fixture_valid",
+              "check_passed": true,
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1250,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ]
+            },
+            "launcher_calls": 0,
+            "owned_directory_absent": true,
+            "fresh_fixture_valid": true
+          },
+          {
+            "check": "sdk_clean_start",
+            "injected": true,
+            "passed": true,
+            "setup_oracle_runs": [
+              {
+                "operation": "fixture",
+                "process_status": "completed",
+                "wall_ms": 1109,
+                "worker_exit_code": 0,
+                "cleanup_complete": true,
+                "adb_cleanup_complete": true,
+                "directory_cleanup_complete": true,
+                "failure_stage": "none",
+                "cleanup_failure_stage": "none"
+              }
+            ],
+            "process_status": "setup_failed",
+            "wall_ms": 1656,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "sdk_stop_command",
+            "cleanup_failure_stage": "none",
+            "recovery": {
+              "status": "completed",
+              "check_passed": true,
+              "version": 1,
+              "scope": "android_sdk_boundary_smoke",
+              "mode": "missing",
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1297,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ],
+              "process_status": "completed",
+              "wall_ms": 3938,
+              "worker_exit_code": 0,
+              "cleanup_complete": true,
+              "adb_cleanup_complete": true,
+              "directory_cleanup_complete": true,
+              "failure_stage": "none",
+              "cleanup_failure_stage": "none",
+              "sdk": {
+                "terminal_callback": false,
+                "reload_completed": false,
+                "cancel_called": false,
+                "worker_off_main": true,
+                "owners_balanced": true,
+                "native_invalid_model_rejected": true,
+                "generated_text_logged": false,
+                "main_pulses": 3,
+                "engines_closed": 0,
+                "conversations_closed": 0,
+                "conversations_opened": 0,
+                "engines_opened": 0
+              },
+              "worker_status": "error",
+              "worker_error": "model_missing"
+            },
+            "launcher_calls": 0,
+            "output_discarded": true,
+            "fresh_missing_valid": true
+          },
+          {
+            "check": "sdk_sdk_request",
+            "injected": true,
+            "passed": true,
+            "setup_oracle_runs": [
+              {
+                "operation": "fixture",
+                "process_status": "completed",
+                "wall_ms": 2359,
+                "worker_exit_code": 0,
+                "cleanup_complete": true,
+                "adb_cleanup_complete": true,
+                "directory_cleanup_complete": true,
+                "failure_stage": "none",
+                "cleanup_failure_stage": "none"
+              }
+            ],
+            "process_status": "setup_failed",
+            "wall_ms": 1672,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "sdk_write_request",
+            "cleanup_failure_stage": "none",
+            "recovery": {
+              "status": "completed",
+              "check_passed": true,
+              "version": 1,
+              "scope": "android_sdk_boundary_smoke",
+              "mode": "missing",
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1734,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ],
+              "process_status": "completed",
+              "wall_ms": 2375,
+              "worker_exit_code": 0,
+              "cleanup_complete": true,
+              "adb_cleanup_complete": true,
+              "directory_cleanup_complete": true,
+              "failure_stage": "none",
+              "cleanup_failure_stage": "none",
+              "sdk": {
+                "terminal_callback": false,
+                "reload_completed": false,
+                "cancel_called": false,
+                "worker_off_main": true,
+                "owners_balanced": true,
+                "native_invalid_model_rejected": true,
+                "generated_text_logged": false,
+                "main_pulses": 2,
+                "engines_closed": 0,
+                "conversations_closed": 0,
+                "conversations_opened": 0,
+                "engines_opened": 0
+              },
+              "worker_status": "error",
+              "worker_error": "model_missing"
+            },
+            "launcher_calls": 0,
+            "output_discarded": true,
+            "fresh_missing_valid": true
+          },
+          {
+            "check": "sdk_final_stop",
+            "injected": true,
+            "passed": true,
+            "setup_oracle_runs": [
+              {
+                "operation": "fixture",
+                "process_status": "completed",
+                "wall_ms": 1281,
+                "worker_exit_code": 0,
+                "cleanup_complete": true,
+                "adb_cleanup_complete": true,
+                "directory_cleanup_complete": true,
+                "failure_stage": "none",
+                "cleanup_failure_stage": "none"
+              }
+            ],
+            "process_status": "cleanup_failed",
+            "wall_ms": 1782,
+            "worker_exit_code": null,
+            "cleanup_complete": false,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": false,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "sdk_stop_command",
+            "recovery": {
+              "status": "completed",
+              "check_passed": true,
+              "version": 1,
+              "scope": "android_sdk_boundary_smoke",
+              "mode": "missing",
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1093,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ],
+              "process_status": "completed",
+              "wall_ms": 2516,
+              "worker_exit_code": 0,
+              "cleanup_complete": true,
+              "adb_cleanup_complete": true,
+              "directory_cleanup_complete": true,
+              "failure_stage": "none",
+              "cleanup_failure_stage": "none",
+              "sdk": {
+                "terminal_callback": false,
+                "reload_completed": false,
+                "cancel_called": false,
+                "worker_off_main": true,
+                "owners_balanced": true,
+                "native_invalid_model_rejected": true,
+                "generated_text_logged": false,
+                "main_pulses": 2,
+                "engines_closed": 0,
+                "conversations_closed": 0,
+                "conversations_opened": 0,
+                "engines_opened": 0
+              },
+              "worker_status": "error",
+              "worker_error": "model_missing"
+            },
+            "launcher_calls": 1,
+            "output_discarded": true,
+            "fresh_missing_valid": true
+          },
+          {
+            "check": "sdk_corrupt",
+            "repetition": 1,
+            "injected": false,
+            "passed": true,
+            "result": {
+              "version": 1,
+              "scope": "android_sdk_boundary_smoke",
+              "mode": "corrupt",
+              "status": "completed",
+              "check_passed": true,
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 2078,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ],
+              "process_status": "completed",
+              "wall_ms": 2719,
+              "worker_exit_code": 0,
+              "cleanup_complete": true,
+              "adb_cleanup_complete": true,
+              "directory_cleanup_complete": true,
+              "failure_stage": "none",
+              "cleanup_failure_stage": "none",
+              "sdk": {
+                "terminal_callback": false,
+                "reload_completed": false,
+                "cancel_called": false,
+                "worker_off_main": true,
+                "owners_balanced": true,
+                "native_invalid_model_rejected": true,
+                "generated_text_logged": false,
+                "main_pulses": 3,
+                "engines_closed": 0,
+                "conversations_closed": 0,
+                "conversations_opened": 0,
+                "engines_opened": 0
+              },
+              "worker_status": "error",
+              "worker_error": "model_invalid"
+            }
+          },
+          {
+            "check": "sdk_corrupt",
+            "repetition": 2,
+            "injected": false,
+            "passed": true,
+            "result": {
+              "version": 1,
+              "scope": "android_sdk_boundary_smoke",
+              "mode": "corrupt",
+              "status": "completed",
+              "check_passed": true,
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1437,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ],
+              "process_status": "completed",
+              "wall_ms": 1938,
+              "worker_exit_code": 0,
+              "cleanup_complete": true,
+              "adb_cleanup_complete": true,
+              "directory_cleanup_complete": true,
+              "failure_stage": "none",
+              "cleanup_failure_stage": "none",
+              "sdk": {
+                "terminal_callback": false,
+                "reload_completed": false,
+                "cancel_called": false,
+                "worker_off_main": true,
+                "owners_balanced": true,
+                "native_invalid_model_rejected": true,
+                "generated_text_logged": false,
+                "main_pulses": 2,
+                "engines_closed": 0,
+                "conversations_closed": 0,
+                "conversations_opened": 0,
+                "engines_opened": 0
+              },
+              "worker_status": "error",
+              "worker_error": "model_invalid"
+            }
+          },
+          {
+            "check": "sdk_corrupt",
+            "repetition": 3,
+            "injected": false,
+            "passed": true,
+            "result": {
+              "version": 1,
+              "scope": "android_sdk_boundary_smoke",
+              "mode": "corrupt",
+              "status": "completed",
+              "check_passed": true,
+              "oracle_runs": [
+                {
+                  "operation": "fixture",
+                  "process_status": "completed",
+                  "wall_ms": 1375,
+                  "worker_exit_code": 0,
+                  "cleanup_complete": true,
+                  "adb_cleanup_complete": true,
+                  "directory_cleanup_complete": true,
+                  "failure_stage": "none",
+                  "cleanup_failure_stage": "none"
+                }
+              ],
+              "process_status": "completed",
+              "wall_ms": 1891,
+              "worker_exit_code": 0,
+              "cleanup_complete": true,
+              "adb_cleanup_complete": true,
+              "directory_cleanup_complete": true,
+              "failure_stage": "none",
+              "cleanup_failure_stage": "none",
+              "sdk": {
+                "terminal_callback": false,
+                "reload_completed": false,
+                "cancel_called": false,
+                "worker_off_main": true,
+                "owners_balanced": true,
+                "native_invalid_model_rejected": true,
+                "generated_text_logged": false,
+                "main_pulses": 3,
+                "engines_closed": 0,
+                "conversations_closed": 0,
+                "conversations_opened": 0,
+                "engines_opened": 0
+              },
+              "worker_status": "error",
+              "worker_error": "model_invalid"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "sdk_requests": [
+    {
+      "emulator": "A",
+      "request": "gift",
+      "cli_exit": 0,
+      "result": {
+        "version": 1,
+        "scope": "android_x86_64_cold_smoke",
+        "runtime": "litert",
+        "case": "gift",
+        "status": "committed",
+        "attempted_roles": 2,
+        "roles": [
+          {
+            "role": "director",
+            "process_status": "completed",
+            "wall_ms": 20672,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none",
+            "sdk": {
+              "worker_off_main": true,
+              "reload_completed": false,
+              "generated_text_logged": false,
+              "owners_balanced": true,
+              "terminal_callback": true,
+              "generate_terminal_callback": true,
+              "cancel_called": false,
+              "engines_closed": 1,
+              "conversations_closed": 1,
+              "generation_main_pulses": 1022,
+              "main_pulses": 1312,
+              "generate_main_pulses": 1022,
+              "engines_opened": 1,
+              "conversations_opened": 1
+            },
+            "status": "completed",
+            "error": null,
+            "load_ms": 1226.000775,
+            "generation_ms": 13147.387346,
+            "output_tokens": 64,
+            "input_tokens": 473,
+            "schema_enforced": true,
+            "thinking_disabled": true,
+            "template_applied": true
+          },
+          {
+            "role": "narrator",
+            "process_status": "completed",
+            "wall_ms": 10797,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none",
+            "sdk": {
+              "worker_off_main": true,
+              "reload_completed": false,
+              "generated_text_logged": false,
+              "owners_balanced": true,
+              "terminal_callback": true,
+              "generate_terminal_callback": true,
+              "cancel_called": false,
+              "engines_closed": 1,
+              "conversations_closed": 1,
+              "generation_main_pulses": 370,
+              "main_pulses": 531,
+              "generate_main_pulses": 370,
+              "engines_opened": 1,
+              "conversations_opened": 1
+            },
+            "status": "completed",
+            "error": null,
+            "load_ms": 1586.990698,
+            "generation_ms": 4779.318848,
+            "output_tokens": 9,
+            "input_tokens": 66,
+            "schema_enforced": false,
+            "thinking_disabled": true,
+            "template_applied": true
+          }
+        ],
+        "phone_qualified": false,
+        "quality_assessed": false,
+        "durable_state": false,
+        "oracle_runs": [
+          {
+            "operation": "fixture",
+            "process_status": "completed",
+            "wall_ms": 1141,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          },
+          {
+            "operation": "validate",
+            "process_status": "completed",
+            "wall_ms": 1453,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          },
+          {
+            "operation": "commit",
+            "process_status": "completed",
+            "wall_ms": 1219,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          }
+        ],
+        "revision": 1,
+        "events": 1,
+        "exact_retry_unchanged": true,
+        "recipient_observations": 1,
+        "absent_observations": 0,
+        "artifact": "gemma4-e2b-litert",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+      }
+    },
+    {
+      "emulator": "A",
+      "request": "cancel",
+      "cli_exit": 2,
+      "result": {
+        "version": 1,
+        "scope": "android_x86_64_cold_smoke",
+        "runtime": "litert",
+        "case": "gift",
+        "status": "cancelled",
+        "attempted_roles": 1,
+        "roles": [
+          {
+            "role": "director",
+            "process_status": "cancelled",
+            "wall_ms": 3797,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          }
+        ],
+        "phone_qualified": false,
+        "quality_assessed": false,
+        "durable_state": false,
+        "oracle_runs": [
+          {
+            "operation": "fixture",
+            "process_status": "completed",
+            "wall_ms": 938,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          }
+        ],
+        "artifact": "gemma4-e2b-litert",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+      }
+    },
+    {
+      "emulator": "A",
+      "request": "reload",
+      "cli_exit": 0,
+      "result": {
+        "version": 1,
+        "scope": "android_x86_64_cold_smoke",
+        "runtime": "litert",
+        "case": "gift",
+        "status": "committed",
+        "attempted_roles": 2,
+        "roles": [
+          {
+            "role": "director",
+            "process_status": "completed",
+            "wall_ms": 16563,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none",
+            "sdk": {
+              "reload_completed": false,
+              "worker_off_main": true,
+              "generated_text_logged": false,
+              "generate_terminal_callback": true,
+              "owners_balanced": true,
+              "cancel_called": false,
+              "terminal_callback": true,
+              "conversations_opened": 1,
+              "conversations_closed": 1,
+              "main_pulses": 973,
+              "engines_opened": 1,
+              "generate_main_pulses": 759,
+              "engines_closed": 1,
+              "generation_main_pulses": 759
+            },
+            "status": "completed",
+            "error": null,
+            "load_ms": 439.628844,
+            "generation_ms": 10593.582949,
+            "output_tokens": 64,
+            "input_tokens": 473,
+            "schema_enforced": true,
+            "thinking_disabled": true,
+            "template_applied": true
+          },
+          {
+            "role": "narrator",
+            "process_status": "completed",
+            "wall_ms": 9672,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none",
+            "sdk": {
+              "reload_completed": false,
+              "worker_off_main": true,
+              "generated_text_logged": false,
+              "generate_terminal_callback": true,
+              "owners_balanced": true,
+              "cancel_called": false,
+              "terminal_callback": true,
+              "conversations_opened": 1,
+              "conversations_closed": 1,
+              "main_pulses": 556,
+              "engines_opened": 1,
+              "generate_main_pulses": 468,
+              "engines_closed": 1,
+              "generation_main_pulses": 468
+            },
+            "status": "completed",
+            "error": null,
+            "load_ms": 864.931335,
+            "generation_ms": 5647.466231,
+            "output_tokens": 9,
+            "input_tokens": 66,
+            "schema_enforced": false,
+            "thinking_disabled": true,
+            "template_applied": true
+          }
+        ],
+        "phone_qualified": false,
+        "quality_assessed": false,
+        "durable_state": false,
+        "oracle_runs": [
+          {
+            "operation": "fixture",
+            "process_status": "completed",
+            "wall_ms": 922,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          },
+          {
+            "operation": "validate",
+            "process_status": "completed",
+            "wall_ms": 968,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          },
+          {
+            "operation": "commit",
+            "process_status": "completed",
+            "wall_ms": 1266,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          }
+        ],
+        "revision": 1,
+        "events": 1,
+        "exact_retry_unchanged": true,
+        "recipient_observations": 1,
+        "absent_observations": 0,
+        "artifact": "gemma4-e2b-litert",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+      }
+    },
+    {
+      "emulator": "B",
+      "request": "gift",
+      "cli_exit": 0,
+      "result": {
+        "version": 1,
+        "scope": "android_x86_64_cold_smoke",
+        "runtime": "litert",
+        "case": "gift",
+        "status": "committed",
+        "attempted_roles": 2,
+        "roles": [
+          {
+            "role": "director",
+            "process_status": "completed",
+            "wall_ms": 19890,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none",
+            "sdk": {
+              "reload_completed": false,
+              "generated_text_logged": false,
+              "owners_balanced": true,
+              "cancel_called": false,
+              "terminal_callback": true,
+              "worker_off_main": true,
+              "generate_terminal_callback": true,
+              "conversations_opened": 1,
+              "engines_opened": 1,
+              "generate_main_pulses": 1001,
+              "engines_closed": 1,
+              "main_pulses": 1279,
+              "generation_main_pulses": 1001,
+              "conversations_closed": 1
+            },
+            "status": "completed",
+            "error": null,
+            "load_ms": 961.756976,
+            "generation_ms": 12997.764787,
+            "output_tokens": 64,
+            "input_tokens": 473,
+            "schema_enforced": true,
+            "thinking_disabled": true,
+            "template_applied": true
+          },
+          {
+            "role": "narrator",
+            "process_status": "completed",
+            "wall_ms": 10484,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none",
+            "sdk": {
+              "reload_completed": false,
+              "generated_text_logged": false,
+              "owners_balanced": true,
+              "cancel_called": false,
+              "terminal_callback": true,
+              "worker_off_main": true,
+              "generate_terminal_callback": true,
+              "conversations_opened": 1,
+              "engines_opened": 1,
+              "generate_main_pulses": 371,
+              "engines_closed": 1,
+              "main_pulses": 544,
+              "generation_main_pulses": 371,
+              "conversations_closed": 1
+            },
+            "status": "completed",
+            "error": null,
+            "load_ms": 1764.104815,
+            "generation_ms": 5106.162294,
+            "output_tokens": 9,
+            "input_tokens": 66,
+            "schema_enforced": false,
+            "thinking_disabled": true,
+            "template_applied": true
+          }
+        ],
+        "phone_qualified": false,
+        "quality_assessed": false,
+        "durable_state": false,
+        "oracle_runs": [
+          {
+            "operation": "fixture",
+            "process_status": "completed",
+            "wall_ms": 953,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          },
+          {
+            "operation": "validate",
+            "process_status": "completed",
+            "wall_ms": 1438,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          },
+          {
+            "operation": "commit",
+            "process_status": "completed",
+            "wall_ms": 1000,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          }
+        ],
+        "revision": 1,
+        "events": 1,
+        "exact_retry_unchanged": true,
+        "recipient_observations": 1,
+        "absent_observations": 0,
+        "artifact": "gemma4-e2b-litert",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+      }
+    },
+    {
+      "emulator": "B",
+      "request": "cancel",
+      "cli_exit": 2,
+      "result": {
+        "version": 1,
+        "scope": "android_x86_64_cold_smoke",
+        "runtime": "litert",
+        "case": "gift",
+        "status": "cancelled",
+        "attempted_roles": 1,
+        "roles": [
+          {
+            "role": "director",
+            "process_status": "cancelled",
+            "wall_ms": 3766,
+            "worker_exit_code": null,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          }
+        ],
+        "phone_qualified": false,
+        "quality_assessed": false,
+        "durable_state": false,
+        "oracle_runs": [
+          {
+            "operation": "fixture",
+            "process_status": "completed",
+            "wall_ms": 875,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          }
+        ],
+        "artifact": "gemma4-e2b-litert",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+      }
+    },
+    {
+      "emulator": "B",
+      "request": "reload",
+      "cli_exit": 0,
+      "result": {
+        "version": 1,
+        "scope": "android_x86_64_cold_smoke",
+        "runtime": "litert",
+        "case": "gift",
+        "status": "committed",
+        "attempted_roles": 2,
+        "roles": [
+          {
+            "role": "director",
+            "process_status": "completed",
+            "wall_ms": 15250,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none",
+            "sdk": {
+              "generated_text_logged": false,
+              "cancel_called": false,
+              "generate_terminal_callback": true,
+              "worker_off_main": true,
+              "reload_completed": false,
+              "owners_balanced": true,
+              "terminal_callback": true,
+              "conversations_opened": 1,
+              "engines_closed": 1,
+              "main_pulses": 941,
+              "generate_main_pulses": 676,
+              "conversations_closed": 1,
+              "generation_main_pulses": 676,
+              "engines_opened": 1
+            },
+            "status": "completed",
+            "error": null,
+            "load_ms": 825.271243,
+            "generation_ms": 8910.04363,
+            "output_tokens": 64,
+            "input_tokens": 473,
+            "schema_enforced": true,
+            "thinking_disabled": true,
+            "template_applied": true
+          },
+          {
+            "role": "narrator",
+            "process_status": "completed",
+            "wall_ms": 8984,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none",
+            "sdk": {
+              "generated_text_logged": false,
+              "cancel_called": false,
+              "generate_terminal_callback": true,
+              "worker_off_main": true,
+              "reload_completed": false,
+              "owners_balanced": true,
+              "terminal_callback": true,
+              "conversations_opened": 1,
+              "engines_closed": 1,
+              "main_pulses": 518,
+              "generate_main_pulses": 334,
+              "conversations_closed": 1,
+              "generation_main_pulses": 334,
+              "engines_opened": 1
+            },
+            "status": "completed",
+            "error": null,
+            "load_ms": 1914.318366,
+            "generation_ms": 3810.46856,
+            "output_tokens": 9,
+            "input_tokens": 66,
+            "schema_enforced": false,
+            "thinking_disabled": true,
+            "template_applied": true
+          }
+        ],
+        "phone_qualified": false,
+        "quality_assessed": false,
+        "durable_state": false,
+        "oracle_runs": [
+          {
+            "operation": "fixture",
+            "process_status": "completed",
+            "wall_ms": 875,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          },
+          {
+            "operation": "validate",
+            "process_status": "completed",
+            "wall_ms": 1031,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          },
+          {
+            "operation": "commit",
+            "process_status": "completed",
+            "wall_ms": 1219,
+            "worker_exit_code": 0,
+            "cleanup_complete": true,
+            "adb_cleanup_complete": true,
+            "directory_cleanup_complete": true,
+            "failure_stage": "none",
+            "cleanup_failure_stage": "none"
+          }
+        ],
+        "revision": 1,
+        "events": 1,
+        "exact_retry_unchanged": true,
+        "recipient_observations": 1,
+        "absent_observations": 0,
+        "artifact": "gemma4-e2b-litert",
+        "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+      }
+    }
+  ],
+  "final_cleanup": [
+    {
+      "emulator": "A",
+      "sdk_package_stopped": true,
+      "request_files_absent": true,
+      "native_benchmark_processes_gone": true,
+      "unverified_run_directories": 0,
+      "properties": {
+        "model": "sdk_gphone64_x86_64",
+        "android": "15",
+        "sdk": "35",
+        "abi": "x86_64",
+        "page_bytes": 4096
+      }
+    },
+    {
+      "emulator": "B",
+      "sdk_package_stopped": true,
+      "request_files_absent": true,
+      "native_benchmark_processes_gone": true,
+      "unverified_run_directories": 0,
+      "properties": {
+        "model": "sdk_gphone64_x86_64",
+        "android": "15",
+        "sdk": "35",
+        "abi": "x86_64",
+        "page_bytes": 4096
+      }
+    }
+  ],
+  "verification": {
+    "host_command": "python scripts/check.py host --offline",
+    "host_exit": 0,
+    "rust_tests": 89,
+    "python_tests": 148,
+    "fixture_comparisons": 4,
+    "linker_tests": 3,
+    "format": "passed",
+    "clippy": "passed",
+    "android_command": "python scripts/check.py android --offline",
+    "android_exit": 0,
+    "android_gradle_tasks": 78,
+    "android_tasks_executed": 23,
+    "android_tasks_up_to_date": 55,
+    "production_jvm_tests": 31,
+    "production_jvm_failures": 0,
+    "production_apk_audit": "passed",
+    "production_lint": [
+      {
+        "id": "GradleDependency",
+        "severity": "Warning"
+      }
+    ],
+    "independent_android_python_tests": 52,
+    "independent_analyzer_python_tests": 8,
+    "sdk_analyzer_verification": "LITERT_ANALYZER_VERIFICATION_2026-10-22.json"
+  },
+  "artifacts": {
+    "sdk_apk_sha256": "5014b3952bedc4e84787421477fae553ae9fc289df01fb311207353d06535e85",
+    "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+    "model_host_and_private_hash_verified": true,
+    "native_owner_sha256": "e3bd96add8436b1f25d44471e8b289e9a7c75dbac857729578cae4d998911508",
+    "rust_oracle_sha256": "1b3e12e94470cea37a5ccbddeec568e9cca7c2ac723b620f0a494cd12305d228"
+  },
+  "environment": {
+    "host": "Windows x86_64",
+    "rust": "1.93.1",
+    "gradle": "8.11.1",
+    "agp": "8.10.1",
+    "java_gradle": "17.0.6",
+    "java_sdk_compiler": "21.0.4",
+    "ndk": "29.0.14206865",
+    "sdk_compile": 36,
+    "build_tools": "35.0.0",
+    "litert_lm": "0.18.1",
+    "lint_experiment": "32.4.1",
+    "available_emulators": 5,
+    "selected_emulators": 2,
+    "physical_phones": 0
+  }
+}

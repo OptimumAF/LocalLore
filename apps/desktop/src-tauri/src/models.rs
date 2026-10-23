@@ -191,10 +191,14 @@ impl ModelManager {
             profile.validate().map_err(|e| e.to_string())?;
             let shared = Arc::new(Mutex::new(runtime));
             lease.dispatch(epoch, || {
-                let mut s = self.inner.lock().map_err(|_| "Internal")?;
-                if s.job != job || cancel.load(Ordering::SeqCst) {
-                    return Err("Cancelled".into());
+                {
+                    let s = self.inner.lock().map_err(|_| "Internal")?;
+                    if s.job != job || cancel.load(Ordering::SeqCst) {
+                        return Err("Cancelled".into());
+                    }
                 }
+                // Never hold metadata needed by synchronous Destroyed retirement while
+                // waiting on the Host state mutex (which may be doing blocking storage I/O).
                 let owner = shared.clone();
                 host.configure_local_provider(
                     profile.clone(),
@@ -204,6 +208,12 @@ impl ModelManager {
                         ))
                     }),
                 )?;
+                let mut s = self.inner.lock().map_err(|_| "Internal")?;
+                if s.job != job || cancel.load(Ordering::SeqCst) {
+                    drop(s);
+                    host.disable_local_provider();
+                    return Err("Cancelled".into());
+                }
                 s.runtime = Some(shared.clone());
                 s.profile = Some(profile);
                 Ok(())

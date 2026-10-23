@@ -17,7 +17,7 @@ pub async fn model_status(
         .map_err(|_| "Internal".to_owned())?
 }
 #[tauri::command]
-pub fn model_cancel(
+pub async fn model_cancel(
     window: tauri::WebviewWindow,
     workspace: tauri::State<'_, WorkspaceState>,
     models: tauri::State<'_, Arc<ModelManager>>,
@@ -26,7 +26,11 @@ pub fn model_cancel(
         .lease
         .capture(window.label())
         .map_err(str::to_owned)?;
-    workspace.lease.dispatch(epoch, || models.cancel())
+    let lease = workspace.lease.clone();
+    let manager = models.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || lease.dispatch(epoch, || manager.cancel()))
+        .await
+        .map_err(|_| "Internal".to_owned())?
 }
 #[tauri::command]
 pub async fn model_import(

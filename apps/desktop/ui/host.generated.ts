@@ -112,6 +112,11 @@ export type HostCommand =
           turn: string;
       }
     | {
+          op: "trace_capture_revoke";
+          scope: Scope;
+          session: string;
+      }
+    | {
           op: "model_status";
       }
     | {

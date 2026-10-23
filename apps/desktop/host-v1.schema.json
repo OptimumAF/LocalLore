@@ -613,6 +613,24 @@
         },
         {
           "additionalProperties": false,
+          "description": "Narrowing private diagnostic access needs no current canonical head.",
+          "properties": {
+            "op": {
+              "const": "trace_capture_revoke",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "properties": {
             "op": {
               "const": "model_status",

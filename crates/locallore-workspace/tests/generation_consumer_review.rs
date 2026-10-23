@@ -340,3 +340,62 @@ fn uncached_turn_status_cannot_adopt_replacement_source_before_fresh_submit() {
     assert_eq!(calls.load(Ordering::Relaxed), 0);
     assert_eq!(host.live_counts().1, 0);
 }
+
+#[test]
+fn uncached_cancel_cannot_terminalize_replacement_owners_historical_draft() {
+    let target = Fixture::new();
+    let original = create_prefix(&target, "original-accepted-prefix");
+    let host = target.host();
+    let session = select(&host, original.scope());
+    let calls = configure(&host, None);
+    // Replace with a valid empty archive first, admit B's draft at revision zero,
+    // then independently append B's accepted prefix. A historical draft may remain
+    // pending while another request commits; no raw SQL or archive draft import.
+    let alternate = Fixture::new();
+    let mut empty_store = alternate.store();
+    empty_store
+        .create_story("Synthetic replacement owner", seed())
+        .unwrap();
+    let empty = empty_store.resume(original.scope()).unwrap().engine;
+    let archive = empty_store
+        .export_archive(&original.scope().story, &|| false)
+        .unwrap();
+    let mut writer = target.store();
+    let deletion = writer
+        .prepare_story_deletion(original.scope(), original.revision(), &|| false)
+        .unwrap();
+    writer.delete_story(deletion, &|| false).unwrap();
+    writer
+        .import_archive(
+            validate_archive(archive.bytes(), &|| false).unwrap(),
+            &|| false,
+        )
+        .unwrap();
+    let request = request(&empty);
+    writer.begin_turn(&request).unwrap();
+    let append = empty.request(
+        "replacement-accepted-prefix",
+        Intent::Actions(vec![Command::Wait { ticks: 1 }]),
+    );
+    let proposal = Engine::proposal(&append).unwrap();
+    let receipt = empty.preview(&append, &proposal).unwrap();
+    writer.begin_turn(&append).unwrap();
+    writer.commit_prepared(&receipt).unwrap();
+    let replacement = writer.resume(original.scope()).unwrap().engine;
+    assert_eq!(replacement.seed(), original.seed());
+    assert_eq!(replacement.scope(), original.scope());
+    assert_eq!(replacement.revision(), original.revision());
+    assert_eq!(replacement.canonical_bytes(), original.canonical_bytes());
+    assert_ne!(replacement.receipts(), original.receipts());
+    assert_eq!(
+        writer.turn_status(&request).unwrap().phase,
+        TurnPhase::Draft
+    );
+    assert!(replacement
+        .matches_accepted_history(&original.accepted_history_basis_at(0).unwrap())
+        .unwrap());
+    let cancelled = operation(&host, &session, &request, "cancel");
+    assert_stale_without_mutating_replacement(&cancelled, &target, &replacement, &request);
+    assert_eq!(calls.load(Ordering::Relaxed), 0);
+    assert_eq!(host.live_counts().1, 0);
+}

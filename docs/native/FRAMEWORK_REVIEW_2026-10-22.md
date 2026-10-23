@@ -132,3 +132,42 @@ are preserved together using `MultipleFailureException`.
 This reviewer did not run or compile the fixture. Actual lifecycle overlap,
 device outcomes and the final source identity remain the coordinator's evidence
 to record.
+
+## Revised interleavings at dd11ab2
+
+The coordinator reported that the initial emulator-A run at `68c35cf` produced
+one passing active-native recreation case and two explicit insufficient-overlap
+failures: ordinary stop and destruction reached pre-stop after the 200 ms fake
+had returned. This reviewer did not execute or independently inspect that device
+run. Those failures establish a fixture timing limit, not a production defect.
+The coordinator recorded the refinement under #8 comment 6356274263.
+
+Read-only review of `dd11ab2f918217e574595cb57b02fe84c4b07bc7` inspected fixture
+SHA-256 `646be544705311870aa12f4812e55767e021ea537fcf77326e6dad44041ef840`:
+
+- Recreation retains its strict native-active pre-stop requirement. Failure to
+  observe that finite overlap remains insufficient evidence rather than a
+  cancellation pass.
+- Ordinary stop and destruction now wait for an actual Rust `ready` reply held
+  outside the controller, require no commit and require native-inactive
+  pre-stop. These explicitly test the completed-generation/uncommitted-delivery
+  window without claiming to extend native execution.
+- Stop/recreation permit the native reply to be `ready` or `cancelled`, then
+  separately require cancellation of the original persistent turn key and zero
+  accepted canon. The original native-return race no longer produces a false
+  production failure solely from a `ready` reply.
+- Destruction still allows on-cleared disposal to interrupt cancellation
+  reconciliation. It requires zero canonical receipts on reopen rather than
+  pretending that every close persisted a cancelled draft.
+- An atomic exchange count now increments before every wrapped call and
+  decrements in `finally`, including exceptional/cancelled returns. Destruction
+  and fixture cleanup require zero after releasing the held reply. Direct
+  native status probes are individually awaited. This adds drainage evidence
+  alongside separate registry-capacity recovery.
+
+No further concrete defect was found in the revised source. Native slot
+recovery remains an admission-capacity observation, and it is now accompanied
+by completion of owned wrapped exchanges. The test still does not expose or
+measure arbitrary internal allocator state. This reviewer made no Kotlin,
+production, device, build or network changes. Final device outcomes must be
+read from the coordinator's verification artifact.

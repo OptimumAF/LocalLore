@@ -34,6 +34,8 @@ internal object StoryRecordWire {
         val entries = (0 until rows.length()).map { row(rows.getJSONObject(it), query, time) }
         require(data.has("next_cursor"))
         require(entries.map { it.key }.toSet().size == entries.size)
+        val eventIds = entries.mapNotNull { it.event?.sequence }
+        require(eventIds.toSet().size == eventIds.size)
         val next = if (data.isNull("next_cursor")) null else data.text("next_cursor", 128).also {
             require(it.isNotEmpty() && it != query.cursor && it.all { ch -> ch.code in 33..126 })
             require(entries.isNotEmpty() && total > entries.size)

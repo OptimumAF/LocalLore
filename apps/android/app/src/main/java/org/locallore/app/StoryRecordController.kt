@@ -109,6 +109,8 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
                 check(page.query == query && page.storyTime >= 0 && page.total in 0..65536)
                 check(page.entries.size <= STORY_RECORD_PAGE_ROWS && page.total >= page.entries.size)
                 check(page.entries.map { it.key }.toSet().size == page.entries.size)
+                val eventIds = page.entries.mapNotNull { it.event?.sequence }
+                check(eventIds.toSet().size == eventIds.size)
                 page.entries.forEach { validateEntry(it, query, page.storyTime) }
                 if (boundary != null) check(page.total == boundary.first && page.storyTime == boundary.second)
                 check(page.nextCursor == null || (page.nextCursor != query.cursor && page.entries.isNotEmpty() &&

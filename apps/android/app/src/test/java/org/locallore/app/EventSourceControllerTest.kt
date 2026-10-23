@@ -183,4 +183,15 @@ class EventSourceControllerTest {
         controller.dispose(); controller.open(context); controller.openEvent(2); controller.retryEvent(); controller.back()
         advanceUntilIdle(); assertEquals(StoryRecordState(), controller.state.value)
     }
+
+    @Test fun duplicateEventSequencesWithDifferentKeysStillInvalidateThePage() = runTest {
+        val controller = StoryRecordController({ q ->
+            val event = detail(q).entries.single()
+            StoryRecordPage(q, 1000, 2, listOf(event, event.copy(key = "different-key")), null)
+        }, this)
+        controller.open(context); advanceUntilIdle()
+        controller.select(StoryRecordSection.HISTORY); advanceUntilIdle()
+        assertEquals(StoryRecordProblem.INVALID_RESPONSE, controller.state.value.problem)
+        assertTrue(controller.state.value.entries.isEmpty())
+    }
 }

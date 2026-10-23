@@ -31,7 +31,7 @@ class ArchiveDocumentTest {
         requireNotNull(resolver.call(authority, method, arg, null))
 
     @Before fun resetProvider() { provider("reset") }
-    @After fun drainAndRemoveOnlySyntheticFixtures() = runBlocking {
+    @After fun drainAndRemoveOnlySyntheticFixtures(): Unit = runBlocking {
         provider("release")
         awaitDrained()
         provider("reset")

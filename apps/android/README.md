@@ -162,9 +162,16 @@ and disposal revoke pending publication. An unavailable or stale read displays a
 error; it cannot repair saves or promote a summary into canonical state. Native reads
 already executing may finish on their IO worker after dismissal; their results are discarded.
 
-This bounded view offers source references as text, without event-detail navigation or
-NPC/omniscient controls. Unsupported engine fields remain explicitly limited. See
+Use **Open event #N** on a visible record to read its eligible accepted event at the
+same story/head. Event story time and the frozen accepted head have separate labels.
+**Back to records** or platform Back restores the same section, search and page;
+**Close** dismisses the whole record. Seed and withheld sources have no event link.
+Opening the source of a statement or belief shows its recorded origin, without
+establishing its proposition as a world fact. No NPC/omniscient controls are offered.
+
+Unsupported engine fields remain explicitly limited. See
 [record verification](../../docs/native/ANDROID_RECORD_VERIFICATION_2026-10-23.md)
+and [event navigation verification](../../docs/native/ANDROID_EVENT_VERIFICATION_2026-10-23.md)
 for exact checks and the remaining milestone gates.
 
 ## Verification and limits

@@ -34,6 +34,8 @@ internal object StoryRecordWire {
         val entries = (0 until rows.length()).map { row(rows.getJSONObject(it), query, time) }
         require(data.has("next_cursor"))
         require(entries.map { it.key }.toSet().size == entries.size)
+        val eventIds = entries.mapNotNull { it.event?.sequence }
+        require(eventIds.toSet().size == eventIds.size)
         val next = if (data.isNull("next_cursor")) null else data.text("next_cursor", 128).also {
             require(it.isNotEmpty() && it != query.cursor && it.all { ch -> ch.code in 33..126 })
             require(entries.isNotEmpty() && total > entries.size)
@@ -65,14 +67,18 @@ internal object StoryRecordWire {
                 require(query.section == StoryRecordSection.PROGRESSION && origin == StoryRecordOrigin.CANONICAL_FIELD)
                 require(row.text("actor") == "player")
                 val field = row.text("field", 512)
-                StoryRecordEntry(key, field, fieldValue(row.getJSONObject("value")), origin, listOf(source(row.getJSONObject("source"), query.context.revision)))
+                val evidence = row.getJSONObject("source")
+                StoryRecordEntry(key, field, fieldValue(row.getJSONObject("value")), origin,
+                    listOf(source(evidence, query.context.revision)), listOfNotNull(eventSource(evidence)))
             }
             "relationship" -> {
                 require(query.section == StoryRecordSection.RELATIONSHIPS && origin == StoryRecordOrigin.CANONICAL_FIELD)
                 require(row.text("from") == "player")
                 val dimension = row.text("dimension").also { require(it in setOf("respect", "trust", "obligation")) }
                 val value = row.number("value").also { require(it in -32768..32767) }
-                StoryRecordEntry(key, "${row.text("to")} · $dimension", value.toString(), origin, listOf(source(row.getJSONObject("source"), query.context.revision)))
+                val evidence = row.getJSONObject("source")
+                StoryRecordEntry(key, "${row.text("to")} · $dimension", value.toString(), origin,
+                    listOf(source(evidence, query.context.revision)), listOfNotNull(eventSource(evidence)))
             }
             "knowledge" -> {
                 require(query.section == StoryRecordSection.KNOWLEDGE)
@@ -87,18 +93,20 @@ internal object StoryRecordWire {
                     else -> require(subject != null && confidence == null)
                 }
                 val sources = row.getJSONArray("sources").also { require(it.length() in 1..64) }
+                val evidence = (0 until sources.length()).map { sources.getJSONObject(it) }
                 StoryRecordEntry(key, listOfNotNull(row.text("id", 512), subject, confidence).joinToString(" · "),
-                    row.text("text"), origin, (0 until sources.length()).map { source(sources.getJSONObject(it), query.context.revision) })
+                    row.text("text"), origin, evidence.map { source(it, query.context.revision) },
+                    evidence.mapNotNull(::eventSource).distinct())
             }
             "message" -> {
                 require(query.section == StoryRecordSection.HISTORY && origin == StoryRecordOrigin.RECORDED_MESSAGE)
                 val kind = row.text("message_kind").also { require(it in setOf("original_input", "narration")) }
                 val ids = row.getJSONArray("event_ids").also { require(it.length() <= 64) }
-                row.text("turn", 512)
+                require(validStoryRecordTurn(row.text("turn", 64)))
                 val eventIds = (0 until ids.length()).map { ids.integer(it).also { id -> require(id <= query.context.revision) } }
                 require(eventIds.isNotEmpty() && eventIds.toSet().size == eventIds.size)
                 StoryRecordEntry(key, if (kind == "original_input") "Recorded player input" else "Recorded narration",
-                    row.text("text"), origin, eventIds.map { "Event #$it" })
+                    row.text("text"), origin, eventIds.map { "Event #$it" }, eventIds)
             }
             "event" -> {
                 require(query.section == StoryRecordSection.HISTORY && origin == StoryRecordOrigin.RECORDED_OBSERVATION)
@@ -109,8 +117,10 @@ internal object StoryRecordWire {
                 require(event.number("story_time") in 0..storyTime)
                 val witnesses = event.getJSONArray("witnesses")
                 require(strings(witnesses).contains("player"))
-                strings(event.getJSONArray("participants")); event.text("turn", 512)
-                StoryRecordEntry(key, "Event #$sequence", effect(event.getJSONObject("consequence"), query.context.revision), origin, listOf("Event #$sequence"))
+                strings(event.getJSONArray("participants"))
+                val turn = event.text("turn", 64).also { require(validStoryRecordTurn(it)) }
+                StoryRecordEntry(key, "Event #$sequence", effect(event.getJSONObject("consequence"), query.context.revision),
+                    origin, listOf("Event #$sequence"), listOf(sequence), StoryRecordEvent(sequence, turn, event.number("story_time")))
             }
             else -> error("Unknown record")
         }
@@ -167,6 +177,9 @@ internal object StoryRecordWire {
         "withheld" -> "Evidence withheld"
         else -> error("Unknown source")
     }
+    // Called only after the corresponding typed source has passed source() validation.
+    private fun eventSource(source: JSONObject): Long? =
+        if (source.text("kind") == "event") source.number("value") else null
     private fun strings(array: JSONArray): List<String> {
         require(array.length() <= 256)
         return (0 until array.length()).map { (array.get(it) as String).also { s -> require(s.toByteArray(Charsets.UTF_8).size <= 8192) } }

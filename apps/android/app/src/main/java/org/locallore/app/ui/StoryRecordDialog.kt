@@ -54,10 +54,14 @@ fun StoryRecordDialog(
     onNext: () -> Unit,
     onFirst: () -> Unit,
     onRetry: () -> Unit,
+    onEvent: (Long) -> Unit = {},
+    onEventBack: () -> Unit = {},
+    onEventRetry: (() -> Unit)? = null,
 ) {
     if (!state.visible) return
     // A new story/head or applied query must never inherit another context's edited search.
     var searchDraft by remember(state.context, state.search) { mutableStateOf(state.search) }
+    val recordScrollState = rememberScrollState()
     val windowSize = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
     val windowWidth = with(density) { windowSize.width.toDp() }
@@ -65,7 +69,7 @@ fun StoryRecordDialog(
     val canQuery = state.context != null && !state.loading
 
     Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (state.eventDetail != null) onEventBack() else onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(
@@ -80,9 +84,22 @@ fun StoryRecordDialog(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Column(
+                val eventDetail = state.eventDetail
+                if (eventDetail != null) {
+                    StoryEventDetail(
+                        detail = eventDetail,
+                        context = state.context,
+                        onRetry = onEventRetry,
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                    )
+                    OutlinedButton(
+                        onClick = onEventBack,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            .testTag("story-event-back"),
+                    ) { Text("Back to records") }
+                } else Column(
                     modifier = Modifier.weight(1f).fillMaxWidth()
-                        .verticalScroll(rememberScrollState()).testTag("story-record-content"),
+                        .verticalScroll(recordScrollState).testTag("story-record-content"),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text(
@@ -187,7 +204,7 @@ fun StoryRecordDialog(
                                 )
                             }
                             state.entries.forEachIndexed { index, entry ->
-                                StoryRecordRow(entry, index)
+                                StoryRecordRow(entry, index, onEvent)
                             }
                         }
                         else -> Text("No saved story is selected.")
@@ -229,7 +246,7 @@ fun StoryRecordDialog(
 }
 
 @Composable
-private fun StoryRecordRow(entry: StoryRecordEntry, index: Int) {
+private fun StoryRecordRow(entry: StoryRecordEntry, index: Int, onEvent: (Long) -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth().testTag("story-record-entry-$index"),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -248,5 +265,13 @@ private fun StoryRecordRow(entry: StoryRecordEntry, index: Int) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        // Only typed, eligible event references supplied by the coordinator become navigation.
+        entry.eventSources.forEachIndexed { sourceIndex, reference ->
+            OutlinedButton(
+                onClick = { onEvent(reference) },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    .testTag("story-record-source-$index-$sourceIndex"),
+            ) { Text("Open event #$reference") }
+        }
     }
 }

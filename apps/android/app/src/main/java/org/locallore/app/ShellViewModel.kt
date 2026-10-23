@@ -86,6 +86,13 @@ class ShellViewModel(
     fun nextRecordPage() = recordController.next()
     fun firstRecordPage() = recordController.first()
     fun retryStoryRecord() = recordController.retry()
+    fun openRecordEvent(sequence: Long) = recordController.openEvent(sequence)
+    fun openRecordEvent(sequence: Long, expectedContext: StoryRecordContext?) {
+        if (expectedContext != null && expectedContext == storyRecord.value.context)
+            recordController.openEvent(sequence)
+    }
+    fun backToStoryRecord() = recordController.back()
+    fun retryRecordEvent() = recordController.retryEvent()
     fun closeDiagnostics() = diagnosticController.dismiss()
     fun clearDiagnostics() = diagnosticController.clear()
     fun beginDiagnosticExport() = diagnosticController.beginExport()

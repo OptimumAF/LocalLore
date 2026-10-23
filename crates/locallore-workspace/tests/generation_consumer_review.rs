@@ -318,3 +318,25 @@ fn turn_status_cannot_launder_queued_source_basis_before_prepare() {
     assert_eq!(calls.load(Ordering::Relaxed), 0);
     assert_eq!(host.live_counts().1, 0);
 }
+
+#[test]
+fn uncached_turn_status_cannot_adopt_replacement_source_before_fresh_submit() {
+    let target = Fixture::new();
+    let original = create_prefix(&target, "original-accepted-prefix");
+    let host = target.host();
+    let session = select(&host, original.scope());
+    let calls = configure(&host, None);
+    let request = request(&original);
+    // The selected session has no cached Turn or per-turn basis. The replacement
+    // owner's draft must not become an implicit permission to adopt its history.
+    let replacement = replace_and_redraft(&target, &original, &request);
+    let status = operation(&host, &session, &request, "turn_status");
+    assert_stale_without_mutating_replacement(&status, &target, &replacement, &request);
+    let submitted = call(
+        &host,
+        json!({"op":"free_text","session":session,"request":request}),
+    );
+    assert_stale_without_mutating_replacement(&submitted, &target, &replacement, &request);
+    assert_eq!(calls.load(Ordering::Relaxed), 0);
+    assert_eq!(host.live_counts().1, 0);
+}

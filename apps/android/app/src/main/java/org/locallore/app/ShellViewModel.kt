@@ -15,6 +15,7 @@ class ShellViewModel internal constructor(
     private val diagnosticLog: DiagnosticLog = DiagnosticLog(),
     archiveGateway: ArchiveGateway? = null,
     deletionGateway: StoryDeletionGateway? = null,
+    branchDeletionGateway: BranchDeletionGateway? = null,
 ) : ViewModel() {
     private val mutable = MutableStateFlow(ShellState())
     val state: StateFlow<ShellState> = mutable.asStateFlow()
@@ -30,6 +31,32 @@ class ShellViewModel internal constructor(
     private var archiveExportPicker: Long? = null
     internal val deletionController = deletionGateway?.let { StoryDeletionController(viewModelScope, it, ::deletionClosed) }
     internal val deletion = deletionController?.state ?: MutableStateFlow(StoryDeletionUiState()).asStateFlow()
+    internal val branchDeletionController = branchDeletionGateway?.let {
+        BranchDeletionController(viewModelScope, it, ::branchDeletionClosed)
+    }
+    internal val branchDeletion = branchDeletionController?.state ?: MutableStateFlow(BranchDeletionUiState()).asStateFlow()
+
+    fun openBranchDeletion() {
+        val controller = branchDeletionController ?: return
+        val before = mutable.value
+        if (disposed || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired || !before.persistent) return
+        val selected = before.selectedStory ?: return
+        val root = before.stories.firstOrNull { it.story == selected.story } ?: return
+        if (selected.branch == root.branch) return
+        diagnosticController.dismiss()
+        mutable.value = before.copy(deletionActive = true)
+        controller.open(selected.copy(title = root.title, revision = before.revision), root.branch)
+    }
+    private fun branchDeletionClosed(deleted: BranchDeleted?, uncertain: Boolean) {
+        if (disposed) return
+        mutable.value = mutable.value.copy(deletionActive = false)
+        val notice = when {
+            uncertain -> "Deletion could not be confirmed and may already have completed. Saved timelines refreshed from local storage."
+            deleted != null -> "Timeline removed. Showing the retained saved history."
+            else -> "Saved timelines refreshed from local storage."
+        }
+        savedOperation(notice) { gateway.reconcileSaved() }
+    }
 
     fun openDeletion() {
         val controller = deletionController ?: return
@@ -265,6 +292,7 @@ class ShellViewModel internal constructor(
         disposed = true
         archiveController?.dispose()
         deletionController?.dispose()
+        branchDeletionController?.dispose()
         archiveImportPicker = null
         archiveExportPicker = null
         diagnosticController.dispose()

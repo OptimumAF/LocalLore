@@ -14,6 +14,7 @@ import org.locallore.app.ui.LocalLoreScreen
 import org.locallore.app.ui.DiagnosticsDialog
 import org.locallore.app.ui.ArchiveDialog
 import org.locallore.app.ui.StoryDeletionDialog
+import org.locallore.app.ui.BranchDeletionDialog
 
 class MainActivity : ComponentActivity() {
     private lateinit var model: ShellViewModel
@@ -54,7 +55,8 @@ class MainActivity : ComponentActivity() {
                 require(modelClass == ShellViewModel::class.java)
                 return ShellViewModel(DurableGateway(NativeWorkspaceTransport(applicationContext), autoCreateIfEmpty = false),
                     archiveGateway = NativeArchiveGateway(applicationContext),
-                    deletionGateway = NativeArchiveGateway(applicationContext)) as T
+                    deletionGateway = NativeArchiveGateway(applicationContext),
+                    branchDeletionGateway = NativeArchiveGateway(applicationContext)) as T
             }
         }
         model = ViewModelProvider(this, factory)[ShellViewModel::class.java]
@@ -63,11 +65,17 @@ class MainActivity : ComponentActivity() {
             val diagnostics by model.diagnostics.collectAsStateWithLifecycle()
             val archive by model.archive.collectAsStateWithLifecycle()
             val deletion by model.deletion.collectAsStateWithLifecycle()
+            val branchDeletion by model.branchDeletion.collectAsStateWithLifecycle()
             LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::reset,
                 onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover,
                 archiveAvailable = model.archiveController != null, onArchive = model::openArchive,
                 deletionAvailable = model.deletionController != null, onDelete = model::openDeletion,
-                onTimeline = model::resumeTimeline) {
+                onTimeline = model::resumeTimeline,
+                branchDeletionAvailable = model.branchDeletionController != null,
+                onDeleteTimeline = model::openBranchDeletion) {
+                model.branchDeletionController?.let { controller ->
+                    BranchDeletionDialog(branchDeletion, controller::dismiss, controller::cancel, controller::confirm)
+                }
                 model.deletionController?.let { controller ->
                     StoryDeletionDialog(deletion, controller::dismiss, controller::cancel, controller::confirm)
                 }

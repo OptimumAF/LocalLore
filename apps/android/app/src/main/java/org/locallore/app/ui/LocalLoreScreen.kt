@@ -67,6 +67,8 @@ fun LocalLoreScreen(
     deletionAvailable: Boolean = false,
     onDelete: () -> Unit = {},
     onTimeline: ((SavedTimeline) -> Unit)? = null,
+    branchDeletionAvailable: Boolean = false,
+    onDeleteTimeline: () -> Unit = {},
     overlay: @Composable () -> Unit = {},
 ) {
     MaterialTheme(
@@ -188,6 +190,13 @@ fun LocalLoreScreen(
                                 OutlinedButton(onClick = onDelete,
                                     enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.recoveryRequired,
                                     modifier = Modifier.heightIn(min = 48.dp).testTag("delete-story")) { Text("Delete story...") }
+                            }
+                            if (branchDeletionAvailable && state.persistent && state.selectedStory != null) {
+                                val root = state.stories.firstOrNull { it.story == state.selectedStory.story }
+                                OutlinedButton(onClick = onDeleteTimeline,
+                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.recoveryRequired &&
+                                        root != null && state.selectedStory.branch != root.branch,
+                                    modifier = Modifier.heightIn(min = 48.dp).testTag("delete-timeline")) { Text("Delete timeline...") }
                             }
                         }
                     }

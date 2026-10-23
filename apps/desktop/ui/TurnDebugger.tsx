@@ -43,7 +43,7 @@ export function TurnDebugger({
             </p>
             <p className="muted">
                 This window's Host · capture defaults off · private memory only
-                · nothing written to saves or exports.
+                · metadata is separate from explicit private capture/export.
             </p>
             <div className="trace-controls" id="trace-controls" tabIndex={-1}>
                 <strong>
@@ -299,15 +299,17 @@ export function TurnDebugger({
             <details className="trace-limits" open>
                 <summary>Unavailable evidence & retention</summary>
                 <p>
-                    Selected context records, ranks, omission reasons, raw
-                    proposals, prompts, model output and summary maintenance are
-                    not captured by this API. Their absence cannot diagnose a
-                    retrieval miss, an invented rule violation or stale summary.
+                    This metadata API contains no context text, raw proposals,
+                    prompts or model output. Story Lab omniscient inspection can
+                    explicitly opt into separate future-attempt private capture.
+                    Summary maintenance and model hidden reasoning are
+                    unavailable.
                 </p>
                 <p>
-                    Full capture, trace export, pause/step and generation rerun
-                    are unavailable. Accepted history can be inspected through
-                    Memory & evidence without an LLM.
+                    Private capture and exact export require separate consent.
+                    Pause/step and generation rerun are unavailable. Accepted
+                    history can be inspected through Memory & evidence without
+                    an LLM.
                 </p>
                 <p>
                     At most 32 attempts / 24 stages per attempt / 64 KiB per

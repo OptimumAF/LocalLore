@@ -95,6 +95,28 @@ export type HostCommand =
           session: string;
       }
     | {
+          consent: boolean;
+          enabled: boolean;
+          expected_head: number;
+          op: "trace_capture_configure";
+          scope: Scope;
+          session: string;
+      }
+    | {
+          attempt: number;
+          base_revision: number;
+          expected_head: number;
+          op: "trace_capture_read";
+          scope: Scope;
+          session: string;
+          turn: string;
+      }
+    | {
+          op: "trace_capture_revoke";
+          scope: Scope;
+          session: string;
+      }
+    | {
           op: "model_status";
       }
     | {

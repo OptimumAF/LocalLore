@@ -31,6 +31,15 @@ fn main() {
         collect(&package.join("src"), &mut files);
         files.insert(package.join("Cargo.toml"));
     }
+    collect(&manifest.join("fixtures"), &mut files);
+    files.insert(manifest.join("fixtures/curated-local-v1.json"));
+    if env::var_os("CARGO_FEATURE_LOCAL_MODEL").is_some() {
+        let runtime = root.join("crates/locallore-local-runtime");
+        collect(&runtime.join("src"), &mut files);
+        files.insert(runtime.join("Cargo.toml"));
+        files.insert(runtime.join("Cargo.lock"));
+        files.insert(root.join("native/llama-worker/profile-v1.json"));
+    }
     collect(
         &root.join("crates/locallore-storage/migrations"),
         &mut files,

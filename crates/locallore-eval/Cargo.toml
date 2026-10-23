@@ -8,7 +8,11 @@ description = "Bounded synthetic deterministic evaluation using the shared durab
 
 [workspace]
 
+[features]
+local-model = ["dep:locallore-local-runtime"]
+
 [dependencies]
+locallore-local-runtime = { path = "../locallore-local-runtime", features = ["engine-adapter"], optional = true }
 locallore = { path = "../locallore", features = ["host"] }
 locallore-workspace = { path = "../locallore-workspace" }
 locallore-storage = { path = "../locallore-storage" }

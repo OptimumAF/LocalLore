@@ -173,6 +173,8 @@ export interface State {
 }
 export const PAGE_SIZE = 12;
 export const categories = new Set([
+    "CaptureConsentRequired",
+    "CaptureNotRetained",
     "TraceUnavailable",
     "UnknownObserver",
     "InvalidBoundary",
@@ -289,6 +291,9 @@ export interface Gateway {
     ): Promise<unknown>;
 }
 export type NativeAction =
+    | "capture_preview"
+    | "capture_save"
+    | "capture_revoke"
     | "model_status"
     | "model_import"
     | "model_load"

@@ -441,7 +441,7 @@ fn native_snapshot_override_panic_returns_internal_without_poisoning_host_owner(
     assert_eq!(
         call(
             &host,
-            json!({"op":"snapshot","session":session,"scope":seed().scope,"observer":"player"})
+            json!({"op":"inspect","session":session,"scope":seed().scope,"observer":"player","expected_revision":0})
         )["status"],
         "ok"
     );

@@ -12,6 +12,11 @@ require(archiveCapacity == null || archiveCapacity == "true")
 require(archiveVerification != "true" || archiveCapacity != "true") {
     "Archive verification and capacity verification are separate installations."
 }
+val capacityProjectCache = rootProject.file(".gradle-archive-capacity").canonicalFile
+val selectedProjectCache = (gradle.startParameter.projectCacheDir ?: rootProject.file(".gradle")).canonicalFile
+require((archiveCapacity == "true") == (selectedProjectCache == capacityProjectCache)) {
+    "Capacity verification requires its exclusive .gradle-archive-capacity project cache."
+}
 require(archiveCapacity != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
     "The synthetic capacity fixture is for local debug verification only."
 }

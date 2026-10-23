@@ -224,6 +224,26 @@ fn verified_model(path: &Path, cancel: &impl Fn() -> bool) -> Result<PinnedFile,
     }
     Ok(pinned)
 }
+fn verified_worker(
+    path: &Path,
+    expected: Option<&str>,
+    cancel: &impl Fn() -> bool,
+) -> Result<(PinnedFile, String), Error> {
+    let mut worker = pin_file(path, Error::WorkerUnavailable)?;
+    let bytes = worker
+        .file
+        .metadata()
+        .map_err(|_| Error::WorkerUnavailable)?
+        .len();
+    if bytes == 0 || bytes > 128 * 1024 * 1024 {
+        return Err(Error::WorkerUnavailable);
+    }
+    let digest = hash_file(&mut worker.file, Error::WorkerUnavailable, cancel)?;
+    if expected.is_some_and(|expected| expected != digest) {
+        return Err(Error::WorkerUnavailable);
+    }
+    Ok((worker, digest))
+}
 fn canonical_json(value: &Value) -> Value {
     match value {
         Value::Object(object) => {
@@ -282,6 +302,28 @@ impl LocalRuntime {
             &cancel,
         )
     }
+    /// Trusted caller supplies its reviewed expected worker identity. Comparison
+    /// uses the same retained pinned handle before any process is created.
+    pub fn spawn_packaged_expected_cancelled(
+        resource_dir: &Path,
+        model: &Path,
+        expected_sha256: &str,
+        cancel: impl Fn() -> bool,
+    ) -> Result<Self, Error> {
+        if expected_sha256.len() != 64
+            || !expected_sha256
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        {
+            return Err(Error::InvalidRequest);
+        }
+        Self::spawn_checked_cancelled(
+            &resource_dir.join("locallore-llama-worker.exe"),
+            model,
+            Some(expected_sha256),
+            &cancel,
+        )
+    }
     #[cfg(feature = "development-worker")]
     pub fn spawn_development(executable: &Path, model: &Path) -> Result<Self, Error> {
         Self::spawn_cancelled(executable, model, &|| false)
@@ -291,20 +333,19 @@ impl LocalRuntime {
         model: &Path,
         cancel: &impl Fn() -> bool,
     ) -> Result<Self, Error> {
+        Self::spawn_checked_cancelled(executable, model, None, cancel)
+    }
+    fn spawn_checked_cancelled(
+        executable: &Path,
+        model: &Path,
+        expected_sha256: Option<&str>,
+        cancel: &impl Fn() -> bool,
+    ) -> Result<Self, Error> {
         let model = verified_model(model, cancel)?;
         if cancel() {
             return Err(Error::Cancelled);
         }
-        let mut worker = pin_file(executable, Error::WorkerUnavailable)?;
-        let bytes = worker
-            .file
-            .metadata()
-            .map_err(|_| Error::WorkerUnavailable)?
-            .len();
-        if bytes == 0 || bytes > 128 * 1024 * 1024 {
-            return Err(Error::WorkerUnavailable);
-        }
-        let digest = hash_file(&mut worker.file, Error::WorkerUnavailable, cancel)?;
+        let (worker, digest) = verified_worker(executable, expected_sha256, cancel)?;
         let mut owner = Self::start_cancelled(&worker.path, &model.path, model.file, cancel)?;
         owner._ancestors = model.ancestors;
         owner._worker = Some(worker.file);
@@ -779,6 +820,64 @@ mod tests {
         drop(pinned);
         assert!(OpenOptions::new().write(true).open(&path).is_ok());
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+    #[test]
+    fn expected_worker_identity_refuses_mismatch_and_keeps_the_verified_handle_pinned() {
+        let dir = resources();
+        let path = dir.join("locallore-llama-worker.exe");
+        std::fs::write(&path, b"abc").unwrap();
+        let expected = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        assert_eq!(
+            verified_worker(&path, Some(&"0".repeat(64)), &|| false)
+                .err()
+                .unwrap(),
+            Error::WorkerUnavailable
+        );
+        assert_eq!(
+            verified_worker(&path, Some(expected), &|| true)
+                .err()
+                .unwrap(),
+            Error::Cancelled
+        );
+        let (pinned, digest) = verified_worker(&path, Some(expected), &|| false).unwrap();
+        assert_eq!(digest, expected);
+        #[cfg(windows)]
+        {
+            assert!(OpenOptions::new().write(true).open(&path).is_err());
+            assert!(std::fs::rename(&path, dir.join("replacement.exe")).is_err());
+        }
+        drop(pinned);
+        assert!(OpenOptions::new().write(true).open(&path).is_ok());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[test]
+    fn expected_packaged_identity_checks_syntax_and_cancellation_without_starting_worker() {
+        let missing = Path::new("missing-synthetic-resource");
+        assert_eq!(
+            LocalRuntime::spawn_packaged_expected_cancelled(missing, missing, "bad", || false)
+                .err(),
+            Some(Error::InvalidRequest)
+        );
+        assert_eq!(
+            LocalRuntime::spawn_packaged_expected_cancelled(
+                missing,
+                missing,
+                &"A".repeat(64),
+                || false
+            )
+            .err(),
+            Some(Error::InvalidRequest)
+        );
+        assert_eq!(
+            LocalRuntime::spawn_packaged_expected_cancelled(
+                missing,
+                missing,
+                &"0".repeat(64),
+                || true
+            )
+            .err(),
+            Some(Error::Cancelled)
+        );
     }
     #[cfg(windows)]
     #[test]

@@ -37,6 +37,7 @@ internal object SqliteReliefFixture {
         private var session: String? = null
         private var scope: JSONObject? = null
         override suspend fun exchange(command: JSONObject): JSONObject {
+            check(ownershipClean.get() && PaddingOwner.ownershipKnown()) { "relief_ownership_unknown" }
             exchanges.incrementAndGet()
             try {
                 val op = command.getString("op")
@@ -102,7 +103,7 @@ internal object SqliteReliefFixture {
             withTimeout(8_000) { while (owners.any { it.replies.exchanges.get() != 0 }) delay(5) }
         }
         suspend fun reopen(): Owner {
-            check(padding.restored) { "padding_restore_required_before_reopen" }
+            check(padding.restored && ownershipClean.get() && PaddingOwner.ownershipKnown()) { "padding_restore_required_before_reopen" }
             closeOwners()
             released(database)
             return Owner(context).also { owners += it }
@@ -110,28 +111,31 @@ internal object SqliteReliefFixture {
     }
     private fun context(): Pair<Context, String> {
         val actual = InstrumentationRegistry.getInstrumentation().targetContext
-        check(actual.packageName == "org.locallore.app.capacityrelief")
+        check(actual.packageName == "org.locallore.app.capacityreliefv3")
         @Suppress("DEPRECATION")
         val info = actual.packageManager.getApplicationInfo(actual.packageName, PackageManager.GET_META_DATA)
         check(info.flags and ApplicationInfo.FLAG_TEST_ONLY != 0)
-        check(actual.packageManager.getApplicationLabel(info).toString() == "LocalLore \u00B7 SQLite capacity relief test")
+        check(actual.packageManager.getApplicationLabel(info).toString() == "LocalLore \u00B7 SQLite capacity relief test v3")
         val metadata = checkNotNull(info.metaData)
         check(metadata.get("org.locallore.capacity.relief.pages") == 32)
-        check(metadata.get("org.locallore.capacity.relief.format") == 1)
+        check(metadata.get("org.locallore.capacity.relief.format") == 2)
+        check(metadata.get("org.locallore.capacity.relief.schema_version") == 3)
+        check(metadata.get("org.locallore.capacity.relief.initial_pages") == PaddingFormat.INITIAL_PAGES)
+        check(metadata.get("org.locallore.capacity.relief.padding_rows") == PaddingFormat.EXPECTED_ROWS)
         val parent = actual.noBackupFilesDir.canonicalFile
-        val root = File(parent, "synthetic-capacity-relief-${UUID.randomUUID()}")
+        val root = File(parent, "synthetic-capacity-relief-v3-${UUID.randomUUID()}")
         check(root.mkdir() && root.canonicalFile.parentFile == parent)
         val token = UUID.randomUUID().toString().replace("-", "")
         val marker = File(root, PaddingFormat.MARKER)
         check(marker.createNewFile())
-        marker.writeText(token + "\n", Charsets.US_ASCII)
+        marker.writeText(PaddingFormat.OWNER_FORMAT + "\n" + token + "\n", Charsets.US_ASCII)
         return object : ContextWrapper(actual) {
             override fun getApplicationContext(): Context = this
             override fun getNoBackupFilesDir(): File = root
         } to token
     }
     suspend fun fixture(block: suspend (Fixture) -> Unit) {
-        check(ownershipClean.get()) { "prior_relief_ownership_unknown" }
+        check(ownershipClean.get() && PaddingOwner.ownershipKnown()) { "prior_relief_ownership_unknown" }
         val (context, token) = context()
         val f = Fixture(context, token)
         val failures = mutableListOf<Throwable>()
@@ -143,7 +147,7 @@ internal object SqliteReliefFixture {
             try { f.closeOwners(); drained = true } catch (failure: Throwable) {
                 failures += failure; ownershipClean.set(false)
             }
-            if (f.padding.hasUnknownOwnership) ownershipClean.set(false)
+            if (f.padding.hasUnknownOwnership || !PaddingOwner.ownershipKnown()) ownershipClean.set(false)
             var restored = false
             if (drained && ownershipClean.get()) try {
                 if (f.database.exists()) f.padding.drop()
@@ -158,11 +162,26 @@ internal object SqliteReliefFixture {
             if (closed) try {
                 withContext(Dispatchers.IO) {
                     val parent = InstrumentationRegistry.getInstrumentation().targetContext.noBackupFilesDir.canonicalFile
-                    check(f.root.canonicalFile.parentFile == parent)
-                    check(f.root.walkTopDown().filter { it.isFile }.sumOf { it.length() } < 2 * 1024 * 1024)
-                    check(f.root.deleteRecursively())
+                    check(f.root.canonicalFile == f.root.absoluteFile && f.root.parentFile == parent)
+                    val marker = File(f.root, PaddingFormat.MARKER)
+                    check(marker.isFile && marker.canonicalFile == marker.absoluteFile && marker.length() <= 192)
+                    val original = PaddingFormat.OWNER_FORMAT + "\n" + f.token + "\n"
+                    check(marker.readText(Charsets.US_ASCII) in setOf(original, original + PaddingFormat.SCHEMA + "\n"))
+                    check(f.root.list()?.toSet()?.all { it == PaddingFormat.MARKER || it == "workspace-v1" } == true)
+                    val workspace = File(f.root, "workspace-v1")
+                    val known = setOf("stories.sqlite3", "stories.sqlite3-journal", "stories.sqlite3-wal", "stories.sqlite3-shm")
+                    val files = if (workspace.exists()) {
+                        check(workspace.canonicalFile == workspace.absoluteFile && workspace.isDirectory)
+                        checkNotNull(workspace.listFiles()).also { entries ->
+                            check(entries.all { it.name in known && it.isFile && it.canonicalFile == it.absoluteFile })
+                        }.toList()
+                    } else emptyList()
+                    check(files.sumOf { it.length() } < 2 * 1024 * 1024)
+                    files.forEach { check(it.delete()) }
+                    if (workspace.exists()) check(workspace.delete())
+                    check(marker.delete()); check(f.root.delete())
                 }
-            } catch (failure: Throwable) { failures += failure }
+            } catch (failure: Throwable) { failures += failure; ownershipClean.set(false) }
         }
         MultipleFailureException.assertEmpty(failures)
     }
@@ -173,16 +192,21 @@ internal object SqliteReliefFixture {
     fun initial(saved: SavedSnapshot) {
         assertEquals(0L, saved.revision); assertEquals("You", saved.potionOwner)
         assertTrue(saved.messages.isEmpty()); assertEquals(1, saved.stories.size)
+        assertEquals(1, saved.schemaVersion); assertEquals(3, saved.databaseSchemaVersion)
     }
     fun sameAccepted(before: SavedSnapshot, after: SavedSnapshot) {
         assertEquals(before.revision, after.revision); assertEquals(before.potionOwner, after.potionOwner)
         assertEquals(before.messages, after.messages); assertEquals(before.selected, after.selected)
         assertEquals(before.stories, after.stories); assertEquals(before.rulesProfile, after.rulesProfile)
         assertEquals(before.schemaVersion, after.schemaVersion); assertEquals(before.location, after.location)
+        assertEquals(before.databaseSchemaVersion, after.databaseSchemaVersion)
+        assertEquals(before.timelines.map { it.copy(uncommittedDrafts = 0) }, after.timelines.map { it.copy(uncommittedDrafts = 0) })
+        assertEquals(before.textProvider, after.textProvider)
     }
     fun accepted(saved: SavedSnapshot) {
         assertEquals(1L, saved.revision); assertEquals("Not in your inventory", saved.potionOwner)
         assertEquals(2, saved.messages.size); assertEquals(0, saved.uncommittedDrafts)
+        assertEquals(1, saved.schemaVersion); assertEquals(3, saved.databaseSchemaVersion)
         assertEquals("You give 1 potion to mira.", saved.messages.single { !it.isPlayer }.text)
     }
     fun phase(status: JSONObject, phase: String) {
@@ -192,6 +216,7 @@ internal object SqliteReliefFixture {
         assertEquals(phase == "committed", !status.isNull("receipt"))
     }
     private suspend fun released(path: File) = withContext(Dispatchers.IO) {
+        check(ownershipClean.get() && PaddingOwner.ownershipKnown()) { "relief_ownership_unknown" }
         withTimeout(8_000) {
             while (true) {
                 val handles = mutableListOf<Long>()

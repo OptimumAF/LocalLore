@@ -6,8 +6,10 @@ import androidx.test.filters.SdkSuppress
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import java.io.File
 import org.junit.After
 import org.junit.Before
 import org.junit.FixMethodOrder
@@ -47,6 +49,30 @@ class SqliteReliefNativeTest {
             }
             assertTrue(ready is DemoResult.Prepared)
             withContext(Dispatchers.Main) { phase(f.main.replies.status(), "ready") }
+            // A known-reaped refusal must not bless another owner or a forged schema marker.
+            val wrongToken = if (f.token[0] == '0') "1" + f.token.drop(1) else "0" + f.token.drop(1)
+            val stranger = PaddingOwner(f.database, wrongToken)
+            try { stranger.fill(); fail("Expected owned helper refusal") }
+            catch (failure: IllegalStateException) { assertEquals("padding_child_exit_72", failure.message) }
+            assertFalse(stranger.hasUnknownOwnership)
+            val marker = File(f.root, PaddingFormat.MARKER)
+            val originalMarker = withContext(Dispatchers.IO) { marker.readText(Charsets.US_ASCII) }
+            try {
+                withContext(Dispatchers.IO) {
+                    marker.writeText(PaddingFormat.OWNER_FORMAT + "\n" + f.token + "\n" + "0".repeat(64) + "\n", Charsets.US_ASCII)
+                }
+                val forged = PaddingOwner(f.database, f.token)
+                try { forged.fill(); fail("Expected schema marker refusal") }
+                catch (failure: IllegalStateException) { assertEquals("padding_child_exit_72", failure.message) }
+                assertFalse(forged.hasUnknownOwnership)
+            } finally {
+                withContext(NonCancellable + Dispatchers.IO) { marker.writeText(originalMarker, Charsets.US_ASCII) }
+            }
+            withContext(Dispatchers.Main) {
+                phase(f.main.replies.status(), "ready")
+                sameAccepted(baseline, f.main.gateway.snapshot())
+                assertTrue(before == f.main.replies.acceptedView(0))
+            }
             f.padding.fill() // Both child SQL and process are closed before the actual Rust commit.
             withContext(Dispatchers.Main) {
                 full { f.main.gateway.commitAsync(ready) }

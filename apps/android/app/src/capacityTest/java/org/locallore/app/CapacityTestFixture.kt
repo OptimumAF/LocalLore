@@ -21,9 +21,13 @@ import java.io.File
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** Capacity-only transport and cleanup; no Activity/Compose lifecycle is allocated here. */
 internal object CapacityTestFixture {
+    private val ownershipClean = AtomicBoolean(true)
+    private const val MARKER = ".capacity-owner-v2"
+    private const val OWNER_FORMAT = "locallore-capacity-v2\n"
     data class Call(val op: String, val turn: String?, val status: String, val error: String?)
     class Replies(context: Context) : WorkspaceTransport {
         private val actual = NativeWorkspaceTransport(context)
@@ -33,6 +37,7 @@ internal object CapacityTestFixture {
         private var session: String? = null
         private var scope: JSONObject? = null
         override suspend fun exchange(command: JSONObject): JSONObject {
+            check(ownershipClean.get()) { "capacity_ownership_unknown" }
             exchanges.incrementAndGet()
             try {
                 val op = command.getString("op")
@@ -79,7 +84,7 @@ internal object CapacityTestFixture {
         val replies = Replies(context)
         val gateway = DurableGateway(replies)
     }
-    class Fixture(val context: Context) {
+    class Fixture(val context: Context, val marker: String) {
         val root = context.noBackupFilesDir.canonicalFile
         val database = File(root, "workspace-v1/stories.sqlite3")
         val main = Owner(context)
@@ -109,49 +114,71 @@ internal object CapacityTestFixture {
     fun requireCapacityIdentity(): Context {
         val actual = InstrumentationRegistry.getInstrumentation().targetContext
         // Check isolation before creating even a synthetic private root.
-        check(actual.packageName == "org.locallore.app.capacity")
+        check(actual.packageName == "org.locallore.app.capacityv3")
         @Suppress("DEPRECATION")
         val info = actual.packageManager.getApplicationInfo(actual.packageName, PackageManager.GET_META_DATA)
         check(info.flags and ApplicationInfo.FLAG_TEST_ONLY != 0)
-        check(actual.packageManager.getApplicationLabel(info).toString() == "LocalLore \u00B7 SQLite capacity test")
+        check(actual.packageManager.getApplicationLabel(info).toString() == "LocalLore \u00B7 SQLite capacity test v3")
         val metadata = checkNotNull(info.metaData)
         val pages = metadata.get("org.locallore.capacity.pages")
         val prefix = metadata.get("org.locallore.capacity.prefix_turns")
         check(pages is Int && pages in 8..256 && pages == CAPACITY_PAGES)
         check(prefix is Int && prefix in 0..8 && prefix == PREFIX_TURNS)
+        check(metadata.get("org.locallore.capacity.format") == 2)
+        check(metadata.get("org.locallore.capacity.schema_version") == 3)
         return actual
     }
-    private fun capacityContext(): Context {
+    private fun capacityContext(): Pair<Context, String> {
         val actual = requireCapacityIdentity()
         val parent = actual.noBackupFilesDir.canonicalFile
-        val root = File(parent, "synthetic-capacity-${UUID.randomUUID()}")
+        val root = File(parent, "synthetic-capacity-v3-${UUID.randomUUID()}")
         check(root.mkdir() && root.canonicalFile.parentFile == parent)
+        val marker = OWNER_FORMAT + UUID.randomUUID().toString().replace("-", "") + "\n"
+        val owner = File(root, MARKER)
+        check(owner.createNewFile()); owner.writeText(marker, Charsets.US_ASCII)
         return object : ContextWrapper(actual) {
             override fun getApplicationContext(): Context = this
             override fun getNoBackupFilesDir(): File = root
-        }
+        } to marker
     }
     suspend fun fixture(block: suspend (Fixture) -> Unit) {
-        val f = Fixture(capacityContext())
+        check(ownershipClean.get()) { "prior_capacity_ownership_unknown" }
+        val (context, marker) = capacityContext()
+        val f = Fixture(context, marker)
         val failures = mutableListOf<Throwable>()
         try { block(f) } catch (failure: Throwable) { failures += failure }
         withContext(NonCancellable) {
             var drained = false
-            try { f.closeOwners(); drained = true } catch (failure: Throwable) { failures += failure }
+            try { f.closeOwners(); drained = true } catch (failure: Throwable) {
+                failures += failure; ownershipClean.set(false)
+            }
             var closed = false
             if (drained) try {
                 if (f.database.exists()) released(f.database)
                 closed = true
-            } catch (failure: Throwable) { failures += failure }
+            } catch (failure: Throwable) { failures += failure; ownershipClean.set(false) }
             if (closed) try {
                 withContext(Dispatchers.IO) {
                     val parent = InstrumentationRegistry.getInstrumentation().targetContext.noBackupFilesDir.canonicalFile
-                    check(f.root.canonicalFile.parentFile == parent)
-                    // This is a tiny compile-time page cap, never global disk pressure.
-                    check(f.root.walkTopDown().filter { it.isFile }.sumOf { it.length() } < 2 * 1024 * 1024)
-                    check(f.root.deleteRecursively())
+                    check(f.root.canonicalFile == f.root.absoluteFile && f.root.parentFile == parent)
+                    val owner = File(f.root, MARKER)
+                    check(owner.canonicalFile == owner.absoluteFile && owner.isFile && owner.length() <= 128)
+                    check(owner.readText(Charsets.US_ASCII) == f.marker)
+                    val workspace = File(f.root, "workspace-v1")
+                    check(f.root.list()?.toSet()?.all { it == MARKER || it == "workspace-v1" } == true)
+                    val known = setOf("stories.sqlite3", "stories.sqlite3-journal", "stories.sqlite3-wal", "stories.sqlite3-shm")
+                    val files = if (workspace.exists()) {
+                        check(workspace.canonicalFile == workspace.absoluteFile && workspace.isDirectory)
+                        checkNotNull(workspace.listFiles()).also { entries ->
+                            check(entries.all { it.name in known && it.isFile && it.canonicalFile == it.absoluteFile })
+                        }.toList()
+                    } else emptyList()
+                    check(files.sumOf { it.length() } < 2 * 1024 * 1024)
+                    files.forEach { check(it.delete()) }
+                    if (workspace.exists()) check(workspace.delete())
+                    check(owner.delete()); check(f.root.delete())
                 }
-            } catch (failure: Throwable) { failures += failure }
+            } catch (failure: Throwable) { failures += failure; ownershipClean.set(false) }
         }
         MultipleFailureException.assertEmpty(failures)
     }
@@ -164,6 +191,7 @@ internal object CapacityTestFixture {
         assertEquals("You", saved.potionOwner)
         assertEquals(PREFIX_TURNS * 2, saved.messages.size)
         assertEquals(1, saved.stories.size)
+        assertEquals(1, saved.schemaVersion); assertEquals(3, saved.databaseSchemaVersion)
     }
     fun sameAccepted(before: SavedSnapshot, after: SavedSnapshot) {
         assertEquals(before.revision, after.revision)
@@ -174,6 +202,9 @@ internal object CapacityTestFixture {
         assertEquals(before.rulesProfile, after.rulesProfile)
         assertEquals(before.schemaVersion, after.schemaVersion)
         assertEquals(before.location, after.location)
+        assertEquals(before.databaseSchemaVersion, after.databaseSchemaVersion)
+        assertEquals(before.timelines.map { it.copy(uncommittedDrafts = 0) }, after.timelines.map { it.copy(uncommittedDrafts = 0) })
+        assertEquals(before.textProvider, after.textProvider)
     }
     fun samePresentation(before: SavedSnapshot, after: ShellState) {
         assertEquals(before.revision, after.revision)
@@ -184,6 +215,9 @@ internal object CapacityTestFixture {
         assertEquals(before.rulesProfile, after.rulesProfile)
         assertEquals(before.schemaVersion, after.schemaVersion)
         assertEquals(before.location, after.storageLocation)
+        assertEquals(before.databaseSchemaVersion, after.databaseSchemaVersion)
+        assertEquals(before.timelines.map { it.copy(uncommittedDrafts = 0) }, after.timelines.map { it.copy(uncommittedDrafts = 0) })
+        assertEquals(before.textProvider, after.textProvider)
         assertTrue(after.persistent)
         assertFalse(after.busy)
     }
@@ -193,12 +227,13 @@ internal object CapacityTestFixture {
         assertEquals(PREFIX_TURNS.toLong(), status.getLong("expected_revision"))
     }
 
-    // Actual Host calibration: no prefix turns, gift draft/Ready fits 15 pages,
-    // accepted gift would need a 16th page. This immutable cap is never raised.
-    const val CAPACITY_PAGES = 15
+    // Actual schema-3 Host calibration: no prefix turns; draft/Ready fits 17 pages,
+    // accepted gift needs an 18th page. This immutable cap is never raised.
+    const val CAPACITY_PAGES = 17
     const val PREFIX_TURNS = 0
     const val FULL_NOTICE = "Local storage is full. Free space, then retry recovery. Saved progress is retained."
     private suspend fun released(path: File) = withContext(Dispatchers.IO) {
+        check(ownershipClean.get()) { "capacity_ownership_unknown" }
         withTimeout(8_000) {
             while (true) {
                 val handles = mutableListOf<Long>()

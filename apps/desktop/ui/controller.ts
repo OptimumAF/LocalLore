@@ -951,12 +951,28 @@ export class Controller {
     async traceToInspection() {
         const receipt = this.debugReceipt(),
             epoch = this.epoch,
-            session = this.selected();
+            session = this.selected(),
+            view = this.state.view,
+            observer = this.state.observer,
+            head = this.state.play?.revision;
         if (!receipt || !session) return;
+        const current = () =>
+            this.current({ session, epoch }) &&
+            this.state.view === view &&
+            this.state.observer === observer &&
+            this.state.play?.revision === head;
         this.patch({ receiptTurn: receipt.request.turn });
         await this.showTrace(false);
-        await this.showQuery(true);
-        if (!this.current({ session, epoch })) return;
+        if (!current()) return;
+        const opening = this.showQuery(true);
+        const queryEpoch = this.queryEpoch;
+        await opening;
+        if (
+            !current() ||
+            !this.state.query.shown ||
+            queryEpoch !== this.queryEpoch
+        )
+            return;
         await this.browseInspection({
             view: "turn_diff",
             atRevision: receipt.events.at(-1)?.sequence ?? null,

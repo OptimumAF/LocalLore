@@ -41,6 +41,9 @@ function gate() {
         entered = new Promise((r) => (ready = r));
     return { release, ready, waiting, entered };
 }
+let head = 0,
+    includeReceipt = false,
+    holdQuery = null;
 let enabled = false,
     retained = true,
     hold = null,
@@ -49,16 +52,41 @@ const commands = [];
 const gateway = {
     async call(q) {
         commands.push(structuredClone(q));
-        if (q.op === "open") return { revision: 0 };
+        if (q.op === "open") return { revision: head };
         if (q.op === "play_snapshot")
             return {
                 scope: q.scope,
-                revision: 0,
+                revision: head,
                 inventory: {},
-                receipts: [],
+                receipts: includeReceipt
+                    ? [
+                          {
+                              request: {
+                                  version: 1,
+                                  scope: q.scope,
+                                  turn: "synthetic-turn",
+                                  expected_revision: 0,
+                                  intent: {
+                                      kind: "actions",
+                                      value: [{ op: "wait", ticks: 1 }],
+                                  },
+                              },
+                              proposal: {},
+                              events: [
+                                  {
+                                      sequence: 1,
+                                      scope: q.scope,
+                                      turn: "synthetic-turn",
+                                      outcome: {},
+                                  },
+                              ],
+                              narration: "Synthetic accepted receipt",
+                          },
+                      ]
+                    : [],
                 player: {
                     scope: q.scope,
-                    revision: 0,
+                    revision: head,
                     observer: "player",
                     self_state: { name: "Rowan", energy: 2, location: "quay" },
                     facts: {},
@@ -67,6 +95,36 @@ const gateway = {
                 },
             };
         if (["inspect", "close"].includes(q.op)) return {};
+        if (q.op === "inspection_query") {
+            const x = q.query;
+            const page = {
+                version: 1,
+                scope: x.scope,
+                head: x.expected_head,
+                revision: x.at_revision ?? x.expected_head,
+                story_time: 100,
+                observer: x.observer,
+                view: x.view,
+                privacy:
+                    x.observer.kind === "player"
+                        ? "player_visible"
+                        : x.observer.kind === "character"
+                          ? "private_character"
+                          : "private_omniscient",
+                status: "supported",
+                total: 0,
+                rows: [],
+                next_cursor: null,
+                unsupported: [],
+            };
+            if (holdQuery) {
+                const h = holdQuery;
+                holdQuery = null;
+                h.ready();
+                await h.waiting;
+            }
+            return page;
+        }
         if (q.op === "trace_configure") {
             enabled = q.enabled;
             if (!enabled) retained = false;
@@ -238,6 +296,52 @@ try {
 }
 await refreshing;
 await c.readTrace();
+head = 1;
+includeReceipt = true;
+retained = true;
+await c.controlTrace("enable");
+await c.refresh();
+await c.traceBasis(0);
+assert(c.debugReceipt());
+const openingSearch = gate();
+holdQuery = openingSearch;
+const oldLink = c.traceToInspection();
+await openingSearch.entered;
+await c.browseInspection({
+    view: "knowledge",
+    search: "new-user-filter",
+    atRevision: 0,
+});
+openingSearch.release();
+await oldLink;
+assert.equal(c.get().query.view, "knowledge");
+assert.equal(c.get().query.search, "new-user-filter");
+assert.equal(c.get().query.atRevision, 0);
+await c.showTrace();
+const openingLens = gate();
+holdQuery = openingLens;
+const oldPlayerLink = c.traceToInspection();
+await openingLens.entered;
+c.setView("lab");
+c.setObserver("mira");
+await c.browseInspection({
+    view: "knowledge",
+    search: "new-lens-filter",
+    atRevision: 0,
+});
+openingLens.release();
+await oldPlayerLink;
+assert.equal(c.get().view, "lab");
+assert.equal(c.get().observer, "mira");
+assert.equal(c.get().query.view, "knowledge");
+assert.equal(c.get().query.search, "new-lens-filter");
+assert.equal(c.get().query.atRevision, 0);
+assert(
+    !commands.some(
+        (q) => q.op === "inspection_query" && q.query.view === "turn_diff",
+    ),
+    "held receipt navigation cannot override newer query/lens/boundary intent",
+);
 await c.dispose();
 assert.equal(c.get().trace.reply, null);
 assert(
@@ -247,5 +351,5 @@ assert(
     "debug reads/configuration never invoke gameplay",
 );
 console.log(
-    "PASS: trace opt-in, exact head/scope/observer wire checks, delayed lens/story/deletion fences default-disabled non-generation controls and passive held diagnostic refresh.",
+    "PASS: trace opt-in, exact head/scope/observer wire checks, delayed lens/story/deletion fences default-disabled non-generation controls passive held diagnostic refresh and held receipt-navigation fences.",
 );

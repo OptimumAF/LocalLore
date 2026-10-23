@@ -323,3 +323,48 @@ fn long_child_history_retains_old_mandatory_evidence_within_budget_and_no_future
     q.search = "PARENT-FUTURE-CANARY".into();
     assert_eq!(inspect::query(&child, &q, true).unwrap().total, 0);
 }
+
+#[test]
+fn nested_rewind_before_parent_birth_compiles_and_inspects_only_its_original_prefix() {
+    let mut root = Engine::new(seed()).unwrap();
+    say(&mut root, "first", "INHERITED-BEFORE-BIRTH");
+    for i in 0..4 {
+        say(&mut root, &format!("future-{i}"), "PARENT-FUTURE-CANARY");
+    }
+    let mut parent = root.fork("born-at-five", 5).unwrap();
+    say(&mut parent, "parent-local", "CHILD-LATER-CANARY");
+    let mut nested = parent.fork("rewound-at-one", 1).unwrap();
+    say(&mut nested, "new-path", "NESTED-LOCAL-CANARY");
+    let before = nested.canonical_bytes();
+    for at in [0, 1, 2] {
+        let mut request = compile_request(&nested);
+        request.at_revision = Some(at);
+        request.query = "INHERITED NESTED PARENT CHILD".into();
+        let p = compiler::compile(&nested, &request).unwrap();
+        let text = serde_json::to_string(&p).unwrap();
+        assert_eq!(text.contains("INHERITED-BEFORE-BIRTH"), at >= 1);
+        assert_eq!(text.contains("NESTED-LOCAL-CANARY"), at == 2);
+        assert!(!text.contains("PARENT-FUTURE-CANARY") && !text.contains("CHILD-LATER-CANARY"));
+        let snapshot = nested.at_revision(at).unwrap();
+        if at > 0 {
+            assert_eq!(snapshot.receipts()[0].request().scope, *root.scope());
+        }
+        for view in [
+            View::History,
+            View::Profiles,
+            View::Knowledge,
+            View::TurnDiff,
+        ] {
+            if at == 0 && view == View::TurnDiff {
+                continue;
+            }
+            let mut q = query(&nested, view);
+            q.at_revision = Some(at);
+            let page = inspect::query(&nested, &q, true).unwrap();
+            assert_eq!(page.scope, *nested.scope());
+            let text = serde_json::to_string(&page).unwrap();
+            assert!(!text.contains("PARENT-FUTURE-CANARY") && !text.contains("CHILD-LATER-CANARY"));
+        }
+    }
+    assert_eq!(nested.canonical_bytes(), before);
+}

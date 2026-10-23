@@ -84,7 +84,8 @@ def warm_owners(metrics):
              "conversations_closed": 2, "warm_roles": 2}.items())
             and metrics.get("warm_engine_reused") is True and metrics.get("owners_balanced") is True
             and metrics.get("worker_off_main") is True and metrics.get("generated_text_logged") is False
-            and metrics.get("warm_cancel_observed") is False)
+            and metrics.get("warm_cancel_observed") is False
+            and metrics.get("cleanup_requires_process_termination", False) is False)
 
 
 def safe_session(value):
@@ -401,6 +402,9 @@ def run_warm(session, native, oracle_binary, case="gift"):
     if report["status"] != "completed":
         return report
     final = report["session"]
+    if final.get("cancel_requested") is True:
+        report.update(status="cancelled", failure_stage="cancel")
+        return report
     if (final.get("status") != "completed" or not all(final.get(key) is True for key in
             ("cleanup_complete", "adb_cleanup_complete", "directory_cleanup_complete")) or not warm_owners(final.get("sdk"))):
         report["status"] = "cleanup_failed"

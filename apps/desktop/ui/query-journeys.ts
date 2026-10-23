@@ -238,6 +238,12 @@ export async function queryJourneys({
             "history-event-links-turn-time-witnesses",
         );
         await capture("d05-history");
+        c.selectReceipt(c.get().play!.receipts[0].request.turn);
+        await c.traceReceipt();
+        check(
+            page().view === "turn_diff" && page().revision === 1,
+            "chat-receipt-traces-to-completed-historical-turn",
+        );
         await read("turn_diff", "", 1);
         const change = page().rows.find(
             (r) =>

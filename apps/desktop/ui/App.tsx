@@ -689,6 +689,11 @@ export function App({ controller: c }: { controller: Controller }) {
                         </section>
                         <section>
                             <h3>Finalized receipt</h3>
+                            {receipt && (
+                                <button onClick={() => void c.traceReceipt()}>
+                                    Trace turn & evidence
+                                </button>
+                            )}
                             {receipt ? (
                                 <>
                                     <p className="scope">

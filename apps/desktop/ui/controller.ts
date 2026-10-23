@@ -924,6 +924,12 @@ export class Controller {
                     : JSON.stringify(underlying.key),
         });
     }
+    async traceReceipt() {
+        const receipt = this.receipt();
+        if (!receipt) return;
+        if (!this.state.query.shown) await this.showQuery();
+        await this.inspectEventTurn(receipt.request.turn);
+    }
     async inspectEventTurn(turn: string) {
         const boundary = this.state.play?.receipts
             .find((r) => r.request.turn === turn)

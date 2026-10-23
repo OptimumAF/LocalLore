@@ -29,6 +29,20 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def classfile_major(data):
+    versions = set()
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        for name in archive.namelist():
+            if name.endswith(".class"):
+                header = archive.read(name)[:8]
+                if len(header) != 8 or header[:4] != b"\xca\xfe\xba\xbe":
+                    raise AuditError("invalid_class_header")
+                versions.add(struct.unpack_from(">H", header, 6)[0])
+    if not versions:
+        raise AuditError("no_sdk_classes")
+    return sorted(versions)
+
+
 def elf_info(data):
     """Inspect ELF64 little endian load segments, Android note and DT_NEEDED."""
     if len(data) < 64 or data[:6] != b"\x7fELF\x02\x01":
@@ -138,6 +152,7 @@ def inspect_aar(data, target_abi, api):
                     for element in manifest if element.tag.startswith("uses-permission")),
                 "manifest_sha256": digest(manifest_data), "native": native,
                 "classes_sha256": digest(archive.read("classes.jar")),
+                "classfile_majors": classfile_major(archive.read("classes.jar")),
                 "license_sha256": digest(archive.read("LICENSE")),
                 "notice_sha256": digest(archive.read("THIRD_PARTY_NOTICE.txt")),
                 "target_abi": target_abi, "target_api": api,

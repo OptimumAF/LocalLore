@@ -34,7 +34,11 @@ def aar(abis=("x86_64",), minimum=24, native=None, duplicate=False):
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w") as archive:
         archive.writestr("AndroidManifest.xml", '<manifest xmlns:android="http://schemas.android.com/apk/res/android"><uses-sdk android:minSdkVersion="' + str(minimum) + '"/><application/></manifest>')
-        for name in ("classes.jar", "LICENSE", "THIRD_PARTY_NOTICE.txt"):
+        classes = io.BytesIO()
+        with zipfile.ZipFile(classes, "w") as jar:
+            jar.writestr("Synthetic.class", b"\xca\xfe\xba\xbe\x00\x00\x00\x41")
+        archive.writestr("classes.jar", classes.getvalue())
+        for name in ("LICENSE", "THIRD_PARTY_NOTICE.txt"):
             archive.writestr(name, b"synthetic")
         for abi in abis:
             archive.writestr("jni/" + abi + "/liblitertlm_jni.so", native or elf(62 if abi == "x86_64" else 183))
@@ -61,6 +65,7 @@ class AuditTests(unittest.TestCase):
         result = audit.inspect_aar(aar(), "x86_64", 35)
         self.assertEqual(result["artifact_gate"], "eligible_for_runtime_test")
         self.assertFalse(result["runtime_load_verified"])
+        self.assertEqual(result["classfile_majors"], [65])
 
     def test_absent_emulator_abi_cannot_be_claimed_supported(self):
         result = audit.inspect_aar(aar(("arm64-v8a",)), "x86_64", 35)

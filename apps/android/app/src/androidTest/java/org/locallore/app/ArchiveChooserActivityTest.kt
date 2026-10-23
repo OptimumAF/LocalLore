@@ -47,6 +47,7 @@ class ArchiveChooserActivityTest {
     private lateinit var beforeLibrary: JSONArray
     private lateinit var fixtureDirectory: File
     private lateinit var fixtureScope: JSONObject
+    private lateinit var sourceArchive: ByteArray
     private lateinit var run: String
     private var pickerRequested = false
     private var originalAccessibilityFlags: Int? = null
@@ -78,6 +79,7 @@ class ArchiveChooserActivityTest {
             }
         }
         val future = JSONObject(archive.toString(Charsets.UTF_8)).put("version", 999).toString().toByteArray(Charsets.UTF_8)
+        sourceArchive = archive.copyOf()
         val extras = Bundle().apply {
             putByteArray("archive", archive); putByteArray("future", future)
             putByteArray("malformed", "{\"version\":1,\"version\":1}".toByteArray(Charsets.UTF_8))
@@ -133,6 +135,8 @@ class ArchiveChooserActivityTest {
         val importedLibrary = io { defaultLibrary() }
         verify(importedLibrary.length() == beforeLibrary.length() + 1 && preservesPriorStories(importedLibrary),
             "Explicit import must add only the new story and preserve prior stories")
+        verify(sourceArchive.contentEquals(io { export(defaultDatabase(), "import-parity-staging", fixtureScope, 1) }),
+            "Reopened imported history must equal the original selected archive before continuation")
         compose.onNodeWithTag("archive-open-imported").performScrollTo().performClick()
         compose.waitUntil(10_000) { !model.state.value.busy && !model.archive.value.visible &&
             model.state.value.selectedStory?.story == fixtureScope.getString("story") && model.state.value.revision == 1L }

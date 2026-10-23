@@ -645,7 +645,7 @@ fn future_parent_sibling_and_unwitnessed_child_text_never_enter_npc_context() {
 }
 
 #[test]
-fn child_compiler_and_query_work_while_derived_cache_remains_explicitly_unsupported() {
+fn child_compiler_and_query_work_while_empty_child_cache_returns_not_found() {
     let temp = Temp::new();
     let (mut store, root) = setup(&temp);
     let child = fork(&mut store, &root, "child", 0);

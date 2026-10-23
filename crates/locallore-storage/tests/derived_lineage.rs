@@ -485,9 +485,7 @@ fn competing_owners_publish_once_and_cancelled_search_recovers_on_same_owner() {
     barrier.wait();
     let first = store.publish_memory(a, &|| false);
     let second = thread.join().unwrap();
-    assert!([first, second]
-        .iter()
-        .any(|r| *r == Ok(PublishOutcome::Published)));
+    assert!([first, second].contains(&Ok(PublishOutcome::Published)));
     for result in [first, second] {
         assert!(matches!(
             result,
@@ -527,5 +525,34 @@ fn competing_owners_publish_once_and_cancelled_search_recovers_on_same_owner() {
     assert_eq!(
         store.read_memory(&r, &|| false).err(),
         Some(MemoryError::NotFound)
+    );
+}
+
+#[test]
+fn busy_and_precancelled_publication_preserve_prior_cache_and_canon() {
+    let dir = Temp::new();
+    let mut store = dir.open();
+    let (_, child, _) = family(&mut store);
+    let r = request(&child, "mira", 2);
+    publish(&mut store, &r);
+    let old = cache_rows(&dir.path());
+    let canonical = store.resume(&child).unwrap().engine.canonical_bytes();
+    let db = Connection::open(dir.path()).unwrap();
+    let prepared = store.prepare_memory(&r, &|| false).unwrap();
+    db.execute_batch("BEGIN IMMEDIATE").unwrap();
+    assert_eq!(
+        store.publish_memory(prepared, &|| false),
+        Err(MemoryError::Busy)
+    );
+    let prepared = store.prepare_memory(&r, &|| false).unwrap();
+    assert_eq!(
+        store.publish_memory(prepared, &|| true),
+        Err(MemoryError::Cancelled)
+    );
+    db.execute_batch("ROLLBACK").unwrap();
+    assert_eq!(cache_rows(&dir.path()), old);
+    assert_eq!(
+        store.resume(&child).unwrap().engine.canonical_bytes(),
+        canonical
     );
 }

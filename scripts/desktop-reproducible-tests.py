@@ -145,6 +145,21 @@ class ReproTests(unittest.TestCase):
     def test_source_revision_drift_and_dirty_source_refuse(self):
         with patch.object(repro, "command", return_value="different"), self.assertRaisesRegex(ValueError, "revision"):
             repro.clean_source(self.root, "a" * 40)
+
+    def test_only_known_rustup_proxy_indirection_is_identified(self):
+        target = self.root / "rustup.exe"
+        target.write_bytes(b"synthetic tool never executed")
+        proxy = self.root / "cargo.exe"
+        try:
+            proxy.symlink_to(target)
+            (self.root / "cl.exe").symlink_to(target)
+        except OSError:
+            self.skipTest("symlink creation unavailable; no privilege setting changed")
+        identity = repro.tool_identity(proxy)
+        self.assertEqual(identity["resolved_path"], str(target))
+        self.assertEqual(identity["sha256"], repro.sha(target.read_bytes()))
+        with self.assertRaisesRegex(ValueError, "indirection"):
+            repro.tool_identity(self.root / "cl.exe")
         with patch.object(repro, "command", side_effect=["a" * 40, "modified"]), self.assertRaisesRegex(ValueError, "clean"):
             repro.clean_source(self.root, "a" * 40)
 

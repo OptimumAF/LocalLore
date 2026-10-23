@@ -56,6 +56,17 @@ def fingerprint(path: Path, cap: int = MAX_FILE) -> dict:
     return {"sha256": sha(data), "bytes": len(data)}
 
 
+def tool_identity(path: Path) -> dict:
+    resolved = path.resolve(strict=True)
+    if resolved != path.absolute() and not (
+        path.name.lower() in {"cargo.exe", "rustc.exe"}
+        and resolved.name.lower() == "rustup.exe"
+        and resolved.parent == path.parent
+    ):
+        raise ValueError("Unexpected tool indirection")
+    return {"path": str(path), "resolved_path": str(resolved), **fingerprint(resolved)}
+
+
 def tree_inventory(root: Path) -> dict:
     if not root.is_dir():
         raise ValueError("Missing input tree")
@@ -127,7 +138,7 @@ def tool_inventory(args: argparse.Namespace, env: dict) -> dict:
         if not found:
             raise ValueError(f"Missing build tool: {name}")
         paths[name] = Path(found)
-    files = {name: {"path": str(path), **fingerprint(path)} for name, path in paths.items()}
+    files = {name: tool_identity(path) for name, path in paths.items()}
     versions = {
         "node": command([str(args.node), "--version"], ROOT, env),
         "npm": command([str(args.node), str(args.npm_cli), "--version"], ROOT, env),

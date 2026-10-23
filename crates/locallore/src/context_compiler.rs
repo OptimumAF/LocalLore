@@ -1,14 +1,20 @@
 //! Actor-only exact/lexical context. Reuses authoritative context and shared eligibility.
 //! No native Host, database, tokenizer, summary or provider authority.
 use crate::{
-    contracts::{Effect, Profile, Scope, VERSION},
+    contracts::{AcceptedEvent, Effect, Profile, Scope, VERSION},
     engine::Engine,
     inspection_query::{self, FieldValue, Row, Source, ValueOrigin, View},
 };
+
+mod verified;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet},
+};
+pub use verified::{
+    compile_verified_cancelled, CoverageDiagnostics, CoverageMode, MemoryCompilation,
+    MemoryFallbackReason,
 };
 
 pub const COMPILER_VERSION: u16 = 1;
@@ -405,6 +411,72 @@ pub fn compile_cancelled(
     request: &CompileRequest,
     cancel: &dyn Fn() -> bool,
 ) -> Result<ContextPackage, CompileError> {
+    compile_inner(engine, request, verified::Input::Legacy, cancel).map(|result| result.package)
+}
+
+fn event_row(event: &AcceptedEvent) -> Result<Row, CompileError> {
+    #[derive(Deserialize)]
+    struct Metadata {
+        turn: String,
+        story_time: u64,
+        participants: BTreeSet<String>,
+    }
+    let metadata: Metadata =
+        serde_json::from_value(serde_json::to_value(event).map_err(|_| CompileError::Source)?)
+            .map_err(|_| CompileError::Source)?;
+    Ok(Row::Event {
+        key: format!("event:{:020}", event.sequence()),
+        event: inspection_query::EventRow {
+            sequence: event.sequence(),
+            scope: event.scope().clone(),
+            turn: metadata.turn,
+            story_time: metadata.story_time,
+            participants: metadata.participants,
+            witnesses: event.witnesses().clone(),
+            consequence: event.outcome().clone(),
+        },
+        origin: ValueOrigin::RecordedObservation,
+    })
+}
+
+fn visit_events(
+    engine: &Engine,
+    observer: &str,
+    after: u64,
+    through: u64,
+    cancel: &dyn Fn() -> bool,
+    visitor: &mut dyn FnMut(&AcceptedEvent) -> Result<(), CompileError>,
+) -> Result<(), CompileError> {
+    let mut failure = None;
+    engine
+        .visit_actor_observations(
+            observer,
+            engine.scope(),
+            engine.revision(),
+            after,
+            through,
+            &|| check(cancel).is_err(),
+            &mut |event| match visitor(event) {
+                Ok(()) => true,
+                Err(error) => {
+                    failure = Some(error);
+                    false
+                }
+            },
+        )
+        .map_err(|error| match error {
+            crate::contracts::Error::Cancelled => CompileError::Cancelled,
+            _ => CompileError::Source,
+        })?;
+    failure.map_or(Ok(()), Err)
+}
+
+fn compile_inner(
+    engine: &Engine,
+    request: &CompileRequest,
+    input: verified::Input<'_>,
+    cancel: &dyn Fn() -> bool,
+) -> Result<MemoryCompilation, CompileError> {
     check(cancel)?;
     let b = request.budget;
     if !(1024..=MAX_CONTEXT_BYTES).contains(&b.max_bytes)
@@ -436,67 +508,8 @@ pub fn compile_cancelled(
             push_row(&mut rows, &mut row_bytes, row, cancel)?;
         }
     }
-    #[derive(Deserialize)]
-    struct Metadata {
-        turn: String,
-        story_time: u64,
-        participants: BTreeSet<String>,
-    }
-    // The core filters branch/time/witness eligibility BEFORE this callback.
-    // Never clone the complete observation history just to enforce a row cap.
-    let mut row_failure = None;
-    snapshot
-        .visit_actor_observations(
-            &request.observer,
-            snapshot.scope(),
-            snapshot.revision(),
-            0,
-            snapshot.revision(),
-            &|| check(cancel).is_err(),
-            &mut |event| {
-                let result = (|| {
-                    check(cancel)?;
-                    if rows.len() >= MAX_CANDIDATES {
-                        return Err(CompileError::TooLarge);
-                    }
-                    let metadata: Metadata = serde_json::from_value(
-                        serde_json::to_value(event).map_err(|_| CompileError::Source)?,
-                    )
-                    .map_err(|_| CompileError::Source)?;
-                    push_row(
-                        &mut rows,
-                        &mut row_bytes,
-                        Row::Event {
-                            key: format!("event:{:020}", event.sequence()),
-                            event: inspection_query::EventRow {
-                                sequence: event.sequence(),
-                                scope: event.scope().clone(),
-                                turn: metadata.turn,
-                                story_time: metadata.story_time,
-                                participants: metadata.participants,
-                                witnesses: event.witnesses().clone(),
-                                consequence: event.outcome().clone(),
-                            },
-                            origin: ValueOrigin::RecordedObservation,
-                        },
-                        cancel,
-                    )
-                })();
-                if let Err(error) = result {
-                    row_failure = Some(error);
-                    false
-                } else {
-                    true
-                }
-            },
-        )
-        .map_err(|error| match error {
-            crate::contracts::Error::Cancelled => CompileError::Cancelled,
-            _ => CompileError::Source,
-        })?;
-    if let Some(error) = row_failure {
-        return Err(error);
-    }
+    let mut memory =
+        verified::collect(&snapshot, request, input, &mut rows, &mut row_bytes, cancel)?;
     check(cancel)?;
     rows.sort_by(|(a, _), (b, _)| a.key().cmp(b.key()));
     check(cancel)?;
@@ -627,6 +640,9 @@ pub fn compile_cancelled(
                 .or_insert(Reason::SupportingEvidence);
         }
     }
+    // Mandatory payloads always come from Engine. A verified packet touching
+    // any mandatory/recent/supporting source is replaced as one complete unit.
+    memory.replace_mandatory(&snapshot, request, &mut candidates, &mandatory, cancel)?;
     let mut package = ContextPackage {
         version: COMPILER_VERSION,
         scope: request.scope.clone(),
@@ -770,5 +786,8 @@ pub fn compile_cancelled(
         }
     }
     check(cancel)?;
-    Ok(package)
+    Ok(MemoryCompilation {
+        package,
+        coverage: memory.diagnostics,
+    })
 }

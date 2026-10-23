@@ -93,12 +93,15 @@ export async function archiveJourneys({
         const catalog = (await invoke("archive_catalog")) as {
             version: number;
             archive_version: number;
+            supported_archive_versions: number[];
             privacy: string;
             caps: { bytes: number; tokens: number; workers: number };
         };
         check(
             catalog.version === 1 &&
-                catalog.archive_version === 1 &&
+                catalog.archive_version === 2 &&
+                JSON.stringify(catalog.supported_archive_versions) ===
+                    "[1,2]" &&
                 catalog.privacy === "full_private" &&
                 catalog.caps.bytes === 32 * 1024 * 1024 &&
                 catalog.caps.tokens === 2 &&

@@ -103,7 +103,7 @@ for (const stage of ["source", "import", "restarted", "uncertain", "retire"]) {
         transferSHA = createHash("sha256").update(bytes).digest("hex");
         await writeFile(path.join(picker, "transfer.json"), bytes);
         const future = JSON.parse(bytes);
-        future.version = 2;
+        future.version = 3;
         await writeFile(
             path.join(picker, "future.json"),
             JSON.stringify(future),

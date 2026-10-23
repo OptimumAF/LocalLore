@@ -15,7 +15,9 @@ val storyDeletion = providers.gradleProperty("localLoreStoryDeletionVerification
 require(storyDeletion == null || storyDeletion == "true")
 val timelineVerification = providers.gradleProperty("localLoreTimelineVerification").orNull
 require(timelineVerification == null || timelineVerification == "true")
-require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification).count { it == "true" } <= 1) {
+val parentRetention = providers.gradleProperty("localLoreParentRetentionVerification").orNull
+require(parentRetention == null || parentRetention == "true")
+require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention).count { it == "true" } <= 1) {
     "Verification installations must be selected individually."
 }
 require(archiveVerification != "true" || archiveCapacity != "true") {
@@ -23,6 +25,12 @@ require(archiveVerification != "true" || archiveCapacity != "true") {
 }
 val capacityProjectCache = rootProject.file(".gradle-archive-capacity").canonicalFile
 val selectedProjectCache = (gradle.startParameter.projectCacheDir ?: rootProject.file(".gradle")).canonicalFile
+require((parentRetention == "true") == (selectedProjectCache == rootProject.file(".gradle-parent-retention").canonicalFile)) {
+    "Parent retention verification requires its exclusive .gradle-parent-retention project cache."
+}
+require(parentRetention != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
+    "Parent retention verification is for local debug verification only."
+}
 require((timelineVerification == "true") == (selectedProjectCache == rootProject.file(".gradle-timeline").canonicalFile)) {
     "Timeline verification requires its exclusive .gradle-timeline project cache."
 }
@@ -49,8 +57,11 @@ if (archiveVerification == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-story-deletion"))
 } else if (timelineVerification == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-timeline"))
+} else if (parentRetention == "true") {
+    layout.buildDirectory.set(layout.projectDirectory.dir("build-parent-retention"))
 }
 val verificationSuffix = when {
+    parentRetention == "true" -> ".parentverify"
     timelineVerification == "true" -> ".timelineverify"
     storyDeletion == "true" -> ".storydelete"
     archiveCapacity == "true" -> ".archivecapacity"
@@ -72,7 +83,7 @@ require(reliefOption == null || reliefOption == "false" || reliefOption == "true
 }
 val reliefTest = reliefOption == "true"
 require(!(capacityTest && reliefTest)) { "Capacity and capacity-relief modes are mutually exclusive" }
-require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification).none { it == "true" } || !(capacityTest || reliefTest)) {
+require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention).none { it == "true" } || !(capacityTest || reliefTest)) {
     "Archive verification and capacity modes are mutually exclusive"
 }
 val capacityCache = rootProject.file(".gradle-capacity").canonicalFile
@@ -127,7 +138,7 @@ android {
         manifestPlaceholders["chooserTestAuthority"] = "org.locallore.app$verificationSuffix.test.chooser"
         if (verificationSuffix.isNotEmpty()) {
             applicationIdSuffix = verificationSuffix
-            versionNameSuffix = when { timelineVerification == "true" -> "-timeline-verification"; storyDeletion == "true" -> "-story-deletion"; archiveCapacity == "true" -> "-archive-capacity"; else -> "-archive-verification" }
+            versionNameSuffix = when { parentRetention == "true" -> "-parent-retention"; timelineVerification == "true" -> "-timeline-verification"; storyDeletion == "true" -> "-story-deletion"; archiveCapacity == "true" -> "-archive-capacity"; else -> "-archive-verification" }
         }
         ndk { abiFilters += listOf("x86_64", "arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -158,7 +169,7 @@ androidComponents {
 
 androidComponents {
     beforeVariants(selector().withBuildType("release")) {
-        if (archiveCapacity == "true" || storyDeletion == "true" || timelineVerification == "true") it.enable = false
+        if (archiveCapacity == "true" || storyDeletion == "true" || timelineVerification == "true" || parentRetention == "true") it.enable = false
     }
 }
 

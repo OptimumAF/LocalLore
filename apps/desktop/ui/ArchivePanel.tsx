@@ -38,9 +38,9 @@ export function ArchivePanel({
                 inspection snapshot.
             </p>
             <p>
-                Version 1 · maximum 32 MiB · 32 branches · accepted history
-                only. Branch switching and author corrections are unavailable in
-                this panel.
+                Versions 1 and 2 · maximum 32 MiB · 32 physical branches ·
+                accepted history only. Branch switching and author corrections
+                are unavailable in this panel.
             </p>
             <div className="archive-actions">
                 <button disabled={s.busy} onClick={() => void c.library()}>
@@ -92,6 +92,8 @@ export function ArchivePanel({
                         <dd>{p.story_id}</dd>
                         <dt>Root branch</dt>
                         <dd>{p.root_branch}</dd>
+                        <dt>Archive version</dt>
+                        <dd>{p.version}</dd>
                         <dt>Accepted turns</dt>
                         <dd>{p.committed_turns}</dd>
                         <dt>Bytes</dt>
@@ -100,11 +102,12 @@ export function ArchivePanel({
                         <dd>{p.payload_sha256}</dd>
                     </dl>
                     <table>
-                        <caption>Captured branch heads</caption>
+                        <caption>Captured physical branch heads</caption>
                         <thead>
                             <tr>
                                 <th>Branch</th>
                                 <th>Revision</th>
+                                <th>Availability</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -113,11 +116,26 @@ export function ArchivePanel({
                                     <tr key={branch}>
                                         <td>{branch}</td>
                                         <td>{head}</td>
+                                        <td>
+                                            {p.retired_branch_ids?.includes(
+                                                branch,
+                                            )
+                                                ? "Retired ancestry only"
+                                                : "Playable"}
+                                        </td>
                                     </tr>
                                 ),
                             )}
                         </tbody>
                     </table>
+                    {p.retired_branch_ids && (
+                        <p>
+                            Reserved retired identities:{" "}
+                            {p.retired_branch_ids.join(", ")}. Retained
+                            ancestors preserve original history; collected
+                            identities remain reserved and cannot be reopened.
+                        </p>
+                    )}
                     <p>{p.privacy_warning}</p>
                     <p>
                         Import is first validated and replayed in a new private

@@ -141,6 +141,9 @@ impl Store {
             story: request.parent.story.clone(),
             branch: request.child_branch.clone(),
         };
+        // Admission precedes both immutable-identity retry and new creation.
+        crate::retention_state::admit(&tx, &request.parent)?;
+        crate::retention_state::admit(&tx, &child)?;
         let existing:Option<(Option<String>,Option<i64>)>=tx.query_row(
             "SELECT parent_branch,fork_revision FROM branches WHERE story_id=?1 AND branch_id=?2",
             params![child.story,child.branch],|r|Ok((r.get(0)?,r.get(1)?))
@@ -168,7 +171,7 @@ impl Store {
             return Err(TurnError::TooLarge);
         }
         let count: i64 = tx.query_row(
-            "SELECT count(*) FROM branches WHERE story_id=?1",
+            "SELECT count(*) FROM (SELECT branch_id FROM branches WHERE story_id=?1 UNION SELECT branch_id FROM branch_retention WHERE story_id=?1)",
             [&request.parent.story],
             |r| r.get(0),
         )?;

@@ -61,6 +61,20 @@ modes. Install its two APKs only on authorized targets, then select
 the Activity tests require this isolated package. Ordinary builds keep their
 usual identity/output directory.
 
+Parent-retirement verification has its own debug identity and project cache:
+
+```powershell
+.\gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest :app:lintDebug -PlocalLoreParentRetentionVerification=true --project-cache-dir .gradle-parent-retention -Pkotlin.incremental=false --offline --no-daemon
+```
+
+It selects `org.locallore.app.parentverify` and `app/build-parent-retention`.
+Release, mixed capacity/verification modes and mismatched caches are refused.
+`ParentRetentionNativeTest`, `ParentRetentionProtocolTest` and
+`ParentRetentionActivityTest` exercise actual JNI worker isolation, strict wire
+metadata and the Compose retention/archive-v2 journey with synthetic data.
+Install only this app/test pair on explicitly authorized targets. Existing
+product and benchmark caches remain in their separate installed applications.
+
 No platform Internet, media, contact or location permission is requested.
 AndroidX adds an app-owned signature receiver permission. Backup exclusions
 are configured; these tests do not qualify OS backup behavior. Existing Gradle,
@@ -82,9 +96,13 @@ Use **Timelines** to resume an existing root, child or sibling in that story.
 Inherited accepted receipts retain their original ancestor scopes; Rust filters
 history at fork boundaries. The selector does not create branches. Whole-story
 deletion from a child still previews and confirms every timeline using the root
-head. See the [catalog contract](../../docs/native/TIMELINE_CATALOG_CONTRACT.md).
+head. **Delete timeline** separately retires a selected nonroot timeline after
+previewing retained descendants and removed data. Required original ancestry
+remains readable only for retained children; retired IDs cannot be reused. See
+the [retention contract](../../docs/native/PARENT_RETENTION_CONTRACT.md) and
+[catalog contract](../../docs/native/TIMELINE_CATALOG_CONTRACT.md).
 The displayed path is the actual database in app-private `noBackupFilesDir`,
-with workspace contract version 1 and database schema version 2. Uncommitted responses remain separate from canon;
+with workspace contract version 1 and database schema version 3. Uncommitted responses remain separate from canon;
 resuming does not regenerate or automatically apply them. Closing the app does
 not delete saves. All SQLite/replay/JNI work runs on IO workers. Generation runs
 outside the canonical lock and SQLite transaction. A lost commit acknowledgement

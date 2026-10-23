@@ -139,6 +139,12 @@ and [privacy boundaries](../../docs/PRIVACY_AND_THREAT_MODEL.md).
 
 ## Verification and limits
 
+The opt-in isolated archive application also has an explicit
+[system chooser verification procedure](../../docs/native/ARCHIVE_CHOOSER_VERIFICATION_2026-10-23.md).
+Its synthetic DocumentsProvider is packaged only in the instrumentation APK;
+the normal application receives no provider or storage permission. These tests
+retain their synthetic imported stories and never reset the existing workspace.
+
 Host tests cover strict bytes, scoped IDs, ownership, idempotency, provider
 failures, cancellation/commit races and cleanup. JVM tests cover publication,
 cancellation/disposal and uncertain outcomes. JNI instrumentation exercises

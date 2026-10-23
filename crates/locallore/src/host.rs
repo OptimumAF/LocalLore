@@ -301,6 +301,43 @@ pub struct WorkspaceForkOutcome {
     pub head_revision: u64,
     pub created: bool,
 }
+/// Native-only coherent generation input. This is neither a wire payload nor an
+/// inspection grant. Consumers must recheck an opaque proof against this Engine
+/// at consumption; missing cache remains honest exact-raw fallback.
+pub struct HostGenerationSnapshot {
+    pub engine: Engine,
+    pub coverage: crate::memory_coverage::CoverageRead,
+}
+fn check_generation_cancel(cancel: &dyn Fn() -> bool) -> Result<(), String> {
+    if std::panic::catch_unwind(std::panic::AssertUnwindSafe(cancel)).unwrap_or(true) {
+        Err("Cancelled".into())
+    } else {
+        Ok(())
+    }
+}
+fn validate_generation_engine(
+    engine: &Engine,
+    scope: &Scope,
+    expected_head: u64,
+    observer: &str,
+) -> Result<(), String> {
+    if engine.scope() != scope {
+        return Err("Scope".into());
+    }
+    if engine.revision() != expected_head || engine.seed().player != observer {
+        return Err("Stale".into());
+    }
+    Ok(())
+}
+fn generation_read_error(error: String) -> String {
+    // Only this selected-session port treats a missing/replaced source or player
+    // as a stale basis. Other persistence ports retain their existing mapping.
+    if error == "NotFound" {
+        "Stale".into()
+    } else {
+        error
+    }
+}
 pub struct SavedTurn {
     pub request: Request,
     pub phase: String,
@@ -329,6 +366,24 @@ pub trait Persistence: Send {
     }
     fn create(&mut self) -> Result<Engine, String>;
     fn resume(&mut self, scope: &Scope) -> Result<Engine, String>;
+    fn generation_snapshot(
+        &mut self,
+        scope: &Scope,
+        expected_head: u64,
+        observer: &str,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<HostGenerationSnapshot, String> {
+        check_generation_cancel(cancel)?;
+        let engine = self.resume(scope).map_err(generation_read_error)?;
+        validate_generation_engine(&engine, scope, expected_head, observer)?;
+        check_generation_cancel(cancel)?;
+        Ok(HostGenerationSnapshot {
+            engine,
+            coverage: crate::memory_coverage::CoverageRead::RawFallback(
+                crate::memory_coverage::FallbackReason::Missing,
+            ),
+        })
+    }
     fn begin(&mut self, request: &Request) -> Result<SavedTurn, String>;
     fn commit(
         &mut self,
@@ -477,6 +532,47 @@ impl Host {
             .as_mut()
             .ok_or("Unsupported")?
             .fork_branch(request, cancel)
+    }
+    /// Read-only native generation input, independent of spoiler inspection.
+    /// The selected seed fixes the player; neither JSON nor the caller supplies
+    /// an observer. Does not admit jobs, select/refresh sessions or run a provider.
+    pub fn generation_snapshot(
+        &self,
+        session: &str,
+        scope: &Scope,
+        expected_head: u64,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<HostGenerationSnapshot, String> {
+        let mut state = self.state.lock().map_err(|_| "Internal")?;
+        let selected = state.sessions.get(session).ok_or("Closed")?;
+        if selected.engine.scope() != scope {
+            return Err("Scope".into());
+        }
+        let selected_seed = selected.engine.seed().clone();
+        let ephemeral = state.persistence.is_none().then(|| selected.engine.clone());
+        check_generation_cancel(cancel)?;
+        let snapshot = if let Some(port) = state.persistence.as_mut() {
+            port.generation_snapshot(scope, expected_head, &selected_seed.player, cancel)
+                .map_err(generation_read_error)?
+        } else {
+            HostGenerationSnapshot {
+                engine: ephemeral.expect("selected ephemeral Engine"),
+                coverage: crate::memory_coverage::CoverageRead::RawFallback(
+                    crate::memory_coverage::FallbackReason::Missing,
+                ),
+            }
+        };
+        validate_generation_engine(
+            &snapshot.engine,
+            scope,
+            expected_head,
+            &selected_seed.player,
+        )?;
+        if snapshot.engine.seed() != &selected_seed {
+            return Err("Stale".into());
+        }
+        check_generation_cancel(cancel)?;
+        Ok(snapshot)
     }
     /// Read-only derived views use one immutable durable snapshot. The inspection grant
     /// comes only from trusted Host construction, never from a query or generation context.
@@ -1917,6 +2013,8 @@ impl Host {
 
 #[cfg(test)]
 mod fork_port_tests;
+#[cfg(test)]
+mod generation_snapshot_tests;
 impl Drop for Host {
     fn drop(&mut self) {
         self.close_all();

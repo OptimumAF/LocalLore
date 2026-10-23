@@ -4,8 +4,8 @@ use locallore::{
     contracts::*,
     engine::Engine,
     host::{
-        Host, Persistence, SavedTurn, WorkspaceBranch, WorkspaceBranchCatalog,
-        WorkspaceForkOutcome, WorkspaceForkRequest, WorkspaceSummary,
+        Host, HostGenerationSnapshot, Persistence, SavedTurn, WorkspaceBranch,
+        WorkspaceBranchCatalog, WorkspaceForkOutcome, WorkspaceForkRequest, WorkspaceSummary,
     },
 };
 use locallore_storage::{StorageError, Store, TurnError, TurnPhase, TurnRecord};
@@ -31,6 +31,22 @@ fn turn(error: TurnError) -> String {
         TurnError::Terminal => "Cancelled".into(),
         TurnError::Full => "Full".into(),
     }
+}
+fn generation_memory(error: locallore_storage::derived_memory::MemoryError) -> String {
+    use locallore_storage::derived_memory::MemoryError::*;
+    match error {
+        Scope => "Scope",
+        Stale | NotFound => "Stale",
+        InvalidInput => "InvalidInput",
+        Unsupported => "Unsupported",
+        TooLarge => "TooLarge",
+        Cancelled => "Cancelled",
+        Integrity => "Integrity",
+        Database => "Database",
+        Busy => "Busy",
+        Full => "Full",
+    }
+    .into()
 }
 fn saved(record: TurnRecord) -> SavedTurn {
     SavedTurn {
@@ -170,6 +186,32 @@ impl Persistence for Repository {
     }
     fn resume(&mut self, scope: &Scope) -> Result<Engine, String> {
         Ok(self.store.resume(scope).map_err(turn)?.engine)
+    }
+    fn generation_snapshot(
+        &mut self,
+        scope: &Scope,
+        expected_head: u64,
+        observer: &str,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<HostGenerationSnapshot, String> {
+        let snapshot = self
+            .store
+            .context_snapshot(
+                &locallore_storage::memory_jobs::MemoryJobRequest {
+                    scope: scope.clone(),
+                    expected_head,
+                    observer: observer.into(),
+                },
+                cancel,
+            )
+            .map_err(generation_memory)?;
+        if snapshot.engine.seed().player != observer {
+            return Err("Stale".into());
+        }
+        Ok(HostGenerationSnapshot {
+            engine: snapshot.engine,
+            coverage: snapshot.coverage,
+        })
     }
     fn begin(&mut self, request: &Request) -> Result<SavedTurn, String> {
         self.store.begin_turn(request).map(saved).map_err(turn)

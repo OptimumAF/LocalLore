@@ -67,6 +67,11 @@ final class CacheVolume {
     static void capacity(Candidate candidate, long userdataFree) throws Problem {
         if (candidate.free < CACHE_MIN || userdataFree < USERDATA_MIN) throw new Problem("capacity_blocked");
     }
+    static void stable(Candidate before, Candidate after, long userdataBefore, long userdataAfter) throws Problem {
+        if (userdataBefore <= 0 || userdataBefore != userdataAfter || before.device != after.device
+                || !before.uuid.equals(after.uuid) || !before.cache.equals(after.cache) || !before.files.equals(after.files))
+            throw new Problem("volume_changed");
+    }
     static Path realDirectory(File directory) throws IOException {
         Path path = directory.toPath().toAbsolutePath().normalize();
         // Detect linked ancestors too; this is a trusted app-owned path boundary, not a same-UID sandbox.

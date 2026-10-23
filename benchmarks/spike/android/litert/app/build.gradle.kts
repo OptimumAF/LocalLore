@@ -25,7 +25,9 @@ if (cacheProbe) {
         require(path.toPath().toRealPath() == path.toPath()) { "Cache output must resolve to its explicit D path" }
         return path
     }
-    layout.buildDirectory.set(markedOutput(cacheOutput!!))
+    val output = markedOutput(cacheOutput!!)
+    layout.buildDirectory.set(output)
+    rootProject.layout.buildDirectory.set(output.parentFile.resolve("root-build"))
     markedOutput(cacheNative!!)
 }
 android {

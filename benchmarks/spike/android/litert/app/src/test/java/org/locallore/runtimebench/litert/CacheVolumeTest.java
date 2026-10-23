@@ -79,6 +79,20 @@ public class CacheVolumeTest {
         assertThrows(CacheVolume.Problem.class, () -> CacheVolume.freshSession(absent.toFile(), SESSION));
         assertFalse(Files.exists(absent));
     }
+    @Test public void IdentityRecheckRejectsUserdataDeviceOrFrameworkDirectoryDrift() throws Exception {
+        CacheVolume.Candidate before = candidate(UUID, true, false, false, true, 20);
+        CacheVolume.stable(before, before, 10, 10);
+        assertEquals("volume_changed", assertThrows(CacheVolume.Problem.class,
+            () -> CacheVolume.stable(before, before, 10, 11)).category);
+        for (CacheVolume.Candidate after : Arrays.asList(
+                candidate(UUID, true, false, false, true, 21), candidate("0000-0000", true, false, false, true, 20),
+                new CacheVolume.Candidate(UUID, true, false, false, true, 20, CacheVolume.CACHE_MIN,
+                    new File("replacement-cache"), new File("files")),
+                new CacheVolume.Candidate(UUID, true, false, false, true, 20, CacheVolume.CACHE_MIN,
+                    new File("cache"), new File("replacement-files")))) {
+            assertThrows(CacheVolume.Problem.class, () -> CacheVolume.stable(before, after, 10, 10));
+        }
+    }
     @Test public void ModelCanOnlyBeTheFixedLeafOfSelectedFrameworkFilesDirectory() throws Exception {
         File files = temporary.newFolder();
         CacheVolume.Candidate value = new CacheVolume.Candidate(UUID, true, false, false, true,

@@ -191,6 +191,17 @@ def execute(java21, output, sdk):
         exports_audit(stage(output, "exports-" + abi, [str(llvm / "bin/llvm-nm.exe"), "-D", "--defined-only", str(source)], build.ROOT, temp))
         destination = output / "native/jniLibs" / abi / source.name
         destination.parent.mkdir(parents=True); shutil.copyfile(source, destination)
+    return qualify_java(java21, output, sdk, source_commit)
+
+
+def qualify_java(java21, output, sdk, source_commit):
+    """Qualify fresh Java output with an already staged, separately audited native pair.
+
+    The normal CLI always builds that pair immediately above. A coordinator may
+    call this narrow phase after recording an unchanged-native-source proof and
+    byte-identical copied ABI provenance; it does not locate or adopt old output.
+    """
+    temp = {"TEMP": str(output / "temp"), "TMP": str(output / "temp"), "TMPDIR": str(output / "temp")}
     log = stage(output, "gradle", gradle_command(java21, output), build.PROJECT, temp)
     if build.analysis_failed(log):
         raise ValueError("analyzer_infrastructure_failed")

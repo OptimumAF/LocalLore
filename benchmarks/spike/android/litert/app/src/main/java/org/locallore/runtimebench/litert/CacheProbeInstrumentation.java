@@ -14,8 +14,8 @@ import android.system.Os;
 import android.system.OsConstants;
 import android.util.Base64;
 import com.google.ai.edge.litertlm.ExperimentalFlags;
+import com.google.ai.edge.litertlm.Engine;
 import com.google.ai.edge.litertlm.LogSeverity;
-import com.google.ai.edge.litertlm.LogSeverityNative;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
@@ -73,10 +73,13 @@ public final class CacheProbeInstrumentation extends Instrumentation {
             for (CacheVolume.Candidate candidate : candidates) volumes.add(volume(candidate));
             report.add("volumes", volumes);
             CacheVolume.Candidate selected = CacheVolume.select(candidates, uuid, userdataDevice);
+            CacheVolume.stable(selected, selected, userdataDevice, Os.stat(userdata.getPath()).st_dev);
             JsonObject before = sample(selected, userdataDevice, userdata.getUsableSpace()); report.add("sample", before);
             if (!operation.equals("inspect")) {
                 CacheVolume.capacity(selected, userdata.getUsableSpace());
                 Path cache = CacheVolume.freshSession(selected.cache, session);
+                CacheVolume.capacity(refresh(selected, userdata, userdataDevice), userdata.getUsableSpace());
+                CacheVolume.owner(cache);
                 if (Os.stat(cache.toString()).st_dev != selected.device) throw new CacheVolume.Problem("volume_changed");
                 if (operation.equals("mmap")) report.add("probe", mmap(cache));
                 else {
@@ -85,12 +88,12 @@ public final class CacheProbeInstrumentation extends Instrumentation {
                     byte[] encoded = Base64.decode(profile, Base64.DEFAULT);
                     if (encoded.length == 0 || encoded.length > 4096) throw new CacheVolume.Problem("invalid_request");
                     Path saves = CacheVolume.freshSession(userdata, session);
-                    LogSeverityNative.INSTANCE.setMinLogSeverity(LogSeverity.INFINITY);
+                    Engine.Companion.setNativeMinLogSeverity(LogSeverity.INFINITY);
                     ExperimentalFlags.INSTANCE.setEnableBenchmark(true);
                     ExperimentalFlags.INSTANCE.setEnableSpeculativeDecoding(false);
                     NativePlayProbe.Adapter probe = new NativePlayProbe.Adapter(saves.resolve("stories.sqlite3").toString(), encoded);
                     report.add("play_result", new PlayRunner(probe, () -> {
-                        CacheVolume.Candidate current = CacheVolume.select(discover(), uuid, Os.stat(userdata.getPath()).st_dev);
+                        CacheVolume.Candidate current = refresh(selected, userdata, userdataDevice);
                         CacheVolume.capacity(current, userdata.getUsableSpace()); CacheVolume.owner(cache);
                         if (current.device != selected.device || Os.stat(cache.toString()).st_dev != selected.device
                                 || Os.stat(CacheVolume.model(current).getPath()).st_dev != selected.device)
@@ -99,8 +102,7 @@ public final class CacheProbeInstrumentation extends Instrumentation {
                     }, metrics).run(playCase));
                     report.addProperty("explicit_cache_directory", true);
                 }
-                CacheVolume.Candidate after = CacheVolume.select(discover(), uuid, Os.stat(userdata.getPath()).st_dev);
-                if (after.device != selected.device) throw new CacheVolume.Problem("volume_changed");
+                CacheVolume.Candidate after = refresh(selected, userdata, userdataDevice);
                 report.add("post_sample", sample(after, userdataDevice, userdata.getUsableSpace()));
             }
             report.addProperty("status", "completed"); report.add("error", JsonNull.INSTANCE);
@@ -120,6 +122,12 @@ public final class CacheProbeInstrumentation extends Instrumentation {
         report.add("metrics", metrics);
         Bundle result = new Bundle(); result.putString("cache_result", report.toString());
         finish(Activity.RESULT_OK, result);
+    }
+    private CacheVolume.Candidate refresh(CacheVolume.Candidate selected, File userdata, long expectedDevice) throws Exception {
+        long actualDevice = Os.stat(userdata.getPath()).st_dev;
+        CacheVolume.Candidate current = CacheVolume.select(discover(), uuid, actualDevice);
+        CacheVolume.stable(selected, current, expectedDevice, actualDevice);
+        return current;
     }
     private List<CacheVolume.Candidate> discover() throws Exception {
         StorageManager manager = getTargetContext().getSystemService(StorageManager.class);

@@ -326,6 +326,15 @@ impl Engine {
         proposal: &Proposal,
         record: &crate::play::PlayRecord,
     ) -> Result<Receipt, Error> {
+        self.commit_play_history(request, proposal, record, false)
+    }
+    fn commit_play_history(
+        &mut self,
+        request: &Request,
+        proposal: &Proposal,
+        record: &crate::play::PlayRecord,
+        recorded_history: bool,
+    ) -> Result<Receipt, Error> {
         if let Some(receipt) = self.recorded(request)? {
             return Ok(receipt);
         }
@@ -333,7 +342,7 @@ impl Engine {
             return Err(Error::Agency);
         }
         let mut receipt = self.preview(request, proposal)?;
-        crate::play::validate_record(self, &receipt, record)?;
+        crate::play::validate_record(self, &receipt, record, recorded_history)?;
         receipt.narration = record.narration.text.clone();
         receipt.play = Some(record.clone());
         let mut staged = self.state.clone();
@@ -390,7 +399,7 @@ impl Engine {
                 if play.narration.text != recorded.narration {
                     return Err(Error::CorruptHistory);
                 }
-                engine.commit_play(&recorded.request, &recorded.proposal, play)
+                engine.commit_play_history(&recorded.request, &recorded.proposal, play, true)
             } else {
                 engine.commit(&recorded.request, &recorded.proposal, &recorded.narration)
             }
@@ -411,7 +420,11 @@ impl Engine {
             if engine.recorded(&receipt.request)?.is_some() {
                 return Err(Error::CorruptHistory);
             }
-            let rebuilt = engine.commit_prepared(receipt)?;
+            let rebuilt = if let Some(play) = receipt.play() {
+                engine.commit_play_history(receipt.request(), receipt.proposal(), play, true)?
+            } else {
+                engine.commit(receipt.request(), receipt.proposal(), receipt.narration())?
+            };
             if &rebuilt != receipt {
                 return Err(Error::CorruptHistory);
             }

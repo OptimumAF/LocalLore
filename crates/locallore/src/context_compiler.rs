@@ -1,9 +1,9 @@
-//! Actor-only exact/lexical prototype. Reuses authoritative context and inspection eligibility.
-//! Requires the current `host` feature; no database, tokenizer, summary or provider authority.
+//! Actor-only exact/lexical context. Reuses authoritative context and shared eligibility.
+//! No native Host, database, tokenizer, summary or provider authority.
 use crate::{
     contracts::{Effect, Profile, Scope, VERSION},
     engine::Engine,
-    inspection_query::{self, FieldValue, Observer, Query, Row, Source, ValueOrigin, View},
+    inspection_query::{self, FieldValue, Row, Source, ValueOrigin, View},
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -207,33 +207,12 @@ fn snapshot(engine: &Engine, request: &CompileRequest) -> Result<Engine, Compile
     Ok(snapshot)
 }
 fn actor_rows(engine: &Engine, observer: &str, view: View) -> Result<Vec<Row>, CompileError> {
-    // This grant is NEVER caller supplied and can only select this exact actor. No Lab lens.
-    let mut query = Query {
-        version: inspection_query::QUERY_VERSION,
-        scope: engine.scope().clone(),
-        expected_head: engine.revision(),
-        at_revision: None,
-        observer: Observer::Character {
-            id: observer.into(),
-        },
-        view,
-        cursor: None,
-        limit: inspection_query::MAX_ROWS,
-        search: String::new(),
-    };
-    let mut rows = vec![];
-    loop {
-        let page =
-            inspection_query::query(engine, &query, true).map_err(|_| CompileError::Source)?;
-        rows.extend(page.rows);
-        if rows.len() > MAX_CANDIDATES {
-            return Err(CompileError::TooLarge);
-        }
-        query.cursor = page.next_cursor;
-        if query.cursor.is_none() {
-            return Ok(rows);
-        }
+    let rows = inspection_query::actor_context_rows(engine, observer, view)
+        .map_err(|_| CompileError::Source)?;
+    if rows.len() > MAX_CANDIDATES {
+        return Err(CompileError::TooLarge);
     }
+    Ok(rows)
 }
 fn row_info(row: &Row, revision: u64) -> (Kind, Vec<Source>, u64) {
     let (kind, sources) = match row {

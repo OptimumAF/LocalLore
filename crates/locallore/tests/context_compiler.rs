@@ -1,12 +1,8 @@
-#![cfg(feature = "host")]
-// Prototype only: coordinator retains existing lib/play/Host integration ownership.
-pub use locallore::{contracts, engine, inspection_query};
-#[path = "../src/context_compiler.rs"]
-mod context_compiler;
-use context_compiler::*;
 use contracts::*;
 use engine::Engine;
 use inspection_query::{Row, Source};
+use locallore::context_compiler::*;
+use locallore::{contracts, engine, inspection_query};
 use std::{collections::BTreeSet, time::Instant};
 
 fn seed() -> Seed {

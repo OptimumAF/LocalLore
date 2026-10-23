@@ -96,6 +96,17 @@ separates native-only proofs from the single Compose case and adds an explicit
 ordered cohort with Activity-only controls. Default capacity discovery runs the
 original three proofs once; the historical UI-class selector now runs only its
 one UI method. The report explains nested-suite selection and remote-shell quoting.
+The distinct [capacity-relief fixture](../../docs/native/CAPACITY_RELIEF_VERIFICATION_2026-10-22.md)
+uses `python scripts/android_capacity_relief_probe.py build --offline`, application
+ID `org.locallore.app.capacityrelief`, `app/build-capacity-relief` and the helper's
+mandatory `.gradle-capacity-relief` cache. It is debug/testOnly, with a fixed
+32-page native ceiling and separate test sources. Its one-shot helper fills then
+drops only a verified owned padding table in a fresh synthetic workspace. Padding
+temporarily violates the exact schema contract; it is removed before any new
+Android native owner opens. Production schema checks stay unchanged. This probes
+same-live-owner commit recovery after freeing pages, not ordinary valid-schema
+restart under Full or partition ENOSPC. The ordinary, 15-page and relief modes
+are mutually exclusive and keep independent task histories and APKs.
 Cancellation that reaches Rust before submit exists is reconciled as an uncommitted
 request. A late submit remains a draft; recovery does not regenerate or commit it.
 The earlier [ADR-0004](../../docs/adr/0004-android-engine-boundary.md) remains the

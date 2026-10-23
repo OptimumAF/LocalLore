@@ -1,6 +1,8 @@
 # Durable memory job integration tests — 2026-10-23
 
-Refs #11 **M07.03/.04**, supporting #29 prerequisites; in progress, **uncompiled**.
+Refs #11 **M07.03/.04**, supporting #29 prerequisites; **in review**.
+Execution is attributed to the coordinator below; final corrected-suite green
+and broad qualification are still pending.
 Claims [#11 comment6373133015](https://github.com/OptimumAF/LocalLore/issues/11#issuecomment-6373133015)
 and [#29 comment6373133453](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6373133453).
 Coordinator-delegated author `/root/resource_metrics_review`, isolated
@@ -19,7 +21,7 @@ The initial frozen test includes 21 parent tests and one deliberately ignored,
 parent-spawned helper. The helper is invoked only by the bounded child checkpoint
 test; it is not an ignored qualification gate. Source and oracle follow-ups must
 preserve this initial revision and explain any contract correction before first
-execution. No passing execution is claimed for any revision yet.
+execution. At the initial freeze no passing execution was claimed.
 
 The public native API under test is `MemoryJobRequest`, opaque cloneable
 `MemoryJobHandle::id`, `MemoryJobInfo`, status/failure enums and Store methods
@@ -184,10 +186,10 @@ corrections **before** first execution; the original source remains in history.
   this static correction.
 
 The follow-up contains **23 parent tests plus one intentionally parent-spawned
-ignored helper**. It still has not been compiled, run, or used to launch a child.
-Source formatting/Git whitespace checks are the only local executable checks so
-far. Root will provide the owner-bound/reset-corrected module hash and resource
-slot; production remains entirely outside this author's ownership.
+ignored helper**. At that follow-up freeze it had not been compiled, run, or used
+to launch a child. Source formatting/Git whitespace checks were the only checks
+by this author. Coordinator executions are recorded below; production remains
+entirely outside this author's ownership.
 
 ## Coordinator compile evidence and integer-only correction
 
@@ -205,7 +207,7 @@ values with a proper rusqlite conversion error on a negative value. No assertion
 fixed corpus, expected outcome, quota or budget changes. Fixed test SHA-256:
 `17c485a3c5259937354c079c731e27d85939c234593b7d11adebbe9808dc508f`.
 Source formatting and diff checks passed; compilation/test execution of this
-correction remains with the coordinator until another explicit resource go.
+correction remained with the coordinator. Its reported results follow below.
 
 Own worktree imported coordinator fixes
 `502cacd18b9c43c3719b42ab37bd642b4ff363c6` (native owner binding/corrupt-cache
@@ -214,3 +216,59 @@ recovery; local dependency729015f) and
 local dependency8c38b7b). None of those production changes is this test author's
 work. The same-read-snapshot callback position remains unchanged in those
 context/memory_engine paths. Root owns any further compatibility changes.
+
+## Coordinator execution, invalid fixture and corrected handoff
+
+The following is **actual coordinator-reported execution**, not execution by this
+test author. Coordinator source advanced through
+`9aec571295742f93ff4a4f5475ee4ceea72a9b23` (import of integer-only4ac) and
+`ddbf4ca9a76d4bfec8fdd3db061c921d969ab56f`. Root retained the original command
+outputs. Exact invocation flags/log hashes and broad final gates belong in the
+coordinator's `docs/storage/M07_DURABLE_JOBS_2026-10-23.md` and integration
+evidence; no unobserved command spelling or log hash is invented here.
+
+| Coordinator check | Actual reported result | Attribution/limit |
+| --- | --- | --- |
+| Store unit tests | 24 passed, 0 failed, 1 existing ignored | Includes coordinator-owned actual SQLiteFull rollback and reopen/native-handle reissue. This is not Full coverage by this public integration test. |
+| This new integration target, before retirement fixture correction | **22 passed, 1 failed, 1 parent-only helper ignored**, 249.66 seconds | Sole failure was the invalid story-root retirement fixture, below. Elapsed time is suite duration, not a performance benchmark. |
+| Independent reviewer's initial job regressions | 6 passed | Separate reviewer source and coordinator execution. A later seventh review case is not covered by that earlier count. |
+
+The coordinator's actual Full setup initially failed an assertion because four
+free pages remained before applying its intended no-free-page clamp. It corrected
+its **owned synthetic pressure fixture** with explicit VACUUM before clamping
+(`ddbf4ca9...`) and then the real SQLiteFull/reopen test passed. That initial
+setup failure remains reported; it is not relabeled as an observed SQLiteFull or
+as this integration author's test failure. No real volume was filled.
+
+The integration failure was `retired_parent_loses_its_job_without_breaking_live_child_or_reusing_ids`:
+`prepare_branch_deletion(root.scope(), EVENTS, ...)` returned **Malformed** at
+line896 of the coordinator's run. Existing API intentionally forbids retiring
+the story root. The new test fixture was invalid; production semantics were not
+relaxed. Integer-fixed source4ac and its failed fixture remain immutable.
+
+Correction `470f74786d1d8b86fa33660d4587fb4e9ad07c16` changes **only this test
+fixture**: fork a real non-root `retiring-parent` from main@384, resume its actual
+Store Engine, ensure/drain that parent's job, fork a retained child from it, then
+retire the non-root parent. Original job cleanup/child proof assertions remain,
+and original main canonical bytes must also remain unchanged. Corrected test
+SHA-256 `fb6923acef3ee61b879f0adb9ab30d01eb80db0c48f5a15002e999d8c3f27388`.
+Root imported it as `7d6da9aa9a99b2fa27c2377a3027d3df3ab19c32`. This author ran
+only formatting/whitespace checks, not compilation or the corrected test.
+
+At this doc handoff root source was
+`4f82855f67fdb7c6bb573af7e1bb0c6518870898`, also containing coordinator semantic
+metadata repair `74785fde83f05f6b12188d71eb008f366d381d4e`, the separate reviewer's
+unchanged seventh oracle, and Android schema4 compatibility changes. Those
+production/reviewer/platform changes are not authored here. The earlier22-pass
+run is **not** claimed to qualify this newer combined source, the corrected
+retirement case, or all feature modes. Final **23 parent tests green remains
+pending coordinator execution**, as do full Store/Rust compatibility, capacity
+measurement and relevant native/Android gates. No score or M07/D07 completion.
+
+Authored immutable handoff sequence: initial9e8b84f, explicit contract follow-up
+b813625, integer-only4acafab, compile-attribution doc93b88bb and fixture-only470f747,
+then this doc-only completion addendum. Import those focused commits as needed;
+do not duplicate coordinator production dependencies. Own worktree is clean and
+no compiler, test, child process, model/app/device/desktop/protected-resource or
+OS/settings action was launched by this author. Claims are released to the
+coordinator with status in_review; root owns final tests and integration.

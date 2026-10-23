@@ -44,7 +44,8 @@ class MainActivity : ComponentActivity() {
             val renderedRecordContext = record.context
             LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::reset,
                 onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover,
-                onStoryRecord = if (model.hasStoryRecords) model::openStoryRecord else null) {
+                onStoryRecord = if (model.hasStoryRecords) model::openStoryRecord else null,
+                onText = model::submitText) {
                 StoryRecordDialog(record, model::closeStoryRecord, model::recordSection, model::recordSearch,
                     model::nextRecordPage, model::firstRecordPage, model::retryStoryRecord,
                     onEvent = { sequence -> model.openRecordEvent(sequence, renderedRecordContext) },

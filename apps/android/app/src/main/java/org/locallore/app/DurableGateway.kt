@@ -5,6 +5,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /** IO confinement is supplied by the transport; the controller and tests share this protocol. */
 internal interface WorkspaceTransport {
@@ -21,9 +25,12 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
     private var revision = 0L
     private var operation: Pending? = null
     private var serial = 0L
+    private var textProvider = TextProvider.UNAVAILABLE
+    // Order cancellation after a finite native submit, never after generation/prepare.
+    private val submissionGate = Mutex()
     private val closed = AtomicBoolean(false)
     private data class Pending(val session: String, val scope: JSONObject, val turn: String,
-        val request: JSONObject, val mode: DemoMode, val serial: Long, var cancelled: Boolean = false)
+        val request: JSONObject, val mode: DemoMode?, val serial: Long, var cancelled: Boolean = false)
 
     private suspend fun call(command: JSONObject): JSONObject {
         check(!closed.get())
@@ -90,6 +97,7 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
             val playerText = when (intent.getString("kind")) {
                 "actions" -> intent.getJSONArray("value").toString()
                 "dialogue" -> intent.getJSONObject("value").getString("text")
+                "free_text" -> intent.getJSONObject("value").getString("text")
                 else -> "Recorded intention"
             }
             messages += SceneMessage(i * 2L + 1, playerText, true)
@@ -102,11 +110,28 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
             SavedStory(s.getString("story"), s.getString("branch"), row.getString("title"), row.getLong("revision"))
         } }
         val current = checkNotNull(stories.find { it.story == scope!!.getString("story") && it.branch == scope!!.getString("branch") })
+        textProvider = readTextProvider()
         return SavedSnapshot(revision, if (view.getJSONObject("inventory").has("potion")) "You" else "Not in your inventory",
             messages.takeLast(40), workspace.getString("location"), 1, stories, current,
             workspace.getJSONArray("stories").let { rows -> (0 until rows.length()).map { rows.getJSONObject(it) }
                 .first { sameScope(it.getJSONObject("scope"), checkNotNull(scope)) }.optInt("drafts", 0) },
-            view.getString("rules"))
+            view.getString("rules"), textProvider)
+    }
+    private suspend fun readTextProvider(): TextProvider {
+        val capabilities = call(command("capabilities"))
+        val available = capabilities.get("free_text") as? Boolean ?: error("Invalid capability")
+        if (!available) return TextProvider.UNAVAILABLE
+        val status = call(command("model_status"))
+        val real = status.get("real_model") as? Boolean ?: error("Invalid provider")
+        val provider = status.get("provider") as? String ?: error("Invalid provider")
+        val configured = status.get("status") as? String ?: error("Invalid provider")
+        return when {
+            real && provider.isNotBlank() && configured == "configured_native_owner" &&
+                status.get("loaded") === JSONObject.NULL -> TextProvider.LOCAL
+            !real && provider == "android-scripted-play-v2" &&
+                configured == "configured_fixture_owner" && status.get("loaded") == false -> TextProvider.SCRIPTED
+            else -> TextProvider.UNAVAILABLE
+        }
     }
     override suspend fun respond(action: DemoAction, revision: Long, mode: DemoMode): DemoResult {
         check(operation == null)
@@ -117,11 +142,27 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
         val request = JSONObject().put("version", 1).put("scope", checkNotNull(scope))
             .put("turn", UUID.randomUUID().toString()).put("expected_revision", revision)
             .put("intent", JSONObject().put("kind", "actions").put("value", JSONArray().put(actionCommand)))
+        return prepareRequest(request, mode)
+    }
+    override suspend fun respondText(input: PlayInput, revision: Long): DemoResult {
+        check(operation == null)
+        if (textProvider == TextProvider.UNAVAILABLE) return DemoResult.Rejected("Unsupported")
+        if (!validPlayInput(input)) return DemoResult.Rejected("Malformed")
+        val request = JSONObject().put("version", 1).put("scope", checkNotNull(scope))
+            .put("turn", UUID.randomUUID().toString()).put("expected_revision", revision)
+            .put("intent", JSONObject().put("kind", "free_text").put("value",
+                JSONObject().put("kind", input.kind.wire).put("text", input.text)))
+        return prepareRequest(request, null)
+    }
+    private fun submitCommand(pending: Pending): JSONObject = command(if (pending.mode == null) "free_text" else "submit")
+        .put("session", pending.session).put("request", pending.request).also {
+            pending.mode?.let { mode -> it.put("mode", mode.name.lowercase(java.util.Locale.ROOT)) }
+        }
+    private suspend fun prepareRequest(request: JSONObject, mode: DemoMode?): DemoResult {
         val pending = Pending(checkNotNull(session), checkNotNull(scope), request.getString("turn"), request, mode, ++serial)
         operation = pending // Keep the original key even if submit acknowledgement is lost.
         try {
-            val submitted = call(command("submit").put("session", pending.session).put("request", request)
-                .put("mode", mode.name.lowercase(java.util.Locale.ROOT)))
+            val submitted = submitOriginal(pending) ?: return DemoResult.Rejected("Cancelled")
             if (pending.cancelled) return DemoResult.Rejected("Cancelled")
             val prepared = if (submitted.getString("phase") == "queued") call(scoped("prepare", pending)) else submitted
             return result(prepared, pending)
@@ -130,6 +171,11 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
             if (failure.category in setOf("Full", "Busy", "Database", "Integrity", "Io", "Internal")) throw failure
             if (operation === pending) operation = null
             return DemoResult.Rejected(failure.category)
+        }
+    }
+    private suspend fun submitOriginal(pending: Pending): JSONObject? = withContext(NonCancellable) {
+        submissionGate.withLock {
+            if (pending.cancelled) null else call(submitCommand(pending))
         }
     }
     private fun result(data: JSONObject, pending: Pending): DemoResult {
@@ -170,7 +216,7 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
         if (session == null) return initialize()
         operation?.let { pending ->
             if (pending.cancelled) {
-                try { result(call(scoped("cancel", pending)), pending) }
+                try { submissionGate.withLock { result(call(scoped("cancel", pending)), pending) } }
                 catch (failure: WorkspaceFailure) {
                     if (failure.category != "UnknownTurn") throw failure
                     if (operation === pending) operation = null
@@ -180,8 +226,7 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
             var status = try { call(scoped("turn_status", pending)) }
                 catch (failure: WorkspaceFailure) {
                     if (failure.category != "UnknownTurn") throw failure
-                    call(command("submit").put("session", pending.session).put("request", pending.request)
-                        .put("mode", pending.mode.name.lowercase(java.util.Locale.ROOT)))
+                    submitOriginal(pending) ?: return snapshot()
                 }
             if (status.getString("phase") == "queued") status = call(scoped("prepare", pending))
             if (status.getString("phase") == "ready") status = call(scoped("commit", pending))
@@ -193,7 +238,7 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
     override suspend fun cancelSaved(): SavedSnapshot {
         operation?.let { pending ->
             pending.cancelled = true
-            val status = try { call(scoped("cancel", pending)) }
+            val status = try { submissionGate.withLock { call(scoped("cancel", pending)) } }
                 catch (failure: WorkspaceFailure) {
                     if (failure.category != "UnknownTurn") throw failure
                     // Cancellation may beat submit on IO. The captured request remains

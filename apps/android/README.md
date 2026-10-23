@@ -132,6 +132,29 @@ cargo run --locked --offline -p locallore --example android_fixtures -- --check
 The exporter regenerates apps/android/app/src/test/lantern_quay_cases.json;
 preserve UTF-8/LF without BOM after intentional changes.
 
+## Write an Action or Dialogue
+
+The saved-story shell now offers **Write a turn**. It identifies its native provider
+as **Scripted fixture · no language model**. Select Action or Dialogue, edit the
+original text and press **Send**. **Potion example** only fills the Action draft;
+it never sends automatically. The fixture proposes that gift and literal dialogue;
+other actions may be rejected by the existing Rust intent guard/mechanical rules.
+Dialogue records words as a statement, not world truth. There is no text-to-command
+compiler in Kotlin and no cloud fallback.
+
+Input is bounded to 2048 UTF-8 bytes with valid Unicode. Text remains unchanged
+across the native request and exact-key recovery. Pending work disables editing;
+**Cancel** stops preparation. Drafts remain after rejection or an accepted head
+update, and reset on story/branch changes or composition disposal. Accepted prose
+and state come from saved engine receipts. Existing typed sample actions and fake
+modes remain available as separate regression fixtures.
+
+The potion example, literal dialogue, cancellation, lost acknowledgements,
+disposal, saved-story isolation and strict reopen passed on both API 35 x86_64
+test emulators. No model is loaded and the real local-backend/physical-phone gate
+remains open. Read [dated evidence](../../docs/native/ANDROID_INPUT_VERIFICATION_2026-10-23.md)
+and [all attempts](../../docs/native/ANDROID_INPUT_RESULTS_2026-10-23.json).
+
 ## Review local diagnostics
 
 Open **Local diagnostics** while the demo is idle to review its frozen JSON.

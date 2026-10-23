@@ -42,6 +42,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import org.locallore.app.DemoAction
 import org.locallore.app.DemoMode
+import org.locallore.app.PlayInput
+import org.locallore.app.PlayInputKind
 import org.locallore.app.ShellState
 import org.locallore.app.SavedStory
 
@@ -62,8 +64,14 @@ fun LocalLoreScreen(
     onResume: (SavedStory) -> Unit = {},
     onRecover: () -> Unit = {},
     onStoryRecord: (() -> Unit)? = null,
+    onText: ((PlayInput) -> Unit)? = null,
     overlay: @Composable () -> Unit = {},
 ) {
+    // Keep unsent text in this composition, including when its lazy item scrolls off screen.
+    // A new accepted head retains it; a different story/branch or disposal forgets it.
+    var playInput by remember(state.selectedStory?.story, state.selectedStory?.branch) {
+        mutableStateOf(PlayInput(PlayInputKind.ACTION, ""))
+    }
     MaterialTheme(
         colorScheme = lightColorScheme(
             primary = Teal,
@@ -209,6 +217,16 @@ fun LocalLoreScreen(
                                 },
                             )
                         }
+                    }
+                    if (onText != null) item(key = "play-composer") {
+                        PlayInputComposer(
+                            input = playInput,
+                            provider = state.textProvider,
+                            busy = state.busy,
+                            recoveryRequired = state.recoveryRequired,
+                            onInput = { playInput = it },
+                            onSend = onText,
+                        )
                     }
                     item(key = "actions") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

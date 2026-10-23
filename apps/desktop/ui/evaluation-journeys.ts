@@ -87,6 +87,41 @@ export async function evaluationJourneys({
             e.get().catalog?.cases.length === 12,
             "d07-native-evaluation-checkpoints",
         );
+        if (config.stage === "reopened") {
+            const latest = e
+                .get()
+                .catalog!.runs.filter((r) => r.selection === null)
+                .sort((a, b) => b.created - a.created)[0];
+            await e.open(latest.run_id);
+            check(
+                e.get().report?.cases.length === 1 && !e.get().status?.running,
+                "evaluation-window-retirement-drains-at-boundary",
+            );
+            check(
+                e.get().report?.completed === false,
+                "evaluation-reopen-never-auto-resumes-an-interrupted-suite",
+            );
+            await invoke("harness_evaluation_case", {
+                scenario: "release-boundary",
+            });
+            await capture("reopened");
+            await c.refresh();
+            check(
+                structural(c.get().play) === before,
+                "evaluation-reopen-keeps-selected-player-canon",
+            );
+            await dispose();
+            await invoke("harness_finish", {
+                report: {
+                    synthetic: true,
+                    passed: true,
+                    stage: config.stage,
+                    checks,
+                    errors: errors.snapshot(),
+                },
+            });
+            return;
+        }
         if (config.stage === "restart") {
             check(
                 e.get().catalog!.runs.length >= 2,
@@ -94,7 +129,8 @@ export async function evaluationJourneys({
             );
             const run = e
                 .get()
-                .catalog!.runs.find((r) => r.selection === null)!;
+                .catalog!.runs.filter((r) => r.selection === null)
+                .sort((a, b) => a.created - b.created)[0];
             await e.open(run.run_id);
             check(
                 e.get().report?.cases.length === 12 &&
@@ -193,6 +229,19 @@ export async function evaluationJourneys({
             errors.snapshot().length === 0,
             "evaluation-no-unhandled-render-errors",
         );
+        if (config.stage === "initial") {
+            c.requestLab();
+            c.acknowledgeLab(true);
+            await new Promise((r) => setTimeout(r, 50));
+            await e.show();
+            await invoke("harness_evaluation_case", {
+                scenario: "hold-boundary",
+            });
+            void e.start();
+            await until(() => e.get().status?.completed_cases === 1);
+            await invoke("harness_reopen");
+            return;
+        }
         await dispose();
         await invoke("harness_finish", {
             report: {

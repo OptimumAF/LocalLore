@@ -74,6 +74,13 @@ for (const stage of ["initial", "restart"]) {
     if (!report.passed) throw new Error(`EvaluationJourneysFailed:${stage}`);
     reports.push({ stage, report });
     checks.push(...report.checks);
+    for (const file of await readdir(directory))
+        if (file.endsWith(".json") && !file.endsWith(".capture.json")) {
+            const snapshot = JSON.parse(
+                await readFile(path.join(directory, file), "utf8"),
+            );
+            checks.push(...(snapshot.checks ?? []));
+        }
     captures += (await readdir(directory)).filter((f) =>
         f.endsWith(".png"),
     ).length;

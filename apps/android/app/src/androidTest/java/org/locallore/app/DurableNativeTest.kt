@@ -4,6 +4,8 @@ package org.locallore.app
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -94,5 +96,49 @@ class DurableNativeTest {
             assertEquals(0L, gateway.initialize().revision)
             assertEquals(1, gateway.snapshot().stories.size)
         } finally { gateway.close(); directory.deleteRecursively() }
+    }
+
+    @Test fun failedCancellationTransportCannotTurnRecoveryIntoACommit() = runBlocking {
+        val directory = directory(); val actual = TestTransport(File(directory, "stories.sqlite3"))
+        var failCancel = true
+        val gateway = DurableGateway(object : WorkspaceTransport {
+            override suspend fun exchange(command: JSONObject): JSONObject {
+                if (command.getString("op") == "cancel" && failCancel) { failCancel = false; error("synthetic transport failure") }
+                return actual.exchange(command)
+            }
+            override fun close() = actual.close()
+        })
+        try {
+            gateway.initialize()
+            assertTrue(gateway.respond(DemoAction.GIVE_POTION, 0, DemoMode.ACCEPTED) is DemoResult.Prepared)
+            gateway.cancel()
+            try { gateway.cancelSaved(); fail("Expected transport failure") } catch (_: IllegalStateException) { }
+            assertEquals(0L, gateway.recoverSaved().revision)
+            assertTrue(gateway.snapshot().messages.isEmpty())
+        } finally { gateway.close(); directory.deleteRecursively() }
+    }
+
+    @Test fun lateCancelledPrepareCannotClearTheReplacementOperationKey() = runBlocking {
+        val directory = directory(); val actual = TestTransport(File(directory, "stories.sqlite3"))
+        val entered = CompletableDeferred<Unit>(); val release = CompletableDeferred<Unit>()
+        var first = true
+        val gateway = DurableGateway(object : WorkspaceTransport {
+            override suspend fun exchange(command: JSONObject): JSONObject {
+                if (command.getString("op") == "prepare" && first) {
+                    first = false; entered.complete(Unit); release.await()
+                }
+                return actual.exchange(command)
+            }
+            override fun close() = actual.close()
+        })
+        try {
+            gateway.initialize()
+            val old = async { gateway.respond(DemoAction.GIVE_POTION, 0, DemoMode.ACCEPTED) }
+            entered.await(); gateway.cancel(); gateway.cancelSaved()
+            val replacement = gateway.respond(DemoAction.GIVE_POTION, 0, DemoMode.ACCEPTED)
+            release.complete(Unit); assertTrue(old.await() is DemoResult.Rejected)
+            assertTrue(gateway.commitAsync(replacement) is DemoResult.Accepted)
+            assertEquals(1L, gateway.snapshot().revision)
+        } finally { release.complete(Unit); gateway.close(); directory.deleteRecursively() }
     }
 }

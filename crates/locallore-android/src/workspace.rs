@@ -20,6 +20,27 @@ struct Lease {
     closed: AtomicBool,
     control: Mutex<()>,
 }
+impl Lease {
+    fn call(&self, bytes: &[u8]) -> Value {
+        // Generation bypasses the control gate. Host cancellation/session fences cover its
+        // completion; neither cancel nor disposal waits for the fake or future model provider.
+        let prepare = serde_json::from_slice::<Value>(bytes)
+            .ok()
+            .is_some_and(|value| value["command"]["op"] == "prepare");
+        if prepare {
+            if self.closed.load(Ordering::SeqCst) {
+                return rejected("InvalidHandle");
+            }
+            self.host.call(bytes)
+        } else {
+            let _control = self.control.lock().unwrap();
+            if self.closed.load(Ordering::SeqCst) {
+                return rejected("InvalidHandle");
+            }
+            self.host.call(bytes)
+        }
+    }
+}
 fn rejected(category: &str) -> Value {
     json!({"version":1,"status":"rejected","error":category})
 }
@@ -56,23 +77,7 @@ impl WorkspaceRegistry {
             let Some(lease) = lease else {
                 return rejected("InvalidHandle");
             };
-            // Generation bypasses the control gate. Host cancellation/session fences cover its
-            // completion; neither cancel nor disposal waits for the fake or future model provider.
-            let prepare = serde_json::from_slice::<Value>(bytes)
-                .ok()
-                .is_some_and(|value| value["command"]["op"] == "prepare");
-            if prepare {
-                if lease.closed.load(Ordering::SeqCst) {
-                    return rejected("InvalidHandle");
-                }
-                lease.host.call(bytes)
-            } else {
-                let _control = lease.control.lock().unwrap();
-                if lease.closed.load(Ordering::SeqCst) {
-                    return rejected("InvalidHandle");
-                }
-                lease.host.call(bytes)
-            }
+            lease.call(bytes)
         }))
         .unwrap_or_else(|_| rejected("Internal"));
         let reply = serde_json::to_vec(&result).unwrap_or_default();
@@ -90,6 +95,29 @@ impl WorkspaceRegistry {
             lease.closed.store(true, Ordering::SeqCst);
             lease.host.close_all();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn lease_acquired_before_close_cannot_allocate_a_new_session_after_disposal() {
+        // Ephemeral Host is sufficient to test the app lease, independently of SQLite startup.
+        let lease = Arc::new(Lease {
+            host: Host::new(false),
+            closed: AtomicBool::new(false),
+            control: Mutex::new(()),
+        });
+        let registry = WorkspaceRegistry {
+            entries: Mutex::new((1, BTreeMap::from([(1, lease.clone())]))),
+        };
+        let create = br#"{"version":1,"command":{"op":"create","seed":"lantern-quay-v1"}}"#;
+        assert_eq!(lease.call(create)["status"], "ok");
+        registry.close(1);
+        assert_eq!(lease.host.live_counts(), (0, 0));
+        assert_eq!(lease.call(create)["error"], "InvalidHandle");
+        assert_eq!(lease.host.live_counts(), (0, 0));
     }
 }
 

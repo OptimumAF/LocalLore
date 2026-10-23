@@ -109,24 +109,28 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
             return result(prepared, pending)
         } catch (failure: WorkspaceFailure) {
             // An explicit rejection before acceptance cannot create canon; transport uncertainty stays pending.
-            operation = null
+            if (failure.category in setOf("Full", "Database", "Integrity", "Io", "Internal")) throw failure
+            if (operation === pending) operation = null
             return DemoResult.Rejected(failure.category)
         }
     }
-    private fun result(data: JSONObject, pending: Pending): DemoResult = when (data.getString("phase")) {
+    private fun result(data: JSONObject, pending: Pending): DemoResult {
+        check(data.getString("turn") == pending.turn && sameScope(data.getJSONObject("scope"), pending.scope))
+        check(data.getLong("expected_revision") == pending.request.getLong("expected_revision"))
+        return when (data.getString("phase")) {
         "ready" -> DemoResult.Prepared(0, pending.serial)
         "committed" -> {
             val receipt = data.getJSONObject("receipt")
-            check(sameScope(receipt.getJSONObject("request").getJSONObject("scope"), pending.scope))
-            check(receipt.getJSONObject("request").getString("turn") == pending.turn)
-            operation = null
+            check(sameJson(receipt.getJSONObject("request"), pending.request))
+            if (operation === pending) operation = null
             DemoResult.Accepted(pending.request.getLong("expected_revision") + 1, "", receipt.getString("narration"))
         }
         "cancelled", "failed", "stale" -> {
-            operation = null
+            if (operation === pending) operation = null
             DemoResult.Rejected(data.optString("error").takeUnless { it.isBlank() || it == "null" } ?: "Cancelled")
         }
         else -> error("Unfinished")
+        }
     }
     override suspend fun commitAsync(result: DemoResult): DemoResult {
         if (result !is DemoResult.Prepared) return result
@@ -142,6 +146,14 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
     override suspend fun recoverSaved(): SavedSnapshot {
         if (session == null) return initialize()
         operation?.let { pending ->
+            if (pending.cancelled) {
+                try { result(call(scoped("cancel", pending)), pending) }
+                catch (failure: WorkspaceFailure) {
+                    if (failure.category != "UnknownTurn") throw failure
+                    if (operation === pending) operation = null
+                }
+                return snapshot()
+            }
             var status = try { call(scoped("turn_status", pending)) }
                 catch (failure: WorkspaceFailure) {
                     if (failure.category != "UnknownTurn") throw failure
@@ -160,7 +172,7 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
             pending.cancelled = true
             val status = call(scoped("cancel", pending))
             if (status.getString("phase") == "committed") result(status, pending)
-            else operation = null
+            else if (operation === pending) operation = null
         }
         return snapshot()
     }
@@ -186,3 +198,13 @@ internal class DurableGateway(private val transport: WorkspaceTransport) : DemoG
 internal class WorkspaceFailure(val category: String) : Exception("Workspace operation failed")
 private fun sameScope(left: JSONObject, right: JSONObject) =
     left.getString("story") == right.getString("story") && left.getString("branch") == right.getString("branch")
+private fun sameJson(left: Any?, right: Any?): Boolean = when {
+    left is JSONObject && right is JSONObject -> {
+        val keys = left.keys().asSequence().toSet()
+        keys == right.keys().asSequence().toSet() && keys.all { sameJson(left.get(it), right.get(it)) }
+    }
+    left is JSONArray && right is JSONArray -> left.length() == right.length() &&
+        (0 until left.length()).all { sameJson(left.get(it), right.get(it)) }
+    left is Number && right is Number -> left.toString() == right.toString()
+    else -> left == right
+}

@@ -25,7 +25,8 @@ access control and device security still apply.
 See [ADR-0006](../../docs/adr/0006-desktop-host.md),
 [host-v1](../../docs/desktop/HOST_V1.md),
 [D02 harness](../../docs/desktop/D02_HARNESS.md) and
-[verification](../../docs/desktop/D02_VERIFICATION_2026-10-22.md).
+[original D02 verification](../../docs/desktop/D02_VERIFICATION_2026-10-22.md) and
+[current-main gate](../../docs/desktop/D02_CURRENT_GATE_2026-10-22.md).
 
 ## Build and run
 

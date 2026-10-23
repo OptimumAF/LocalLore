@@ -5,6 +5,10 @@ pub const VERSION: u16 = 1;
 pub const MAX_COMMANDS: usize = 8;
 pub const MAX_TEXT_BYTES: usize = 2048;
 pub const MAX_PROPOSAL_BYTES: usize = 16_384;
+/// Complete persisted v1 root-history budgets; shared with the storage owner.
+pub const MAX_HISTORY_RECEIPTS: usize = 4096;
+pub const MAX_RECEIPT_BYTES: usize = 65_536;
+pub const MAX_HISTORY_BYTES: usize = 16 * 1024 * 1024;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -337,6 +341,9 @@ impl AcceptedEvent {
     pub fn scope(&self) -> &Scope {
         &self.scope
     }
+    pub fn witnesses(&self) -> &BTreeSet<String> {
+        &self.witnesses
+    }
 }
 
 /// Constructed only by the engine. No Deserialize or public field construction for accepted history.
@@ -349,6 +356,12 @@ pub struct Receipt {
 }
 
 impl Receipt {
+    pub fn request(&self) -> &Request {
+        &self.request
+    }
+    pub fn proposal(&self) -> &Proposal {
+        &self.proposal
+    }
     pub fn events(&self) -> &[AcceptedEvent] {
         &self.events
     }

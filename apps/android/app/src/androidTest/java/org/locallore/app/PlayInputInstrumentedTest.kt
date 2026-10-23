@@ -11,6 +11,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
+import org.json.JSONArray
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -57,7 +58,7 @@ class PlayInputInstrumentedTest {
         }
     }
 
-    @Test fun originalActionAndDialogueCommitAtomicallyAndReplayWithoutAnotherGeneration() = runBlocking {
+    @Test fun originalActionAndDialogueCommitAtomicallyAndSurviveExactRetryAndReopen() = runBlocking {
         withRecordFixture { fixture ->
             var owner = fixture.owner()
             val initial = owner.gateway.initialize()
@@ -159,7 +160,7 @@ class PlayInputInstrumentedTest {
                     val receipts = JSONObject(owner.acceptedView()).getJSONArray("receipts")
                     assertEquals(1, receipts.length())
                     val receipt = receipts.getJSONObject(0)
-                    assertEquals(JSONObject(requests.first()).toString(), receipt.getJSONObject("request").toString())
+                    assertInputJson(JSONObject(requests.first()), receipt.getJSONObject("request"))
                     assertOriginalInput(receipt, PotionInput, initial.selected, 0)
                     assertEquals(recovered.messages, gateway.recoverSaved().messages)
                     fixture.closeOwnersAndDrain()
@@ -283,6 +284,26 @@ class PlayInputInstrumentedTest {
 }
 
 internal val PotionInput = PlayInput(PlayInputKind.ACTION, "I give my last potion to Mira.")
+
+/** JSON object property order is not part of original request identity; every key/value is. */
+private fun assertInputJson(expected: Any?, actual: Any?) {
+    when (expected) {
+        is JSONObject -> {
+            assertTrue(actual is JSONObject)
+            val objectValue = actual as JSONObject
+            val keys = expected.keys().asSequence().toSet()
+            assertEquals(keys, objectValue.keys().asSequence().toSet())
+            keys.forEach { assertInputJson(expected.get(it), objectValue.get(it)) }
+        }
+        is JSONArray -> {
+            assertTrue(actual is JSONArray)
+            val arrayValue = actual as JSONArray
+            assertEquals(expected.length(), arrayValue.length())
+            for (i in 0 until expected.length()) assertInputJson(expected.get(i), arrayValue.get(i))
+        }
+        else -> assertEquals(expected, actual)
+    }
+}
 
 private fun assertOriginalInput(receipt: JSONObject, input: PlayInput, story: SavedStory, revision: Long) {
     assertEquals(2, receipt.getJSONObject("play").getInt("version"))

@@ -1,8 +1,11 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import type { EvaluationController } from "./evaluation-controller";
 const display = (v: unknown) => {
     const text = typeof v === "string" ? v : JSON.stringify(v);
-    return (text ?? "Not reported").slice(0, 4096);
+    const value = text ?? "Not reported";
+    return value.length > 4096
+        ? `${value.slice(0, 4096)} … (truncated)`
+        : value;
 };
 export function EvaluationPanel({
     controller: c,
@@ -16,8 +19,10 @@ export function EvaluationPanel({
     const s = useSyncExternalStore(c.subscribe, c.get, c.get),
         selected = c.selected(),
         turn = selected?.turns.find((t) => t.id === s.selectedTurn);
+    const [copyNotice, setCopyNotice] = useState("");
     useEffect(() => c.contextChanged(context, allowed), [c, context, allowed]);
-    if (!allowed) return null;
+    useEffect(() => setCopyNotice(""), [context]);
+    if (!allowed || !c.matchesContext(context)) return null;
     return (
         <section
             className="evaluation-panel"
@@ -84,7 +89,35 @@ export function EvaluationPanel({
                         >
                             Rerun selected built-in case
                         </button>
+                        <button
+                            disabled={!s.report || s.busy}
+                            onClick={() => {
+                                const report = s.report;
+                                if (report)
+                                    void navigator.clipboard
+                                        .writeText(
+                                            JSON.stringify(report, null, 2),
+                                        )
+                                        .then(
+                                            () => {
+                                                if (c.matchesContext(context))
+                                                    setCopyNotice(
+                                                        "Private synthetic report JSON copied.",
+                                                    );
+                                            },
+                                            () => {
+                                                if (c.matchesContext(context))
+                                                    setCopyNotice(
+                                                        "Clipboard unavailable; report JSON remains in local evaluation storage.",
+                                                    );
+                                            },
+                                        );
+                            }}
+                        >
+                            Copy synthetic report JSON
+                        </button>
                     </div>
+                    {copyNotice && <p role="status">{copyNotice}</p>}
                     <p role="status">
                         {s.busy
                             ? "Working in an isolated evaluation. Cancellation waits for the current scenario boundary."
@@ -101,6 +134,12 @@ export function EvaluationPanel({
                     )}
                     <details>
                         <summary>Retained runs</summary>
+                        <p>
+                            Opening validates stored checkpoints without
+                            rerunning scenarios and rebuilds the derived
+                            JSON/HTML report. Changed sources refuse resume.
+                            Checksums show consistency, not authorship.
+                        </p>
                         <button disabled={s.busy} onClick={() => void c.show()}>
                             Refresh run library
                         </button>
@@ -242,6 +281,10 @@ export function EvaluationPanel({
                                                 Phase {display(turn.phase)} ·
                                                 error {display(turn.error)} ·
                                                 revision {turn.revision}
+                                            </p>
+                                            <p>
+                                                Original input:{" "}
+                                                {display(turn.intent)}
                                             </p>
                                             <p>{turn.narration}</p>
                                             <p>

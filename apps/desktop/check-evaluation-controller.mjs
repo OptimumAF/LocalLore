@@ -174,6 +174,73 @@ const malformed = new EvaluationController(async (name) =>
 malformed.contextChanged("x", true);
 await malformed.start();
 assert.equal(malformed.get().error, "EvaluationInvalidReply");
+// A held native read must not publish after a new story/lens context.
+let readRelease, readEntered;
+const readReady = new Promise((r) => (readEntered = r));
+const heldRead = new EvaluationController(async (name) => {
+    if (name === "evaluation_read") {
+        readEntered();
+        return await new Promise((r) => (readRelease = r));
+    }
+    return status;
+});
+heldRead.contextChanged("first|lab|player", true);
+const oldRead = heldRead.start();
+await readReady;
+heldRead.contextChanged("second|lab|mira", true);
+readRelease({
+    version: 1,
+    run_token: token,
+    run_id: id,
+    case_id: null,
+    report,
+});
+await oldRead;
+assert.equal(heldRead.get().report, null);
+assert.equal(heldRead.get().status, null);
+// Cancel must retain the exact observed native operation, even when its reply is late.
+let cancelRelease, cancelEntered, statusRelease, statusEntered;
+const cancelReady = new Promise((r) => (cancelEntered = r)),
+    statusReady = new Promise((r) => (statusEntered = r));
+const exact = new EvaluationController(async (name, args) => {
+    if (name === "evaluation_start")
+        return {
+            ...status,
+            running: true,
+            completed: false,
+            completed_cases: 0,
+            operation_id: 7,
+        };
+    if (name === "evaluation_status") {
+        statusEntered();
+        return await new Promise((r) => (statusRelease = r));
+    }
+    if (name === "evaluation_cancel") {
+        assert.equal(args.operationId, 7);
+        cancelEntered();
+        return await new Promise((r) => (cancelRelease = r));
+    }
+    return catalog;
+});
+exact.contextChanged("old|lab|player", true);
+const original = exact.start();
+await statusReady;
+const stopping = exact.cancel();
+await cancelReady;
+exact.contextChanged("new|play|player", false);
+cancelRelease(status);
+statusRelease(status);
+await Promise.all([original, stopping]);
+assert.equal(exact.get().status, null);
+assert.equal(exact.get().error, null);
+const wrongContext = renderToStaticMarkup(
+    createElement(EvaluationPanel, {
+        controller: c,
+        context: "new-context",
+        allowed: true,
+    }),
+);
+assert.equal(wrongContext, "");
 console.log(
     "PASS: evaluation controller late catalog/start/context fencing, bounded synthetic-only decoder, report-internal source selection, inert expected/actual failure-row MOCK render and explicit unavailable D05/D06 bridges.",
 );

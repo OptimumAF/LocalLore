@@ -35,7 +35,13 @@ export async function evaluationJourneys({
     const capture = async (label: string) => {
         await new Promise((r) => setTimeout(r, 120));
         document
-            .querySelector(".evaluation-panel")
+            .querySelector(
+                label === "copy"
+                    ? ".evaluation-source"
+                    : ["receipt", "failed", "narrow"].includes(label)
+                      ? ".evaluation-case"
+                      : ".evaluation-panel",
+            )
             ?.scrollIntoView({ block: "start" });
         for (const n of document.querySelectorAll(
             ".evaluation-panel .storage-path",
@@ -152,6 +158,7 @@ export async function evaluationJourneys({
                 report.android_parity === "not_run",
             "evaluation-unmeasured-lanes-not-fabricated",
         );
+        await capture("initial");
         e.selectCase("spent-potion");
         const anchor = e.selected()!.checks.find((x) => x.turn)?.turn!;
         e.selectTurn(anchor);
@@ -160,12 +167,14 @@ export async function evaluationJourneys({
             "evaluation-source-anchor-stays-report-local",
         );
         await capture("receipt");
+        await capture("copy");
         e.selectCase("portable-archive");
         await capture("failed");
         check(
             e.selected()?.status === "unsupported",
             "evaluation-archive-is-explicitly-unsupported",
         );
+        e.selectCase("spent-potion");
         await invoke("harness_viewport", { preset: "narrow" });
         await capture("narrow");
         await invoke("harness_viewport", { preset: "wide" });

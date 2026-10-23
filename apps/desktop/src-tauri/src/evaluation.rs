@@ -50,6 +50,111 @@ mod tests {
         panic!("native evaluation did not reach boundary")
     }
     #[test]
+    fn retirement_between_admission_and_registration_drains_without_running() {
+        let (m, l, e, path) = setup();
+        let entered = Arc::new(std::sync::Barrier::new(2));
+        let release = Arc::new(std::sync::Barrier::new(2));
+        *m.before_spawn.lock().unwrap() = Some((entered.clone(), release.clone()));
+        let worker = {
+            let m = m.clone();
+            let l = l.clone();
+            std::thread::spawn(move || m.start(&l, e, None, "all"))
+        };
+        entered.wait();
+        assert!(m.registration.try_lock().is_err());
+        let closed = l.invalidate(&format!("main-{e}")).unwrap();
+        m.retire(e);
+        let close = {
+            let m = m.clone();
+            std::thread::spawn(move || m.drain(e))
+        };
+        release.wait();
+        assert_eq!(worker.join().unwrap().unwrap_err(), "Closed");
+        close.join().unwrap();
+        assert!(m.state().unwrap().job.is_none());
+        assert!(m.state().unwrap().runs.values().all(|r| r.report.is_none()));
+        for dir in fs::read_dir(&m.root).unwrap() {
+            assert!(!dir.unwrap().path().join("work").exists())
+        }
+        l.finish_close(closed, || {});
+        drop(m);
+        fs::remove_dir_all(path).unwrap();
+    }
+    #[test]
+    fn retired_worker_cannot_publish_a_snapshot() {
+        let (m, l, e, path) = setup();
+        let entered = Arc::new(std::sync::Barrier::new(2));
+        let release = Arc::new(std::sync::Barrier::new(2));
+        *m.before_publish.lock().unwrap() = Some((entered.clone(), release.clone()));
+        m.start(&l, e, None, "one").unwrap();
+        entered.wait();
+        let closed = l.invalidate(&format!("main-{e}")).unwrap();
+        m.retire(e);
+        release.wait();
+        m.drain(e);
+        assert!(m.state().unwrap().runs.values().all(|r| r.report.is_none()));
+        assert!(m.state().unwrap().job.is_none());
+        l.finish_close(closed, || {});
+        drop(m);
+        fs::remove_dir_all(path).unwrap();
+    }
+    #[test]
+    fn spawn_failure_and_worker_panic_leave_no_busy_job() {
+        let (m, l, e, path) = setup();
+        m.fail_spawn
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        assert_eq!(
+            m.start(&l, e, None, "one").unwrap_err(),
+            "EvaluationInternal"
+        );
+        assert!(m.state().unwrap().job.is_none());
+        assert!(m.state().unwrap().tokens.is_empty());
+        m.panic_worker
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        let run = m.start(&l, e, None, "one").unwrap();
+        let token = run["run_token"].as_str().unwrap();
+        assert_eq!(done(&m, &l, e, token)["error"], "EvaluationInternal");
+        assert!(m.state().unwrap().job.is_none());
+        let next = m
+            .start(&l, e, Some("portable-archive".into()), "one")
+            .unwrap();
+        assert_eq!(
+            done(&m, &l, e, next["run_token"].as_str().unwrap())["phase"],
+            "completed"
+        );
+        m.retire(e);
+        m.drain(e);
+        drop(m);
+        fs::remove_dir_all(path).unwrap();
+    }
+    #[test]
+    fn pinned_chain_prevents_ancestor_replacement_and_malformed_ids_do_no_work() {
+        let (m, l, e, path) = setup();
+        let nested = path.join("ancestor");
+        fs::create_dir(&nested).unwrap();
+        let leaf = nested.join("leaf");
+        fs::write(&leaf, b"synthetic").unwrap();
+        let pins = pin(&leaf).unwrap();
+        assert!(fs::rename(&nested, path.join("moved")).is_err());
+        drop(pins);
+        fs::rename(&nested, path.join("moved")).unwrap();
+        assert_eq!(
+            m.open(&l, e, "../other").unwrap_err(),
+            "InvalidEvaluationInput"
+        );
+        assert_eq!(
+            m.status(&l, e, &"x".repeat(200)).unwrap_err(),
+            "InvalidEvaluationInput"
+        );
+        assert_eq!(
+            m.start(&l, e, Some("x".repeat(200)), "one").unwrap_err(),
+            "InvalidEvaluationInput"
+        );
+        assert_eq!(fs::read_dir(&m.root).unwrap().count(), 0);
+        drop(m);
+        fs::remove_dir_all(path).unwrap();
+    }
+    #[test]
     fn boundary_cancel_resume_old_operation_and_retired_lease_are_fenced() {
         let (m, l, e, path) = setup();
         m.test_case("hold-boundary").unwrap();
@@ -102,11 +207,16 @@ mod tests {
         m.open(&l, e, run).unwrap();
         assert_eq!(done(&m, &l, e, token)["completed_cases"], 1);
         assert_eq!(fs::read(&file).unwrap(), original);
-        let mut changed = original;
+        let mut changed = original.clone();
         changed[0] = b'!';
         fs::write(&file, changed).unwrap();
         m.open(&l, e, run).unwrap();
         assert_eq!(done(&m, &l, e, token)["error"], "EvaluationIntegrity");
+        fs::write(&file, &original).unwrap();
+        fs::write(m.root.join(run).join("work/run.json"), b"changed binding").unwrap();
+        m.open(&l, e, run).unwrap();
+        assert_eq!(done(&m, &l, e, token)["error"], "EvaluationSourceMismatch");
+        assert_eq!(fs::read(&file).unwrap(), original);
         m.retire(e);
         m.drain(e);
         drop(m);
@@ -118,11 +228,78 @@ mod tests {
         assert_eq!(
             m.start(&l, e, Some("../../story".into()), "one")
                 .unwrap_err(),
-            "UnknownEvaluationCase"
+            "InvalidEvaluationInput"
         );
         assert_eq!(fs::read_dir(&m.root).unwrap().count(), 0);
         fs::create_dir(m.root.join("not-a-run")).unwrap();
         assert_eq!(m.catalog(&l, e).unwrap_err(), "UnsafeEvaluationPath");
+        drop(m);
+        fs::remove_dir_all(path).unwrap();
+    }
+    #[test]
+    fn token_reaping_retains_four_handles_and_never_deletes_reports() {
+        let (m, l, e, path) = setup();
+        let mut first = String::new();
+        for i in 0..5 {
+            let run = m
+                .start(&l, e, Some("portable-archive".into()), "all")
+                .unwrap();
+            let token = run["run_token"].as_str().unwrap();
+            done(&m, &l, e, token);
+            if i == 0 {
+                first = token.into()
+            }
+        }
+        assert_eq!(m.state().unwrap().tokens.len(), 4);
+        assert_eq!(m.state().unwrap().runs.len(), 5);
+        assert_eq!(m.status(&l, e, &first).unwrap_err(), "UnknownEvaluationRun");
+        assert_eq!(fs::read_dir(&m.root).unwrap().count(), 5);
+        m.retire(e);
+        m.drain(e);
+        drop(m);
+        fs::remove_dir_all(path).unwrap();
+    }
+    #[test]
+    fn boundary_budget_refuses_next_execution_and_keeps_checkpoint() {
+        let (m, l, e, path) = setup();
+        let run = m.start(&l, e, None, "one").unwrap();
+        let token = run["run_token"].as_str().unwrap();
+        done(&m, &l, e, token);
+        let dir = m.root.join(run["run_id"].as_str().unwrap());
+        let checkpoint = dir.join("work/case-00.json");
+        let before = fs::read(&checkpoint).unwrap();
+        File::create(dir.join("budget-fixture"))
+            .unwrap()
+            .set_len(RUN_BYTES + 1)
+            .unwrap();
+        m.resume(&l, e, token, "all").unwrap();
+        assert_eq!(done(&m, &l, e, token)["error"], "EvaluationBudget");
+        assert_eq!(fs::read(checkpoint).unwrap(), before);
+        assert!(!dir.join("work/case-01.json").exists());
+        m.retire(e);
+        m.drain(e);
+        drop(m);
+        fs::remove_dir_all(path).unwrap();
+    }
+    #[test]
+    fn retained_run_cap_refuses_new_directory() {
+        let (m, l, e, path) = setup();
+        for _ in 0..32 {
+            let id = uuid().unwrap();
+            let dir = m.root.join(&id);
+            fs::create_dir(&dir).unwrap();
+            fs::write(
+                dir.join("native.json"),
+                serde_json::to_vec(&json!({"version":1,"run_id":id,"selection":null,"created":1}))
+                    .unwrap(),
+            )
+            .unwrap();
+        }
+        assert_eq!(
+            m.start(&l, e, None, "all").unwrap_err(),
+            "EvaluationRunLimit"
+        );
+        assert_eq!(fs::read_dir(&m.root).unwrap().count(), 32);
         drop(m);
         fs::remove_dir_all(path).unwrap();
     }
@@ -138,26 +315,37 @@ fn valid_id(s: &str) -> bool {
         })
 }
 fn pin(path: &Path) -> Result<Vec<File>> {
+    let absolute = std::path::absolute(path).map_err(|_| "UnsafeEvaluationPath")?;
+    let mut paths: Vec<_> = absolute.ancestors().collect();
+    paths.reverse();
     let mut pins = Vec::new();
-    for p in path.ancestors() {
-        let m = fs::symlink_metadata(p).map_err(|_| "EvaluationIo")?;
-        if m.file_type().is_symlink() {
-            return Err("UnsafeEvaluationPath".into());
-        }
+    for p in paths {
         #[cfg(windows)]
         {
-            use std::os::windows::{fs::MetadataExt, fs::OpenOptionsExt};
-            if m.file_attributes() & 0x400 != 0 {
+            use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
+            // Parent handles remain pinned before every descendant lookup; reject the
+            // opened handle's reparse metadata, not a pre-open path observation.
+            let handle = OpenOptions::new()
+                .read(true)
+                .share_mode(3)
+                .custom_flags(0x0220_0000)
+                .open(p)
+                .map_err(|_| "EvaluationIo")?;
+            let metadata = handle.metadata().map_err(|_| "EvaluationIo")?;
+            if metadata.file_attributes() & 0x400 != 0 {
                 return Err("UnsafeEvaluationPath".into());
             }
-            pins.push(
-                OpenOptions::new()
-                    .read(true)
-                    .share_mode(3)
-                    .custom_flags(0x02200000)
-                    .open(p)
-                    .map_err(|_| "EvaluationIo")?,
-            );
+            pins.push(handle);
+        }
+        #[cfg(not(windows))]
+        {
+            if fs::symlink_metadata(p)
+                .map_err(|_| "EvaluationIo")?
+                .file_type()
+                .is_symlink()
+            {
+                return Err("UnsafeEvaluationPath".into());
+            }
         }
     }
     Ok(pins)
@@ -209,6 +397,12 @@ fn free_space(path: &Path) -> Result<u64> {
 }
 fn builtin_id(case: Option<&str>) -> Result<()> {
     if let Some(id) = case {
+        if id.is_empty()
+            || id.len() > 48
+            || !id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        {
+            return Err("InvalidEvaluationInput".into());
+        }
         if !locallore_eval::builtin()?
             .scenarios
             .iter()
@@ -259,6 +453,15 @@ pub struct EvaluationManager {
     root: PathBuf,
     state: Mutex<State>,
     worker: Mutex<Option<(u64, JoinHandle<()>)>>,
+    registration: Mutex<()>,
+    #[cfg(test)]
+    fail_spawn: std::sync::atomic::AtomicBool,
+    #[cfg(test)]
+    panic_worker: std::sync::atomic::AtomicBool,
+    #[cfg(test)]
+    before_spawn: Mutex<Option<(Arc<std::sync::Barrier>, Arc<std::sync::Barrier>)>>,
+    #[cfg(test)]
+    before_publish: Mutex<Option<(Arc<std::sync::Barrier>, Arc<std::sync::Barrier>)>>,
     #[cfg(any(test, feature = "dev-harness"))]
     hold: std::sync::atomic::AtomicBool,
 }
@@ -268,6 +471,15 @@ impl EvaluationManager {
             root,
             state: Mutex::new(State::default()),
             worker: Mutex::new(None),
+            registration: Mutex::new(()),
+            #[cfg(test)]
+            fail_spawn: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(test)]
+            panic_worker: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(test)]
+            before_spawn: Mutex::new(None),
+            #[cfg(test)]
+            before_publish: Mutex::new(None),
             #[cfg(any(test, feature = "dev-harness"))]
             hold: std::sync::atomic::AtomicBool::new(false),
         }
@@ -287,6 +499,7 @@ impl EvaluationManager {
         Ok(())
     }
     pub fn catalog(&self, lease: &WindowLease, epoch: u64) -> Result<Value> {
+        let _registration = self.registration.lock().map_err(|_| "EvaluationInternal")?;
         if !lease.valid(epoch) {
             return Err("Closed".into());
         }
@@ -307,12 +520,21 @@ impl EvaluationManager {
             let path = entry.path();
             let _pins = pin(&path)?;
             let metadata = path.join("native.json");
-            let _pins = pin(&metadata)?;
-            if fs::metadata(&metadata).map_err(|_| "EvaluationIo")?.len() > 4096 {
+            let pins = pin(&metadata)?;
+            let file = pins.last().ok_or("EvaluationIo")?;
+            let info = file.metadata().map_err(|_| "EvaluationIo")?;
+            if !info.is_file() || info.len() > 4096 {
                 return Err("EvaluationIntegrity".into());
             }
-            let v: Value = serde_json::from_slice(&fs::read(metadata).map_err(|_| "EvaluationIo")?)
-                .map_err(|_| "EvaluationIntegrity")?;
+            use std::io::Read;
+            let mut data = Vec::new();
+            file.take(4097)
+                .read_to_end(&mut data)
+                .map_err(|_| "EvaluationIo")?;
+            if data.len() > 4096 {
+                return Err("EvaluationIntegrity".into());
+            }
+            let v: Value = serde_json::from_slice(&data).map_err(|_| "EvaluationIntegrity")?;
             let selected = match &v["selection"] {
                 Value::Null => None,
                 Value::String(s) => Some(s.clone()),
@@ -332,8 +554,14 @@ impl EvaluationManager {
             Ok(json!({"version":1,"cases":suite.scenarios.iter().map(|x|json!({"id":x.id,"unsupported":x.unsupported})).collect::<Vec<_>>(),"runs":s.runs.iter().map(|(id,r)|json!({"run_id":id,"selection":r.selection,"created":r.created,"phase":r.phase})).collect::<Vec<_>>(),"location":self.root,"caps":{"runs":32,"tokens":4,"workers":1,"report_bytes":REPORT_BYTES,"run_boundary_bytes":RUN_BYTES,"library_boundary_bytes":ROOT_BYTES},"retention":"Private run files remain locally; no automatic expiry. Quota blocks new runs. Outside copies and OS backups are separate."}))})
     }
     fn token(s: &mut State, epoch: u64, id: &str) -> Result<String> {
+        if !valid_id(id) {
+            return Err("InvalidEvaluationInput".into());
+        }
+        let active = s.job.as_ref().map(|job| job.run.clone());
         let t = s.tokens.get_mut(id).ok_or("UnknownEvaluationRun")?;
-        if t.epoch != epoch || t.touched.elapsed() > Duration::from_secs(900) {
+        if t.epoch != epoch
+            || (t.touched.elapsed() > Duration::from_secs(900) && active.as_ref() != Some(&t.run))
+        {
             return Err("UnknownEvaluationRun".into());
         }
         t.touched = Instant::now();
@@ -352,7 +580,15 @@ impl EvaluationManager {
             return Ok(id.clone());
         }
         if s.tokens.values().filter(|t| t.epoch == epoch).count() >= 4 {
-            return Err("EvaluationTokenLimit".into());
+            // Admission has established no active job. Reap one idle handle, never files.
+            let oldest = s
+                .tokens
+                .iter()
+                .filter(|(_, t)| t.epoch == epoch)
+                .min_by_key(|(_, t)| t.touched)
+                .map(|(id, _)| id.clone())
+                .ok_or("EvaluationTokenLimit")?;
+            s.tokens.remove(&oldest);
         }
         let id = uuid()?;
         s.tokens.insert(
@@ -386,6 +622,7 @@ impl EvaluationManager {
         token: &str,
         case: Option<&str>,
     ) -> Result<Value> {
+        builtin_id(case)?;
         lease.dispatch(epoch, || {
             let mut s = self.state()?;
             let run = Self::token(&mut s, epoch, token)?;
@@ -413,6 +650,9 @@ impl EvaluationManager {
         token: &str,
         operation: u64,
     ) -> Result<Value> {
+        if operation == 0 || operation > 9_007_199_254_740_991 {
+            return Err("InvalidEvaluationInput".into());
+        }
         lease.dispatch(epoch, || {
             let mut s = self.state()?;
             let run = Self::token(&mut s, epoch, token)?;
@@ -443,6 +683,9 @@ impl EvaluationManager {
         epoch: u64,
         run: &str,
     ) -> Result<Value> {
+        if !valid_id(run) {
+            return Err("InvalidEvaluationInput".into());
+        }
         self.catalog(lease, epoch)?;
         self.admit(lease, epoch, Some(run.to_owned()), None, "one", true)
     }
@@ -483,182 +726,112 @@ impl EvaluationManager {
         }
         let all = batch == "all";
         self.budget(None)?;
-        let (run, token, id, cancel, resume, selection) = lease.dispatch(epoch, || {
-            let mut s = self.state()?;
-            if s.job.is_some() {
+        // Drain old finished handles without holding any admission/lease/state/worker
+        // lock. Reacquire registration and recheck admission after every such join.
+        loop {
+            let registration = self.registration.lock().map_err(|_| "EvaluationInternal")?;
+            if self.state()?.job.is_some() {
                 return Err("EvaluationBusy".into());
             }
-            let resume = existing.is_some();
-            let run = if let Some(id) = existing {
-                if !s.runs.contains_key(&id) {
-                    return Err("UnknownEvaluationRun".into());
+            let previous = self.worker.lock().map_err(|_| "EvaluationInternal")?.take();
+            if let Some((_, handle)) = previous {
+                drop(registration);
+                handle.join().map_err(|_| "EvaluationInternal")?;
+                continue;
+            }
+            let answer=lease.dispatch(epoch,||{
+                let (run,token,id,cancel,resume,selection)={
+                    let mut s=self.state()?;
+                    if s.job.is_some(){return Err("EvaluationBusy".into())}
+                    let resume=existing.is_some();
+                    let run=if let Some(id)=existing.clone(){if !valid_id(&id)||!s.runs.contains_key(&id){return Err("UnknownEvaluationRun".into())}id}else{
+                        if s.runs.len()>=32{return Err("EvaluationRunLimit".into())}
+                        let id=uuid()?;let directory=self.root.join(&id);let _parent=pin(&self.root)?;
+                        fs::create_dir(&directory).map_err(|_|"EvaluationIo")?;let _pins=pin(&directory)?;
+                        let created=SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_|"EvaluationIo")?.as_millis() as u64;
+                        let data=serde_json::to_vec(&json!({"version":1,"run_id":id,"selection":selection,"created":created})).map_err(|_|"EvaluationInternal")?;
+                        OpenOptions::new().write(true).create_new(true).open(directory.join("native.json")).and_then(|mut f|f.write_all(&data).and_then(|_|f.sync_all())).map_err(|_|"EvaluationIo")?;
+                        s.runs.insert(id.clone(),Run{selection:selection.clone(),created,report:None,phase:"starting".into(),error:None});id
+                    };
+                    let token=Self::mint(&mut s,epoch,run.clone())?;s.next+=1;let id=s.next;
+                    if id>9_007_199_254_740_991{return Err("EvaluationBudget".into())}
+                    let cancel=Cancellation::default();if recover{cancel.cancel()}
+                    let r=s.runs.get_mut(&run).ok_or("EvaluationInternal")?;r.phase=if recover{"validating_checkpoints"}else{"running"}.into();r.error=None;let selected=r.selection.clone();
+                    s.job=Some(Job{epoch,id,run:run.clone(),cancel:cancel.clone()});(run,token,id,cancel,resume,selected)
+                };
+                #[cfg(test)]
+                if let Some((entered,release))=self.before_spawn.lock().unwrap().take(){entered.wait();release.wait();}
+                let (start,registered)=std::sync::mpsc::channel();let manager=self.clone();let lease_copy=lease.clone();let run_copy=run.clone();
+                let work=move||{
+                    if registered.recv().is_err(){return}
+                    let result=std::panic::catch_unwind(std::panic::AssertUnwindSafe(||->Result<()> {
+                        #[cfg(test)] if manager.panic_worker.swap(false,std::sync::atomic::Ordering::SeqCst){panic!("fixed synthetic worker panic")}
+                        if !lease_copy.valid(epoch){return Err("Closed".into())}
+                        let path=manager.root.join(&run_copy);let _pins=pin(&path)?;let directory=path.join("work");let mut resume=resume;
+                        loop{
+                            if !lease_copy.valid(epoch){break}
+                            manager.budget(Some(&path))?;
+                            let report=locallore_eval::run_builtin(&directory,resume,selection.as_deref(),&cancel,1).map_err(category)?;
+                            let data=serde_json::to_value(report).map_err(|_|"EvaluationInternal")?;
+                            if serde_json::to_vec(&data).map_err(|_|"EvaluationInternal")?.len()>REPORT_BYTES{return Err("EvaluationBudget".into())}
+                            let complete=data["completed"]==true;
+                            #[cfg(test)] if let Some((entered,release))=manager.before_publish.lock().unwrap().take(){entered.wait();release.wait();}
+                            // The same control gate used by window retirement rejects every
+                            // late snapshot. Checkpoints may finish; revoked UI data may not.
+                            lease_copy.dispatch(epoch,||{let mut s=manager.state()?;if s.job.as_ref().is_some_and(|j|j.id==id&&j.epoch==epoch){s.runs.get_mut(&run_copy).ok_or("EvaluationInternal")?.report=Some(data);Ok(())}else{Err("Closed".into())}})?;
+                            manager.budget(Some(&path))?;
+                            #[cfg(any(test,feature="dev-harness"))] while manager.hold.load(std::sync::atomic::Ordering::SeqCst)&&!cancel.is_cancelled()&&lease_copy.valid(epoch){std::thread::sleep(Duration::from_millis(10));}
+                            if complete||!all||recover||cancel.is_cancelled()||!lease_copy.valid(epoch){break}resume=true;
+                        }Ok(())
+                    })).unwrap_or_else(|_|Err("EvaluationInternal".into()));
+                    let _=lease_copy.dispatch(epoch,||{let mut s=manager.state()?;if s.job.as_ref().is_some_and(|j|j.id==id&&j.epoch==epoch){let r=s.runs.get_mut(&run_copy).ok_or("EvaluationInternal")?;r.phase=if result.is_err(){"error"}else if r.report.as_ref().is_some_and(|r|r["completed"]==true){"completed"}else{"paused"}.into();r.error=result.clone().err();}Ok(())});
+                    // Terminal ownership cleanup also works after lease retirement and
+                    // poisoned-state panics. It never publishes a new report.
+                    let mut s=manager.state.lock().unwrap_or_else(|poison|poison.into_inner());
+                    if s.job.as_ref().is_some_and(|j|j.id==id&&j.epoch==epoch){if !lease_copy.valid(epoch){if let Some(r)=s.runs.get_mut(&run_copy){r.phase="retained".into()}}s.job=None;}
+                };
+                #[cfg(test)] let failed=self.fail_spawn.swap(false,std::sync::atomic::Ordering::SeqCst);
+                #[cfg(not(test))] let failed=false;
+                let spawned=if failed{Err(std::io::Error::other("fixed synthetic spawn refusal"))}else{std::thread::Builder::new().name("locallore-evaluation".into()).spawn(work)};
+                match spawned {
+                    Ok(handle)=>{*self.worker.lock().unwrap_or_else(|p|p.into_inner())=Some((epoch,handle));let _=start.send(());}
+                    Err(_)=>{let mut s=self.state()?;if s.job.as_ref().is_some_and(|j|j.id==id&&j.epoch==epoch){s.job=None;s.tokens.remove(&token);if let Some(r)=s.runs.get_mut(&run){r.phase="error".into();r.error=Some("EvaluationInternal".into())}}return Err("EvaluationInternal".into())}
                 }
-                id
-            } else {
-                if s.runs.len() >= 32 {
-                    return Err("EvaluationRunLimit".into());
-                }
-                let id = uuid()?;
-                let directory = self.root.join(&id);
-                fs::create_dir(&directory).map_err(|_| "EvaluationIo")?;
-                let _pins = pin(&directory)?;
-                let created = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map_err(|_| "EvaluationIo")?
-                    .as_millis() as u64;
-                let bytes = serde_json::to_vec(
-                    &json!({"version":1,"run_id":id,"selection":selection,"created":created}),
-                )
-                .map_err(|_| "EvaluationInternal")?;
-                OpenOptions::new()
-                    .write(true)
-                    .create_new(true)
-                    .open(directory.join("native.json"))
-                    .and_then(|mut f| f.write_all(&bytes).and_then(|_| f.sync_all()))
-                    .map_err(|_| "EvaluationIo")?;
-                s.runs.insert(
-                    id.clone(),
-                    Run {
-                        selection: selection.clone(),
-                        created,
-                        report: None,
-                        phase: "starting".into(),
-                        error: None,
-                    },
-                );
-                id
-            };
-            let token = Self::mint(&mut s, epoch, run.clone())?;
-            s.next += 1;
-            let id = s.next;
-            if id > 9_007_199_254_740_991 {
-                return Err("EvaluationBudget".into());
-            }
-            let cancel = Cancellation::default();
-            if recover {
-                cancel.cancel()
-            }
-            let r = s.runs.get_mut(&run).unwrap();
-            r.phase = if recover {
-                "validating_checkpoints"
-            } else {
-                "running"
-            }
-            .into();
-            r.error = None;
-            let selected = r.selection.clone();
-            s.job = Some(Job {
-                epoch,
-                id,
-                run: run.clone(),
-                cancel: cancel.clone(),
+                let s=self.state()?;Self::snapshot(&s,&run,&token)
             });
-            Ok((run, token, id, cancel, resume, selected))
-        })?;
-        let manager = self.clone();
-        let run_copy = run.clone();
-        let lease_copy = lease.clone();
-        let handle = std::thread::spawn(move || {
-            let result = (|| -> Result<()> {
-                let path = manager.root.join(&run_copy);
-                let _pins = pin(&path)?;
-                let work = path.join("work");
-                let mut resume = resume;
-                loop {
-                    manager.budget(Some(&path))?;
-                    let report = locallore_eval::run_builtin(
-                        &work,
-                        resume,
-                        selection.as_deref(),
-                        &cancel,
-                        1,
-                    )
-                    .map_err(category)?;
-                    let data = serde_json::to_value(report).map_err(|_| "EvaluationInternal")?;
-                    if serde_json::to_vec(&data)
-                        .map_err(|_| "EvaluationInternal")?
-                        .len()
-                        > REPORT_BYTES
-                    {
-                        return Err("EvaluationBudget".into());
-                    }
-                    let complete = data["completed"] == true;
-                    {
-                        let mut s = manager.state()?;
-                        if s.job
-                            .as_ref()
-                            .is_some_and(|j| j.id == id && j.epoch == epoch)
-                        {
-                            s.runs.get_mut(&run_copy).unwrap().report = Some(data);
-                        }
-                    }
-                    manager.budget(Some(&path))?;
-                    #[cfg(any(test, feature = "dev-harness"))]
-                    while manager.hold.load(std::sync::atomic::Ordering::SeqCst)
-                        && !cancel.is_cancelled()
-                    {
-                        std::thread::sleep(Duration::from_millis(10));
-                    }
-                    if complete
-                        || !all
-                        || recover
-                        || cancel.is_cancelled()
-                        || !lease_copy.valid(epoch)
-                    {
-                        break;
-                    }
-                    resume = true;
-                }
-                Ok(())
-            })();
-            if let Ok(mut s) = manager.state() {
-                if s.job
-                    .as_ref()
-                    .is_some_and(|j| j.id == id && j.epoch == epoch)
-                {
-                    let r = s.runs.get_mut(&run_copy).unwrap();
-                    r.phase = if result.is_err() {
-                        "error"
-                    } else if r.report.as_ref().is_some_and(|r| r["completed"] == true) {
-                        "completed"
-                    } else {
-                        "paused"
-                    }
-                    .into();
-                    r.error = result.err();
-                    s.job = None;
-                }
-            }
-        });
-        let old = self
-            .worker
-            .lock()
-            .map_err(|_| "EvaluationInternal")?
-            .replace((epoch, handle));
-        if let Some((_, h)) = old {
-            h.join().map_err(|_| "EvaluationInternal")?;
+            drop(registration);
+            return if lease.valid(epoch) {
+                answer
+            } else {
+                Err("Closed".into())
+            };
         }
-        self.status(lease, epoch, &token)
     }
     pub fn retire(&self, epoch: u64) {
-        if let Ok(mut s) = self.state() {
+        // Destroyed must never wait for admission IO or a worker. The lease was
+        // synchronously invalidated already; the worker checks it at boundaries.
+        if let Ok(mut s) = self.state.try_lock() {
             s.tokens.retain(|_, t| t.epoch != epoch);
             if let Some(j) = s.job.as_ref().filter(|j| j.epoch == epoch) {
-                j.cancel.cancel();
+                j.cancel.cancel()
             }
         }
     }
     pub fn drain(&self, epoch: u64) {
-        let old = self.worker.lock().ok().and_then(|mut h| {
-            if h.as_ref().is_some_and(|(e, _)| *e == epoch) {
-                h.take()
+        let old = {
+            let _registration = self.registration.lock().unwrap_or_else(|p| p.into_inner());
+            let mut slot = self.worker.lock().unwrap_or_else(|p| p.into_inner());
+            if slot.as_ref().is_some_and(|(e, _)| *e == epoch) {
+                slot.take()
             } else {
                 None
             }
-        });
-        if let Some((_, h)) = old {
-            let _ = h.join();
+        };
+        if let Some((_, handle)) = old {
+            let _ = handle.join();
         }
+        let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
+        state.tokens.retain(|_, t| t.epoch != epoch);
     }
     #[cfg(any(test, feature = "dev-harness"))]
     pub fn test_case(&self, case: &str) -> Result<Value> {

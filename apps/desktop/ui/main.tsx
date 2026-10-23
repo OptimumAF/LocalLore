@@ -40,6 +40,17 @@ const evaluation = new EvaluationController(invoke);
 const base = new IpcGateway(invoke, errors),
     gateway = driver ? new driver.FaultGateway(base) : base,
     controller = new Controller(gateway, errors);
+// Invalidate evaluation replies before React observes a changed story/lens/Play
+// context. Evaluation is independent of gameplay; no gameplay controller changes.
+const syncEvaluationContext = () => {
+    const s = controller.get();
+    evaluation.contextChanged(
+        `${s.selectedId}|${s.view}|${s.observer}`,
+        s.view === "lab",
+    );
+};
+const releaseEvaluationContext = controller.subscribe(syncEvaluationContext);
+syncEvaluationContext();
 const onError = () => errors.add("frontend", "UnhandledError");
 window.addEventListener("error", onError);
 window.addEventListener("unhandledrejection", onError);
@@ -49,6 +60,7 @@ const root = createRoot(document.getElementById("root")!, {
 });
 root.render(<App controller={controller} evaluation={evaluation} />);
 const dispose = async () => {
+    releaseEvaluationContext();
     evaluation.dispose();
     await controller.dispose();
     root.unmount();

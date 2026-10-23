@@ -39,6 +39,9 @@ export class EvaluationController {
     private listeners = new Set<() => void>();
     constructor(private invoke: EvaluationInvoke) {}
     get = () => this.state;
+    matchesContext(context: string) {
+        return this.context === context;
+    }
     subscribe = (f: () => void) => {
         this.listeners.add(f);
         return () => {

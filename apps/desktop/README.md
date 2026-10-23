@@ -84,7 +84,7 @@ development browser. Native harness rendering requires only installed WebView2.
 The harness commands launch their own hidden native app or headless browser,
 exercise the same controller. The durable native journey uses one synthetic SQLite
 database through app-owned WebView close/reopen and a separate executable process
-restart. The legacy D02 journeys explicitly retain memory fixtures. All runners and save synthetic JSON plus app-only PNGs under
+restart. The legacy D02 journeys explicitly retain memory fixtures. All runners save synthetic JSON plus app-only PNGs under
 ignored `artifacts/`. They never activate a window, inject desktop input or
 capture the desktop. Native and headless evidence are labeled separately.
 

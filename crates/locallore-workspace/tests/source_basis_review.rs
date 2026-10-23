@@ -328,3 +328,81 @@ fn direct_bound_paths_retain_exact_original_request_mismatch_guard() {
     }
     unchanged(&fixture, &original, a.request(), &bytes);
 }
+
+// Added for the new 55c8641 admission API; these are not pre-fix RED executions.
+#[test]
+fn direct_bound_begin_refuses_replacement_before_adopting_existing_draft() {
+    let (fixture, mut store, original) = initial();
+    let basis = original.accepted_history_basis().unwrap();
+    let candidate = preview(&original, "admission-replacement", 1);
+    let changed = replacement(&fixture, &mut store, &original, candidate.request());
+    let bytes = std::fs::read(fixture.path()).unwrap();
+    assert!(matches!(
+        store.begin_bound(candidate.request(), &basis),
+        Err(TurnError::Stale)
+    ));
+    unchanged(&fixture, &changed, candidate.request(), &bytes);
+    let new = preview(&original, "not-admitted-on-replacement", 1);
+    assert!(matches!(
+        store.begin_bound(new.request(), &basis),
+        Err(TurnError::Stale)
+    ));
+    assert!(matches!(
+        store.turn_status(new.request()),
+        Err(TurnError::UnknownTurn)
+    ));
+    unchanged(&fixture, &changed, candidate.request(), &bytes);
+}
+
+#[test]
+fn direct_bound_begin_rejects_shorter_request_basis_without_inserting() {
+    let fixture = Fixture::new();
+    let empty = create(&fixture);
+    let shorter = empty.accepted_history_basis().unwrap();
+    let mut store = fixture.store();
+    let current = commit(&mut store, &empty, "admission-prefix");
+    let candidate = preview(&current, "admission-later-request", 1);
+    let bytes = std::fs::read(fixture.path()).unwrap();
+    assert!(current.matches_accepted_history(&shorter).unwrap());
+    assert!(matches!(
+        store.begin_bound(candidate.request(), &shorter),
+        Err(TurnError::Stale)
+    ));
+    assert!(matches!(
+        store.turn_status(candidate.request()),
+        Err(TurnError::UnknownTurn)
+    ));
+    assert_eq!(std::fs::read(fixture.path()).unwrap(), bytes);
+    assert_eq!(
+        store.resume(current.scope()).unwrap().engine.receipts(),
+        current.receipts()
+    );
+}
+
+#[test]
+fn direct_bound_begin_admits_and_retries_exact_request_and_committed_winner() {
+    let (fixture, mut store, original) = initial();
+    let basis = original.accepted_history_basis().unwrap();
+    let candidate = preview(&original, "admission-winner", 1);
+    let draft = store.begin_bound(candidate.request(), &basis).unwrap();
+    assert_eq!(draft.phase, TurnPhase::Draft);
+    assert_eq!(draft.request, *candidate.request());
+    assert!(draft.receipt.is_none());
+    let bytes = std::fs::read(fixture.path()).unwrap();
+    let retry = store.begin_bound(candidate.request(), &basis).unwrap();
+    assert_eq!(retry.phase, TurnPhase::Draft);
+    assert_eq!(retry.request, *candidate.request());
+    let mismatch = preview(&original, "admission-winner", 2);
+    assert!(matches!(
+        store.begin_bound(mismatch.request(), &basis),
+        Err(TurnError::RetryMismatch)
+    ));
+    unchanged(&fixture, &original, candidate.request(), &bytes);
+    let winner = store.commit_prepared_bound(&candidate, &basis).unwrap();
+    let bytes = std::fs::read(fixture.path()).unwrap();
+    let retry = store.begin_bound(candidate.request(), &basis).unwrap();
+    assert_eq!(retry.phase, TurnPhase::Committed);
+    assert_eq!(retry.request, *candidate.request());
+    assert_eq!(retry.receipt, Some(winner));
+    assert_eq!(std::fs::read(fixture.path()).unwrap(), bytes);
+}

@@ -6,6 +6,7 @@ from unittest.mock import patch
 from types import SimpleNamespace
 
 import android_runtime_spike as spike
+import android_control_probe as control
 
 
 def envelope(metrics=None, output=None):
@@ -22,6 +23,19 @@ def envelope(metrics=None, output=None):
 
 
 class SdkEnvelopeTests(unittest.TestCase):
+    def test_probe_retains_failed_attempt_when_fresh_recovery_also_fails(self):
+        rows = []
+        failed = spike.RemoteResult("setup_failed", 1, True, failure_stage="native_create_run")
+        native = SimpleNamespace(run=unittest.mock.Mock(return_value=failed))
+        with patch.object(spike, "NativeWorker", return_value=native), \
+                patch.object(control, "fixture_ok", side_effect=spike.Failure("PRIVATE-731")):
+            with self.assertRaises(spike.Failure):
+                control.probes(None, "owner", "oracle", "1" * 64, rows)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["failure_stage"], "native_create_run")
+        self.assertFalse(rows[0]["passed"])
+        self.assertNotIn("PRIVATE-731", json.dumps(rows))
+
     def test_diagnostic_oracle_failure_keeps_stage_and_never_launches_sdk(self):
         sdk = SimpleNamespace(run=unittest.mock.Mock())
         native = SimpleNamespace(run=lambda *args, **kwargs: spike.RemoteResult(

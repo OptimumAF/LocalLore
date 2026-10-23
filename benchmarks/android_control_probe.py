@@ -66,44 +66,47 @@ def probes(device, owner, oracle, apk_sha256, rows):
     for fault, phase in (("create_run", "native_create_run"), ("link_worker", "native_link_worker"),
                          ("write_request", "native_write_request")):
         injected = InjectedDevice(device, fault)
+        row = {"check": "native_" + fault, "injected": True, "passed": False}
+        rows.append(row)
         result = spike.NativeWorker(injected, owner).run(oracle, ["fixture", "gift"], deadline=10)
+        row.update(spike.remote_metadata(result))
         absent = False
         if injected.run_directory:
             device.script("[ ! -e " + shlex.quote(injected.run_directory) + " ]")
             absent = True
         recovered = fixture_ok(native, oracle)
-        row = dict(check="native_" + fault, injected=True, **spike.remote_metadata(result),
-                   launcher_calls=injected.launches, owned_directory_absent=absent, fresh_fixture_valid=recovered)
+        row.update(launcher_calls=injected.launches, owned_directory_absent=absent, fresh_fixture_valid=recovered)
         row["passed"] = bool(result.status == "setup_failed" and result.failure_stage == phase
             and result.cleanup_complete and result.adb_cleanup_complete and absent and recovered
             and injected.launches == 0 and (fault == "create_run" or result.directory_cleanup_complete))
-        rows.append(row)
-    for fault, mode, phase in (("clean_start", "metadata", "sdk_stop_command"),
+    for fault, mode, phase in (("clean_start", "missing", "sdk_stop_command"),
                                ("sdk_request", "generate", "sdk_write_request"),
-                               ("final_stop", "metadata", "sdk_stop_command")):
+                               ("final_stop", "missing", "sdk_stop_command")):
         injected = InjectedDevice(device, fault)
+        row = {"check": "sdk_" + fault, "injected": True, "passed": False}
+        rows.append(row)
         fixture = spike.oracle(native, oracle, "fixture", "gift")
         if not fixture or not isinstance(fixture.get("director"), dict):
             raise spike.Failure("fixture_failed", command_cleaned=True)
         data = json.dumps(fixture["director"]).encode("utf-8")
         result = spike.SdkWorker(injected, apk_sha256, mode).run("unused", [], data, deadline=30)
+        row.update(spike.remote_metadata(result))
         # Explicit recovery follows the retained fault result; it does not relabel it completed.
-        recovered = spike.sdk_diagnostic(spike.SdkWorker(device, apk_sha256, "metadata"), native, oracle, "metadata")
-        row = dict(check="sdk_" + fault, injected=True, **spike.remote_metadata(result),
-                   launcher_calls=injected.launches, output_discarded=result.stdout == b"" and result.metrics == {},
-                   fresh_metadata_valid=recovered.get("check_passed") is True)
+        recovered = spike.sdk_diagnostic(spike.SdkWorker(device, apk_sha256, "missing"), native, oracle, "missing")
+        row.update(launcher_calls=injected.launches, output_discarded=result.stdout == b"" and result.metrics == {},
+                   fresh_missing_valid=recovered.get("check_passed") is True)
         if fault == "final_stop":
             passed = (result.status == "cleanup_failed" and result.cleanup_failure_stage == phase
                       and not result.cleanup_complete and injected.launches == 1)
         else:
             passed = (result.status == "setup_failed" and result.failure_stage == phase and result.cleanup_complete
                       and result.adb_cleanup_complete and result.directory_cleanup_complete and injected.launches == 0)
-        row["passed"] = bool(passed and row["output_discarded"] and row["fresh_metadata_valid"])
-        rows.append(row)
+        row["passed"] = bool(passed and row["output_discarded"] and row["fresh_missing_valid"])
     for number in range(3):
+        row = {"check": "sdk_corrupt", "repetition": number + 1, "injected": False, "passed": False}
+        rows.append(row)
         report = spike.sdk_diagnostic(spike.SdkWorker(device, apk_sha256, "corrupt"), native, oracle, "corrupt")
-        rows.append(dict(check="sdk_corrupt", repetition=number + 1, injected=False, result=report,
-                         passed=report.get("check_passed") is True and report.get("directory_cleanup_complete") is True))
+        row.update(result=report, passed=report.get("check_passed") is True and report.get("directory_cleanup_complete") is True)
 
 
 def main():

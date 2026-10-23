@@ -163,6 +163,29 @@ class BranchForkControllerTest {
         assertEquals(listOf(Input), gateway.lookups)
         assertTrue(controller.state.value.lookupOnly)
     }
+    @Test fun refreshFailureAfterSynchronousContextChangeCannotLabelTheNewContext(): Unit = runTest {
+        for (cancelled in listOf(false, true)) {
+            val gateway = Gateway(); val accepted = mutableListOf<BranchForkOutcome>()
+            val replacement = Context.copy(session = "session-b", parent = ForkScope("story-b", "main"), epoch = 1)
+            lateinit var controller: BranchForkController
+            controller = BranchForkController(this, gateway, {}, { outcome ->
+                accepted += outcome
+                controller.contextChanged(replacement)
+                if (cancelled) throw kotlinx.coroutines.CancellationException("PRIVATE old callback")
+                else error("PRIVATE old callback")
+            })
+            controller.contextChanged(Context); controller.prepare(0, "fixed-child")
+            controller.confirm(controller.state.value.input!!, true); advanceUntilIdle()
+            assertEquals(listOf(outcome(Input)), accepted)
+            assertEquals(listOf(41L), gateway.runs)
+            assertEquals(replacement, controller.state.value.context)
+            assertFalse(controller.state.value.visible)
+            assertNull(controller.state.value.outcome)
+            assertNull("Old refresh failure must not label the new context", controller.state.value.notice)
+            assertFalse(controller.state.value.busy)
+            controller.dispose()
+        }
+    }
     private class Gateway : BranchForkGateway {
         val registrations = mutableListOf<Pair<BranchForkContext, BranchForkInput>>()
         val runs = mutableListOf<Long>(); val statuses = mutableListOf<Long>(); val lookups = mutableListOf<BranchForkInput>()

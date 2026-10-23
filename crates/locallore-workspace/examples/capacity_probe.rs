@@ -48,8 +48,8 @@ fn run(directory: PathBuf, prefix: usize, expect_full: bool) -> Result<Value, &'
     let host = locallore_workspace::open(&path, false).map_err(|_| "open")?;
     let workspace = call(&host, json!({"op":"workspace"}));
     require(
-        workspace["status"] == "ok" && workspace["data"]["database_schema_version"] == 3,
-        "schema3",
+        workspace["status"] == "ok" && workspace["data"]["database_schema_version"] == 4,
+        "schema4",
     )?;
     let created = call(&host, json!({"op":"create","seed":"lantern-quay-v1"}));
     require(created["status"] == "ok", "create")?;
@@ -173,7 +173,7 @@ fn run(directory: PathBuf, prefix: usize, expect_full: bool) -> Result<Value, &'
         require(reopened_key == committed, "reopened_receipt")?;
     }
     Ok(
-        json!({"version":2,"database_schema_version":3,"page_bytes":4096,
+        json!({"version":2,"database_schema_version":4,"page_bytes":4096,
         "initial_pages":initial_bytes / 4096,"draft_pages":after_draft / 4096,
         "ready_pages":after_ready / 4096,"commit_pages":after_commit / 4096,
         "prefix":prefix,"dialogue_bytes":2048,"turn_id_bytes":36,

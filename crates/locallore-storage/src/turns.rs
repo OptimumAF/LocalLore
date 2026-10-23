@@ -73,7 +73,17 @@ fn sql_revision(value: u64) -> Result<i64> {
 pub(crate) fn read_engine(connection: &Connection, scope: &Scope) -> Result<ResumedStory> {
     read_engine_budget(connection, scope).map(|(story, _, _)| story)
 }
+pub(crate) fn read_engine_retained(connection: &Connection, scope: &Scope) -> Result<ResumedStory> {
+    read_retained_budget(connection, scope).map(|(story, _, _)| story)
+}
 fn read_engine_budget(
+    connection: &Connection,
+    scope: &Scope,
+) -> Result<(ResumedStory, usize, usize)> {
+    crate::retention_state::admit(connection, scope)?;
+    read_retained_budget(connection, scope)
+}
+fn read_retained_budget(
     connection: &Connection,
     scope: &Scope,
 ) -> Result<(ResumedStory, usize, usize)> {

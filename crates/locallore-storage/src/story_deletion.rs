@@ -16,7 +16,8 @@ use std::{
     time::SystemTime,
 };
 
-const TABLES: [&str; 9] = [
+const TABLES: [&str; 10] = [
+    "branch_retention",
     "derived_memory",
     "event_witnesses",
     "accepted_events",
@@ -118,7 +119,7 @@ impl From<StorageError> for DeletionError {
 type Result<T> = std::result::Result<T, DeletionError>;
 
 #[derive(Clone, PartialEq, Eq)]
-struct FileStamp {
+pub(crate) struct FileStamp {
     len: u64,
     modified: Option<SystemTime>,
     created: Option<SystemTime>,
@@ -130,7 +131,7 @@ struct FileStamp {
     #[cfg(windows)]
     attributes: u32,
 }
-fn database(connection: &Connection) -> Result<(PathBuf, FileStamp)> {
+pub(crate) fn database(connection: &Connection) -> Result<(PathBuf, FileStamp)> {
     let path = connection
         .path()
         .filter(|p| !p.is_empty())
@@ -169,7 +170,7 @@ fn database(connection: &Connection) -> Result<(PathBuf, FileStamp)> {
         },
     ))
 }
-fn check(cancel: &dyn Fn() -> bool) -> Result<()> {
+pub(crate) fn check(cancel: &dyn Fn() -> bool) -> Result<()> {
     if catch_unwind(AssertUnwindSafe(cancel)).unwrap_or(true) {
         Err(DeletionError::Cancelled)
     } else {
@@ -183,7 +184,7 @@ fn valid_id(value: &str) -> bool {
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b"-_".contains(&b))
 }
-fn data_version(connection: &Connection) -> Result<i64> {
+pub(crate) fn data_version(connection: &Connection) -> Result<i64> {
     Ok(connection.pragma_query_value(None, "data_version", |r| r.get(0))?)
 }
 fn count(connection: &Connection, table: &str, story: &str) -> Result<u64> {
@@ -238,7 +239,7 @@ fn preview(
     // Replay all timelines. Derived projections alone do not authorize deletion.
     for branch in branch_heads.keys() {
         check(cancel)?;
-        crate::turns::read_engine(
+        crate::turns::read_engine_retained(
             connection,
             &Scope {
                 story: scope.story.clone(),

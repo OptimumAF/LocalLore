@@ -6,6 +6,7 @@ pub mod archive_capacity_fixture;
 mod archive_full_tests;
 mod branch_catalog;
 mod branches;
+mod retention_state;
 pub use branch_catalog::{BranchCatalog, BranchSummary};
 mod story_deletion;
 pub use story_deletion::{
@@ -33,7 +34,7 @@ use std::{
 };
 pub use turns::{ResumedStory, TurnError, TurnPhase, TurnRecord};
 
-pub const SCHEMA_VERSION: u32 = 2;
+pub const SCHEMA_VERSION: u32 = 3;
 pub const MAX_INSPECTION_DATABASE_BYTES: u64 = 64 * 1024 * 1024;
 const APPLICATION_ID: u32 = 0x4c4c4f52;
 const SCHEMA: &str = include_str!("../migrations/001_initial.sql");
@@ -142,6 +143,9 @@ fn verify_version(connection: &Connection, version: u32) -> Result<()> {
     if version >= 2 {
         reference.execute_batch(derived_memory::DERIVED_SCHEMA_SQL)?;
     }
+    if version >= 3 {
+        reference.execute_batch(retention_state::SCHEMA_SQL)?;
+    }
     if schema_rows(connection)? != schema_rows(&reference)? {
         return Err(StorageError::SchemaMismatch);
     }
@@ -155,6 +159,9 @@ fn verify_version(connection: &Connection, version: u32) -> Result<()> {
     let mut expected = vec![(1, "locallore-storage-v1".to_owned())];
     if version >= 2 {
         expected.push((2, "locallore-storage-v2-derived-memory".to_owned()));
+    }
+    if version >= 3 {
+        expected.push((3, "locallore-storage-v3-branch-retention".to_owned()));
     }
     if contracts != expected {
         return Err(StorageError::SchemaMismatch);
@@ -240,12 +247,16 @@ fn consistent_backup(source: &Connection, path: &Path) -> Result<()> {
 fn initialize(connection: &Connection, sql: &str) -> Result<()> {
     connection.execute_batch(sql)?;
     connection.execute_batch(derived_memory::DERIVED_SCHEMA_SQL)?;
+    connection.execute_batch(retention_state::SCHEMA_SQL)?;
     connection.pragma_update(None, "application_id", APPLICATION_ID)?;
     connection.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     verify(connection)
 }
-fn migrate_v1(connection: &Connection, sql: &str) -> Result<()> {
-    connection.execute_batch(sql)?;
+fn migrate_known(connection: &Connection, version: u32) -> Result<()> {
+    if version == 1 {
+        connection.execute_batch(derived_memory::DERIVED_SCHEMA_SQL)?;
+    }
+    connection.execute_batch(retention_state::SCHEMA_SQL)?;
     connection.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     verify(connection)
 }
@@ -284,7 +295,7 @@ impl Store {
         verify_version(&connection, version)?;
         Ok(Self { connection })
     }
-    /// New paths initialize the current schema. Existing v0/v1 upgrades require a new safety
+    /// New paths initialize the current schema. Existing v0/v1/v2 upgrades require a new safety
     /// backup. Foreign/nonempty v0, future or altered schemas are refused, never adopted.
     pub fn open(path: &Path, migration_backup: Option<&Path>) -> Result<Self> {
         let new_file = match OpenOptions::new().write(true).create_new(true).open(path) {
@@ -319,7 +330,7 @@ impl Store {
             initialize(&transaction, SCHEMA)?;
             transaction.commit()?;
         }
-        if version == 1 {
+        if (1..SCHEMA_VERSION).contains(&version) {
             let transaction =
                 connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
             let locked = identity(&transaction)?;
@@ -327,11 +338,11 @@ impl Store {
             if locked != (application, version) {
                 return Err(StorageError::Busy);
             }
-            verify_version(&transaction, 1)?;
+            verify_version(&transaction, version)?;
             let backup_path = migration_backup.ok_or(StorageError::BackupRequired)?;
             let reader = connect(path, true)?;
             consistent_backup(&reader, backup_path)?;
-            migrate_v1(&transaction, derived_memory::DERIVED_SCHEMA_SQL)?;
+            migrate_known(&transaction, version)?;
             transaction.commit()?;
         }
         verify(&connection)?;
@@ -347,6 +358,17 @@ impl Store {
                 .connection
                 .query_row("SELECT sqlite_version()", [], |r| r.get(0))?,
         })
+    }
+    /// Admission only; canonical state must still pass scoped replay before use.
+    pub fn is_branch_active(&self, scope: &Scope) -> Result<bool> {
+        if retention_state::retired(&self.connection, scope)? {
+            return Ok(false);
+        }
+        Ok(self.connection.query_row(
+            "SELECT EXISTS(SELECT 1 FROM branches WHERE story_id=?1 AND branch_id=?2)",
+            (&scope.story, &scope.branch),
+            |row| row.get(0),
+        )?)
     }
     fn memory_engine(
         &mut self,

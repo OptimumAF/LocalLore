@@ -279,6 +279,7 @@ export async function curatedJourneys({
                     initialErrors[0].category === "Transport",
                 "initial-window-only-one-expected-lost-ack-error",
             );
+            await capture("curated-retiring");
             await invoke("harness_reopen");
             return;
         }

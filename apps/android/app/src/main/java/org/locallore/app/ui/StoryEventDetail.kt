@@ -5,12 +5,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -31,6 +33,7 @@ import org.locallore.app.StoryRecordProblem
 internal fun StoryEventDetail(
     detail: StoryRecordEventDetail,
     context: StoryRecordContext?,
+    onRetry: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.testTag("story-event-detail")) {
@@ -65,14 +68,21 @@ internal fun StoryEventDetail(
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                     Text("Loading player-visible event…")
                 }
-                detail.problem != null || entry == null -> Text(
-                    (detail.problem ?: StoryRecordProblem.EVENT_UNAVAILABLE).message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.testTag("story-event-problem")
-                        .semantics { liveRegion = LiveRegionMode.Polite },
-                )
-                else -> {
+                detail.problem != null || entry == null -> {
                     Text(
+                        (detail.problem ?: StoryRecordProblem.EVENT_UNAVAILABLE).message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.testTag("story-event-problem")
+                            .semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                    if (onRetry != null) OutlinedButton(
+                        onClick = onRetry,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            .testTag("story-event-retry"),
+                    ) { Text("Try event again") }
+                }
+                else -> {
+                    if (entry.title != "Event #${detail.reference}") Text(
                         entry.title,
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.semantics { heading() },

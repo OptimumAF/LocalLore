@@ -56,6 +56,7 @@ fun StoryRecordDialog(
     onRetry: () -> Unit,
     onEvent: (Long) -> Unit = {},
     onEventBack: () -> Unit = {},
+    onEventRetry: (() -> Unit)? = null,
 ) {
     if (!state.visible) return
     // A new story/head or applied query must never inherit another context's edited search.
@@ -88,6 +89,7 @@ fun StoryRecordDialog(
                     StoryEventDetail(
                         detail = eventDetail,
                         context = state.context,
+                        onRetry = onEventRetry,
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                     )
                     OutlinedButton(

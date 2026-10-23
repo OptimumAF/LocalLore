@@ -638,12 +638,12 @@ export class Controller {
         this.setDraft(draft);
     }
     private async invalidate() {
+        const old = this.operation ?? this.unresolved;
+        if (old) old.cancelled = true;
         this.clearTrace(true);
         this.clearQuery(true);
         await this.cancelExport();
-        const old = this.operation ?? this.unresolved;
-        if (old) {
-            old.cancelled = true;
+        if (old?.submitted) {
             try {
                 await this.control(old, "cancel");
             } catch {
@@ -1802,13 +1802,40 @@ export class Controller {
     async cancel() {
         const op = this.operation;
         if (!op) return;
+        const recovering = this.state.pending?.stage === "recovering";
         op.cancelled = true;
         this.patch({
             pending: this.state.pending
                 ? { ...this.state.pending, stage: "cancelling" }
                 : null,
         });
+        // Admission is still in flight. run() observes this flag after the
+        // acknowledgement and cancels the original key before preparing it.
+        if (!op.submitted && !recovering) return;
         try {
+            if (!op.submitted) {
+                // A lost submit acknowledgement may already be admitted. A
+                // separate lookup can resolve Cancel while an older recovery
+                // lookup is delayed or lost; it must prove the original key.
+                const known = await this.control(op, "turn_status");
+                if (
+                    !known?.scope ||
+                    known.turn !== op.request.turn ||
+                    !sameScope(known.scope, op.session.scope) ||
+                    known.expected_revision !== op.request.expected_revision ||
+                    ![
+                        "queued",
+                        "running",
+                        "ready",
+                        "committed",
+                        "cancelled",
+                        "failed",
+                        "stale",
+                    ].includes(known.phase)
+                )
+                    throw new Error("Wire");
+                op.submitted = true;
+            }
             const status = await this.control(op, "cancel");
             if (this.current(op))
                 await this.publishResult(op, status, this.state.play!);

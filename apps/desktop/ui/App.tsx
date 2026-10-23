@@ -1,4 +1,6 @@
 import { EvaluationPanel } from "./EvaluationPanel";
+import { ArchivePanel } from "./ArchivePanel";
+import type { ArchiveController } from "./archive-controller";
 import type { EvaluationController } from "./evaluation-controller";
 import { TurnDebugger } from "./TurnDebugger";
 import { useEffect, useRef, useSyncExternalStore } from "react";
@@ -59,9 +61,11 @@ function LabAcknowledgement({ controller: c }: { controller: Controller }) {
 export function App({
     controller: c,
     evaluation,
+    archive,
 }: {
     controller: Controller;
     evaluation?: EvaluationController;
+    archive?: ArchiveController;
 }) {
     const s = useSyncExternalStore(c.subscribe, c.get),
         selected = c.selected(),
@@ -333,6 +337,14 @@ export function App({
                     {evaluation && (
                         <EvaluationPanel
                             controller={evaluation}
+                            context={`${s.selectedId}|${s.view}|${s.observer}`}
+                            allowed={s.view === "lab"}
+                        />
+                    )}
+                    {archive && (
+                        <ArchivePanel
+                            archive={archive}
+                            controller={c}
                             context={`${s.selectedId}|${s.view}|${s.observer}`}
                             allowed={s.view === "lab"}
                         />

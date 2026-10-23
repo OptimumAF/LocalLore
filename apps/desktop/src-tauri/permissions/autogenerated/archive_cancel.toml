@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-archive-cancel"
+description = "Enables the archive_cancel command without any pre-configured scope."
+commands.allow = ["archive_cancel"]
+
+[[permission]]
+identifier = "deny-archive-cancel"
+description = "Denies the archive_cancel command without any pre-configured scope."
+commands.deny = ["archive_cancel"]

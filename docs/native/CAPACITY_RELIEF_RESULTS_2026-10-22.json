@@ -2,7 +2,7 @@
   "version": 1,
   "date": "2026-10-22",
   "task": "M04.04",
-  "status": "host_verified_android_execution_blocked",
+  "status": "in_review_partial_host_and_cold_emulator_verified",
   "scope": "actual_SQLite_page_capacity_relief_same_live_Ready_key",
   "base_pr": 56,
   "base_head": "666f524898d141db0ec50ea654e8ba11d390b865",
@@ -350,7 +350,9 @@
       "x86_64",
       "arm64-v8a"
     ],
-    "native_execution_in_this_packet": []
+    "native_execution_in_this_packet": [
+      "x86_64"
+    ]
   },
   "device_preflight": {
     "inventory": {
@@ -402,19 +404,90 @@
       "local_ADB_clients_cleaned": true,
       "final_app_absence": "unverified_targets_unavailable",
       "final_preserved_installed_hashes": "unverified_targets_unavailable"
+    },
+    {
+      "attempt": "A-cold-1",
+      "target": "A",
+      "status": "passed",
+      "app_sha256": "7968c0e15ae7058c89a03f88a1ed6c79899a1fa6aefd7bac7befba79c395c1c0",
+      "test_sha256": "81366501c6876470e7639c00f14bb439c3a256b50a4792159079d0586cac1708",
+      "prior_baseline": "packages_absent_after_authorized_cold_launch",
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteReliefInstrumentedTest#collectedFullRecoveryAfterOwnedPaddingRemovalPublishesOnlyOriginalAcceptedReceipt",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteReliefNativeTest#actualFullThenOwnedPaddingRemovalCommitsOnlyOriginalReadyKeyOnce",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteReliefNativeTest#cancelledFullReadyTurnRemainsUnspentAfterPaddingRemovalAndReopen",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 3,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      },
+      "app_absent": true,
+      "preserved_baseline_unchanged": true,
+      "clients_cleaned": true
+    },
+    {
+      "attempt": "B-cold-1",
+      "target": "B",
+      "status": "passed",
+      "app_sha256": "7968c0e15ae7058c89a03f88a1ed6c79899a1fa6aefd7bac7befba79c395c1c0",
+      "test_sha256": "81366501c6876470e7639c00f14bb439c3a256b50a4792159079d0586cac1708",
+      "prior_baseline": "packages_absent_after_authorized_cold_launch",
+      "result": {
+        "completed": [
+          {
+            "case": "org.locallore.app.SqliteReliefInstrumentedTest#collectedFullRecoveryAfterOwnedPaddingRemovalPublishesOnlyOriginalAcceptedReceipt",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteReliefNativeTest#actualFullThenOwnedPaddingRemovalCommitsOnlyOriginalReadyKeyOnce",
+            "outcome": "passed"
+          },
+          {
+            "case": "org.locallore.app.SqliteReliefNativeTest#cancelledFullReadyTurnRemainsUnspentAfterPaddingRemovalAndReopen",
+            "outcome": "passed"
+          }
+        ],
+        "failed": 0,
+        "final_success": true,
+        "graphics_watchdog_signature": false,
+        "order_verified": true,
+        "passed": 3,
+        "skipped": 0,
+        "started_unfinished": 0,
+        "status": "passed"
+      },
+      "execution": {
+        "client_cleanup": true,
+        "returncode": 0,
+        "status": "completed"
+      },
+      "app_absent": true,
+      "preserved_baseline_unchanged": true,
+      "clients_cleaned": true
     }
   ],
-  "current_device_gate": {
-    "status": "blocked",
-    "observation": "ADB lists zero devices; no emulator/qemu process observed",
-    "cause": "unknown",
-    "new_APK_installation_attempted": false,
-    "instrumentation_methods_executed": 0,
-    "B_dispatch": "not_attempted_after_A_identity_failure",
-    "relaunch_reset_reboot_performed": false
-  },
   "unqualified": [
-    "Android relief runtime/discovery/normal cleanup",
+    "vanished emulator live-state continuity/original-package hash preservation after cold launch",
     "forced cleanup/self-lease/poison paths",
     "valid-schema Full restart",
     "partition ENOSPC",
@@ -425,5 +498,114 @@
     "hosted CI",
     "prior framework teardown cause"
   ],
-  "next_task": "Restore authorized selected emulator availability; reverify prior APK identities, then run the fixed three-case cohort on A and B."
+  "next_task": "M04.04: deliberately exercise bounded helper/cleanup failure and unknown-ownership fencing in the isolated fixture; valid-schema Full/restart remains a separate gate.",
+  "initial_device_gate": {
+    "status": "blocked",
+    "observation": "ADB lists zero devices; no emulator/qemu process observed",
+    "cause": "unknown",
+    "new_APK_installation_attempted": false,
+    "instrumentation_methods_executed": 0,
+    "B_dispatch": "not_attempted_after_A_identity_failure",
+    "relaunch_reset_reboot_performed": false
+  },
+  "device_relaunch": {
+    "explicit_user_authorization": true,
+    "only_selected_two_launched": true,
+    "saved_historical_port_AVD_mapping_verified": true,
+    "saved_launch_record_date": "2026-10-20",
+    "saved_executables_arguments_AVD_home_reused": true,
+    "AVD_configs_edited": false,
+    "wipe_reset_data_clear": false,
+    "original_vanished_running_state_continuity": "unverified",
+    "prior_packages_absent_on_both_persistent_images": true,
+    "prior_packages_reinstalled_or_changed": false,
+    "separate_cold_cohort_baseline_recorded_before_installation": true,
+    "unrelated_third_emulator_untouched": true,
+    "runtime_versions": {
+      "A": "37.2.12.0 build16428233",
+      "B": "35.3.12.0 build12990079"
+    }
+  },
+  "relaunch_preflight": {
+    "inventory": {
+      "emulators": 3,
+      "physical_phones": 0
+    },
+    "targets": [
+      {
+        "target": "A",
+        "properties": {
+          "ro.build.version.release": "15",
+          "ro.build.version.sdk": "35",
+          "ro.product.cpu.abi": "x86_64",
+          "ro.product.model": "sdk_gphone64_x86_64"
+        },
+        "page_bytes": 4096,
+        "relief_packages_absent": true,
+        "prior_baseline_verified": true,
+        "prior_baseline": "packages_absent_after_authorized_cold_launch",
+        "boot_ready": true,
+        "clients_cleaned": true
+      },
+      {
+        "target": "B",
+        "properties": {
+          "ro.build.version.release": "15",
+          "ro.build.version.sdk": "35",
+          "ro.product.cpu.abi": "x86_64",
+          "ro.product.model": "sdk_gphone64_x86_64"
+        },
+        "page_bytes": 4096,
+        "relief_packages_absent": true,
+        "prior_baseline_verified": true,
+        "prior_baseline": "packages_absent_after_authorized_cold_launch",
+        "boot_ready": true,
+        "clients_cleaned": true
+      }
+    ]
+  },
+  "pre_install_guard_attempts": [
+    {
+      "attempt": "relaunch_original_hash_preflight",
+      "status": "failed_prior_packages_absent",
+      "instrumentation_started": false,
+      "resolution": "separate_authorized_cold_cohort_baseline; no prior package reinstallation"
+    }
+  ],
+  "current_device_gate": {
+    "status": "passed_on_separate_authorized_cold_cohort",
+    "method_executions": 6,
+    "unique_methods": 3,
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "started_unfinished": 0,
+    "actual_Rust_Full_assertions": 12,
+    "accepted_same_Ready_key_relief_cases": 4,
+    "terminal_cancel_no_spend_cases": 2,
+    "candidate_source_APK_timeout_changes_between_cohorts": false,
+    "collector_absence_stderr_guard_strengthened_before_B": true,
+    "both_targets_supplemental_final_guards": [
+      {
+        "target": "A",
+        "prior_packages_absent": true,
+        "prior_queries_stderr_empty": true,
+        "relief_installed_hashes_verified": true,
+        "relief_app_absent": true,
+        "boot_ready": true,
+        "clients_cleaned": true
+      },
+      {
+        "target": "B",
+        "prior_packages_absent": true,
+        "prior_queries_stderr_empty": true,
+        "relief_installed_hashes_verified": true,
+        "relief_app_absent": true,
+        "boot_ready": true,
+        "clients_cleaned": true
+      }
+    ],
+    "emulators_left_running": true,
+    "relief_apps_stopped": true
+  }
 }

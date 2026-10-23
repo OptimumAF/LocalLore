@@ -53,7 +53,9 @@ fn create(fixture: &Fixture) -> Engine {
         serde_json::from_str(include_str!("../../../fixtures/lantern_quay.json")).unwrap();
     let scope = seed.scope.clone();
     let mut store = fixture.store();
-    store.create_story("Synthetic final M07 review", seed).unwrap();
+    store
+        .create_story("Synthetic final M07 review", seed)
+        .unwrap();
     store.resume(&scope).unwrap().engine
 }
 fn commit(store: &mut Store, engine: &Engine, key: &str) -> Engine {
@@ -97,7 +99,10 @@ impl Persistence for RewindAtBegin {
         Err("Unsupported".into())
     }
     fn resume(&mut self, scope: &Scope) -> Result<Engine, String> {
-        self.store.resume(scope).map(|value| value.engine).map_err(error)
+        self.store
+            .resume(scope)
+            .map(|value| value.engine)
+            .map_err(error)
     }
     fn begin_bound(
         &mut self,
@@ -116,7 +121,10 @@ impl Persistence for RewindAtBegin {
                 .unwrap();
             self.replaced.store(true, Ordering::SeqCst);
         }
-        self.store.begin_bound(request, basis).map(saved).map_err(error)
+        self.store
+            .begin_bound(request, basis)
+            .map(saved)
+            .map_err(error)
     }
     fn status_bound(
         &mut self,
@@ -137,7 +145,9 @@ impl Persistence for RewindAtBegin {
         proposal: &Proposal,
         narration: &str,
     ) -> Result<Receipt, String> {
-        self.store.commit_turn(request, proposal, narration).map_err(error)
+        self.store
+            .commit_turn(request, proposal, narration)
+            .map_err(error)
     }
     fn cancel(&mut self, request: &Request) -> Result<SavedTurn, String> {
         self.store.cancel_turn(request).map(saved).map_err(error)
@@ -149,7 +159,10 @@ impl Persistence for RewindAtBegin {
         self.store.stale_turn(request).map(saved).map_err(error)
     }
     fn status(&mut self, scope: &Scope, turn: &str) -> Result<SavedTurn, String> {
-        self.store.lookup_turn(scope, turn).map(saved).map_err(error)
+        self.store
+            .lookup_turn(scope, turn)
+            .map(saved)
+            .map_err(error)
     }
 }
 fn call(host: &Host, command: Value) -> Value {
@@ -167,7 +180,9 @@ fn stale_historical_new_key_cannot_admit_draft_after_a_source_rewind_at_begin() 
     let empty = create(&fixture);
     let mut store = fixture.store();
     let prefix = commit(&mut store, &empty, "original-prefix");
-    let archive = store.export_archive(&prefix.scope().story, &|| false).unwrap();
+    let archive = store
+        .export_archive(&prefix.scope().story, &|| false)
+        .unwrap();
     let current = commit(&mut store, &prefix, "selected-suffix");
     assert_eq!(prefix.revision(), 1);
     assert_eq!(current.revision(), 2);
@@ -194,7 +209,11 @@ fn stale_historical_new_key_cannot_admit_draft_after_a_source_rewind_at_begin() 
     // If admission was reached, it must protect the selected full prefix inside
     // the actual transaction, not leave a new draft in the rewound source.
     let mut actual = fixture.store();
-    let expected = if replaced.load(Ordering::SeqCst) { &prefix } else { &current };
+    let expected = if replaced.load(Ordering::SeqCst) {
+        &prefix
+    } else {
+        &current
+    };
     let restored = actual.resume(current.scope()).unwrap().engine;
     assert_eq!(restored.receipts(), expected.receipts());
     assert_eq!(restored.canonical_bytes(), expected.canonical_bytes());
@@ -220,7 +239,10 @@ fn exact_committed_historical_submit_remains_available_after_selected_head_advan
         json!({"op":"submit","session":session,"request":winner.request(),"mode":"accepted"}),
     );
     assert_eq!(result["data"]["phase"], "committed", "{result}");
-    assert_eq!(result["data"]["receipt"], serde_json::to_value(&winner).unwrap());
+    assert_eq!(
+        result["data"]["receipt"],
+        serde_json::to_value(&winner).unwrap()
+    );
     let restored = fixture.store().resume(current.scope()).unwrap().engine;
     assert_eq!(restored.receipts(), current.receipts());
     assert_eq!(restored.canonical_bytes(), current.canonical_bytes());
@@ -263,7 +285,9 @@ fn explicit_open_rewind_cannot_reuse_cached_committed_result(operation: &str) {
     let empty = create(&fixture);
     let mut store = fixture.store();
     let prefix = commit(&mut store, &empty, "original-prefix");
-    let archive = store.export_archive(&prefix.scope().story, &|| false).unwrap();
+    let archive = store
+        .export_archive(&prefix.scope().story, &|| false)
+        .unwrap();
     let original = commit(&mut store, &prefix, "cached-accepted-key");
     let winner = original.receipts()[1].clone();
     let host = locallore_workspace::open(&fixture.path(), false).unwrap();
@@ -278,7 +302,10 @@ fn explicit_open_rewind_cannot_reuse_cached_committed_result(operation: &str) {
         .unwrap();
     store.delete_story(deletion, &|| false).unwrap();
     store
-        .import_archive(validate_archive(archive.bytes(), &|| false).unwrap(), &|| false)
+        .import_archive(
+            validate_archive(archive.bytes(), &|| false).unwrap(),
+            &|| false,
+        )
         .unwrap();
     store.begin_turn(winner.request()).unwrap();
     let opened = call(
@@ -352,7 +379,10 @@ impl InferenceProvider for HeldDirector {
         };
         let output = if role == "director" {
             self.entered.send(()).unwrap();
-            self.release.lock().unwrap().recv_timeout(Duration::from_secs(5))
+            self.release
+                .lock()
+                .unwrap()
+                .recv_timeout(Duration::from_secs(5))
                 .expect("bounded owned director release");
             json!({"commands":[{"op":"wait","ticks":1}]})
         } else {
@@ -384,57 +414,116 @@ fn explicit_open_reselection_fences_held_old_work_from_same_key_new_owner() {
     assert_eq!(original.revision(), changed.revision());
     assert_eq!(original.canonical_bytes(), changed.canonical_bytes());
     assert_ne!(original.receipts(), changed.receipts());
-    let archive = alternate.store().export_archive(&changed.scope().story, &|| false).unwrap();
+    let archive = alternate
+        .store()
+        .export_archive(&changed.scope().story, &|| false)
+        .unwrap();
     let host = Arc::new(locallore_workspace::open(&fixture.path(), false).unwrap());
     let session = select(&host, original.scope());
-    let request = original.request("same-key-new-incarnation", Intent::FreeText {
-        kind: PlayInputKind::Action,
-        text: "I wait for one tide tick.".into(),
-    });
+    let request = original.request(
+        "same-key-new-incarnation",
+        Intent::FreeText {
+            kind: PlayInputKind::Action,
+            text: "I wait for one tide tick.".into(),
+        },
+    );
     let (entered_send, entered_receive) = mpsc::sync_channel(1);
     let (release_send, release_receive) = mpsc::sync_channel(1);
     let release_receive = Arc::new(Mutex::new(release_receive));
     let calls = Arc::new(AtomicUsize::new(0));
     let factory_calls = calls.clone();
-    host.configure_fixture_provider(PlayProfile {
-        id: "synthetic-final-open-review".into(),
-        model_sha256: "a".repeat(64), runtime_revision: "b".repeat(40),
-        template_sha256: "c".repeat(64), worker_sha256: "d".repeat(64),
-        profile_manifest_sha256: "e".repeat(64), context_tokens: 4096,
-        director_tokens: 350, narrator_tokens: 220, deadline_ms: 5000, repair_limit: 1,
-    }, Arc::new(move || Box::new(HeldDirector {
-        entered: entered_send.clone(), release: release_receive.clone(), calls: factory_calls.clone(),
-    }))).unwrap();
-    let submitted = call(&host, json!({"op":"free_text","session":session,"request":request}));
+    host.configure_fixture_provider(
+        PlayProfile {
+            id: "synthetic-final-open-review".into(),
+            model_sha256: "a".repeat(64),
+            runtime_revision: "b".repeat(40),
+            template_sha256: "c".repeat(64),
+            worker_sha256: "d".repeat(64),
+            profile_manifest_sha256: "e".repeat(64),
+            context_tokens: 4096,
+            director_tokens: 350,
+            narrator_tokens: 220,
+            deadline_ms: 5000,
+            repair_limit: 1,
+        },
+        Arc::new(move || {
+            Box::new(HeldDirector {
+                entered: entered_send.clone(),
+                release: release_receive.clone(),
+                calls: factory_calls.clone(),
+            })
+        }),
+    )
+    .unwrap();
+    let submitted = call(
+        &host,
+        json!({"op":"free_text","session":session,"request":request}),
+    );
     assert_eq!(submitted["data"]["phase"], "queued", "{submitted}");
     std::thread::scope(|threads| {
-        let worker = threads.spawn(|| call(&host, json!({
-            "op":"prepare","session":session,"scope":request.scope,"turn":request.turn,
-        })));
+        let worker = threads.spawn(|| {
+            call(
+                &host,
+                json!({
+                    "op":"prepare","session":session,"scope":request.scope,"turn":request.turn,
+                }),
+            )
+        });
         let mut release = ReleaseOnDrop(Some(release_send));
-        entered_receive.recv_timeout(Duration::from_secs(5))
+        entered_receive
+            .recv_timeout(Duration::from_secs(5))
             .expect("actual production director reached held poll");
-        let deletion = store.prepare_story_deletion(original.scope(), original.revision(), &|| false).unwrap();
+        let deletion = store
+            .prepare_story_deletion(original.scope(), original.revision(), &|| false)
+            .unwrap();
         store.delete_story(deletion, &|| false).unwrap();
-        store.import_archive(validate_archive(archive.bytes(), &|| false).unwrap(), &|| false).unwrap();
+        store
+            .import_archive(
+                validate_archive(archive.bytes(), &|| false).unwrap(),
+                &|| false,
+            )
+            .unwrap();
         store.begin_turn(&request).unwrap();
-        let opened = call(&host, json!({"op":"open","session":session,"scope":changed.scope()}));
+        let opened = call(
+            &host,
+            json!({"op":"open","session":session,"scope":changed.scope()}),
+        );
         let selected = if opened["status"] == "ok" {
             session.clone()
         } else {
             assert_eq!(opened["error"], "Stale", "{opened}");
-            let closed = call(&host, json!({"op":"close","session":session,"scope":changed.scope()}));
+            let closed = call(
+                &host,
+                json!({"op":"close","session":session,"scope":changed.scope()}),
+            );
             assert_eq!(closed["status"], "ok", "{closed}");
             select(&host, changed.scope())
         };
-        let fresh = call(&host, json!({"op":"free_text","session":selected,"request":request}));
+        let fresh = call(
+            &host,
+            json!({"op":"free_text","session":selected,"request":request}),
+        );
         assert_eq!(fresh["data"]["phase"], "queued", "{fresh}");
         release.0.take().unwrap().send(()).unwrap();
-        let retired = worker.join().expect("retired work must not panic on missing/reused turn");
-        assert!(retired["error"]=="Closed" || retired["error"]=="Stale" || retired["error"]=="Cancelled"
-            || retired["data"]["phase"]=="stale" || retired["data"]["phase"]=="cancelled", "{retired}");
-        let status = call(&host, json!({"op":"turn_status","session":selected,"scope":request.scope,"turn":request.turn}));
-        assert_eq!(status["data"]["phase"], "queued", "old work overwrote new incarnation: {status}");
+        let retired = worker
+            .join()
+            .expect("retired work must not panic on missing/reused turn");
+        assert!(
+            retired["error"] == "Closed"
+                || retired["error"] == "Stale"
+                || retired["error"] == "Cancelled"
+                || retired["data"]["phase"] == "stale"
+                || retired["data"]["phase"] == "cancelled",
+            "{retired}"
+        );
+        let status = call(
+            &host,
+            json!({"op":"turn_status","session":selected,"scope":request.scope,"turn":request.turn}),
+        );
+        assert_eq!(
+            status["data"]["phase"], "queued",
+            "old work overwrote new incarnation: {status}"
+        );
         assert_eq!(status["data"]["receipt"], Value::Null);
         let draft = store.turn_status(&request).unwrap();
         assert_eq!(draft.phase, locallore_storage::TurnPhase::Draft);
@@ -443,7 +532,11 @@ fn explicit_open_reselection_fences_held_old_work_from_same_key_new_owner() {
         let current = store.resume(changed.scope()).unwrap().engine;
         assert_eq!(current.receipts(), changed.receipts());
         assert_eq!(current.canonical_bytes(), changed.canonical_bytes());
-        assert_eq!(calls.load(Ordering::SeqCst), 1, "no new provider or narrator work");
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            1,
+            "no new provider or narrator work"
+        );
         assert_eq!(host.live_counts().1, 0);
     });
 }
@@ -457,43 +550,91 @@ fn explicit_open_same_source_fences_cancelled_old_work_from_retried_draft() {
     let original = commit(&mut store, &empty, "original-prefix");
     let host = Arc::new(locallore_workspace::open(&fixture.path(), false).unwrap());
     let session = select(&host, original.scope());
-    let request = original.request("same-source-new-incarnation", Intent::FreeText {
-        kind: PlayInputKind::Action, text: "I wait for one tide tick.".into(),
-    });
+    let request = original.request(
+        "same-source-new-incarnation",
+        Intent::FreeText {
+            kind: PlayInputKind::Action,
+            text: "I wait for one tide tick.".into(),
+        },
+    );
     let (entered_send, entered_receive) = mpsc::sync_channel(1);
     let (release_send, release_receive) = mpsc::sync_channel(1);
     let release_receive = Arc::new(Mutex::new(release_receive));
     let calls = Arc::new(AtomicUsize::new(0));
     let factory_calls = calls.clone();
-    host.configure_fixture_provider(PlayProfile {
-        id: "synthetic-same-source-open-review".into(), model_sha256: "a".repeat(64),
-        runtime_revision: "b".repeat(40), template_sha256: "c".repeat(64), worker_sha256: "d".repeat(64),
-        profile_manifest_sha256: "e".repeat(64), context_tokens: 4096, director_tokens: 350,
-        narrator_tokens: 220, deadline_ms: 5000, repair_limit: 1,
-    }, Arc::new(move || Box::new(HeldDirector {
-        entered: entered_send.clone(), release: release_receive.clone(), calls: factory_calls.clone(),
-    }))).unwrap();
-    let submitted = call(&host, json!({"op":"free_text","session":session,"request":request}));
+    host.configure_fixture_provider(
+        PlayProfile {
+            id: "synthetic-same-source-open-review".into(),
+            model_sha256: "a".repeat(64),
+            runtime_revision: "b".repeat(40),
+            template_sha256: "c".repeat(64),
+            worker_sha256: "d".repeat(64),
+            profile_manifest_sha256: "e".repeat(64),
+            context_tokens: 4096,
+            director_tokens: 350,
+            narrator_tokens: 220,
+            deadline_ms: 5000,
+            repair_limit: 1,
+        },
+        Arc::new(move || {
+            Box::new(HeldDirector {
+                entered: entered_send.clone(),
+                release: release_receive.clone(),
+                calls: factory_calls.clone(),
+            })
+        }),
+    )
+    .unwrap();
+    let submitted = call(
+        &host,
+        json!({"op":"free_text","session":session,"request":request}),
+    );
     assert_eq!(submitted["data"]["phase"], "queued", "{submitted}");
     std::thread::scope(|threads| {
-        let worker = threads.spawn(|| call(&host, json!({
-            "op":"prepare","session":session,"scope":request.scope,"turn":request.turn,
-        })));
+        let worker = threads.spawn(|| {
+            call(
+                &host,
+                json!({
+                    "op":"prepare","session":session,"scope":request.scope,"turn":request.turn,
+                }),
+            )
+        });
         let mut release = ReleaseOnDrop(Some(release_send));
-        entered_receive.recv_timeout(Duration::from_secs(5))
+        entered_receive
+            .recv_timeout(Duration::from_secs(5))
             .expect("actual director reached held poll before same-source Open");
         // No replacement, rewind or source mismatch: the old Work basis still
         // exactly matches. Incarnation, rather than history, must fence cleanup.
-        let opened = call(&host, json!({"op":"open","session":session,"scope":original.scope()}));
+        let opened = call(
+            &host,
+            json!({"op":"open","session":session,"scope":original.scope()}),
+        );
         assert_eq!(opened["status"], "ok", "{opened}");
-        let fresh = call(&host, json!({"op":"free_text","session":session,"request":request}));
+        let fresh = call(
+            &host,
+            json!({"op":"free_text","session":session,"request":request}),
+        );
         assert_eq!(fresh["data"]["phase"], "queued", "{fresh}");
         release.0.take().unwrap().send(()).unwrap();
-        let retired = worker.join().expect("retired same-source work must not panic");
-        assert!(retired["error"]=="Closed" || retired["error"]=="Cancelled" || retired["error"]=="Stale"
-            || retired["data"]["phase"]=="cancelled" || retired["data"]["phase"]=="stale", "{retired}");
-        let status = call(&host, json!({"op":"turn_status","session":session,"scope":request.scope,"turn":request.turn}));
-        assert_eq!(status["data"]["phase"], "queued", "old cancelled work overwrote new owner: {status}");
+        let retired = worker
+            .join()
+            .expect("retired same-source work must not panic");
+        assert!(
+            retired["error"] == "Closed"
+                || retired["error"] == "Cancelled"
+                || retired["error"] == "Stale"
+                || retired["data"]["phase"] == "cancelled"
+                || retired["data"]["phase"] == "stale",
+            "{retired}"
+        );
+        let status = call(
+            &host,
+            json!({"op":"turn_status","session":session,"scope":request.scope,"turn":request.turn}),
+        );
+        assert_eq!(
+            status["data"]["phase"], "queued",
+            "old cancelled work overwrote new owner: {status}"
+        );
         assert_eq!(status["data"]["receipt"], Value::Null);
         let draft = store.turn_status(&request).unwrap();
         assert_eq!(draft.phase, locallore_storage::TurnPhase::Draft);
@@ -502,7 +643,11 @@ fn explicit_open_same_source_fences_cancelled_old_work_from_retried_draft() {
         let actual = store.resume(original.scope()).unwrap().engine;
         assert_eq!(actual.receipts(), original.receipts());
         assert_eq!(actual.canonical_bytes(), original.canonical_bytes());
-        assert_eq!(calls.load(Ordering::SeqCst), 1, "cancelled retired work cannot narrate or regenerate");
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            1,
+            "cancelled retired work cannot narrate or regenerate"
+        );
         assert_eq!(host.live_counts().1, 0);
     });
 }

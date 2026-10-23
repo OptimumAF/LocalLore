@@ -148,6 +148,16 @@ export class BrokerRetention {
     observe(value: unknown) {
         const r = this.retained;
         if (!r || !value || typeof value !== "object") return;
+        const incoming = value as Record<string, unknown>;
+        // A late status/cancel reply belongs to its original operation. Exclude
+        // a known different ID before decoding against the current identity.
+        if (
+            r.operation !== null &&
+            Number.isSafeInteger(incoming.operation_id) &&
+            Number(incoming.operation_id) > 0 &&
+            incoming.operation_id !== r.operation
+        )
+            return;
         if (r.identity.surface === "memory") {
             try {
                 decodeMemoryOperation(
@@ -255,7 +265,7 @@ export class BrokerRetention {
         )
             throw Error("ArchiveBusy");
         const oldOperation = r.operation;
-        this.patch({ inFlight: true, recoveringMemory: true });
+        this.patch({ inFlight: true, recoveringMemory: true, consumed: false });
         try {
             const result = await work();
             // A successful explicit passive read has a new broker operation.

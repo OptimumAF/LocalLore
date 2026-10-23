@@ -25,6 +25,7 @@ for (const args of [
     ["check-memory-callback-review.mjs"],
     ["check-broker-retention.mjs"],
     ["check-broker-retention-review.mjs"],
+    ["check-broker-retention-incarnation-review.mjs"],
 ]) {
     const code = await new Promise((resolve, reject) => {
         const child = spawn(process.execPath, args, {

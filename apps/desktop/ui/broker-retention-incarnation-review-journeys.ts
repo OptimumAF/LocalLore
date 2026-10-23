@@ -7,7 +7,8 @@ import {
 } from "./memory-maintenance-controller";
 
 export async function brokerRetentionIncarnationReviewJourneys() {
-    const results: { name: string; passed: boolean; error: string | null }[] = [];
+    const results: { name: string; passed: boolean; error: string | null }[] =
+        [];
     const check = (value: unknown, label: string) => {
         if (!value) throw Error(label);
     };
@@ -76,7 +77,9 @@ export async function brokerRetentionIncarnationReviewJourneys() {
         check(gate.get()?.consumed, "first complete native status consumed");
         await gate.start(identity, async () => memoryStatus(2));
         check(
-            gate.get()?.operation === 2 && gate.get()?.consumed && !gate.get()?.unknown,
+            gate.get()?.operation === 2 &&
+                gate.get()?.consumed &&
+                !gate.get()?.unknown,
             "new operation has a known consumed outcome",
         );
         const before = JSON.stringify(gate.get());
@@ -92,7 +95,10 @@ export async function brokerRetentionIncarnationReviewJourneys() {
             dispatched = true;
             return forkStatus(3);
         });
-        check(dispatched, "old late status cannot block a subsequent explicit fork");
+        check(
+            dispatched,
+            "old late status cannot block a subsequent explicit fork",
+        );
     });
 
     await test("new-passive-recovery-must-consume-its-own-outcome-before-crosssurface-start", async () => {
@@ -104,11 +110,13 @@ export async function brokerRetentionIncarnationReviewJourneys() {
         let dispatchedDuringDelivery = false;
         let blockedDuringDelivery = false;
         let attempted: Promise<void> | null = null;
-        const gate: BrokerRetention = new BrokerRetention(surface =>
-            surface === "memory" && (controller.get().busy || controller.get().uncertain),
+        const gate: BrokerRetention = new BrokerRetention(
+            (surface) =>
+                surface === "memory" &&
+                (controller.get().busy || controller.get().uncertain),
         );
-        const controller: MemoryMaintenanceController = new MemoryMaintenanceController(
-            (_command, args) => {
+        const controller: MemoryMaintenanceController =
+            new MemoryMaintenanceController((_command, args) => {
                 const action = (args!.request as { action: string }).action;
                 if (action === "admit") {
                     // Same existing main-wrapper pre-admission pending-turn
@@ -119,8 +127,7 @@ export async function brokerRetentionIncarnationReviewJourneys() {
                 return calls === 1
                     ? gate.start(identity, async () => memoryStatus(1))
                     : gate.recoverMemory(identity, async () => memoryStatus(2));
-            },
-        );
+            });
         controller.subscribe(gate.refreshConsumption);
         gate.subscribe(() => {
             const retained = gate.get();
@@ -130,43 +137,67 @@ export async function brokerRetentionIncarnationReviewJourneys() {
                 inheritedConsumption ||= retained.consumed;
             }
             if (
-                !attemptedDuringDelivery && !retained.inFlight &&
-                retained.operation === 2 && retained.terminal &&
+                !attemptedDuringDelivery &&
+                !retained.inFlight &&
+                retained.operation === 2 &&
+                retained.terminal &&
                 controller.get().busy
             ) {
                 attemptedDuringDelivery = true;
-                attempted = gate.start({ surface: "fork", action: "fork" }, async () => {
-                    dispatchedDuringDelivery = true;
-                    return forkStatus(3);
-                }).then(
-                    () => {},
-                    error => { blockedDuringDelivery = error instanceof Error && error.message === "ArchiveBusy"; },
-                );
+                attempted = gate
+                    .start({ surface: "fork", action: "fork" }, async () => {
+                        dispatchedDuringDelivery = true;
+                        return forkStatus(3);
+                    })
+                    .then(
+                        () => {},
+                        (error) => {
+                            blockedDuringDelivery =
+                                error instanceof Error &&
+                                error.message === "ArchiveBusy";
+                        },
+                    );
             }
         });
         controller.contextChanged(context);
         await controller.act("status");
-        check(gate.get()?.consumed, "first status latched consumed before new action");
+        check(
+            gate.get()?.consumed,
+            "first status latched consumed before new action",
+        );
         controller.consent(true);
         await controller.act("admit");
         check(
-            controller.get().error === "Busy" && controller.get().uncertain &&
-            gate.get()?.operation === 1 && gate.get()?.consumed,
+            controller.get().error === "Busy" &&
+                controller.get().uncertain &&
+                gate.get()?.operation === 1 &&
+                gate.get()?.consumed,
             "actual controller records pending-turn refusal without replacing previous broker status",
         );
         armRecovery = true;
         await controller.act("status");
         if (attempted) await attempted;
-        check(sawPendingRecovery, "new passive status announced as a distinct operation");
-        check(!inheritedConsumption, "new passive status never inherits old operation consumption at pending notification");
         check(
-            attemptedDuringDelivery && blockedDuringDelivery && !dispatchedDuringDelivery,
+            sawPendingRecovery,
+            "new passive status announced as a distinct operation",
+        );
+        check(
+            !inheritedConsumption,
+            "new passive status never inherits old operation consumption at pending notification",
+        );
+        check(
+            attemptedDuringDelivery &&
+                blockedDuringDelivery &&
+                !dispatchedDuringDelivery,
             "crosssurface fork blocked until actual memory controller decodes and accepts its own new status",
         );
         check(
-            calls === 2 && controller.get().reply?.action === "status" &&
-            controller.get().error === null && !controller.get().uncertain &&
-            gate.get()?.operation === 2 && gate.get()?.consumed,
+            calls === 2 &&
+                controller.get().reply?.action === "status" &&
+                controller.get().error === null &&
+                !controller.get().uncertain &&
+                gate.get()?.operation === 2 &&
+                gate.get()?.consumed,
             "new passive result is independently consumed after actual controller acceptance",
         );
         let explicitDispatch = false;
@@ -174,7 +205,10 @@ export async function brokerRetentionIncarnationReviewJourneys() {
             explicitDispatch = true;
             return forkStatus(4);
         });
-        check(explicitDispatch, "subsequent explicit fork allowed after new status consumption");
+        check(
+            explicitDispatch,
+            "subsequent explicit fork allowed after new status consumption",
+        );
     });
     return results;
 }

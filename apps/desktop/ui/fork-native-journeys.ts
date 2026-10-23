@@ -127,6 +127,7 @@ export async function forkNativeJourneys({
                 fork: f.get(),
                 checks: [...checks],
                 dom: {
+                    userAgent: navigator.userAgent,
                     text: root.textContent
                         ?.slice(0, 48000)
                         .replaceAll(location, "<synthetic-workspace>"),

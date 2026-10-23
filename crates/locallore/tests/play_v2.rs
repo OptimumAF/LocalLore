@@ -102,6 +102,14 @@ fn real_contract_records_original_free_text_and_generated_prose_then_replays_wit
     let r = request(&e);
     let mut p = Script::new(vec![gift(), prose()]);
     let receipt = play::execute(&mut e, &r, &mut p, &Cancellation::default(), &profile()).unwrap();
+    let Input::Structured { schema, .. } = &p.seen[0].input else {
+        panic!("structured director")
+    };
+    assert!(schema["properties"]["commands"]["items"]["oneOf"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|v| v["properties"]["op"]["const"] != "say"));
     assert_eq!(p.seen.len(), 2);
     assert_eq!(receipt.request(), &r);
     assert!(!receipt.play().unwrap().fallback);

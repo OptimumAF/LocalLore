@@ -10,17 +10,24 @@ rust-version = "1.93"
 [features]
 development-worker = []
 engine-adapter = ["dep:locallore"]
+scene-probe = ["development-worker", "engine-adapter", "locallore/host", "dep:locallore-storage"]
 
 [dependencies]
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.154"
 sha2 = "=0.10.9"
 locallore = { path = "../locallore", optional = true }
+locallore-storage = { path = "../locallore-storage", optional = true }
 
 [[bin]]
 name = "runtime-probe"
 path = "src/bin/runtime_probe.rs"
 required-features = ["development-worker"]
+
+[[bin]]
+name = "play-scene-probe"
+path = "src/bin/play_scene_probe.rs"
+required-features = ["scene-probe"]
 
 [[bin]]
 name = "protocol-fixture"

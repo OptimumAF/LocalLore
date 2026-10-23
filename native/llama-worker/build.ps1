@@ -12,7 +12,6 @@ if (-not (Test-Path -LiteralPath $taskNinja)) { throw 'Ninja must accompany CMak
 Import-Module (Join-Path $VisualStudioPath 'Common7/Tools/Microsoft.VisualStudio.DevShell.dll')
 Enter-VsDevShell -VsInstallPath $VisualStudioPath -SkipAutomaticLocation -Arch amd64 -HostArch amd64
 & $taskCmake -S $PSScriptRoot -B $BuildDir -G Ninja "-DCMAKE_MAKE_PROGRAM=$taskNinja" "-DLLAMA_SOURCE_DIR=$taskSource" -DCMAKE_BUILD_TYPE=Release
-if ($LASTEXITCODE -ne 0) { throw 'llama spike configuration failed' }
+if ($LASTEXITCODE -ne 0) { throw 'llama worker configuration failed' }
 & $taskCmake --build $BuildDir --target locallore-llama-worker --parallel 4
-if ($LASTEXITCODE -ne 0) { throw 'llama spike build failed' }
-
+if ($LASTEXITCODE -ne 0) { throw 'llama worker build failed' }

@@ -31,4 +31,3 @@ add_subdirectory("${LLAMA_SOURCE_DIR}" llama)
 add_executable(locallore-llama-worker main.cpp)
 target_compile_features(locallore-llama-worker PRIVATE cxx_std_17)
 target_link_libraries(locallore-llama-worker PRIVATE llama-common llama vendor::nlohmann)
-

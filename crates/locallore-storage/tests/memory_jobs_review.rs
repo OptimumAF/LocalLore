@@ -4,7 +4,7 @@ use locallore::{contracts::*, engine::Engine};
 use locallore_storage::{
     derived_memory::MemoryError,
     memory_jobs::{MemoryJobInfo, MemoryJobRequest},
-    Store,
+    ForkRequest, Store,
 };
 use std::{
     path::PathBuf,
@@ -166,4 +166,96 @@ fn reopen_reissues_handle_for_same_progress_and_expires_old_native_owner() {
             .canonical_bytes(),
         canonical
     );
+}
+
+#[test]
+fn historical_schema3_retired_catalog_stays_readable_without_job_tables_or_writes() {
+    let temp = Temp::new();
+    let path = temp.path("historical-retired.sqlite");
+    let (mut store, request, _) = populated(&path);
+    let parent = store
+        .fork_branch(
+            &ForkRequest {
+                parent: request.scope.clone(),
+                child_branch: "retired-parent".into(),
+                expected_parent_revision: 1,
+                at_revision: 1,
+            },
+            &|| false,
+        )
+        .unwrap();
+    let child = store
+        .fork_branch(
+            &ForkRequest {
+                parent: parent.scope.clone(),
+                child_branch: "retained-child".into(),
+                expected_parent_revision: 1,
+                at_revision: 1,
+            },
+            &|| false,
+        )
+        .unwrap();
+    let deletion = store
+        .prepare_branch_deletion(&parent.scope, 1, &|| false)
+        .unwrap();
+    store.delete_branch(deletion, &|| false).unwrap();
+    let canonical = store.resume(&child.scope).unwrap().engine.canonical_bytes();
+    drop(store);
+
+    // Recreate only the exact historical migration ledger and remove new derived
+    // tables. Accepted history, projections and actual retirement rows are intact.
+    let reference = rusqlite::Connection::open_in_memory().unwrap();
+    reference
+        .execute_batch(include_str!("../migrations/001_initial.sql"))
+        .unwrap();
+    reference
+        .execute_batch(include_str!("../migrations/002_derived_memory.sql"))
+        .unwrap();
+    reference
+        .execute_batch(include_str!("../migrations/003_branch_retention.sql"))
+        .unwrap();
+    let ledger: String = reference
+        .query_row(
+            "SELECT sql FROM sqlite_schema WHERE type='table' AND name='schema_migrations'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.execute_batch(&format!(
+        "BEGIN IMMEDIATE; DROP TABLE memory_job_packets; DROP TABLE memory_jobs; \
+         DROP TABLE schema_migrations; {ledger}; \
+         INSERT INTO schema_migrations VALUES \
+         (1,'locallore-storage-v1'),(2,'locallore-storage-v2-derived-memory'),\
+         (3,'locallore-storage-v3-branch-retention'); PRAGMA user_version=3; COMMIT;"
+    ))
+    .unwrap();
+    drop(db);
+    let before = std::fs::read(&path).unwrap();
+    let mut historical = Store::open_read_only(&path).unwrap();
+    assert_eq!(historical.info().unwrap().schema_version, 3);
+    assert_eq!(
+        historical
+            .resume(&child.scope)
+            .unwrap()
+            .engine
+            .canonical_bytes(),
+        canonical
+    );
+    let catalog = historical.branch_catalog(&request.scope.story, &|| false);
+    drop(historical);
+    assert_eq!(
+        std::fs::read(&path).unwrap(),
+        before,
+        "no read-only migration or repair"
+    );
+    let catalog = catalog.expect("valid schema3 catalog must not query schema4-only job tables");
+    assert!(catalog
+        .branches
+        .iter()
+        .any(|row| row.scope == parent.scope && row.retired));
+    assert!(catalog
+        .branches
+        .iter()
+        .any(|row| row.scope == child.scope && !row.retired));
 }

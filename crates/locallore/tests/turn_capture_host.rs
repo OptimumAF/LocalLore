@@ -52,6 +52,13 @@ fn wire_requires_native_lab_consent_scope_fresh_head_and_exact_private_attempt()
     let h = Host::new(false);
     let (s, scope) = create(&h);
     assert_eq!(config(&h, &s, &scope, 0, true, true)["error"], "Forbidden");
+    assert_eq!(
+        call(
+            &h,
+            json!({"op":"trace_capture_revoke","session":s,"scope":scope})
+        )["error"],
+        "Forbidden"
+    );
     let h = Host::new(true);
     let (s, scope) = create(&h);
     h.configure_local_provider(profile(), Arc::new(|| Box::new(Script)))
@@ -119,14 +126,49 @@ fn wire_requires_native_lab_consent_scope_fresh_head_and_exact_private_attempt()
         read(1, "captured")["data"]["details"]["identity"]["base_revision"],
         0
     );
-    assert_eq!(config(&h, &s, &scope, 1, false, false)["status"], "ok");
+    let state_before = call(
+        &h,
+        json!({"op":"play_snapshot","session":s,"scope":scope,"expected_revision":1}),
+    );
+    assert_eq!(config(&h, &s, &scope, 0, false, false)["error"], "Stale");
+    let revoked = call(
+        &h,
+        json!({"op":"trace_capture_revoke","session":s,"scope":scope}),
+    );
+    assert_eq!(revoked["data"]["revoked"], true, "{revoked}");
+    assert_eq!(
+        call(
+            &h,
+            json!({"op":"play_snapshot","session":s,"scope":scope,"expected_revision":1})
+        ),
+        state_before
+    );
     assert!(read(1, "captured")["data"]["details"]["artifacts"]
         .as_array()
         .unwrap()
         .is_empty());
+    let metadata = call(
+        &h,
+        json!({"op":"trace_read","session":s,"scope":scope,"expected_head":1,"base_revision":0,"observer":{"kind":"player"},"turn":"captured","attempt":attempt}),
+    );
+    assert_eq!(
+        metadata["data"]["snapshot"]["attempts"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(config(&h, &s, &scope, 1, false, false)["status"], "ok");
     assert_eq!(
         call(&h, json!({"op":"close","session":s,"scope":scope}))["status"],
         "ok"
     );
     assert_eq!(read(1, "captured")["error"], "Closed");
+    assert_eq!(
+        call(
+            &h,
+            json!({"op":"trace_capture_revoke","session":s,"scope":scope})
+        )["error"],
+        "Closed"
+    );
 }

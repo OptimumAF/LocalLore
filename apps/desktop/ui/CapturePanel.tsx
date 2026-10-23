@@ -184,7 +184,7 @@ export function CapturePanel({
                     </p>
                     <p>{s.reply.details.privacy}</p>
                     {s.reply.details.artifacts.map((a) => (
-                        <details key={a.ordinal}>
+                        <details key={a.ordinal} data-artifact-kind={a.kind}>
                             <summary>
                                 {a.ordinal + 1}. {a.kind.replaceAll("_", " ")}
                             </summary>

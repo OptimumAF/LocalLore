@@ -18,6 +18,8 @@ const LABELS: &[&str] = &[
     "d06-private-repair",
     "d06-private-context",
     "d06-private-preview",
+    "d06-private-open-request",
+    "d06-private-open-export",
     "d06-private-saved",
     "d06-private-lens",
     "d06-private-agency",
@@ -243,6 +245,7 @@ pub fn harness_viewport(
     let (width, height) = match preset.as_str() {
         "wide" => (1280.0, 900.0),
         "narrow" => (680.0, 900.0),
+        "capture-narrow" => (620.0, 900.0),
         _ => return Err("ViewportInvalid"),
     };
     window

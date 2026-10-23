@@ -48,22 +48,32 @@ export async function captureJourneys({
             .querySelector(
                 ["d06-private-preview", "d06-private-saved"].includes(label)
                     ? ".capture-export"
-                    : label === "d06-private-context"
-                      ? ".capture-context"
-                      : ".private-capture",
+                    : label === "d06-private-open-request"
+                      ? '[data-artifact-kind="generation_request"]'
+                      : label === "d06-private-open-export"
+                        ? ".capture-export details"
+                        : label === "d06-private-context"
+                          ? ".capture-context"
+                          : ".private-capture",
             )
             ?.scrollIntoView({ block: "start" });
         await new Promise((r) => setTimeout(r, 100));
-        check(
-            document.documentElement.scrollWidth <= innerWidth + 2,
-            `${label}-no-overflow`,
-        );
+        const horizontalOverflow =
+            document.documentElement.scrollWidth > innerWidth + 2;
+        const panel = document.querySelector<HTMLElement>(".private-capture");
+        const nestedOverflow =
+            !!panel && panel.scrollWidth > panel.clientWidth + 2;
         await invoke("harness_checkpoint", {
             label,
             snapshot: {
                 synthetic: true,
                 uiRevision: c.get().play?.revision ?? 0,
                 checks: [...checks],
+                layout: {
+                    horizontalOverflow,
+                    nestedOverflow,
+                    width: innerWidth,
+                },
                 capture: {
                     ...privateCapture.get(),
                     reply: privateCapture.get().reply
@@ -90,6 +100,8 @@ export async function captureJourneys({
                 },
             },
         });
+        check(!horizontalOverflow, `${label}-no-overflow`);
+        check(!nestedOverflow, `${label}-no-nested-overflow`);
     };
     const lens = async () => {
         c.requestLab();
@@ -271,6 +283,25 @@ export async function captureJourneys({
                 "private-native-preview-exact-selected-turn",
             );
             await checkpoint("d06-private-preview");
+            await invoke("harness_viewport", { preset: "capture-narrow" });
+            const requestDetail = document.querySelector<HTMLDetailsElement>(
+                '[data-artifact-kind="generation_request"]',
+            );
+            check(
+                requestDetail,
+                "private-actual-generation-request-detail-exists",
+            );
+            requestDetail!.open = true;
+            await checkpoint("d06-private-open-request");
+            requestDetail!.open = false;
+            const exportDetail = document.querySelector<HTMLDetailsElement>(
+                ".capture-export details",
+            );
+            check(exportDetail, "private-exact-export-text-detail-exists");
+            exportDetail!.open = true;
+            await checkpoint("d06-private-open-export");
+            exportDetail!.open = false;
+            await invoke("harness_viewport", { preset: "wide" });
             await privateCapture.save(false);
             check(
                 privateCapture.get().saved === null,

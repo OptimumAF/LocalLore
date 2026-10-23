@@ -70,12 +70,19 @@ not delete saves. All SQLite/replay/JNI work runs on IO workers. Generation runs
 outside the canonical lock and SQLite transaction. A lost commit acknowledgement
 is looked up with its original turn key; **Recover saved progress** retries
 uncertain work without allocating a new key. See [app durability](../../docs/native/APP_DURABILITY.md).
+Cancellation that reaches Rust before submit exists is reconciled as an uncommitted
+request. A late submit remains a draft; recovery does not regenerate or commit it.
 The earlier [ADR-0004](../../docs/adr/0004-android-engine-boundary.md) remains the
 legacy in-memory boundary fixture; production now uses the shared Host-v1 adapter.
 
 Disposal is terminal: retained Reset callbacks cannot reopen native sessions.
 The [ownership follow-up](../../docs/native/OWNERSHIP_FOLLOWUP_2026-10-22.md)
 records the regression and additional lifecycle/worker replacement checks.
+The [current durable-transport verification](../../docs/native/APP_DEVICE_VERIFICATION_2026-10-22.md)
+adds actual production IO/async-close ownership checks. The explicit
+[process-restart runner](../../docs/native/APP_DEVICE_RUNNER.md) runs two test-only
+phases around a verified app stop, retaining existing saves. These phases skip
+ordinary discovery without their coordination argument; do not count skips as passes.
 
 The recorded adapter/samples live only in src/test. The legacy NativeDemoGateway
 and Registry remain boundary-test fixtures; MainActivity selects DurableGateway

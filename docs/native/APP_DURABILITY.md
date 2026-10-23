@@ -35,6 +35,13 @@ requested, recovery instead retries cancellation and reconciles any commit
 that already won. A fresh retry never silently substitutes a new key for an
 uncertain commit.
 
+Cancellation may reach Rust before the IO submit has registered its turn. An
+explicit `UnknownTurn` reply on this cancellation path clears only that same
+pending operation. The captured request remains marked cancelled, so a late
+submit cannot prepare, commit, regenerate during recovery, or erase a replacement
+operation. Such a late submit can retain an uncommitted draft. Other transport or
+storage failures retain their uncertainty and recovery behavior.
+
 All file opening, SQLite work, replay and JNI calls run on Kotlin IO workers.
 Prepare/generation bypasses the adapter's short control gate. The shared Host
 validates its completion against the current session and cancellation state;
@@ -76,3 +83,9 @@ or physical-device qualification. For this change, connected tests, ADB,
 emulators, runtime-control worktrees, installed models and desktop control are
 outside the authorized verification surface. The PR records the exact checks
 actually run and the remaining integration limits.
+
+That paragraph records the original adapter packet's verification scope. The
+subsequent [device follow-up](APP_DEVICE_VERIFICATION_2026-10-22.md) records actual
+execution of these cases, the production transport's Main/IO and async-close
+checks, the reproduced pre-submit cancellation fix, and explicit process restart
+on two selected emulators. Physical-device and real-model gates remain separate.

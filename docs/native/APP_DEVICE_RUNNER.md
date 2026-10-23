@@ -9,12 +9,13 @@ checkpoint assertions; this runner owns transport ordering and cleanup evidence.
 It does not implement gameplay, alter the storage schema, or supply inference.
 
 The two APKs must already be installed on an explicitly authorized device. Use
-matching local source-built APKs, then run explicitly (PowerShell example):
+matching local source-built APKs, set `ANDROID_SERIAL` to the selected authorized
+target, then run explicitly (PowerShell example):
 
 ```powershell
 python scripts/android_app_restart_smoke.py `
   --adb "$env:LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe" `
-  --serial emulator-5582 `
+  --serial "$env:ANDROID_SERIAL" `
   --apk apps/android/app/build/outputs/apk/debug/app-debug.apk `
   --test-apk apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk `
   --output target/app-restart-A.json

@@ -67,6 +67,10 @@ and UI publication never suspend. Unknown commit transport failure requires
 reset rather than claiming rollback. [ADR-0004](../../docs/adr/0004-android-engine-boundary.md)
 defines this lifecycle and bounded control protocol.
 
+Disposal is terminal: retained Reset callbacks cannot reopen native sessions.
+The [ownership follow-up](../../docs/native/OWNERSHIP_FOLLOWUP_2026-10-22.md)
+records the regression and additional lifecycle/worker replacement checks.
+
 The former recorded adapter/samples now live only in src/test and are not
 packaged or used by the app. Their host drift check remains:
 

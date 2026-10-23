@@ -141,6 +141,25 @@ class ShellViewModelTest {
         assertTrue(model.state.value.messages.isEmpty())
     }
 
+    @Test fun retainedResetCallbackCannotReopenADisposedGateway() = runTest(dispatcher) {
+        var closes = 0
+        var resets = 0
+        val model = model(object : DemoGateway {
+            override suspend fun respond(action: DemoAction, revision: Long, mode: DemoMode) =
+                DemoResult.Rejected("Provider")
+            override fun close() { closes++ }
+            override fun reset() { resets++ }
+        })
+        val retainedReset = model::reset
+        store.clear()
+        val disposedState = model.state.value
+        repeat(3) { retainedReset() }
+        advanceUntilIdle()
+        assertEquals(1, closes)
+        assertEquals("A disposed ViewModel must not allocate another native session", 0, resets)
+        assertEquals(disposedState, model.state.value)
+    }
+
     @Test fun preparedOutcomeCommitsBeforePublishingWithoutSuspension() = runTest(dispatcher) {
         var commits = 0
         val model = model(object : DemoGateway {

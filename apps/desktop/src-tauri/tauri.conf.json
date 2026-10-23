@@ -1,15 +1,15 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "LocalLore D01",
+  "productName": "LocalLore Desktop",
   "version": "0.1.0",
   "identifier": "org.locallore.desktop.spike",
-  "build": { "frontendDist": "../ui" },
+  "build": { "frontendDist": "../dist" },
   "app": {
     "withGlobalTauri": true,
     "windows": [],
     "security": {
       "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'",
-      "capabilities": [{ "identifier": "main-host", "windows": ["main"], "permissions": ["allow-host-call", "allow-smoke-finish"] }]
+      "capabilities": [{ "identifier": "main-host", "windows": ["main"], "permissions": ["allow-host-call", "allow-harness-checkpoint", "allow-harness-viewport", "allow-harness-finish", "allow-harness-stats", "allow-harness-oracle", "allow-harness-reopen"] }]
     }
   },
   "bundle": { "active": false }

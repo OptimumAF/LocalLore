@@ -34,6 +34,7 @@ An unknown turn is unknown, not evidence of durable rollback after process loss.
 | `cancel` | Session + scope + turn; cancel queued/running/ready work; committed outcome stays committed |
 | `turn_status` | Session + scope + turn; retained phase/error and committed receipt; exact retries return the original outcome |
 | `inspect` | Session + scope + observer + expected revision; coherent immutable serialized context or explicitly granted omniscient projection/history |
+| `play_snapshot` | Session + scope + expected revision; one coherent player context, player-owned inventory and finalized player-request receipts; rejects stale revision |
 | `model_status` | Honest fixed fake marker; no real model loaded |
 | `free_text` | Session + domain request; scope-validated `Unsupported`; no model interpretation of player text |
 | `snapshot_export` | Session + scope + expected revision; validated `Unsupported`; no path or file capability |
@@ -46,6 +47,12 @@ different request or fake mode returns `RetryMismatch`. Retention limits reject
 new turns instead of discarding idempotency history. Sessions must be explicitly
 closed; this prototype does not run an eviction policy or unlimited history.
 
+Fake modes are `accepted`, `delayed`, `rejected`, `malformed`, `failed` and
+`cancelled`. Delayed mode makes four 50 ms waits on the preparation worker,
+checking cancellation between polls; it measures synthetic lifecycle behavior,
+not real inference. `live_counts()` is a trusted adapter diagnostic, not a wire
+operation or authority to inspect stories.
+
 ## Ownership, snapshots and authority
 
 The host mutex is the sole canonical writer owner. Multiple native calls can
@@ -53,8 +60,10 @@ prepare the same revision; only one compatible commit wins. Generation uses
 `inference::execute` on a clone because that API commits its supplied engine.
 No canonical lock/write transaction spans generation. Worker ownership stays
 counted until dropped, including after session close. Cancel, close and revision
-changes fence even a successful late completion. Reset/story switch closes the
-old session before creating/attaching the new one. A window teardown calls
+changes fence even a successful late completion. D02 story switching cancels
+and fences pending work while retaining up to four in-memory sessions and
+separate drafts. Reset/close releases the affected session; neither is a save.
+A window teardown calls
 `close_all`; process death discards this explicitly ephemeral state.
 Each creation is a distinct story. Multiple windows opening one existing
 session share its canonical owner; creating another session cannot create a
@@ -90,5 +99,7 @@ npm run check
 Schemars derives share the existing `Scope`, `Request`, `Intent` and `Command`
 definitions. A regression compares the checked schema with fresh Rust output;
 Ajv validates frontend action builders and the native smoke fixture against it.
-Domain/host semantic validation remains in Rust. No independently maintained
-TypeScript domain model or accepted-history deserializer is introduced.
+Domain/host semantic validation remains in Rust. `build.mjs` generates request
+types in `ui/host.generated.ts` from the same schema. The frontend checks the
+coherent player-view/receipt envelope before display; it introduces no gameplay
+reducer. Rust remains the semantic authority.

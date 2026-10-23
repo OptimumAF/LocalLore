@@ -1,5 +1,5 @@
 use crate::{contracts::*, scope::Lineage};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Debug)]
@@ -23,6 +23,80 @@ pub struct CharacterContext {
     pub facts: BTreeMap<String, String>,
     pub observations: Vec<AcceptedEvent>,
     pub beliefs: Vec<Belief>,
+}
+
+// This private input is never an accepted canonical value. Only rebuilding and comparing its
+// entire encoding can produce a Receipt; AcceptedEvent and Receipt remain Serialize-only.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PersistedReceipt {
+    request: Request,
+    proposal: Proposal,
+    events: Vec<serde_json::Value>,
+    narration: String,
+}
+
+struct UniqueJson(serde_json::Value);
+
+impl<'de> Deserialize<'de> for UniqueJson {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct Visitor;
+        impl<'de> serde::de::Visitor<'de> for Visitor {
+            type Value = UniqueJson;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("JSON without duplicate object keys")
+            }
+            fn visit_bool<E: serde::de::Error>(self, value: bool) -> Result<Self::Value, E> {
+                Ok(UniqueJson(value.into()))
+            }
+            fn visit_i64<E: serde::de::Error>(self, value: i64) -> Result<Self::Value, E> {
+                Ok(UniqueJson(value.into()))
+            }
+            fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<Self::Value, E> {
+                Ok(UniqueJson(value.into()))
+            }
+            fn visit_f64<E: serde::de::Error>(self, value: f64) -> Result<Self::Value, E> {
+                serde_json::Number::from_f64(value)
+                    .map(|number| UniqueJson(serde_json::Value::Number(number)))
+                    .ok_or_else(|| E::custom("invalid JSON number"))
+            }
+            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+                Ok(UniqueJson(value.into()))
+            }
+            fn visit_string<E: serde::de::Error>(self, value: String) -> Result<Self::Value, E> {
+                Ok(UniqueJson(value.into()))
+            }
+            fn visit_unit<E: serde::de::Error>(self) -> Result<Self::Value, E> {
+                Ok(UniqueJson(serde_json::Value::Null))
+            }
+            fn visit_seq<A: serde::de::SeqAccess<'de>>(
+                self,
+                mut sequence: A,
+            ) -> Result<Self::Value, A::Error> {
+                let mut values = Vec::new();
+                while let Some(UniqueJson(value)) = sequence.next_element()? {
+                    values.push(value);
+                }
+                Ok(UniqueJson(serde_json::Value::Array(values)))
+            }
+            fn visit_map<A: serde::de::MapAccess<'de>>(
+                self,
+                mut object: A,
+            ) -> Result<Self::Value, A::Error> {
+                let mut values = serde_json::Map::new();
+                while let Some(key) = object.next_key::<String>()? {
+                    if values.contains_key(&key) {
+                        return Err(serde::de::Error::custom("duplicate JSON key"));
+                    }
+                    let UniqueJson(value) = object.next_value()?;
+                    values.insert(key, value);
+                }
+                Ok(UniqueJson(serde_json::Value::Object(values)))
+            }
+        }
+        deserializer.deserialize_any(Visitor)
+    }
 }
 
 impl Engine {
@@ -221,8 +295,51 @@ impl Engine {
         Ok(receipt)
     }
 
-    /// Replay accepted outcomes without any inference calls or random rerolls. Typed receipts are
-    /// engine-created values; hostile archive/JSON history import is not exposed in this packet.
+    /// Restore bounded complete persisted root-history receipts, never a supplied projection.
+    /// V1 rules are deterministic: rebuilding verifies every recorded resolved outcome. Future
+    /// random rules require an explicit recorded-outcome contract; they must not reroll here.
+    /// No inference provider or random source is used. No partially restored engine is returned.
+    pub fn restore(seed: Seed, history: &[String]) -> Result<Self, Error> {
+        if history.len() > MAX_HISTORY_RECEIPTS {
+            return Err(Error::TooLarge);
+        }
+        let mut total = 0usize;
+        for receipt in history {
+            total = total.checked_add(receipt.len()).ok_or(Error::TooLarge)?;
+            if receipt.len() > MAX_RECEIPT_BYTES || total > MAX_HISTORY_BYTES {
+                return Err(Error::TooLarge);
+            }
+        }
+        let mut engine = Self::new(seed)?;
+        for receipt in history {
+            // Value normally accepts repeated object keys. Reject them recursively before typed
+            // parsing so hidden first/last-wins fields cannot survive archive validation.
+            let raw: UniqueJson =
+                serde_json::from_str(receipt).map_err(|_| Error::CorruptHistory)?;
+            let recorded: PersistedReceipt =
+                serde_json::from_value(raw.0.clone()).map_err(|_| Error::CorruptHistory)?;
+            if recorded.events.is_empty()
+                || recorded.events.len() > MAX_COMMANDS
+                || engine
+                    .recorded(&recorded.request)
+                    .map_err(|_| Error::CorruptHistory)?
+                    .is_some()
+            {
+                return Err(Error::CorruptHistory);
+            }
+            let rebuilt = engine
+                .commit(&recorded.request, &recorded.proposal, &recorded.narration)
+                .map_err(|_| Error::CorruptHistory)?;
+            // Full JSON equality rejects unknown envelope/effect fields, forged witnesses,
+            // provenance, order, scope, sequence and effects. Object key order is irrelevant.
+            if serde_json::to_value(rebuilt).map_err(|_| Error::CorruptHistory)? != raw.0 {
+                return Err(Error::CorruptHistory);
+            }
+        }
+        Ok(engine)
+    }
+
+    /// Replay engine-created typed outcomes under the same deterministic v1 rules as restore.
     pub fn replay(seed: Seed, receipts: &[Receipt]) -> Result<Self, Error> {
         let mut engine = Self::new(seed)?;
         for receipt in receipts {

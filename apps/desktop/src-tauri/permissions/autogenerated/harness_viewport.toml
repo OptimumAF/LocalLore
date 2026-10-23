@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-harness-viewport"
+description = "Enables the harness_viewport command without any pre-configured scope."
+commands.allow = ["harness_viewport"]
+
+[[permission]]
+identifier = "deny-harness-viewport"
+description = "Denies the harness_viewport command without any pre-configured scope."
+commands.deny = ["harness_viewport"]

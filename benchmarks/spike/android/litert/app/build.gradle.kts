@@ -11,7 +11,9 @@ fun explicitFlag(name: String): Boolean {
     return value == "true"
 }
 val cacheProbe = explicitFlag("localLoreCacheProbe")
+val phaseProbe = explicitFlag("localLorePhaseProbe")
 val playProbe = explicitFlag("localLorePlayProbe")
+require(!phaseProbe || cacheProbe) { "Phase evidence requires the isolated cache build profile" }
 require(!(cacheProbe && playProbe)) { "Cache and legacy play profiles are separate" }
 val cacheOutput = providers.gradleProperty("localLoreCacheOutput").orNull
 val cacheNative = providers.gradleProperty("localLoreCacheNativeDir").orNull
@@ -35,13 +37,16 @@ android {
     compileSdk = 36
     buildToolsVersion = "35.0.0"
     defaultConfig {
-        applicationId = if (cacheProbe) "org.locallore.runtimebench.litert.cacheprobe" else "org.locallore.runtimebench.litert"
+        applicationId = if (phaseProbe) "org.locallore.runtimebench.litert.phaseprobe"
+            else if (cacheProbe) "org.locallore.runtimebench.litert.cacheprobe" else "org.locallore.runtimebench.litert"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
-        versionName = if (cacheProbe) "0.18.1-cacheprobe-v1" else "0.18.1-spike"
-        manifestPlaceholders["spikeLabel"] = if (cacheProbe) "LocalLore explicit cache experiment" else "LocalLore SDK experiment"
-        manifestPlaceholders["spikeInstrumentation"] = if (cacheProbe)
+        versionName = if (phaseProbe) "0.18.1-phaseprobe-v1" else if (cacheProbe) "0.18.1-cacheprobe-v1" else "0.18.1-spike"
+        manifestPlaceholders["spikeLabel"] = if (phaseProbe) "LocalLore phase evidence experiment"
+            else if (cacheProbe) "LocalLore explicit cache experiment" else "LocalLore SDK experiment"
+        manifestPlaceholders["spikeInstrumentation"] = if (phaseProbe)
+            "org.locallore.runtimebench.litert.PhaseEvidenceInstrumentation" else if (cacheProbe)
             "org.locallore.runtimebench.litert.CacheProbeInstrumentation" else "org.locallore.runtimebench.litert.SpikeInstrumentation"
         ndk { abiFilters += listOf("x86_64", "arm64-v8a") }
     }

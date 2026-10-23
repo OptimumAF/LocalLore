@@ -16,6 +16,26 @@ def manifest(name=target.INSTRUMENTATION, package=target.PACKAGE):
 
 
 class CacheBuildTests(unittest.TestCase):
+    def test_phase_profile_is_distinct_and_explicit(self):
+        tree = manifest(target.PHASE_INSTRUMENTATION, target.PHASE_PACKAGE)
+        target.manifest_audit('package: ' + target.PHASE_PACKAGE, tree, phase_probe=True)
+        with self.assertRaises(ValueError):
+            target.manifest_audit('package: ' + target.PHASE_PACKAGE, tree)
+        with self.assertRaises(ValueError):
+            target.manifest_audit('package: ' + target.PACKAGE, manifest(), phase_probe=True)
+        for component in ('provider', 'service', 'receiver', 'activity', 'activity-alias'):
+            with self.assertRaisesRegex(ValueError, 'phase_component'):
+                target.manifest_audit('package: ' + target.PHASE_PACKAGE, tree + '  E: ' + component + ' (line=9)\n', True)
+        with patch.object(target.build.check, 'java_executable', return_value='java17'):
+            self.assertIn('-PlocalLorePhaseProbe=true', target.gradle_command(Path('java21'), Path('D:/fresh'), True))
+            self.assertNotIn('-PlocalLorePhaseProbe=true', target.gradle_command(Path('java21'), Path('D:/fresh')))
+            self.assertIn('-PlocalLorePhaseProbe=false', target.gradle_command(Path('java21'), Path('D:/fresh')))
+            for invalid in (None, 1, 'true'):
+                with self.assertRaises(ValueError):
+                    target.gradle_command(Path('java21'), Path('D:/fresh'), invalid)
+                with self.assertRaises(ValueError):
+                    target.manifest_audit('', '', invalid)
+
     def test_permission_or_legacy_package_cannot_pass_new_identity(self):
         for permissions in ('package: org.locallore.runtimebench.litert',
                             'package: ' + target.PACKAGE + '\nuses-permission: android.permission.INTERNET'):

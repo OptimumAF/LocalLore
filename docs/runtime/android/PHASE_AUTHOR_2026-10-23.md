@@ -118,3 +118,18 @@ post-commit uncertainty and preservation of earlier failures.
 No full Gradle build, Android API qualification, emulator, physical phone, SDK
 inference or actual process-death experiment was run by this author. Those are
 coordinator-owned gates. The fake Host/SDK tests do not substitute for them.
+
+## Android integration compatibility correction
+
+The coordinator's first full Android attempt at integrated source `7353db3`
+failed at `compileDebugUnitTestJavaWithJavac`: the Android compile stubs did not
+provide the test-only `Files.readString` and `Files.writeString` calls. Production
+compilation and APK packaging had completed, but the artifact was not qualified
+and was not installed. The direct JDK 21 checks above did not exercise the
+Android API classpath. The three test call sites now use `Files.readAllBytes`
+with explicit UTF-8 decoding and `Files.write` with explicit UTF-8 bytes. No
+production code or test acceptance assertion changed.
+
+The failed integration attempt and known-cleanup result remain retained by the
+coordinator; a fresh central Android attempt is required. No author full Gradle
+build or device execution is implied by this correction.

@@ -44,7 +44,7 @@ public final class PhaseJournalTest {
             assertThrows(UnsupportedOperationException.class, () -> read.records.clear());
         }
         assertEquals(1, io.closes);
-        String text = Files.readString(parent.resolve(PhaseJournal.FILE));
+        String text = new String(Files.readAllBytes(parent.resolve(PhaseJournal.FILE)), StandardCharsets.UTF_8);
         assertFalse(text.contains(parent.toString())); assertFalse(text.contains("prompt")); assertFalse(text.contains("error"));
     }
     @Test public void createNewRefusesExistingLeafAndInvalidIdentityWithoutOverwriting() throws Exception {
@@ -158,14 +158,14 @@ public final class PhaseJournalTest {
         try (PhaseJournal journal = new PhaseJournal(parent, SESSION, identity(), new Clock())) {
             journal.mark("probe_ready", "none"); journal.mark("probe_kill", "none");
         }
-        String valid = Files.readString(parent.resolve(PhaseJournal.FILE));
+        String valid = new String(Files.readAllBytes(parent.resolve(PhaseJournal.FILE)), StandardCharsets.UTF_8);
         for (String bad : List.of(valid.replace("\"version\":1", "\"version\":true"),
                 valid.replace("\"version\":1", "\"version\":1,\"version\":1"), valid.replace("\"version\":1", "\"version\":1,\"PRIVATE\":0"),
                 valid.replace(SESSION, "b".repeat(32)), valid.replace("probe_kill", "PRIVATE phase"),
                 valid.replace("\"sequence\":2", "\"sequence\":1"), valid.replace("\"elapsed_ms\":21", "\"elapsed_ms\":19"),
                 valid.replace("\"pid\":123", "\"pid\":0"), valid.replace("\"role\":\"none\"", "\"role\":\"narrator\""),
                 valid.substring(0, valid.length() - 1), valid.replace("\n", "\r\n"), valid + "\n")) {
-            Path badParent = directory(); Files.writeString(badParent.resolve(PhaseJournal.FILE), bad);
+            Path badParent = directory(); Files.write(badParent.resolve(PhaseJournal.FILE), bad.getBytes(StandardCharsets.UTF_8));
             assertEquals("phase_journal_failed", assertThrows(IOException.class, () -> PhaseJournal.read(badParent, SESSION)).getMessage());
         }
         Path tooLarge = directory(); Files.write(tooLarge.resolve(PhaseJournal.FILE), new byte[65537]);

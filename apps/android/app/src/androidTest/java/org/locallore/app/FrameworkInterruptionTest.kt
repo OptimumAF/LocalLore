@@ -36,6 +36,7 @@ import java.io.File
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 /** Actual framework callbacks and Rust/SQLite; only reply delivery is gated, in this test APK. */
@@ -51,8 +52,14 @@ class FrameworkInterruptionTest {
         val inNative = AtomicBoolean(false)
         val activeAtFirstStop = AtomicReference<Boolean?>(null)
         val calls = CopyOnWriteArrayList<Pair<String, String?>>()
+        val exchanges = AtomicInteger(0)
         private val firstPrepare = AtomicBoolean(true)
         override suspend fun exchange(command: JSONObject): JSONObject {
+            exchanges.incrementAndGet()
+            try { return recordedExchange(command) }
+            finally { exchanges.decrementAndGet() }
+        }
+        private suspend fun recordedExchange(command: JSONObject): JSONObject {
             val op = command.getString("op")
             val key = if (op == "submit") command.getJSONObject("request").getString("turn")
                 else command.optString("turn").takeUnless { it.isEmpty() }
@@ -140,6 +147,7 @@ class FrameworkInterruptionTest {
                         runBlocking {
                             owners.forEach {
                                 if (it.gate.entered.isCompleted) withTimeout(5_000) { it.gate.returned.await() }
+                                withTimeout(5_000) { while (it.gate.exchanges.get() != 0) delay(5) }
                                 allSlotsReleased(it.database)
                                 // The exact create-new root only, after native owners have drained.
                                 check(it.context.noBackupFilesDir.deleteRecursively())
@@ -196,15 +204,29 @@ class FrameworkInterruptionTest {
             turn
         }
     }
-    private fun stoppedBeforeNativeReturn() {
-        assertEquals("Insufficient native/framework-stop overlap; do not infer a cancellation pass",
-            true, owner.gate.activeAtFirstStop.get())
+    private fun readyBeforeFrameworkTransition() = runBlocking {
+        val reply = withTimeout(3_000) { owner.gate.nativeReply.await() }
+        assertEquals("ok", reply.getString("status"))
+        assertEquals("ready", reply.getJSONObject("data").getString("phase"))
+        assertFalse(owner.gate.inNative.get())
+        assertFalse(owner.gate.release.isCompleted)
+        assertEquals(0, owner.gate.calls.count { it.first == "commit" })
+    }
+    private fun stoppedAndUncommitted(nativeWasActive: Boolean) {
+        assertEquals("The required native/framework-stop interleaving was not observed",
+            nativeWasActive, owner.gate.activeAtFirstStop.get())
         runBlocking {
             val reply = withTimeout(3_000) { owner.gate.nativeReply.await() }
             assertEquals("ok", reply.getString("status"))
-            assertEquals("cancelled", reply.getJSONObject("data").getString("phase"))
+            assertTrue(reply.getJSONObject("data").getString("phase") in setOf("ready", "cancelled"))
         }
         idle(); zero()
+        runBlocking {
+            val turn = owner.gate.entered.await()
+            val status = owner.gate.actual.exchange(JSONObject(turn.command.toString()).put("op", "turn_status"))
+            assertEquals("ok", status.getString("status"))
+            assertEquals("cancelled", status.getJSONObject("data").getString("phase"))
+        }
         assertEquals(0, owner.gate.calls.count { it.first == "commit" })
     }
     private fun releaseLateReply() = runBlocking {
@@ -228,12 +250,13 @@ class FrameworkInterruptionTest {
         } finally { gateway.close() }
     }
 
-    @Test fun realFrameworkStopCancelsRunningTurnAndLateReplyCannotAttachToNewStory() {
+    @Test fun realFrameworkStopCancelsUndeliveredReadyTurnAndLateReplyCannotAttachToNewStory() {
         val old = beginActualRunningTurn()
+        readyBeforeFrameworkTransition()
         val original = checkNotNull(owner.model.state.value.selectedStory)
         compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
         assertEquals(Lifecycle.State.CREATED, compose.activityRule.scenario.state)
-        stoppedBeforeNativeReturn()
+        stoppedAndUncommitted(nativeWasActive = false)
         compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
         main { owner.model.reset() }; idle(); zero()
         assertNotEquals(original.story, owner.model.state.value.selectedStory!!.story)
@@ -255,7 +278,7 @@ class FrameworkInterruptionTest {
         assertEquals(1, fixture.owners.size)
         assertTrue(fixture.seen.size >= 2)
         assertTrue(fixture.seen.all { it === retained })
-        stoppedBeforeNativeReturn()
+        stoppedAndUncommitted(nativeWasActive = true)
         main { retained.setMode(DemoMode.ACCEPTED); retained.submit(DemoAction.GIVE_POTION) }
         idle(); accepted()
         val before = retained.state.value
@@ -267,10 +290,12 @@ class FrameworkInterruptionTest {
 
     @Test fun realFrameworkDestructionFencesLateReplyAndRetainedCallbacksWithoutDeletingSavedCanon() {
         beginActualRunningTurn()
+        readyBeforeFrameworkTransition()
         compose.activityRule.scenario.close()
         assertEquals(Lifecycle.State.DESTROYED, compose.activityRule.scenario.state)
-        assertEquals(true, owner.gate.activeAtFirstStop.get())
+        assertEquals(false, owner.gate.activeAtFirstStop.get())
         releaseLateReply()
+        runBlocking { withTimeout(5_000) { while (owner.gate.exchanges.get() != 0) delay(5) } }
         val disposed = owner.model.state.value
         val calls = owner.gate.calls.toList()
         main { owner.model.reset(); owner.model.submit(DemoAction.GIVE_POTION); owner.model.recover() }

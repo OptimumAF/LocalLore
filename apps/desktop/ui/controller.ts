@@ -1119,6 +1119,7 @@ export class Controller {
             this.unresolved === op
         )
             this.unresolved = null;
+        if (op.request.intent.kind === "free_text") await this.refreshModel();
         await this.refresh();
         if (this.state.workspace) await this.library();
         if (

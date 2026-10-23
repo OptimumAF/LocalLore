@@ -123,6 +123,7 @@ const files = [
     "../../crates/locallore-local-runtime/src/adapter.rs",
     "../../native/llama-worker/profile-v1.json",
     "../../native/llama-worker/main.cpp",
+    "../../native/llama-worker/schema_order.h",
     "../../native/llama-worker/generate.inc",
     "src-tauri/runtime/locallore-llama-worker.exe",
     "../../crates/locallore/src/host.rs",

@@ -77,7 +77,10 @@ Correction8371caf removes unloading from cancel-ready phases, returns native
 finishing_cleanup for a delayed cancel, and labels the UI as waiting for local
 work to stop. The progress label now says model operation rather than import.
 
-All of the reported source paths are addressed throughd6d1ab2. No remaining
+All of the reported source paths are addressed throughd6d1ab2. During final
+hash capture the coordinator also changed FILE_DISPOSITION_INFO.DeleteFile from
+true.into() to true in models.rs; this one-line working correction is included
+in the source inventory below and adds no new behavior or authority. No remaining
 substantive native source blocker was found in this bounded pass. The regression
 sources are present; exact final native execution is still pending at handoff
 and will be recorded separately by the coordinator. Original source or old
@@ -187,7 +190,8 @@ report nor the partial publication closes D04/M05 or the desktop epic.
 
 ## Final source identities
 
-The final code reviewed here isd6d1ab2. Its app/native-evidence net scope is33
+The final code reviewed here isd6d1ab2 plus the explicitly observed uncommitted
+DeleteFile boolean correction above. Its app/native-evidence net scope is33
 files overruntime5e0f8d1. Of those original33 carried joint61e8cf1 inputs,27
 remain byte-identical Git blobs; six intentionally differ: models.rs,
 ui/controller.ts, ui/ModelPanel.tsx, stage-runtime.mjs, model-harness.mjs and
@@ -199,8 +203,10 @@ The branch also carries the preceding runtime publication/review documents;
 those are dependency evidence, not desktop implementation changes. No shared
 engine/storage/schema, Android, D05 UI, model weight or binary was edited in
 this native slice. Read-only git diff --check passed. The following SHA256s
-identify the actual reviewed Windows checkout bytes atd6d1ab2, including checkout
-line endings; the commit identifies canonical Git blobs. They are source
+identify the actual reviewed Windows checkout bytes atd6d1ab2 plus that one-line
+working correction, including checkout line endings. The committed baseline and
+explicit delta identify canonical source; the coordinator owns recording the
+correction's eventual commit in its publication report. These are source
 identities, not signatures or reproducible binary-build claims.
 
 ```text

@@ -17,6 +17,11 @@ rebuild that C++ artifact or install/change any system prerequisite.
 
 Use Node **24.22.1 / npm 11.19.1**, Python **3.14.9**, the checked-in Rust
 toolchain and all three Cargo locks plus `apps/desktop/package-lock.json`.
+Following [workspace alignment](D09_WORKSPACE_ALIGNMENT_2026-10-23.md), the current
+Cargo locks are root `Cargo.lock` (including desktop),
+`crates/locallore-local-runtime/Cargo.lock` and `crates/locallore-eval/Cargo.lock`.
+Desktop manifest-path commands use the root lock. Portable `--workspace` test/Clippy
+commands must exclude `locallore-desktop-spike`; the existing check runner does so.
 These Node/Python releases were verified against their official October 21,
 2026 security release pages: [Node](https://nodejs.org/en/blog/release/v24.22.1),
 [Python](https://www.python.org/downloads/release/python-3149/).

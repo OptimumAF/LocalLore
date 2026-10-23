@@ -3,8 +3,10 @@
 import contextlib
 import importlib.util
 import io
+import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -49,6 +51,73 @@ class CheckRunnerTests(unittest.TestCase):
 
     def test_wrapper_integrity_checks_actual_tracked_files(self):
         check.verify_wrapper(check.ROOT)
+
+    def test_portable_workspace_commands_exclude_only_desktop(self):
+        # --workspace ignores default-members: a missing exclusion would compile
+        # Tauri/GTK on the portable Linux runner. Inspect the actual selected
+        # command arguments, including online and offline entrypoints.
+        for offline in (False, True):
+            commands = check.host_commands(check.ROOT, offline)
+            workspace = [command.argv for command in commands if "--workspace" in command.argv]
+            self.assertEqual({argv[2] for argv in workspace}, {"test", "clippy"})
+            for argv in workspace:
+                exclusions = [argv[index + 1] for index, value in enumerate(argv) if value == "--exclude"]
+                self.assertEqual(exclusions, ["locallore-desktop-spike"])
+                self.assertNotIn("-p", argv)  # Keep every portable workspace member.
+                self.assertLess(argv.index("--exclude"), argv.index("--locked"))
+            other = [command.argv for command in commands if "--workspace" not in command.argv]
+            self.assertTrue(all("--exclude" not in argv for argv in other))
+
+    def test_android_commands_do_not_select_desktop_workspace(self):
+        commands = check.android_commands(check.ROOT, True, False)
+        self.assertTrue(all("--workspace" not in command.argv for command in commands))
+        self.assertTrue(all("locallore-desktop-spike" not in command.argv for command in commands))
+
+    @unittest.skipUnless(shutil.which("cargo"), "Cargo metadata check requires the provisioned pinned toolchain")
+    def test_actual_cargo_manifest_selection_and_lock_ownership(self):
+        root = check.ROOT
+        lock = (root / "Cargo.lock").read_bytes()
+
+        def metadata(manifest):
+            result = subprocess.run(
+                ["cargo", "+1.93.1", "metadata", "--manifest-path", str(manifest),
+                 "--no-deps", "--format-version", "1", "--locked", "--offline"],
+                cwd=root, shell=False, capture_output=True, text=True, timeout=60)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            return json.loads(result.stdout)
+
+        portable = {"locallore", "locallore-android", "locallore-storage", "locallore-workspace"}
+        data = metadata(root / "Cargo.toml")
+        names = {package["id"]: package["name"] for package in data["packages"]}
+        self.assertEqual({names[key] for key in data["workspace_default_members"]}, portable)
+        self.assertEqual({names[key] for key in data["workspace_members"]}, portable | {"locallore-desktop-spike"})
+        desktop = metadata(root / "apps/desktop/src-tauri/Cargo.toml")
+        self.assertEqual(Path(desktop["workspace_root"]), root)
+        self.assertEqual(desktop["workspace_default_members"], [
+            package["id"] for package in desktop["packages"] if package["name"] == "locallore-desktop-spike"])
+        expected_target = Path(os.environ.get("CARGO_TARGET_DIR", root / "target"))
+        if not expected_target.is_absolute():
+            expected_target = root / expected_target
+        self.assertEqual(Path(desktop["target_directory"]), expected_target.resolve())
+        self.assertFalse((root / "apps/desktop/src-tauri/Cargo.lock").exists())
+        self.assertEqual((root / "Cargo.lock").read_bytes(), lock)
+        for name in ("locallore-local-runtime", "locallore-eval"):
+            standalone = root / "crates" / name
+            self.assertEqual(Path(metadata(standalone / "Cargo.toml")["workspace_root"]), standalone)
+            self.assertTrue((standalone / "Cargo.lock").is_file())
+
+    def test_native_harnesses_bind_consumed_lock_and_explicit_target(self):
+        root = check.ROOT / "apps/desktop"
+        for name in ("archive-harness.mjs", "durable-harness.mjs", "evaluation-harness.mjs",
+                     "export-harness.mjs", "harness.mjs", "inspector-harness.mjs",
+                     "legacy-harness.mjs", "model-harness.mjs", "trace-harness.mjs"):
+            with self.subTest(harness=name):
+                source = (root / name).read_text(encoding="utf-8")
+                self.assertNotIn('"src-tauri/Cargo.lock"', source)
+                self.assertIn('"../../Cargo.lock"', source)
+                # The root workspace changes Cargo's default target directory.
+                # Every native harness supplies its chosen target explicitly.
+                self.assertRegex(source, r'"--target-dir",\s*target')
 
     def test_modified_wrapper_never_starts_a_process(self):
         with tempfile.TemporaryDirectory(prefix="check with ' spaces ") as temporary:

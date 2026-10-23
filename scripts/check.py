@@ -32,8 +32,8 @@ def host_commands(root, offline):
     )
     commands = [
         cargo + ["fmt", "--all", "--", "--check"],
-        cargo + ["clippy", "--workspace", "--all-targets"] + locked + ["--", "-D", "warnings"],
-        cargo + ["test", "--workspace"] + locked,
+        cargo + ["clippy", "--workspace", "--exclude", "locallore-desktop-spike", "--all-targets"] + locked + ["--", "-D", "warnings"],
+        cargo + ["test", "--workspace", "--exclude", "locallore-desktop-spike"] + locked,
         cargo + ["run", "-p", "locallore", "--example", "android_fixtures"] + locked + ["--", "--check"],
         [sys.executable, "-m", "unittest", "discover", "-s", "benchmarks", "-p", "test_*.py"],
         [sys.executable, "-m", "unittest", "discover", "-s", "benchmarks/spike/litert", "-p", "test_*.py"],

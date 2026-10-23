@@ -61,6 +61,15 @@ Android adapter and fixtures are reused unchanged. Desktop dependencies have a
 separate Cargo workspace/lockfile so Tauri is not an Android/host-CI requirement.
 Android does not enable the host/schema feature.
 
+The D09 workspace-alignment follow-up supersedes only the separate-desktop-workspace
+choice above: the desktop adapter joins the repository workspace and consumes the
+root lock. The four portable packages remain default members; portable explicit
+`--workspace` test/Clippy commands exclude `locallore-desktop-spike`. Android's
+selected dependency graph still excludes Tauri. Runtime and evaluation retain
+their standalone workspaces/locks. This removes checkout paths from Cargo package
+identity without a compiler override; byte reproducibility remains an unqualified
+gate until a fresh two-path comparison. See [alignment evidence](../desktop/D09_WORKSPACE_ALIGNMENT_2026-10-23.md).
+
 One host mutex serializes canonical mutation. A bounded worker prepares on an
 immutable engine clone outside that mutex; commit checks cancellation and the
 original revision again. Control commands bypass the native preparation

@@ -49,6 +49,14 @@ The previous durable journey also passed **33 checks / 11 PNGs** at this source,
 including same-workspace process restart and honest storage failure. Local ignored
 artifacts: apps/desktop/artifacts/durable-native-2624a73d-f2d8-4e82-a0c0-fe74a0be58ee.
 
+The complete legacy D02 controller journeys additionally passed in BOTH native
+and headless modes: **163 assertions / 21 checkpoints each**, at clean source
+571db8d (documentation-only after 571846a). Native artifacts:
+apps/desktop/artifacts/native-67f9da17-0e30-49a5-894c-82f36d20a5e8; headless:
+apps/desktop/artifacts/headless-8fe2c808-9551-42f3-af0a-e35dab02de08.
+These include story switching, cancellation, late callbacks, close/reopen and
+disposal sequencing affected by the export-presentation fence.
+
 Visual review used this application's hidden native captures only. Final
 export-narrow.png shows the feature warning, captured/current revision and file
 table at 150% text with no horizontal overflow. export-open-readonly.png shows

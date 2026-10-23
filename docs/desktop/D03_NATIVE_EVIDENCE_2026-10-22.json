@@ -84,5 +84,15 @@
     "default all-targets",
     "dev-harness all-targets"
   ],
-  "normalAssetsRestored": true
+  "normalAssetsRestored": true,
+  "legacyNative": {
+    "checks": 163,
+    "captures": 21,
+    "artifact": "apps/desktop/artifacts/native-67f9da17-0e30-49a5-894c-82f36d20a5e8"
+  },
+  "legacyHeadless": {
+    "checks": 163,
+    "captures": 21,
+    "artifact": "apps/desktop/artifacts/headless-8fe2c808-9551-42f3-af0a-e35dab02de08"
+  }
 }

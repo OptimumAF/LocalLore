@@ -18,7 +18,8 @@ SESSION = re.compile(r"[0-9a-f]{32}")
 FILES = ("request-1.json", "request-2.json", "result-1.json", "result-2.json", "cancel", "owner-v1")
 STAGES = {"none", "unknown", "fixture", "preflight", "package_identity", "clean_start", "create_directory",
           "publish_request", "launch_instrumentation", "wait_result", "parse_result", "validate_director",
-          "wait_terminal", "parse_terminal", "cancel", "join_launcher", "stop_package", "remove_directory", "commit"}
+          "wait_terminal", "parse_terminal", "cancel", "join_launcher", "stop_package", "remove_directory", "commit",
+          "model_identity", "initialize_device", "cache_artifacts", "provision_model"}
 STATUSES = {"completed", "cancelled", "timeout", "setup_failed", "invalid_exchange", "invalid_terminal",
             "engine_rejected", "oracle_failed", "worker_failed", "cleanup_failed", "preflight_rejected", "committed"}
 
@@ -257,6 +258,7 @@ class WarmSdkSession:
         self.stage = "wait_result"
         while True:
             self.check_budget()
+            terminal = self.finished.is_set()
             raw_result = self.read("result-" + str(step) + ".json")
             if raw_result:
                 self.stage = "parse_result"
@@ -267,8 +269,11 @@ class WarmSdkSession:
                     raise WarmFailure("invalid_exchange", self.stage)
                 self.step = step
                 return parsed
-            if self.finished.wait(.05):
+            # Publication can race launcher completion after the previous read.
+            # Observe one read after completion before classifying a missing result.
+            if terminal:
                 raise WarmFailure("worker_failed", self.stage)
+            self.finished.wait(.05)
 
     def finish(self):
         if self.final is not None:
@@ -433,20 +438,26 @@ def main():
     parser.add_argument("--serial", required=True)
     parser.add_argument("--cancel-after", type=float)
     args = parser.parse_args()
+    if args.cancel_after is not None and (not math.isfinite(args.cancel_after) or not 0 < args.cancel_after <= 60):
+        parser.error("Cancellation offset must be finite and between zero and60seconds")
+    stage = "model_identity"
     try:
         if spike.host.verify_model("litert", args.model):
             raise WarmFailure("setup_failed", "preflight")
         device = spike.Device(args.adb, args.serial)
+        stage = "initialize_device"
         device.initialize()
+        stage = "cache_artifacts"
         owner, oracle = [device.cached(path) for path in (args.owner, args.oracle)]
         identity = spike.sha256(args.apk)
         spike.SdkWorker(device, identity).verify_package()
+        stage = "provision_model"
         device.provision_private_model(args.model)
         report = run_warm(WarmSdkSession(device, identity, cancel_after=args.cancel_after), spike.NativeWorker(device, owner), oracle)
         report["artifact"] = spike.host.ARTIFACTS["litert"][0]
         report["model_sha256"] = spike.host.ARTIFACTS["litert"][2]
     except Exception:
-        report = {"version": 1, "status": "setup_failed", "attempted_roles": 0, "roles": []}
+        report = {"version": 1, "status": "setup_failed", "failure_stage": stage, "attempted_roles": 0, "roles": []}
     text = json.dumps(report, indent=2, allow_nan=False) + "\n"
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(text, encoding="utf-8")

@@ -955,7 +955,21 @@ impl Host {
             if let Some(saved) = saved {
                 let saved = match saved {
                     Ok(saved) => saved,
-                    Err(error) => return reject(error),
+                    Err(error) => {
+                        // This outcome is still provisional. Status/retry must never
+                        // advertise a terminal cache entry that storage did not accept.
+                        let t = state
+                            .sessions
+                            .get_mut(&work.session)
+                            .unwrap()
+                            .turns
+                            .get_mut(&work.turn)
+                            .unwrap();
+                        t.phase = Phase::Queued;
+                        t.error = None;
+                        t.receipt = None;
+                        return reject(error);
+                    }
                 };
                 if saved.phase
                     != match phase {

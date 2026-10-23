@@ -40,6 +40,35 @@ findings require explicit disposition against its final commit.
    preview can remain visible/save-enabled under the Diagnostics warning. Clear
    local preview authority and advance its epoch synchronously, or serialize
    mode/view changes until cancellation completes. Cover returning to Play too.
+6. **Database preview initially checked its budget after copying.** A workspace
+   larger than 64 MiB could write an oversized temporary private copy before
+   rejection. Coordinator `e5ad25d` now pins a source read transaction, reads its
+   page count/size, rejects before destination allocation and backs up that same
+   snapshot. Independent source review found the coherent bound correct. Its
+   tiny-limit/native copy test execution belongs to coordinator evidence.
+7. **Post-publication pathname checks can misreport a successful save.** The
+   initial handle-rename fix performed fallible checks on the now-free staging
+   pathname after rename success. A newly created object at that old name could
+   cause an error after the export had already published. The latest source
+   removes those checks and uses successful handle rename as the publication
+   boundary; final source identity remains to be recorded.
+8. **Crash-cache retention needs an explicit bound.** Ordinary return removes the
+   private database-preview cache, but abrupt process death can leave an entire
+   workspace copy in `inspection-preview-cache/private-preview-GUID`. Repeated
+   interruptions must not accumulate private copies indefinitely beyond token
+   expiry. Cleanup must stay inside the native cache namespace and skip active
+   pinned directories/other instances.
+9. **Loaded manifest bytes must remain exact.** The initial loader parses the
+   manifest and discards its raw encoding, then the broker regenerates pretty
+   JSON when verifying an open. A compact/reordered but valid existing manifest
+   loads, then spuriously fails `ChangedExport`. Preserve the actual loaded
+   manifest bytes; subsequent edits must still fail comparison.
+10. **A saved-result acknowledgement can cross story selection.** If cancellation
+    returns `saved` while `saveExport` is busy, `cancelExport` returns without
+    clearing local preview or advancing its epoch. Story invalidation then
+    changes selection, and a delayed save acknowledgement publishes the old
+    preview/location into the new selection. Invalidation must revoke local
+    presentation even when file publication has already won.
 
 ## Executed controller proof
 
@@ -64,6 +93,26 @@ After resolving the deferred cancellation the preview was null. The proof can
 be run with `--expect-fixed` after rebundling the corrected controller to require
 that the inconsistent intermediate state is absent. This proof checks actual
 controller behavior, not rendered pixels or native picker/IPC execution.
+
+The synchronous `clearExportPreview` correction was independently rebundled and
+tested with `--expect-fixed`. It returned exit 0 and observed:
+
+```json
+{"nativeCalls":1,"duringMode":"diagnostics","duringPreviewMode":null,"mismatched":false}
+```
+
+A second tiny proof uses the same actual controller with two synthetic sessions,
+a deferred native save acknowledgement and immediate `cancel: saved`. It starts
+save in the old session, calls `switchSession` for the new one, then releases the
+save acknowledgement. Initial result:
+
+```json
+{"selectedStory":"new-story","previewStory":"old-story","oldSavePublishedIntoNewSelection":true}
+```
+
+No live filesystem or backend is needed for either proof. Both scripts and their
+bundle stay in ignored `target/d03-review/`; final source/test disposition must
+be recorded before these initial reproductions are treated as resolved.
 
 ## Boundaries inspected
 

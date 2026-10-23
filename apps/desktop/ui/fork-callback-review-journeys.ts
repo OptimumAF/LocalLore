@@ -65,5 +65,31 @@ export async function runForkCallbackReview() {
         require(controller.get().request?.child_branch === saved[0], "displayed identity equals saved identity");
         controller.dispose();
     });
+    await run("pending presentation selection switch prevents registration", async () => {
+        const calls: string[] = [];
+        const controller = new ForkController(async (name) => { calls.push(name); throw Error("UnexpectedIPC"); }, async () => {}, () => {});
+        controller.contextChanged(original);
+        controller.prepare(2, "original-child");
+        const release = controller.subscribe(() => {
+            if (controller.get().busy) controller.contextChanged(replacement);
+        });
+        await controller.confirm(true);
+        require(calls.length === 0, "stale pending presentation cannot register native work");
+        require(controller.get().lookupOnly && !controller.get().busy, "replacement retains only recovery identity");
+        release(); controller.dispose();
+    });
+    await run("lookup presentation selection switch prevents stale read", async () => {
+        const calls: string[] = [];
+        const controller = new ForkController(async (name) => { calls.push(name); throw Error("UnexpectedIPC"); }, async () => {}, () => {});
+        controller.contextChanged(original);
+        controller.restore({ parent: original.scope, child_branch: "original-child", expected_parent_revision: 4, at_revision: 2 });
+        const release = controller.subscribe(() => {
+            if (controller.get().busy) controller.contextChanged(replacement);
+        });
+        await controller.lookup();
+        require(calls.length === 0, "stale pending lookup cannot read old selection");
+        require(controller.get().lookupOnly && !controller.get().busy, "new selection stays lookup-only");
+        release(); controller.dispose();
+    });
     return { kind: "actual-controller-mock-ipc", results };
 }

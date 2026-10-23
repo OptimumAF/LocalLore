@@ -177,3 +177,29 @@ correction UI are still required. Current accepted archive-v1/schema2 support
 must be reconciled with concurrent retained-parent/archive-v2 work (#85) before
 claiming newer-format compatibility. No full D08 checkbox or release gate is
 satisfied by this partial adapter.
+
+## Integration with accepted private-capture backend
+
+After #88 merged, clean production `2c2ffb51967c7e7d2d6a719f933f0a449320df0e`
+includes accepted main `8e3775944473a028988687b09739d99e2862c3c5`.
+The affected archive, metadata-trace and original Play/Lab native cohorts were
+repeated: respectively 63 assertions/17 captures, 74/12 and 163/21 checkpoints,
+all passing. Native development unit/contracts remained 44+2 passing with one
+existing ignore; strict native Clippy, normal frontend verification and full
+frontend Prettier passed. The first Prettier failure was schema whitespace in
+the earlier base, resolved by accepted #88 rather than a gate change.
+
+Latest archive summary SHA-256:
+`1f7a3e915233bbc7c9cb965b05e52edabf10afcb1c2cf7a5916f3849975cf74a`;
+directory `d08-integrated-artifacts/archive-native-84fdc7ef-4c54-4375-86c1-13b48bf01540`.
+Its source binding is clean. The coordinator also inspected its actual pending
+and conflict images; selected-session/revision, pending operation, displayed
+receipt and visible error stayed coherent. Logs are `d08-integrated-*` in the
+task-owned native target. The other four cohorts above were executed at 4ff02b0
+and are retained as that source's evidence, not relabeled as this newer source.
+
+The accepted backend dependency separately built both Android JNI ABIs/debug
+and test APKs and passed 128 JVM tests, lint and the APK permission/alignment
+audit (see #88's dated evidence). This adapter changes no shared Store/core/JNI
+source relative to that accepted dependency; no fresh Android execution or
+desktop/Android transfer is claimed by the Windows-only cohort.

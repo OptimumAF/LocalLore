@@ -14,6 +14,18 @@ const MAX_JSON: usize = 256 * 1024;
 const MAX_PNG: usize = 16 * 1024 * 1024;
 const MAX_CHECKPOINTS: usize = 40;
 const LABELS: &[&str] = &[
+    "d06-private-disabled",
+    "d06-private-repair",
+    "d06-private-preview",
+    "d06-private-saved",
+    "d06-private-lens",
+    "d06-private-agency",
+    "d06-private-fallback",
+    "d06-private-cleared",
+    "d06-private-narrow",
+    "d06-private-restarted",
+    "d06-private-finished",
+    "d06-private-failure",
     "d06-disabled",
     "d06-committed",
     "d06-context",

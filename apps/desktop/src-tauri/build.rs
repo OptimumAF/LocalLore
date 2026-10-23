@@ -11,6 +11,10 @@ fn main() {
             .windows_attributes(tauri_build::WindowsAttributes::new().window_icon_path(&icon))
             .app_manifest(tauri_build::AppManifest::new().commands(&[
                 "host_call",
+                "capture_preview",
+                "capture_save",
+                "capture_revoke",
+                "harness_capture_case",
                 "archive_catalog",
                 "archive_export_preview",
                 "archive_import_preview",

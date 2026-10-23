@@ -17,6 +17,10 @@
                     "windows": ["main-*"],
                     "permissions": [
                         "allow-host-call",
+                        "allow-capture-preview",
+                        "allow-capture-save",
+                        "allow-capture-revoke",
+                        "allow-harness-capture-case",
                         "allow-archive-catalog",
                         "allow-archive-export-preview",
                         "allow-archive-import-preview",

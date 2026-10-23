@@ -12,6 +12,7 @@ for (const args of [
     ["check-model-refresh.mjs"],
     ["check-inspection-controller.mjs"],
     ["check-trace-controller.mjs"],
+    ["check-capture-controller.mjs"],
     ["check-evaluation-controller.mjs"],
     ["check-archive-controller.mjs"],
 ]) {
@@ -46,6 +47,9 @@ for (const marker of [
     "d07-native-evaluation-checkpoints",
     "harness_evaluation_case",
     "harness_archive_case",
+    "harness_capture_case",
+    "private-capture-native-production-play",
+    "MALFORMED_SYNTHETIC_DIRECTOR",
     "d08-native-durable-workspace",
     "legacy-v1-native-migrated-resume",
     "export-snapshot-independent-of-later-turn",

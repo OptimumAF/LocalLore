@@ -3,6 +3,8 @@ import { ArchivePanel } from "./ArchivePanel";
 import type { ArchiveController } from "./archive-controller";
 import type { EvaluationController } from "./evaluation-controller";
 import { TurnDebugger } from "./TurnDebugger";
+import { CapturePanel } from "./CapturePanel";
+import type { CaptureController } from "./capture-controller";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Controller } from "./controller";
 import { ModelPanel } from "./ModelPanel";
@@ -60,10 +62,12 @@ function LabAcknowledgement({ controller: c }: { controller: Controller }) {
 }
 export function App({
     controller: c,
+    capture,
     evaluation,
     archive,
 }: {
     controller: Controller;
+    capture?: CaptureController;
     evaluation?: EvaluationController;
     archive?: ArchiveController;
 }) {
@@ -354,6 +358,7 @@ export function App({
                     ) : (
                         <>
                             <TurnDebugger controller={c} state={s} />
+                            {capture && <CapturePanel controller={capture} gameplay={c} receipts={receipts} />}
                             <ModelPanel controller={c} state={s} />
                             <InspectionPanel controller={c} state={s} />
                             <div

@@ -1296,6 +1296,37 @@ export class Controller {
         if (!this.state.query.shown) await this.showQuery();
         await this.inspectEventTurn(receipt.request.turn);
     }
+    async capturedEvidence(turn: string, baseRevision: number) {
+        const session = this.selected(),
+            epoch = this.epoch,
+            head = this.state.play?.revision;
+        if (
+            !session ||
+            this.state.view !== "lab" ||
+            this.state.observer !== "omniscient"
+        )
+            return;
+        const receipt = this.state.play?.receipts.find(
+            (r) =>
+                r.request.turn === turn &&
+                r.request.expected_revision === baseRevision &&
+                sameScope(r.request.scope, session.scope),
+        );
+        if (!receipt) return;
+        const opening = this.showQuery(true),
+            queryEpoch = this.queryEpoch;
+        await opening;
+        if (
+            !this.current({ session, epoch }) ||
+            this.queryEpoch !== queryEpoch ||
+            !this.state.query.shown ||
+            this.state.view !== "lab" ||
+            this.state.observer !== "omniscient" ||
+            this.state.play?.revision !== head
+        )
+            return;
+        await this.inspectEventTurn(turn);
+    }
     async inspectEventTurn(turn: string) {
         const boundary = this.state.play?.receipts
             .find((r) => r.request.turn === turn)

@@ -1,5 +1,6 @@
 import { EvaluationController } from "./evaluation-controller";
 import { ArchiveController } from "./archive-controller";
+import { CaptureController } from "./capture-controller";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { Controller } from "./controller";
@@ -25,6 +26,7 @@ declare global {
             localplay?: boolean;
             inspecting?: boolean;
             debugging?: boolean;
+            capturing?: boolean;
             legacy?: boolean;
             evaluating?: boolean;
             archiving?: boolean;
@@ -45,10 +47,20 @@ const base = new IpcGateway(invoke, errors),
     gateway = driver ? new driver.FaultGateway(base) : base,
     controller = new Controller(gateway, errors);
 const archive = new ArchiveController(invoke, () => controller.library());
+const capture = new CaptureController(gateway);
 // Invalidate evaluation replies before React observes a changed story/lens/Play
 // context. Evaluation is independent of gameplay; no gameplay controller changes.
 const syncEvaluationContext = () => {
     const s = controller.get();
+    capture.contextChanged(
+        controller.selected(),
+        s.play?.revision ?? 0,
+        s.view === "lab" &&
+            s.observer === "omniscient" &&
+            s.trace.shown &&
+            !s.disposed,
+        controller.traceAttempt(),
+    );
     evaluation.contextChanged(
         `${s.selectedId}|${s.view}|${s.observer}`,
         s.view === "lab",
@@ -68,12 +80,18 @@ const root = createRoot(document.getElementById("root")!, {
     onRecoverableError: () => errors.add("frontend", "RenderError"),
 });
 root.render(
-    <App controller={controller} evaluation={evaluation} archive={archive} />,
+    <App
+        controller={controller}
+        evaluation={evaluation}
+        archive={archive}
+        capture={capture}
+    />,
 );
 const dispose = async () => {
     releaseEvaluationContext();
     evaluation.dispose();
     archive.dispose();
+    await capture.dispose();
     await controller.dispose();
     root.unmount();
     window.removeEventListener("error", onError);
@@ -117,7 +135,18 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
                 : durableDriver
                   ? durableDriver.durableJourneys
                   : driver.journeys;
-    if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.archiving) {
+    if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.capturing) {
+        const { captureJourneys } = await import("./capture-journeys");
+        await captureJourneys({
+            controller,
+            capture,
+            gateway: gateway as InstanceType<typeof driver.FaultGateway>,
+            errors,
+            invoke,
+            dispose,
+            config: window.__LOCALLORE_TEST__,
+        });
+    } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.archiving) {
         const { archiveJourneys } = await import("./archive-journeys");
         await archiveJourneys({
             controller,

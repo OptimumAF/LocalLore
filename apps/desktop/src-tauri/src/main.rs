@@ -5,6 +5,7 @@ use std::sync::Arc;
 use tauri::Manager;
 mod archive;
 mod archive_commands;
+mod capture_exports;
 mod evaluation;
 mod evaluation_commands;
 mod export_commands;
@@ -126,13 +127,14 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},legacy:{},evaluating:{},archiving:{},archiveStage:'{}',stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},archiving:{},archiveStage:'{}',stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
               std::env::var("LOCALLORE_D04_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D05_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D06_HARNESS").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_D06_CAPTURE_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_M07_LEGACY_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D07_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_HARNESS").as_deref() == Ok("1"),
@@ -249,16 +251,22 @@ fn main() {
         return;
     }
     let builder = tauri::Builder::default()
+        .manage(Arc::new(capture_exports::CaptureBroker::default()))
         .manage(Arc::new(archive::ArchiveBroker::default()))
         .manage(Arc::new(tokio::sync::Semaphore::new(4)))
         .manage(Arc::new(exports::ExportBroker::default()));
     #[cfg(feature = "dev-harness")]
     let builder = builder
+        .manage(capture_exports::TestCaptureState::default())
         .manage(Reopen(AtomicBool::new(false)))
         .manage(export_commands::TestExportState::default())
         .manage(archive_commands::TestArchiveState::default())
         .manage(model_commands::TestModelState::default())
         .invoke_handler(tauri::generate_handler![
+            capture_exports::harness_capture_case,
+            capture_exports::capture_preview,
+            capture_exports::capture_save,
+            capture_exports::capture_revoke,
             host_call,
             archive_commands::archive_catalog,
             archive_commands::archive_export_preview,
@@ -301,6 +309,9 @@ fn main() {
         ]);
     #[cfg(not(feature = "dev-harness"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        capture_exports::capture_preview,
+        capture_exports::capture_save,
+        capture_exports::capture_revoke,
         host_call,
         archive_commands::archive_catalog,
         archive_commands::archive_export_preview,
@@ -395,6 +406,9 @@ fn main() {
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 let state = window.state::<WorkspaceState>();
                 if let Some(closed) = state.lease.invalidate(window.label()) {
+                    window
+                        .state::<Arc<capture_exports::CaptureBroker>>()
+                        .invalidate(closed - 1);
                     window
                         .state::<Arc<exports::ExportBroker>>()
                         .invalidate(closed - 1);

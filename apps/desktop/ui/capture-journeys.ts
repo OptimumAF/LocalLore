@@ -117,7 +117,7 @@ export async function captureJourneys({
                     kind: "action" as const,
                     text:
                         mode === "wait" || mode === "pending"
-                            ? "I wait."
+                            ? "I wait for one tide tick."
                             : "I give my last potion to Mira.",
                 },
             },
@@ -347,7 +347,11 @@ export async function captureJourneys({
             let running = false;
             for (let n = 0; n < 100; n++) {
                 if (
-                    (await pending.control("turn_status")).phase === "running"
+                    (
+                        await invoke("harness_capture_case", {
+                            case: "pending-status",
+                        })
+                    ).provider_polled === true
                 ) {
                     running = true;
                     break;

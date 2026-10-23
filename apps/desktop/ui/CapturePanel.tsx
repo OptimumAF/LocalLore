@@ -22,7 +22,7 @@ export function CapturePanel({
     useEffect(() => {
         setConsent(false);
         setExportConsent(false);
-    }, [s.permitted]);
+    }, [s.consentEpoch]);
     useEffect(() => {
         setExportConsent(false);
     }, [s.preview?.token]);
@@ -43,7 +43,7 @@ export function CapturePanel({
         return s.cleanup ? <p role="status">{s.cleanup}</p> : null;
     return (
         <section
-            className="private-capture"
+            className="turn-debugger private-capture"
             aria-labelledby="private-capture-title"
         >
             <h3 id="private-capture-title">

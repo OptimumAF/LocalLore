@@ -10,6 +10,7 @@ import type {
 export class CaptureController {
     private state = {
         permitted: false,
+        consentEpoch: 0,
         enabled: null as boolean | null,
         busy: false,
         controlBusy: false,
@@ -114,7 +115,11 @@ export class CaptureController {
             this.epoch++;
             this.context = context;
             this.clear();
-            this.patch({ permitted, enabled: null });
+            this.patch({
+                permitted,
+                enabled: null,
+                consentEpoch: this.state.consentEpoch + 1,
+            });
             if (old) void this.control(() => this.revoke(old));
         } else if (selection !== this.selection) {
             this.clear();
@@ -228,7 +233,7 @@ export class CaptureController {
                         reply.details.status,
                     )
                         ? false
-                        : this.state.enabled,
+                        : true,
                 });
         } catch (error) {
             if (sequence === this.readEpoch)

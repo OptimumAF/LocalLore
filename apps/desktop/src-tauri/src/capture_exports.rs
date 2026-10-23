@@ -262,11 +262,17 @@ pub async fn capture_save(
 // Fixed trusted synthetic provider uses the real Host→Play/compiler/validation path.
 // It is absent from normal builds and accepts no model, file or arbitrary output.
 #[cfg(any(test, feature = "dev-harness"))]
+static SYNTHETIC_PENDING_OBSERVED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+#[cfg(any(test, feature = "dev-harness"))]
 fn synthetic_provider(host: &Host, case: &str) -> Result<(), String> {
     use locallore::{contracts::Error, inference::*, play::PlayProfile};
     use std::task::Poll;
     if !["give", "repair", "agency", "fallback", "wait", "pending"].contains(&case) {
         return Err("InvalidInput".into());
+    }
+    if case == "pending" {
+        SYNTHETIC_PENDING_OBSERVED.store(false, std::sync::atomic::Ordering::SeqCst);
     }
     struct Script {
         case: String,
@@ -285,6 +291,7 @@ fn synthetic_provider(host: &Host, case: &str) -> Result<(), String> {
                 return Poll::Ready(Err(Error::Malformed));
             };
             if self.case == "pending" {
+                SYNTHETIC_PENDING_OBSERVED.store(true, std::sync::atomic::Ordering::SeqCst);
                 std::thread::sleep(std::time::Duration::from_millis(2));
                 return Poll::Pending;
             }
@@ -359,6 +366,11 @@ pub async fn harness_capture_case(
         .lease
         .capture(window.label())
         .map_err(str::to_owned)?;
+    if case == "pending-status" {
+        return Ok(
+            json!({"synthetic":true,"provider_polled":SYNTHETIC_PENDING_OBSERVED.load(std::sync::atomic::Ordering::SeqCst)}),
+        );
+    }
     if ["export-save", "export-cancel"].contains(&case.as_str()) {
         *state.0.lock().map_err(|_| "Internal")? = case;
         return Ok(json!({"synthetic":true,"picker_double":true}));

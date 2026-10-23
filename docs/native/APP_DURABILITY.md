@@ -35,6 +35,15 @@ requested, recovery instead retries cancellation and reconciles any commit
 that already won. A fresh retry never silently substitutes a new key for an
 uncertain commit.
 
+Full and Busy errors retain that original operation key. The app shows fixed
+recovery guidance and keeps the last confirmed player snapshot while new turns
+and mode changes remain disabled. An unfinished status or malformed terminal
+reply cannot hide the primary storage error or discard the key. A valid stored
+committed receipt still wins, so a lost acknowledgement cannot spend the potion
+twice. Unknown errors use generic guidance without exception details. See the
+[storage recovery verification](STORAGE_RECOVERY_VERIFICATION_2026-10-22.md)
+for injected-error tests through the production Rust transport and their limits.
+
 Cancellation may reach Rust before the IO submit has registered its turn. An
 explicit `UnknownTurn` reply on this cancellation path clears only that same
 pending operation. The captured request remains marked cancelled, so a late

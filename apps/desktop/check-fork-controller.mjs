@@ -184,6 +184,7 @@ for (const found of [false, true]) {
     });
     const original = request();
     s.controller.restore(original);
+    check(!s.controller.get().consent, `restart-${found}-clears-old-consent`);
     original.child_branch = "mutated-after-restore";
     await s.controller.confirm(true);
     check(s.calls.length === 0, `restart-${found}-cannot-execute`);
@@ -240,6 +241,10 @@ for (const changed of [
     );
     s.controller.prepare(2, "fixed-child");
     const action = s.controller.confirm(true);
+    check(
+        s.controller.get().consent,
+        "confirmed-pending-consent-is-controller-state",
+    );
     await s.controller.cancel();
     ack.resolve(status({ running: true, result: null, phase: "forking" }));
     await action;

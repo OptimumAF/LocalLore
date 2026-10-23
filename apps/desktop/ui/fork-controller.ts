@@ -134,6 +134,7 @@ export class ForkController {
         error: null as string | null,
         notice: "",
         lookupOnly: false,
+        consent: false,
     };
     private context: TimelineContext | null = null;
     private key = "none";
@@ -187,6 +188,7 @@ export class ForkController {
             result: null,
             error: null,
             lookupOnly: !!this.state.request,
+            consent: false,
             status: this.state.request
                 ? this.state.status === "complete" ||
                   this.state.status === "not_found"
@@ -226,7 +228,8 @@ export class ForkController {
                 error: null,
                 status: "prepared",
                 lookupOnly: false,
-                notice: "Create a new timeline at this completed boundary. Original and downstream choices stay on their existing timeline. The engine validates the boundary before saving.",
+                consent: false,
+                notice: "Request a new timeline at this revision. The engine verifies that it is a completed turn boundary before saving. The original and its later choices stay intact.",
             });
         } catch (e) {
             this.patch({ error: errorName(e), status: "error" });
@@ -244,6 +247,7 @@ export class ForkController {
                 error: null,
                 status: "uncertain",
                 lookupOnly: true,
+                consent: false,
                 notice: "Recovered identity only. Check saved timelines; absence will never recreate this request.",
             });
         } catch (e) {
@@ -254,11 +258,15 @@ export class ForkController {
                 error: errorName(e),
                 status: "error",
                 lookupOnly: true,
+                consent: false,
             });
         }
     }
     private live(epoch: number) {
         return !this.disposed && epoch === this.epoch;
+    }
+    setConsent(value: boolean) {
+        if (!this.disposed && !this.state.busy) this.patch({ consent: value });
     }
     async confirm(consent: boolean) {
         const request = this.state.request,
@@ -273,7 +281,7 @@ export class ForkController {
         )
             return;
         if (!consent) {
-            this.patch({ error: "ForkConsentRequired" });
+            this.patch({ error: "ForkConsentRequired", consent: false });
             return;
         }
         const epoch = ++this.epoch;
@@ -284,6 +292,7 @@ export class ForkController {
             error: null,
             result: null,
             operation: null,
+            consent: true,
             notice: "Fork pending. Cancellation or a lost acknowledgement does not prove the child is absent.",
         });
         try {
@@ -428,7 +437,12 @@ export class ForkController {
         this.disposed = true;
         this.epoch++;
         this.context = null;
-        this.patch({ busy: false, operation: null, result: null });
+        this.patch({
+            busy: false,
+            operation: null,
+            result: null,
+            consent: false,
+        });
         this.listeners.clear();
     }
 }

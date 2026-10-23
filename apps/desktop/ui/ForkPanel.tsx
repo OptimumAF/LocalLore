@@ -16,16 +16,13 @@ export function ForkPanel({
 }) {
     const s = useSyncExternalStore(fork.subscribe, fork.get, fork.get);
     const [boundary, setBoundary] = useState(context?.revision ?? 0),
-        [consent, setConsent] = useState(false),
         [shown, setShown] = useState(!!s.request),
         [openError, setOpenError] = useState<string | null>(null);
     useEffect(() => {
         setBoundary(context?.revision ?? 0);
-        setConsent(false);
         setOpenError(null);
     }, [context?.session, context?.revision, context?.observer, context?.view]);
     useEffect(() => {
-        setConsent(false);
         if (s.request) setShown(true);
     }, [s.request]);
     if (!context) return null;
@@ -72,14 +69,14 @@ export function ForkPanel({
             ) : (
                 <>
                     <label>
-                        Completed boundary
+                        Boundary for next new request
                         <select
                             aria-label="Fork completed boundary"
                             value={boundary}
                             disabled={s.busy}
                             onChange={(e) => {
                                 setBoundary(Number(e.target.value));
-                                setConsent(false);
+                                fork.setConsent(false);
                             }}
                         >
                             {boundaries.map((n) => (
@@ -106,6 +103,7 @@ export function ForkPanel({
             )}
             {s.request && (
                 <>
+                    <h3>Exact fork request</h3>
                     <dl>
                         <dt>Original parent</dt>
                         <dd>
@@ -134,10 +132,10 @@ export function ForkPanel({
                             <label className="fork-consent">
                                 <input
                                     type="checkbox"
-                                    checked={consent}
+                                    checked={s.consent}
                                     disabled={s.busy}
                                     onChange={(e) =>
-                                        setConsent(e.target.checked)
+                                        fork.setConsent(e.target.checked)
                                     }
                                 />
                                 Create this new timeline and preserve the
@@ -145,8 +143,8 @@ export function ForkPanel({
                             </label>
                             <button
                                 className="primary"
-                                disabled={s.busy || !consent}
-                                onClick={() => void fork.confirm(consent)}
+                                disabled={s.busy || !s.consent}
+                                onClick={() => void fork.confirm(s.consent)}
                             >
                                 {s.status === "prepared"
                                     ? "Confirm new timeline"

@@ -76,6 +76,14 @@ export async function forkNativeJourneys({
                     ?.textContent?.includes(f.get().error!),
                 `${label}-error-visible`,
             );
+        const consent = panel?.querySelector<HTMLInputElement>(
+            'input[type="checkbox"]',
+        );
+        if (consent)
+            check(
+                consent.checked === f.get().consent,
+                `${label}-actual-consent-state-visible`,
+            );
         if (f.get().operation !== null)
             check(
                 panel
@@ -118,6 +126,8 @@ export async function forkNativeJourneys({
                             el.getAttribute("aria-label") ??
                             el.textContent?.slice(0, 140),
                         disabled: el.hasAttribute("disabled"),
+                        checked:
+                            el instanceof HTMLInputElement ? el.checked : null,
                     })),
                     viewport: { width: innerWidth, height: innerHeight },
                 },

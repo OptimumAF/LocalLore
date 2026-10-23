@@ -21,16 +21,22 @@ pub async fn model_cancel(
     window: tauri::WebviewWindow,
     workspace: tauri::State<'_, WorkspaceState>,
     models: tauri::State<'_, Arc<ModelManager>>,
+    operation_id: u64,
 ) -> Result<Value, String> {
+    if operation_id == 0 || operation_id > 9_007_199_254_740_991 {
+        return Err("InvalidInput".into());
+    }
     let epoch = workspace
         .lease
         .capture(window.label())
         .map_err(str::to_owned)?;
     let lease = workspace.lease.clone();
     let manager = models.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || lease.dispatch(epoch, || manager.cancel()))
-        .await
-        .map_err(|_| "Internal".to_owned())?
+    tauri::async_runtime::spawn_blocking(move || {
+        lease.dispatch(epoch, || manager.cancel(operation_id))
+    })
+    .await
+    .map_err(|_| "Internal".to_owned())?
 }
 #[tauri::command]
 pub async fn model_import(

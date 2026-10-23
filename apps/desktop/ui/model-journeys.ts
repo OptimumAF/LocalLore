@@ -200,6 +200,16 @@ export async function modelJourneys({
                 true,
                 "existing-owned-import-reused-without-second-model-copy",
             );
+        if (config.stage === "initial") {
+            const loading = c.modelAction("model_load");
+            await until(() => c.get().modelCancelReady);
+            await c.cancelModel();
+            await loading;
+            check(
+                !c.get().model?.loaded,
+                "native-model-hash-load-cancel-keeps-host-unconfigured",
+            );
+        }
         await timed("model_load", () => c.modelAction("model_load"));
         check(
             c.get().model?.loaded,

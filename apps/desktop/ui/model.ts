@@ -7,6 +7,7 @@ export type Action = "give" | "ability" | "wait" | "dialogue";
 export type Json =
     null | boolean | number | string | Json[] | { [key: string]: Json };
 export interface ModelState {
+    operation_id: number;
     resident: boolean;
     phase: string;
     percent: number;
@@ -131,6 +132,7 @@ export interface ExportState {
 export interface State {
     model: ModelState | null;
     modelBusy: boolean;
+    modelCancelReady: boolean;
     modelShown: boolean;
     playMode: "fixture" | "local";
     inputKind: "action" | "dialogue";
@@ -165,6 +167,8 @@ export interface State {
 }
 export const PAGE_SIZE = 12;
 export const categories = new Set([
+    "ModelOperationUnknown",
+    "StaleModelOperation",
     "ClarificationRequired",
     "ModelInvalid",
     "ModelUnavailable",

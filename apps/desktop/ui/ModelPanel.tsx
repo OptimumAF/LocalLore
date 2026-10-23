@@ -43,7 +43,7 @@ export function ModelPanel({
                     Unload model & cancel local work
                 </button>
                 <button
-                    disabled={!s.modelBusy}
+                    disabled={!s.modelBusy || !s.modelCancelReady}
                     onClick={() => void c.cancelModel()}
                 >
                     Cancel model operation
@@ -52,6 +52,14 @@ export function ModelPanel({
                     Refresh status
                 </button>
             </div>
+            {["ModelOperationUnknown", "StaleModelOperation"].includes(
+                s.visibleError ?? "",
+            ) && (
+                <p role="alert">
+                    Operation status changed or is not yet available. Refresh
+                    status and retry cancellation for the current operation.
+                </p>
+            )}
             <p role="status">
                 {model?.phase ?? "Checking status"}
                 {s.modelBusy ? ` - ${model?.percent ?? 0}%` : ""}

@@ -40,6 +40,7 @@ export class Controller {
     private state: State = {
         model: null,
         modelBusy: false,
+        modelCancelReady: false,
         modelShown: false,
         playMode: "fixture",
         inputKind: "action",
@@ -84,6 +85,8 @@ export class Controller {
         notice: "",
         disposed: false,
     };
+    private modelOperation: { baseline: number; id: number | null } | null =
+        null;
     private modelReadSequence = 0;
     private listeners = new Set<() => void>();
     private drafts = new Map<string, string>();
@@ -767,15 +770,42 @@ export class Controller {
                 typeof model.phase !== "string"
             )
                 throw new Error("Wire");
-            if (!this.state.disposed && sequence === this.modelReadSequence)
+            if (!this.state.disposed && sequence === this.modelReadSequence) {
+                const op = this.modelOperation;
+                if (
+                    op &&
+                    op.id === null &&
+                    Number.isSafeInteger(model.operation_id) &&
+                    model.operation_id > op.baseline &&
+                    [
+                        "choosing",
+                        "checking",
+                        "copying",
+                        "loading",
+                        "unloading",
+                    ].includes(model.phase)
+                ) {
+                    op.id = model.operation_id;
+                    this.patch({ modelCancelReady: true });
+                }
                 this.patch({ model });
+            }
         } catch (error) {
             if (!this.state.disposed) this.fail(error);
         }
     }
     async modelAction(command: "model_import" | "model_load" | "model_unload") {
         if (this.state.modelBusy || this.state.disposed) return;
-        this.patch({ modelBusy: true, visibleError: null });
+        const operation = {
+            baseline: this.state.model?.operation_id ?? 0,
+            id: null as number | null,
+        };
+        this.modelOperation = operation;
+        this.patch({
+            modelBusy: true,
+            modelCancelReady: false,
+            visibleError: null,
+        });
         let polling = false;
         const timer = setInterval(() => {
             if (polling) return;
@@ -794,14 +824,24 @@ export class Controller {
             }
         } finally {
             clearInterval(timer);
-            if (!this.state.disposed) this.patch({ modelBusy: false });
+            if (this.modelOperation === operation) {
+                this.modelOperation = null;
+                if (!this.state.disposed)
+                    this.patch({ modelBusy: false, modelCancelReady: false });
+            }
         }
     }
     async cancelModel() {
+        const operation = this.modelOperation;
+        const operationId = operation?.id;
+        if (!operationId) {
+            this.fail("ModelOperationUnknown");
+            return;
+        }
         try {
-            await this.native("model_cancel");
+            await this.native("model_cancel", { operationId });
         } catch (error) {
-            this.fail(error);
+            if (this.modelOperation === operation) this.fail(error);
         }
     }
     setView(view: State["view"]) {

@@ -74,6 +74,9 @@ impl ModelManager {
         if s.runtime.is_some() && phase != "unloading" {
             return Err("ModelLoaded".into());
         }
+        if s.job >= 9_007_199_254_740_991 {
+            return Err("TooLarge".into());
+        }
         s.job += 1;
         s.cancel = Arc::new(AtomicBool::new(false));
         s.phase = phase;
@@ -112,8 +115,17 @@ impl ModelManager {
             }
         }
     }
-    pub fn cancel(&self) -> Result<Value, String> {
+    pub fn cancel(&self, operation_id: u64) -> Result<Value, String> {
         let s = self.inner.lock().map_err(|_| "Internal")?;
+        if s.job != operation_id {
+            return Err("StaleModelOperation".into());
+        }
+        if !matches!(
+            s.phase,
+            "choosing" | "checking" | "copying" | "loading" | "unloading"
+        ) {
+            return Ok(json!({"status":"finished"}));
+        }
         s.cancel.store(true, Ordering::SeqCst);
         Ok(json!({"status":"cancelling"}))
     }
@@ -460,6 +472,18 @@ mod tests {
         }
     }
     #[test]
+    fn delayed_same_window_cancel_cannot_cancel_a_new_operation() {
+        let root = Root::new();
+        let manager = ModelManager::new(root.0.clone(), root.0.clone());
+        let (old, _) = manager.begin("loading").unwrap();
+        manager.finish(old, &Ok(()));
+        let (current, cancel) = manager.begin("loading").unwrap();
+        assert_eq!(manager.cancel(old).unwrap_err(), "StaleModelOperation");
+        assert!(!cancel.load(Ordering::SeqCst));
+        assert!(manager.cancel(current).is_ok());
+        assert!(cancel.load(Ordering::SeqCst));
+    }
+    #[test]
     fn old_window_cancellation_cannot_reach_a_new_model_operation() {
         let root = Root::new();
         let manager = ModelManager::new(root.0.clone(), root.0.clone());
@@ -468,13 +492,13 @@ mod tests {
         let closed = lease.invalidate("main-1").unwrap();
         lease.finish_close(closed, || {});
         let current = lease.begin().unwrap();
-        let (_, cancel) = manager.begin("loading").unwrap();
+        let (job, cancel) = manager.begin("loading").unwrap();
         assert_eq!(
-            lease.dispatch(old, || manager.cancel()).unwrap_err(),
+            lease.dispatch(old, || manager.cancel(job)).unwrap_err(),
             "Closed"
         );
         assert!(!cancel.load(Ordering::SeqCst));
-        assert!(lease.dispatch(current, || manager.cancel()).is_ok());
+        assert!(lease.dispatch(current, || manager.cancel(job)).is_ok());
         assert!(cancel.load(Ordering::SeqCst));
     }
     #[test]

@@ -92,6 +92,55 @@ assert.equal(c.get().visibleError, "ModelUnavailable");
 assert.equal(submitted.length, 2);
 assert.equal(c.get().playMode, "local");
 await c.dispose();
+let operationId = 10,
+    phase = "unloaded",
+    releaseLoad,
+    cancelledId = null;
+const lifecycle = {
+    ...gateway,
+    async native(command, args) {
+        if (command === "model_status")
+            return {
+                operation_id: operationId,
+                phase,
+                loaded: false,
+                imported: true,
+                resident: false,
+                error: null,
+                percent: 0,
+                profile: null,
+            };
+        if (command === "model_load") {
+            operationId = 11;
+            phase = "loading";
+            return new Promise((resolve) => {
+                releaseLoad = resolve;
+            });
+        }
+        if (command === "model_cancel") {
+            cancelledId = args.operationId;
+            throw new Error("StaleModelOperation");
+        }
+        throw new Error("Unsupported");
+    },
+};
+const c2 = new Controller(lifecycle);
+await c2.attach({ id: "s", scope, revision: 0, name: "Synthetic" });
+await c2.refreshModel();
+const loading = c2.modelAction("model_load");
+await c2.cancelModel();
+assert.equal(c2.get().visibleError, "ModelOperationUnknown");
+assert.equal(cancelledId, null);
+await c2.refreshModel();
+assert.equal(c2.get().modelCancelReady, true);
+operationId = 12;
+await c2.refreshModel();
+await c2.cancelModel();
+assert.equal(cancelledId, 11);
+phase = "unloaded";
+releaseLoad({});
+await loading;
+await c2.dispose();
 console.log(
     "PASS: original real request recovers with stale fake fault mode; unloaded real play cannot fall back.",
 );

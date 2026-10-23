@@ -1,8 +1,9 @@
 # Branch-aware derived caches — shared prerequisite, 2026-10-23
 
-Status: implemented and locally tested, in_review; not full M07.03/.04, M08.01
-or D08 acceptance. Contributor `/root/app_storage_review`; coordinator independent
-review and publication remain required. Claims #11 comment 6361263296 and #12
+Status: implemented and independently reviewed/tested, in_review; not full
+M07.03/.04, M08.01 or D08 acceptance. Contributor `/root/app_storage_review`;
+coordinator review and final integration are recorded in
+[the integration review](M07_DERIVED_LINEAGE_REVIEW_2026-10-23.md). Claims #11 comment 6361263296 and #12
 6361263601. Isolated branch `impl/m07-derived-lineage`.
 
 ## Source and interface boundary
@@ -169,3 +170,25 @@ ledger. A compiler consumer must preserve authoritative mandatory state and use
 the exact eligible-event fallback on missing/stale/invalid/unsupported cache,
 with explicit complete coverage and original-source deduplication. This change
 does not wire summaries into generation or complete any native/Android gate.
+
+## Coordinator integration cohort
+
+Coordinator claim #11 comment 6369504352; branch
+`impl/m07-lineage-transactions`. The author evidence above remains attributed to
+its original source. At integrated source `9425add7f6406517eec8eb3c4291c386fdd8aea5`,
+the coordinator ran 417 workspace tests (zero failures, four existing qualification
+ignores), strict default/all-feature workspace Clippy, formatting and diff checks.
+Android rebuilt both JNI ABIs, debug and instrumentation APKs, ran 128 JVM tests
+(zero failures/errors/skips), lint and APK audit: PASS, 3m59s, all 78 tasks executed.
+No emulator, device or ADB operation was used.
+
+Accepted PR #95 was then reconciled at
+`b21b119d9261bdde5e54720194ce850df8aba567`. Its changes are confined to evaluation
+code/docs; shared Core/Store/workspace/JNI and Android source bytes are identical
+to the preceding cohort. On this integrated source, frontend verification,
+44 native module tests plus two native harness contracts (one existing ignored
+qualification), strict native Clippy, 23 default/24 local-model-feature evaluation
+tests and strict feature evaluation Clippy passed. These are native IPC/module
+compatibility tests; no new UI render or model execution is claimed for this fix.
+Commands, source attribution, review findings and local evidence hashes are in
+the linked integration review. Full M07 and D08 gates remain open.

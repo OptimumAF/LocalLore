@@ -165,6 +165,7 @@ export interface State {
 }
 export const PAGE_SIZE = 12;
 export const categories = new Set([
+    "ClarificationRequired",
     "ModelInvalid",
     "ModelUnavailable",
     "ModelLoaded",

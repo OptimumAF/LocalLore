@@ -343,6 +343,15 @@ export function App({ controller: c }: { controller: Controller }) {
                                 : "No new transcript entry was added by this failed attempt."}
                         </div>
                     )}
+                    {s.visibleError === "ClarificationRequired" && (
+                        <p className="message" role="note">
+                            Please rephrase as one clear supported action. This
+                            experimental profile supports a limited set of
+                            English scene actions; it does not guess alternate
+                            effects. Try: I give my last potion to Mira. Choose
+                            Dialogue to speak your exact words.
+                        </p>
+                    )}
                     <div className="message notice" role="status">
                         {s.pending ? (
                             <span className="pending">
@@ -461,6 +470,15 @@ export function App({ controller: c }: { controller: Controller }) {
                                     </select>
                                 </label>
                             </div>
+                        )}
+                        {s.playMode === "local" && (
+                            <p className="hint">
+                                Experimental English single-action support: try
+                                "I give my last potion to Mira." Use Dialogue
+                                for exact spoken words. Unknown, ambiguous,
+                                negated or compound actions require
+                                clarification.
+                            </p>
                         )}
                         <label className="sr-only" htmlFor="draft">
                             Dialogue draft

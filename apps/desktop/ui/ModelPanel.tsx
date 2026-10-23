@@ -15,8 +15,8 @@ export function ModelPanel({
             <p>
                 Experimental Windows x64 CPU profile. One verified Qwen3-0.6B
                 Q8_0 model serves separate director and narrator contexts.
-                Quality and offline qualification remain pending. No downloads
-                or cloud fallback.
+                Constrained English scene actions only. Quality and offline
+                qualification remain pending. No downloads or cloud fallback.
             </p>
             <p>
                 Import copies approximately 640 MB into app-local storage. Only

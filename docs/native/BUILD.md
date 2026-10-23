@@ -146,6 +146,20 @@ choose a production model/runtime or establish supported device/RAM tiers.
 
 ## Evidence boundary
 
+An explicit synthetic capacity build is described in
+[the capacity report](CAPACITY_VERIFICATION_2026-10-22.md). The opt-in
+`-Plocallore.capacityTest=true --project-cache-dir <android-root>/.gradle-capacity`
+selects a fixed reviewed profile, separate app ID,
+test-only label/manifest, source roots and `build-capacity` directory (including
+Cargo and generated JNI libraries). Both mode and project-cache selection are
+guarded; the helper supplies these arguments. Separate task histories prevent
+Gradle deleting the other mode's packaged outputs as stale. Non-debug variants
+are disabled in this mode.
+The default build explicitly clears `LIBSQLITE3_FLAGS` in the Cargo child;
+nonempty ambient values are rejected during configuration, even if tasks would
+otherwise be up-to-date. No runtime/native fault command or production SQL
+capability is added. No dependency/version/license is changed by this fixture.
+
 The coordinator's dated native verification report and ticket #7 record actual
 build, JNI instrumentation, cancellation/resource ownership and packaging checks.
 An ARM64 cross-build is not an ARM64 execution result. A host-compatible script

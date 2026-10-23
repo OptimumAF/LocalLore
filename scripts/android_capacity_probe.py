@@ -17,6 +17,12 @@ LABEL = "LocalLore \u00b7 SQLite capacity test"
 PAGES = 15
 
 
+def capacity_build_command(root, offline):
+    command = check.android_commands(root, offline, False)[0]
+    return check.Command(command.argv + ("-Plocallore.capacityTest=true", "--project-cache-dir",
+                                         str(root / "apps/android/.gradle-capacity")), command.cwd)
+
+
 def audit_capacity_manifests(badging, tree, test_badging, test_tree):
     permissions = audit_apk.audit_manifest(badging, tree, PACKAGE)
     audit_apk.require("application-label:'" + LABEL + "'" in badging, "Missing capacity test label")
@@ -78,8 +84,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         if args.action == "build":
-            command = check.android_commands(check.ROOT, args.offline, False)[0]
-            status = check.run_commands([check.Command(command.argv + ("-Plocallore.capacityTest=true",), command.cwd)])
+            status = check.run_commands([capacity_build_command(check.ROOT, args.offline)])
             if status:
                 return status
         print(json.dumps(audit_capacity(check.ROOT), indent=2))

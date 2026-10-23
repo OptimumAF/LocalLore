@@ -2,6 +2,7 @@
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import android_capacity_probe as capacity
@@ -37,6 +38,16 @@ TEST_TREE = """E: manifest (line=1)
 
 
 class CapacityAuditTests(unittest.TestCase):
+    def test_capacity_build_owns_distinct_task_history_as_well_as_outputs(self):
+        root = Path("/synthetic/root")
+        ordinary = capacity.check.Command(("java", "wrapper", "assembleDebug", "--offline"), root / "apps/android")
+        with patch.object(capacity.check, "android_commands", return_value=[ordinary]):
+            command = capacity.capacity_build_command(root, True)
+        self.assertEqual(command.argv[-3:], ("-Plocallore.capacityTest=true", "--project-cache-dir",
+                                            str(root / "apps/android/.gradle-capacity")))
+        self.assertEqual(command.cwd, ordinary.cwd)
+        self.assertNotIn("--project-cache-dir", ordinary.argv)
+
     def test_exact_test_binary_identity_and_profile(self):
         result = capacity.audit_capacity_manifests(BADGING, TREE, TEST_BADGING, TEST_TREE)
         self.assertEqual(result, [capacity.PACKAGE + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"])

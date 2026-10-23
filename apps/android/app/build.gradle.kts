@@ -15,6 +15,11 @@ require(providers.environmentVariable("LIBSQLITE3_FLAGS").orNull.isNullOrEmpty()
     "Unset LIBSQLITE3_FLAGS: Android SQLite compiler options are owned by the reviewed build profile"
 }
 val capacityTest = capacityOption == "true"
+val capacityCache = rootProject.file(".gradle-capacity").canonicalFile
+val selectedCache = gradle.startParameter.projectCacheDir?.canonicalFile
+require(if (capacityTest) selectedCache == capacityCache else selectedCache != capacityCache) {
+    "Capacity mode requires its separate project cache; use scripts/android_capacity_probe.py build"
+}
 val capacityProfile = Properties().apply {
     rootProject.file("capacity-profile.properties").inputStream().use { load(it) }
 }

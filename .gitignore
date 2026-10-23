@@ -15,6 +15,7 @@ Thumbs.db
 .kotlin/
 **/build/
 apps/android/app/build-capacity/
+apps/android/.gradle-capacity/
 target/
 *.apk
 *.aab

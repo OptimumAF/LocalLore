@@ -58,6 +58,13 @@ fn real_full_packet_publication_preserves_checkpoint_and_retry_publishes_once() 
         panic!("fixture must prepare actual packet")
     };
     assert!(bytes.len() > 16 * 1024 && bytes.len() <= coverage::MAX_PACKET_BYTES);
+    // Canonical turn/projection replacement left four reusable pages in the
+    // initial run, before FULL was exercised. Compact this owned synthetic
+    // fixture explicitly so the fixed packet must allocate overflow pages.
+    store.connection.execute_batch("VACUUM").unwrap();
+    let compacted = store.resume(&scope).unwrap().engine;
+    assert_eq!(compacted.canonical_bytes(), canon);
+    assert_eq!(serde_json::to_vec(compacted.receipts()).unwrap(), receipts);
     let pages: i64 = store
         .connection
         .pragma_query_value(None, "page_count", |r| r.get(0))

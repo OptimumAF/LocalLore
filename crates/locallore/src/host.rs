@@ -531,8 +531,9 @@ impl Host {
             false
         });
         drop(state);
-        // Clear outstanding trace handles too; no retained per-story metadata survives.
-        // Retired owners also fence late private writes if the diagnostic lock is busy.
+        // Clear immediately when available. Removed sessions cannot read retained
+        // metadata; retired owners fence late private writes and purge on next access
+        // if a diagnostic reader currently holds the lock.
         if let Ok(mut trace) = self.trace.try_lock() {
             trace.clear();
         }

@@ -351,30 +351,34 @@ public final class SpikeInstrumentation extends Instrumentation {
     static final class Stream implements MessageCallback {
         final CountDownLatch first = new CountDownLatch(1), done = new CountDownLatch(1);
         private final StringBuilder output = new StringBuilder();
-        private String error;
+        private String error, observationError;
         private boolean ended;
         private int callbackMessages, bufferedTextBytes;
         @Override public synchronized void onMessage(Message message) {
             if (ended) return;
             if (callbackMessages < RoleObservation.MAX_CALLBACKS) callbackMessages++;
-            if (!message.getChannels().isEmpty()) { error = "unsupported_output"; return; }
-            if (!message.getToolCalls().isEmpty()) { error = "unsupported_output"; return; }
+            if (!message.getChannels().isEmpty()) { recordError("unsupported_output"); return; }
+            if (!message.getToolCalls().isEmpty()) { recordError("unsupported_output"); return; }
             // Exposed SDK channels fail closed; their text is never copied.
             // Per-item channel metadata is not exposed by this API; see source limitations.
             for (Content item : message.getContents().getContents()) {
-                if (!(item instanceof Content.Text)) { error = "unsupported_output"; continue; }
+                if (!(item instanceof Content.Text)) { recordError("unsupported_output"); continue; }
                 String text = ((Content.Text) item).getText();
                 if (text.isEmpty()) continue;
                 if (output.length() + text.length() > 16384
                     || (output.toString() + text).getBytes(StandardCharsets.UTF_8).length > 16384) {
-                    error = "output_too_large"; continue;
+                    recordError("output_too_large"); continue;
                 }
                 output.append(text); bufferedTextBytes = output.toString().getBytes(StandardCharsets.UTF_8).length;
                 first.countDown();
             }
         }
         @Override public synchronized void onDone() { ended = true; done.countDown(); first.countDown(); }
-        @Override public synchronized void onError(Throwable ignored) { error = "generation_failed"; ended = true; done.countDown(); first.countDown(); }
+        @Override public synchronized void onError(Throwable ignored) { recordError("generation_failed"); ended = true; done.countDown(); first.countDown(); }
+        private void recordError(String category) {
+            error = category; // Preserve existing text()/primary-error behavior.
+            if (!ended && observationError == null) observationError = category;
+        }
         synchronized String text() throws Failure {
             if (error != null) throw new Failure(error);
             if (output.length() == 0) throw new Failure("unsupported_output");
@@ -387,7 +391,7 @@ public final class SpikeInstrumentation extends Instrumentation {
         synchronized RoleObservation observation(RoleObservation.Config configuration, boolean benchmarkAvailable,
                 Integer inputTokens, Integer outputTokens) {
             if (!ended) return null;
-            return new RoleObservation(callbackMessages, bufferedTextBytes, error == null ? "none" : error,
+            return new RoleObservation(callbackMessages, bufferedTextBytes, observationError == null ? "none" : observationError,
                 benchmarkAvailable, inputTokens, outputTokens, configuration);
         }
     }

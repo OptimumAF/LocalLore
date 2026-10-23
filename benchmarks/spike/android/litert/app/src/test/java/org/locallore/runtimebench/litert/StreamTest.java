@@ -83,4 +83,27 @@ public class StreamTest {
         assertEquals("none", first.callbackError);
         assertFalse(first.toJson().toString().contains("private"));
     }
+    @Test public void cancellationErrorCannotEraseEarlierChannelRejectionDiagnostic() {
+        SpikeInstrumentation.Stream stream = new SpikeInstrumentation.Stream();
+        stream.onMessage(new Message(Role.MODEL, Contents.Companion.of("hidden"), Collections.emptyList(), Collections.singletonMap("thought", "hidden")));
+        stream.onMessage(visible("x")); stream.onError(new RuntimeException("private cancellation detail"));
+        RoleObservation observation = stream.observation(null, false, null, null);
+        assertEquals("unsupported_output", observation.callbackError);
+        assertEquals(1, observation.bufferedTextBytes);
+        assertEquals("generation_failed", assertThrows(Exception.class, stream::text).getMessage());
+    }
+    @Test public void oversizedOutputDiagnosticSurvivesLaterSdkError() {
+        SpikeInstrumentation.Stream stream = new SpikeInstrumentation.Stream();
+        stream.onMessage(visible("é".repeat(8193))); stream.onError(new RuntimeException("private"));
+        RoleObservation observation = stream.observation(null, false, null, null);
+        assertEquals("output_too_large", observation.callbackError); assertEquals(0, observation.bufferedTextBytes);
+        assertEquals("generation_failed", assertThrows(Exception.class, stream::text).getMessage());
+    }
+    @Test public void sdkErrorWithoutEarlierCallbackFailureRemainsGenerationFailed() {
+        SpikeInstrumentation.Stream stream = new SpikeInstrumentation.Stream();
+        stream.onError(new RuntimeException("private"));
+        RoleObservation observation = stream.observation(null, false, null, null);
+        assertEquals("generation_failed", observation.callbackError); assertEquals(0, observation.callbackMessages);
+        assertFalse(observation.toJson().toString().contains("private"));
+    }
 }

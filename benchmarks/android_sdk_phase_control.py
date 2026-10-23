@@ -49,7 +49,7 @@ def read_phase(device, apk_sha, session_nonce, raw_sink):
     report = dict(version=1, scope='android_sdk_phase_readback', status='input_refused', result=None,
         failure_stage='none', cleanup_failure_stage='none', dispatched=False, raw_protocol_retained=False,
         clients_cleaned=False, process_absent=False, journal_verified=False, instance_matched=False)
-    if (type(apk_sha) is not str or apk_sha != READBACK_APK_SHA256
+    if (type(apk_sha) is not str or apk_sha not in (READBACK_APK_SHA256, cache.ROLE_OBSERVATION_APK_SHA256)
             or type(session_nonce) is not str or re.fullmatch(r'[a-f0-9]{32}', session_nonce) is None
             or not callable(raw_sink)):
         report['failure_stage'] = 'input'

@@ -6,6 +6,12 @@ partial, claim `6374988994`. Exact base is open, unmerged
 `731b46cfc818a17e15140d466c403e1f1c1a51b2`. This packet extends the isolated
 experiment; production inference and Rust canonical rules are unchanged.
 
+**Measurement correction:** the original ordinary-gift `first_output_observed`
+flag was unmeasured: that source only assigned it in the active-cancellation
+case. Its false value does not prove absent callbacks or buffered text. The
+M01.04/M01.05 role-observation follow-up corrects that limitation without
+changing the sealed timeout, cleanup or canonical replay evidence below.
+
 ## Implemented boundary
 
 The [readback protocol](TRACED_SDK_PROTOCOL_V1.md) adds the existing-session
@@ -123,7 +129,7 @@ substituted for the actual app read.
 
 The requested gift **failed with a director timeout**. Android returned a valid
 structured terminal and reported model initialization, one director call, zero
-narrator calls, zero repairs, no observed first-output callback and drained
+narrator calls, zero repairs, an unmeasured false first-output flag and drained
 ownership. SDK counters show one Engine and one Conversation opened/closed,
 acknowledged cancellation and terminal callbacks, and no termination-required
 flag. Cancellation-call timing was 67.3024 ms. The model-load observation was
@@ -223,7 +229,7 @@ no fresh inference/write admission. No merge, release, repository-access change,
 private-payload upload, model copy/download or AVD lifecycle action occurred.
 Retired Markdown trackers remain pointers; ticket comments own progress.
 
-Next runnable task: diagnose the director's bounded no-output timeout using
+Next runnable task: measure buffered director output correctly during the bounded timeout using
 these retained phase/SDK observations and host-side prompt/profile inspection,
 before proposing another freshly admitted real-model control. Preserve this
 failed turn and the existing workload budgets; do not automatically retry it.

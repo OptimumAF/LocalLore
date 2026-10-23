@@ -89,3 +89,74 @@ fn player_secret_is_legitimate_director_input_but_forbidden_narrator_input() {
     let narrator = probe("narrator", secret, vec![secret.into()]);
     assert!(recorded_privacy_failure(&narrator));
 }
+
+#[test]
+fn unknown_admission_stays_charged_when_completed_story_is_reused() {
+    use locallore_eval::local_lane::{run_curated, LaneFactory};
+    use std::io::Write;
+    let directory = std::env::temp_dir().join(format!(
+        "independent-eval-unknown-reservation-{}",
+        std::process::id()
+    ));
+    let first = run_curated(
+        &directory,
+        false,
+        Some("gift-agency"),
+        &Cancellation::default(),
+        1,
+        LaneFactory::ScriptedBaseline,
+    )
+    .unwrap();
+    assert!(first.completed);
+    let checkpoint = std::fs::read(directory.join("case-00.json")).unwrap();
+    let prior_roles = first.provenance["budget"]["roles_charged"]
+        .as_u64()
+        .unwrap();
+    // Simulate the durable reservation left after admission and before settlement.
+    // This is a fixed synthetic ledger fixture, not an actual process-kill claim.
+    let unknown = json!({
+        "version":1,"binding":first.binding_sha256,"index":4,
+        "story":"gift-agency","turn":"gift","ms":60000,"roles":3
+    });
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(directory.join("admission-04.json"))
+        .unwrap();
+    file.write_all(&serde_json::to_vec(&unknown).unwrap())
+        .unwrap();
+    file.sync_all().unwrap();
+    drop(file);
+    let resumed = run_curated(
+        &directory,
+        true,
+        Some("gift-agency"),
+        &Cancellation::default(),
+        1,
+        LaneFactory::ScriptedBaseline,
+    )
+    .unwrap();
+    assert!(resumed.completed);
+    assert_eq!(
+        resumed.provenance["budget"]["admissions_across_attempts"],
+        5
+    );
+    assert_eq!(
+        resumed.provenance["budget"]["roles_charged"],
+        prior_roles + 3
+    );
+    assert!(
+        resumed.provenance["budget"]["active_ms_charged"]
+            .as_u64()
+            .unwrap()
+            >= 60000
+    );
+    assert!(!directory.join("admission-04-settled.json").exists());
+    assert!(!directory.join("admission-05.json").exists());
+    assert!(!directory.join("case-00-attempt-01").exists());
+    assert_eq!(
+        std::fs::read(directory.join("case-00.json")).unwrap(),
+        checkpoint
+    );
+    assert!(!resumed.quality_accepted);
+}

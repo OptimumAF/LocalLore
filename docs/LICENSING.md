@@ -30,6 +30,10 @@ separates STL header/template notices, embedded native CRT startup material and
 external runtime DLL prerequisites. It preserves the original audit evidence and
 keeps independent review and distribution approval pending.
 
+The separate [embedded JSON header attribution correction](desktop/D09_JSON_NOTICE_CORRECTION_2026-10-23.md)
+records a failed actual-collector review regression, its focused resource fix and
+the conditional applicability of notices retained from the pinned header.
+
 ## Contributions and generated material
 
 Contributors submit only material they have rights to contribute, under Apache-2.0 for first-party changes unless agreed otherwise. There is no CLA or copyright-assignment requirement at bootstrap. Material AI assistance should be disclosed; it does not remove responsibility for provenance and review.

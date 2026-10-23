@@ -248,6 +248,22 @@ class ArchiveCapacityActivityTest {
             if (!drained) Thread.yield()
         }
         verify(drained && staging.listFiles()?.isEmpty() == true, "Disposed archive owners must release all four real native leases")
+        // The workspace transport closes on its own IO worker. Archive lease availability
+        // cannot establish that this independent registry has released its old owner.
+        val workspaceDeadline = SystemClock.elapsedRealtime() + 10_000
+        var workspaceDrained = false
+        while (!workspaceDrained && SystemClock.elapsedRealtime() < workspaceDeadline) {
+            val handles = mutableListOf<Long>()
+            try {
+                repeat(4) {
+                    val id = NativeWorkspace.open(database().canonicalPath)
+                    if (id > 0) handles += id
+                }
+                workspaceDrained = handles.size == 4
+            } finally { handles.forEach(NativeWorkspace::close) }
+            if (!workspaceDrained) Thread.yield()
+        }
+        verify(workspaceDrained, "Disposed workspace owners must release all four real native leases")
     }
     private fun capture(scope: JSONObject, head: Long): ByteArray {
         val staging = File(root, "parity-staging").also { Files.createDirectory(it.toPath()) }

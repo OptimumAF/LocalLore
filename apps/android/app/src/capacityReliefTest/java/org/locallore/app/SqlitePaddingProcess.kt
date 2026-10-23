@@ -5,6 +5,8 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteFullException
 import android.os.Build
 import android.os.Looper
+import android.system.Os
+import android.system.OsConstants
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -161,7 +163,7 @@ class SqlitePaddingProcess {
             val finished = AtomicBoolean(false)
             Thread({ Thread.sleep(30_000); if (!finished.get()) kotlin.system.exitProcess(74) },
                 "locallore-padding-lease").also { it.isDaemon = true; it.start() }
-            var code = 71 // Fixed stage only: 71 input,72 path/marker,73 baseline,75 SQL,76 check,77 close.
+            var code = 71 // Fixed stage only: 71 input,72 path/marker,73 RO baseline,75 SQL,76 check,77 close,78 RW open.
             var database: SQLiteDatabase? = null
             try {
                 check(Build.VERSION.SDK_INT >= 28 && arguments.size == 3 && arguments[0] in setOf("fill", "drop"))
@@ -176,11 +178,58 @@ class SqlitePaddingProcess {
                 check(root.name.matches(Regex("synthetic-capacity-relief-v3-[0-9a-f-]{36}")))
                 check(root.parentFile?.name == "no_backup" && root.parentFile?.parentFile?.name == "org.locallore.app.capacityreliefv3")
                 val marker = File(root, PaddingFormat.MARKER)
-                check(marker.isFile && marker.canonicalFile == marker.absoluteFile && marker.length() <= 192)
-                val ownership = marker.readText(Charsets.US_ASCII).split('\n')
+                data class FileIdentity(val device: Long, val inode: Long, val size: Long, val mode: Int,
+                    val modifiedSeconds: Long, val modifiedNanos: Long, val changedSeconds: Long, val changedNanos: Long)
+                fun fileIdentity(file: File): FileIdentity {
+                    check(file.isAbsolute && file.canonicalFile == file.absoluteFile)
+                    val stat = Os.lstat(file.absolutePath)
+                    check(stat.st_mode and OsConstants.S_IFMT == OsConstants.S_IFREG)
+                    check(stat.st_uid == android.os.Process.myUid())
+                    return FileIdentity(stat.st_dev, stat.st_ino, stat.st_size, stat.st_mode,
+                        stat.st_mtim.tv_sec, stat.st_mtim.tv_nsec, stat.st_ctim.tv_sec, stat.st_ctim.tv_nsec)
+                }
+                fun directoryIdentity(file: File): Pair<Long, Long> {
+                    check(file.isAbsolute && file.canonicalFile == file.absoluteFile)
+                    val stat = Os.lstat(file.absolutePath)
+                    check(stat.st_mode and OsConstants.S_IFMT == OsConstants.S_IFDIR)
+                    return stat.st_dev to stat.st_ino
+                }
+                fun markerContent(): String = marker.inputStream().use { input ->
+                    val buffer = ByteArray(193)
+                    var count = 0
+                    while (count < buffer.size) {
+                        val read = input.read(buffer, count, buffer.size - count)
+                        if (read < 0) break
+                        check(read > 0); count += read
+                    }
+                    check(count <= 192)
+                    String(buffer, 0, count, Charsets.US_ASCII)
+                }
+                var databaseIdentity = fileIdentity(path)
+                var markerIdentity = fileIdentity(marker)
+                check(markerIdentity.size <= 192)
+                val rootIdentity = directoryIdentity(root)
+                val workspaceIdentity = directoryIdentity(checkNotNull(path.parentFile))
+                var expectedMarker = markerContent()
+                fun ownershipUnchanged() {
+                    check(directoryIdentity(root) == rootIdentity)
+                    check(directoryIdentity(checkNotNull(path.parentFile)) == workspaceIdentity)
+                    check(fileIdentity(path) == databaseIdentity)
+                    check(fileIdentity(marker) == markerIdentity && markerContent() == expectedMarker)
+                    check(fileIdentity(marker) == markerIdentity)
+                }
+                fun recordDatabaseWrite() {
+                    val after = fileIdentity(path)
+                    check(after.device == databaseIdentity.device && after.inode == databaseIdentity.inode &&
+                        after.mode == databaseIdentity.mode && after.size in 4096L..(32L * 4096L))
+                    databaseIdentity = after
+                    ownershipUnchanged()
+                }
+                val ownership = expectedMarker.split('\n')
                 check(ownership.size in 3..4 && ownership.last().isEmpty())
                 check(ownership[0] == PaddingFormat.OWNER_FORMAT && ownership[1] == token)
                 val knownBaseline = if (ownership.size == 4) ownership[2].also { check(it == PaddingFormat.SCHEMA) } else null
+                ownershipUnchanged()
                 fun scalar(db: SQLiteDatabase, query: String): Long = db.rawQuery(query, null).use { check(it.moveToFirst()); it.getLong(0) }
                 fun identity(db: SQLiteDatabase) {
                     check(scalar(db, "PRAGMA application_id") == 0x4c4c4f52L && scalar(db, "PRAGMA user_version") == 3L)
@@ -236,11 +285,17 @@ class SqlitePaddingProcess {
                     }
                     digest
                 }
+                // Detect path/marker/file replacement during the read-only inspection.
+                // This is a trusted app-private boundary, not race-proof same-UID protection.
+                ownershipUnchanged()
+                code = 78 // Every refusal from the writable-open attempt onward poisons ownership.
                 val opened = SQLiteDatabase.openDatabase(path, SQLiteDatabase.OpenParams.Builder()
                     .setOpenFlags(SQLiteDatabase.OPEN_READWRITE or SQLiteDatabase.NO_LOCALIZED_COLLATORS)
                     .setJournalMode("DELETE").build())
                 database = opened
+                ownershipUnchanged()
                 identity(opened)
+                ownershipUnchanged()
                 check(scalar(opened, "PRAGMA max_page_count=32") == 32L)
                 val before = schema(opened)
                 check(before == readOnlyBaseline && before == PaddingFormat.SCHEMA)
@@ -254,12 +309,24 @@ class SqlitePaddingProcess {
                 if (mode == "fill") {
                     check(padSql(opened) == null)
                     check(scalar(opened, "PRAGMA page_count") == PaddingFormat.INITIAL_PAGES.toLong() && scalar(opened, "PRAGMA freelist_count") == 0L)
-                    marker.writeText(PaddingFormat.OWNER_FORMAT + "\n" + token + "\n" + before + "\n", Charsets.US_ASCII)
+                    ownershipUnchanged()
+                    val updatedMarker = PaddingFormat.OWNER_FORMAT + "\n" + token + "\n" + before + "\n"
+                    marker.writeText(updatedMarker, Charsets.US_ASCII)
+                    val afterMarker = fileIdentity(marker)
+                    check(afterMarker.device == markerIdentity.device && afterMarker.inode == markerIdentity.inode && afterMarker.mode == markerIdentity.mode)
+                    markerIdentity = afterMarker; expectedMarker = updatedMarker
+                    ownershipUnchanged()
                     opened.execSQL(PaddingFormat.CREATE)
+                    recordDatabaseWrite()
                     var full = false
                     for (attempt in 0..64) {
-                        try { opened.execSQL(PaddingFormat.INSERT, arrayOf(token)); count++ }
-                        catch (_: SQLiteFullException) { full = true; break }
+                        ownershipUnchanged()
+                        try {
+                            opened.execSQL(PaddingFormat.INSERT, arrayOf(token)); count++
+                            recordDatabaseWrite()
+                        } catch (_: SQLiteFullException) {
+                            recordDatabaseWrite(); full = true; break
+                        }
                     }
                     check(full && count == PaddingFormat.EXPECTED_ROWS)
                     check(padSql(opened) == PaddingFormat.CREATE && rows(opened) == count)
@@ -267,7 +334,9 @@ class SqlitePaddingProcess {
                     padSql(opened)?.let {
                         check(knownBaseline != null && it == PaddingFormat.CREATE)
                         count = rows(opened)
+                        ownershipUnchanged()
                         opened.execSQL("DROP TABLE locallore_capacity_pad_v1")
+                        recordDatabaseWrite()
                     }
                 }
                 code = 76
@@ -280,8 +349,10 @@ class SqlitePaddingProcess {
                     if (count != 0) check(count == PaddingFormat.EXPECTED_ROWS && pages == 32L && free == PaddingFormat.FREED_PAGES.toLong())
                 }
                 check(pages in 1L..32L && free in 0L..32L)
+                ownershipUnchanged()
                 code = 77
                 opened.close(); database = null
+                ownershipUnchanged()
                 // Acknowledgement follows close, never a held transaction/connection.
                 println("${if (mode == "fill") "FILLED" else "DROPPED"} $token ${android.os.Process.myPid()} ${android.os.Process.myUid()} $count $pages $free $before")
                 System.out.flush()

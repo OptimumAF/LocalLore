@@ -4,6 +4,7 @@ package org.locallore.app
 import android.view.KeyEvent
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -11,6 +12,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.atomic.AtomicReference
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -75,14 +77,17 @@ class EventSourceScreenTest {
             val accepted = owner.acceptedView()
             val turnCalls = owner.transport.turnCalls.get()
             val model = eventModel(fixture, owner)
+            val renderedEventClick = AtomicReference<((Long) -> Unit)?>(null)
             compose.setContent {
                 val state by model.state.collectAsState()
                 val records by model.storyRecord.collectAsState()
+                val openEvent: (Long) -> Unit = { sequence -> model.openRecordEvent(sequence, records.context) }
+                SideEffect { renderedEventClick.set(openEvent) }
                 LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::reset,
                     onResume = model::resume, onRecover = model::recover, onStoryRecord = model::openStoryRecord) {
                     StoryRecordDialog(records, model::closeStoryRecord, model::recordSection, model::recordSearch,
                         model::nextRecordPage, model::firstRecordPage, model::retryStoryRecord,
-                        onEvent = { sequence -> model.openRecordEvent(sequence, records.context) },
+                        onEvent = openEvent,
                         onEventBack = model::backToStoryRecord,
                         onEventRetry = model::retryRecordEvent)
                 }
@@ -102,6 +107,7 @@ class EventSourceScreenTest {
             val index = page.entries.indexOfFirst { it.eventSources.isNotEmpty() }
             assertTrue(index >= 0)
             val source = page.entries[index].eventSources.first()
+            val oldRenderedClick = checkNotNull(renderedEventClick.get())
             assertTrue(source in 1..saved.revision)
             assertTrue(page.entries.all { 999L !in it.eventSources })
             compose.onNodeWithText("Open event #999").assertDoesNotExist()
@@ -145,6 +151,31 @@ class EventSourceScreenTest {
             assertEquals("Old-story source callback attached to the new story", empty, model.storyRecord.value)
             assertTrue(other == owner.acceptedView())
             compose.onNodeWithTag("story-record-close").performClick()
+
+            // Give the second story its own same-numbered event and a current page grant.
+            // An old render must still carry its original context, not read a live delegate.
+            repeat(source.toInt()) {
+                owner.commitIntent(JSONObject().put("kind", "actions").put("value", JSONArray()
+                    .put(JSONObject().put("op", "wait").put("ticks", 1))))
+            }
+            compose.runOnIdle { model.recover() }
+            compose.waitUntil(8_000) { !model.state.value.busy && model.state.value.revision == source }
+            val otherAccepted = owner.acceptedView()
+            val finalTurnCalls = owner.transport.turnCalls.get()
+            shellTag("story-record-open").performClick(); loaded(model); history(model)
+            search(model, "\"sequence\":$source,")
+            assertEquals(listOf(source), model.storyRecord.value.entries.single().eventSources)
+            val currentPage = model.storyRecord.value
+            compose.runOnIdle { oldRenderedClick(source) }
+            compose.waitForIdle()
+            assertNull("Retained rendered callback borrowed a same-numbered event from another story",
+                model.storyRecord.value.eventDetail)
+            assertEquals(currentPage, model.storyRecord.value)
+            compose.runOnIdle { checkNotNull(renderedEventClick.get())(source) }
+            detail(model, source)
+            assertTrue(otherAccepted == owner.acceptedView())
+            assertEquals(finalTurnCalls, owner.transport.turnCalls.get())
+            compose.onNodeWithTag("story-record-close").performClick()
             shellTag("saved-library").performClick()
             compose.onNodeWithText("${saved.selected.title} \u00B7 ${saved.selected.story} \u00B7 revision ${saved.revision}").performClick()
             compose.waitUntil(8_000) {
@@ -162,7 +193,7 @@ class EventSourceScreenTest {
             assertTrue(model.storyRecord.value.eventDetail!!.entry!!.text.contains("mira"))
             compose.onNodeWithTag("story-record-close").performClick()
             assertTrue("Resuming and browsing changed old-story canon", accepted == owner.acceptedView())
-            assertEquals("Navigation across stories dispatched gameplay/inference", turnCalls, owner.transport.turnCalls.get())
+            assertEquals("Navigation across stories dispatched gameplay/inference", finalTurnCalls, owner.transport.turnCalls.get())
         }
     }
 }

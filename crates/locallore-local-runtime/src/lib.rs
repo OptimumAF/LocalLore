@@ -1,5 +1,7 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Bounded local native inference owner. No engine, database, network or model downloads.
+#[cfg(feature = "engine-adapter")]
+pub mod adapter;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -480,7 +482,7 @@ mod tests {
     use super::*;
     use std::sync::atomic::AtomicU64;
     static SEQUENCE: AtomicU64 = AtomicU64::new(0);
-    fn fixture(mode: &str) -> (LocalRuntime, std::path::PathBuf) {
+    pub(super) fn fixture(mode: &str) -> (LocalRuntime, std::path::PathBuf) {
         let dir = std::env::temp_dir().join(format!(
             "locallore-runtime-{}-{}",
             std::process::id(),

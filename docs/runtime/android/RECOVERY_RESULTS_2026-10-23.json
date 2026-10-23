@@ -1,0 +1,194 @@
+{
+  "version": 1,
+  "scope": "read_only_recovery_of_guarded_sdk_attempt",
+  "date": "2026-10-23",
+  "task_ids": [
+    "M01.03",
+    "M01.05"
+  ],
+  "status": "in_review_partial",
+  "base_pr": 111,
+  "base_commit": "fbf0542e0b56dea5ab99f30ca5e3b2d4193b207c",
+  "tested_source_commit": "187321c",
+  "qualified_apk_sha256": "0cf4c253c41483973fd1578837d0ba147a7ed3d6d6cd8eb5818a989e185c09dd",
+  "native_source_commit": "ba31932665eab2079c54a02a0182857f598fa0c4",
+  "storage_schema_version": 2,
+  "whole_current_main_qualified": false,
+  "transport": {
+    "encoding": "canonical_base64_without_wire_newlines",
+    "decoded_file_limit_bytes": 131072,
+    "encoded_file_limit_bytes": 174764,
+    "explicit_file_process_output_limit_bytes": 262144,
+    "default_process_limit_changed": false,
+    "raw_retained_before_validation": true,
+    "failure_fences_following_reads": true,
+    "source_sha256": "06ef072836e74dd962e9ebf4d371aa0b3a029a7177c7cf89901af5203aa3e6ed",
+    "device_api_sha256": "e75464bc21130eb3adf300de3d17475f5cc2f4f6c80efd7360f8480f1e66b095"
+  },
+  "checks": {
+    "scripts_passed": 297,
+    "benchmarks_passed": 140,
+    "sdk_helpers_passed": 33,
+    "transport_methods_in_scripts": 30,
+    "wire_budget_methods_in_scripts": 3,
+    "private_orchestration_synthetic_checks": 3,
+    "new_rust_or_java_builds": 0,
+    "retained_parser_red": {
+      "tests": 30,
+      "passed": 29,
+      "failed": 1
+    },
+    "parser_green": {
+      "tests": 30,
+      "passed": 30,
+      "failed": 0
+    }
+  },
+  "first_cohort": {
+    "status": "binary_qualification_refused",
+    "remote_exit_37_control_passed": true,
+    "expected_binary_bytes": 262,
+    "received_bytes": 265,
+    "received_sha256": "0040f59988bc06b0e13c69e48e0e82c917e988f7a83715d2e57ae62e4b7e4f8e",
+    "received_payload_retained": true,
+    "exact_CR_insertion_before_each_LF_verified": true,
+    "transformation_component": "unknown",
+    "database_read": false,
+    "crash_log_read": false,
+    "initial_commands": 119,
+    "separate_closure_commands": 125,
+    "all_commands_completed_and_clean": true,
+    "inventory_emulators_before": 7,
+    "inventory_emulators_after": 4,
+    "AVD_lifecycle_actions_by_packet": 0
+  },
+  "encoded_cohort": {
+    "status": "captured_and_preserved",
+    "command_count": 252,
+    "remote_exit_37_control_passed": true,
+    "binary_control_wire_bytes": 352,
+    "binary_control_wire_sha256": "6cc1a8e22ffee622a5133b25d51f5aa9bc1031ffe5f6932f3f8bf3f6e5ca6d5c",
+    "binary_control_decoded_bytes": 262,
+    "binary_control_decoded_sha256": "b905c1b82d628e1ce2d152af2a60f935d7b6cf3d471176b5638b7c2503d74b12",
+    "decoded_fixture_exact": true,
+    "database_wire_bytes": 87384,
+    "database_decoded_bytes": 65536,
+    "database_sha256": "420541d81d1b80c408f84a2e14321b757994978e75cc564c408203ed0b4a4cd9",
+    "sidecars_present": [],
+    "sidecars_absent": [
+      "wal",
+      "shm",
+      "journal"
+    ],
+    "source_facts_before_after_identical": true,
+    "manifest_sha256": "e7c58482103bec4ad08112f3c0785a346b35869c31001bdd4312333d89581592",
+    "process_absent": true,
+    "clients_cleaned": true,
+    "original_package_hashes_and_model_cache_metadata_preserved": true,
+    "inventory_before": {
+      "emulators": 4,
+      "other_devices": 0,
+      "selected_ready": true
+    },
+    "inventory_after": {
+      "emulators": 4,
+      "other_devices": 0,
+      "selected_ready": true
+    },
+    "host_free_bytes_after": {
+      "C": 9117745152,
+      "D": 328954097664
+    },
+    "userdata_free_bytes_after": 1738366976
+  },
+  "canonical_recovery": {
+    "status": "failed_turn_without_accepted_gift",
+    "read_only_strict_rust_replay": true,
+    "schema_version": 2,
+    "stories": 1,
+    "branches": 1,
+    "revision": 0,
+    "accepted_receipts": 0,
+    "accepted_events": 0,
+    "turn_phase": "failed",
+    "turn_has_receipt": false,
+    "potion_owner": "player",
+    "potion_quantity": 1,
+    "projection_rebuilt": false,
+    "pristine_unchanged": true,
+    "working_main_unchanged": true,
+    "helper_returncode": 0,
+    "helper_cleanup_complete": true,
+    "helper_elapsed_ms": 31,
+    "phone_performance_measurement": false,
+    "strict_report_sha256": "737faa58b62c9d1d7f038b1fbd0d3b0e7fcc9a46e54e2e28096f03eef342da04",
+    "first_host_orchestration_refused_before_copy_or_spawn": true,
+    "host_setup_correction": "exact CRLF owner-marker bytes; original failed attempt retained"
+  },
+  "diagnostics": {
+    "UID_crash_buffer_bytes": 0,
+    "package_exit_history_bytes": 6878,
+    "package_exit_history_sha256": "b14d7a629ec02bb17f605b7ca45ef5544f0586bcec4b1b9b1ed774e197193fcb",
+    "package_exit_history_records": 16,
+    "os_reason_10_status_0_records": 15,
+    "os_reason_2_status_9_records": 1,
+    "exit_query_commands": 16,
+    "exit_query_clean_and_package_absent": true,
+    "exit_record_attributed_to_SDK_attempt": false,
+    "process_crash_cause": "unknown",
+    "original_SDK_generation_outcome": "unknown",
+    "original_SDK_owner_balance": "unknown",
+    "actual_guarded_schema_compatibility": "unqualified"
+  },
+  "unchanged_boundaries": {
+    "SDK_or_inference_calls_this_packet": 0,
+    "model_content_reads_this_packet": 0,
+    "model_copies_or_downloads": 0,
+    "device_SQL_opens": 0,
+    "canonical_writes_or_repairs": 0,
+    "trace_files_opened": 0,
+    "runtime_or_model_upgrade": false,
+    "physical_phones_observed": 0,
+    "ARM64_executed": false
+  },
+  "evidence": {
+    "host": {
+      "index_sha256": "ecef2dbcf03bd8bc46864ef0d208d115ba8fa5d9ef7c7240cc2242c346b4011f",
+      "index_bytes": 7934,
+      "files": 36,
+      "selected_bytes": 5666848
+    },
+    "first_device": {
+      "index_sha256": "52fda46926fec28f51ba80f6574e8b9bd7dd036c3ce881938a2d6e1a647c8bce",
+      "index_bytes": 92244,
+      "files": 525,
+      "selected_bytes": 302409
+    },
+    "encoded_device": {
+      "index_sha256": "4dda8e9c7da0353ccefaa12af0a9312aeb9522066c1652ac26d35c29274cbc9f",
+      "index_bytes": 98294,
+      "files": 573,
+      "selected_bytes": 602635
+    },
+    "author_initial": {
+      "index_sha256": "575dc311c143d446502b99a4190daa39acd2de2aedce839f284fa706e3defb53",
+      "index_bytes": 3292,
+      "files": 14,
+      "selected_bytes": 143172
+    },
+    "author_encoded": {
+      "index_sha256": "93e3a23653c0a240e752b39fad4cb0c4913c50f652d239731613e7815c673c4c",
+      "index_bytes": 3357,
+      "files": 14,
+      "selected_bytes": 17290
+    }
+  },
+  "limitations": [
+    "No physical-phone qualification; M01.01 blocked.",
+    "A remains below write/inference admission; only metadata preservation ran there.",
+    "Package exit history lacks original SDK PID binding; signal9 does not establish watchdog, memory pressure or another cause.",
+    "No successful guarded SDK turn, model quality, sustained memory/thermal or backend acceptance.",
+    "Unmerged prerequisite PR111 stacked on PR108."
+  ],
+  "next_task": "Add bounded persisted SDK phase/termination evidence and original process identity before another freshly admitted guarded SDK control; preserve the recovered failed turn."
+}

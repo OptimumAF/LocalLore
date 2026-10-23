@@ -1,0 +1,26 @@
+[package]
+name = "locallore-local-runtime"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+rust-version = "1.93"
+
+[workspace]
+
+[features]
+development-worker = []
+
+[dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+sha2 = "=0.10.9"
+
+[[bin]]
+name = "runtime-probe"
+path = "src/bin/runtime_probe.rs"
+required-features = ["development-worker"]
+
+[[bin]]
+name = "protocol-fixture"
+path = "src/bin/protocol_fixture.rs"
+required-features = ["development-worker"]

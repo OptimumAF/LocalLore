@@ -271,6 +271,7 @@ internal object SqliteReliefFixture {
                 val handles = mutableListOf<Long>()
                 try {
                     repeat(4) {
+                        check(ownershipClean.get() && PaddingOwner.ownershipKnown()) { "relief_ownership_unknown" }
                         onDispatch()
                         NativeWorkspace.open(path.absolutePath).let { if (it != 0L) handles += it }
                     }

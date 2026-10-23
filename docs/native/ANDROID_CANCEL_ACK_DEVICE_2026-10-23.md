@@ -34,10 +34,12 @@ after the runner terminal. These pre-admission corrections preserve the floors
 and nine-method gate.
 
 Install only the new isolated `org.locallore.app.cancelack` and `.test` packages.
-Both must be absent for the baseline; a candidate admission instead requires the
-exact previously pinned baseline pair. Every install verifies local artifact
-hashes first. Complete installed package maps are checked before instrumentation,
-after each target, and again for both targets at the final cohort boundary.
+Initial admission required both absent; the separately reviewed partial-state
+continuation below requires the exact app hash and absent test package. Candidate
+admission requires the exact previously pinned baseline pair. Every install
+verifies local artifact hashes first. Complete installed package maps are checked
+before instrumentation, after each target, and again for every target selected
+in that admitted cohort at its final boundary.
 The only selected test invocation is:
 
 ```text
@@ -198,7 +200,7 @@ Candidate gateway source `8b30155` was pinned by file SHA-256
 unchanged test source was pinned by
 `eb84c0a579dcbbf63baca901c318f95baa3c3c7653365a92e5aa9d00ff4053c4`.
 The coordinator separately verified all four packaged native library hashes
-equal baseline; these tests did not load those libraries.
+equal baseline; native execution is not qualified by these protocol tests.
 
 The private raw instrumentation hashes are
 `42e8c236658f718b5b9c659d1904ce46e5cf1f8b4d9744ed345d8bd66ff50455`

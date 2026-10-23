@@ -49,7 +49,11 @@ pub enum Input {
     /// Only an approved public description reaches the narrator, never the hidden world seed.
     Narrator { accepted_description: String },
     /// Shared play-v2 compiler supplies a bounded prompt and constrained JSON schema.
-    Structured { role: String, prompt: String, schema: serde_json::Value },
+    Structured {
+        role: String,
+        prompt: String,
+        schema: serde_json::Value,
+    },
 }
 
 #[derive(Clone, Debug)]

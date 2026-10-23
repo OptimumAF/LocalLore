@@ -6,4 +6,5 @@ pub mod host;
 pub mod inference;
 #[cfg(feature = "host")]
 pub mod inspection;
+pub mod play;
 pub mod scope;

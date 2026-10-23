@@ -79,6 +79,9 @@ pub fn inspection_database_copy(
         .collect())
 }
 impl Persistence for Repository {
+    fn commit_prepared(&mut self, receipt: &Receipt) -> Result<Receipt, String> {
+        self.store.commit_prepared(receipt).map_err(turn)
+    }
     fn location(&self) -> &str {
         &self.location
     }

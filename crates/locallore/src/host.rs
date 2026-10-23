@@ -192,6 +192,14 @@ struct State {
     workers: usize,
     sessions: BTreeMap<String, Session>,
     persistence: Option<Box<dyn Persistence>>,
+    local_play: Option<LocalPlay>,
+}
+
+pub type ProviderFactory = Arc<dyn Fn() -> Box<dyn InferenceProvider + Send> + Send + Sync>;
+#[derive(Clone)]
+struct LocalPlay {
+    profile: crate::play::PlayProfile,
+    provider: ProviderFactory,
 }
 
 /// Trusted native persistence boundary. Implemented by the one SQLite owner adapter,
@@ -220,6 +228,12 @@ pub trait Persistence: Send {
         proposal: &Proposal,
         narration: &str,
     ) -> Result<Receipt, String>;
+    fn commit_prepared(&mut self, receipt: &Receipt) -> Result<Receipt, String> {
+        if receipt.play().is_some() {
+            return Err("Unsupported".into());
+        }
+        self.commit(receipt.request(), receipt.proposal(), receipt.narration())
+    }
     fn cancel(&mut self, request: &Request) -> Result<SavedTurn, String>;
     fn fail(&mut self, request: &Request) -> Result<SavedTurn, String>;
     fn stale(&mut self, request: &Request) -> Result<SavedTurn, String>;
@@ -237,6 +251,31 @@ impl Default for Host {
     }
 }
 impl Host {
+    /// Trusted native model owner configures only future work; no wire grants this capability.
+    pub fn configure_local_provider(
+        &self,
+        profile: crate::play::PlayProfile,
+        provider: ProviderFactory,
+    ) -> Result<(), String> {
+        profile.validate().map_err(|e| e.to_string())?;
+        self.state
+            .lock()
+            .map_err(|_| "Internal".to_owned())?
+            .local_play = Some(LocalPlay { profile, provider });
+        Ok(())
+    }
+    pub fn disable_local_provider(&self) {
+        if let Ok(mut state) = self.state.lock() {
+            state.local_play = None;
+            for session in state.sessions.values() {
+                for turn in session.turns.values() {
+                    if matches!(turn.request.intent, Intent::FreeText { .. }) {
+                        turn.cancel.cancel();
+                    }
+                }
+            }
+        }
+    }
     /// Native-only immutable export capture. No path or file-writing capability is on the wire.
     /// Storage is reloaded transactionally before the explicit head check; generation and writes
     /// may continue after this clone is captured, without changing the returned export.
@@ -290,7 +329,7 @@ impl Host {
             if input.len() > MAX_INPUT {
                 return reject("TooLarge");
             }
-            let Ok(envelope) = serde_json::from_slice::<Envelope>(input) else {
+            let Ok(mut envelope) = serde_json::from_slice::<Envelope>(input) else {
                 return reject("Malformed");
             };
             if envelope.version != HOST_VERSION {
@@ -305,6 +344,21 @@ impl Host {
                 return self.prepare(&session, &scope, &turn);
             }
             let mut state = self.state.lock().unwrap();
+            if let HostCommand::FreeText { session, request } = envelope.command {
+                if !matches!(request.intent, Intent::FreeText { .. }) {
+                    return reject("Unsupported");
+                }
+                envelope.command = HostCommand::Submit {
+                    session,
+                    request,
+                    mode: Mode::Accepted,
+                };
+            }
+            if let HostCommand::Submit { request, mode, .. } = &envelope.command {
+                if matches!(request.intent, Intent::FreeText { .. }) && *mode != Mode::Accepted {
+                    return reject("Unsupported");
+                }
+            }
             self.dispatch(&mut state, envelope.command)
         }))
         .unwrap_or_else(|_| reject("Internal"));
@@ -343,11 +397,19 @@ impl Host {
             HostCommand::Resume { .. } => reject("Unsupported"),
             HostCommand::Capabilities {} => {
                 ok(json!({"domain_version":VERSION,"seed":"lantern-quay-v1",
-                "typed_actions":true,"free_text":false,"persistence":false,"snapshot_export":false,
+                "typed_actions":true,"free_text":state.local_play.is_some(),"persistence":false,"snapshot_export":false,
                 "author":false,"story_lab":self.story_lab,"max_sessions":MAX_SESSIONS,"max_turns":MAX_TURNS}))
             }
             HostCommand::ModelStatus {} => {
-                ok(json!({"provider":"deterministic-fake-v1","real_model":false,"loaded":false}))
+                if let Some(local) = &state.local_play {
+                    ok(
+                        json!({"provider":local.profile.id,"real_model":true,"loaded":null,"status":"configured_native_owner","profile":local.profile}),
+                    )
+                } else {
+                    ok(
+                        json!({"provider":"deterministic-fake-v1","real_model":false,"loaded":false}),
+                    )
+                }
             }
             HostCommand::Create { seed } => {
                 if seed != "lantern-quay-v1" {
@@ -401,6 +463,7 @@ impl Host {
                 request,
                 mode,
             } => {
+                let available = state.local_play.is_some();
                 let s = match get_session(state, &session, &request.scope) {
                     Ok(s) => s,
                     Err(e) => return e,
@@ -412,16 +475,21 @@ impl Host {
                         reject("RetryMismatch")
                     };
                 }
+                if matches!(request.intent, Intent::FreeText { .. }) && !available {
+                    return reject("Unsupported");
+                }
                 if s.turns.len() >= MAX_TURNS {
                     return reject("TurnLimit");
                 }
                 if let Err(e) = s.engine.preflight(&request) {
                     return reject(e);
                 }
-                if let Err(e) =
-                    Engine::proposal(&request).and_then(|p| s.engine.preview(&request, &p))
-                {
-                    return reject(e);
+                if !matches!(request.intent, Intent::FreeText { .. }) {
+                    if let Err(e) =
+                        Engine::proposal(&request).and_then(|p| s.engine.preview(&request, &p))
+                    {
+                        return reject(e);
+                    }
                 }
                 let id = request.turn.clone();
                 s.turns.insert(
@@ -469,11 +537,7 @@ impl Host {
                 if serde_json::to_vec(&reply).unwrap().len() > MAX_OUTPUT {
                     return reject("TooLarge");
                 }
-                match s.engine.commit(
-                    &t.request,
-                    &Engine::proposal(&t.request).unwrap(),
-                    receipt.narration(),
-                ) {
+                match s.engine.commit_prepared(receipt) {
                     Ok(receipt) => {
                         t.receipt = Some(receipt);
                         t.phase = Phase::Committed;
@@ -616,7 +680,7 @@ impl Host {
             match command {
                 HostCommand::Capabilities {} => Ok(ok(
                     json!({"domain_version":VERSION,"seed":"lantern-quay-v1",
-                    "typed_actions":true,"free_text":false,"persistence":true,"snapshot_export":false,
+                    "typed_actions":true,"free_text":state.local_play.is_some(),"persistence":true,"snapshot_export":false,
                     "author":false,"story_lab":self.story_lab,"max_sessions":MAX_SESSIONS,"max_turns":MAX_TURNS}),
                 )),
                 HostCommand::Workspace {} => {
@@ -691,6 +755,35 @@ impl Host {
                     } else if s.turns.len() >= MAX_TURNS {
                         return Err(reject("TurnLimit"));
                     }
+                    if matches!(request.intent, Intent::FreeText { .. })
+                        && state.local_play.is_none()
+                    {
+                        let saved = state
+                            .persistence
+                            .as_mut()
+                            .unwrap()
+                            .status(&request.scope, &request.turn)
+                            .map_err(|e| {
+                                reject(if e == "UnknownTurn" {
+                                    "Unsupported".to_owned()
+                                } else {
+                                    e
+                                })
+                            })?;
+                        if saved.request != *request {
+                            return Err(reject("RetryMismatch"));
+                        }
+                        if saved.phase == "draft" {
+                            return Err(reject("Unsupported"));
+                        }
+                        refresh_session(state, session, &request.scope)?;
+                        let t = saved_turn(saved, *mode)?;
+                        let reply = ok(t.view());
+                        get_session(state, session, &request.scope)?
+                            .turns
+                            .insert(request.turn.clone(), t);
+                        return Ok(reply);
+                    }
                     let saved = state
                         .persistence
                         .as_mut()
@@ -708,11 +801,13 @@ impl Host {
                     if let Some(t) = s.turns.get(&request.turn) {
                         return Ok(ok(t.view()));
                     }
-                    if let Err(error) =
-                        Engine::proposal(request).and_then(|p| s.engine.preview(request, &p))
-                    {
-                        let _ = state.persistence.as_mut().unwrap().fail(request);
-                        return Err(reject(error));
+                    if !matches!(request.intent, Intent::FreeText { .. }) {
+                        if let Err(error) =
+                            Engine::proposal(request).and_then(|p| s.engine.preview(request, &p))
+                        {
+                            let _ = state.persistence.as_mut().unwrap().fail(request);
+                            return Err(reject(error));
+                        }
                     }
                     let t = saved_turn(saved, *mode)?;
                     let reply = ok(t.view());
@@ -814,11 +909,12 @@ impl Host {
                     if serde_json::to_vec(&reply).unwrap().len() > MAX_OUTPUT {
                         return Err(reject("TooLarge"));
                     }
-                    match state.persistence.as_mut().unwrap().commit(
-                        &request,
-                        prepared.proposal(),
-                        prepared.narration(),
-                    ) {
+                    match state
+                        .persistence
+                        .as_mut()
+                        .unwrap()
+                        .commit_prepared(&prepared)
+                    {
                         Ok(receipt) => {
                             refresh_session(state, session, scope)?;
                             let s = get_session(state, session, scope)?;
@@ -886,13 +982,30 @@ impl Host {
         };
         // A clone of a coherent revision; no canonical lock or transaction during generation.
         let mut engine = work.engine.clone();
-        let result = execute(
-            &mut engine,
-            &work.request,
-            &mut work.mode.provider(),
-            &work.cancel,
-            Budget::default(),
-        );
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            if matches!(work.request.intent, Intent::FreeText { .. }) {
+                if let Some(local) = &work.local_play {
+                    crate::play::execute(
+                        &mut engine,
+                        &work.request,
+                        &mut *(local.provider)(),
+                        &work.cancel,
+                        &local.profile,
+                    )
+                } else {
+                    Err(Error::Provider)
+                }
+            } else {
+                execute(
+                    &mut engine,
+                    &work.request,
+                    &mut work.mode.provider(),
+                    &work.cancel,
+                    Budget::default(),
+                )
+            }
+        }))
+        .unwrap_or(Err(Error::Provider));
         self.finish_work(work, result)
     }
     fn begin_work(&self, session: &str, scope: &Scope, turn: &str) -> Result<Work, Value> {
@@ -900,6 +1013,7 @@ impl Host {
         if state.workers >= MAX_WORKERS {
             return Err(reject("WorkerLimit"));
         }
+        let local_play = state.local_play.clone();
         let s = get_session(&mut state, session, scope)?;
         let Some(t) = s.turns.get_mut(turn) else {
             return Err(reject("UnknownTurn"));
@@ -916,6 +1030,7 @@ impl Host {
             request: t.request.clone(),
             mode: t.mode,
             cancel: t.cancel.clone(),
+            local_play,
         };
         state.workers += 1;
         Ok(work)
@@ -1064,6 +1179,7 @@ struct Work {
     request: Request,
     mode: Mode,
     cancel: Cancellation,
+    local_play: Option<LocalPlay>,
 }
 impl Drop for Work {
     fn drop(&mut self) {

@@ -110,6 +110,13 @@ export type Intent =
     | {
           kind: "author_correction";
           value: string;
+      }
+    | {
+          kind: "free_text";
+          value: {
+              kind: PlayInputKind;
+              text: string;
+          };
       };
 export type Command =
     | {
@@ -163,6 +170,7 @@ export type Command =
           op: "wait";
           ticks: number;
       };
+export type PlayInputKind = "action" | "dialogue";
 
 /**
  * One source of truth for the generated frontend JSON Schema. No arbitrary seed import.

@@ -286,3 +286,34 @@ fn delete_import_never_rebinds_old_handle_to_recreated_same_source_job() {
         current
     );
 }
+
+#[test]
+fn stale_lookup_preserves_historical_blocked_error_without_rewriting_job() {
+    use locallore_storage::memory_jobs::MemoryJobFailure;
+    let (temp, mut store, mut engine) = fixture();
+    commit(&mut store, &mut engine, "blocked-basis");
+    let selected = engine.clone();
+    let admitted = store
+        .ensure_selected_memory_job(&request(&engine), &selected, &|| false)
+        .unwrap();
+    // Derived-only adversarial status fixture, not proof a valid workload
+    // exhausted production budget. No canonical SQL writes.
+    let db = rusqlite::Connection::open(temp.path()).unwrap();
+    db.execute(
+        "UPDATE memory_jobs SET status='blocked',last_error='budget' WHERE job_id=?1",
+        [i64::try_from(admitted.handle.id()).unwrap()],
+    )
+    .unwrap();
+    drop(db);
+    commit(&mut store, &mut engine, "after-blocked-basis");
+    let before = std::fs::read(temp.path()).unwrap();
+    let found = store
+        .lookup_memory_job(&request(&engine), &selected, &|| false)
+        .unwrap()
+        .unwrap();
+    assert_eq!(found.status, MemoryJobStatus::Stale);
+    assert_eq!(found.last_error, Some(MemoryJobFailure::Budget));
+    assert_eq!(found.basis_revision, 1);
+    assert_eq!(found.generation, admitted.generation);
+    assert_eq!(std::fs::read(temp.path()).unwrap(), before);
+}

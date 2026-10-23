@@ -101,7 +101,13 @@ impl Persistence for Port {
             scope: selected.scope().clone(),
             head: head + u64::from(self.mode == 4),
             action,
-            job: None,
+            job: (self.mode == 5).then_some(MaintenanceJobView {
+                status: MaintenanceStatus::Stale,
+                basis_revision: 1,
+                next_from: 0,
+                generation: 1,
+                last_error: Some(MaintenanceFailure::Budget),
+            }),
         })
     }
 }
@@ -336,4 +342,21 @@ fn lab_flag_does_not_change_player_or_grant_raw_data() {
     ] {
         assert!(!bytes.contains(excluded));
     }
+}
+
+#[test]
+fn passive_stale_view_preserves_historical_blocked_failure() {
+    // Exactly the existing Store status shape after a Blocked job's source
+    // advances. The sibling actual-Store regression establishes that shape.
+    let (host, session, scope, _) = fixture(5, false);
+    let reply = host
+        .memory_maintenance(&session, &scope, 2, MaintenanceAction::Status, &|| false)
+        .unwrap();
+    let job = reply.job.unwrap();
+    assert_eq!(job.status, MaintenanceStatus::Stale);
+    assert_eq!(job.last_error, Some(MaintenanceFailure::Budget));
+    assert_eq!(
+        (job.basis_revision, job.next_from, job.generation),
+        (1, 0, 1)
+    );
 }

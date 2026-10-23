@@ -16,6 +16,11 @@ a separate explicit new request after selection changes. Unknown outcomes remain
 protected from accidental replacement. Rule/RetryMismatch are honest native errors.
 Native request parsing borrows and validates closed/bounded parent IDs before
 copying renderer-owned strings; oversized IDs fail without an unbounded clone.
+The application dispatch wrapper refuses a new fork while ArchiveController is
+awaiting its result, and refuses new archive worker actions while ForkController
+is pending. Status/cancel/lookup remain available. This preserves the existing
+single-result broker's terminal acknowledgement until its owning surface has
+consumed it; the native worker still independently enforces Busy.
 
 Development-only new fork_harness fixture: actual Store first receipt has two
 events (Mira-addressed statement + wait), followed by a later parent statement.

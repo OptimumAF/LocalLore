@@ -45,8 +45,22 @@ declare global {
     }
 }
 const errors = new ErrorBuffer();
-const invoke = (command: string, args: Record<string, unknown> = {}) =>
-    window.__TAURI__.core.invoke(command, args);
+const invoke = (command: string, args: Record<string, unknown> = {}) => {
+    // One native broker retains one operation result. Keep the other surface
+    // from replacing a completed result before its frontend consumes the reply.
+    if (
+        (command === "fork_start" && archive.get().busy) ||
+        ([
+            "archive_export_preview",
+            "archive_import_preview",
+            "archive_export",
+            "archive_import",
+        ].includes(command) &&
+            fork.get().busy)
+    )
+        return Promise.reject("ArchiveBusy");
+    return window.__TAURI__.core.invoke(command, args);
+};
 const driver =
     __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.enabled
         ? await import("./journeys")

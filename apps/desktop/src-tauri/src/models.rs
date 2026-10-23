@@ -10,10 +10,30 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        Arc, Mutex, TryLockError,
     },
 };
 type SharedRuntime = Arc<Mutex<LocalRuntime>>;
+fn owner_failed<T>(owner: &Mutex<T>, failed: impl FnOnce(&T) -> bool) -> bool {
+    match owner.try_lock() {
+        Ok(runtime) => failed(&runtime),
+        Err(TryLockError::WouldBlock) => false,
+        Err(TryLockError::Poisoned(_)) => true,
+    }
+}
+fn shutdown_owner<T>(
+    owner: &Mutex<T>,
+    shutdown: impl FnOnce(&mut T) -> Result<(), String>,
+) -> Result<(), String> {
+    match owner.lock() {
+        Ok(mut runtime) => shutdown(&mut runtime),
+        Err(poisoned) => {
+            // Recover only to drain/reap the failed owner, never to resume inference.
+            let _ = shutdown(&mut poisoned.into_inner());
+            Err("Cleanup".into())
+        }
+    }
+}
 struct Inner {
     phase: &'static str,
     percent: u64,
@@ -51,7 +71,7 @@ impl ModelManager {
         let imported = self.path().is_file();
         let mut s = self.inner.lock().map_err(|_| "Internal")?;
         let failed = s.runtime.as_ref().is_some_and(|owner| {
-            owner.try_lock().is_ok_and(|runtime| {
+            owner_failed(owner, |runtime| {
                 matches!(runtime.status(), locallore_local_runtime::Status::Failed)
             })
         });
@@ -244,14 +264,13 @@ impl ModelManager {
             Ok((job, s.runtime.take()))
         })?;
         let result = if let Some(owner) = runtime {
-            owner
-                .lock()
-                .map_err(|_| "Internal".to_owned())?
-                .shutdown()
-                .map_err(runtime_error)
+            shutdown_owner(&owner, |runtime| runtime.shutdown().map_err(runtime_error))
         } else {
             Ok(())
         };
+        self.finish_unload(job, result)
+    }
+    fn finish_unload(&self, job: u64, result: Result<(), String>) -> Result<Value, String> {
         self.finish(job, &result);
         result?;
         self.status()
@@ -273,9 +292,7 @@ impl ModelManager {
             return;
         };
         if let Some(owner) = runtime {
-            if let Ok(mut r) = owner.lock() {
-                let _ = r.shutdown();
-            }
+            let _ = shutdown_owner(&owner, |runtime| runtime.shutdown().map_err(runtime_error));
         }
         if let Ok(mut s) = self.inner.lock() {
             if s.job == job {
@@ -470,6 +487,31 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+    #[test]
+    fn poisoned_runtime_reports_failure_and_unload_finishes_before_error() {
+        let root = Root::new();
+        let manager = ModelManager::new(root.0.clone(), root.0.clone());
+        // Synthetic owner exercises the same lifecycle helpers without a model.
+        let owner = Mutex::new(false);
+        let _ = std::panic::catch_unwind(|| {
+            let _guard = owner.lock().unwrap();
+            panic!("synthetic owner panic");
+        });
+        assert!(owner_failed(&owner, |_| false));
+        let (job, _) = manager.begin("unloading").unwrap();
+        let cleanup = shutdown_owner(&owner, |drained| {
+            *drained = true;
+            Ok(())
+        });
+        assert!(*owner.lock().unwrap_err().into_inner());
+        assert_eq!(manager.finish_unload(job, cleanup).unwrap_err(), "Cleanup");
+        let status = manager.status().unwrap();
+        assert_eq!(status["phase"], "failed");
+        assert_eq!(status["error"], "Cleanup");
+        assert_eq!(status["loaded"], false);
+        assert_eq!(status["resident"], false);
+        assert!(manager.begin("loading").is_ok());
     }
     #[test]
     fn delayed_same_window_cancel_cannot_cancel_a_new_operation() {

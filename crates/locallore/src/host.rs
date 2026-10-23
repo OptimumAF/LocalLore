@@ -356,6 +356,13 @@ pub enum DraftDisposition {
     Stale,
 }
 pub trait Persistence: Send {
+    fn begin_bound(
+        &mut self,
+        _request: &Request,
+        _basis: &AcceptedHistoryBasis,
+    ) -> Result<SavedTurn, String> {
+        Err("Unsupported".into())
+    }
     fn status_bound(
         &mut self,
         _request: &Request,
@@ -1537,6 +1544,19 @@ impl Host {
                     } else if s.turns.len() >= MAX_TURNS {
                         return Err(reject("TurnLimit"));
                     }
+                    let basis = match s.turns.get(&request.turn).and_then(|t| t.basis.clone()) {
+                        Some(basis) => basis,
+                        None => s
+                            .engine
+                            .accepted_history_basis_at(request.expected_revision)
+                            .map_err(|error| {
+                                reject(if error == Error::Rule {
+                                    Error::Stale
+                                } else {
+                                    error
+                                })
+                            })?,
+                    };
                     if matches!(request.intent, Intent::FreeText { .. })
                         && state.local_play.is_none()
                     {
@@ -1544,7 +1564,7 @@ impl Host {
                             .persistence
                             .as_mut()
                             .unwrap()
-                            .status(&request.scope, &request.turn)
+                            .status_bound(request, &basis)
                             .map_err(|e| {
                                 reject(if e == "UnknownTurn" {
                                     "Unsupported".to_owned()
@@ -1570,7 +1590,7 @@ impl Host {
                         .persistence
                         .as_mut()
                         .unwrap()
-                        .begin(request)
+                        .begin_bound(request, &basis)
                         .map_err(reject)?;
                     refresh_session(state, session, &request.scope)?;
                     let s = get_session(state, session, &request.scope)?;
@@ -1587,17 +1607,16 @@ impl Host {
                         if let Err(error) =
                             Engine::proposal(request).and_then(|p| s.engine.preview(request, &p))
                         {
-                            let _ = state.persistence.as_mut().unwrap().fail(request);
+                            let _ = state.persistence.as_mut().unwrap().finish_bound(
+                                request,
+                                &basis,
+                                DraftDisposition::Failed,
+                            );
                             return Err(reject(error));
                         }
                     }
                     let mut t = saved_turn(saved, *mode)?;
-                    t.basis = Some(
-                        get_session(state, session, &request.scope)?
-                            .engine
-                            .accepted_history_basis()
-                            .map_err(reject)?,
-                    );
+                    t.basis = Some(basis);
                     let reply = ok(t.view());
                     get_session(state, session, &request.scope)?
                         .turns
@@ -1610,12 +1629,8 @@ impl Host {
                     turn,
                 } => {
                     get_session(state, session, scope)?;
-                    let saved = state
-                        .persistence
-                        .as_mut()
-                        .unwrap()
-                        .status(scope, turn)
-                        .map_err(reject)?;
+                    let saved =
+                        selected_turn_status(state, session, scope, turn).map_err(reject)?;
                     refresh_session(state, session, scope)?;
                     let s = get_session(state, session, scope)?;
                     if saved.phase == "draft" {
@@ -1646,7 +1661,11 @@ impl Host {
                         .get(turn)
                         .and_then(|t| t.basis.clone())
                         .map(Ok)
-                        .unwrap_or_else(|| selected.engine.accepted_history_basis())
+                        .unwrap_or_else(|| {
+                            selected
+                                .engine
+                                .accepted_history_basis_at(original.request.expected_revision)
+                        })
                         .map_err(reject)?;
                     let saved = state
                         .persistence
@@ -1806,7 +1825,11 @@ impl Host {
                                 t.request.clone(),
                                 t.trace.clone(),
                                 t.receipt.clone(),
-                                t.basis.clone(),
+                                t.basis.clone().or_else(|| {
+                                    s.engine
+                                        .accepted_history_basis_at(t.request.expected_revision)
+                                        .ok()
+                                }),
                             )
                         })
                         .collect();
@@ -1959,7 +1982,16 @@ impl Host {
         if t.phase != Phase::Queued {
             return Err(ok(t.view()));
         }
-        let basis = s.engine.accepted_history_basis().map_err(reject)?;
+        let basis = match &t.basis {
+            Some(basis) => basis.clone(),
+            None => s
+                .engine
+                .accepted_history_basis_at(t.request.expected_revision)
+                .map_err(reject)?,
+        };
+        if !s.engine.matches_accepted_history(&basis).map_err(reject)? {
+            return Err(reject("Stale"));
+        }
         t.phase = Phase::Running;
         t.trace = t.trace_attempt.checked_add(1).and_then(|attempt| {
             t.trace_attempt = attempt;

@@ -341,10 +341,34 @@ impl Store {
     /// Persist intent, then release the transaction BEFORE calling any inference/provider.
     /// An exact retry returns the recorded phase/receipt even after the head advances.
     pub fn begin_turn(&mut self, request: &Request) -> Result<TurnRecord> {
+        self.begin_turn_inner(request, None)
+    }
+    pub fn begin_bound(
+        &mut self,
+        request: &Request,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+    ) -> Result<TurnRecord> {
+        self.begin_turn_inner(request, Some(basis))
+    }
+    fn begin_turn_inner(
+        &mut self,
+        request: &Request,
+        basis: Option<&locallore::engine::AcceptedHistoryBasis>,
+    ) -> Result<TurnRecord> {
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
         let (resumed, history_count, history_bytes) = read_engine_budget(&tx, &request.scope)?;
+        if let Some(basis) = basis {
+            if !basis.matches_request(request)
+                || !resumed
+                    .engine
+                    .matches_accepted_history(basis)
+                    .map_err(TurnError::Engine)?
+            {
+                return Err(TurnError::Stale);
+            }
+        }
         if let Some(existing) = recorded(&tx, request, &resumed.engine)? {
             return Ok(existing);
         }
@@ -394,10 +418,11 @@ impl Store {
         let tx = self.connection.transaction()?;
         let resumed = read_engine(&tx, &request.scope)?;
         if let Some(basis) = basis {
-            if !resumed
-                .engine
-                .matches_accepted_history(basis)
-                .map_err(TurnError::Engine)?
+            if !basis.matches_request(request)
+                || !resumed
+                    .engine
+                    .matches_accepted_history(basis)
+                    .map_err(TurnError::Engine)?
             {
                 return Err(TurnError::Stale);
             }
@@ -497,10 +522,11 @@ impl Store {
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
         let resumed = read_engine(&tx, &request.scope)?;
         if let Some(basis) = basis {
-            if !resumed
-                .engine
-                .matches_accepted_history(basis)
-                .map_err(TurnError::Engine)?
+            if !basis.matches_request(request)
+                || !resumed
+                    .engine
+                    .matches_accepted_history(basis)
+                    .map_err(TurnError::Engine)?
             {
                 return Err(TurnError::Stale);
             }
@@ -561,10 +587,11 @@ impl Store {
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
         let (mut resumed, _, history_bytes) = read_engine_budget(&tx, &request.scope)?;
         if let Some(basis) = basis {
-            if !resumed
-                .engine
-                .matches_accepted_history(basis)
-                .map_err(TurnError::Engine)?
+            if !basis.matches_request(request)
+                || !resumed
+                    .engine
+                    .matches_accepted_history(basis)
+                    .map_err(TurnError::Engine)?
             {
                 return Err(TurnError::Stale);
             }

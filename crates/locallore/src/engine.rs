@@ -19,6 +19,12 @@ pub struct AcceptedHistoryBasis {
     revision: u64,
     digest: [u8; 32],
 }
+impl AcceptedHistoryBasis {
+    /// The fingerprint protects precisely this request's source boundary.
+    pub fn matches_request(&self, request: &Request) -> bool {
+        self.scope == request.scope && self.revision == request.expected_revision
+    }
+}
 
 struct BasisWriter {
     hash: sha2::Sha256,
@@ -175,6 +181,9 @@ impl Engine {
     /// and exact original receipts. This never materializes a second history.
     pub fn accepted_history_basis(&self) -> Result<AcceptedHistoryBasis, Error> {
         self.history_basis_at(self.revision())
+    }
+    pub fn accepted_history_basis_at(&self, at: u64) -> Result<AcceptedHistoryBasis, Error> {
+        self.history_basis_at(at)
     }
     /// Appends retain a basis only when its entire original prefix survives.
     pub fn matches_accepted_history(&self, basis: &AcceptedHistoryBasis) -> Result<bool, Error> {

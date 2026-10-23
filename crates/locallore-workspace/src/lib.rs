@@ -100,6 +100,16 @@ pub fn inspection_database_copy(
         .collect())
 }
 impl Persistence for Repository {
+    fn begin_bound(
+        &mut self,
+        request: &Request,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+    ) -> Result<SavedTurn, String> {
+        self.store
+            .begin_bound(request, basis)
+            .map(saved)
+            .map_err(turn)
+    }
     fn status_bound(
         &mut self,
         request: &Request,

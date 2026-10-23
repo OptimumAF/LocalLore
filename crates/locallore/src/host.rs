@@ -148,6 +148,26 @@ pub enum HostCommand {
         scope: Scope,
         expected_head: u64,
     },
+    TraceCaptureConfigure {
+        session: String,
+        scope: Scope,
+        expected_head: u64,
+        enabled: bool,
+        consent: bool,
+    },
+    TraceCaptureRead {
+        session: String,
+        scope: Scope,
+        expected_head: u64,
+        base_revision: u64,
+        turn: String,
+        attempt: u64,
+    },
+    /// Narrowing private diagnostic access needs no current canonical head.
+    TraceCaptureRevoke {
+        session: String,
+        scope: Scope,
+    },
     ModelStatus {},
     PlaySnapshot {
         session: String,
@@ -490,8 +510,12 @@ impl Host {
     }
     /// Window/process teardown invalidates all outstanding leases before dropping sessions.
     pub fn close_all(&self) {
-        if let Ok(mut state) = self.state.lock() {
+        {
+            // Cleanup must revoke leases even if gameplay previously poisoned
+            // State. Do not clear poison or resume gameplay with this guard.
+            let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
             for session in state.sessions.values() {
+                session.trace_owner.retire();
                 for turn in session.turns.values() {
                     turn.cancel.cancel();
                 }
@@ -505,37 +529,50 @@ impl Host {
     /// Trusted storage lifecycle notification, never an LLM/Host wire command.
     /// The adapter fences new submit/commit/resume calls through the deletion transaction.
     pub fn invalidate_story(&self, story: &str) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
         state.sessions.retain(|_, session| {
             if session.engine.scope().story != story {
                 return true;
             }
+            session.trace_owner.retire();
             for turn in session.turns.values() {
                 turn.cancel.cancel();
             }
             false
         });
-        // Clear outstanding trace handles too; no retained per-story metadata survives.
-        self.trace.lock().unwrap().clear();
+        drop(state);
+        // Clear immediately when available. Removed sessions cannot read retained
+        // metadata; retired owners fence late private writes and purge on next access
+        // if a diagnostic reader currently holds the lock.
+        if let Ok(mut trace) = self.trace.try_lock() {
+            trace.clear();
+        }
     }
     /// Remove only retired/collected targets. Retained descendant sessions stay live.
     pub fn invalidate_branches(&self, story: &str, branches: &[String]) {
-        let mut state = self.state.lock().unwrap();
+        // Lifecycle cleanup must revoke capabilities even after gameplay poison;
+        // recovering this guard does not clear poison or authorize more gameplay.
+        let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
         let mut owners = Vec::new();
         state.sessions.retain(|_, session| {
             let scope = session.engine.scope();
             if scope.story != story || !branches.contains(&scope.branch) {
                 return true;
             }
+            session.trace_owner.retire();
             owners.push(session.trace_owner.clone());
             for turn in session.turns.values() {
                 turn.cancel.cancel();
             }
             false
         });
-        let mut trace = self.trace.lock().unwrap();
-        for owner in owners {
-            trace.clear_owner(&owner);
+        drop(state);
+        // Retired owner liveness fences late private writes independently of a
+        // busy/poisoned diagnostic lock. Preserve unrelated live owner metadata.
+        if let Ok(mut trace) = self.trace.try_lock() {
+            for owner in owners {
+                trace.clear_owner(&owner);
+            }
         }
     }
     /// Trusted adapter lifecycle evidence, without story content or wire authority.
@@ -544,6 +581,29 @@ impl Host {
         (state.sessions.len(), state.workers)
     }
     fn trace_command(&self, state: &mut State, command: &HostCommand) -> Option<Value> {
+        if let HostCommand::TraceCaptureRevoke { session, scope } = command {
+            let result = (|| -> Result<Value, Value> {
+                if !self.story_lab {
+                    return Err(reject("Forbidden"));
+                }
+                // Revocation only removes optional copies. Resolve the live
+                // in-memory lease without canonical Store admission or replay:
+                // unavailable storage must not prevent narrowing access.
+                let selected = state
+                    .sessions
+                    .get(session)
+                    .ok_or_else(|| reject("Closed"))?;
+                if selected.engine.scope() != scope {
+                    return Err(reject("Scope"));
+                }
+                let owner = selected.trace_owner.clone();
+                // No persistence read, head assertion or canonical mutation is
+                // needed to revoke this owner's optional diagnostic copies.
+                self.trace_control()?.revoke_details(&owner);
+                Ok(ok(json!({"version":1,"scope":scope,"revoked":true})))
+            })();
+            return Some(result.unwrap_or_else(|reply| reply));
+        }
         let (session, scope, head) = match command {
             HostCommand::TraceConfigure {
                 session,
@@ -552,6 +612,18 @@ impl Host {
                 ..
             }
             | HostCommand::TraceRead {
+                session,
+                scope,
+                expected_head,
+                ..
+            }
+            | HostCommand::TraceCaptureConfigure {
+                session,
+                scope,
+                expected_head,
+                ..
+            }
+            | HostCommand::TraceCaptureRead {
                 session,
                 scope,
                 expected_head,
@@ -577,6 +649,64 @@ impl Host {
                 return Err(reject("Stale"));
             }
             match command {
+                HostCommand::TraceCaptureConfigure {
+                    enabled, consent, ..
+                } => {
+                    if !self.story_lab {
+                        return Err(reject("Forbidden"));
+                    }
+                    if *enabled && !consent {
+                        return Err(reject("CaptureConsentRequired"));
+                    }
+                    let mut trace = self.trace_control()?;
+                    if *enabled {
+                        trace.set_enabled(true);
+                    }
+                    trace.configure_details(&owner, scope, *enabled);
+                    Ok(ok(
+                        json!({"version":1,"scope":scope,"head":head,"enabled":enabled,
+                        "capture":"explicit_private_details","retention_seconds":600,
+                        "retention":"Access-time expiry/clear; memory only. No forensic erasure or OS paging guarantee.",
+                        "caps":{"attempts":3,"bytes":524288,"attempt_bytes":196608,"artifact_bytes":49152},
+                        "warning":"Private original input, selected actor context, prompts, raw model outputs and staged proposals. Never uploaded, never included in normal story archives. Future attempts in this exact session only."}),
+                    ))
+                }
+                HostCommand::TraceCaptureRead {
+                    base_revision,
+                    turn,
+                    attempt,
+                    ..
+                } => {
+                    if !self.story_lab {
+                        return Err(reject("Forbidden"));
+                    }
+                    let attempt = u32::try_from(*attempt).map_err(|_| reject("InvalidRequest"))?;
+                    let selection = Selection {
+                        scope: scope.clone(),
+                        base_revision: *base_revision,
+                        observer: engine.seed().player.clone(),
+                        turn: Some(turn.clone()),
+                        attempt: Some(attempt),
+                    };
+                    let details = self
+                        .trace
+                        .try_lock()
+                        .map_err(|_| reject("TraceUnavailable"))?
+                        .read_details_for_owner(
+                            &owner,
+                            &selection,
+                            &Reader::story_lab(scope.clone()),
+                        )
+                        .map_err(|e| reject(format!("{e:?}")))?;
+                    let reply = ok(
+                        json!({"scope":scope,"head":head,"base_revision":base_revision,
+                        "observer":"private_player_generation_capture","details":details}),
+                    );
+                    if serde_json::to_vec(&reply).map_or(true, |b| b.len() > MAX_OUTPUT) {
+                        return Err(reject("TooLarge"));
+                    }
+                    Ok(reply)
+                }
                 HostCommand::TraceRead {
                     base_revision,
                     observer,
@@ -836,7 +966,12 @@ impl Host {
                         self.trace_finish(turn.trace.as_ref(), Outcome::Cancelled);
                     }
                 }
-                state.sessions.remove(&session);
+                if let Some(closed) = state.sessions.remove(&session) {
+                    closed.trace_owner.retire();
+                    if let Ok(mut trace) = self.trace.try_lock() {
+                        trace.revoke_details(&closed.trace_owner);
+                    }
+                }
                 ok(json!({"closed":true}))
             }
             HostCommand::Submit {
@@ -1075,6 +1210,11 @@ impl Host {
             | HostCommand::TraceConfigure { .. }
             | HostCommand::TraceRead { .. }
             | HostCommand::TraceClear { .. } => unreachable!(),
+            HostCommand::TraceCaptureConfigure { .. }
+            | HostCommand::TraceCaptureRead { .. }
+            | HostCommand::TraceCaptureRevoke { .. } => {
+                unreachable!()
+            }
         }
     }
 
@@ -1421,7 +1561,12 @@ impl Host {
                         });
                         self.trace_finish(trace.as_ref(), outcome);
                     }
-                    state.sessions.remove(session);
+                    if let Some(closed) = state.sessions.remove(session) {
+                        closed.trace_owner.retire();
+                        if let Ok(mut trace) = self.trace.try_lock() {
+                            trace.revoke_details(&closed.trace_owner);
+                        }
+                    }
                     Ok(ok(json!({"closed":true,"saved":true})))
                 }
                 _ => Ok(Value::Null),
@@ -1848,6 +1993,7 @@ fn get_session<'a>(
         if let Err(error) = port.validate_scope(scope) {
             if error == "NotFound" {
                 if let Some(session) = state.sessions.remove(id) {
+                    session.trace_owner.retire();
                     for turn in session.turns.values() {
                         turn.cancel.cancel();
                     }
@@ -2421,5 +2567,319 @@ mod tests {
         );
         assert!(view["data"]["inventory"].get("potion").is_none());
         assert_eq!(view["data"]["receipts"].as_array().unwrap().len(), 1);
+    }
+    #[test]
+    fn branch_invalidation_retires_target_owner_and_preserves_same_story_child() {
+        let h = Host::new(true);
+        let (parent, scope) = session(&h);
+        let (child, target_owner, child_owner) = {
+            let mut state = h.state.lock().unwrap();
+            let engine = state.sessions[&parent]
+                .engine
+                .fork("retained-child", 0)
+                .unwrap();
+            let child = attach_engine(&mut state, engine)["data"]["session"]
+                .as_str()
+                .unwrap()
+                .to_owned();
+            (
+                child.clone(),
+                state.sessions[&parent].trace_owner.clone(),
+                state.sessions[&child].trace_owner.clone(),
+            )
+        };
+        h.invalidate_branches(&scope.story, std::slice::from_ref(&scope.branch));
+        assert!(
+            !target_owner.live(),
+            "removed target must fence late private writes"
+        );
+        assert!(child_owner.live());
+        let state = h.state.lock().unwrap();
+        assert!(!state.sessions.contains_key(&parent));
+        assert!(state.sessions.contains_key(&child));
+    }
+    #[test]
+    fn branch_retirement_retires_only_targets_with_busy_trace_and_poisoned_state() {
+        for poison in [false, true] {
+            let h = Host::new(true);
+            let (target, scope) = session(&h);
+            let (other, _) = session(&h);
+            let (selected, retained) = {
+                let state = h.state.lock().unwrap();
+                (
+                    state.sessions[&target].trace_owner.clone(),
+                    state.sessions[&other].trace_owner.clone(),
+                )
+            };
+            if poison {
+                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let _state = h.state.lock().unwrap();
+                    panic!("synthetic retirement cleanup poison");
+                }));
+            }
+            let held_trace = h.trace.lock().unwrap();
+            h.invalidate_branches(&scope.story, std::slice::from_ref(&scope.branch));
+            assert!(!selected.live());
+            assert!(retained.live());
+            let state = h.state.lock().unwrap_or_else(|p| p.into_inner());
+            assert_eq!(state.sessions.len(), 1);
+            assert!(state.sessions.contains_key(&other));
+            assert_eq!(h.state.is_poisoned(), poison);
+            drop(state);
+            drop(held_trace);
+        }
+    }
+    #[test]
+    fn public_scope_retirement_retires_owner_before_removing_cached_session() {
+        struct AdmissionOnly(&'static str);
+        impl Persistence for AdmissionOnly {
+            fn validate_scope(&mut self, _: &Scope) -> Result<(), String> {
+                Err(self.0.into())
+            }
+            fn location(&self) -> &str {
+                "synthetic-admission-only"
+            }
+            fn list(&mut self) -> Result<Vec<WorkspaceSummary>, String> {
+                unreachable!()
+            }
+            fn create(&mut self) -> Result<Engine, String> {
+                unreachable!()
+            }
+            fn resume(&mut self, _: &Scope) -> Result<Engine, String> {
+                unreachable!()
+            }
+            fn begin(&mut self, _: &Request) -> Result<SavedTurn, String> {
+                unreachable!()
+            }
+            fn commit(&mut self, _: &Request, _: &Proposal, _: &str) -> Result<Receipt, String> {
+                unreachable!()
+            }
+            fn cancel(&mut self, _: &Request) -> Result<SavedTurn, String> {
+                unreachable!()
+            }
+            fn fail(&mut self, _: &Request) -> Result<SavedTurn, String> {
+                unreachable!()
+            }
+            fn stale(&mut self, _: &Request) -> Result<SavedTurn, String> {
+                unreachable!()
+            }
+            fn status(&mut self, _: &Scope, _: &str) -> Result<SavedTurn, String> {
+                unreachable!()
+            }
+        }
+        for error in ["NotFound", "Busy"] {
+            let h = Host::new(true);
+            let (id, scope) = session(&h);
+            let mut state = h.state.lock().unwrap();
+            let owner = state.sessions[&id].trace_owner.clone();
+            state.persistence = Some(Box::new(AdmissionOnly(error)));
+            assert_eq!(
+                get_session(&mut state, &id, &scope).err().unwrap()["error"],
+                error
+            );
+            assert_eq!(state.sessions.contains_key(&id), error != "NotFound");
+            assert_eq!(
+                owner.live(),
+                error != "NotFound",
+                "retired admission must fence late captures; Busy must retain the session"
+            );
+        }
+    }
+    #[test]
+    fn private_capture_owner_retires_even_when_trace_lock_is_busy_but_not_on_model_unload() {
+        let h = Host::new(true);
+        let (id, _) = session(&h);
+        let owner = h.state.lock().unwrap().sessions[&id].trace_owner.clone();
+        h.disable_local_provider();
+        assert!(owner.live(), "model unload does not close a session");
+        let held_trace = h.trace.lock().unwrap();
+        h.close_all();
+        assert!(
+            !owner.live(),
+            "close revokes access independently of the busy diagnostic lock"
+        );
+        assert!(h.state.lock().unwrap().sessions.is_empty());
+        drop(held_trace);
+    }
+    #[test]
+    fn teardown_retires_private_capture_owner_with_poisoned_state_and_busy_trace() {
+        let h = Host::new(true);
+        let (id, _) = session(&h);
+        let owner = h.state.lock().unwrap().sessions[&id].trace_owner.clone();
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _state = h.state.lock().unwrap();
+            panic!("synthetic state poison");
+        }));
+        let held_trace = h.trace.lock().unwrap();
+        h.close_all();
+        assert!(!owner.live());
+        assert!(h
+            .state
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .sessions
+            .is_empty());
+        // Cleanup does not clear poison or resume gameplay through untrusted state.
+        assert!(h.state.is_poisoned());
+        drop(held_trace);
+    }
+    #[test]
+    fn story_invalidation_retires_only_matching_owners_even_with_busy_trace_and_poison() {
+        for poison in [false, true] {
+            let h = Host::new(true);
+            let (a, scope) = session(&h);
+            let (b, _) = session(&h);
+            let (selected, retained) = {
+                let state = h.state.lock().unwrap();
+                (
+                    state.sessions[&a].trace_owner.clone(),
+                    state.sessions[&b].trace_owner.clone(),
+                )
+            };
+            if poison {
+                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let _state = h.state.lock().unwrap();
+                    panic!("synthetic invalidation cleanup poison");
+                }));
+            }
+            let held_trace = h.trace.lock().unwrap();
+            h.invalidate_story(&scope.story);
+            assert!(!selected.live());
+            assert!(retained.live());
+            let state = h.state.lock().unwrap_or_else(|p| p.into_inner());
+            assert_eq!(state.sessions.len(), 1);
+            assert!(state.sessions.contains_key(&b));
+            assert_eq!(h.state.is_poisoned(), poison);
+            drop(state);
+            drop(held_trace);
+        }
+    }
+    #[test]
+    fn private_capture_revoke_is_owner_scoped_busy_honest_and_fences_late_artifacts() {
+        use crate::turn_capture::{Artifact, DetailStatus};
+        use crate::turn_trace::TraceSink;
+        struct Unreadable;
+        impl Persistence for Unreadable {
+            fn validate_scope(&mut self, _: &Scope) -> Result<(), String> {
+                panic!("revocation must not validate an unavailable canonical Store")
+            }
+            fn location(&self) -> &str {
+                "synthetic-unavailable"
+            }
+            fn list(&mut self) -> Result<Vec<WorkspaceSummary>, String> {
+                Err("Database".into())
+            }
+            fn create(&mut self) -> Result<Engine, String> {
+                Err("Database".into())
+            }
+            fn resume(&mut self, _: &Scope) -> Result<Engine, String> {
+                panic!("revocation must not read an unavailable canonical Store")
+            }
+            fn begin(&mut self, _: &Request) -> Result<SavedTurn, String> {
+                Err("Database".into())
+            }
+            fn commit(&mut self, _: &Request, _: &Proposal, _: &str) -> Result<Receipt, String> {
+                Err("Database".into())
+            }
+            fn cancel(&mut self, _: &Request) -> Result<SavedTurn, String> {
+                Err("Database".into())
+            }
+            fn fail(&mut self, _: &Request) -> Result<SavedTurn, String> {
+                Err("Database".into())
+            }
+            fn stale(&mut self, _: &Request) -> Result<SavedTurn, String> {
+                Err("Database".into())
+            }
+            fn status(&mut self, _: &Scope, _: &str) -> Result<SavedTurn, String> {
+                Err("Database".into())
+            }
+        }
+        let h = Host::new(true);
+        let (a, scope_a) = session(&h);
+        let (b, scope_b) = session(&h);
+        let owner = h.state.lock().unwrap().sessions[&b].trace_owner.clone();
+        let identity = AttemptIdentity {
+            scope: scope_b.clone(),
+            base_revision: 0,
+            observer: "player".into(),
+            turn: "private".into(),
+            attempt: 1,
+        };
+        let handle = {
+            let mut ring = h.trace.lock().unwrap();
+            ring.set_enabled(true);
+            ring.configure_details(&owner, &scope_b, true);
+            ring.begin_for_owner(&owner, identity, Provenance::default())
+                .handle
+                .unwrap()
+        };
+        let mut sink = RingSink::new(h.trace.clone(), handle);
+        sink.capture(Artifact::DirectorOutput(b"synthetic private bytes"));
+        let select = Selection {
+            scope: scope_b.clone(),
+            base_revision: 0,
+            observer: "player".into(),
+            turn: Some("private".into()),
+            attempt: Some(1),
+        };
+        let read = || {
+            h.trace
+                .lock()
+                .unwrap()
+                .read_details_for_owner(&owner, &select, &Reader::story_lab(scope_b.clone()))
+                .unwrap()
+        };
+        assert_eq!(read().artifacts.len(), 1);
+        // The native session already exists. Optional diagnostic deletion must
+        // still work if its durable reader later becomes unavailable.
+        h.state.lock().unwrap().persistence = Some(Box::new(Unreadable));
+        assert_eq!(
+            call(
+                &h,
+                json!({"op":"trace_capture_revoke","session":a,"scope":scope_b})
+            )["error"],
+            "Scope"
+        );
+        assert_eq!(
+            call(
+                &h,
+                json!({"op":"trace_capture_revoke","session":a,"scope":scope_a})
+            )["data"]["revoked"],
+            true
+        );
+        assert_eq!(
+            read().artifacts.len(),
+            1,
+            "another owner's consent survives"
+        );
+        let busy = h.trace.lock().unwrap();
+        assert_eq!(
+            call(
+                &h,
+                json!({"op":"trace_capture_revoke","session":b,"scope":scope_b})
+            )["error"],
+            "TraceUnavailable"
+        );
+        drop(busy);
+        assert_eq!(read().artifacts.len(), 1, "busy is not reported as erased");
+        assert_eq!(
+            call(
+                &h,
+                json!({"op":"trace_capture_revoke","session":b,"scope":scope_b})
+            )["data"]["revoked"],
+            true
+        );
+        sink.capture(Artifact::DirectorOutput(b"late private callback"));
+        assert_eq!(read().status, DetailStatus::Disabled);
+        assert!(read().artifacts.is_empty());
+        assert!(owner.live(), "revocation does not close a usable session");
+        let ring = h.trace.lock().unwrap();
+        assert_eq!(
+            ring.read_for_owner(&owner, &select, &Reader::story_lab(scope_b))
+                .unwrap()
+                .attempts
+                .len(),
+            1
+        );
     }
 }

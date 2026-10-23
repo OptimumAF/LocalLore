@@ -14,6 +14,10 @@ use std::{
     },
 };
 type SharedRuntime = Arc<Mutex<LocalRuntime>>;
+// The worker staged with this application, verified on the held file before
+// process creation. A renderer or editable profile cannot select this identity.
+const APPROVED_WORKER_SHA256: &str =
+    "b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434";
 fn owner_failed<T>(owner: &Mutex<T>, failed: impl FnOnce(&T) -> bool) -> bool {
     match owner.try_lock() {
         Ok(runtime) => failed(&runtime),
@@ -203,11 +207,13 @@ impl ModelManager {
                 return Err("Closed".into());
             }
             reap_imports(&self.root)?;
-            let mut runtime =
-                LocalRuntime::spawn_packaged_cancelled(&self.resource, &self.path(), || {
-                    cancel.load(Ordering::SeqCst) || !lease.valid(epoch)
-                })
-                .map_err(runtime_error)?;
+            let mut runtime = LocalRuntime::spawn_packaged_expected_cancelled(
+                &self.resource,
+                &self.path(),
+                APPROVED_WORKER_SHA256,
+                || cancel.load(Ordering::SeqCst) || !lease.valid(epoch),
+            )
+            .map_err(runtime_error)?;
             runtime
                 .load(|| cancel.load(Ordering::SeqCst) || !lease.valid(epoch))
                 .map_err(runtime_error)?;

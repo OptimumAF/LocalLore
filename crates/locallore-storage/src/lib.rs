@@ -85,7 +85,62 @@ pub struct StoreInfo {
 
 /// No connection, SQL executor or deserializer for accepted events crosses this boundary.
 pub struct Store {
+    // Field order is intentional: SQLite closes BEFORE all staging reservations.
     connection: Connection,
+    _staging_guards: Vec<std::fs::File>,
+}
+
+#[cfg(windows)]
+fn reserve_new_leaf(path: &Path, share_mode: u32) -> Result<std::fs::File> {
+    use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
+    let leaf = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or(StorageError::InvalidInput)?;
+    if !path.is_absolute()
+        || path
+            .components()
+            .any(|c| matches!(c, std::path::Component::ParentDir))
+        || leaf.contains([':', '\0'])
+        || leaf.ends_with(['.', ' '])
+    {
+        return Err(StorageError::InvalidInput);
+    }
+    // CREATE_NEW refuses all existing leaves, including dangling reparses. Do
+    // not request DELETE access: SQLite's second handle does not share DELETE.
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create_new(true)
+        .share_mode(share_mode) // Main permits READ/WRITE; sidecars READ only. Never DELETE.
+        .custom_flags(0x0020_0000) // FILE_FLAG_OPEN_REPARSE_POINT.
+        .open(path)
+        .map_err(|_| StorageError::Io)?;
+    let metadata = file.metadata().map_err(|_| StorageError::Io)?;
+    if !metadata.is_file() || metadata.file_attributes() & 0x400 != 0 {
+        return Err(StorageError::Integrity);
+    }
+    Ok(file)
+}
+
+#[cfg(windows)]
+fn reserve_new_staging(path: &Path) -> Result<Vec<std::fs::File>> {
+    let mut guards = Vec::with_capacity(4);
+    for suffix in ["", "-journal", "-wal", "-shm"] {
+        let mut name = path.as_os_str().to_owned();
+        name.push(suffix);
+        // Sidecars are zero-length sentinels. Deny WRITE as well as DELETE so
+        // no compatible watcher can install hot-journal/WAL bytes before open.
+        let sharing = if suffix.is_empty() { 0x1 | 0x2 } else { 0x1 };
+        guards.push(reserve_new_leaf(Path::new(&name), sharing)?);
+    }
+    Ok(guards)
+}
+
+#[cfg(all(test, windows))]
+struct PinnedNewHooks {
+    after_reservation: fn(&Path) -> Result<()>,
+    after_connect: fn(&Connection) -> Result<()>,
 }
 
 fn configure(connection: &Connection) -> Result<()> {
@@ -104,12 +159,31 @@ fn configure(connection: &Connection) -> Result<()> {
     Ok(())
 }
 fn connect(path: &Path, read_only: bool) -> Result<Connection> {
+    let connection = connect_unconfigured(path, read_only)?;
+    configure(&connection)?;
+    Ok(connection)
+}
+fn connect_unconfigured(path: &Path, read_only: bool) -> Result<Connection> {
     let flags = if read_only {
         OpenFlags::SQLITE_OPEN_READ_ONLY
     } else {
         OpenFlags::SQLITE_OPEN_READ_WRITE
     };
-    let connection = Connection::open_with_flags(path, flags | OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
+    Ok(Connection::open_with_flags(
+        path,
+        flags | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )?)
+}
+#[cfg(windows)]
+fn connect_staging(path: &Path) -> Result<Connection> {
+    let connection = connect_unconfigured(path, false)?;
+    // Preparing journal_mode can load schema/hot-journal state. ALL exact
+    // sidecars must already be exclusively created and pinned before this call.
+    connection.pragma_update(None, "journal_mode", "MEMORY")?;
+    let mode: String = connection.pragma_query_value(None, "journal_mode", |r| r.get(0))?;
+    if mode != "memory" {
+        return Err(StorageError::Integrity);
+    }
     configure(&connection)?;
     Ok(connection)
 }
@@ -264,6 +338,62 @@ fn migrate_known(connection: &Connection, version: u32) -> Result<()> {
 }
 
 impl Store {
+    fn from_connection(connection: Connection) -> Self {
+        Self {
+            connection,
+            _staging_guards: Vec::new(),
+        }
+    }
+    /// Create a disposable Windows staging Store, with MEMORY rollback journal.
+    /// Reserve main/-journal/-wal/-shm BEFORE SQLite; retain no-DELETE guards
+    /// (sidecars also deny WRITE) until AFTER SQLite closes. Refuse any existing
+    /// leaf/sidecar. This API is NOT a crash-durable active-workspace opener.
+    /// Caller MUST retain a trusted ancestor chain for the entire Store lifetime;
+    /// this is namespace protection, not a same-user/OS security sandbox.
+    /// On failure exclusively created empty/partial staging files may remain. No path
+    /// cleanup is attempted; the trusted staging owner must handle it separately.
+    /// Non-Windows callers fail closed with InvalidInput; no weaker fallback.
+    pub fn create_new_pinned(path: &Path) -> Result<Self> {
+        #[cfg(windows)]
+        {
+            #[cfg(test)]
+            {
+                Self::create_new_pinned_inner(
+                    path,
+                    PinnedNewHooks {
+                        after_reservation: |_| Ok(()),
+                        after_connect: |_| Ok(()),
+                    },
+                )
+            }
+            #[cfg(not(test))]
+            {
+                Self::create_new_pinned_inner(path)
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = path;
+            Err(StorageError::InvalidInput)
+        }
+    }
+    #[cfg(windows)]
+    fn create_new_pinned_inner(path: &Path, #[cfg(test)] hooks: PinnedNewHooks) -> Result<Self> {
+        let guards = reserve_new_staging(path)?;
+        #[cfg(test)]
+        (hooks.after_reservation)(path)?;
+        let connection = connect_staging(path)?;
+        #[cfg(test)]
+        (hooks.after_connect)(&connection)?;
+        // Never adopt a populated database even if someone wrote into this new
+        // leaf through compatible write sharing. No overwrite or migration here.
+        if identity(&connection)? != (0, 0) || !schema_rows(&connection)?.is_empty() {
+            return Err(StorageError::Integrity);
+        }
+        let mut store = Self::open_connection(path, None, true, connection)?;
+        store._staging_guards = guards;
+        Ok(store)
+    }
     /// Trusted application-private path only. Upgrade known old databases with a unique,
     /// nonoverwrite sibling backup; never adopt a foreign or altered schema.
     pub fn open_application(path: &Path) -> Result<Self> {
@@ -295,7 +425,7 @@ impl Store {
         let (application, version) = identity(&connection)?;
         supported_identity(application, version)?;
         verify_version(&connection, version)?;
-        Ok(Self { connection })
+        Ok(Self::from_connection(connection))
     }
     /// New paths initialize the current schema. Existing v0/v1/v2 upgrades require a new safety
     /// backup. Foreign/nonempty v0, future or altered schemas are refused, never adopted.
@@ -308,7 +438,14 @@ impl Store {
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => false,
             Err(_) => return Err(StorageError::Io),
         };
-        let mut connection = connect(path, false)?;
+        Self::open_connection(path, migration_backup, new_file, connect(path, false)?)
+    }
+    fn open_connection(
+        path: &Path,
+        migration_backup: Option<&Path>,
+        new_file: bool,
+        mut connection: Connection,
+    ) -> Result<Self> {
         let (application, version) = identity(&connection)?;
         supported_identity(application, version)?;
         if version == 0 {
@@ -348,7 +485,7 @@ impl Store {
             transaction.commit()?;
         }
         verify(&connection)?;
-        Ok(Self { connection })
+        Ok(Self::from_connection(connection))
     }
     pub fn info(&self) -> Result<StoreInfo> {
         Ok(StoreInfo {
@@ -373,21 +510,16 @@ impl Store {
         )?)
     }
     fn memory_engine(
-        &mut self,
+        connection: &Connection,
         scope: &Scope,
         cancel: &dyn Fn() -> bool,
     ) -> std::result::Result<Engine, derived_memory::MemoryError> {
         use derived_memory::{check, MemoryError};
         check(cancel)?;
-        if identity(&self.connection)
-            .map_err(|_| MemoryError::Database)?
-            .1
-            != SCHEMA_VERSION
-        {
+        if identity(connection).map_err(|_| MemoryError::Database)?.1 != SCHEMA_VERSION {
             return Err(MemoryError::Unsupported);
         }
-        let engine = self
-            .resume(scope)
+        let engine = turns::read_engine(connection, scope)
             .map_err(|error| match error {
                 TurnError::Engine(error) => MemoryError::from(error),
                 TurnError::Storage(StorageError::Busy) => MemoryError::Busy,
@@ -412,31 +544,51 @@ impl Store {
         request: &derived_memory::PrepareRequest,
         cancel: &dyn Fn() -> bool,
     ) -> std::result::Result<derived_memory::PreparedMemory, derived_memory::MemoryError> {
-        let engine = self.memory_engine(&request.scope, cancel)?;
-        derived_memory::prepare(&engine, request, cancel)
+        let tx = self.connection.transaction()?;
+        let engine = Self::memory_engine(&tx, &request.scope, cancel)?;
+        let prepared = derived_memory::prepare(&engine, request, cancel)?;
+        derived_memory::check(cancel)?;
+        tx.commit()?;
+        Ok(prepared)
     }
     pub fn publish_memory(
         &mut self,
         prepared: derived_memory::PreparedMemory,
         cancel: &dyn Fn() -> bool,
     ) -> std::result::Result<derived_memory::PublishOutcome, derived_memory::MemoryError> {
-        derived_memory::publish(&mut self.connection, prepared, cancel)
+        derived_memory::check(cancel)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let engine = Self::memory_engine(&tx, prepared.scope(), cancel)?;
+        let outcome = derived_memory::publish_in_snapshot(&tx, &engine, prepared, cancel)?;
+        derived_memory::check(cancel)?;
+        tx.commit()?;
+        Ok(outcome)
     }
     pub fn read_memory(
         &mut self,
         request: &derived_memory::PrepareRequest,
         cancel: &dyn Fn() -> bool,
     ) -> std::result::Result<derived_memory::SummaryPacket, derived_memory::MemoryError> {
-        let engine = self.memory_engine(&request.scope, cancel)?;
-        derived_memory::read(&self.connection, &engine, request, cancel)
+        let tx = self.connection.transaction()?;
+        let engine = Self::memory_engine(&tx, &request.scope, cancel)?;
+        let packet = derived_memory::read_in_snapshot(&tx, &engine, request, cancel)?;
+        derived_memory::check(cancel)?;
+        tx.commit()?;
+        Ok(packet)
     }
     pub fn search_memory(
         &mut self,
         request: &derived_memory::SearchRequest,
         cancel: &dyn Fn() -> bool,
     ) -> std::result::Result<Vec<derived_memory::SearchHit>, derived_memory::MemoryError> {
-        let engine = self.memory_engine(&request.scope, cancel)?;
-        derived_memory::search(&self.connection, &engine, request, cancel)
+        let tx = self.connection.transaction()?;
+        let engine = Self::memory_engine(&tx, &request.scope, cancel)?;
+        let hits = derived_memory::search_in_snapshot(&tx, &engine, request, cancel)?;
+        derived_memory::check(cancel)?;
+        tx.commit()?;
+        Ok(hits)
     }
     pub fn invalidate_memory(
         &mut self,
@@ -445,17 +597,18 @@ impl Store {
         expected_revision: u64,
         cancel: &dyn Fn() -> bool,
     ) -> std::result::Result<(), derived_memory::MemoryError> {
-        let engine = self.memory_engine(scope, cancel)?;
+        derived_memory::check(cancel)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let engine = Self::memory_engine(&tx, scope, cancel)?;
         if !engine.state().actors.contains_key(observer) {
             return Err(derived_memory::MemoryError::NotFound);
         }
-        derived_memory::invalidate(
-            &mut self.connection,
-            scope,
-            observer,
-            expected_revision,
-            cancel,
-        )
+        derived_memory::invalidate_in_snapshot(&tx, scope, observer, expected_revision, cancel)?;
+        derived_memory::check(cancel)?;
+        tx.commit()?;
+        Ok(())
     }
     pub fn create_story(&mut self, title: &str, seed: Seed) -> Result<()> {
         self.create_story_bounded(title, seed, false)
@@ -577,6 +730,159 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(windows)]
+    mod pinned_new {
+        use super::*;
+        fn fixture() -> PathBuf {
+            let dir = std::env::temp_dir().join(format!(
+                "pinned-store-hook-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            std::fs::create_dir(&dir).unwrap();
+            let outside = dir.join("outside.sqlite");
+            let mut store = Store::open(&outside, None).unwrap();
+            let seed: Seed =
+                serde_json::from_str(include_str!("../../../fixtures/lantern_quay.json")).unwrap();
+            store
+                .create_story("Synthetic outside fixture", seed)
+                .unwrap();
+            drop(store);
+            dir
+        }
+        fn cleanup(dir: &Path) {
+            for entry in std::fs::read_dir(dir).unwrap() {
+                std::fs::remove_file(entry.unwrap().path()).unwrap();
+            }
+            std::fs::remove_dir(dir).unwrap();
+        }
+        #[test]
+        fn existing_leaf_refusal_never_reaches_connect_hooks() {
+            let dir = fixture();
+            let path = dir.join("outside.sqlite");
+            let before = std::fs::read(&path).unwrap();
+            let result = Store::create_new_pinned_inner(
+                &path,
+                PinnedNewHooks {
+                    after_reservation: |_| panic!("reservation was refused"),
+                    after_connect: |_| panic!("must not connect"),
+                },
+            );
+            assert_eq!(result.err(), Some(StorageError::Io));
+            assert_eq!(std::fs::read(&path).unwrap(), before);
+            for suffix in ["-journal", "-wal", "-shm"] {
+                let main = dir.join(format!("refused{suffix}.sqlite"));
+                let mut name = main.as_os_str().to_owned();
+                name.push(suffix);
+                let sidecar = PathBuf::from(name);
+                std::fs::write(&sidecar, b"foreign sidecar").unwrap();
+                let result = Store::create_new_pinned_inner(
+                    &main,
+                    PinnedNewHooks {
+                        after_reservation: |_| panic!("all reservations must succeed first"),
+                        after_connect: |_| panic!("must not connect to existing sidecar"),
+                    },
+                );
+                assert_eq!(result.err(), Some(StorageError::Io));
+                assert_eq!(std::fs::read(&sidecar).unwrap(), b"foreign sidecar");
+            }
+            cleanup(&dir);
+        }
+        #[test]
+        fn reserved_handle_blocks_replacement_in_the_exact_pre_sqlite_window() {
+            let dir = fixture();
+            let path = dir.join("new.sqlite");
+            let outside = dir.join("outside.sqlite");
+            let before = std::fs::read(&outside).unwrap();
+            let store = Store::create_new_pinned_inner(
+                &path,
+                PinnedNewHooks {
+                    after_reservation: |path| {
+                        assert_eq!(std::fs::metadata(path).unwrap().len(), 0);
+                        assert!(
+                            std::fs::rename(path, path.with_file_name("stolen.sqlite")).is_err()
+                        );
+                        assert!(std::fs::remove_file(path).is_err());
+                        assert!(
+                            std::fs::rename(path.with_file_name("outside.sqlite"), path).is_err()
+                        );
+                        for suffix in ["-journal", "-wal", "-shm"] {
+                            let mut name = path.as_os_str().to_owned();
+                            name.push(suffix);
+                            let sidecar = PathBuf::from(name);
+                            assert_eq!(std::fs::metadata(&sidecar).unwrap().len(), 0);
+                            assert!(OpenOptions::new().write(true).open(&sidecar).is_err());
+                            assert!(std::fs::remove_file(&sidecar).is_err());
+                            assert!(std::fs::rename(&sidecar, sidecar.with_extension("stolen"))
+                                .is_err());
+                            assert!(std::fs::rename(
+                                path.with_file_name("outside.sqlite"),
+                                &sidecar
+                            )
+                            .is_err());
+                        }
+                        Ok(())
+                    },
+                    after_connect: |connection| {
+                        let mode: String =
+                            connection.pragma_query_value(None, "journal_mode", |r| r.get(0))?;
+                        assert_eq!(mode, "memory");
+                        Ok(())
+                    },
+                },
+            )
+            .unwrap();
+            assert_eq!(store.info().unwrap().schema_version, SCHEMA_VERSION);
+            assert_eq!(std::fs::read(&outside).unwrap(), before);
+            drop(store);
+            let normal = Store::open(&path, None).unwrap();
+            let mode: String = normal
+                .connection
+                .pragma_query_value(None, "journal_mode", |r| r.get(0))
+                .unwrap();
+            assert_eq!(
+                mode, "delete",
+                "disposable staging journal mode is not inherited by normal reopen"
+            );
+            drop(normal);
+            cleanup(&dir);
+        }
+        #[test]
+        fn failed_initializer_leaves_only_its_owned_partial_leaf_and_releases_handles() {
+            let dir = fixture();
+            let path = dir.join("failed.sqlite");
+            let outside = dir.join("outside.sqlite");
+            let before = std::fs::read(&outside).unwrap();
+            let result = Store::create_new_pinned_inner(
+                &path,
+                PinnedNewHooks {
+                    after_reservation: |_| Ok(()),
+                    after_connect: |connection| {
+                        connection.execute_batch("CREATE TABLE synthetic_initializer_failure(value TEXT); INSERT INTO synthetic_initializer_failure VALUES('owned partial leaf');")?;
+                        Err(StorageError::Database)
+                    },
+                },
+            );
+            assert_eq!(result.err(), Some(StorageError::Database));
+            assert!(path.is_file());
+            let partial = std::fs::read(&path).unwrap();
+            assert!(partial.starts_with(b"SQLite format 3\0"));
+            assert_eq!(std::fs::read(&outside).unwrap(), before);
+            assert_eq!(
+                Store::create_new_pinned(&path).err(),
+                Some(StorageError::Io)
+            );
+            assert_eq!(std::fs::read(&path).unwrap(), partial);
+            let moved = dir.join("released.sqlite");
+            std::fs::rename(&path, &moved).unwrap();
+            std::fs::rename(&moved, &path).unwrap();
+            cleanup(&dir);
+        }
+    }
 
     #[test]
     fn file_owner_and_read_only_connections_require_memory_only_temp_fts() {
@@ -717,7 +1023,7 @@ mod tests {
         let tx = connection.transaction().unwrap();
         initialize(&tx, SCHEMA).unwrap();
         tx.commit().unwrap();
-        let store = Store { connection };
+        let store = Store::from_connection(connection);
         assert_eq!(
             store.backup_bounded(&path, 1),
             Err(StorageError::InvalidInput)

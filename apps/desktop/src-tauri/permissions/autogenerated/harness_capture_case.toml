@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-harness-capture-case"
+description = "Enables the harness_capture_case command without any pre-configured scope."
+commands.allow = ["harness_capture_case"]
+
+[[permission]]
+identifier = "deny-harness-capture-case"
+description = "Denies the harness_capture_case command without any pre-configured scope."
+commands.deny = ["harness_capture_case"]

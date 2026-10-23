@@ -2,6 +2,32 @@ use locallore::inference::Cancellation;
 use std::path::PathBuf;
 fn main() {
     let args: Vec<_> = std::env::args().collect();
+    if args.get(1).is_some_and(|s| s == "curated") {
+        match locallore_eval::local_lane::cli(&args[2..]) {
+            Ok(report) => {
+                let failed = report
+                    .cases
+                    .iter()
+                    .filter(|c| c.status == locallore_eval::Status::Failed)
+                    .count();
+                println!(
+                    "{} stories={} failed={} completed={} quality_accepted=false",
+                    report.lane,
+                    report.cases.len(),
+                    failed,
+                    report.completed
+                );
+                if failed > 0 {
+                    std::process::exit(1);
+                }
+            }
+            Err(error) => {
+                eprintln!("Evaluation failed: {error}");
+                std::process::exit(2);
+            }
+        }
+        return;
+    }
     let usage="Usage: locallore-eval run|resume RUN_DIR [--max-cases 1..32] [--case BUILTIN_ID] | case NEW_RUN_DIR BUILTIN_ID";
     if args.len() < 3 || !matches!(args[1].as_str(), "run" | "resume" | "case") {
         eprintln!("{usage}");

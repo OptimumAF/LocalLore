@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
 const root = new URL(".", import.meta.url);
 for (const args of [
     ["build.mjs"],
@@ -8,16 +9,26 @@ for (const args of [
     ["check-contract.mjs"],
     ["check-export-controller.mjs"],
     ["check-model-controller.mjs"],
+    ["check-early-cancel.mjs"],
     ["check-model-refresh.mjs"],
     ["check-inspection-controller.mjs"],
     ["check-trace-controller.mjs"],
+    ["check-capture-controller.mjs"],
+    ["check-capture-review.mjs"],
     ["check-evaluation-controller.mjs"],
+    ["check-archive-controller.mjs"],
 ]) {
     const code = await new Promise((resolve, reject) => {
         const child = spawn(process.execPath, args, {
             cwd: root,
             stdio: "inherit",
             shell: false,
+            env: {
+                ...process.env,
+                LOCALLORE_CHECK_OUTPUT_DIR:
+                    process.env.LOCALLORE_CHECK_OUTPUT_DIR ??
+                    fileURLToPath(new URL("artifacts/checks/", root)),
+            },
         });
         child.on("error", reject);
         child.on("exit", resolve);
@@ -43,6 +54,11 @@ for (const marker of [
     "d06-external-wait",
     "d07-native-evaluation-checkpoints",
     "harness_evaluation_case",
+    "harness_archive_case",
+    "harness_capture_case",
+    "private-capture-native-production-play",
+    "MALFORMED_SYNTHETIC_DIRECTOR",
+    "d08-native-durable-workspace",
     "legacy-v1-native-migrated-resume",
     "export-snapshot-independent-of-later-turn",
 ])

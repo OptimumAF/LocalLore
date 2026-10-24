@@ -149,7 +149,7 @@ class ApkAuditTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path, hashes, notices = self.candidate_archive(directory)
             with zipfile.ZipFile(path, "a") as apk:
-                apk.writestr("classes.dex", b"original synthetic DEX marker ModelPickerFixtureActivity")
+                apk.writestr("classes.dex", b"original synthetic DEX markers ModelPickerFixtureActivity ModelPickerInterruptionFixtureActivity")
             with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
                 self.assertEqual(len(audit.audit_zip(path, litert=True, model_picker=True)), 6)
                 with self.assertRaises(audit.AuditError):
@@ -158,6 +158,24 @@ class ApkAuditTests(unittest.TestCase):
                     apk.writestr("classes10.dex", b"original synthetic marker ModelPickerDocumentsProvider")
                 with self.assertRaises(audit.AuditError):
                     audit.audit_zip(path, litert=True, model_picker=True)
+
+    def test_interruption_helpers_cannot_leak_or_replace_the_private_activity(self):
+        for marker in (b"ModelPickerInterruption", b"ModelPickerInterruptionFixtureActivity"):
+            with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
+                path = self.archive(directory)
+                with zipfile.ZipFile(path, "a") as apk:
+                    apk.writestr("classes.dex", marker)
+                with self.assertRaises(audit.AuditError):
+                    audit.audit_zip(path)
+        for marker in (b"ModelPickerFixtureActivity", b"ModelPickerFixtureActivity ModelPickerInterruption",
+                       b"ModelPickerFixtureActivity ModelPickerInterruptionFixtureActivity ModelPickerInterruptionTest"):
+            with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
+                path, hashes, notices = self.candidate_archive(directory)
+                with zipfile.ZipFile(path, "a") as apk:
+                    apk.writestr("classes.dex", marker)
+                with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
+                    with self.assertRaises(audit.AuditError):
+                        audit.audit_zip(path, litert=True, model_picker=True)
 
     def test_model_picker_document_provider_retains_platform_grants_and_exact_control_boundary(self):
         document = "org.locallore.app.ModelPickerDocumentsProvider"
@@ -222,10 +240,15 @@ class ApkAuditTests(unittest.TestCase):
                 audit.audit_model_launcher(candidate_badging, candidate_tree)
 
         fixture = "org.locallore.app.ModelPickerFixtureActivity"
-        fixture_tree = tree + activity(fixture, "false")
+        interruption = "org.locallore.app.ModelPickerInterruptionFixtureActivity"
+        fixture_tree = tree + activity(fixture, "false") + activity(interruption, "false")
         self.assertEqual(audit.audit_model_launcher(badging, fixture_tree, model_picker=True)["launcher"], setup)
         for candidate in (tree, fixture_tree.replace(activity(fixture, "false"), activity(fixture, "true")),
-                          fixture_tree.replace(activity(fixture, "false"), activity(fixture, "false", extra=filter_text))):
+                          fixture_tree.replace(activity(fixture, "false"), activity(fixture, "false", extra=filter_text)),
+                          fixture_tree.replace(activity(interruption, "false"), ""),
+                          fixture_tree.replace(activity(interruption, "false"), activity(interruption, "true")),
+                          fixture_tree.replace(activity(interruption, "false"), activity(interruption, "false", extra=filter_text)),
+                          fixture_tree + activity(interruption + "Other", "false")):
             with self.subTest(tree=candidate), self.assertRaises(audit.AuditError):
                 audit.audit_model_launcher(badging, candidate, model_picker=True)
         with self.assertRaises(audit.AuditError):

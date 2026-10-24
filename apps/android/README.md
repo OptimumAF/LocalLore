@@ -141,6 +141,19 @@ running the entire test class together intentionally fails readback. See the
 exact selection, admission and qualification limits. The first phase requires
 an absent synthetic root and performs no reset.
 
+The explicit synthetic model-picker profile also has a separate
+[interrupted-import contract](../../docs/native/MODEL_INTERRUPTION_CONTRACT.md).
+Its two `ModelPickerInterruptionTest` methods must be selected individually in
+separate processes: the arm intentionally kills its own target process and can
+never count as PASS; recovery must pass normally. Run only after a fresh
+source/APK-bound device admission, preserving the older fixture data. Do not
+select this class through a broad connected suite. The new partial document
+requires API 30; ordinary builds and production minimum SDK are unchanged.
+The [dated interruption evidence](../../docs/native/MODEL_INTERRUPTION_VERIFICATION_2026-10-23.md)
+records a real partial-read process interruption and separate recovery PASS on
+one API-35 x86_64 emulator. It does not establish pending-picker callback
+restoration, real inference or physical-phone support.
+
 The optional [LiteRT worker](../../docs/native/LITERT_WORKER_CONTRACT.md) implements
 `LocalRoleWorker` against the actual SDK. Its trusted configuration factory pairs
 the native provenance/profile and worker. With only the LiteRT verification flag,

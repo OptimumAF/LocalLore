@@ -462,6 +462,16 @@ for exact checks and the remaining milestone gates.
 
 ## Verification and limits
 
+The opt-in model picker profile also includes a non-exported pending-result
+fixture. Its [contract](../../docs/native/MODEL_PENDING_CONTRACT.md) requires
+actual saved-task restoration after process death, safe rejection of the old
+selection, and a later explicit import. Run its two methods separately under
+the documented external owner; a broad connected suite or ordinary runner
+restart cannot verify that framework relationship. This fixture uses original
+synthetic bytes and refuses inference. Dated reports distinguish actual results
+from remaining device/model gates. The [pending-result verification](../../docs/native/MODEL_PENDING_VERIFICATION_2026-10-23.md)
+records actual restored-result rejection and a later native import on one emulator.
+
 The opt-in isolated archive application also has an explicit
 [system chooser verification procedure](../../docs/native/ARCHIVE_CHOOSER_VERIFICATION_2026-10-23.md).
 Its synthetic DocumentsProvider is packaged only in the instrumentation APK;

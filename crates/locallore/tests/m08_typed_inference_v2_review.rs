@@ -121,7 +121,9 @@ fn typed_give_wait_use_actual_actor_v2_context_and_exact_retry_without_provider(
 
 #[test]
 fn rejected_failed_cancelled_and_late_narrator_cancel_leave_full_v2_canon_unchanged() {
-    for (mode, expected) in [(FakeMode::Malformed, Error::Malformed), (FakeMode::Rejected, Error::Ability),
+    // FakeRejected changes the requested Wait into an invented ability. The
+    // existing typed-intent agency guard rejects that before ability resolution.
+    for (mode, expected) in [(FakeMode::Malformed, Error::Malformed), (FakeMode::Rejected, Error::Agency),
         (FakeMode::Failed, Error::Provider), (FakeMode::Cancelled, Error::Cancelled),
         (FakeMode::InventedNarration, Error::Narration)] {
         let mut engine = child(&root(false));

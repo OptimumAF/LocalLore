@@ -377,17 +377,18 @@ fn make_row(observation: Observation<'_>) -> Result<TurnReportV2> {
         (Some(recording), Some(capture)) => {
             let attempt = capture["data"]["details"]["identity"]["attempt"]
                 .as_u64()
-                .and_then(|n| u32::try_from(n).ok())
-                .ok_or("CaptureBinding")?;
-            CapturedContext::from_host_capture(
-                before,
-                &request,
-                attempt,
-                capture,
-                &recording.captures,
-                profile,
-            )
-            .ok()
+                .and_then(|n| u32::try_from(n).ok());
+            attempt.and_then(|attempt| {
+                CapturedContext::from_host_capture(
+                    before,
+                    &request,
+                    attempt,
+                    capture,
+                    &recording.captures,
+                    profile,
+                )
+                .ok()
+            })
         }
         _ => None,
     };

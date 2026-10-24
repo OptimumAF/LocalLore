@@ -95,6 +95,20 @@ Actions admit only fixed APP/DocsUI controls and the fixed TEST root/documents.
 Connection failure, malformed state, unknown controls or exhausted budgets stop
 the experiment; they do not trigger a blind retry or broader navigation.
 
+On the measured DocumentsUI version, the exact TEST root is an enabled
+ListView row with a nonclickable title. Its reviewed root-only profile requires
+the fixed title, class/id/ancestry and contained bounds. Documents instead use
+their enabled clickable CardView owner, with the exact provider breadcrumb and
+closed drawer. A generic label-coordinate fallback is not admitted.
+
+Both opening and returning from DocumentsUI can briefly report null focus in
+the same caller task. Those closed known records permit passive bounded waits
+only; each snapshot and touch still requires the expected stable foreground.
+After a document tap, wait for its fixed actual callback marker/receipt before
+checking foreground or READY. A later continuation requalifies immutable
+history and current identity, consumes already recorded actions without
+repeating them, and preserves the original framework relationship.
+
 Use plain `dumpsys activity activities` for live task proof, with bounded local
 output and exact host component/task selection. Android 15's global `-p` option
 also sets `dumpClient=true`; omitting `-c` does not make a package-filtered dump
@@ -108,5 +122,8 @@ Official sources: [Activity Result lifecycle](https://developer.android.com/trai
 [Activity saved-state dump](https://android.googlesource.com/platform/frameworks/base/+/android-15.0.0_r1/services/core/java/com/android/server/wm/ActivityRecord.java),
 and the pinned AndroidX monitor 1.7.2 source discussed in the dated independent
 review. Actual commands, attempts and limitations belong in the dated reports.
+See the [verification](MODEL_PENDING_VERIFICATION_2026-10-23.md),
+[device evidence](MODEL_PENDING_DEVICE_2026-10-23.md) and
+[independent review](MODEL_PENDING_REVIEW_2026-10-23.md).
 Synthetic emulator checks do not qualify physical phones, ARM64, real-model
 performance/quality, power-loss durability or the full M05.05 exit gate.

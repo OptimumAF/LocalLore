@@ -332,6 +332,17 @@ class LocalInferenceOwnerTest {
         }
     }
 
+    @Test fun oneOwnerCannotBeClaimedByAnotherTransportBeforeNativeAllocation() {
+        val owner = owner(Engine(Call()))
+        val first = Any()
+        owner.claimTransport(first); owner.claimTransport(first)
+        try { owner.claimTransport(Any()); fail() }
+        catch (expected: IllegalArgumentException) { assertEquals("Local inference owner already attached", expected.message) }
+        assertFalse(owner.quarantined)
+        owner.claimTransport(first)
+        assertFalse(owner.nativeInvalidatedKnown) // No native allocation/closure was invented.
+    }
+
     @Test fun closeReturnsImmediatelyWhileBlockingNativeInvalidationRemainsUnknown() = runBlocking {
         val gate = CountDownLatch(1)
         val port = object : LocalInferenceNativePort {

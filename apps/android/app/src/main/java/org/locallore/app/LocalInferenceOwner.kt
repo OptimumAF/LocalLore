@@ -94,6 +94,7 @@ internal class LocalInferenceOwner(
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private val lock = Any()
     private var port: LocalInferenceNativePort? = null
+    private var transport: Any? = null
     private var active: Run? = null
     private var invalidation: Deferred<Unit>? = null
     private val closed = AtomicBoolean()
@@ -105,6 +106,12 @@ internal class LocalInferenceOwner(
     val quarantined: Boolean get() = poisoned.get()
     val nativeInvalidatedKnown: Boolean get() = invalidated.get()
     fun profileBytes(): ByteArray = profile.copyOf()
+    /** Reserve before openLocal: sharing this driver across two transports must allocate no second lease. */
+    fun claimTransport(value: Any) = synchronized(lock) {
+        if (transport != null && transport !== value) throw IllegalArgumentException("Local inference owner already attached")
+        admit()
+        transport = value
+    }
 
     private inner class Engine(val value: LocalRoleEngine) {
         var close: Deferred<Boolean>? = null

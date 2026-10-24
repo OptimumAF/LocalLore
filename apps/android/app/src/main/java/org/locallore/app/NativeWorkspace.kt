@@ -28,6 +28,7 @@ internal object NativeWorkspace {
 internal class NativeWorkspaceTransport(
     context: Context, private val localInference: LocalInferenceOwner? = null,
 ) : WorkspaceTransport {
+    init { localInference?.claimTransport(this) }
     private val app = context.applicationContext
     private val lifecycle = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val closed = AtomicBoolean(false)

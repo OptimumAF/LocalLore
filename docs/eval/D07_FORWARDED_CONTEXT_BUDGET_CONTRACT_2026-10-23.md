@@ -1,11 +1,13 @@
 # Current Director forwarded-context budget: contract and frozen oracles
 
 2026-10-23. Refs #29 D07.03/.04; #11 M07.01 prerequisite.
-**Proposed contract / source-only tests, not implemented or qualified.** Base:
+**Original frozen contract / source-only tests.** Base:
 `0fd803bcba50fa700efc27072861a51dc6ea3be3`. Coordinator approval of this
-specific contract and production path allocation is still required. This packet
-owns only this document and `crates/locallore/tests/d07_forwarded_budget_review.rs`.
-No Core, Play, evaluator, fixture or budget implementation was changed.
+specific contract and a subsequent bounded production allocation were received
+after the initial03308ea freeze. The initial packet owned only this document and
+`crates/locallore/tests/d07_forwarded_budget_review.rs` and changed no production.
+The source-only implementation follow-up is recorded at the end. **No passing
+post-fix execution or task acceptance is claimed by this reviewer.**
 
 ## Demonstrated failure and diagnosis
 
@@ -332,3 +334,93 @@ Next: coordinator review of this precise typed seam/reserve/provenance contract;
 then separately claim production paths, execute frozen pre-fix oracles, implement
 the smallest shared seam and execute identical tests plus existing compatibility
 gates. Native/model and human-quality gates remain separately pending.
+
+## Approved source implementation follow-up
+
+The coordinator approved the typed contract and exclusively allocated existing
+`context_compiler.rs`, narrow `context_compiler/policy.rs`, narrow `play.rs`, NEW
+`play/director_budget.rs`, and the actual D07 capture/report closure in existing
+`memory_comparison_v2.rs` / `local_lane/comparison.rs`. Claims were posted on
+#11/#29 before edits. No inference.rs, Engine, Host, Store/schema, runtime,
+recording, ledger, scenarios, UI/native or Android path was edited.
+
+The initially requested extra SOURCE_INPUTS entry was unnecessary: actual
+`locallore-eval/build.rs` recursively collects every public Rust source under
+`locallore/src` (and marks its directories for rebuild). The new module is
+therefore included automatically in global evaluation source fingerprints.
+No lib.rs/build.rs or duplicate local current-binding entry was changed.
+
+| Ordered commit | Scope |
+|---|---|
+| `edf4d265f09bf2c1d1d31bbb56b41b75f1d98c84` | Original seven Core test declarations, frozen before production |
+| `03308ea14bfa447c0a0f7020db006c01dca3da15` | Original precise contract before production |
+| `8c8b74d3e8978c4ad2c810f9899309ba7ff54832` | Four Core paths: one closed frame/projection/renderer, private alternate fit basis, separate nonpersisted estimate, actual forwarding |
+| `275483d69cf22d88f56914c4e40544e348250725` | Approved pure exact-repair relation helper; one production suffix constant |
+| `83dfd64098344c00f5c36c58e75da41b1db5e957` | Four NEW eval unit oracles frozen before the D07 production delta; existing tests unchanged |
+| `c8a8c57a297bd13d1a259de85a7f1f7a7f607727` | Actual checked capture estimates and explicit current/historical report dispatch |
+| `d602c476b5d8b94b18b8cf24ee1a3ce715038088` | Explicit collection type annotations, no behavioral/oracle change |
+| `8ebdb77ec4b79f88b5a853154044dd05215df131` | Source formatting of those annotations |
+
+The new module renders the exact existing current Director JSON projection,
+instructions, final request line and schema, with the fixed114-byte repair
+suffix. The same renderer and pure count helper are used at mandatory/optional/
+final packing and immediately before actual provider submission. The old
+`compile_inner` entry delegates to DiagnosticWire; only current fresh Play can
+construct the opaque frame and choose the private Director fit basis. Every
+full diagnostic-wire cap and all mandatory selection logic remain unchanged.
+
+`DirectorCompilationV25` is nonpersisted; its `policy` result has the unchanged
+generic DTO. The new public Serialize-only count type and pure
+`director_forwarded_budget_v25` helper expose no prompt constructor, native
+capability, cache proof, actor grant or alternate selector. The approved pure
+`director_repair_matches_v25` only compares actual initial/repair strings to the
+one fixed renderer suffix. Retrieval input token counts now carry the actual
+prompt+schema **Estimated** basis; ContextPackage still captures/report its full
+wire byte and token counts. No measured-token claim or narrator-policy change.
+
+Current comparison bindings additionally carry omitted/defaultNone historical
+`forwarded_budget_version`, with currentSome1. This dispatch comes from the
+validated manifest, not from a missing row field. HistoricalNone validation
+preserves its old stable key and omitted transport fields; current-source resume
+still requires exact current binding/source equality. Current checked captures
+use the shared pure helper on actual retained role bytes after the unchanged
+request/recording/projection/privacy checks, including the exact repair relation.
+New-source `forwarded_director_estimates` compare against fresh actual capture
+counts during checkpoint validation; report-supplied counts are not authority.
+Actual unknown-ack evidence remains unknown rather than fabricated.
+
+Four added eval declarations cover UTF8/schema/repair rounding and reserve
+counts, invalid-profile/actual-oversize rejection, historical omitted-field/key
+validation without execution admission, and an actual first-scene Host/Store/
+ScriptedBaseline capture whose removed/tampered estimates must be refused. The
+old transport fixture in that test is labelled synthetic compatibility data,
+not relabelled historical execution. These new tests need the subsequent D07
+production fields/helper and are **uncompiled/unrun source oracles**, not an
+independently executable pre-fix RED. Existing eval tests were not edited.
+
+### Actual qualification attribution and next checks
+
+Coordinator actual baseline at executed source `a082dc8` (unchanged pre-fix
+production) ran the original frozen Core seven declarations: **4 PASS /2 FAIL /
+1 historical probe ignored**, compilation18.99 seconds/tests0.33 seconds. The
+head8 and unchanged24 future-success cases failed TooLarge as predicted.
+Regular+repair projection/accounting, historical2.1–2.4 replay, actual oversized
+mandatory0roles and generic full-wire behavior passed. Coordinator retains
+`d07-forwarded-budget-original-red.log`. No frozen assertion was changed.
+
+Reviewer execution: standalone `rustfmt --edition 2021` parser/format and final
+`--check`, `git diff --check`, exact path inventory/hash/clean-tree checks only.
+One intermediate format check requested wrapping the explicit estimate-vector
+type; the next format-only commit corrected it. This was not a Rust compilation
+or behavior failure. No Cargo/Node/Gradle/provider/model/native/app/device
+execution by this reviewer. No models, assets, workspaces or OS settings changed.
+
+All post-fix Cargo/Clippy/Core compatibility/evaluator/old-report actual-opening
+checks remain pending coordinator execution. In addition to the unchanged
+commands above, run the four NEW `forwarded_budget_tests` unit cases, then the
+existing actual Host/Store reference/paired/rollout suites. Preserve the original
+baseline failures, any actual compile failures, and immutable historical reports.
+Do not claim full old-report viewability from the pure transport test alone:
+open the retained actual pre-fix failed comparison report read-only as well.
+Native tokenizer/template fit and the source-bound real-model/human-review gates
+remain unavailable until separately authorized and measured.

@@ -1368,6 +1368,24 @@ fn validate_rollout_source(engine: &Engine, corpus: &protocol::FrozenSuite) -> R
     Ok(())
 }
 impl ComparisonSession {
+    fn finish_and_publish(&mut self) -> Result<ComparisonReportV2> {
+        // Strict final canonical/capture replay is real own work, before settlement.
+        let mut report = inspect_comparison(&self.dir)?;
+        self.finish_ledgers()?;
+        report.left_charged_ms = self.ledgers[0].charged_ms;
+        report.right_charged_ms = self.ledgers[1].charged_ms;
+        report.left_reserved_roles = self.ledgers[0].charged_roles;
+        report.right_reserved_roles = self.ledgers[1].charged_roles;
+        report.unavailable.retain(|note| {
+            !ARM_NAMES.iter().any(|arm| {
+                note.starts_with(&format!("{arm}:unknown_invocations:"))
+                    || note == &format!("{arm}:resource_cap_exceeded")
+            })
+        });
+        append_ledger_notes(&self.dir, &self.ledgers, &mut report.unavailable);
+        publish(&self.dir, &report)?;
+        Ok(report)
+    }
     fn finish_ledgers(&mut self) -> Result<()> {
         for arm in 0..2 {
             let began = Instant::now();
@@ -1531,10 +1549,7 @@ impl ComparisonSession {
                 4096,
             )?;
         }
-        self.finish_ledgers()?;
-        let report = inspect_comparison(&self.dir)?;
-        publish(&self.dir, &report)?;
-        Ok(report)
+        self.finish_and_publish()
     }
 }
 fn publish(dir: &Path, report: &ComparisonReportV2) -> Result<()> {
@@ -1552,6 +1567,23 @@ fn publish(dir: &Path, report: &ComparisonReportV2) -> Result<()> {
         fs::write(path, bytes).map_err(|_| "Io")?;
     }
     Ok(())
+}
+fn append_ledger_notes(dir: &Path, ledgers: &[Ledger; 2], unavailable: &mut Vec<String>) {
+    for (arm, ledger) in ledgers.iter().enumerate() {
+        if ledger.admissions > MAX_ADMISSIONS
+            || ledger.charged_roles > MAX_ROLES
+            || ledger.charged_ms > MAX_ACTIVE_MS
+        {
+            unavailable.push(format!("{}:resource_cap_exceeded", ARM_NAMES[arm]));
+        }
+        let d = dir.join(ARM_NAMES[arm]);
+        let unknown = (0..ledger.invocations)
+            .filter(|i| !d.join(format!("invocation-{i:02}-settled.json")).exists())
+            .count();
+        if unknown > 0 {
+            unavailable.push(format!("{}:unknown_invocations:{unknown}", ARM_NAMES[arm]));
+        }
+    }
 }
 /// Pure report opening: no invocation/provider/assets, checkpoint mutation or replay calls to a model.
 pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV2> {
@@ -1658,19 +1690,7 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV2> {
             sum.checked_add(s.physical_ms).ok_or("SetupIntegrity")
         })?)
     };
-    for (arm, ledger) in ledgers.iter().enumerate() {
-        if ledger.admissions > 32 || ledger.charged_roles > 96 || ledger.charged_ms > MAX_ACTIVE_MS
-        {
-            unavailable.push(format!("{}:resource_cap_exceeded", ARM_NAMES[arm]));
-        }
-        let d = dir.join(ARM_NAMES[arm]);
-        let unknown = (0..ledger.invocations)
-            .filter(|i| !d.join(format!("invocation-{i:02}-settled.json")).exists())
-            .count();
-        if unknown > 0 {
-            unavailable.push(format!("{}:unknown_invocations:{unknown}", ARM_NAMES[arm]));
-        }
-    }
+    append_ledger_notes(dir, &ledgers, &mut unavailable);
     Ok(ComparisonReportV2 {
         version: 2,
         kind: manifest.kind,
@@ -1849,9 +1869,7 @@ pub fn run_native_comparison(
             // A known terminal setup may settle actual measured cost. A crash or
             // uncompleted setup never reaches this branch and keeps both full reserves.
             session.setup(true, measured, "failed", None)?;
-            session.finish_ledgers()?;
-            let report = inspect_comparison(dir)?;
-            publish(dir, &report)?;
+            session.finish_and_publish()?;
             Err(error)
         }
     }

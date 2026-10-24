@@ -70,6 +70,33 @@ export async function brokerSurfaceReviewJourneys() {
         check(blocked&&!dispatched,"malformed fork outcome remains blocked across context change");
     });
 
+    for(const surface of ["archive","fork"] as const) await test(`${surface}-retired-context-before-malformed-admission-keeps-global-unknown`,async()=>{
+        let release!:(value:unknown)=>void;
+        const held=new Promise<unknown>(resolve=>{release=resolve;});
+        const gate:BrokerRetention=new BrokerRetention(()=>surface==="archive"
+            ? archive.get().busy||["Wire","Transport"].includes(archive.get().error??"")
+            : fork.get().busy||fork.get().status==="uncertain");
+        const archive=new ArchiveController(()=>gate.start(archiveIdentity,()=>held),async()=>{});
+        const fork=new ForkController(()=>gate.start(forkIdentity,()=>held),async()=>{},()=>{});
+        archive.subscribe(gate.refreshConsumption);fork.subscribe(gate.refreshConsumption);
+        archive.contextChanged("session-1|lab|omniscient",true);fork.contextChanged(context);
+        if(surface==="fork")fork.prepare(0,"surface-child");
+        const pending=surface==="archive"?archive.previewImport():fork.confirm(true);
+        const inFlight=gate.get()?.inFlight===true;
+        if(surface==="archive")archive.contextChanged("other-session|lab|omniscient",true);
+        else fork.contextChanged({...context,session:"session-2",scope:{story:"other-story",branch:"main"}});
+        release(status(25,{}));await pending;
+        const owner=surface==="archive"?archive.get():fork.get();
+        const unknown=gate.get()?.unknown===true;
+        let dispatched=false,blocked=false;
+        try{await gate.start(memoryIdentity,async()=>{dispatched=true;return status(26,memoryResult());});}
+        catch(error){blocked=error instanceof Error&&error.message==="ArchiveBusy";}
+        check(inFlight,"actual owner retires while its own native admission reply is still awaited");
+        check(owner.error===null&&owner.result===null&&!owner.busy,"retired owner suppresses obsolete error and result presentation");
+        check(unknown,"malformed own reply remains globally unknown even when retired owner suppresses Wire");
+        check(blocked&&!dispatched,"retired malformed reply cannot authorize another surface start");
+    });
+
     await test("valid-native-shaped-archive-cancellation-consumes-and-allows-explicit-next-start",async()=>{
         const gate:BrokerRetention=new BrokerRetention(()=>controller.get().busy||["Wire","Transport"].includes(controller.get().error??""));
         const controller:ArchiveController=new ArchiveController(

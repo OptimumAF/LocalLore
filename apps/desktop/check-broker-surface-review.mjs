@@ -14,5 +14,5 @@ const {brokerSurfaceReviewJourneys}=await import(pathToFileURL(target).href);
 const results=await brokerSurfaceReviewJourneys();
 await writeFile(path.join(output,"broker-surface-review.json"),JSON.stringify({backend:"actual-controllers-mock-ipc",results},null,2));
 console.log(JSON.stringify(results));
-assert.equal(results.length,6);
+assert.equal(results.length,8);
 assert(results.every(result=>result.passed),"broker surface failures retained");

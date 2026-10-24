@@ -62,7 +62,7 @@ let checks=0;
     assert.deepEqual(controller.get().playV2.scope,other);
     assert.equal(controller.selected().id,"session-other");
     checks++;
-    await controller.closeSelected();
+    await controller.closeSession();
     assert(!controller.get().playV2 || controller.get().playV2.scope.branch!=="other");
     checks++;
 }

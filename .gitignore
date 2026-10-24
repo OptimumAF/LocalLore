@@ -64,3 +64,4 @@ apps/android/.gradle-litert-worker/
 apps/android/app/build-litert-worker/
 apps/android/app/build-model-picker/
 apps/android/app/build-model-volume/
+apps/android/app/build-model-receipt/

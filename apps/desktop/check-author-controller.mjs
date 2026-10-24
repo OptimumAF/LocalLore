@@ -747,27 +747,62 @@ for (const kind of ["prepare", "commit"]) {
     c.dispose();
 }
 {
-    const {c, port} = fixture();
-    c.setAuthorConsent(true); await c.prepare(); c.setPreviewRead(true);
+    const { c, port } = fixture();
+    c.setAuthorConsent(true);
+    await c.prepare();
+    c.setPreviewRead(true);
     port.starts.push(() => Promise.reject(Error("Transport")));
     await c.confirm(true);
     const captured = clone(c.get().input);
     check(c.get().uncertain, "whole-ack loss is unresolved before loading gap");
     c.contextChanged(null);
-    check(!c.get().available, "no author actions are available without a selected native context");
-    check(JSON.stringify(c.get().input) === JSON.stringify(captured), "temporary selection absence preserves captured in-memory input");
+    check(
+        !c.get().available,
+        "no author actions are available without a selected native context",
+    );
+    check(
+        JSON.stringify(c.get().input) === JSON.stringify(captured),
+        "temporary selection absence preserves captured in-memory input",
+    );
     await c.lookup();
-    check(!port.calls.some(call=>call.kind==="lookup"), "loading gap cannot authorize native lookup");
-    c.contextChanged({...context(), selectionEpoch:2, session:"other-session", scope:{story:"other",branch:"main"},head:0});
+    check(
+        !port.calls.some((call) => call.kind === "lookup"),
+        "loading gap cannot authorize native lookup",
+    );
+    c.contextChanged({
+        ...context(),
+        selectionEpoch: 2,
+        session: "other-session",
+        scope: { story: "other", branch: "main" },
+        head: 0,
+    });
     c.contextChanged(null);
-    c.contextChanged({...context(), selectionEpoch:3, session:"returned-parent"});
+    c.contextChanged({
+        ...context(),
+        selectionEpoch: 3,
+        session: "returned-parent",
+    });
     await c.lookup();
-    check(c.get().outcome?.scope.branch === captured.child_branch, "same-root explicit lookup recovers original captured child after loading gaps");
-    check(JSON.stringify(port.calls.find(call=>call.kind==="lookup").request.input)===JSON.stringify(captured), "lookup does not rebind original input to another selected story");
-    check(port.calls.filter(call=>call.kind==="commit").length===1, "same-root recovery never applies twice");
+    check(
+        c.get().outcome?.scope.branch === captured.child_branch,
+        "same-root explicit lookup recovers original captured child after loading gaps",
+    );
+    check(
+        JSON.stringify(
+            port.calls.find((call) => call.kind === "lookup").request.input,
+        ) === JSON.stringify(captured),
+        "lookup does not rebind original input to another selected story",
+    );
+    check(
+        port.calls.filter((call) => call.kind === "commit").length === 1,
+        "same-root recovery never applies twice",
+    );
     c.contextChanged(null);
-    c.contextChanged({...context(),rootIncarnation:"foreign-root"});
-    check(c.get().input===null, "foreign root after a loading gap clears private recovery input");
+    c.contextChanged({ ...context(), rootIncarnation: "foreign-root" });
+    check(
+        c.get().input === null,
+        "foreign root after a loading gap clears private recovery input",
+    );
     c.dispose();
 }
 console.log(

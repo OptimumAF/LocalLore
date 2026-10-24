@@ -104,6 +104,7 @@ export class AuthorController {
         notice: "",
     });
     private context: AuthorContext | null = null;
+    private rootIncarnation: string | null = null;
     private key = "none";
     private serial = 0;
     private active: Work | null = null;
@@ -221,8 +222,14 @@ export class AuthorController {
             }
             return;
         }
-        const oldRoot = this.context?.rootIncarnation;
-        const sameRoot = !!context && oldRoot === context.rootIncarnation;
+        const oldRoot = this.rootIncarnation;
+        // Root briefly has no selection while loading a session. Availability
+        // remains false; only the already captured same-window recovery survives.
+        const sameRoot = context
+            ? oldRoot === context.rootIncarnation
+            : value === null && oldRoot !== null;
+        if (context) this.rootIncarnation = context.rootIncarnation;
+        else if (value !== null) this.rootIncarnation = null;
         const pending = this.state.busy || this.state.uncertain;
         const previousPreview = this.state.preview;
         const previousWork = this.state.busy ? this.active : null;
@@ -723,6 +730,7 @@ export class AuthorController {
         });
         this.disposed = true;
         this.context = null;
+        this.rootIncarnation = null;
         this.active = null;
         this.listeners.clear();
     }

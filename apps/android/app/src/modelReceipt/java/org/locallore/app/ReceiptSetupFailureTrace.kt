@@ -74,19 +74,28 @@ internal class ReceiptSetupFailureTrace(private val case: ReceiptSetupFailureCas
     }
 }
 
-internal data class ReceiptSetupFailureSnapshot(
+internal class ReceiptSetupFailureSnapshot(
     val case: ReceiptSetupFailureCase,
     val expected: LocalModelSetupPhase,
     val actual: LocalModelSetupPhase,
     val error: ReceiptSetupFailureCode,
     val eventsTotal: Int,
     val eventsSaturated: Boolean,
-    val events: List<ReceiptSetupFailureEvent>,
+    events: List<ReceiptSetupFailureEvent>,
     val source: ReceiptSetupSourceProgress,
 ) {
+    // Copy at most sixteen entries, never retaining caller-owned mutable storage.
+    private val recorded = ArrayList<ReceiptSetupFailureEvent>().also { copy ->
+        val iterator = events.iterator()
+        while (iterator.hasNext()) {
+            require(copy.size < ReceiptSetupFailureTrace.EVENT_LIMIT)
+            copy.add(iterator.next())
+        }
+    }
+    val events: List<ReceiptSetupFailureEvent> get() = recorded.toList()
+
     init {
-        require(events.size <= ReceiptSetupFailureTrace.EVENT_LIMIT)
-        require(eventsTotal in events.size..ReceiptSetupFailureTrace.MAX_PROGRESS)
+        require(eventsTotal in recorded.size..ReceiptSetupFailureTrace.MAX_PROGRESS)
         require(!eventsSaturated || eventsTotal == ReceiptSetupFailureTrace.MAX_PROGRESS)
     }
 
@@ -94,7 +103,7 @@ internal data class ReceiptSetupFailureSnapshot(
         // Every string is a closed ASCII enum; no general string escaper/input exists.
         val value = "{\"version\":1,\"case\":\"${case.name}\",\"expected\":\"${expected.name}\"," +
             "\"actual\":\"${actual.name}\",\"error\":\"${error.name}\",\"events_total\":$eventsTotal," +
-            "\"events_saturated\":$eventsSaturated,\"events\":[" + events.joinToString(",") { "\"${it.name}\"" } +
+            "\"events_saturated\":$eventsSaturated,\"events\":[" + recorded.joinToString(",") { "\"${it.name}\"" } +
             "],\"source\":{\"opened\":${source.opened},\"closed\":${source.closed},\"active\":${source.active}," +
             "\"reads\":${source.readCalls},\"bytes\":${source.bytesRead}," +
             "\"reads_saturated\":${source.readsSaturated},\"bytes_saturated\":${source.bytesSaturated}}}"

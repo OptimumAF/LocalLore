@@ -155,13 +155,28 @@ class ReceiptSetupFailureTraceTest {
     }
 
     @Test fun snapshotBoundsRefuseImpossibleRingAndTotalValues() {
-        val good = snapshot(ReceiptSetupFailureTrace(ReceiptSetupFailureCase.ACCEPT))
-        refuses { good.copy(events = List(17) { ReceiptSetupFailureEvent.CREATE }, eventsTotal = 17) }
-        refuses { good.copy(events = listOf(ReceiptSetupFailureEvent.CREATE), eventsTotal = 0) }
-        refuses { good.copy(eventsTotal = -1) }
-        refuses { good.copy(eventsTotal = ReceiptSetupFailureTrace.MAX_PROGRESS + 1) }
-        refuses { good.copy(eventsSaturated = true) }
-        assertTrue(good.copy(eventsTotal = ReceiptSetupFailureTrace.MAX_PROGRESS, eventsSaturated = true).eventsSaturated)
+        fun candidate(eventsTotal: Int = 0, eventsSaturated: Boolean = false,
+                      events: List<ReceiptSetupFailureEvent> = emptyList()) = ReceiptSetupFailureSnapshot(
+            ReceiptSetupFailureCase.ACCEPT, LocalModelSetupPhase.READY, LocalModelSetupPhase.FAILED,
+            ReceiptSetupFailureCode.NONE, eventsTotal, eventsSaturated, events, ReceiptSetupSourceProgress())
+        refuses { candidate(events = List(17) { ReceiptSetupFailureEvent.CREATE }, eventsTotal = 17) }
+        refuses { candidate(events = listOf(ReceiptSetupFailureEvent.CREATE), eventsTotal = 0) }
+        refuses { candidate(eventsTotal = -1) }
+        refuses { candidate(eventsTotal = ReceiptSetupFailureTrace.MAX_PROGRESS + 1) }
+        refuses { candidate(eventsSaturated = true) }
+        assertTrue(candidate(eventsTotal = ReceiptSetupFailureTrace.MAX_PROGRESS, eventsSaturated = true).eventsSaturated)
+    }
+
+    @Test fun callerAndPublishedListsCannotChangeAnExistingReceipt() {
+        val caller = mutableListOf(ReceiptSetupFailureEvent.CREATE, ReceiptSetupFailureEvent.START)
+        val value = ReceiptSetupFailureSnapshot(ReceiptSetupFailureCase.ACCEPT,
+            LocalModelSetupPhase.READY, LocalModelSetupPhase.IMPORTING, ReceiptSetupFailureCode.NONE,
+            2, false, caller, ReceiptSetupSourceProgress())
+        val before = value.json()
+        repeat(32) { caller.add(ReceiptSetupFailureEvent.IMPORT_FAILED) }
+        (value.events as MutableList<ReceiptSetupFailureEvent>).clear()
+        assertEquals(before, value.json())
+        assertEquals(listOf(ReceiptSetupFailureEvent.CREATE, ReceiptSetupFailureEvent.START), value.events)
     }
 
     @Test fun eventCountSaturatesWithoutOverflowWhileRingContinues() {

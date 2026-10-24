@@ -4,10 +4,13 @@ Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
 import json
 from pathlib import Path
+import shlex
 import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
+from scripts.tests import test_receipt_setup_qualification as fixture
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "benchmarks"))
@@ -104,9 +107,49 @@ class SetupFailureTests(unittest.TestCase):
                 q.extract_failure_trace(invalid)
         self.assertIsNone(q.extract_failure_trace(b"INSTRUMENTATION_CODE: -1\n"))
 
-    def test_crlf_and_double_cr_transport_preserve_same_finite_value(self):
-        for ending in (b"\r\n", b"\r\r\n"):
+    def test_lf_and_crlf_transport_preserve_strict_existing_framing(self):
+        for ending in (b"\n", b"\r\n"):
             self.assertEqual(q.extract_failure_trace(wire().replace(b"\n", ending)), payload())
+        for invalid in (wire().replace(b"\n", b"\r\r\n"), wire().replace(b"\n", b"\r"),
+                        wire().replace(b"\n", b"\r\n", 1)):
+            with self.assertRaises(AssertionError):
+                q.extract_failure_trace(invalid)
+
+    def test_full_original_runner_context_refuses_failure_and_passing_markers(self):
+        passing = fixture.transcript()
+        self.assertEqual(q.parse_instrumentation(passing, q.INITIAL_CLASS, q.INITIAL_METHODS)["passed"], 3)
+        failure = passing.replace(b"INSTRUMENTATION_STATUS_CODE: 1\n",
+                                  b"INSTRUMENTATION_STATUS_CODE: 1\n" + wire(), 1)
+        failure = failure.replace(b"INSTRUMENTATION_STATUS_CODE: 0", b"INSTRUMENTATION_STATUS_CODE: -2", 1)
+        failure = failure.replace(b"OK (3 tests)", b"FAILURES!!!\nTests run: 3, Failures: 1")
+        self.assertEqual(q.extract_failure_trace(failure), payload())
+        with self.assertRaises(AssertionError):
+            q.parse_instrumentation(failure, q.INITIAL_CLASS, q.INITIAL_METHODS)
+        with self.assertRaises(AssertionError):
+            q.extract_failure_trace(passing + wire())
+
+    def test_actual_mock_owner_retains_raw_and_observation_but_never_binds_helper(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proposal = fixture.proposal(Path(directory)); lease = fixture.Lease(proposal)
+            owner = q.Owner(proposal, lease); transport = fixture.Transport(proposal, lease)
+            observed = fixture.transcript().replace(b"INSTRUMENTATION_STATUS_CODE: 1\n",
+                b"INSTRUMENTATION_STATUS_CODE: 1\n" + wire(), 1).replace(
+                b"INSTRUMENTATION_STATUS_CODE: 0", b"INSTRUMENTATION_STATUS_CODE: -2", 1).replace(
+                b"OK (3 tests)", b"FAILURES!!!\nTests run: 3, Failures: 1")
+            def dispatch(command, **kwargs):
+                result = transport(command, **kwargs)
+                if command[3] == "shell" and tuple(shlex.split(command[4])) == q.INITIAL_INSTRUMENT:
+                    result.stdout = observed
+                return result
+            with patch.object(q.host, "run_process", side_effect=dispatch), patch.object(
+                    q.shutil, "disk_usage", return_value=SimpleNamespace(free=20 * 1024 ** 3)):
+                with self.assertRaises(AssertionError):
+                    q.run_cohort(owner)
+            self.assertEqual(transport.instruments, 1)
+            self.assertEqual((owner.commands / ("command-%04d.stdout.bin" % owner.count)).read_bytes(), observed)
+            self.assertEqual(json.loads((owner.directory / "initial-failure-trace-v1.json").read_bytes()), payload())
+            self.assertFalse((owner.directory / "after-initial-facts.json").exists())
+            self.assertFalse((owner.directory / "restart-instrumentation-v1.json").exists())
 
     def test_observation_persists_before_unchanged_failed_runner_refusal(self):
         with tempfile.TemporaryDirectory() as directory:

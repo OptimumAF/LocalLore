@@ -48,12 +48,17 @@ declare global {
             timelining?: boolean;
             forking?: boolean;
             maintaining?: boolean;
+            authoring?: boolean;
             archiveStage?:
                 "source" | "import" | "restarted" | "uncertain" | "retire";
         };
     }
 }
 const errors = new ErrorBuffer();
+const authorHarnessModule = __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.authoring
+    ? await import("./author-native-journeys") : null;
+const authorTransport = authorHarnessModule
+    ? new authorHarnessModule.AuthorHarnessTransport() : null;
 const brokerRetention = new BrokerRetention((surface) =>
     surface === "author"
         ? author.get().busy ||
@@ -119,7 +124,9 @@ const invoke = (command: string, args: Record<string, unknown> = {}) => {
                 maintenance.get().operation?.running))
     )
         return Promise.reject("ArchiveBusy");
-    const native = () => window.__TAURI__.core.invoke(command, args);
+    const rawNative = () => window.__TAURI__.core.invoke(command, args);
+    const native = () => authorTransport
+        ? authorTransport.native(command, args, rawNative) : rawNative();
     if (authorStart) {
         try {
             if (typeof args.request !== "string") throw Error("InvalidInput");
@@ -534,7 +541,14 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
                 : durableDriver
                   ? durableDriver.durableJourneys
                   : driver.journeys;
-    if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.maintaining) {
+    if (authorHarnessModule && authorTransport) {
+        await authorHarnessModule.authorNativeJourneys({
+            controller, author, v2, brokerRetention,
+            gateway: gateway as InstanceType<typeof driver.FaultGateway>,
+            errors, invoke, dispose, config: window.__LOCALLORE_TEST__,
+            transport: authorTransport,
+        });
+    } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.maintaining) {
         const { memoryNativeJourneys } =
             await import("./memory-native-journeys");
         await memoryNativeJourneys({

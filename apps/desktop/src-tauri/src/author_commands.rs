@@ -406,10 +406,14 @@ impl AuthorManager {
             work.phase("author_applying")?;
             #[cfg(test)]
             manager.gate(false)?;
+            #[cfg(feature = "dev-harness")]
+            crate::author_harness::before_apply(&work)?;
             work.check()?;
             let cancelled = || work.cancelled() || cap.created.elapsed() >= TTL || manager.generation.load(Ordering::SeqCst) != cap.generation;
             if cancelled() { return Err("Cancelled".into()); }
             let outcome = host.apply_author_correction(&cap.prepared, &cancelled)?;
+            #[cfg(feature = "dev-harness")]
+            crate::author_harness::after_apply(&work);
             #[cfg(test)]
             let _ = manager.gate(true);
             // Successful actual Store commit is never relabeled by a late cancel.

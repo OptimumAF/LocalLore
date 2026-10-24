@@ -7,6 +7,8 @@ mod archive;
 mod archive_commands;
 mod author_commands;
 mod author_ipc;
+#[cfg(feature = "dev-harness")]
+mod author_harness;
 #[cfg(all(test, windows))]
 mod author_ipc_review;
 mod capture_exports;
@@ -141,7 +143,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},archiving:{},timelining:{},forking:{},maintaining:{},archiveStage:'{}',stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},archiving:{},timelining:{},forking:{},maintaining:{},authoring:{},archiveStage:'{}',stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
@@ -156,6 +158,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
             std::env::var("LOCALLORE_D08_TIMELINE_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_FORK_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_M07_MEMORY_HARNESS").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_M08_AUTHOR_HARNESS").as_deref() == Ok("1"),
             match std::env::var("LOCALLORE_D08_STAGE").as_deref(){Ok("import")=>"import",Ok("uncertain")=>"uncertain",Ok("retire")=>"retire",Ok("restarted")=>"restarted",_=>"source"},
             if reopened {
                 "reopened"
@@ -297,6 +300,7 @@ fn main() {
             fork_commands::fork_lookup,
             fork_harness::harness_fork_case,
             memory_harness::harness_memory_case,
+            author_harness::harness_author_case,
             memory_maintenance_commands::memory_maintenance_start,
             archive_commands::archive_export_preview,
             archive_commands::archive_import_preview,
@@ -412,6 +416,12 @@ fn main() {
                 && std::env::var("LOCALLORE_TEST_RESTART").as_deref() != Ok("1")
             {
                 memory_harness::seed(&path).map_err(std::io::Error::other)?;
+            }
+            #[cfg(feature = "dev-harness")]
+            if author_harness::active()
+                && std::env::var("LOCALLORE_TEST_RESTART").as_deref() != Ok("1")
+            {
+                author_harness::seed(&path).map_err(std::io::Error::other)?;
             }
             let model_root = path
                 .parent()

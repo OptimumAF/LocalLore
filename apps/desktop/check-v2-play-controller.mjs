@@ -596,6 +596,7 @@ test("original-native-rejection-survives-durable-phase-only-status-without-forgi
     await f.controller.send();
     const accepted = clone(f.controller.get().receipt);
     f.select({...f.ctx, revision:3});
+    await f.controller.refresh();
     rejected = true;
     await f.controller.send();
     assert.equal(f.controller.get().error, "Inventory");

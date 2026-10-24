@@ -4,7 +4,10 @@ use locallore::{
     context_compiler::ContextPolicy,
     contracts::*,
     engine::Engine,
-    play::{PlayProfile, NARRATION_POLICY, PROMPT_VERSION},
+    play::{
+        director_forwarded_budget_v25, director_repair_matches_v25, DirectorPassV25, PlayProfile,
+        NARRATION_POLICY, PROMPT_VERSION,
+    },
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -44,6 +47,9 @@ pub struct CurrentBinding {
     pub narration_policy: String,
     pub compiler_version: u16,
     pub context_version: u16,
+    /// Absent only on immutable historical reports; it cannot authorize resume.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub forwarded_budget_version: Option<u16>,
     pub policies: Vec<ContextPolicy>,
     pub max_admissions: usize,
     pub max_roles: usize,
@@ -66,6 +72,7 @@ pub fn current_binding(native: bool) -> Result<CurrentBinding> {
         narration_policy: NARRATION_POLICY.into(),
         compiler_version: 2,
         context_version: 2,
+        forwarded_budget_version: Some(1),
         policies: vec![
             ContextPolicy::StateRecentTranscriptV1,
             ContextPolicy::StateRelevantMemoryV1,
@@ -156,6 +163,10 @@ pub struct TurnReportV2 {
     pub director_private_target_present: Option<bool>,
     pub selected_context_bytes: Option<usize>,
     pub estimated_context_tokens: Option<u64>,
+    /// Checked actual role-byte estimates, independent of full diagnostic wire.
+    /// Missing historical values remain missing, never reconstructed as proof.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub forwarded_director_estimates: Option<Vec<Value>>,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -205,6 +216,7 @@ pub(crate) struct CapturedContext {
     pub package: Value,
     pub director_prompts: Vec<String>,
     pub narrator_prompts: Vec<String>,
+    pub director_estimates: Option<Vec<Value>>,
 }
 impl CapturedContext {
     pub fn from_host_capture(
@@ -214,7 +226,11 @@ impl CapturedContext {
         reply: &Value,
         captures: &[Capture],
         profile: &PlayProfile,
+        forwarded_budget_version: Option<u16>,
     ) -> Result<Self> {
+        if !matches!(forwarded_budget_version, None | Some(1)) {
+            return Err("CaptureBudgetVersion".into());
+        }
         if before.domain_version() != 1
             || request.scope != *before.scope()
             || request.expected_revision != before.revision()
@@ -240,6 +256,7 @@ impl CapturedContext {
         let mut package = None;
         let mut director_prompts = Vec::new();
         let mut narrator_prompts = Vec::new();
+        let mut director_estimates = forwarded_budget_version.map(|_| Vec::new());
         let mut observed = Vec::new();
         for (ordinal, a) in artifacts.iter().enumerate() {
             if a["ordinal"] != ordinal || encode(a)?.len() > 49_152 + 128 {
@@ -292,6 +309,26 @@ impl CapturedContext {
                             || matching.player_text_sha256 != Some(digest(text.as_bytes()))
                         {
                             return Err("CaptureVersion".into());
+                        }
+                        if let Some(estimates) = &mut director_estimates {
+                            let pass = match director_prompts.len() {
+                                0 => DirectorPassV25::Initial,
+                                1 => DirectorPassV25::Repair,
+                                _ => return Err("CaptureBudget".into()),
+                            };
+                            if pass == DirectorPassV25::Repair
+                                && !director_repair_matches_v25(&director_prompts[0], prompt)
+                            {
+                                return Err("CaptureRepairMismatch".into());
+                            }
+                            let estimate = director_forwarded_budget_v25(
+                                profile,
+                                pass,
+                                prompt,
+                                &v["input"]["schema"],
+                            )
+                            .map_err(|_| "CaptureForwardedBudget")?;
+                            estimates.push(serde_json::to_value(estimate).map_err(|_| "Encoding")?);
                         }
                         director_prompts.push(prompt.to_owned());
                     } else {
@@ -362,6 +399,7 @@ impl CapturedContext {
             package,
             director_prompts,
             narrator_prompts,
+            director_estimates,
         })
     }
 }

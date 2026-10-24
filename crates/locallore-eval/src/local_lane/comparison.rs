@@ -67,12 +67,19 @@ impl RunManifest {
         Ok(self.source_sha256 == current.source_sha256 && self.binding == current)
     }
     fn validate(&self) -> Result<()> {
-        let current = Self::new(
+        let mut current = Self::new(
             self.kind,
             self.profile.clone(),
             self.binding.native,
             self.reference_sha256.clone(),
         )?;
+        // Historical absent estimates remain viewable under their original
+        // stable key. source_matches still refuses executing that old source.
+        match self.binding.forwarded_budget_version {
+            None => current.binding.forwarded_budget_version = None,
+            Some(1) => {}
+            Some(_) => return Err("ComparisonBinding".into()),
+        }
         if self.version != 2
             || self.stable_key() != current.stable_key()
             || !hex(&self.source_sha256)
@@ -309,6 +316,7 @@ struct Observation<'a> {
     commit_elapsed_ms: Option<u64>,
     profile: &'a PlayProfile,
     recovered: bool,
+    forwarded_budget_version: Option<u16>,
 }
 fn make_row(observation: Observation<'_>) -> Result<TurnReportV2> {
     let Observation {
@@ -329,6 +337,7 @@ fn make_row(observation: Observation<'_>) -> Result<TurnReportV2> {
         commit_elapsed_ms,
         profile,
         recovered,
+        forwarded_budget_version,
     } = observation;
     let request = step.request(before);
     let same = before.accepted_history_basis().map_err(|_| "Source")?
@@ -386,6 +395,7 @@ fn make_row(observation: Observation<'_>) -> Result<TurnReportV2> {
                     capture,
                     &recording.captures,
                     profile,
+                    forwarded_budget_version,
                 )
                 .ok()
             })
@@ -544,6 +554,7 @@ fn make_row(observation: Observation<'_>) -> Result<TurnReportV2> {
         estimated_context_tokens: checked
             .as_ref()
             .and_then(|c| c.package["estimated_tokens"].as_u64()),
+        forwarded_director_estimates: checked.as_ref().and_then(|c| c.director_estimates.clone()),
     })
 }
 
@@ -616,6 +627,7 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
             commit_elapsed_ms: None,
             profile: &factory.profile()?,
             recovered: true,
+            forwarded_budget_version: Some(1),
         })?;
         return Ok(StoredTurn {
             version: 2,
@@ -654,6 +666,7 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
             commit_elapsed_ms: None,
             profile: &profile,
             recovered: false,
+            forwarded_budget_version: Some(1),
         })?;
         return Ok(StoredTurn {
             version: 2,
@@ -858,6 +871,7 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
         commit_elapsed_ms,
         profile: &profile,
         recovered: false,
+        forwarded_budget_version: Some(1),
     })?;
     let result = StoredTurn {
         version: 2,
@@ -894,8 +908,9 @@ fn load_turn(
     arm: &str,
     policy: ContextPolicy,
     key: &str,
-    profile: &PlayProfile,
+    manifest: &RunManifest,
 ) -> Result<StoredTurn> {
+    let profile = &manifest.profile;
     let stored: StoredTurn = decode(&checkpoint_path(dir, index), 256 * 1024)?;
     let corpus = suite()?;
     let step = &corpus.steps()[index];
@@ -995,6 +1010,7 @@ fn load_turn(
         commit_elapsed_ms: stored.row.commit_elapsed_ms,
         profile,
         recovered: stored.row.recovered_without_checkpoint,
+        forwarded_budget_version: manifest.binding.forwarded_budget_version,
     })?;
     if actual != stored.row {
         return Err("CheckpointEvidenceMismatch".into());
@@ -1119,7 +1135,7 @@ pub fn open_reference(dir: &Path) -> Result<ValidatedReference> {
             "reference",
             ContextPolicy::StateRelevantMemoryV1,
             &key,
-            &manifest.profile,
+            &manifest,
         )?;
         let before = engine
             .at_revision(t.before_head)
@@ -1326,7 +1342,7 @@ fn load_turns(dir: &Path, manifest: &RunManifest, key: &str) -> Result<[Vec<Stor
                 ARM_NAMES[arm],
                 POLICIES[arm],
                 key,
-                &manifest.profile,
+                manifest,
             )?;
             if manifest.kind == ComparisonKind::ContinuousRollout {
                 let expected = result[arm].last().map_or(0, |t| t.after_head);

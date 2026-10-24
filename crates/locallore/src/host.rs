@@ -1373,6 +1373,9 @@ impl Host {
                     if !self.story_lab {
                         return reject("Forbidden");
                     }
+                    if s.engine.domain_version() != 1 {
+                        return reject("Version");
+                    }
                     ok(
                         json!({"scope":scope,"observer":observer,"revision":s.engine.revision(),"state":s.engine.state(),"receipts":s.engine.receipts()}),
                     )
@@ -1402,10 +1405,13 @@ impl Host {
                     return reject("Stale");
                 }
                 let player = &s.engine.seed().player;
-                let context = s
+                let context = match s
                     .engine
                     .character_context(player, &scope, expected_revision)
-                    .unwrap();
+                {
+                    Ok(context) => context,
+                    Err(error) => return reject(error),
+                };
                 let inventory: BTreeMap<_, _> = s
                     .engine
                     .state()

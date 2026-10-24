@@ -104,9 +104,12 @@ const unsupported = envelope([], qUnsupported); unsupported.status = "unsupporte
 const rowFamilies = [
     ["profiles", { kind: "field", key: "field", actor: "player", field: "energy", value: { type: "number", value: 2 }, source: { kind: "seed", value: "lantern-quay-v1" }, origin: "canonical_field" }],
     ["relationships", { kind: "relationship", key: "relationship", from: "mira", to: "player", dimension: "trust", value: -3, source: scoped(), origin: "canonical_field" }],
-    ["promises", { kind: "promise", key: "promise", id: "return-key", from: "player", to: "oren", terms: "Return key", deadline: 120, status: "open", return_item: "brass-key", sources: [scoped()], origin: "canonical_field" }],
+    ["promises", { kind: "promise", key: "promise", id: "return-key", from: "player", to: "oren", terms: "Return key", deadline: 120, status: "open", return_item: "brass-key", sources: [scoped()], origin: "derived_comparison" }],
     ["provenance", { kind: "provenance", key: "provenance", sources: [{ kind: "withheld" }], origin: "known_as_observed" }],
     ["turn_diff", { kind: "change", key: "change", before_revision: 1, after_revision: 3, before: null, after: knowledge, origin: "derived_comparison" }],
 ];
 for (const [view, row] of rowFamilies) { const q = query(); q.view = view; accepts(() => page(envelope([row], q), q)); }
+const qPromise = query(); qPromise.view = "promises";
+const wrongPromiseOrigin = clone(rowFamilies.find(([view]) => view === "promises")[1]); wrongPromiseOrigin.origin = "canonical_field";
+rejects(() => page(envelope([wrongPromiseOrigin], qPromise), qPromise));
 console.log(JSON.stringify({ suite: "synthetic-v2-wire-decoder", checks, native: false, model: false }));

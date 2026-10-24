@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-author-preview-discard"
+description = "Enables the author_preview_discard command without any pre-configured scope."
+commands.allow = ["author_preview_discard"]
+
+[[permission]]
+identifier = "deny-author-preview-discard"
+description = "Denies the author_preview_discard command without any pre-configured scope."
+commands.deny = ["author_preview_discard"]

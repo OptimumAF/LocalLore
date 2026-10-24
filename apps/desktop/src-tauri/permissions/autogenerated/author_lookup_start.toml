@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-author-lookup-start"
+description = "Enables the author_lookup_start command without any pre-configured scope."
+commands.allow = ["author_lookup_start"]
+
+[[permission]]
+identifier = "deny-author-lookup-start"
+description = "Denies the author_lookup_start command without any pre-configured scope."
+commands.deny = ["author_lookup_start"]

@@ -65,8 +65,11 @@ inode. Try an exclusive OS lock; contenders fail BUSY. Keep ownership until the
 source and all owned channels actually return/close. Cancellation request alone
 does not free a blocked source or its reservation. Never unlink the lock.
 
-`installed()` returns null if control/marker is absent, without creating a lock,
-cache or exposing pending bytes. A marker requires the existing lock, exact
+`installed()` takes the process reservation first. An existing persistent lock
+is opened without CREATE and tried before deciding that a marker is absent;
+contention therefore returns BUSY even for pending data. Absent control, or an
+absent marker and absent lock, returns null without creating a lock or cache or
+exposing pending bytes. A marker requires the existing lock, exact
 receipt and owner, zero-byte regular marker, complete model size/digest and safe
 cache. Revalidate after hashing before returning LocalModelFiles. A reader may
 observe null just before another process commits; it never returns pending data.

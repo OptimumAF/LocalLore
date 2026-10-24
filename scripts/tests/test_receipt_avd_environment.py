@@ -609,6 +609,21 @@ class EnvironmentTests(unittest.TestCase):
         (content / "sdcard.img").write_bytes(b"too small")
         (Path(value["paths"]["registry"]) / (env.NAME + ".ini")).write_bytes(self.generated_registry(content))
         if existing_userdata:
+            # Isolate userdata refusal: SD must independently satisfy admission.
+            # Set a sparse host-test file, without an 8GiB allocation or SDK tool.
+            import ctypes
+            import msvcrt
+            from ctypes import wintypes
+            with (content / "sdcard.img").open("wb") as stream:
+                kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+                kernel.DeviceIoControl.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.c_void_p,
+                    wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD,
+                    ctypes.POINTER(wintypes.DWORD), ctypes.c_void_p]
+                kernel.DeviceIoControl.restype = wintypes.BOOL
+                returned = wintypes.DWORD()
+                self.assertTrue(kernel.DeviceIoControl(msvcrt.get_osfhandle(stream.fileno()),
+                    0x900C4, None, 0, None, 0, ctypes.byref(returned), None))  # FSCTL_SET_SPARSE
+                stream.truncate(8 * env.GIB)
             (content / "userdata-qemu.img").write_bytes(b"must not adopt")
         return env.host.ProcessResult("completed", 10, b"created", 0, 0, True)
 
@@ -628,6 +643,7 @@ class EnvironmentTests(unittest.TestCase):
             with self.assertRaisesRegex(env.EnvironmentRefused, "invalid_initial_disks"):
                 env.prepare(p, a)
         content = Path(value["paths"]["content"])
+        self.assertEqual((content / "sdcard.img").stat().st_size, 8 * env.GIB)
         self.assertEqual((content / "userdata-qemu.img").read_bytes(), b"must not adopt")
         self.assertEqual((content / "config.ini").read_bytes(), ACTUAL_CMDLINE_11_CONFIG)
         self.assertFalse((content / "config.created.ini").exists())

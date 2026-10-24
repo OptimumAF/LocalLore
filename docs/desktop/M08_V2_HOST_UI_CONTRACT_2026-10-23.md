@@ -37,12 +37,14 @@ comments and verification reports. No new execution is inferred here.
 Keep Host envelope protocol1 and all existing operations/DTOs unchanged. Do not
 globally bump query1 constants or reinterpret legacy snapshots. Proposal:
 
-1. Add explicit read-only `play_snapshot_v2` and `player_history_v2` commands,
-   each with fixed request version2 and explicit result version2. Keep legacy
+1. Add explicit read-only `play_snapshot_v2`, with fixed request version2 and
+   explicit result version2. Keep legacy
    `play_snapshot` intact, including its Domain2 refusal. Both new read paths
    may support Domain1 as well as Domain2 using actual V2 actor semantics.
-2. Reuse existing `inspection_query` with Query.version2. Its existing bounded
-   Page2 is the minimum player/character/omniscient inspector; do not add a raw
+2. Reuse existing `inspection_query` with Query.version2 for paged transcript,
+   events, facts and inspection. Its existing bounded Page2 is the minimum
+   player/character/omniscient inspector; do not add a player_history_v2/query2
+   operation, full observations/receipts array or raw
    omniscient Engine/state dump or duplicate Query2. Legacy `inspect` remains
    legacy. The app switches inspection rendering to typed Page2 after closure.
 3. Author prepare/commit/lookup are trusted-native methods plus narrowly named
@@ -61,9 +63,6 @@ Proposed fixed requests, inside the existing envelope1:
 play_snapshot_v2 {
   version:2, session, scope, expected_revision
 }
-player_history_v2 {
-  version:2, session, scope, expected_head, cursor:null|string, limit:1..64
-}
 inspection_query { session, query:{version:2, ...existing exact Query fields} }
 ```
 
@@ -74,50 +73,41 @@ that an imported/recreated scope has the same history. No read mutates selected
 engine, time, knowledge, drafts or generation state. Mixed-read advances result
 in Stale and clear the old page before fresh publication.
 
-## Proposed player snapshot and history DTOs
+## Proposed thin snapshot and existing paged Query2 history
 
 ```text
 PlayerSnapshotV2 {
   version:2, domain_version:1|2, scope, revision, rules,
-  player: actual CharacterContextV2,
-  inventory: actual player-owned items,
-  history: PlayerHistoryPageV2
-}
-PlayerHistoryPageV2 {
-  version:2, scope, head, observer:"player", privacy:"player_visible",
-  entries:[PlayerTurnV2 | AuthorBoundaryV2], next_cursor:null|string,
-  limitations:[fixed supported strings]
-}
-PlayerTurnV2 {
-  kind:"play", original_scope, turn,
-  original_input:null|{kind:"free_text"|"dialogue",text},
-  narration, events:[actual ActorEventV2]
+  player:{version:2, scope, revision, observer, self_state:actual player Actor},
+  inventory: actual player-owned items
 }
 AuthorBoundaryV2 {
-  kind:"author_boundary", original_scope, revision
+  kind:"author_correction", revision
 }
 ```
 
-This is proposed transport data, not existing Rust types. Root must approve the
-marker policy and budgets before freezing implementation tests. `original_input`
-is exact accepted prose when present; typed actions have null original prose,
-with an honest fixed "Recorded typed action" label rather than invented text.
-Never expose an accepted Request/Proposal merely to get chat text. Receipt ID is
-the original scope plus turn; event identity is original scope plus sequence.
-No frontend rewrites ancestor scope to the selected child.
+This is proposed transport data, not existing Rust types. The thin player data
+comes from actual V2-safe actor state; do not serialize the full
+CharacterContextV2.observations/facts/beliefs or all receipts. Query2 Profiles,
+Knowledge and History pages provide those supported details explicitly at the
+same expected head. Original input/narration use existing Message rows; typed
+actions have no invented original prose. Never expose a full accepted
+Request/Proposal merely to get chat text. Event identity is original scope plus
+sequence. No frontend rewrites ancestor scope to the selected child. Receipt
+inspection groups actual eligible History rows by captured original event scope
+and turn, without treating a partial page as an entire accepted receipt.
 
-The shared Rust producer enumerates actual canonical ordinary receipts, applying
-the same existing owning-player **whole-receipt eligibility** used by Query2 /
-compiler2: every supporting event must be eligible at the selected completed
-head. Only then can the original input and narration accompany the entire
-approved event set. A partial actor event view cannot authorize whole-receipt
-prose. Use the shared selector/eligibility seam; do not implement permissions in
-TypeScript/Kotlin or create an alternate ledger/evaluator. Display-only grouping
-does not change canonical state. A displayed receipt is a permitted view, not
-the private persisted CanonicalPlayV2 wrapper.
+The actual existing shared Query2 History implementation already applies
+owning-player **whole-receipt eligibility** before emitting original input and
+narration: every supporting event must pass at the selected completed head.
+A partial actor event view cannot authorize whole-receipt prose. Reuse that
+selector; do not implement permissions in TypeScript/Kotlin or create another
+transcript filter/ledger/evaluator. Display-only grouping does not change state.
+A displayed receipt view is not the private persisted CanonicalPlayV2 wrapper.
 
-AuthorBoundaryV2 is a proposed **player-only neutral metadata marker** for an
-included AuthorV1 revision, not an actor observation. It contains no fact ID,
+Root approves a **player-only neutral out-of-story marker** for an included
+AuthorV1 revision, not an actor observation. Its ONLY serialized fields are
+revision and constant kind author_correction: no original_scope/source, fact ID,
 before/replacement/reason, retained-knower count, TruthSource or private binding.
 Label "Author correction; no character observation was created" and distinguish
 it from a played turn. Do not claim the receipts-only ordinary feed is full
@@ -125,21 +115,25 @@ canonical history or invent a narrator turn, witness, story-time advance or
 discovery at that revision. Excluded parent suffix/sibling/retired child data
 must not appear. The marker must not enter NPC history, model context or actor
 knowledge. An ungranted NPC query has no marker count/author metadata channel.
-If Root declines player markers, use an explicit incomplete-history notice and
-provide private native author-boundary inspection; never silently omit gaps
-while labeling the feed complete.
+Proposed transport location is an explicit Query2 History-only marker row,
+player observer only, using existing pagination. Exact enum/internal sorting-key
+representation still needs Root's next interface freeze: existing Row normally
+has key/origin, so those must not leak onto this exception's two-field wire shape.
+The UI derives a display-only stable key from captured page scope plus revision.
+No marker enters Query1, NPC/omniscient history, CharacterContextV2 or compiler
+rows. No producer/render exposure before that exact variant is independently
+frozen and tested; do not infer implementation approval from the marker policy.
 
-History pages pack whole entries, with proposed64-entry/65536-byte page ceilings
-and existing128-byte cursor bound. A single oversized entry returns TooLarge;
-never split narration/input into misleading partial accepted turns or skip it
-silently. Bind cursor to view version/scope/head/actual basis/player and eligible
-entry stream; namespace distinct from Query1/Query2. It is a stale/tamper fence,
-not a grant. Snapshot total bytes stay within Host MAX_OUTPUT262144, including
-CharacterContextV2. If its full context exceeds that existing ceiling, return
-TooLarge honestly; paginating large actor context is a separate explicit port,
-not silent truncation. No long-history performance claim follows from this
-minimum closure. Query2 keeps its existing64 rows/65536 bytes/256 search bytes
-and cursor2; its row pagination need not preserve chat grouping.
+Reuse actual caps without expansion: Host MAX_INPUT24576/MAX_OUTPUT262144;
+Query MAX_ROWS64/MAX_PAGE_BYTES65536/MAX_CURSOR_BYTES128/MAX_SEARCH_BYTES256;
+Core MAX_RECEIPT_BYTES65536. Query2 keeps its existing4096-byte page envelope
+reserve, sorted rows/cursor2 and oversized-row rejection. A page may separate
+input, narration and event rows; never relabel one page as a full receipt or
+silently omit unsupported gaps. Snapshot emits thin state/inventory only, bounded
+by existing output cap, or TooLarge. Query2 facts/history/transcript are explicit
+follow-up reads with the same expected head; a changed source/head invalidates
+the combined presentation. No unbounded full context or new history budget is
+introduced. No long-history performance qualification follows from this proposal.
 
 ## Observer and provenance closure
 
@@ -197,6 +191,15 @@ Root must choose a bounded opaque native port implementation. The actual Store
 plan must stay retained in its existing Store adapter and owner incarnation,
 never reconstructed from renderer preview bytes/token/hash or cloned Engine.
 Default unsupported Persistence implementations stay closed.
+
+Root accepts a native prepared-plan trait-object abstraction as feasible. A
+string handle may only key a fixed bounded registry owned by this same Store
+adapter; it cannot be an author record, serialized plan or portable capability.
+Suggested minimum is one live author preparation per existing workspace
+operation owner. Root's next freeze must define exact handle type, native
+preview accessors, owner/downcast proof, release/cancel semantics and registry
+bound before any independent test source or production edit. This document
+records feasibility, not approval of a specific implementation.
 
 The native owner must independently require author capability. A Story Lab
 inspection grant is necessary for private preview but insufficient for commit;
@@ -270,13 +273,68 @@ not authorize automatic apply; require a fresh current preparation and second
 confirmation for any new commit. Preserve the original identity until terminal
 status is known. No automatic regeneration, child rename or model rerun.
 
-Minimum first slice can retain this identity in native memory for same-process
-lost-ack recovery. Process restart destroys the preview capability; it cannot
-reconstruct an authorized plan from a journal. Full restart recovery requires
-an explicitly approved private pending-workflow identity owner, or honest manual
-exact-input lookup after fresh consent. This proposal does not silently add a
-new persistence subsystem/localStorage copy of private author inputs. Root must
-choose and document that recovery scope before implementing or promising it.
+Process restart destroys the preview capability and every author permission;
+it cannot reconstruct an authorized plan from a journal. Root selects a
+non-authoritative **workflow hint**, identifiers plus full-input fingerprint
+only, for proposed outcome inspection. Never persist author prose/reason or a
+prepared capability in a renderer store or add a canonical journal/schema.
+
+Proposed hint shape, subject to exact native-operation/root binding freeze:
+
+```text
+AuthorRecoveryHintV1 {
+  version:1, parent, expected_parent_revision, fork_revision, child_branch,
+  native_operation_id, input_sha256
+}
+```
+
+`input_sha256` is SHA256 of the exact deterministic shared serde serialization
+of the entire Core-validated AuthorCorrectionInputV1, computed natively before
+dispatch. The format/hash bytes must be frozen before writers exist. The hint
+contains no fact/proposition/reason, is untrusted availability metadata, and
+cannot authorize commit or prove that a correction exists.
+
+On explicit recovery inspection under fresh native privilege, the **same Store
+owner** loads the actual retained child through validated Core canon. A narrow
+native proposed `recover_author_outcome(hint)` locates its actual AuthorV1,
+checks every hint identifier including the full original H/f/child identity,
+recomputes the full-input fingerprint, and only then calls the existing exact
+`lookup_author_correction(actual_input)`. It returns bounded outcome metadata,
+never author input/prose. No write, preparation, generation, permission renewal,
+automatic retry or child selection follows from a hint. Missing/tombstoned child,
+kind mismatch, fingerprint mismatch and unavailable actual full input remain
+closed outcomes; missing/full-input-unavailable requires manual exact re-entry
+or explicit discard after inspection, not fabricated success. An ordinary fork
+at that child is not a recovered correction. Parent advance/retirement does not
+invalidate an otherwise exact retained child's read-only lookup.
+
+Actual existing hint machinery inspection:
+
+- Desktop `ui/main.tsx:204–227` stores the fixed fork input in app-origin
+  localStorage key `locallore-fork-recovery-v1`; load is bounded to1024 characters
+  and ForkController.restore decodes it before lookup-only recovery. Its
+  prepare/save callback runs before native dispatch and rechecks context afterward.
+  This is an existing **renderer** workflow hint owner, not native private atomic
+  persistence. Reuse its callback/order/lookup-only pattern with a separately
+  versioned strictly decoded metadata-only hint; do not overwrite the fork key,
+  broaden its decoder, treat origin storage as trust or write author prose there.
+  Its corruption/tamper/write-failure/context-change tests must extend to hints.
+- Android `ForkRecoveryStore.kt` already owns a fixed noBackup AtomicFile,
+  process-wide writer gate, bounded reads, compare-before-write, fd/directory
+  sync and immutable pending fork identity. Its parser is fork-only. Do not
+  broaden it casually or claim it supplies desktop native private persistence.
+  Android author controls are outside the minimum slice; any later typed author
+  hint extension requires its own owner claim/tests and native recovery closure.
+
+Thus metadata-only desktop hint reuse is a feasible extension to the existing
+workflow owner, with a prerequisite: approve the closed hint/root/native-op
+identity format and same-Store privileged recovery method, then independently
+freeze tamper/stale/missing/read-only/no-auto-write oracles. If the desired gate
+requires native noBackup/atomic desktop hint persistence rather than existing
+origin storage, that is a separate explicit prerequisite; no such desktop owner
+exists in the inspected code. Until this closes, advertise same-process
+lost-ack lookup only and honest manual restart recovery. No new journal/schema
+or automatic post-restart commit is proposed.
 
 ## Proposed path ownership and closure gate
 
@@ -285,12 +343,12 @@ exclusive implementation/test claims before any existing file changes.
 
 | Owner / exact candidate paths | Responsibility |
 | --- | --- |
-| Shared Core: NEW `crates/locallore/src/app_views_v2.rs`; existing `author_correction.rs`, `inspection_query.rs` only where shared selection extraction is necessary | Typed bounded player view/history with actual shared eligibility; no duplicate permissions. |
+| Shared Core: NEW `crates/locallore/src/app_views_v2.rs`; existing `inspection_query.rs`, `inspection_query_v2.rs` only allocated marker/typed integration | Thin bounded player snapshot and exact player-only marker variant; reuse existing paged Query2 eligibility, no duplicate transcript/permissions. |
 | Root Host/Store adapter: existing `crates/locallore/src/host.rs`, `crates/locallore-workspace/src/lib.rs`; NEW `crates/locallore-workspace/src/author_correction.rs` if approved | Versioned reads and opaque native author port on the actual existing Store. Existing storage author implementation remains owner/authority. |
 | Desktop native Root: NEW `apps/desktop/src-tauri/src/author_commands.rs`; existing `main.rs`, `archive.rs`, `lease.rs` only allocated integration | Fixed private commands, same operation/lifetime owner and native grant/preview fencing. No second Store/window broker. |
 | Desktop consumer: NEW `ui/app-view-v2.ts`, `ui/author-controller.ts`, `ui/AuthorPanel.tsx`; existing `model.ts`, `query-model.ts`, `controller.ts`, `App.tsx`, `main.tsx` under exclusive allocation | Closed DTOs, scoped source navigation, honest history markers, safe stage/confirm/recovery and private-state clearing. |
 | Generated request closure: `apps/desktop/host-v1.schema.json`, `ui/host.generated.ts`, `check-contract.mjs`; source generator `crates/locallore/examples/host_schema.rs` | Additive generated command union only, preserve old schema/fixture acceptance. Generation does not itself validate output DTOs. |
-| Android consumer: existing `DurableGateway.kt`, `StoryRecord.kt`, `StoryRecordWire.kt`, `EventSourceController.kt`, `ShellViewModel.kt`; NEW `AppViewV2Wire.kt` if approved | Play/read/resume2, known-as-observed/scoped evidence references, player-only fixed lens, same existing NativeWorkspace lease; no Android author UI in minimum slice. Reconcile #9 ownership before edits. |
+| Android consumer: existing `DurableGateway.kt`, `StoryRecord.kt`, `StoryRecordWire.kt`, `StoryRecordController.kt`, `ShellViewModel.kt`; NEW `AppViewV2Wire.kt` if approved | Play/read/resume2, known-as-observed/scoped evidence references (actual event-source controller is inside StoryRecordController.kt), player-only fixed lens, same existing NativeWorkspace lease; no Android author UI in minimum slice. Reconcile #9 ownership before edits. |
 | Independent frozen tests before implementation | NEW shared actual-Host app-view/author-port tests; NEW desktop decoder/controller/native harness journeys; NEW Android JSONObject instrumentation tests. Exact names assigned when interfaces are approved. |
 
 ## Required frozen acceptance oracles before production exposure
@@ -304,10 +362,11 @@ exclusive implementation/test claims before any existing file changes.
    updates only its actor. Search/counts/pages/cursors contain no excluded
    parent/sibling/future text. NPC serialized bytes contain no player transcript,
    narration, author reason, private binding or current hidden truth.
-3. Actual eligible whole player receipts contain exact original prose+narration
+3. Actual eligible whole player receipts disclose exact original prose+narration
    and original scoped event references. Partially visible receipts disclose
-   neither input nor narration. Author intervals have honest neutral marker or
-   explicit incompleteness, never a fake actor event or full-history claim.
+   neither input nor narration. Query2 pagination does not weaken that owning
+   predicate. Author intervals have the exact two-field player marker, never a
+   source/fact/reason, fake actor event or full canonical-history claim.
 4. Malformed/unknown versions, scoped references, origins, page bounds, cursor
    namespace, unsafe integers, duplicate IDs, foreign story and cross-head data
    fail closed in both app decoders; supported inherited original scope works.
@@ -317,8 +376,11 @@ exclusive implementation/test claims before any existing file changes.
    returns exact actual child; changed identity/ordinary-fork collision refuses.
 6. Cancel before preparation/apply, cancel panic, busy/full/rollback and lost
    commit acknowledgement preserve exact source/identity. Late committed result
-   wins cancel; lookup never writes or resurrects. Actual restart recovery gate
-   is tested only for the explicitly chosen identity persistence scope.
+   wins cancel; lookup never writes or resurrects. Metadata-only recovery hint
+   tamper/hash/H/f/child/native-op mismatch, missing/full-input-unavailable child
+   and restarted window never authorize prepare/commit; actual validated child
+   fingerprint+exact lookup can recover outcome only. Test every hint save/load
+   context boundary and retain manual recovery if its prerequisite is unavailable.
 7. Controller switches session/observer/Play/lab/root/window at every pending
    boundary: no stale private preview, source page, child selection, receipt or
    error restoration. Same native lease/root gate prevents dispatch after close.
@@ -339,13 +401,13 @@ close, author IPC stays unregistered and apps retain honest unsupported states.
 
 | Decision | Recommended minimum / unresolved boundary |
 | --- | --- |
-| V2 operations | Approve new play_snapshot_v2 + player_history_v2, reuse existing inspection_query(version2), retain legacy Inspect refusal. |
-| Player history marker | Approve neutral player-only author boundary metadata; otherwise explicit incomplete-history notice plus private author boundary view. Never NPC/model markers. |
-| Budgets/capabilities | Approve proposed64-entry/64KiB history,262144 total snapshot,65536 private author input/preview,128-byte cursor and exact capabilities-version field before schema/tests freeze. |
-| Opaque native port | Choose typed opaque Host/Persistence mechanism while keeping actual Store plan in the same adapter/incarnation; no Core→storage dependency or renderer plan authority. |
+| V2 operations | Root selects thin play_snapshot_v2 + existing inspection_query(version2) transcript/facts/history; no new query2/history operation, full observations or all-receipt array. Freeze exact thin DTO/capability field next. |
+| Player history marker | Root approves ONLY revision+constant kind author_correction, player-only/out-of-story. Freeze exact Query2 History variant/sorting representation next; no source/fact/reason/key/origin on its wire shape, NPC/model/context marker. |
+| Budgets/capabilities | Reuse actual24576 Host input/262144 output, Query64 rows/65536 bytes/128 cursor/256 search/4096 envelope reserve. Root accepts separate private author input/preview cap65536; generic Host limits unchanged. |
+| Opaque native port | Root accepts trait-object/Store-owned bounded registry feasibility; exact handle/cancel/accessor/lease/owner proof remains for next freeze. Actual Store plan stays in same adapter/incarnation; no Core→storage dependency or renderer plan authority. |
 | Author consent/lifetime | Approve distinct native author capability and second confirmation bound to exact preview/window/root/session/Store; choose native root-incarnation representation using current owners. |
-| Recovery scope | Minimum in-process exact-input lost-ack recovery; approve a private workflow identity owner separately for restart recovery, or document manual exact-input recovery. No automatic post-restart commit. |
-| Android scope | Read/resume/StoryRecord2 first, existing native transport/lease, no author editing controls; full D08 roundtrip/runtime remains separately qualified. |
+| Recovery scope | Root selects metadata-only identifiers+full-input SHA256 hint and same-Store privileged validated-child fingerprint+exact lookup for OUTCOME inspection only. Existing desktop origin-storage hint pattern needs closed format/native recovery prerequisite; native atomic desktop privacy would require separate prerequisite. No new journal/schema or auto commit; missing/full input unavailable requires manual re-entry/discard. |
+| Android scope | Root selects read/resume/StoryRecord2 and roundtrip parity first, existing native transport/lease; no Android author UX acceptance claim. Full D08 runtime remains separately qualified. |
 
 Source inspection, Git isolation and diff checks only were performed. All
 proposed APIs, tests, harness journeys and renders are unimplemented/unrun. No

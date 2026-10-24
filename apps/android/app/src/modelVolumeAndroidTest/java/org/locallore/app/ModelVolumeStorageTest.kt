@@ -59,6 +59,8 @@ class ModelVolumeStorageTest {
             assertFalse(storage.uuid.isNullOrBlank())
             assertNotEquals(Os.stat(context.noBackupFilesDir.path).st_dev, Os.stat(appFiles.path).st_dev)
             assertAbsent(root)
+            val externalFreeBefore = appFiles.usableSpace
+            val userdataFreeBefore = context.noBackupFilesDir.usableSpace
             volume.admit(BYTES.size.toLong()) // Unchanged >=2 GiB volume / userdata policy.
 
             val rejectedRoot = File(appFiles, "volume-rejected-v1")
@@ -116,6 +118,8 @@ class ModelVolumeStorageTest {
             assertArrayEquals(SENTINEL, sentinel.readBytes())
             volume.admit()
             assertAbsent(candidateRoot)
+            val externalFreeAfter = appFiles.usableSpace
+            val userdataFreeAfter = context.noBackupFilesDir.usableSpace
 
             Files.createDirectory(proofRoot.toPath())
             val proof = JSONObject().put("version", 1).put("pid", Process.myPid())
@@ -127,6 +131,8 @@ class ModelVolumeStorageTest {
                 .put("native_no_replace", true).put("stage_preserved", true)
                 .put("candidate_root_absent", true)
                 .put("candidate_root_sha256", sha(candidateRoot.path.toByteArray(Charsets.UTF_8)))
+                .put("external_free_before", externalFreeBefore).put("external_free_after", externalFreeAfter)
+                .put("userdata_free_before", userdataFreeBefore).put("userdata_free_after", userdataFreeAfter)
                 .put("sentinel_sha256", sha(SENTINEL)).toString().toByteArray(Charsets.US_ASCII)
             assertTrue(proof.size <= 4096)
             forcedNew(File(proofRoot, "volume-proof-v1.json"), proof)

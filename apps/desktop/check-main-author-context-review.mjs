@@ -616,8 +616,16 @@ test("own author admission stays live and terminal consumption waits for actual 
             assert.ok(f.author.get().preview);
             assert.equal(f.brokerRetention.get().unknown, false);
             assert.equal(f.brokerRetention.get().consumed, true);
-            await assert.rejects(f.controller.gateway.native("archive_status", {operationId:11}));
-            assert.equal(f.brokerRetention.get().unknown, false, "late transport failure must preserve an already validated terminal preview");
+            await assert.rejects(
+                f.controller.gateway.native("archive_status", {
+                    operationId: 11,
+                }),
+            );
+            assert.equal(
+                f.brokerRetention.get().unknown,
+                false,
+                "late transport failure must preserve an already validated terminal preview",
+            );
             assert.equal(f.brokerRetention.get().consumed, true);
             assert.ok(
                 observations.every(
@@ -703,43 +711,69 @@ test("late old-owner author status rejection cannot poison an acknowledged repla
 test("in-flight old-owner rejection is fenced after acknowledgement and replacement", () => {
     const late = deferred();
     let polling = 0;
-    return using({
-        authorReply: async () => operation({phase:"author_preparing"}),
-        statusReply: async () => {
-            if (++polling === 1) throw Error("Transport");
-            return late.promise;
+    return using(
+        {
+            authorReply: async () => operation({ phase: "author_preparing" }),
+            statusReply: async () => {
+                if (++polling === 1) throw Error("Transport");
+                return late.promise;
+            },
         },
-    }, async (f) => {
-        f.controller.setView("lab");
-        f.author.setDraft(draft);
-        f.author.setAuthorConsent(true);
-        await f.author.prepare();
-        await f.brokerRetention.observeAuthor({operation_id:11});
-        const old = f.controller.gateway.native("archive_status", {operationId:11});
-        assert.equal(polling, 2);
-        assert.equal(f.brokerRetention.acknowledgeUnresolved(true), true);
-        await f.brokerRetention.start(archiveIdentity(), async () => operation({operation_id:22}));
-        late.reject(Error("Transport"));
-        await assert.rejects(old);
-        assert.equal(f.brokerRetention.get().operation, 22);
-        assert.equal(f.brokerRetention.get().unknown, false);
-    });
+        async (f) => {
+            f.controller.setView("lab");
+            f.author.setDraft(draft);
+            f.author.setAuthorConsent(true);
+            await f.author.prepare();
+            await f.brokerRetention.observeAuthor({ operation_id: 11 });
+            const old = f.controller.gateway.native("archive_status", {
+                operationId: 11,
+            });
+            assert.equal(polling, 2);
+            assert.equal(f.brokerRetention.acknowledgeUnresolved(true), true);
+            await f.brokerRetention.start(archiveIdentity(), async () =>
+                operation({ operation_id: 22 }),
+            );
+            late.reject(Error("Transport"));
+            await assert.rejects(old);
+            assert.equal(f.brokerRetention.get().operation, 22);
+            assert.equal(f.brokerRetention.get().unknown, false);
+        },
+    );
 });
 test("validated exact terminal status clears transport-only uncertainty", () =>
-    using({
-        authorReply: async () => operation({phase:"author_preparing"}),
-        statusReply: async () => { throw Error("Transport"); },
-    }, async (f) => {
-        f.controller.setView("lab");
-        f.author.setDraft(draft);
-        f.author.setAuthorConsent(true);
-        await f.author.prepare();
-        assert.equal(f.author.get().uncertain, true);
-        assert.equal(f.author.get().operation?.operation_id, 11, "uncertainty cannot erase the exact displayed recovery ID");
-        await f.brokerRetention.observeAuthor(operation({running:false,phase:"error",error:"Cancelled"}));
-        assert.equal(f.brokerRetention.get().terminal, true);
-        assert.equal(f.brokerRetention.get().unknown, false, "a fully validated original terminal outcome resolves only transport uncertainty");
-    }));
+    using(
+        {
+            authorReply: async () => operation({ phase: "author_preparing" }),
+            statusReply: async () => {
+                throw Error("Transport");
+            },
+        },
+        async (f) => {
+            f.controller.setView("lab");
+            f.author.setDraft(draft);
+            f.author.setAuthorConsent(true);
+            await f.author.prepare();
+            assert.equal(f.author.get().uncertain, true);
+            assert.equal(
+                f.author.get().operation?.operation_id,
+                11,
+                "uncertainty cannot erase the exact displayed recovery ID",
+            );
+            await f.brokerRetention.observeAuthor(
+                operation({
+                    running: false,
+                    phase: "error",
+                    error: "Cancelled",
+                }),
+            );
+            assert.equal(f.brokerRetention.get().terminal, true);
+            assert.equal(
+                f.brokerRetention.get().unknown,
+                false,
+                "a fully validated original terminal outcome resolves only transport uncertainty",
+            );
+        },
+    ));
 let passed = 0;
 const results = [];
 for (const { name, run } of tests) {

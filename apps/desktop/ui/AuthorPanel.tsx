@@ -6,50 +6,115 @@ import {
     type AuthorDraft,
 } from "./author-model";
 
-function AuthorRecovery({ author, context, restricted = false }: {
+function AuthorRecovery({
+    author,
+    context,
+    restricted = false,
+}: {
     author: AuthorController;
     context: AuthorContext | null;
     restricted?: boolean;
 }) {
     const state = author.get();
-    if (!context || !author.matchesContext(context)
-        || !(state.uncertain || state.operation || state.outcome)) return null;
+    if (
+        !context ||
+        !author.matchesContext(context) ||
+        !(state.uncertain || state.operation || state.outcome)
+    )
+        return null;
     const available = authorAvailable(context);
     return (
         <section aria-label="Captured author operation recovery">
-            {restricted && state.uncertain && <p id="author-operation-notice" role="status">
-                Outcome unknown. Inspect only; this action will not be retried automatically.
-            </p>}
-            {state.operation && <p>Captured native operation {state.operation.operation_id} · {state.operation.phase}.</p>}
+            {restricted && state.uncertain && (
+                <p id="author-operation-notice" role="status">
+                    Outcome unknown. Inspect only; this action will not be
+                    retried automatically.
+                </p>
+            )}
+            {state.operation && (
+                <p>
+                    Captured native operation {state.operation.operation_id} ·{" "}
+                    {state.operation.phase}.
+                </p>
+            )}
             {state.operation && state.uncertain && (
-                <button type="button" disabled={state.busy} onClick={() => void author.inspectOperation()}>
+                <button
+                    type="button"
+                    disabled={state.busy}
+                    onClick={() => void author.inspectOperation()}
+                >
                     Inspect known native operation
                 </button>
             )}
-            {restricted && state.busy && <button type="button" onClick={() => void author.cancel()}>
-                Request cancellation
-            </button>}
+            {restricted && state.busy && (
+                <button type="button" onClick={() => void author.cancel()}>
+                    Request cancellation
+                </button>
+            )}
             {state.input && (
                 <div>
-                    <p>Captured child for inspection: <code>{state.input.parent.story} / {state.input.child_branch}</code>.
-                        Exact input remains only in this window's memory; restart recovery is unavailable.</p>
-                    <button type="button" disabled={state.busy || !available} onClick={() => void author.lookup()}>
+                    <p>
+                        Captured child for inspection:{" "}
+                        <code>
+                            {state.input.parent.story} /{" "}
+                            {state.input.child_branch}
+                        </code>
+                        . Exact input remains only in this window's memory;
+                        restart recovery is unavailable.
+                    </p>
+                    <button
+                        type="button"
+                        disabled={state.busy || !available}
+                        onClick={() => void author.lookup()}
+                    >
                         Check saved child only
                     </button>
-                    {!available && <p>Saved-child lookup requires the saved story's granted omniscient Story Lab context and acknowledgement of any unresolved shared operation. Reading a known operation does not apply a correction.</p>}
+                    {!available && (
+                        <p>
+                            Saved-child lookup requires the saved story's
+                            granted omniscient Story Lab context and
+                            acknowledgement of any unresolved shared operation.
+                            Reading a known operation does not apply a
+                            correction.
+                        </p>
+                    )}
                 </div>
             )}
-            {state.uncertain && !state.operation && <p>No native operation ID is available in this view; none is inferred.</p>}
+            {state.uncertain && !state.operation && (
+                <p>
+                    No native operation ID is available in this view; none is
+                    inferred.
+                </p>
+            )}
             {state.outcome && (
                 <section aria-labelledby="author-outcome-title">
                     <h3 id="author-outcome-title">Saved child confirmed</h3>
-                    <p><code>{state.outcome.scope.story} / {state.outcome.scope.branch}</code> · author revision {state.outcome.author_revision} · current head {state.outcome.head_revision} · {state.outcome.created ? "created by this operation" : "existing recorded outcome"}.</p>
-                    <button type="button" disabled={state.busy || !available} onClick={() => void author.openConfirmed()}>
+                    <p>
+                        <code>
+                            {state.outcome.scope.story} /{" "}
+                            {state.outcome.scope.branch}
+                        </code>{" "}
+                        · author revision {state.outcome.author_revision} ·
+                        current head {state.outcome.head_revision} ·{" "}
+                        {state.outcome.created
+                            ? "created by this operation"
+                            : "existing recorded outcome"}
+                        .
+                    </p>
+                    <button
+                        type="button"
+                        disabled={state.busy || !available}
+                        onClick={() => void author.openConfirmed()}
+                    >
                         Open confirmed child
                     </button>
                 </section>
             )}
-            {restricted && state.error && <p id="author-visible-error" role="alert">Author correction: {state.error}</p>}
+            {restricted && state.error && (
+                <p id="author-visible-error" role="alert">
+                    Author correction: {state.error}
+                </p>
+            )}
             {restricted && state.notice && <p role="status">{state.notice}</p>}
         </section>
     );
@@ -233,7 +298,10 @@ export function AuthorPanel({
                 </button>
             </fieldset>
             {preview && state.preview && (
-                <section id="author-impact-preview" aria-labelledby="author-preview-title">
+                <section
+                    id="author-impact-preview"
+                    aria-labelledby="author-preview-title"
+                >
                     <h3 id="author-preview-title">
                         Exact private impact preview
                     </h3>
@@ -351,7 +419,9 @@ export function AuthorPanel({
             )}
             <AuthorRecovery author={author} context={context} />
             {state.error && (
-                <p id="author-visible-error" role="alert">Author correction: {state.error}</p>
+                <p id="author-visible-error" role="alert">
+                    Author correction: {state.error}
+                </p>
             )}
             {state.notice && <p role="status">{state.notice}</p>}
         </section>

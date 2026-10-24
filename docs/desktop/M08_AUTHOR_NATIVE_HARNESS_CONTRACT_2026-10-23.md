@@ -189,3 +189,110 @@ Actual build/run commands and tool/runtime versions, bounded error evidence,
 source/binary/image/summary hashes and limitations will be appended only after
 Root's authorized execution. This frozen contract is not evidence that any
 of its journey assertions currently pass.
+
+## Approved source packet and exact Root integration snippets
+
+Root approved the frozen contract `67dd5eb` before the three source files were
+written. Initial source packet `ea8fb1a` contains the three NEW files only.
+All source remains **UNCOMPILED / UNRUN** by this agent. Git staged whitespace
+checks passed; no Cargo, Node, SQLite, app, model or device was executed. Root's
+existing production-owner fixes and actual qualification remain separate.
+
+The initial fixture uses the actual Core single dialogue receipt and Store
+writer. Read-only parent verification compares seed, canonical projection
+bytes AND exact serialized canonical records, rather than treating a matching
+projection/head as proof of the original history. The oracle reads the five
+fixed controls/children only, cannot accept a renderer-selected path, and
+additionally requires the environment fixture path to equal WorkspaceState's
+actual path. Its child summaries are lower-level evidence, not a UI snapshot.
+
+The stale-context transport holds a real TERMINAL prepare completion, whether
+it arrives as the start response or later known-ID status. This exercises the
+controller's actual stale-completed preview-discard branch. Holding only the
+initial running ack would not establish that exact capability was discarded.
+The stale test runs last; it does not clear a global uncertain reservation to
+make subsequent work appear possible. Parent-advance/canonical stale-plan
+tests remain in the qualified native/Core suites; this UI journey proves
+context/session invalidation, not a competing direct Store stale-plan test.
+
+Root's newer conditional V2 `Controller.semantic()` must be paired with the
+actual V2 controller state. The snapshot includes `aggregate.pending`, receipt,
+visible error and selected identity plus `v2.history/status/inspection`; a
+legacy root pending=null or receipt-count0 is never used as aggregate evidence.
+The source overrides uiRevision from the actual selected thin/legacy snapshot.
+Root also owns the always-visible restart limitation text in its current panel
+integration. This packet does not add an author restart hint or replay action.
+
+Add the following dev-only module/config and routing in Root's existing files,
+adjusting placement to the current integrated tree without changing behavior:
+
+```typescript
+// main.tsx: before invoke is created; authoring is a dev-only config boolean.
+const authorHarnessModule = __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.authoring
+    ? await import("./author-native-journeys") : null;
+const authorTransport = authorHarnessModule
+    ? new authorHarnessModule.AuthorHarnessTransport() : null;
+// Inside existing invoke, still INSIDE the actual BrokerRetention start adapter:
+const rawNative = () => window.__TAURI__.core.invoke(command, args);
+const native = () => authorTransport
+    ? authorTransport.native(command, args, rawNative) : rawNative();
+// Select this BEFORE other existing dev journey branches:
+await authorHarnessModule!.authorNativeJourneys({
+    controller, author, v2, brokerRetention,
+    gateway: gateway as InstanceType<typeof driver.FaultGateway>,
+    errors, invoke, dispose, config: window.__LOCALLORE_TEST__!,
+    transport: authorTransport!,
+});
+```
+
+```rust
+// native main.rs, only feature-gated dev build:
+#[cfg(feature = "dev-harness")]
+mod author_harness;
+// register author_harness::harness_author_case with the existing harness commands.
+// setup, before the WorkspaceState Host is opened:
+if author_harness::active()
+    && std::env::var("LOCALLORE_TEST_RESTART").as_deref() != Ok("1")
+{
+    author_harness::seed(&path).map_err(std::io::Error::other)?;
+}
+// author_commands commit worker, before existing work.check / actual apply:
+#[cfg(feature = "dev-harness")]
+crate::author_harness::before_apply(work)?;
+// Immediately AFTER successful host.apply_author_correction, with real outcome:
+#[cfg(feature = "dev-harness")]
+crate::author_harness::after_apply(work);
+// harness.rs reserve: reuse its same MAX_JSON/MAX_PNG/MAX_CHECKPOINTS limits:
+if !LABELS.contains(&label)
+    && !(crate::author_harness::active()
+        && crate::author_harness::LABELS.contains(&label))
+{
+    return Err("CheckpointInvalid");
+}
+```
+
+Native initialization adds `authoring` from the fixed environment flag only;
+normal config is undefined. Existing windows remain hidden/unfocused in harness
+mode. The native helper exports exactly `active()`, `seed(&Path)`,
+`before_apply(&archive::Work)->Result<(),String>`, `after_apply(&Work)->()`,
+the fixed17 `LABELS`, and the one closed `harness_author_case` Tauri function.
+No new thread, production operation owner, arbitrary native evaluation or
+capture implementation is added. Root must verify these hooks are absent or
+inactive in normal builds along with the new fault module's bundle absence.
+
+The proposed actual launcher command, **NOT RUN by this source assignment**,
+is `node author-harness.mjs` from apps/desktop, with the existing allocated
+`LOCALLORE_M07_MEMORY_ARTIFACT_ROOT` and `LOCALLORE_M07_MEMORY_TARGET_DIR` set to
+absolute existing owned directories. The launcher refuses redirected/link
+ancestors, creates one new author-native UUID leaf, invokes build.mjs --harness
+and offline locked native build, then two hidden app processes. It explicitly
+disables other harness mode flags only in those child environments. It never
+deletes/moves directories or enumerates/kills unrelated processes.
+
+Source review identified a possible original Main seam for Root's current
+integration review: a rejected known-ID archive_status reply used only
+`native().then(observeAuthor)` at the base, which may leave global unknown false
+while AuthorController becomes uncertain. The frozen known-ID journey requires
+honest global unknown; it is not weakened to accept that mismatch. Root retains
+the first actual result and owns any Main/global-gate repair. No behavioral
+failure is claimed from source inspection alone.

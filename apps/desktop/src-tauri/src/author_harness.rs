@@ -142,6 +142,7 @@ fn oracle() -> Result<Value, String> {
 #[tauri::command]
 pub async fn harness_author_case(window: tauri::WebviewWindow, workspace: tauri::State<'_, WorkspaceState>, action: String) -> Result<Value, String> {
     if !active() { return Err("Forbidden".into()); }
+    if workspace_path()? != workspace.path { return Err("SyntheticWorkspaceMismatch".into()); }
     let epoch = workspace.lease.capture(window.label()).map_err(str::to_owned)?;
     match action.as_str() {
         "hold-before" | "hold-after" => workspace.lease.dispatch(epoch, || {

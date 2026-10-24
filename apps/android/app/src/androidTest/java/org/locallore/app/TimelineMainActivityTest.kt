@@ -13,7 +13,7 @@ import org.junit.Test
 class TimelineMainActivityTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     @Test fun actualProductSelectorResumesItsNativeCatalogEntry() {
-        assertEquals("org.locallore.app.timelineverify", InstrumentationRegistry.getInstrumentation().targetContext.packageName)
+        assertTrue(InstrumentationRegistry.getInstrumentation().targetContext.packageName in setOf("org.locallore.app.timelineverify", "org.locallore.app.parentverify"))
         lateinit var model: ShellViewModel
         compose.activityRule.scenario.onActivity { model = ViewModelProvider(it)[ShellViewModel::class.java] }
         compose.waitUntil(15_000) { !model.state.value.busy && model.state.value.persistent }

@@ -29,6 +29,10 @@ const NAMES: &[&str] = &[
     "threads.json",
 ];
 enum NativeSnapshot {
+    PrivateTrace {
+        manifest: Value,
+        files: BTreeMap<String, Vec<u8>>,
+    },
     Inspection(InspectionBundle),
     Loaded {
         bundle: InspectionBundle,
@@ -43,17 +47,33 @@ impl NativeSnapshot {
     fn manifest(&self) -> &Value {
         match self {
             Self::Inspection(b) | Self::Loaded { bundle: b, .. } => &b.manifest,
-            Self::Database { manifest, .. } => manifest,
+            Self::Database { manifest, .. } | Self::PrivateTrace { manifest, .. } => manifest,
         }
     }
     fn contents(&self) -> &BTreeMap<String, Vec<u8>> {
         match self {
             Self::Inspection(b) | Self::Loaded { bundle: b, .. } => &b.files,
-            Self::Database { files, .. } => files,
+            Self::Database { files, .. } | Self::PrivateTrace { files, .. } => files,
         }
     }
     fn validate(&self) -> Result<(), String> {
         match self {
+            Self::PrivateTrace { manifest, files } => {
+                let bytes = files.get("capture.json").ok_or("InvalidExport")?;
+                if files.len() != 1
+                    || bytes.len() > 524288
+                    || manifest["format"] != "locallore-private-trace"
+                    || manifest["version"] != 1
+                    || manifest["mode"] != "private_trace"
+                    || manifest["privacy"] != "private_generation_capture"
+                    || manifest["files"][0]["path"] != "capture.json"
+                    || manifest["files"][0]["bytes"] != bytes.len()
+                    || manifest["files"][0]["sha256"] != locallore::inspection::sha256(bytes)
+                {
+                    return Err("Integrity".into());
+                }
+                Ok(())
+            }
             Self::Inspection(b) => b.validate(),
             Self::Loaded {
                 bundle,
@@ -105,9 +125,11 @@ fn files(bundle: &NativeSnapshot) -> Result<BTreeMap<String, Vec<u8>>, String> {
     let mut output = bundle.contents().clone();
     if output.is_empty()
         || output.len() > NAMES.len()
-        || output
-            .keys()
-            .any(|n| !NAMES.contains(&n.as_str()) && n != "stories-snapshot.sqlite")
+        || output.keys().any(|n| {
+            !NAMES.contains(&n.as_str())
+                && n != "stories-snapshot.sqlite"
+                && !(matches!(bundle, NativeSnapshot::PrivateTrace { .. }) && n == "capture.json")
+        })
     {
         return Err("InvalidExport".into());
     }
@@ -129,6 +151,28 @@ fn files(bundle: &NativeSnapshot) -> Result<BTreeMap<String, Vec<u8>>, String> {
     Ok(output)
 }
 impl ExportBroker {
+    pub fn insert_capture(
+        &self,
+        epoch: u64,
+        capture: Value,
+        current: impl FnOnce() -> bool,
+    ) -> Result<Value, String> {
+        let bytes = serde_json::to_vec_pretty(&capture).map_err(|_| "InvalidExport")?;
+        let text = std::str::from_utf8(&bytes)
+            .map_err(|_| "InvalidExport")?
+            .to_owned();
+        let manifest = json!({"format":"locallore-private-trace","version":1,"mode":"private_trace", "scope":capture["scope"],"revision":capture["head"],"base_revision":capture["base_revision"],"privacy":"private_generation_capture","exact_reconstruction":false,"portable_playable":false,"files":[{"path":"capture.json","bytes":bytes.len(),"sha256":locallore::inspection::sha256(&bytes)}]});
+        let mut preview = self.insert_snapshot(
+            epoch,
+            NativeSnapshot::PrivateTrace {
+                manifest,
+                files: BTreeMap::from([("capture.json".into(), bytes)]),
+            },
+            current,
+        )?;
+        preview["text"] = json!(text);
+        Ok(preview)
+    }
     #[cfg(feature = "dev-harness")]
     pub fn last_saved(&self, epoch: u64) -> Option<PathBuf> {
         let records = self.0.lock().ok()?;
@@ -197,12 +241,17 @@ impl ExportBroker {
             if !keep {
                 p.cancelled.store(true, Ordering::SeqCst);
             }
-            keep
+            keep || (matches!(&p.bundle, NativeSnapshot::PrivateTrace { .. })
+                && Arc::strong_count(p) > 1)
         });
         if records.len() >= MAX_PREVIEWS {
             let completed = records
                 .iter()
-                .filter(|(_, p)| p.saved.try_lock().is_ok_and(|s| s.is_some()))
+                .filter(|(_, p)| {
+                    p.saved.try_lock().is_ok_and(|s| s.is_some())
+                        && (!matches!(&p.bundle, NativeSnapshot::PrivateTrace { .. })
+                            || Arc::strong_count(p) == 1)
+                })
                 .min_by_key(|(_, p)| p.created)
                 .map(|(token, _)| token.clone());
             if let Some(token) = completed {
@@ -211,6 +260,18 @@ impl ExportBroker {
         }
         if records.len() >= MAX_PREVIEWS {
             return Err("PreviewLimit".into());
+        }
+        if matches!(bundle, NativeSnapshot::PrivateTrace { .. }) {
+            let retained = records.values().try_fold(0usize, |total, p| {
+                if !matches!(p.bundle, NativeSnapshot::PrivateTrace { .. }) {
+                    return Err("InvalidExport".to_owned());
+                }
+                let size = files(&p.bundle)?.values().map(Vec::len).sum::<usize>();
+                total.checked_add(size).ok_or_else(|| "TooLarge".to_owned())
+            })?;
+            if retained.saturating_add(output.values().map(Vec::len).sum::<usize>()) > 1048576 {
+                return Err("TooLarge".into());
+            }
         }
         let result = json!({"token":token,"manifest":bundle.manifest(),"expires_seconds":TTL.as_secs(),"files":output.iter().map(|(path,b)|json!({"path":path,"bytes":b.len()})).collect::<Vec<_>>()});
         records.insert(
@@ -254,7 +315,8 @@ impl ExportBroker {
             records.retain(|_, p| {
                 if p.epoch == epoch {
                     p.cancelled.store(true, Ordering::SeqCst);
-                    false
+                    matches!(&p.bundle, NativeSnapshot::PrivateTrace { .. })
+                        && Arc::strong_count(p) > 1
                 } else {
                     true
                 }
@@ -346,7 +408,7 @@ impl Preview {
             let mode = self.bundle.manifest()["mode"]
                 .as_str()
                 .ok_or("InvalidExport")?;
-            if !["diagnostics", "player", "full", "database"].contains(&mode) {
+            if !["diagnostics", "player", "full", "database", "private_trace"].contains(&mode) {
                 return Err("InvalidExport".into());
             }
             let revision = self.bundle.manifest()["revision"]
@@ -441,6 +503,16 @@ pub fn atomic_finalize(handle: &File, _staging: &Path, target: &Path) -> Result<
                 FileRenameInfo, SetFileInformationByHandle, FILE_RENAME_INFO, FILE_RENAME_INFO_0,
             },
         };
+        // Callers retain pinned destination ancestors through publication.
+        // Canonicalizing that existing parent supplies Windows' extended path
+        // form for the absent target; the actual rename still uses the held
+        // staging handle and refuses replacement.
+        let target = target
+            .parent()
+            .ok_or("Io")?
+            .canonicalize()
+            .map_err(|_| "Io")?
+            .join(target.file_name().ok_or("Io")?);
         let name = target
             .as_os_str()
             .encode_wide()
@@ -842,6 +914,151 @@ pub fn capture_database(source: &Path, cache: &Path) -> Result<(Vec<u8>, Value),
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(windows)]
+    #[test]
+    fn long_unicode_target_renames_the_actual_handle_without_replacing_an_existing_file() {
+        use std::os::windows::{ffi::OsStrExt, fs::OpenOptionsExt};
+        let root = Root::new();
+        let mut directory = root.0.clone();
+        while directory.as_os_str().encode_wide().count() < 290 {
+            directory.push("Synthetic Unicode save 模型 é");
+        }
+        fs::create_dir_all(&directory).unwrap();
+        let stage = directory.join("stage.partial");
+        let target = directory.join("saved story.json");
+        let mut handle = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .share_mode(3)
+            .access_mode(0x80000000 | 0x40000000 | 0x00010000)
+            .open(&stage)
+            .unwrap();
+        handle
+            .write_all(b"synthetic original archive bytes")
+            .unwrap();
+        handle.sync_all().unwrap();
+        assert!(target.as_os_str().encode_wide().count() > 260);
+        let result = atomic_finalize(&handle, &stage, &target);
+        assert!(result.is_ok(), "actual long target rename: {result:?}");
+        assert!(!stage.exists());
+        assert_eq!(
+            fs::read(&target).unwrap(),
+            b"synthetic original archive bytes"
+        );
+        drop(handle);
+        let mut other = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .share_mode(3)
+            .access_mode(0x80000000 | 0x40000000 | 0x00010000)
+            .open(&stage)
+            .unwrap();
+        other.write_all(b"must never replace original").unwrap();
+        assert_eq!(
+            atomic_finalize(&other, &stage, &target).unwrap_err(),
+            "ExportExists"
+        );
+        assert_eq!(
+            fs::read(&target).unwrap(),
+            b"synthetic original archive bytes"
+        );
+        assert_eq!(fs::read(&stage).unwrap(), b"must never replace original");
+    }
+    #[test]
+    fn private_trace_fixed_bytes_caps_expiry_and_retirement_use_same_writer() {
+        let root = Root::new();
+        let broker = ExportBroker::default();
+        let value = json!({"scope":{"story":"synthetic","branch":"main"},"head":1,"base_revision":0,"details":{"private":"synthetic original bytes"}});
+        let first = broker.insert_capture(1, value.clone(), || true).unwrap();
+        let token = first["token"].as_str().unwrap();
+        let record = broker.get(1, token).unwrap();
+        assert!(broker.get(3, token).is_err());
+        let saved = record.save(&root.0, atomic_finalize).unwrap();
+        let path = PathBuf::from(saved["location"].as_str().unwrap());
+        assert_eq!(
+            fs::read(path.join("capture.json")).unwrap(),
+            first["text"].as_str().unwrap().as_bytes()
+        );
+        assert_eq!(
+            serde_json::from_slice::<Value>(&fs::read(path.join("manifest.json")).unwrap())
+                .unwrap(),
+            first["manifest"]
+        );
+        assert_eq!(fs::read_dir(&path).unwrap().count(), 2);
+        broker.invalidate(1);
+        assert!(record.open("capture.json").is_err());
+        assert!(broker.get(1, token).is_err());
+        let broker = ExportBroker::default();
+        let first = broker.insert_capture(1, value.clone(), || true).unwrap();
+        broker.insert_capture(1, value.clone(), || true).unwrap();
+        assert_eq!(
+            broker
+                .insert_capture(1, value.clone(), || true)
+                .unwrap_err(),
+            "PreviewLimit"
+        );
+        let token = first["token"].as_str().unwrap();
+        {
+            let mut records = broker.0.lock().unwrap();
+            Arc::get_mut(records.get_mut(token).unwrap())
+                .unwrap()
+                .created = Instant::now() - TTL - Duration::from_secs(1);
+        }
+        assert!(broker.get(1, token).is_err());
+        broker.insert_capture(1, value, || true).unwrap();
+        let broker = ExportBroker::default();
+        let large = json!({"scope":{"story":"synthetic","branch":"main"},"head":0,"padding":"x".repeat(524000)});
+        broker.insert_capture(1, large.clone(), || true).unwrap();
+        assert_eq!(
+            broker.insert_capture(1, large, || true).unwrap_err(),
+            "TooLarge",
+            "total includes both manifests under the same admission mutex"
+        );
+        assert_eq!(broker.0.lock().unwrap().len(), 1);
+        assert!(broker.insert_capture(1, json!({}), || false).is_err());
+        let broker = ExportBroker::default();
+        let first = broker
+            .insert_capture(
+                1,
+                json!({"scope":{"story":"synthetic","branch":"main"},"head":0}),
+                || true,
+            )
+            .unwrap();
+        let held = broker.get(1, first["token"].as_str().unwrap()).unwrap();
+        broker.invalidate(1);
+        assert_eq!(
+            broker.0.lock().unwrap().len(),
+            1,
+            "in-flight save/picker retains encoded budget even after capability cancellation"
+        );
+        broker
+            .insert_capture(
+                3,
+                json!({"scope":{"story":"synthetic","branch":"main"},"head":0}),
+                || true,
+            )
+            .unwrap();
+        assert_eq!(
+            broker
+                .insert_capture(
+                    3,
+                    json!({"scope":{"story":"synthetic","branch":"main"},"head":0}),
+                    || true
+                )
+                .unwrap_err(),
+            "PreviewLimit"
+        );
+        drop(held);
+        broker
+            .insert_capture(
+                3,
+                json!({"scope":{"story":"synthetic","branch":"main"},"head":0}),
+                || true,
+            )
+            .unwrap();
+    }
     fn bundle() -> InspectionBundle {
         let host = locallore::host::Host::new(true);
         let created =

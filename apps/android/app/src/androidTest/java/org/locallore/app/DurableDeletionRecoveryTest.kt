@@ -34,10 +34,11 @@ class DurableDeletionRecoveryTest {
         override suspend fun exchange(command: JSONObject): JSONObject {
             calls += JSONObject(command.toString())
             val op = command.getString("op")
+            if (op == "capabilities") return ok(JSONObject().put("free_text", false))
             if (op == "workspace") {
                 workspaceFailure?.let { workspaceFailure = null; return rejected(it) }
                 return ok(JSONObject().put("persistent", true).put("schema_version", 1)
-                    .put("database_schema_version", 2).put("location", "/synthetic/stories.sqlite3")
+                    .put("database_schema_version", 5).put("location", "/synthetic/stories.sqlite3")
                     .put("stories", JSONArray().also { rows -> stories.forEach { story ->
                         rows.put(JSONObject().put("scope", scope(story)).put("title", story.title)
                             .put("revision", story.revision).put("drafts", 0))
@@ -45,10 +46,10 @@ class DurableDeletionRecoveryTest {
             }
             if (op == "branches") {
                 val story = stories.singleOrNull { it.story == command.getString("story") } ?: return rejected("NotFound")
-                return ok(JSONObject().put("version", 1).put("story_id", story.story).put("title", story.title)
+                return ok(JSONObject().put("version", 2).put("story_id", story.story).put("title", story.title)
                     .put("root_branch", story.branch).put("branches", JSONArray().put(JSONObject()
                         .put("scope", scope(story)).put("parent_branch", JSONObject.NULL)
-                        .put("fork_revision", JSONObject.NULL).put("revision", story.revision).put("drafts", 0))))
+                        .put("fork_revision", JSONObject.NULL).put("revision", story.revision).put("drafts", 0).put("retired", false))))
             }
             if (op == "create" || op == "resume") {
                 val story = if (op == "create") SavedStory("created-${next + 1}", "main", "Created", 0).also { stories += it }
@@ -86,7 +87,7 @@ class DurableDeletionRecoveryTest {
     private fun assertEmpty(saved: SavedSnapshot) {
         assertNull(saved.selected); assertTrue(saved.stories.isEmpty()); assertTrue(saved.messages.isEmpty())
         assertEquals(0L, saved.revision); assertEquals(0, saved.uncommittedDrafts)
-        assertEquals(1, saved.schemaVersion); assertEquals(2, saved.databaseSchemaVersion)
+        assertEquals(1, saved.schemaVersion); assertEquals(5, saved.databaseSchemaVersion)
         assertEquals("/synthetic/stories.sqlite3", saved.location)
     }
 

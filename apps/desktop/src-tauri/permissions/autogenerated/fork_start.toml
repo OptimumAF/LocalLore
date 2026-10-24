@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-fork-start"
+description = "Enables the fork_start command without any pre-configured scope."
+commands.allow = ["fork_start"]
+
+[[permission]]
+identifier = "deny-fork-start"
+description = "Denies the fork_start command without any pre-configured scope."
+commands.deny = ["fork_start"]

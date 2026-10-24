@@ -17,14 +17,58 @@ Unsubmitted composer text remains session-local; submitted uncommitted requests
 are durable but are never automatically committed or cancelled on resume.
 Storage/replay errors appear explicitly with no temporary-memory fallback.
 
+**Alternate timeline** creates a saved child at a completed accepted-turn
+boundary. Review the original parent/head, fork point and stable child identity,
+then confirm. The original and later choices remain intact; opening the child is
+a separate explicit action. Replacing a committed turn means choosing the
+boundary before it, then writing a new turn on the child. Author corrections
+remain unavailable. A small application-local recovery record saves the exact
+fork identity before dispatch. Lost acknowledgements retain that identity;
+same-session retry is explicit, and restart recovery only checks existing saved
+children. Cancellation never claims an earlier commit was rolled back.
+
+The fixed synthetic fork harness exercises these controls through the actual
+frontend controller/native IPC and captures only the hidden application-owned
+WebView. It never activates or captures the desktop:
+
+```powershell
+$env:LOCALLORE_D08_FORK_ARTIFACT_ROOT='<task-owned-local-output>'
+$env:LOCALLORE_D08_TARGET_DIR='<task-owned-ordinary-Rust-target>'
+node apps/desktop/fork-harness.mjs
+```
+
+This builds the development frontend/native binary and uses two processes with
+one synthetic workspace and private test WebView profile. The normal bundle
+excludes the fixed fault/fixture journeys. Build/static/controller-mock checks,
+actual native IPC, native WebView rendering and device execution are separate
+evidence classes; consult the dated fork verification report for executed results.
+See [fork verification and limits](../../docs/desktop/D08_FORK_NATIVE_VERIFICATION_2026-10-23.md).
+
 Memory & evidence opens a read-only typed inspector for profiles, accepted
 history, directed relationships, knowledge, promises and evidence. It supports
 completed historical heads and before/after replay without changing the live
 player. Statement, belief and truth labels remain distinct; NPC lenses exclude
 private player display messages. Story Lab requires a spoiler acknowledgement.
-Summaries, semantic retrieval and alternate-branch history remain explicitly
-unsupported. See [D05 native inspection](../../docs/desktop/D05_NATIVE_INSPECTION.md)
+Summaries and semantic retrieval remain unavailable in this inspector. Saved
+timeline selection and prefix replay use the shared ancestry rules; author
+corrections remain unavailable. See [D05 native inspection](../../docs/desktop/D05_NATIVE_INSPECTION.md)
 and [verification](../../docs/desktop/D05_NATIVE_VERIFICATION_2026-10-22.md).
+
+**Derived memory** reads the selected saved story's shared maintenance status.
+Preparing derived data requires consent; **Process one chunk** performs one
+bounded step. Cancel a stale job before pruning it, then explicitly prepare a
+new job. These controls preserve canonical events and character knowledge.
+They never run background steps or generate model summaries. A lost reply stays
+unresolved across selection changes: read status in the original selection or
+explicitly acknowledge the uncertainty. Acknowledgement neither cancels nor
+undoes saved work; native storage still enforces Busy.
+
+For the fixed synthetic native maintenance journey, set
+`LOCALLORE_M07_MEMORY_ARTIFACT_ROOT` and `LOCALLORE_M07_MEMORY_TARGET_DIR` to
+task-owned local directories, then run `node apps/desktop/memory-harness.mjs`.
+It uses the same controllers and native IPC, hidden app-only WebView2 rendering
+and an actual process restart. Run `node apps/desktop/verify-frontend.mjs`
+afterward to restore the normal frontend and check test-hook exclusion.
 
 Inspection snapshots now provide structural diagnostics by default, explicit
 private Player/Full readable views, and a separate private consistent SQLite
@@ -76,8 +120,12 @@ Always rebuild the normal frontend with `npm run build` after using a developmen
 harness, then rebuild the native executable without `--features dev-harness`.
 Node, Playwright and a dev server are not shipped runtimes. React and CSS bundle
 into local assets; the executable uses the installed WebView2. The desktop is a
-separate Cargo workspace, so Tauri is not an Android dependency. Android now
-enables the portable host feature through the shared workspace/storage adapter.
+member of the repository Cargo workspace and uses the root `Cargo.lock`. The four
+portable packages remain default members; portable `--workspace` test/Clippy
+commands must explicitly exclude `locallore-desktop-spike`, as `scripts/check.py`
+does. Android selects its JNI crate and does not depend on Tauri. Runtime and
+evaluation crates retain their separate workspaces and locks. See the
+[workspace alignment evidence](../../docs/desktop/D09_WORKSPACE_ALIGNMENT_2026-10-23.md).
 
 Enter submits the selected typed action; Shift+Enter adds a newline, and IME
 composition does not submit. Native form controls support keyboard navigation;

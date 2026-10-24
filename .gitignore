@@ -21,6 +21,8 @@ apps/android/.gradle-story-deletion/
 apps/android/app/build-story-deletion/
 apps/android/.gradle-timeline/
 apps/android/app/build-timeline/
+apps/android/.gradle-parent-retention/
+apps/android/app/build-parent-retention/
 apps/android/app/build-capacity/
 apps/android/.gradle-capacity/
 apps/android/app/build-capacity-relief/
@@ -45,3 +47,11 @@ models/
 local-diagnostics/
 __pycache__/
 *.pyc
+
+# Exact-schema3 capacity verification preserves historical profiles.
+apps/android/app/build-capacity-v3/
+apps/android/.gradle-capacity-v3/
+apps/android/app/build-capacity-relief-v3/
+apps/android/.gradle-capacity-relief-v3/
+apps/android/app/build-capacity-faults-v3/
+apps/android/.gradle-capacity-faults-v3/

@@ -1,0 +1,46 @@
+# Android fork recovery callback correction — 2026-10-23
+
+Partial #12 M08.01/.02 + #30 D08.04. Coordinator-delegated `app_storage_review`, isolated `impl/d08-android-fork-callbacks` / `source-android-fork-callbacks` from a479bd905d7798315b7ba9a18417ce853616f8b8 (accepted b90 plus original caller packet and first3 independent review vectors). Claims#12 6375444429/#30 6375444631; NEW focused-test addendum6375467671/6375467910. Root owns integration, Core/Host/Store/schema/Activity/NativeWorkspace/DurableGateway and all other existing production paths.
+
+Only transferred production path: `apps/android/app/src/main/java/org/locallore/app/BranchForkController.kt`. Import independent fourth vector84d785cb unchanged as9ccee7a and report49a88195 unchanged asddea0c5; first3 were already in base. Independent4 test SHA256 `26ee0f80a236ca3d7862462e86a6ced6a3432f1f5f941eef64b01715c023298f`. Original15 author oracles and independent4 remain unchanged. NEW `BranchForkRecoveryLifecycleTest.kt` adds3 success/admission constraints, not another persistence/native implementation. Total planned focused JVM22.
+
+## Frozen RED source, not execution evidence
+
+Before correction, confirmation validates origin then calls injected synchronous saveRecovery without fencing its continuation. A reentrant contextChanged/throw can restore the old before state; contextChanged/return or dispose/return can start stale work/registration. Recovery clear contextChanged/throw labels a new context with an old failure. The independent source report records these findings as unexecuted; reproduce untouched source before correction once the coordinator releases the compiler slot.
+
+NEW tests also require a successful stale-origin save to retain the exact identity for later explicit lookup-only recovery, successful stale-origin clear to remove the old identity while preserving the new context, and a bounded nested confirmation to make only one save/registration. Typed fake gateway/controller only; no actual durable write/JNI/Store/device is exercised by these Kotlin tests. No canonical unauthorized fork, successful rollback or child absence is inferred.
+
+The RED checkout/commit must be retained before the implementation change. All heavy Cargo/Gradle/JVM actions wait for explicit resource GO; desktop fork then root Core own the scheduled slots. Proposed correction is controller-local recovery control serialization plus generation/context/reference/disposal checks before post-callback presentation or native dispatch. Successful durable save is retained even if the old origin becomes stale, without old presentation or automatic execution. No callback exception promises storage rollback. Native/Host authority and all original input/grant/worker semantics remain unchanged.
+
+No tests/builds have executed for this corrective packet at initial test freeze. Git/source reads, file hashes and whitespace checks only. Original caller Rust11/JVM15/both-ABI compilation evidence remains separately attributed to its exact source, not a result on this integration base. Full Android UI/persistence/roundtrip/device/M08/D08 qualification stays open.
+
+## Committed correction and actual execution
+
+Source fix **d0ace23d6ec0017dbfb2a382150e3a912afbba56**, controller33 additions/10 removals only. The short private recovery-control gate prevents nested save/clear/admission while a synchronous persistence callback is running; contextChanged/dismiss/cancel/dispose notifications remain effective. Both save and clear capture generation, current state reference and origin, then check those and disposal before a failure notice or executable continuation. A failed callback does not restore the old `before` selection. A successful save retains the exact saved input even if the old context is retired, clears its executable origin and starts no stale native operation. A successful clear removes the old in-memory recovery identity while leaving a replacement context's presentation alone. This is UI admission/recovery bookkeeping, never a second Store or a canonical rollback guarantee.
+
+Correction was committed source-only while the compiler slot was occupied, as the coordinator authorized. An untouched RED checkout is retained at **7baecedfc7ed7fe853028e25a62e682014f00598**, `source-android-fork-callbacks-red` / `test/d08-android-fork-callbacks-red`. Actual RED executed first in a clean detached checkout of that commit at the same runner source path; then the runner switched cleanly back to the frozen correction. This reuses owned build output without changing source/test inputs during either run. The separate RED checkout remains unchanged.
+
+Ordinary command, run from repository root for BOTH cohorts:
+
+```powershell
+.\apps\android\gradlew.bat -p apps/android :app:testDebugUnitTest --tests org.locallore.app.BranchForkControllerTest --tests org.locallore.app.BranchForkReviewTest --tests org.locallore.app.BranchForkRecoveryLifecycleTest --offline --no-daemon --max-workers 1 -Pandroid.builder.sdkDownload=false --init-script <own-D>/android-fork-callback-artifacts/fork-output.gradle
+```
+
+Process-local environment points to existing Android Studio1 JBR17.0.6 (actual `java -version`:17.0.6+0-b2043.56-10027231), SDK36/NDK29.0.14206865 and task D Gradle cache; TEMP/TMP and all build outputs are on task D. CARGO_BUILD_JOBS=1/CARGO_INCREMENTAL=0, ambient LIBSQLITE3_FLAGS removed; ordinary Gradle native builder supplies its own empty uncapped flags. No task exclusions, SDK/JDK installation/settings changes or downloads. The init script reuses the original author's own D output cache; old cohort logs/XML were separately preserved. The accepted integration Core/JNI source rebuilt naturally on RED: x86_64 release PASS1m43s, arm64-v8a release PASS1m54s. GREEN's ordinary preBuild was naturally UP-TO-DATE because only Kotlin controller source differed. JNI compilation is **not JNI execution**.
+
+| Cohort / actual XML | Original controller15 | Independent review4 | NEW lifecycle3 | Total |
+| --- | --- | --- | --- | --- |
+| RED7baeced,4m26s Gradle |15PASS |0PASS/4FAIL |2PASS/1FAIL |17PASS/5FAIL |
+| GREENd0ace23,20s Gradle |15PASS(.074s) |4PASS(.010s) |3PASS(.144s) |22PASS |
+
+Both runs:0errors/0skips. RED reproduced all four independent findings plus nested confirmation's second persistence write (expected1, actual2). All original15 remained green. In the independent exception loops, ordinary-error assertions fail first on RED; both ordinary and CancellationException iterations execute on GREEN. No test source, budget, deadline, expected result or existing oracle changed between cohorts. The successful stale-save lookup-only identity and successful stale-clear constraints passed even on RED and remain positive constraints on the fix.
+
+Private retained evidence under `android-fork-callback-artifacts`: `red22.log` SHA256 `21be732eda87e9c490706ee2ce4bbad5a89b6cd364dab51c8b7069db23bf3552`; `green22.log` SHA256 `382a5c1043f5d39996b4a7e96c32f7ebc543915c97aa44a3dc21bf348ee52258`; three original XML files per cohort copied to separate red-xml/green-xml directories before reports could be overwritten. Source-freeze manifest SHA256 `14defbe7eff597c133eaac0a2f912b2be615c71920334122f10a1c8007721c12`; full final source/log/XML/case inventory `final-report.json` SHA256 `81afe0034468bc6c4af49fefa094e36b84301e919d79cd41716905c75d3406a6`. These checksums bind local evidence consistency; they are not external authenticity/human acceptance.
+
+`git diff --check` PASS and the runner tree was clean after actual GREEN. Controller SHA256 `6c7370fa86d394f5eaeb01ef83a1a6da5c0d3982ed3a58cd72b9ca05e1d45bcc`; NEW3 test SHA256 `b7f9a350cf04e0b666114d7c21e10c7ce47593922f8941043e9e42bc13dca73d`. Original15 has no diff from a479; independent4 retains exact SHA25626ee0f80…3298f. Heavy slot explicitly released immediately after GREEN; no further compilation is requested by this packet.
+
+## Disposition and remaining gates
+
+The four concrete independent source findings are now demonstrated RED and corrected GREEN within these declared schedules; nested persistence admission is also measured. This author correction is not an independent re-review or owner acceptance. The independent report was imported unchanged and remains historical source-only evidence; coordinator owns its final disposition/publication and later accepted-main reconciliation.
+
+No Rust source, Core/Host/Store/schema, native fork semantics, original15, independent4, NativeWorkspace/DurableGateway/MainActivity, UI/persistence wiring, dependency versions or permissions were edited. No Rust test/Clippy rerun, full JVM suite, AndroidTest Kotlin compilation, APK/lint/audit, app/JNI/device/ADB/CUA/model/protected-resource execution is claimed for this correction. Earlier Rust11/strict and author JVM15 results remain attributed to their earlier source; natural current both-ABI compilation above is fresh evidence only of compilation. Four JSONObject wire/two JNI instrumented cases remain source-only. Real bounded durable recovery storage, single-handle/activity admission wiring and authorized device/application journeys are still coordinator work. Full M08/D08 checkboxes remain unchecked; no PR/push/merge/settings/release by this subtask.

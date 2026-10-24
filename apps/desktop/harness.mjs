@@ -367,7 +367,7 @@ const inputs = [
     "src-tauri/src/harness.rs",
     "src-tauri/src/test_bridge.rs",
     "src-tauri/tauri.conf.json",
-    "src-tauri/Cargo.lock",
+    "../../Cargo.lock",
     "src-tauri/Cargo.toml",
     "build.mjs",
     "harness.mjs",

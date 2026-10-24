@@ -405,7 +405,7 @@ fn query_bounds_unsupported_views_versions_and_branch_limits_fail_honestly() {
     q.cursor = Some("x".repeat(129));
     assert_eq!(query(&engine, &q, false), Err(QueryError::InvalidCursor));
     q.cursor = None;
-    q.version = 2;
+    q.version = 3; // Query2 is allocated; the next unsupported version remains rejected.
     assert_eq!(query(&engine, &q, false), Err(QueryError::Version));
     q.version = 1;
     q.view = View::TurnDiff;
@@ -657,6 +657,13 @@ fn historical_v2_replay_preserves_original_input_without_an_inference_provider()
             speaker: "narrator".into(),
         },
         stages: vec![],
+        context: Some(serde_json::from_value(serde_json::json!({
+            "version":2,"compiler_version":2,"scope":engine.scope(),"head":0,"observer":engine.seed().player,"source_fallback_reason":null,
+            "coverage":{"mode":"raw","set_fallback_reason":"missing","packets_used":0,"packets_fell_back":0,
+                "timespan_fallback_packets":0,"mandatory_fallback_packets":0,"covered_through":0,"raw_delta_after":0,
+                "cached_event_candidates":0,"raw_event_candidates":0}
+        })).unwrap()),
+        context_policy: Some(locallore::play::PlayContextPolicy::StateRelevantMemoryV1),
     };
     engine.commit_play(&request, &proposal, &record).unwrap();
     commit(&mut engine, "later", vec![Command::Wait { ticks: 1 }]);

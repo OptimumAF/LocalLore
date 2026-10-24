@@ -9,19 +9,20 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 
-/** Dedicated test APK only: validates the actual product factory, overlay and empty startup. */
+/** Dedicated test APK only: validates the product factory and preserves prior synthetic stories. */
 class StoryDeletionMainActivityTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private lateinit var model: ShellViewModel
-    @Test fun explicitCreateDeleteRecreateStaysEmptyAndExplicitCreateWorksAgain() {
-        assertEquals("org.locallore.app.storydelete", InstrumentationRegistry.getInstrumentation().targetContext.packageName)
+    @Test fun explicitCreateDeleteRecreatePreservesLibraryAndExplicitCreateWorksAgain() {
+        assertTrue(InstrumentationRegistry.getInstrumentation().targetContext.packageName in setOf("org.locallore.app.storydelete", "org.locallore.app.parentverify"))
         attach()
         compose.waitUntil(15_000) { !model.state.value.busy && model.state.value.persistent }
         assertFalse(model.state.value.recoveryRequired)
-        assertTrue("Dedicated verification package must start with an empty library", model.state.value.stories.isEmpty())
-        compose.onNodeWithTag("empty-library").performScrollTo().assertIsDisplayed()
+        val retained = model.state.value.stories
+        if (retained.isEmpty()) compose.onNodeWithTag("empty-library").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("reset-demo").performScrollTo().performClick()
-        compose.waitUntil(15_000) { !model.state.value.busy && model.state.value.selectedStory != null }
+        compose.waitUntil(15_000) { !model.state.value.busy && model.state.value.selectedStory?.let { selected ->
+            retained.none { it.story == selected.story } } == true }
         val story = requireNotNull(model.state.value.selectedStory)
         compose.onNodeWithTag("delete-story").performScrollTo().performClick()
         compose.waitUntil(15_000) { model.deletion.value.prepared != null }
@@ -29,15 +30,19 @@ class StoryDeletionMainActivityTest {
         compose.onNodeWithTag("delete-confirm").performScrollTo().performClick()
         compose.waitUntil(15_000) { model.deletion.value.deleted != null }
         compose.onNodeWithTag("delete-close").performClick()
-        compose.waitUntil(15_000) { !model.state.value.busy && !model.state.value.deletionActive && model.state.value.stories.isEmpty() }
+        compose.waitUntil(15_000) { !model.state.value.busy && !model.state.value.deletionActive && model.state.value.stories == retained }
         compose.activityRule.scenario.recreate(); attach()
         compose.waitUntil(15_000) { !model.state.value.busy && model.state.value.persistent }
-        assertNull(model.state.value.selectedStory); assertTrue(model.state.value.messages.isEmpty())
-        compose.onNodeWithTag("empty-library").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("give-potion").performScrollTo().assertIsNotEnabled()
+        assertEquals(retained, model.state.value.stories)
+        if (retained.isEmpty()) {
+            assertNull(model.state.value.selectedStory); assertTrue(model.state.value.messages.isEmpty())
+            compose.onNodeWithTag("empty-library").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithTag("give-potion").performScrollTo().assertIsNotEnabled()
+        }
         // Leave a fresh synthetic story for read-only Activity/archive regression tests.
         compose.onNodeWithTag("reset-demo").performScrollTo().performClick()
-        compose.waitUntil(15_000) { !model.state.value.busy && model.state.value.selectedStory != null }
+        compose.waitUntil(15_000) { !model.state.value.busy && model.state.value.selectedStory?.let { selected ->
+            retained.none { it.story == selected.story } } == true }
         assertNotEquals(story.story, model.state.value.selectedStory!!.story)
         assertEquals(0L, model.state.value.revision)
     }

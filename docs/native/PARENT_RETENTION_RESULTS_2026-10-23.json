@@ -1,0 +1,557 @@
+{
+  "version": 1,
+  "date": "2026-10-23",
+  "task_ids": [
+    "M08.05",
+    "M08.01",
+    "M08.04",
+    "M08.06"
+  ],
+  "status": "implemented_locally_verified_pending_owner_acceptance",
+  "source_commit": "3c5cfba00a1035d011ccc90004816d0710eef0e8",
+  "integration_base": "884cf3fe7ec144b8da082bef9a726d426d4aaf4c",
+  "database_schema": 3,
+  "catalog_version": 2,
+  "archive_versions": [
+    1,
+    2
+  ],
+  "host_domain_workspace_wire_version": 1,
+  "checks": {
+    "host": {
+      "rust_workspace_passed": 380,
+      "linker_passed": 3,
+      "python_passed": 352,
+      "ignored_explicit_qualifiers": 2,
+      "fixture_cases": 4,
+      "fmt": true,
+      "strict_clippy": true
+    },
+    "optional_play_probe": {
+      "rust_passed": 69,
+      "strict_clippy": true
+    },
+    "jvm": {
+      "build": {
+        "tests": 146,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "build-parent-retention": {
+        "tests": 146,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "lint": {
+      "errors": 0,
+      "existing_dependency_advisories": 1
+    },
+    "frontend": "passed_after_locked_offline_dependency_restore",
+    "negative_profile_guards": {
+      "bad-value": {
+        "status": "rejected_as_expected",
+        "evidence": "terminal_build_failed_expected_configuration_guard"
+      },
+      "missing-cache": {
+        "status": "rejected_as_expected",
+        "evidence": "terminal_build_failed_expected_configuration_guard"
+      },
+      "cache-without-property": {
+        "status": "rejected_as_expected",
+        "evidence": "terminal_build_failed_expected_configuration_guard"
+      },
+      "combined-archive": {
+        "status": "rejected_as_expected",
+        "evidence": "terminal_build_failed_expected_configuration_guard"
+      },
+      "combined-deletion": {
+        "status": "rejected_as_expected",
+        "evidence": "terminal_build_failed_expected_configuration_guard"
+      },
+      "combined-capacity": {
+        "status": "rejected_as_expected",
+        "evidence": "terminal_build_failed_expected_configuration_guard"
+      },
+      "combined-timeline": {
+        "status": "rejected_as_expected",
+        "evidence": "terminal_build_failed_expected_configuration_guard"
+      },
+      "combined-legacy-capacity": {
+        "status": "rejected_as_expected",
+        "evidence": "terminal_build_failed_expected_configuration_guard"
+      },
+      "combined-legacy-relief": {
+        "status": "rejected_as_expected",
+        "evidence": "terminal_build_failed_expected_configuration_guard"
+      },
+      "release": {
+        "status": "rejected_as_expected",
+        "evidence": "terminal_build_failed_expected_configuration_guard"
+      }
+    }
+  },
+  "artifact_audits": {
+    "dedicated_latest": {
+      "status": "passed",
+      "mode": "retention",
+      "package": "org.locallore.app.parentverify",
+      "apk_sha256": {
+        "org.locallore.app.parentverify": "9a68c915ce963a38a5a0beeafbc7465ff4d8c28b65953457b3a8beeb45aa6d17",
+        "org.locallore.app.parentverify.test": "6fa5ea0703aabee5b0d783a57f44c5986a240ce0c57cb3c02fa4930975848889"
+      },
+      "permissions": [
+        "org.locallore.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "libraries": [
+        {
+          "entry": "lib/arm64-v8a/libandroidx.graphics.path.so",
+          "elf_load_alignment": [
+            16384,
+            16384,
+            16384
+          ]
+        },
+        {
+          "entry": "lib/x86_64/libandroidx.graphics.path.so",
+          "elf_load_alignment": [
+            16384,
+            16384,
+            16384
+          ]
+        },
+        {
+          "entry": "lib/arm64-v8a/liblocallore_android.so",
+          "elf_load_alignment": [
+            16384,
+            16384,
+            16384
+          ]
+        },
+        {
+          "entry": "lib/x86_64/liblocallore_android.so",
+          "elf_load_alignment": [
+            16384,
+            16384,
+            16384
+          ]
+        }
+      ],
+      "native_symbols": {
+        "arm64-v8a": {
+          "archive": [
+            "cancel",
+            "close",
+            "commitBranchDelete",
+            "commitDelete",
+            "commitImport",
+            "exportBytes",
+            "open",
+            "prepareBranchDelete",
+            "prepareDelete",
+            "prepareExport",
+            "prepareImport"
+          ],
+          "fixture": false
+        },
+        "x86_64": {
+          "archive": [
+            "cancel",
+            "close",
+            "commitBranchDelete",
+            "commitDelete",
+            "commitImport",
+            "exportBytes",
+            "open",
+            "prepareBranchDelete",
+            "prepareDelete",
+            "prepareExport",
+            "prepareImport"
+          ],
+          "fixture": false
+        }
+      },
+      "library_sha256": {
+        "arm64-v8a": "b5a66b2ae5b406090f3a64bd0f43a531dfee1a5de52e225c5f7ae6db844e0a7a",
+        "x86_64": "c24660988f6b9be983464488b9549a3d2e6813bb260ecd0c998615de8deec7b8"
+      },
+      "compile_cap_96_string": {
+        "arm64-v8a": false,
+        "x86_64": false
+      }
+    },
+    "ordinary": {
+      "status": "passed",
+      "mode": "retention",
+      "package": "org.locallore.app",
+      "apk_sha256": {
+        "org.locallore.app": "550b76866215c2a2e719b2d34f81dd129826558d7ff3f0c7e99e4bc0d0ddc0de",
+        "org.locallore.app.test": "fcd1195d94a351d48cbaaf04ef427aad5d39da69c9faec7782560438afd73feb"
+      },
+      "permissions": [
+        "org.locallore.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "libraries": [
+        {
+          "entry": "lib/arm64-v8a/libandroidx.graphics.path.so",
+          "elf_load_alignment": [
+            16384,
+            16384,
+            16384
+          ]
+        },
+        {
+          "entry": "lib/x86_64/libandroidx.graphics.path.so",
+          "elf_load_alignment": [
+            16384,
+            16384,
+            16384
+          ]
+        },
+        {
+          "entry": "lib/arm64-v8a/liblocallore_android.so",
+          "elf_load_alignment": [
+            16384,
+            16384,
+            16384
+          ]
+        },
+        {
+          "entry": "lib/x86_64/liblocallore_android.so",
+          "elf_load_alignment": [
+            16384,
+            16384,
+            16384
+          ]
+        }
+      ],
+      "native_symbols": {
+        "arm64-v8a": {
+          "archive": [
+            "cancel",
+            "close",
+            "commitBranchDelete",
+            "commitDelete",
+            "commitImport",
+            "exportBytes",
+            "open",
+            "prepareBranchDelete",
+            "prepareDelete",
+            "prepareExport",
+            "prepareImport"
+          ],
+          "fixture": false
+        },
+        "x86_64": {
+          "archive": [
+            "cancel",
+            "close",
+            "commitBranchDelete",
+            "commitDelete",
+            "commitImport",
+            "exportBytes",
+            "open",
+            "prepareBranchDelete",
+            "prepareDelete",
+            "prepareExport",
+            "prepareImport"
+          ],
+          "fixture": false
+        }
+      },
+      "library_sha256": {
+        "arm64-v8a": "b5a66b2ae5b406090f3a64bd0f43a531dfee1a5de52e225c5f7ae6db844e0a7a",
+        "x86_64": "c24660988f6b9be983464488b9549a3d2e6813bb260ecd0c998615de8deec7b8"
+      },
+      "compile_cap_96_string": {
+        "arm64-v8a": false,
+        "x86_64": false
+      }
+    },
+    "ordinary_installed": false,
+    "nonordinary_local_apks_preserved_before_final_test_only_rebuild": 14,
+    "prior_installed_package_identities_preserved": 13,
+    "new_dependencies": false
+  },
+  "final_product_cohorts": [
+    {
+      "alias": "A",
+      "attempt": "final",
+      "status": "passed",
+      "apks": {
+        "org.locallore.app.parentverify": "9a68c915ce963a38a5a0beeafbc7465ff4d8c28b65953457b3a8beeb45aa6d17",
+        "org.locallore.app.parentverify.test": "4a4ece0e4fbc76ea34b59204755897b97bbd6ad269156135e5cdd92f3d5f4c3e"
+      },
+      "classes": {
+        "org.locallore.app.ParentRetentionNativeTest": 1,
+        "org.locallore.app.ParentRetentionProtocolTest": 3,
+        "org.locallore.app.ParentRetentionActivityTest": 1,
+        "org.locallore.app.TimelineNativeTest": 1,
+        "org.locallore.app.TimelineProtocolTest": 5,
+        "org.locallore.app.TimelineActivityTest": 1,
+        "org.locallore.app.TimelineMainActivityTest": 1,
+        "org.locallore.app.StoryDeletionActivityTest": 1,
+        "org.locallore.app.StoryDeletionMainActivityTest": 1,
+        "org.locallore.app.DurableDeletionRecoveryTest": 7
+      },
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "started_unfinished": 0,
+      "raw_sha256": "f5e7086462d7f77f8a521bbfa83c989fac10a69fafecc39626df8311d834ff26",
+      "processes_absent": true,
+      "clients_cleaned": true,
+      "prior_packages_preserved": true
+    },
+    {
+      "alias": "B",
+      "attempt": "final",
+      "status": "passed",
+      "apks": {
+        "org.locallore.app.parentverify": "9a68c915ce963a38a5a0beeafbc7465ff4d8c28b65953457b3a8beeb45aa6d17",
+        "org.locallore.app.parentverify.test": "4a4ece0e4fbc76ea34b59204755897b97bbd6ad269156135e5cdd92f3d5f4c3e"
+      },
+      "classes": {
+        "org.locallore.app.ParentRetentionNativeTest": 1,
+        "org.locallore.app.ParentRetentionProtocolTest": 3,
+        "org.locallore.app.ParentRetentionActivityTest": 1,
+        "org.locallore.app.TimelineNativeTest": 1,
+        "org.locallore.app.TimelineProtocolTest": 5,
+        "org.locallore.app.TimelineActivityTest": 1,
+        "org.locallore.app.TimelineMainActivityTest": 1,
+        "org.locallore.app.StoryDeletionActivityTest": 1,
+        "org.locallore.app.StoryDeletionMainActivityTest": 1,
+        "org.locallore.app.DurableDeletionRecoveryTest": 7
+      },
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "started_unfinished": 0,
+      "raw_sha256": "243002ef939cbcea7bd27a7384885338b30a08af1d8e7a377867fe7f0daeacab",
+      "processes_absent": true,
+      "clients_cleaned": true,
+      "prior_packages_preserved": true
+    },
+    {
+      "alias": "A",
+      "attempt": "regression2",
+      "status": "passed",
+      "apks": {
+        "org.locallore.app.parentverify": "9a68c915ce963a38a5a0beeafbc7465ff4d8c28b65953457b3a8beeb45aa6d17",
+        "org.locallore.app.parentverify.test": "6fa5ea0703aabee5b0d783a57f44c5986a240ce0c57cb3c02fa4930975848889"
+      },
+      "classes": {
+        "org.locallore.app.ArchiveIntegrationTest": 6,
+        "org.locallore.app.ArchiveDocumentTest": 5,
+        "org.locallore.app.ArchiveDialogTest": 6,
+        "org.locallore.app.DurableNativeTest": 5,
+        "org.locallore.app.ArchiveActivityTest": 2,
+        "org.locallore.app.ArchiveChooserActivityTest": 2
+      },
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "started_unfinished": 0,
+      "raw_sha256": "616fc249599474c9137e950c4ce1c85583e216d7708d9f5a666a22b3b46b4250",
+      "processes_absent": true,
+      "clients_cleaned": true,
+      "prior_packages_preserved": true
+    },
+    {
+      "alias": "B",
+      "attempt": "regression2",
+      "status": "passed",
+      "apks": {
+        "org.locallore.app.parentverify": "9a68c915ce963a38a5a0beeafbc7465ff4d8c28b65953457b3a8beeb45aa6d17",
+        "org.locallore.app.parentverify.test": "6fa5ea0703aabee5b0d783a57f44c5986a240ce0c57cb3c02fa4930975848889"
+      },
+      "classes": {
+        "org.locallore.app.ArchiveIntegrationTest": 6,
+        "org.locallore.app.ArchiveDocumentTest": 5,
+        "org.locallore.app.ArchiveDialogTest": 6,
+        "org.locallore.app.DurableNativeTest": 5,
+        "org.locallore.app.ArchiveActivityTest": 2,
+        "org.locallore.app.ArchiveChooserActivityTest": 2
+      },
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "started_unfinished": 0,
+      "raw_sha256": "46cd12e6fc388f729c295776b42d0383e06a81c997d47579d3151ffa66c3f59d",
+      "processes_absent": true,
+      "clients_cleaned": true,
+      "prior_packages_preserved": true
+    }
+  ],
+  "final_product_passed": 96,
+  "focused_test_apk_differs_from_regression_test_apk": true,
+  "test_apk_difference": "Only ArchiveIntegrationTest imported database schema expectation changed 2 to 3; application APK and both Rust libraries unchanged",
+  "superseded_cohorts": [
+    {
+      "alias": "A",
+      "attempt": "fix1",
+      "status": "failed",
+      "apks": {
+        "org.locallore.app.parentverify": "9a68c915ce963a38a5a0beeafbc7465ff4d8c28b65953457b3a8beeb45aa6d17",
+        "org.locallore.app.parentverify.test": "092ee95de5e1f39a9f73fa716c8a04ebd27f4a83d505654fad4d9e772f40eeeb"
+      },
+      "classes": {
+        "org.locallore.app.ParentRetentionNativeTest": 1,
+        "org.locallore.app.ParentRetentionProtocolTest": 3,
+        "org.locallore.app.ParentRetentionActivityTest": 1,
+        "org.locallore.app.TimelineNativeTest": 1,
+        "org.locallore.app.TimelineProtocolTest": 5,
+        "org.locallore.app.TimelineActivityTest": 1,
+        "org.locallore.app.TimelineMainActivityTest": 1,
+        "org.locallore.app.StoryDeletionActivityTest": 1,
+        "org.locallore.app.StoryDeletionMainActivityTest": 1,
+        "org.locallore.app.DurableDeletionRecoveryTest": 7
+      },
+      "passed": 11,
+      "failed": 11,
+      "skipped": 0,
+      "started_unfinished": 0,
+      "raw_sha256": "24dc4d396f4f71d9d66798c5cc84938b1c9b33306e4cbad5ad661fb2190021f2",
+      "processes_absent": true,
+      "clients_cleaned": true,
+      "prior_packages_preserved": true
+    },
+    {
+      "alias": "B",
+      "attempt": "fix1",
+      "status": "failed",
+      "apks": {
+        "org.locallore.app.parentverify": "9a68c915ce963a38a5a0beeafbc7465ff4d8c28b65953457b3a8beeb45aa6d17",
+        "org.locallore.app.parentverify.test": "092ee95de5e1f39a9f73fa716c8a04ebd27f4a83d505654fad4d9e772f40eeeb"
+      },
+      "classes": {
+        "org.locallore.app.ParentRetentionNativeTest": 1,
+        "org.locallore.app.ParentRetentionProtocolTest": 3,
+        "org.locallore.app.ParentRetentionActivityTest": 1,
+        "org.locallore.app.TimelineNativeTest": 1,
+        "org.locallore.app.TimelineProtocolTest": 5,
+        "org.locallore.app.TimelineActivityTest": 1,
+        "org.locallore.app.TimelineMainActivityTest": 1,
+        "org.locallore.app.StoryDeletionActivityTest": 1,
+        "org.locallore.app.StoryDeletionMainActivityTest": 1,
+        "org.locallore.app.DurableDeletionRecoveryTest": 7
+      },
+      "passed": 11,
+      "failed": 11,
+      "skipped": 0,
+      "started_unfinished": 0,
+      "raw_sha256": "151adb6783b2f664e6896657a3a52feaa1e039052952e24cb5ef9689f3ca2990",
+      "processes_absent": true,
+      "clients_cleaned": true,
+      "prior_packages_preserved": true
+    },
+    {
+      "alias": "A",
+      "attempt": "regression",
+      "status": "failed",
+      "apks": {
+        "org.locallore.app.parentverify": "9a68c915ce963a38a5a0beeafbc7465ff4d8c28b65953457b3a8beeb45aa6d17",
+        "org.locallore.app.parentverify.test": "4a4ece0e4fbc76ea34b59204755897b97bbd6ad269156135e5cdd92f3d5f4c3e"
+      },
+      "classes": {
+        "org.locallore.app.ArchiveIntegrationTest": 6,
+        "org.locallore.app.ArchiveDocumentTest": 5,
+        "org.locallore.app.ArchiveDialogTest": 6,
+        "org.locallore.app.DurableNativeTest": 5,
+        "org.locallore.app.ArchiveActivityTest": 2,
+        "org.locallore.app.ArchiveChooserActivityTest": 2
+      },
+      "passed": 25,
+      "failed": 1,
+      "skipped": 0,
+      "started_unfinished": 0,
+      "raw_sha256": "cd2b58e38a1c5d0e7ec5c8bb01148512724262552bead9d767999a1f27ae6cd6",
+      "processes_absent": true,
+      "clients_cleaned": true,
+      "prior_packages_preserved": true
+    },
+    {
+      "alias": "B",
+      "attempt": "regression",
+      "status": "failed",
+      "apks": {
+        "org.locallore.app.parentverify": "9a68c915ce963a38a5a0beeafbc7465ff4d8c28b65953457b3a8beeb45aa6d17",
+        "org.locallore.app.parentverify.test": "4a4ece0e4fbc76ea34b59204755897b97bbd6ad269156135e5cdd92f3d5f4c3e"
+      },
+      "classes": {
+        "org.locallore.app.ArchiveIntegrationTest": 6,
+        "org.locallore.app.ArchiveDocumentTest": 5,
+        "org.locallore.app.ArchiveDialogTest": 6,
+        "org.locallore.app.DurableNativeTest": 5,
+        "org.locallore.app.ArchiveActivityTest": 2,
+        "org.locallore.app.ArchiveChooserActivityTest": 2
+      },
+      "passed": 25,
+      "failed": 1,
+      "skipped": 0,
+      "started_unfinished": 0,
+      "raw_sha256": "b3902e4167628a60f1ac2a119da4f3610278beaf91bd3a4cb832a6b2e53eadb3",
+      "processes_absent": true,
+      "clients_cleaned": true,
+      "prior_packages_preserved": true
+    }
+  ],
+  "superseded_passed": 72,
+  "superseded_failed": 24,
+  "nonexecuted_initial_A_attempt": {
+    "stage": "wrapper_process_budget_validation",
+    "instrumentation_launched": false,
+    "raw_available": false,
+    "clients_cleaned": true,
+    "prior_packages_preserved": true
+  },
+  "retained_log_sha256": {
+    "compile-workspace.log": "0e3a9b2c18e38794b9639e315a7e1cbe72ea22cd811c455b75e6dee9f1731730",
+    "feature-clippy.log": "8a628387654680f49c307172897282c9441a47fff0283229e2e749548a3d2409",
+    "feature-tests.log": "3921d6cab43fd586e282650d31d51262b813adade27e75659a8bfc56811f582d",
+    "fix2-build.log": "2c29fab37637f5a9feaaf0c6286429cf5a63d48fcd658b2baa1fad4e921da022",
+    "fix3-build.log": "68839b02ccab96a6550fca806ab658513dcbbef77a0e0f2d5786fb7402109e26",
+    "frontend-ci.log": "7c11e71e4591f13c160a528b0e1edf1e66027b433ac0caee3d6a5bc24a763edf",
+    "frontend-fix1.log": "8d86fec6a54ce27f5892a1f613857b11f115375ae38f93f09c23db2437ca2a86",
+    "frontend.log": "7e7a6ce5b812b6707f1b8d9d0c33695531cac734223e4c9731f7140be9bfdbf2",
+    "guard-bad-value.log": "2ec158a8d0f01ad47ddc989bbca5ad8ac08c3e3f49a8a22b86e9711629a11881",
+    "guard-cache-without-property.log": "71e0923803363924ca419ae4628ecadbcd1cacfce129db930b11d7b05ed301cf",
+    "guard-combined-archive.log": "ee3bcafe1f4edab8d815da7b721d0a56c16b3c62b5959d60782f1bf8982cb4b3",
+    "guard-combined-capacity.log": "c1674fecfbbfe9ec194161a74c03ab908fb05366146349c421b4aad8faf1ab19",
+    "guard-combined-deletion.log": "ee3bcafe1f4edab8d815da7b721d0a56c16b3c62b5959d60782f1bf8982cb4b3",
+    "guard-combined-legacy-capacity.log": "e681a874abd48152a892a99c6c3e158035382a912dbd1903d2ad01279c31c08a",
+    "guard-combined-legacy-relief.log": "e681a874abd48152a892a99c6c3e158035382a912dbd1903d2ad01279c31c08a",
+    "guard-combined-timeline.log": "ee3bcafe1f4edab8d815da7b721d0a56c16b3c62b5959d60782f1bf8982cb4b3",
+    "guard-missing-cache.log": "71e0923803363924ca419ae4628ecadbcd1cacfce129db930b11d7b05ed301cf",
+    "guard-release.log": "66dc39fa15300d53fb1c6ddb2309cfaee6199f3df53e47227e412a7af9f65282",
+    "host-fix1.log": "ac7e926f7eff3b888d597e19c6be163fa842bf022c68b3f93fe0ec3f9b326c81",
+    "host-fix2.log": "5cfcd57701ea92d2822902a4180b83184703692051020a98b057b32b1358ff0b",
+    "host-initial.log": "491ca51ceafc0dcf9de0a26ff21bbb4a6a5b4d946097d1103201bc70cb42c96b",
+    "host-main1.log": "a5075168cb91ca0878cb51f26d0d93c6868a52a92ec84a394ee0bbb90cb6c3a8",
+    "initial-build.log": "2ed56a253ab42eabc862df4b706993579c4dfc2bbbf45a3f76d053ea784c3d82",
+    "initial-storage.log": "1cff745c1c76ad096af2d3fca159019fb7950c951f1e74a7ecf618e5682535b4",
+    "main1-build.log": "c9a940328c39c1fb01dc1a094c48a0272c539e8c5a25e932a57eb0f9609330cc",
+    "native-fix1.log": "0f5a78a0bc8373784766a394a7ea5b90da10dbfa7637e328044c3f74a9d675bb",
+    "native-fix2.log": "2fcc520e9fef127f3a3e2359e81428ff52655a7920a30c2e6742ec986e4a4702",
+    "native-initial.log": "5b97ed9739cec28a876d3b161b0f3e511ff06e56f339fb67257e2916c1410f1c",
+    "ordinary-build.log": "5beffbcfd46950cc27989f7f25358a38e4f4339e1a1c0d74d5ea5907c66bd333",
+    "ordinary-final.log": "0a6fd0f5bae7ca326acbdf477da564dadbc712e4b8343e3c20aa3f89b4cac36d",
+    "running-fix1.log": "4a51ccae6d3ba9b1a2f0f59a5cb9cfd0c276ffccfc074193fa3b7f267b035402",
+    "running-fix2.log": "84c7855b883f341a03e5ed2d5a46b221ad6b4a9d0203c1771834ae2d7428df8a",
+    "running-initial.log": "b3b8b0b158ac07fc45d33c699c19688dee1e83fee0ddc796ec7622979e0d2cb8",
+    "storage-fix1.log": "4d6a988f0e1bcffe2c8d6dd578a76c88d8445d3972c00d121248a358660a20b8"
+  },
+  "source_binding_sha256": "64f274e628b876e93f548c0838a4f49b52c4a0f6c053a4a63e0cacf3ed6edfbe",
+  "limitations": [
+    "Fake inference only; no physical phone/ARM64 execution/model qualification",
+    "Retirement is logical deletion; required inherited content/backups/external copies remain",
+    "Archive checksums do not authenticate historical deletion intent",
+    "No maximum-history latency or hard replay CPU deadline qualification",
+    "Cross-process target admission is fenced; immediate external-process memory scrubbing is not promised",
+    "ComponentActivity proves parent deletion; actual MainActivity verifies existing selector and own-story create/delete/recreate preservation; no fresh empty-main-library claim for these nonempty runs",
+    "15/32-page legacy capacity profiles require schema3 requalification; 32-page helper currently requires schema1 and must refuse schema3; no measured current-profile Full claim"
+  ],
+  "next_runnable_task": "M04.04: update and independently recalibrate exact-schema3 capacity fixtures without relaxing production storage or weakening Full/rollback/same-key recovery criteria"
+}

@@ -151,6 +151,7 @@ export interface State {
     view: "play" | "lab";
     observer: string;
     play: PlayView | null;
+    playV2?: import("./v2-view-model").PlaySnapshotV2 | null;
     inspection: Json;
     inspectionRevision: number | null;
     inspectionObserver: string | null;
@@ -173,6 +174,8 @@ export interface State {
 }
 export const PAGE_SIZE = 12;
 export const categories = new Set([
+    "CaptureConsentRequired",
+    "CaptureNotRetained",
     "TraceUnavailable",
     "UnknownObserver",
     "InvalidBoundary",
@@ -282,6 +285,7 @@ export class ErrorBuffer {
     }
 }
 export interface Gateway {
+    readonly playSnapshotV2?: boolean;
     call(command: Command): Promise<unknown>;
     native?(
         command: NativeAction,
@@ -289,6 +293,9 @@ export interface Gateway {
     ): Promise<unknown>;
 }
 export type NativeAction =
+    | "capture_preview"
+    | "capture_save"
+    | "capture_revoke"
     | "model_status"
     | "model_import"
     | "model_load"
@@ -302,6 +309,7 @@ export type NativeAction =
     | "inspection_storage"
     | "inspection_load";
 export class IpcGateway implements Gateway {
+    readonly playSnapshotV2 = true;
     constructor(
         private invoke: (
             command: string,
@@ -411,12 +419,26 @@ export function playView(
     revision: number,
 ): PlayView {
     const view = value as PlayView;
+    // Rust owns inherited-history eligibility. Preserve each accepted receipt's
+    // original scope instead of relabelling parent history as the selected child.
+    const originalScope = (s: unknown): s is Scope => {
+        if (!s || typeof s !== "object" || Array.isArray(s)) return false;
+        const v = s as Record<string, unknown>;
+        return (
+            Object.keys(v).length === 2 &&
+            v.story === scope.story &&
+            typeof v.branch === "string" &&
+            /^[A-Za-z0-9_-]{1,64}$/.test(v.branch)
+        );
+    };
     if (
         !view ||
         view.revision !== revision ||
         !view.scope ||
         !sameScope(view.scope, scope) ||
         view.player?.revision !== revision ||
+        !view.player.scope ||
+        !sameScope(view.player.scope, scope) ||
         view.player.observer !== "player" ||
         !view.player.self_state ||
         (view.rules !== undefined && typeof view.rules !== "string") ||
@@ -426,16 +448,16 @@ export function playView(
         view.receipts.some(
             (r) =>
                 !r ||
-                !r.request?.scope ||
-                !sameScope(r.request.scope, scope) ||
+                !originalScope(r.request?.scope) ||
                 !Array.isArray(r.events) ||
                 r.events.some(
                     (e) =>
                         !e ||
                         !e.scope ||
                         !Number.isSafeInteger(e.sequence) ||
+                        e.sequence < 1 ||
                         e.sequence > revision ||
-                        !sameScope(e.scope, scope),
+                        !sameScope(e.scope, r.request.scope),
                 ) ||
                 typeof r.narration !== "string",
         )

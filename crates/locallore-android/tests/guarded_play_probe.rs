@@ -333,7 +333,7 @@ fn explicit_fake_gift_bytes_require_both_roles_then_commit_original_request_and_
     );
     assert_eq!(
         committed["receipt"]["play"]["prompt_version"],
-        "locallore-play-v2.3"
+        "locallore-play-v2.5"
     );
     assert_eq!(committed["receipt"]["play"]["repairs"], 0);
     let after = fixture.snapshot(1);

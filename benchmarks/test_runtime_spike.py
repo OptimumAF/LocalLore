@@ -246,6 +246,7 @@ class ProcessOwnershipTests(unittest.TestCase):
         source = r'''
 import json,sys,time
 from unittest.mock import patch
+sys.path.insert(0,sys.argv[1])  # Trusted test module directory, also for isolated Python.
 import runtime_spike as m
 original=m.WindowsJob
 owners=[]
@@ -260,8 +261,12 @@ try:
 finally:
     for owner in owners:owner.close()
 '''
-        completed = subprocess.run(self.command(source), cwd=Path(spike.__file__).parent,
-                                   capture_output=True, timeout=15, check=True)
+        directory = Path(spike.__file__).resolve().parent
+        completed = subprocess.run(self.command(source) + [str(directory)], cwd=directory,
+                                   capture_output=True, timeout=15, check=False)
+        self.assertEqual(completed.returncode, 0,
+                         "fixed cleanup child failed: stdout=%r stderr=%r" %
+                         (completed.stdout[:4096], completed.stderr[:4096]))
         value = json.loads(completed.stdout)
         self.assertEqual(value["status"], "cleanup_failed")
         self.assertFalse(value["clean"])

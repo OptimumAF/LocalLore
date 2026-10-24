@@ -1,0 +1,158 @@
+{
+  "actual_collection": {
+    "app_worker_model_executed": false,
+    "historical_zip_sha256_unchanged": "3f13d9a22e64866b40c9e6e8fae05efa3867461b9fd5e5bc56088aea1f4e545b",
+    "material_bytes": 2885724,
+    "material_file_count": 466,
+    "materials_only_validation_pass": true,
+    "new_native_build": false,
+    "new_package_zip_written": false,
+    "source_inventory_count": 286
+  },
+  "base_immutable_evidence": "c6be1620ae00b7052b7e9caf872cb01657575933",
+  "catalog_sha256": "d13bd4b6db54da101824e7a2873fa45e5fd9561ca3c50e8065d8d3d0e10eefb2",
+  "checks": {
+    "package_policy": {
+      "failed": 0,
+      "passed": 29,
+      "skipped": 0
+    },
+    "runner_helpers": {
+      "failed": 0,
+      "passed": 153,
+      "skipped": 0
+    },
+    "unchanged_repro_checker": {
+      "failed": 0,
+      "passed": 20,
+      "skipped": 0
+    }
+  },
+  "claims": [
+    6371431413,
+    6371524518
+  ],
+  "distribution_approved": false,
+  "exact_selected_graph": {
+    "local": 6,
+    "mpl_archive_bytes": 150290,
+    "mpl_archives": 5,
+    "registry": 250,
+    "sha256": "17b566ecb41d62de80a664673166065a15975fa4f701317c51c73a133b974551"
+  },
+  "license_audit_complete": false,
+  "limits": [
+    "Material-only validation is not a compiled package or app/worker execution.",
+    "Pinned STL complete notices are conservative; not every implementation is asserted linked.",
+    "Historical app evidence is not a future/current build claim.",
+    "CRT startup family separate from STL Apache exception; exact per-symbol object map and distribution approval not supplied.",
+    "Separate nlohmann header-attribution finding remains pending its own fix/review."
+  ],
+  "local_artifacts": {
+    "STL-pinned-LICENSE.txt": {
+      "bytes": 12550,
+      "sha256": "1fc6b6db121d4555d8f661937d7f6013693cd8fd67495d5e5d98c1d18fb83eda"
+    },
+    "STL-pinned-NOTICE.txt": {
+      "bytes": 10762,
+      "sha256": "11dee60b182033b92dfcce5344093eb05e009e2c0339ce551f5667b3838c8223"
+    },
+    "VS2022-Community-License-EN.docx": {
+      "bytes": 62859,
+      "sha256": "41a207b10c8ab91d0d2f10a854715f73dca54509581692d2fe179aa3ffcb8540"
+    },
+    "WebView2LoaderStatic-dumpbin.txt": {
+      "bytes": 1696,
+      "sha256": "4eabbf5a9b5b68684d89e2c9c08757783a62afc5b1532fdfd20c8c70828f05bb"
+    },
+    "actual-collection-report-final.json": {
+      "bytes": 165965,
+      "sha256": "d1f89fa93ffb7302b429554c85b39e3db89c9a3dc38c6223de2d0748f33e0e1c"
+    },
+    "actual-collection.log": {
+      "bytes": 2813,
+      "sha256": "f9f958718df56a7f1df4605d1df13888714653f225e947136d2e5ae0a21ae764"
+    },
+    "b5_worker-imports.txt": {
+      "bytes": 22506,
+      "sha256": "375a5dba40ae26ae5a52db19b420b488fb830ed0e540596b21248c459128460b"
+    },
+    "checker-tests.log": {
+      "bytes": 124,
+      "sha256": "52bb61617361ff3cb7ade0ba96e27125fe673bd9def75cc8209598c377c95f79"
+    },
+    "collect-verify.py": {
+      "bytes": 2171,
+      "sha256": "734d0accd693521d6be44b74f8e9105e8d3852590b6784a6addbf008d5da7791"
+    },
+    "final-inspection.json": {
+      "bytes": 1504,
+      "sha256": "29a10ea4a9dc549ce075ca9a831540ba3262b4b522365aa3bcecccd8fd6dcf02"
+    },
+    "finish.py": {
+      "bytes": 1608,
+      "sha256": "10916cdd95677ec1506e3486b28ce130c8e690d88450433d0f71dc440a7874fe"
+    },
+    "historical_app-imports.txt": {
+      "bytes": 23585,
+      "sha256": "24a4444e3a4d69ba508241b1ffb448c4a699be74289374fcdf840ef552a00295"
+    },
+    "inspect.py": {
+      "bytes": 3003,
+      "sha256": "4d5afd0eba8e274140bebfafb1f33f1a3f1e2d9ab4ecc6acf9360c1935846d53"
+    },
+    "inspection.json": {
+      "bytes": 5472,
+      "sha256": "901a53d2270136004b02c663c366fa16104efd4b910819527e1e348b757cd833"
+    },
+    "main-object-directives.txt": {
+      "bytes": 1142,
+      "sha256": "62e66e5d4ffe283b6ab59ab79a1695072d2f3275845f89cb17bdcc93dc35c095"
+    },
+    "msvcrt-dumpbin.txt": {
+      "bytes": 327320,
+      "sha256": "6f48726eca345af2a4c51d7d8d99f43cfac2ca958815119de0409e207a3534a0"
+    },
+    "package-tests.log": {
+      "bytes": 133,
+      "sha256": "6d969a93305ffc32553053748bfed33ec112bc782c470bfc619a776fcd68ebcd"
+    },
+    "runner-tests.log": {
+      "bytes": 438,
+      "sha256": "2a37335cb844625906c28120d070ca4e5e4875ebc73e604c92b348aed8460408"
+    },
+    "stl-installed-notices.txt": {
+      "bytes": 10623,
+      "sha256": "2cf8c3ebd3555b224080ac4caa9362f5c1502767fb8736878096b09be5eb5513"
+    },
+    "terms.py": {
+      "bytes": 2196,
+      "sha256": "d36dec5f341ef15af5cbe6c7b6f6043498b5cf2c80326bbc17b4febaaf2a9413"
+    }
+  },
+  "new_resources": {
+    "MSVC-STL-LICENSE.txt": {
+      "bytes": 12331,
+      "sha256": "7c68a47568bd633f7a71ee5e2038660a2cc62ce8a5405999e2b69fab3f37469c"
+    },
+    "MSVC-STL-NOTICE.txt": {
+      "bytes": 10534,
+      "sha256": "e9451ef95cc6e7e41e19da99879f414b978e7e82e5b2f1af08eb8486a3b47410"
+    },
+    "MSVC-runtime-provenance.json": {
+      "bytes": 8247,
+      "sha256": "2329c8e2ffe7c6023d837de5233266dac9ea6ff66cea8b366925b64c84b87820"
+    }
+  },
+  "retained_legacy_packet": {
+    "bytes": 10686423,
+    "license_scope_status": "legacy_unreviewed",
+    "members": 446,
+    "sha256": "3f13d9a22e64866b40c9e6e8fae05efa3867461b9fd5e5bc56088aea1f4e545b",
+    "source_commit": "6e576f473a4796c329468a6abf3eeaaf4323a89b",
+    "worker_sha256": "b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434"
+  },
+  "review_complete": false,
+  "schema": "locallore-msvc-notice-evidence-v1",
+  "tested_source": "d6f663e89fc83659e8a61cadc4cce47ccfd52232"
+}

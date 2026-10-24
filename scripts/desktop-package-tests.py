@@ -188,5 +188,16 @@ class PackageTests(unittest.TestCase):
             self.assertNotIn(marker, workflow)
 
 
+def load_tests(loader, tests, _pattern):
+    # Keep the existing CI entrypoint: the new catalog/source-material policy
+    # regressions must run wherever the original twelve package checks run.
+    license_spec = importlib.util.spec_from_file_location(
+        "desktop_license_tests", Path(__file__).with_name("desktop-license-tests.py"))
+    license_tests = importlib.util.module_from_spec(license_spec)
+    license_spec.loader.exec_module(license_tests)
+    tests.addTests(loader.loadTestsFromModule(license_tests))
+    return tests
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -10,10 +10,89 @@ use std::{
     sync::Mutex,
 };
 
+pub(crate) const AUTHOR_LABELS: &[&str] = &[
+    "author-native-consent",
+    "author-native-preview",
+    "author-native-rejected",
+    "author-native-pending",
+    "author-native-cancelled",
+    "author-native-saved",
+    "author-native-history",
+    "author-native-observer",
+    "author-native-receipt",
+    "author-native-turn-cancelled",
+    "author-native-stale-context",
+    "author-native-late-cancel",
+    "author-native-unknown",
+    "author-native-recovered",
+    "author-native-narrow",
+    "author-native-restarted",
+    "author-native-reopened",
+];
+
 const MAX_JSON: usize = 256 * 1024;
 const MAX_PNG: usize = 16 * 1024 * 1024;
 const MAX_CHECKPOINTS: usize = 40;
 const LABELS: &[&str] = &[
+    "memory-native-passive",
+    "memory-native-admitted",
+    "memory-native-pending",
+    "memory-native-cancelled",
+    "memory-native-pruned",
+    "memory-native-unknown",
+    "memory-native-observer",
+    "memory-native-switched",
+    "memory-native-other",
+    "memory-native-turn-busy",
+    "memory-native-complete",
+    "memory-native-narrow",
+    "memory-native-restarted",
+    "memory-native-reopened",
+    "fork-prepared",
+    "fork-rejected",
+    "fork-accepted",
+    "fork-pending",
+    "fork-cancelled",
+    "fork-switched",
+    "fork-unknown",
+    "fork-retry",
+    "fork-observer",
+    "fork-narrow",
+    "fork-finished",
+    "fork-restarted",
+    "fork-missing",
+    "fork-reopened",
+    "curated-library",
+    "curated-lost-ack",
+    "curated-completed",
+    "curated-evidence",
+    "curated-receipt",
+    "curated-output-narrow",
+    "curated-player",
+    "curated-rejected",
+    "curated-lens",
+    "curated-pending",
+    "curated-cancelled",
+    "curated-retiring",
+    "curated-retired",
+    "curated-restarted",
+    "curated-finished",
+    "curated-failure",
+    "d06-private-disabled",
+    "d06-private-repair",
+    "d06-private-context",
+    "d06-private-preview",
+    "d06-private-open-request",
+    "d06-private-open-export",
+    "d06-private-saved",
+    "d06-private-lens",
+    "d06-private-agency",
+    "d06-private-fallback",
+    "d06-private-cleared",
+    "d06-private-narrow",
+    "d06-private-restarted",
+    "d06-private-finished",
+    "d06-private-failure",
     "d06-disabled",
     "d06-committed",
     "d06-context",
@@ -104,6 +183,10 @@ pub fn active() -> bool {
     std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1")
 }
 
+pub(crate) fn author_active() -> bool {
+    active() && std::env::var("LOCALLORE_M08_AUTHOR_HARNESS").as_deref() == Ok("1")
+}
+
 struct Progress {
     labels: HashSet<String>,
     finished: bool,
@@ -151,7 +234,7 @@ impl HarnessState {
     }
 
     fn reserve(&self, label: &str) -> Result<(), &'static str> {
-        if !LABELS.contains(&label) {
+        if !(LABELS.contains(&label) || (author_active() && AUTHOR_LABELS.contains(&label))) {
             return Err("CheckpointInvalid");
         }
         let mut progress = self.progress.lock().map_err(|_| "HarnessUnavailable")?;
@@ -230,6 +313,7 @@ pub fn harness_viewport(
     let (width, height) = match preset.as_str() {
         "wide" => (1280.0, 900.0),
         "narrow" => (680.0, 900.0),
+        "capture-narrow" => (620.0, 900.0),
         _ => return Err("ViewportInvalid"),
     };
     window

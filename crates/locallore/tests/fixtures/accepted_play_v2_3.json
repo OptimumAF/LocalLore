@@ -1,0 +1,337 @@
+{
+  "generator": "tests/play_verified_memory.rs::freeze_original_v23_receipt_before_memory_consumer",
+  "provider_calls": 2,
+  "receipt": {
+    "events": [
+      {
+        "outcome": {
+          "effect": "given",
+          "from": "player",
+          "item": "potion",
+          "quantity": 1,
+          "to": "mira"
+        },
+        "participants": [
+          "mira",
+          "player"
+        ],
+        "rules": "fantasy_v1",
+        "scope": {
+          "branch": "main",
+          "story": "quay"
+        },
+        "seed": "lantern-quay-v1",
+        "sequence": 1,
+        "story_time": 100,
+        "turn": "accepted-v23-memory-boundary",
+        "version": 1,
+        "witnesses": [
+          "mira",
+          "player"
+        ]
+      }
+    ],
+    "narration": "You pass the potion to Mira with care.",
+    "play": {
+      "fallback": false,
+      "narration": {
+        "event_ids": [
+          1
+        ],
+        "speaker": "narrator",
+        "text": "You pass the potion to Mira with care."
+      },
+      "policy": "grounded-prose-v2.1",
+      "profile": {
+        "context_tokens": 4096,
+        "deadline_ms": 5000,
+        "director_tokens": 350,
+        "id": "synthetic-memory-boundary",
+        "model_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "narrator_tokens": 220,
+        "profile_manifest_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "repair_limit": 1,
+        "runtime_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "template_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "worker_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "prompt_version": "locallore-play-v2.3",
+      "repairs": 0,
+      "stages": [
+        {
+          "elapsed_ms": 0,
+          "stage": "director"
+        },
+        {
+          "elapsed_ms": 0,
+          "stage": "validation"
+        },
+        {
+          "elapsed_ms": 0,
+          "stage": "narrator"
+        },
+        {
+          "elapsed_ms": 0,
+          "stage": "narration_validation"
+        },
+        {
+          "elapsed_ms": 2,
+          "stage": "total"
+        }
+      ],
+      "version": 2
+    },
+    "proposal": {
+      "commands": [
+        {
+          "item": "potion",
+          "op": "give",
+          "quantity": 1,
+          "to": "mira"
+        }
+      ],
+      "expected_revision": 0,
+      "scope": {
+        "branch": "main",
+        "story": "quay"
+      },
+      "turn": "accepted-v23-memory-boundary",
+      "version": 1
+    },
+    "request": {
+      "expected_revision": 0,
+      "intent": {
+        "kind": "free_text",
+        "value": {
+          "kind": "action",
+          "text": "give potion to Mira"
+        }
+      },
+      "scope": {
+        "branch": "main",
+        "story": "quay"
+      },
+      "turn": "accepted-v23-memory-boundary",
+      "version": 1
+    }
+  },
+  "seed": {
+    "abilities": {
+      "beacon": {
+        "cost": 1,
+        "max_rank": 1,
+        "prerequisite": "steady",
+        "teacher": "mira"
+      },
+      "blink": {
+        "cost": 5,
+        "max_rank": 1,
+        "prerequisite": "beacon",
+        "teacher": "sable"
+      },
+      "steady": {
+        "cost": 2,
+        "max_rank": 1,
+        "prerequisite": null,
+        "teacher": "mira"
+      }
+    },
+    "actors": {
+      "mira": {
+        "abilities": {
+          "beacon": 1,
+          "steady": 1
+        },
+        "affiliations": [
+          "quay-keepers"
+        ],
+        "alive": true,
+        "attributes": {},
+        "energy": 2,
+        "goals": [
+          "repair-beacon"
+        ],
+        "injuries": [
+          "sprained-ankle"
+        ],
+        "location": "quay",
+        "name": "Mira"
+      },
+      "oren": {
+        "abilities": {},
+        "affiliations": [],
+        "alive": true,
+        "attributes": {},
+        "energy": 0,
+        "goals": [
+          "recover-key"
+        ],
+        "injuries": [],
+        "location": "pier",
+        "name": "Oren"
+      },
+      "player": {
+        "abilities": {
+          "steady": 1
+        },
+        "affiliations": [
+          "quay-keepers"
+        ],
+        "alive": true,
+        "attributes": {
+          "resolve": 3
+        },
+        "energy": 2,
+        "goals": [
+          "repair-beacon"
+        ],
+        "injuries": [
+          "cut-hand"
+        ],
+        "location": "quay",
+        "name": "Rowan"
+      },
+      "sable": {
+        "abilities": {},
+        "affiliations": [],
+        "alive": true,
+        "attributes": {},
+        "energy": 0,
+        "goals": [],
+        "injuries": [],
+        "location": "tower",
+        "name": "Oren"
+      }
+    },
+    "beliefs": [
+      {
+        "believer": "mira",
+        "confidence": "believed",
+        "proposition": "The tideglass relic is in old-ruins.",
+        "source": {
+          "kind": "seed",
+          "value": "lantern-quay-v1"
+        },
+        "source_claim": null
+      },
+      {
+        "believer": "oren",
+        "confidence": "suspected",
+        "proposition": "Rowan may possess the tideglass relic.",
+        "source": {
+          "kind": "seed",
+          "value": "lantern-quay-v1"
+        },
+        "source_claim": null
+      }
+    ],
+    "commitments": {
+      "return-key": {
+        "completed_by": null,
+        "deadline": 120,
+        "from": "player",
+        "return_item": "brass-key",
+        "source": {
+          "kind": "seed",
+          "value": "lantern-quay-v1"
+        },
+        "terms": "Return the borrowed brass key by tide tick 120.",
+        "to": "oren"
+      }
+    },
+    "facts": {
+      "ancestry": {
+        "discoverable_at": null,
+        "known_by": [
+          "player"
+        ],
+        "proposition": "Rowan was born to ordinary quay keepers."
+      },
+      "beacon-mark": {
+        "discoverable_at": "dry-well",
+        "known_by": [],
+        "proposition": "An old repair mark is scratched inside the dry well."
+      },
+      "relic-location": {
+        "discoverable_at": "dry-well",
+        "known_by": [
+          "player"
+        ],
+        "proposition": "Tideglass lies in dry-well: SECRET-TIDE-731."
+      }
+    },
+    "id": "lantern-quay-v1",
+    "items": {
+      "brass-key": {
+        "healing": false,
+        "owner": "player",
+        "quantity": 1,
+        "return_to": "oren"
+      },
+      "potion": {
+        "healing": true,
+        "owner": "player",
+        "quantity": 1,
+        "return_to": null
+      }
+    },
+    "locations": [
+      "dry-well",
+      "old-ruins",
+      "pier",
+      "quay",
+      "tower"
+    ],
+    "player": "player",
+    "profile": "fantasy_v1",
+    "relationships": [
+      {
+        "from": "mira",
+        "obligation": 0,
+        "respect": 4,
+        "to": "player",
+        "trust": -3
+      },
+      {
+        "from": "player",
+        "obligation": 0,
+        "respect": 1,
+        "to": "mira",
+        "trust": 2
+      },
+      {
+        "from": "oren",
+        "obligation": 0,
+        "respect": 0,
+        "to": "player",
+        "trust": 0
+      }
+    ],
+    "routes": [
+      [
+        "dry-well",
+        "quay"
+      ],
+      [
+        "pier",
+        "quay"
+      ],
+      [
+        "quay",
+        "dry-well"
+      ],
+      [
+        "quay",
+        "pier"
+      ]
+    ],
+    "scope": {
+      "branch": "main",
+      "story": "quay"
+    },
+    "story_time": 100,
+    "version": 1
+  },
+  "source_commit": "5e44ea91bfa9e93ecf583e31a26937efdfa96366",
+  "synthetic": true
+}

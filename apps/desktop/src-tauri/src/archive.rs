@@ -1,6 +1,8 @@
 //! Native-only full-private playable archive authority. No renderer paths or bytes.
 use crate::{exports, lease::WindowLease};
-use locallore_storage::{validate_archive, ArchivePreview, Store, ValidatedArchive};
+use locallore_storage::{
+    playable_archive::ARCHIVE_VERSION, validate_archive, ArchivePreview, Store, ValidatedArchive,
+};
 use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
@@ -258,7 +260,7 @@ impl Work {
 }
 impl ArchiveBroker {
     pub fn catalog(&self) -> Value {
-        json!({"version":1,"format":"locallore-playable-archive","archive_version":1,"privacy":"full_private","warning":PRIVATE,"caps":{"bytes":MAX_BYTES,"tokens":2,"preview_ttl_seconds":600,"workers":1},"branch_ui":false,"corrections":false})
+        json!({"version":1,"format":"locallore-playable-archive","archive_version":ARCHIVE_VERSION,"supported_archive_versions":[1,ARCHIVE_VERSION],"privacy":"full_private","warning":PRIVATE,"caps":{"bytes":MAX_BYTES,"tokens":2,"preview_ttl_seconds":600,"workers":1},"branch_ui":false,"corrections":false})
     }
     fn snapshot(s: &State, epoch: u64, operation: u64) -> Result<Value> {
         let j = s
@@ -821,6 +823,79 @@ mod tests {
         r["result"]["token"].as_str().unwrap().into()
     }
     #[test]
+    fn retired_parent_v2_preview_and_real_native_staging_preserve_live_child() {
+        let (root, b, l, e) = setup();
+        let source_path = root.join("source.sqlite");
+        source(&source_path);
+        let mut store = Store::open_application(&source_path).unwrap();
+        let parent = locallore::contracts::Scope {
+            story: "quay".into(),
+            branch: "archive-child".into(),
+        };
+        let child = store
+            .fork_branch(
+                &locallore_storage::ForkRequest {
+                    parent: parent.clone(),
+                    child_branch: "retained-grandchild".into(),
+                    expected_parent_revision: 0,
+                    at_revision: 0,
+                },
+                &|| false,
+            )
+            .unwrap()
+            .scope;
+        let before = store.resume(&child).unwrap().engine.canonical_bytes();
+        let prepared = store
+            .prepare_branch_deletion(&parent, 0, &|| false)
+            .unwrap();
+        store.delete_branch(prepared, &|| false).unwrap();
+        assert!(store.resume(&parent).is_err());
+        let bytes = store
+            .export_archive("quay", &|| false)
+            .unwrap()
+            .bytes()
+            .to_vec();
+        drop(store);
+        assert_eq!(b.catalog()["archive_version"], 2);
+        assert_eq!(b.catalog()["supported_archive_versions"], json!([1, 2]));
+        let capture_path = source_path.clone();
+        let captured = run(&b, &l, e, move |w| {
+            capture(w, &capture_path, "quay", "main", 1)
+        });
+        assert_eq!(captured["result"]["preview"]["version"], 2, "{captured}");
+        assert_eq!(
+            captured["result"]["preview"]["retired_branch_ids"],
+            json!(["archive-child"])
+        );
+        b.discard(&l, e, captured["result"]["token"].as_str().unwrap())
+            .unwrap();
+        let input = root.join("retired.json");
+        fs::write(&input, &bytes).unwrap();
+        let token = preview(&b, &l, e, input.clone());
+        let destination = root.join("destination.sqlite");
+        Store::open_application(&destination).unwrap();
+        let output = destination.clone();
+        let imported = run(&b, &l, e, move |w| import(w, &token, &output));
+        assert_eq!(imported["result"]["status"], "imported", "{imported}");
+        let mut actual = Store::open_read_only(&destination).unwrap();
+        assert!(actual.resume(&parent).is_err());
+        assert_eq!(
+            actual.resume(&child).unwrap().engine.canonical_bytes(),
+            before
+        );
+        assert_eq!(
+            actual.export_archive("quay", &|| false).unwrap().bytes(),
+            bytes
+        );
+        assert_eq!(fs::read(input).unwrap(), bytes);
+        assert_eq!(
+            fs::read_dir(root.join("archive-staging-v1"))
+                .unwrap()
+                .count(),
+            0
+        );
+    }
+    #[test]
     fn real_staging_import_preserves_canon_and_same_identity_always_conflicts() {
         let (root, b, l, e) = setup();
         let bytes = source(&root.join("source.sqlite"));
@@ -940,7 +1015,7 @@ mod tests {
         let r = run(&b, &l, e, move |w| {
             publish(w, &token, Some(destination), None)
         });
-        assert_eq!(r["result"]["status"], "exported");
+        assert_eq!(r["result"]["status"], "exported", "{r}");
         let result: Value =
             serde_json::from_slice(&fs::read(r["result"]["location"].as_str().unwrap()).unwrap())
                 .unwrap();

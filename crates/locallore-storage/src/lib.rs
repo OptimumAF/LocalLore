@@ -5,7 +5,10 @@ pub mod archive_capacity_fixture;
 #[cfg(test)]
 mod archive_full_tests;
 mod branch_catalog;
+mod branch_retention;
+pub use branch_retention::{BranchDeletionOutcome, BranchDeletionPreview, PreparedBranchDeletion};
 mod branches;
+mod retention_state;
 pub use branch_catalog::{BranchCatalog, BranchSummary};
 mod story_deletion;
 pub use story_deletion::{
@@ -18,7 +21,10 @@ pub use playable_archive::{
 };
 mod catalog;
 pub use branches::{ForkOutcome, ForkRequest, MAX_BRANCHES_PER_STORY, MAX_BRANCH_DEPTH};
+mod author_correction;
 pub mod derived_memory;
+pub mod memory_jobs;
+pub use author_correction::{AuthorCorrectionOutcome, PreparedStoreAuthorCorrection};
 mod turns;
 pub use catalog::StorySummary;
 use locallore::{
@@ -33,10 +39,11 @@ use std::{
 };
 pub use turns::{ResumedStory, TurnError, TurnPhase, TurnRecord};
 
-pub const SCHEMA_VERSION: u32 = 2;
+pub const SCHEMA_VERSION: u32 = 5;
 pub const MAX_INSPECTION_DATABASE_BYTES: u64 = 64 * 1024 * 1024;
 const APPLICATION_ID: u32 = 0x4c4c4f52;
 const SCHEMA: &str = include_str!("../migrations/001_initial.sql");
+const MIXED_SCHEMA: &str = include_str!("../migrations/005_mixed_history.sql");
 
 /// Fixed categories deliberately omit paths, SQL, seed text and native error messages.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -85,6 +92,9 @@ pub struct Store {
     // Field order is intentional: SQLite closes BEFORE all staging reservations.
     connection: Connection,
     _staging_guards: Vec<std::fs::File>,
+    // Native job capabilities belong to one Store instance, including when two
+    // owners open identical or cloned databases with colliding persisted IDs.
+    memory_job_owner: std::sync::Arc<()>,
 }
 
 #[cfg(windows)]
@@ -216,6 +226,15 @@ fn verify_version(connection: &Connection, version: u32) -> Result<()> {
     if version >= 2 {
         reference.execute_batch(derived_memory::DERIVED_SCHEMA_SQL)?;
     }
+    if version >= 3 {
+        reference.execute_batch(retention_state::SCHEMA_SQL)?;
+    }
+    if version >= 4 {
+        reference.execute_batch(memory_jobs::SCHEMA_SQL)?;
+    }
+    if version >= 5 {
+        reference.execute_batch(MIXED_SCHEMA)?;
+    }
     if schema_rows(connection)? != schema_rows(&reference)? {
         return Err(StorageError::SchemaMismatch);
     }
@@ -229,6 +248,15 @@ fn verify_version(connection: &Connection, version: u32) -> Result<()> {
     let mut expected = vec![(1, "locallore-storage-v1".to_owned())];
     if version >= 2 {
         expected.push((2, "locallore-storage-v2-derived-memory".to_owned()));
+    }
+    if version >= 3 {
+        expected.push((3, "locallore-storage-v3-branch-retention".to_owned()));
+    }
+    if version >= 4 {
+        expected.push((4, "locallore-storage-v4-memory-jobs".to_owned()));
+    }
+    if version >= 5 {
+        expected.push((5, "locallore-storage-v5-mixed-history".to_owned()));
     }
     if contracts != expected {
         return Err(StorageError::SchemaMismatch);
@@ -314,12 +342,24 @@ fn consistent_backup(source: &Connection, path: &Path) -> Result<()> {
 fn initialize(connection: &Connection, sql: &str) -> Result<()> {
     connection.execute_batch(sql)?;
     connection.execute_batch(derived_memory::DERIVED_SCHEMA_SQL)?;
+    connection.execute_batch(retention_state::SCHEMA_SQL)?;
+    connection.execute_batch(memory_jobs::SCHEMA_SQL)?;
+    connection.execute_batch(MIXED_SCHEMA)?;
     connection.pragma_update(None, "application_id", APPLICATION_ID)?;
     connection.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     verify(connection)
 }
-fn migrate_v1(connection: &Connection, sql: &str) -> Result<()> {
-    connection.execute_batch(sql)?;
+fn migrate_known(connection: &Connection, version: u32) -> Result<()> {
+    if version == 1 {
+        connection.execute_batch(derived_memory::DERIVED_SCHEMA_SQL)?;
+    }
+    if version < 3 {
+        connection.execute_batch(retention_state::SCHEMA_SQL)?;
+    }
+    if version < 4 {
+        connection.execute_batch(memory_jobs::SCHEMA_SQL)?;
+    }
+    connection.execute_batch(MIXED_SCHEMA)?;
     connection.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     verify(connection)
 }
@@ -329,6 +369,7 @@ impl Store {
         Self {
             connection,
             _staging_guards: Vec::new(),
+            memory_job_owner: std::sync::Arc::new(()),
         }
     }
     /// Create a disposable Windows staging Store, with MEMORY rollback journal.
@@ -414,7 +455,7 @@ impl Store {
         verify_version(&connection, version)?;
         Ok(Self::from_connection(connection))
     }
-    /// New paths initialize the current schema. Existing v0/v1 upgrades require a new safety
+    /// New paths initialize the current schema. Existing v0/v1/v2/v3 upgrades require a new safety
     /// backup. Foreign/nonempty v0, future or altered schemas are refused, never adopted.
     pub fn open(path: &Path, migration_backup: Option<&Path>) -> Result<Self> {
         let new_file = match OpenOptions::new().write(true).create_new(true).open(path) {
@@ -456,7 +497,7 @@ impl Store {
             initialize(&transaction, SCHEMA)?;
             transaction.commit()?;
         }
-        if version == 1 {
+        if (1..SCHEMA_VERSION).contains(&version) {
             let transaction =
                 connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
             let locked = identity(&transaction)?;
@@ -464,11 +505,11 @@ impl Store {
             if locked != (application, version) {
                 return Err(StorageError::Busy);
             }
-            verify_version(&transaction, 1)?;
+            verify_version(&transaction, version)?;
             let backup_path = migration_backup.ok_or(StorageError::BackupRequired)?;
             let reader = connect(path, true)?;
             consistent_backup(&reader, backup_path)?;
-            migrate_v1(&transaction, derived_memory::DERIVED_SCHEMA_SQL)?;
+            migrate_known(&transaction, version)?;
             transaction.commit()?;
         }
         verify(&connection)?;
@@ -485,22 +526,28 @@ impl Store {
                 .query_row("SELECT sqlite_version()", [], |r| r.get(0))?,
         })
     }
+    /// Admission only; canonical state must still pass scoped replay before use.
+    pub fn is_branch_active(&self, scope: &Scope) -> Result<bool> {
+        if retention_state::retired(&self.connection, scope)? {
+            return Ok(false);
+        }
+        Ok(self.connection.query_row(
+            "SELECT EXISTS(SELECT 1 FROM branches WHERE story_id=?1 AND branch_id=?2)",
+            (&scope.story, &scope.branch),
+            |row| row.get(0),
+        )?)
+    }
     fn memory_engine(
-        &mut self,
+        connection: &Connection,
         scope: &Scope,
         cancel: &dyn Fn() -> bool,
     ) -> std::result::Result<Engine, derived_memory::MemoryError> {
         use derived_memory::{check, MemoryError};
         check(cancel)?;
-        if identity(&self.connection)
-            .map_err(|_| MemoryError::Database)?
-            .1
-            != SCHEMA_VERSION
-        {
+        if identity(connection).map_err(|_| MemoryError::Database)?.1 != SCHEMA_VERSION {
             return Err(MemoryError::Unsupported);
         }
-        let engine = self
-            .resume(scope)
+        let engine = turns::read_engine(connection, scope)
             .map_err(|error| match error {
                 TurnError::Engine(error) => MemoryError::from(error),
                 TurnError::Storage(StorageError::Busy) => MemoryError::Busy,
@@ -525,31 +572,51 @@ impl Store {
         request: &derived_memory::PrepareRequest,
         cancel: &dyn Fn() -> bool,
     ) -> std::result::Result<derived_memory::PreparedMemory, derived_memory::MemoryError> {
-        let engine = self.memory_engine(&request.scope, cancel)?;
-        derived_memory::prepare(&engine, request, cancel)
+        let tx = self.connection.transaction()?;
+        let engine = Self::memory_engine(&tx, &request.scope, cancel)?;
+        let prepared = derived_memory::prepare(&engine, request, cancel)?;
+        derived_memory::check(cancel)?;
+        tx.commit()?;
+        Ok(prepared)
     }
     pub fn publish_memory(
         &mut self,
         prepared: derived_memory::PreparedMemory,
         cancel: &dyn Fn() -> bool,
     ) -> std::result::Result<derived_memory::PublishOutcome, derived_memory::MemoryError> {
-        derived_memory::publish(&mut self.connection, prepared, cancel)
+        derived_memory::check(cancel)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let engine = Self::memory_engine(&tx, prepared.scope(), cancel)?;
+        let outcome = derived_memory::publish_in_snapshot(&tx, &engine, prepared, cancel)?;
+        derived_memory::check(cancel)?;
+        tx.commit()?;
+        Ok(outcome)
     }
     pub fn read_memory(
         &mut self,
         request: &derived_memory::PrepareRequest,
         cancel: &dyn Fn() -> bool,
     ) -> std::result::Result<derived_memory::SummaryPacket, derived_memory::MemoryError> {
-        let engine = self.memory_engine(&request.scope, cancel)?;
-        derived_memory::read(&self.connection, &engine, request, cancel)
+        let tx = self.connection.transaction()?;
+        let engine = Self::memory_engine(&tx, &request.scope, cancel)?;
+        let packet = derived_memory::read_in_snapshot(&tx, &engine, request, cancel)?;
+        derived_memory::check(cancel)?;
+        tx.commit()?;
+        Ok(packet)
     }
     pub fn search_memory(
         &mut self,
         request: &derived_memory::SearchRequest,
         cancel: &dyn Fn() -> bool,
     ) -> std::result::Result<Vec<derived_memory::SearchHit>, derived_memory::MemoryError> {
-        let engine = self.memory_engine(&request.scope, cancel)?;
-        derived_memory::search(&self.connection, &engine, request, cancel)
+        let tx = self.connection.transaction()?;
+        let engine = Self::memory_engine(&tx, &request.scope, cancel)?;
+        let hits = derived_memory::search_in_snapshot(&tx, &engine, request, cancel)?;
+        derived_memory::check(cancel)?;
+        tx.commit()?;
+        Ok(hits)
     }
     pub fn invalidate_memory(
         &mut self,
@@ -558,17 +625,18 @@ impl Store {
         expected_revision: u64,
         cancel: &dyn Fn() -> bool,
     ) -> std::result::Result<(), derived_memory::MemoryError> {
-        let engine = self.memory_engine(scope, cancel)?;
+        derived_memory::check(cancel)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let engine = Self::memory_engine(&tx, scope, cancel)?;
         if !engine.state().actors.contains_key(observer) {
             return Err(derived_memory::MemoryError::NotFound);
         }
-        derived_memory::invalidate(
-            &mut self.connection,
-            scope,
-            observer,
-            expected_revision,
-            cancel,
-        )
+        derived_memory::invalidate_in_snapshot(&tx, scope, observer, expected_revision, cancel)?;
+        derived_memory::check(cancel)?;
+        tx.commit()?;
+        Ok(())
     }
     pub fn create_story(&mut self, title: &str, seed: Seed) -> Result<()> {
         self.create_story_bounded(title, seed, false)
@@ -947,7 +1015,11 @@ mod tests {
             let tx = connection
                 .transaction_with_behavior(TransactionBehavior::Immediate)
                 .unwrap();
-            assert_eq!(migrate_v1(&tx, &sql), Err(expected));
+            let attempted = (|| -> Result<()> {
+                tx.execute_batch(&sql)?;
+                migrate_known(&tx, 2)
+            })();
+            assert_eq!(attempted, Err(expected));
             drop(tx);
             assert_eq!(identity(&connection).unwrap(), (APPLICATION_ID, 1));
             assert_eq!(schema_rows(&connection).unwrap(), original);
@@ -959,7 +1031,7 @@ mod tests {
         let tx = connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .unwrap();
-        migrate_v1(&tx, derived_memory::DERIVED_SCHEMA_SQL).unwrap();
+        migrate_known(&tx, 1).unwrap();
         tx.commit().unwrap();
         verify(&connection).unwrap();
     }

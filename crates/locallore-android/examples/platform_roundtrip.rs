@@ -751,7 +751,35 @@ mod tests {
             ("expectations.json", include_bytes!("../../../apps/android/app/src/androidTest/assets/platform-roundtrip-v1/expectations.json")),
         ];
         for (name, golden) in assets {
-            assert_eq!(read(&output, name).unwrap(), golden, "fixture asset drift");
+            let generated = read(&output, name).unwrap();
+            if name == "expectations.json" {
+                assert_eq!(generated, golden, "canonical snapshot fixture drift");
+                continue;
+            }
+            // Preserve the historical schema2/v1 assets as compatibility inputs.
+            // Validate both archives before allowing only source-version/checksum drift.
+            validate_archive(golden, &|| false).unwrap();
+            validate_archive(&generated, &|| false).unwrap();
+            let mut historical: Value = serde_json::from_slice(golden).unwrap();
+            let current: Value = serde_json::from_slice(&generated).unwrap();
+            assert_eq!(historical["payload"]["source_database_schema_version"], 2);
+            assert_eq!(
+                current["payload"]["source_database_schema_version"],
+                locallore_storage::SCHEMA_VERSION
+            );
+            historical["payload"]["source_database_schema_version"] =
+                json!(locallore_storage::SCHEMA_VERSION);
+            historical["integrity"]["payload_sha256"] =
+                current["integrity"]["payload_sha256"].clone();
+            assert_eq!(
+                historical, current,
+                "accepted history or branch integrity drift"
+            );
+            assert_eq!(
+                serde_json::to_vec(&historical).unwrap(),
+                generated,
+                "canonical archive encoding drift"
+            );
         }
     }
     #[test]

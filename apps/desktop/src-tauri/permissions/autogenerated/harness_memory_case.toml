@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-harness-memory-case"
+description = "Enables the harness_memory_case command without any pre-configured scope."
+commands.allow = ["harness_memory_case"]
+
+[[permission]]
+identifier = "deny-harness-memory-case"
+description = "Denies the harness_memory_case command without any pre-configured scope."
+commands.deny = ["harness_memory_case"]

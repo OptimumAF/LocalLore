@@ -29,9 +29,14 @@ internal class NativeWorkspaceTransport(context: Context) : WorkspaceTransport {
     private val handles = Any()
     private var handle = 0L
     private fun worker() { check(Looper.myLooper() != Looper.getMainLooper()) }
-    override suspend fun exchange(command: JSONObject): JSONObject = withContext(Dispatchers.IO) {
+    /** The fork adapter borrows this SAME owner; allocation and teardown remain here. */
+    internal suspend fun forkHandle(): Long = withContext(Dispatchers.IO) {
         worker()
-        val id = synchronized(handles) {
+        allocateOnWorker()
+    }
+    private fun allocateOnWorker(): Long {
+        worker()
+        return synchronized(handles) {
             check(!closed.get())
             if (handle == 0L) {
                 val directory = File(app.noBackupFilesDir, "workspace-v1")
@@ -41,6 +46,10 @@ internal class NativeWorkspaceTransport(context: Context) : WorkspaceTransport {
             }
             handle
         }
+    }
+    override suspend fun exchange(command: JSONObject): JSONObject = withContext(Dispatchers.IO) {
+        worker()
+        val id = allocateOnWorker()
         val bytes = JSONObject().put("version", 1).put("command", command).toString().toByteArray(Charsets.UTF_8)
         require(bytes.size <= 24_576)
         val reply = NativeWorkspace.call(id, bytes)

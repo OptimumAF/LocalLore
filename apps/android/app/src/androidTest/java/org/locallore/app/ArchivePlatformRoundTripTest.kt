@@ -77,7 +77,7 @@ class ArchivePlatformRoundTripTest {
                 "Imported timelines must not resume source noncommitted work")
             compareSnapshots(workspace, expected.getJSONObject("snapshots"))
             val returned = workspace.export(scope(windowsStory, "main"), 2)
-            verify(returned.contentEquals(origin), "Windows origin bytes changed after Android reopen")
+            verify(matchesHistoricalArchive(returned, origin), "Windows origin history changed after Android reopen")
             writeNew(root, "windows-return.json", returned)
 
             val sibling = scope(windowsStory, "sibling")
@@ -90,7 +90,7 @@ class ArchivePlatformRoundTripTest {
             workspace.reopen()
             compareSnapshots(workspace, expected.getJSONObject("continued_snapshots"))
             val bytes = workspace.export(sibling, 3)
-            verify(bytes.contentEquals(continued), "Android continuation differs from Windows golden bytes")
+            verify(matchesHistoricalArchive(bytes, continued), "Android continuation differs from Windows golden history")
             writeNew(root, "windows-continued.json", bytes)
         }
 
@@ -332,6 +332,18 @@ class ArchivePlatformRoundTripTest {
         }
         verify(input.read() == -1 && output.size() > 0, "Fixture input exceeds its bound or is empty")
         return output.toByteArray()
+    }
+    private fun matchesHistoricalArchive(currentBytes: ByteArray, historicalBytes: ByteArray): Boolean {
+        // Static schema2/v1 assets remain compatibility inputs. Rust validates their import
+        // and validates current exports. Only source schema and its payload digest may differ.
+        val current = JSONObject(currentBytes.toString(Charsets.UTF_8))
+        val historical = JSONObject(historicalBytes.toString(Charsets.UTF_8))
+        verify(current.getInt("version") == 1 && historical.getInt("version") == 1, "Archive version drift")
+        verify(current.getJSONObject("payload").getInt("source_database_schema_version") == 5 &&
+            historical.getJSONObject("payload").getInt("source_database_schema_version") == 2, "Source schema drift")
+        historical.getJSONObject("payload").put("source_database_schema_version", 5)
+        historical.getJSONObject("integrity").put("payload_sha256", current.getJSONObject("integrity").getString("payload_sha256"))
+        return sameJson(current, historical)
     }
     private fun sameJson(left: Any?, right: Any?): Boolean = when {
         left is JSONObject && right is JSONObject -> {

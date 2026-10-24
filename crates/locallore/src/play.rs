@@ -1,7 +1,7 @@
 //! Versioned shared local play. Generated text is display evidence, never canonical truth.
 use crate::{
     contracts::*,
-    engine::Engine,
+    engine::{staged_play::NarratorEvidenceV22, Engine},
     inference::{generate, Budget, Cancellation, GenerationRequest, InferenceProvider, Input},
     turn_trace::{
         Counts, ErrorCategory, Outcome, Stage, StageMeasurement, StageTimer, TokenBasis,
@@ -146,10 +146,15 @@ fn remaining(clock: GameplayClock, overhead: Duration, deadline_ms: u64) -> Resu
 }
 
 pub const PLAY_VERSION: u16 = 2;
-pub const NARRATION_POLICY: &str = "grounded-prose-v2.1";
-pub const PROMPT_VERSION: &str = "locallore-play-v2.3";
+pub const NARRATION_POLICY: &str = "grounded-prose-v2.2";
+pub const PROMPT_VERSION: &str = "locallore-play-v2.5";
 pub const RECORDED_PROMPT_VERSION: &str = "locallore-play-v2.1";
 const RECORDED_PROMPT_V2_2: &str = "locallore-play-v2.2";
+const RECORDED_PROMPT_V2_3: &str = "locallore-play-v2.3";
+const RECORDED_PROMPT_V2_4: &str = "locallore-play-v2.4";
+const RECORDED_NARRATION_POLICY: &str = "grounded-prose-v2.1";
+const MAX_ROLE_INPUT_BYTES: usize = 24_576;
+pub use crate::context_compiler::ContextPolicy as PlayContextPolicy;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -224,6 +229,196 @@ pub struct PlayRecord {
     pub fallback: bool,
     pub narration: NarrationDocument,
     pub stages: Vec<StageTiming>,
+    /// Count-only construction provenance, never a cache proof or knowledge grant.
+    /// Absent from exact historical2.1–2.3 bytes; version1 for recorded2.4,
+    /// version2 for current2.5. It never supplies proof or actor knowledge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<PlayContextRecord>,
+    /// Requested construction, independent of actual coverage/fallback provenance.
+    /// Omitted for exact historical2.1–2.4 encodings; mandatory for current2.5.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_policy: Option<PlayContextPolicy>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlayCoverageMode {
+    Raw,
+    Verified,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlayMemoryFallback {
+    Missing,
+    Budget,
+    Malformed,
+    Unsupported,
+    Binding,
+    Gap,
+    Overlap,
+    OpenTailBeforeEnd,
+    UnprovableClosure,
+    SourceMismatch,
+}
+impl From<crate::memory_coverage::FallbackReason> for PlayMemoryFallback {
+    fn from(reason: crate::memory_coverage::FallbackReason) -> Self {
+        use crate::memory_coverage::FallbackReason as F;
+        match reason {
+            F::Missing => Self::Missing,
+            F::Budget => Self::Budget,
+            F::Malformed => Self::Malformed,
+            F::Unsupported => Self::Unsupported,
+            F::Binding => Self::Binding,
+            F::Gap => Self::Gap,
+            F::Overlap => Self::Overlap,
+            F::OpenTailBeforeEnd => Self::OpenTailBeforeEnd,
+            F::UnprovableClosure => Self::UnprovableClosure,
+            F::SourceMismatch => Self::SourceMismatch,
+        }
+    }
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlayCoverageRecord {
+    /// Verified means the compiler accepted a proof, not that every packet was used.
+    pub mode: PlayCoverageMode,
+    pub set_fallback_reason: Option<PlayMemoryFallback>,
+    pub packets_used: usize,
+    pub packets_fell_back: usize,
+    pub timespan_fallback_packets: usize,
+    pub mandatory_fallback_packets: usize,
+    pub covered_through: u64,
+    pub raw_delta_after: u64,
+    pub cached_event_candidates: usize,
+    pub raw_event_candidates: usize,
+}
+/// Bounded receipt metadata describing the actual compiler call. Persisted counts
+/// cannot authenticate its source cache or demonstrate saved work/model quality.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlayContextRecord {
+    pub version: u16,
+    pub compiler_version: u16,
+    pub scope: Scope,
+    pub head: u64,
+    pub observer: String,
+    /// Native source rejection, distinct from the compiler's own raw Missing.
+    /// Absent means the input made no source-fallback claim, not a cache hit.
+    pub source_fallback_reason: Option<PlayMemoryFallback>,
+    pub coverage: PlayCoverageRecord,
+}
+impl PlayContextRecord {
+    fn from_compilation(
+        value: &crate::context_compiler::MemoryCompilation,
+        source_fallback_reason: Option<PlayMemoryFallback>,
+    ) -> Self {
+        use crate::context_compiler::{CoverageMode as M, MemoryFallbackReason as F};
+        let c = &value.coverage;
+        Self {
+            version: 1,
+            compiler_version: value.package.version,
+            scope: value.package.scope.clone(),
+            head: value.package.head,
+            observer: value.package.observer.clone(),
+            source_fallback_reason,
+            coverage: PlayCoverageRecord {
+                mode: match c.mode {
+                    M::Raw => PlayCoverageMode::Raw,
+                    M::Verified => PlayCoverageMode::Verified,
+                },
+                set_fallback_reason: c.set_fallback_reason.map(|reason| match reason {
+                    F::Missing => PlayMemoryFallback::Missing,
+                    F::Budget => PlayMemoryFallback::Budget,
+                    F::Malformed => PlayMemoryFallback::Malformed,
+                    F::Unsupported => PlayMemoryFallback::Unsupported,
+                    F::Binding => PlayMemoryFallback::Binding,
+                    F::Gap => PlayMemoryFallback::Gap,
+                    F::Overlap => PlayMemoryFallback::Overlap,
+                    F::OpenTailBeforeEnd => PlayMemoryFallback::OpenTailBeforeEnd,
+                    F::UnprovableClosure => PlayMemoryFallback::UnprovableClosure,
+                    F::SourceMismatch => PlayMemoryFallback::SourceMismatch,
+                }),
+                packets_used: c.packets_used,
+                packets_fell_back: c.packets_fell_back,
+                timespan_fallback_packets: c.timespan_fallback_packets,
+                mandatory_fallback_packets: c.mandatory_fallback_packets,
+                covered_through: c.covered_through,
+                raw_delta_after: c.raw_delta_after,
+                cached_event_candidates: c.cached_event_candidates,
+                raw_event_candidates: c.raw_event_candidates,
+            },
+        }
+    }
+    fn valid(&self, engine: &Engine, approved: &Receipt) -> bool {
+        self.valid_version(
+            engine,
+            approved,
+            1,
+            crate::context_compiler::COMPILER_VERSION,
+        )
+    }
+    fn from_policy_compilation(
+        value: &crate::context_compiler::PolicyCompilation,
+        source_fallback_reason: Option<PlayMemoryFallback>,
+    ) -> Self {
+        let mut record = Self::from_compilation(&value.compilation, source_fallback_reason);
+        record.version = 2;
+        record
+    }
+    fn valid_v2(&self, engine: &Engine, approved: &Receipt) -> bool {
+        self.valid_version(
+            engine,
+            approved,
+            2,
+            crate::context_compiler::POLICY_COMPILER_VERSION,
+        )
+    }
+    fn valid_version(
+        &self,
+        engine: &Engine,
+        approved: &Receipt,
+        version: u16,
+        compiler_version: u16,
+    ) -> bool {
+        let c = &self.coverage;
+        // Finite encoding limits and binding checks, not authentication of counts.
+        let max_events = MAX_HISTORY_RECEIPTS * MAX_COMMANDS;
+        let packets = c.packets_used.checked_add(c.packets_fell_back);
+        let fallbacks = c
+            .timespan_fallback_packets
+            .checked_add(c.mandatory_fallback_packets);
+        let events = c
+            .cached_event_candidates
+            .checked_add(c.raw_event_candidates);
+        self.version == version
+            && self.compiler_version == compiler_version
+            && self.scope == approved.request().scope
+            && self.scope == *engine.scope()
+            && self.head == approved.request().expected_revision
+            && self.head == engine.revision()
+            && self.observer == engine.seed().player
+            && (self.source_fallback_reason.is_none()
+                || (c.mode == PlayCoverageMode::Raw
+                    && (version == 2
+                        || c.set_fallback_reason == Some(PlayMemoryFallback::Missing))))
+            && packets.is_some_and(|n| n <= crate::memory_coverage::MAX_PACKETS)
+            && fallbacks.is_some_and(|n| n <= c.packets_fell_back)
+            && events.is_some_and(|n| n <= max_events)
+            && c.covered_through <= self.head
+            && c.raw_delta_after == c.covered_through
+            && match c.mode {
+                PlayCoverageMode::Raw => {
+                    c.set_fallback_reason.is_some()
+                        && c.packets_used == 0
+                        && c.cached_event_candidates == 0
+                        && c.covered_through == 0
+                        && c.raw_delta_after == 0
+                        && c.timespan_fallback_packets == 0
+                        && c.mandatory_fallback_packets == 0
+                }
+                PlayCoverageMode::Verified => c.set_fallback_reason.is_none(),
+            }
+    }
 }
 
 pub(crate) fn validate_interpretation(
@@ -271,14 +466,105 @@ pub(crate) fn validate_record(
 ) -> Result<(), Error> {
     record.profile.validate()?;
     if record.version != PLAY_VERSION
+        || record.policy != RECORDED_NARRATION_POLICY
+        || !recorded_history
+        || !matches!(
+            record.prompt_version.as_str(),
+            RECORDED_PROMPT_VERSION
+                | RECORDED_PROMPT_V2_2
+                | RECORDED_PROMPT_V2_3
+                | RECORDED_PROMPT_V2_4
+        )
+        || record.context_policy.is_some()
+        || if record.prompt_version == RECORDED_PROMPT_V2_4 {
+            !record
+                .context
+                .as_ref()
+                .is_some_and(|context| context.valid(engine, approved))
+        } else {
+            record.context.is_some()
+        }
+    {
+        return Err(Error::Narration);
+    }
+    validate_record_contents(engine, approved, record, None)
+}
+
+/// Core calls this only after regenerating the actual staged candidate/evidence.
+/// Persisted metadata is a closed provenance claim, never a supplied proof.
+pub(crate) fn validate_record_v25(
+    engine: &Engine,
+    approved: &Receipt,
+    evidence: &NarratorEvidenceV22,
+    record: &PlayRecord,
+    _recorded_history: bool,
+) -> Result<(), Error> {
+    record.profile.validate()?;
+    if record.version != PLAY_VERSION
         || record.policy != NARRATION_POLICY
-        || !(record.prompt_version == PROMPT_VERSION
-            || (recorded_history
-                && matches!(
-                    record.prompt_version.as_str(),
-                    RECORDED_PROMPT_VERSION | RECORDED_PROMPT_V2_2
-                )))
-        || record.repairs > record.profile.repair_limit
+        || record.prompt_version != PROMPT_VERSION
+        || record.context_policy.is_none()
+        || !record
+            .context
+            .as_ref()
+            .is_some_and(|context| context.valid_v2(engine, approved))
+    {
+        return Err(Error::Narration);
+    }
+    // These current compiler branches refuse before inspecting any proof. A
+    // finite generic coverage tuple must not claim work they cannot perform.
+    if engine.domain_version() != 1
+        || record.context_policy == Some(PlayContextPolicy::StateRecentTranscriptV1)
+    {
+        let c = &record.context.as_ref().ok_or(Error::Narration)?.coverage;
+        if c.mode != PlayCoverageMode::Raw
+            || c.set_fallback_reason != Some(PlayMemoryFallback::Unsupported)
+            || c.packets_used != 0
+            || c.packets_fell_back != 0
+            || c.timespan_fallback_packets != 0
+            || c.mandatory_fallback_packets != 0
+            || c.covered_through != 0
+            || c.raw_delta_after != 0
+            || c.cached_event_candidates != 0
+        {
+            return Err(Error::Narration);
+        }
+    }
+    // Evidence is opaque Core output. Even trusted internal callers must keep
+    // its event catalogue/observation attribution bound to this approved turn.
+    if evidence
+        .events()
+        .iter()
+        .map(|e| e.event_id())
+        .collect::<Vec<_>>()
+        != approved
+            .events()
+            .iter()
+            .map(|e| e.sequence())
+            .collect::<Vec<_>>()
+        || evidence.mechanical_summary() != approved.narration()
+        || evidence.observations().iter().any(|observation| {
+            observation.actor() != engine.seed().player.as_str()
+                || !approved.events().iter().any(|event| {
+                    event.sequence() == observation.event_id()
+                        && matches!(event.outcome(), Effect::Discovered{actor,fact}
+                        if actor.as_str() == observation.actor() && fact.as_str() == observation.fact())
+                })
+        })
+    {
+        return Err(Error::Narration);
+    }
+    crate::engine::check_json_budget(evidence, MAX_RECEIPT_BYTES)?;
+    validate_record_contents(engine, approved, record, Some(evidence))
+}
+
+fn validate_record_contents(
+    engine: &Engine,
+    approved: &Receipt,
+    record: &PlayRecord,
+    evidence: Option<&NarratorEvidenceV22>,
+) -> Result<(), Error> {
+    if record.repairs > record.profile.repair_limit
         || record.stages.len() > 8
         || record.stages.iter().any(|s| {
             !matches!(
@@ -306,12 +592,90 @@ pub(crate) fn validate_record(
             return Err(Error::Narration);
         }
     } else {
-        validate_prose(engine, approved, &record.narration.text)?;
+        validate_prose(engine, approved, &record.narration.text, evidence)?;
     }
     Ok(())
 }
 
-fn validate_prose(engine: &Engine, approved: &Receipt, text: &str) -> Result<(), Error> {
+// A conservative current-policy check for the observed post-gift ownership
+// contradiction. It is bounded phrase matching, not a semantic language oracle.
+// Historical policies do not call it; literal player dialogue is not narration.
+fn narration_reclaims_transferred_item(approved: &Receipt, player: &str, lower: &str) -> bool {
+    let possession = |word: &str| {
+        matches!(
+            word,
+            "keep"
+                | "kept"
+                | "carry"
+                | "carried"
+                | "retain"
+                | "retained"
+                | "hold"
+                | "held"
+                | "pocket"
+                | "pocketed"
+                | "stash"
+                | "stashed"
+        )
+    };
+    approved.events().iter().any(|event| {
+        let Effect::Given { from, item, .. } = event.outcome() else {
+            return false;
+        };
+        if from != player {
+            return false;
+        }
+        let item_lower = item.to_lowercase();
+        let item_words: Vec<_> = item_lower
+            .split(|c: char| !c.is_alphanumeric())
+            .filter(|w| !w.is_empty())
+            .collect();
+        lower.split(['.', '!', '?', ';', '\n']).any(|clause| {
+            let words: Vec<_> = clause
+                .split(|c: char| !c.is_alphanumeric())
+                .filter(|w| !w.is_empty())
+                .collect();
+            if item_words.is_empty() || !words.windows(item_words.len()).any(|w| w == item_words) {
+                return false;
+            }
+            let directly_kept = words
+                .windows(2)
+                .any(|w| matches!(w[0], "i" | "you") && possession(w[1]))
+                || words.windows(3).any(|w| {
+                    matches!(w[0], "i" | "you")
+                        && matches!(w[1], "still" | "now" | "then")
+                        && (possession(w[2]) || w[2] == "have")
+                });
+            let with_player = words
+                .windows(2)
+                .any(|w| w[0] == "with" && matches!(w[1], "me" | "you"));
+            directly_kept
+                || (with_player
+                    && words.iter().any(|w| {
+                        matches!(
+                            *w,
+                            "take"
+                                | "took"
+                                | "bring"
+                                | "brought"
+                                | "remain"
+                                | "remains"
+                                | "remained"
+                                | "stay"
+                                | "stays"
+                                | "stayed"
+                        )
+                    }))
+        })
+    })
+}
+
+fn validate_prose(
+    engine: &Engine,
+    approved: &Receipt,
+    text: &str,
+    evidence: Option<&NarratorEvidenceV22>,
+) -> Result<(), Error> {
     if text.trim().is_empty()
         || text.len() > 4096
         || text
@@ -335,7 +699,13 @@ fn validate_prose(engine: &Engine, approved: &Receipt, text: &str) -> Result<(),
     {
         return Err(Error::Narration);
     }
-    let source = crate::engine::render(approved.events()).to_lowercase();
+    let mut source = crate::engine::render(approved.events()).to_lowercase();
+    if let Some(evidence) = evidence {
+        for observation in evidence.observations() {
+            source.push('\n');
+            source.push_str(&observation.proposition().to_lowercase());
+        }
+    }
     for phrase in [
         "appears",
         "materializes",
@@ -412,6 +782,11 @@ fn validate_prose(engine: &Engine, approved: &Receipt, text: &str) -> Result<(),
         ]
         .iter()
         .any(|w| lower.contains(w))
+    {
+        return Err(Error::Narration);
+    }
+    if evidence.is_some()
+        && narration_reclaims_transferred_item(approved, &engine.seed().player, &lower)
     {
         return Err(Error::Narration);
     }
@@ -646,6 +1021,107 @@ pub fn execute_traced(
     profile: &PlayProfile,
     sink: Option<&mut dyn TraceSink>,
 ) -> Result<Receipt, Error> {
+    execute_traced_with_memory(engine, request, provider, cancel, profile, sink, None)
+}
+
+/// Trusted native-only input to the same production path. The accepted compiler
+/// rechecks retained coverage against this actual Engine before selecting data.
+/// Coverage rejection/fallback stays authoritative in that compiler. This cannot
+/// grant observer access, bypass mandatory context or authorize canonical changes.
+/// The candidate still requires a separate authoritative Host/Store commit.
+pub fn execute_traced_with_memory(
+    engine: &mut Engine,
+    request: &Request,
+    provider: &mut (impl InferenceProvider + ?Sized),
+    cancel: &Cancellation,
+    profile: &PlayProfile,
+    sink: Option<&mut dyn TraceSink>,
+    coverage: Option<&crate::memory_coverage::VerifiedCoverage>,
+) -> Result<Receipt, Error> {
+    execute_with_context_input(
+        engine,
+        request,
+        provider,
+        cancel,
+        profile,
+        sink,
+        MemoryInput {
+            proof: coverage,
+            source_fallback_reason: None,
+            policy: PlayContextPolicy::StateRelevantMemoryV1,
+        },
+    )
+}
+
+/// Snapshot-source variant preserving its closed raw-fallback reason separately
+/// from compiler diagnostics. Raw input remains the same compiler raw path;
+/// the source label never constructs a proof or becomes prompt/knowledge data.
+pub fn execute_traced_with_coverage(
+    engine: &mut Engine,
+    request: &Request,
+    provider: &mut (impl InferenceProvider + ?Sized),
+    cancel: &Cancellation,
+    profile: &PlayProfile,
+    sink: Option<&mut dyn TraceSink>,
+    coverage: &crate::memory_coverage::CoverageRead,
+) -> Result<Receipt, Error> {
+    execute_traced_with_policy(
+        engine,
+        request,
+        provider,
+        cancel,
+        profile,
+        sink,
+        PlayConstructionInput {
+            coverage,
+            policy: PlayContextPolicy::StateRelevantMemoryV1,
+        },
+    )
+}
+
+/// Trusted native construction selection over the same coherent Engine/input.
+/// Neither the requested policy nor source fallback grants knowledge or proof.
+pub struct PlayConstructionInput<'a> {
+    pub coverage: &'a crate::memory_coverage::CoverageRead,
+    pub policy: PlayContextPolicy,
+}
+pub fn execute_traced_with_policy(
+    engine: &mut Engine,
+    request: &Request,
+    provider: &mut (impl InferenceProvider + ?Sized),
+    cancel: &Cancellation,
+    profile: &PlayProfile,
+    sink: Option<&mut dyn TraceSink>,
+    input: PlayConstructionInput<'_>,
+) -> Result<Receipt, Error> {
+    let context = match input.coverage {
+        crate::memory_coverage::CoverageRead::Verified(proof) => MemoryInput {
+            proof: Some(proof),
+            source_fallback_reason: None,
+            policy: input.policy,
+        },
+        crate::memory_coverage::CoverageRead::RawFallback(reason) => MemoryInput {
+            proof: None,
+            source_fallback_reason: Some((*reason).into()),
+            policy: input.policy,
+        },
+    };
+    execute_with_context_input(engine, request, provider, cancel, profile, sink, context)
+}
+struct MemoryInput<'a> {
+    proof: Option<&'a crate::memory_coverage::VerifiedCoverage>,
+    source_fallback_reason: Option<PlayMemoryFallback>,
+    policy: PlayContextPolicy,
+}
+fn execute_with_context_input(
+    engine: &mut Engine,
+    request: &Request,
+    provider: &mut (impl InferenceProvider + ?Sized),
+    cancel: &Cancellation,
+    profile: &PlayProfile,
+    sink: Option<&mut dyn TraceSink>,
+    input: MemoryInput<'_>,
+) -> Result<Receipt, Error> {
     let mut trace = Trace {
         sink,
         overhead: Duration::ZERO,
@@ -688,7 +1164,7 @@ pub fn execute_traced(
         // generated proposal must match again during preview, commit and replay.
         Some(trace.run(Stage::Validation, Outcome::Rejected, || {
             let expected = crate::intent_guard::compile_action(engine, text)?;
-            engine.preview(
+            engine.stage_play_v25(
                 request,
                 &Proposal {
                     version: VERSION,
@@ -697,6 +1173,7 @@ pub fn execute_traced(
                     expected_revision: request.expected_revision,
                     commands: vec![expected.clone()],
                 },
+                &|| cancel.is_cancelled(),
             )?;
             Ok(expected)
         })?)
@@ -705,15 +1182,15 @@ pub fn execute_traced(
     };
     let started = trace.clock();
     let mut stages = Vec::new();
-    let compiled = trace.counted(
+    let compilation = trace.counted(
         Stage::Retrieval,
         Outcome::Rejected,
         || {
             let reserved_tokens = 512.min(profile.context_tokens.saturating_sub(1));
-            crate::context_compiler::compile_cancelled(
+            crate::context_compiler::compile_policy_cancelled(
                 engine,
                 &crate::context_compiler::CompileRequest {
-                    version: crate::context_compiler::COMPILER_VERSION,
+                    version: crate::context_compiler::POLICY_COMPILER_VERSION,
                     scope: request.scope.clone(),
                     expected_head: request.expected_revision,
                     at_revision: None,
@@ -733,6 +1210,8 @@ pub fn execute_traced(
                         ..crate::context_compiler::Budget::default()
                     },
                 },
+                input.policy,
+                input.proof,
                 &|| cancel.is_cancelled(),
             )
             .map_err(|error| match error {
@@ -750,14 +1229,17 @@ pub fn execute_traced(
             })
         },
         |package| Counts {
-            eligible_records: package.diagnostics.eligible_candidates as u32,
+            eligible_records: package.compilation.package.diagnostics.eligible_candidates as u32,
             input_tokens: Some(TokenCount {
-                value: package.estimated_tokens,
+                value: package.compilation.package.estimated_tokens,
                 basis: TokenBasis::Estimated,
             }),
             ..Counts::default()
         },
     )?;
+    let context_record =
+        PlayContextRecord::from_policy_compilation(&compilation, input.source_fallback_reason);
+    let compiled = compilation.compilation.package;
     trace.capture(crate::turn_capture::Artifact::Context(&compiled));
     let (inventory, nearby, base, _) = trace.counted(Stage::Context, Outcome::Rejected, || {
     let player_location = &engine.state().actors.get(&engine.seed().player).ok_or(Error::UnknownReference)?.location;
@@ -793,7 +1275,7 @@ pub fn execute_traced(
     let records: Vec<_> = compiled.records.iter().map(|record| json!({"kind":record.kind,"source_revision":record.source_revision,"payload":record.payload})).collect();
     let context = json!({"compiler_version":compiled.version,"observer":compiled.observer,"revision":compiled.revision,"records":records});
     let input = json!({"kind":kind,"player_text":text,"context":context,"inventory":inventory,"nearby":nearby,"routes":routes});
-    crate::engine::check_json_budget(&input, 24_576)?;
+    crate::engine::check_json_budget(&input, MAX_ROLE_INPUT_BYTES)?;
     let instructions = match kind {
         PlayInputKind::Action => "ACTION mode: translate the attempted physical action into commands, never say. Return {\"commands\":[...]}. Command shapes: {\"op\":\"give\",\"item\":item_id,\"to\":actor_id,\"quantity\":integer}; {\"op\":\"consume\",\"item\":item_id}; {\"op\":\"use_ability\",\"ability\":ability_id}; {\"op\":\"learn\",\"ability\":ability_id}; {\"op\":\"move\",\"to\":location_id}; {\"op\":\"discover\",\"fact\":fact_id}; {\"op\":\"believe\",\"claim_event\":integer}; {\"op\":\"wait\",\"ticks\":integer}. A gift uses give, not consume. Preserve the attempted action even if it will be rejected for missing inventory or ability; never replace it with speech or wait.",
         PlayInputKind::Dialogue => "DIALOGUE mode: return exactly one say command: {\"commands\":[{\"op\":\"say\",\"text\":exact_player_text,\"audience\":[present_actor_id]}]}. Preserve player_text exactly. Choose only present audience IDs; never perform a physical action.",
@@ -852,35 +1334,31 @@ pub fn execute_traced(
     };
     trace.capture(crate::turn_capture::Artifact::Proposal(&proposal));
     let before = trace.clock();
-    let approved = trace.counted(
+    let staged = trace.counted(
         Stage::Validation,
         Outcome::Rejected,
-        || engine.preview(request, &proposal),
-        |receipt| Counts {
-            operations: receipt.events().len().min(u16::MAX as usize) as u16,
+        || engine.stage_play_v25(request, &proposal, &|| cancel.is_cancelled()),
+        |staged| Counts {
+            operations: staged.approved().events().len().min(u16::MAX as usize) as u16,
             repairs,
             ..Counts::default()
         },
     )?;
-    trace.capture(crate::turn_capture::Artifact::ApprovedPlan(&approved));
+    let approved = staged.approved();
+    trace.capture(crate::turn_capture::Artifact::ApprovedPlan(approved));
     stages.push(StageTiming {
         stage: "validation".into(),
         elapsed_ms: trace.elapsed(before).as_millis() as u64,
     });
     let overhead = trace.overhead;
     let (bytes, narrator_elapsed_ms) = trace.generate(Stage::Narration, provider, cancel, || {
-    let outcomes: Vec<_> = approved
-        .events()
-        .iter()
-        .map(|e| {
-            let outcome = match e.outcome() {
-                Effect::Said(_) => json!({"effect":"said","content":"A player statement was delivered to its recorded listeners. Its words are recorded separately and are not established truth."}),
-                other => json!(other),
-            };
-            json!({"event_id":e.sequence(),"outcome":outcome})
-        })
-        .collect();
-    let prompt=format!("Write brief natural story prose in second person from ONLY these approved outcomes. The action has already resolved. No new items, abilities, healing, movement, discoveries, hidden facts or NPC knowledge. Give is possession transfer, not consumption or healing. For spoken outcomes describe the delivery without repeating the spoken quotation or treating its contents as true. No NPC quotation or impersonation. Small sensory/emotional description is allowed. Return JSON text, event_ids and speaker narrator. Approved outcomes: {}. Mechanical summary: {}",json!(outcomes),approved.narration());
+    // The opaque candidate made these event-specific observations in Core.
+    // Never attach the compiled Director context, seed truth or raw Receipt.
+    let evidence = staged.narrator_evidence();
+    crate::engine::check_json_budget(evidence, MAX_RECEIPT_BYTES)?;
+    let safe = serde_json::to_string(evidence).map_err(|_| Error::TooLarge)?;
+    let prompt=format!("Write brief natural story prose in second person from ONLY this approved evidence. The action has already resolved. Observation values describe ONLY discoveries actually made in this turn. No additional items, abilities, healing, movement, discoveries, hidden facts or NPC knowledge. Give is possession transfer, not consumption or healing. A delivered statement supplies no quotation or established fact. No NPC quotation or impersonation. Small sensory/emotional description is allowed. Return JSON text, event_ids and speaker narrator. Approved evidence: {safe}");
+    crate::engine::check_json_budget(&prompt, MAX_ROLE_INPUT_BYTES)?;
     let generation = role_request(
         request,
         profile,
@@ -913,11 +1391,13 @@ pub fn execute_traced(
                 speaker: String::new(),
             }),
         stages,
+        context: Some(context_record),
+        context_policy: Some(input.policy),
     };
     let before = trace.clock();
     if trace
         .run(Stage::NarrationValidation, Outcome::Rejected, || {
-            validate_record(engine, &approved, &record, false)
+            validate_record_v25(engine, approved, staged.narrator_evidence(), &record, false)
         })
         .is_err()
     {
@@ -942,7 +1422,7 @@ pub fn execute_traced(
         if cancel.is_cancelled() {
             return Err(Error::Cancelled);
         }
-        engine.commit_play(request, &proposal, &record)
+        engine.commit_staged_play_v25(staged, &record, &|| cancel.is_cancelled())
     })?;
     trace.capture(crate::turn_capture::Artifact::Candidate(&receipt));
     trace.not_run(Stage::MemoryMaintenance);

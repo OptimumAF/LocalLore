@@ -106,7 +106,9 @@ checks do not establish hosted execution or device qualification.
 **Timelines** selects existing validated branches, including their inherited
 accepted transcript and independent progress. Gameplay and lineage checks remain
 in Rust. See the [catalog contract](docs/native/TIMELINE_CATALOG_CONTRACT.md).
-Creating or deleting an individual timeline is not exposed by this selector.
+Use **Delete timeline** on a nonroot timeline to retire it while preserving
+required original ancestry for retained children. See the
+[retention contract](docs/native/PARENT_RETENTION_CONTRACT.md).
 
 **Local diagnostics** previews a bounded memory-only log of timing/error enums;
 explicit export writes exactly the reviewed JSON through the system picker.
@@ -122,7 +124,8 @@ This partial adapter is under review; it does not establish cross-device or mode
 **Delete story** previews every timeline and removes the story atomically through
 the shared Store, with explicit confirmation and native session invalidation.
 An empty library stays empty until **New story**. This whole-story slice is under
-review; branch-only deletion and forensic erasure are not provided. See
+review; forensic erasure is not provided. Individual timeline retirement uses
+the separate preview described above. See
 [deletion verification and limits](docs/native/STORY_DELETION_VERIFICATION_2026-10-23.md).
 
 ## Initial technical direction

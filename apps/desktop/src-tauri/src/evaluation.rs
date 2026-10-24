@@ -39,15 +39,43 @@ mod tests {
         manager.catalog(&lease, epoch).unwrap();
         (manager, lease, epoch, path)
     }
+    #[test]
+    fn late_cancellation_registration_and_old_cleanup_cannot_escape_retirement() {
+        let (m, l, e, path) = setup();
+        l.invalidate(&format!("main-{e}")).unwrap();
+        m.retire(e); // retirement observes no registered job
+        let late = Cancellation::default();
+        m.register_cancellation(&l, e, 1, &late);
+        assert!(late.is_cancelled());
+
+        let next_lease = WindowLease::default();
+        let next_epoch = next_lease.begin().unwrap();
+        let current = Cancellation::default();
+        m.register_cancellation(&next_lease, next_epoch, 2, &current);
+        m.clear_cancellation(e, 1);
+        assert!(!current.is_cancelled());
+        m.retire(next_epoch);
+        assert!(current.is_cancelled());
+        m.clear_cancellation(next_epoch, 2);
+        assert!(m.cancellation.lock().unwrap().is_none());
+        drop(m);
+        fs::remove_dir_all(path).unwrap();
+    }
     fn done(m: &EvaluationManager, l: &WindowLease, e: u64, t: &str) -> Value {
-        for _ in 0..1000 {
+        // This is a fixture scheduling bound, not the native operation budget.
+        // The twelve real SQLite cases can exceed five seconds on Windows.
+        let deadline = Instant::now() + Duration::from_secs(30);
+        loop {
             let status = m.status(l, e, t).unwrap();
             if status["running"] == false {
                 return status;
             }
+            assert!(
+                Instant::now() < deadline,
+                "native evaluation did not reach boundary; last status: {status}"
+            );
             std::thread::sleep(Duration::from_millis(5));
         }
-        panic!("native evaluation did not reach boundary")
     }
     #[test]
     fn retirement_between_admission_and_registration_drains_without_running() {
@@ -442,6 +470,11 @@ struct Job {
     run: String,
     cancel: Cancellation,
 }
+struct JobCancellation {
+    epoch: u64,
+    operation: u64,
+    cancel: Cancellation,
+}
 #[derive(Default)]
 struct State {
     runs: BTreeMap<String, Run>,
@@ -450,8 +483,12 @@ struct State {
     next: u64,
 }
 pub struct EvaluationManager {
+    curated: Mutex<curated::CuratedState>,
     root: PathBuf,
     state: Mutex<State>,
+    // Only clone/cancel/replace under this lock; never IO, joins, or another
+    // manager/lease lock. Destroyed can cancel even if presentation state is busy.
+    cancellation: Mutex<Option<JobCancellation>>,
     worker: Mutex<Option<(u64, JoinHandle<()>)>>,
     registration: Mutex<()>,
     #[cfg(test)]
@@ -464,12 +501,16 @@ pub struct EvaluationManager {
     before_publish: Mutex<Option<(Arc<std::sync::Barrier>, Arc<std::sync::Barrier>)>>,
     #[cfg(any(test, feature = "dev-harness"))]
     hold: std::sync::atomic::AtomicBool,
+    #[cfg(any(test, feature = "dev-harness"))]
+    curated_lost_ack: std::sync::atomic::AtomicBool,
 }
 impl EvaluationManager {
     pub fn new(root: PathBuf) -> Self {
         Self {
+            curated: Mutex::new(curated::CuratedState::default()),
             root,
             state: Mutex::new(State::default()),
+            cancellation: Mutex::new(None),
             worker: Mutex::new(None),
             registration: Mutex::new(()),
             #[cfg(test)]
@@ -482,13 +523,53 @@ impl EvaluationManager {
             before_publish: Mutex::new(None),
             #[cfg(any(test, feature = "dev-harness"))]
             hold: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(any(test, feature = "dev-harness"))]
+            curated_lost_ack: std::sync::atomic::AtomicBool::new(false),
         }
     }
     fn state(&self) -> Result<std::sync::MutexGuard<'_, State>> {
         self.state.lock().map_err(|_| "EvaluationInternal".into())
     }
+    fn register_cancellation(
+        &self,
+        lease: &WindowLease,
+        epoch: u64,
+        operation: u64,
+        cancel: &Cancellation,
+    ) {
+        {
+            let mut slot = self.cancellation.lock().unwrap_or_else(|p| p.into_inner());
+            *slot = Some(JobCancellation {
+                epoch,
+                operation,
+                cancel: cancel.clone(),
+            });
+        }
+        // Invalidation is atomic and need not wait for lease.dispatch's gate.
+        // Retirement may have observed an empty slot just before registration.
+        if !lease.valid(epoch) {
+            cancel.cancel();
+        }
+    }
+    fn clear_cancellation(&self, epoch: u64, operation: u64) {
+        let mut slot = self.cancellation.lock().unwrap_or_else(|p| p.into_inner());
+        if slot
+            .as_ref()
+            .is_some_and(|j| j.epoch == epoch && j.operation == operation)
+        {
+            *slot = None;
+        }
+    }
     fn budget(&self, run: Option<&Path>) -> Result<()> {
-        if free_space(&self.root)? < 64 * 1024 * 1024 || bytes(&self.root, &mut 0)? > ROOT_BYTES {
+        let curated = self.curated_root();
+        let extra = if curated.exists() {
+            bytes(&curated, &mut 0)?
+        } else {
+            0
+        };
+        if free_space(&self.root)? < 64 * 1024 * 1024
+            || bytes(&self.root, &mut 0)?.saturating_add(extra) > ROOT_BYTES
+        {
             return Err("EvaluationBudget".into());
         }
         if let Some(p) = run {
@@ -568,8 +649,10 @@ impl EvaluationManager {
         Ok(t.run.clone())
     }
     fn mint(s: &mut State, epoch: u64, run: String) -> Result<String> {
-        s.tokens
-            .retain(|_, t| t.touched.elapsed() < Duration::from_secs(900));
+        let active = s.job.as_ref().map(|j| j.run.clone());
+        s.tokens.retain(|_, t| {
+            t.touched.elapsed() < Duration::from_secs(900) || active.as_ref() == Some(&t.run)
+        });
         // Opening the same run reuses its lease; no token churn during ordinary browsing.
         if let Some((id, t)) = s
             .tokens
@@ -585,6 +668,7 @@ impl EvaluationManager {
                 .tokens
                 .iter()
                 .filter(|(_, t)| t.epoch == epoch)
+                .filter(|(_, t)| active.as_ref() != Some(&t.run))
                 .min_by_key(|(_, t)| t.touched)
                 .map(|(id, _)| id.clone())
                 .ok_or("EvaluationTokenLimit")?;
@@ -662,7 +746,21 @@ impl EvaluationManager {
                 .filter(|j| j.epoch == epoch && j.id == operation && j.run == run)
                 .ok_or("StaleEvaluationOperation")?;
             j.cancel.cancel();
-            s.runs.get_mut(&run).unwrap().phase = "stopping_at_boundary".into();
+            if let Some(retained) = s.runs.get_mut(&run) {
+                retained.phase = "stopping_at_boundary".into();
+            } else if let Some(retained) = self
+                .curated
+                .lock()
+                .map_err(|_| "EvaluationInternal")?
+                .runs
+                .get_mut(&run)
+            {
+                retained.phase = "stopping_at_boundary".into();
+            }
+            if !s.runs.contains_key(&run) {
+                drop(s);
+                return self.curated_snapshot(epoch, &run, token);
+            }
             Self::snapshot(&s, &run, token)
         })
     }
@@ -757,7 +855,9 @@ impl EvaluationManager {
                     if id>9_007_199_254_740_991{return Err("EvaluationBudget".into())}
                     let cancel=Cancellation::default();if recover{cancel.cancel()}
                     let r=s.runs.get_mut(&run).ok_or("EvaluationInternal")?;r.phase=if recover{"validating_checkpoints"}else{"running"}.into();r.error=None;let selected=r.selection.clone();
-                    s.job=Some(Job{epoch,id,run:run.clone(),cancel:cancel.clone()});(run,token,id,cancel,resume,selected)
+                    s.job=Some(Job{epoch,id,run:run.clone(),cancel:cancel.clone()});
+                    self.register_cancellation(lease,epoch,id,&cancel);
+                    (run,token,id,cancel,resume,selected)
                 };
                 #[cfg(test)]
                 if let Some((entered,release))=self.before_spawn.lock().unwrap().take(){entered.wait();release.wait();}
@@ -787,6 +887,7 @@ impl EvaluationManager {
                     let _=lease_copy.dispatch(epoch,||{let mut s=manager.state()?;if s.job.as_ref().is_some_and(|j|j.id==id&&j.epoch==epoch){let r=s.runs.get_mut(&run_copy).ok_or("EvaluationInternal")?;r.phase=if result.is_err(){"error"}else if r.report.as_ref().is_some_and(|r|r["completed"]==true){"completed"}else{"paused"}.into();r.error=result.clone().err();}Ok(())});
                     // Terminal ownership cleanup also works after lease retirement and
                     // poisoned-state panics. It never publishes a new report.
+                    manager.clear_cancellation(epoch,id);
                     let mut s=manager.state.lock().unwrap_or_else(|poison|poison.into_inner());
                     if s.job.as_ref().is_some_and(|j|j.id==id&&j.epoch==epoch){if !lease_copy.valid(epoch){if let Some(r)=s.runs.get_mut(&run_copy){r.phase="retained".into()}}s.job=None;}
                 };
@@ -795,7 +896,7 @@ impl EvaluationManager {
                 let spawned=if failed{Err(std::io::Error::other("fixed synthetic spawn refusal"))}else{std::thread::Builder::new().name("locallore-evaluation".into()).spawn(work)};
                 match spawned {
                     Ok(handle)=>{*self.worker.lock().unwrap_or_else(|p|p.into_inner())=Some((epoch,handle));let _=start.send(());}
-                    Err(_)=>{let mut s=self.state()?;if s.job.as_ref().is_some_and(|j|j.id==id&&j.epoch==epoch){s.job=None;s.tokens.remove(&token);if let Some(r)=s.runs.get_mut(&run){r.phase="error".into();r.error=Some("EvaluationInternal".into())}}return Err("EvaluationInternal".into())}
+                    Err(_)=>{self.clear_cancellation(epoch,id);let mut s=self.state()?;if s.job.as_ref().is_some_and(|j|j.id==id&&j.epoch==epoch){s.job=None;s.tokens.remove(&token);if let Some(r)=s.runs.get_mut(&run){r.phase="error".into();r.error=Some("EvaluationInternal".into())}}return Err("EvaluationInternal".into())}
                 }
                 let s=self.state()?;Self::snapshot(&s,&run,&token)
             });
@@ -808,8 +909,15 @@ impl EvaluationManager {
         }
     }
     pub fn retire(&self, epoch: u64) {
-        // Destroyed must never wait for admission IO or a worker. The lease was
-        // synchronously invalidated already; the worker checks it at boundaries.
+        // No IO/state/lease/worker locks are acquired while holding this slot.
+        // Cleanup recovers poison; ordinary presentation calls still fail closed.
+        {
+            let slot = self.cancellation.lock().unwrap_or_else(|p| p.into_inner());
+            if let Some(job) = slot.as_ref().filter(|job| job.epoch == epoch) {
+                job.cancel.cancel();
+            }
+        }
+        // Destroyed never waits for admission IO or a worker.
         if let Ok(mut s) = self.state.try_lock() {
             s.tokens.retain(|_, t| t.epoch != epoch);
             if let Some(j) = s.job.as_ref().filter(|j| j.epoch == epoch) {
@@ -839,8 +947,19 @@ impl EvaluationManager {
         match case {
             "hold-boundary" => self.hold.store(true, Ordering::SeqCst),
             "release-boundary" => self.hold.store(false, Ordering::SeqCst),
+            "lose-curated-start-ack" => self.curated_lost_ack.store(true, Ordering::SeqCst),
             _ => return Err("InvalidEvaluationInput".into()),
         }
         Ok(json!({"synthetic":true}))
     }
+    #[cfg(feature = "dev-harness")]
+    pub fn take_curated_lost_ack(&self) -> bool {
+        self.curated_lost_ack
+            .swap(false, std::sync::atomic::Ordering::SeqCst)
+    }
 }
+mod curated;
+#[cfg(test)]
+#[path = "evaluation/retirement_review.rs"]
+mod retirement_review;
+pub use curated::{CuratedEvidenceRequest, CuratedStart};

@@ -5,28 +5,45 @@ use std::sync::Arc;
 use tauri::Manager;
 mod archive;
 mod archive_commands;
+mod author_commands;
+#[cfg(feature = "dev-harness")]
+mod author_harness;
+mod author_ipc;
+#[cfg(all(test, windows))]
+mod author_ipc_review;
+mod capture_exports;
 mod evaluation;
 mod evaluation_commands;
 mod export_commands;
 mod exports;
+mod fork_commands;
 mod lease;
+mod memory_maintenance_commands;
 mod model_commands;
 mod models;
 use lease::WindowLease;
 #[cfg(feature = "dev-harness")]
+mod fork_harness;
+#[cfg(feature = "dev-harness")]
 mod harness;
 #[cfg(feature = "dev-harness")]
+mod memory_harness;
+#[cfg(feature = "dev-harness")]
 mod test_bridge;
+#[cfg(feature = "dev-harness")]
+mod timeline_harness;
 #[cfg(feature = "dev-harness")]
 use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(feature = "dev-harness")]
 struct Reopen(AtomicBool);
 
 struct WorkspaceState {
+    incarnation: String,
     path: std::path::PathBuf,
     lease: Arc<WindowLease>,
     host: tokio::sync::OnceCell<Arc<Host>>,
     preview_cleanup: Arc<std::sync::Mutex<Value>>,
+    author: std::sync::Mutex<Option<author_ipc::AuthorOwner>>,
 }
 impl WorkspaceState {
     async fn get(&self, epoch: u64) -> Result<Arc<Host>, String> {
@@ -126,16 +143,22 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},legacy:{},evaluating:{},archiving:{},archiveStage:'{}',stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},archiving:{},timelining:{},forking:{},maintaining:{},authoring:{},archiveStage:'{}',stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
               std::env::var("LOCALLORE_D04_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D05_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D06_HARNESS").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_D06_CAPTURE_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_M07_LEGACY_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D07_HARNESS").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_D07_CURATED_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_HARNESS").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_D08_TIMELINE_HARNESS").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_D08_FORK_HARNESS").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_M07_MEMORY_HARNESS").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_M08_AUTHOR_HARNESS").as_deref() == Ok("1"),
             match std::env::var("LOCALLORE_D08_STAGE").as_deref(){Ok("import")=>"import",Ok("uncertain")=>"uncertain",Ok("retire")=>"retire",Ok("restarted")=>"restarted",_=>"source"},
             if reopened {
                 "reopened"
@@ -249,18 +272,36 @@ fn main() {
         return;
     }
     let builder = tauri::Builder::default()
+        .manage(Arc::new(capture_exports::CaptureBroker::default()))
         .manage(Arc::new(archive::ArchiveBroker::default()))
         .manage(Arc::new(tokio::sync::Semaphore::new(4)))
         .manage(Arc::new(exports::ExportBroker::default()));
     #[cfg(feature = "dev-harness")]
     let builder = builder
+        .manage(capture_exports::TestCaptureState::default())
         .manage(Reopen(AtomicBool::new(false)))
         .manage(export_commands::TestExportState::default())
         .manage(archive_commands::TestArchiveState::default())
+        .manage(Arc::new(fork_harness::ForkHarnessState::default()))
         .manage(model_commands::TestModelState::default())
         .invoke_handler(tauri::generate_handler![
+            capture_exports::harness_capture_case,
+            capture_exports::capture_preview,
+            capture_exports::capture_save,
+            capture_exports::capture_revoke,
             host_call,
             archive_commands::archive_catalog,
+            author_ipc::author_prepare_start,
+            author_ipc::author_context,
+            author_ipc::author_commit_start,
+            author_ipc::author_lookup_start,
+            author_ipc::author_preview_discard,
+            fork_commands::fork_start,
+            fork_commands::fork_lookup,
+            fork_harness::harness_fork_case,
+            memory_harness::harness_memory_case,
+            author_harness::harness_author_case,
+            memory_maintenance_commands::memory_maintenance_start,
             archive_commands::archive_export_preview,
             archive_commands::archive_import_preview,
             archive_commands::archive_export,
@@ -270,6 +311,7 @@ fn main() {
             archive_commands::archive_discard,
             archive_commands::harness_archive_case,
             evaluation_commands::evaluation_catalog,
+            evaluation_commands::evaluation_curated,
             evaluation_commands::evaluation_start,
             evaluation_commands::evaluation_open,
             evaluation_commands::evaluation_status,
@@ -301,8 +343,19 @@ fn main() {
         ]);
     #[cfg(not(feature = "dev-harness"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        capture_exports::capture_preview,
+        capture_exports::capture_save,
+        capture_exports::capture_revoke,
         host_call,
         archive_commands::archive_catalog,
+        author_ipc::author_prepare_start,
+        author_ipc::author_context,
+        author_ipc::author_commit_start,
+        author_ipc::author_lookup_start,
+        author_ipc::author_preview_discard,
+        fork_commands::fork_start,
+        fork_commands::fork_lookup,
+        memory_maintenance_commands::memory_maintenance_start,
         archive_commands::archive_export_preview,
         archive_commands::archive_import_preview,
         archive_commands::archive_export,
@@ -311,6 +364,7 @@ fn main() {
         archive_commands::archive_cancel,
         archive_commands::archive_discard,
         evaluation_commands::evaluation_catalog,
+        evaluation_commands::evaluation_curated,
         evaluation_commands::evaluation_start,
         evaluation_commands::evaluation_open,
         evaluation_commands::evaluation_status,
@@ -343,6 +397,32 @@ fn main() {
             } else {
                 path
             };
+            #[cfg(feature = "dev-harness")]
+            if harness::active()
+                && std::env::var("LOCALLORE_D08_TIMELINE_HARNESS").as_deref() == Ok("1")
+                && std::env::var("LOCALLORE_TEST_RESTART").as_deref() != Ok("1")
+            {
+                timeline_harness::seed(&path).map_err(std::io::Error::other)?;
+            }
+            #[cfg(feature = "dev-harness")]
+            if harness::active()
+                && std::env::var("LOCALLORE_D08_FORK_HARNESS").as_deref() == Ok("1")
+                && std::env::var("LOCALLORE_TEST_RESTART").as_deref() != Ok("1")
+            {
+                fork_harness::seed(&path).map_err(std::io::Error::other)?;
+            }
+            #[cfg(feature = "dev-harness")]
+            if memory_harness::active()
+                && std::env::var("LOCALLORE_TEST_RESTART").as_deref() != Ok("1")
+            {
+                memory_harness::seed(&path).map_err(std::io::Error::other)?;
+            }
+            #[cfg(feature = "dev-harness")]
+            if author_harness::active()
+                && std::env::var("LOCALLORE_TEST_RESTART").as_deref() != Ok("1")
+            {
+                author_harness::seed(&path).map_err(std::io::Error::other)?;
+            }
             let model_root = path
                 .parent()
                 .ok_or_else(|| std::io::Error::other("InvalidInput"))?
@@ -367,10 +447,12 @@ fn main() {
                     .join("evaluation-runs-v1"),
             )));
             app.manage(WorkspaceState {
+                incarnation: exports::identifier().map_err(std::io::Error::other)?,
                 path,
                 lease: Arc::new(WindowLease::default()),
                 host: tokio::sync::OnceCell::new(),
                 preview_cleanup: Arc::new(std::sync::Mutex::new(json!({"pending":true}))),
+                author: std::sync::Mutex::new(None),
             });
             #[cfg(feature = "dev-harness")]
             if harness::active() {
@@ -395,6 +477,10 @@ fn main() {
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 let state = window.state::<WorkspaceState>();
                 if let Some(closed) = state.lease.invalidate(window.label()) {
+                    state.retire_author(closed - 1);
+                    window
+                        .state::<Arc<capture_exports::CaptureBroker>>()
+                        .invalidate(closed - 1);
                     window
                         .state::<Arc<exports::ExportBroker>>()
                         .invalidate(closed - 1);

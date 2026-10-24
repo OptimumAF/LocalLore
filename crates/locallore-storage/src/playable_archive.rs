@@ -15,7 +15,9 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub const ARCHIVE_VERSION: u16 = 1;
+/// Latest accepted format. Stories without retirement metadata still export v1.
+pub const ARCHIVE_VERSION: u16 = 2;
+const ARCHIVE_VERSION_V1: u16 = 1;
 pub const MAX_ARCHIVE_BYTES: usize = 32 * 1024 * 1024;
 pub const MAX_ARCHIVE_BRANCHES: usize = 32;
 pub const MAX_MODEL_REFERENCES: usize = 64;
@@ -156,6 +158,8 @@ struct Payload {
     story: Story,
     transcript: String,
     branches: Vec<Branch>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    retired_branch_ids: Option<Vec<String>>,
     required_policies: Vec<Policy>,
     model_references: Vec<ModelReference>,
 }
@@ -209,6 +213,9 @@ pub struct ArchivePreview {
     pub title: String,
     pub root_branch: String,
     pub branch_heads: BTreeMap<String, u64>,
+    /// Retired physical rows are ancestry only; absent IDs remain deletion tombstones.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub retired_branch_ids: Vec<String>,
     pub committed_turns: usize,
     pub bytes: usize,
     pub payload_sha256: String,
@@ -237,6 +244,7 @@ struct ValidatedBranch {
 pub struct ValidatedArchive {
     story: Story,
     branches: Vec<ValidatedBranch>,
+    retired_branch_ids: Vec<String>,
     preview: ArchivePreview,
 }
 impl ValidatedArchive {
@@ -343,6 +351,60 @@ fn replay(payload: &Payload, index: usize, cancel: &dyn Fn() -> bool) -> Result<
     }
     engine.ok_or(ArchiveError::Integrity)
 }
+
+/// Retired physical branches carry only the ancestry required by active branches.
+/// Garbage-collected identities remain in the separate list, never as invented history.
+fn validate_retirement(payload: &Payload, cancel: &dyn Fn() -> bool) -> Result<()> {
+    let retired = payload.retired_branch_ids.as_deref().unwrap_or_default();
+    if retired.len() > crate::MAX_BRANCHES_PER_STORY {
+        return Err(ArchiveError::TooLarge);
+    }
+    if retired.iter().any(|id| !valid_id(id))
+        || retired.windows(2).any(|pair| pair[0] >= pair[1])
+        || retired.contains(&payload.story.seed.scope.branch)
+    {
+        return Err(ArchiveError::Integrity);
+    }
+    let retired_set: BTreeSet<_> = retired.iter().map(String::as_str).collect();
+    let union: BTreeSet<_> = retired_set
+        .iter()
+        .copied()
+        .chain(payload.branches.iter().map(|branch| branch.id.as_str()))
+        .collect();
+    if union.len() > crate::MAX_BRANCHES_PER_STORY {
+        return Err(ArchiveError::TooLarge);
+    }
+    let mut required_ancestors = BTreeSet::new();
+    for (index, branch) in payload.branches.iter().enumerate() {
+        check(cancel)?;
+        if !retired_set.contains(branch.id.as_str()) {
+            let ancestry = path(&payload.branches, index, &payload.story.seed.scope.branch)?;
+            required_ancestors.extend(ancestry.into_iter().filter(|ancestor| *ancestor != index));
+        }
+    }
+    for (index, branch) in payload.branches.iter().enumerate() {
+        check(cancel)?;
+        if !retired_set.contains(branch.id.as_str()) {
+            continue;
+        }
+        if !required_ancestors.contains(&index) {
+            return Err(ArchiveError::Integrity);
+        }
+        // A child may rewind before this parent's birth. Keep that birth floor
+        // so the original fork remains verifiable without re-scoping any receipt.
+        let mut cap = branch.fork_revision.unwrap_or_default();
+        for child in &payload.branches {
+            if child.parent.as_deref() == Some(branch.id.as_str()) {
+                cap = cap.max(child.fork_revision.ok_or(ArchiveError::Integrity)?);
+            }
+        }
+        if branch.head_revision != cap {
+            return Err(ArchiveError::Integrity);
+        }
+    }
+    Ok(())
+}
+
 fn references<'a>(
     receipts: impl Iterator<Item = &'a Receipt>,
 ) -> Result<(Vec<Policy>, Vec<ModelReference>)> {
@@ -383,17 +445,33 @@ pub fn validate_archive(bytes: &[u8], cancel: &dyn Fn() -> bool) -> Result<Valid
             ArchiveError::Malformed
         }
     })?;
+    let version = raw["version"].as_u64().ok_or(ArchiveError::Unsupported)?;
     if raw["format"] != FORMAT
-        || raw["version"].as_u64() != Some(u64::from(ARCHIVE_VERSION))
+        || !matches!(version, 1 | 2)
         || raw["canonicalization"] != CANONICALIZATION
     {
         return Err(ArchiveError::Unsupported);
+    }
+    let payload_fields = raw["payload"].as_object().ok_or(ArchiveError::Malformed)?;
+    if version == u64::from(ARCHIVE_VERSION_V1) {
+        // Even explicit null is an unknown v1 field; never silently downgrade it.
+        if payload_fields.contains_key("retired_branch_ids") {
+            return Err(ArchiveError::Malformed);
+        }
+    } else if payload_fields
+        .get("retired_branch_ids")
+        .and_then(Value::as_array)
+        .is_none_or(Vec::is_empty)
+    {
+        return Err(ArchiveError::Malformed);
     }
     let envelope: Envelope = serde_json::from_value(raw).map_err(|_| ArchiveError::Malformed)?;
     let payload = &envelope.payload;
     if envelope.privacy != "full_private"
         || payload.domain_version != VERSION
         || !(1..=SCHEMA_VERSION).contains(&payload.source_database_schema_version)
+        || envelope.version == ARCHIVE_VERSION
+            && !(3..=5).contains(&payload.source_database_schema_version)
         || payload.story.seed.version != VERSION
         || payload.transcript != TRANSCRIPT
     {
@@ -413,6 +491,13 @@ pub fn validate_archive(bytes: &[u8], cancel: &dyn Fn() -> bool) -> Result<Valid
         || payload.model_references.len() > MAX_MODEL_REFERENCES
         || payload.required_policies.len() > MAX_MODEL_REFERENCES
         || encode(&payload.story.seed)?.len() > MAX_SEED_BYTES
+    {
+        return Err(ArchiveError::TooLarge);
+    }
+    if payload
+        .retired_branch_ids
+        .as_ref()
+        .is_some_and(|ids| ids.len() > crate::MAX_BRANCHES_PER_STORY)
     {
         return Err(ArchiveError::TooLarge);
     }
@@ -460,6 +545,7 @@ pub fn validate_archive(bytes: &[u8], cancel: &dyn Fn() -> bool) -> Result<Valid
             return Err(ArchiveError::Integrity);
         }
     }
+    validate_retirement(payload, cancel)?;
     let mut validated = Vec::new();
     for (index, branch) in payload.branches.iter().enumerate() {
         check(cancel)?;
@@ -497,7 +583,7 @@ pub fn validate_archive(bytes: &[u8], cancel: &dyn Fn() -> bool) -> Result<Valid
     }
     check(cancel)?;
     let preview = ArchivePreview {
-        version: ARCHIVE_VERSION,
+        version: envelope.version,
         story_id: payload.story.id.clone(),
         title: payload.story.title.clone(),
         root_branch: payload.story.seed.scope.branch.clone(),
@@ -506,6 +592,7 @@ pub fn validate_archive(bytes: &[u8], cancel: &dyn Fn() -> bool) -> Result<Valid
             .iter()
             .map(|b| (b.id.clone(), b.head_revision))
             .collect(),
+        retired_branch_ids: payload.retired_branch_ids.clone().unwrap_or_default(),
         committed_turns: count,
         bytes: bytes.len(),
         payload_sha256: envelope.integrity.payload_sha256,
@@ -515,6 +602,7 @@ pub fn validate_archive(bytes: &[u8], cancel: &dyn Fn() -> bool) -> Result<Valid
     Ok(ValidatedArchive {
         story: payload.story.clone(),
         branches: validated,
+        retired_branch_ids: payload.retired_branch_ids.clone().unwrap_or_default(),
         preview,
     })
 }
@@ -544,6 +632,25 @@ impl Store {
                 .map_err(|_| ArchiveError::Integrity)?,
         )
         .map_err(|_| ArchiveError::Integrity)?;
+        let source_database_schema_version =
+            crate::identity(&tx).map_err(|_| ArchiveError::Database)?.1;
+        let retired_branch_ids = if source_database_schema_version >= 3 {
+            let mut query = tx.prepare(
+                "SELECT branch_id FROM branch_retention WHERE story_id=?1 ORDER BY branch_id LIMIT ?2",
+            )?;
+            let ids = query
+                .query_map(
+                    params![story, (crate::MAX_BRANCHES_PER_STORY + 1) as i64],
+                    |row| row.get::<_, String>(0),
+                )?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            if ids.len() > crate::MAX_BRANCHES_PER_STORY {
+                return Err(ArchiveError::TooLarge);
+            }
+            ids
+        } else {
+            Vec::new()
+        };
         let mut branches = Vec::new();
         let mut integrity = Vec::new();
         let mut receipts = Vec::new();
@@ -564,7 +671,12 @@ impl Store {
                     story: story.into(),
                     branch: id.clone(),
                 };
-                let engine = turns::read_engine(&tx, &scope)?.engine;
+                let engine = turns::read_engine_retained(&tx, &scope)?.engine;
+                // V1/V2 exports cannot silently omit private author records.
+                // The mixed-ledger archive3 adapter is a separate required gate.
+                if engine.domain_version() != 1 {
+                    return Err(ArchiveError::Unsupported);
+                }
                 for receipt in engine
                     .receipts()
                     .iter()
@@ -616,10 +728,13 @@ impl Store {
             }
         }
         let (policies, models) = references(receipts.iter())?;
-        let source_database_schema_version =
-            crate::identity(&tx).map_err(|_| ArchiveError::Database)?.1;
         check(cancel)?;
         tx.commit()?;
+        let version = if retired_branch_ids.is_empty() {
+            ARCHIVE_VERSION_V1
+        } else {
+            ARCHIVE_VERSION
+        };
         let payload = Payload {
             domain_version: VERSION,
             source_database_schema_version,
@@ -630,12 +745,17 @@ impl Store {
             },
             transcript: TRANSCRIPT.into(),
             branches,
+            retired_branch_ids: if retired_branch_ids.is_empty() {
+                None
+            } else {
+                Some(retired_branch_ids)
+            },
             required_policies: policies,
             model_references: models,
         };
         let envelope = Envelope {
             format: FORMAT.into(),
-            version: ARCHIVE_VERSION,
+            version,
             canonicalization: CANONICALIZATION.into(),
             privacy: "full_private".into(),
             integrity: Integrity {
@@ -685,6 +805,13 @@ impl Store {
         let story = &validated.story;
         let seed = &story.seed;
         tx.execute("INSERT INTO stories(story_id,root_branch,title,seed_version,seed_json) VALUES(?1,?2,?3,1,?4)",params![story.id,seed.scope.branch,story.title,String::from_utf8(encode(seed)?).map_err(|_|ArchiveError::Malformed)?])?;
+        for retired in &validated.retired_branch_ids {
+            check(cancel)?;
+            tx.execute(
+                "INSERT INTO branch_retention(story_id,branch_id) VALUES(?1,?2)",
+                params![story.id, retired],
+            )?;
+        }
         check(cancel)?;
         // Topological insertion, independent of canonical archive ID order.
         let mut pending: Vec<_> = (0..validated.branches.len()).collect();
@@ -738,7 +865,15 @@ impl Store {
                     }
                 }
             }
-            tx.execute("INSERT INTO branch_projections(story_id,branch_id,revision,projection_version,projection_json) VALUES(?1,?2,?3,1,?4)",params![story.id,branch.branch.id,integer(branch.branch.head_revision)?,std::str::from_utf8(&branch.projection).map_err(|_|ArchiveError::Integrity)?])?;
+            // Retired prefixes are immutable replay sources, not playable cached
+            // targets. Keep the same cache-free normal form as real deletion.
+            if validated
+                .retired_branch_ids
+                .binary_search(&branch.branch.id)
+                .is_err()
+            {
+                tx.execute("INSERT INTO branch_projections(story_id,branch_id,revision,projection_version,projection_json) VALUES(?1,?2,?3,1,?4)",params![story.id,branch.branch.id,integer(branch.branch.head_revision)?,std::str::from_utf8(&branch.projection).map_err(|_|ArchiveError::Integrity)?])?;
+            }
         }
         for branch in &validated.branches {
             check(cancel)?;
@@ -746,9 +881,13 @@ impl Store {
                 story: story.id.clone(),
                 branch: branch.branch.id.clone(),
             };
-            let restored = turns::read_engine(&tx, &scope)?;
+            let restored = turns::read_engine_retained(&tx, &scope)?;
+            let retired = validated
+                .retired_branch_ids
+                .binary_search(&scope.branch)
+                .is_ok();
             if restored.engine.canonical_bytes() != branch.projection
-                || restored.projection_needs_rebuild
+                || (!retired && restored.projection_needs_rebuild)
             {
                 return Err(ArchiveError::Integrity);
             }

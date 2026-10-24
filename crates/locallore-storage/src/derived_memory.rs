@@ -2,7 +2,9 @@
 //! Derived cache helpers for the sole Store owner.
 //! Never open a connection, migrate a database, accept wire history, or establish canon here.
 use locallore::{contracts::*, engine::Engine};
-use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
+#[cfg(test)]
+use rusqlite::TransactionBehavior;
+use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 
 pub const VERSION: u16 = 1;
@@ -21,6 +23,8 @@ pub enum MemoryError {
     Scope,
     Stale,
     InvalidInput,
+    #[cfg_attr(test, allow(dead_code))]
+    // Store schema guard is outside the isolated fixture module.
     Unsupported,
     NotFound,
     TooLarge,
@@ -170,8 +174,14 @@ impl PrepareRequest {
 /// Immutable, non-Deserialize native token; only actual Engine observations can construct one.
 pub struct PreparedMemory {
     request: PrepareRequest,
-    sources: Vec<(u64, String)>,
+    sources: Vec<(Scope, u64, String)>,
     packet: SummaryPacket,
+}
+impl PreparedMemory {
+    #[cfg_attr(test, allow(dead_code))] // Fixture module does not expose Store authority.
+    pub(crate) fn scope(&self) -> &Scope {
+        &self.request.scope
+    }
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SummaryPacket(Value);
@@ -218,11 +228,11 @@ fn revision(value: u64) -> Result<i64> {
     i64::try_from(value).map_err(|_| MemoryError::TooLarge)
 }
 fn validate_request(engine: &Engine, request: &PrepareRequest) -> Result<()> {
+    if engine.domain_version() != 1 {
+        return Err(MemoryError::Unsupported);
+    }
     if &request.scope != engine.scope() {
         return Err(MemoryError::Scope);
-    }
-    if engine.scope() != &engine.seed().scope {
-        return Err(MemoryError::Unsupported);
     }
     if request.expected_revision != engine.revision()
         || request.through_revision != engine.revision()
@@ -285,7 +295,7 @@ pub(crate) fn prepare(
                 let source=serde_json::to_string(event).map_err(|_|MemoryError::Integrity)?;
                 bytes=bytes.checked_add(source.len()).ok_or(MemoryError::TooLarge)?;
                 if bytes>MAX_SOURCE_BYTES{return Err(MemoryError::TooLarge)}
-                sources.push((event.sequence(),source));
+                sources.push((event.scope().clone(),event.sequence(),source));
                 if let Effect::TimeAdvanced{from,to}=event.outcome(){
                     if let Some(last)=entries.last_mut(){
                         if last["class"]=="observed_time_span"&&last["to"].as_u64()==Some(*from){
@@ -315,7 +325,7 @@ pub(crate) fn prepare(
         "from_exclusive":request.from_exclusive,"through_revision":request.through_revision,
         "target":request.target.json(),"visibility":"actor_observations",
         "provenance":{"method":"deterministic-event-extractive-v1","model":null,"prompt":null},
-        "source_events":sources.iter().map(|s|s.0).collect::<Vec<_>>(),"entries":entries}));
+        "source_events":sources.iter().map(|s|s.1).collect::<Vec<_>>(),"entries":entries}));
     if packet.0.to_string().len() > MAX_PACKET_BYTES {
         return Err(MemoryError::TooLarge);
     }
@@ -326,7 +336,13 @@ pub(crate) fn prepare(
     })
 }
 fn head(connection: &Connection, scope: &Scope) -> Result<u64> {
-    let value:Option<i64>=connection.query_row("SELECT head_revision FROM branches WHERE story_id=?1 AND branch_id=?2 AND parent_branch IS NULL",(&scope.story,&scope.branch),|r|r.get(0)).optional()?;
+    let value: Option<i64> = connection
+        .query_row(
+            "SELECT head_revision FROM branches WHERE story_id=?1 AND branch_id=?2",
+            (&scope.story, &scope.branch),
+            |r| r.get(0),
+        )
+        .optional()?;
     u64::try_from(value.ok_or(MemoryError::NotFound)?).map_err(|_| MemoryError::Integrity)
 }
 fn fence(
@@ -338,16 +354,19 @@ fn fence(
     if head(connection, &prepared.request.scope)? != prepared.request.expected_revision {
         return Err(MemoryError::Stale);
     }
-    for (sequence, expected) in &prepared.sources {
+    for (scope, sequence, expected) in &prepared.sources {
         check(cancel)?;
-        let actual:Option<String>=connection.query_row("SELECT envelope_json FROM accepted_events WHERE story_id=?1 AND branch_id=?2 AND sequence=?3",params![prepared.request.scope.story,prepared.request.scope.branch,revision(*sequence)?],|r|r.get(0)).optional()?;
+        let actual:Option<String>=connection.query_row("SELECT envelope_json FROM accepted_events WHERE story_id=?1 AND branch_id=?2 AND sequence=?3",params![scope.story,scope.branch,revision(*sequence)?],|r|r.get(0)).optional()?;
         if actual.as_ref() != Some(expected) {
             return Err(MemoryError::Integrity);
         }
     }
     Ok(())
 }
-/// Borrowed sole-owner connection only. Root must wire this behind validated Store authority.
+/// Fixture-only adapter for the original isolated prototype tests. Production
+/// Store publication uses publish_in_snapshot after normal strict replay.
+#[cfg(test)]
+#[allow(dead_code)] // Used only when this module is included by the prototype integration test.
 pub(crate) fn publish(
     connection: &mut Connection,
     prepared: PreparedMemory,
@@ -355,7 +374,31 @@ pub(crate) fn publish(
 ) -> Result<PublishOutcome> {
     check(cancel)?;
     let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
-    fence(&tx, &prepared, cancel)?;
+    let outcome = publish_inner(&tx, prepared, cancel)?;
+    tx.commit()?;
+    Ok(outcome)
+}
+/// Store must load this Engine through normal strict replay in the SAME writer
+/// transaction. Re-extraction compares all eligible sources, not just cached IDs.
+#[cfg_attr(test, allow(dead_code))] // Included independently by the prototype integration test.
+pub(crate) fn publish_in_snapshot(
+    tx: &Connection,
+    engine: &Engine,
+    prepared: PreparedMemory,
+    cancel: &dyn Fn() -> bool,
+) -> Result<PublishOutcome> {
+    let fresh = prepare(engine, &prepared.request, cancel)?;
+    if fresh.sources != prepared.sources || fresh.packet != prepared.packet {
+        return Err(MemoryError::Integrity);
+    }
+    publish_inner(tx, fresh, cancel)
+}
+fn publish_inner(
+    tx: &Connection,
+    prepared: PreparedMemory,
+    cancel: &dyn Fn() -> bool,
+) -> Result<PublishOutcome> {
+    fence(tx, &prepared, cancel)?;
     let r = &prepared.request;
     let key = r.key();
     let packet = prepared.packet.0.to_string();
@@ -364,7 +407,6 @@ pub(crate) fn publish(
         *basis == revision(r.expected_revision).unwrap_or(-1) && value == &packet
     }) {
         check(cancel)?;
-        tx.commit()?;
         return Ok(PublishOutcome::Unchanged);
     }
     tx.execute("DELETE FROM derived_memory WHERE story_id=?1 AND branch_id=?2 AND observer_id=?3 AND source_revision<>?4",params![r.scope.story,r.scope.branch,r.observer,revision(r.expected_revision)?])?;
@@ -379,11 +421,10 @@ pub(crate) fn publish(
     check(cancel)?;
     tx.execute("INSERT INTO derived_memory(story_id,branch_id,observer_id,cache_key,source_revision,summary_version,method,visibility,packet_json) VALUES(?1,?2,?3,?4,?5,1,'deterministic-event-extractive-v1','actor_observations',?6) ON CONFLICT(story_id,branch_id,observer_id,cache_key) DO UPDATE SET source_revision=excluded.source_revision,packet_json=excluded.packet_json",params![r.scope.story,r.scope.branch,r.observer,key,revision(r.expected_revision)?,packet])?;
     check(cancel)?;
-    tx.commit()?;
     Ok(PublishOutcome::Published)
 }
 /// Rebuild against original accepted Engine observations; stored cache bytes are never authority.
-fn read_inner(
+pub(crate) fn read_in_snapshot(
     connection: &Connection,
     engine: &Engine,
     request: &PrepareRequest,
@@ -404,7 +445,9 @@ fn read_inner(
     check(cancel)?;
     Ok(prepared.packet)
 }
-/// Read one coherent owner snapshot; nested owner transactions are rejected, never bypassed.
+/// Fixture-only transaction adapter. Store loads its Engine inside its own snapshot.
+#[cfg(test)]
+#[allow(dead_code)] // Used only by the prototype integration test's included module.
 pub(crate) fn read(
     connection: &Connection,
     engine: &Engine,
@@ -413,7 +456,7 @@ pub(crate) fn read(
 ) -> Result<SummaryPacket> {
     check(cancel)?;
     let tx = connection.unchecked_transaction()?;
-    let packet = read_inner(&tx, engine, request, cancel)?;
+    let packet = read_in_snapshot(&tx, engine, request, cancel)?;
     check(cancel)?;
     tx.commit()?;
     Ok(packet)
@@ -457,6 +500,9 @@ fn literal_query(text: &str) -> Result<Option<String>> {
             .join(" AND ")
     }))
 }
+/// Fixture-only transaction adapter; production uses search_in_snapshot.
+#[cfg(test)]
+#[allow(dead_code)] // Used only by the prototype integration test's included module.
 pub(crate) fn search(
     connection: &Connection,
     engine: &Engine,
@@ -465,7 +511,18 @@ pub(crate) fn search(
 ) -> Result<Vec<SearchHit>> {
     check(cancel)?;
     let tx = connection.unchecked_transaction()?;
-    let connection = &tx;
+    let hits = search_in_snapshot(&tx, engine, request, cancel)?;
+    check(cancel)?;
+    tx.commit()?;
+    Ok(hits)
+}
+pub(crate) fn search_in_snapshot(
+    connection: &Connection,
+    engine: &Engine,
+    request: &SearchRequest,
+    cancel: &dyn Fn() -> bool,
+) -> Result<Vec<SearchHit>> {
+    check(cancel)?;
     if request.limit == 0 || request.limit > MAX_HITS {
         return Err(MemoryError::InvalidInput);
     }
@@ -515,7 +572,7 @@ pub(crate) fn search(
         if request.key() != key {
             return Err(MemoryError::Integrity);
         }
-        packets.push(read_inner(connection, engine, &request, cancel)?);
+        packets.push(read_in_snapshot(connection, engine, &request, cancel)?);
     }
     drop(rows);
     drop(query);
@@ -556,13 +613,28 @@ pub(crate) fn search(
         Ok(hits) => {
             cleanup?;
             check(cancel)?;
-            tx.commit()?;
             Ok(hits)
         }
     }
 }
+/// Fixture-only transaction adapter; production loads strict Engine in its writer.
+#[cfg(test)]
+#[allow(dead_code)] // Used only by the prototype integration test's included module.
 pub(crate) fn invalidate(
     connection: &mut Connection,
+    scope: &Scope,
+    observer: &str,
+    expected_revision: u64,
+    cancel: &dyn Fn() -> bool,
+) -> Result<()> {
+    check(cancel)?;
+    let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    invalidate_in_snapshot(&tx, scope, observer, expected_revision, cancel)?;
+    tx.commit()?;
+    Ok(())
+}
+pub(crate) fn invalidate_in_snapshot(
+    connection: &Connection,
     scope: &Scope,
     observer: &str,
     expected_revision: u64,
@@ -572,15 +644,13 @@ pub(crate) fn invalidate(
     if !valid_id(observer) {
         return Err(MemoryError::InvalidInput);
     }
-    let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
-    if head(&tx, scope)? != expected_revision {
+    if head(connection, scope)? != expected_revision {
         return Err(MemoryError::Stale);
     }
-    tx.execute(
+    connection.execute(
         "DELETE FROM derived_memory WHERE story_id=?1 AND branch_id=?2 AND observer_id=?3",
         params![scope.story, scope.branch, observer],
     )?;
     check(cancel)?;
-    tx.commit()?;
     Ok(())
 }

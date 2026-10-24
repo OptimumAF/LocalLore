@@ -15,7 +15,9 @@ val storyDeletion = providers.gradleProperty("localLoreStoryDeletionVerification
 require(storyDeletion == null || storyDeletion == "true")
 val timelineVerification = providers.gradleProperty("localLoreTimelineVerification").orNull
 require(timelineVerification == null || timelineVerification == "true")
-require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification).count { it == "true" } <= 1) {
+val parentRetention = providers.gradleProperty("localLoreParentRetentionVerification").orNull
+require(parentRetention == null || parentRetention == "true")
+require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention).count { it == "true" } <= 1) {
     "Verification installations must be selected individually."
 }
 require(archiveVerification != "true" || archiveCapacity != "true") {
@@ -23,6 +25,12 @@ require(archiveVerification != "true" || archiveCapacity != "true") {
 }
 val capacityProjectCache = rootProject.file(".gradle-archive-capacity").canonicalFile
 val selectedProjectCache = (gradle.startParameter.projectCacheDir ?: rootProject.file(".gradle")).canonicalFile
+require((parentRetention == "true") == (selectedProjectCache == rootProject.file(".gradle-parent-retention").canonicalFile)) {
+    "Parent retention verification requires its exclusive .gradle-parent-retention project cache."
+}
+require(parentRetention != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
+    "Parent retention verification is for local debug verification only."
+}
 require((timelineVerification == "true") == (selectedProjectCache == rootProject.file(".gradle-timeline").canonicalFile)) {
     "Timeline verification requires its exclusive .gradle-timeline project cache."
 }
@@ -49,8 +57,11 @@ if (archiveVerification == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-story-deletion"))
 } else if (timelineVerification == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-timeline"))
+} else if (parentRetention == "true") {
+    layout.buildDirectory.set(layout.projectDirectory.dir("build-parent-retention"))
 }
 val verificationSuffix = when {
+    parentRetention == "true" -> ".parentverify"
     timelineVerification == "true" -> ".timelineverify"
     storyDeletion == "true" -> ".storydelete"
     archiveCapacity == "true" -> ".archivecapacity"
@@ -70,18 +81,34 @@ val reliefOption = providers.gradleProperty("locallore.capacityReliefTest").orNu
 require(reliefOption == null || reliefOption == "false" || reliefOption == "true") {
     "locallore.capacityReliefTest must be absent, false or true"
 }
-val reliefTest = reliefOption == "true"
+val reliefFaultOption = providers.gradleProperty("locallore.capacityReliefFaultTest").orNull
+require(reliefFaultOption == null || reliefFaultOption == "false" || reliefFaultOption == "true") {
+    "locallore.capacityReliefFaultTest must be absent, false or true"
+}
+val reliefFaultTest = reliefFaultOption == "true"
+require(!(reliefFaultTest && reliefOption == "true")) { "Relief and helper-fault modes are mutually exclusive" }
+val reliefTest = reliefOption == "true" || reliefFaultTest
 require(!(capacityTest && reliefTest)) { "Capacity and capacity-relief modes are mutually exclusive" }
-require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification).none { it == "true" } || !(capacityTest || reliefTest)) {
+require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention).none { it == "true" } || !(capacityTest || reliefTest)) {
     "Archive verification and capacity modes are mutually exclusive"
 }
-val capacityCache = rootProject.file(".gradle-capacity").canonicalFile
-val reliefCache = rootProject.file(".gradle-capacity-relief").canonicalFile
+val capacityCache = rootProject.file(".gradle-capacity-v4").canonicalFile
+val reliefCache = rootProject.file(".gradle-capacity-relief-v4").canonicalFile
+val reliefFaultCache = rootProject.file(".gradle-capacity-faults-v4").canonicalFile
 val selectedCache = gradle.startParameter.projectCacheDir?.canonicalFile
+val historicalCapacityCaches = setOf(rootProject.file(".gradle-capacity").canonicalFile,
+    rootProject.file(".gradle-capacity-relief").canonicalFile,
+    rootProject.file(".gradle-capacity-v3").canonicalFile,
+    rootProject.file(".gradle-capacity-relief-v3").canonicalFile,
+    rootProject.file(".gradle-capacity-faults-v3").canonicalFile)
+require(selectedCache !in historicalCapacityCaches) {
+    "Historical capacity caches must remain untouched; use the exclusive schema4 v4 cache."
+}
 require(when {
     capacityTest -> selectedCache == capacityCache
+    reliefFaultTest -> selectedCache == reliefFaultCache
     reliefTest -> selectedCache == reliefCache
-    else -> selectedCache != capacityCache && selectedCache != reliefCache
+    else -> selectedCache !in setOf(capacityCache, reliefCache, reliefFaultCache)
 }) {
     "Capacity modes require their separate project caches; use the corresponding scripts/android_capacity*_probe.py build"
 }
@@ -89,21 +116,27 @@ val capacityProfile = Properties().apply {
     rootProject.file("capacity-profile.properties").inputStream().use { load(it) }
 }
 require(capacityProfile == Properties().apply {
-    setProperty("sqlite.maxPageCount", "15")
+    setProperty("sqlite.maxPageCount", "23")
     setProperty("fixture.prefixTurns", "0")
+    setProperty("fixture.format", "3")
+    setProperty("database.schemaVersion", "4")
 }) { "Capacity profile changed; recalibrate and review the fixed test binary before updating this guard" }
 val reliefProfile = Properties().apply {
     rootProject.file("capacity-relief-profile.properties").inputStream().use { load(it) }
 }
 require(reliefProfile == Properties().apply {
     setProperty("sqlite.maxPageCount", "32")
-    setProperty("fixture.format", "1")
+    setProperty("fixture.format", "3")
+    setProperty("database.schemaVersion", "4")
+    setProperty("fixture.initialPages", "23")
+    setProperty("fixture.paddingRows", "8")
 }) { "Relief profile changed; recalibrate and review the fixed test binary before updating this guard" }
 extra["localloreCapacityTest"] = capacityTest || reliefTest
-extra["localloreCapacityMode"] = when { capacityTest -> "full"; reliefTest -> "relief"; else -> "ordinary" }
-extra["localloreCapacityPages"] = when { capacityTest -> 15; reliefTest -> 32; else -> 0 }
-if (capacityTest) layout.buildDirectory.set(layout.projectDirectory.dir("build-capacity"))
-if (reliefTest) layout.buildDirectory.set(layout.projectDirectory.dir("build-capacity-relief"))
+extra["localloreCapacityMode"] = when { capacityTest -> "full"; reliefFaultTest -> "faults"; reliefTest -> "relief"; else -> "ordinary" }
+extra["localloreCapacityPages"] = when { capacityTest -> 23; reliefTest -> 32; else -> 0 }
+if (capacityTest) layout.buildDirectory.set(layout.projectDirectory.dir("build-capacity-v4"))
+if (reliefTest) layout.buildDirectory.set(layout.projectDirectory.dir(
+    if (reliefFaultTest) "build-capacity-faults-v4" else "build-capacity-relief-v4"))
 
 android {
     namespace = "org.locallore.app"
@@ -114,8 +147,9 @@ android {
 
     defaultConfig {
         applicationId = when {
-            capacityTest -> "org.locallore.app.capacity"
-            reliefTest -> "org.locallore.app.capacityrelief"
+            capacityTest -> "org.locallore.app.capacityv4"
+            reliefFaultTest -> "org.locallore.app.capacityfaultsv4"
+            reliefTest -> "org.locallore.app.capacityreliefv4"
             else -> "org.locallore.app"
         }
         minSdk = 26
@@ -127,7 +161,7 @@ android {
         manifestPlaceholders["chooserTestAuthority"] = "org.locallore.app$verificationSuffix.test.chooser"
         if (verificationSuffix.isNotEmpty()) {
             applicationIdSuffix = verificationSuffix
-            versionNameSuffix = when { timelineVerification == "true" -> "-timeline-verification"; storyDeletion == "true" -> "-story-deletion"; archiveCapacity == "true" -> "-archive-capacity"; else -> "-archive-verification" }
+            versionNameSuffix = when { parentRetention == "true" -> "-parent-retention"; timelineVerification == "true" -> "-timeline-verification"; storyDeletion == "true" -> "-story-deletion"; archiveCapacity == "true" -> "-archive-capacity"; else -> "-archive-verification" }
         }
         ndk { abiFilters += listOf("x86_64", "arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -145,7 +179,8 @@ android {
         }
     }
     if (reliefTest) {
-        sourceSets["debug"].manifest.srcFile("src/capacityReliefTest/ReliefAppManifest.xml")
+        sourceSets["debug"].manifest.srcFile(if (reliefFaultTest)
+            "src/capacityReliefTest/FaultsAppManifest.xml" else "src/capacityReliefTest/ReliefAppManifest.xml")
         sourceSets["androidTest"].setRoot("src/capacityReliefTest")
     }
 }
@@ -158,7 +193,7 @@ androidComponents {
 
 androidComponents {
     beforeVariants(selector().withBuildType("release")) {
-        if (archiveCapacity == "true" || storyDeletion == "true" || timelineVerification == "true") it.enable = false
+        if (archiveCapacity == "true" || storyDeletion == "true" || timelineVerification == "true" || parentRetention == "true") it.enable = false
     }
 }
 

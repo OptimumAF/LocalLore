@@ -11,6 +11,43 @@
 body {
     margin: 0;
 }
+.fork-panel {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    padding: 1rem 1.2rem;
+    border-bottom: 1px solid #465247;
+}
+.fork-panel label {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.7rem;
+    margin: 0.8rem 0;
+}
+.fork-panel select {
+    max-width: 100%;
+}
+.fork-panel button {
+    margin: 0.3rem 0.4rem 0.3rem 0;
+    max-width: 100%;
+    white-space: normal;
+}
+.fork-panel dl {
+    display: grid;
+    grid-template-columns: minmax(8rem, 1fr) minmax(0, 2fr);
+    gap: 0.5rem 1rem;
+}
+.fork-panel dd {
+    margin: 0;
+}
+@media (max-width: 680px) {
+    .fork-panel dl {
+        display: block;
+    }
+    .fork-panel dd {
+        margin-bottom: 0.7rem;
+    }
+}
 button,
 input,
 textarea,
@@ -949,4 +986,184 @@ summary {
 .archive-preview input {
     width: auto;
     margin-right: 0.5rem;
+}
+.private-capture {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.private-capture details {
+    min-width: 0;
+}
+.private-capture pre {
+    max-width: 100%;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.curated-evaluation,
+.curated-evidence {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.curated-evaluation pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    max-width: 100%;
+}
+.curated-evaluation select {
+    max-width: 100%;
+}
+.memory-maintenance-panel,
+.broker-retention {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--line);
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.author-panel,
+.v2-play {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #465247;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+.author-panel fieldset,
+.v2-play form {
+    display: grid;
+    gap: 0.8rem;
+    min-width: 0;
+    margin: 1rem 0;
+    padding: 1rem;
+    border: 1px solid #465247;
+}
+.v2-play > header.scope {
+    font-size: inherit;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #151917;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid #465247;
+}
+.v2-play > header p {
+    margin-bottom: 0.35rem;
+}
+.v2-play section[aria-label="Read-only V2 inspector"],
+.v2-play section[aria-label="Actual native receipt"],
+.v2-play section[aria-label="Original turn status"] {
+    scroll-margin-top: 14rem;
+}
+.v2-play h2 {
+    font-size: 1.1rem;
+}
+.author-panel label,
+.v2-play label {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+}
+.author-panel label:has(input[type="checkbox"]) {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+}
+.author-panel input[type="checkbox"] {
+    flex: 0 0 auto;
+    margin-top: 0.3rem;
+}
+.author-panel input:not([type="checkbox"]),
+.author-panel textarea,
+.v2-play input,
+.v2-play textarea,
+.v2-play select {
+    min-width: 0;
+    width: 100%;
+    padding: 0.6rem;
+    border: 1px solid #4b594a;
+    border-radius: 5px;
+    background: #121812;
+    color: #e9eee5;
+}
+.author-panel textarea,
+.v2-play textarea {
+    min-height: 5rem;
+    resize: vertical;
+}
+.author-panel dl,
+.v2-play dl {
+    display: grid;
+    grid-template-columns: minmax(8rem, 1fr) minmax(0, 2fr);
+    gap: 0.5rem 1rem;
+}
+.author-panel dd,
+.v2-play dd {
+    margin: 0;
+}
+.author-panel .author-context {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #151917;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid #465247;
+}
+#author-impact-preview,
+#author-visible-error,
+#author-operation-notice,
+#author-outcome-title {
+    scroll-margin-top: 14rem;
+}
+.author-panel button,
+.v2-play button {
+    max-width: 100%;
+    white-space: normal;
+    margin: 0.3rem 0.4rem 0.3rem 0;
+}
+.author-panel pre,
+.v2-play pre {
+    max-width: 100%;
+    max-height: 24rem;
+    overflow: auto;
+    white-space: pre-wrap;
+}
+.memory-maintenance-panel dl {
+    display: grid;
+    grid-template-columns: minmax(8rem, 1fr) minmax(0, 2fr);
+    gap: 0.4rem 0.75rem;
+}
+.memory-maintenance-panel dd {
+    margin: 0;
+}
+.memory-maintenance-panel input[type="checkbox"],
+.broker-retention input[type="checkbox"] {
+    width: auto;
+}
+.broker-retention > label {
+    display: block;
+    margin-bottom: 0.75rem;
+}
+.broker-retention > button {
+    display: block;
+    max-width: 100%;
+}
+@media (max-width: 700px) {
+    .author-panel dl,
+    .v2-play dl {
+        grid-template-columns: 1fr;
+    }
+    .author-panel,
+    .v2-play {
+        padding: 1rem;
+    }
+    .memory-maintenance-panel dl {
+        grid-template-columns: 1fr;
+    }
+    .memory-maintenance-panel dd {
+        margin-bottom: 0.4rem;
+    }
 }

@@ -1,6 +1,8 @@
 use locallore::{contracts::*, engine::Engine};
 use locallore_storage::{derived_memory::*, StorageError, Store, SCHEMA_VERSION};
 use rusqlite::Connection;
+#[path = "support/historical_schema.rs"]
+mod historical_schema;
 use std::{
     path::PathBuf,
     sync::atomic::{AtomicUsize, Ordering},
@@ -54,11 +56,7 @@ fn historical_v1(path: &std::path::Path) -> (Scope, Receipt) {
     let mut store = Store::open(path, None).unwrap();
     let populated = populate(&mut store);
     drop(store);
-    // Exact original schema objects and canonical payloads, without the new derived cache.
-    let initial = include_str!("../migrations/001_initial.sql");
-    let header = initial.split("CREATE TABLE stories").next().unwrap();
-    let db = Connection::open(path).unwrap();
-    db.execute_batch(&format!("BEGIN; DROP TABLE derived_memory; DROP TABLE schema_migrations; {header} PRAGMA user_version=1; COMMIT;")).unwrap();
+    historical_schema::replace_current_fixture(path, 1);
     assert_eq!(
         Store::open_read_only(path)
             .unwrap()
@@ -115,7 +113,7 @@ fn actual_v1_migration_preserves_history_and_backup_is_exact_read_only_v1() {
             .info()
             .unwrap()
             .schema_version,
-        2
+        SCHEMA_VERSION
     );
 }
 
@@ -129,7 +127,12 @@ fn application_open_backs_up_once_and_never_adopts_tampered_v1() {
         std::fs::read_dir(&dir.0)
             .unwrap()
             .filter_map(Result::ok)
-            .filter(|entry| entry.file_name().to_string_lossy().contains(".before-v2-"))
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .contains(&format!(".before-v{SCHEMA_VERSION}-"))
+            })
             .count()
     };
     assert_eq!(backups(), 1);
@@ -179,7 +182,7 @@ fn v1_backup_collision_preserves_original_and_concurrent_openers_make_one_backup
         .collect();
     for thread in threads {
         match thread.join().unwrap() {
-            Ok(store) => assert_eq!(store.info().unwrap().schema_version, 2),
+            Ok(store) => assert_eq!(store.info().unwrap().schema_version, SCHEMA_VERSION),
             Err(error) => assert_eq!(error, StorageError::Busy),
         }
     }

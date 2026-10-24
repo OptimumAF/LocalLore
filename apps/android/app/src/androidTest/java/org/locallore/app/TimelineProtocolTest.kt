@@ -12,7 +12,39 @@ import org.junit.runner.RunWith
 /** Android JSONObject protocol checks. This fake transport does not prove SQLite replay. */
 @RunWith(AndroidJUnit4::class)
 class TimelineProtocolTest {
-    private class Protocol(val storyId: String = "story-a") : WorkspaceTransport {
+    @Test fun retainedParentMetadataIsValidatedBeforeFiltering(): Unit = runBlocking {
+        fun retained(data: JSONObject) {
+            val rows = data.getJSONArray("branches")
+            val child = rows.getJSONObject(0).put("parent_branch", "parent").put("fork_revision", 3)
+            val root = rows.getJSONObject(1)
+            val parent = JSONObject().put("scope", JSONObject().put("story", "story-a").put("branch", "parent"))
+                .put("parent_branch", "main").put("fork_revision", 1).put("revision", 3).put("drafts", 0).put("retired", true)
+            data.put("branches", JSONArray().put(child).put(root).put(parent))
+        }
+        val transport = Protocol().also { it.changeCatalog = ::retained }
+        val gateway = DurableGateway(transport, autoCreateIfEmpty = false)
+        try {
+            assertEquals(listOf("child", "main"), gateway.initialize().timelines.map { it.branch })
+            assertEquals("child", gateway.resumeSaved(SavedStory("story-a", "child", "Original title", 3)).selected?.branch)
+        } finally { gateway.close() }
+        val mutations: List<(JSONObject) -> Unit> = listOf(
+            { it.getJSONArray("branches").getJSONObject(2).put("retired", "true") },
+            { it.getJSONArray("branches").getJSONObject(2).put("drafts", 1) },
+            { it.getJSONArray("branches").getJSONObject(1).put("retired", true) },
+            { it.getJSONArray("branches").getJSONObject(2).put("parent_branch", "absent") },
+            { it.getJSONArray("branches").getJSONObject(2).put("revision", 2) },
+        )
+        for (mutation in mutations) {
+            val malformed = Protocol().also { it.changeCatalog = { data -> retained(data); mutation(data) } }
+            val reader = DurableGateway(malformed, autoCreateIfEmpty = false)
+            try {
+                try { reader.initialize(); fail("Invalid retained ancestry accepted") }
+                catch (failure: WorkspaceFailure) { assertEquals("Malformed", failure.category) }
+                assertFalse(malformed.calls.any { it in setOf("submit", "prepare", "commit", "free_text", "create") })
+            } finally { reader.close() }
+        }
+    }
+    private class Protocol(val storyId: String = "story-a", var databaseSchemaVersion: Int = 5) : WorkspaceTransport {
         var selected = "main"
         var receiptStory = storyId
         var changeCatalog: (JSONObject) -> Unit = {}
@@ -22,19 +54,20 @@ class TimelineProtocolTest {
             JSONObject().put("story", story).put("branch", branch)
         private fun ok(data: JSONObject) = JSONObject().put("version", 1).put("status", "ok").put("data", data)
         private fun head() = if (selected == "main") 2L else 3L
-        fun catalog() = JSONObject().put("version", 1).put("story_id", storyId).put("title", "Original title")
+        fun catalog() = JSONObject().put("version", 2).put("story_id", storyId).put("title", "Original title")
             .put("root_branch", "main").put("branches", JSONArray()
                 .put(JSONObject().put("scope", scope("child")).put("parent_branch", "main").put("fork_revision", 1)
-                    .put("revision", 3).put("drafts", 2))
+                    .put("revision", 3).put("drafts", 2).put("retired", false))
                 .put(JSONObject().put("scope", scope("main")).put("parent_branch", JSONObject.NULL)
-                    .put("fork_revision", JSONObject.NULL).put("revision", 2).put("drafts", 0)))
+                    .put("fork_revision", JSONObject.NULL).put("revision", 2).put("drafts", 0).put("retired", false)))
         override suspend fun exchange(command: JSONObject): JSONObject {
             val op = command.getString("op"); calls += op
             return when (op) {
+                "capabilities" -> ok(JSONObject().put("free_text", false))
                 "workspace" -> ok(JSONObject().put("persistent", true).put("schema_version", 1)
-                    .put("database_schema_version", 2).put("location", "/synthetic/workspace.sqlite3")
+                    .put("database_schema_version", databaseSchemaVersion).put("location", "/synthetic/workspace.sqlite3")
                     .put("stories", JSONArray().put(JSONObject().put("scope", scope("main"))
-                        .put("title", "Original title").put("revision", 2).put("drafts", 0))))
+                        .put("title", "Original title").put("revision", 2).put("drafts", 0).put("retired", false))))
                 "branches" -> {
                     assertEquals(storyId, command.getString("story"))
                     ok(catalog().also(changeCatalog))
@@ -70,6 +103,42 @@ class TimelineProtocolTest {
         override fun close() { closed = true }
     }
 
+    @Test fun currentSchemaFourKeepsWorkspaceProtocolOne(): Unit = runBlocking {
+        val transport = Protocol(); val gateway = DurableGateway(transport, autoCreateIfEmpty = false)
+        try {
+            val current = gateway.initialize()
+            assertEquals(1, current.schemaVersion)
+            assertEquals(5, current.databaseSchemaVersion)
+            assertEquals("main", current.selected?.branch)
+            assertFalse(transport.calls.any { it in setOf("create", "submit", "prepare", "commit", "free_text") })
+        } finally { gateway.close() }
+    }
+
+    @Test fun incompatibleLiveSchemaRefusesBeforeResumeOrAnyGameplay(): Unit = runBlocking {
+        // Archive source schema is independent. An old archive can be imported
+        // by Rust; a LIVE workspace reply must match this application's owner.
+        for (schema in listOf(2, 3, 4, 6)) {
+            val transport = Protocol(databaseSchemaVersion = schema)
+            val gateway = DurableGateway(transport, autoCreateIfEmpty = false)
+            try {
+                try { gateway.initialize(); fail("Incompatible live schema was accepted") }
+                catch (_: IllegalStateException) { /* Strict current owner check, no adoption. */ }
+                assertEquals(listOf("workspace"), transport.calls)
+            } finally { gateway.close() }
+        }
+    }
+
+    @Test fun refreshCannotPublishLaterIncompatibleLiveSchema(): Unit = runBlocking {
+        val transport = Protocol(); val gateway = DurableGateway(transport, autoCreateIfEmpty = false)
+        try {
+            assertEquals(5, gateway.initialize().databaseSchemaVersion)
+            transport.databaseSchemaVersion = 6
+            try { gateway.snapshot(); fail("Incompatible live schema refresh was published") }
+            catch (_: IllegalStateException) { /* Preserve the strict refresh fence too. */ }
+            assertFalse(transport.calls.any { it in setOf("create", "submit", "prepare", "commit", "free_text") })
+        } finally { gateway.close() }
+    }
+
     @Test fun childResumePreservesAncestorTextAndUsesCatalogMetadataWithoutGameplay(): Unit = runBlocking {
         val transport = Protocol(); val gateway = DurableGateway(transport, autoCreateIfEmpty = false)
         try {
@@ -82,7 +151,7 @@ class TimelineProtocolTest {
             assertEquals(listOf("I may be mistaken.", "Mira heard your statement.",
                 "These are only my words.", "Your words were recorded."), child.messages.map { it.text })
             assertEquals("You", child.potionOwner)
-            assertTrue(transport.calls.all { it in setOf("workspace", "resume", "open", "play_snapshot", "branches", "close") })
+            assertTrue(transport.calls.all { it in setOf("workspace", "resume", "open", "play_snapshot", "branches", "capabilities", "close") })
             assertEquals(2, transport.calls.count { it == "branches" })
         } finally { gateway.close() }
         assertTrue(transport.closed)
@@ -135,7 +204,7 @@ class TimelineProtocolTest {
             fun row(branch: String, ancestor: String) = JSONObject()
                 .put("scope", JSONObject().put("story", story).put("branch", branch))
                 .put("parent_branch", ancestor).put("fork_revision", 1)
-                .put("revision", 3).put("drafts", 0)
+                .put("revision", 3).put("drafts", 0).put("retired", false)
             val rows = JSONArray().put(row(parent, "main"))
             repeat(254) { index -> rows.put(row("b" + index.toString().padStart(3, '0') + "x".repeat(60), parent)) }
             rows.put(root); data.put("branches", rows)

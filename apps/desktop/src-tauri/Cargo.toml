@@ -7,7 +7,7 @@ license = "Apache-2.0"
 
 [dependencies]
 locallore-storage = { path = "../../../crates/locallore-storage" }
-locallore-eval = { path = "../../../crates/locallore-eval" }
+locallore-eval = { path = "../../../crates/locallore-eval", features = ["local-model"] }
 locallore = { path = "../../../crates/locallore", features = ["host"] }
 locallore-workspace = { path = "../../../crates/locallore-workspace" }
 serde_json = "=1.0.154"
@@ -31,5 +31,3 @@ required-features = ["dev-harness"]
 
 [build-dependencies]
 tauri-build = { version = "=2.7.4", features = [] }
-
-[workspace]

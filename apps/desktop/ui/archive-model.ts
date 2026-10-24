@@ -35,11 +35,12 @@ export const archiveErrors = new Set([
     "StorageUnavailable",
 ]);
 export interface ArchivePreview {
-    version: 1;
+    version: 1 | 2;
     story_id: string;
     title: string;
     root_branch: string;
     branch_heads: Record<string, number>;
+    retired_branch_ids?: string[];
     committed_turns: number;
     bytes: number;
     payload_sha256: string;
@@ -79,6 +80,72 @@ export interface ArchiveStatus {
     error: string | null;
     result: ArchiveResult | null;
 }
+export type ArchiveCommand =
+    | "archive_export_preview"
+    | "archive_import_preview"
+    | "archive_export"
+    | "archive_import";
+// Retain identifiers only, never the private story preview or filesystem path.
+export interface ArchiveBinding {
+    token: string;
+    kind: "export" | "import";
+    story: string;
+    branch: string;
+    payload_sha256: string;
+}
+export function decodeArchiveBinding(value: unknown): ArchiveBinding {
+    if (
+        !object(value) ||
+        Object.keys(value).length !== 5 ||
+        !uuid(value.token) ||
+        !["export", "import"].includes(String(value.kind)) ||
+        !id(value.story) ||
+        !id(value.branch) ||
+        !hash(value.payload_sha256)
+    )
+        wire();
+    return Object.freeze({ ...value }) as unknown as ArchiveBinding;
+}
+export function archiveBinding(preview: PreviewToken): ArchiveBinding {
+    const p = decodePreview(preview);
+    return decodeArchiveBinding({
+        token: p.token,
+        kind: p.kind,
+        story: p.preview.story_id,
+        branch: p.preview.root_branch,
+        payload_sha256: p.preview.payload_sha256,
+    });
+}
+// Shared by the visible controller and retained broker outcome validation.
+export function decodeArchiveCompletion(
+    status: ArchiveStatus,
+    command: ArchiveCommand,
+    binding?: ArchiveBinding,
+): ArchiveResult {
+    if (status.running || status.error || !status.result) wire();
+    const result = status.result;
+    const isPreview = command.endsWith("_preview");
+    const kind = command.startsWith("archive_export") ? "export" : "import";
+    if (result.token) {
+        const p = decodePreview(result);
+        if (!isPreview || p.kind !== kind) wire();
+    } else if (result.status === "exported" || result.status === "imported") {
+        if (isPreview || !binding || binding.kind !== kind) wire();
+        if (result.status === "exported") {
+            if (
+                kind !== "export" ||
+                result.payload_sha256 !== binding.payload_sha256
+            )
+                wire();
+        } else if (
+            kind !== "import" ||
+            result.root?.story !== binding.story ||
+            result.root.branch !== binding.branch
+        )
+            wire();
+    }
+    return result;
+}
 const object = (v: unknown): v is Record<string, unknown> =>
     !!v && typeof v === "object" && !Array.isArray(v);
 const integer = (v: unknown, max = Number.MAX_SAFE_INTEGER): v is number =>
@@ -106,7 +173,8 @@ export function decodePreview(v: unknown): PreviewToken {
         wire();
     const p = v.preview;
     if (
-        p.version !== 1 ||
+        ![1, 2].includes(Number(p.version)) ||
+        typeof p.version !== "number" ||
         !id(p.story_id) ||
         !id(p.root_branch) ||
         typeof p.title !== "string" ||
@@ -126,6 +194,25 @@ export function decodePreview(v: unknown): PreviewToken {
         p.noncommitted_workflow_transferred !== false
     )
         wire();
+    // V2 includes physical retired ancestors and collected-ID tombstones.
+    if (p.version === 1) {
+        if (p.retired_branch_ids !== undefined) wire();
+    } else {
+        const retired = p.retired_branch_ids;
+        if (
+            !Array.isArray(retired) ||
+            retired.length === 0 ||
+            retired.length > 256 ||
+            retired.some(
+                (value, index) =>
+                    !id(value) ||
+                    value === p.root_branch ||
+                    (index > 0 && retired[index - 1] >= value),
+            ) ||
+            new Set([...Object.keys(p.branch_heads), ...retired]).size > 256
+        )
+            wire();
+    }
     return v as unknown as PreviewToken;
 }
 export function decodeStatus(v: unknown): ArchiveStatus {

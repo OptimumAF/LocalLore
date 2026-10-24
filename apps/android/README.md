@@ -129,6 +129,11 @@ persisted player-history equality after reopen and availability of all four nati
 owner slots after calls drain. They hold ready reply delivery; active model
 generation and OS process-death recovery remain separate gates. Emulator A's
 storage gate remains blocked.
+The [native free-text recovery checks](../../docs/native/ANDROID_NATIVE_TEXT_RECOVERY_VERIFICATION_2026-10-23.md)
+exercise Action and Dialogue entered in the composer, original play-v2 receipts,
+uncertain committed outcomes and recovery with the original request key.
+Literal dialogue claims remain statements; the tested claim grants no ability
+or inventory change. This coverage uses the same explicitly scripted provider.
 Full or Busy storage errors show fixed recovery guidance and retain the original
 request. The confirmed snapshot stays visible until recovery obtains an accepted
 native outcome; new turns and mode changes stay disabled during uncertainty.

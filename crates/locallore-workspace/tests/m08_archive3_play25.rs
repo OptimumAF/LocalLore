@@ -2,6 +2,8 @@
 //! Root command: cargo test --locked --offline -p locallore-workspace --test m08_archive3_play25 -- --test-threads=1
 //! UNCOMPILED/UNRUN by this author. Two Structured scripted roles are plumbing,
 //! not model quality, native UI/IPC, JNI, Android parity or an actual device check.
+//! Source-audit correction after first freeze: use public AcceptedEvent accessors
+//! and compare ArchivePreview's actual serialized values (it has no PartialEq).
 use locallore::{
     author_correction::{AuthorCorrectionInputV1, AuthorCorrectionOperationV1, CanonicalRecord, ObservationSource},
     context_compiler::ContextPolicy,
@@ -188,13 +190,13 @@ fn durable_play25_discovery_archive3_roundtrip_preserves_observation_sources_and
     assert_eq!(accepted.revision(), 3); assert_eq!(accepted.canonical_record_count(), 3);
     assert!(matches!(accepted.canonical_records().last().unwrap(), CanonicalRecord::PlayV2(_)));
     assert_eq!(receipt.events().len(), 1);
-    let event = &receipt.events()[0]; assert_eq!(event.scope, child); assert_eq!(event.sequence, 3);
-    assert!(event.witnesses.contains("player")); assert!(!event.witnesses.contains("mira")); assert!(!event.witnesses.contains("sable"));
+    let event = &receipt.events()[0]; assert_eq!(event.scope(), &child); assert_eq!(event.sequence(), 3);
+    assert!(event.witnesses().contains("player")); assert!(!event.witnesses().contains("mira")); assert!(!event.witnesses().contains("sable"));
     assert_eq!(observed(&accepted, "player"), B); assert_eq!(observed(&accepted, "mira"), A);
     assert!(!accepted.observed_facts("sable", &child, 3).unwrap().contains_key("relic-location"));
     let player_views = accepted.actor_receipts_v2("player", &child, 3).unwrap();
     let old = player_views.iter().find(|view| view.turn == old_request.turn).unwrap();
-    assert_eq!(old.original_scope, parent); assert_eq!(old.events[0].event.scope, parent);
+    assert_eq!(old.original_scope, parent); assert_eq!(old.events[0].event.scope(), &parent);
     assert_eq!(old.events[0].discovery.as_ref().unwrap().proposition, A);
     let current = player_views.iter().find(|view| view.turn == request.turn).unwrap();
     assert_eq!(current.original_scope, child);
@@ -211,7 +213,7 @@ fn durable_play25_discovery_archive3_roundtrip_preserves_observation_sources_and
     assert_eq!(wire["version"], 3); assert_eq!(wire["payload"]["domain_version"], 2);
     assert_eq!(wire["payload"]["source_database_schema_version"], 5);
     let validated = validate_archive(archive.bytes(), &|| false).unwrap();
-    assert_eq!(validated.preview(), archive.preview());
+    assert_eq!(serde_json::to_value(validated.preview()).unwrap(), serde_json::to_value(archive.preview()).unwrap());
     let mut target = Store::open_application(&imported_path).unwrap();
     let imported = target.import_archive(validated, &|| false).unwrap();
     assert_eq!(imported.root, parent); assert_eq!(imported.branches, 2); assert_eq!(imported.committed_turns, 3);

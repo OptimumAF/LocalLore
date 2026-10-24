@@ -165,3 +165,9 @@ only synthetic receipt setup. DocumentsUI delivery,
 real-model import/SDK inference, reference phone, ARM64/16 KiB execution,
 cache/privacy, power loss, quality and sustained behavior remain separate.
 Existing A/#117/#119 holds remain unchanged.
+
+The [independent review](RECEIPT_SETUP_HELPER_REVIEW_2026-10-24.md) rehashes every
+final inventory and archived input with zero mismatches. This partial slice is
+in review in [draft PR #148](https://github.com/OptimumAF/LocalLore/pull/148),
+stacked on unmerged #147. Claims are released to PR review; full task acceptance
+remains pending. No merge, release or repository access change was performed.

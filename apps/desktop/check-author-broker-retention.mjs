@@ -83,4 +83,7 @@ await heldDigest(async digest=>{
  const gate=new BrokerRetention(()=>false);await gate.start(identity("lookup"),async()=>lookup(15));check(gate.get().terminal&&!gate.get().unknown,"readonly exact lookup completion validated");
  await gate.start(archive,async()=>archiveDone(16));await gate.observeAuthor({operation_id:15,running:false,result:{private:"invalid"}});check(!gate.get().unknown,"late author status cannot contaminate archive");
 }
+{
+ let awaiting=true;const gate=new BrokerRetention(()=>awaiting);await gate.start(identity("commit"),async()=>commit(17));await gate.observeAuthor(pending(17,"commit"));check(gate.get().terminal===true&&!gate.get().unknown,"late same-ID progress cannot demote an already validated terminal result");awaiting=false;gate.refreshConsumption();await gate.start(archive,async()=>archiveDone(18));
+}
 console.log(`${checks} synthetic author shared-broker retention checks passed; no native or render execution.`);

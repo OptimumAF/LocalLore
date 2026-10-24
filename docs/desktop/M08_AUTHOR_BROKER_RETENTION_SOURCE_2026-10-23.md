@@ -28,6 +28,12 @@ outcome or null, created=false. Lookup native output contains no session field;
 its native root/grant and captured invocation remain authoritative, not an
 invented transport session proof. No canonical validation/writer is duplicated.
 
+Commit/lookup outcomes also do not echo private reason/replacement or original
+parent H. Retention binds the immutable full invocation and native operation ID,
+checks all actual outcome identity/revision fields, and relies on the existing
+Host/Store exact-input authority for fields absent from the response. It does not
+invent transport evidence or claim an independent canonical/full-input replay.
+
 Only this reservation's awaited start acknowledgment may establish operation ID.
 An external unknown-ID response cannot adopt an unacknowledged operation. Exclude
 a known different positive safe operation ID before decoding against the current
@@ -81,3 +87,9 @@ All Node/checker/TypeScript/format/build/app/native/model/device/desktop checks
 are UNRUN by this source-only agent. Root owns actual new checker and ALL old
 retention regression execution. No old assertion or input calibration is changed.
 No main/App/native/author-model/Host/Store/schema/dependency edit is authorized.
+
+Source review also freezes terminal monotonicity for this author reservation:
+a late same-ID running status/cancel snapshot cannot demote a fully validated
+terminal result. Recheck the latest same-identity terminal flag after async
+validation, before recording progress. This is an additional independent UNRUN
+oracle before the focused source fix, not an executed production failure.

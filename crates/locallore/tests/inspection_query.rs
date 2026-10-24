@@ -658,11 +658,12 @@ fn historical_v2_replay_preserves_original_input_without_an_inference_provider()
         },
         stages: vec![],
         context: Some(serde_json::from_value(serde_json::json!({
-            "version":1,"compiler_version":1,"scope":engine.scope(),"head":0,"observer":engine.seed().player,"source_fallback_reason":null,
+            "version":2,"compiler_version":2,"scope":engine.scope(),"head":0,"observer":engine.seed().player,"source_fallback_reason":null,
             "coverage":{"mode":"raw","set_fallback_reason":"missing","packets_used":0,"packets_fell_back":0,
                 "timespan_fallback_packets":0,"mandatory_fallback_packets":0,"covered_through":0,"raw_delta_after":0,
                 "cached_event_candidates":0,"raw_event_candidates":0}
         })).unwrap()),
+        context_policy: Some(locallore::play::PlayContextPolicy::Relevant),
     };
     engine.commit_play(&request, &proposal, &record).unwrap();
     commit(&mut engine, "later", vec![Command::Wait { ticks: 1 }]);

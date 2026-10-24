@@ -87,6 +87,61 @@ pub(super) fn check(cancel: &dyn Fn() -> bool) -> Result<(), Error> {
 }
 
 impl Engine {
+    /// Revalidate a consumed native stage against the complete current source.
+    /// A recorded exact retry wins before cancellation or source-head checks.
+    pub fn commit_staged_play_v25(
+        &mut self,
+        staged: StagedPlayV25,
+        record: &crate::play::PlayRecord,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<Receipt, Error> {
+        self.commit_staged_play_history_v25(staged, record, cancel, false)
+    }
+
+    pub(super) fn commit_staged_play_history_v25(
+        &mut self,
+        staged: StagedPlayV25,
+        record: &crate::play::PlayRecord,
+        cancel: &dyn Fn() -> bool,
+        recorded_history: bool,
+    ) -> Result<Receipt, Error> {
+        if let Some(receipt) = self.recorded(staged.approved.request())? {
+            return Ok(receipt);
+        }
+        check(cancel)?;
+        if self.accepted_history_basis()? != staged.basis {
+            return Err(Error::Stale);
+        }
+        let regenerated = self.stage_play_v25(
+            staged.approved.request(),
+            staged.approved.proposal(),
+            cancel,
+        )?;
+        if regenerated.basis != staged.basis
+            || regenerated.approved != staged.approved
+            || regenerated.evidence != staged.evidence
+        {
+            return Err(Error::Stale);
+        }
+        crate::play::validate_record_v25(
+            self,
+            &regenerated.approved,
+            &regenerated.evidence,
+            record,
+            recorded_history,
+        )?;
+        let mut receipt = regenerated.approved;
+        receipt.narration = record.narration.text.clone();
+        receipt.play = Some(record.clone());
+        let mut candidate = self.clone();
+        candidate.append_play(receipt.clone())?;
+        // This is the final cancellation checkpoint. Once installed, the
+        // successful result cannot be misreported as a rolled-back operation.
+        check(cancel)?;
+        *self = candidate;
+        Ok(receipt)
+    }
+
     pub fn stage_play_v25(
         &self,
         request: &Request,

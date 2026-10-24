@@ -496,6 +496,18 @@ impl Engine {
         record: &crate::play::PlayRecord,
         recorded_history: bool,
     ) -> Result<Receipt, Error> {
+        if record.prompt_version == "locallore-play-v2.5" {
+            if let Some(receipt) = self.recorded(request)? {
+                return Ok(receipt);
+            }
+            let staged = self.stage_play_v25(request, proposal, &|| false)?;
+            return self.commit_staged_play_history_v25(
+                staged,
+                record,
+                &|| false,
+                recorded_history,
+            );
+        }
         if self.domain_version() == 2 {
             return Err(Error::Version);
         }

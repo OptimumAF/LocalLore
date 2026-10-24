@@ -211,7 +211,8 @@ impl HarnessState {
 
     fn reserve(&self, label: &str) -> Result<(), &'static str> {
         if !LABELS.contains(&label)
-            && !(crate::author_harness::active() && crate::author_harness::LABELS.contains(&label)) {
+            && !(crate::author_harness::active() && crate::author_harness::LABELS.contains(&label))
+        {
             return Err("CheckpointInvalid");
         }
         let mut progress = self.progress.lock().map_err(|_| "HarnessUnavailable")?;

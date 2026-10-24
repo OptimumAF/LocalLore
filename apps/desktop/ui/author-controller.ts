@@ -450,7 +450,13 @@ export class AuthorController {
         if (work.finalized) return;
         if (!this.current(work)) {
             if (work.kind === "prepare" && status.phase === "completed")
-                this.discard(await checkedAuthorPreview(status.result, work.input, work.session));
+                this.discard(
+                    await checkedAuthorPreview(
+                        status.result,
+                        work.input,
+                        work.session,
+                    ),
+                );
             return;
         }
         if (status.error) {
@@ -572,12 +578,17 @@ export class AuthorController {
         }
         const input = this.state.input;
         try {
-            const selectedKey = this.key, generation = this.serial;
+            const selectedKey = this.key,
+                generation = this.serial;
             // A readonly lookup replaces the preview presentation; release its
             // unused native capability before that ownership disappears.
             if (this.state.preview) this.invalidate();
-            if (this.key !== selectedKey || this.serial !== generation ||
-                !authorAvailable(this.context)) return;
+            if (
+                this.key !== selectedKey ||
+                this.serial !== generation ||
+                !authorAvailable(this.context)
+            )
+                return;
             const raw = authorRaw({ version: 1, input, author_consent: true });
             const work = this.startWork("lookup", input);
             await this.run(work, () => this.port.lookupStart(raw));

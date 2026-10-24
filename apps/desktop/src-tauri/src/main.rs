@@ -6,9 +6,9 @@ use tauri::Manager;
 mod archive;
 mod archive_commands;
 mod author_commands;
-mod author_ipc;
 #[cfg(feature = "dev-harness")]
 mod author_harness;
+mod author_ipc;
 #[cfg(all(test, windows))]
 mod author_ipc_review;
 mod capture_exports;

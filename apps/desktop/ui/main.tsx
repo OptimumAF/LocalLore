@@ -55,10 +55,13 @@ declare global {
     }
 }
 const errors = new ErrorBuffer();
-const authorHarnessModule = __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.authoring
-    ? await import("./author-native-journeys") : null;
+const authorHarnessModule =
+    __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.authoring
+        ? await import("./author-native-journeys")
+        : null;
 const authorTransport = authorHarnessModule
-    ? new authorHarnessModule.AuthorHarnessTransport() : null;
+    ? new authorHarnessModule.AuthorHarnessTransport()
+    : null;
 const brokerRetention = new BrokerRetention((surface) =>
     surface === "author"
         ? author.get().busy ||
@@ -74,14 +77,24 @@ const brokerRetention = new BrokerRetention((surface) =>
             : maintenance.get().busy || maintenance.get().uncertain,
 );
 const invoke = (command: string, args: Record<string, unknown> = {}) => {
-    if (command === "host_call" && (author.get().busy || sharedBrokerBlocked())) {
+    if (
+        command === "host_call" &&
+        (author.get().busy || sharedBrokerBlocked())
+    ) {
         // The UI gateway admits no new gameplay write while another surface
         // owns the shared operation. Rust still validates every native request.
         try {
-            if (typeof args.input === "string" && args.input.length <= 262144 &&
-                ["prepare", "submit", "free_text", "commit"].includes(JSON.parse(args.input)?.command?.op))
+            if (
+                typeof args.input === "string" &&
+                args.input.length <= 262144 &&
+                ["prepare", "submit", "free_text", "commit"].includes(
+                    JSON.parse(args.input)?.command?.op,
+                )
+            )
                 return Promise.reject("Busy");
-        } catch { /* Malformed wire is rejected by the native parser. */ }
+        } catch {
+            /* Malformed wire is rejected by the native parser. */
+        }
     }
     const authorStart = [
         "author_prepare_start",
@@ -125,8 +138,10 @@ const invoke = (command: string, args: Record<string, unknown> = {}) => {
     )
         return Promise.reject("ArchiveBusy");
     const rawNative = () => window.__TAURI__.core.invoke(command, args);
-    const native = () => authorTransport
-        ? authorTransport.native(command, args, rawNative) : rawNative();
+    const native = () =>
+        authorTransport
+            ? authorTransport.native(command, args, rawNative)
+            : rawNative();
     if (authorStart) {
         try {
             if (typeof args.request !== "string") throw Error("InvalidInput");
@@ -342,25 +357,39 @@ const timeline = new TimelineController(gateway, (scope) =>
 );
 function sharedBrokerBlocked() {
     const retained = brokerRetention.get();
-    return !!retained && (retained.inFlight ||
-        (!retained.acknowledgedUnresolved &&
-            (retained.unknown || !retained.terminal || !retained.consumed)));
+    return (
+        !!retained &&
+        (retained.inFlight ||
+            (!retained.acknowledgedUnresolved &&
+                (retained.unknown || !retained.terminal || !retained.consumed)))
+    );
 }
 function syncV2Context() {
-    const s = controller.get(), selected = controller.selected();
+    const s = controller.get(),
+        selected = controller.selected();
     v2.selectedContextChanged(
-        selected && s.playV2 && !s.disposed ? {
-            session: selected.id, scope: selected.scope,
-            revision: s.playV2.revision, player: s.playV2.player.observer,
-            view: s.view,
-            observer: s.view === "play" || s.observer === "player"
-                ? { kind: "player" } : s.observer === "omniscient"
-                    ? { kind: "omniscient" } : { kind: "character", id: s.observer },
-            persistent: !!s.workspace, pending: !!s.pending,
-            blocked: author.get().busy || sharedBrokerBlocked(),
-            playMode: s.playMode, inputKind: s.inputKind,
-            action: s.action, fakeMode: s.fakeMode,
-        } : null,
+        selected && s.playV2 && !s.disposed
+            ? {
+                  session: selected.id,
+                  scope: selected.scope,
+                  revision: s.playV2.revision,
+                  player: s.playV2.player.observer,
+                  view: s.view,
+                  observer:
+                      s.view === "play" || s.observer === "player"
+                          ? { kind: "player" }
+                          : s.observer === "omniscient"
+                            ? { kind: "omniscient" }
+                            : { kind: "character", id: s.observer },
+                  persistent: !!s.workspace,
+                  pending: !!s.pending,
+                  blocked: author.get().busy || sharedBrokerBlocked(),
+                  playMode: s.playMode,
+                  inputKind: s.inputKind,
+                  action: s.action,
+                  fakeMode: s.fakeMode,
+              }
+            : null,
     );
 }
 // Invalidate evaluation replies before React observes a changed story/lens/Play
@@ -543,9 +572,15 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
                   : driver.journeys;
     if (authorHarnessModule && authorTransport) {
         await authorHarnessModule.authorNativeJourneys({
-            controller, author, v2, brokerRetention,
+            controller,
+            author,
+            v2,
+            brokerRetention,
             gateway: gateway as InstanceType<typeof driver.FaultGateway>,
-            errors, invoke, dispose, config: window.__LOCALLORE_TEST__,
+            errors,
+            invoke,
+            dispose,
+            config: window.__LOCALLORE_TEST__,
             transport: authorTransport,
         });
     } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.maintaining) {

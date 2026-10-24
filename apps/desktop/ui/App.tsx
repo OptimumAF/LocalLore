@@ -380,9 +380,14 @@ export function App({
                             <span>
                                 Turn:{" "}
                                 {s.playV2
-                                    ? scoped?.uncertain ? "outcome unknown"
-                                        : scoped?.pending?.stage ?? scoped?.status?.phase ?? "idle"
-                                    : s.pending?.stage ?? s.turnStatus?.phase ?? "idle"}
+                                    ? scoped?.uncertain
+                                        ? "outcome unknown"
+                                        : (scoped?.pending?.stage ??
+                                          scoped?.status?.phase ??
+                                          "idle")
+                                    : (s.pending?.stage ??
+                                      s.turnStatus?.phase ??
+                                      "idle")}
                             </span>
                         </div>
                     </div>

@@ -309,17 +309,34 @@ export async function authorNativeJourneys({
             root.querySelector(".author-panel") ??
             root.querySelector(".v2-play") ??
             root;
-        const focus = label === "author-native-observer"
-            ? root.querySelector('[aria-label="Read-only V2 inspector"]')
-            : label === "author-native-receipt" ? root.querySelector('[aria-label="Actual native receipt"]')
-            : label === "author-native-turn-cancelled" ? root.querySelector('[aria-label="Original turn status"]')
-            : label === "author-native-preview"
-            ? root.querySelector("#author-impact-preview")
-            : ["author-native-consent", "author-native-rejected", "author-native-cancelled"].includes(label)
-                ? root.querySelector("#author-visible-error")
-                : label === "author-native-pending" ? root.querySelector("#author-operation-notice")
-                    : ["author-native-saved", "author-native-late-cancel", "author-native-recovered", "author-native-narrow"].includes(label)
-                        ? root.querySelector("#author-outcome-title") : null;
+        const focus =
+            label === "author-native-observer"
+                ? (root.querySelector(
+                      '[data-native-kind="knowledge"][data-native-origin="known_as_observed"]',
+                  ) ??
+                  root.querySelector('[aria-label="Read-only V2 inspector"]'))
+                : label === "author-native-receipt"
+                  ? root.querySelector('[aria-label="Actual native receipt"]')
+                  : label === "author-native-turn-cancelled"
+                    ? root.querySelector('[aria-label="Original turn status"]')
+                    : label === "author-native-preview"
+                      ? root.querySelector("#author-impact-preview")
+                      : [
+                              "author-native-consent",
+                              "author-native-rejected",
+                              "author-native-cancelled",
+                          ].includes(label)
+                        ? root.querySelector("#author-visible-error")
+                        : label === "author-native-pending"
+                          ? root.querySelector("#author-operation-notice")
+                          : [
+                                  "author-native-saved",
+                                  "author-native-late-cancel",
+                                  "author-native-recovered",
+                                  "author-native-narrow",
+                              ].includes(label)
+                            ? root.querySelector("#author-outcome-title")
+                            : null;
         (focus ?? panel).scrollIntoView({ block: "start" });
         await pause();
         check(
@@ -398,8 +415,10 @@ export async function authorNativeJourneys({
         );
     };
     const page = async (view: "knowledge" | "history") => {
-        await until(() => !!v2.get().snapshot && !v2.get().readBusy,
-            "same-visible-query-control-readiness-after-lens-change");
+        await until(
+            () => !!v2.get().snapshot && !v2.get().readBusy,
+            "same-visible-query-control-readiness-after-lens-change",
+        );
         const result = await v2.readQuery({
             view,
             atRevision: null,
@@ -760,9 +779,18 @@ export async function authorNativeJourneys({
             await v2.status();
             check(
                 v2.get().status?.phase === "failed" &&
-                    ["Inventory", "Rule"].includes(
-                        v2.get().status?.error ?? "",
-                    ),
+                    v2.get().status?.error === null &&
+                    ["Inventory", "Rule"].includes(v2.get().error ?? "") &&
+                    v2
+                        .get()
+                        .notice.includes(
+                            "saved status has no retained cause",
+                        ) &&
+                    errors
+                        .snapshot()
+                        .some((error) =>
+                            ["Inventory", "Rule"].includes(error.category),
+                        ),
                 "repeated-gift-is-rejected-by-actual-Rust-rules",
             );
             check(

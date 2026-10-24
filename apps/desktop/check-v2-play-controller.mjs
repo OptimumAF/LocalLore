@@ -588,25 +588,38 @@ test("late-private-query-cannot-replace-new-observer-page", async () => {
 test("original-native-rejection-survives-durable-phase-only-status-without-forging-cause", async () => {
     let rejected = false;
     const f = fixture((c, r) => {
-        if (rejected && c.op === "prepare") return Promise.reject(Error("Inventory"));
+        if (rejected && c.op === "prepare")
+            return Promise.reject(Error("Inventory"));
         if (rejected && c.op === "turn_status") return status(r, "failed");
         return undefined;
     });
     await f.controller.refresh();
     await f.controller.send();
     const accepted = clone(f.controller.get().receipt);
-    f.select({...f.ctx, revision:3});
+    f.select({ ...f.ctx, revision: 3 });
     await f.controller.refresh();
     rejected = true;
     await f.controller.send();
     assert.equal(f.controller.get().error, "Inventory");
     await f.controller.status();
     assert.equal(f.controller.get().status.phase, "failed");
-    assert.equal(f.controller.get().status.error, null, "the authoritative saved status does not retain a cause");
-    assert.equal(f.controller.get().error, "Inventory", "keep only the actual previously observed error for this original operation");
-    assert.ok(f.controller.get().notice.includes("saved status has no retained cause"));
+    assert.equal(
+        f.controller.get().status.error,
+        null,
+        "the authoritative saved status does not retain a cause",
+    );
+    assert.equal(
+        f.controller.get().error,
+        "Inventory",
+        "keep only the actual previously observed error for this original operation",
+    );
+    assert.ok(
+        f.controller
+            .get()
+            .notice.includes("saved status has no retained cause"),
+    );
     assert.deepEqual(f.controller.get().receipt, accepted);
-    assert.equal(f.calls.filter(c=>c.op==="commit").length, 1);
+    assert.equal(f.calls.filter((c) => c.op === "commit").length, 1);
     assert.equal(f.controller.get().pending, null);
     assert.equal(f.controller.get().uncertain, null);
 });

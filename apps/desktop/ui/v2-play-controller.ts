@@ -102,6 +102,7 @@ interface Operation extends V2RetainedTurn {
     unknown: boolean;
     committed: V2TurnStatus | null;
     terminalStatus: V2TurnStatus | null;
+    observedError: string | null;
     refreshed: boolean;
     promise: Promise<void>;
 }
@@ -728,6 +729,10 @@ export class V2PlayController {
             this.patch({ uncertain: null });
         if (this.presenting(op)) {
             const committed = value.phase === "committed";
+            const earlierError =
+                value.phase === "failed" && value.error === null
+                    ? op.observedError
+                    : null;
             this.patch({
                 status: value,
                 receipt: committed ? value.receipt : this.state.receipt,
@@ -735,6 +740,7 @@ export class V2PlayController {
                     committed || value.phase === "cancelled"
                         ? null
                         : (value.error ??
+                          earlierError ??
                           (value.phase === "failed" || value.phase === "stale"
                               ? value.phase
                               : null)),
@@ -744,7 +750,9 @@ export class V2PlayController {
                         : "Committed by Rust; progress is in memory."
                     : value.phase === "cancelled"
                       ? "Rust reports this original turn cancelled."
-                      : (value.error ?? value.phase),
+                      : earlierError
+                        ? `Rust reports failed. Earlier native error for this original operation: ${earlierError}; the saved status has no retained cause.`
+                        : (value.error ?? value.phase),
                 pending: op.terminal ? null : this.state.pending,
             });
             if (
@@ -876,8 +884,11 @@ export class V2PlayController {
             else this.unresolved(op);
         } catch (error) {
             if (!op.committed) {
+                const observed = category(error);
+                if (!["Transport", "Wire"].includes(observed))
+                    op.observedError = observed;
                 this.unresolved(op);
-                if (this.presenting(op)) this.patch({ error: category(error) });
+                if (this.presenting(op)) this.patch({ error: observed });
             }
         }
     }
@@ -967,6 +978,7 @@ export class V2PlayController {
             unknown: false,
             committed: null,
             terminalStatus: null,
+            observedError: null,
             refreshed: false,
             promise: Promise.resolve(),
         };

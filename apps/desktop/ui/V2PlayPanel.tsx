@@ -63,7 +63,12 @@ function NativeRow({
             </li>
         );
     return (
-        <li className="record-detail" data-native-kind={row.kind}>
+        <li
+            className="record-detail"
+            data-native-kind={row.kind}
+            data-native-origin={row.origin}
+            style={{ scrollMarginTop: "14rem" }}
+        >
             <p className="origin">{words(row.origin)}</p>
             {row.kind === "scoped_message" ? (
                 <>
@@ -234,7 +239,14 @@ export function V2PlayPanel({
                         ? "Fixture inference · synthetic responses"
                         : "Local model · availability is checked by Rust"}
                 </p>
-                <p>Operation: {state.uncertain ? "outcome unknown" : state.pending?.stage ?? state.status?.phase ?? "idle"}</p>
+                <p>
+                    Operation:{" "}
+                    {state.uncertain
+                        ? "outcome unknown"
+                        : (state.pending?.stage ??
+                          state.status?.phase ??
+                          "idle")}
+                </p>
                 {state.error && <p role="alert">{state.error}</p>}
             </header>
             {state.notice && <p role="status">{state.notice}</p>}

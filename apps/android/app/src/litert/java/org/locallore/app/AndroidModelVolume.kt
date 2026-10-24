@@ -11,6 +11,9 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.LinkOption.NOFOLLOW_LINKS
 
+/** Closed development observations only; never contains paths, IDs or exception details. */
+internal enum class ModelVolumeStep { CONFIG, INTERNAL, EXTERNAL, ANCHOR, MOUNT, FILESYSTEM, POLICY, CAPACITY, STABILITY }
+
 /**
  * Debug-only removable-media admission. Context supplies every path; no URI, Intent, model text,
  * benchmark directory or caller-supplied path can select storage. Facts are operational checks,
@@ -47,15 +50,19 @@ internal class AndroidModelVolume private constructor(
     }
 
     companion object {
-        fun select(context: Context): AndroidModelVolume = fixedFailure {
+        fun select(context: Context, onStep: (ModelVolumeStep) -> Unit = {}): AndroidModelVolume = fixedFailure {
+            onStep(ModelVolumeStep.CONFIG)
             offMain()
             check(BuildConfig.MODEL_VOLUME_VERIFICATION)
             if (Build.VERSION.SDK_INT < 30) error("Volume unavailable")
             val app = context.applicationContext
             check(app.packageName == "org.locallore.app.modelvolumeverify")
-            val snapshot = observe(app)
+            val snapshot = observe(app, onStep)
+            onStep(ModelVolumeStep.POLICY)
             val lease = ModelVolumePolicy.select(snapshot.volumes, snapshot.userdataDevice, app.packageName)
+            onStep(ModelVolumeStep.CAPACITY)
             lease.recheck(snapshot.volumes, snapshot.userdataDevice, snapshot.userdataFree, 0)
+            onStep(ModelVolumeStep.STABILITY)
             AndroidModelVolume(app, lease,
                 Os.stat(checkNotNull(lease.volume.appFilesPath)).st_ino,
                 Os.stat(checkNotNull(lease.volume.mountRootPath)).st_ino).also { it.admit() }
@@ -64,18 +71,25 @@ internal class AndroidModelVolume private constructor(
         private class Snapshot(val volumes: List<ModelVolumeFacts>, val userdataDevice: Long, val userdataFree: Long)
 
         @androidx.annotation.RequiresApi(30)
-        private fun observe(context: Context): Snapshot {
+        private fun observe(context: Context, onStep: (ModelVolumeStep) -> Unit = {}): Snapshot {
             check(Build.VERSION.SDK_INT >= 30)
-            val internal = realDirectory(context.noBackupFilesDir)
+            onStep(ModelVolumeStep.INTERNAL)
+            // Android's app namespace can alias /data/user/0 to /data/data. Resolve only this
+            // trusted Context anchor before strict validation; imported/model paths remain strict.
+            val internal = realDirectory(context.noBackupFilesDir.canonicalFile)
             val manager = context.getSystemService(StorageManager::class.java)
+            onStep(ModelVolumeStep.EXTERNAL)
             // Android may create this app's system-managed directories. No model/cache is created.
             val volumes = context.getExternalFilesDirs(null).mapNotNull { anchor ->
                 if (anchor == null) return@mapNotNull null
                 val volume = manager.getStorageVolume(anchor) ?: error("Volume unavailable")
                 if (volume.isPrimary) return@mapNotNull null
                 val mount = checkNotNull(volume.directory)
+                onStep(ModelVolumeStep.ANCHOR)
                 val files = realDirectory(anchor)
+                onStep(ModelVolumeStep.MOUNT)
                 val directory = realDirectory(mount)
+                onStep(ModelVolumeStep.FILESYSTEM)
                 check(manager.getStorageVolume(files)?.uuid == volume.uuid)
                 val device = Os.stat(files.path).st_dev
                 check(Os.stat(directory.path).st_dev == device)

@@ -41,8 +41,23 @@ actual drain. Fixed callbacks use the production picker completion interface;
 they do not exercise Android document-picker delivery. Require three exact
 passes, six bounded regular proof files, and all 37 closed initial checks true.
 
-Then observe the actual original app/test processes absent in a quiet process
-inventory. Only afterward run `ReceiptSetupRestartTest` in a separate ordinary
+Then observe the original APP target absent in the actual process inventory.
+Only at this first post-initial observation, after the three exact passes, bind
+at most one TEST-main PID/UID/name under the independently pinned TEST UID.
+Record it separately as `test_helper`; it is not quiet, passive or an SDK owner.
+The strict shared parser still rejects foreign rows, wrong UIDs, APP/service or
+provider processes. Before initial instrumentation, both packages must have no
+processes. Subsequent observations permit only the same helper row or its
+natural disappearance. Disappearance permanently revokes that row; any new,
+replaced or observably reappearing helper refuses. An initially absent helper cannot later
+appear. Observation order, stage and instrumentation counts are exact, and a
+classification failure is sticky. No process is stopped to obtain this result.
+Version 2 facts contain separate `target` and `test_helper` rows. Matching the
+observed PID/UID/name does not attest continuous liveness or detect unobserved
+PID reuse between snapshots. The helper grants no file or runtime authority;
+the APP restart proof independently requires its linked changed PID/start pair.
+
+Only afterward run `ReceiptSetupRestartTest` in a separate ordinary
 instrumentation invocation. Require one exact pass and two additional proof
 files, all seven reopen checks true, unchanged UID/package and an actual new
 PID/start pair linked to the original setup proof. Activity recreation alone
@@ -53,8 +68,12 @@ absence flags; false SDK/native-publication flags; and retained capacity floors.
 The closed command set permits only bootstrap observations, two exact installs,
 two exact class selections and fixed bounded proof reads. No force-stop, clear,
 uninstall, arbitrary shell, model transfer, old-root cleanup or AVD lifecycle
-command is exposed. Final facts require the same APK hashes/UIDs/volume and
-quiet owned processes. Real candidate roots must remain absent throughout.
+command is exposed. Final facts require the same APK hashes/UIDs/volume, no APP
+target and the separately tracked TEST-helper row or its absence. Do not claim
+all LocalLore processes are absent when that row survives. Real candidate roots
+must remain absent throughout. The earlier all-quiet refusal remains recorded
+in the [preceding verification](RECEIPT_SETUP_VERIFICATION_2026-10-24.md); this
+correction requires another fresh admitted target and new evidence.
 
 The outer owned worker has a 180-second budget; its cohort has 165 seconds,
 boot at most 60, initial instrumentation at most 120, restart at most 60,

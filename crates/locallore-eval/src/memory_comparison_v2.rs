@@ -256,7 +256,8 @@ impl CapturedContext {
         let mut package = None;
         let mut director_prompts: Vec<String> = Vec::new();
         let mut narrator_prompts: Vec<String> = Vec::new();
-        let mut director_estimates: Option<Vec<Value>> = forwarded_budget_version.map(|_| Vec::new());
+        let mut director_estimates: Option<Vec<Value>> =
+            forwarded_budget_version.map(|_| Vec::new());
         let mut observed = Vec::new();
         for (ordinal, a) in artifacts.iter().enumerate() {
             if a["ordinal"] != ordinal || encode(a)?.len() > 49_152 + 128 {

@@ -1,6 +1,7 @@
 # Current-pipeline comparison qualification
 
-2026-10-23 local date; retained executions end on 2026-10-24 UTC.
+Started 2026-10-23 local date; continued 2026-10-24. Retained execution
+timestamps are UTC and attributed below.
 Refs #29 D07.01–.06 partial / #11 M07.01. **Qualification in progress.**
 This report does not accept the whole D07 milestone, a model-quality result,
 native tokenizer fit or a physical-device gate.
@@ -90,6 +91,7 @@ without gaining invented estimates or permission to resume under new source.
 | Clock implementation e3b22bc, d07-clock-corrected-first.log | Exit101,E0425: one before-commit check still named removed limit. No tests ran. febc326 uses the same absolute deadline at that final check. |
 | febc326, d07-clock-before-commit-corrected.log | **7 passed /0failed /38filtered**,5.71s after5.26s compilation. Actual-open charging/settlement, original-origin continuation, insufficient/exhausted admission, preserved interrupted unknown reservations and absolute turn deadline/prelude/cleanup cases pass. |
 | febc326, d07-clock-full-evaluator-first.log | Full all-features evaluator **73 passed /0failed /3ignored**, compile14.33s. Library46/1ignored(51.72s), runner9(266.67s), local_model_review3, memory_comparison12 and protocol3 pass. Historical and curated native cases remain separately ignored, as does the library opt-in owner case; zero-test main/docs add no executed tests. |
+| febc326, d07-clock-compat-results.json | All seven stages exit0: strict evaluator Clippy12.55s, full frontend and format, native normal88/1ignored(17.64s), dev92/1ignored(27.17s)+standalone2, strict native Clippy11.08s and normal build14.28s. Source/exit come from the completed coordinator manifest, not partial native-model output. |
 
 The original frozen Core declarations precede production (edf4d265 / contract
 03308ea1). The Core fix and evaluator closure were separately allocated and
@@ -105,7 +107,7 @@ PR's evidence and does not make the D07 comparison an author/Domain2 corpus.
 | comparison_runner + memory_comparison_v2 terminal batch | Complete:9runner+3protocol passes above. Initial seven-pass partial output was not counted as a completed result. |
 | Current Core/Host fixture and full compatibility checks | Host4, shared743/10 ignored, evaluator15/1 ignored, strict shared/eval/native lint, frontend/format, native normal88/1 ignored, dev92/1 ignored+standalone2, normal build and fresh Android compatibility all passed. No runtime/UI/model execution is inferred from build/unit evidence. |
 | Genuine historical complete-cohort opening | Passed actual opt-in test at 4a36b72; see precise inventory/old-field boundary below. |
-| Real local-model current comparison | Original source39c paired run completed4scenes/48structural passes/84roles, quality not accepted. Clock fix febc326 passes7focused and73full evaluator checks. Final-source strict/build/native confirmation, rollout and warranted paired confirmation remain pending. No original-source rollout is being run. |
+| Real local-model current comparison | Original source39c paired run completed4scenes/48structural passes/84roles, quality not accepted. Clock fix febc326 passes7focused/73full evaluator checks and corrected strict/frontend/native tests/build. Corrected-source native-model confirmation/rollout remains pending. No original-source rollout is being run. |
 | Exact reproduction and environment | Completed commands below; fresh toolchain versions and terminal compatibility manifests recorded. Real-model command/result remains pending. The contract's suggested commands are not presented as executions. |
 
 ## Genuine historical read-only compatibility
@@ -323,10 +325,18 @@ Source comparison from39c770d throughfebc326 changes only evaluator
 local_lane.rs, comparison.rs, the new clock tests and the contract document.
 Core/Host/Store/Android source trees are unchanged. The earlier shared/native/
 Android results retain their original source attribution; they are not called
-reruns atfebc326. The evaluator/native artifact needs a rebuild and fresh
-model confirmation. Independent source rereview reports no further clock
+reruns atfebc326. The evaluator/native artifact subsequently rebuilt successfully
+and its corrected-source strict/frontend/native tests passed as above; fresh
+model confirmation remains pending. Independent source rereview reports no further clock
 finding atfebc326 ([call-site evidence](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6381131827));
 that review is not runtime or owner acceptance.
+The completed seven-stage clock compatibility manifest is1,466 bytes,
+SHA-256`4e28d332f145e0cc07fcbe50c9c607318e760b2ef673b8bb10902c6be1588e91`;
+its local d07-clock-compat-checks.ps1 is4,086 bytes,
+SHA-256`3c4e2bbd0d755ab343e3bcd244bb195d3aa641b61a5e2dadeabf81e13d5c01e8`.
+It uses the same exact evaluator/native/frontend command arguments shown in
+the compatibility section, without rerunning Android or relabelling its
+earlier source39c evidence.
 
 Reported old-source diagnostics are retained in paired-completed-analysis.json,
 2,677 bytes, SHA-256
@@ -387,7 +397,7 @@ The852-byte cohort-manifest.json SHA-256 is
 
 Files are local/gitignored under `<evidence-root>/author-integration-artifacts`.
 No raw model weights, private paths or player stories are published. The
-following thirty-four completed logs were hashed read-only; active logs are excluded.
+following forty-one completed logs were hashed read-only; active logs are excluded.
 
 | Log | Bytes / SHA-256 |
 | --- | --- |
@@ -425,6 +435,13 @@ following thirty-four completed logs were hashed read-only; active logs are excl
 | d07-clock-corrected-first.log | 599 / `e27952ba7d245d33262a08077177a9326b7906b38d5287526499b8a2884df0d4` |
 | d07-clock-before-commit-corrected.log | 1,425 / `63a72b97c7bbc2899f373d25fef0c53af282af6a10c29591e9331b0f675e1cd7` |
 | d07-clock-full-evaluator-first.log | 10,586 / `bfee986a6f9ee1c1c905bdc15e92e69671e08543dd40c1f4d135a0338e29d4d1` |
+| d07-clock-compat-eval-clippy.log | 203 / `a212760cceced70ecf6cea1291b00b3ecbd6876b6d6a0137c39e4a6599546ce9` |
+| d07-clock-compat-frontend.log | 11,351 / `cd08fe8e8ed2aa22cf7dcc0560bac20c9a26ad36730334b3d7e8644e3e0dcf21` |
+| d07-clock-compat-frontend-format.log | 68 / `f20510a9da4717c51c4cffee6d0dd88d6c9a723d0a83711d01216f5b48961283` |
+| d07-clock-compat-native-normal.log | 9,811 / `6e364dd370268138b05b0d1b7919fae2238ac675d17d1c4e804151694905656d` |
+| d07-clock-compat-native-dev.log | 10,502 / `c36afce65375e4bc3a640fac694de951305287d5a86cbf38ecb0573fd0cf9017` |
+| d07-clock-compat-native-clippy.log | 354 / `a01a92c4d98f1264bbfce6e3895f01c5ae7f7506f034a99d17f29c1020eac5db` |
+| d07-clock-compat-native-build.log | 213 / `803ae10396e75b105e26289db85a135b6fd944c6928e002d160d50ce72674998` |
 
 No task checkbox, model-quality conclusion, historical report rewrite,
 PR acceptance, merge, release, repository setting or protected resource is

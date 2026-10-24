@@ -86,3 +86,20 @@ All five tests are frozen source, uncompiled/unrun at handoff. No performance,
 native IPC/render, model quality, physical Android/device, SQL Full/Busy fault
 or whole-milestone acceptance is claimed. Generated synthetic artifacts remain
 local; no protected chat/resource or desktop is touched.
+
+## First Root baseline and accessor correction
+
+Root imported the freeze into `7a0394e`. Its first actual Core compilation
+failed E0616: this new test incorrectly accessed private `Receipt.request` and
+`Receipt.events` at lines 95/96. The separate minimal correction uses the public
+`request()` and `events()` accessors, comparing the request reference with
+`&request`. Assertions, expected values and test coverage are unchanged. This
+was an oracle-source integration mistake, not a behavioral RED result; Root's
+`typed-v2-core-original-red.log` is retained.
+
+The actual workspace Host test compiled and ran **0 PASS / 2 FAIL** before
+production: both cases encountered `Version` at typed prepare, including the
+cancelled fake mode before its provider could run. Evidence remains in
+`typed-v2-host-original-red.log`. These logs were read, not rerun, by this
+reviewer. Corrected Core runtime RED and subsequent implementation qualification
+belong to Root; no GREEN is inferred from source edits.

@@ -92,8 +92,8 @@ fn typed_give_wait_use_actual_actor_v2_context_and_exact_retry_without_provider(
             let all = format!("{:?}", provider.seen);
             for hidden in [B, REASON, NPC] { assert!(!all.contains(hidden)); }
             assert!(matches!(&provider.seen[1].input, Input::Narrator { .. }));
-            assert_eq!(receipt.request, request);
-            assert_eq!(engine.revision(), old + receipt.events.len() as u64);
+            assert_eq!(receipt.request(), &request);
+            assert_eq!(engine.revision(), old + receipt.events().len() as u64);
             assert!(matches!(engine.canonical_records().last().unwrap(), CanonicalRecord::PlayV2(_)));
             private_oracle(&engine);
             let records = engine.canonical_records().to_vec();

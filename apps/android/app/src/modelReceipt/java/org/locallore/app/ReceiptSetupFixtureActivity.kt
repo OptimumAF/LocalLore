@@ -4,6 +4,7 @@ package org.locallore.app
 import android.app.Application
 import android.content.Context
 import android.os.Build
+import android.os.Bundle
 import android.os.Looper
 import android.os.Process
 import java.io.ByteArrayInputStream
@@ -24,17 +25,82 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CancellationException
 import org.json.JSONObject
 
 /** Only explicit receipt verification packages these fixed, nonexported subclasses. */
 abstract class ReceiptSetupFixtureActivity internal constructor(private val case: ReceiptSetupFixture.Case) : LocalModelSetupActivity() {
+    internal val failureTrace = ReceiptSetupFailureTrace(when (case) {
+        ReceiptSetupFixture.Case.ACCEPT -> ReceiptSetupFailureCase.ACCEPT
+        ReceiptSetupFixture.Case.CANCEL_BEFORE -> ReceiptSetupFailureCase.CANCEL_BEFORE
+        ReceiptSetupFixture.Case.CANCEL_AFTER -> ReceiptSetupFailureCase.CANCEL_AFTER
+        ReceiptSetupFixture.Case.DRAIN -> ReceiptSetupFailureCase.DRAIN
+    })
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        failureTrace.record(ReceiptSetupFailureEvent.CREATE)
+        super.onCreate(savedInstanceState)
+    }
+    override fun onStart() {
+        failureTrace.record(ReceiptSetupFailureEvent.START)
+        super.onStart()
+    }
+    override fun onResume() {
+        failureTrace.record(ReceiptSetupFailureEvent.RESUME)
+        super.onResume()
+    }
+    override fun onPause() {
+        failureTrace.record(ReceiptSetupFailureEvent.PAUSE)
+        super.onPause()
+    }
+    override fun onStop() {
+        failureTrace.record(ReceiptSetupFailureEvent.STOP)
+        super.onStop()
+    }
+    override fun onDestroy() {
+        failureTrace.record(ReceiptSetupFailureEvent.DESTROY)
+        super.onDestroy()
+    }
+
     internal override fun createSetupDependencies(): LocalModelSetupDependencies {
         val context = applicationContext
         val access by lazy { ReceiptSetupFixture.open(context).access(case) }
+        // A retained ViewModel keeps these original-owner wrappers/trace. A recreated
+        // Activity has its own lifecycle trace; no shared registry redirects old work.
+        // The error code is the last observed category, not the current VM's cause.
         return LocalModelSetupDependencies(
             identity = ReceiptSetupFixture.identity,
-            checkInstalled = { access.installed() != null },
-            install = { source -> access.import(source) },
+            checkInstalled = {
+                failureTrace.record(ReceiptSetupFailureEvent.CHECK_START)
+                try {
+                    val present = access.installed() != null
+                    failureTrace.record(if (present) ReceiptSetupFailureEvent.CHECK_PRESENT else ReceiptSetupFailureEvent.CHECK_MISSING)
+                    present
+                } catch (failure: CancellationException) {
+                    failureTrace.error(failure)
+                    failureTrace.record(ReceiptSetupFailureEvent.CHECK_CANCELLED)
+                    throw failure
+                } catch (failure: Exception) {
+                    failureTrace.error(failure)
+                    failureTrace.record(ReceiptSetupFailureEvent.CHECK_FAILED)
+                    throw failure
+                }
+            },
+            install = { source ->
+                failureTrace.record(ReceiptSetupFailureEvent.IMPORT_START)
+                try {
+                    access.import(source)
+                    failureTrace.record(ReceiptSetupFailureEvent.IMPORT_RETURNED)
+                } catch (failure: CancellationException) {
+                    failureTrace.error(failure)
+                    failureTrace.record(ReceiptSetupFailureEvent.IMPORT_CANCELLED)
+                    throw failure
+                } catch (failure: Exception) {
+                    failureTrace.error(failure)
+                    failureTrace.record(ReceiptSetupFailureEvent.IMPORT_FAILED)
+                    throw failure
+                }
+            },
             canStart = CandidateLocalModel::canStart,
             openPlay = {
                 ReceiptSetupFixture.playAttempts.incrementAndGet()
@@ -56,6 +122,9 @@ internal object ReceiptSetupFixture {
     val bytes = "LocalLore original model picker fixture v1. No model or story.\n".toByteArray(Charsets.US_ASCII)
     val identity = LocalModelIdentity("synthetic-receipt-setup-v1", 63, HASH)
     val playAttempts = AtomicInteger()
+    private val failureEmissionAttempted = AtomicBoolean()
+    /** One diagnostic attempt per process, never an application/resource admission. */
+    fun claimFailureEmission(): Boolean = failureEmissionAttempted.compareAndSet(false, true)
     enum class Case(val suffix: String) {
         ACCEPT("accept"), CANCEL_BEFORE("cancel-before"), CANCEL_AFTER("cancel-after"), DRAIN("drain")
     }
@@ -103,10 +172,34 @@ internal object ReceiptSetupFixture {
         val opened = AtomicInteger()
         val closed = AtomicInteger()
         val active = AtomicInteger()
+        private val readCalls = AtomicInteger()
+        private val bytesRead = AtomicInteger()
+        private val readsSaturated = AtomicBoolean()
+        private val bytesSaturated = AtomicBoolean()
         val readEntered = CountDownLatch(1)
         val release = CountDownLatch(1)
         val readReleased = AtomicBoolean()
         private val releasedRead = AtomicBoolean()
+        private fun addProgress(counter: AtomicInteger, saturated: AtomicBoolean, amount: Int) {
+            while (true) {
+                val current = counter.get()
+                val exceeds = amount > ReceiptSetupFailureTrace.MAX_PROGRESS - current
+                val next = if (exceeds) ReceiptSetupFailureTrace.MAX_PROGRESS else current + amount
+                if (counter.compareAndSet(current, next)) {
+                    if (exceeds) saturated.set(true)
+                    return
+                }
+            }
+        }
+        /** Independent counters are observations, never a jointly atomic resource assertion. */
+        fun progress(): ReceiptSetupSourceProgress {
+            // Flags are monotonic and published after their counters reach the bound.
+            val readsClipped = readsSaturated.get()
+            val bytesClipped = bytesSaturated.get()
+            return ReceiptSetupSourceProgress(opened = opened.get(), closed = closed.get(), active = active.get(),
+                readCalls = readCalls.get(), bytesRead = bytesRead.get(),
+                readsSaturated = readsClipped, bytesSaturated = bytesClipped)
+        }
         fun open(): InputStream {
             check(opened.incrementAndGet() == 1)
             active.incrementAndGet()
@@ -119,10 +212,19 @@ internal object ReceiptSetupFixture {
                     }
                 }
                 override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                    addProgress(readCalls, readsSaturated, 1)
                     waitIfNeeded()
-                    return super.read(buffer, offset, length)
+                    val result = super.read(buffer, offset, length)
+                    if (result > 0) addProgress(bytesRead, bytesSaturated, result)
+                    return result
                 }
-                override fun read(): Int { waitIfNeeded(); return super.read() }
+                override fun read(): Int {
+                    addProgress(readCalls, readsSaturated, 1)
+                    waitIfNeeded()
+                    val result = super.read()
+                    if (result >= 0) addProgress(bytesRead, bytesSaturated, 1)
+                    return result
+                }
                 override fun close() {
                     check(closed.incrementAndGet() == 1)
                     check(active.decrementAndGet() == 0)

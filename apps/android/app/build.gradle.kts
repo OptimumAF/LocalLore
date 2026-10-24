@@ -258,6 +258,7 @@ android {
                 sourceSets["debug"].java.srcDir("src/modelReceipt/java")
                 sourceSets["debug"].manifest.srcFile("src/modelReceipt/AndroidManifest.xml")
                 sourceSets["androidTest"].java.srcDir("src/modelReceiptAndroidTest/java")
+                sourceSets["test"].java.srcDir("src/modelReceiptTest/java")
             }
         }
         if (modelPicker == "true") {

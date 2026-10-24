@@ -95,9 +95,9 @@ impl Fixture {
             tx.execute("INSERT INTO turns(story_id,branch_id,turn_id,expected_revision,status,request_json,response_json) VALUES(?1,?2,?3,0,'committed',?4,?5)",params![scope.story,scope.branch,request.turn,serde_json::to_string(&request).unwrap(),serde_json::to_string(&receipt).unwrap()]).unwrap();
             tx.execute("INSERT INTO turns(story_id,branch_id,turn_id,expected_revision,status,request_json,response_json) VALUES(?1,?2,?3,1,'draft',?4,NULL)",params![scope.story,scope.branch,draft.turn,serde_json::to_string(&draft).unwrap()]).unwrap();
             for event in receipt.events() {
-                tx.execute("INSERT INTO accepted_events(story_id,branch_id,sequence,turn_id,event_version,envelope_json) VALUES(?1,?2,?3,?4,1,?5)",params![scope.story,scope.branch,event.sequence(),request.turn,serde_json::to_string(event).unwrap()]).unwrap();
+                tx.execute("INSERT INTO accepted_events(story_id,branch_id,sequence,turn_id,event_version,envelope_json) VALUES(?1,?2,?3,?4,1,?5)",params![scope.story,scope.branch,i64::try_from(event.sequence()).unwrap(),request.turn,serde_json::to_string(event).unwrap()]).unwrap();
                 for observer in event.witnesses() {
-                    tx.execute("INSERT INTO event_witnesses(story_id,branch_id,sequence,observer_id) VALUES(?1,?2,?3,?4)",params![scope.story,scope.branch,event.sequence(),observer]).unwrap();
+                    tx.execute("INSERT INTO event_witnesses(story_id,branch_id,sequence,observer_id) VALUES(?1,?2,?3,?4)",params![scope.story,scope.branch,i64::try_from(event.sequence()).unwrap(),observer]).unwrap();
                 }
             }
             tx.execute("INSERT INTO branch_projections(story_id,branch_id,revision,projection_version,projection_json) VALUES(?1,?2,1,1,?3)",params![scope.story,scope.branch,String::from_utf8(engine.canonical_bytes()).unwrap()]).unwrap();

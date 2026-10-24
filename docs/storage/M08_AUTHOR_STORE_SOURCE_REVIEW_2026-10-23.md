@@ -160,3 +160,20 @@ complete old/current Store suites and strict checks remain separate. Do not
 present a source finding or missing-column inference as an executed failure.
 Root owns all fixes, integration and evidence reconciliation. Scoped claims are
 released with the ticket handoff; no score, human approval or M08/D08 gate closes.
+
+## Explicit fixture compile correction after first coordinator attempt
+
+Root's first qualification at `04c843e` compiled Core and Store, then failed
+compiling this NEW review fixture: rusqlite ToSql is not implemented for the
+u64 returned by AcceptedEvent::sequence(). Exit 101; **no tests ran**. The
+coordinator retained `first.log` and the original `261e24a` test source/hash.
+This reviewer did not run that compilation.
+
+Under explicit Root allocation and claims #12 `6377572333` / #30 `6377572521`,
+only the two new fixture SQL sequence parameters are converted with
+`i64::try_from(event.sequence()).unwrap()`, matching SQLite's signed integer
+domain. Source inspection found no other u64 SQL parameter in this fixture;
+the remaining numeric SQL values are fixed literals and version/application ID
+PRAGMA values use u32. All three behavioral assertions and historical DDL/data
+remain unchanged. This is a fixture compile correction, not a behavior RED or
+production fix. Corrected test execution remains Root-owned and pending.

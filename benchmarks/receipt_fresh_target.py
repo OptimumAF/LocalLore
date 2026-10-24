@@ -38,6 +38,15 @@ AVD_NAME = ("emu", "avd", "name")
 sha, write_json, normalized = contract.sha, contract.write_json, contract.normalized
 
 
+def parse_console_name(raw, expected):
+    """The emulator console can double CR; accept only its exact two lines."""
+    assert type(raw) is bytes and type(expected) is str
+    assert re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,79}", expected)
+    name = expected.encode("ascii")
+    assert raw in {name + ending + b"OK" + ending for ending in (b"\n", b"\r\n", b"\r\r\n")}
+    return expected
+
+
 def open_lease(proposal):
     # The exact environment module is integrated before admission. No fallback.
     from receipt_avd_environment import open_live_owner
@@ -256,7 +265,7 @@ class Owner:
     def facts(self, label, packages):
         host_free = {letter: shutil.disk_usage(letter + ":/").free for letter in ("C", "D")}
         assert host_free["C"] >= 4 * 1024 ** 3 + 128 * 1024 ** 2 and host_free["D"] >= 10 * 1024 ** 3
-        assert normalized(self.dispatch(list(AVD_NAME), cap=1024), 1024) == self.avd_name + "\nOK\n"
+        assert parse_console_name(self.dispatch(list(AVD_NAME), cap=1024), self.avd_name) == self.avd_name
         for op, expected in zip(contract.IDENTITY, ("1\n", "35\n", "x86_64\n", "4096\n")):
             assert normalized(self.shell(op), 128) == expected
         observed = parse_packages(self.shell(contract.PACKAGES), packages)

@@ -75,6 +75,7 @@ class Transport:
         self.foreign_process, self.bad_test, self.bad_manifest, self.bad_proof = False, False, False, False
         self.lose_owner, self.uncertain = False, False
         self.boot_outputs = []
+        self.console_ending = b"\r\n"
 
     def __call__(self, command, **kwargs):
         assert command[1:3] == ["-s", self.lease.descriptor["serial"]]
@@ -83,7 +84,8 @@ class Transport:
         self.calls.append((command, kwargs))
         boot_override = None
         if command[3:] == list(fresh.AVD_NAME):
-            raw = (("foreign" if self.foreign_name else self.lease.descriptor["avd_name"]) + "\r\nOK\r\n").encode()
+            name = ("foreign" if self.foreign_name else self.lease.descriptor["avd_name"]).encode()
+            raw = name + self.console_ending + b"OK" + self.console_ending
         elif command[3] == "install":
             assert command[3:5] == ["install", "--no-streaming"] and len(command) == 6
             self.installs += 1
@@ -156,6 +158,7 @@ class FreshTargetTests(unittest.TestCase):
             value = proposal(Path(directory))
             lease = Lease(value)
             transport = Transport(value, lease)
+            transport.console_ending = b"\r\r\n"
             owner, result = self.execute(value, lease, transport)
             self.assertEqual(result["before"]["packages"], {})
             self.assertEqual(result["final"]["uid_map"], {fresh.APP: 10310, fresh.TEST: 10311})
@@ -167,6 +170,29 @@ class FreshTargetTests(unittest.TestCase):
             self.assertGreaterEqual(lease.checks, 2 * owner.count)
             self.assertTrue(all(command[2] == "emulator-5592" for command, _ in transport.calls))
             self.assertTrue(all(0 < kwargs["deadline"] <= 120 for _, kwargs in transport.calls))
+
+    def test_console_name_exact_supported_framing_and_rejects_every_extra(self):
+        name = "LocalLoreReceiptFreshC"
+        encoded = name.encode()
+        endings = (b"\n", b"\r\n", b"\r\r\n")
+        for ending in endings:
+            raw = encoded + ending + b"OK" + ending
+            self.assertEqual(fresh.parse_console_name(raw, name), name)
+            for invalid in (b" " + raw, raw + b"\n", raw + b"OK" + ending,
+                            raw.replace(encoded, b"ForeignName"), raw.replace(b"OK", b"NOT OK"),
+                            raw[:-len(ending)], raw.replace(encoded, encoded + b"suffix")):
+                with self.subTest(raw=invalid), self.assertRaises(AssertionError):
+                    fresh.parse_console_name(invalid, name)
+        for first in endings:
+            for last in endings:
+                if first != last:
+                    with self.assertRaises(AssertionError):
+                        fresh.parse_console_name(encoded + first + b"OK" + last, name)
+        for invalid in (encoded + b"\rOK\r", encoded + b"\vOK\v", encoded + b"\fOK\f", b"", encoded + b"\nOK\n\x00"):
+            with self.assertRaises(AssertionError):
+                fresh.parse_console_name(invalid, name)
+        with self.assertRaises(AssertionError):
+            c.normalized(encoded + b"\r\r\nOK\r\r\n")
 
     def test_foreign_name_package_or_process_stops_before_install(self):
         for flag in ("foreign_name", "foreign_package", "foreign_process"):

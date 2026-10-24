@@ -89,6 +89,7 @@ without gaining invented estimates or permission to resume under new source.
 | Frozen clock APIs, d07-clock-frozen-first-compile.log | Exit101,E0425/E0599: new private clock APIs are absent. **Zero tests ran**; this is not a behavioral RED result. Frozen source f55c178 was imported as dd87579, then registered/formatted at5df28ae. |
 | Clock implementation e3b22bc, d07-clock-corrected-first.log | Exit101,E0425: one before-commit check still named removed limit. No tests ran. febc326 uses the same absolute deadline at that final check. |
 | febc326, d07-clock-before-commit-corrected.log | **7 passed /0failed /38filtered**,5.71s after5.26s compilation. Actual-open charging/settlement, original-origin continuation, insufficient/exhausted admission, preserved interrupted unknown reservations and absolute turn deadline/prelude/cleanup cases pass. |
+| febc326, d07-clock-full-evaluator-first.log | Full all-features evaluator **73 passed /0failed /3ignored**, compile14.33s. Library46/1ignored(51.72s), runner9(266.67s), local_model_review3, memory_comparison12 and protocol3 pass. Historical and curated native cases remain separately ignored, as does the library opt-in owner case; zero-test main/docs add no executed tests. |
 
 The original frozen Core declarations precede production (edf4d265 / contract
 03308ea1). The Core fix and evaluator closure were separately allocated and
@@ -104,7 +105,7 @@ PR's evidence and does not make the D07 comparison an author/Domain2 corpus.
 | comparison_runner + memory_comparison_v2 terminal batch | Complete:9runner+3protocol passes above. Initial seven-pass partial output was not counted as a completed result. |
 | Current Core/Host fixture and full compatibility checks | Host4, shared743/10 ignored, evaluator15/1 ignored, strict shared/eval/native lint, frontend/format, native normal88/1 ignored, dev92/1 ignored+standalone2, normal build and fresh Android compatibility all passed. No runtime/UI/model execution is inferred from build/unit evidence. |
 | Genuine historical complete-cohort opening | Passed actual opt-in test at 4a36b72; see precise inventory/old-field boundary below. |
-| Real local-model current comparison | Original source39c paired run completed4scenes/48structural passes/84roles, quality not accepted. Clock fix febc326 passes7focused regressions; full corrected evaluator suite, final-source rollout and warranted paired confirmation remain pending. No original-source rollout is being run. |
+| Real local-model current comparison | Original source39c paired run completed4scenes/48structural passes/84roles, quality not accepted. Clock fix febc326 passes7focused and73full evaluator checks. Final-source strict/build/native confirmation, rollout and warranted paired confirmation remain pending. No original-source rollout is being run. |
 | Exact reproduction and environment | Completed commands below; fresh toolchain versions and terminal compatibility manifests recorded. Real-model command/result remains pending. The contract's suggested commands are not presented as executions. |
 
 ## Genuine historical read-only compatibility
@@ -291,8 +292,8 @@ cost and extend the nominal turn interval by its prelude. **No observed
 overrun is claimed.** Outer process elapsed time, structural/privacy outcomes
 and raw evidence remain source-bound facts; they do not qualify the flawed
 accounting/deadline implementation. The pinned old paired run completed
-unchanged; no original-source rollout will be run. Root will freeze clock regressions and correct that boundary,
-then run rollout and warranted paired confirmation at the corrected source,
+unchanged; no original-source rollout will be run. Root froze clock regressions
+and corrected that boundary, and will run rollout and warranted paired confirmation at the corrected source,
 rather than attributing old timings or calls to the future fix.
 
 Corrected clock source is **febc326426096f66deb7262f2651e542a3781db6**.
@@ -313,7 +314,19 @@ its two compile failures and seven-pass result remain separate:
 
 ```powershell
 cargo test --manifest-path crates/locallore-eval/Cargo.toml --locked --offline --jobs 1 --target-dir <shared-target> --lib local_lane::comparison::clock_review_tests -- --nocapture --test-threads=1
+
+# Full corrected evaluator, actual completed invocation at febc326:
+cargo test --manifest-path crates/locallore-eval/Cargo.toml --all-features --locked --offline --jobs 1 --target-dir <shared-target> -- --test-threads=1
 ```
+
+Source comparison from39c770d throughfebc326 changes only evaluator
+local_lane.rs, comparison.rs, the new clock tests and the contract document.
+Core/Host/Store/Android source trees are unchanged. The earlier shared/native/
+Android results retain their original source attribution; they are not called
+reruns atfebc326. The evaluator/native artifact needs a rebuild and fresh
+model confirmation. Independent source rereview reports no further clock
+finding atfebc326 ([call-site evidence](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6381131827));
+that review is not runtime or owner acceptance.
 
 Reported old-source diagnostics are retained in paired-completed-analysis.json,
 2,677 bytes, SHA-256
@@ -374,7 +387,7 @@ The852-byte cohort-manifest.json SHA-256 is
 
 Files are local/gitignored under `<evidence-root>/author-integration-artifacts`.
 No raw model weights, private paths or player stories are published. The
-following thirty-three completed logs were hashed read-only; active logs are excluded.
+following thirty-four completed logs were hashed read-only; active logs are excluded.
 
 | Log | Bytes / SHA-256 |
 | --- | --- |
@@ -411,6 +424,7 @@ following thirty-three completed logs were hashed read-only; active logs are exc
 | d07-clock-frozen-first-compile.log | 7,717 / `816e0cd470b02d3bbc751d274ad3e21cb78bfd27af2639d6c4293ba44d41ef63` |
 | d07-clock-corrected-first.log | 599 / `e27952ba7d245d33262a08077177a9326b7906b38d5287526499b8a2884df0d4` |
 | d07-clock-before-commit-corrected.log | 1,425 / `63a72b97c7bbc2899f373d25fef0c53af282af6a10c29591e9331b0f675e1cd7` |
+| d07-clock-full-evaluator-first.log | 10,586 / `bfee986a6f9ee1c1c905bdc15e92e69671e08543dd40c1f4d135a0338e29d4d1` |
 
 No task checkbox, model-quality conclusion, historical report rewrite,
 PR acceptance, merge, release, repository setting or protected resource is

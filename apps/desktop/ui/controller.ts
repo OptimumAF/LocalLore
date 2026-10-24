@@ -702,7 +702,7 @@ export class Controller {
                         sequence !== this.readSequence ||
                         (this.state.playV2 && this.state.playV2.revision > thin.revision)
                     ) return;
-                    if (thin.domain_version === 2) {
+                    if (thin.domain_version === 2 || thin.player.observer !== "player") {
                         this.clearQuery();
                         this.clearTrace();
                         this.queryPatch({ shown: false });

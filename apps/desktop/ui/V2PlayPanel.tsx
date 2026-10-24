@@ -213,12 +213,11 @@ export function V2PlayPanel({
     return (
         <section
             className="v2-play"
-            aria-label="Corrected timeline Play and inspection"
+            aria-label="Scoped timeline Play and inspection"
         >
             <header className="scope">
                 <h2>
-                    {c.view === "play" ? "Play" : "Story Lab"} · corrected
-                    timeline
+                    {c.view === "play" ? "Play" : "Story Lab"} · scoped timeline
                 </h2>
                 <p>
                     {scopeLabel(c.scope)} · r{c.revision} · session {c.session}

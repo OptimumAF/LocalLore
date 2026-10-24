@@ -191,19 +191,21 @@ export function App({
                         <button
                             onClick={() => void c.showQuery(!s.query.shown)}
                             aria-pressed={s.query.shown}
+                            disabled={!!s.playV2}
                         >
                             Memory & evidence
                         </button>
                         <button
                             onClick={() => void c.showTrace(!s.trace.shown)}
                             aria-pressed={s.trace.shown}
+                            disabled={!!s.playV2}
                         >
                             Turn debugger
                         </button>
                         <button onClick={() => c.showModel()}>
                             Local model management
                         </button>
-                        <button onClick={() => c.showExports()}>
+                        <button disabled={!!s.playV2} onClick={() => c.showExports()}>
                             Inspection snapshots
                         </button>
                         <button onClick={() => void c.revealStorage()}>
@@ -339,14 +341,16 @@ export function App({
                                         : "Choose New Lantern Quay to begin."}
                                 </small>
                             </div>
-                            <button
-                                aria-expanded={s.inspectorOpen}
-                                onClick={() => c.setInspector(!s.inspectorOpen)}
-                            >
-                                {s.inspectorOpen
-                                    ? "Hide inspector"
-                                    : "Show inspector"}
-                            </button>
+                            {!s.playV2 && (
+                                <button
+                                    aria-expanded={s.inspectorOpen}
+                                    onClick={() => c.setInspector(!s.inspectorOpen)}
+                                >
+                                    {s.inspectorOpen
+                                        ? "Hide inspector"
+                                        : "Show inspector"}
+                                </button>
+                            )}
                         </div>
                         <div
                             className="scene-status"
@@ -405,7 +409,7 @@ export function App({
                             context={authorContext()}
                         />
                     )}
-                    {maintenance && maintenanceContext && selected && (
+                    {!s.playV2 && maintenance && maintenanceContext && selected && (
                         <MemoryMaintenancePanel
                             maintenance={maintenance}
                             context={maintenanceContext()}
@@ -421,13 +425,13 @@ export function App({
                             }
                         />
                     )}
-                    {timeline && selected && (
+                    {!s.playV2 && timeline && selected && (
                         <TimelinePanel
                             timeline={timeline}
                             context={timelineContext(c)}
                         />
                     )}
-                    {fork && selected && (
+                    {!s.playV2 && fork && selected && (
                         <ForkPanel
                             fork={fork}
                             gameplay={c}
@@ -441,7 +445,7 @@ export function App({
                             allowed={s.view === "lab"}
                         />
                     )}
-                    {archive && (
+                    {!s.playV2 && archive && (
                         <ArchivePanel
                             archive={archive}
                             controller={c}
@@ -462,7 +466,7 @@ export function App({
                                 }}
                             />
                             <p className="muted">
-                                Corrected timelines use scoped native views.
+                                This timeline uses scoped native views.
                                 Legacy debugger, inspection exports, archive
                                 transfer, timeline navigation and derived-memory
                                 maintenance remain unavailable for this domain

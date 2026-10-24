@@ -193,3 +193,9 @@ that pending promise to the actual controller. Every behavioral assertion and al
 production source remain unchanged. The correction is UNRUN by this agent; Root
 owns the actual rerun. The original failure is a synthetic scheduling/unhandled
 promise failure, not proof of a native or production cancellation defect.
+
+Correction commit `cb67511d4ad8c6f0353bc86337ac62a1f8896776`; corrected checker
+SHA-256 `5a3afbc17cd435bc2080f46ae54432425654f80054671dddc28e1ed802a9b887`
+supersedes the pre-correction checker hash in the source table. Model/controller/
+panel hashes there remain unchanged. No passing checker count, type/format pass
+or app/render execution is inferred from this source correction.

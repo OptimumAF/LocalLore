@@ -125,5 +125,25 @@ classified against exact installed UID evidence, never acted on; unknown state
 refuses. Report actual counts rather than claiming passive absence by assumption.
 Ordinary instrumentation/framework setup may restart its target; controller
 command counts are not evidence that Android made no lifecycle changes.
+
+Before its first install, reserve the actual incoming app/test APK bytes above
+the unchanged controller userdata floor of 1,207,959,552 bytes. This is a
+necessary lower bound, not proof of sufficient installer overhead. Android's
+[PackageInstallerSession](https://android.googlesource.com/platform/frameworks/base/+/android-15.0.0_r1/services/core/java/com/android/server/pm/PackageInstallerSession.java)
+stages incoming bytes before commit, while
+[InstallPackageHelper](https://android.googlesource.com/platform/frameworks/base/+/android-15.0.0_r1/services/core/java/com/android/server/pm/InstallPackageHelper.java)
+removes old code later. Reinstallation does not guarantee a space-neutral
+update. Recheck the original floor after updates; never lower it to obtain a
+test result. An observed historical free-space decrease does not establish a
+specific cause or promise later reclamation.
+
+The separate read-only recovery profile reads exactly the six existing v1
+proof files for ACCEPT/CANCELLATION/REFUSAL and reports the consumed 3-pass,
+1-process-failure result without granting qualification. It checks current
+APK/UID metadata, recognized process counts and v2 proof-root absence. It does
+not remeasure current internal or Context-derived external candidate absence.
+Historical proof assertions retain their historical meaning. Recovery never
+installs, instruments, repairs, clears or retries old roots.
+
 Existing A/#117/#119, capacity, physical-phone/ARM64/16 KiB, cache privacy and
 model-quality gates remain independent.

@@ -1,7 +1,7 @@
 // Independent frozen actual-controller vectors. Synthetic transport only; no IPC/app/model.
 import assert from "node:assert/strict";
 import { build } from "esbuild";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 import { createHash, randomUUID, webcrypto } from "node:crypto";
@@ -15,6 +15,7 @@ const target = path.join(
     directory,
     `author-callback-review-${randomUUID()}.mjs`,
 );
+const controllerSha256 = createHash("sha256").update(await readFile(new URL("./ui/author-controller.ts", import.meta.url))).digest("hex");
 const bundle = await build({
     entryPoints: [
         fileURLToPath(new URL("./ui/author-controller.ts", import.meta.url)),
@@ -385,7 +386,8 @@ await test("repeated prepare/lookup cannot exhaust four abandoned preview slots"
 console.log(
     JSON.stringify(
         {
-            source: "aa8d56c",
+            frozen_against: "aa8d56c",
+            controllerSha256,
             synthetic_transport: true,
             native_execution: false,
             cases: results,

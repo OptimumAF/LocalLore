@@ -31,6 +31,7 @@ export function AuthorPanel({
             <section aria-labelledby="author-unavailable-title">
                 <h2 id="author-unavailable-title">Author corrections</h2>
                 <p role="status">
+                    {!context && "Native author context is unavailable. "}
                     Available only for a saved story in Story Lab, after the
                     private spoiler grant, with the omniscient lens and no
                     pending gameplay or unresolved shared operation.

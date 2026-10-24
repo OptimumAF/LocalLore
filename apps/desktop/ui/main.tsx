@@ -18,7 +18,7 @@ import {
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { Controller } from "./controller";
-import { ErrorBuffer, IpcGateway } from "./model";
+import { ErrorBuffer, IpcGateway, category } from "./model";
 declare const __DEV_HARNESS__: boolean;
 declare global {
     interface Window {
@@ -484,7 +484,8 @@ void invoke("author_context")
         };
         syncEvaluationContext();
     })
-    .catch(() => {
+    .catch((error) => {
+        errors.add("native", category(error));
         authorNativeContext = null;
         author.contextChanged(null);
     });

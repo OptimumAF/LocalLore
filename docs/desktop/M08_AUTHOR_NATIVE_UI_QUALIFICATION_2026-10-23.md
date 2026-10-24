@@ -9,8 +9,9 @@ by this report.
 This report is the sole new path on `docs/m08-author-native-ui-qualification`,
 based on `dfbe11c5bf57de74345f7c254c2f456a1ea24c55`. Claim:
 [#30 6380007479](https://github.com/OptimumAF/LocalLore/issues/30#issuecomment-6380007479).
-The report author read source, logs, reports, capture metadata and hashes only;
-it executed no tests, app, provider, model, device or desktop automation.
+The report author read source, logs, reports, capture metadata and hashes, and
+viewed two saved app-owned PNGs; it executed no tests, app, provider, model,
+device or desktop automation.
 The coordinator (Root) owns actual execution and visual inspection.
 
 ## Current evidence boundary
@@ -84,10 +85,22 @@ as zero-error native qualification. Raw bounded stderr remains local.
 There are 0 + 2 + 3 + 7 + 8 = **20 actual app-owned PNGs**, each paired with a
 semantic JSON snapshot and `.capture.json` metadata. Every existing image's
 capture metadata reports `native-webview2`. Root reports personally inspecting
-**all 20** across the five cohorts. This report author inspected metadata and
-hashes, **not pixels**, and attributes that visual inspection to Root.
+**all 20** across the five cohorts. This report author additionally viewed the
+last cohort's `author-native-preview.png` and `author-native-observer.png`
+through local file inspection only; the other 18 images' visual review is
+attributed solely to Root.
 Early form/layout and capture-focus defects produced explicit source fixes;
 earlier imperfect images were retained rather than replaced in place.
+
+The viewed preview shows legible before/replacement/private reason, two
+retained knowers, zero excluded suffix, a wrapped digest, the unchecked exact
+preview-read checkbox and disabled confirmation. The viewed observer image
+shows selected author-saved at r2, Character Mira and separately labeled
+Gameplay actor player, player resources and the inherited event-only history.
+The knowledge inspector is below that image's fold: its semantic query proves
+Mira's observed A, but this particular PNG does not show A itself. A final
+capture intended to demonstrate visible old-A knowledge must focus that
+inspector; the existing screenshot is not credited with unseen content.
 
 The last cohort contains consent, exact preview, rejected, pending, cancelled,
 saved, history and observer images. It contains no continued-turn receipt,

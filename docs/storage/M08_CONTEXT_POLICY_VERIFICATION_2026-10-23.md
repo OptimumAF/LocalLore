@@ -1,7 +1,8 @@
 # Compiler2 construction policies: source freeze — 2026-10-23
 
 Refs #11 M07.01, #12 M08.03 consumer prerequisite, #29 D07.03/.04/.05.
-Status `in_review`: implemented source and frozen oracles **UNCOMPILED / UNRUN**.
+Status `in_review`: the original source-only packet is preserved below;
+subsequent actual scoped qualification is recorded in the addendum.
 This is not policy execution in the evaluation runner, a model comparison,
 compiler qualification, or user-facing Domain-2 generation support.
 
@@ -195,3 +196,62 @@ policy execution until actual integration; enum/function source alone does not
 qualify D07. No current author wire, model quality, measured savings or human
 acceptance claim. Next: actual scoped compiler tests, legacy byte comparison and
 independent source review before integrating those callers.
+
+## Actual qualification addendum
+
+The coordinator later granted the exclusive Core build slot. Qualification
+claims: #11 6377388668, #12 6377388898, #29 6377389166. Source remains exact
+`9137083cf6dd638f320ec9422ea30f763946eaf4`; no production/test correction was
+needed for the first runs. Accepted main `5e18015e215262bedf8f91ac13da572ece127d21`
+has no Core/Workspace changes since accepted `946c73c`, so no Android merge was
+needed in this Core-only branch. Root `efbf39a` and this packet have identical
+executable Core/Workspace source; the only Core difference is the later
+unit-count interpretation comment `650cf6d`, which is present here. This is not
+an assertion of identical source-tree hashes.
+
+Actual environment: Windows, rustc `1.93.1 (01f6ddf75 2026-02-11)`, cargo
+`1.93.1 (083ac5135 2025-12-15)`. Fresh own `context-policy-rust` target and
+`context-policy-temp-b53ec071-5d9a-483c-ae69-540a5b2e6822` TEMP/TMP outside the
+repository; jobs1, locked/offline, incremental0, dev/test debug0, ordinary
+LIBSQLITE3_FLAGS empty. No Root target/cache or unimplemented Store test was
+compiled. No app/model/device execution or download.
+
+Actual unchanged tests:
+
+```text
+cargo test --locked --offline -p locallore --test m08_context_policy --jobs 1
+# 12 passed / 0 failed / 0 ignored, compile22.50s, tests0.02s
+cargo test --locked --offline -p locallore --test context_compiler_legacy_bytes --test context_compiler --test context_compiler_verified --test context_cancellation --jobs 1 -- --nocapture
+# 21 passed / 0 failed / 0 ignored
+```
+
+The cancellation suite deliberately catches a synthetic panic; its printed
+panic hook is not a failed test. All 12 frozen policy oracles passed unchanged,
+including the explicit prior heard-speech correction; no demonstrated RED was
+invented. Logs `01-frozen-policy.log` and `02-existing-compiler.log` are local.
+
+For actual old-source comparison, an isolated read-only detached checkout of
+accepted main `5e18015` ran its SAME existing unchanged
+`context_compiler_legacy_bytes.rs`, own `context-policy-baseline-rust` target:
+
+```text
+cargo test --locked --offline -p locallore --test context_compiler_legacy_bytes --jobs 1 -- --nocapture
+# 1 passed / 0 failed / 0 ignored, compile19.08s, test0.25s
+```
+
+No old compiler was copied and no fixture was edited. All five probe lines
+matched exactly (count5 each and Compare-Object equality), including serialized
+diagnostics/accounting/order, not just selected content:
+
+```text
+director       b671903865fb32cc641747fe94f3f4264d8e6abb259e501223026967e43df18d
+character      2bc7c73c6407599b682265b4e9c3f26019cb4bef4e1ff871d7c5e17d6a090381
+historical     8dfecac53e93e57288d499bcc9321b970e1cc07ff9aceee98d1d260ef86a2e63
+referenced     7427d245754368d61b1469d29292be7fb67ee049632c3a4237cf8ba210a3abb7
+mandatory-only 369f6158981edd3012eb997914bd85e99aa7634fd866294e27a04000cd66b8bd
+```
+
+Baseline log `03-accepted-main-legacy-probe.log` retained locally. Full default/
+all-feature and strict checks are pending at this intermediate addendum. These
+actual compiler runs do not enable the unchanged eval protocol's policy gates
+or establish Domain2 Host/Play/Store integration, human review or model quality.

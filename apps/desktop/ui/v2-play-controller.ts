@@ -42,7 +42,7 @@ interface Operation extends V2RetainedTurn {
     promise: Promise<void>;
 }
 const utf8 = (value: string) => new TextEncoder().encode(value).length;
-const wire = (): never => { throw Error("Wire"); };
+function wire(): never { throw Error("Wire"); }
 function record(value: unknown): Record<string, unknown> {
     if (!value || typeof value !== "object" || Array.isArray(value)) wire();
     return value as Record<string, unknown>;

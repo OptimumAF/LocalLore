@@ -55,7 +55,7 @@ new controller through a synthetic Gateway. Those are mock scheduling results,
 not actual Host/Core/IPC/render/model acceptance. Root's separate actual producer
 capture/strict decoder evidence is not relabelled controller or rendering proof.
 
-ALL new code is currently UNCOMPILED/UNRUN. No Node/Cargo/app/SQLite/provider/model/
+At the initial freeze, all new code was UNCOMPILED/UNRUN. No Node/Cargo/app/SQLite/provider/model/
 device/browser/desktop execution is authorized here. Root owns execution,
 existing-file integration, concrete consumer fixes and native rendering checks.
 
@@ -76,3 +76,20 @@ once. Preserve actual last receipt/status across same-session/scope head advance
 only when the new head includes its accepted final sequence; other lens/session/
 scope presentations are cleared. Source links may pass their exact current bound
 page to preserve its completed boundary; stale page objects cannot navigate.
+
+## Coordinator first execution and typing correction
+
+Root imported implementation `d646b383e7ee3748b560bce812b4cb76bbb9ea6b` as
+`904d8f4` and actually ran the standalone synthetic Gateway checker: **20/20 PASS**.
+This is controller scheduling evidence, not IPC, rendering or real inference.
+Root's first strict TypeScript pass then failed with eight errors in this new
+controller: unknown-string/array narrowing and consequent callback parameter
+typing, retained in `author-v2-ui-types-first.log`; checker evidence is retained
+in `v2-play-ui-first.log`. These results are attributed to Root, not this agent.
+
+The minimal source correction changes the throwing `wire` helper from an inferred
+const function binding to a function declaration with explicit `never` return.
+That lets TypeScript recognize its terminating control flow for existing guards.
+No runtime check, assertion, cap, request shape or oracle changes; no `any` cast.
+This correction is source-only and has not been typechecked or executed by this
+agent. Root owns the actual strict rerun and all IPC/render/native qualification.

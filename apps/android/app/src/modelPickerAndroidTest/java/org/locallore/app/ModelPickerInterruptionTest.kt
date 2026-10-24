@@ -15,12 +15,12 @@ import android.os.SystemClock
 import android.provider.DocumentsContract
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import androidx.annotation.RequiresApi
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import java.nio.ByteBuffer
@@ -42,7 +42,7 @@ import org.junit.runner.RunWith
 
 /** Select the two methods separately. Arm intentionally dies; it is never an ordinary PASS. */
 @RunWith(AndroidJUnit4::class)
-@RequiresApi(30)
+@SdkSuppress(minSdkVersion = 30)
 @Suppress("DEPRECATION")
 class ModelPickerInterruptionTest {
     @get:Rule val compose = createEmptyComposeRule()
@@ -91,7 +91,6 @@ class ModelPickerInterruptionTest {
         }
     }
 
-    @RequiresApi(30)
     @Test fun armPartialImportAndTerminateOwnProcess(): Unit = safe {
         verify(Build.VERSION.SDK_INT >= 30, "Partial interruption document requires API30 or later")
         requireTargetProcess()
@@ -140,7 +139,6 @@ class ModelPickerInterruptionTest {
         throw AssertionError("Self-process termination did not occur")
     }
 
-    @RequiresApi(30)
     @Test fun recoverInterruptedImportThroughFreshPicker(): Unit = safe {
         verify(Build.VERSION.SDK_INT >= 30, "Partial interruption document requires API30 or later")
         requireTargetProcess()

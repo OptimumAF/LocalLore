@@ -7,8 +7,10 @@ receipt qualification storage admission. Preparing this code does not qualify an
 AVD, the receipt Android process case, a removable volume, or real-model inference.
 
 The fixed target is `locallore_receipt_api35_v1`, console/ADB pair 5592/5593,
-serial `emulator-5592`. The proposed fresh root is
-`D:/LocalLore-receipt-avd-20261024-v3`. It must not exist at prepare admission.
+serial `emulator-5592`. Examples use the proposed fresh root
+`D:/LocalLore-receipt-avd-next`. It must not exist at prepare admission. Historical
+attempt roots are retained and cannot be reused. Actual four-method qualification
+is recorded in the [verification report](../../native/RECEIPT_FRESH_TARGET_VERIFICATION_2026-10-24.md).
 The content, registry, Android preferences, emulator preferences and temporary
 directories all belong beneath that new root. It issues no SDK list, start,
 stop, wipe, delete or adoption command for an existing AVD. The bounded read-only
@@ -20,9 +22,9 @@ default-registry metadata enumeration is described below. There is no ADB invoca
 
 ```text
 python -B benchmarks/receipt_avd_environment.py plan-prepare \
-  --root D:/LocalLore-receipt-avd-20261024-v3 \
+  --root D:/LocalLore-receipt-avd-next \
   --sdk C:/Users/Avery/AppData/Local/Android/Sdk \
-  --java-home C:/Program Files/Java/jdk-21 \
+  --java-home "C:/Program Files/Java/jdk-21" \
   --output <private-prepare-proposal.json>
 
 python -B benchmarks/receipt_avd_environment.py prepare \
@@ -30,7 +32,7 @@ python -B benchmarks/receipt_avd_environment.py prepare \
 
 python -B benchmarks/receipt_avd_environment.py plan-run \
   --proposal <private-prepare-proposal.json> \
-  --prepared D:/LocalLore-receipt-avd-20261024-v3/prepared-v1.json \
+  --prepared D:/LocalLore-receipt-avd-next/prepared-v1.json \
   --output <private-run-proposal.json>
 
 python -B benchmarks/receipt_avd_environment.py run \

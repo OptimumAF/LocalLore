@@ -54,6 +54,11 @@ name command, boot completion, API35, x86_64 and 4096-byte pages. Startup retrie
 are bounded and retain every actual client result; uncertain cleanup ends the
 cohort. The owner budget does not extend the qualification worker's own limits.
 
+The console name response accepts only the expected lease-derived name and
+`OK`, with consistent LF, CRLF or the observed Windows CRCRLF delimiters. Mixed
+delimiters, extra bytes and foreign names refuse. This command-specific parser
+does not change shared shell/proof normalization or the existing B controller.
+
 ## Empty-to-two bootstrap
 
 Before installing, require an empty LocalLore package/UID inventory and no

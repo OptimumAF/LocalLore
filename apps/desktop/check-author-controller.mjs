@@ -676,11 +676,17 @@ for (const field of [
     const next = { ...context(), head: 4, selectionEpoch: 2 };
     let notifications = 0;
     const release = c.subscribe(() => {
-        assert.ok(++notifications < 8, "same-context notification must not recurse without bound");
+        assert.ok(
+            ++notifications < 8,
+            "same-context notification must not recurse without bound",
+        );
         c.contextChanged(next);
     });
     c.contextChanged(next);
-    check(c.matchesContext(next), "the new context is installed before synchronous notification");
+    check(
+        c.matchesContext(next),
+        "the new context is installed before synchronous notification",
+    );
     release();
     c.dispose();
 }
@@ -695,13 +701,20 @@ for (const kind of ["prepare", "commit"]) {
     const release = c.subscribe(() => {
         if (!changed && c.get().busy) {
             changed = true;
-            c.contextChanged({ ...context(), selectionEpoch: 2, session: "other-session" });
+            c.contextChanged({
+                ...context(),
+                selectionEpoch: 2,
+                session: "other-session",
+            });
         }
     });
     if (kind === "commit") await c.confirm(true);
     else await c.prepare();
     check(changed, `${kind} exercised synchronous busy notification`);
-    check(!port.calls.some(call => call.kind === kind), `${kind} context retirement before admission prevents native dispatch`);
+    check(
+        !port.calls.some((call) => call.kind === kind),
+        `${kind} context retirement before admission prevents native dispatch`,
+    );
     release();
     c.dispose();
 }
@@ -716,13 +729,20 @@ for (const kind of ["prepare", "commit"]) {
     const release = c.subscribe(() => {
         if (!changed && !c.get().busy && c.get().preview === null) {
             changed = true;
-            c.contextChanged({ ...context(), selectionEpoch: 2, session: "other-session" });
+            c.contextChanged({
+                ...context(),
+                selectionEpoch: 2,
+                session: "other-session",
+            });
         }
     });
     if (kind === "commit") await c.confirm(true);
     else await c.prepare();
     check(changed, `${kind} exercised preview-clear notification`);
-    check(!port.calls.some(call => call.kind === kind), `${kind} cannot bind old input/consent to the newly selected session`);
+    check(
+        !port.calls.some((call) => call.kind === kind),
+        `${kind} cannot bind old input/consent to the newly selected session`,
+    );
     release();
     c.dispose();
 }

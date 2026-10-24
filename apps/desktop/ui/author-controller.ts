@@ -294,12 +294,18 @@ export class AuthorController {
             return;
         }
         try {
-            const selectedKey = this.key, generation = this.serial;
+            const selectedKey = this.key,
+                generation = this.serial;
             const input = authorRequest(this.context!, this.state.draft);
             this.discard(this.state.preview);
             this.patch({ preview: null, previewRead: false });
-            if (this.key !== selectedKey || this.serial !== generation ||
-                !this.state.authorConsent || !authorAvailable(this.context)) return;
+            if (
+                this.key !== selectedKey ||
+                this.serial !== generation ||
+                !this.state.authorConsent ||
+                !authorAvailable(this.context)
+            )
+                return;
             const raw = authorRaw({
                 version: 1,
                 session: this.context!.session,
@@ -334,7 +340,8 @@ export class AuthorController {
             return;
         }
         try {
-            const selectedKey = this.key, generation = this.serial;
+            const selectedKey = this.key,
+                generation = this.serial;
             const raw = authorRaw({
                 version: 1,
                 session: this.context!.session,
@@ -349,8 +356,12 @@ export class AuthorController {
                 previewRead: false,
                 authorConsent: false,
             });
-            if (this.key !== selectedKey || this.serial !== generation ||
-                !authorAvailable(this.context)) return;
+            if (
+                this.key !== selectedKey ||
+                this.serial !== generation ||
+                !authorAvailable(this.context)
+            )
+                return;
             const work = this.startWork("commit", input);
             await this.run(work, () => this.port.commitStart(raw));
         } catch (error) {

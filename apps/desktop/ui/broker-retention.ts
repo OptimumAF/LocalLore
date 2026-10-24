@@ -79,13 +79,20 @@ function identity(value: BrokerIdentity): BrokerIdentity {
             child: author.input.child_branch,
             at: author.input.fork_revision,
         };
-        if (Object.hasOwn(value,"archive") || Object.hasOwn(value,"token") ||
+        if (
+            Object.hasOwn(value, "archive") ||
+            Object.hasOwn(value, "token") ||
             value.action !== author.action ||
-            Object.entries(expected).some(([key,v]) => Object.hasOwn(value,key) && value[key as keyof BrokerIdentity] !== v))
+            Object.entries(expected).some(
+                ([key, v]) =>
+                    Object.hasOwn(value, key) &&
+                    value[key as keyof BrokerIdentity] !== v,
+            )
+        )
             throw Error("InvalidInput");
-        return Object.freeze({...value,author});
+        return Object.freeze({ ...value, author });
     }
-    if (Object.hasOwn(value,"author")) throw Error("InvalidInput");
+    if (Object.hasOwn(value, "author")) throw Error("InvalidInput");
     for (const [key, v] of Object.entries(value)) {
         if (key === "archive") {
             if (value.surface !== "archive") throw Error("InvalidInput");
@@ -134,7 +141,7 @@ interface AuthorChecks {
 export class BrokerRetention {
     private retained: Retained | null = null;
     private listeners = new Set<() => void>();
-    private authorChecks = new WeakMap<BrokerIdentity,AuthorChecks>();
+    private authorChecks = new WeakMap<BrokerIdentity, AuthorChecks>();
     constructor(
         private awaitingConsumption: (surface: BrokerSurface) => boolean,
     ) {}
@@ -155,8 +162,8 @@ export class BrokerRetention {
         return (
             !!r &&
             ((r.identity.surface === "author" && r.inFlight) ||
-            !r.acknowledgedUnresolved &&
-            (r.inFlight || r.unknown || !r.terminal || !r.consumed))
+                (!r.acknowledgedUnresolved &&
+                    (r.inFlight || r.unknown || !r.terminal || !r.consumed)))
         );
     }
     // Consumption is latched while the previous controller is idle. A later
@@ -179,7 +186,8 @@ export class BrokerRetention {
     ): Promise<unknown> {
         const selected = identity(value);
         if (this.blocked()) throw Error("ArchiveBusy");
-        if (selected.surface === "author") return this.startAuthor(selected,work);
+        if (selected.surface === "author")
+            return this.startAuthor(selected, work);
         this.retained = {
             identity: selected,
             inFlight: true,
@@ -213,61 +221,109 @@ export class BrokerRetention {
     observe(value: unknown) {
         this.record(value, false);
     }
-    private sameAuthor(owner:Retained) {
-        return this.retained?.identity === owner.identity && owner.identity.surface === "author";
+    private sameAuthor(owner: Retained) {
+        return (
+            this.retained?.identity === owner.identity &&
+            owner.identity.surface === "author"
+        );
     }
-    private async startAuthor(selected:BrokerIdentity,work:()=>Promise<unknown>) {
-        const owner:Retained={identity:selected,inFlight:true,operation:null,terminal:false,unknown:false,acknowledgedUnresolved:false,recoveringMemory:false,consumed:false};
-        const checks:AuthorChecks={admission:true,validating:0,fault:false};
-        this.authorChecks.set(selected,checks);
-        this.retained=owner;
+    private async startAuthor(
+        selected: BrokerIdentity,
+        work: () => Promise<unknown>,
+    ) {
+        const owner: Retained = {
+            identity: selected,
+            inFlight: true,
+            operation: null,
+            terminal: false,
+            unknown: false,
+            acknowledgedUnresolved: false,
+            recoveringMemory: false,
+            consumed: false,
+        };
+        const checks: AuthorChecks = {
+            admission: true,
+            validating: 0,
+            fault: false,
+        };
+        this.authorChecks.set(selected, checks);
+        this.retained = owner;
         this.patch({});
         try {
-            const result=await work();
-            if (this.sameAuthor(owner)) await this.recordAuthor(result,true,owner);
+            const result = await work();
+            if (this.sameAuthor(owner))
+                await this.recordAuthor(result, true, owner);
             return result;
-        } catch(error) {
+        } catch (error) {
             if (this.sameAuthor(owner)) {
-                const busy=error instanceof Error?error.message === "ArchiveBusy":error === "ArchiveBusy";
-                if (!busy) checks.fault=true;
-                this.patch({unknown:checks.fault,terminal:busy && !checks.fault,consumed:false});
+                const busy =
+                    error instanceof Error
+                        ? error.message === "ArchiveBusy"
+                        : error === "ArchiveBusy";
+                if (!busy) checks.fault = true;
+                this.patch({
+                    unknown: checks.fault,
+                    terminal: busy && !checks.fault,
+                    consumed: false,
+                });
             }
             throw error;
         } finally {
-            checks.admission=false;
+            checks.admission = false;
             if (this.sameAuthor(owner)) {
-                this.patch({inFlight:checks.validating>0});
+                this.patch({ inFlight: checks.validating > 0 });
                 this.refreshConsumption();
             }
         }
     }
-    async observeAuthor(value:unknown):Promise<void> {
-        const owner=this.retained;
-        if (owner?.identity.surface === "author") await this.recordAuthor(value,false,owner);
+    async observeAuthor(value: unknown): Promise<void> {
+        const owner = this.retained;
+        if (owner?.identity.surface === "author")
+            await this.recordAuthor(value, false, owner);
     }
-    private async recordAuthor(value:unknown,admission:boolean,owner:Retained) {
+    private async recordAuthor(
+        value: unknown,
+        admission: boolean,
+        owner: Retained,
+    ) {
         if (!this.sameAuthor(owner)) return;
-        const current=this.retained!;
+        const current = this.retained!;
         if (current.operation === null && !admission) return;
-        const incoming=authorBrokerOperationId(value);
-        if (current.operation !== null && incoming !== undefined && incoming !== current.operation) return;
-        const checks=this.authorChecks.get(owner.identity)!;
+        const incoming = authorBrokerOperationId(value);
+        if (
+            current.operation !== null &&
+            incoming !== undefined &&
+            incoming !== current.operation
+        )
+            return;
+        const checks = this.authorChecks.get(owner.identity)!;
         checks.validating++;
-        this.patch({inFlight:true,consumed:false});
+        this.patch({ inFlight: true, consumed: false });
         try {
-            const status=await checkedAuthorBrokerOperation(value,owner.identity.author!,current.operation ?? undefined);
+            const status = await checkedAuthorBrokerOperation(
+                value,
+                owner.identity.author!,
+                current.operation ?? undefined,
+            );
             if (!this.sameAuthor(owner)) return;
             if (this.retained!.terminal && status.running) return;
             // Faults are sticky for this reservation; a panel reset or later partial
             // update does not prove the original private completion was valid.
-            this.patch({operation:status.operation_id,terminal:!status.running,unknown:checks.fault});
+            this.patch({
+                operation: status.operation_id,
+                terminal: !status.running,
+                unknown: checks.fault,
+            });
         } catch {
-            checks.fault=true;
-            if (this.sameAuthor(owner)) this.patch({unknown:true,consumed:false});
+            checks.fault = true;
+            if (this.sameAuthor(owner))
+                this.patch({ unknown: true, consumed: false });
         } finally {
             checks.validating--;
             if (this.sameAuthor(owner)) {
-                this.patch({inFlight:checks.admission || checks.validating>0});
+                this.patch({
+                    inFlight: checks.admission || checks.validating > 0,
+                });
                 this.refreshConsumption();
             }
         }
@@ -277,10 +333,15 @@ export class BrokerRetention {
         if (!r) return;
         if (r.identity.surface === "author") {
             if (r.operation === null && !admission) return;
-            const incoming=authorBrokerOperationId(value);
-            if (r.operation !== null && incoming !== undefined && incoming !== r.operation) return;
+            const incoming = authorBrokerOperationId(value);
+            if (
+                r.operation !== null &&
+                incoming !== undefined &&
+                incoming !== r.operation
+            )
+                return;
             // Full private preview validation is asynchronous. Call observeAuthor.
-            this.patch({unknown:true,consumed:false});
+            this.patch({ unknown: true, consumed: false });
             return;
         }
         // External status/cancel replies can only update an already known ID.

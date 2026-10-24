@@ -205,7 +205,10 @@ export function App({
                         <button onClick={() => c.showModel()}>
                             Local model management
                         </button>
-                        <button disabled={!!s.playV2} onClick={() => c.showExports()}>
+                        <button
+                            disabled={!!s.playV2}
+                            onClick={() => c.showExports()}
+                        >
                             Inspection snapshots
                         </button>
                         <button onClick={() => void c.revealStorage()}>
@@ -344,7 +347,9 @@ export function App({
                             {!s.playV2 && (
                                 <button
                                     aria-expanded={s.inspectorOpen}
-                                    onClick={() => c.setInspector(!s.inspectorOpen)}
+                                    onClick={() =>
+                                        c.setInspector(!s.inspectorOpen)
+                                    }
                                 >
                                     {s.inspectorOpen
                                         ? "Hide inspector"
@@ -409,22 +414,25 @@ export function App({
                             context={authorContext()}
                         />
                     )}
-                    {!s.playV2 && maintenance && maintenanceContext && selected && (
-                        <MemoryMaintenancePanel
-                            maintenance={maintenance}
-                            context={maintenanceContext()}
-                            receipt={
-                                receipt
-                                    ? {
-                                          turn: receipt.request.turn,
-                                          revision:
-                                              receipt.events.at(-1)?.sequence ??
-                                              0,
-                                      }
-                                    : undefined
-                            }
-                        />
-                    )}
+                    {!s.playV2 &&
+                        maintenance &&
+                        maintenanceContext &&
+                        selected && (
+                            <MemoryMaintenancePanel
+                                maintenance={maintenance}
+                                context={maintenanceContext()}
+                                receipt={
+                                    receipt
+                                        ? {
+                                              turn: receipt.request.turn,
+                                              revision:
+                                                  receipt.events.at(-1)
+                                                      ?.sequence ?? 0,
+                                          }
+                                        : undefined
+                                }
+                            />
+                        )}
                     {!s.playV2 && timeline && selected && (
                         <TimelinePanel
                             timeline={timeline}
@@ -466,9 +474,9 @@ export function App({
                                 }}
                             />
                             <p className="muted">
-                                This timeline uses scoped native views.
-                                Legacy debugger, inspection exports, archive
-                                transfer, timeline navigation and derived-memory
+                                This timeline uses scoped native views. Legacy
+                                debugger, inspection exports, archive transfer,
+                                timeline navigation and derived-memory
                                 maintenance remain unavailable for this domain
                                 version until their shared adapters support it.
                             </p>

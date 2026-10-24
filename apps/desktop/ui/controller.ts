@@ -700,9 +700,14 @@ export class Controller {
                     if (
                         !this.current({ session, epoch }) ||
                         sequence !== this.readSequence ||
-                        (this.state.playV2 && this.state.playV2.revision > thin.revision)
-                    ) return;
-                    if (thin.domain_version === 2 || thin.player.observer !== "player") {
+                        (this.state.playV2 &&
+                            this.state.playV2.revision > thin.revision)
+                    )
+                        return;
+                    if (
+                        thin.domain_version === 2 ||
+                        thin.player.observer !== "player"
+                    ) {
                         this.clearQuery();
                         this.clearTrace();
                         this.queryPatch({ shown: false });
@@ -714,7 +719,9 @@ export class Controller {
                             inspectionRevision: null,
                             inspectionObserver: null,
                             sessions: this.state.sessions.map((s) =>
-                                s.id === session.id ? { ...s, revision: thin.revision } : s,
+                                s.id === session.id
+                                    ? { ...s, revision: thin.revision }
+                                    : s,
                             ),
                         });
                         return;
@@ -2043,17 +2050,20 @@ export class Controller {
             rules: play?.rules ?? null,
             player: play?.player ?? null,
             inventory: play?.inventory ?? null,
-            transcript: s.playV2 ? {
-                source: "query2", status: "owned_by_scoped_controller",
-            } : {
-                page: s.page,
-                total: s.play?.receipts.length ?? 0,
-                rows:
-                    s.play?.receipts.slice(
-                        s.page * PAGE_SIZE,
-                        (s.page + 1) * PAGE_SIZE,
-                    ) ?? [],
-            },
+            transcript: s.playV2
+                ? {
+                      source: "query2",
+                      status: "owned_by_scoped_controller",
+                  }
+                : {
+                      page: s.page,
+                      total: s.play?.receipts.length ?? 0,
+                      rows:
+                          s.play?.receipts.slice(
+                              s.page * PAGE_SIZE,
+                              (s.page + 1) * PAGE_SIZE,
+                          ) ?? [],
+                  },
             draft: s.draft,
             diff: s.diff,
             diffRevision: s.diffRevision,

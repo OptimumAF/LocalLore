@@ -138,7 +138,10 @@ def parse_proof(raw, phase, uid):
     for key, wanted in (("candidate_root_absent", True), ("publication_native_invoked", False), ("sdk_invoked", False)):
         assert type(value[key]) is bool and value[key] is wanted
     for key in ("external_free_before", "external_free_after", "userdata_free_before", "userdata_free_after"):
-        floor = EXTERNAL_FLOOR + 63 if key.startswith("external") else PROOF_USERDATA_FLOOR
+        # Before-copy observation includes the fixed missing bytes; accepted/reopened
+        # data retains the actual admit(0) floor, without an invented extra reserve.
+        floor = (EXTERNAL_FLOOR + (63 if key.endswith("before") else 0)
+                 if key.startswith("external") else PROOF_USERDATA_FLOOR)
         assert type(value[key]) is int and floor <= value[key] <= 2 ** 63 - 1
     checks = value["checks"]
     assert type(checks) is dict and set(checks) == PHASES[phase][2] and all(type(v) is bool and v for v in checks.values())

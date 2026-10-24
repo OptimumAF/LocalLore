@@ -1,6 +1,8 @@
 """Pure mocked protocol tests. No Android client, build, model or cache access."""
 import copy
+from contextlib import redirect_stdout
 import importlib.util
+import io
 import json
 from pathlib import Path
 import shlex
@@ -66,6 +68,7 @@ class FakeTransport:
     def __init__(self, value):
         self.value, self.calls, self.installs = value, [], 0
         self.owned, self.extra_manifest, self.bad_ready = False, False, False
+        self.package_drift, self.uid_drift = False, False
 
     def __call__(self, command, **kwargs):
         self.calls.append((command, kwargs))
@@ -83,10 +86,15 @@ class FakeTransport:
                 packages = self.value["prior_packages"].copy()
                 if self.installs == 2:
                     packages.update(self.value["apk_sha256"])
+                    if self.package_drift:
+                        packages[next(name for name in packages if name not in (probe.APP, probe.TEST))] = "b" * 64
                 raw = "".join(name + "|" + digest + "  /data/app/fixed-%d/base.apk\n" % index
                               for index, (name, digest) in enumerate(packages.items())).encode()
             elif op == probe.UIDS:
-                raw = "".join("package:%s uid:%d\n" % row for row in self.value["prior_uid_map"].items()).encode()
+                uids = self.value["prior_uid_map"].copy()
+                if self.uid_drift and self.installs == 2:
+                    uids[probe.APP] = 19999
+                raw = "".join("package:%s uid:%d\n" % row for row in uids.items()).encode()
             elif op == probe.PS:
                 raw = b"PID UID NAME\n1 1000 system_server\n"
                 if self.owned:
@@ -152,6 +160,14 @@ class ProofTests(unittest.TestCase):
         with self.assertRaises(AssertionError):
             probe.match_parent_identities(values)
 
+    def test_after_capacity_uses_actual_retained_floor(self):
+        value = proof("ACCEPT")
+        value["external_free_after"] = probe.EXTERNAL_FLOOR
+        self.assertEqual(probe.parse_proof(json.dumps(value).encode(), "ACCEPT", 10200)["external_free_after"], probe.EXTERNAL_FLOOR)
+        value["external_free_after"] -= 1
+        with self.assertRaises(AssertionError):
+            probe.parse_proof(json.dumps(value).encode(), "ACCEPT", 10200)
+
 
 class InstrumentationTests(unittest.TestCase):
     def test_exact_four_passes_any_method_order_and_crlf(self):
@@ -212,6 +228,19 @@ class OwnershipTests(unittest.TestCase):
                         probe.run_cohort(owner)
                 self.assertEqual(owner.stage, "proofs")
                 self.assertFalse((owner.directory / "final-facts.json").exists())
+
+    def test_post_update_package_or_uid_drift_stops_before_instrumentation(self):
+        for change in ("package_drift", "uid_drift"):
+            with tempfile.TemporaryDirectory() as directory:
+                value = proposal(Path(directory), readiness=False)
+                owner, transport = probe.Owner(value), FakeTransport(value)
+                setattr(transport, change, True)
+                with patch.object(probe.host, "run_process", side_effect=transport), patch.object(probe.shutil, "disk_usage", return_value=SimpleNamespace(free=20 * 1024 ** 3)):
+                    with self.assertRaises(AssertionError):
+                        probe.run_cohort(owner)
+                self.assertEqual(owner.stage, "installed")
+                self.assertEqual(owner.methods, 0)
+                self.assertFalse(any("am instrument" in " ".join(command) for command, _ in transport.calls))
 
     def test_unknown_process_uid_and_live_owned_service_refused(self):
         packages, uids, passive = identities()
@@ -283,6 +312,32 @@ class OwnershipTests(unittest.TestCase):
             with self.assertRaises(AssertionError):
                 probe.authorize(root / "proposal.json", root / "auth.json", root)
             self.assertFalse((root / "receipt-owned-start-v1.json").exists())
+
+    def test_actual_cli_owned_worker_success_refusal_and_unknown_cleanup(self):
+        cases = ((True, "completed", 0, True, 0), (False, "completed", 2, True, 2),
+                 (False, "cleanup_failed", None, False, 2))
+        for readiness, status, code, cleaned, expected in cases:
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                value = proposal(root, readiness=readiness)
+                proposal_path, authorization_path = root / "proposal.json", root / "auth.json"
+                proposal_path.write_text(json.dumps(value))
+                authorization_path.write_text("{}")
+                result = SimpleNamespace(stdout=b"worker raw first", status=status, returncode=code,
+                                         cleanup_complete=cleaned, elapsed_ms=7, stderr_bytes=9)
+                output = io.StringIO()
+                with patch.object(probe, "authorize", return_value=value), patch.object(probe.host, "run_process", return_value=result) as dispatch, redirect_stdout(output):
+                    actual = probe.main(["run", "--proposal", str(proposal_path), "--authorization", str(authorization_path), "--evidence", str(root)])
+                self.assertEqual(actual, expected)
+                args, options = dispatch.call_args
+                self.assertEqual(args[0][:5], [probe.sys.executable, "-B", "-E", str(Path(probe.__file__).resolve()), "worker"])
+                self.assertEqual(options["request"], probe.REQUEST)
+                self.assertEqual(options["deadline"], 90 if readiness else 180)
+                self.assertEqual(options["max_output"], 32768)
+                self.assertEqual((root / "receipt-owned-stdout-v1.bin").read_bytes(), result.stdout)
+                retained = json.loads((root / "receipt-owned-result-v1.json").read_bytes())
+                self.assertEqual(json.loads(output.getvalue()), retained)
+                self.assertEqual((retained["status"], retained["returncode"], retained["cleanup_complete"]), (status, code, cleaned))
 
 
 if __name__ == "__main__":

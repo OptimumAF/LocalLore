@@ -35,6 +35,8 @@ const actions: Record<Action, string> = {
     ability: "Attempt unlearned teleport",
     dialogue: "Say draft aloud to Mira",
 };
+const noScopedSubscription = () => () => {};
+const noScopedSnapshot = () => null;
 function intent(r: Receipt) {
     return r.request.intent.kind === "free_text"
         ? r.request.intent.value.text
@@ -107,6 +109,10 @@ export function App({
     const s = useSyncExternalStore(c.subscribe, c.get),
         selected = c.selected(),
         receipt = c.receipt();
+    const scoped = useSyncExternalStore(
+        v2?.subscribe ?? noScopedSubscription,
+        v2?.get ?? noScopedSnapshot,
+    );
     const receipts = s.play?.receipts ?? [],
         rows = receipts.slice(s.page * PAGE_SIZE, (s.page + 1) * PAGE_SIZE);
     const play = s.play ?? s.playV2;
@@ -373,9 +379,10 @@ export function App({
                             </span>
                             <span>
                                 Turn:{" "}
-                                {s.pending?.stage ??
-                                    s.turnStatus?.phase ??
-                                    "idle"}
+                                {s.playV2
+                                    ? scoped?.uncertain ? "outcome unknown"
+                                        : scoped?.pending?.stage ?? scoped?.status?.phase ?? "idle"
+                                    : s.pending?.stage ?? s.turnStatus?.phase ?? "idle"}
                             </span>
                         </div>
                     </div>

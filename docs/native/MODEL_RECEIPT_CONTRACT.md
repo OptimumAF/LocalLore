@@ -90,7 +90,10 @@ observe null just before another process commits; it never returns pending data.
    the model file, copy bounded 64 KiB chunks, reject short/oversize/zero-progress
    input, verify size/digest, force bytes, and invoke DATA_FORCED.
 5. Revalidate roots, receipt, ownership, full model and capacity. Validate/create
-   empty safe cache. Invoke BEFORE_COMMIT, recheck cancellation/admission, then
+   empty safe cache. Invoke BEFORE_COMMIT, recheck cancellation/admission, fully
+   revalidate, and re-force the existing receipt, owner and model through
+   noncreating/nontruncating channels. Complete bytes after an interrupted
+   close/force do not prove that force previously returned. Then
    CREATE_NEW/WRITE/NOFOLLOW the zero-byte marker and force it. Successful create
    is acceptance. Invoke AFTER_COMMIT; later errors do not undo acceptance.
 

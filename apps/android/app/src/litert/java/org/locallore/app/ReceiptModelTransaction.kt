@@ -96,6 +96,11 @@ internal class ReceiptModelTransaction(
             coroutineContext.ensureActive()
             // A trusted test hook may revoke admission or alter files at the boundary.
             validatePending()
+            // Correct bytes can survive a failed original close/force. Recovery cannot
+            // infer that force returned, so force all validated records before acceptance.
+            forceExisting(receipt)
+            forceExisting(owner)
+            forceExisting(model)
             coroutineContext.ensureActive()
             if (exists(accepted)) unsafe()
             forcedNew(accepted, byteArrayOf())
@@ -387,6 +392,21 @@ internal class ReceiptModelTransaction(
                 }
             } catch (_: FileAlreadyExistsException) { unsafe() }
             guard()
+        }
+
+        fun forceExisting(file: File) {
+            guard()
+            val before = regular(file)
+            // No CREATE, truncate, or content write: a missing/replaced path must refuse.
+            FileChannel.open(file.toPath(), WRITE, NOFOLLOW_LINKS).use { channel ->
+                guard()
+                if (!same(before, regular(file))) unsafe()
+                channel.force(true)
+            }
+            guard()
+            val after = regular(file)
+            if (!same(before, after) || before.size() != after.size() ||
+                before.lastModifiedTime() != after.lastModifiedTime()) unsafe()
         }
 
         fun exact(file: File, expected: ByteArray) {

@@ -105,3 +105,18 @@ fn reference_source_tamper_is_not_authenticated_by_resealing_a_digest() {
     assert!(open_reference(&p).is_err());
     assert_eq!(snapshot(&p),before);
 }
+#[test]
+fn retained_actual_context_tamper_or_loss_never_becomes_a_privacy_pass() {
+    let p=root("capture-tamper").join("run");
+    run_comparison(&p,false,ComparisonKind::ContinuousRollout,&Cancellation::default(),1,LaneFactory::ScriptedBaseline,None).unwrap();
+    let path=p.join("left/attempt-00-capture.json");
+    let original=std::fs::read(&path).unwrap();
+    let mut v:Value=serde_json::from_slice(&original).unwrap();
+    v["data"]["details"]["identity"]["observer"]=Value::String("sable".into());
+    std::fs::write(&path,serde_json::to_vec(&v).unwrap()).unwrap();
+    assert!(inspect_comparison(&p).is_err());
+    std::fs::write(&path,&original).unwrap();
+    assert!(inspect_comparison(&p).is_ok());
+    std::fs::remove_file(&path).unwrap();
+    assert!(inspect_comparison(&p).is_err());
+}

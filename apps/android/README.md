@@ -125,6 +125,22 @@ for cancellation, interrupted-copy recovery and API/filesystem limits, and the
 for the passing synthetic checks on one API 35 x86_64 emulator. Real inference
 through this setup profile remains unqualified.
 
+The additional `-PlocalLoreModelPickerVerification=true` flag requires both
+candidate flags above and selects the separate `.modelpickerverify` debug
+fixture. It inherits the real picker/resolver/setup flow with 63 original
+synthetic bytes; its private fixture Activity always refuses inference. The
+normal launcher still uses the fixed real candidate identity. Its conditional
+TEST APK supplies a platform-protected DocumentsUI provider with observable
+descriptor release. The source is excluded from ordinary and regular candidate
+APKs. Outputs go to `app/build-model-picker`; audit that app with
+`scripts/audit_apk.py <apk> --litert-verification --model-provisioning --model-picker-fixture`.
+The preparation and process-readback methods must run in separate processes;
+running the entire test class together intentionally fails readback. See the
+[picker contract](../../docs/native/MODEL_PICKER_CONTRACT.md) and dated
+[verification](../../docs/native/MODEL_PICKER_VERIFICATION_2026-10-23.md) for
+exact selection, admission and qualification limits. The first phase requires
+an absent synthetic root and performs no reset.
+
 The optional [LiteRT worker](../../docs/native/LITERT_WORKER_CONTRACT.md) implements
 `LocalRoleWorker` against the actual SDK. Its trusted configuration factory pairs
 the native provenance/profile and worker. With only the LiteRT verification flag,

@@ -136,6 +136,59 @@ class ApkAuditTests(unittest.TestCase):
     def test_model_setup_audit_requires_sdk_native_and_notice_mode(self):
         with patch("builtins.print"):
             self.assertEqual(audit.main(["not-read.apk", "--model-provisioning"]), 1)
+            self.assertEqual(audit.main(["not-read.apk", "--model-picker-fixture"]), 1)
+            self.assertEqual(audit.main(["not-read.apk", "--litert-verification", "--model-picker-fixture"]), 1)
+
+    def test_model_picker_fixture_requires_explicit_mode_and_excludes_provider_from_app(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self.archive(directory)
+            with zipfile.ZipFile(path, "a") as apk:
+                apk.writestr("classes.dex", b"original synthetic helper-only marker ModelPickerFixture")
+            with self.assertRaises(audit.AuditError):
+                audit.audit_zip(path)
+        with tempfile.TemporaryDirectory() as directory:
+            path, hashes, notices = self.candidate_archive(directory)
+            with zipfile.ZipFile(path, "a") as apk:
+                apk.writestr("classes.dex", b"original synthetic DEX marker ModelPickerFixtureActivity")
+            with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
+                self.assertEqual(len(audit.audit_zip(path, litert=True, model_picker=True)), 6)
+                with self.assertRaises(audit.AuditError):
+                    audit.audit_zip(path, litert=True)
+                with zipfile.ZipFile(path, "a") as apk:
+                    apk.writestr("classes10.dex", b"original synthetic marker ModelPickerDocumentsProvider")
+                with self.assertRaises(audit.AuditError):
+                    audit.audit_zip(path, litert=True, model_picker=True)
+
+    def test_model_picker_document_provider_retains_platform_grants_and_exact_control_boundary(self):
+        document = "org.locallore.app.ModelPickerDocumentsProvider"
+        authority = "org.locallore.app.modelpickerverify.test.modelpicker"
+        def provider(name, selected, extra="", children=""):
+            return (f'    E: provider (line=1)\n'
+                    f'      A: android:name(1)="{name}"\n'
+                    f'      A: android:authorities(2)="{selected}"\n'
+                    f'      A: android:process(3)=":model_picker_provider"\n'
+                    f'      A: android:exported(4)=true\n' + extra + children)
+        protection = ('      A: android:permission(5)="android.permission.MANAGE_DOCUMENTS"\n'
+                      '      A: android:grantUriPermissions(6)=true\n')
+        discovery = ('      E: intent-filter (line=2)\n'
+                     '        E: action (line=3)\n'
+                     '          A: android:name(1)="android.content.action.DOCUMENTS_PROVIDER"\n')
+        doc = provider(document, authority, protection, discovery)
+        ctrl = provider(document + "$Control", authority + ".control")
+        tree = doc + ctrl
+        self.assertEqual(audit.audit_model_picker_test_manifest(tree)["document_authority"], authority)
+        variants = [doc, ctrl, tree + ctrl,
+                    tree.replace("MANAGE_DOCUMENTS", "INTERNET"),
+                    tree.replace('grantUriPermissions(6)=true', 'grantUriPermissions(6)=false'),
+                    tree.replace(':model_picker_provider', ':other'),
+                    tree.replace('android:exported(4)=true', 'android:exported(4)=false'),
+                    tree.replace(ctrl, provider(document + "$Control", authority + ".wrong")),
+                    tree.replace(ctrl, provider(document + "$Control", authority + ".control", protection)),
+                    tree.replace(protection, protection + '      A: android:readPermission(7)=""\n'),
+                    tree + provider("org.locallore.app.ExtraProvider", authority + ".extra")]
+        for candidate in variants:
+            with self.subTest(tree=candidate), self.assertRaises(audit.AuditError):
+                audit.audit_model_picker_test_manifest(candidate)
 
     def test_model_launcher_rejects_scripted_export_and_stale_or_extra_entry_points(self):
         setup = "org.locallore.app.LocalModelSetupActivity"
@@ -167,6 +220,16 @@ class ApkAuditTests(unittest.TestCase):
         for candidate_badging, candidate_tree in variants:
             with self.subTest(tree=candidate_tree), self.assertRaises(audit.AuditError):
                 audit.audit_model_launcher(candidate_badging, candidate_tree)
+
+        fixture = "org.locallore.app.ModelPickerFixtureActivity"
+        fixture_tree = tree + activity(fixture, "false")
+        self.assertEqual(audit.audit_model_launcher(badging, fixture_tree, model_picker=True)["launcher"], setup)
+        for candidate in (tree, fixture_tree.replace(activity(fixture, "false"), activity(fixture, "true")),
+                          fixture_tree.replace(activity(fixture, "false"), activity(fixture, "false", extra=filter_text))):
+            with self.subTest(tree=candidate), self.assertRaises(audit.AuditError):
+                audit.audit_model_launcher(badging, candidate, model_picker=True)
+        with self.assertRaises(audit.AuditError):
+            audit.audit_model_launcher(badging, fixture_tree)
 
     def candidate_archive(self, directory, *, omitted=None, altered=None):
         path = self.archive(directory)

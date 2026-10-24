@@ -41,11 +41,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.io.IOException
 
 /** Only the explicit SDK candidate has this launcher. Intent extras never select a model/profile. */
-class LocalModelSetupActivity : ComponentActivity() {
+open class LocalModelSetupActivity : ComponentActivity() {
     private lateinit var model: LocalModelSetupViewModel
     private val picker = registerForActivityResult(object : ActivityResultContracts.OpenDocument() {
         override fun createIntent(context: Context, input: Array<String>): Intent =
-            super.createIntent(context, input).putExtra(Intent.EXTRA_LOCAL_ONLY, true)
+            super.createIntent(context, input)
+                .addCategory(Intent.CATEGORY_OPENABLE)
+                .putExtra(Intent.EXTRA_LOCAL_ONLY, true)
     }) { uri ->
         if (::model.isInitialized) {
             if (uri == null) model.completePicker(null)
@@ -58,21 +60,36 @@ class LocalModelSetupActivity : ComponentActivity() {
         }
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+    /** The normal launcher always uses the fixed built-in profile. No Intent selects dependencies. */
+    internal open fun createSetupDependencies(): LocalModelSetupDependencies {
         val context = applicationContext
         // Resolve private storage only inside the controller's IO operations. An unavailable
         // directory/configuration is a fixed setup failure, never a raw exception on Main.
         val store by lazy { CandidateLocalModel.store(context) }
+        return LocalModelSetupDependencies(
+            identity = CandidateLocalModel.identity,
+            checkInstalled = { store.installed() != null },
+            install = { open -> store.import(open) },
+            canStart = CandidateLocalModel::canStart,
+            openPlay = {
+                startActivity(Intent(this, LiteRtPlayActivity::class.java))
+                finish()
+            },
+        )
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        val dependencies = createSetupDependencies()
         val factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 require(modelClass == LocalModelSetupViewModel::class.java)
                 return LocalModelSetupViewModel(
-                    checkInstalled = { store.installed() != null },
-                    install = { open -> store.import(open) },
-                    canStart = CandidateLocalModel::canStart,
+                    checkInstalled = dependencies.checkInstalled,
+                    install = dependencies.install,
+                    canStart = dependencies.canStart,
                 ) as T
             }
         }
@@ -96,10 +113,10 @@ class LocalModelSetupActivity : ComponentActivity() {
                             Text("Choose an existing local file. LocalLore checks its size and SHA-256, then keeps a copy in private app storage. Stories stay on this device during play.")
                             Text("The picker requests local storage; your file provider controls where its documents come from.",
                                 style = MaterialTheme.typography.bodySmall)
-                            Text("Expected model · ${CandidateLocalModel.identity.id}")
-                            Text("File size · ${CandidateLocalModel.identity.bytes} bytes. Additional space is required for the copy and runtime cache.",
+                            Text("Expected model · ${dependencies.identity.id}")
+                            Text("File size · ${dependencies.identity.bytes} bytes. Additional space is required for the copy and runtime cache.",
                                 style = MaterialTheme.typography.bodySmall)
-                            Text("SHA-256 · ${CandidateLocalModel.identity.sha256}",
+                            Text("SHA-256 · ${dependencies.identity.sha256}",
                                 style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("model-expected-hash"))
                             Text("This candidate has not qualified phone performance, narrative quality or active-model cleanup.",
                                 style = MaterialTheme.typography.bodySmall)
@@ -125,8 +142,7 @@ class LocalModelSetupActivity : ComponentActivity() {
                             Button(onClick = {
                                 if (model.beginPlay()) {
                                     try {
-                                        startActivity(Intent(this@LocalModelSetupActivity, LiteRtPlayActivity::class.java))
-                                        finish()
+                                        dependencies.openPlay()
                                     } catch (_: Exception) { model.playLaunchFailed() }
                                 }
                             }, enabled = state.ready, modifier = Modifier.fillMaxWidth().testTag("model-start")) {

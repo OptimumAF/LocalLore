@@ -177,18 +177,20 @@ export class AuthorController {
         const oldRoot = this.context?.rootIncarnation;
         const sameRoot = !!context && oldRoot === context.rootIncarnation;
         const pending = this.state.busy || this.state.uncertain;
+        const previousPreview = this.state.preview;
+        const previousWork = this.state.busy ? this.active : null;
         this.serial++;
-        this.invalidate();
-        if (
-            this.active?.id !== null &&
-            this.active?.id !== undefined &&
-            this.state.busy
-        )
-            void this.port.cancel(this.active.id).catch(() => {});
+        // Install the identity before synchronous presentation subscribers run.
+        // A nested selection change must never be overwritten by this callback.
         this.context = context;
         this.key = key;
         this.resultKey = "";
+        if (!sameRoot) this.active = null;
+        this.discard(previousPreview);
         this.patch({
+            authorConsent: false,
+            previewRead: false,
+            preview: null,
             available: authorAvailable(context),
             busy: false,
             operation: null,
@@ -203,7 +205,8 @@ export class AuthorController {
                     : "",
             ...(!sameRoot ? { draft: emptyDraft() } : {}),
         });
-        if (!sameRoot) this.active = null;
+        if (previousWork?.id !== null && previousWork?.id !== undefined)
+            void this.port.cancel(previousWork.id).catch(() => {});
     }
     setDraft(value: AuthorDraft) {
         if (this.disposed) return;
@@ -349,6 +352,8 @@ export class AuthorController {
         }
     }
     private async run(work: Work, start: () => Promise<unknown>) {
+        // startWork notifies synchronously; navigation may retire it before IPC.
+        if (!this.current(work)) return;
         try {
             const value = await start();
             await this.follow(work, value);

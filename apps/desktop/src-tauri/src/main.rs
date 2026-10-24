@@ -5,8 +5,10 @@ use std::sync::Arc;
 use tauri::Manager;
 mod archive;
 mod archive_commands;
-#[cfg(test)]
 mod author_commands;
+mod author_ipc;
+#[cfg(all(test, windows))]
+mod author_ipc_review;
 mod capture_exports;
 mod evaluation;
 mod evaluation_commands;
@@ -38,6 +40,7 @@ struct WorkspaceState {
     lease: Arc<WindowLease>,
     host: tokio::sync::OnceCell<Arc<Host>>,
     preview_cleanup: Arc<std::sync::Mutex<Value>>,
+    author: std::sync::Mutex<Option<author_ipc::AuthorOwner>>,
 }
 impl WorkspaceState {
     async fn get(&self, epoch: u64) -> Result<Arc<Host>, String> {
@@ -284,6 +287,10 @@ fn main() {
             capture_exports::capture_revoke,
             host_call,
             archive_commands::archive_catalog,
+            author_ipc::author_prepare_start,
+            author_ipc::author_commit_start,
+            author_ipc::author_lookup_start,
+            author_ipc::author_preview_discard,
             fork_commands::fork_start,
             fork_commands::fork_lookup,
             fork_harness::harness_fork_case,
@@ -335,6 +342,10 @@ fn main() {
         capture_exports::capture_revoke,
         host_call,
         archive_commands::archive_catalog,
+        author_ipc::author_prepare_start,
+        author_ipc::author_commit_start,
+        author_ipc::author_lookup_start,
+        author_ipc::author_preview_discard,
         fork_commands::fork_start,
         fork_commands::fork_lookup,
         memory_maintenance_commands::memory_maintenance_start,
@@ -427,6 +438,7 @@ fn main() {
                 lease: Arc::new(WindowLease::default()),
                 host: tokio::sync::OnceCell::new(),
                 preview_cleanup: Arc::new(std::sync::Mutex::new(json!({"pending":true}))),
+                author: std::sync::Mutex::new(None),
             });
             #[cfg(feature = "dev-harness")]
             if harness::active() {
@@ -451,6 +463,7 @@ fn main() {
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 let state = window.state::<WorkspaceState>();
                 if let Some(closed) = state.lease.invalidate(window.label()) {
+                    state.retire_author(closed - 1);
                     window
                         .state::<Arc<capture_exports::CaptureBroker>>()
                         .invalidate(closed - 1);

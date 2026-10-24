@@ -705,6 +705,27 @@ for (const kind of ["prepare", "commit"]) {
     release();
     c.dispose();
 }
+for (const kind of ["prepare", "commit"]) {
+    const { c, port } = fixture();
+    c.setAuthorConsent(true);
+    if (kind === "commit") {
+        await c.prepare();
+        c.setPreviewRead(true);
+    }
+    let changed = false;
+    const release = c.subscribe(() => {
+        if (!changed && !c.get().busy && c.get().preview === null) {
+            changed = true;
+            c.contextChanged({ ...context(), selectionEpoch: 2, session: "other-session" });
+        }
+    });
+    if (kind === "commit") await c.confirm(true);
+    else await c.prepare();
+    check(changed, `${kind} exercised preview-clear notification`);
+    check(!port.calls.some(call => call.kind === kind), `${kind} cannot bind old input/consent to the newly selected session`);
+    release();
+    c.dispose();
+}
 console.log(
     `${checks} synthetic author decoder/controller checks passed; no native or rendering execution.`,
 );

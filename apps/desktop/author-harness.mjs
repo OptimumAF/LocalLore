@@ -115,6 +115,50 @@ const sourceRevision = (
 const sourceDirty =
     (await git("git", ["status", "--porcelain"], { cwd: root })).stdout.trim()
         .length > 0;
+// Retain source identity even when a build or an actual native journey fails.
+// These are fixed application/shared inputs, never renderer-selected paths.
+const startInputSHA256 = Object.fromEntries(
+    await Promise.all(
+        [
+            "author-harness.mjs",
+            "ui/main.tsx",
+            "ui/author-native-journeys.ts",
+            "ui/author-controller.ts",
+            "ui/AuthorPanel.tsx",
+            "ui/broker-retention.ts",
+            "ui/v2-play-controller.ts",
+            "src-tauri/src/main.rs",
+            "src-tauri/src/author_ipc.rs",
+            "src-tauri/src/author_commands.rs",
+            "../../crates/locallore/src/inference.rs",
+            "../../Cargo.lock",
+        ].map(async (file) => [
+            file,
+            createHash("sha256")
+                .update(await readFile(path.join(root, file)))
+                .digest("hex"),
+        ]),
+    ),
+);
+await writeFile(
+    path.join(folder, "source-manifest.json"),
+    JSON.stringify(
+        {
+            version: 1,
+            synthetic: true,
+            qualification: "pending",
+            sourceRevision,
+            sourceDirty,
+            node: process.version,
+            backend: "native",
+            desktopControl: false,
+            inputSHA256: startInputSHA256,
+        },
+        null,
+        2,
+    ),
+    { flag: "wx" },
+);
 await run(process.execPath, ["build.mjs", "--harness"]);
 await run("cargo", [
     "build",
@@ -283,6 +327,7 @@ const inputs = [
     "../../crates/locallore/src/host.rs",
     "../../crates/locallore/src/host/author_port.rs",
     "../../crates/locallore/src/engine.rs",
+    "../../crates/locallore/src/inference.rs",
     "../../crates/locallore/src/author_correction.rs",
     "../../crates/locallore/src/inspection_query.rs",
     "../../crates/locallore/src/inspection_query_v2.rs",

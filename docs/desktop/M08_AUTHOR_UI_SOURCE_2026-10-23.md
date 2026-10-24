@@ -104,3 +104,11 @@ initially UNRUN here. No Node/Cargo/Gradle/SQLite/app/model/browser/device/ADB/C
 desktop/protected-resource execution. Root owns actual standalone checker,
 strict type/format/build checks, global retention/native wrapper/teardown closure,
 coherent application wiring, semantic/native render harness and final acceptance.
+
+Pre-production source review additionally freezes three asynchronous boundaries:
+a known committed cancellation response cannot be demoted by an older failed
+status read; status inspection cannot rebind a stale private prepare to a new
+context; cancel before a prepare start acknowledgment must discard a later
+successful preview. These are independent synthetic oracles, UNRUN, not observed
+native/behavioral failures. Production uses private per-operation completion and
+cancellation latches, not a second native operation owner.

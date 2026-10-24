@@ -84,4 +84,13 @@ for(const field of ["head","selectionEpoch","session","observer","rootIncarnatio
 {
  const {c,port}=fixture();c.setAuthorConsent(true);await c.prepare();c.setPreviewRead(true);port.starts.push(()=>Promise.reject(Error("PRIVATE_MODEL_TEXT")));await c.confirm(true);check(c.get().error==="Wire","private/unknown errors not logged or shown");c.contextChanged({...context(),rootIncarnation:"root-2"});check(c.get().input===null,"new root drops old private recovery input");await c.lookup();check(!port.calls.some(v=>v.kind==="lookup"),"foreign root cannot recover old input");c.dispose();
 }
+{
+ const {c,port}=fixture(),gate=deferred();c.setAuthorConsent(true);await c.prepare();c.setPreviewRead(true);port.starts.push(()=>Promise.resolve(pending(9)));port.statuses.push(()=>gate.promise);const work=c.confirm(true);await Promise.resolve();await Promise.resolve();port.cancelReply=complete(9,{version:1,kind:"author_commit",session:"session-1",outcome:outcome()});await c.cancel();gate.reject(Error("Transport"));await work;check(c.get().status==="complete"&&!c.get().uncertain,"known committed cancellation reply survives an older failed status request");c.dispose();
+}
+{
+ const {c,port}=fixture();port.starts.push(()=>Promise.resolve(pending(11,"author_preparing")));port.statuses.push(()=>Promise.reject(Error("Transport")));c.setAuthorConsent(true);await c.prepare();c.contextChanged({...context(),head:4,selectionEpoch:2});port.statuses.push(()=>Promise.resolve(complete(11,preview())));await c.inspectOperation();check(c.get().preview===null,"inspection cannot rebind old private prepare to a new context");c.dispose();
+}
+{
+ const {c,port}=fixture(),gate=deferred();port.starts.push(()=>gate.promise);c.setAuthorConsent(true);const work=c.prepare();await Promise.resolve();await c.cancel();gate.resolve(complete(12,preview()));await work;check(c.get().preview===null,"cancel before start acknowledgment discards late private preview");check(port.discards.length===1,"cancelled prepare cap retired explicitly");c.dispose();
+}
 console.log(`${checks} synthetic author decoder/controller checks passed; no native or rendering execution.`);

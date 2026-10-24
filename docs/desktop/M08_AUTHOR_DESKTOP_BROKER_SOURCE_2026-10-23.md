@@ -79,16 +79,23 @@ epoch/Weak lifetime/TTL and prunes expired/inaccessible caps. Future application
 teardown must wire retire before exposure; no such existing lifecycle code is
 changed in this packet.
 
-Proposed simple consumption decision (sent to Root for confirmation): a valid,
+Root-approved simple consumption decision: a valid,
 fully bound second-consent commit attempt removes its cap **before** starting the
 worker, including ArchiveBusy/spawn refusal. A retry after that refusal requires
 a new preview; it never reconstructs a capability or writes on retry. This avoids
 stranding a cap when ArchiveBroker's pre-closure cancellation check prevents the
 closure from running. No ArchiveBroker helper change is required. Cross-owner
-attempts cannot destroy a foreign capability. A matched-owner full-input/session/
-digest mismatch retires the token and reports AuthorPreviewMismatch. Missing/
+attempts cannot destroy a foreign capability. Full-input/session/digest mismatch
+reports AuthorPreviewMismatch **before consumption** and preserves the capability.
+This explicitly supersedes the initial proposal's mismatch-retirement behavior;
+the frozen tests are updated before production under Root's decision. Missing/
 expired/consumed token reports UnknownAuthorPreview. Consent/shape refusal occurs
-before capability consumption. This choice is not yet implementation acceptance.
+before capability consumption. A bounded native-only
+`discard_preview(&Arc<Host>, &Arc<WindowLease>, epoch, session, token) ->
+Result<bool,String>` checks the same owner/window/session/token fences and removes
+an unused matching cap (false when absent), freeing the four-cap limit without a
+ten-minute wait. No Tauri discard command is registered. This design decision is
+not runtime implementation acceptance.
 
 Latest-operation status recovers a lost start/result acknowledgment only until a
 later operation replaces that terminal slot. After consumption, explicit new

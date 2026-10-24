@@ -331,7 +331,7 @@ fn actual_commit_lost_ack_status_and_exact_lookup_preserve_original_and_old_know
 }
 
 #[test]
-fn second_consent_and_exact_session_input_digest_are_required_and_mismatch_retires() {
+fn second_consent_and_exact_session_input_digest_are_required_before_consumption() {
     let f = Fixture::new(true);
     for variant in ["session", "input", "digest"] {
         let input = f.input(variant);
@@ -348,8 +348,47 @@ fn second_consent_and_exact_session_input_digest_are_required_and_mismatch_retir
             _ => value["preview_sha256"] = json!("a".repeat(64)),
         };
         err(f.commit_start(&value.to_string()), "AuthorPreviewMismatch");
-        err(f.commit_start(&raw), "UnknownAuthorPreview");
         f.missing(&input);
+        assert_eq!(
+            f.result(f.commit_start(&raw).unwrap())["outcome"]["created"],
+            true
+        );
+    }
+}
+
+#[test]
+fn bounded_native_discard_checks_owner_session_token_and_frees_unused_preview() {
+    let f = Fixture::new(true);
+    let input = f.input("discard");
+    let preview = f.preview(input.clone());
+    let token = preview["preview_token"].as_str().unwrap();
+    err(
+        f.manager
+            .discard_preview(&f.host, &f.lease, f.epoch, "different-session", token),
+        "AuthorPreviewMismatch",
+    );
+    let foreign =
+        Arc::new(locallore_workspace::open(&f.root.join("synthetic.sqlite"), true).unwrap());
+    err(
+        f.manager
+            .discard_preview(&foreign, &f.lease, f.epoch, &f.session, token),
+        "Integrity",
+    );
+    assert!(f
+        .manager
+        .discard_preview(&f.host, &f.lease, f.epoch, &f.session, token)
+        .unwrap());
+    assert!(!f
+        .manager
+        .discard_preview(&f.host, &f.lease, f.epoch, &f.session, token)
+        .unwrap());
+    err(
+        f.commit_start(&f.commit_raw(input.clone(), &preview)),
+        "UnknownAuthorPreview",
+    );
+    f.missing(&input);
+    for n in 0..4 {
+        f.preview(f.input(&format!("after-discard-{n}")));
     }
 }
 

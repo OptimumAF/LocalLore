@@ -41,8 +41,8 @@ PROPOSAL_KEYS = frozenset(("version", "scope", "source_commit", "source_final", 
     "allow_device_calls", "root_go_pending", "selected_alias", "environment_proposal_path", "running_path",
     "running_sha256", "adb_path", "apk_paths", "apk_sha256", "bindings", "evidence_root"))
 REQUEST = b"receipt-setup-qualification-v1\n"
-OUTER_SECONDS = 360
-AGGREGATE_SECONDS = 345
+OUTER_SECONDS = 180
+AGGREGATE_SECONDS = 165
 BOOT_SECONDS = 60
 AVD_NAME = ("emu", "avd", "name")
 sha, write_json, normalized = contract.sha, contract.write_json, contract.normalized

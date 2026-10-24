@@ -56,7 +56,7 @@ uninstall, arbitrary shell, model transfer, old-root cleanup or AVD lifecycle
 command is exposed. Final facts require the same APK hashes/UIDs/volume and
 quiet owned processes. Real candidate roots must remain absent throughout.
 
-The outer owned worker has a 360-second budget; its cohort has 345 seconds,
+The outer owned worker has a 180-second budget; its cohort has 165 seconds,
 boot at most 60, initial instrumentation at most 120, restart at most 60,
 installs at most 35 each, other clients at most 15. All client budgets are also
 capped by remaining cohort time. Raw bounded stdout is forced before parsing;

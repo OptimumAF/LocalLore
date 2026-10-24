@@ -404,6 +404,10 @@ class ProcessBoundary:
 
 
 class Owner:
+    # Trusted subclasses may define a separate fixed experiment. No proposal,
+    # class name or command argument can alter this ordinary cohort's choices.
+    instrumentation_steps = ((INITIAL_INSTRUMENT, "instrumentation", 0), (RESTART_INSTRUMENT, "restart", 1))
+
     def __init__(self, proposal, lease):
         self.proposal, self.lease = proposal, lease
         # Capture the admitted identity once; never accept a later replacement.
@@ -455,9 +459,8 @@ class Owner:
                 assert self.stage in ("before", "installed", "after", "final")
             elif op in (PROOF_ABSENT, contract.INTERNAL_CANDIDATE_ABSENT):
                 assert self.stage == "installed"
-            elif op in (INITIAL_INSTRUMENT, RESTART_INSTRUMENT):
-                assert (op == INITIAL_INSTRUMENT and self.stage == "instrumentation" and self.methods == 0 or
-                        op == RESTART_INSTRUMENT and self.stage == "restart" and self.methods == 1)
+            elif op in tuple(step[0] for step in self.instrumentation_steps):
+                assert (op, self.stage, self.methods) in self.instrumentation_steps
                 self.methods += 1
             elif op == PROOF_MANIFEST:
                 assert self.stage == "proofs" and self.pending_read is None

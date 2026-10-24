@@ -22,6 +22,7 @@ RECEIPT_SETUP_CLASSES = (
     "ReceiptSetupFixtureActivity", *RECEIPT_SETUP_ACTIVITIES,
     "ReceiptSetupFailureTrace", "ReceiptSetupFailureSnapshot", "ReceiptSetupSourceProgress",
     "ReceiptSetupFailureCase", "ReceiptSetupFailureEvent", "ReceiptSetupFailureCode",
+    "ReceiptSetupFailureReporter",
 )
 # Exact candidate SDK; ordinary APKs must never contain these entries.
 LITERT_NATIVE_HASHES = {
@@ -102,7 +103,8 @@ def audit_zip(path, *, litert=False, model_picker=False, model_volume=False, mod
                 if name.encode("ascii") in contents:
                     receipt_setup_present.add(name)
             require(all(name not in contents for name in
-                        (b"ReceiptSetupQualificationTest", b"ReceiptSetupRestartTest", b"ReceiptSetupFailureTraceTest")),
+                        (b"ReceiptSetupQualificationTest", b"ReceiptSetupRestartTest", b"ReceiptSetupFailureTraceTest",
+                         b"ReceiptSetupFailureTransportTest")),
                     "Receipt setup test packaged in app")
             require(b"ModelPickerDocumentsProvider" not in contents, "Test provider packaged in app")
             require(b"ModelPickerInterruptionTest" not in contents, "Interruption test packaged in app")

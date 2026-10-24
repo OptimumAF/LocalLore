@@ -29,6 +29,7 @@ import java.nio.file.StandardOpenOption.CREATE_NEW
 import java.nio.file.StandardOpenOption.WRITE
 import java.security.MessageDigest
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -53,12 +54,18 @@ class ModelPickerActivityTest {
     private var run: String? = null
     private var pickerRequested = false
     private var priorAccessibilityFlags: Int? = null
-    private val launches = CopyOnWriteArrayList<Boolean>()
+    private data class PickerRequest(val wildcard: Boolean, val openable: Boolean,
+        val localOnly: Boolean, val expectedMimeTypes: Boolean)
+    private val launchCount = AtomicInteger()
+    private val launches = CopyOnWriteArrayList<PickerRequest>()
     private val monitor = object : Instrumentation.ActivityMonitor() {
         override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult? {
             if (intent.action == Intent.ACTION_OPEN_DOCUMENT) {
-                launches.add(intent.type == "*/*" && intent.hasCategory(Intent.CATEGORY_OPENABLE) &&
-                    intent.getBooleanExtra(Intent.EXTRA_LOCAL_ONLY, false))
+                if (launchCount.incrementAndGet() <= 16) {
+                    launches.add(PickerRequest(intent.type == "*/*", intent.hasCategory(Intent.CATEGORY_OPENABLE),
+                        intent.getBooleanExtra(Intent.EXTRA_LOCAL_ONLY, false),
+                        intent.getStringArrayExtra(Intent.EXTRA_MIME_TYPES)?.contentEquals(arrayOf("*/*")) == true))
+                }
             }
             return null // Passive observation: actual system activity and result delivery proceed.
         }
@@ -191,7 +198,8 @@ class ModelPickerActivityTest {
         beginActivity()
         awaitPhase(LocalModelSetupPhase.READY); verifiedCopy(root)
         verify(stats().getInt("attempts") == 2, "Recreation and fresh Activity must rehash private copy without provider reopen")
-        verify(launches.size == 6 && launches.all { it }, "Every actual picker launch must request local-only OPEN_DOCUMENT with openable wildcard type")
+        verify(launchCount.get() == 6 && launches.size == 6,
+            "Expected exactly six actual OPEN_DOCUMENT launches; observed=${launchCount.get().coerceIn(0, 17)} recorded=${launches.size}")
         // Private proof only. The external controller must verify process exit before selecting readback.
         io {
             val proof = JSONObject().put("version", 1).put("pid", Process.myPid())
@@ -216,7 +224,7 @@ class ModelPickerActivityTest {
         }
         beginActivity(); awaitPhase(LocalModelSetupPhase.READY); verifiedCopy(root)
         compose.onNodeWithTag("model-start").performScrollTo().assertIsEnabled()
-        verify(launches.isEmpty(), "Process readback must not launch the picker")
+        verify(launchCount.get() == 0, "Process readback must not launch the picker")
         noPersistedGrant()
     }
 
@@ -253,9 +261,23 @@ class ModelPickerActivityTest {
         } finally { instrumentation.runOnMainSync { lifecycle.removeLifecycleCallback(callback) } }
     }
     private fun requestPicker() {
+        val before = launchCount.get()
         pickerRequested = true
         compose.onNodeWithTag("model-choose").performScrollTo().performClick()
         awaitPackage { it in documents }
+        val deadline = SystemClock.elapsedRealtime() + 5_000
+        while ((launchCount.get() <= before || launches.size <= before) && SystemClock.elapsedRealtime() < deadline) Thread.yield()
+        val observed = launchCount.get()
+        verify(observed == before + 1 && before in 0..5,
+            "Each picker request must have one actual OPEN_DOCUMENT observation; before=${before.coerceIn(0, 17)} after=${observed.coerceIn(0, 17)}")
+        val request = launches.getOrNull(before)
+        verify(request != null, "Actual picker request must retain its bounded flag observation; ordinal=${before + 1}")
+        requireNotNull(request).let {
+            verify(it.wildcard, "Actual picker type must be wildcard; ordinal=${before + 1} wildcard=${it.wildcard}")
+            verify(it.localOnly, "Actual picker must request local-only files; ordinal=${before + 1} localOnly=${it.localOnly}")
+            verify(it.openable, "Actual picker must request openable documents; ordinal=${before + 1} openable=${it.openable}")
+            verify(it.expectedMimeTypes, "Actual picker MIME filter must be one wildcard; ordinal=${before + 1} expectedMimeTypes=${it.expectedMimeTypes}")
+        }
     }
     private fun select(kind: String, title: String) {
         requestPicker()

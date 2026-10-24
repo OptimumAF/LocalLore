@@ -91,7 +91,8 @@ export function checkedAuthorContext(v: unknown): AuthorContext {
     bounded(v, 4096); object(v, ["rootIncarnation", "selectionEpoch", "session", "scope", "head", "player", "observer", "view", "persistent", "spoilerGranted", "pending", "brokerUncertain"]);
     scope(v.scope);
     if (!id(v.rootIncarnation,128) || !id(v.session,128) || !number(v.selectionEpoch) || !number(v.head) || !id(v.player) || !id(v.observer) || !["play","lab"].includes(String(v.view)) || [v.persistent,v.spoilerGranted,v.pending,v.brokerUncertain].some(x=>typeof x!=="boolean")) wire();
-    return copy(v as unknown as AuthorContext);
+    const c=v as unknown as AuthorContext;
+    return copy<AuthorContext>({rootIncarnation:c.rootIncarnation,selectionEpoch:c.selectionEpoch,session:c.session,scope:scope(c.scope),head:c.head,player:c.player,observer:c.observer,view:c.view,persistent:c.persistent,spoilerGranted:c.spoilerGranted,pending:c.pending,brokerUncertain:c.brokerUncertain});
 }
 export function authorAvailable(c: AuthorContext | null): boolean { return !!c && c.persistent && c.view === "lab" && c.spoilerGranted && c.observer === "omniscient" && !c.pending && !c.brokerUncertain; }
 export function authorRequest(c: AuthorContext, d: AuthorDraft): AuthorInput { return checkedAuthorInput({ version: 1, parent: c.scope, expected_parent_revision: c.head, fork_revision: d.fork_revision, child_branch: d.child_branch, operation: { op: "replace_fact_proposition", fact: d.fact, expected_proposition: d.expected_proposition, replacement: d.replacement }, reason: d.reason }); }
@@ -114,7 +115,8 @@ function uniquePreview(raw: string): unknown {
     try {value(0);space();if(i!==raw.length)wire();return JSON.parse(raw);} catch {return wire();}
 }
 export async function checkedAuthorPreview(v: unknown, input: AuthorInput, session: string): Promise<AuthorPreview> {
-    bounded(v); object(v,["version","kind","session","preview_token","preview_sha256","preview_json","expires_seconds"]);
+    bounded(v); v=copy(v);input=checkedAuthorInput(input);
+    object(v,["version","kind","session","preview_token","preview_sha256","preview_json","expires_seconds"]);
     if(v.version!==1||v.kind!=="author_preview"||v.session!==session||!token(v.preview_token)||typeof v.preview_sha256!=="string"||! /^[a-f0-9]{64}$/.test(v.preview_sha256)||v.expires_seconds!==600)wire();
     text(v.preview_json,65536);
     const digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",encoder.encode(v.preview_json)))).map(x=>x.toString(16).padStart(2,"0")).join("");if(digest!==v.preview_sha256)wire();

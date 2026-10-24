@@ -2011,9 +2011,10 @@ export class Controller {
     }
     semantic() {
         const s = this.state,
-            session = this.selected();
+            session = this.selected(),
+            play = s.play ?? s.playV2;
         return {
-            version: 1,
+            version: s.playV2 ? 2 : 1,
             query: s.query,
             trace: s.trace,
             model: s.model,
@@ -2023,7 +2024,7 @@ export class Controller {
             workspace: s.workspace,
             ephemeral: s.ephemeral,
             synthetic: true,
-            uiRevision: s.play?.revision ?? 0,
+            uiRevision: play?.revision ?? 0,
             view: s.view,
             session,
             observer: s.view === "play" ? "player" : s.observer,
@@ -2039,10 +2040,12 @@ export class Controller {
                           observer: s.inspectionObserver,
                           data: s.inspection,
                       },
-            rules: s.play?.rules ?? null,
-            player: s.play?.player ?? null,
-            inventory: s.play?.inventory ?? null,
-            transcript: {
+            rules: play?.rules ?? null,
+            player: play?.player ?? null,
+            inventory: play?.inventory ?? null,
+            transcript: s.playV2 ? {
+                source: "query2", status: "owned_by_scoped_controller",
+            } : {
                 page: s.page,
                 total: s.play?.receipts.length ?? 0,
                 rows:

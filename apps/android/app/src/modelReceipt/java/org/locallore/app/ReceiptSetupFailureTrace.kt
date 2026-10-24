@@ -112,3 +112,27 @@ internal class ReceiptSetupFailureSnapshot(
         return value
     }
 }
+
+/** Diagnostic work cannot replace, wrap or suppress the original operation failure. */
+internal object ReceiptSetupFailureReporter {
+    fun <T> run(
+        claim: () -> Boolean,
+        snapshot: () -> ReceiptSetupFailureSnapshot,
+        send: (Int, String, String) -> Unit,
+        block: () -> T,
+    ): T {
+        try {
+            return block()
+        } catch (original: Throwable) {
+            try {
+                if (claim()) {
+                    val json = snapshot().json()
+                    send(ReceiptSetupFailureTrace.STATUS_CODE, ReceiptSetupFailureTrace.STATUS_KEY, json)
+                }
+            } catch (_: Throwable) {
+                // An attempted diagnostic may fail; the operation remains the same failure.
+            }
+            throw original
+        }
+    }
+}

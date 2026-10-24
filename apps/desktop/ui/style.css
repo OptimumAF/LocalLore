@@ -1143,6 +1143,14 @@ summary {
 .broker-retention input[type="checkbox"] {
     width: auto;
 }
+.broker-retention > label {
+    display: block;
+    margin-bottom: 0.75rem;
+}
+.broker-retention > button {
+    display: block;
+    max-width: 100%;
+}
 @media (max-width: 700px) {
     .author-panel dl,
     .v2-play dl {

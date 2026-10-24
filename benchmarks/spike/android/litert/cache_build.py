@@ -22,6 +22,8 @@ import audit_apk
 
 PACKAGE = "org.locallore.runtimebench.litert.cacheprobe"
 INSTRUMENTATION = "org.locallore.runtimebench.litert.CacheProbeInstrumentation"
+PHASE_PACKAGE = "org.locallore.runtimebench.litert.phaseprobe"
+PHASE_INSTRUMENTATION = "org.locallore.runtimebench.litert.PhaseEvidenceInstrumentation"
 OWNER = b"locallore-explicit-cache-build-v1\n"
 GIB = 1024 ** 3
 
@@ -63,8 +65,10 @@ def capacity(output, disk_usage=shutil.disk_usage):
         raise ValueError("host_output_capacity_blocked")
 
 
-def gradle_command(java21, output):
-    return [build.check.java_executable(), "-Dorg.gradle.java.installations.paths=" + str(java21),
+def gradle_command(java21, output, phase_probe=False):
+    if type(phase_probe) is not bool:
+        raise ValueError("invalid_profile")
+    command = [build.check.java_executable(), "-Dorg.gradle.java.installations.paths=" + str(java21),
         "-Djava.io.tmpdir=" + str(output / "temp"), "-classpath",
         str(build.ROOT / "apps/android/gradle/wrapper/gradle-wrapper.jar"), "org.gradle.wrapper.GradleWrapperMain",
         ":app:assembleDebug", ":app:testDebugUnitTest", ":app:lintDebug", ":app:auditLintAnalyzer",
@@ -73,10 +77,16 @@ def gradle_command(java21, output):
         "-PlocalLoreCacheProbe=true", "-PlocalLorePlayProbe=false",
         "-PlocalLoreCacheOutput=" + str(output / "app-build"),
         "-PlocalLoreCacheNativeDir=" + str(output / "native/jniLibs")]
+    command.append("-PlocalLorePhaseProbe=" + str(phase_probe).lower())
+    return command
 
 
-def manifest_audit(permissions, tree):
-    if permissions.strip() != "package: " + PACKAGE:
+def manifest_audit(permissions, tree, phase_probe=False):
+    if type(phase_probe) is not bool:
+        raise ValueError("invalid_profile")
+    package = PHASE_PACKAGE if phase_probe else PACKAGE
+    instrumentation = PHASE_INSTRUMENTATION if phase_probe else INSTRUMENTATION
+    if permissions.strip() != "package: " + package:
         raise ValueError("unexpected_permissions_or_package")
     blocks = []
     lines = tree.splitlines()
@@ -90,11 +100,13 @@ def manifest_audit(permissions, tree):
                 break
             block.append(following)
         blocks.append("\n".join(block))
-    if len(blocks) != 1 or not re.search(r':name\([^)]*\)="' + re.escape(INSTRUMENTATION) + '"', blocks[0]) or not re.search(
-            r':targetPackage\([^)]*\)="' + re.escape(PACKAGE) + '"', blocks[0]):
+    if len(blocks) != 1 or not re.search(r':name\([^)]*\)="' + re.escape(instrumentation) + '"', blocks[0]) or not re.search(
+            r':targetPackage\([^)]*\)="' + re.escape(package) + '"', blocks[0]):
         raise ValueError("unexpected_instrumentation")
     if re.search(r"E: uses-permission|E: permission \(", tree):
         raise ValueError("unexpected_permission_declaration")
+    if phase_probe and re.search(r"E: (?:provider|service|receiver|activity|activity-alias) \(", tree):
+        raise ValueError("unexpected_phase_component")
 
 
 def native_archive_audit(apk):
@@ -168,7 +180,7 @@ def owned_stage():
     return subprocess.run(plan["command"], cwd=plan["cwd"], env=env, stderr=subprocess.STDOUT).returncode
 
 
-def execute(java21, output, sdk):
+def execute(java21, output, sdk, phase_probe=False):
     build.check.verify_wrapper(build.ROOT)
     temp = {"TEMP": str(output / "temp"), "TMP": str(output / "temp"), "TMPDIR": str(output / "temp")}
     source_commit = stage(output, "source-revision", ["git", "rev-parse", "HEAD"], build.ROOT, temp).strip()
@@ -192,10 +204,10 @@ def execute(java21, output, sdk):
         exports_audit(stage(output, "exports-" + abi, [str(llvm / "bin/llvm-nm.exe"), "-D", "--defined-only", str(source)], build.ROOT, temp))
         destination = output / "native/jniLibs" / abi / source.name
         destination.parent.mkdir(parents=True); shutil.copyfile(source, destination)
-    return qualify_java(java21, output, sdk, source_commit)
+    return qualify_java(java21, output, sdk, source_commit, phase_probe)
 
 
-def qualify_java(java21, output, sdk, source_commit):
+def qualify_java(java21, output, sdk, source_commit, phase_probe=False):
     """Qualify fresh Java output with an already staged, separately audited native pair.
 
     The normal CLI always builds that pair immediately above. A coordinator may
@@ -203,7 +215,7 @@ def qualify_java(java21, output, sdk, source_commit):
     byte-identical copied ABI provenance; it does not locate or adopt old output.
     """
     temp = {"TEMP": str(output / "temp"), "TMP": str(output / "temp"), "TMPDIR": str(output / "temp")}
-    log = stage(output, "gradle", gradle_command(java21, output), build.PROJECT, temp)
+    log = stage(output, "gradle", gradle_command(java21, output, phase_probe), build.PROJECT, temp)
     if build.analysis_failed(log):
         raise ValueError("analyzer_infrastructure_failed")
     build.dependency_audit(); analyzer_audit(output)
@@ -211,11 +223,12 @@ def qualify_java(java21, output, sdk, source_commit):
     tools = sdk / "build-tools/35.0.0"
     permissions = stage(output, "permissions", [str(tools / "aapt2.exe"), "dump", "permissions", str(apk)], build.PROJECT)
     tree = stage(output, "manifest", [str(tools / "aapt2.exe"), "dump", "xmltree", str(apk), "--file", "AndroidManifest.xml"], build.PROJECT)
-    manifest_audit(permissions, tree)
+    manifest_audit(permissions, tree, phase_probe)
     libraries = native_archive_audit(apk)
     stage(output, "zipalign", [str(tools / "zipalign.exe"), "-c", "-P", "16", "4", str(apk)], build.PROJECT)
-    frozen = output / "verified/cacheprobe-debug.apk"; shutil.copyfile(apk, frozen)
-    report = {"version": 1, "status": "passed", "package": PACKAGE, "instrumentation": INSTRUMENTATION,
+    frozen = output / ("verified/phaseprobe-debug.apk" if phase_probe else "verified/cacheprobe-debug.apk"); shutil.copyfile(apk, frozen)
+    report = {"version": 1, "status": "passed", "package": PHASE_PACKAGE if phase_probe else PACKAGE,
+              "instrumentation": PHASE_INSTRUMENTATION if phase_probe else INSTRUMENTATION,
               "source_commit": source_commit,
               "apk_sha256": hashlib.sha256(frozen.read_bytes()).hexdigest(), "libraries": libraries,
               "permissions": [], "device_execution": False, "model_execution": False}
@@ -229,11 +242,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--java21", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True, help="Fresh D directory; parent must exist")
+    parser.add_argument("--phase-probe", action="store_true", help="Separate no-model phase-evidence package/runner")
     args = parser.parse_args()
     try:
         capacity(args.output)
         output = fresh_output(args.output)
-        report = execute(args.java21.resolve(), output, Path(os.environ.get("ANDROID_HOME", "")).resolve())
+        report = execute(args.java21.resolve(), output, Path(os.environ.get("ANDROID_HOME", "")).resolve(), args.phase_probe)
         print(json.dumps(report, sort_keys=True))
         return 0
     except (OSError, ValueError, KeyError, ET.ParseError, zipfile.BadZipFile):

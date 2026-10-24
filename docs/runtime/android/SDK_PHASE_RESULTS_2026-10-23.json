@@ -1,0 +1,224 @@
+{
+  "version": 1,
+  "date": "2026-10-23",
+  "task_ids": [
+    "M01.03",
+    "M01.05"
+  ],
+  "status": "in_review_partial",
+  "base_pr": 113,
+  "base_commit": "ca25da5fea7473ec9d61653526da51c096dfbb25",
+  "final_Java_source": "04326712278eaa0a91073511085c0c97b7375123",
+  "final_Python_source": "b27e59ff8863e63bf0bee4346c261c0164094a0b",
+  "journal": {
+    "version": 1,
+    "max_rows": 96,
+    "max_bytes": 65536,
+    "exact_fields": 12,
+    "forced_before_return": true,
+    "fixed_vocabulary": true,
+    "raw_private": true,
+    "canonical_authority": false,
+    "power_loss_guarantee": false
+  },
+  "artifact": {
+    "package": "org.locallore.runtimebench.litert.phaseprobe",
+    "bytes": 63666944,
+    "sha256": "df2b2552fd0ee2de202d19ab5381bf253674f32d4e2ed5b4b2c99a19ae4b3dda",
+    "permissions": [],
+    "packaged_native_libraries_identical_to_prior_qualified_APK": true,
+    "new_native_build": false
+  },
+  "checks": {
+    "script_tests": 321,
+    "benchmark_tests": 140,
+    "sdk_helper_tests": 34,
+    "jvm_tests": 96,
+    "jvm_failures": 0,
+    "jvm_errors": 0,
+    "jvm_skipped": 0,
+    "lint_errors": 0,
+    "lint_warnings": 9,
+    "decoder_methods_in_scripts": 16,
+    "storage_methods_in_scripts": 8,
+    "author_focused_JVM_tests": 27,
+    "author_focused_tests_overlap_final_JVM": true,
+    "fake_max_spent_trace_rows": 92,
+    "mandatory_cleanup_and_post_commit_uncertainty_tested": true
+  },
+  "retained_attempts": {
+    "initial_helper_C_temp_error": true,
+    "author_JVM_quote_failure": true,
+    "author_wrong_size_assertion_failure": true,
+    "Android_build_1_test_API_compile_failed": true,
+    "Android_build_2_qualified_superseded_before_install": true,
+    "Android_build_3_final_qualified": true,
+    "first_device_setup": {
+      "commands": 229,
+      "elapsed_ms": 21031,
+      "child_returncode": 2,
+      "all_commands_completed_clean": true,
+      "installed": false,
+      "session_created": false,
+      "crash_or_read_invoked": false,
+      "failure": "df display alias parser rejected /data/user/0",
+      "cleanup_failure": "same parser prevented final storage and inventory checks",
+      "old_APK_and_protected_metadata_postchecks_passed": true,
+      "expected_absence_exit_ones": 2,
+      "raw_available_bytes": 1738440704,
+      "capacity_refusal_established": false
+    },
+    "corrected_private_host_test_namespace_error_before_device": true
+  },
+  "corrected_device": {
+    "commands": 322,
+    "elapsed_ms": 33125,
+    "child_returncode": 0,
+    "all_commands_completed_clean": true,
+    "expected_absence_exit_ones": 7,
+    "crash_invocations": 1,
+    "read_invocations": 1,
+    "crash_terminal": {
+      "bytes": 76,
+      "sha256": "f3ca40e0a3bf20eaf9ab861db129a85ecafc52160588fc2089c7bb0239bc1d94"
+    },
+    "read_terminal": {
+      "bytes": 396,
+      "sha256": "6d8e8596bad8e4e5e17a2077dd5dfcdedbbf47ba93583d9b22aac8d92b00d115"
+    },
+    "result": {
+      "version": 1,
+      "status": "completed",
+      "error": "none",
+      "model_execution": false,
+      "journal_valid": true,
+      "checkpoint_count": 2,
+      "last_phase": "probe_kill",
+      "last_role": "none",
+      "fresh_reader_process": true,
+      "exit_history_available": true,
+      "exit_records_examined": 1,
+      "exit_instance_matches": 1,
+      "exit_instance_matched": true,
+      "exit_reason": 2,
+      "exit_status": 9
+    },
+    "journal_verified": true,
+    "control_passed": true,
+    "process_absent_after_crash_and_at_close": true,
+    "model_execution": false,
+    "old_APK_counts": {
+      "A": 21,
+      "B": 22
+    },
+    "final_APK_counts": {
+      "A": 21,
+      "B": 23
+    },
+    "original_APK_maps_and_model_cache_metadata_preserved": true,
+    "inventory": {
+      "emulators": 4,
+      "other_devices": 0,
+      "selected_ready": true
+    },
+    "installation_before": {
+      "version": 1,
+      "host_free_bytes": 8147210240,
+      "evidence_free_bytes": 326255566848,
+      "userdata_free_bytes": 1738395648,
+      "storage_facts_valid": true,
+      "df_sha256": "6c0c9c5de4d72c44aa90b00c83cebcbce2fd54689de210f08a5690209a6ef743",
+      "stat_sha256": "5311e98c9c77555d622a166b2fa9fe7de2aecf7dd77fad2ac14246e56e4b1e73"
+    },
+    "installation_after": {
+      "version": 1,
+      "host_free_bytes": 8142946304,
+      "evidence_free_bytes": 326255558656,
+      "userdata_free_bytes": 1674670080,
+      "storage_facts_valid": true,
+      "df_sha256": "b679a9e213cba0a6d625895cfda63fb73c8e20a1f1338f835c4207cc1bd9ef92",
+      "stat_sha256": "5311e98c9c77555d622a166b2fa9fe7de2aecf7dd77fad2ac14246e56e4b1e73"
+    },
+    "control_before": {
+      "version": 1,
+      "host_free_bytes": 8142774272,
+      "evidence_free_bytes": 326278406144,
+      "userdata_free_bytes": 1674485760,
+      "storage_facts_valid": true,
+      "df_sha256": "2ba3c6956b9023ffecfcb78f03d0edacc714a3854b174bc32eb1e9a4f60347c6",
+      "stat_sha256": "5311e98c9c77555d622a166b2fa9fe7de2aecf7dd77fad2ac14246e56e4b1e73"
+    },
+    "control_after": {
+      "version": 1,
+      "host_free_bytes": 8133230592,
+      "evidence_free_bytes": 326254399488,
+      "userdata_free_bytes": 1674469376,
+      "storage_facts_valid": true,
+      "df_sha256": "f128a48826cdf9edaa55ac2a686be763d015920b2699a92f3a9d9fc96382043a",
+      "stat_sha256": "5311e98c9c77555d622a166b2fa9fe7de2aecf7dd77fad2ac14246e56e4b1e73"
+    },
+    "phone_performance_measurement": false
+  },
+  "total_recorded_device_commands": 551,
+  "unchanged_boundaries": {
+    "SDK_or_inference_calls_this_packet": 0,
+    "model_content_reads_or_copies": 0,
+    "SQLite_operations": 0,
+    "recovered_failed_turn_mutations": 0,
+    "original_SDK_crash_cause": "unknown",
+    "original_SDK_guarded_schema_compatibility": "unqualified",
+    "runtime_or_model_upgrade": false,
+    "physical_phones_observed": 0,
+    "ARM64_executed": false
+  },
+  "evidence": {
+    "host": {
+      "index_sha256": "3536db9eb10f38b9b7f751ff1dd07b8a767e1252919293591acf52d83f9a74f5",
+      "index_bytes": 16850,
+      "files": 74,
+      "selected_bytes": 63874439
+    },
+    "host_followup": {
+      "index_sha256": "b14c1d199bf2b3865172dfd9c23a926f24a45b6fa46a82d24f5bc74342a0f776",
+      "index_bytes": 1244,
+      "files": 7,
+      "selected_bytes": 44970
+    },
+    "author": {
+      "index_sha256": "89a55da259ec912b1cf84042c2637786e4a6e879e3c24b8998999ed0b2d69d54",
+      "index_bytes": 3376,
+      "files": 16,
+      "selected_bytes": 94962
+    },
+    "official_sources": {
+      "index_sha256": "61240c7ef3dd6595fba0d479dd0be5b3452281bc11254c3629ce8aafd6d4e4c6",
+      "index_bytes": 2436,
+      "files": 7,
+      "selected_bytes": 7423277
+    },
+    "official_stat_source": {
+      "bytes": 7000,
+      "sha256": "a2904edfefe6094a6ad255cc27a60e25dc80ac746150550905f3fe8689b8c9b9"
+    },
+    "first_device": {
+      "index_sha256": "5b2c493d41f8481931038c063c283b0af871aa003089cef1ad3a1eb3a1bf16f1",
+      "index_bytes": 81929,
+      "files": 480,
+      "selected_bytes": 291080
+    },
+    "corrected_device": {
+      "index_sha256": "ca96857de9eef8063cd4d61b303a5982a9c3137126b63dd872559612c5d15a39",
+      "index_bytes": 114809,
+      "files": 673,
+      "selected_bytes": 410799
+    }
+  },
+  "limitations": [
+    "No inference or original SDK crash diagnosis in this packet.",
+    "Instance match and last phase do not establish canonical outcomes or a cause.",
+    "A had no write/inference admission; its prior storage gate remains pending.",
+    "M01.01 physical-phone gate blocked; ARM, quality, sustained memory/thermal and runtime/profile acceptance remain pending.",
+    "Unmerged prerequisites: PR113 on PR111 on PR108."
+  ],
+  "next_task": "Integrate bounded stopped-session SDK phase readback with the cache controller, then run one freshly admitted traced guarded SDK control; preserve the recovered failed turn."
+}

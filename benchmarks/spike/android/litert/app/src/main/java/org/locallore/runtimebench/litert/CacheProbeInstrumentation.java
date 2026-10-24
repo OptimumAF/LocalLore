@@ -64,6 +64,7 @@ public final class CacheProbeInstrumentation extends Instrumentation {
             metrics.addProperty(field, 0);
         metrics.addProperty("cleanup_requires_process_termination", false);
         AtomicBoolean descriptorsUncertain = new AtomicBoolean();
+        Throwable terminalFailure = null;
         try (QuietDescriptors ignored = new QuietDescriptors(descriptorsUncertain)) {
             if (!CacheVolume.PACKAGE.equals(getTargetContext().getPackageName())
                     || Looper.myLooper() == Looper.getMainLooper()) throw new CacheVolume.Problem("identity_invalid");
@@ -99,33 +100,41 @@ public final class CacheProbeInstrumentation extends Instrumentation {
                     byte[] encoded = Base64.decode(profile, Base64.DEFAULT);
                     if (encoded.length == 0 || encoded.length > 4096) throw new CacheVolume.Problem("invalid_request");
                     Path saves = CacheVolume.freshSession(userdata, session);
-                    Engine.Companion.setNativeMinLogSeverity(LogSeverity.INFINITY);
-                    ExperimentalFlags.INSTANCE.setEnableBenchmark(true);
-                    ExperimentalFlags.INSTANCE.setEnableSpeculativeDecoding(false);
-                    NativePlayProbe.Adapter probe = new NativePlayProbe.Adapter(saves.resolve("stories.sqlite3").toString(), encoded);
-                    report.add("play_result", new PlayRunner(probe, () -> {
-                        CacheVolume.Candidate current = refresh(selected, userdata, userdataDevice);
-                        CacheVolume.capacity(current, userdata.getUsableSpace()); CacheVolume.owner(cache);
-                        if (current.device != selected.device || Os.stat(cache.toString()).st_dev != selected.device
-                                || Os.stat(CacheVolume.model(current).getPath()).st_dev != selected.device)
-                            throw new CacheVolume.Problem("volume_changed");
-                        return new CacheSdkModel(model, cache.toFile(), metrics, pulses);
-                    }, metrics).run(playCase));
+                    PhaseJournal.Identity phaseIdentity = PhaseAndroidEvidence.identity();
+                    try (PhaseJournal journal = new PhaseJournal(saves, session, phaseIdentity, PhaseAndroidEvidence.clock())) {
+                        journal.mark("instrumentation_start", "none");
+                        PhaseAndroidEvidence.publishSummary(getTargetContext(), session, phaseIdentity);
+                        Engine.Companion.setNativeMinLogSeverity(LogSeverity.INFINITY);
+                        ExperimentalFlags.INSTANCE.setEnableBenchmark(true);
+                        ExperimentalFlags.INSTANCE.setEnableSpeculativeDecoding(false);
+                        NativePlayProbe.Adapter probe = new NativePlayProbe.Adapter(saves.resolve("stories.sqlite3").toString(), encoded);
+                        report.add("play_result", new PlayRunner(probe, () -> {
+                            CacheVolume.Candidate current = refresh(selected, userdata, userdataDevice);
+                            CacheVolume.capacity(current, userdata.getUsableSpace()); CacheVolume.owner(cache);
+                            if (current.device != selected.device || Os.stat(cache.toString()).st_dev != selected.device
+                                    || Os.stat(CacheVolume.model(current).getPath()).st_dev != selected.device)
+                                throw new CacheVolume.Problem("volume_changed");
+                            return new CacheSdkModel(model, cache.toFile(), metrics, pulses);
+                        }, metrics, journal).run(playCase));
+                        journal.mark("terminal", "none");
+                    }
                     report.addProperty("explicit_cache_directory", true);
                 }
                 CacheVolume.Candidate after = refresh(selected, userdata, userdataDevice);
                 report.add("post_sample", sample(after, userdataDevice, userdata.getUsableSpace()));
             }
             report.addProperty("status", "completed"); report.add("error", JsonNull.INSTANCE);
-        } catch (WarmRunner.Undrained | CacheModelIdentity.OwnershipUnknown unknown) {
+        } catch (WarmRunner.Undrained | CacheModelIdentity.OwnershipUnknown | PhaseJournal.OwnershipUnknown unknown) {
             // Abrupt own-process termination is not reported as successful resource disposal.
             Process.killProcess(Process.myPid()); return;
-        } catch (CacheVolume.Problem problem) { report.addProperty("error", problem.category);
-        } catch (UnsatisfiedLinkError | NoClassDefFoundError unavailable) { report.addProperty("error", "runtime_unavailable");
-        } catch (Exception failure) { report.addProperty("error", "runtime_failed"); }
+        } catch (CacheVolume.Problem problem) { terminalFailure = problem; report.addProperty("error", problem.category);
+        } catch (UnsatisfiedLinkError | NoClassDefFoundError unavailable) { terminalFailure = unavailable; report.addProperty("error", "runtime_unavailable");
+        } catch (Exception failure) { terminalFailure = failure; report.addProperty("error", "runtime_failed"); }
         // A body exception can suppress a TWR cleanup exception. The independent flag
         // also covers constructor rollback, so neither path can publish graceful completion.
-        if (descriptorsUncertain.get()) { Process.killProcess(Process.myPid()); return; }
+        if (descriptorsUncertain.get() || PhaseFailure.journalOwnershipUnknown(terminalFailure)) {
+            Process.killProcess(Process.myPid()); return;
+        }
         finished.set(true); main.removeCallbacks(pulse);
         metrics.addProperty("main_pulses", pulses.get());
         metrics.addProperty("owners_balanced", metrics.get("engines_opened").equals(metrics.get("engines_closed"))

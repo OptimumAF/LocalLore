@@ -79,6 +79,12 @@ qualifies exact transport bytes before copying the fixed retained session and
 all present sidecars for strict Rust replay. It never retries generation,
 repairs the original database or uses cache growth as accepted-event evidence.
 
+The cache experiment also syncs a [private phase journal](SDK_PHASE_PROTOCOL_V1.md)
+before SDK boundaries. Failed diagnostic persistence blocks later SDK/commit
+entry while mandatory cleanup continues. A failed post-commit checkpoint
+requires canonical recovery; it cannot undo an accepted turn or justify an
+automatic retry.
+
 ## Bounds and evidence
 
 Profile:4096 context, director350/narrator220 output tokens, four CPU threads,

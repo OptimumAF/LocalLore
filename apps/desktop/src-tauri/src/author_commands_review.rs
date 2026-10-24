@@ -644,3 +644,41 @@ fn readonly_lookup_after_parent_retirement_and_tombstone_preserves_real_store_se
     let failed = f.wait(f.lookup_start(input));
     assert_eq!(failed["error"], "NotFound");
 }
+
+#[test]
+fn explicit_retirement_or_window_destruction_before_apply_cannot_write_or_publish() {
+    for destroyed in [false, true] {
+        let f = Fixture::new(true);
+        let input = f.input(if destroyed {
+            "destroyed"
+        } else {
+            "retired-active"
+        });
+        let preview = f.preview(input.clone());
+        let (entered, seen) = mpsc::channel();
+        let (release, wait) = mpsc::channel();
+        *f.manager.test_gate.lock().unwrap() = Some(TestGate {
+            after_apply: false,
+            entered,
+            release: wait,
+        });
+        let started = f
+            .commit_start(&f.commit_raw(input.clone(), &preview))
+            .unwrap();
+        let id = started["operation_id"].as_u64().unwrap();
+        seen.recv_timeout(Duration::from_secs(5)).unwrap();
+        let closed = destroyed.then(|| f.lease.invalidate(&format!("main-{}", f.epoch)).unwrap());
+        f.manager.retire(f.epoch);
+        release.send(()).unwrap();
+        if let Some(closed) = closed {
+            f.broker.retire(f.epoch);
+            f.broker.drain(f.epoch);
+            err(f.broker.status(&f.lease, f.epoch, id), "Closed");
+            f.lease.finish_close(closed, || {});
+        } else {
+            assert_eq!(f.wait(started)["error"], "Cancelled");
+        }
+        f.missing(&input);
+        assert!(f.manager.caps.lock().unwrap().is_empty());
+    }
+}

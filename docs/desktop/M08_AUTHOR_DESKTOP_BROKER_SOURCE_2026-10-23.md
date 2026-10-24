@@ -97,6 +97,15 @@ an unused matching cap (false when absent), freeing the four-cap limit without a
 ten-minute wait. No Tauri discard command is registered. This design decision is
 not runtime implementation acceptance.
 
+Explicit retirement also fences a cap already consumed into an admitted worker:
+the manager's private checked generation changes and is included in fresh native
+cancellation admission before/during apply. This is memory-only lifecycle data,
+not story authority or a new persistent owner. TTL is rechecked before/during
+fresh apply. Retirement after actual commit cannot demote its recorded result.
+An additional frozen actual-Store oracle retires or destroys the window while a
+bounded test gate holds the worker before apply; no child or stale publication
+is permitted. This closes a source-detected lifecycle seam, not an observed RED.
+
 Latest-operation status recovers a lost start/result acknowledgment only until a
 later operation replaces that terminal slot. After consumption, explicit new
 lookup performs actual Host exact-input readonly lookup; it needs no live parent

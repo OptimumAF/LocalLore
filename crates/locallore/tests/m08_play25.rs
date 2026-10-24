@@ -584,3 +584,77 @@ fn guarded_phrase_is_supported_only_by_actual_this_turn_observation_not_private_
         }
     }
 }
+
+#[test]
+fn actual_original_21_through_24_history_bytes_and_zero_role_retry_survive_current_dispatch() {
+    use sha2::{Digest, Sha256};
+    for text in [
+        include_str!("fixtures/accepted_play_v2_1.json"),
+        include_str!("fixtures/accepted_play_v2_2.json"),
+        include_str!("fixtures/accepted_play_v2_3.json"),
+        include_str!("fixtures/accepted_play_v2_4.json"),
+    ] {
+        let fixture: Value = serde_json::from_str(text).unwrap();
+        let seed: Seed = serde_json::from_value(fixture["seed"].clone()).unwrap();
+        let mut restored =
+            Engine::restore(seed.clone(), &[fixture["receipt"].to_string()]).unwrap();
+        let receipt = restored.receipts()[0].clone();
+        assert_eq!(serde_json::to_value(&receipt).unwrap(), fixture["receipt"]);
+        assert!(receipt.play().unwrap().context_policy.is_none());
+        assert!(!serde_json::to_value(&receipt).unwrap()["play"]
+            .as_object()
+            .unwrap()
+            .contains_key("context_policy"));
+        if receipt.play().unwrap().prompt_version == "locallore-play-v2.4" {
+            let compact = serde_json::to_vec(&receipt).unwrap();
+            assert_eq!(
+                compact.as_slice(),
+                include_bytes!("fixtures/accepted_play_v2_4_receipt.json")
+            );
+            assert_eq!(compact.len(), 2150);
+            assert_eq!(
+                format!("{:x}", Sha256::digest(&compact)),
+                "38dcf7329addf4ed98fd984cdb9eac95f8d078be03bf4633dd7082d23ac4bc3f"
+            );
+            let record_bytes = serde_json::to_vec(receipt.play().unwrap()).unwrap();
+            assert_eq!(record_bytes.len(), 1352);
+            assert_eq!(
+                format!("{:x}", Sha256::digest(&record_bytes)),
+                "6ed4abcd325e14fa334d23ead9b843ebe93afd91e26b28e3167ad95e552b9341"
+            );
+            assert_eq!(
+                receipt
+                    .play()
+                    .unwrap()
+                    .context
+                    .as_ref()
+                    .unwrap()
+                    .compiler_version,
+                1
+            );
+            assert_eq!(receipt.play().unwrap().context.as_ref().unwrap().version, 1);
+        }
+        let before = restored.canonical_bytes();
+        let mut no_roles = Script::default();
+        let mut invalid_profile = profile();
+        invalid_profile.context_tokens = 0;
+        let cancel = Cancellation::default();
+        cancel.cancel();
+        assert_eq!(
+            play::execute(
+                &mut restored,
+                receipt.request(),
+                &mut no_roles,
+                &cancel,
+                &invalid_profile
+            )
+            .unwrap(),
+            receipt
+        );
+        assert!(no_roles.seen.is_empty());
+        assert_eq!(restored.canonical_bytes(), before);
+        let mut bad = fixture["receipt"].clone();
+        bad["play"]["context_policy"] = json!("state_relevant_memory_v1");
+        assert!(Engine::restore(seed, &[bad.to_string()]).is_err());
+    }
+}

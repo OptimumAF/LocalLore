@@ -99,3 +99,53 @@ D target/TEMP and one heavy job, first the six unchanged new tests, then Query1
 and Query2 compatibility/cursors/privacy/compiler tests and strict Core checks.
 Preserve first compile/behavior failures before narrow fixes. No task checkbox,
 owner approval, model-quality claim, or whole-milestone acceptance is implied.
+
+## Implementation handoff addendum
+
+Production commit `8d46402a444de8feb9c96ed6a2655ba0ae639a57` changes only the two
+owned query files, 40 insertions / 1 deletion. The frozen tests and contract above
+precede it; none of the six assertions was changed after implementation.
+
+- `inspection_query.rs` SHA-256:
+  `3a5caaf78bdfc8eaf6ae761029225f03ae14487c09245747228f2e79ffa45f65`.
+- `inspection_query_v2.rs` SHA-256:
+  `6cc07cf9166bd9aa4f9d6ec1130a7ccc8482b426cc0f620d4f1b3d3d1342619f`.
+
+`ReadLens` records literal Player selection, so Character(player) cannot gain the
+marker by matching the player ID. Only History examines that flag. It iterates
+the actual selected snapshot's canonical records and reads only closed record
+kind and last revision. Message construction retains the existing whole-receipt
+eligibility gate, original input/narration rules, event list and bounded paging;
+it changes the V2 row variant, adds actual original_scope, and extends the key.
+No Query1 producer, old row fields, cursor binding or search code was edited.
+
+Actual completed commands (not a type-check):
+
+```text
+rustfmt --edition 2021 crates/locallore/tests/m08_query_v2_message_identity_review.rs
+rustfmt --edition 2021 --config skip_children=true crates/locallore/src/inspection_query.rs crates/locallore/src/inspection_query_v2.rs
+rustfmt --edition 2021 --check --config skip_children=true crates/locallore/src/inspection_query.rs crates/locallore/src/inspection_query_v2.rs crates/locallore/tests/m08_query_v2_message_identity_review.rs
+git diff --check
+```
+
+All completed successfully using installed `rustfmt 1.8.0-stable`
+(`01f6ddf758`, 2026-02-11). Source inspection, Git and SHA256 calculation were the
+only other verification actions. **Zero tests or builds were executed**; there
+is no actual RED/GREEN, native IPC/UI, model, device or performance evidence.
+
+Suggested next coordinator commands, after explicit ownership and resource GO:
+
+```text
+cargo test -p locallore --locked --offline --jobs 1 --test m08_query_v2_message_identity_review
+cargo test -p locallore --locked --offline --jobs 1 --all-features --test m08_query_v2_message_identity_review
+cargo test -p locallore --locked --offline --jobs 1 --all-features --test inspection_query
+cargo test -p locallore --locked --offline --jobs 1 --all-features --test m08_query_v2
+cargo clippy -p locallore --locked --offline --jobs 1 --all-targets --all-features -- -D warnings
+```
+
+The existing Query2 test adaptation described above is a separately claimed
+coordinator prerequisite, never an unreported assertion relaxation. Compiler
+compatibility should also verify that neither new History-only marker nor its
+internal sorting key enters either construction policy or narrator evidence.
+Root owns those broad checks and all consumer exposure. This worktree is clean
+at handoff; exact task/path claims are released in the issue handoff comments.

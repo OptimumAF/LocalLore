@@ -11,10 +11,12 @@ pub(super) struct AuthorOwner {
 impl WorkspaceState {
     pub(super) async fn author_context_value(&self, epoch: u64) -> Result<Value, String> {
         let host = self.get(epoch).await?;
-        self.lease.dispatch(epoch, || Ok(serde_json::json!({
-            "version":1,"root_incarnation":self.incarnation,"window_epoch":epoch,
-            "story_lab_granted":host.story_lab_granted()
-        })))
+        self.lease.dispatch(epoch, || {
+            Ok(serde_json::json!({
+                "version":1,"root_incarnation":self.incarnation,"window_epoch":epoch,
+                "story_lab_granted":host.story_lab_granted()
+            }))
+        })
     }
     pub(super) async fn author_manager(
         &self,
@@ -57,8 +59,14 @@ impl WorkspaceState {
     }
 }
 #[tauri::command]
-pub async fn author_context(window: tauri::WebviewWindow, workspace: tauri::State<'_, WorkspaceState>) -> Result<Value, String> {
-    let epoch = workspace.lease.capture(window.label()).map_err(str::to_owned)?;
+pub async fn author_context(
+    window: tauri::WebviewWindow,
+    workspace: tauri::State<'_, WorkspaceState>,
+) -> Result<Value, String> {
+    let epoch = workspace
+        .lease
+        .capture(window.label())
+        .map_err(str::to_owned)?;
     workspace.author_context_value(epoch).await
 }
 fn epoch(

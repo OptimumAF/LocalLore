@@ -23,13 +23,25 @@ fn native_context_is_window_bound_metadata_and_reports_the_actual_native_grant()
     let state = workspace();
     let epoch = state.lease.begin().unwrap();
     let value = tauri::async_runtime::block_on(state.author_context_value(epoch)).unwrap();
-    assert_eq!(value, json!({"version":1,"root_incarnation":state.incarnation,"window_epoch":epoch,"story_lab_granted":true}));
+    assert_eq!(
+        value,
+        json!({"version":1,"root_incarnation":state.incarnation,"window_epoch":epoch,"story_lab_granted":true})
+    );
     assert!(state.lease.invalidate(&format!("main-{epoch}")).is_some());
-    assert_eq!(tauri::async_runtime::block_on(state.author_context_value(epoch)).err().as_deref(), Some("Closed"));
+    assert_eq!(
+        tauri::async_runtime::block_on(state.author_context_value(epoch))
+            .err()
+            .as_deref(),
+        Some("Closed")
+    );
     let denied = workspace();
     let epoch = denied.lease.begin().unwrap();
     assert!(denied.host.set(Arc::new(Host::new(false))).is_ok());
-    assert_eq!(tauri::async_runtime::block_on(denied.author_context_value(epoch)).unwrap()["story_lab_granted"], false);
+    assert_eq!(
+        tauri::async_runtime::block_on(denied.author_context_value(epoch)).unwrap()
+            ["story_lab_granted"],
+        false
+    );
 }
 
 #[test]

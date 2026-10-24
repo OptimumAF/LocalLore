@@ -66,6 +66,22 @@ actual mocked Owner/cohort refusal; no device transport is inferred from mocks.
 
 Central offline builds compile app/instrumentation, run JVM tests and lint:
 
+```text
+python -B -E D:/LocalLore-setup-failure-host-20261024/corrected/run_build.py receipt
+python -B -E D:/LocalLore-setup-failure-host-20261024/corrected/run_build.py regular
+python -B -E D:/LocalLore-setup-failure-host-20261024/corrected/run_build.py ordinary
+```
+
+These retained private wrappers use a900-second owned process boundary. Each
+invokes Gradle tasks `:app:assembleDebug :app:assembleDebugAndroidTest
+:app:cleanTestDebugUnitTest :app:testDebugUnitTest :app:lintDebug` with
+`--offline --no-daemon --console=plain --max-workers=2`, disabled SDK/JDK
+auto-download and Kotlin incremental compilation. SDK profiles additionally run
+`:app:auditLiteRtDependencies :app:auditLintAnalyzer` with the existing pinned
+analyzer9.4.1 and LiteRT/model-setup verification flags. Receipt adds the existing
+volume and receipt flags. Java17.0.6 launches the wrapper; configured JDK21 serves
+the analyzer. The retained argv records contain the full exact arguments.
+
 | Profile | JVM tests / suites | Failures/errors/skips | Lint errors / warnings | Owned ms |
 |---|---:|---:|---:|---:|
 | Corrected receipt |353 /36|0 /0 /0|0 /19|137,875|

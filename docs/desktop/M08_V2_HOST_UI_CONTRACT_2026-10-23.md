@@ -97,6 +97,18 @@ sequence. No frontend rewrites ancestor scope to the selected child. Receipt
 inspection groups actual eligible History rows by captured original event scope
 and turn, without treating a partial page as an entire accepted receipt.
 
+Concrete next-freeze seam: current Query2 `Row::Message` serializes turn and
+bare event_ids but no original_scope. A turn key can recur on an ancestor and
+child. Add mandatory original_scope to **V2-only message encoding** (or a closed
+V2 message variant) while preserving exact Query1 bytes. Derive it from the
+actual receipt's original request scope, not a frontend lookup by turn. Existing
+event_ids then refer to that original scope; every supporting reference must
+match its actual accepted event. This bounded metadata addition carries no
+Request/Proposal or private author source. Both app decoders and message/source
+navigation must close together. Until this is frozen, do not group inherited
+messages by bare turn, relabel them with selected scope, or claim a full scoped
+receipt inspector from existing Query2 rows alone.
+
 The actual existing shared Query2 History implementation already applies
 owning-player **whole-receipt eligibility** before emitting original input and
 narration: every supporting event must pass at the selected completed head.
@@ -343,7 +355,7 @@ exclusive implementation/test claims before any existing file changes.
 
 | Owner / exact candidate paths | Responsibility |
 | --- | --- |
-| Shared Core: NEW `crates/locallore/src/app_views_v2.rs`; existing `inspection_query.rs`, `inspection_query_v2.rs` only allocated marker/typed integration | Thin bounded player snapshot and exact player-only marker variant; reuse existing paged Query2 eligibility, no duplicate transcript/permissions. |
+| Shared Core: NEW `crates/locallore/src/app_views_v2.rs`; existing `inspection_query.rs`, `inspection_query_v2.rs` only allocated marker/typed/scoped-message integration | Thin bounded player snapshot, exact player-only marker and V2-only original message scope; reuse existing paged Query2 eligibility, no duplicate transcript/permissions or changed Query1 bytes. |
 | Root Host/Store adapter: existing `crates/locallore/src/host.rs`, `crates/locallore-workspace/src/lib.rs`; NEW `crates/locallore-workspace/src/author_correction.rs` if approved | Versioned reads and opaque native author port on the actual existing Store. Existing storage author implementation remains owner/authority. |
 | Desktop native Root: NEW `apps/desktop/src-tauri/src/author_commands.rs`; existing `main.rs`, `archive.rs`, `lease.rs` only allocated integration | Fixed private commands, same operation/lifetime owner and native grant/preview fencing. No second Store/window broker. |
 | Desktop consumer: NEW `ui/app-view-v2.ts`, `ui/author-controller.ts`, `ui/AuthorPanel.tsx`; existing `model.ts`, `query-model.ts`, `controller.ts`, `App.tsx`, `main.tsx` under exclusive allocation | Closed DTOs, scoped source navigation, honest history markers, safe stage/confirm/recovery and private-state clearing. |
@@ -370,6 +382,9 @@ exclusive implementation/test claims before any existing file changes.
 4. Malformed/unknown versions, scoped references, origins, page bounds, cursor
    namespace, unsafe integers, duplicate IDs, foreign story and cross-head data
    fail closed in both app decoders; supported inherited original scope works.
+   Ancestor/child reuse of one turn key does not merge messages/receipt evidence;
+   mandatory V2 original_scope binds each supporting message reference correctly,
+   while original Query1 message bytes/cursors remain unchanged.
 5. Actual author prepare does not mutate Store. No grant, inspection-only grant,
    first acknowledgement alone, foreign-window token, changed form/digest,
    stale full basis or replaced root/Store cannot commit. Repeated full input
@@ -402,6 +417,7 @@ close, author IPC stays unregistered and apps retain honest unsupported states.
 | Decision | Recommended minimum / unresolved boundary |
 | --- | --- |
 | V2 operations | Root selects thin play_snapshot_v2 + existing inspection_query(version2) transcript/facts/history; no new query2/history operation, full observations or all-receipt array. Freeze exact thin DTO/capability field next. |
+| Scoped message identity | Actual Query2 Message lacks original_scope. Freeze a mandatory V2-only original scope field/variant before inherited receipt/message grouping; preserve exact Query1 bytes and never group by bare turn. |
 | Player history marker | Root approves ONLY revision+constant kind author_correction, player-only/out-of-story. Freeze exact Query2 History variant/sorting representation next; no source/fact/reason/key/origin on its wire shape, NPC/model/context marker. |
 | Budgets/capabilities | Reuse actual24576 Host input/262144 output, Query64 rows/65536 bytes/128 cursor/256 search/4096 envelope reserve. Root accepts separate private author input/preview cap65536; generic Host limits unchanged. |
 | Opaque native port | Root accepts trait-object/Store-owned bounded registry feasibility; exact handle/cancel/accessor/lease/owner proof remains for next freeze. Actual Store plan stays in same adapter/incarnation; no Core→storage dependency or renderer plan authority. |

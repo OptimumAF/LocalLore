@@ -193,3 +193,91 @@ SHA-256 `b6452b2ac6eb0f7d920c01504e46b3070bee3fcc9b38fe02ff06ab1a38103335`.
 Selected files and index are read-only; the separate lease was released after
 the authoritative terminal and local seal. Further device action requires fresh
 root admission based on these observations.
+
+## Separately admitted disposable test-host cleanup
+
+Root reviewed the actual settlement and admitted a new, narrow disposable
+test-host cleanup. It did not resume or weaken the original failed cohort's
+all-PASS gate. The new controller required fresh process metadata, installed test
+UID and complete 31-package map, then an immediate process recheck. It could stop
+only the exact previously observed test PID/UID, once. Absence would skip the stop;
+a changed PID/UID, application/foreign process or changed map would abort. Its 34
+pure cases comprise 21 parser/budget/CLI cases and 13 specific cleanup-flow cases.
+
+After root/reviewer rehashed the 23 bindings, authorization SHA-256
+`e29293628bce4d6e05d0b1d3111f9d2edecb3e6a72fb58592ba77bbedddbfde4`
+admitted one execution. It completed before the first yield, return code zero,
+known cleanup and 5,437 ms elapsed. All 15 clients completed with return code
+zero, known cleanup and zero stderr bytes. Fresh metadata matched the exact
+captured test process and UID; the controller stopped that test package once.
+Subsequent process observation found no LocalLore process, the complete
+31-package APK map stayed unchanged, and userdata available was 1,465,262,080
+bytes. Host floors passed. No application stop, installation, instrumentation,
+model/cache/save query or A operation occurred in this cleanup cohort.
+
+The 52-file / 130,315-byte read-only cleanup selection has an 8,326-byte index,
+SHA-256 `a89a855c1594b1eca832c2f15007f4c45526fe13663f2783257d71a9518cc9ba`.
+All 23 bindings and 15 raw records rehashed without mismatch; the lease was
+released after the terminal and seal. This establishes the narrow observed
+cleanup outcome, not native/model ownership, natural test-process exit or success
+of the earlier failed tests.
+
+A corrected source/artifact cohort was prepared separately. It proposed an
+explicit update of only the same application/test pair from the
+known failed 31-package map to a corrected 31-package map, preserving the other
+29 hashes. Installation requests userdata retention; no bytewise audit of private
+data is claimed. The original all-four-PASS-before-test-cleanup condition and all
+storage gates remained. Fifty pure cases passed, including the actual process
+budget and CLI exit regressions, before the separate admission below.
+
+## Corrected cohort: new storage failure retained
+
+The next source revision corrected trusted Android parent canonicalization and
+strengthened the missing-model and symlink assertions so they could distinguish
+the earlier false-positive paths. Its 8,305-byte instrumentation source has
+SHA-256 `1e2b93f17f044a0f656a988ce88976e069961ee95b1a3f88d8301d16e2347713`.
+Selected APKs were:
+
+- Application: 73,809,384 bytes, SHA-256
+  `24f59ee6c9d8fbb0932435989af888891c5f13df77c505f87a5fbc87da2c1fce`.
+- Test: 1,755,057 bytes, SHA-256
+  `44b1e3889f4cc764f2076edf666acad50e2ce6a4fc6fc3edb88698135ae58eb4`.
+
+Root and the reviewer rehashed 59 final bindings with zero mismatch and admitted
+one explicit update/cohort. Authorization SHA-256:
+`1cd8549e6d8c82c5c8f7afcbdd83bc4a879c995a8796e7979a7f90389e754314`.
+The original owned execution reached terminal with controller return code 2,
+known cleanup and 16,312 ms elapsed; zero outer stderr bytes. Observation yield
+was followed by polling the same handle, without restart.
+
+All four paired terminals and final runner code were present. The strengthened
+symlink and missing-model/UI/JNI-owner tests passed. Tiny-copy/reopen and blocked
+provider cancellation failed with fixed `STORAGE` at the store's guarded boundary.
+The raw result intentionally exposes no underlying private exception cause, so
+this report does not identify the failing filesystem operation. Successful import
+and cancellation remain unverified on Android despite the earlier host passes.
+
+The controller stopped at `instrument-B` after 27 clients, all completed with
+return code zero and known cleanup. The exact before 31-package map contained the
+failed pair; the exact installed 31-package map contained the corrected pair with
+the other 29 hashes unchanged. Installation used `-r`; no bytewise private-data
+preservation audit is asserted. Last installed-stage userdata available was
+1,389,629,440 bytes, above the original floor. After/final package maps, storage
+and process settlement were not queried after the failure. There was no external
+stop, repair, retry, gate relaxation, model or A operation. Install stderr counts
+174/196 again have no captured content and are not assigned a cause.
+
+Raw instrumentation is 8,691 bytes, SHA-256
+`a78d85cb259d788b5042479425178e602f3ccf0b80d656ed036959f688c6ec82`.
+All 59 bound inputs were privately captured before further source edits and
+rehashed with zero mismatch. The read-only stopped selection contains 151 files /
+805,879 bytes; its 26,511-byte index has SHA-256
+`cff94f985b606a0617cb5b900cc92740db82a4e1707acb3d065c397a4762732a`.
+The device lease was released after authoritative terminal and stopped-only local
+closure. No success gate or success-only closure was changed.
+
+Next: identify the Android storage operation behind the fixed failure using
+bounded synthetic evidence, correct it while retaining confinement/ownership
+rules, and seek new source/artifact/controller admission. Neither stopped cohort
+satisfies M05.05 provisioning acceptance; real-model, second-emulator, ARM64 and
+physical-phone gates remain unqualified.

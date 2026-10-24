@@ -145,3 +145,58 @@ registration or generated binding/schema/UI changes. The module is compiled only
 under `#[cfg(test)]` until independent Core/Store/native checks and application
 decoder/second-consent/current-context closure. Mock/headless/JVM/native WebView
 execution and end-to-end correction acceptance are not established here.
+
+## Source handoff and unavailable checks
+
+Branch `impl/m08-desktop-author-broker`, isolated worktree
+`source-desktop-author-broker`, based on the released native-port packet above.
+Claims: #12 `6378859321`, #30 `6378859550`, #26 `6378859919`.
+
+Chronology: contract proposal `72bbb24`; initial ten independent tests `1370c25`;
+Root-approved consume/discard decision and eleven-test freeze `013aad2`; admitted
+retirement twelve-test freeze `503d55e`; native source `978802beffbdc7347d3cfcb988b1fca1d8fb2ecc`.
+Follow-up source review added all-parser/lost-whole-ack coverage and clarified
+status limits in `3b492ac`, yielding fourteen tests, without changing production
+or relaxing earlier assertions. All are UNCOMPILED/UNRUN; no compile failure or
+behavioral RED/GREEN was observed. The public UUID generator is Windows-only, so
+the test module is gated `all(test,windows)`; zero tests on another OS is not
+qualification. Existing Core/Store/Host test evidence does not execute this broker.
+
+Source checks actually run with Rustfmt 1.8.0-stable (Rust 1.93.1):
+
+```text
+rustfmt --edition 2021 --check --config skip_children=true apps/desktop/src-tauri/src/author_commands.rs apps/desktop/src-tauri/src/author_commands_review.rs apps/desktop/src-tauri/src/main.rs
+git diff --check
+```
+
+Both exited 0. Rustfmt parses/formats source; it is not compilation. Source
+SHA-256:
+
+| Path | SHA-256 |
+| --- | --- |
+| `apps/desktop/src-tauri/src/author_commands.rs` | `643a8ab5fe0e265a8a9e4756dc8d9cb88451bc53edbf4d291c9da66739a73f36` |
+| `apps/desktop/src-tauri/src/author_commands_review.rs` | `378b2692bdb8cba18f106b2191e2b6e60f182bab0f175c53d7e7d87dc094714d` |
+
+No Cargo, Node, Gradle, SQLite process, model/provider, app, browser/WebView,
+device, ADB, desktop automation, protected resource, PR, merge or settings action
+was performed. No production command is exposed. The test-only channel gates
+have five-second deadlines, are private to this module, and cannot run arbitrary
+code/files/shell operations. After an actual commit, a test-gate error is ignored
+so it cannot demote that committed outcome. Inactive window publication remains
+suppressed by the actual existing broker; canonical outcome remains inspectable
+only through the owning Store/native recovery path.
+
+Next runnable coordinator task, in its authorized heavy slot on Windows:
+
+```text
+cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml author_commands::tests -- --nocapture --test-threads=1
+```
+
+Preserve the first actual compiler failure separately from semantic results.
+Qualify native Host/Repository thirteen tests, this fourteen-test worker packet,
+unchanged shared-worker/lease/fork/memory regressions, then strict compatibility
+checks before any native IPC registration. Whole UI/root/current observer/session
+consent closure, decoder/render verification, application teardown wiring to
+retire, hint-based recovery, Android author UX and Archive3 integration remain
+separate unavailable prerequisites. Neither first-foundation acceptance nor
+whole M08/D08/D05 completion follows from this source handoff.

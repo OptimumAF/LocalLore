@@ -1983,6 +1983,9 @@ pub fn cli(args: &[String]) -> Result<Value> {
 }
 
 #[cfg(test)]
+mod clock_review_tests;
+
+#[cfg(test)]
 mod clock_tests {
     use super::super::*;
 

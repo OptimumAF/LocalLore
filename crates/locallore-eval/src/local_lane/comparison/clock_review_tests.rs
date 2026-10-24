@@ -12,7 +12,9 @@ fn root(label: &str) -> PathBuf {
         "locallore-comparison-clock-review-{label}-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
     ));
     fs::create_dir(&path).unwrap();
     path
@@ -24,21 +26,29 @@ fn manifest() -> RunManifest {
         LaneFactory::ScriptedBaseline.profile().unwrap(),
         false,
         None,
-    ).unwrap()
+    )
+    .unwrap()
 }
 
 fn backdated(milliseconds: u64) -> Instant {
-    Instant::now().checked_sub(Duration::from_millis(milliseconds)).unwrap()
+    Instant::now()
+        .checked_sub(Duration::from_millis(milliseconds))
+        .unwrap()
 }
 
 fn assert_settled(dir: &Path, key: &str, invocation: usize, prior: u64, minimum: u64) {
     let settled: Settlement = decode(
-        &dir.join(format!("invocation-{invocation:02}-settled.json")), 4096,
-    ).unwrap();
+        &dir.join(format!("invocation-{invocation:02}-settled.json")),
+        4096,
+    )
+    .unwrap();
     assert_eq!(settled.binding, key);
     assert_eq!(settled.index, invocation);
     assert_eq!(settled.roles, 0);
-    assert!(settled.ms >= minimum, "opening work must not disappear from settlement");
+    assert!(
+        settled.ms >= minimum,
+        "opening work must not disappear from settlement"
+    );
     let reopened = Ledger::load(dir, key).unwrap();
     assert_eq!(reopened.invocations, invocation + 1);
     assert_eq!(reopened.charged_ms, prior.checked_add(settled.ms).unwrap());
@@ -51,9 +61,13 @@ fn real_open_charges_known_opening_above_reservation_and_reopens_exact_settlemen
     let key = expected.stable_key().unwrap();
     let opening_ms = PREPARATION_MS + 9_000;
     let started = backdated(opening_ms);
-    let mut session = ComparisonSession::open_at(&directory, false, expected, None, started).unwrap();
+    let mut session =
+        ComparisonSession::open_at(&directory, false, expected, None, started).unwrap();
     for ledger in &session.ledgers {
-        assert_eq!(ledger.started, started, "exact invocation origin, not a new clock");
+        assert_eq!(
+            ledger.started, started,
+            "exact invocation origin, not a new clock"
+        );
         assert_eq!(ledger.invocations, 1);
         assert_eq!(ledger.admissions, 0);
         assert_eq!(ledger.charged_ms, PREPARATION_MS);
@@ -89,7 +103,10 @@ fn retained_files(directory: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
             } else {
                 assert!(metadata.is_file());
                 assert!(metadata.len() <= 2 * 1024 * 1024);
-                files.insert(path.strip_prefix(root).unwrap().to_path_buf(), fs::read(path).unwrap());
+                files.insert(
+                    path.strip_prefix(root).unwrap().to_path_buf(),
+                    fs::read(path).unwrap(),
+                );
                 assert!(files.len() <= 512);
             }
         }
@@ -103,9 +120,15 @@ fn retained_files(directory: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
 fn continuing_actual_checkpoint_replay_uses_original_clock_and_no_new_turn_admission() {
     let directory = root("resume").join("run");
     let first = run_comparison(
-        &directory, false, ComparisonKind::ContinuousRollout,
-        &Cancellation::default(), 1, LaneFactory::ScriptedBaseline, None,
-    ).unwrap();
+        &directory,
+        false,
+        ComparisonKind::ContinuousRollout,
+        &Cancellation::default(),
+        1,
+        LaneFactory::ScriptedBaseline,
+        None,
+    )
+    .unwrap();
     assert_eq!(first.completed_scenes, 1);
     assert_eq!(first.turns.len(), 12);
     assert!(first.turns.iter().all(|row| row.passed));
@@ -120,22 +143,28 @@ fn continuing_actual_checkpoint_replay_uses_original_clock_and_no_new_turn_admis
     let started = backdated(opening_ms);
     // Actual production open revalidates saved canonical/capture checkpoints.
     // The supplied origin must survive that work, not start after replay.
-    let mut session = ComparisonSession::open_at(&directory, true, expected, None, started).unwrap();
+    let mut session =
+        ComparisonSession::open_at(&directory, true, expected, None, started).unwrap();
     for (arm, ledger) in session.ledgers.iter().enumerate() {
         assert_eq!(ledger.started, started);
         assert_eq!(ledger.prior_ms, prior[arm].charged_ms);
         assert_eq!(ledger.invocations, prior[arm].invocations + 1);
         assert_eq!(ledger.admissions, prior[arm].admissions);
         assert_eq!(ledger.charged_roles, prior[arm].charged_roles);
-        assert!(ledger.remaining() <= MAX_ACTIVE_MS.saturating_sub(prior[arm].charged_ms + opening_ms));
+        assert!(
+            ledger.remaining() <= MAX_ACTIVE_MS.saturating_sub(prior[arm].charged_ms + opening_ms)
+        );
     }
     session.setup(false, 0, "scripted", None).unwrap();
     session.finish_ledgers().unwrap();
     drop(session);
     for arm in 0..2 {
         assert_settled(
-            &directory.join(ARM_NAMES[arm]), &key,
-            prior[arm].invocations, prior[arm].charged_ms, opening_ms,
+            &directory.join(ARM_NAMES[arm]),
+            &key,
+            prior[arm].invocations,
+            prior[arm].charged_ms,
+            opening_ms,
         );
     }
     // The new invocation records may be added; every existing byte remains exact.
@@ -155,7 +184,11 @@ fn refused_opening(label: &str, opening_ms: u64) {
     }
     // This is the actual admission gate used before native construction. No
     // fake provider counter or preowned runtime stands in for asset execution.
-    let files = if directory.exists() { retained_files(&directory) } else { BTreeMap::new() };
+    let files = if directory.exists() {
+        retained_files(&directory)
+    } else {
+        BTreeMap::new()
+    };
     for name in files.keys() {
         let leaf = name.file_name().unwrap().to_str().unwrap();
         assert!(!leaf.starts_with("invocation-"));
@@ -165,9 +198,19 @@ fn refused_opening(label: &str, opening_ms: u64) {
     }
     for arm in ARM_NAMES {
         let path = directory.join(arm);
-        if !path.exists() { continue; }
+        if !path.exists() {
+            continue;
+        }
         let ledger = Ledger::load(&path, &key).unwrap();
-        assert_eq!((ledger.invocations, ledger.admissions, ledger.charged_roles, ledger.charged_ms), (0, 0, 0, 0));
+        assert_eq!(
+            (
+                ledger.invocations,
+                ledger.admissions,
+                ledger.charged_roles,
+                ledger.charged_ms
+            ),
+            (0, 0, 0, 0)
+        );
     }
 }
 
@@ -190,7 +233,10 @@ fn interrupted_original_clock_preserves_both_full_unknown_preparation_reservatio
     let key = expected.stable_key().unwrap();
     let started = backdated(PREPARATION_MS + 9_000);
     let session = ComparisonSession::open_at(&directory, false, expected, None, started).unwrap();
-    assert!(session.ledgers.iter().all(|ledger| ledger.started == started));
+    assert!(session
+        .ledgers
+        .iter()
+        .all(|ledger| ledger.started == started));
     drop(session); // Synthetic lost owner only, not an OS process kill.
     assert!(!directory.join("setup-00.json").exists());
     for arm in ARM_NAMES {
@@ -211,9 +257,15 @@ fn absolute_turn_deadline_charges_prelude_without_double_subtracting_active_rema
     let now = started + Duration::from_millis(25_000);
     let ordinary = turn_deadline(started, now, MAX_ACTIVE_MS);
     assert_eq!(ordinary, started + Duration::from_millis(TURN_MS));
-    assert_eq!(ordinary.duration_since(now), Duration::from_millis(TURN_MS - 25_000));
+    assert_eq!(
+        ordinary.duration_since(now),
+        Duration::from_millis(TURN_MS - 25_000)
+    );
     let tight = turn_deadline(started, now, 10_000);
-    assert_eq!(tight, now + Duration::from_millis(10_000 - CLEANUP_RESERVE_MS));
+    assert_eq!(
+        tight,
+        now + Duration::from_millis(10_000 - CLEANUP_RESERVE_MS)
+    );
     // Active remaining is already measured at now. Subtracting the prelude a
     // second time would cancel this genuinely remaining seven-second allowance.
     assert_eq!(tight.duration_since(now), Duration::from_millis(7_000));

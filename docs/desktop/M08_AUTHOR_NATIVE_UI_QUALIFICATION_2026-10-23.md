@@ -1,8 +1,8 @@
 # Author / V2 desktop UI qualification evidence
 
 2026-10-23 local date; retained checks below ended on 2026-10-24 UTC.
-Refs #12 M08.03 / #30 D08.05 and draft PR #135. **Bounded evidence report;
-complete native journey and restart qualification remain pending.** No whole
+Refs #12 M08.03 / #30 D08.05 and draft PR #135. **First complete native journey
+and actual restart passed; final-candidate confirmation/build checks remain pending.** No whole
 M08/D08, model-quality, Android consumer, installer or release gate is accepted
 by this report.
 
@@ -25,9 +25,10 @@ input. The [frozen harness contract](M08_AUTHOR_NATIVE_HARNESS_CONTRACT_2026-10-
 defines the exact closed setup, before/after-apply gates and journey assertions.
 
 Eight actual native cohorts stopped at recorded failures. Their accumulated
-checks and 49 images are partial observations, not a completed 17-image
-fresh/restart journey. No completed cohort reached its restart process. The
-sixth reached 75 checks and eight images: real typed Give saved child head 3,
+checks and 49 images are partial observations, separate from the ninth
+cohort's first complete 17-image fresh/restart pass. None of those eight
+stopped cohorts reached its restart process. The sixth reached 75 checks and
+eight images: real typed Give saved child head 3,
 removed the player's potion and retained the child receipt's original scope.
 Repeated Give then produced actual native Inventory rejection, but the
 subsequent phase-only durable status erased its displayed cause. A focused
@@ -39,9 +40,12 @@ The eighth reached 112 checks and 12 images: cancellation, late cancellation
 and known-ID terminal-response loss with explicit status recovery passed.
 Whole-acknowledgement-loss lookup then failed when transient loading cleared
 its in-memory input. The correction passes 100 synthetic controller checks;
-native exact lookup, subsequent cases and saved-child restart remain pending.
+the ninth actually passed exact lookup, subsequent cases and saved-child
+restart. Two additional loading-boundary regressions are now being frozen;
+the owner requires their fix and another native confirmation before PR-ready
+status. The first full pass is preserved rather than attributed to later code.
 
-Separate synthetic actual-Main tests now pass 18 cases; actual-controller inert
+Earlier separate synthetic actual-Main tests passed 18 cases; actual-controller inert
 React recovery-panel rendering passes six cases. The full frontend verifier
 passes at `dfbe11c`. These results close their named controller/render defects
 but are **not** evidence of native IPC or WebView execution of the fixes.
@@ -112,12 +116,14 @@ as zero-error native qualification. Raw bounded stderr remains local.
 
 ## Render observations and integrity
 
-There are 0 + 2 + 3 + 7 + 8 + 8 + 9 + 12 = **49 actual app-owned PNGs**, each paired with a
+The eight stopped cohorts contain 0 + 2 + 3 + 7 + 8 + 8 + 9 + 12 = **49 actual
+app-owned PNGs**, each paired with a
 semantic JSON snapshot and `.capture.json` metadata. Every existing image's
 capture metadata reports `native-webview2`. Root reports personally inspecting
-**all 49** across the eight cohorts. This report author additionally viewed the
+**all 49** across those eight, plus **all 17** of the first full pass below:
+**66 images across nine cohorts**. This report author additionally viewed the
 fifth cohort's `author-native-preview.png` and `author-native-observer.png`
-through local file inspection only; the other 47 images' visual review is
+through local file inspection only; the other 64 images' visual review is
 attributed solely to Root.
 Early form/layout and capture-focus defects produced explicit source fixes;
 earlier imperfect images were retained rather than replaced in place.
@@ -287,6 +293,7 @@ No fresh physical Android or real-model run is part of these observations.
 | `author-native-typed-v2-corrected.log` | `4b582909a123725eebfedda45ddd4cf067b5f57a3a6cb4fe5d98674517332c76` |
 | `author-native-rejection-corrected.log` | `6df6b01134d801933230a20dde365bece72501657a3a3ea231c5ced3bc08576a` |
 | `author-native-stale-disposal-corrected.log` | `8ac6c390dfdfbb5721d10643a1467bdd427c4fb47b3e054d840ccffb83189518` |
+| `author-native-loading-gap-corrected.log` | `c02b7388cc732895ac052c32eaadc6be6d2a51a7a30c241dc4a357acc7c34b15` |
 | `main-author-context-original-red.log` | `c0bf7c101a3d6c2ab09161a2270ae426a7ca295ef932e1465a9565fc8cf0ea32` |
 | `main-author-context-corrected-red.log` | `65df9811550f296876e37f04a0729d209a19cd9a188cba4aaea3a967c4e87b94` |
 | `main-author-context-first-green.log` | `84ad80edae65a1ff9775dbb8a897091276f16083efe530ec6f4f88f6d1040370` |
@@ -309,7 +316,74 @@ No fresh physical Android or real-model run is part of these observations.
 | `author-loading-gap-first-green.log` | `4c86bfdadfaf90a058d79d7661384dee85b046bc06bda9d82dbc4e40aa24aaaa` |
 | `author-frontend-loading-gap-corrected.log` | `9d9620a00799d5029d890c61b9c50414af5afd1f471315a5bc02d6f798eb00ac` |
 
-## Pending final native appendix
+## First complete actual native and restart pass
+
+The ninth cohort, `author-native-a690f157-6bcc-43b8-aa64-cc4b3c54858f`, passed
+at clean source **bd18d76b781e981098814c8a718e180e90e7afc9**. Both builds and
+both actual app processes exited 0, without process timeout, spawn error or
+log truncation. The pre-build manifest binds the source; summary.json binds
+the actual executable, bundle, inputs and all captured files. This is native
+IPC and actual WebView2 rendering, with an actual second-process restart;
+it is not a headless render or a mock/native equivalence claim.
+
+| First complete cohort metric | Actual result |
+| --- | --- |
+| Distinct assertion names | 123; not the sum of overlapping raw checks |
+| Raw stage checks | Initial 133; restart 18 |
+| App-owned captures | Initial 15; restart 2; all native-webview2 |
+| Artifact files in summary | 53: 17 semantic/image/metadata triples plus two reports |
+| Verified artifact bytes | 1,850,025; every summary file hash/length independently matched read-only |
+| Initial error buffer | Native Inventory, Cancelled, Cancelled, exactly as deliberately exercised |
+| Restart error buffer | Empty |
+| Native stderr | One bounded Chromium shutdown error 1412 per process; not zero-error qualification |
+| Model / author restart recovery | realModelGeneration=false; authorRestartRecovery=false |
+
+The actual journeys exercise separate author and Lab acknowledgements, exact
+Core preview digest, second consent, strict malformed/false-consent/hash
+refusals, form-edit revocation, pending shared-broker contention, preapply
+cancellation and unchanged parent/no cancelled or stale child. Successful
+correction creates the actual child author interval with no character
+observation; the player marker contains only constant kind and revision.
+Actual Query2 verifies inherited original scope, player private-history
+exclusion, omniscient B, Mira's observed A and Sable isolation; inspection
+privilege does not mutate knowledge. Real typed Give saves r3; rejected
+repeat preserves its receipt, head and inventory while distinguishing
+observed rejection from missing durable cause. Actual V2 cancellation,
+postcommit late cancellation, known-ID status recovery, whole-ack loss with
+explicit exact lookup, changed-input mismatch and stale-preview disposal
+all pass through the same controllers/native ports, not a competing writer.
+
+The restart process reopens the actual saved child at r3 with the potion gone,
+retains the neutral author boundary and player-filtered history, starts with
+empty private author input/capability/consents and never auto-prepares,
+looks up or applies. It demonstrates **saved-timeline read/resume**, not
+author-operation recovery after restart.
+
+Root inspected all 17 images and reports no remaining visible layout defect:
+the acknowledgement label/button no longer overlap, Mira's observed A is
+visible, the narrow view wraps, and reopened r3/inventory and empty author
+request are visible. The snapshot userAgent reports Chrome/155.0.0.0 and
+Edg/155.0.0.0; this remains a major-only browser-reported value, not the full
+loaded runtime version. The report author has not independently viewed these
+17 pixels and attributes their visual assessment to Root.
+
+| First complete cohort artifact | Bytes / SHA-256 |
+| --- | --- |
+| source-manifest.json | 1,443 / `9fe056eb3cd1ac5eefe2b7ca63998870395edeb4f20e86bc09f3571e003c61f0` |
+| summary.json | 31,412 / `919d1f5edd8baab4c0f72b3e78890ee0727816653626b572f983804b0fd26fad` |
+| initial/report.json | 8,697 / `b66f46fbb52bc47065a765b490f4bb8a09aa825128c2241eeafb91821e3f5024` |
+| restart/report.json | 1,238 / `402641e8cb8cb7cb6c05876585c5eebf52024fbf778b9e685e638aeef53bd22a` |
+| Aggregate of all 53 relative artifact rows | `93cb98558a804ca4a97d539352f8e9f20642985b78b16cbc80da208eac314a7f` |
+| Dev-harness executable hash recorded by summary | `f41ce6e0add1b9b55dd112655301eb2aaa902ab7e5065603ca98816c71731eae` |
+| dist/app.js hash recorded by summary | `4f564f27152d890584792ed8132f0047b73640e44df588f5cd7936670ad8f8cf` |
+
+The aggregate uses the same ordinal UTF-8 LF row format described above,
+this time with each complete initial/restart relative path. No later binary
+is substituted for this recorded harness executable. Commands and environment
+are the reproduction block above; the actual outer log is
+author-native-loading-gap-corrected.log (539 bytes, hash in the log table).
+
+## Pending final-candidate appendix
 
 This section is deliberately pending until Root's next terminal results.
 The author continues evidence work; it is not a completed acceptance record.
@@ -317,12 +391,12 @@ The author continues evidence work; it is not a completed acceptance record.
 | Required final evidence | Status at this report's current source |
 | --- | --- |
 | Shared typed Domain2 fixture continuation prerequisite | PR #137 accepted; actual sixth-cohort Give saved r3. Complete UI qualification remains pending. |
-| Exact integrated source, clean/dirty state and native binary/dist hashes | Await upcoming source-bound cohort. |
-| Complete fresh native journey | Pending; eighth passed cancellation/late cancellation/known-ID status recovery, then failed exact whole-ack lookup after transient input loss. |
-| Second actual process: saved-child Domain2 read/resume | Unrun; no native restart acceptance yet. |
-| All 15 fresh + 2 restart semantic/capture pairs | Planned allocation only; not 17 passing images. |
-| Final expected rejection/cancel errors and bounded native stderr | Await completed reports; preserve original Version/shutdown evidence. |
-| Root inspection of every final image and visible-state corrections | Pending for upcoming cohort. Earlier 49 inspected images remain separate. |
+| Exact integrated source, clean/dirty state and native binary/dist hashes | First full-pass bd18d76 hashes above; final candidate pending two loading-boundary regressions. |
+| Complete fresh native journey | First full pass 123 distinct assertions; repeat after final loading fix pending. |
+| Second actual process: saved-child Domain2 read/resume | First actual process restart passed at bd18d76; repeat final candidate pending. |
+| All 15 fresh + 2 restart semantic/capture pairs | All 17 passed at bd18d76; not yet final candidate's images. |
+| Final expected rejection/cancel errors and bounded native stderr | First full pass has Inventory+Cancelled twice / restart empty; both stderr shutdown lines retained. Final candidate pending. |
+| Root inspection of every final image and visible-state corrections | All first-full-pass 17 inspected, 66 across nine cohorts; final-candidate images pending. |
 | Normal frontend/native compatibility and Android checks after shared changes | Await Root's source-bound terminal checks; no in-progress run is counted as passed. |
 
 Author-operation recovery after restart remains explicitly unavailable. Only

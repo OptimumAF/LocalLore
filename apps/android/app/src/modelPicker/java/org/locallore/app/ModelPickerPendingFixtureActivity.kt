@@ -105,7 +105,7 @@ class ModelPickerPendingFixtureActivity : LocalModelSetupActivity() {
 
 /** Fixed paths and bounded original fixture proofs, never selected through an Intent or URI. */
 internal object ModelPickerPendingFixture {
-    val identity = LocalModelIdentity("synthetic-picker-pending-v1", 63,
+    val identity = LocalModelIdentity("synthetic-picker-pending-v2", 63,
         "648c91a9de82e613189b3920a2098f5d803eb6e244f39b2b631cce24b7be8de0", 1024)
     val callbackCount = AtomicInteger()
     val callbackOverflow = AtomicBoolean()
@@ -114,7 +114,7 @@ internal object ModelPickerPendingFixture {
     fun root(context: Context): File {
         check(Thread.currentThread() !== Looper.getMainLooper().thread)
         check(context.packageName == "org.locallore.app.modelpickerverify")
-        return File(context.applicationContext.noBackupFilesDir.canonicalFile, "model-picker-pending-v1")
+        return File(context.applicationContext.noBackupFilesDir.canonicalFile, "model-picker-pending-v2")
     }
     fun stats(context: Context, run: String): Bundle {
         check(Thread.currentThread() !== Looper.getMainLooper().thread)

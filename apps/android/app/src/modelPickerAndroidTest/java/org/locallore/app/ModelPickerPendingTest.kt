@@ -77,7 +77,7 @@ class ModelPickerPendingTest {
         }
         verify(taskId >= 0, "Actual private Activity must have a valid server task identifier")
         await { model.state.value.phase == LocalModelSetupPhase.MISSING }
-        clickChooseOnOwnedApp()
+        clickChooseOnOwnedApp(model, requests)
         await { activePackage() in documents }
         await { activity.localStateSaved && model.state.value.phase == LocalModelSetupPhase.PICKING }
         verify(ModelPickerPendingFixture.callbackCount.get() == 0 && !ModelPickerPendingFixture.callbackOverflow.get() &&
@@ -241,15 +241,70 @@ class ModelPickerPendingTest {
         while (SystemClock.elapsedRealtime() < deadline) { if (matches()) return; Thread.sleep(10) }
         throw AssertionError("Expected owned picker/lifecycle state was not observed")
     }
-    private fun clickChooseOnOwnedApp() {
-        repeat(8) {
-            if (actOnAppNode({ it.text?.toString() == "Choose local model file" }, AccessibilityNodeInfo.ACTION_CLICK)) return
-            verify(activePackage() == context.packageName, "Only the owned app may be scrolled for its choose control")
-            actOnAppNode({ it.isScrollable }, AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
-            instrumentation.waitForIdleSync()
-            Thread.sleep(100)
+    private enum class PendingWindow { UNREADY, OWNED, PICKER, FOREIGN }
+    private fun clickChooseOnOwnedApp(model: LocalModelSetupViewModel, requests: List<Int>) {
+        val deadline = SystemClock.elapsedRealtime() + 5_000
+        var unready = 0
+        var owned = 0
+        var scrolls = 0
+        var identityReady = false
+        var last = PendingWindow.UNREADY
+        while (SystemClock.elapsedRealtime() < deadline) {
+            last = pendingWindow()
+            when (last) {
+                PendingWindow.UNREADY -> unready++ // A missing/unready window permits no UI action.
+                PendingWindow.OWNED -> {
+                    owned++
+                    if (!identityReady) {
+                        identityReady = visiblePendingIdentity()
+                        if (!identityReady) { unready++; Thread.sleep(20); continue }
+                    }
+                    if (actOnAppNode({ it.text?.toString() == "Choose local model file" }, AccessibilityNodeInfo.ACTION_CLICK)) return
+                    // Accessibility may return false after a dispatched action. Source observations,
+                    // followed by the caller's actual DocsUI/save checks, establish that transition.
+                    if (requests.size == 1 && model.state.value.phase == LocalModelSetupPhase.PICKING) return
+                    if (scrolls < 8) {
+                        scrolls++ // Bound attempts even when an accepted dispatch reports false.
+                        actOnAppNode({ it.isScrollable }, AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
+                    }
+                }
+                PendingWindow.PICKER -> {
+                    verify(requests.size == 1 && model.state.value.phase == LocalModelSetupPhase.PICKING,
+                        "Unexpected picker window before an owned request (PICKER)")
+                    return
+                }
+                PendingWindow.FOREIGN -> throw AssertionError("Choose readiness refused (FOREIGN; owned=${owned.coerceAtMost(255)} unready=${unready.coerceAtMost(255)} scrolls=$scrolls identity=${if (identityReady) 1 else 0})")
+            }
+            Thread.sleep(20)
         }
-        throw AssertionError("Actual owned choose-file button unavailable")
+        throw AssertionError("Choose readiness deadline ($last; owned=${owned.coerceAtMost(255)} unready=${unready.coerceAtMost(255)} scrolls=$scrolls identity=${if (identityReady) 1 else 0})")
+    }
+    private fun visiblePendingIdentity(): Boolean {
+        val root = instrumentation.uiAutomation.rootInActiveWindow ?: return false
+        if (root.packageName?.toString() != context.packageName) { root.recycle(); return false }
+        var visited = 0
+        fun walk(node: AccessibilityNodeInfo, depth: Int): Boolean {
+            if (++visited > 2048 || depth > 32) return false
+            if (node.packageName?.toString() == context.packageName && node.isVisibleToUser &&
+                node.text?.toString() == "Expected model · synthetic-picker-pending-v2") return true
+            for (index in 0 until node.childCount) {
+                val child = node.getChild(index) ?: continue
+                try { if (walk(child, depth + 1)) return true } finally { child.recycle() }
+            }
+            return false
+        }
+        return try { walk(root, 0) } finally { root.recycle() }
+    }
+    private fun pendingWindow(): PendingWindow {
+        val root = instrumentation.uiAutomation.rootInActiveWindow ?: return PendingWindow.UNREADY
+        return try {
+            when (root.packageName?.toString()) {
+                null -> PendingWindow.UNREADY
+                context.packageName -> if (root.childCount > 0) PendingWindow.OWNED else PendingWindow.UNREADY
+                in documents -> PendingWindow.PICKER
+                else -> PendingWindow.FOREIGN
+            }
+        } finally { root.recycle() }
     }
     private fun actOnAppNode(matches: (AccessibilityNodeInfo) -> Boolean, action: Int): Boolean {
         val root = instrumentation.uiAutomation.rootInActiveWindow ?: return false

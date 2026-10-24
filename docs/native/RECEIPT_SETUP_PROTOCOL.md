@@ -49,9 +49,13 @@ The strict shared parser still rejects foreign rows, wrong UIDs, APP/service or
 provider processes. Before initial instrumentation, both packages must have no
 processes. Subsequent observations permit only the same helper row or its
 natural disappearance. Disappearance permanently revokes that row; any new,
-replaced or reappearing helper refuses. An initially absent helper cannot later
+replaced or observably reappearing helper refuses. An initially absent helper cannot later
 appear. Observation order, stage and instrumentation counts are exact, and a
 classification failure is sticky. No process is stopped to obtain this result.
+Version 2 facts contain separate `target` and `test_helper` rows. Matching the
+observed PID/UID/name does not attest continuous liveness or detect unobserved
+PID reuse between snapshots. The helper grants no file or runtime authority;
+the APP restart proof independently requires its linked changed PID/start pair.
 
 Only afterward run `ReceiptSetupRestartTest` in a separate ordinary
 instrumentation invocation. Require one exact pass and two additional proof

@@ -308,7 +308,14 @@ class ProcessBoundary:
     def observe(self, raw, uids, *, label, stage, methods):
         try:
             assert not self._refused and self._next < len(self.observations)
+            assert type(label) is str and type(stage) is str and type(methods) is int
             assert (label, stage, methods) == self.observations[self._next]
+            assert type(uids) is dict
+            if self._next == 0:
+                assert uids == {}
+            else:
+                assert set(uids) == {APP, TEST} and all(type(uid) is int and 10000 <= uid < 2 ** 31 for uid in uids.values())
+                assert uids[APP] != uids[TEST]
             parsed = contract.parse_processes(raw, uids, {})
             assert parsed["passive"] == []
             rows = parsed["owned"]
@@ -473,7 +480,7 @@ class Owner:
             self.volume = volume
         assert volume == self.volume
         storage = contract.parse_storage(self.shell(contract.DF), self.shell(contract.DEVICES, cap=128))
-        value = {"version": 1, "packages": observed, "uid_map": uids, "processes": processes,
+        value = {"version": 2, "packages": observed, "uid_map": uids, "processes": processes,
                  "volume": volume, "userdata": storage, "host_free": host_free}
         write_json(self.directory / (label + "-facts.json"), value)
         return value

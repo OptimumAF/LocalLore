@@ -414,6 +414,13 @@ new instrumentation execution or fresh lint analysis. Lint report has0 errors
 and1 existing GradleDependency warning about the newer coroutines dependency;
 no dependency update or SDK/toolchain change occurred.
 
+Root additionally ran the existing `python scripts/audit_apk.py <app-debug.apk>`
+against the final APK (documentation-only source `d4520d2`). It passed the
+current manifest/packaging contract: only the app-owned dynamic receiver
+permission, both required Rust JNI ABIs, and all four packaged ELF libraries
+with 16KiB LOAD alignment. This read-only artifact audit uses installed aapt2;
+it does not install or execute the APK.
+
 | Android output under `<task-root>/android-workspace-build/_app/` | Size / SHA256 |
 | --- | --- |
 | `outputs/apk/debug/app-debug.apk` |31,418,696 bytes; b43f93403f54483c33f13e43a840d69f374d384ae34748c5e51c9ef938d69415 |

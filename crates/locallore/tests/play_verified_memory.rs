@@ -256,10 +256,10 @@ fn actual_verified_prefix_and_raw_delta_preserve_same_prompt_state_and_mandatory
     );
     assert_eq!(base.revision(), 266);
     let request = wait_request(&base, "same-memory-turn");
-    let expected = compiler::compile_verified_cancelled(
+    let expected = compiler::compile_policy_cancelled(
         &base,
         &compiler::CompileRequest {
-            version: compiler::COMPILER_VERSION,
+            version: compiler::POLICY_COMPILER_VERSION,
             scope: base.scope().clone(),
             expected_head: 266,
             at_revision: None,
@@ -269,10 +269,11 @@ fn actual_verified_prefix_and_raw_delta_preserve_same_prompt_state_and_mandatory
             referenced_ids: vec![],
             budget: compiler::Budget::default(),
         },
+        compiler::ContextPolicy::StateRelevantMemoryV1,
         Some(&retained),
         &|| false,
     )
-    .unwrap();
+    .unwrap().compilation;
     let mut raw = base.clone();
     let mut cached = base.clone();
     let mut p1 = wait_script(266);
@@ -351,7 +352,7 @@ fn actual_verified_prefix_and_raw_delta_preserve_same_prompt_state_and_mandatory
     );
     assert_eq!(c2.observer, "player");
     assert_eq!(c2.head, 266);
-    assert_eq!(r2.play().unwrap().prompt_version, "locallore-play-v2.4");
+    assert_eq!(r2.play().unwrap().prompt_version, "locallore-play-v2.5");
 }
 
 #[test]
@@ -643,8 +644,8 @@ fn new_context_record_replays_exactly_and_rejects_closed_binding_version_and_bou
     );
     assert!(no_model.seen.is_empty());
     let mutations = [
-        ("/play/context/version", json!(2)),
-        ("/play/context/compiler_version", json!(2)),
+        ("/play/context/version", json!(3)),
+        ("/play/context/compiler_version", json!(3)),
         ("/play/context/head", json!(1)),
         ("/play/context/observer", json!("mira")),
         ("/play/context/source_fallback_reason", json!("unknown")),
@@ -662,7 +663,7 @@ fn new_context_record_replays_exactly_and_rejects_closed_binding_version_and_bou
             json!(u64::MAX),
         ),
         ("/play/context", Value::Null),
-        ("/play/prompt_version", json!("locallore-play-v2.5")),
+        ("/play/prompt_version", json!("locallore-play-v2.6")),
     ];
     for (pointer, value) in mutations {
         let mut bad = json.clone();

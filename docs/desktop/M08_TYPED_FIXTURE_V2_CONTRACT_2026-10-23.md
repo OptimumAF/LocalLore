@@ -103,3 +103,23 @@ cancelled fake mode before its provider could run. Evidence remains in
 `typed-v2-host-original-red.log`. These logs were read, not rerun, by this
 reviewer. Corrected Core runtime RED and subsequent implementation qualification
 belong to Root; no GREEN is inferred from source edits.
+
+## Allocated source implementation
+
+After the accessor correction was separately committed as `0b61116`, Root
+authorized source-only implementation while it independently reruns corrected
+Core RED. The production diff is confined to inference.rs: import the existing
+CharacterContextV2, add DirectorV2, select the actual actor-only context through
+an explicit Domain1/Domain2 match (unknown domain remains Version), and share
+FakeProvider's existing proposal arm. Each domain retains the identical context
+budget, player, request scope and expected head. The context is constructed and
+bounded before any provider poll. Exact recorded retries still return before
+context construction/generation; cancellation and narrator/commit ordering are
+unchanged. No production code has been compiled or executed by this author.
+
+Source inspection found no other exhaustive inference Input match requiring an
+owned-path extension. Structured-only consumers keep rejecting non-Structured
+input through their existing let-else/wildcard closure. No consumer is widened
+and no generated/native/frontend contract changes. Root must independently
+compile and run the frozen five tests, broader shared/strict/native/Android
+compatibility checks as applicable, and the interrupted actual native journey.

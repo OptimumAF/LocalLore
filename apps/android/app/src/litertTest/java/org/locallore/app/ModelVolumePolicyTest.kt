@@ -89,19 +89,29 @@ class ModelVolumePolicyTest {
         recheck(userdata = Long.MAX_VALUE)
     }
 
-    @Test fun importUsesMaximumOfExistingRuntimeFloorAndArtifactPlusReserve() {
+    @Test fun importRetainsRuntimeFloorAndOriginalReserveAfterCopy() {
         val model = 2_588_147_712L
-        val required = model + ModelVolumePolicy.IMPORT_RESERVE_BYTES
-        assertEquals(2_856_583_168L, ModelVolumePolicy.externalRequiredBytes(model))
-        recheck(facts().copy(availableBytes = required), missing = model)
-        refusal(ModelVolumeFailure.NO_SPACE) { recheck(facts().copy(availableBytes = required - 1), missing = model) }
-        assertEquals(ModelVolumePolicy.EXTERNAL_MIN_BYTES, ModelVolumePolicy.externalRequiredBytes(63))
-        assertEquals(ModelVolumePolicy.EXTERNAL_MIN_BYTES,
-            ModelVolumePolicy.externalRequiredBytes(ModelVolumePolicy.EXTERNAL_MIN_BYTES - ModelVolumePolicy.IMPORT_RESERVE_BYTES))
+        assertEquals(4_735_631_360L, ModelVolumePolicy.externalRequiredBytes(model))
+        for (missing in listOf(0L, 63L, model)) {
+            val required = ModelVolumePolicy.externalRequiredBytes(missing)
+            assertTrue(required - missing >= ModelVolumePolicy.IMPORT_RESERVE_BYTES)
+            assertEquals(ModelVolumePolicy.EXTERNAL_MIN_BYTES, required - missing)
+            recheck(facts().copy(availableBytes = required), missing = missing)
+            refusal(ModelVolumeFailure.NO_SPACE) { recheck(facts().copy(availableBytes = required - 1), missing = missing) }
+        }
+    }
+
+    @Test fun doomedThreeGiBImportRefusesBeforeOpeningSource() {
+        var opens = 0
+        refusal(ModelVolumeFailure.NO_SPACE) {
+            recheck(facts().copy(availableBytes = 3L * 1024 * 1024 * 1024), missing = 2_588_147_712L)
+            opens++
+        }
+        assertEquals(0, opens)
     }
 
     @Test fun capacityArithmeticRefusesOverflowWithoutWrapping() {
-        val largest = Long.MAX_VALUE - ModelVolumePolicy.IMPORT_RESERVE_BYTES
+        val largest = Long.MAX_VALUE - ModelVolumePolicy.EXTERNAL_MIN_BYTES
         assertEquals(Long.MAX_VALUE, ModelVolumePolicy.externalRequiredBytes(largest))
         recheck(facts().copy(availableBytes = Long.MAX_VALUE), missing = largest)
         listOf(-1L, Long.MIN_VALUE, largest + 1, Long.MAX_VALUE).forEach {

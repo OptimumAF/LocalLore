@@ -81,10 +81,12 @@ internal object ModelVolumePolicy {
 
     /** Missing artifact bytes are supplied by trusted store state, never picker/model metadata. */
     fun externalRequiredBytes(missingModelBytes: Long): Long {
-        if (missingModelBytes < 0 || missingModelBytes > Long.MAX_VALUE - IMPORT_RESERVE_BYTES) {
+        val retained = maxOf(EXTERNAL_MIN_BYTES, IMPORT_RESERVE_BYTES)
+        if (missingModelBytes < 0 || missingModelBytes > Long.MAX_VALUE - retained) {
             fail(ModelVolumeFailure.INVALID)
         }
-        return maxOf(EXTERNAL_MIN_BYTES, missingModelBytes + IMPORT_RESERVE_BYTES)
+        // The runtime floor must remain available after copying, not be consumed by the artifact.
+        return missingModelBytes + retained
     }
 
     private fun absoluteNormalized(path: String?): Boolean = path != null && path.length in 2..4096 &&

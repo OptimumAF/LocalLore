@@ -39,8 +39,12 @@ No raw facts or underlying exception details enter setup state.
 
 The volume policy retains the benchmark's **2,147,483,648-byte external** and
 **1,140,850,688-byte userdata** floors. Before opening a missing model source,
-external free space must also cover its fixed artifact bytes plus the existing
-268,435,456-byte import reserve. Arithmetic is checked before addition. Device
+external free space must cover its fixed artifact bytes **plus** the larger of
+the runtime floor and existing 268,435,456-byte import reserve. This leaves the
+2 GiB floor after copying: the candidate requires 4,735,631,360 bytes before
+import. Taking the maximum of the artifact-plus-reserve and runtime floor would
+admit known-doomed imports that fail the post-copy check. Arithmetic is checked
+before addition. Device
 controllers may require stricter observation floors. These are admission
 floors, not calibrated peak inference/cache consumption guarantees.
 

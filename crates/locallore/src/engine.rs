@@ -15,6 +15,9 @@ pub struct Engine {
     lineage: Lineage,
     state: Projection,
     records: Vec<CanonicalRecord>,
+    // Derived only from the actual serialized records at the two append sites.
+    // Never persisted, deserialized, hashed as source identity or used as canon.
+    canonical_record_bytes: usize,
     knowledge: KnowledgeProjectionV2,
     receipt_cache: OnceLock<Vec<Receipt>>,
 }
@@ -183,6 +186,7 @@ impl Engine {
             seed,
             state,
             records: vec![],
+            canonical_record_bytes: 0,
             knowledge: KnowledgeProjectionV2::default(),
             receipt_cache: OnceLock::new(),
         })

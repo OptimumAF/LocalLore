@@ -39,7 +39,7 @@ function AuthorRecovery({ author, context, restricted = false }: {
                     {!available && <p>Saved-child lookup requires the saved story's granted omniscient Story Lab context and acknowledgement of any unresolved shared operation. Reading a known operation does not apply a correction.</p>}
                 </div>
             )}
-            {state.uncertain && !state.operation && <p>The original admission acknowledgement is unavailable. No native operation ID is inferred.</p>}
+            {state.uncertain && !state.operation && <p>No native operation ID is available in this view; none is inferred.</p>}
             {state.outcome && (
                 <section aria-labelledby="author-outcome-title">
                     <h3 id="author-outcome-title">Saved child confirmed</h3>

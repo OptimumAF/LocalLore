@@ -165,6 +165,42 @@ export class AuthorController {
                 .discardPreview(preview.session, preview.preview_token)
                 .catch(() => {});
     }
+    private async discardRetiredPreview(work: Work, preview: AuthorPreview) {
+        let confirmed = false;
+        try {
+            confirmed =
+                (await this.port.discardPreview(
+                    preview.session,
+                    preview.preview_token,
+                )) === true;
+        } catch {
+            /* Unconfirmed disposal keeps the existing uncertainty. */
+        }
+        if (
+            !confirmed ||
+            this.disposed ||
+            this.current(work) ||
+            work.kind !== "prepare" ||
+            this.active !== work ||
+            this.context?.rootIncarnation !== work.context.rootIncarnation
+        )
+            return;
+        // Only this retired, non-mutating prepare is resolved. No commit/lookup
+        // result is inferred, and no private preview enters the new selection.
+        work.finalized = true;
+        this.active = null;
+        this.patch({
+            busy: false,
+            uncertain: false,
+            status: "idle",
+            operation: null,
+            input: null,
+            error: null,
+            authorConsent: false,
+            previewRead: false,
+            notice: "The earlier unused preview was confirmed discarded. No correction was applied.",
+        });
+    }
     private invalidate() {
         this.discard(this.state.preview);
         this.patch({ authorConsent: false, previewRead: false, preview: null });
@@ -418,7 +454,8 @@ export class AuthorController {
             work.id = status.operation_id;
             if (!this.current(work)) {
                 if (work.kind === "prepare" && status.phase === "completed")
-                    this.discard(
+                    await this.discardRetiredPreview(
+                        work,
                         await checkedAuthorPreview(
                             status.result,
                             work.input,
@@ -461,7 +498,8 @@ export class AuthorController {
         if (work.finalized) return;
         if (!this.current(work)) {
             if (work.kind === "prepare" && status.phase === "completed")
-                this.discard(
+                await this.discardRetiredPreview(
+                    work,
                     await checkedAuthorPreview(
                         status.result,
                         work.input,
@@ -494,7 +532,7 @@ export class AuthorController {
                 work.session,
             );
             if (!this.current(work)) {
-                this.discard(preview);
+                await this.discardRetiredPreview(work, preview);
                 return;
             }
             work.finalized = true;

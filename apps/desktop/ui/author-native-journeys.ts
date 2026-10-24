@@ -23,6 +23,7 @@ async function until(test: () => boolean | Promise<boolean>, label: string) {
 }
 function latch() {
     let enter!: () => void, release!: () => void;
+    let entered = false;
     return {
         entered: new Promise<void>((resolve) => {
             enter = resolve;
@@ -30,7 +31,11 @@ function latch() {
         waiting: new Promise<void>((resolve) => {
             release = resolve;
         }),
-        ready: () => enter(),
+        hasEntered: () => entered,
+        ready: () => {
+            entered = true;
+            enter();
+        },
         release: () => release(),
     };
 }
@@ -800,10 +805,11 @@ export async function authorNativeJourneys({
             );
             await capture("author-native-receipt");
             c.setAction("wait");
+            await refreshV2();
             const held = latch();
             gateway.heldPrepare = held;
             const turn = v2.send();
-            await held.entered;
+            await until(held.hasEntered, "actual-V2-prepare-response-held");
             check(
                 !!v2.get().pending,
                 "actual-V2-ready-ack-held-pending-is-not-root-legacy-null",
@@ -943,8 +949,10 @@ export async function authorNativeJourneys({
             );
             await pause();
             check(
-                !a.get().uncertain && retention.get()?.terminal &&
-                    retention.get()?.consumed && !retention.get()?.unknown &&
+                !a.get().uncertain &&
+                    retention.get()?.terminal &&
+                    retention.get()?.consumed &&
+                    !retention.get()?.unknown &&
                     !retention.get()?.inFlight,
                 "confirmed-stale-preview-disposal-releases-shared-admission-without-lookup",
             );

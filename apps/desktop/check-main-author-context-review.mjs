@@ -918,9 +918,8 @@ for (const changedSelection of ["player-lens", "play-view"]) {
                     1,
                 );
                 assert.equal(
-                    f.calls.filter(
-                        (c) => c.command === "author_prepare_start",
-                    ).length,
+                    f.calls.filter((c) => c.command === "author_prepare_start")
+                        .length,
                     1,
                 );
                 assert.equal(

@@ -142,10 +142,11 @@ fn actual_repository_both_policies_commit_and_retry_without_provider_after_resta
             panic!()
         };
         let package: Value =
-            serde::Deserialize::deserialize(&mut serde_json::Deserializer::from_str(
-                director.split_once("Context data: ").unwrap().1,
-            ))
-            .unwrap();
+            serde_json::Deserializer::from_str(director.split_once("Context data: ").unwrap().1)
+                .into_iter::<Value>()
+                .next()
+                .unwrap()
+                .unwrap();
         assert_eq!(package["context"]["compiler_version"], 2);
         assert_eq!(package["context"]["observer"], seed.player);
         assert_eq!(package["context"]["revision"], 12);

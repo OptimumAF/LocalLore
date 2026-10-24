@@ -142,3 +142,54 @@ intended guard, and obtain fresh source/artifact/controller admission for furthe
 verification. This stopped cohort does not authorize a retry. M05.05/M05.04 remain
 unchecked; real-model, second-emulator, ARM64 and physical-phone gates remain
 unqualified.
+
+## Separate read-only settlement preparation
+
+Root separately admitted a read-only metadata settlement after the stopped
+instrumentation cohort. Its first wrapper failed before starting a controller
+or device client: it requested a 210-second outer deadline, while the inherited
+process runner accepts at most 180 seconds. The Python command exited 1 with
+`invalid_process_budget`; the start receipt and all 73 inputs were preserved,
+and its lease was released with zero device calls. The original settlement
+authorization was consumed, with no automatic retry.
+
+A new, separately disabled settlement controller uses the inherited 180-second
+limit. Its 21 distinct pure host tests include calling the actual copied runner
+with the wrapper's real request/output/deadline configuration and an already-set
+cancellation signal, proving budget validation succeeds without spawning a
+process. The rejected 210-second configuration is also tested against that
+runner. A source-bound test executes the actual wrapper's CLI guard with an
+injected failing return, verifying nonzero exit propagation. The runner's budget
+guard was not changed.
+
+The prepared settlement admits only nine fixed read-only metadata queries for
+the existing B target: boot/API/ABI/page identity, process PID/UID/name, complete
+31-package APK map, exact test-package UID, userdata and filesystem identity.
+It preserves the original host/userdata floors and failed APK pair. It grants no
+installation, instrumentation, lifecycle, model/cache/save query or cleanup
+permission. It remained disabled pending fresh review; no process settlement
+result was inferred from those host tests.
+
+Root and the reviewer subsequently rehashed all 73 bindings with zero mismatch
+and separately admitted exactly one read-only settlement. Its authorization
+SHA-256 is `58441bfaa3016812140d5db03777536d04a1c2ed9b49c7e74f125c7b5adf728b`.
+That execution completed before its first observation yield, with return code 0,
+known cleanup and 2,891 ms elapsed. All nine fixed device clients completed with
+return code zero, known cleanup and zero stderr bytes. No execution restart or
+device mutation occurred.
+
+This later observation found one exact test-package process with matching
+process and installed-package UIDs, and no application or foreign LocalLore
+process. The complete 31-package map matched the failed APK pair and all 29 prior
+hashes. Userdata available was 1,465,380,864 bytes; host floors also passed. These
+are separate read-only observations after the original cohort's stop, not
+retroactive final checks for that failed cohort. The remaining test process was
+not stopped. This settlement grants no cleanup or corrected-install permission
+and does not establish natural process exit or runtime/model ownership.
+
+All 73 bindings and nine raw client records rehashed without mismatch. The
+read-only selection contains 43 files / 157,822 bytes; its 7,019-byte index has
+SHA-256 `b6452b2ac6eb0f7d920c01504e46b3070bee3fcc9b38fe02ff06ab1a38103335`.
+Selected files and index are read-only; the separate lease was released after
+the authoritative terminal and local seal. Further device action requires fresh
+root admission based on these observations.

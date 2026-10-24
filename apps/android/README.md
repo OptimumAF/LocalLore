@@ -118,14 +118,18 @@ or network capability. Its sole launcher is setup; scripted MainActivity and
 the local play Activity are not exported. One runtime attachment is permitted
 per process; another requires a complete process restart. File verification is
 not evidence of successful model load or supported phone performance.
-Use `scripts/audit_apk.py --litert-verification --model-provisioning` for this
-specific package. See the [provisioning contract](../../docs/native/MODEL_PROVISIONING_CONTRACT.md)
-for cancellation, interrupted-copy recovery and remaining limitations.
+Audit its APK with `scripts/audit_apk.py <apk> --litert-verification --model-provisioning`.
+See the [provisioning contract](../../docs/native/MODEL_PROVISIONING_CONTRACT.md)
+for cancellation, interrupted-copy recovery and API/filesystem limits, and the
+[verification](../../docs/native/MODEL_PROVISIONING_VERIFICATION_2026-10-23.md)
+for the passing synthetic checks on one API 35 x86_64 emulator. Real inference
+through this setup profile remains unqualified.
 
 The optional [LiteRT worker](../../docs/native/LITERT_WORKER_CONTRACT.md) implements
 `LocalRoleWorker` against the actual SDK. Its trusted configuration factory pairs
-the native provenance/profile and worker. MainActivity continues constructing the
-scripted provider; this candidate does not supply model import or a runtime picker.
+the native provenance/profile and worker. With only the LiteRT verification flag,
+MainActivity continues constructing the scripted provider. The additional model
+setup flag above selects the separate file-import launcher and paired owner.
 
 With the already provisioned Java 21 installation configured for Gradle toolchain
 discovery, keep Java 17 as the build daemon and run from `apps/android`:

@@ -67,20 +67,29 @@ Kotlin sources; the per-ABI correction changed only Rust constants.
   runtime cache budget. Ordinary compiler/test advisories remain visible.
 - The existing pinned SDK/analyzer audits passed: dependency checking enabled,
   exact 67-artifact analyzer graph, analyzer 32.4.1, SDK 0.18.1 and Kotlin
-  reflection/stdlib 2.4.0 present in the analyzed models. Main analysis executed for the publication Kotlin source set; the subsequent
+  reflection/stdlib 2.4.0 present in the analyzed models. Main analysis executed
+  for the publication Kotlin source set; the subsequent
   Rust-only correction and package work reused that unchanged Kotlin analysis.
-- The ordinary Kotlin 2.2.21 app independently compiled and passed **203 JVM
-  tests**, 23 suites, zero failures/errors/skips; lint zero errors/one warning.
-  That 125,891 ms check explicitly skipped `buildRustAndroid`; it does not claim
-  a new ordinary APK or another native cross-build. The existing locks and SDK
-  pins are unchanged.
+- The final ordinary Kotlin 2.2.21 app independently passed **203 JVM tests**,
+  23 suites, zero failures/errors/skips; lint zero errors/one dependency advisory.
+  This final 177,485 ms build freshly built both ordinary Rust ABIs and assembled
+  the ordinary APK; it supersedes the earlier check that skipped native work.
+  Its stdout SHA256 is
+  `9ad2d5146ba4a78f403f4f6301d73b50533788d56fd62ed8e6230f13a20d6cec`.
+  The actual signed 23,214,204-byte ordinary APK SHA256 is
+  `29c56f9d6b37d030d352ecf78ac983cd515774801b27a1a49ae356095e27c111`.
+  Manifest/permission and four-library 16 KiB alignment checks pass; the setup
+  and play Activities, LiteRT SDK libraries and publication JNI export in both
+  Rust libraries are absent. The 38-file / 36,811,287-byte closed ordinary index
+  SHA256 is `89a15340bd1fc3212161dd185fbb7645ab8213916cda1b99ba0b08a25b34d539`.
+  Independent rehashes match. Existing locks and SDK pins are unchanged.
 - From the repository root, `python -B -E -m unittest discover -s scripts/tests`
   passed **192 tests** after the manifest-audit correction, 14.617 seconds;
   owned execution completed in 15,047 ms with known cleanup. Thirteen APK-audit
   methods include hostile package/permission/launcher/export/alias variants.
-  The earlier Rust unit suites were not rerun at that point; the later native
-  publication correction changes Rust source and requires fresh cross-builds
-  and Android execution.
+  Rust domain suites were not rerun: gameplay source did not change. The added
+  Android-only JNI module was compiled for both ABIs and executed in the
+  synthetic x86_64 Android tests.
 
 All process handles reached authoritative terminal states. Observation timeouts
 did not trigger replacement runs. The first successful source/results and the
@@ -170,8 +179,28 @@ incompatibility; it does not establish the origin of either recorded error.
 The replacement is the strict no-clobber public bionic rename described in the
 contract. Its additional host regressions cover sanitized publication failure
 and cancellation immediately after a move. Android assertions exercise actual
-JNI publication against existing regular and symlink destinations. The new
-build and device outcomes will be recorded after they reach terminal states.
+JNI publication against existing regular and symlink destinations.
+
+The corrected cohort subsequently passed all four actual Android methods on
+B, Android 15/API 35/x86_64 with 4 KiB pages. Its original owned handle reached
+exit zero with known cleanup in 22,828 ms; all 47 device clients completed with
+exit zero and known cleanup. The copy/reopen test also exercises the real native
+no-clobber operation against existing regular and symlink destinations. The
+cancellation case holds the slot until a blocked provider returns, drains it,
+and then successfully imports a fresh tiny fixture. The missing-model case
+constructs the real configured Rust owner and observes borrowed-handle closure
+without initializing an SDK Engine.
+
+After all four passes, the controller verified the signed installed test-host
+identity and complete package map before one exact disposable TEST-host stop.
+Subsequent gates found no LocalLore process and preserved the exact other 29
+package hashes and the updated candidate pair; final userdata available was
+1,465,159,680 bytes, above the original floor. The update requested private-data
+preservation; it was not a bytewise audit of private userdata. This cleanup
+does not establish natural process exit or active-model resource ownership.
+The two earlier failed cohorts remain failed; successful correction does not
+identify the underlying operation in their sanitized errors. Detailed raw
+selection verification, seal and limitations are in the device report.
 
 Real model initialization, large-artifact import performance, provider-picker
 round trips, active SDK cancellation/close, narrative quality, sustained memory

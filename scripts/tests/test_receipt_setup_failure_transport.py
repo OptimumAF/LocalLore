@@ -3,6 +3,8 @@
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
 import copy
+from contextlib import redirect_stdout
+import io
 import json
 from pathlib import Path
 import shlex
@@ -157,6 +159,62 @@ class NegativeTransportTests(unittest.TestCase):
             self.assertFalse((root / "negative-transport-v1.json").exists())
             records = sorted((root / "commands").glob("*.stdout.bin"))
             self.assertEqual(records[-1].read_bytes(), raw)
+
+    def test_negative_subclass_retains_raw_but_refuses_unknown_cleanup_or_lost_owner(self):
+        for uncertain, lost in ((True, False), (False, True)):
+            with self.subTest(uncertain=uncertain, lost=lost), tempfile.TemporaryDirectory() as directory:
+                value = fixture.proposal(Path(directory)); lease = fixture.Lease(value)
+                owner = n.NegativeOwner(value, lease); owner.stage = "negative"
+                def dispatch(*args, **kwargs):
+                    if lost: lease.live = False
+                    return SimpleNamespace(status="completed", returncode=0, cleanup_complete=not uncertain,
+                                           stdout=transcript(), stderr_bytes=0, elapsed_ms=1)
+                with patch.object(q.host, "run_process", side_effect=dispatch) as run:
+                    with self.assertRaises((AssertionError, RuntimeError)): owner.shell(n.INSTRUMENT)
+                    self.assertEqual(run.call_count, 1)
+                    self.assertEqual(owner.count, 1)
+                    with self.assertRaises((AssertionError, RuntimeError)): owner.shell(n.INSTRUMENT)
+                    self.assertEqual(run.call_count, 1)
+                self.assertEqual((owner.commands / "command-0001.stdout.bin").read_bytes(), transcript())
+                self.assertFalse((owner.directory / "negative-transport-v1.json").exists())
+
+    def test_worker_requires_exact_barrier_and_records_only_negative_scope(self):
+        with patch.object(n.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(b"wrong\n"))), patch.object(n, "authorize") as auth:
+            with self.assertRaises(AssertionError): n.worker("p", "a", "e")
+            auth.assert_not_called()
+        for stopped in (False, True):
+            with tempfile.TemporaryDirectory() as directory:
+                value = fixture.proposal(Path(directory)); value["scope"] = n.SCOPE
+                lease = fixture.Lease(value)
+                with patch.object(n.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(n.REQUEST))), \
+                     patch.object(n, "authorize", return_value=value), patch.object(q, "open_lease", return_value=lease), \
+                     patch.object(n, "run_cohort", side_effect=AssertionError("synthetic refusal") if stopped else None,
+                                  return_value={"normal_setup_qualified": False}), redirect_stdout(io.StringIO()):
+                    self.assertEqual(n.worker("p", "a", directory), 2 if stopped else 0)
+                result = json.loads((Path(directory) / "cohort/result-v1.json").read_bytes())
+                self.assertEqual(result["scope"], n.SCOPE)
+                self.assertEqual(result["status"], "stopped" if stopped else "observed")
+                self.assertEqual(result["command_count"], 0)
+                self.assertIsNone(result["result"] if stopped else result["failure"])
+
+    def test_owned_wrapper_has_distinct_barrier_budgets_capture_and_cleanup_gate(self):
+        for clean, code in ((True, 0), (False, 0), (True, 2)):
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory); value = fixture.proposal(root); value["scope"] = n.SCOPE
+                lease = fixture.Lease(value); p, a = root / "p.json", root / "a.json"
+                p.write_text("proposal fixture"); a.write_text("authorization fixture")
+                result = SimpleNamespace(status="completed", returncode=code, cleanup_complete=clean,
+                                         stdout=b"bounded negative worker metadata\n", stderr_bytes=0, elapsed_ms=2)
+                with patch.object(n, "authorize", return_value=value), patch.object(q, "open_lease", return_value=lease), \
+                     patch.object(q.host, "run_process", return_value=result) as run, redirect_stdout(io.StringIO()):
+                    self.assertEqual(n.run_owned(p, a, root), 0 if clean and code == 0 else 2)
+                argv = run.call_args.args[0]
+                self.assertEqual(argv[:3], [sys.executable, "-B", "-E"])
+                self.assertEqual(Path(argv[3]).resolve(), Path(n.__file__).resolve())
+                self.assertEqual(argv[4:], ["worker", "--proposal", str(p), "--authorization", str(a), "--evidence", str(root)])
+                self.assertEqual(run.call_args.kwargs, {"request": n.REQUEST, "deadline": 180, "max_output": 32768})
+                self.assertEqual((root / "receipt-owned-stdout-v1.bin").read_bytes(), result.stdout)
+                self.assertEqual(json.loads((root / "receipt-owned-result-v1.json").read_bytes())["cleanup_complete"], clean)
 
 
 if __name__ == "__main__":

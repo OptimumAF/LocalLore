@@ -47,6 +47,7 @@ function deferred() {
 class Gateway {
     playSnapshotV2 = true;
     domain = 2;
+    player = "player";
     head = 3;
     calls = [];
     pending = null;
@@ -82,6 +83,7 @@ class Gateway {
                 command.expected_revision,
                 this.domain,
             );
+            output.player.observer = this.player;
             if (this.corrupt) output.facts = { private: "MUST_NOT_RENDER" };
             if (this.pending) {
                 const gate = this.pending;
@@ -199,6 +201,21 @@ let checks = 0;
         gateway.calls.filter((c) => c.op === "play_snapshot_v2").length,
         0,
     );
+    checks++;
+}
+{
+    const gateway = new Gateway();
+    gateway.domain = 1;
+    gateway.player = "hero";
+    const controller = new Controller(gateway);
+    await controller.start();
+    assert.equal(controller.get().visibleError, null);
+    assert.equal(controller.get().play, null,
+        "A custom player must use the scoped V2 route even before any author correction");
+    assert.equal(controller.get().playV2?.player.observer, "hero");
+    assert.equal(controller.get().playV2?.domain_version, 1);
+    assert.equal(gateway.calls.filter(c => c.op === "play_snapshot").length, 0,
+        "The legacy decoder hardcodes the player identity and cannot represent this seed");
     checks++;
 }
 console.log(

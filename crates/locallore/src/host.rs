@@ -179,6 +179,11 @@ pub enum HostCommand {
         scope: Scope,
         expected_revision: u64,
     },
+    PlaySnapshotV2 {
+        session: String,
+        scope: Scope,
+        expected_revision: u64,
+    },
     FreeText {
         session: String,
         request: Request,
@@ -1391,6 +1396,38 @@ impl Host {
                         Err(e) => reject(e),
                     }
                 }
+            }
+            HostCommand::PlaySnapshotV2 {
+                session,
+                scope,
+                expected_revision,
+            } => {
+                if state.persistence.is_some() {
+                    if let Err(error) = refresh_session(state, &session, &scope) {
+                        return error;
+                    }
+                }
+                let selected = match get_session(state, &session, &scope) {
+                    Ok(selected) => selected,
+                    Err(error) => return error,
+                };
+                let engine = &selected.engine;
+                if expected_revision != engine.revision() {
+                    return reject("Stale");
+                }
+                let player = &engine.seed().player;
+                let inventory: BTreeMap<_, _> = engine
+                    .state()
+                    .items
+                    .iter()
+                    .filter(|(_, item)| &item.owner == player)
+                    .collect();
+                // Thin native player display only. History/observed facts use
+                // separately paged Query2; no context or private record is built.
+                ok(json!({"version":2,"domain_version":engine.domain_version(),
+                    "scope":engine.scope(),"revision":engine.revision(),"rules":engine.seed().profile,
+                    "player":{"observer":player,"self_state":engine.state().actors[player]},
+                    "inventory":inventory}))
             }
             HostCommand::PlaySnapshot {
                 session,

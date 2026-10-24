@@ -9,7 +9,7 @@ import { AuthorPanel } from "./AuthorPanel";
 import type { AuthorController } from "./author-controller";
 import type { AuthorContext } from "./author-model";
 import { V2PlayPanel } from "./V2PlayPanel";
-import type { V2PlayController } from "./v2-play-controller";
+import type { V2PlayController, V2PlayState } from "./v2-play-controller";
 import type { BrokerRetention } from "./broker-retention";
 import type {
     MemoryContext,
@@ -109,7 +109,7 @@ export function App({
     const s = useSyncExternalStore(c.subscribe, c.get),
         selected = c.selected(),
         receipt = c.receipt();
-    const scoped = useSyncExternalStore(
+    const scoped = useSyncExternalStore<V2PlayState | null>(
         v2?.subscribe ?? noScopedSubscription,
         v2?.get ?? noScopedSnapshot,
     );

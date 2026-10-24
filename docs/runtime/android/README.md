@@ -22,6 +22,32 @@ The earlier [dated verification](VERIFICATION_2026-10-22.md) and
 turns, cancellation, expected rejection, uncertain cleanup and follow-up checks.
 The original Qwen3.5-4B conversion and M01 physical-device gate remain pending.
 
+## Inspect model integrity without inference
+
+The explicit local utility `benchmarks/model_integrity.py` opens a regular model
+file read-only and makes two complete passes. It emits only size, whole-file and
+ordered 32MiB chunk hashes, plus a before/after identity-stability flag. It does
+not run ADB, initialize a runtime, copy/repair a model or change inference gates.
+Keep receipts local; inspect status 0 means stable observed reads, not approval of
+the model. Compare against the approved source size/hash separately:
+
+```powershell
+python benchmarks/model_integrity.py inspect --model <verified-local-model>
+python benchmarks/model_integrity.py compare --reference <source-receipt.json> --observed <observed-receipt.json> --expected-bytes 2588147712 --expected-sha256 181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c
+```
+
+The second command exits 0 only for a complete stable identity match, 2 for a
+stable content/size mismatch, 1 for incomplete, malformed, changed or failed
+inspection. The library accepts complete device hash receipts collected under
+separate authorized process/package/transport guards. A full-file digest is a
+separate observed read; it cannot be reconstructed from the list of chunk hashes.
+Different chunk digests identify intervals containing differences, not an exact
+changed-byte count or cause. This trusted-local check does not defeat adversarial
+filesystem races, force backend writeback, or establish historical integrity.
+Leaf symlinks are refused; ancestor links are not comprehensively audited.
+The [dated investigation](MODEL_INTEGRITY_VERIFICATION_2026-10-23.md) records
+actual device observations, retained failures, storage gates and limitations.
+
 ## Build explicitly
 
 Use the existing pinned Rust1.93.1, NDK29.0.14206865, SDK36/BuildTools35,

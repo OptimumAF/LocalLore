@@ -1,9 +1,9 @@
 # Android receipt controller verification
 
 Refs #9 (M05.05 prerequisite), #5 (M01.05 supporting). Source/controller
-and read-only readiness only; actual receipt device qualification is pending a
-separate reviewed admission. No build, model, SDK or cache operation ran through
-this controller preparation.
+and read-only readiness plus a failed first qualification attempt. Full receipt
+qualification remains unproven. Synthetic fixture work uses 63 original bytes;
+no real-model or SDK execution is established.
 
 The new `android_receipt_qualification_probe.py` has two closed profiles. A
 read-only readiness profile binds the preceding sealed B identity snapshot and
@@ -73,3 +73,35 @@ and package/UID drift after updates stopping before instrumentation. All 18
 host tests passed in a fresh owned child: 3,156 ms, return code zero, known
 cleanup, unchanged source, zero stderr, 2,310 stdout bytes SHA-256
 `4f1a101eed6039af1a52e3c2c9ba3a30a4fd15bc418a74e68634460a421ad0f9`.
+
+The first full qualification ran once against v1 fixture roots. Its original
+execution was consumed: owned child completed with code 2, known cleanup,
+30,844 ms, 331 stdout bytes SHA-256
+`739618071acb7fa35bbd50a476c2f107b3870e7e0ece7ce9ae010e8434801b2a`
+and zero stderr bytes. The cohort stopped at instrumentation after 25 known-clean
+clients, two planned package updates and one class-selected instrumentation
+command. Actual runner records show accept/reopen, cancellation and refusal
+passing; PROCESS failed with a remote `IllegalStateException` at START
+acknowledgment. Instrumentation's zero client return code did not make this a
+four-test pass. No after/final facts or proof reads ran in that failed cohort.
+Its raw instrumentation SHA-256 is
+`726c5bd379d3227cfca20c1964cee9c5fdd53ef15ad7d2b09c07ff8bc9b8f512`.
+All v1 data and failed evidence remain preserved.
+
+A separately disabled recovery profile now binds that exact failure and the
+actually observed post-update 35-package/UID map. It permits only current
+metadata plus the six existing ACCEPT/CANCELLATION/REFUSAL v1 proof files, with
+the exact PROCESS proof pair absent. Recognized same-UID owned processes may be
+observed and reported honestly; unknown process names or UID bindings refuse.
+It reports actual quiet/count facts rather than assuming cleanup and performs
+no install, instrumentation, force-stop, clear, uninstall or fixture cleanup.
+The fresh v2 proof namespace must remain absent. Future full qualification uses
+separate v2 fixture/proof roots and still requires own-process absence.
+
+Twenty pure host controller tests passed in a new owned child: 3,266 ms,
+return code zero, known cleanup, unchanged source, zero stderr, 2,573 stdout
+bytes SHA-256
+`f97a8f1cebd90f2b806a5cd16988eebc9bcd3fe29870bfcf989e9e575d89bb34`.
+The two additions exercise closed three-proof recovery with a recognized owned
+process present, refusal of an extra PROCESS proof, and changed failure evidence.
+No live recovery operation is inferred from those mocks.

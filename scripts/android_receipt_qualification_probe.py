@@ -26,7 +26,9 @@ TEST = APP + ".test"
 SERVICE = APP + ":receiptproof"
 PROVIDER = TEST + ":model_picker_provider"
 CLASS = "org.locallore.app.ReceiptVolumeQualificationTest"
-PROOF_ROOT = "no_backup/receipt-android-proof-v1"
+PROOF_ROOT = "no_backup/receipt-android-proof-v2"
+RECOVERY_ROOT = "no_backup/receipt-android-proof-v1"
+RECOVERY_PHASES = ("ACCEPT", "CANCELLATION", "REFUSAL")
 FIXTURE_SHA256 = "648c91a9de82e613189b3920a2098f5d803eb6e244f39b2b631cce24b7be8de0"
 USERDATA_FLOOR = 1024 ** 3 + 128 * 1024 ** 2
 PROOF_USERDATA_FLOOR = 1_140_850_688
@@ -55,6 +57,8 @@ PHASES = {
 METHODS = frozenset(value[1] for value in PHASES.values())
 PROOF_FILES = frozenset(name for stem, _, _ in PHASES.values()
                         for name in (stem + "-v1.json", stem + "-ready-v1.txt"))
+RECOVERY_FILES = frozenset(name for phase in RECOVERY_PHASES for name in
+                          (PHASES[phase][0] + "-v1.json", PHASES[phase][0] + "-ready-v1.txt"))
 PROOF_KEYS = frozenset(("version", "phase", "pid", "start", "uid", "process", "fixture_bytes", "fixture_sha256",
                        "candidate_root_absent", "publication_native_invoked", "sdk_invoked", "external_free_before",
                        "external_free_after", "userdata_free_before", "userdata_free_after", "checks"))
@@ -71,6 +75,8 @@ PROOF_ABSENT = ("run-as", APP, "sh", "-c", "test ! -e " + PROOF_ROOT + " && test
 INTERNAL_CANDIDATE_ABSENT = ("run-as", APP, "sh", "-c", "test ! -e no_backup/local-model-v1 && test ! -L no_backup/local-model-v1")
 PROOF_MANIFEST = ("run-as", APP, "sh", "-c", "test -d no_backup && test ! -L no_backup && test -d " +
                   PROOF_ROOT + " && test ! -L " + PROOF_ROOT + " && find " + PROOF_ROOT + " -mindepth 1 -maxdepth 1 -print")
+RECOVERY_MANIFEST = ("run-as", APP, "sh", "-c", "test -d no_backup && test ! -L no_backup && test -d " +
+                     RECOVERY_ROOT + " && test ! -L " + RECOVERY_ROOT + " && find " + RECOVERY_ROOT + " -mindepth 1 -maxdepth 1 -print")
 INSTRUMENT = ("am", "instrument", "-w", "-r", "-e", "class", CLASS, TEST + "/androidx.test.runner.AndroidJUnitRunner")
 SOURCE_FILES = (
     "scripts/android_receipt_qualification_probe.py", "benchmarks/runtime_spike.py", "benchmarks/android_phase_storage.py",
@@ -152,9 +158,9 @@ def parse_proof(raw, phase, uid):
     return value
 
 
-def match_parent_identities(proofs):
-    assert set(proofs) == set(PHASES)
-    identities = {tuple(proofs[phase][key] for key in ("pid", "start", "uid", "process")) for phase in PHASES}
+def match_parent_identities(proofs, phases=PHASES):
+    assert set(proofs) == set(phases)
+    identities = {tuple(proofs[phase][key] for key in ("pid", "start", "uid", "process")) for phase in phases}
     assert len(identities) == 1
     return True
 
@@ -210,6 +216,49 @@ def parse_instrumentation(raw):
     match = re.fullmatch(r"\n\nTime: ((?:0|[1-9][0-9]{0,5})(?:\.[0-9]{1,9})?)\n\nOK \(4 tests\)\n{1,3}", summary)
     assert match and 0 <= float(match[1]) <= 120
     return {"passed": 4, "failed": 0, "methods": methods}
+
+
+def parse_recovery_failure(raw):
+    """Bind the one consumed v1 failure, without treating it as qualification."""
+    text = normalized(raw, 131072)
+    records, fields, result_seen, runner = [], {}, False, False
+    for line in text.split("\n"):
+        if line.startswith("INSTRUMENTATION_STATUS: "):
+            assert not result_seen and not runner
+            key, separator, value = line[len("INSTRUMENTATION_STATUS: "):].partition("=")
+            assert separator and key in ("class", "current", "id", "numtests", "stream", "stack", "test")
+            if key in ("class", "current", "id", "numtests", "test"):
+                assert key not in fields
+                fields[key] = value
+        elif line.startswith("INSTRUMENTATION_STATUS_CODE: "):
+            assert not result_seen and not runner
+            code = line.split(": ", 1)[1]
+            assert code in ("1", "0", "-2")
+            records.append((int(code), fields))
+            fields = {}
+        elif line.startswith("INSTRUMENTATION_RESULT: "):
+            assert len(records) == 8 and not fields and not result_seen and not runner
+            assert line.startswith("INSTRUMENTATION_RESULT: stream=")
+            result_seen = True
+        elif line.startswith("INSTRUMENTATION_CODE: "):
+            assert result_seen and len(records) == 8 and not fields and not runner and line == "INSTRUMENTATION_CODE: -1"
+            runner = True
+        elif line.startswith("INSTRUMENTATION_"):
+            raise AssertionError("unexpected_recovery_machine_record")
+    assert not fields and len(records) == 8 and result_seen and runner
+    results = {}
+    for index in range(4):
+        start, end = records[index * 2:index * 2 + 2]
+        method = start[1].get("test")
+        assert start[0] == 1 and end[0] in (0, -2) and method in METHODS and method not in results
+        for _, fields in (start, end):
+            assert fields == {"class": CLASS, "current": str(index + 1), "id": "AndroidJUnitRunner", "numtests": "4", "test": method}
+        results[method] = end[0]
+    process_method = PHASES["PROCESS"][1]
+    assert results[process_method] == -2 and all(code == 0 for name, code in results.items() if name != process_method)
+    assert text.count("INSTRUMENTATION_CODE: -1") == 1 and "INSTRUMENTATION_ABORTED:" not in text
+    assert "java.lang.IllegalStateException" in text
+    return {"passed": 3, "failed": 1, "failed_method": process_method, "qualification_passed": False}
 
 
 def parse_packages(raw):
@@ -278,21 +327,24 @@ def parse_volume(raw):
     return {"id": match[1], "uuid": match[2]}
 
 
-def proof_command(name, uid):
-    assert name in PROOF_FILES and type(uid) is int and 10000 <= uid < 2 ** 31
-    path = PROOF_ROOT + "/" + name
+def proof_command(name, uid, root=PROOF_ROOT):
+    assert root in (PROOF_ROOT, RECOVERY_ROOT) and name in (RECOVERY_FILES if root == RECOVERY_ROOT else PROOF_FILES)
+    assert type(uid) is int and 10000 <= uid < 2 ** 31
+    path = root + "/" + name
     size = "-eq 0" if name.endswith(".txt") else "-gt 0"
-    return ("run-as", APP, "sh", "-c", "test -d no_backup && test ! -L no_backup && test -d " + PROOF_ROOT +
-            " && test ! -L " + PROOF_ROOT + " && test -f " + path + " && test ! -L " + path +
+    return ("run-as", APP, "sh", "-c", "test -d no_backup && test ! -L no_backup && test -d " + root +
+            " && test ! -L " + root + " && test -f " + path + " && test ! -L " + path +
             " && test $(stat -c %u " + path + ") -eq " + str(uid) + " && test $(wc -c < " + path + ") " + size +
             " && test $(wc -c < " + path + ") -le 4096 && cat " + path)
 
 
 def validate_proposal(proposal, final=True):
-    assert type(proposal) is dict and set(proposal) == PROPOSAL_KEYS
+    assert type(proposal) is dict
+    recovery = proposal.get("scope") == "android_receipt_recovery"
+    assert set(proposal) == PROPOSAL_KEYS | ({"failure_path", "failure_sha256"} if recovery else set())
     assert type(proposal["version"]) is int and proposal["version"] == 1
-    assert proposal["scope"] in ("android_receipt_qualification", "android_receipt_readiness")
-    readiness = proposal["scope"] == "android_receipt_readiness"
+    assert proposal["scope"] in ("android_receipt_qualification", "android_receipt_readiness", "android_receipt_recovery")
+    readiness = proposal["scope"] in ("android_receipt_readiness", "android_receipt_recovery")
     assert proposal["allow_device_calls"] is False and proposal["root_go_pending"] is True
     assert proposal["selected_alias"] == "B" and re.fullmatch(r"emulator-[1-9][0-9]{3,5}", proposal["serial"])
     assert re.fullmatch(r"[a-f0-9]{40}", proposal["source_commit"])
@@ -320,6 +372,13 @@ def validate_proposal(proposal, final=True):
         for package, path in proposal["apk_paths"].items():
             assert re.fullmatch(r"[a-f0-9]{64}", proposal["apk_sha256"][package])
             assert sha(Path(path).read_bytes()) == proposal["apk_sha256"][package]
+        if recovery:
+            path = Path(proposal["failure_path"])
+            assert path.is_absolute() and path.name == "command-0025.stdout.bin"
+            assert proposal["bindings"].get(str(path.resolve())) == proposal["failure_sha256"]
+            raw = path.read_bytes()
+            assert sha(raw) == proposal["failure_sha256"]
+            parse_recovery_failure(raw)
     return True
 
 
@@ -343,7 +402,8 @@ class Owner:
         self.commands = self.directory / "commands"
         self.commands.mkdir()
         self.stage, self.clean, self.count = "before", True, 0
-        self.readiness = proposal["scope"] == "android_receipt_readiness"
+        self.recovery = proposal["scope"] == "android_receipt_recovery"
+        self.readiness = proposal["scope"] in ("android_receipt_readiness", "android_receipt_recovery")
         self.until = time.monotonic() + (75 if self.readiness else AGGREGATE_SECONDS)
         self.installs, self.methods = {APP: 0, TEST: 0}, 0
         self.inventories = 0
@@ -375,8 +435,10 @@ class Owner:
                 self.methods += 1
             elif op == PROOF_MANIFEST:
                 assert not self.readiness and self.stage == "proofs" and self.pending_read is None
+            elif op == RECOVERY_MANIFEST:
+                assert self.recovery and self.stage == "proofs" and self.pending_read is None
             else:
-                assert not self.readiness and self.stage == "proofs" and op == self.pending_read
+                assert (not self.readiness or self.recovery) and self.stage == "proofs" and op == self.pending_read
                 self.pending_read = None
         remaining = self.until - time.monotonic()
         assert remaining > 0
@@ -418,7 +480,8 @@ class Owner:
         uids = parse_uids(self.shell(UIDS), packages)
         assert uids == self.proposal["prior_uid_map"]
         processes = parse_processes(self.shell(PS), uids, self.proposal["known_passive_provider_uids"])
-        assert processes["owned"] == []
+        if not self.recovery:
+            assert processes["owned"] == []
         volume = parse_volume(self.shell(VOLUMES, cap=4096))
         if self.volume is None:
             self.volume = volume
@@ -491,13 +554,41 @@ def run_readiness(owner):
             "external_candidate_absence_inferred": False}
 
 
+def run_recovery(owner):
+    """Read the fixed three existing v1 proofs; never repairs or retries v1."""
+    failure = parse_recovery_failure(Path(owner.proposal["failure_path"]).read_bytes())
+    before = owner.facts("before", owner.proposal["prior_packages"])
+    assert owner.shell(PROOF_ABSENT, cap=4096) == b""  # Future v2 proof root must remain absent.
+    owner.stage = "proofs"
+    manifest = normalized(owner.shell(RECOVERY_MANIFEST, cap=4096), 4096).splitlines()
+    assert len(manifest) == 6 and set(manifest) == {RECOVERY_ROOT + "/" + name for name in RECOVERY_FILES}
+    proofs = {}
+    for phase in RECOVERY_PHASES:
+        stem = PHASES[phase][0]
+        ready = proof_command(stem + "-ready-v1.txt", owner.proposal["prior_uid_map"][APP], RECOVERY_ROOT)
+        owner.pending_read = ready
+        assert owner.shell(ready, cap=4096) == b""
+        command = proof_command(stem + "-v1.json", owner.proposal["prior_uid_map"][APP], RECOVERY_ROOT)
+        owner.pending_read = command
+        proofs[phase] = parse_proof(owner.shell(command, cap=4096), phase, owner.proposal["prior_uid_map"][APP])
+        write_json(owner.directory / (stem + "-recovery-proof-v1.json"), proofs[phase])
+    match_parent_identities(proofs, RECOVERY_PHASES)
+    owner.stage = "final"
+    final = owner.facts("final", owner.proposal["prior_packages"])
+    assert owner.shell(PROOF_ABSENT, cap=4096) == b""
+    return {"read_only": True, "original_failure": failure, "proofs": proofs, "before": before, "final": final,
+            "owned_quiet_before": before["processes"]["owned"] == [], "owned_quiet_final": final["processes"]["owned"] == [],
+            "process_proof_present": False, "fresh_v2_proof_absent": True, "qualification_passed": False,
+            "receipt_qualification_executed": False}
+
+
 def worker(proposal_path, authorization_path, evidence):
     assert sys.stdin.buffer.read(64) == REQUEST
     proposal = authorize(proposal_path, authorization_path, evidence)
     owner = Owner(proposal)
     result, failure = None, None
     try:
-        result = run_readiness(owner) if owner.readiness else run_cohort(owner)
+        result = run_recovery(owner) if owner.recovery else run_readiness(owner) if owner.readiness else run_cohort(owner)
     except BaseException:
         failure = "receipt_qualification_stopped"
     value = {"version": 1, "scope": proposal["scope"], "status": "observed" if failure is None else "stopped",
@@ -510,7 +601,7 @@ def worker(proposal_path, authorization_path, evidence):
 
 def run_owned(proposal_path, authorization_path, evidence):
     proposal = authorize(proposal_path, authorization_path, evidence)
-    outer_seconds = 90 if proposal["scope"] == "android_receipt_readiness" else OUTER_SECONDS
+    outer_seconds = 90 if proposal["scope"] in ("android_receipt_readiness", "android_receipt_recovery") else OUTER_SECONDS
     evidence = Path(evidence)
     write_json(evidence / "receipt-owned-start-v1.json", {"version": 1, "deadline_seconds": outer_seconds,
         "time_ns": time.time_ns(), "proposal_sha256": sha(Path(proposal_path).read_bytes()),

@@ -64,6 +64,24 @@ def transcript(methods=None):
     return "\n".join(rows).encode("ascii")
 
 
+def failure_transcript():
+    method = probe.PHASES["PROCESS"][1].encode()
+    raw = transcript()
+    raw = raw.replace(b"INSTRUMENTATION_STATUS: test=" + method + b"\nINSTRUMENTATION_STATUS_CODE: 0",
+        b"INSTRUMENTATION_STATUS: stack=java.lang.IllegalStateException: synthetic START\nINSTRUMENTATION_STATUS: test=" + method + b"\nINSTRUMENTATION_STATUS_CODE: -2")
+    return raw.replace(b"OK (4 tests)", b"FAILURES!!!\nTests run: 4,  Failures: 1")
+
+
+def recovery_proposal(directory):
+    value = proposal(directory)
+    value["scope"] = "android_receipt_recovery"
+    path = directory / "command-0025.stdout.bin"
+    path.write_bytes(failure_transcript())
+    value.update(failure_path=str(path), failure_sha256=probe.sha(path.read_bytes()))
+    value["bindings"][str(path.resolve())] = value["failure_sha256"]
+    return value
+
+
 class FakeTransport:
     def __init__(self, value):
         self.value, self.calls, self.installs = value, [], 0
@@ -112,13 +130,19 @@ class FakeTransport:
             elif op == probe.PROOF_MANIFEST:
                 names = sorted(probe.PROOF_FILES) + (["unknown"] if self.extra_manifest else [])
                 raw = "".join(probe.PROOF_ROOT + "/" + name + "\n" for name in names).encode()
+            elif op == probe.RECOVERY_MANIFEST:
+                names = sorted(probe.RECOVERY_FILES) + (["process-v1.json"] if self.extra_manifest else [])
+                raw = "".join(probe.RECOVERY_ROOT + "/" + name + "\n" for name in names).encode()
             else:
                 found = False
-                for phase, (stem, _, _) in probe.PHASES.items():
-                    if op == probe.proof_command(stem + "-ready-v1.txt", 10200):
-                        raw, found = (b"stale-marker" if self.bad_ready else b""), True
-                    elif op == probe.proof_command(stem + "-v1.json", 10200):
-                        raw, found = json.dumps(proof(phase)).encode(), True
+                for root in (probe.PROOF_ROOT, probe.RECOVERY_ROOT):
+                    for phase, (stem, _, _) in probe.PHASES.items():
+                        if root == probe.RECOVERY_ROOT and phase not in probe.RECOVERY_PHASES:
+                            continue
+                        if op == probe.proof_command(stem + "-ready-v1.txt", 10200, root):
+                            raw, found = (b"stale-marker" if self.bad_ready else b""), True
+                        elif op == probe.proof_command(stem + "-v1.json", 10200, root):
+                            raw, found = json.dumps(proof(phase)).encode(), True
                 assert found
         return SimpleNamespace(stdout=raw, status="completed", returncode=0, cleanup_complete=True, stderr_bytes=0)
 
@@ -195,6 +219,38 @@ class InstrumentationTests(unittest.TestCase):
 
 
 class OwnershipTests(unittest.TestCase):
+    def test_recovery_reads_only_three_old_proofs_and_reports_owned_presence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            value = recovery_proposal(Path(directory))
+            self.assertTrue(probe.validate_proposal(value))
+            owner, transport = probe.Owner(value), FakeTransport(value)
+            transport.owned = True
+            with patch.object(probe.host, "run_process", side_effect=transport), patch.object(probe.shutil, "disk_usage", return_value=SimpleNamespace(free=20 * 1024 ** 3)):
+                result = probe.run_recovery(owner)
+            self.assertEqual(set(result["proofs"]), set(probe.RECOVERY_PHASES))
+            self.assertFalse(result["qualification_passed"])
+            self.assertFalse(result["owned_quiet_final"])
+            self.assertEqual(owner.methods, 0)
+            self.assertEqual(sum(owner.installs.values()), 0)
+            self.assertFalse(any(command[3] == "install" or "am instrument" in " ".join(command) for command, _ in transport.calls))
+
+    def test_recovery_extra_process_proof_and_changed_failure_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            value = recovery_proposal(Path(directory))
+            owner, transport = probe.Owner(value), FakeTransport(value)
+            transport.extra_manifest = True
+            with patch.object(probe.host, "run_process", side_effect=transport), patch.object(probe.shutil, "disk_usage", return_value=SimpleNamespace(free=20 * 1024 ** 3)):
+                with self.assertRaises(AssertionError):
+                    probe.run_recovery(owner)
+            self.assertEqual(owner.stage, "proofs")
+            Path(value["failure_path"]).write_bytes(transcript())
+            with self.assertRaises(AssertionError):
+                probe.validate_proposal(value)
+        with self.assertRaises(AssertionError):
+            probe.parse_recovery_failure(transcript())
+        with self.assertRaises(AssertionError):
+            probe.parse_recovery_failure(b"INSTRUMENTATION_CODE: -1\n" + failure_transcript())
+
     def test_readiness_only_has_read_commands_and_preserves_all_35(self):
         with tempfile.TemporaryDirectory() as directory:
             value = proposal(Path(directory))

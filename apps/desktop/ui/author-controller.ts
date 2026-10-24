@@ -63,7 +63,7 @@ export class AuthorController {
     }
     setDraft(value:AuthorDraft){
         if(this.disposed)return;if(this.state.busy||this.state.uncertain){this.fail(Error("Busy"));return;}
-        try{const draft=checkedAuthorDraft(value);if(JSON.stringify(draft)===JSON.stringify(this.state.draft))return;this.serial++;this.invalidate();this.patch({draft,input:null,outcome:null,error:null,status:"idle",notice:""});}catch(error){this.fail(error);}
+        try{const draft=checkedAuthorDraft(value);if(JSON.stringify(draft)===JSON.stringify(this.state.draft))return;this.serial++;this.invalidate();this.patch({draft,input:null,outcome:null,error:null,status:"idle",notice:""});}catch(error){this.serial++;this.invalidate();this.patch({input:null,outcome:null});this.fail(error);}
     }
     setAuthorConsent(value:boolean){
         if(this.disposed||this.state.busy||this.state.uncertain)return;

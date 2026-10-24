@@ -208,16 +208,35 @@ fn bounded(value: Value) -> PortResult<Value> {
     }
 }
 impl AuthorManager {
-    pub fn check_binding(&self, host: &Arc<Host>, lease: &Arc<WindowLease>, broker: &Arc<ArchiveBroker>, epoch: u64) -> PortResult<()> {
+    pub fn check_binding(
+        &self,
+        host: &Arc<Host>,
+        lease: &Arc<WindowLease>,
+        broker: &Arc<ArchiveBroker>,
+        epoch: u64,
+    ) -> PortResult<()> {
         self.check_owner(host, lease, epoch)?;
         self.check_broker(broker)
     }
-    pub fn discard_raw(&self, host: &Arc<Host>, lease: &Arc<WindowLease>, broker: &Arc<ArchiveBroker>, epoch: u64, request: &str) -> PortResult<bool> {
+    pub fn discard_raw(
+        &self,
+        host: &Arc<Host>,
+        lease: &Arc<WindowLease>,
+        broker: &Arc<ArchiveBroker>,
+        epoch: u64,
+        request: &str,
+    ) -> PortResult<bool> {
         self.check_binding(host, lease, broker, epoch)?;
         let value = raw(request)?;
         object(&value, &["version", "session", "preview_token"])?;
         version(&value)?;
-        self.discard_preview(host, lease, epoch, &session(&value["session"])?, text(&value["preview_token"])?)
+        self.discard_preview(
+            host,
+            lease,
+            epoch,
+            &session(&value["session"])?,
+            text(&value["preview_token"])?,
+        )
     }
     pub fn new(
         host: &Arc<Host>,

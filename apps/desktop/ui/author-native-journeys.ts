@@ -941,6 +941,13 @@ export async function authorNativeJourneys({
                     !a.get().outcome,
                 "late-prepare-never-installs-private-result-in-new-selected-session",
             );
+            await pause();
+            check(
+                !a.get().uncertain && retention.get()?.terminal &&
+                    retention.get()?.consumed && !retention.get()?.unknown &&
+                    !retention.get()?.inFlight,
+                "confirmed-stale-preview-disposal-releases-shared-admission-without-lookup",
+            );
             check(
                 !v2.get().receipt &&
                     !a.get().authorConsent &&

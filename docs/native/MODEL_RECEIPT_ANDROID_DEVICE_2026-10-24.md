@@ -105,3 +105,26 @@ bytes SHA-256
 The two additions exercise closed three-proof recovery with a recognized owned
 process present, refusal of an extra PROCESS proof, and changed failure evidence.
 No live recovery operation is inferred from those mocks.
+
+After fresh independent review and coordinator admission, the separate read-only
+recovery completed once: return code zero, known owned cleanup, 8,781 ms,
+290 stdout bytes SHA-256
+`0152daed5d2879aeb69990e6e4ea1178628b533bf42df5da1f0bc77952e9858d`
+and zero stderr bytes. All 29 raw client records were retained and verified;
+there were zero installs and zero instrumentation commands. All 35 installed
+APK hashes and UIDs matched the actual post-update snapshot. Owned and passive
+process counts were both actually zero before and after the reads. The exact
+six v1 proof files validated ACCEPT, CANCELLATION and REFUSAL with one consistent
+recorded parent identity; PROCESS remained absent. The fresh v2 proof namespace
+was absent. Candidate-directory absence was not remeasured: the three proof
+assertions describe their original recorded time.
+
+Final available userdata was 1,223,741,440 bytes, only 15,781,888 bytes above the
+unchanged controller floor. Recovery neither frees space nor qualifies capacity
+for another package update. The first full cohort remains three passes and one
+failure; recovery is not a four-test qualification or process-death acceptance.
+A corrected v2 full cohort remains unrun pending its separate fresh admission
+and capacity assessment. The new recovery evidence is sealed in a create-only
+75-file inventory, 115,994 selected bytes, SHA-256
+`759a743b82ea98c62e23d958de6c663e763cb493349ad6366d48840f5836fad8`.
+No source, test, APK or old fixture data changed during recovery.

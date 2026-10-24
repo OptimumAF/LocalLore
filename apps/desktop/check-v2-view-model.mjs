@@ -45,6 +45,12 @@ for (const mutate of [
     v => v.player.self_state.name = "🌊".repeat(70000), v => v.player.observer = "",
 ]) { const v = thin(); mutate(v); rejects(() => snapshot(v, scope, 3)); }
 const largeName = thin(); largeName.player.self_state.name = "n".repeat(3000); accepts(() => snapshot(largeName, scope, 3));
+// Additional source-review oracle frozen before correcting conservative size accounting.
+const exactCap = thin(); exactCap.player.self_state.name = "";
+exactCap.player.self_state.name = "x".repeat(262144 - new TextEncoder().encode(JSON.stringify(exactCap)).length);
+assert.equal(new TextEncoder().encode(JSON.stringify(exactCap)).length, 262144);
+accepts(() => snapshot(exactCap, scope, 3));
+exactCap.player.self_state.name += "x"; rejects(() => snapshot(exactCap, scope, 3));
 const ownNames = thin(); ownNames.player.self_state.abilities = JSON.parse('{"__proto__":1,"constructor":2}');
 const ownSafe = accepts(() => snapshot(ownNames, scope, 3));
 assert.equal(Object.getPrototypeOf(ownSafe.player.self_state.abilities), Object.prototype); assert.equal(Object.hasOwn(ownSafe.player.self_state.abilities, "__proto__"), true); checks++;

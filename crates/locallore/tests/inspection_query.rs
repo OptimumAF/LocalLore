@@ -663,7 +663,7 @@ fn historical_v2_replay_preserves_original_input_without_an_inference_provider()
                 "timespan_fallback_packets":0,"mandatory_fallback_packets":0,"covered_through":0,"raw_delta_after":0,
                 "cached_event_candidates":0,"raw_event_candidates":0}
         })).unwrap()),
-        context_policy: Some(locallore::play::PlayContextPolicy::Relevant),
+        context_policy: Some(locallore::play::PlayContextPolicy::StateRelevantMemoryV1),
     };
     engine.commit_play(&request, &proposal, &record).unwrap();
     commit(&mut engine, "later", vec![Command::Wait { ticks: 1 }]);

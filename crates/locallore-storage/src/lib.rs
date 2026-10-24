@@ -4,6 +4,8 @@
 pub mod archive_capacity_fixture;
 #[cfg(test)]
 mod archive_full_tests;
+#[cfg(test)]
+mod archive3_pressure_tests;
 mod branch_catalog;
 mod branch_retention;
 pub use branch_retention::{BranchDeletionOutcome, BranchDeletionPreview, PreparedBranchDeletion};

@@ -177,7 +177,19 @@ class LiteRtWorkerInstrumentedTest {
             .joinToString("") { "%02x".format(it) }
         suspend fun uncertain(block: suspend () -> Unit) {
             try { block(); fail("Expected fixed ownership uncertainty") }
-            catch (failure: LocalInferenceUncertain) { assertNull(failure.cause) }
+            catch (failure: LocalInferenceUncertain) {
+                // Coroutine stack recovery can copy this fixed exception; private SDK causes cannot pass.
+                val seen = java.util.IdentityHashMap<Throwable, Boolean>()
+                var current: Throwable? = failure
+                var depth = 0
+                while (current != null) {
+                    assertTrue("Unbounded uncertainty cause chain", depth++ < 8)
+                    assertNull("Cyclic uncertainty cause chain", seen.put(current, true))
+                    assertEquals(LocalInferenceUncertain::class.java, current.javaClass)
+                    assertEquals("Local inference ownership uncertain", current.message)
+                    current = current.cause
+                }
+            }
         }
         suspend fun data(actual: NativeWorkspaceTransport, command: JSONObject): JSONObject {
             val reply = actual.exchange(command)

@@ -223,8 +223,9 @@ the history-only path handles old versions unchanged. Domain2 wrapper restore
 must compare the fully regenerated record INCLUDING private bindings against
 persisted canonical JSON. Existing canonical records remain the sole source
 for revision, completed boundaries, fork/restore/caps and accepted-basis hashes.
-Opaque tokens/evidence are not persisted; ordinary Receipt bytes do not gain
-private bindings or observation values outside explicitly versioned provenance.
+Opaque tokens/evidence are not persisted; no new private binding or canonical
+observation payload is added to ordinary Receipt. Its generated narration may
+state an actual newly observed value under the explicit2.5/narrator2.2 policy.
 
 ## Current consumer closure before exposure
 

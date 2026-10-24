@@ -1,6 +1,6 @@
 # Archive3 frozen Store oracles — 2026-10-23
 
-**Source-only; all 13 tests UNCOMPILED / UNRUN.** This packet freezes independent
+**Source-only reviewer packet; all 13 tests initially UNCOMPILED / UNRUN.** This packet freezes independent
 oracles before Archive3 implementation, not acceptance evidence for #12
 M08.04/M08.06 or #30 D08. The coordinator approved the exact contract in
 [#12 comment6378000457](https://github.com/OptimumAF/LocalLore/issues/12#issuecomment-6378000457).
@@ -49,7 +49,7 @@ records” labels and closed platform decoders remain a separate prerequisite.
 | `actual_retirement_preserves_author_prefix_prebirth_rewind_and_collected_identity` | Actual author parent born at4 is rewound to1; retirement keeps the birth floor4 and discards its later author row. A different retained author at5 remains required by a live descendant. A deleted leaf becomes a tombstone. Import/reopen preserve active bases/contexts, hide retired targets, preserve all reserved identities, omit discarded private values, and re-export exact current bytes. |
 | `cancellation_panic_and_progressive_import_polls_leave_foreign_canon_unchanged` | True/panicking validator callback closes as Cancelled. A successful disposable import measures its actual callback count; independent fresh targets cancel at initial, early, middle and final precommit polls and also panic in the middle. Every failure leaves the unrelated story's full records/projection/native basis unchanged and no imported story. This is callback cancellation/atomicity, not OS process death or Full. |
 | `winning_import_reopen_and_identical_or_divergent_identity_retry_never_overwrite` | After a successful import and owner reopen, identical and source-continued archives of the same story ID are Conflict. Imported and unrelated original bases remain unchanged, with exactly2 saved stories. This proves Store identity policy; it does not simulate a native lost acknowledgement. |
-| `immutable_archive1_and2_assets_keep_original_bytes_and_domain1_export_selection` | Pin3 existing asset hashes, validate/import their unchanged1/2 bytes, and require current Domain1 export to select1/2 with local_receipts. Exactly the truthful source-schema field and dependent payload digest are normalized for comparison against the historical input; all other receipt, lineage, reference and projection integrity fields must match. Old source metadata/assets are never rewritten. |
+| `immutable_archive1_assets_and_actual_retirement_keep_domain1_version1_and2_selection` | Pin3 existing version1 asset hashes and validate/import/re-export those unchanged inputs with local_receipts. Exactly the truthful source-schema field and dependent payload digest are normalized for comparison against the historical input; all other receipt, lineage, reference and projection integrity fields must match. Separately create actual Domain1 root/parent/child history, retire the required parent through Store, and require actual version2 export/import/re-export with retained original ancestry and retired target refusal. No historical asset is relabeled. See the explicit correction below. |
 | `maximal_escaped_author_fields_roundtrip_full_wrapper_and_private_reason` | Actual valid escaped 2048-character replacement/reason produces a full record above24,576 bytes but within65,536. The full author wrapper and actual recovery identity survive import. No widening of ordinary request limits is implied. |
 
 ## Six hostile groups / 52 serialized counterexamples
@@ -129,3 +129,31 @@ as schema5 calibration.
 Root owns production normalization/import/closure, actual RED/GREEN, honest
 platform decoding/labels, and integration. Claims are released after this source
 handoff; no milestone checklist is marked accepted by this packet.
+
+## Attributed first-run metadata correction
+
+After the initial freeze, Root reported its actual first execution: roundtrip
+0/7, hostile0/6, with genuine mixed fixtures receiving the preimplementation
+`Unsupported` refusal. Root retains the original logs. Those fixture failures
+are not proof that every individual hostile mutation reached semantic replay.
+
+That run also exposed a reviewer metadata error in the new historical asset
+table: `parent-retention-v1.json` was incorrectly expected to have archive
+version2. Its actual immutable version is1; pinned hash
+`5cc8eea595258669c1ebb04a15c0a8d642e43be0e534a35cd776920883d62dc7`
+was correct and remains unchanged. The narrow correction changes only that
+expected version to1 and renames the test to describe the actual inputs. All
+original byte/hash/receipt/canonical comparison assertions remain.
+
+To retain substantive version2 coverage, the same test additionally creates a
+real Domain1 root/parent/child through public Store APIs, retires the required
+parent at retained revision2, and checks actual version2 selection,3 canonical
+records, original full child native basis/context, retired target refusal and
+exact current re-export bytes. No known immutable version2 asset was identified
+in this bounded pass; none was fabricated or relabeled.
+
+Correction claims before edits:
+[#12](https://github.com/OptimumAF/LocalLore/issues/12#issuecomment-6378109804),
+[#30](https://github.com/OptimumAF/LocalLore/issues/30#issuecomment-6378109990).
+The original freeze/hashes remain above as historical evidence. The correction
+is source-only, uncompiled/unrun by this reviewer; Root owns its actual rerun.

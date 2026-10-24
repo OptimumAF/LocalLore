@@ -586,11 +586,11 @@ fn winning_import_reopen_and_identical_or_divergent_identity_retry_never_overwri
 }
 
 #[test]
-fn immutable_archive1_and2_assets_keep_original_bytes_and_domain1_export_selection() {
+fn immutable_archive1_assets_and_actual_retirement_keep_domain1_version1_and2_selection() {
     let assets: [(&[u8], &str, u16); 3] = [
         (include_bytes!("../../../apps/android/app/src/androidTest/assets/platform-roundtrip-v1/windows-origin.json"), "ac77f1144db9de68c0d01241949f85f21660da6526b241cb9e947277b3c27fbb", 1),
         (include_bytes!("../../../apps/android/app/src/androidTest/assets/platform-roundtrip-v1/windows-continued.json"), "31f7bdb6904d8759186f0586b80c79b0346d9e9d03f04c015c409a1f1670ec6a", 1),
-        (include_bytes!("../../../apps/android/app/src/androidTest/assets/parent-retention-v1.json"), "5cc8eea595258669c1ebb04a15c0a8d642e43be0e534a35cd776920883d62dc7", 2),
+        (include_bytes!("../../../apps/android/app/src/androidTest/assets/parent-retention-v1.json"), "5cc8eea595258669c1ebb04a15c0a8d642e43be0e534a35cd776920883d62dc7", 1),
     ];
     let temp = Temp::new();
     for (n, (bytes, expected_hash, version)) in assets.into_iter().enumerate() {
@@ -638,6 +638,53 @@ fn immutable_archive1_and2_assets_keep_original_bytes_and_domain1_export_selecti
             }
         }
     }
+    // This is actual Domain1 retirement through the public Store, not a
+    // relabeled historical asset. It independently requires version2 selection.
+    let mut source = temp.open("ordinary-retirement.sqlite");
+    let root = create(&mut source, "ordinary-retirement");
+    wait(&mut source, &root, "root-prefix");
+    let parent = fork(&mut source, &root, "retired-parent", 1);
+    wait(&mut source, &parent, "parent-prefix");
+    let child = fork(&mut source, &parent, "live-child", 2);
+    wait(&mut source, &child, "child-local");
+    let original = source.resume(&child).unwrap().engine;
+    assert_eq!(original.domain_version(), 1);
+    assert_eq!(retire(&mut source, &parent), Some(2));
+    let archive = source.export_archive(&root.story, &|| false).unwrap();
+    assert_eq!(archive.preview().version, 2);
+    assert_eq!(archive.preview().retired_branch_ids, ["retired-parent"]);
+    assert_eq!(archive.preview().committed_turns, 3);
+    let raw: Value = serde_json::from_slice(archive.bytes()).unwrap();
+    assert_eq!(raw["version"], 2);
+    assert_eq!(raw["payload"]["domain_version"], 1);
+    assert_eq!(
+        raw["payload"]["retired_branch_ids"],
+        json!(["retired-parent"])
+    );
+    assert!(
+        raw["payload"]["branches"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|branch| branch.get("local_records").is_none()
+                && branch["local_receipts"].is_array())
+    );
+    let mut target = temp.open("ordinary-retirement-target.sqlite");
+    target
+        .import_archive(
+            validate_archive(archive.bytes(), &|| false).unwrap(),
+            &|| false,
+        )
+        .unwrap();
+    equal_engine(&target.resume(&child).unwrap().engine, &original);
+    absent(&mut target, &parent);
+    assert_eq!(
+        target
+            .export_archive(&root.story, &|| false)
+            .unwrap()
+            .bytes(),
+        archive.bytes()
+    );
 }
 
 #[test]

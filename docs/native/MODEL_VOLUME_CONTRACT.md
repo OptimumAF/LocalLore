@@ -22,6 +22,15 @@ The fixed model/cache root is `local-model-removable-v1` beneath that anchor.
 It accepts no external path/profile argument, scans no benchmark root, performs
 no migration and never redirects to an internal or alternate volume.
 
+Only the trusted internal Context anchor is canonicalized before validation:
+Android 15's app namespace can alias `/data/user/0` to `/data/data`.
+External anchors, mounts and model children retain their strict path rules.
+The selected synthetic test observes a closed `ModelVolumeStep` enum and whether
+that internal alias was normalized. A refusal reports only the last entered
+stage and fixed category, not an underlying cause. Normal setup keeps its fixed
+redacted failure. This observer accepts no path/profile override and performs
+no logging by default. See [Android 15 Zygote source](https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android-15.0.0_r1/core/jni/com_android_internal_os_Zygote.cpp).
+
 The process pins volume UUID, mount/anchor paths, device numbers, userdata
 device and mount/anchor inodes. Every admission re-observes current facts and
 capacity. An adapter refusal is sticky for that instance. Pure leases are

@@ -201,8 +201,8 @@ existing production-owner fixes and actual qualification remain separate.
 The initial fixture uses the actual Core single dialogue receipt and Store
 writer. Read-only parent verification compares seed, canonical projection
 bytes AND exact serialized canonical records, rather than treating a matching
-projection/head as proof of the original history. The oracle reads the five
-fixed controls/children only, cannot accept a renderer-selected path, and
+projection/head as proof of the original history. The helper admits five fixed
+actions and reads six fixed children only, cannot accept a renderer-selected path, and
 additionally requires the environment fixture path to equal WorkspaceState's
 actual path. Its child summaries are lower-level evidence, not a UI snapshot.
 

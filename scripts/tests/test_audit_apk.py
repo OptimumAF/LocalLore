@@ -3,10 +3,12 @@
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
 import importlib.util
+import hashlib
 from pathlib import Path
 import struct
 import tempfile
 import unittest
+from unittest.mock import patch
 import warnings
 import zipfile
 
@@ -117,6 +119,58 @@ class ApkAuditTests(unittest.TestCase):
                 (badging, tree.replace("0x00000002", "0x00000000"))):
             with self.subTest(tree=candidate_tree), self.assertRaises(audit.AuditError):
                 audit.audit_manifest(candidate_badging, candidate_tree, package)
+
+    def candidate_archive(self, directory, *, omitted=None, altered=None):
+        path = self.archive(directory)
+        hashes = {}
+        with zipfile.ZipFile(path, "a") as apk:
+            for abi, machine in (("x86_64", 62), ("arm64-v8a", 183)):
+                name = f"lib/{abi}/liblitertlm_jni.so"
+                data = library(machine)
+                hashes[name] = hashlib.sha256(data).hexdigest()
+                if name == omitted:
+                    continue
+                entry = zipfile.ZipInfo(name)
+                offset = apk.fp.tell() + 30 + len(name.encode("utf-8"))
+                padding = (16384 - (offset + 4) % 16384) % 16384
+                entry.extra = struct.pack("<HH", 0xCAFE, padding) + bytes(padding)
+                apk.writestr(entry, data if name != altered else library(machine, 4096))
+            notices = {}
+            for name in audit.LITERT_NOTICES:
+                data = b"synthetic notice: " + name.encode("ascii")
+                notices[name] = hashlib.sha256(data).hexdigest()
+                if name != omitted:
+                    apk.writestr(name, data if name != altered else b"changed")
+        return path, hashes, notices
+
+    def test_litert_candidate_requires_explicit_native_and_notice_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path, hashes, notices = self.candidate_archive(directory)
+            with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
+                self.assertEqual(len(audit.audit_zip(path, litert=True)), 6)
+                with self.assertRaises(audit.AuditError):
+                    audit.audit_zip(path)
+
+    def test_litert_missing_or_modified_binary_and_notices_fail_closed(self):
+        for name in (*audit.LITERT_NATIVE_HASHES, *audit.LITERT_NOTICES):
+            for option in ("omitted", "altered"):
+                with self.subTest(name=name, option=option), tempfile.TemporaryDirectory() as directory:
+                    path, hashes, notices = self.candidate_archive(directory, **{option: name})
+                    with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
+                        with self.assertRaises(audit.AuditError):
+                            audit.audit_zip(path, litert=True)
+        with tempfile.TemporaryDirectory() as directory, self.assertRaises(audit.AuditError):
+            audit.audit_zip(self.archive(directory), litert=True)
+
+    def test_litert_identity_does_not_relax_permission_or_package_boundaries(self):
+        package = "org.locallore.app.litertverify"
+        badging, tree = BADGING.replace("org.locallore.app", package), TREE.replace("org.locallore.app", package)
+        self.assertEqual(audit.audit_manifest(badging, tree, package), [package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"])
+        for name, candidate, metadata in ((package, badging + "uses-permission: name='android.permission.INTERNET'\n", tree),
+                                         (package, badging, TREE),
+                                         (package + ".other", badging, tree)):
+            with self.subTest(name=name), self.assertRaises(audit.AuditError):
+                audit.audit_manifest(candidate, metadata, name)
 
     def test_manifest_rejects_extra_capabilities_or_weakened_permission(self):
         cases = [

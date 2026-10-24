@@ -2157,3 +2157,98 @@ mod clock_tests {
         assert!(!dir.exists());
     }
 }
+
+#[cfg(test)]
+mod forwarded_budget_tests {
+    use super::*;
+
+    #[test]
+    fn historical_binding_is_viewable_under_its_original_key_but_never_resumable() {
+        // Pure transport compatibility fixture, not relabelled old execution.
+        let current = RunManifest::new(
+            ComparisonKind::ContinuousRollout,
+            LaneFactory::ScriptedBaseline.profile().unwrap(),
+            false,
+            None,
+        )
+        .unwrap();
+        let mut historical = current.clone();
+        historical.binding.forwarded_budget_version = None;
+        let mut old_shape = serde_json::to_value(&current).unwrap();
+        old_shape["binding"]
+            .as_object_mut()
+            .unwrap()
+            .remove("forwarded_budget_version");
+        assert_eq!(serde_json::to_value(&historical).unwrap(), old_shape);
+        let decoded: RunManifest = serde_json::from_value(old_shape).unwrap();
+        assert_eq!(
+            decoded.stable_key().unwrap(),
+            historical.stable_key().unwrap()
+        );
+        assert_ne!(decoded.stable_key().unwrap(), current.stable_key().unwrap());
+        decoded.validate().unwrap();
+        assert!(!decoded.source_matches().unwrap());
+        let mut unknown = historical;
+        unknown.binding.forwarded_budget_version = Some(2);
+        assert!(unknown.validate().is_err());
+    }
+
+    #[test]
+    fn actual_host_capture_requires_unchanged_current_forwarded_estimates() {
+        let root = std::env::temp_dir().join(format!(
+            "locallore-forwarded-evidence-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir(&root).unwrap();
+        let run = root.join("run");
+        let report = run_comparison(
+            &run,
+            false,
+            ComparisonKind::ContinuousRollout,
+            &Cancellation::default(),
+            1,
+            LaneFactory::ScriptedBaseline,
+            None,
+        )
+        .unwrap();
+        assert_eq!(report.turns.len(), 12);
+        assert!(report.turns.iter().all(|r| r.passed));
+        for row in &report.turns {
+            let estimates = row.forwarded_director_estimates.as_ref().unwrap();
+            assert_eq!(estimates.len(), 1);
+            assert_eq!(estimates[0]["version"], 1);
+            assert_eq!(estimates[0]["output_tokens"], 350);
+            assert!(estimates[0]["estimated_total_tokens"].as_u64().unwrap() <= 4096);
+        }
+        assert_eq!(inspect_comparison(&run).unwrap(), report);
+        // Existing own synthetic checkpoint only. Never edit a historical report.
+        let checkpoint = checkpoint_path(&run.join("left"), 0);
+        let original = fs::read(&checkpoint).unwrap();
+        let mut altered: Value = serde_json::from_slice(&original).unwrap();
+        altered["row"]
+            .as_object_mut()
+            .unwrap()
+            .remove("forwarded_director_estimates");
+        fs::write(&checkpoint, encode(&altered).unwrap()).unwrap();
+        assert!(inspect_comparison(&run).is_err());
+        let mut altered: Value = serde_json::from_slice(&original).unwrap();
+        altered["row"]["forwarded_director_estimates"][0]["estimated_total_tokens"] = json!(0);
+        fs::write(&checkpoint, encode(&altered).unwrap()).unwrap();
+        assert!(inspect_comparison(&run).is_err());
+        fs::write(&checkpoint, original).unwrap();
+        assert_eq!(inspect_comparison(&run).unwrap(), report);
+        // Missing optional old transport field stays omitted, not invented.
+        let mut old_row = serde_json::to_value(&report.turns[0]).unwrap();
+        old_row
+            .as_object_mut()
+            .unwrap()
+            .remove("forwarded_director_estimates");
+        let decoded: TurnReportV2 = serde_json::from_value(old_row.clone()).unwrap();
+        assert!(decoded.forwarded_director_estimates.is_none());
+        assert_eq!(serde_json::to_value(decoded).unwrap(), old_row);
+    }
+}

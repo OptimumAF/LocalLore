@@ -365,3 +365,101 @@ impl CapturedContext {
         })
     }
 }
+
+#[cfg(test)]
+mod forwarded_budget_tests {
+    use super::*;
+
+    fn profile() -> PlayProfile {
+        PlayProfile {
+            id: "synthetic-budget-counts".into(),
+            model_sha256: "a".repeat(64),
+            runtime_revision: "b".repeat(40),
+            template_sha256: "c".repeat(64),
+            worker_sha256: "d".repeat(64),
+            profile_manifest_sha256: "e".repeat(64),
+            context_tokens: 4096,
+            director_tokens: 350,
+            narrator_tokens: 350,
+            deadline_ms: 120_000,
+            repair_limit: 1,
+        }
+    }
+
+    #[test]
+    fn actual_utf8_schema_and_exact_repair_bytes_are_charged_once() {
+        let profile = profile();
+        let initial = format!("Actual Unicode: {} and quoted input: \\\"", "é".repeat(512));
+        let schema = json!({"type":"object","properties":{"quoted":{"const":"\\\"\n雪"}}});
+        let suffix="\nPrevious output was malformed. Repair exactly once using the schema. Do not change the player's requested intent.";
+        assert_eq!(suffix.len(), 114);
+        let repair = format!("{initial}{suffix}");
+        assert!(director_repair_matches_v25(&initial, &repair));
+        assert!(!director_repair_matches_v25(
+            &initial,
+            &format!("{repair} ")
+        ));
+        let first =
+            director_forwarded_budget_v25(&profile, DirectorPassV25::Initial, &initial, &schema)
+                .unwrap();
+        let second =
+            director_forwarded_budget_v25(&profile, DirectorPassV25::Repair, &repair, &schema)
+                .unwrap();
+        let first = serde_json::to_value(first).unwrap();
+        let second = serde_json::to_value(second).unwrap();
+        let schema_bytes = encode(&schema).unwrap().len();
+        assert_eq!(first["prompt_bytes"], initial.len());
+        assert_eq!(first["schema_bytes"], schema_bytes);
+        assert_eq!(first["repair_extra_bytes"], 114);
+        assert_eq!(second["repair_extra_bytes"], 0);
+        assert_eq!(
+            first["actual_prompt_schema_estimated_tokens"],
+            (initial.len() + schema_bytes).div_ceil(4)
+        );
+        assert_eq!(
+            first["estimated_total_tokens"],
+            (repair.len() + schema_bytes).div_ceil(4) + 350 + 162
+        );
+        assert_eq!(
+            first["estimated_total_tokens"],
+            second["estimated_total_tokens"]
+        );
+        assert_eq!(first["template_reserve_tokens"], 162);
+    }
+
+    #[test]
+    fn unsupported_profile_or_oversized_actual_input_cannot_get_an_admission_estimate() {
+        let mut profile = profile();
+        let schema = json!({"type":"object"});
+        assert!(director_forwarded_budget_v25(
+            &profile,
+            DirectorPassV25::Initial,
+            &"x".repeat(4096 * 4),
+            &schema
+        )
+        .is_err());
+        profile.repair_limit = 0;
+        assert!(director_forwarded_budget_v25(
+            &profile,
+            DirectorPassV25::Repair,
+            "initial",
+            &schema
+        )
+        .is_err());
+        let allowed =
+            director_forwarded_budget_v25(&profile, DirectorPassV25::Initial, "initial", &schema)
+                .unwrap();
+        assert_eq!(
+            serde_json::to_value(allowed).unwrap()["repair_extra_bytes"],
+            0
+        );
+        profile.context_tokens = 4097;
+        assert!(director_forwarded_budget_v25(
+            &profile,
+            DirectorPassV25::Initial,
+            "initial",
+            &schema
+        )
+        .is_err());
+    }
+}

@@ -76,9 +76,13 @@ without gaining invented estimates or permission to resume under new source.
 | d07-host-policy-original-compile.log | E0277: the fixture attempted to deserialize Core Receipt, which is intentionally Serialize-only. No tests ran; production authority was not opened to satisfy the fixture. |
 | Serialized-only fixture correction 9e91ef3, d07-host-policy-serialized-fixture-first.log | **1 passed / 3 failed**, 0.07s. The three failures read prompt_version from the ready-phase null receipt; this exposed the fixture's wrong phase assumption, not missing committed provenance. |
 | Corrected committed fixture a05254c, d07-host-policy-committed-fixture-corrected.log | **4 passed / 0 failed**, 0.13s. Tests explicitly preserve ready.receipt=null and unchanged precommit canonical state; inspect provenance only after actual committed replies. Both policies, legacy default, held-work configuration fences, policy-changing recorded retry/zero roles and JSON policy refusal pass. |
-| a05254c, d07-shared-full-first.log | Four-package batch exits101 during compilation: comparison_policy.rs directly names serde without a direct dependency (E0433). No tests ran. Test-only 8b4422b uses the existing serde_json stream API; assertions and dependencies are unchanged. The corrected full batch remains active. |
+| a05254c, d07-shared-full-first.log | Four-package batch exits101 during compilation: comparison_policy.rs directly names serde without a direct dependency (E0433). No tests ran. Test-only 8b4422b uses the existing serde_json stream API; assertions and dependencies are unchanged. Corrected result follows. |
 | 8b4422b, d07-shared-full-fixture-corrected.log | **743 passed / 0 failed / 10 ignored**, 110 result groups including zero-test documentation groups. Actual four-package **host-feature** suite, not an all-features run. Includes long-history stress, unchanged generic compiler/legacy replay, and actual Store/Repository comparison_policy checks. |
 | d07-workspace-format-first.log / d07-eval-format-first.log | Workspace and standalone evaluator Rustfmt checks pass, both empty logs. |
+| 8b4422b, d07-compat-shared-clippy.log | Strict workspace all-targets/all-features Clippy (desktop excluded) passes; stage wall duration29.29s. This is a broader feature/lint invocation than the four-package host-feature test suite. |
+| 8b4422b, d07-compat-eval-remaining.log | **15 passed / 1 ignored**: memory_comparison12, local_model_review3, curated_integration_review0passed/1ignored. The ignored native case was not executed. |
+| 8b4422b, d07-compat-eval-clippy.log | Strict evaluator lint exits101 on collapsible_if in the dependency oracle. Root39c770d collapses only equivalent phase-and-disjunction guards, with no lint waiver, changed oracle or acceptance relaxation. |
+| 39c770d, d07-dependency-oracle-lint-corrected.log / d07-historical-dependency-guard-corrected.log | Focused actual dependency regression **1 pass /11filtered**,1.99s; genuine historical inspect/resume test **1 pass**,3.46s. Old skips, source mismatch and every retained byte stay unchanged. Corrected compatibility batch remains active. |
 
 The original frozen Core declarations precede production (edf4d265 / contract
 03308ea1). The Core fix and evaluator closure were separately allocated and
@@ -92,7 +96,7 @@ PR's evidence and does not make the D07 comparison an author/Domain2 corpus.
 | Required evidence | Current disposition |
 | --- | --- |
 | comparison_runner + memory_comparison_v2 terminal batch | Complete:9runner+3protocol passes above. Initial seven-pass partial output was not counted as a completed result. |
-| Current Core/Host fixture and full compatibility checks | Host4 and four-package host-feature suite743/10 ignored passed. Strict all-features shared Clippy, remaining evaluator, frontend/native and Android compatibility stages are active under Root's serialized d07-compat-checks.ps1; no partial stage is counted as passed. |
+| Current Core/Host fixture and full compatibility checks | Host4, four-package host-feature suite743/10 ignored, strict shared Clippy and remaining evaluator15/1 ignored passed. Corrected evaluator lint/frontend/native/Android stages remain active under the new d07-compat-lint-corrected prefix; no partial stage is counted as passed. |
 | Genuine historical complete-cohort opening | Passed actual opt-in test at 4a36b72; see precise inventory/old-field boundary below. |
 | Real local-model current comparison | Pending separate authorized source-bound execution; no model, worker, speed, memory-quality or enjoyment result inferred from scripted tests. |
 | Exact reproduction and environment | Completed commands below; fresh toolchain versions recorded. Remaining compatibility invocations/terminal results await Root. The contract's suggested commands are not presented as executions. |
@@ -163,11 +167,27 @@ and serialized execution; no toolchain/model download or physical-device
 execution is inferred. Full remaining environment/compatibility attribution
 will be recorded with its terminal stage manifest.
 
+Completed compatibility invocations, from repository root, use the existing
+owned `<shared-target>` (the placeholder replaces only the local target path):
+
+```powershell
+cargo clippy --workspace --all-targets --all-features --offline --locked --exclude locallore-desktop-spike --target-dir <shared-target> -- -D warnings
+cargo test --manifest-path crates/locallore-eval/Cargo.toml --features local-model --offline --locked --target-dir <shared-target> --test memory_comparison --test local_model_review --test curated_integration_review -- --test-threads=1
+# First invocation failed; corrected-source rerun is pending:
+cargo clippy --manifest-path crates/locallore-eval/Cargo.toml --all-targets --all-features --offline --locked --target-dir <shared-target> -- -D warnings
+```
+
+Root's local serial launcher uses one Cargo job, dev/test debug info0,
+incremental0, owned temporary/Gradle/output directories, existing SDK/JDK,
+empty LIBSQLITE3_FLAGS and no SDK download. Source and exit for each stage
+are recorded before advancing. The original failed stage manifest is retained;
+the new prefix does not overwrite it.
+
 ## Retained log integrity
 
 Files are local/gitignored under `<evidence-root>/author-integration-artifacts`.
 No raw model weights, private paths or player stories are published. The
-following fifteen completed logs were hashed read-only; active logs are excluded.
+following twenty completed logs were hashed read-only; active logs are excluded.
 
 | Log | Bytes / SHA-256 |
 | --- | --- |
@@ -186,6 +206,11 @@ following fifteen completed logs were hashed read-only; active logs are excluded
 | d07-shared-full-fixture-corrected.log | 98,434 / `517af02e4a1391c7ce5b2a01cb97799acf7db674d636b4516f6ad4f6df4f6fec` |
 | d07-workspace-format-first.log | 0 / `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
 | d07-eval-format-first.log | 0 / `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| d07-compat-shared-clippy.log | 638 / `b24d562ab79679764c7e9fcbe9a2f7e2505f17a8d7fbe6f7ef8648b61a0a5612` |
+| d07-compat-eval-remaining.log | 2,459 / `f7db38845c62cb9b302a6d835830edbde55f3c479346e1d68908fc9438333c63` |
+| d07-compat-eval-clippy.log | 1,839 / `6c16430dadb337e0a053d1de481467d73fa85798a60b24184c6b22322cd1dade` |
+| d07-dependency-oracle-lint-corrected.log | 580 / `97d1300eb3e056f2018a5e919fe62ef42a6c53dd454c4c929f42bfe9b62effe2` |
+| d07-historical-dependency-guard-corrected.log | 589 / `f4a387abd37349e93285d681b0aef376e30e731d92b5386882cce391086c6ab9` |
 
 No task checkbox, model-quality conclusion, historical report rewrite,
 PR acceptance, merge, release, repository setting or protected resource is

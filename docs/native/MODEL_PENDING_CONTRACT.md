@@ -95,6 +95,14 @@ Actions admit only fixed APP/DocsUI controls and the fixed TEST root/documents.
 Connection failure, malformed state, unknown controls or exhausted budgets stop
 the experiment; they do not trigger a blind retry or broader navigation.
 
+Use plain `dumpsys activity activities` for live task proof, with bounded local
+output and exact host component/task selection. Android 15's global `-p` option
+also sets `dumpClient=true`; omitting `-c` does not make a package-filtered dump
+server-only. The first read-only settlement exposed that earlier review mistake.
+Its retained output is qualified accordingly. The repaired profile admits only
+source-supported horizontal Hist spacing and the display header's exact optional
+`(organized)` suffix; other malformed/duplicate/foreign records still refuse.
+
 Official sources: [Activity Result lifecycle](https://developer.android.com/training/basics/intents/result),
 [Android 15 instrumentation lifecycle](https://android.googlesource.com/platform/frameworks/base/+/android-15.0.0_r1/services/core/java/com/android/server/am/ActivityManagerService.java),
 [Activity saved-state dump](https://android.googlesource.com/platform/frameworks/base/+/android-15.0.0_r1/services/core/java/com/android/server/wm/ActivityRecord.java),

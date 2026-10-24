@@ -34,7 +34,7 @@ Independent RAM-profile author runs9 pure host tests,0 failures/errors,0.308s;
 owned completion0/known cleanup547ms. No SDK/AVD/device operation by that agent.
 Its source-only profile handoff `b8de027` is integrated as `f51fd87`.
 Receipt fixture handoff `bfd0158` is integrated as `c153cbb`, source-reviewed
-only so far. Review removes a duplicate-open FD hazard and a redundant full
+only at that handoff stage. Review removes a duplicate-open FD hazard and a redundant full
 rehash; no execution or model result follows from that source review.
 
 The first12 new controller tests pass,0.349s. Three worker/full-mocked-preflight
@@ -71,7 +71,8 @@ App/instrumentation compile,362 JVM tests/36 suites pass,zero failures/errors/
 skips,lint0 errors/19 warnings,and pinned dependency/analyzer checks pass.
 Original27710 consumed0;owned completed0/known cleanup117,500ms;stdout9,242
 bytes SHA-256 `f19073b945cbc7bc5808bf6849813848b4354e67f38cf00065bd870b2acc4b3c`.
-The new four heavy selectors are compiled,not yet device-run. Source-only
+All four selectors compile; SOURCE_PREFLIGHT later runs as recorded below,
+while IMPORT/PLAY/REOPEN remain unrun. Source-only
 agent handoffs are not represented as independent Android executions.
 
 All three actual APP audits pass the additional real-test exclusion check.
@@ -185,6 +186,25 @@ create another fresh owned target and repeat the corrected-source tiny preflight
 with sufficient remaining lease before candidate copy/import/SDK/reopen. Never
 reuse this stopped target or old caches,or borrow its proof for another lease.
 Full M05.05/M01.05 stay unchecked and the reference-phone gate remains blocked.
+
+Final preapproval controller source is `44b15eac3d812e72d8e424a8359be4dd71633a8c`.
+Its separate1,443-file/17,106,332-byte source index SHA-256 is
+`0e38970c0c1d7569c52bb3fd4d4bc52730f7e115fb0de67072d62ba6cc567421`.
+All924 live non-Markdown rows/11,929,386 bytes match that final snapshot; all
+Android/Rust/build inputs match actual compilation03ee127. Later documentation
+finalization is not another build or a candidate execution.
+
+Private evidence is sealed and independently rehashed with zero mismatches:
+
+| Inventory | Files | Bytes | Index SHA-256 |
+|---|---:|---:|---|
+| Host |2,987|113,106,408|`d0a6e5e73d13a70c27d06d483ede589c647ba2ce8a55164b36919c8334c86d35`|
+| Environment |25|394,664|`f47427ef40c4688a8037dbd39bf5caf1dfc32e2a42549bc90ebc5a18044750bd`|
+| Preflight |172|87,290,684|`3774795180e9a8a5d726b8e3b95c26f59d590771635d40e0cf4a33999329bfaa`|
+
+All69 archived admitted nonweight inputs match the original proposal. Only
+metadata of the retained virtual disks is recorded; no raw disk hash or guest
+flush is claimed. No model copy,SDK inference,merge,release or access change.
 
 Retired Markdown trackers remain pointers; tickets own current status. Full
 M05.05/M01.05 and M01.01 reference-phone, real-model/SDK, ARM64/16 KiB,

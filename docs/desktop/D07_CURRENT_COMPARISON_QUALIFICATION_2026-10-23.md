@@ -101,7 +101,7 @@ PR's evidence and does not make the D07 comparison an author/Domain2 corpus.
 | comparison_runner + memory_comparison_v2 terminal batch | Complete:9runner+3protocol passes above. Initial seven-pass partial output was not counted as a completed result. |
 | Current Core/Host fixture and full compatibility checks | Host4, shared743/10 ignored, evaluator15/1 ignored, strict shared/eval/native lint, frontend/format, native normal88/1 ignored, dev92/1 ignored+standalone2, normal build and fresh Android compatibility all passed. No runtime/UI/model execution is inferred from build/unit evidence. |
 | Genuine historical complete-cohort opening | Passed actual opt-in test at 4a36b72; see precise inventory/old-field boundary below. |
-| Real local-model current comparison | Source39c first paired scene passed12structural rows/24roles; same pinned run continues, quality not accepted. Independent review found prelude timing gaps; frozen clock regressions/fix and final-source rollout/appropriate paired confirmation remain required. |
+| Real local-model current comparison | Original source39c paired run completed4scenes/48structural passes/84roles, quality not accepted. Independent review found prelude timing gaps; frozen clock regressions/fix and final-source rollout/appropriate paired confirmation remain required. No original-source rollout is being run. |
 | Exact reproduction and environment | Completed commands below; fresh toolchain versions and terminal compatibility manifests recorded. Real-model command/result remains pending. The contract's suggested commands are not presented as executions. |
 
 ## Genuine historical read-only compatibility
@@ -254,7 +254,7 @@ original results manifest SHA-256 is
 corrected terminal results SHA-256 is
 `eb30f97ab005ad62e22a488be3126ae5592e75f8f34fced8309fb830e8dd0c06`.
 
-## Initial actual local-model scene; full comparisons pending
+## Original-source actual paired comparison; clock qualification pending
 
 Authorized allocation [#29 6380754782](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6380754782)
 runs at clean 39c770d. Local cohort
@@ -267,7 +267,18 @@ structural rows passed /24roles /1of4scenes**, elapsed323,466ms. All privacy
 checks are true, with no repairs/errors and maximum forwarded estimate3259.
 The process stderr is empty. These are finite partial actual-model observations;
 they do not qualify unexecuted scenes, rollout or statistical memory benefits.
-The same run is being resumed without retuning the original corpus or budgets.
+The same run subsequently resumes without retuning the original corpus or budgets.
+
+The continuation exits 0 at source39c with **completed=true, four scenes,
+48 structural rows passed, 84 roles, zero repairs and zero privacy failures**.
+Its six error fields are the expected zero-role refusals: courier-09 Inventory,
+courier-10 Ability and courier-24 ClarificationRequired, once per arm.
+They are not six unexpected failures. Maximum forwarded estimate is4090,
+physical setups2, unavailable=[], human_reviewed=0 and quality_accepted=false.
+The continuation process separately takes **730,199ms**, starting
+2026-10-24T06:30:06.7166193Z and ending06:42:16.9326310Z. Its stderr is empty.
+The initial323,466ms and this continuation have different process scopes;
+neither is presented as final-source charged-turn latency or an arm ranking.
 
 Before PR adoption, independent source review identified two timing/accounting
 gaps at this exact source: ComparisonSession::open performs reference copying,
@@ -276,8 +287,8 @@ creates a new Instant after Host/setup/free_text prelude. This can omit setup
 cost and extend the nominal turn interval by its prelude. **No observed
 overrun is claimed.** Outer process elapsed time, structural/privacy outcomes
 and raw evidence remain source-bound facts; they do not qualify the flawed
-accounting/deadline implementation. The pinned old paired run continues
-unchanged. Root will freeze clock regressions and correct that boundary,
+accounting/deadline implementation. The pinned old paired run completed
+unchanged; no original-source rollout will be run. Root will freeze clock regressions and correct that boundary,
 then run rollout and warranted paired confirmation at the corrected source,
 rather than attributing old timings or calls to the future fix.
 
@@ -302,6 +313,14 @@ SHA-256`46c7aa18723f6526f40328e1c9a5e6de5b3d5c11fc7247476be1df10ffa4cbdb`;
 paired-initial-stderr.log,0bytes,empty SHA-256
 `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
 Mutable resumed reports are not frozen under these initial-output hashes.
+The immutable completed continuation output is paired-resume-stdout.json,
+335,892 bytes, SHA-256
+`9cf2f45fcbb68fa290ccab1a2df29187fc032eb21115329567f3d90e16ac8a0f`;
+paired-resume-process.json,291 bytes, SHA-256
+`3468cb4dd654a866012bdc84d253f7bc499cc0dd5548b4770023472d352562ff`;
+paired-resume-stderr.log is0 bytes, with the empty SHA-256 above.
+The852-byte cohort-manifest.json SHA-256 is
+`6ad6504223809ac703ba7d09e170363109abe873f7b35f559cfc0ef90ad5ccee`.
 
 ## Retained log integrity
 

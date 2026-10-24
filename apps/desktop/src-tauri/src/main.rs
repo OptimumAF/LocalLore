@@ -36,6 +36,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 struct Reopen(AtomicBool);
 
 struct WorkspaceState {
+    incarnation: String,
     path: std::path::PathBuf,
     lease: Arc<WindowLease>,
     host: tokio::sync::OnceCell<Arc<Host>>,
@@ -288,6 +289,7 @@ fn main() {
             host_call,
             archive_commands::archive_catalog,
             author_ipc::author_prepare_start,
+            author_ipc::author_context,
             author_ipc::author_commit_start,
             author_ipc::author_lookup_start,
             author_ipc::author_preview_discard,
@@ -343,6 +345,7 @@ fn main() {
         host_call,
         archive_commands::archive_catalog,
         author_ipc::author_prepare_start,
+        author_ipc::author_context,
         author_ipc::author_commit_start,
         author_ipc::author_lookup_start,
         author_ipc::author_preview_discard,
@@ -434,6 +437,7 @@ fn main() {
                     .join("evaluation-runs-v1"),
             )));
             app.manage(WorkspaceState {
+                incarnation: exports::identifier().map_err(std::io::Error::other)?,
                 path,
                 lease: Arc::new(WindowLease::default()),
                 host: tokio::sync::OnceCell::new(),

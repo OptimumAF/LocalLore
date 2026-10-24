@@ -3,6 +3,14 @@ import {
     decodeMemoryOperation,
     type MemoryAction,
 } from "./memory-maintenance-controller";
+import {
+    decodeStatus,
+    decodeArchiveCompletion,
+    decodeArchiveBinding,
+    type ArchiveBinding,
+    type ArchiveCommand,
+} from "./archive-model";
+import { decodeForkOutcome, decodeForkRequest } from "./fork-controller";
 export type BrokerSurface = "memory" | "fork" | "archive";
 export interface BrokerIdentity {
     surface: BrokerSurface;
@@ -14,6 +22,7 @@ export interface BrokerIdentity {
     token?: string;
     child?: string;
     at?: number;
+    archive?: ArchiveBinding;
 }
 interface Retained {
     identity: BrokerIdentity;
@@ -41,13 +50,17 @@ function identity(value: BrokerIdentity): BrokerIdentity {
                     "token",
                     "child",
                     "at",
+                    "archive",
                 ].includes(k),
         ) ||
         !["memory", "fork", "archive"].includes(value.surface)
     )
         throw Error("InvalidInput");
     for (const [key, v] of Object.entries(value)) {
-        if (["head", "at"].includes(key)) {
+        if (key === "archive") {
+            if (value.surface !== "archive") throw Error("InvalidInput");
+            decodeArchiveBinding(v);
+        } else if (["head", "at"].includes(key)) {
             if (!Number.isSafeInteger(v) || Number(v) < 0)
                 throw Error("InvalidInput");
         } else if (
@@ -60,6 +73,15 @@ function identity(value: BrokerIdentity): BrokerIdentity {
     }
     if (typeof value.action !== "string") throw Error("InvalidInput");
     if (
+        value.surface === "archive" &&
+        ["archive_export", "archive_import"].includes(value.action) &&
+        (!value.archive ||
+            value.archive.token !== value.token ||
+            value.archive.kind !==
+                (value.action === "archive_export" ? "export" : "import"))
+    )
+        throw Error("InvalidInput");
+    if (
         value.surface === "memory" &&
         (!value.session ||
             !value.story ||
@@ -67,7 +89,12 @@ function identity(value: BrokerIdentity): BrokerIdentity {
             value.head === undefined)
     )
         throw Error("InvalidInput");
-    return { ...value };
+    return {
+        ...value,
+        ...(value.archive
+            ? { archive: decodeArchiveBinding(value.archive) }
+            : {}),
+    };
 }
 export class BrokerRetention {
     private retained: Retained | null = null;
@@ -150,10 +177,14 @@ export class BrokerRetention {
     }
     private record(value: unknown, admission: boolean) {
         const r = this.retained;
-        if (!r || !value || typeof value !== "object") return;
+        if (!r) return;
         // External status/cancel replies can only update an already known ID.
         // Only this reservation's awaited admission reply may establish it.
         if (r.operation === null && !admission) return;
+        if (!value || typeof value !== "object") {
+            this.patch({ unknown: true });
+            return;
+        }
         const incoming = value as Record<string, unknown>;
         // A late status/cancel reply belongs to its original operation. Exclude
         // a known different ID before decoding against the current identity.
@@ -186,6 +217,58 @@ export class BrokerRetention {
                 return;
             }
         }
+        if (r.identity.surface === "archive" || r.identity.surface === "fork") {
+            try {
+                if (r.identity.surface === "archive") {
+                    if (
+                        ![
+                            "archive_export_preview",
+                            "archive_import_preview",
+                            "archive_export",
+                            "archive_import",
+                        ].includes(r.identity.action)
+                    )
+                        throw Error("Wire");
+                    const status = decodeStatus(value);
+                    if (!status.running && !status.error)
+                        decodeArchiveCompletion(
+                            status,
+                            r.identity.action as ArchiveCommand,
+                            r.identity.archive,
+                        );
+                } else if (
+                    incoming.running === false &&
+                    incoming.error === null
+                ) {
+                    const result = incoming.result as Record<
+                        string,
+                        unknown
+                    > | null;
+                    if (
+                        !result ||
+                        Object.keys(result).length !== 2 ||
+                        result.kind !== "fork" ||
+                        !Object.hasOwn(result, "outcome")
+                    )
+                        throw Error("Wire");
+                    decodeForkOutcome(
+                        result.outcome,
+                        decodeForkRequest({
+                            parent: {
+                                story: r.identity.story,
+                                branch: r.identity.branch,
+                            },
+                            child_branch: r.identity.child,
+                            expected_parent_revision: r.identity.head,
+                            at_revision: r.identity.at,
+                        }),
+                    );
+                }
+            } catch {
+                this.patch({ unknown: true });
+                return;
+            }
+        }
         const v = value as Record<string, unknown>;
         if (
             Object.keys(v).length !== 6 ||
@@ -205,8 +288,10 @@ export class BrokerRetention {
                 v.error === null ||
                 (typeof v.error === "string" && v.error.length <= 64)
             )
-        )
+        ) {
+            this.patch({ unknown: true });
             return;
+        }
         if (r.operation !== null && r.operation !== v.operation_id) return;
         if (
             v.running
@@ -231,8 +316,10 @@ export class BrokerRetention {
                   : v.phase !== "error" ||
                     typeof v.error !== "string" ||
                     v.result !== null
-        )
+        ) {
+            this.patch({ unknown: true });
             return;
+        }
         let unresolved = false;
         if (r.recoveringMemory) {
             const result = v.result as Record<string, unknown> | null;

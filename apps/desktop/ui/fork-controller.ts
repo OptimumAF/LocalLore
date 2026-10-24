@@ -58,7 +58,10 @@ export function decodeForkRequest(v: unknown): ForkRequest {
         at_revision: v.at_revision,
     });
 }
-function outcome(v: unknown, request: ForkRequest): ForkOutcome {
+export function decodeForkOutcome(
+    v: unknown,
+    request: ForkRequest,
+): ForkOutcome {
     if (
         !exact(v, [
             "version",
@@ -405,7 +408,7 @@ export class ForkController {
                     v.result.kind !== "fork"
                 )
                     throw Error("Wire");
-                const result = outcome(v.result.outcome, request);
+                const result = decodeForkOutcome(v.result.outcome, request);
                 this.patch({
                     busy: false,
                     status: "complete",
@@ -459,7 +462,9 @@ export class ForkController {
                 (!value.found && value.outcome !== null)
             )
                 throw Error("Wire");
-            const result = value.found ? outcome(value.outcome, request) : null;
+            const result = value.found
+                ? decodeForkOutcome(value.outcome, request)
+                : null;
             if (result?.created) throw Error("Wire");
             this.patch({
                 busy: false,

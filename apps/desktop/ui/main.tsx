@@ -1,5 +1,6 @@
 import { EvaluationController } from "./evaluation-controller";
 import { ArchiveController } from "./archive-controller";
+import { archiveBinding } from "./archive-model";
 import { ForkController } from "./fork-controller";
 import { MemoryMaintenanceController } from "./memory-maintenance-controller";
 import { memoryContext } from "./memory-context";
@@ -150,6 +151,11 @@ const invoke = (command: string, args: Record<string, unknown> = {}) => {
         ].includes(command)
     ) {
         const selected = controller.selected();
+        const isPreview = command.endsWith("_preview");
+        const preview = archive.get().preview;
+        // Capture the validated request binding before dispatch/context retirement.
+        if (!isPreview && (!preview || args.token !== preview.token))
+            return Promise.reject("InvalidArchiveInput");
         return brokerRetention.start(
             {
                 surface: "archive",
@@ -167,6 +173,7 @@ const invoke = (command: string, args: Record<string, unknown> = {}) => {
                 ...(typeof args.token === "string"
                     ? { token: args.token }
                     : {}),
+                ...(!isPreview ? { archive: archiveBinding(preview!) } : {}),
             },
             native,
         );

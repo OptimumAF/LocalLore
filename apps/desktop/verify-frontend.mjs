@@ -26,6 +26,7 @@ for (const args of [
     ["check-broker-retention.mjs"],
     ["check-broker-retention-review.mjs"],
     ["check-broker-retention-incarnation-review.mjs"],
+    ["check-broker-surface-review.mjs"],
 ]) {
     const code = await new Promise((resolve, reject) => {
         const child = spawn(process.execPath, args, {

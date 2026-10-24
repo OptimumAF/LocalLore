@@ -92,7 +92,7 @@ The controller's userdata floor stayed 1,207,959,552 bytes, with unchanged host
 floors. Capacity observations are not reservations against concurrent OS use.
 
 Final compiled source was `f3cb9a1fdc8894cb89b0ba57f651cc219c17e7b7`.
-Root-owned ordinary SDK and volume builds each passed 294 JVM tests in 30 suites
+Root-owned regular setup and removable candidate builds each passed 294 JVM tests in 30 suites
 with zero failures/errors/skips, lint zero errors/seven warnings, and known
 worker cleanup. Final build durations were 147,453 ms and 144,531 ms.
 Actual signature, shared-UID absence and packaged APP backup-exclusion audits

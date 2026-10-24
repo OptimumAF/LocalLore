@@ -245,7 +245,11 @@ android {
         if (modelSetup == "true") sourceSets["debug"].manifest.srcFile("src/litert/AndroidManifest.xml")
         sourceSets["test"].java.srcDir("src/litertTest/java")
         sourceSets["androidTest"].java.srcDir("src/litertAndroidTest/java")
-        if (modelVolume == "true") sourceSets["androidTest"].java.srcDir("src/modelVolumeAndroidTest/java")
+        if (modelVolume == "true") {
+            sourceSets["debug"].java.srcDir("src/modelVolume/java")
+            sourceSets["debug"].manifest.srcFile("src/modelVolume/AndroidManifest.xml")
+            sourceSets["androidTest"].java.srcDir("src/modelVolumeAndroidTest/java")
+        }
         if (modelPicker == "true") {
             sourceSets["debug"].java.srcDir("src/modelPicker/java")
             sourceSets["debug"].manifest.srcFile("src/modelPicker/AndroidManifest.xml")

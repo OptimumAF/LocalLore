@@ -54,8 +54,9 @@ def elf_alignments(data, machine):
     return alignments
 
 
-def audit_zip(path, *, litert=False, model_picker=False):
+def audit_zip(path, *, litert=False, model_picker=False, model_volume=False):
     require(not model_picker or litert, "Model picker fixtures require the explicit SDK profile")
+    require(not model_volume or (litert and not model_picker), "Receipt volume fixture requires its separate SDK profile")
     libraries = []
     with zipfile.ZipFile(path) as archive, open(path, "rb") as raw:
         entries = archive.infolist()
@@ -72,6 +73,8 @@ def audit_zip(path, *, litert=False, model_picker=False):
         interruption_activity_present = False
         pending_present = False
         pending_activity_present = False
+        receipt_service_present = False
+        receipt_fixture_present = False
         for entry in dex:
             require(0 < entry.file_size <= 32 * 1024 * 1024, "Invalid DEX size")
             contents = archive.read(entry)
@@ -81,6 +84,9 @@ def audit_zip(path, *, litert=False, model_picker=False):
             interruption_activity_present |= b"ModelPickerInterruptionFixtureActivity" in contents
             pending_present |= b"ModelPickerPending" in contents
             pending_activity_present |= b"ModelPickerPendingFixtureActivity" in contents
+            receipt_service_present |= b"ReceiptProofService" in contents
+            receipt_fixture_present |= b"ReceiptAndroidFixture" in contents
+            require(b"ReceiptVolumeQualificationTest" not in contents, "Receipt test packaged in app")
             require(b"ModelPickerDocumentsProvider" not in contents, "Test provider packaged in app")
             require(b"ModelPickerInterruptionTest" not in contents, "Interruption test packaged in app")
             require(b"ModelPickerPendingTest" not in contents, "Pending-picker test packaged in app")
@@ -90,6 +96,9 @@ def audit_zip(path, *, litert=False, model_picker=False):
         require(not model_picker or fixture_activity_present, "Missing fixture Activity implementation")
         require(not model_picker or interruption_activity_present, "Missing interruption Activity implementation")
         require(not model_picker or pending_activity_present, "Missing pending-picker Activity implementation")
+        require(not model_volume or litert, "Receipt volume fixture requires the SDK candidate")
+        require(receipt_service_present == model_volume, "Receipt service leaked or missing")
+        require(receipt_fixture_present == model_volume, "Receipt fixture leaked or missing")
         for entry in entries:
             if not entry.filename.endswith(".so"):
                 continue
@@ -275,6 +284,40 @@ def audit_model_picker_test_manifest(tree):
             "process": ":model_picker_provider"}
 
 
+def audit_receipt_service(tree, *, model_volume=False):
+    """Only the explicit volume debug APK may own the private same-UID proof service."""
+    services = {}
+    lines = tree.splitlines()
+    for index, line in enumerate(lines):
+        match = re.match(r"(\s*)E: service \(", line)
+        if not match:
+            continue
+        block = []
+        for following in lines[index + 1:]:
+            if following.strip() and len(following) - len(following.lstrip()) <= len(match[1]):
+                break
+            block.append(following)
+        attributes = []
+        for item in block:
+            if re.match(r"\s*E:", item):
+                break
+            attributes.append(item)
+        header = "\n".join(attributes)
+        names = re.findall(r':name\([^)]*\)="([^"\n]+)"', header)
+        require(len(names) == 1 and names[0] not in services, "Ambiguous service identity")
+        services[names[0]] = (header, "\n".join(block))
+    expected = {"org.locallore.app.ReceiptProofService"} if model_volume else set()
+    require(set(services) == expected, "Unexpected or missing service")
+    if model_volume:
+        header, block = services["org.locallore.app.ReceiptProofService"]
+        require(re.findall(r':exported\([^)]*\)=([^\s]+)', header) == ["false"], "Receipt service exported")
+        require(re.findall(r':process\([^)]*\)="([^"\n]+)"', header) == [":receiptproof"], "Wrong receipt process")
+        require(re.findall(r':isolatedProcess\([^)]*\)=([^\s]+)', header) == ["false"], "Receipt service must retain own UID")
+        require(not re.search(r"^\s*E:", block, re.M), "Receipt service must have no child declarations")
+        require(not re.findall(r':permission\(', header), "Unexpected receipt permission")
+    return {"receipt_service": model_volume, "exported": False}
+
+
 def aapt2_path():
     for variable in ("ANDROID_HOME", "ANDROID_SDK_ROOT"):
         value = os.environ.get(variable)
@@ -304,7 +347,8 @@ def main(argv=None):
                 "Model volume verification requires the model provisioning audit")
         require(not (args.model_volume_verification and args.model_picker_fixture),
                 "Model volume and picker fixtures are separate profiles")
-        libraries = audit_zip(args.apk, litert=args.litert_verification, model_picker=args.model_picker_fixture)
+        libraries = audit_zip(args.apk, litert=args.litert_verification, model_picker=args.model_picker_fixture,
+                              model_volume=args.model_volume_verification)
         aapt = str(aapt2_path())
         def dump(*arguments):
             return subprocess.run([aapt, "dump", *arguments], check=True, capture_output=True,
@@ -319,6 +363,8 @@ def main(argv=None):
             audit_model_launcher(dump("badging", str(args.apk)),
                                  dump("xmltree", str(args.apk), "--file", "AndroidManifest.xml"),
                                  model_picker=args.model_picker_fixture)
+        audit_receipt_service(dump("xmltree", str(args.apk), "--file", "AndroidManifest.xml"),
+                              model_volume=args.model_volume_verification)
         print(json.dumps({"status": "passed", "permissions": permissions, "libraries": libraries}, indent=2))
         return 0
     except (AuditError, OSError, zipfile.BadZipFile, subprocess.CalledProcessError, struct.error) as error:

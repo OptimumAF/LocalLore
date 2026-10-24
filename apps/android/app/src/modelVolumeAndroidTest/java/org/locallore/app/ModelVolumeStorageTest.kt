@@ -39,9 +39,11 @@ class ModelVolumeStorageTest {
             assertAbsent(proofRoot)
             // Never resolve CandidateLocalModel.store or a runtime/benchmark path.
             val volume = AndroidModelVolume.select(context)
-            val root = volume.root
-            assertEquals("local-model-removable-v1", root.name)
-            val appFiles = requireNotNull(root.parentFile)
+            val candidateRoot = volume.root
+            assertEquals("local-model-removable-v1", candidateRoot.name)
+            assertAbsent(candidateRoot)
+            val appFiles = requireNotNull(candidateRoot.parentFile)
+            val root = File(appFiles, "model-volume-synthetic-v1")
             assertEquals(appFiles, appFiles.canonicalFile)
             assertEquals(1, context.getExternalFilesDirs(null).filterNotNull().count {
                 it.canonicalFile == appFiles
@@ -71,6 +73,7 @@ class ModelVolumeStorageTest {
             assertEquals(0, rejectedOpens)
             assertAbsent(rejectedRoot)
             assertAbsent(root) // Rejection has no fallback destination.
+            assertAbsent(candidateRoot)
 
             var sourceOpens = 0
             val store = LocalModelStore(root, identity, storageAdmission = volume::admit)
@@ -112,6 +115,7 @@ class ModelVolumeStorageTest {
             assertArrayEquals(STAGE, stage.readBytes())
             assertArrayEquals(SENTINEL, sentinel.readBytes())
             volume.admit()
+            assertAbsent(candidateRoot)
 
             Files.createDirectory(proofRoot.toPath())
             val proof = JSONObject().put("version", 1).put("pid", Process.myPid())
@@ -121,6 +125,8 @@ class ModelVolumeStorageTest {
                 .put("rejected_source_opens", rejectedOpens).put("context_owned", true)
                 .put("removable_nonprimary_nonemulated", true).put("different_userdata_device", true)
                 .put("native_no_replace", true).put("stage_preserved", true)
+                .put("candidate_root_absent", true)
+                .put("candidate_root_sha256", sha(candidateRoot.path.toByteArray(Charsets.UTF_8)))
                 .put("sentinel_sha256", sha(SENTINEL)).toString().toByteArray(Charsets.US_ASCII)
             assertTrue(proof.size <= 4096)
             forcedNew(File(proofRoot, "volume-proof-v1.json"), proof)

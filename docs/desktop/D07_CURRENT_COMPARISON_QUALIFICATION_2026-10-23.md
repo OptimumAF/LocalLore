@@ -2,8 +2,8 @@
 
 Started 2026-10-23 local date; continued 2026-10-24. Retained execution
 timestamps are UTC and attributed below.
-Refs #29 D07.01–.06 partial / #11 M07.01. **Bounded qualification record;
-coordinator review/adoption remains pending.**
+Refs #29 D07.01–.06 partial / #11 M07.01. **Bounded qualification record,
+reviewed and adopted by the coordinator; PR acceptance remains separate.**
 This report does not accept the whole D07 milestone, prose quality, general
 tokenizer/template-budget guarantees or a physical-device gate.
 
@@ -214,6 +214,16 @@ This is **bounded static byte evidence**, not exhaustive exclusion proof or
 actual application execution. The local record d07-normal-artifact-evidence.json
 is 903 bytes, SHA-256
 `fec85dab82258489cc0318b75393e31785345c6b85946766b5f0f8728690f583`.
+
+The corrected-source normal build at febc326 is **29,172,736 bytes**, SHA-256
+`db0446bf4afdaae5cee8e6e23de1a13c287efc92797fa481cd40da8c185edc1a`.
+Its actual app.js remains 492,023 bytes with the same hash above. The five fixed
+markers are absent from both this executable and JavaScript bundle. Local
+d07-clock-normal-bundle-artifact-evidence.json is 1,050 bytes, SHA-256
+`48c6229454b34595e660e8fbde7a48c0c751e6555546be4aa1c8db9f39b1e44f`.
+The separate earlier d07-clock-normal-artifact-evidence.json measured the
+438-byte HTML shell, not the JavaScript bundle. Neither static record is
+application execution or an exhaustive security claim.
 
 ## Fresh Android build/JVM/static evidence
 
@@ -538,5 +548,6 @@ This is distinct from the selected32 corrected-native phase-record aggregate.
 No task checkbox, model-quality acceptance, historical report rewrite,
 PR acceptance, merge, release, repository setting or protected resource is
 changed by this document. Next: coordinator review/adoption of this bounded
-packet, followed by chronological human-rubric review and the current-comparison
-application/UI gates. Structural success does not close those D07 requirements.
+packet into its focused PR, followed by current-comparison desktop report/source
+inspection and isolated selected-case reruns. Human-rubric review remains
+unaccepted; structural success does not close those D07 requirements.

@@ -4,8 +4,8 @@ Started 2026-10-23 local date; continued 2026-10-24. Retained execution
 timestamps are UTC and attributed below.
 Refs #29 D07.01–.06 partial / #11 M07.01. **Bounded qualification record;
 coordinator review/adoption remains pending.**
-This report does not accept the whole D07 milestone, a model-quality result,
-native tokenizer fit or a physical-device gate.
+This report does not accept the whole D07 milestone, prose quality, general
+tokenizer/template-budget guarantees or a physical-device gate.
 
 The sole new path belongs to author_core_review on
 `docs/d07-current-comparison-qualification`, based on
@@ -528,6 +528,12 @@ following forty-one completed logs were hashed read-only; active logs are exclud
 | d07-clock-compat-native-dev.log | 10,502 / `c36afce65375e4bc3a640fac694de951305287d5a86cbf38ecb0573fd0cf9017` |
 | d07-clock-compat-native-clippy.log | 354 / `a01a92c4d98f1264bbfce6e3895f01c5ae7f7506f034a99d17f29c1020eac5db` |
 | d07-clock-compat-native-build.log | 213 / `803ae10396e75b105e26289db85a135b6fd944c6928e002d160d50ce72674998` |
+
+All41 completed log rows were independently verified read-only:221,291bytes,
+no hash or length mismatch. Their aggregate, ordinal UTF-8 LF-terminated
+`relative-log-name|sha256|bytes` rows, has SHA-256
+`d897eedb2aa2f352ac00a1ddbabcbc427fe1eabeb6b5f80edf4db39db8829182`.
+This is distinct from the selected32 corrected-native phase-record aggregate.
 
 No task checkbox, model-quality acceptance, historical report rewrite,
 PR acceptance, merge, release, repository setting or protected resource is

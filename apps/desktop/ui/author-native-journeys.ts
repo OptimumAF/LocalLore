@@ -309,7 +309,11 @@ export async function authorNativeJourneys({
             root.querySelector(".author-panel") ??
             root.querySelector(".v2-play") ??
             root;
-        const focus = label === "author-native-preview"
+        const focus = label === "author-native-observer"
+            ? root.querySelector('[aria-label="Read-only V2 inspector"]')
+            : label === "author-native-receipt" ? root.querySelector('[aria-label="Actual native receipt"]')
+            : label === "author-native-turn-cancelled" ? root.querySelector('[aria-label="Original turn status"]')
+            : label === "author-native-preview"
             ? root.querySelector("#author-impact-preview")
             : ["author-native-consent", "author-native-rejected", "author-native-cancelled"].includes(label)
                 ? root.querySelector("#author-visible-error")

@@ -234,8 +234,9 @@ export function V2PlayPanel({
                         ? "Fixture inference · synthetic responses"
                         : "Local model · availability is checked by Rust"}
                 </p>
+                <p>Operation: {state.uncertain ? "outcome unknown" : state.pending?.stage ?? state.status?.phase ?? "idle"}</p>
+                {state.error && <p role="alert">{state.error}</p>}
             </header>
-            {state.error && <p role="alert">{state.error}</p>}
             {state.notice && <p role="status">{state.notice}</p>}
             <button
                 disabled={state.readBusy}

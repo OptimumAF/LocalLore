@@ -1043,6 +1043,20 @@ summary {
 }
 .v2-play > header.scope {
     font-size: inherit;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #151917;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid #465247;
+}
+.v2-play > header p {
+    margin-bottom: 0.35rem;
+}
+.v2-play section[aria-label="Read-only V2 inspector"],
+.v2-play section[aria-label="Actual native receipt"],
+.v2-play section[aria-label="Original turn status"] {
+    scroll-margin-top: 14rem;
 }
 .v2-play h2 {
     font-size: 1.1rem;

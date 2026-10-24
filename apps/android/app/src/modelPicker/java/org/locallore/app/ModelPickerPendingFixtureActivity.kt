@@ -5,9 +5,9 @@ import android.app.Application
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
+import android.os.Build
 import android.os.Looper
 import android.os.Process
-import androidx.annotation.RequiresApi
 import androidx.lifecycle.lifecycleScope
 import java.io.File
 import java.io.IOException
@@ -25,7 +25,6 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 /** Isolated debug fixture. Actual framework callbacks remain subject to the unchanged controller. */
-@RequiresApi(30)
 class ModelPickerPendingFixtureActivity : LocalModelSetupActivity() {
     @Volatile internal var restoredFromSavedState = false
         private set
@@ -52,6 +51,10 @@ class ModelPickerPendingFixtureActivity : LocalModelSetupActivity() {
 
     internal override fun onModelPickerResultObserved(selected: Boolean, before: LocalModelSetupPhase,
         after: LocalModelSetupPhase) {
+        if (Build.VERSION.SDK_INT < 30) {
+            ModelPickerPendingFixture.receiptError.set(true)
+            return
+        }
         val ordinal = ModelPickerPendingFixture.callbackCount.incrementAndGet()
         if (ordinal !in 1..2) {
             ModelPickerPendingFixture.callbackOverflow.set(true)

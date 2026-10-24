@@ -283,7 +283,7 @@ fn exact_core_preview_is_private_readonly_and_preserves_escaped_input_above_gene
 }
 
 #[test]
-fn actual_commit_lost_ack_status_and_exact_lookup_preserve_original_and_old_knower() {
+fn actual_commit_known_operation_status_and_exact_lookup_preserve_original_and_old_knower() {
     let f = Fixture::new(true);
     let input = f.input("commit");
     let original = f.engine(&f.parent).accepted_history_basis().unwrap();
@@ -298,7 +298,7 @@ fn actual_commit_lost_ack_status_and_exact_lookup_preserve_original_and_old_know
     keys(committed, &["version", "kind", "session", "outcome"]);
     assert_eq!(committed["kind"], "author_commit");
     assert_eq!(committed["outcome"]["created"], true);
-    // Ignore the start/result transport value and recover the same retained terminal slot.
+    // A known operation ID can recover the same retained terminal result slot.
     assert_eq!(f.broker.status(&f.lease, f.epoch, id).unwrap(), status);
     let scope: Scope = serde_json::from_value(committed["outcome"]["scope"].clone()).unwrap();
     let child = f.engine(&scope);
@@ -327,6 +327,80 @@ fn actual_commit_lost_ack_status_and_exact_lookup_preserve_original_and_old_know
     assert_eq!(
         f.engine(&scope).canonical_records(),
         child.canonical_records()
+    );
+}
+
+#[test]
+fn commit_and_lookup_strict_raw_parsers_do_not_consume_on_malformed_input() {
+    let f = Fixture::new(true);
+    let input = f.input("all-parsers");
+    let preview = f.preview(input.clone());
+    let commit = f.commit_raw(input.clone(), &preview);
+    let lookup = json!({"version":1,"input":input,"author_consent":true}).to_string();
+    assert!(parse_commit(&commit).is_ok());
+    assert!(parse_lookup(&lookup).is_ok());
+    for base in [&commit, &lookup] {
+        for malformed in [
+            base.replacen("{", "{\"version\":1,", 1),
+            base.replace("\"reason\":", "\"reason\":\"duplicate\",\"reason\":"),
+            base.replace("\"fork_revision\":0", "\"fork_revision\":1.0"),
+            base.replace("\"fork_revision\":0", "\"fork_revision\":9007199254740992"),
+        ] {
+            if base == &commit {
+                assert!(f.commit_start(&malformed).is_err());
+            } else {
+                assert!(parse_lookup(&malformed).is_err());
+            }
+        }
+        let mut unknown: Value = serde_json::from_str(base).unwrap();
+        unknown["permission"] = json!(true);
+        if base == &commit {
+            assert!(f.commit_start(&unknown.to_string()).is_err());
+        } else {
+            assert!(parse_lookup(&unknown.to_string()).is_err());
+        }
+    }
+    err(parse_commit(&" ".repeat(65537)), "TooLarge");
+    err(parse_lookup(&" ".repeat(65537)), "TooLarge");
+    let mut denied: Value = serde_json::from_str(&lookup).unwrap();
+    denied["author_consent"] = json!(false);
+    err(parse_lookup(&denied.to_string()), "AuthorConsentRequired");
+    f.missing(&input);
+    assert_eq!(
+        f.result(f.commit_start(&commit).unwrap())["outcome"]["created"],
+        true
+    );
+}
+
+#[test]
+fn lost_start_ack_without_operation_id_recovers_by_readonly_exact_lookup_only() {
+    let f = Fixture::new(true);
+    let input = f.input("lost-start-ack");
+    let preview = f.preview(input.clone());
+    let (entered, seen) = mpsc::channel();
+    let (release, wait) = mpsc::channel();
+    *f.manager.test_gate.lock().unwrap() = Some(TestGate {
+        after_apply: true,
+        entered,
+        release: wait,
+    });
+    // Simulate a transport dropping the complete start response, including its ID.
+    drop(
+        f.commit_start(&f.commit_raw(input.clone(), &preview))
+            .unwrap(),
+    );
+    seen.recv_timeout(Duration::from_secs(5)).unwrap();
+    release.send(()).unwrap();
+    // Fixture owns native cleanup, not an application-side invented latest-ID API.
+    f.broker.drain(f.epoch);
+    let lookup = f.result(f.lookup_start(input.clone()));
+    assert_eq!(lookup["found"], true);
+    assert_eq!(lookup["outcome"]["created"], false);
+    let scope: Scope = serde_json::from_value(lookup["outcome"]["scope"].clone()).unwrap();
+    assert_eq!(f.engine(&scope).canonical_records().len(), 1);
+    err(
+        f.commit_start(&f.commit_raw(input, &preview)),
+        "UnknownAuthorPreview",
     );
 }
 

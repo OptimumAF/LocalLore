@@ -106,13 +106,20 @@ An additional frozen actual-Store oracle retires or destroys the window while a
 bounded test gate holds the worker before apply; no child or stale publication
 is permitted. This closes a source-detected lifecycle seam, not an observed RED.
 
-Latest-operation status recovers a lost start/result acknowledgment only until a
-later operation replaces that terminal slot. After consumption, explicit new
+Latest-operation status with an **already known operation ID** recovers a lost
+result acknowledgment only until a later operation replaces that terminal slot.
+If the entire start acknowledgment (including ID) is lost, existing status cannot
+invent or recover the ID. After the shared worker settles, explicit new
 lookup performs actual Host exact-input readonly lookup; it needs no live parent
 session/head and respects retained ancestry/tombstones. Missing child is not
 success and does not trigger write. Metadata-hint recovery/privileged derivation
 of committed full input is a separate unavailable prerequisite. No prose journal
 or inferred outcome is introduced.
+
+The independent source tests additionally freeze every raw parser's duplicate/
+unknown/oversize/unsafe-numeric admission and a lost-whole-start-ack journey using
+actual Store commit plus exact readonly lookup, with no latest-ID API invented.
+These are source-only oracles, not measured transport failures.
 
 ## Frozen test plan before implementation
 

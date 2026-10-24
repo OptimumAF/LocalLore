@@ -128,7 +128,7 @@ export class BrokerRetention {
         this.patch({});
         try {
             const result = await work();
-            this.observe(result);
+            this.record(result, true);
             this.patch({
                 inFlight: false,
                 ...(this.retained?.operation === null ? { unknown: true } : {}),
@@ -146,8 +146,14 @@ export class BrokerRetention {
         }
     }
     observe(value: unknown) {
+        this.record(value, false);
+    }
+    private record(value: unknown, admission: boolean) {
         const r = this.retained;
         if (!r || !value || typeof value !== "object") return;
+        // External status/cancel replies can only update an already known ID.
+        // Only this reservation's awaited admission reply may establish it.
+        if (r.operation === null && !admission) return;
         const incoming = value as Record<string, unknown>;
         // A late status/cancel reply belongs to its original operation. Exclude
         // a known different ID before decoding against the current identity.
@@ -271,7 +277,7 @@ export class BrokerRetention {
             // A successful explicit passive read has a new broker operation.
             // Exact original selection is required; no different-scope recovery.
             this.patch({ operation: null });
-            this.observe(result);
+            this.record(result, true);
             if (this.retained?.operation === null)
                 this.patch({ operation: oldOperation, unknown: true });
             this.patch({ inFlight: false });

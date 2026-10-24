@@ -316,7 +316,7 @@ fn query2_whole_player_eligibility_and_npc_event_only_units_match_actual_core() 
         );
         assert_eq!(unit.narration.as_deref(), Some(actual.narration()));
         if let Some(text) = &unit.original_input {
-            assert!(page.rows.iter().any(|r|matches!(r,Row::Message{turn,text:t,message_kind,..} if turn==&unit.turn && text==t && message_kind=="original_input")));
+            assert!(page.rows.iter().any(|r|matches!(r,Row::ScopedMessage{turn,text:t,message_kind,original_scope,..} if turn==&unit.turn && text==t && message_kind=="original_input" && original_scope==&unit.original_scope)));
         }
     }
     q.observer = "mira".into();

@@ -41,6 +41,7 @@ struct Capability {
 pub struct AuthorManager {
     host: Weak<Host>,
     lease: Weak<WindowLease>,
+    broker: Weak<ArchiveBroker>,
     epoch: u64,
     generation: AtomicU64,
     caps: Mutex<BTreeMap<String, Capability>>,
@@ -207,13 +208,19 @@ fn bounded(value: Value) -> PortResult<Value> {
     }
 }
 impl AuthorManager {
-    pub fn new(host: &Arc<Host>, lease: &Arc<WindowLease>, epoch: u64) -> PortResult<Arc<Self>> {
+    pub fn new(
+        host: &Arc<Host>,
+        lease: &Arc<WindowLease>,
+        broker: &Arc<ArchiveBroker>,
+        epoch: u64,
+    ) -> PortResult<Arc<Self>> {
         if !lease.valid(epoch) {
             return Err("Closed".into());
         }
         Ok(Arc::new(Self {
             host: Arc::downgrade(host),
             lease: Arc::downgrade(lease),
+            broker: Arc::downgrade(broker),
             epoch,
             generation: AtomicU64::new(1),
             caps: Mutex::new(BTreeMap::new()),
@@ -241,6 +248,12 @@ impl AuthorManager {
                 self.retire(self.epoch)
             }
             return Err("Closed".into());
+        }
+        Ok(())
+    }
+    fn check_broker(&self, broker: &Arc<ArchiveBroker>) -> PortResult<()> {
+        if !Weak::ptr_eq(&self.broker, &Arc::downgrade(broker)) {
+            return Err("Integrity".into());
         }
         Ok(())
     }
@@ -302,6 +315,7 @@ impl AuthorManager {
         input: &str,
     ) -> PortResult<Value> {
         self.check_owner(&host, &lease, epoch)?;
+        self.check_broker(&broker)?;
         let request = parse_prepare(input)?;
         let manager = self.clone();
         let selected_lease = lease.clone();
@@ -338,6 +352,7 @@ impl AuthorManager {
         input: &str,
     ) -> PortResult<Value> {
         self.check_owner(&host, &lease, epoch)?;
+        self.check_broker(&broker)?;
         let request = parse_commit(input)?;
         // All identity/content/second-consent checks precede consuming the capability.
         let cap = lease.dispatch(epoch, || {
@@ -380,6 +395,7 @@ impl AuthorManager {
         input: &str,
     ) -> PortResult<Value> {
         self.check_owner(&host, &lease, epoch)?;
+        self.check_broker(&broker)?;
         let input = parse_lookup(input)?;
         broker.start(lease, epoch, move |work| {
             work.phase("author_lookup")?;

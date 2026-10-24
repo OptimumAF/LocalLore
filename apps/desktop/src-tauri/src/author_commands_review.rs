@@ -58,14 +58,15 @@ impl Fixture {
         let session = resume(&host, &parent);
         let lease = Arc::new(WindowLease::default());
         let epoch = lease.begin().unwrap();
-        let manager = AuthorManager::new(&host, &lease, epoch).unwrap();
+        let broker = Arc::new(ArchiveBroker::default());
+        let manager = AuthorManager::new(&host, &lease, &broker, epoch).unwrap();
         Self {
             root,
             parent,
             host,
             session,
             lease,
-            broker: Arc::new(ArchiveBroker::default()),
+            broker,
             manager,
             epoch,
         }

@@ -30,7 +30,13 @@ class LocalModelStoreTest {
     private val bytes = ByteArray(131_077) { ((it * 31 + 17) % 251).toByte() }
     private val identity get() = LocalModelIdentity("synthetic-v1", bytes.size.toLong(), sha(bytes), 4096)
     private fun root() = File(temporary.newFolder(), "local-model-v1")
-    private fun store(root: File, free: Long = Long.MAX_VALUE) = LocalModelStore(root, identity) { free }
+    private fun testStore(root: File, identity: LocalModelIdentity, availableBytes: () -> Long = { root.usableSpace }) =
+        LocalModelStore(root, identity, publish = { directory ->
+            // Host substitute only. Android exercises its real JNI no-replace rename separately.
+            Files.createLink(File(directory, "model.litertlm").toPath(), File(directory, "model.part").toPath())
+            Files.delete(File(directory, "model.part").toPath())
+        }, availableBytes = availableBytes)
+    private fun store(root: File, free: Long = Long.MAX_VALUE) = testStore(root, identity) { free }
     private fun sha(bytes: ByteArray) = MessageDigest.getInstance("SHA-256").digest(bytes)
         .joinToString("") { "%02x".format(it) }
 
@@ -77,6 +83,32 @@ class LocalModelStoreTest {
         assertTrue(File(root, "model-import.lock").isFile)
     }
 
+    @Test fun publicationFailureIsSanitizedAndRetainsNoPartialModel() = runBlocking {
+        val root = root()
+        val store = LocalModelStore(root, identity,
+            publish = { throw IOException("private platform path and error") },
+            availableBytes = { Long.MAX_VALUE })
+        failure(LocalModelFailure.STORAGE) { store.import { ByteArrayInputStream(bytes) } }
+        assertNoPartial(root)
+        assertNull(store(root).installed())
+    }
+
+    @Test fun cancellationImmediatelyAfterAtomicMoveKeepsVerifiedModel() = runBlocking {
+        val root = root()
+        val copying = async(Dispatchers.IO) {
+            val job = kotlin.coroutines.coroutineContext[kotlinx.coroutines.Job]!!
+            LocalModelStore(root, identity, publish = { directory ->
+                Files.move(File(directory, "model.part").toPath(), File(directory, "model.litertlm").toPath())
+                job.cancel()
+            }, availableBytes = { Long.MAX_VALUE }).import { ByteArrayInputStream(bytes) }
+        }
+        copying.join()
+        assertTrue(copying.isCancelled)
+        assertArrayEquals(bytes, File(root, "model.litertlm").readBytes())
+        assertFalse(File(root, "model.part").exists())
+        assertNotNull(store(root).installed())
+    }
+
     @Test fun exactlyEnoughSpaceIncludesReserveWithoutOverflow() = runBlocking {
         val root = root()
         store(root, identity.bytes + identity.reserveBytes).import { ByteArrayInputStream(bytes) }
@@ -84,7 +116,7 @@ class LocalModelStoreTest {
         val huge = identity.copy(bytes = Long.MAX_VALUE, reserveBytes = Long.MAX_VALUE)
         val second = root()
         failure(LocalModelFailure.NO_SPACE) {
-            LocalModelStore(second, huge) { Long.MAX_VALUE }.import { error("must not open") }
+            testStore(second, huge) { Long.MAX_VALUE }.import { error("must not open") }
         }
         assertNoPartial(second)
     }

@@ -120,6 +120,54 @@ class ApkAuditTests(unittest.TestCase):
             with self.subTest(tree=candidate_tree), self.assertRaises(audit.AuditError):
                 audit.audit_manifest(candidate_badging, candidate_tree, package)
 
+    def test_model_setup_is_separate_from_existing_candidate_and_has_no_network(self):
+        package = "org.locallore.app.modelverify"
+        badging, tree = BADGING.replace("org.locallore.app", package), TREE.replace("org.locallore.app", package)
+        self.assertEqual(audit.audit_manifest(badging, tree, package),
+                         [package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"])
+        for selected, manifest, metadata in (
+                ("org.locallore.app.litertverify", badging, tree),
+                (package, badging, TREE),
+                (package, badging + "uses-permission: name='android.permission.INTERNET'\n", tree),
+                (package + ".other", badging, tree)):
+            with self.subTest(package=selected), self.assertRaises(audit.AuditError):
+                audit.audit_manifest(manifest, metadata, selected)
+
+    def test_model_setup_audit_requires_sdk_native_and_notice_mode(self):
+        with patch("builtins.print"):
+            self.assertEqual(audit.main(["not-read.apk", "--model-provisioning"]), 1)
+
+    def test_model_launcher_rejects_scripted_export_and_stale_or_extra_entry_points(self):
+        setup = "org.locallore.app.LocalModelSetupActivity"
+        play = "org.locallore.app.LiteRtPlayActivity"
+        main = "org.locallore.app.MainActivity"
+        def activity(name, exported, mode="", extra=""):
+            return (f'    E: activity (line=1)\n'
+                    f'      A: android:name(1)="{name}"\n'
+                    f'      A: android:exported(2)={exported}\n' +
+                    (f'      A: android:launchMode(3)={mode}\n' if mode else "") + extra)
+        filter_text = ('      E: intent-filter (line=2)\n'
+                       '        E: category (line=3)\n'
+                       '          A: android:name(1)="android.intent.category.LAUNCHER"\n')
+        tree = activity(setup, "true", "0x2", filter_text) + activity(play, "false", "0x2") + activity(main, "false")
+        badging = f"launchable-activity: name='{setup}' label='LocalLore'\n"
+        self.assertEqual(audit.audit_model_launcher(badging, tree)["launcher"], setup)
+        self.assertEqual(audit.audit_model_launcher(badging, tree.replace("=0x2", "=2"))["launcher"], setup)
+        variants = [
+            (badging.replace(setup, main), tree),
+            (badging + badging, tree),
+            (badging, tree.replace(activity(main, "false"), activity(main, "true"))),
+            (badging, tree.replace(activity(play, "false", "0x2"), activity(play, "true", "0x2"))),
+            (badging, tree.replace("launchMode(3)=0x2", "launchMode(3)=0x0")),
+            (badging, tree.replace("launchMode(3)=0x2", "launchMode(3)=3")),
+            (badging, tree + activity(main + "Other", "true")),
+            (badging, tree + "    E: activity-alias (line=1)\n"),
+            (badging, tree.replace(activity(main, "false"), activity(main, "false", extra=filter_text))),
+        ]
+        for candidate_badging, candidate_tree in variants:
+            with self.subTest(tree=candidate_tree), self.assertRaises(audit.AuditError):
+                audit.audit_model_launcher(candidate_badging, candidate_tree)
+
     def candidate_archive(self, directory, *, omitted=None, altered=None):
         path = self.archive(directory)
         hashes = {}

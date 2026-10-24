@@ -47,13 +47,14 @@ internal class LocalModelException(val failure: LocalModelFailure) :
  * One app-private artifact, separate from stories and benchmark caches. All file work is on IO.
  * A persistent lock inode serializes cooperating instances/processes. Only the fixed model.part
  * is recoverable staging; unknown files and all prior model/cache contents are preserved.
- * Publication uses an atomic no-clobber hard link after file force, never ATOMIC_MOVE (whose
- * destination replacement is implementation-specific). Unsupported filesystems fail closed.
+ * Publication uses an atomic no-clobber native rename after file force, never ATOMIC_MOVE
+ * (whose destination replacement is implementation-specific). Unsupported filesystems fail closed.
  * This does not promise directory durability after sudden power loss or defend a compromised OS.
  */
 internal class LocalModelStore(
     root: File,
     private val identity: LocalModelIdentity,
+    private val publish: (File) -> Unit = NativeModelPublication::publish,
     private val availableBytes: () -> Long = { root.usableSpace },
 ) {
     private val base = root.absoluteFile
@@ -134,8 +135,10 @@ internal class LocalModelStore(
                 checkRoot()
                 checkCache()
                 regular(staging.toPath())
-                // createLink is atomic and refuses ANY existing destination, including a symlink.
-                Files.createLink(model.toPath(), staging.toPath())
+                // Android application policy prohibits hard links. The native operation atomically
+                // moves this fixed stage and refuses ANY destination, including a symlink.
+                publish(base)
+                ownsStage = false
                 prepareCache()
                 coroutineContext.ensureActive()
                 plannedFiles()

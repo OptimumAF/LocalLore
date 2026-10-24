@@ -21,6 +21,18 @@ val parentRetention = providers.gradleProperty("localLoreParentRetentionVerifica
 require(parentRetention == null || parentRetention == "true")
 val liteRt = providers.gradleProperty("localLoreLiteRtVerification").orNull
 require(liteRt == null || liteRt == "true")
+val modelSetup = providers.gradleProperty("localLoreModelSetupVerification").orNull
+require(modelSetup == null || modelSetup == "true")
+require(modelSetup != "true" || liteRt == "true") { "Model setup verification requires the LiteRT candidate profile." }
+if (liteRt == "true") {
+    val workerBytes = file("src/litert/java/org/locallore/app/LiteRtRoleWorker.kt").readText()
+        .replace("\r\n", "\n").toByteArray(Charsets.UTF_8)
+    val workerHash = MessageDigest.getInstance("SHA-256").digest(workerBytes)
+        .joinToString("") { "%02x".format(it) }
+    require(workerHash == "e4545d4f01b6e2b825be478bc9944162ee364b077d66a752e2020b97ab95e9bb") {
+        "Update and review the trusted candidate worker provenance before building changed worker source."
+    }
+}
 val externalInference = providers.gradleProperty("localLoreExternalInferenceVerification").orNull
 require(externalInference == null || externalInference == "true")
 require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention, externalInference, liteRt).count { it == "true" } <= 1) {
@@ -89,6 +101,7 @@ if (liteRt == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-parent-retention"))
 }
 val verificationSuffix = when {
+    modelSetup == "true" -> ".modelverify"
     liteRt == "true" -> ".litertverify"
     externalInference == "true" -> ".externalverify"
     parentRetention == "true" -> ".parentverify"
@@ -203,6 +216,7 @@ android {
     if (liteRt == "true") {
         packaging { jniLibs.keepDebugSymbols += "**/liblitertlm_jni.so" }
         sourceSets["main"].java.srcDir("src/litert/java")
+        if (modelSetup == "true") sourceSets["debug"].manifest.srcFile("src/litert/AndroidManifest.xml")
         sourceSets["test"].java.srcDir("src/litertTest/java")
         sourceSets["androidTest"].java.srcDir("src/litertAndroidTest/java")
     }

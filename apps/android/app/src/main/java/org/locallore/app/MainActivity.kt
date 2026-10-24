@@ -7,6 +7,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -18,7 +25,12 @@ import org.locallore.app.ui.BranchDeletionDialog
 import org.locallore.app.ui.BranchForkPanel
 import org.locallore.app.ui.StoryRecordDialog
 
-class MainActivity : ComponentActivity() {
+internal class WorkspaceConstructionUnavailable : IllegalStateException("Workspace unavailable")
+
+open class MainActivity : ComponentActivity() {
+    // Selected by application construction, never by story text or a model response.
+    internal open fun createWorkspaceTransport(): NativeWorkspaceTransport =
+        NativeWorkspaceTransport(applicationContext)
     private lateinit var model: ShellViewModel
     private val archiveImportPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (::model.isInitialized) {
@@ -55,7 +67,7 @@ class MainActivity : ComponentActivity() {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 require(modelClass == ShellViewModel::class.java)
-                val transport = NativeWorkspaceTransport(applicationContext)
+                val transport = createWorkspaceTransport()
                 val durable = DurableGateway(transport, autoCreateIfEmpty = false)
                 return ShellViewModel(durable,
                     archiveGateway = NativeArchiveGateway(applicationContext),
@@ -66,7 +78,20 @@ class MainActivity : ComponentActivity() {
                     forkRecoveryStore = AtomicForkRecoveryStore(applicationContext)) as T
             }
         }
-        model = ViewModelProvider(this, factory)[ShellViewModel::class.java]
+        model = try {
+            ViewModelProvider(this, factory)[ShellViewModel::class.java]
+        } catch (_: WorkspaceConstructionUnavailable) {
+            setContent {
+                MaterialTheme {
+                    Column(Modifier.padding(24.dp)) {
+                        Text("Local session unavailable")
+                        Text("Close the app completely before starting another local session. Saved stories remain on this device.")
+                        Button(onClick = { finish() }) { Text("Close") }
+                    }
+                }
+            }
+            return
+        }
         setContent {
             val state by model.state.collectAsStateWithLifecycle()
             val diagnostics by model.diagnostics.collectAsStateWithLifecycle()

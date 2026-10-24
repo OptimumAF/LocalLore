@@ -71,7 +71,7 @@ class LocalModelSetupActivity : ComponentActivity() {
                 require(modelClass == LocalModelSetupViewModel::class.java)
                 return LocalModelSetupViewModel(
                     checkInstalled = { store.installed() != null },
-                    install = { open -> store.import(open); Unit },
+                    install = { open -> store.import(open) },
                     canStart = CandidateLocalModel::canStart,
                 ) as T
             }

@@ -73,6 +73,9 @@ without gaining invented estimates or permission to resume under new source.
 | baa3283, d07-eval-lib-forwarded-budget-first.log | **39 passed / 0 failed / 1 ignored**, 42.89s. Includes actual Host/Store capture metadata removal/tampering, rehashed prompt/schema over-budget refusal, output351 refusal and exact repair-whitespace refusal. Synthetic bounded provider, not model execution. The opt-in native-owner case is ignored. |
 | b8913a7, d07-runner-forwarded-budget-first.log | **9 runner passes**, 238.42s, plus **3 protocol passes**, 0.03s. Original assertions unchanged: actual scripted reference21accepted/3guards/42roles, paired first-scene12rows, resumed continuous48rows/84roles, zero-role committed lost-ack lookup, source/tamper/privacy/reservation/read-only gates all pass. This is not a full24-attempt paired-model comparison. |
 | 4a36b72, d07-genuine-historical-readonly-first.log | Explicit opt-in **1 pass**, 3.53s. Opens the genuine pre-forwarded completed synthetic rollout, retains every original failure/field/byte and refuses execution against the new source. |
+| d07-host-policy-original-compile.log | E0277: the fixture attempted to deserialize Core Receipt, which is intentionally Serialize-only. No tests ran; production authority was not opened to satisfy the fixture. |
+| Serialized-only fixture correction 9e91ef3, d07-host-policy-serialized-fixture-first.log | **1 passed / 3 failed**, 0.07s. The three failures read prompt_version from the ready-phase null receipt; this exposed the fixture's wrong phase assumption, not missing committed provenance. |
+| Corrected committed fixture a05254c, d07-host-policy-committed-fixture-corrected.log | **4 passed / 0 failed**, 0.13s. Tests explicitly preserve ready.receipt=null and unchanged precommit canonical state; inspect provenance only after actual committed replies. Both policies, legacy default, held-work configuration fences, policy-changing recorded retry/zero roles and JSON policy refusal pass. |
 
 The original frozen Core declarations precede production (edf4d265 / contract
 03308ea1). The Core fix and evaluator closure were separately allocated and
@@ -86,15 +89,15 @@ PR's evidence and does not make the D07 comparison an author/Domain2 corpus.
 | Required evidence | Current disposition |
 | --- | --- |
 | comparison_runner + memory_comparison_v2 terminal batch | Complete:9runner+3protocol passes above. Initial seven-pass partial output was not counted as a completed result. |
-| Current Core/Host fixture and full compatibility checks | Pending coordinator commands, source bindings and terminal results. The focused six-test success is not a substitute. |
-| Genuine historical complete-cohort opening | Passed actual opt-in test at4a36b72; see precise inventory/old-field boundary below. |
+| Current Core/Host fixture and full compatibility checks | Host4 passed after test-only corrections above. Four-package broad shared batch active in d07-shared-full-first.log at a05254c; no partial output is counted as terminal. |
+| Genuine historical complete-cohort opening | Passed actual opt-in test at 4a36b72; see precise inventory/old-field boundary below. |
 | Real local-model current comparison | Pending separate authorized source-bound execution; no model, worker, speed, memory-quality or enjoyment result inferred from scripted tests. |
 | Exact reproduction and environment | Root will supply final invocations and versions before this report is finalized; the contract's suggested commands are not presented as executed commands. |
 
 ## Genuine historical read-only compatibility
 
-The test source was separately frozen at832e8be, imported asd5d6913 and
-formatted only at4a36b72. Its opt-in path selects the retained original33356
+The test source was separately frozen at 832e8be, imported as d5d6913 and
+formatted only at 4a36b72. Its opt-in path selects the retained original 33356
 rollout executed at **0fd803bcba50fa700efc27072861a51dc6ea3be3**, before
 forwarded-estimate fields existed. It pins original manifest SHA-256
 `3e6ff45d65582ff9b65e550210dc0b14ff8a9fbf7d538a878d7f35014b0d668b`
@@ -124,11 +127,24 @@ The environment path is local-only; the ignored test does not generate an old
 fixture or permit arbitrary SQL. These invocations are coordinator execution,
 not runs by this documentation author.
 
+Root's actual Host command:
+
+```powershell
+cargo test --offline -p locallore --features host --test d07_host_policy -- --test-threads=1
+```
+
+The final Host fixture correction changes only tests/d07_host_policy.rs.
+Its native Persistence fixture checks the full accepted basis and exact draft
+before applying the real Engine.commit_prepared; the other cases commit on
+the actual in-memory Host path. No production Receipt deserializer, prepared
+receipt exposure, Store writer or phase contract was added. This is Core/Host
+fixture execution, not desktop IPC or a real-model result.
+
 ## Retained log integrity
 
 Files are local/gitignored under `<evidence-root>/author-integration-artifacts`.
 No raw model weights, private paths or player stories are published. The
-following eight completed logs were hashed read-only; active logs are excluded.
+following eleven completed logs were hashed read-only; active logs are excluded.
 
 | Log | Bytes / SHA-256 |
 | --- | --- |
@@ -140,9 +156,12 @@ following eight completed logs were hashed read-only; active logs are excluded.
 | d07-eval-lib-forwarded-budget-first.log | 5,470 / `558d3430211a0c8ac22048718c8408776ffebdd130208260614647de788d4f3a` |
 | d07-runner-forwarded-budget-first.log | 2,388 / `cc58dd7e23fc55e8ef08f9198a519bb01a6848518cd04320e5cd651e215bd6e1` |
 | d07-genuine-historical-readonly-first.log | 589 / `c9959710e33988ad6511b4cbc77bf9f89066088392adec2ffe209db6b8f1c40f` |
+| d07-host-policy-original-compile.log | 1,619 / `a24e8a84dca7361740d1b3c7390f581d725325f1fb0750df112d9c749f0915c5` |
+| d07-host-policy-serialized-fixture-first.log | 2,271 / `efba0fd6c7ca6cc42d79df34e9c039e0e8dfccbd93fc5c054fb10dc42f70cdb5` |
+| d07-host-policy-committed-fixture-corrected.log | 838 / `26dbc746558dfa693a120404b180d6cbc9f5e41333c19781bf49aeea972113b2` |
 
 No task checkbox, model-quality conclusion, historical report rewrite,
 PR acceptance, merge, release, repository setting or protected resource is
-changed by this document. Next: obtain terminal Core/Host and broad
-compatibility evidence; then record any separately authorized
+changed by this document. Next: obtain terminal broad shared/compatibility
+evidence; then record any separately authorized
 native-model cohort with its unchanged scenarios, exact source and failures.

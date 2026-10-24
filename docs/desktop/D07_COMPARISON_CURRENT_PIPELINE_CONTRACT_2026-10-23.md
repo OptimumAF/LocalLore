@@ -233,6 +233,24 @@ across all attempts, observed versus charged/unknown roles, elapsed setup/turn/
 cleanup and exhaustion separately. No reset by new process, cancellation or
 checkpoint reread. Wall-clock cooperative deadlines can overshoot; report it.
 
+A continuing invocation retains one monotonic origin from the public runner
+entry, before its manifest/reference/checkpoint replay. Both arm clocks include
+that common validation work conservatively; only measured other-arm work and the
+physical native setup share are excluded. Completed read-only execution resume
+still returns before invocation admission. A new invocation requires enough
+actual remaining active time for the unchanged full preparation reservation.
+The 120-second native asset-phase limit and its physical setup measurement stay
+separate from opening/replay cost. Known settled opening overhead may exceed its
+reservation; an interrupted unknown invocation retains the original full charge.
+
+The turn watchdog and caller use one absolute deadline: the earlier of the
+original turn start plus 60 seconds, or the current instant plus actual remaining
+active time less cleanup reserve. Host/open/configuration prelude consumes the
+turn allowance. Active remaining is already measured at the current instant and
+must not lose that prelude twice. An expired queued turn is cancelled before
+prepare can dispatch a provider. This is cooperative cancellation, not an OS
+preemption or hard real-time promise.
+
 Checkpoint actual per-turn results/source/immutable artifacts, group completed
 six-turn scene manifests with their hashes; max_new_scenes is1..4. Old curated
 four-turn files stay unchanged. After Store commit but lost result/ack, lookup

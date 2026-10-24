@@ -574,6 +574,13 @@ impl Drop for OwnedHost {
         self.0.close_all();
     }
 }
+// Active remaining is measured at `now`; it must not lose the prelude twice.
+// The independent turn cap still starts before Host/open/configuration work.
+fn turn_deadline(started: Instant, now: Instant, active_remaining_ms: u64) -> Instant {
+    (started + Duration::from_millis(TURN_MS))
+        .min(now + Duration::from_millis(active_remaining_ms.saturating_sub(CLEANUP_RESERVE_MS)))
+}
+
 fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
     let TurnJob {
         dir,
@@ -742,7 +749,7 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
             .saturating_sub(TURN_MS)
             .max(ledger.prior_ms.saturating_add(ledger.elapsed())),
     );
-    let limit = TURN_MS.min(active_remaining.saturating_sub(CLEANUP_RESERVE_MS));
+    let deadline = turn_deadline(started, Instant::now(), active_remaining);
     let (stop, stopped) = std::sync::mpsc::sync_channel(1);
     let watch_host = host.clone();
     let sid = session.clone();
@@ -753,28 +760,34 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
         worker: Some(
             std::thread::Builder::new()
                 .name("locallore-comparison-deadline".into())
-                .spawn(move || {
-                    let began = Instant::now();
-                    loop {
-                        match stopped.recv_timeout(Duration::from_millis(5)) {
-                            Ok(()) | Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
-                            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
-                        }
-                        if external.is_cancelled()
-                            || began.elapsed() >= Duration::from_millis(limit)
-                        {
-                            op(&watch_host, &sid, &watch.scope, &watch.turn, "cancel");
-                            break;
-                        }
+                .spawn(move || loop {
+                    if external.is_cancelled() || Instant::now() >= deadline {
+                        op(&watch_host, &sid, &watch.scope, &watch.turn, "cancel");
+                        break;
+                    }
+                    match stopped.recv_timeout(Duration::from_millis(5)) {
+                        Ok(()) | Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+                        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
                     }
                 })
                 .map_err(|_| "Watchdog")?,
         ),
     };
     if reply["data"]["phase"] == "queued" {
-        reply = op(&host, &session, before.scope(), step.id(), "prepare");
+        // A slow prelude cannot admit a model role after the absolute deadline.
+        reply = op(
+            &host,
+            &session,
+            before.scope(),
+            step.id(),
+            if cancel.is_cancelled() || Instant::now() >= deadline {
+                "cancel"
+            } else {
+                "prepare"
+            },
+        );
     }
-    if cancel.is_cancelled() || started.elapsed() >= Duration::from_millis(limit) {
+    if cancel.is_cancelled() || Instant::now() >= deadline {
         reply = op(&host, &session, before.scope(), step.id(), "cancel");
     }
     let (capture, trace) = private_read(&host, &session, &before, &request);
@@ -1412,11 +1425,12 @@ impl ComparisonSession {
         }
         Ok(())
     }
-    fn open(
+    fn open_at(
         dir: &Path,
         resume: bool,
         expected: RunManifest,
         reference: Option<&ValidatedReference>,
+        started: Instant,
     ) -> Result<Self> {
         expected.validate()?;
         ordinary(dir)?;
@@ -1458,6 +1472,11 @@ impl ComparisonSession {
             Ledger::load(&dir.join("left"), &key)?,
             Ledger::load(&dir.join("right"), &key)?,
         ];
+        // Include this invocation's preflight/reference/canonical replay. Only
+        // the other arm's measured work and the physical setup share are excluded.
+        for ledger in &mut ledgers {
+            ledger.started = started;
+        }
         // Both reservations are durable before any asset/provider initialization.
         ledgers[0].begin_invocation()?;
         ledgers[1].begin_invocation()?;
@@ -1775,6 +1794,7 @@ pub fn run_comparison(
     factory: LaneFactory,
     reference: Option<&ValidatedReference>,
 ) -> Result<ComparisonReportV2> {
+    let invocation_started = Instant::now();
     if factory.native() {
         return Err("UseNativeComparisonEntry".into());
     }
@@ -1800,7 +1820,8 @@ pub fn run_comparison(
             return Ok(report);
         }
     }
-    let mut session = ComparisonSession::open(dir, resume, expected, reference)?;
+    let mut session =
+        ComparisonSession::open_at(dir, resume, expected, reference, invocation_started)?;
     // Pre-owned runtime construction remains native; setup was not measured here.
     // Only the native entry below may claim a physical asset setup measurement.
     session.setup(false, 0, "scripted", None)?;
@@ -1819,6 +1840,7 @@ pub fn run_native_comparison(
     assets: NativeAssets<'_>,
     reference: Option<&ValidatedReference>,
 ) -> Result<ComparisonReportV2> {
+    let invocation_started = Instant::now();
     use locallore_local_runtime::LocalRuntime;
     if cancel.is_cancelled() {
         return Err("Interrupted".into());
@@ -1843,7 +1865,8 @@ pub fn run_native_comparison(
             return Ok(report);
         }
     }
-    let mut session = ComparisonSession::open(dir, resume, expected, reference)?;
+    let mut session =
+        ComparisonSession::open_at(dir, resume, expected, reference, invocation_started)?;
     let began = Instant::now();
     let limit = session
         .ledgers

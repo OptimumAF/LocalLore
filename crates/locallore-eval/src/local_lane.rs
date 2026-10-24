@@ -449,8 +449,7 @@ impl Ledger {
         Ok(ledger)
     }
     fn begin_invocation(&mut self) -> Result<()> {
-        if self.invocations >= 32 || self.charged_ms.saturating_add(PREPARATION_MS) > MAX_ACTIVE_MS
-        {
+        if self.invocations >= 32 || self.remaining() < PREPARATION_MS {
             return Err("RunBudget".into());
         }
         self.invocation = self.invocations;

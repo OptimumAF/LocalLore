@@ -329,7 +329,7 @@ resumed or qualified, and no further device action is authorized by this cleanup
 
 ## Final native publication cohort
 
-The coordinator replaced the unsupported publication path with a narrow,
+The coordinator replaced Java file publication with a narrow,
 feature-gated Rust/JNI operation using fixed artifact names and strict no-replace
 publication. The implementation and build/host proof belong to the coordinator's
 source and verification report. This cohort exercised the real publication call

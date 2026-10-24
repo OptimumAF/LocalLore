@@ -69,6 +69,15 @@ const brokerRetention = new BrokerRetention((surface) =>
             : maintenance.get().busy || maintenance.get().uncertain,
 );
 const invoke = (command: string, args: Record<string, unknown> = {}) => {
+    if (command === "host_call" && (author.get().busy || sharedBrokerBlocked())) {
+        // The UI gateway admits no new gameplay write while another surface
+        // owns the shared operation. Rust still validates every native request.
+        try {
+            if (typeof args.input === "string" && args.input.length <= 262144 &&
+                ["prepare", "submit", "free_text", "commit"].includes(JSON.parse(args.input)?.command?.op))
+                return Promise.reject("Busy");
+        } catch { /* Malformed wire is rejected by the native parser. */ }
+    }
     const authorStart = [
         "author_prepare_start",
         "author_commit_start",
@@ -324,6 +333,29 @@ const capture = new CaptureController(gateway, () => controller.readTrace());
 const timeline = new TimelineController(gateway, (scope) =>
     resumeTimeline(controller, scope),
 );
+function sharedBrokerBlocked() {
+    const retained = brokerRetention.get();
+    return !!retained && (retained.inFlight ||
+        (!retained.acknowledgedUnresolved &&
+            (retained.unknown || !retained.terminal || !retained.consumed)));
+}
+function syncV2Context() {
+    const s = controller.get(), selected = controller.selected();
+    v2.selectedContextChanged(
+        selected && s.playV2 && !s.disposed ? {
+            session: selected.id, scope: selected.scope,
+            revision: s.playV2.revision, player: s.playV2.player.observer,
+            view: s.view,
+            observer: s.view === "play" || s.observer === "player"
+                ? { kind: "player" } : s.observer === "omniscient"
+                    ? { kind: "omniscient" } : { kind: "character", id: s.observer },
+            persistent: !!s.workspace, pending: !!s.pending,
+            blocked: author.get().busy || sharedBrokerBlocked(),
+            playMode: s.playMode, inputKind: s.inputKind,
+            action: s.action, fakeMode: s.fakeMode,
+        } : null,
+    );
+}
 // Invalidate evaluation replies before React observes a changed story/lens/Play
 // context. Evaluation is independent of gameplay; no gameplay controller changes.
 const syncEvaluationContext = () => {
@@ -342,39 +374,7 @@ const syncEvaluationContext = () => {
         memorySelectionKey = memoryKey;
         memorySelectionEpoch++;
     }
-    const selected = controller.selected();
-    const retained = brokerRetention.get();
-    const sharedBlocked =
-        !!retained &&
-        (retained.inFlight ||
-            (!retained.acknowledgedUnresolved &&
-                (retained.unknown ||
-                    !retained.terminal ||
-                    !retained.consumed)));
-    v2.selectedContextChanged(
-        selected && s.playV2 && !s.disposed
-            ? {
-                  session: selected.id,
-                  scope: selected.scope,
-                  revision: s.playV2.revision,
-                  player: s.playV2.player.observer,
-                  view: s.view,
-                  observer:
-                      s.view === "play" || s.observer === "player"
-                          ? { kind: "player" }
-                          : s.observer === "omniscient"
-                            ? { kind: "omniscient" }
-                            : { kind: "character", id: s.observer },
-                  persistent: !!s.workspace,
-                  pending: !!s.pending,
-                  blocked: author.get().busy || sharedBlocked,
-                  playMode: s.playMode,
-                  inputKind: s.inputKind,
-                  action: s.action,
-                  fakeMode: s.fakeMode,
-              }
-            : null,
-    );
+    syncV2Context();
     author.contextChanged(authorContext());
     maintenance.contextChanged(memoryContext(controller, memorySelectionEpoch));
     timeline.contextChanged(timelineContext(controller));
@@ -423,16 +423,7 @@ const releaseEvaluationContext = controller.subscribe(syncEvaluationContext);
 const releaseV2Context = v2.subscribe(() =>
     author.contextChanged(authorContext()),
 );
-const releaseAuthorContext = author.subscribe(() => {
-    const s = controller.get(),
-        selected = controller.selected(),
-        context = v2.get().context;
-    if (context && selected && s.playV2)
-        v2.selectedContextChanged({
-            ...context,
-            blocked: author.get().busy || !!brokerRetention.get()?.unknown,
-        });
-});
+const releaseAuthorContext = author.subscribe(syncV2Context);
 const releaseRetainedContext = brokerRetention.subscribe(syncEvaluationContext);
 syncEvaluationContext();
 void invoke("author_context")

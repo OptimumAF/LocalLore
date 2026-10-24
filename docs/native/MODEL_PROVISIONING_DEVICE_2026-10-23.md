@@ -281,3 +281,28 @@ bounded synthetic evidence, correct it while retaining confinement/ownership
 rules, and seek new source/artifact/controller admission. Neither stopped cohort
 satisfies M05.05 provisioning acceptance; real-model, second-emulator, ARM64 and
 physical-phone gates remain unqualified.
+
+## Latest-map read-only observation
+
+Root separately admitted a new nine-query read-only settlement for the installed
+corrected pair. Authorization SHA-256:
+`fdf66f9b5c24d1d2e2143c9dc03ed8be9b66d16eb4ba9730d64a9e469f77dc44`.
+All 72 bindings had been rehashed without mismatch, and 21 pure
+parser/budget/CLI cases passed. The execution completed before its first yield:
+return code zero, known cleanup, 2,985 ms elapsed. All nine clients completed with
+return code zero, known cleanup and zero stderr bytes.
+
+It observed one exact test-package process with matching installed/process UIDs,
+and no application or foreign LocalLore process. The complete 31-package map
+matched the corrected pair and all 29 prior hashes. Userdata available was
+1,465,212,928 bytes; host floors and API/ABI/page identity passed. No cleanup or
+other lifecycle, model/cache/save or A action occurred. The observation does not
+qualify the failed import tests or grant mutation permission.
+
+The read-only selection contains 35 files / 106,929 bytes. Its 5,592-byte index
+has SHA-256 `9241369740d4829ef2175f60a23f89595bc91890cda2b7f635478010496e3bd2`.
+All 72 bindings and nine raw records rehashed without mismatch; selected files
+and index are read-only, and the lease was released after terminal and seal.
+A fresh exact disposable test-host cleanup proposal is prepared but disabled;
+its 34 pure fixtures passed. It requires new root review/admission before any
+device action. Root's storage-operation investigation continues independently.

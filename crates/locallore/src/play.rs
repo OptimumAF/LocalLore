@@ -597,6 +597,79 @@ fn validate_record_contents(
     Ok(())
 }
 
+// A conservative current-policy check for the observed post-gift ownership
+// contradiction. It is bounded phrase matching, not a semantic language oracle.
+// Historical policies do not call it; literal player dialogue is not narration.
+fn narration_reclaims_transferred_item(approved: &Receipt, player: &str, lower: &str) -> bool {
+    let possession = |word: &str| {
+        matches!(
+            word,
+            "keep"
+                | "kept"
+                | "carry"
+                | "carried"
+                | "retain"
+                | "retained"
+                | "hold"
+                | "held"
+                | "pocket"
+                | "pocketed"
+                | "stash"
+                | "stashed"
+        )
+    };
+    approved.events().iter().any(|event| {
+        let Effect::Given { from, item, .. } = event.outcome() else {
+            return false;
+        };
+        if from != player {
+            return false;
+        }
+        let item_lower = item.to_lowercase();
+        let item_words: Vec<_> = item_lower
+            .split(|c: char| !c.is_alphanumeric())
+            .filter(|w| !w.is_empty())
+            .collect();
+        lower.split(['.', '!', '?', ';', '\n']).any(|clause| {
+            let words: Vec<_> = clause
+                .split(|c: char| !c.is_alphanumeric())
+                .filter(|w| !w.is_empty())
+                .collect();
+            if item_words.is_empty() || !words.windows(item_words.len()).any(|w| w == item_words) {
+                return false;
+            }
+            let directly_kept = words
+                .windows(2)
+                .any(|w| matches!(w[0], "i" | "you") && possession(w[1]))
+                || words.windows(3).any(|w| {
+                    matches!(w[0], "i" | "you")
+                        && matches!(w[1], "still" | "now" | "then")
+                        && (possession(w[2]) || w[2] == "have")
+                });
+            let with_player = words
+                .windows(2)
+                .any(|w| w[0] == "with" && matches!(w[1], "me" | "you"));
+            directly_kept
+                || (with_player
+                    && words.iter().any(|w| {
+                        matches!(
+                            *w,
+                            "take"
+                                | "took"
+                                | "bring"
+                                | "brought"
+                                | "remain"
+                                | "remains"
+                                | "remained"
+                                | "stay"
+                                | "stays"
+                                | "stayed"
+                        )
+                    }))
+        })
+    })
+}
+
 fn validate_prose(
     engine: &Engine,
     approved: &Receipt,
@@ -709,6 +782,11 @@ fn validate_prose(
         ]
         .iter()
         .any(|w| lower.contains(w))
+    {
+        return Err(Error::Narration);
+    }
+    if evidence.is_some()
+        && narration_reclaims_transferred_item(approved, &engine.seed().player, &lower)
     {
         return Err(Error::Narration);
     }

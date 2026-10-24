@@ -96,7 +96,7 @@ def audit_manifest(badging, tree, package="org.locallore.app"):
                         "org.locallore.app.capacityreliefv3", "org.locallore.app.capacityfaultsv3",
                         "org.locallore.app.capacityv4", "org.locallore.app.capacityreliefv4", "org.locallore.app.capacityfaultsv4",
                         "org.locallore.app.externalverify", "org.locallore.app.litertverify",
-                        "org.locallore.app.cancelack"),
+                        "org.locallore.app.modelverify", "org.locallore.app.cancelack"),
             "Unreviewed app package")
     permission = package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
     require(re.search(r"^package: name='" + re.escape(package) + r"' ", badging, re.M), "Wrong app package")
@@ -140,6 +140,52 @@ def audit_fixed_metadata(tree, namespace, expected):
         require(len(re.findall(pattern, tree, re.M)) == 1, "Wrong fixed capacity metadata value")
 
 
+def audit_model_launcher(badging, tree):
+    """The setup profile must not retain an exported scripted entry point."""
+    setup = "org.locallore.app.LocalModelSetupActivity"
+    play = "org.locallore.app.LiteRtPlayActivity"
+    main_activity = "org.locallore.app.MainActivity"
+    require(re.findall(r"^launchable-activity: name='([^']+)'", badging, re.M) == [setup],
+            "Model setup must be the sole launcher")
+    require(":sharedUserId(" not in tree and "E: activity-alias " not in tree,
+            "Model candidate cannot share identity or alias an entry point")
+    require(len(re.findall(r':name\([^)]*\)="android.intent.category.LAUNCHER"', tree)) == 1,
+            "Unexpected launcher filter")
+    lines = tree.splitlines()
+    activities = {}
+    for index, line in enumerate(lines):
+        match = re.match(r"(\s*)E: activity \(", line)
+        if not match:
+            continue
+        block = []
+        for following in lines[index + 1:]:
+            if following.strip() and len(following) - len(following.lstrip()) <= len(match[1]):
+                break
+            block.append(following)
+        header = []
+        for item in block:
+            if re.match(r"\s*E:", item):
+                break
+            header.append(item)
+        attributes = "\n".join(header)
+        names = re.findall(r':name\([^)]*\)="([^"\n]+)"', attributes)
+        require(len(names) == 1 and names[0] not in activities, "Ambiguous activity identity")
+        activities[names[0]] = (attributes, "\n".join(block))
+    require({name for name in activities if name.startswith("org.locallore.app.")} ==
+            {setup, play, main_activity}, "Unexpected application activity")
+    for name, exported in ((setup, "true"), (play, "false"), (main_activity, "false")):
+        attributes, block = activities[name]
+        require(re.findall(r':exported\([^)]*\)=([^\s]+)', attributes) == [exported],
+                "Wrong model activity export boundary")
+        if name in (setup, play):
+            modes = re.findall(r':launchMode\([^)]*\)=([^\s]+)', attributes)
+            require(len(modes) == 1 and re.fullmatch(r'(?:0x0*2|2)', modes[0]),
+                    "Model activities require singleTask")
+        if name != setup:
+            require("E: intent-filter " not in block, "Unexpected scripted or play intent filter")
+    return {"launcher": setup, "scripted_exported": False, "play_exported": False}
+
+
 def aapt2_path():
     for variable in ("ANDROID_HOME", "ANDROID_SDK_ROOT"):
         value = os.environ.get(variable)
@@ -156,8 +202,11 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("apk", type=Path)
     parser.add_argument("--litert-verification", action="store_true", help="Audit only the explicit pinned LiteRT debug candidate")
+    parser.add_argument("--model-provisioning", action="store_true", help="Audit the separate local model setup candidate")
     args = parser.parse_args(argv)
     try:
+        require(not args.model_provisioning or args.litert_verification,
+                "Model provisioning requires the explicit LiteRT audit")
         libraries = audit_zip(args.apk, litert=args.litert_verification)
         aapt = str(aapt2_path())
         def dump(*arguments):
@@ -165,7 +214,11 @@ def main(argv=None):
                                   text=True, encoding="utf-8", shell=False).stdout
         permissions = audit_manifest(dump("badging", str(args.apk)),
                                      dump("xmltree", str(args.apk), "--file", "AndroidManifest.xml"),
+                                     "org.locallore.app.modelverify" if args.model_provisioning else
                                      "org.locallore.app.litertverify" if args.litert_verification else "org.locallore.app")
+        if args.model_provisioning:
+            audit_model_launcher(dump("badging", str(args.apk)),
+                                 dump("xmltree", str(args.apk), "--file", "AndroidManifest.xml"))
         print(json.dumps({"status": "passed", "permissions": permissions, "libraries": libraries}, indent=2))
         return 0
     except (AuditError, OSError, zipfile.BadZipFile, subprocess.CalledProcessError, struct.error) as error:

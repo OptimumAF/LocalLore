@@ -11,6 +11,8 @@ crate-type = ["cdylib", "rlib"]
 [features]
 # Development SDK experiment only; production Android never enables these JNI exports.
 play-probe = []
+# Only the separately identified model setup debug profile exposes fixed-name publication.
+model-provisioning = []
 # Only the separately identified archive-capacity instrumentation build enables this.
 archive-capacity-fixture = ["locallore-storage/development-fixtures"]
 

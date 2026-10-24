@@ -5,6 +5,7 @@ import java.util.Properties
 val nativeNdkVersion = "29.0.14206865"
 val nativeRustToolchain = "1.93.1"
 val nativeMinSdk = 26
+val nativeModelProvisioning = providers.gradleProperty("localLoreModelSetupVerification").orNull == "true"
 val archiveCapacityFixture = providers.gradleProperty("localLoreArchiveCapacityVerification").orNull == "true"
 val nativeCapacityTest = project.extra["localloreCapacityTest"] as Boolean
 val nativeCapacityPages = project.extra["localloreCapacityPages"] as Int
@@ -41,6 +42,7 @@ val buildRustAndroid = tasks.register("buildRustAndroid") {
     inputs.property("ndkVersion", nativeNdkVersion)
     inputs.property("rustToolchain", nativeRustToolchain)
     inputs.property("minSdk", nativeMinSdk)
+    inputs.property("modelProvisioning", nativeModelProvisioning)
     inputs.property("archiveCapacityFixture", archiveCapacityFixture)
     inputs.property("targets", nativeTargets.keys.toList())
     outputs.files(nativeTargets.values.map { abi ->
@@ -111,6 +113,7 @@ val buildRustAndroid = tasks.register("buildRustAndroid") {
                 "--release", "--package", "locallore-android", "--lib", "--target", target,
                 "--target-dir", nativeCargoOutput.get().asFile.absolutePath)
             if (archiveCapacityFixture) command.addAll(listOf("--features", "archive-capacity-fixture"))
+            if (nativeModelProvisioning) command.addAll(listOf("--features", "model-provisioning"))
             if (gradle.startParameter.isOffline) command.add("--offline")
             // Each compiler argument remains one argument, including SDK paths with spaces.
             val rustFlags = listOf(

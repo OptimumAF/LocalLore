@@ -131,6 +131,40 @@ host process cleanup; it makes no graceful guest-flush, app cleanup, SDK/model
 resource cleanup, or successful-test claim. Unknown drain remains a failure.
 The original process handle is never restarted after an observation timeout.
 
+### Live private output and abrupt owner loss
+
+The supervisor exclusively creates and forces both `owner-stdout-v1.bin` and
+`owner-stderr-v1.bin` before spawning the barrier child. It keeps those handles
+open. Each retained chunk is written, flushed and forced before its byte count
+advances; one lock enforces the existing combined 262,144-byte cap across both
+channels. Files are never reopened or truncated during final cleanup. Existing
+output files refuse a new execution, including a partial earlier attempt.
+
+Short writes, write/flush/force/close failures and reader exceptions latch
+`evidence_failed`, stop dispatch and still drain the owned job. The latch is
+checked again after reader joins and file close, so a trailing failure cannot
+leave an earlier `stop_requested` or `child_exited` status. Excess output remains
+`output_limit`. Evidence failure and process cleanup are separate facts.
+
+Terminal results add `output_capture_complete`. True means observed pipe bytes
+were retained within the cap and the readers/files closed without capture
+failure; it does not mean the child succeeded or flushed its own buffers.
+Byte counts describe successfully forced prefixes. A failed write/force can
+leave additional uncertain bytes in a file; false capture status does not
+authenticate that file as a complete stream. If a reader remains alive after
+its bounded join, cleanup and capture fail, counts are null, and the owner does
+not wait on that reader's capture lock or close a file still being written.
+The byte cap does not promise a bounded operating-system disk-force latency.
+
+If the supervisor itself is killed, an already forced prefix can survive even
+when no terminal result exists. Such files establish neither a live lease nor
+successful tests, complete output, descendant cleanup or an orderly guest
+flush. Preserve that failed attempt; do not recreate its owner, adopt another
+process, fabricate a stop/result or silently retry the saved target. Raw output
+is private local diagnostics, never an automatic issue upload. The
+[host loss-case evidence](../../native/RECEIPT_SUPERVISOR_EVIDENCE_2026-10-24.md)
+keeps synthetic process tests separate from real emulator/model qualification.
+
 ## Device-controller lease
 
 ```python

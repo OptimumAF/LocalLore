@@ -106,6 +106,39 @@ See the [owner contract](../../docs/native/EXTERNAL_INFERENCE_OWNER_CONTRACT.md)
 and [verification report](../../docs/native/EXTERNAL_INFERENCE_OWNER_VERIFICATION_2026-10-23.md).
 These checks do not establish physical-device support or actual SDK/model cleanup.
 
+## Concrete LiteRT worker candidate
+
+The optional [LiteRT worker](../../docs/native/LITERT_WORKER_CONTRACT.md) implements
+`LocalRoleWorker` against the actual SDK. Its trusted configuration factory pairs
+the native provenance/profile and worker. MainActivity continues constructing the
+scripted provider; this candidate does not supply model import or a runtime picker.
+
+With the already provisioned Java 21 installation configured for Gradle toolchain
+discovery, keep Java 17 as the build daemon and run from `apps/android`:
+
+```powershell
+.\gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest :app:cleanTestDebugUnitTest :app:testDebugUnitTest :app:lintDebug :app:auditLiteRtDependencies :app:auditLintAnalyzer -PlocalLoreLiteRtVerification=true --project-cache-dir .gradle-litert-worker -Pandroid.experimental.lint.version=9.4.1 -Porg.gradle.java.installations.auto-download=false -Pandroid.builder.sdkDownload=false -Pkotlin.incremental=false --offline --no-daemon --max-workers=2
+```
+
+The profile selects `org.locallore.app.litertverify`, `app/build-litert-worker`,
+`app/gradle-litert.lockfile` and source directories `litert`, `litertTest` and
+`litertAndroidTest`. Ordinary builds exclude them and retain their original graph.
+First-time dependency provisioning may use the declared public repositories;
+no model or Java/Android toolchain is downloaded by this command. After changing
+packaging inputs, clean the two package outputs before assembling to avoid
+incremental APK gaps: `:app:cleanPackageDebug :app:cleanPackageDebugAndroidTest`.
+
+From the repository root, with the SDK environment configured:
+
+```powershell
+python scripts/audit_apk.py apps/android/app/build-litert-worker/outputs/apk/debug/app-debug.apk --litert-verification
+```
+
+`LiteRtWorkerInstrumentedTest` covers packaged SDK library linkage and synthetic
+file admission through the actual workspace owner. It does not initialize a
+model or render Compose. Install only on a separately admitted target; current
+model/cache holds still apply. See the [dated verification](../../docs/native/LITERT_WORKER_VERIFICATION_2026-10-23.md).
+
 ## Exercise the engine
 
 Give the potion to Mira, then try giving it again and using the unlearned ability.

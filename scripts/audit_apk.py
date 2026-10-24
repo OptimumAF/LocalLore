@@ -3,6 +3,7 @@
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,15 @@ import zipfile
 
 PERMISSION = "org.locallore.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
 ABIS = {"x86_64": 62, "arm64-v8a": 183}
+# Exact candidate SDK; ordinary APKs must never contain these entries.
+LITERT_NATIVE_HASHES = {
+    "lib/arm64-v8a/liblitertlm_jni.so": "cf4c55139c6fc86425ecfe75f8a907e6193ca665ecc19fbabcaba7ab361bdc43",
+    "lib/x86_64/liblitertlm_jni.so": "ba879b2b46be1f7e08df8c8365a276cfc54c1e21383090e058a24f25e603cdd7",
+}
+LITERT_NOTICES = {
+    "assets/notices/litertlm-0.18.1/LICENSE": "ec40a2da15ab0e8b44a9f787ab210203d3cad32572f5f99744a88eb90ff9ba4e",
+    "assets/notices/litertlm-0.18.1/THIRD_PARTY_NOTICE.txt": "52a70c82685debf85d4ea9d677615b8636ffd3b75435ce71f247bf5982fb2ba2",
+}
 
 
 class AuditError(ValueError):
@@ -44,7 +54,7 @@ def elf_alignments(data, machine):
     return alignments
 
 
-def audit_zip(path):
+def audit_zip(path, *, litert=False):
     libraries = []
     with zipfile.ZipFile(path) as archive, open(path, "rb") as raw:
         entries = archive.infolist()
@@ -69,7 +79,15 @@ def audit_zip(path):
             libraries.append({"entry": entry.filename, "elf_load_alignment": alignment})
         expected = {f"lib/{abi}/{library}" for abi in ABIS for library in
                     ("liblocallore_android.so", "libandroidx.graphics.path.so")}
+        if litert:
+            expected |= set(LITERT_NATIVE_HASHES)
         require({library["entry"] for library in libraries} == expected, "Native library set changed; review dependencies")
+        if litert:
+            for name, digest in {**LITERT_NATIVE_HASHES, **LITERT_NOTICES}.items():
+                require(name in names, "Missing pinned SDK binary or notice")
+                entry = archive.getinfo(name)
+                require(0 < entry.file_size <= 32 * 1024 * 1024, "Invalid SDK binary or notice size")
+                require(hashlib.sha256(archive.read(entry)).hexdigest() == digest, "SDK binary or notice changed")
     return libraries
 
 
@@ -77,7 +95,7 @@ def audit_manifest(badging, tree, package="org.locallore.app"):
     require(package in ("org.locallore.app", "org.locallore.app.capacity", "org.locallore.app.capacityrelief", "org.locallore.app.capacityv3",
                         "org.locallore.app.capacityreliefv3", "org.locallore.app.capacityfaultsv3",
                         "org.locallore.app.capacityv4", "org.locallore.app.capacityreliefv4", "org.locallore.app.capacityfaultsv4",
-                        "org.locallore.app.externalverify"),
+                        "org.locallore.app.externalverify", "org.locallore.app.litertverify"),
             "Unreviewed app package")
     permission = package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
     require(re.search(r"^package: name='" + re.escape(package) + r"' ", badging, re.M), "Wrong app package")
@@ -136,15 +154,17 @@ def aapt2_path():
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("apk", type=Path)
+    parser.add_argument("--litert-verification", action="store_true", help="Audit only the explicit pinned LiteRT debug candidate")
     args = parser.parse_args(argv)
     try:
-        libraries = audit_zip(args.apk)
+        libraries = audit_zip(args.apk, litert=args.litert_verification)
         aapt = str(aapt2_path())
         def dump(*arguments):
             return subprocess.run([aapt, "dump", *arguments], check=True, capture_output=True,
                                   text=True, encoding="utf-8", shell=False).stdout
         permissions = audit_manifest(dump("badging", str(args.apk)),
-                                     dump("xmltree", str(args.apk), "--file", "AndroidManifest.xml"))
+                                     dump("xmltree", str(args.apk), "--file", "AndroidManifest.xml"),
+                                     "org.locallore.app.litertverify" if args.litert_verification else "org.locallore.app")
         print(json.dumps({"status": "passed", "permissions": permissions, "libraries": libraries}, indent=2))
         return 0
     except (AuditError, OSError, zipfile.BadZipFile, subprocess.CalledProcessError, struct.error) as error:

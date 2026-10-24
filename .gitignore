@@ -57,3 +57,6 @@ apps/android/app/build-capacity-relief-v3/
 apps/android/.gradle-capacity-relief-v3/
 apps/android/app/build-capacity-faults-v3/
 apps/android/.gradle-capacity-faults-v3/
+
+apps/android/.gradle-litert-worker/
+apps/android/app/build-litert-worker/

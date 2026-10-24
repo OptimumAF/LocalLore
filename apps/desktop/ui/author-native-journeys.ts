@@ -510,7 +510,7 @@ export async function authorNativeJourneys({
             await probe(
                 "author_prepare_start",
                 prepareRaw.replace('"version":1', '"version":1,"version":1'),
-                ["InvalidAuthorInput"],
+                ["Malformed"],
                 "actual-native-duplicate-key-is-rejected",
             );
             await probe(

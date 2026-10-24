@@ -368,6 +368,12 @@ struct Ledger {
     started: Instant,
     turn_ms: u64,
     invocation: usize,
+    // Comparison-only measured exclusions. Zero preserves the legacy clock exactly.
+    excluded_ms: u64,
+    shared_setup: Option<(u64, u64)>,
+}
+fn shared_setup_shares(ms: u64) -> (u64, u64) {
+    (ms / 2 + ms % 2, ms / 2)
 }
 impl Ledger {
     fn load(directory: &Path, binding: &str) -> Result<Self> {
@@ -382,6 +388,8 @@ impl Ledger {
             started: Instant::now(),
             turn_ms: 0,
             invocation: 0,
+            excluded_ms: 0,
+            shared_setup: None,
         };
         for (prefix, cap) in [("invocation", 32), ("admission", MAX_ADMISSIONS)] {
             let mut gap = false;
@@ -480,8 +488,26 @@ impl Ledger {
             })?,
         )
     }
+    fn active_elapsed(&self, wall_ms: u64) -> u64 {
+        let elapsed = wall_ms.saturating_sub(self.excluded_ms);
+        match self.shared_setup {
+            Some((physical, share)) => elapsed.saturating_sub(physical).saturating_add(share),
+            None => elapsed,
+        }
+    }
+    fn exclude_measured_interval(&mut self, ms: u64) -> Result<()> {
+        self.excluded_ms = self.excluded_ms.checked_add(ms).ok_or("ClockIntegrity")?;
+        Ok(())
+    }
+    fn record_shared_setup(&mut self, physical: u64, share: u64) -> Result<()> {
+        if self.shared_setup.is_some() || physical > PREPARATION_MS || share > physical {
+            return Err("ClockIntegrity".into());
+        }
+        self.shared_setup = Some((physical, share));
+        Ok(())
+    }
     fn elapsed(&self) -> u64 {
-        self.started.elapsed().as_millis().min(u64::MAX as u128) as u64
+        self.active_elapsed(self.started.elapsed().as_millis().min(u64::MAX as u128) as u64)
     }
     fn remaining(&self) -> u64 {
         MAX_ACTIVE_MS.saturating_sub(
@@ -1698,3 +1724,6 @@ mod tests;
 
 // Read-only desktop adapter: it shares the runner's actual checkpoint validator.
 pub mod desktop_api;
+
+/// Version2 comparison uses the same native lane, provider recording and resource ledger.
+pub mod comparison;

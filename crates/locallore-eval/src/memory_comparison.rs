@@ -123,6 +123,10 @@ pub struct Step {
     expected: Expected,
 }
 impl Step {
+    /// Read-only original input mode; does not enable protocol1 execution.
+    pub fn kind(&self) -> PlayInputKind {
+        self.kind
+    }
     pub fn id(&self) -> &str {
         &self.id
     }

@@ -116,9 +116,12 @@ const errors = new Set([
     "ArchiveBudget",
     "UnknownArchiveOperation",
 ]);
+export function isForkError(value: unknown): value is string {
+    return typeof value === "string" && errors.has(value);
+}
 function errorName(e: unknown) {
     const value = e instanceof Error ? e.message : String(e);
-    return errors.has(value) ? value : "Wire";
+    return isForkError(value) ? value : "Wire";
 }
 export class ForkController {
     private state = {

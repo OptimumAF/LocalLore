@@ -129,15 +129,58 @@ native-cohort-first.log,native-cohort-consumption.log,
 native-cohort-current-final.log,normal-restored.log and format-final.log.
 Profiles/databases/snapshots/renders/raw logs stay local and gitignored.
 
-## Remaining review gate
+## Independent review regression execution
 
-Independent source review found F1/F2 after the passing06b3746 cohort. Frozen
-two-case tests d532c43 (importedc521c0c) and report3e7e994 (importedaee07c5)
-identify late foreign-ID poisoning before the current decoder and passive
-recovery inheriting an old consumption latch. See
-`M07_BROKER_RETENTION_REVIEW_2026-10-23.md`. Both new cases are **unrun** at this
-checkpoint. Root must execute unchanged RED, make narrow repairs, run unchanged
-GREEN/full frontend, repeat the current native cohort and inspect its images
-before a PR/acceptance. The earlier113-pass cohort is historical evidence, not
-proof of those future repairs. No full M07/D07, Android/device, model-quality,
-hosted CI, final packaging/reproducibility or release acceptance is supplied.
+The 06b3746 cohort above remains historical. Independent review continued on the
+coordinator diff; its original source-only reports remain preserved as handoffs.
+Root actually ran the frozen F1/F2 pair: **0 passed / 2 failed**, then repaired
+foreign-known-ID exclusion before decode and reset consumption before passive
+recovery at085a72a. The unchanged pair passed afterward. A third frozen case
+reproduced an external old reply adopting an unidentified new reservation:
+**2 passed / 1 failed**. Repair038dfe9 permits only the awaited admission reply
+to establish that reservation's operation ID; all three unchanged cases passed.
+Both subsequent113/14 native cohorts passed, but their images were not inspected
+and they are not the final render qualification.
+
+The next frozen eight actual-controller/mock-IPC cases8b9b371/43ca19c
+(imported5fc50cc/8a461af) actually produced **2 passed / 6 failed**. Malformed
+Archive results, wrong preview-command kinds, malformed Fork outcomes and wrong
+child identities lost global uncertainty, including after owner retirement.
+Root0d067c2 shares the existing Archive completion checks between controller and
+gate, retains five bounded preview identifiers before dispatch, and exports and
+reuses the unchanged Fork outcome decoder. It retains no private story preview
+or filesystem path. The same eight cases passed afterward. Existing gate-only
+positive fixtures were transparently upgraded to native-shaped metadata at
+a97670b (importedaeb2e30); original assertion bodies and labels remain unchanged.
+See M07_BROKER_FIXTURE_METADATA_2026-10-23.md. These are mocked IPC tests.
+
+At cleanaeb2e30a0060399ce17451f06464807075fe0f27 the full frontend verifier
+passed strict TypeScript/schema, all existing suites and hook exclusion, including
+63 memory cases,32 callback assertions,18 gate assertions,7 Root review cases,
+3 incarnation cases,8 surface cases and the existing Fork63/6/9 and Timeline83.
+These counts describe different suites, never additional native assertions.
+
+Actual native cohort memory-native-4bae79ab-ff57-4741-b402-609f8da28e04 then
+passed113 distinct assertions/14 WebView2 captures/two app processes, all four
+runner children exit0. Summary SHA-256
+0994109dba8e12a28770645ac037500f0bfaa853c6132cd69fee16a8a31ef9c7;
+executable SHA-256
+6c06f010b26d0be1a253d9d5915d1d10261cc3ae8e2a1dd94bd5d0a3269afb04.
+Root opened all14 images and checked matching native-webview2 capture/snapshot
+revisions and recorded input hashes (no mismatches). No overlap or horizontal
+overflow was observed at1280x900/620x900; narrow wrapping and vertical scrolling
+are intentional. Selected other story is head0/no receipt/no copied job; Sable
+inspection is facts={} and observations=[], separate from the labeled original
+player receipt. Complete job remains1 of1 through restart/passive reread. Initial
+errors are exactly two expected native Cancelled, restart errors empty; no
+frontend errors. Both app logs retain one Chromium shutdown1412 line, exit0.
+
+Bounded subsequent source review found an unknown Fork terminal error category
+is mapped to Wire by its controller but is not retained as global uncertainty.
+Frozen new two-case packet54165b9/994d6dc (imported9ed9677/a0eab86) is not yet
+executed at this documentation checkpoint. Known Cancelled must retain its native
+meaning, remain locally uncertain, and recover only through explicit exact-child
+read-only lookup. Root must execute unchanged RED/GREEN, reuse the same existing
+closed error set, restore normal frontend, and record the final native cohort
+before PR acceptance. No full M07/D07, model-quality, Android/device, hosted CI,
+final packaging/reproducibility or release acceptance is supplied.

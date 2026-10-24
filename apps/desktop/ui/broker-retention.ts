@@ -10,7 +10,11 @@ import {
     type ArchiveBinding,
     type ArchiveCommand,
 } from "./archive-model";
-import { decodeForkOutcome, decodeForkRequest } from "./fork-controller";
+import {
+    decodeForkOutcome,
+    decodeForkRequest,
+    isForkError,
+} from "./fork-controller";
 export type BrokerSurface = "memory" | "fork" | "archive";
 export interface BrokerIdentity {
     surface: BrokerSurface;
@@ -236,6 +240,11 @@ export class BrokerRetention {
                             r.identity.action as ArchiveCommand,
                             r.identity.archive,
                         );
+                } else if (
+                    incoming.error !== null &&
+                    !isForkError(incoming.error)
+                ) {
+                    throw Error("Wire");
                 } else if (
                     incoming.running === false &&
                     incoming.error === null

@@ -287,7 +287,7 @@ fn bounded_repair_keeps_same_request_schema_and_cancellation_never_commits() {
     assert_eq!(receipt.play().unwrap().repairs, 1);
     assert_eq!(
         receipt.play().unwrap().prompt_version,
-        "locallore-play-v2.4"
+        "locallore-play-v2.5"
     );
     assert_eq!(schema(&p.seen[0]), schema(&p.seen[1]));
     assert_eq!(p.seen.len(), 3);

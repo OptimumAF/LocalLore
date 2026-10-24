@@ -36,10 +36,44 @@ const identity = {
 };
 // Native-shaped MOCK metadata replaces the original gate-only cross-surface
 // placeholders. Every original admission/retention assertion remains unchanged.
-const forkIdentity = {...identity,surface:"fork",action:"fork",child:"fixture-child",at:0};
-const archiveIdentity = {...identity,surface:"archive",action:"archive_import_preview"};
-const forkOp = (id=1)=>({version:1,operation_id:id,running:false,phase:"completed",error:null,result:{kind:"fork",outcome:{version:1,scope:{story:identity.story,branch:forkIdentity.child},parent:{story:identity.story,branch:identity.branch},fork_revision:forkIdentity.at,head_revision:forkIdentity.at,created:true}}});
-const archiveOp = (id=1)=>({version:1,operation_id:id,running:false,phase:"completed",error:null,result:{version:1,status:"cancelled"}});
+const forkIdentity = {
+    ...identity,
+    surface: "fork",
+    action: "fork",
+    child: "fixture-child",
+    at: 0,
+};
+const archiveIdentity = {
+    ...identity,
+    surface: "archive",
+    action: "archive_import_preview",
+};
+const forkOp = (id = 1) => ({
+    version: 1,
+    operation_id: id,
+    running: false,
+    phase: "completed",
+    error: null,
+    result: {
+        kind: "fork",
+        outcome: {
+            version: 1,
+            scope: { story: identity.story, branch: forkIdentity.child },
+            parent: { story: identity.story, branch: identity.branch },
+            fork_revision: forkIdentity.at,
+            head_revision: forkIdentity.at,
+            created: true,
+        },
+    },
+});
+const archiveOp = (id = 1) => ({
+    version: 1,
+    operation_id: id,
+    running: false,
+    phase: "completed",
+    error: null,
+    result: { version: 1, status: "cancelled" },
+});
 const op = (running, id = 1, action = identity.action) => ({
     version: 1,
     operation_id: id,
@@ -77,8 +111,7 @@ check(true, "inflight-crosssurface-start-blocked");
 resolve(op(false));
 await pending;
 await assert.rejects(
-    () =>
-        gate.start(archiveIdentity, async () => archiveOp()),
+    () => gate.start(archiveIdentity, async () => archiveOp()),
     /ArchiveBusy/,
 );
 check(true, "terminal-awaiting-controller-consumption-retained");
@@ -100,8 +133,7 @@ check(
     "retained-identity-is-original",
 );
 await assert.rejects(
-    () =>
-        unknown.start(forkIdentity, async () => forkOp()),
+    () => unknown.start(forkIdentity, async () => forkOp()),
     /ArchiveBusy/,
 );
 check(true, "unknown-ack-blocks-other-surface");

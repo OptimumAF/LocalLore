@@ -1,6 +1,12 @@
 use crate::{contracts::*, scope::Lineage};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::OnceLock;
+#[path = "author_correction.rs"]
+pub mod author_correction;
+#[path = "engine/staged_play.rs"]
+pub mod staged_play;
+use author_correction::{CanonicalRecord, KnowledgeProjectionV2};
 
 #[derive(Clone, Debug)]
 pub struct Engine {
@@ -8,7 +14,12 @@ pub struct Engine {
     scope: Scope,
     lineage: Lineage,
     state: Projection,
-    receipts: Vec<Receipt>,
+    records: Vec<CanonicalRecord>,
+    // Derived only from the actual serialized records at the two append sites.
+    // Never persisted, deserialized, hashed as source identity or used as canon.
+    canonical_record_bytes: usize,
+    knowledge: KnowledgeProjectionV2,
+    receipt_cache: OnceLock<Vec<Receipt>>,
 }
 
 /// Opaque native identity of an accepted source prefix. No serialized value can
@@ -174,7 +185,10 @@ impl Engine {
             lineage: Lineage::new(&seed.scope),
             seed,
             state,
-            receipts: vec![],
+            records: vec![],
+            canonical_record_bytes: 0,
+            knowledge: KnowledgeProjectionV2::default(),
+            receipt_cache: OnceLock::new(),
         })
     }
 
@@ -205,9 +219,9 @@ impl Engine {
         let end = if at == 0 {
             0
         } else {
-            self.receipts
+            self.records
                 .iter()
-                .position(|r| r.events.last().is_some_and(|e| e.sequence == at))
+                .position(|r| r.last_revision() == at)
                 .ok_or(Error::Rule)?
                 + 1
         };
@@ -218,12 +232,19 @@ impl Engine {
         serde_json::to_writer(
             &mut writer,
             &(
-                "locallore-native-accepted-history-v1",
+                if self.records[..end]
+                    .iter()
+                    .all(|r| matches!(r, CanonicalRecord::LegacyPlay(_)))
+                {
+                    "locallore-native-accepted-history-v1"
+                } else {
+                    "locallore-native-accepted-history-v2"
+                },
                 &self.scope,
                 at,
                 &self.seed,
                 self.memory_lineage_binding()?,
-                &self.receipts[..end],
+                &self.records[..end],
             ),
         )
         .map_err(|_| Error::TooLarge)?;
@@ -240,7 +261,7 @@ impl Engine {
         Ok(self.scope == previous.scope
             && self.seed == previous.seed
             && self.revision() >= previous.revision()
-            && self.receipts.starts_with(&previous.receipts)
+            && self.records.starts_with(&previous.records)
             && self.memory_lineage_binding()? == previous.memory_lineage_binding()?)
     }
     pub(crate) fn memory_lineage_binding(
@@ -255,19 +276,28 @@ impl Engine {
         &self.state
     }
     pub fn receipts(&self) -> &[Receipt] {
-        &self.receipts
+        self.receipt_cache.get_or_init(|| {
+            self.records
+                .iter()
+                .filter_map(CanonicalRecord::receipt)
+                .cloned()
+                .collect()
+        })
     }
     pub fn revision(&self) -> u64 {
-        self.receipts
+        self.records
             .last()
-            .and_then(|r| r.events.last())
-            .map_or(0, |e| e.sequence)
+            .map_or(0, CanonicalRecord::last_revision)
     }
 
     /// Stable canonical projection encoding: struct field order and ordered maps/sets, no floats.
     /// Not an archive format or cryptographic integrity guarantee.
     pub fn canonical_bytes(&self) -> Vec<u8> {
-        serde_json::to_vec(&self.state).expect("projection is serializable")
+        if self.domain_version() == 1 {
+            serde_json::to_vec(&self.state).expect("projection is serializable")
+        } else {
+            serde_json::to_vec(&serde_json::json!({"version":2,"mechanical":self.state,"knowledge":self.knowledge})).expect("projection is serializable")
+        }
     }
 
     pub fn request(&self, turn: &str, intent: Intent) -> Request {
@@ -307,9 +337,17 @@ impl Engine {
         if request.scope != self.scope {
             return Err(Error::Scope);
         }
+        if self.records.iter().any(|r| {
+            r.original_scope() == &request.scope
+                && r.turn_key() == request.turn
+                && r.receipt().is_none()
+        }) {
+            return Err(Error::RetryMismatch);
+        }
         if let Some(receipt) = self
-            .receipts
+            .records
             .iter()
+            .filter_map(CanonicalRecord::receipt)
             .find(|r| r.request.scope == request.scope && r.request.turn == request.turn)
         {
             if &receipt.request != request {
@@ -333,6 +371,7 @@ impl Engine {
         if !valid_id(&request.turn) {
             return Err(Error::Rule);
         }
+        let _ = self.recorded(request)?;
         check_json_budget(request, MAX_PROPOSAL_BYTES)?;
         if let Intent::FreeText { text, .. } = &request.intent {
             if text.trim().is_empty()
@@ -353,6 +392,16 @@ impl Engine {
     }
 
     pub fn preview(&self, request: &Request, proposal: &Proposal) -> Result<Receipt, Error> {
+        // The legacy public preview has no Domain 2 generated-Play contract.
+        if self.domain_version() == 2 && matches!(request.intent, Intent::FreeText { .. }) {
+            return Err(Error::Version);
+        }
+        self.preview_resolved(request, proposal)
+    }
+
+    // One resolver for legacy preview and the native, source-bound Play2.5 stage.
+    // This private entry does not change public preview's version admission.
+    fn preview_resolved(&self, request: &Request, proposal: &Proposal) -> Result<Receipt, Error> {
         self.preflight(request)?;
         if request.version != VERSION || proposal.version != VERSION {
             return Err(Error::Version);
@@ -383,8 +432,13 @@ impl Engine {
                 .revision()
                 .checked_add(events.len() as u64 + 1)
                 .ok_or(Error::Rule)?;
-            let (outcome, participants, witnesses) =
-                resolve(&self.seed, &mut staged, command, sequence)?;
+            let (outcome, participants, witnesses) = resolve(
+                &self.seed,
+                &mut staged,
+                command,
+                sequence,
+                self.domain_version() == 2,
+            )?;
             events.push(AcceptedEvent {
                 version: VERSION,
                 scope: self.scope.clone(),
@@ -426,12 +480,7 @@ impl Engine {
         if narration != receipt.narration {
             return Err(Error::Narration);
         }
-        let mut staged = self.state.clone();
-        for (command, event) in proposal.commands.iter().zip(&receipt.events) {
-            let _ = resolve(&self.seed, &mut staged, command, event.sequence)?;
-        }
-        self.state = staged;
-        self.receipts.push(receipt.clone());
+        self.append_play(receipt.clone())?;
         Ok(receipt)
     }
 
@@ -451,6 +500,21 @@ impl Engine {
         record: &crate::play::PlayRecord,
         recorded_history: bool,
     ) -> Result<Receipt, Error> {
+        if record.prompt_version == "locallore-play-v2.5" {
+            if let Some(receipt) = self.recorded(request)? {
+                return Ok(receipt);
+            }
+            let staged = self.stage_play_v25(request, proposal, &|| false)?;
+            return self.commit_staged_play_history_v25(
+                staged,
+                record,
+                &|| false,
+                recorded_history,
+            );
+        }
+        if self.domain_version() == 2 {
+            return Err(Error::Version);
+        }
         if let Some(receipt) = self.recorded(request)? {
             return Ok(receipt);
         }
@@ -461,12 +525,7 @@ impl Engine {
         crate::play::validate_record(self, &receipt, record, recorded_history)?;
         receipt.narration = record.narration.text.clone();
         receipt.play = Some(record.clone());
-        let mut staged = self.state.clone();
-        for (command, event) in proposal.commands.iter().zip(&receipt.events) {
-            let _ = resolve(&self.seed, &mut staged, command, event.sequence)?;
-        }
-        self.state = staged;
-        self.receipts.push(receipt.clone());
+        self.append_play(receipt.clone())?;
         Ok(receipt)
     }
 
@@ -510,11 +569,11 @@ impl Engine {
     }
 
     fn restore_saved(&mut self, history: &[String]) -> Result<(), Error> {
-        if self.receipts.len().saturating_add(history.len()) > MAX_HISTORY_RECEIPTS {
+        if self.records.len().saturating_add(history.len()) > MAX_HISTORY_RECEIPTS {
             return Err(Error::TooLarge);
         }
         let mut total = 0usize;
-        for receipt in &self.receipts {
+        for receipt in &self.records {
             let bytes = serde_json::to_vec(receipt)
                 .map_err(|_| Error::CorruptHistory)?
                 .len();
@@ -537,31 +596,7 @@ impl Engine {
             // parsing so hidden first/last-wins fields cannot survive archive validation.
             let raw: UniqueJson =
                 serde_json::from_str(receipt).map_err(|_| Error::CorruptHistory)?;
-            let recorded: PersistedReceipt =
-                serde_json::from_value(raw.0.clone()).map_err(|_| Error::CorruptHistory)?;
-            if recorded.events.is_empty()
-                || recorded.events.len() > MAX_COMMANDS
-                || self
-                    .recorded(&recorded.request)
-                    .map_err(|_| Error::CorruptHistory)?
-                    .is_some()
-            {
-                return Err(Error::CorruptHistory);
-            }
-            let rebuilt = if let Some(play) = &recorded.play {
-                if play.narration.text != recorded.narration {
-                    return Err(Error::CorruptHistory);
-                }
-                self.commit_play_history(&recorded.request, &recorded.proposal, play, true)
-            } else {
-                self.commit(&recorded.request, &recorded.proposal, &recorded.narration)
-            }
-            .map_err(|_| Error::CorruptHistory)?;
-            // Full JSON equality rejects unknown envelope/effect fields, forged witnesses,
-            // provenance, order, scope, sequence and effects. Object key order is irrelevant.
-            if serde_json::to_value(rebuilt).map_err(|_| Error::CorruptHistory)? != raw.0 {
-                return Err(Error::CorruptHistory);
-            }
+            self.restore_record_value(&raw.0)?;
         }
         Ok(())
     }
@@ -586,11 +621,7 @@ impl Engine {
     /// grant observer access, create a branch or call inference.
     pub fn at_revision(&self, at: u64) -> Result<Self, Error> {
         if at > self.revision()
-            || (at != 0
-                && !self
-                    .receipts
-                    .iter()
-                    .any(|r| r.events.last().is_some_and(|e| e.sequence == at)))
+            || (at != 0 && !self.records.iter().any(|r| r.last_revision() == at))
         {
             return Err(Error::Rule);
         }
@@ -599,15 +630,14 @@ impl Engine {
         }
         let mut result = Self::new(self.seed.clone())?;
         result.lineage = self.lineage.clone();
-        for receipt in &self.receipts {
-            if receipt.events.last().is_none_or(|e| e.sequence > at) {
+        for record in &self.records {
+            if record.last_revision() > at {
                 break;
             }
-            result.scope = receipt.request.scope.clone();
-            let rebuilt = result.commit_recorded(receipt)?;
-            if rebuilt != *receipt {
-                return Err(Error::CorruptHistory);
-            }
+            result.scope = record.original_scope().clone();
+            result.restore_record_value(
+                &serde_json::to_value(record).map_err(|_| Error::CorruptHistory)?,
+            )?;
         }
         result.scope = self.scope.clone();
         Ok(result)
@@ -657,6 +687,9 @@ impl Engine {
         cancel: &dyn Fn() -> bool,
         visitor: &mut dyn FnMut(&AcceptedEvent) -> bool,
     ) -> Result<(), Error> {
+        if self.domain_version() != 1 {
+            return Err(Error::Version);
+        }
         if scope != &self.scope {
             return Err(Error::Scope);
         }
@@ -672,7 +705,13 @@ impl Engine {
         if cancel() {
             return Err(Error::Cancelled);
         }
-        for (index, event) in self.receipts.iter().flat_map(|r| &r.events).enumerate() {
+        for (index, event) in self
+            .records
+            .iter()
+            .filter_map(CanonicalRecord::receipt)
+            .flat_map(|r| &r.events)
+            .enumerate()
+        {
             if index % 32 == 0 && cancel() {
                 return Err(Error::Cancelled);
             }
@@ -700,6 +739,9 @@ impl Engine {
         scope: &Scope,
         revision: u64,
     ) -> Result<CharacterContext, Error> {
+        if self.domain_version() != 1 {
+            return Err(Error::Version);
+        }
         if scope != &self.scope {
             return Err(Error::Scope);
         }
@@ -728,8 +770,9 @@ impl Engine {
             .map(|(id, fact)| (id.clone(), fact.proposition.clone()))
             .collect();
         let observations = self
-            .receipts
+            .records
             .iter()
+            .filter_map(CanonicalRecord::receipt)
             .flat_map(|r| &r.events)
             .filter(|event| self.actor_event_eligible(observer, scope, revision, event))
             .cloned()
@@ -901,6 +944,7 @@ fn resolve(
     state: &mut Projection,
     command: &Command,
     sequence: u64,
+    domain_two: bool,
 ) -> Result<Resolved, Error> {
     let player = &seed.player;
     let actor = state
@@ -1132,11 +1176,12 @@ fn resolve(
         Command::Discover { fact } => {
             let truth = seed.facts.get(fact).ok_or(Error::Knowledge)?;
             if truth.discoverable_at.as_ref() != Some(&actor.location)
-                || truth.known_by.contains(player)
-                || state
-                    .discoveries
-                    .get(fact)
-                    .is_some_and(|s| s.contains(player))
+                || (!domain_two
+                    && (truth.known_by.contains(player)
+                        || state
+                            .discoveries
+                            .get(fact)
+                            .is_some_and(|s| s.contains(player))))
             {
                 return Err(Error::Knowledge);
             }

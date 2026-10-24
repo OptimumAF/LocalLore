@@ -228,6 +228,9 @@ fn revision(value: u64) -> Result<i64> {
     i64::try_from(value).map_err(|_| MemoryError::TooLarge)
 }
 fn validate_request(engine: &Engine, request: &PrepareRequest) -> Result<()> {
+    if engine.domain_version() != 1 {
+        return Err(MemoryError::Unsupported);
+    }
     if &request.scope != engine.scope() {
         return Err(MemoryError::Scope);
     }

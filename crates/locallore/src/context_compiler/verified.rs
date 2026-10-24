@@ -72,7 +72,14 @@ pub fn compile_verified_cancelled(
     coverage: Option<&VerifiedCoverage>,
     cancel: &dyn Fn() -> bool,
 ) -> Result<MemoryCompilation, CompileError> {
-    compile_inner(engine, request, Input::Verified(coverage), cancel)
+    compile_inner(
+        engine,
+        request,
+        Input::Verified(coverage),
+        policy::Construction::Legacy,
+        cancel,
+    )
+    .map(|result| result.compilation)
 }
 
 pub(super) enum Input<'a> {
@@ -119,8 +126,8 @@ impl ObservationInput {
     ) -> Result<(), CompileError> {
         let required: BTreeSet<_> = candidates
             .iter()
-            .filter(|c| mandatory.contains_key(c.row.key()))
-            .filter_map(|c| event_key(&c.row))
+            .filter(|c| mandatory.contains_key(c.key()))
+            .filter_map(|c| c.row().and_then(event_key))
             .collect();
         for packet in &mut self.packets {
             check(cancel)?;
@@ -135,6 +142,7 @@ impl ObservationInput {
                 &request.observer,
                 packet.after,
                 packet.through,
+                request.version,
                 cancel,
                 &mut |event| {
                     check(cancel)?;
@@ -152,20 +160,12 @@ impl ObservationInput {
             }
             for candidate in &mut *candidates {
                 check(cancel)?;
-                let Some(key) = event_key(&candidate.row) else {
+                let Some(key) = candidate.row().and_then(event_key) else {
                     continue;
                 };
                 if let Some((row, encoded)) = actual.remove(&key) {
-                    let (ids, _) = identifiers(&row);
-                    let (kind, sources, revision) = row_info(&row, engine.revision());
-                    *candidate = Candidate {
-                        row,
-                        encoded,
-                        ids,
-                        kind,
-                        sources,
-                        revision,
-                    };
+                    *candidate =
+                        Candidate::from_row(row, encoded, engine.revision(), request.version);
                 }
             }
             if !actual.is_empty() {
@@ -188,28 +188,40 @@ fn event_key(row: &Row) -> Option<EventKey> {
     }
 }
 
+// Keep the bounded visitor inputs explicit; construction selects the same shared
+// raw candidate path without adding a second compiler or mutable context object.
+#[allow(clippy::too_many_arguments)]
 fn append_raw(
     engine: &Engine,
     observer: &str,
     range: (u64, u64),
+    version: u16,
     rows: &mut Vec<(Row, String)>,
     bytes: &mut usize,
     seen: &mut BTreeSet<EventKey>,
     cancel: &dyn Fn() -> bool,
 ) -> Result<usize, CompileError> {
     let mut count = 0;
-    visit_events(engine, observer, range.0, range.1, cancel, &mut |event| {
-        check(cancel)?;
-        if rows.len() >= MAX_CANDIDATES {
-            return Err(CompileError::TooLarge);
-        }
-        if !seen.insert((event.scope().clone(), event.sequence())) {
-            return Err(CompileError::Source);
-        }
-        push_row(rows, bytes, event_row(event)?, cancel)?;
-        count += 1;
-        Ok(())
-    })?;
+    visit_events(
+        engine,
+        observer,
+        range.0,
+        range.1,
+        version,
+        cancel,
+        &mut |event| {
+            check(cancel)?;
+            if rows.len() >= MAX_CANDIDATES {
+                return Err(CompileError::TooLarge);
+            }
+            if !seen.insert((event.scope().clone(), event.sequence())) {
+                return Err(CompileError::Source);
+            }
+            push_row(rows, bytes, event_row(event)?, cancel)?;
+            count += 1;
+            Ok(())
+        },
+    )?;
     Ok(count)
 }
 
@@ -217,10 +229,28 @@ pub(super) fn collect(
     engine: &Engine,
     request: &CompileRequest,
     input: Input<'_>,
+    construction: policy::Construction,
     rows: &mut Vec<(Row, String)>,
     bytes: &mut usize,
     cancel: &dyn Fn() -> bool,
 ) -> Result<ObservationInput, CompileError> {
+    if construction.is_current() && (engine.domain_version() != 1 || construction.is_recent()) {
+        // Old event-only packets cannot represent authored observations or player
+        // transcript messages. Refuse before inspecting/rechecking/hashing proof.
+        let mut state = ObservationInput::raw(MemoryFallbackReason::Unsupported, 0);
+        let mut seen = BTreeSet::new();
+        state.diagnostics.raw_event_candidates = append_raw(
+            engine,
+            &request.observer,
+            (0, engine.revision()),
+            2,
+            rows,
+            bytes,
+            &mut seen,
+            cancel,
+        )?;
+        return Ok(state);
+    }
     let mut state = ObservationInput::raw(MemoryFallbackReason::Missing, 0);
     let proof = match input {
         Input::Legacy | Input::Verified(None) => None,
@@ -271,6 +301,7 @@ pub(super) fn collect(
                     engine,
                     &request.observer,
                     (packet.from_exclusive, packet.through_revision),
+                    request.version,
                     rows,
                     bytes,
                     &mut seen,
@@ -311,6 +342,7 @@ pub(super) fn collect(
         engine,
         &request.observer,
         (state.diagnostics.raw_delta_after, engine.revision()),
+        request.version,
         rows,
         bytes,
         &mut seen,

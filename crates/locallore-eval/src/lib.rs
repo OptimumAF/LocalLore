@@ -692,7 +692,7 @@ fn evaluate(spec: &Scenario, directory: &Path, fault: Fault) -> Result<CaseResul
                                 format!("{turn}-compiler-envelope"),
                                 Some(turn.clone()),
                                 "retrieval",
-                                json!(1),
+                                json!(context_compiler::POLICY_COMPILER_VERSION),
                                 json!(capture.compiler_version),
                             );
                             check(

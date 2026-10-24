@@ -2,6 +2,7 @@
 pub mod context_compiler;
 pub mod contracts;
 pub mod engine;
+pub use engine::author_correction;
 #[cfg(feature = "host")]
 pub mod host;
 pub mod inference;

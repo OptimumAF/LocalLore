@@ -102,6 +102,22 @@ class ApkAuditTests(unittest.TestCase):
             with self.subTest(package=package), self.assertRaises(audit.AuditError):
                 audit.audit_manifest(badging, candidate_tree, package)
 
+    def test_external_verification_requires_exact_package_and_own_permission(self):
+        package = "org.locallore.app.externalverify"
+        badging = BADGING.replace("org.locallore.app", package)
+        tree = TREE.replace("org.locallore.app", package)
+        self.assertEqual(audit.audit_manifest(badging, tree, package),
+                         [package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"])
+        for candidate in (package + ".other", package + ".test", "org.locallore.app.external"):
+            with self.subTest(package=candidate), self.assertRaises(audit.AuditError):
+                audit.audit_manifest(badging.replace(package, candidate), tree, candidate)
+        for candidate_badging, candidate_tree in (
+                (badging, TREE),
+                (badging + "uses-permission: name='android.permission.INTERNET'\n", tree),
+                (badging, tree.replace("0x00000002", "0x00000000"))):
+            with self.subTest(tree=candidate_tree), self.assertRaises(audit.AuditError):
+                audit.audit_manifest(candidate_badging, candidate_tree, package)
+
     def test_manifest_rejects_extra_capabilities_or_weakened_permission(self):
         cases = [
             (BADGING + "uses-permission: name='android.permission.INTERNET'\n", TREE),

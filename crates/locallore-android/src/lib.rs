@@ -6,6 +6,7 @@ pub mod archive;
 mod archive_capacity_jni;
 #[cfg(target_os = "android")]
 mod archive_jni;
+mod external_inference;
 mod play_fixture;
 #[cfg(feature = "play-probe")]
 pub mod play_probe;

@@ -2,13 +2,14 @@
 //! Trusted app-private workspace adapter. Calls belong on Kotlin IO workers, never the UI thread.
 #[path = "branch_fork.rs"]
 pub mod branch_fork;
+use crate::external_inference::{self, Bridge};
 use locallore::host::{Host, MAX_INPUT, MAX_OUTPUT};
 use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc, Mutex,
     },
 };
@@ -18,6 +19,7 @@ pub struct WorkspaceRegistry {
     entries: Mutex<RegistryState>,
     mutation: Mutex<()>,
     forks: branch_fork::ForkRegistry,
+    tickets: Arc<AtomicU64>,
 }
 #[derive(Default)]
 struct RegistryState {
@@ -38,6 +40,7 @@ struct Lease {
     database: PathBuf,
     closed: AtomicBool,
     control: Mutex<()>,
+    external: Option<Arc<Bridge>>,
 }
 impl Lease {
     fn call(&self, bytes: &[u8]) -> Value {
@@ -66,6 +69,21 @@ fn rejected(category: &str) -> Value {
 impl WorkspaceRegistry {
     /// The path is supplied by native app construction, never a Host wire command.
     pub fn open(&self, path: &Path) -> Result<u64, String> {
+        self.open_configured(path, None)
+    }
+    /// Trusted application construction only: neither profile nor path is a Host/model command.
+    pub fn open_local(&self, path: &Path, profile_json: &[u8]) -> Result<u64, String> {
+        let profile = external_inference::profile(profile_json)?;
+        if !path.is_absolute() || path.to_str().is_none_or(|path| path.len() > 4096) {
+            return Err("Malformed".into());
+        }
+        self.open_configured(path, Some(profile))
+    }
+    fn open_configured(
+        &self,
+        path: &Path,
+        profile: Option<locallore::play::PlayProfile>,
+    ) -> Result<u64, String> {
         let _mutation = self.mutation.lock().map_err(|_| "Internal")?;
         let id = {
             let mut entries = self.entries.lock().map_err(|_| "Internal")?;
@@ -85,7 +103,13 @@ impl WorkspaceRegistry {
         // Database validation/replay can block. Other owners must still be able to cancel/close.
         let host = locallore_workspace::open(path, false)?;
         let database = path.canonicalize().map_err(|_| "Io")?;
-        crate::play_fixture::configure(&host)?;
+        let external = match profile {
+            Some(profile) => Some(Bridge::configure(&host, profile, self.tickets.clone())?),
+            None => {
+                crate::play_fixture::configure(&host)?;
+                None
+            }
+        };
         self.entries.lock().map_err(|_| "Internal")?.leases.insert(
             id,
             Arc::new(Lease {
@@ -93,9 +117,31 @@ impl WorkspaceRegistry {
                 database,
                 closed: AtomicBool::new(false),
                 control: Mutex::new(()),
+                external,
             }),
         );
         Ok(id)
+    }
+    pub fn poll_inference(&self, handle: u64) -> Vec<u8> {
+        self.inference(handle, |bridge| bridge.poll())
+    }
+    pub fn respond_inference(&self, handle: u64, ticket: u64, text: &[u8]) -> Vec<u8> {
+        self.inference(handle, |bridge| bridge.respond(ticket, text))
+    }
+    fn inference(&self, handle: u64, operation: impl FnOnce(&Bridge) -> Value) -> Vec<u8> {
+        external_inference::bounded(external_inference::MAX_POLL, || {
+            let lease = self.entries.lock().unwrap().leases.get(&handle).cloned();
+            let Some(lease) = lease else {
+                return rejected("InvalidHandle");
+            };
+            if lease.closed.load(Ordering::SeqCst) {
+                return rejected("InvalidHandle");
+            }
+            match &lease.external {
+                Some(bridge) => operation(bridge),
+                None => rejected("Unsupported"),
+            }
+        })
     }
     pub fn call(&self, handle: u64, bytes: &[u8]) -> Vec<u8> {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -127,14 +173,21 @@ impl WorkspaceRegistry {
         }
     }
     pub fn close(&self, handle: u64) {
-        // Cancel registered/running native forks before waiting for their existing owner locks.
+        // Fence every borrowed owner before waiting for fork, mutation, control or Host drain.
+        // A quarantined SDK owner cannot dispatch a commit/fork through an already borrowed ID.
+        let lease = self.entries.lock().unwrap().leases.get(&handle).cloned();
+        if let Some(lease) = &lease {
+            lease.closed.store(true, Ordering::SeqCst);
+            if let Some(bridge) = &lease.external {
+                bridge.close();
+            }
+        }
         self.fork_retire_owner(handle);
         let _mutation = self.mutation.lock().unwrap();
         // Remove before waiting for the Host; no new work can acquire this handle.
         let lease = self.entries.lock().unwrap().leases.remove(&handle);
         if let Some(lease) = lease {
             let _control = lease.control.lock().unwrap();
-            lease.closed.store(true, Ordering::SeqCst);
             lease.host.close_all();
         }
     }
@@ -349,10 +402,12 @@ mod tests {
             database: PathBuf::new(), // This fixture uses an in-memory Host, not a disk Store.
             closed: AtomicBool::new(false),
             control: Mutex::new(()),
+            external: None,
         });
         let registry = Arc::new(WorkspaceRegistry {
             mutation: Mutex::new(()),
             forks: Default::default(),
+            tickets: Default::default(),
             entries: Mutex::new(RegistryState {
                 next: 1,
                 opening: 0,
@@ -397,10 +452,12 @@ mod tests {
             database: PathBuf::new(),
             closed: AtomicBool::new(false),
             control: Mutex::new(()),
+            external: None,
         });
         let registry = WorkspaceRegistry {
             mutation: Mutex::new(()),
             forks: Default::default(),
+            tickets: Default::default(),
             entries: Mutex::new(RegistryState {
                 next: 1,
                 opening: 0,
@@ -412,6 +469,66 @@ mod tests {
         registry.close(1);
         assert_eq!(lease.host.live_counts(), (0, 0));
         assert_eq!(lease.call(create)["error"], "InvalidHandle");
+        assert_eq!(lease.host.live_counts(), (0, 0));
+    }
+    #[test]
+    fn close_fences_borrowed_fork_and_prepare_before_waiting_for_control_drain() {
+        let lease = Arc::new(Lease {
+            host: Host::new(false),
+            database: PathBuf::new(),
+            closed: AtomicBool::new(false),
+            control: Mutex::new(()),
+            external: None,
+        });
+        let registry = WorkspaceRegistry {
+            entries: Mutex::new(RegistryState {
+                next: 1,
+                opening: 0,
+                leases: BTreeMap::from([(1, lease.clone())]),
+            }),
+            mutation: Mutex::new(()),
+            forks: Default::default(),
+            tickets: Default::default(),
+        };
+        let created = lease
+            .call(br#"{"version":1,"command":{"op":"create","seed":"lantern-quay-v1"}}"#)["data"]
+            .clone();
+        let input = serde_json::to_vec(&json!({"version":1,"session":created["session"],"input":{
+            "parent":created["scope"],"child_branch":"borrowed-child","expected_parent_revision":0,"at_revision":0}})).unwrap();
+        let registered: Value =
+            serde_json::from_slice(&registry.fork_register(1, &input, true)).unwrap();
+        let operation = registered["data"]["operation"].as_u64().unwrap();
+        std::thread::scope(|threads| {
+            // Declared inside the scope callback: assertion unwind releases it before scope joins.
+            let control = lease.control.lock().unwrap();
+            let closing = threads.spawn(|| registry.close(1));
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+            while registry.entries.lock().unwrap().leases.contains_key(&1) {
+                assert!(std::time::Instant::now() < deadline);
+                std::thread::yield_now();
+            }
+            assert!(lease.closed.load(Ordering::SeqCst));
+            assert!(
+                !closing.is_finished(),
+                "Host teardown remains blocked on the held control gate"
+            );
+            assert_eq!(lease.host.live_counts(), (1, 0));
+            assert_eq!(
+                serde_json::from_slice::<Value>(&registry.fork_run(1, operation)).unwrap()["error"],
+                "InvalidToken"
+            );
+            assert_eq!(
+                serde_json::from_slice::<Value>(&registry.fork_register(1, &input, true)).unwrap()
+                    ["error"],
+                "InvalidHandle"
+            );
+            assert_eq!(
+                lease.call(br#"{"version":1,"command":{"op":"prepare"}}"#)["error"],
+                "InvalidHandle"
+            );
+            drop(control);
+            closing.join().unwrap();
+        });
         assert_eq!(lease.host.live_counts(), (0, 0));
     }
 }
@@ -447,6 +564,84 @@ pub(crate) mod android {
             registry().open(Path::new(&path)).unwrap_or(0) as jlong
         }))
         .unwrap_or(0)
+    }
+    fn external_input(
+        env: &JNIEnv<'_>,
+        bytes: JByteArray<'_>,
+        cap: usize,
+    ) -> Result<Vec<u8>, &'static str> {
+        if bytes.is_null() {
+            return Err("Malformed");
+        }
+        let size = env.get_array_length(&bytes).map_err(|_| "Malformed")?;
+        if size as usize > cap {
+            return Err("TooLarge");
+        }
+        env.convert_byte_array(bytes).map_err(|_| "Malformed")
+    }
+    fn external_output(env: &JNIEnv<'_>, bytes: &[u8]) -> jbyteArray {
+        if env.exception_check().unwrap_or(true) {
+            return std::ptr::null_mut();
+        }
+        env.byte_array_from_slice(bytes)
+            .map_or(std::ptr::null_mut(), |bytes| bytes.into_raw())
+    }
+    #[no_mangle]
+    pub extern "system" fn Java_org_locallore_app_NativeWorkspace_openLocal(
+        mut env: JNIEnv<'_>,
+        _: JObject<'_>,
+        path: JString<'_>,
+        profile: JByteArray<'_>,
+    ) -> jlong {
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let profile = external_input(&env, profile, external_inference::MAX_PROFILE).ok()?;
+            if path.is_null() {
+                return None;
+            }
+            let path: String = env.get_string(&path).ok()?.into();
+            if path.len() > 4096 || !Path::new(&path).is_absolute() {
+                return None;
+            }
+            registry()
+                .open_local(Path::new(&path), &profile)
+                .ok()
+                .map(|handle| handle as jlong)
+        }))
+        .ok()
+        .flatten()
+        .unwrap_or(0)
+    }
+    #[no_mangle]
+    pub extern "system" fn Java_org_locallore_app_NativeWorkspace_pollInference(
+        env: JNIEnv<'_>,
+        _: JObject<'_>,
+        handle: jlong,
+    ) -> jbyteArray {
+        external_output(&env, &registry().poll_inference(handle as u64))
+    }
+    #[no_mangle]
+    pub extern "system" fn Java_org_locallore_app_NativeWorkspace_respondInference(
+        env: JNIEnv<'_>,
+        _: JObject<'_>,
+        handle: jlong,
+        ticket: jlong,
+        bytes: JByteArray<'_>,
+    ) -> jbyteArray {
+        let reply = external_inference::bounded(external_inference::MAX_POLL, || {
+            if ticket <= 0 {
+                return rejected("InvalidTicket");
+            }
+            match external_input(&env, bytes, external_inference::MAX_RESPONSE) {
+                Ok(bytes) => serde_json::from_slice(&registry().respond_inference(
+                    handle as u64,
+                    ticket as u64,
+                    &bytes,
+                ))
+                .unwrap_or_else(|_| rejected("Internal")),
+                Err(error) => rejected(error),
+            }
+        });
+        external_output(&env, &reply)
     }
     #[no_mangle]
     pub extern "system" fn Java_org_locallore_app_NativeWorkspace_call(

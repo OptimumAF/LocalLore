@@ -86,3 +86,19 @@ No new dependency or production path was changed. Type checking, actual size
 premise, all three test results and the unchanged native performance gate remain
 pending coordinator execution. The broad test can perform thousands of accepted
 turns and is intentionally not advertised as cheap or previously passing.
+
+## Fixture correction after coordinator execution
+
+Root's first actual compilation/run reported **2 PASS / 1 FAIL** in
+`shared-counter-final.log`. The boundary fixture failed at `Engine::new(seed)`
+with Knowledge, before any byte-boundary action. The source freeze changed the
+synthetic seed ID while leaving original seed evidence references in its beliefs
+and commitment. Normal validation correctly requires each of those references to
+equal `Evidence::Seed(seed.id.clone())`.
+
+The correction updates only those synthetic fixture references to the new ID,
+retaining every belief and commitment. Every original size, budget, rejection,
+hash, basis and replay assertion remains unchanged; no validator or production
+behavior changes. Original frozen source/hash above remain historical evidence.
+Only formatting/parser and whitespace checks were performed for this correction.
+The corrected tests remain unrun by this agent; Root owns the next actual run.

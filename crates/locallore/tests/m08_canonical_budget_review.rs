@@ -57,6 +57,14 @@ fn snapshot(engine: &Engine) -> (Vec<u8>, [u8; 32], usize, AcceptedHistoryBasis)
 fn actual_encoded_record_history_crosses_real_byte_cap_before_record_count_cap() {
     let mut seed = fixture().seed().clone();
     seed.id = "s".repeat(64);
+    // Seed evidence must name this actual synthetic seed, as normal validation
+    // requires; preserve all original beliefs and commitments.
+    for belief in &mut seed.beliefs {
+        belief.source = Evidence::Seed(seed.id.clone());
+    }
+    for commitment in seed.commitments.values_mut() {
+        commitment.source = Evidence::Seed(seed.id.clone());
+    }
     seed.scope.story = "t".repeat(64);
     seed.scope.branch = "b".repeat(64);
     let mut engine = Engine::new(seed).unwrap();

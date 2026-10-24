@@ -54,11 +54,14 @@ public class CacheVolumeTest {
     }
     @Test public void InputsCannotIntroducePathsArbitraryCasesOrUnusedPlayPayload() throws Exception {
         CacheVolume.request("inspect", UUID, SESSION, null, null);
+        CacheVolume.request("verify_model", UUID, SESSION, null, null);
         CacheVolume.request("play", UUID, SESSION, "gift", "e30=");
         for (String value : Arrays.asList("../ABCD-1234", "", "ABCD-1234/private-canary", "null"))
             assertThrows(CacheVolume.Problem.class, () -> CacheVolume.request("mmap", value, SESSION, null, null));
         assertThrows(CacheVolume.Problem.class, () -> CacheVolume.request("play", UUID, SESSION, "arbitrary", "e30="));
         assertThrows(CacheVolume.Problem.class, () -> CacheVolume.request("inspect", UUID, SESSION, "gift", "e30="));
+        assertThrows(CacheVolume.Problem.class, () -> CacheVolume.request("verify_model", UUID, SESSION, "gift", null));
+        assertThrows(CacheVolume.Problem.class, () -> CacheVolume.request("verify_model", UUID, SESSION, null, "e30="));
         assertThrows(CacheVolume.Problem.class, () -> CacheVolume.request("mmap", UUID, SESSION.toUpperCase(), null, null));
         assertThrows(CacheVolume.Problem.class, () -> CacheVolume.request("play", UUID, SESSION, "gift", "a".repeat(5465)));
     }

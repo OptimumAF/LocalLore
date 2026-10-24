@@ -188,6 +188,25 @@ ownership suppresses every post read and must fence later dependent work. Preser
 the original result/accepted receipt independently of the storage verdict. The
 new budgets do not retroactively pass the old userdata/host admission gate.
 
+The [explicit-cache SDK controller](CACHE_SDK_CONTROL_HARNESS_2026-10-23.md)
+keeps artifact identity, model integrity, accepted play receipts and storage
+verdicts separate. Its strict decoder preserves a valid committed receipt even
+when a later volume or cleanup check fails. A new app-domain
+[`verify_model` operation](CACHE_MODEL_VERIFY_HARNESS_2026-10-23.md) reads only
+the fixed model leaf in the framework-selected external-files directory, through
+one no-follow descriptor. This closes the gap between shell provisioning and
+the file the app actually reads; `run-as` access is not a substitute. It creates
+no SDK engine and returns no model text or filesystem path. Use the separately
+qualified artifact and trusted live callbacks described in those documents;
+default checks do not provision models or run devices.
+
+The [explicit-cache control verification](CACHE_SDK_CONTROL_VERIFICATION_2026-10-23.md)
+records the qualified app-domain integrity operation, actual local model-copy
+checks, retained transport/setup failures and the bounded emulator observation.
+Its aggregate keeps accepted Rust receipts separate from storage and cleanup
+verdicts. The actual gift request was rejected by the action intent guard with
+unchanged canon; typed canonical events remain authoritative.
+
 The native [process owner](../../../benchmarks/spike/android/controller/README.md)
 owns/reaps one trusted direct child. An ADB-client exit is never native cleanup
 evidence. Package termination is limited to the hash-verified isolated SDK app;

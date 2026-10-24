@@ -860,8 +860,7 @@ await loadingBoundary(
             );
             check(
                 port.calls.filter((call) => call.kind === "commit").length ===
-                    1 &&
-                    !port.calls.some((call) => call.kind === "lookup"),
+                    1 && !port.calls.some((call) => call.kind === "lookup"),
                 "only the original unknown commit was dispatched; no rollback or saved-child result is invented",
             );
             check(
@@ -881,8 +880,7 @@ await loadingBoundary(
             started = deferred(),
             discardEntered = deferred(),
             discardAcknowledged = deferred();
-        let captured,
-            preparing;
+        let captured, preparing;
         port.starts.push((request) => {
             captured = clone(request);
             started.resolve();

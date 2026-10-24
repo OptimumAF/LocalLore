@@ -15,7 +15,11 @@ const target = path.join(
     directory,
     `author-callback-review-${randomUUID()}.mjs`,
 );
-const controllerSha256 = createHash("sha256").update(await readFile(new URL("./ui/author-controller.ts", import.meta.url))).digest("hex");
+const controllerSha256 = createHash("sha256")
+    .update(
+        await readFile(new URL("./ui/author-controller.ts", import.meta.url)),
+    )
+    .digest("hex");
 const bundle = await build({
     entryPoints: [
         fileURLToPath(new URL("./ui/author-controller.ts", import.meta.url)),

@@ -60,9 +60,11 @@ qualification. This packet permits synthetic test bytes only; it grants no new
 model-copy destination, SDK cohort or private-story use. Prior A integrity and
 #117/#119 SDK holds remain independent requirements.
 
-The original instrumentation fixture uses 63 synthetic bytes, actual production
-store/native publication, full reopen/reuse/hash refusal, a preserved cache
-sentinel and a no-clobber attempt that retains a two-byte stage. It never calls
+The original instrumentation fixture uses 63 synthetic bytes in a distinct
+`model-volume-synthetic-v1` child under the same admitted Context anchor, actual
+production store/native publication, full reopen/reuse/hash refusal, a preserved
+cache sentinel and a no-clobber attempt that retains a two-byte stage. It checks
+that the fixed real-candidate model directory stays absent. It never calls
 `CandidateLocalModel.store`, an inference owner, Engine, or a canonical workspace.
 It requires a fresh isolated package root; it never clears an existing app to
 manufacture a clean run. A pass establishes only this bounded filesystem slice.

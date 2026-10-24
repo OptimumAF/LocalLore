@@ -34,7 +34,7 @@ export type RowV2 =
     | { kind: "author_correction"; revision: number }
     | { kind: "relationship"; key: string; from: string; to: string; dimension: "respect" | "trust" | "obligation"; value: number; source: SourceV2; origin: "canonical_field" }
     | { kind: "knowledge"; key: string; id: string; subject: string | null; text: string; confidence: ConfidenceV2 | null; sources: SourceV2[]; origin: OriginV2 }
-    | { kind: "promise"; key: string; id: string; from: string; to: string; terms: string; deadline: number; status: "open" | "overdue" | "fulfilled"; return_item: string | null; sources: SourceV2[]; origin: "canonical_field" }
+    | { kind: "promise"; key: string; id: string; from: string; to: string; terms: string; deadline: number; status: "open" | "overdue" | "fulfilled"; return_item: string | null; sources: SourceV2[]; origin: "derived_comparison" }
     | { kind: "provenance"; key: string; sources: SourceV2[]; origin: OriginV2 }
     | { kind: "change"; key: string; before_revision: number; after_revision: number; before: RowV2 | null; after: RowV2 | null; origin: "derived_comparison" };
 export type InspectionPageV2 = { version: 2; scope: ScopeV2; head: number; revision: number; story_time: number; observer: ObserverV2; view: ViewV2; privacy: "player_visible" | "private_character" | "private_omniscient"; status: "supported" | "unsupported"; total: number; rows: RowV2[]; next_cursor: string | null; unsupported: string[] };
@@ -94,7 +94,7 @@ function detached(value: unknown, maximum: number): unknown {
         requireWire(depth <= 16);
         if (typeof input === "string") { utf8(input); charge(encoder.encode(JSON.stringify(input)).length); return input; }
         if (typeof input === "number") { integer(input, -Number.MAX_SAFE_INTEGER); charge(String(input).length); return input; }
-        if (input === null || typeof input === "boolean") { charge(5); return input; }
+        if (input === null || typeof input === "boolean") { charge(input === false ? 5 : 4); return input; }
         requireWire(typeof input === "object");
         requireWire(!active.has(input)); active.add(input);
         const array = Array.isArray(input);
@@ -109,16 +109,16 @@ function detached(value: unknown, maximum: number): unknown {
             requireWire(keys.length === input.length + 1);
             for (let i = 0; i < input.length; i++) {
                 const d = Object.getOwnPropertyDescriptor(input, String(i));
-                requireWire(d && "value" in d && d.enumerable); charge(1);
+                requireWire(d && "value" in d && d.enumerable); if (i > 0) charge(1);
                 values.push(walk(d.value, depth + 1));
             }
             result = values;
         } else {
             const values = Object.create(null) as ObjectValue;
-            for (const key of keys as string[]) {
+            for (const [index, key] of (keys as string[]).entries()) {
                 const d = Object.getOwnPropertyDescriptor(input, key);
                 requireWire(d && "value" in d && d.enumerable);
-                utf8(key); charge(encoder.encode(JSON.stringify(key)).length + 2);
+                utf8(key); charge(encoder.encode(JSON.stringify(key)).length + 1 + (index > 0 ? 1 : 0));
                 Object.defineProperty(values, key, { value: walk(d.value, depth + 1), enumerable: true });
             }
             result = values;
@@ -152,7 +152,7 @@ export function checkedPlaySnapshotV2(value: unknown, selected: ScopeV2, revisio
     return p as PlaySnapshotV2;
 }
 
-type Binding = { story: string; revision: number; observer: ObserverV2; view: ViewV2 };
+type Binding = { story: string; revision: number; observer: ObserverV2; view: ViewV2; selectedPlayerId?: string };
 function source(value: unknown, b: Binding): void {
     const s = object(value);
     switch (s.kind) {
@@ -226,8 +226,8 @@ function row(value: unknown, b: Binding, nested = false): string {
             return JSON.stringify(["event", original.story, original.branch, e.sequence]);
         }
         case "scoped_message": {
-            requireWire(!nested && b.view === "history" && !(b.observer.kind === "character" && b.observer.id !== "player"));
-            // Character(player) is allowed by Core's owning-player selector; no marker grant.
+            requireWire(!nested && b.view === "history" && (b.observer.kind !== "character" || (b.selectedPlayerId !== undefined && b.observer.id === b.selectedPlayerId)));
+            // Optional ID must come from a coherent native thin snapshot, never the query.
             keys(["original_scope", "turn", "message_kind", "text", "event_ids"]); origin(["recorded_message"]);
             const original = scope(r.original_scope, b.story); id(r.turn); oneOf(r.message_kind, ["original_input", "narration"]); text(r.text);
             const ids = list(r.event_ids, v => integer(v, 1, b.revision)) as number[];
@@ -236,7 +236,7 @@ function row(value: unknown, b: Binding, nested = false): string {
         }
         case "relationship": requireWire(nested || b.view === "relationships"); keys(["from", "to", "dimension", "value", "source"]); id(r.from); id(r.to); oneOf(r.dimension, ["respect", "trust", "obligation"]); integer(r.value, -100, 100); source(r.source, b); origin(["canonical_field"]); break;
         case "knowledge": keys(["id", "subject", "text", "confidence", "sources"]); requireWire(nested || b.view === "knowledge"); text(r.id); nullable(r.subject, id); text(r.text); nullable(r.confidence, v => oneOf(v, confidences)); sources(r.sources, b); origin(["canonical_truth", "recorded_statement", "subjective_belief", "recorded_discovery", "known_as_observed"]); break;
-        case "promise": requireWire(nested || b.view === "promises"); keys(["id", "from", "to", "terms", "deadline", "status", "return_item", "sources"]); id(r.id); id(r.from); id(r.to); text(r.terms); integer(r.deadline); oneOf(r.status, ["open", "overdue", "fulfilled"]); nullable(r.return_item, id); sources(r.sources, b); origin(["canonical_field"]); break;
+        case "promise": requireWire(nested || b.view === "promises"); keys(["id", "from", "to", "terms", "deadline", "status", "return_item", "sources"]); id(r.id); id(r.from); id(r.to); text(r.terms); integer(r.deadline); oneOf(r.status, ["open", "overdue", "fulfilled"]); nullable(r.return_item, id); sources(r.sources, b); origin(["derived_comparison"]); break;
         case "provenance": requireWire(!nested && b.view === "provenance"); keys(["sources"]); sources(r.sources, b); origin(origins); break;
         case "change": {
             requireWire(!nested && b.view === "turn_diff"); keys(["before_revision", "after_revision", "before", "after"]); origin(["derived_comparison"]);
@@ -248,7 +248,8 @@ function row(value: unknown, b: Binding, nested = false): string {
     }
     return JSON.stringify(["key", r.key]);
 }
-export function checkedPageV2(value: unknown, requested: InspectionQueryV2): InspectionPageV2 {
+export function checkedPageV2(value: unknown, requested: InspectionQueryV2, selectedPlayerId?: string): InspectionPageV2 {
+    if (selectedPlayerId !== undefined) id(selectedPlayerId);
     const q = exact(detached(requested, 24576), ["version", "scope", "expected_head", "at_revision", "observer", "view", "cursor", "limit", "search"]);
     requireWire(q.version === 2); const selected = scope(q.scope); const head = integer(q.expected_head); nullable(q.at_revision, v => integer(v, 0, head));
     const lens = observer(q.observer); const view = oneOf(q.view, views) as ViewV2; cursor(q.cursor); const limit = integer(q.limit, 1, 64);
@@ -263,7 +264,7 @@ export function checkedPageV2(value: unknown, requested: InspectionQueryV2): Ins
     const unsupported = view === "summaries" || view === "retrieval_indexes";
     requireWire(p.status === (unsupported ? "unsupported" : "supported")); list(p.unsupported, text); cursor(p.next_cursor);
     requireWire(Array.isArray(p.rows) && p.rows.length <= limit && p.rows.length <= total && (!unsupported || total === 0));
-    const b: Binding = { story: selected.story, revision, observer: lens, view };
+    const b: Binding = { story: selected.story, revision, observer: lens, view, selectedPlayerId };
     const identities = p.rows.map(r => row(r, b));
     requireWire(new Set(identities).size === identities.length);
     const keys = p.rows.map(r => object(r)).filter(r => r.kind !== "author_correction").map(r => r.key);

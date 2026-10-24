@@ -3,6 +3,9 @@
 Refs #9 (M05.05 prerequisite), #5 (M01.05 supporting).
 This is a separate debug experiment under [ADR-0010](../adr/0010-candidate-volume-storage.md).
 It does not qualify a phone, model, removable filesystem or release storage policy.
+The [current device attempt](MODEL_VOLUME_VERIFICATION_2026-10-23.md) reaches
+native publication and fails with a fixed storage category. This contract's
+positive publication gate remains unverified; no fallback is enabled.
 
 `localLoreModelVolumeVerification=true` requires both existing LiteRT and model
 setup flags, refuses picker mixing and release tasks, and creates only

@@ -134,6 +134,9 @@ on removable media has different confidentiality and availability limits;
 canonical saves stay internal. See the [storage contract](../../docs/native/MODEL_VOLUME_CONTRACT.md)
 and proposed [ADR-0010](../../docs/adr/0010-candidate-volume-storage.md).
 Audit with `scripts/audit_apk.py <apk> --litert-verification --model-provisioning --model-volume-verification`.
+The [current verification](../../docs/native/MODEL_VOLUME_VERIFICATION_2026-10-23.md)
+passes host/build checks but fails native publication on the selected emulator;
+positive removable-filesystem compatibility remains blocked.
 Real-model copies and SDK execution require their own admission; the flag does
 not discharge existing device/runtime holds.
 

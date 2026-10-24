@@ -1,6 +1,6 @@
 # ADR-0010: Confine an opt-in candidate model to one observed volume
 
-Status: debug implementation under verification; device qualification and owner acceptance pending.
+Status: proposed debug experiment with implementation evidence; owner acceptance and full device gate pending.
 Refs #9 (M05.05 prerequisite), #5 (M01.05 supporting). This does not select a
 production backend, supported phone or release storage policy.
 
@@ -108,3 +108,11 @@ mount namespaces and native SDK IO impose additional races; no compromised-OS,
 physical-media or power-loss durability guarantee is made. Synthetic publication
 and refusal tests do not qualify a large real model, phone, ARM64, 16 KiB device,
 SDK teardown or inference. Existing #117/#119/A holds remain authoritative.
+
+The current synthetic emulator attempts establish no positive filesystem gate:
+the initial selection refused, and the corrected attempt reached first native
+publication but returned fixed STORAGE. The latter does not distinguish an
+unsupported native operation from another IO failure. Preserve the refused state
+and evidence; classify the closed native result in a separately claimed packet
+before considering any new storage choice or real-model copy. No fallback is
+introduced by this decision.

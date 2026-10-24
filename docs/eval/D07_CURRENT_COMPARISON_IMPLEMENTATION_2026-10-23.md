@@ -1,0 +1,27 @@
+# Current comparison source contract and qualification record
+
+This bounded D07.03/.04/.05/.06 prerequisite is based on `e28eb0ef0ad13fedcd841cb485034ff8e224135b`. The coordinator approved implementation; this document does not approve model execution. All new assertions are initially **UNCOMPILED / UNRUN**, not RED or PASS. Existing deterministic nine-case and curated six-story results remain immutable. The protocol1 `require_execution` refusal remains unchanged; this is a distinct protocol2 runner.
+
+## Frozen experiment
+
+Reuse the exact `memory_comparison::frozen_suite`: 24 original attempts, 21 expected accepted outcomes, three guard-only cases (09 Inventory, 10 Ability, 24 ClarificationRequired), unchanged spelling/punctuation. A scripted reference uses the actual Host/Store/Play path, explicitly expected proposals only in the scripted provider. It stores actual timed receipts and immutable source-bound prefixes. Reference validation replays actual receipts and regenerates the original reference proposals against each original basis; checksums alone are not authority. Reject Domain2 before any receipts-only comparison semantic hash.
+
+Paired snapshots execute both closed Core policies on exactly the same canonical reference prefix. Arm failure is retained; the next declared pair starts from its reference prefix rather than repairing the failed arm. Continuous rollout keeps each arm's real accepted chain. A skipped dependent turn requires actual Core `reference_proposal` refusal on that arm's current state. No broad failure skip or expected-command substitution in a native provider. Same Seed/Scope/observer/profile/schema/prompt and role budgets; report first mechanical/semantic divergence, and do not describe later divergent rollout input as controlled same-input evidence.
+
+Fresh tuples are actual Play2.5, grounded-prose-v2.2, compiler2/context2 and `Some(actual policy)`. Relevant is the current exact/lexical selection policy, not a verified-cache experimental arm. Source fallback and compiler coverage remain independent provenance. The native-only Host policy stack is reused unchanged; no JSON setting. Current default remains Relevant. The new Workspace test must use an actual SQLite Store and committed receipt; the old frozen native-fixture tests are retained without silent assertion edits.
+
+## Resource and lifetime contract
+
+Each arm retains 32 admissions, 96 roles, 30 active minutes and 32 invocations. A turn reserves 60,000ms and three roles before provider work; preparation reserves 120,000ms per arm and cleanup reserves 3,000ms. Profile remains 4096 context tokens, 350 director / 350 narrator tokens, 120s deadline and one repair. Output is bounded to 16,384 bytes per role. Reserve BOTH preparation invocations before opening approved assets, then use ONE shared runtime sequentially. Alternate first arm by declared attempt/scene.
+
+The existing private Ledger receives additive measured exclusions defaulting to zero, preserving old `finish` behavior. Exclude only an actual measured other-arm interval. Own replay/checkpoint/cleanup stays charged. Report one physical native setup separately; after known terminal setup, split its measured milliseconds left ceil / right floor. No allocation below physical total. Unknown/crash setup retains the full 120,000ms reservation in EACH arm until a genuine terminal settlement, never refunded from a guessed elapsed time. Unknown turn reserves its full time/three roles after restart. Tests freeze deterministic arithmetic and durable interrupted reservations before implementation; no timing pass/fail thresholds.
+
+## Evidence and resume
+
+Use actual consented Host private captures, not a second compiler or a `ContextPackage` deserializer. Check selected_context2 against actual Director generation_request Context data, actual recording prompt/schema hashes, identity/scope/player/base/attempt and current tuple. Persist bounded private files under fixed names; revoke/close each owner. Existing D06 artifact/attempt/global/TTL caps remain unchanged. Guard-only zero-role cases explicitly have no context expectation. Missing/truncated/Busy/lost captures are unavailable evidence and fail applicable evidence gates, never privacy passes. Narrator checks use actual captured request plus existing role-specific recording checks; NPC/foreign/sibling/future exclusions do not treat legitimate player secret in Director as a leak.
+
+Source/protocol/suite/policy/kind/order/profile/worker/model/template/runtime/budget/reference drift permits read-only inspection but refuses more execution. Checkpoint each turn and seal six-turn scene manifests; stable key actual Store lookup recovers a committed lost acknowledgment with zero new roles. It cannot recreate historical private captures. Completed resume must happen before assets/provider/invocation admission and must not rewrite files. Private reports are bounded JSON plus escaped inert HTML. Human review count remains zero, rubric `not_reviewed`, quality acceptance false. No quality score is invented.
+
+## Qualification (initial state)
+
+Only source inspection, Git operations and issue claims have run. All Cargo/Clippy/typecheck/unit/integration/native/model checks remain UNRUN. Root owns actual execution and will retain first failures and any explicit fixture/API corrections. Current source is a future stack, not exposure in the desktop app. No UI, Android, Store/schema, runtime/worker, local_recording, Core compiler or Play implementation edits are allocated here.

@@ -64,7 +64,7 @@ fn request(engine: &Engine, observer: &str) -> CompileRequest {
         query: String::new(),
         referenced_ids: vec![],
         budget: Budget {
-            estimated_tokens: 20000,
+            estimated_tokens: 4096,
             reserved_tokens: 0,
             recent_events: 0,
             optional_records: 4,

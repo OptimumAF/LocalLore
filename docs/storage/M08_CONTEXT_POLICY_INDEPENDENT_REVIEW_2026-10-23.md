@@ -143,3 +143,24 @@ policy-runner execution/model measurements and human quality gates remain
 separate. Source enum/function availability is not D07 runner admission. No score,
 human approval, milestone checkbox or author wire exposure follows this review.
 Claims are released with the ticket handoff.
+
+## Explicit first-execution fixture correction
+
+The coordinator's resource agent subsequently executed the unchanged four-case
+freeze against integrated source `685e410`. Reported actual result: **0 passed,
+4 failed**, each `InvalidRequest` in the common helper before its tested
+semantics. Original local log `08` and original hash `7b388021...a07c78a` remain
+preserved by that owner. This reviewer did not execute that command.
+
+Actual source inspection confirms `compile_inner` admits estimated_tokens only
+in 1..=4096. The NEW review helper incorrectly supplied 20000. Under explicit
+coordinator allocation and claims #12 `6377517395` / #29 `6377517646`, the only
+test source correction changes that helper value to **4096**. All four test
+names, assertions, fixtures, byte ceilings and production code remain unchanged;
+the original `4206d74` freeze is not rewritten. The oversized whole-unit premise
+still exceeds the entire 24,576-byte ceiling and therefore also the valid token
+budget; this correction does not permit clipping or weaken omission assertions.
+
+This was an invalid test-input failure, not a demonstrated compiler behavior RED
+or a production repair. Corrected cases await attributable resource-agent rerun.
+Reviewer checks remain formatting/parser and Git whitespace only.

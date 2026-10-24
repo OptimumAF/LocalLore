@@ -89,3 +89,64 @@ GREEN, native IPC or rendering evidence before actual execution. Existing
 query1 decoder, bindings, controllers, UI, schema, package scripts and test
 runners are untouched. Root later owns actual action/render integration,
 source-bound producer fixtures, decoder execution and consumer parity.
+
+## Source-review refinements and final handoff
+
+Initial module `5a75b277a93fa2e5e02c3b029bc024717121bf33` remains in history,
+unexecuted. Static review found a hardcoded character ID `player`, conservative
+size accounting which could reject an exactly full valid wire payload, and a
+promise origin copied incorrectly into the synthetic fixture. There was no
+actual runtime RED. These are corrected transparently in follow-up commits:
+
+- `740e29384dd6331eaa05e7b41913de749e6b952c` first freezes an exact262144-byte
+  snapshot acceptance oracle and one-byte-over rejection, before accounting fix.
+- `6789c4dae06b972f712e5d32f31bde9015d56656` corrects ONLY the new promise fixture
+  from canonical_field to actual Rust `DerivedComparison` (inspection_query.rs
+  Promise construction) and adds refusal of the wrong label. Original initial
+  source remains in Git; no existing native/Core fixture was changed.
+- `b1fdc6afcf881ec5b0051a56508e568ea37f1be9` freezes custom native player positive,
+  missing native ID refusal, mismatched ID refusal, and NPC literally named
+  `player` refusal, BEFORE the approved API correction.
+- `2c562f51d9bc074b5a171b88241f70fe1b83aa03` implements these narrow changes.
+- `7218792af6ddcc32db2de888b585707b95e7d9f5` freezes actor/omniscient knowledge
+  origin closure; `35f7ca7a48f79c9bf735bec0eecbd345db70d772` implements it.
+
+The coordinator explicitly approved this final signature extension:
+
+```text
+checkedPageV2(value, query, selectedPlayerId?:string): InspectionPageV2
+```
+
+The optional ID may come ONLY from `checkedPlaySnapshotV2(...).player.observer`
+for the same coherent selected scope/head. Future controllers must fence that
+snapshot/page pairing. It is never inferred from a name, the literal `player`,
+or `query.observer.id`. Without the native ID the decoder rejects every Character
+scoped-message row; with it, only the matching owning character may display the
+already Core-eligible prose. ObserverPlayer/Omniscient behavior and the marker's
+literal Player-only restriction remain unchanged. This is provenance for a
+presentation check, not an inspection/knowledge grant or an eligibility engine.
+The original two-argument frozen tests still apply to Player/Omniscient.
+
+Final module SHA-256:
+`3229f330f15f46d01a92508762a2693e09c6ec29e7b101ea84a8f14351755dd3`.
+Final synthetic checker SHA-256:
+`d8ec4aad551e365ab40104d98f693a55743190a2d392d6b9cc2243f4e19bb514`.
+No frozen behavior assertions were weakened after execution: **nothing was
+executed**. Source refinements and the explicit new-fixture correction above
+precede the first authorized future checker run.
+
+Actual verification: `git diff --check` succeeded; source/Git reads and
+`Get-FileHash -Algorithm SHA256` completed. No Node, TypeScript/parser, Prettier,
+esbuild, browser, native runtime, Core, model/provider or device check ran.
+Consequently syntax, types, formatting and behavior remain unqualified. The
+worktree is clean at handoff; all three exact NEW paths are released to Root.
+
+Next runnable gate, under a separately authorized Node slot with the existing
+locked dependencies, is `node apps/desktop/check-v2-view-model.mjs`. The checker
+bundles only this module with the existing esbuild and writes a UUID-named bundle
+under the existing gitignored `apps/desktop/artifacts/checks` default or explicit
+`LOCALLORE_CHECK_OUTPUT_DIR`. It has no service, app hook or remote listener.
+Then run normal frontend type/format checks and source-bound actual Core/Host
+JSON fixture checks before any controller/render integration. Keep initial
+errors before narrow corrections; never count this synthetic run as native IPC,
+WebView rendering, Android parity, or author-feature acceptance.

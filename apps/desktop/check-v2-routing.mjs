@@ -132,6 +132,13 @@ let checks = 0;
     assert.equal(controller.get().visibleError, null);
     assert.deepEqual(controller.get().playV2, thin());
     assert.equal(controller.get().play, null);
+    const semantic = controller.semantic();
+    assert.equal(semantic.version, 2);
+    assert.equal(semantic.uiRevision, 3,
+        "Root semantic state must show the actual thin snapshot revision");
+    assert.deepEqual(semantic.player, thin().player);
+    assert.deepEqual(semantic.transcript, { source: "query2", status: "owned_by_scoped_controller" },
+        "A thin snapshot must not manufacture a zero-receipt transcript for an author interval");
     assert.equal(
         gateway.calls.filter((c) => c.op === "play_snapshot").length,
         0,

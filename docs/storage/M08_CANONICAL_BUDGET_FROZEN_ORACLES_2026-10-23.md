@@ -58,3 +58,31 @@ native five-second cancel/resume test, broad compatibility checks and acceptance
 The reported native performance failure is coordinator evidence, not a result
 produced by this source-only packet. No model, provider, device, app or desktop
 execution was performed here.
+
+## Source handoff
+
+Frozen test/contract commit: `b7cf0be5e378091852c1538463cf1146ab8e91f6`.
+Test SHA-256:
+`026391cb42a6fa379e3627bb88ba82af212edfc8a025aac7aeeaf0df0203140a`.
+
+Source audit confirmed that public `preview` resolves a native receipt without
+running append budget admission; `commit` then calls the actual append path.
+Domain1 `CanonicalRecord::LegacyPlay` serializes its native receipt directly.
+The 64-byte IDs use the normal ASCII ID validator, and Wait's valid ticks=1
+changes only story time. The bulk test checks the actual encoded-size premise
+at runtime rather than silently assuming an identifier-size estimate. Ordinary
+fork replay reconstructs its validated fork metadata before local continuation;
+author replay uses the actual native author record and existing restore path.
+
+Executed source-only checks:
+
+```text
+rustfmt --edition 2021 crates/locallore/tests/m08_canonical_budget_review.rs
+git diff --check
+```
+
+Both exited successfully. These are parser/format/whitespace checks only.
+No new dependency or production path was changed. Type checking, actual size
+premise, all three test results and the unchanged native performance gate remain
+pending coordinator execution. The broad test can perform thousands of accepted
+turns and is intentionally not advertised as cheap or previously passing.

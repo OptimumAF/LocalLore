@@ -285,6 +285,42 @@ class OwnershipTests(unittest.TestCase):
                 self.assertEqual(owner.stage, "proofs")
                 self.assertFalse((owner.directory / "final-facts.json").exists())
 
+    def test_preinstall_capacity_exact_boundary_and_one_byte_short(self):
+        for short in (0, 1):
+            with tempfile.TemporaryDirectory() as directory:
+                value = proposal(Path(directory), readiness=False)
+                total = sum(Path(path).stat().st_size for path in value["apk_paths"].values())
+                owner, transport = probe.Owner(value), FakeTransport(value)
+                facts = owner.facts
+                def capacity(label, expected):
+                    observed = facts(label, expected)
+                    if label == "before":
+                        observed["userdata"]["available_bytes"] = probe.USERDATA_FLOOR + total - short
+                    return observed
+                with patch.object(owner, "facts", side_effect=capacity), patch.object(probe.host, "run_process", side_effect=transport), patch.object(probe.shutil, "disk_usage", return_value=SimpleNamespace(free=20 * 1024 ** 3)):
+                    if short:
+                        with self.assertRaises(AssertionError):
+                            probe.run_cohort(owner)
+                        self.assertEqual(owner.installs, {probe.APP: 0, probe.TEST: 0})
+                        self.assertEqual(owner.methods, 0)
+                        self.assertFalse(any(command[3] == "install" or "am instrument" in " ".join(command) for command, _ in transport.calls))
+                    else:
+                        result = probe.run_cohort(owner)
+                        self.assertEqual(result["tests"]["passed"], 4)
+                        self.assertEqual(owner.installs, {probe.APP: 1, probe.TEST: 1})
+
+    def test_preinstall_validates_both_files_before_first_update(self):
+        for invalid in (b"", b"changed"):
+            with tempfile.TemporaryDirectory() as directory:
+                value = proposal(Path(directory), readiness=False)
+                Path(value["apk_paths"][probe.TEST]).write_bytes(invalid)
+                owner, transport = probe.Owner(value), FakeTransport(value)
+                with patch.object(probe.host, "run_process", side_effect=transport), patch.object(probe.shutil, "disk_usage", return_value=SimpleNamespace(free=20 * 1024 ** 3)):
+                    with self.assertRaises(AssertionError):
+                        probe.run_cohort(owner)
+                self.assertEqual(owner.installs, {probe.APP: 0, probe.TEST: 0})
+                self.assertEqual(owner.methods, 0)
+
     def test_post_update_package_or_uid_drift_stops_before_instrumentation(self):
         for change in ("package_drift", "uid_drift"):
             with tempfile.TemporaryDirectory() as directory:

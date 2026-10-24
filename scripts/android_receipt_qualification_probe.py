@@ -496,7 +496,18 @@ class Owner:
 def run_cohort(owner):
     proposal = owner.proposal
     prior = proposal["prior_packages"]
-    owner.facts("before", prior)
+    before = owner.facts("before", prior)
+    # Package replacement still stages incoming bytes. This reserve is necessary,
+    # but does not qualify the installer's additional filesystem overhead.
+    remaining = before["userdata"]["available_bytes"] - USERDATA_FLOOR
+    for package in (APP, TEST):
+        path = Path(proposal["apk_paths"][package])
+        size = path.stat().st_size
+        assert 1 <= size <= 1024 ** 3
+        raw = path.read_bytes()
+        assert len(raw) == size and sha(raw) == proposal["apk_sha256"][package]
+        assert size <= remaining
+        remaining -= size
     assert owner.shell(PROOF_ABSENT, cap=4096) == b""
     owner.stage = "updating"
     for package in (APP, TEST):

@@ -1,0 +1,366 @@
+{
+  "version": 1,
+  "task_ids": [
+    "M01.05"
+  ],
+  "status": "implemented_locally_verified_control_blocked_pending_owner_acceptance",
+  "base": "fdf144aec5903052cf9bca32da50b0f95c533f35",
+  "qualified_source": "9e66529da41d78c999c4bff786539fa24a12ab30",
+  "source_sha256": {
+    "benchmarks/android_probe_admission.py": "20fcfa3bc2971e89e4c30bdc9bd2916bd0665d2bc0f096eef1134242289d22f0",
+    "scripts/tests/test_android_probe_admission.py": "2a9a96e77507039f9971f9b4c838bd3701a4bb9122a1b03bda10dc06c07c6bee"
+  },
+  "source_hash_encoding": "tested workspace bytes including line endings",
+  "checks": {
+    "focused": 20,
+    "scripts_including_focused": 188,
+    "benchmarks": 140,
+    "actual_sample_cli_exit_codes": {
+      "A": 2,
+      "B": 2
+    },
+    "sentinel_probe_calls_each": 0,
+    "sentinel_is_real_sdk_callback": false,
+    "new_rust_android_or_sdk_build": false
+  },
+  "observations": {
+    "version": 1,
+    "scope": "read_only_cache_aware_admission_and_fixed_capacity_metadata",
+    "base": "fdf144a",
+    "admission_commit": "9e66529da41d78c999c4bff786539fa24a12ab30",
+    "admission_source_sha256": "20fcfa3bc2971e89e4c30bdc9bd2916bd0665d2bc0f096eef1134242289d22f0",
+    "preflight_host_storage_field": null,
+    "preflight_host_storage_logging_gap_disclosed": true,
+    "runtime_root_absent_on_both": true,
+    "eligible_nonmodel_capacity_bytes_A_B": [
+      0,
+      0
+    ],
+    "samples": {
+      "A": {
+        "version": 1,
+        "host_free_bytes": 4941430784,
+        "evidence_free_bytes": 121868603392,
+        "guest_free_bytes": 1054388224,
+        "cache_bytes": 788412736
+      },
+      "B": {
+        "version": 1,
+        "host_free_bytes": 4942188544,
+        "evidence_free_bytes": 121865961472,
+        "guest_free_bytes": 1800540160,
+        "cache_bytes": 0
+      }
+    },
+    "verdicts": {
+      "A": {
+        "version": 1,
+        "phase": "before",
+        "status": "blocked",
+        "reasons": [
+          "host_headroom",
+          "guest_headroom"
+        ],
+        "sample": {
+          "version": 1,
+          "host_free_bytes": 4941430784,
+          "evidence_free_bytes": 121868603392,
+          "guest_free_bytes": 1054388224,
+          "cache_bytes": 788412736
+        },
+        "requirements": {
+          "host_reserve_bytes": 4294967296,
+          "guest_reserve_bytes": 1073741824,
+          "evidence_reserve_bytes": 10737418240,
+          "cache_growth_budget_bytes": 1073741824
+        }
+      },
+      "B": {
+        "version": 1,
+        "phase": "before",
+        "status": "blocked",
+        "reasons": [
+          "host_headroom",
+          "guest_headroom"
+        ],
+        "sample": {
+          "version": 1,
+          "host_free_bytes": 4942188544,
+          "evidence_free_bytes": 121865961472,
+          "guest_free_bytes": 1800540160,
+          "cache_bytes": 0
+        },
+        "requirements": {
+          "host_reserve_bytes": 4294967296,
+          "guest_reserve_bytes": 1073741824,
+          "evidence_reserve_bytes": 10737418240,
+          "cache_growth_budget_bytes": 1073741824
+        }
+      }
+    },
+    "all21_apks_preserved_on_both": true,
+    "protected_metadata_preserved_on_both": true,
+    "all_recorded_commands_completed_clean": true,
+    "recorded_transport_count": 314,
+    "journals_closed_before_aggregate": [
+      {
+        "id": "transport.jsonl",
+        "bytes": 68192,
+        "sha256": "7e8e5e37339ecef31e170b9b362a303f2eff8e045947a830087f862d2a9b0494",
+        "records": 104
+      },
+      {
+        "id": "inspection-transport.jsonl",
+        "bytes": 156254,
+        "sha256": "d5db5b4c12f400801f21d6488cceab6bf9fa9f25f6c77f8eea9558bc43ef039b",
+        "records": 108
+      },
+      {
+        "id": "sample-transport.jsonl",
+        "bytes": 77458,
+        "sha256": "fe6998ef89af32a92a50d1ae8023ad914de6c4bed337668db444be0710b8fa77",
+        "records": 102
+      }
+    ],
+    "host_client_census": {
+      "selected_or_inventory_client_count": 0,
+      "server_count": 1,
+      "read_only": true
+    },
+    "host_storage_calls": 5,
+    "C_min": 4941430784,
+    "C_max": 5082030080,
+    "D_min": 121859919872,
+    "D_max": 122979065856,
+    "device_operations_complete": true,
+    "device_lease_released": true,
+    "SDK_probe_dispatches": 0,
+    "source_or_model_hashes_refreshed": false,
+    "weights_or_cache_mutated": false,
+    "artifact_copy_move_remove_performed": false,
+    "cause_of_A_mismatch_established": false,
+    "next_task": "Plan sufficient host+guest capacity under preservation constraints, or a separately authorized capacity/cache-placement experiment. Reassess through the explicit tested wrapper and independently refresh source/B full identity before any separately admitted fixed control. No automatic inference."
+  },
+  "policy": {
+    "host_before_bytes": 5368709120,
+    "guest_before_bytes": 2147483648,
+    "evidence_before_bytes": 10737418240,
+    "host_after_reserve_bytes": 4294967296,
+    "guest_after_reserve_bytes": 1073741824,
+    "evidence_after_reserve_bytes": 10737418240,
+    "planned_cache_growth_bytes": 1073741824,
+    "proven_sdk_maximum": false,
+    "live_quota": false,
+    "post_failure_rolls_back_canon": false
+  },
+  "research": {
+    "installed_emulator": "35.3.12.0",
+    "emulator_build": "12990079",
+    "official_cache_dir_api_confirmed": true,
+    "sdk_cache_path_exposed_in_preserved_apk": false,
+    "independent_guest_cache_volume_qualified": false,
+    "selected_avd_config_and_card_resolved": false,
+    "new_sd_image_created": false,
+    "sdk_model_or_cache_write_performed": false,
+    "candidate_requires_new_experimental_artifact_and_volume_aware_policy": true
+  },
+  "private_device_index": {
+    "id": "sealed-index.json",
+    "bytes": 4567,
+    "sha256": "5e2fecac8e3e47427b1a86b6763b4f8e22c54feff74a25291994f9475239bb9e"
+  },
+  "private_device_bindings": [
+    {
+      "id": "A-admission-execution.json",
+      "bytes": 822,
+      "sha256": "a3590b9caab022d0c8ebd14133939b46d36f62e294e93eed8801e9dc01f591a8"
+    },
+    {
+      "id": "A-admission.json",
+      "bytes": 514,
+      "sha256": "577f2f4824b7f9ab1ad90f89feb44998ec89095ee3c5e8a4914a0774324e30a2"
+    },
+    {
+      "id": "A-sample.json",
+      "bytes": 160,
+      "sha256": "ba9f6b5e63520ee425e968c81d8c368e56d85a155dd39baff764ad18d37dd88d"
+    },
+    {
+      "id": "A-sentinel-fence.json",
+      "bytes": 879,
+      "sha256": "aeb30a7416e61a2719b049b89e076bb87d14844f6e0499d552005d1bd3c3bc0b"
+    },
+    {
+      "id": "admission-observations.json",
+      "bytes": 8093,
+      "sha256": "bea8289de97dfb4992bce5eab9598c12bc4fe9429be775d4887f808c3dd3ba6a"
+    },
+    {
+      "id": "admission-observations.log",
+      "bytes": 610,
+      "sha256": "645398c5a78e9fe8b484f86b78a32e267771493cd3b253379c817368f947290f"
+    },
+    {
+      "id": "B-admission-execution.json",
+      "bytes": 814,
+      "sha256": "c1715dc883acde084cef7828099cb4a6aa5b04ca6cc7f956249ed2cc337f6ec1"
+    },
+    {
+      "id": "B-admission.json",
+      "bytes": 506,
+      "sha256": "3966f0300c1a9f8934abe704695d25bbb9a5d739a3490a4f3a1ac598cfd3c732"
+    },
+    {
+      "id": "B-sample.json",
+      "bytes": 152,
+      "sha256": "99f1115e9dd9dab4b3c03b1bee0d278adafc6c258e8b3d7c60265263590a5870"
+    },
+    {
+      "id": "B-sentinel-fence.json",
+      "bytes": 871,
+      "sha256": "20a563a9326d97c88f07d3da6016988b7caf3e60bd445bb6f94ac7cf75fed2a1"
+    },
+    {
+      "id": "handoff.public.json",
+      "bytes": 3741,
+      "sha256": "20d24f059e502dc45eb579bd0cfb9b564602feba3b019564cc83781befeab47e"
+    },
+    {
+      "id": "host-client-census.json",
+      "bytes": 93,
+      "sha256": "24a7e17216fa837c1f1fd06d181a2aa257aa0ea26a27d41c53cfcfaf78ca8b1b"
+    },
+    {
+      "id": "inspect_runtime.py",
+      "bytes": 4392,
+      "sha256": "455be2ab5cb21cde7f837f339b32b7de30363b00871479790ca57186264036d2"
+    },
+    {
+      "id": "inspection-transport.jsonl",
+      "bytes": 156254,
+      "sha256": "d5db5b4c12f400801f21d6488cceab6bf9fa9f25f6c77f8eea9558bc43ef039b"
+    },
+    {
+      "id": "inventory-raw.json",
+      "bytes": 620,
+      "sha256": "3935d73bcbb250e5dd0d9d1e8cf668eb30b8770f760518d56936b3bb8a6af5c5"
+    },
+    {
+      "id": "observe.py",
+      "bytes": 6882,
+      "sha256": "781a1727ae51965a978fce5ce8fb5cfed981ea14b0a6536fe33b35beb8d9cf73"
+    },
+    {
+      "id": "owner-v1",
+      "bytes": 28,
+      "sha256": "f1a2b311501660239b2aa16a5c906c101d69b6c658ef43e0e54d739514ae45ef"
+    },
+    {
+      "id": "preflight.json",
+      "bytes": 6490,
+      "sha256": "26b848c5ae40306f20104a3232d6988b480d3bf86e23488d31314129050f16cc"
+    },
+    {
+      "id": "preflight.log",
+      "bytes": 376,
+      "sha256": "31736319f6857f4e52be11336e4080cc9e8e645270f568492d61f2cade5db01f"
+    },
+    {
+      "id": "runtime-metadata.json",
+      "bytes": 6808,
+      "sha256": "6f5c5f4e28cccb4a18fc589aca5132458978b5d7d860d7131c7f2fa889697a73"
+    },
+    {
+      "id": "runtime-metadata.log",
+      "bytes": 426,
+      "sha256": "ead9df59f2dd3b1bd4eee3d38ae134d87aa0c80e5c44a47980d0dbc825a0cafd"
+    },
+    {
+      "id": "sample-transport.jsonl",
+      "bytes": 77458,
+      "sha256": "fe6998ef89af32a92a50d1ae8023ad914de6c4bed337668db444be0710b8fa77"
+    },
+    {
+      "id": "sample_admission.py",
+      "bytes": 4403,
+      "sha256": "710ffa4fd6c33a3ae5aee14017e48c409a59188190a786ceb6826c2770bac734"
+    },
+    {
+      "id": "storage-checks.jsonl",
+      "bytes": 535,
+      "sha256": "716dfd265575d19d8bb70f8362c530b8d4f76ad68500b1492981441bf2f77b8c"
+    },
+    {
+      "id": "transport.jsonl",
+      "bytes": 68192,
+      "sha256": "7e8e5e37339ecef31e170b9b362a303f2eff8e045947a830087f862d2a9b0494"
+    }
+  ],
+  "coordinator_and_research_bindings": [
+    {
+      "id": "B-assess.log",
+      "bytes": 506,
+      "sha256": "3966f0300c1a9f8934abe704695d25bbb9a5d739a3490a4f3a1ac598cfd3c732"
+    },
+    {
+      "id": "benchmark-tests.log",
+      "bytes": 246,
+      "sha256": "e767a28ff6c60edb62fd6bec27cd0c23a6c673283558d8beb547deae4afc3b61"
+    },
+    {
+      "id": "focused-tests.log",
+      "bytes": 2441,
+      "sha256": "3ff1a721b62d12e90768d3c365204ced3e7c129f76465aee4799476ec640345b"
+    },
+    {
+      "id": "make_results.py",
+      "bytes": 4036,
+      "sha256": "5f4a8fb2514142f16d53aff1edc03202d2f2abefdbd0235f9467c44e0b0b8f4b"
+    },
+    {
+      "id": "script-tests.log",
+      "bytes": 473,
+      "sha256": "fffaf1d0ae0f610c47b84806089a38b63844ea51f74eb195fadacdd5edcfd03b"
+    },
+    {
+      "id": "selected-avd-storage.json",
+      "bytes": 887,
+      "sha256": "d4c228c853fa4ed54f4f9711286d80175d39b20f4acfbd4f5059be57fb863417"
+    },
+    {
+      "id": "selected-avdmanager.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "selected-config-locators.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "id": "selected-emulator-processes.json",
+      "bytes": 1805,
+      "sha256": "e300d89fdc7963b70f7431a4f45e054fb9fd7b01e176818643bf5a07d6e13593"
+    },
+    {
+      "id": "selected-launch-evidence.json",
+      "bytes": 2142,
+      "sha256": "6de6609f0b30666c01406369db325206ce2794eafce1e38cd9c5b83ce8b4cfd1"
+    },
+    {
+      "id": "selected-launch-locator-lines.json",
+      "bytes": 236,
+      "sha256": "eb0f513fd39c3ad01b8fddefbdb68195dd100c97f71342da333d957f602b07fa"
+    }
+  ],
+  "limits": {
+    "real_inference_executed": false,
+    "source_or_model_identity_refreshed": false,
+    "A_mismatch_cause_established": false,
+    "capacity_reclaimed_or_relocated": false,
+    "physical_phone": false,
+    "arm64_execution": false,
+    "hosted_ci_execution": false,
+    "quality_performance_profile_or_production_runtime_qualified": false
+  }
+}

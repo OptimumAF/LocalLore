@@ -10,6 +10,9 @@ function gate() {
     return { entered, release, ready, waiting };
 }
 export class FaultGateway implements Gateway {
+    get playSnapshotV2() {
+        return this.base.playSnapshotV2;
+    }
     dropCommit = false;
     failLookup = false;
     dropSubmit = false;

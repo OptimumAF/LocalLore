@@ -5,6 +5,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.CharBuffer;
 import java.nio.ByteBuffer;
@@ -28,6 +29,8 @@ final class PlayRunner {
         @Override void close() throws Exception;
     }
     interface Models { WarmRunner.Model create() throws Exception; }
+    interface Checkpoints { void mark(String phase, String role) throws IOException; }
+    private static final Checkpoints NO_CHECKPOINTS = (phase, role) -> {};
     private static final String GIFT = "I give my last potion to Mira.";
     private static final Set<String> CASES = new HashSet<>(Arrays.asList("gift", "dialogue", "unlearned", "spent", "cancel"));
     private static final Set<String> ERRORS = new HashSet<>(Arrays.asList("Version", "Scope", "Stale", "RetryMismatch",
@@ -40,6 +43,8 @@ final class PlayRunner {
     private final Probe probe;
     private final Models models;
     private final JsonObject metrics;
+    private final Checkpoints checkpoints;
+    private volatile IOException checkpointFailure;
     private final long budgetMs, drainMs;
     private JsonObject scope;
     private String session;
@@ -57,7 +62,15 @@ final class PlayRunner {
 
     PlayRunner(Probe probe, Models models, JsonObject metrics) { this(probe, models, metrics, 60000, 5000); }
     PlayRunner(Probe probe, Models models, JsonObject metrics, long budgetMs, long drainMs) {
+        this(probe, models, metrics, budgetMs, drainMs, NO_CHECKPOINTS);
+    }
+    PlayRunner(Probe probe, Models models, JsonObject metrics, Checkpoints checkpoints) {
+        this(probe, models, metrics, 60000, 5000, checkpoints);
+    }
+    PlayRunner(Probe probe, Models models, JsonObject metrics, long budgetMs, long drainMs, Checkpoints checkpoints) {
+        if (checkpoints == null) throw new IllegalArgumentException("invalid_checkpoints");
         this.probe = probe; this.models = models; this.metrics = metrics;
+        this.checkpoints = checkpoints;
         this.budgetMs = budgetMs; this.drainMs = drainMs;
         for (String key : Arrays.asList("play_roles", "play_load_ms", "play_generation_ms", "play_input_tokens", "play_output_tokens"))
             metrics.addProperty(key, 0);
@@ -67,9 +80,12 @@ final class PlayRunner {
         JsonArray turns = new JsonArray();
         runDeadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(budgetMs);
         boolean seeded = false;
+        Throwable runProblem = null;
         try {
             if (!CASES.contains(selectedCase)) throw new Problem("invalid_request");
+            checkpoint("native_create_before", "none");
             JsonObject created = data(probe.call(command("create")), "create");
+            checkpoint("native_create_after", "none");
             attach(created);
             if (selectedCase.equals("spent")) {
                 JsonObject seed = turn("action", GIFT, false); turns.add(seed);
@@ -83,9 +99,16 @@ final class PlayRunner {
                 turns.add(turn(kind, text, selectedCase.equals("cancel")));
             }
             return aggregate(selectedCase, turns, seeded);
+        } catch (Exception | Error failure) {
+            runProblem = failure; throw failure;
         } finally {
             try { probe.close(); }
-            catch (Exception failure) { metrics.addProperty("cleanup_requires_process_termination", true); throw new WarmRunner.Undrained(); }
+            catch (Exception | Error failure) {
+                metrics.addProperty("cleanup_requires_process_termination", true);
+                WarmRunner.Undrained unknown = new WarmRunner.Undrained();
+                if (runProblem != null) unknown.addSuppressed(runProblem);
+                if (failure != runProblem) unknown.addSuppressed(failure); throw unknown;
+            }
         }
     }
 
@@ -102,18 +125,25 @@ final class PlayRunner {
         Future<JsonObject> future = null;
         WarmRunner.Model model = null;
         boolean modelOwned = true, initialized = false, joined = true;
-        Exception problem = null;
+        Throwable problem = null;
         JsonObject currentGeneration = null;
         long generationStarted = 0;
         long deadline = runDeadline;
         Set<Long> answered = new HashSet<>();
         try {
             checkDeadline(deadline);
+            checkpoint("native_submit_before", "none");
             JsonObject submitted = data(probe.call(submit(request)), "free_text");
+            checkpoint("native_submit_after", "none");
             verifyTurn(submitted, request);
             if (!string(submitted.get("phase")).equals("queued")) throw new Problem("runtime_failed");
             worker = Executors.newSingleThreadExecutor(runnable -> new Thread(runnable, "play-native-prepare"));
-            future = worker.submit(() -> data(probe.call(scoped("prepare", request)), "prepare"));
+            future = worker.submit(() -> {
+                checkpoint("native_prepare_before", "none");
+                JsonObject prepared = data(probe.call(scoped("prepare", request)), "prepare");
+                checkpoint("native_prepare_after", "none");
+                return prepared;
+            });
             joined = false;
             while (!future.isDone()) {
                 checkDeadline(deadline);
@@ -134,9 +164,15 @@ final class PlayRunner {
                 result.getAsJsonArray("generations").add(currentGeneration);
                 generationStarted = 0;
                 if (model == null) {
+                    checkpoint("model_create_before", roleRequest.role);
                     model = models.create();
+                    checkpoint("model_create_after", roleRequest.role);
                     long loading = System.nanoTime();
-                    try { model.initialize(); initialized = true; }
+                    try {
+                        checkpoint("model_initialize_before", roleRequest.role);
+                        model.initialize(); initialized = true;
+                        checkpoint("model_initialize_after", roleRequest.role);
+                    }
                     finally { currentGeneration.addProperty("load_ms", Math.min(180000, elapsed(loading))); }
                     result.addProperty("model_initialized", true);
                     addMetric("play_load_ms", elapsed(loading));
@@ -144,33 +180,76 @@ final class PlayRunner {
                 }
                 else currentGeneration.addProperty("load_ms", 0);
                 JsonObject generated;
+                checkpoint("role_open_before", roleRequest.role);
                 WarmRunner.Role role = model.open(roleRequest);
                 boolean active = false, drained = false;
+                RoleObserver observer = new RoleObserver(currentGeneration, result);
+                Throwable roleProblem = null;
                 try {
-                    active = true; generationStarted = System.nanoTime(); role.start();
+                    checkpoint("role_open_after", roleRequest.role);
+                    checkpoint("role_start_before", roleRequest.role);
+                    active = true; generationStarted = System.nanoTime(); observer.started = generationStarted; role.start();
+                    checkpoint("role_start_after", roleRequest.role);
+                    checkpoint("role_drain_before", roleRequest.role);
                     while (true) {
+                        observer.output(role);
                         checkDeadline(deadline);
-                        if (cancelAfterOutput && role.hasOutput() && !role.await(0)) {
-                            result.addProperty("first_output_observed", true);
-                            data(probe.call(scoped("cancel", request)), "cancel");
-                            throw new Cancelled();
+                        if (cancelAfterOutput && role.hasOutput()) {
+                            observer.positive();
+                            if (!role.await(0)) {
+                                data(probe.call(scoped("cancel", request)), "cancel");
+                                throw new Cancelled();
+                            }
                         }
-                        if (role.await(25)) { drained = true; break; }
+                        if (role.await(25)) {
+                            drained = true; observer.output(role); checkpoint("role_drain_after", roleRequest.role); break;
+                        }
                     }
                     metrics.addProperty("terminal_callback", true);
                     checkDeadline(deadline);
                     if (cancelAfterOutput) throw new Problem("cancel_not_observed");
                     generated = role.result(0);
+                } catch (Exception | Error failure) {
+                    roleProblem = failure; throw failure;
                 } finally {
-                    if (active && !drained) {
-                        try { role.cancel(); metrics.addProperty("cancel_called", true); drained = role.await(drainMs); }
-                        catch (Exception failure) { drained = false; }
+                    Throwable cleanupProblem = null;
+                    try {
+                        if (active && !drained) {
+                            try {
+                                cleanupCheckpoint("role_cancel_before", roleRequest.role);
+                                role.cancel(); metrics.addProperty("cancel_called", true);
+                                cleanupCheckpoint("role_cancel_after", roleRequest.role);
+                                cleanupCheckpoint("role_drain_before", roleRequest.role);
+                                drained = role.await(drainMs);
+                                if (drained) cleanupCheckpoint("role_drain_after", roleRequest.role);
+                            }
+                            catch (Exception failure) { drained = false; }
+                        }
+                        if (active && !drained) throw new WarmRunner.Undrained();
+                        if (active && drained) { observer.output(role); observer.terminal(role); }
+                    } catch (Exception | Error failure) {
+                        cleanupProblem = failure;
+                        if (roleProblem != null && roleProblem != failure) failure.addSuppressed(roleProblem);
+                        throw failure;
+                    } finally {
+                        if (active && !drained) modelOwned = false;
+                        else {
+                            // Optional diagnostic Errors must never bypass known-owner closure.
+                            metrics.addProperty("terminal_callback", true);
+                            cleanupCheckpoint("role_close_before", roleRequest.role);
+                            try { role.close(); }
+                            catch (Exception | Error failure) {
+                                modelOwned = false; WarmRunner.Undrained unknown = new WarmRunner.Undrained();
+                                unknown.addSuppressed(failure);
+                                if (cleanupProblem != null) unknown.addSuppressed(cleanupProblem);
+                                else if (roleProblem != null) unknown.addSuppressed(roleProblem);
+                                throw unknown;
+                            }
+                            cleanupCheckpoint("role_close_after", roleRequest.role);
+                        }
                     }
-                    if (active && !drained) { modelOwned = false; throw new WarmRunner.Undrained(); }
-                    metrics.addProperty("terminal_callback", true);
-                    try { role.close(); }
-                    catch (Exception failure) { modelOwned = false; throw new WarmRunner.Undrained(); }
                 }
+                if (checkpointFailure != null) throw checkpointFailure;
                 checkDeadline(deadline);
                 copyGeneration(currentGeneration, generated, roleRequest, generationStarted);
                 if (!generated.has("text") || !generated.get("text").isJsonPrimitive() ||
@@ -183,9 +262,11 @@ final class PlayRunner {
                     if (generated.has(field) && !generated.get(field).isJsonNull()) addMetric("play_" + field, generated.get(field).getAsDouble());
                 }
                 currentGeneration = null;
+                checkpoint("native_respond_before", roleRequest.role);
                 data(probe.respond(ticket, bytes), "respond");
+                checkpoint("native_respond_after", roleRequest.role);
             }
-        } catch (Exception failure) {
+        } catch (Exception | Error failure) {
             problem = failure;
             // open() can have allocated a Conversation whose cleanup failed before returning it.
             if (failure instanceof WarmRunner.Undrained) modelOwned = false;
@@ -198,8 +279,14 @@ final class PlayRunner {
             catch (Exception ignored) { /* Joining/closing below remains mandatory. */ }
         } finally {
             if (model != null && modelOwned) {
+                cleanupCheckpoint("model_close_before", "none");
                 try { model.close(); }
-                catch (Exception failure) { modelOwned = false; problem = new WarmRunner.Undrained(); }
+                catch (Exception | Error failure) {
+                    modelOwned = false; WarmRunner.Undrained unknown = new WarmRunner.Undrained();
+                    if (problem != null) unknown.addSuppressed(problem);
+                    if (failure != problem) unknown.addSuppressed(failure); problem = unknown;
+                }
+                if (modelOwned) cleanupCheckpoint("model_close_after", "none");
             }
             if (future != null) {
                 try { terminal = future.get(drainMs, TimeUnit.MILLISECONDS); joined = true; }
@@ -208,7 +295,7 @@ final class PlayRunner {
                     if (problem == null) problem = failure.getCause() instanceof Exception
                         ? (Exception) failure.getCause() : new Problem("runtime_failed");
                 } catch (Exception failure) {
-                    try { probe.close(); } catch (Exception ignored) { }
+                    try { probe.close(); } catch (Exception | Error ignored) { }
                     try { terminal = future.get(drainMs, TimeUnit.MILLISECONDS); joined = true; }
                     catch (Exception stillRunning) { joined = false; }
                     problem = new WarmRunner.Undrained();
@@ -221,10 +308,23 @@ final class PlayRunner {
             }
             if (!modelOwned || !joined || problem instanceof WarmRunner.Undrained) {
                 metrics.addProperty("cleanup_requires_process_termination", true);
-                throw new WarmRunner.Undrained();
+                WarmRunner.Undrained undrained = new WarmRunner.Undrained();
+                if (problem != null) undrained.addSuppressed(problem);
+                if (checkpointFailure != null && checkpointFailure != problem) undrained.addSuppressed(checkpointFailure);
+                throw undrained;
             }
             result.addProperty("owner_drained", true);
             result.addProperty("model_initialized", initialized);
+        }
+
+        if (problem instanceof Error) {
+            if (checkpointFailure != null && checkpointFailure != problem) problem.addSuppressed(checkpointFailure);
+            throw (Error) problem;
+        }
+        if (checkpointFailure != null) {
+            if (problem != null && problem != checkpointFailure && !Arrays.asList(checkpointFailure.getSuppressed()).contains(problem))
+                checkpointFailure.addSuppressed(problem);
+            throw checkpointFailure;
         }
 
         if (problem != null) {
@@ -236,7 +336,11 @@ final class PlayRunner {
             String phase = string(terminal.get("phase"));
             if (phase.equals("ready")) {
                 if (!before.equals(snapshot())) throw new Problem("runtime_failed");
+                checkpoint("native_commit_before", "none");
                 JsonObject committed = data(probe.call(scoped("commit", request)), "commit");
+                // A failed post-commit checkpoint cannot roll back accepted canon.
+                // Propagate uncertainty; do not retry or report unchanged progress.
+                checkpoint("native_commit_after", "none");
                 verifyTurn(committed, request);
                 if (!string(committed.get("phase")).equals("committed")) throw new Problem("runtime_failed");
                 JsonObject receipt = committed.getAsJsonObject("receipt");
@@ -260,7 +364,9 @@ final class PlayRunner {
         result.addProperty("revision_after", integer(after.get("revision")));
         result.addProperty("receipts_after", after.getAsJsonArray("receipts").size());
         result.addProperty("canon_unchanged", before.equals(after));
+        checkpoint("native_reopen_before", "none");
         probe.close(); probe.reopen();
+        checkpoint("native_reopen_after", "none");
         JsonObject resumed = new JsonObject(); resumed.addProperty("op", "resume"); resumed.add("scope", scope.deepCopy());
         attach(data(probe.call(resumed), "resume"));
         if (!after.equals(snapshot())) throw new Problem("runtime_failed");
@@ -271,6 +377,19 @@ final class PlayRunner {
         }
         result.addProperty("reopen_equal", true);
         return result;
+    }
+
+    private synchronized void checkpoint(String phase, String role) throws IOException {
+        if (checkpointFailure != null) throw checkpointFailure;
+        try { checkpoints.mark(phase, role); }
+        catch (IOException | RuntimeException failure) {
+            checkpointFailure = new IOException("phase_checkpoint_failed");
+            throw checkpointFailure;
+        }
+    }
+    private void cleanupCheckpoint(String phase, String role) {
+        try { checkpoint(phase, role); }
+        catch (IOException ignored) { /* Mandatory drain/close must still execute. */ }
     }
 
     private void checkRole(JsonObject result, Request request) throws Exception {
@@ -327,7 +446,7 @@ final class PlayRunner {
     }
     private static void checkDeadline(long deadline) throws Exception { if (System.nanoTime() >= deadline) throw new Problem("timeout"); }
     private static String safeError(String value) { return ERRORS.contains(value) ? value : "runtime_failed"; }
-    private static String category(Exception failure) {
+    private static String category(Throwable failure) {
         if (failure instanceof Problem) return safeError(((Problem) failure).category);
         if (failure instanceof HostRejected) return safeError(((HostRejected) failure).category);
         if (failure instanceof WarmRunner.Failure) return safeError(((WarmRunner.Failure) failure).category);
@@ -358,7 +477,40 @@ final class PlayRunner {
         JsonObject row = new JsonObject(); row.addProperty("role", role); row.addProperty("status", "error"); setError(row, null);
         for (String key : Arrays.asList("load_ms", "generation_ms", "input_tokens", "output_tokens")) row.add(key, JsonNull.INSTANCE);
         for (String key : Arrays.asList("schema_enforced", "thinking_disabled", "template_applied")) row.addProperty(key, false);
+        row.addProperty("output_observation", "unknown"); row.add("first_output_elapsed_ms", JsonNull.INSTANCE);
+        row.add("terminal_observation", JsonNull.INSTANCE);
         return row;
+    }
+    /** Optional observations never decide cancellation, acceptance or owner cleanup. */
+    private static final class RoleObserver {
+        final JsonObject row, turn;
+        long started;
+        boolean seen, unknown;
+        RoleObserver(JsonObject row, JsonObject turn) { this.row = row; this.turn = turn; }
+        void output(WarmRunner.Role role) {
+            try {
+                Boolean output = role.observeOutput();
+                if (output == null) unknown = true;
+                else if (output) positive();
+            } catch (Exception | LinkageError unavailable) { unknown = true; }
+            row.addProperty("output_observation", seen ? "observed" : unknown ? "unknown" : "not_observed");
+        }
+        void positive() {
+            if (!seen) {
+                seen = true;
+                row.addProperty("first_output_elapsed_ms", Math.max(0, Math.min(180000, elapsed(started))));
+            }
+            turn.addProperty("first_output_observed", true); row.addProperty("output_observation", "observed");
+        }
+        void terminal(WarmRunner.Role role) {
+            try {
+                RoleObservation observation = role.observeTerminal();
+                if (observation != null) {
+                    row.add("terminal_observation", observation.toJson());
+                    if (observation.bufferedTextBytes > 0) positive();
+                }
+            } catch (Exception | LinkageError unavailable) { /* Optional metadata cannot replace a primary failure or skip cleanup. */ }
+        }
     }
     private static void copyGeneration(JsonObject row, JsonObject generated, Request request, long started) throws Exception {
         if (!string(generated.get("status")).equals("completed") || !generated.get("error").isJsonNull())

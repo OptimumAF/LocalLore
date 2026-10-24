@@ -471,7 +471,7 @@ pub fn validate_archive(bytes: &[u8], cancel: &dyn Fn() -> bool) -> Result<Valid
         || payload.domain_version != VERSION
         || !(1..=SCHEMA_VERSION).contains(&payload.source_database_schema_version)
         || envelope.version == ARCHIVE_VERSION
-            && !(3..=4).contains(&payload.source_database_schema_version)
+            && !(3..=5).contains(&payload.source_database_schema_version)
         || payload.story.seed.version != VERSION
         || payload.transcript != TRANSCRIPT
     {
@@ -672,6 +672,11 @@ impl Store {
                     branch: id.clone(),
                 };
                 let engine = turns::read_engine_retained(&tx, &scope)?.engine;
+                // V1/V2 exports cannot silently omit private author records.
+                // The mixed-ledger archive3 adapter is a separate required gate.
+                if engine.domain_version() != 1 {
+                    return Err(ArchiveError::Unsupported);
+                }
                 for receipt in engine
                     .receipts()
                     .iter()

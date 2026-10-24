@@ -495,19 +495,19 @@ fn composite_foreign_keys_reject_cross_story_branch_turn_and_observer_references
     ));
     for (story, branch) in [("first", "first-root"), ("second", "second-root")] {
         raw.execute(
-            "INSERT INTO turns VALUES (?1,?2,'same-turn',0,'committed','{}','{}')",
+            "INSERT INTO turns(story_id,branch_id,turn_id,expected_revision,status,request_json,response_json) VALUES (?1,?2,'same-turn',0,'committed','{}','{}')",
             params![story, branch],
         )
         .unwrap();
         raw.execute(
-            "INSERT INTO accepted_events VALUES (?1,?2,1,'same-turn',1,'{}')",
+            "INSERT INTO accepted_events(story_id,branch_id,sequence,turn_id,event_version,envelope_json) VALUES (?1,?2,1,'same-turn',1,'{}')",
             params![story, branch],
         )
         .unwrap();
     }
-    raw.execute("INSERT INTO turns VALUES ('second','second-root','second-only-turn',0,'committed','{}','{}')", []).unwrap();
+    raw.execute("INSERT INTO turns(story_id,branch_id,turn_id,expected_revision,status,request_json,response_json) VALUES ('second','second-root','second-only-turn',0,'committed','{}','{}')", []).unwrap();
     assert_fk(raw.execute(
-        "INSERT INTO accepted_events VALUES ('first','first-root',2,'second-only-turn',1,'{}')",
+        "INSERT INTO accepted_events(story_id,branch_id,sequence,turn_id,event_version,envelope_json) VALUES ('first','first-root',2,'second-only-turn',1,'{}')",
         [],
     ));
     raw.execute(

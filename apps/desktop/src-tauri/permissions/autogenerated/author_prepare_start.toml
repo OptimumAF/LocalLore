@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-author-prepare-start"
+description = "Enables the author_prepare_start command without any pre-configured scope."
+commands.allow = ["author_prepare_start"]
+
+[[permission]]
+identifier = "deny-author-prepare-start"
+description = "Denies the author_prepare_start command without any pre-configured scope."
+commands.deny = ["author_prepare_start"]

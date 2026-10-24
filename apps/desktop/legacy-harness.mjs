@@ -151,7 +151,7 @@ for (const stage of ["initial", "restart"]) {
     );
     assert.equal(verified.backup_count, 1);
     assert.equal(verified.backup.schema_version, 1);
-    assert.equal(verified.live.schema_version, 4);
+    assert.equal(verified.live.schema_version, 5);
     for (const value of [verified.live, verified.backup]) {
         assert.equal(value.canonical_sha256, seeded.canonical_sha256);
         assert.equal(value.receipt_sha256, seeded.receipt_sha256);
@@ -167,7 +167,7 @@ for (const stage of ["initial", "restart"]) {
     verification.push({ stage, report: verified });
 }
 checks.push(
-    "actual-app-migrates-v1-to-v4-with-one-readonly-v1-backup",
+    "actual-app-migrates-v1-to-v5-with-one-readonly-v1-backup",
     "migration-and-restart-retain-exact-original-canonical-state-and-receipt",
     "restart-retains-same-backup-bytes-and-no-extra-backup",
     "readonly-backup-verification-does-not-mutate-any-database",

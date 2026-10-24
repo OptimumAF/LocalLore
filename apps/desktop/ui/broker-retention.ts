@@ -137,6 +137,7 @@ interface AuthorChecks {
     admission: boolean;
     validating: number;
     fault: boolean;
+    transportUnknown: boolean;
 }
 export class BrokerRetention {
     private retained: Retained | null = null;
@@ -245,6 +246,7 @@ export class BrokerRetention {
             admission: true,
             validating: 0,
             fault: false,
+            transportUnknown: false,
         };
         this.authorChecks.set(selected, checks);
         this.retained = owner;
@@ -295,7 +297,7 @@ export class BrokerRetention {
         // A rejected transport is no native terminal result. Retain the exact
         // owner/ID and keep uncertainty sticky until explicit acknowledgement.
         const checks = this.authorChecks.get(owner)!;
-        checks.fault = true;
+        checks.transportUnknown = true;
         this.patch({ unknown: true, consumed: false });
     }
     private async recordAuthor(
@@ -324,12 +326,13 @@ export class BrokerRetention {
             );
             if (!this.sameAuthor(owner)) return;
             if (this.retained!.terminal && status.running) return;
+            if (!status.running) checks.transportUnknown = false;
             // Faults are sticky for this reservation; a panel reset or later partial
             // update does not prove the original private completion was valid.
             this.patch({
                 operation: status.operation_id,
                 terminal: !status.running,
-                unknown: checks.fault,
+                unknown: checks.fault || checks.transportUnknown,
             });
         } catch {
             checks.fault = true;

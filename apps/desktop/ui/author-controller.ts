@@ -140,12 +140,17 @@ export class AuthorController {
                 !this.disposed &&
                 this.key ===
                     (context
-                        ? JSON.stringify(checkedAuthorContext(context))
+                        ? this.contextKey(checkedAuthorContext(context))
                         : "none")
             );
         } catch {
             return false;
         }
+    }
+    private contextKey(context: AuthorContext) {
+        // Broker uncertainty gates fresh actions; it does not change the
+        // captured selection whose exact native operation can still be read.
+        return JSON.stringify({ ...context, brokerUncertain: false });
     }
     private current(work: Work) {
         return (
@@ -172,8 +177,14 @@ export class AuthorController {
         } catch {
             /* Invalid context cannot grant author access. */
         }
-        const key = context ? JSON.stringify(context) : "none";
-        if (key === this.key) return;
+        const key = context ? this.contextKey(context) : "none";
+        if (key === this.key) {
+            if (context?.brokerUncertain !== this.context?.brokerUncertain) {
+                this.context = context;
+                this.patch({ available: authorAvailable(context) });
+            }
+            return;
+        }
         const oldRoot = this.context?.rootIncarnation;
         const sameRoot = !!context && oldRoot === context.rootIncarnation;
         const pending = this.state.busy || this.state.uncertain;

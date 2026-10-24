@@ -101,7 +101,7 @@ PR's evidence and does not make the D07 comparison an author/Domain2 corpus.
 | comparison_runner + memory_comparison_v2 terminal batch | Complete:9runner+3protocol passes above. Initial seven-pass partial output was not counted as a completed result. |
 | Current Core/Host fixture and full compatibility checks | Host4, shared743/10 ignored, evaluator15/1 ignored, strict shared/eval/native lint, frontend/format, native normal88/1 ignored, dev92/1 ignored+standalone2, normal build and fresh Android compatibility all passed. No runtime/UI/model execution is inferred from build/unit evidence. |
 | Genuine historical complete-cohort opening | Passed actual opt-in test at 4a36b72; see precise inventory/old-field boundary below. |
-| Real local-model current comparison | First actual native paired scene completed:12structural passes/24roles,1of4scenes. Same-run resume and rollout pending; quality not accepted. Exact partial cohort below. |
+| Real local-model current comparison | Source39c first paired scene passed12structural rows/24roles; same pinned run continues, quality not accepted. Independent review found prelude timing gaps; frozen clock regressions/fix and final-source rollout/appropriate paired confirmation remain required. |
 | Exact reproduction and environment | Completed commands below; fresh toolchain versions and terminal compatibility manifests recorded. Real-model command/result remains pending. The contract's suggested commands are not presented as executions. |
 
 ## Genuine historical read-only compatibility
@@ -268,6 +268,18 @@ checks are true, with no repairs/errors and maximum forwarded estimate3259.
 The process stderr is empty. These are finite partial actual-model observations;
 they do not qualify unexecuted scenes, rollout or statistical memory benefits.
 The same run is being resumed without retuning the original corpus or budgets.
+
+Before PR adoption, independent source review identified two timing/accounting
+gaps at this exact source: ComparisonSession::open performs reference copying,
+replay and checkpoint validation before Ledger.started; the turn watchdog
+creates a new Instant after Host/setup/free_text prelude. This can omit setup
+cost and extend the nominal turn interval by its prelude. **No observed
+overrun is claimed.** Outer process elapsed time, structural/privacy outcomes
+and raw evidence remain source-bound facts; they do not qualify the flawed
+accounting/deadline implementation. The pinned old paired run continues
+unchanged. Root will freeze clock regressions and correct that boundary,
+then run rollout and warranted paired confirmation at the corrected source,
+rather than attributing old timings or calls to the future fix.
 
 Quality remains **not accepted**. The coordinator observed generic forest
 narration unrelated to the actual Say utterance. A structural row pass is not

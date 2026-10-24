@@ -6,6 +6,10 @@ This report records source inspection separately from executed evidence. It is
 not owner acceptance, runtime selection, redistribution clearance or device
 qualification.
 
+The source and evidence sections follow the investigation in order. The early
+hard-link design is superseded by the final native-publication correction;
+the final host and Android sections describe the implemented result.
+
 ## Scope and primary sources
 
 The reviewer owns this report only in a separate branch/worktree based on
@@ -435,7 +439,7 @@ The new read-only settlement completed exit 0/known cleanup in 2,985 ms. The
 reviewer independently rehashed 35 files/106,929 bytes, zero mismatches; index
 SHA256 `9241369740d4829ef2175f60a23f89595bc91890cda2b7f635478010496e3bd2`.
 All nine raw records match their hashes/sizes and are exit 0/known cleanup with
-zero stderr. The sole LocalLore process observed was TEST PID 15828/UID 10240,
+zero stderr. The sole LocalLore process observed was the captured TEST host,
 matching fresh installed package UID. The complete 31-map matches the selected
 24f59ee6…/44b1e388… pair plus the unchanged 29, with 1,465,212,928 bytes
 available userdata. This contains no lifecycle action or ownership qualification.

@@ -2267,4 +2267,271 @@ mod forwarded_budget_tests {
         assert!(decoded.forwarded_director_estimates.is_none());
         assert_eq!(serde_json::to_value(decoded).unwrap(), old_row);
     }
+
+    // These fixtures originate in ONE actual existing Host/Store operation.
+    // Mutations affect only copied diagnostic values and their paired recording
+    // hashes, never canonical records, budgets, expected commands or providers.
+    struct ValidHostCaptureFixture {
+        before: Engine,
+        request: Request,
+        reply: Value,
+        captures: Vec<crate::Capture>,
+        profile: PlayProfile,
+        attempt: u32,
+    }
+    impl ValidHostCaptureFixture {
+        fn new(factory: LaneFactory) -> Self {
+            let directory = std::env::temp_dir().join(format!(
+                "locallore-forwarded-rehash-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            fs::create_dir(&directory).unwrap();
+            let corpus = suite().unwrap();
+            let before = Engine::new(corpus.seed().clone()).unwrap();
+            let step = &corpus.steps()[0];
+            let request = step.request(&before);
+            let profile = factory.profile().unwrap();
+            let manifest = RunManifest::new(
+                ComparisonKind::ContinuousRollout,
+                profile.clone(),
+                false,
+                None,
+            )
+            .unwrap();
+            let binding = manifest.stable_key().unwrap();
+            let path = directory.join("synthetic.sqlite");
+            ensure_database(&path, corpus.seed(), &[]).unwrap();
+            let mut ledger = Ledger::load(&directory, &binding).unwrap();
+            ledger.begin_invocation().unwrap();
+            let turn = execute_turn(
+                TurnJob {
+                    dir: &directory,
+                    path: &path,
+                    index: 0,
+                    arm: "left",
+                    policy: ContextPolicy::StateRelevantMemoryV1,
+                    binding: &binding,
+                    step,
+                    factory: &factory,
+                    cancel: &Cancellation::default(),
+                },
+                &mut ledger,
+            )
+            .unwrap();
+            ledger.finish().unwrap();
+            assert_eq!(turn.row.phase, "committed");
+            assert!(turn.row.passed);
+            let reply: Value = decode(
+                &directory.join(turn.capture_file.as_ref().unwrap()),
+                v2::MAX_PRIVATE_CAPTURE + 4096,
+            )
+            .unwrap();
+            let recording: RecordingFile = decode(
+                &directory.join(turn.recording_file.as_ref().unwrap()),
+                64 * 1024,
+            )
+            .unwrap();
+            let attempt = u32::try_from(
+                reply["data"]["details"]["identity"]["attempt"]
+                    .as_u64()
+                    .unwrap(),
+            )
+            .unwrap();
+            let fixture = Self {
+                before,
+                request,
+                reply,
+                captures: recording.captures,
+                profile,
+                attempt,
+            };
+            fixture.assert_transport_bounds_and_recording_hashes();
+            assert!(
+                fixture.checked().is_ok(),
+                "actual original capture must be valid"
+            );
+            fixture
+        }
+        fn checked(&self) -> Result<CapturedContext> {
+            CapturedContext::from_host_capture(
+                &self.before,
+                &self.request,
+                self.attempt,
+                &self.reply,
+                &self.captures,
+                &self.profile,
+                Some(1),
+            )
+        }
+        fn rejection(&self) -> String {
+            match self.checked() {
+                Err(error) => error,
+                Ok(_) => panic!("mutated current capture unexpectedly passed"),
+            }
+        }
+        fn director(&self, ordinal: usize) -> &Value {
+            self.reply["data"]["details"]["artifacts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|a| {
+                    a["kind"] == "generation_request" && a["value"]["input"]["role"] == "director"
+                })
+                .nth(ordinal)
+                .map(|a| &a["value"])
+                .unwrap()
+        }
+        fn director_mut(&mut self, ordinal: usize) -> &mut Value {
+            self.reply["data"]["details"]["artifacts"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .filter(|a| {
+                    a["kind"] == "generation_request" && a["value"]["input"]["role"] == "director"
+                })
+                .nth(ordinal)
+                .map(|a| &mut a["value"])
+                .unwrap()
+        }
+        fn change_prompt_with_matching_recording_hash(&mut self, ordinal: usize, prompt: String) {
+            let value = self.director(ordinal);
+            let old_prompt = digest(value["input"]["prompt"].as_str().unwrap().as_bytes());
+            let schema = digest(&encode(&value["input"]["schema"]).unwrap());
+            let index = self
+                .captures
+                .iter()
+                .position(|c| {
+                    c.role == "director"
+                        && c.prompt_sha256 == old_prompt
+                        && c.schema_sha256 == schema
+                })
+                .unwrap();
+            self.captures[index].prompt_sha256 = digest(prompt.as_bytes());
+            self.director_mut(ordinal)["input"]["prompt"] = json!(prompt);
+        }
+        fn change_schema_with_matching_recording_hash(&mut self, ordinal: usize, schema: Value) {
+            let value = self.director(ordinal);
+            let prompt = digest(value["input"]["prompt"].as_str().unwrap().as_bytes());
+            let old_schema = digest(&encode(&value["input"]["schema"]).unwrap());
+            let index = self
+                .captures
+                .iter()
+                .position(|c| {
+                    c.role == "director"
+                        && c.prompt_sha256 == prompt
+                        && c.schema_sha256 == old_schema
+                })
+                .unwrap();
+            self.captures[index].schema_sha256 = digest(&encode(&schema).unwrap());
+            self.director_mut(ordinal)["input"]["schema"] = schema;
+        }
+        fn assert_transport_bounds_and_recording_hashes(&self) {
+            assert!(encode(&self.reply).unwrap().len() <= v2::MAX_PRIVATE_CAPTURE + 4096);
+            let artifacts = self.reply["data"]["details"]["artifacts"]
+                .as_array()
+                .unwrap();
+            assert!(artifacts.len() <= 16);
+            assert!(encode(artifacts).unwrap().len() <= v2::MAX_PRIVATE_CAPTURE);
+            for artifact in artifacts {
+                assert!(encode(artifact).unwrap().len() <= 49_152 + 128);
+                if artifact["kind"] != "generation_request" {
+                    continue;
+                }
+                let value = &artifact["value"];
+                let prompt = value["input"]["prompt"].as_str().unwrap();
+                let schema = encode(&value["input"]["schema"]).unwrap();
+                assert!(prompt.len() <= 32000);
+                assert!(schema.len() <= MAX_PROPOSAL_BYTES);
+                assert!(
+                    self.captures.iter().any(|capture| {
+                        capture.turn == self.request.turn
+                            && capture.role == value["input"]["role"].as_str().unwrap()
+                            && capture.prompt_sha256 == digest(prompt.as_bytes())
+                            && capture.schema_sha256 == digest(&schema)
+                    }),
+                    "every actual role must retain matching recording hashes"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn rehashed_actual_prompt_suffix_outside_context_json_is_rejected_by_combined_budget() {
+        let mut fixture = ValidHostCaptureFixture::new(LaneFactory::ScriptedBaseline);
+        let original = fixture.director(0)["input"]["prompt"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let expanded = format!("{original}{}", "x".repeat(12000));
+        let schema_bytes = encode(&fixture.director(0)["input"]["schema"])
+            .unwrap()
+            .len();
+        assert!(expanded.len() <= 32000);
+        assert!((expanded.len() + schema_bytes + 114).div_ceil(4) + 350 + 162 > 4096);
+        // Padding is after the original prompt, so its embedded ContextJSON and
+        // actual eligible selected-record projection remain unchanged.
+        fixture.change_prompt_with_matching_recording_hash(0, expanded);
+        fixture.assert_transport_bounds_and_recording_hashes();
+        assert_eq!(fixture.rejection(), "CaptureForwardedBudget");
+    }
+
+    #[test]
+    fn rehashed_actual_schema_below_byte_cap_is_rejected_by_combined_budget() {
+        let mut fixture = ValidHostCaptureFixture::new(LaneFactory::ScriptedBaseline);
+        let mut schema = fixture.director(0)["input"]["schema"].clone();
+        schema["x-budget-padding"] = json!("");
+        let unpadded = encode(&schema).unwrap().len();
+        assert!(unpadded < 15000);
+        schema["x-budget-padding"] = json!("s".repeat(15000 - unpadded));
+        let padded_bytes = encode(&schema).unwrap().len();
+        assert_eq!(padded_bytes, 15000);
+        assert!(padded_bytes < MAX_PROPOSAL_BYTES);
+        let prompt_bytes = fixture.director(0)["input"]["prompt"]
+            .as_str()
+            .unwrap()
+            .len();
+        assert!((prompt_bytes + 15000 + 114).div_ceil(4) + 350 + 162 > 4096);
+        fixture.change_schema_with_matching_recording_hash(0, schema);
+        fixture.assert_transport_bounds_and_recording_hashes();
+        assert_eq!(fixture.rejection(), "CaptureForwardedBudget");
+    }
+
+    #[test]
+    fn actual_request_output351_is_rejected_before_estimate_metadata() {
+        let mut fixture = ValidHostCaptureFixture::new(LaneFactory::ScriptedBaseline);
+        fixture.director_mut(0)["budget"]["max_output_tokens"] = json!(351);
+        fixture.assert_transport_bounds_and_recording_hashes();
+        assert_eq!(fixture.rejection(), "CaptureBinding");
+    }
+
+    #[test]
+    fn rehashed_actual_second_director_extra_whitespace_is_rejected_as_invalid_repair() {
+        let mut fixture =
+            ValidHostCaptureFixture::new(LaneFactory::TestFault(TestFault::MalformedRepair));
+        assert_eq!(
+            fixture
+                .captures
+                .iter()
+                .filter(|c| c.role == "director")
+                .count(),
+            2
+        );
+        assert_eq!(fixture.captures.len(), 3);
+        let initial = fixture.director(0)["input"]["prompt"].as_str().unwrap();
+        let repair = fixture.director(1)["input"]["prompt"].as_str().unwrap();
+        assert!(locallore::play::director_repair_matches_v25(
+            initial, repair
+        ));
+        let expanded = format!("{repair} ");
+        assert!(!locallore::play::director_repair_matches_v25(
+            initial, &expanded
+        ));
+        fixture.change_prompt_with_matching_recording_hash(1, expanded);
+        fixture.assert_transport_bounds_and_recording_hashes();
+        assert_eq!(fixture.rejection(), "CaptureRepairMismatch");
+    }
 }

@@ -13,7 +13,8 @@ pub enum ContextPolicy {
 }
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct ConstructionDiagnostics {
-    /// Actual eligible whole units; no hidden/author/partial-player receipts.
+    /// Whole units constructed for this policy, excluding hidden/author/partial
+    /// player receipts. Relevant's zero means not constructed, not no history.
     pub eligible_transcript_units: usize,
     pub overlap_transcript_units: usize,
     pub selected_transcript_units: usize,

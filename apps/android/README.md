@@ -140,17 +140,26 @@ positive removable-filesystem compatibility remains blocked.
 Real-model copies and SDK execution require their own admission; the flag does
 not discharge existing device/runtime holds.
 
-An independent [receipt transaction host proof](../../docs/native/MODEL_RECEIPT_CONTRACT.md)
-explores exclusive creation plus an empty acceptance marker, with no rename or
-overwrite. It is unwired to both setup routes and the SDK. Its JVM tests cover
-pending recovery, explicit discard, ownership, cancellation and child-process
-death. The explicit volume debug profile now includes an isolated Android
-receipt fixture and private child service; ordinary and regular SDK builds
+A separate [receipt transaction](../../docs/native/MODEL_RECEIPT_CONTRACT.md)
+uses exclusive creation plus an empty acceptance marker, with no rename or
+overwrite. Its JVM tests cover pending recovery, explicit discard, ownership,
+cancellation and child-process death. The volume debug profile includes an
+isolated fixture and private child service; ordinary and regular SDK builds
 exclude them. Its first emulator cohort passed three methods and failed the
-process-death method. The corrected service passes host checks, while a fresh
-v2 run is blocked by staging headroom above unchanged floors. It remains
-unwired to setup and the SDK. See [actual checks and limits](../../docs/native/MODEL_RECEIPT_ANDROID_VERIFICATION_2026-10-24.md)
-and proposed [ADR0011](../../docs/adr/0011-model-receipt-transaction.md).
+process-death method; a separately admitted fresh target subsequently passed
+[all four methods](../../docs/native/RECEIPT_FRESH_TARGET_VERIFICATION_2026-10-24.md).
+The earlier failure and held targets remain preserved.
+
+The additional `-PlocalLoreModelReceiptVerification=true` flag requires all three
+LiteRT/setup/volume flags and selects receipt-backed setup in `build-model-receipt`.
+It retains the isolated `.modelvolumeverify` package, fixed real candidate identity
+and unchanged worker. Only this explicit flag selects the new trusted Context
+roots; existing publication roots refuse, without migration or fallback. Use a
+separately admitted fresh target. Audit with the existing volume options plus
+`--model-receipt-verification`. See the [setup contract](../../docs/native/RECEIPT_SETUP_CONTRACT.md),
+[qualification](../../docs/native/RECEIPT_SETUP_VERIFICATION_2026-10-24.md) and proposed
+[ADR0011](../../docs/adr/0011-model-receipt-transaction.md). Synthetic setup tests
+do not qualify real-model copies, DocumentsUI or SDK inference.
 
 The additional `-PlocalLoreModelPickerVerification=true` flag requires both
 candidate flags above and selects the separate `.modelpickerverify` debug

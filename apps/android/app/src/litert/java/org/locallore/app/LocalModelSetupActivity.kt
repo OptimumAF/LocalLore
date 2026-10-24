@@ -43,6 +43,8 @@ import java.io.IOException
 /** Only the explicit SDK candidate has this launcher. Intent extras never select a model/profile. */
 open class LocalModelSetupActivity : ComponentActivity() {
     private lateinit var model: LocalModelSetupViewModel
+    /** Internal subclasses share the actual lifecycle controller; no Intent selects its inputs. */
+    internal val setupController: LocalModelSetupViewModel get() = model
     private val picker = registerForActivityResult(object : ActivityResultContracts.OpenDocument() {
         override fun createIntent(context: Context, input: Array<String>): Intent =
             super.createIntent(context, input)

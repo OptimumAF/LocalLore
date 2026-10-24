@@ -1,7 +1,7 @@
 # ADR-0011: Prove model publication through an exclusive acceptance receipt
 
-Status: proposed, host proof and partial Android checks; complete Android
-qualification and owner acceptance pending.
+Status: proposed; host and synthetic Android transaction checks recorded.
+Explicit debug setup integration is under qualification; owner acceptance pending.
 Refs #9 (M05.05 prerequisite), #5 (M01.05 supporting).
 
 ## Context
@@ -18,7 +18,7 @@ never gameplay authority. No change to Rust canonical history is involved.
 
 ## Proposed decision
 
-Implement an unwired Kotlin/JVM transaction proof, with two trusted, disjoint
+Implement a Kotlin/JVM transaction, initially unwired, with two trusted, disjoint
 roots. Write model bytes exactly once using exclusive creation. Force a bounded
 exact receipt and a data ownership record; verify the complete model and create
 an empty acceptance marker exclusively, last. Readers require the marker,
@@ -57,11 +57,11 @@ transaction. File locks protect cooperating processes; filesystem behavior must
 be tested on the actual target. [FileChannel](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/channels/FileChannel.html),
 [FileLock](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/channels/FileLock.html).
 
-This proof uses existing pinned dependencies. It changes no candidate selector,
-Compose flow, Context adapter, SDK admission, manifest, model identity, volume
-pin, cache privacy policy or canonical storage. ADR0010 and the existing native
-publication contract remain in force for all current routes. This is a proposed
-alternative, not a fallback following a refused rename.
+The transaction uses existing pinned dependencies. The initial proof changed no
+active candidate selector. The later explicit debug integration described below
+keeps model identity, volume pins, cache privacy policy and canonical storage.
+ADR0010 and the native publication contract remain in force for profiles without
+the new opt-in flag. A refused rename never selects the receipt route automatically.
 
 ## Acceptance before integration
 
@@ -84,3 +84,37 @@ v2 run is blocked by APK staging headroom above unchanged userdata floors.
 Read-only recovery verified three historical proofs and current quiet package
 state, not process-death acceptance. No active setup route or fallback changed.
 See [actual verification and remaining gates](../native/MODEL_RECEIPT_ANDROID_VERIFICATION_2026-10-24.md).
+
+## Fresh transaction qualification and explicit setup integration
+
+The separately admitted fresh target subsequently passed all four synthetic
+Android transaction methods, including the corrected child-process lock/death
+case. Its exact retained results and limits are in [PR146](https://github.com/OptimumAF/LocalLore/pull/146)
+and the [fresh-target report](../native/RECEIPT_FRESH_TARGET_VERIFICATION_2026-10-24.md).
+That result does not erase the earlier failure or qualify existing held targets.
+
+The next bounded experiment selects receipt access only with explicit
+`localLoreModelReceiptVerification=true` plus the existing LiteRT, setup and
+volume verification flags. Fixed Context-derived control/data children remain
+separate from all previous model roots; any prior removable candidate root
+refuses. No adoption, migration, automatic retry or fallback follows a rename
+failure. The ordinary application and other debug routes keep their existing
+publication behavior.
+
+The [setup contract](../native/RECEIPT_SETUP_CONTRACT.md) narrows access to pure
+path planning, full-hash import/reopen and IO-only runtime admission. The same
+transaction core owns exact metadata parsing, global reservation and persistent
+OS lock. A verification stamp becomes available only after successful full
+verification and return of all source/channel/lock closes; failure or cancellation
+clears it. Runtime checks require current accepted structure and matching file
+identity/size/modified metadata. Cache child writes remain opaque. The unchanged
+worker still full-hashes the candidate before SDK construction and rechecks
+admission at later resource boundaries. Metadata admission does not attest model
+bytes against a hostile concurrent writer.
+
+The [qualification protocol](../native/RECEIPT_SETUP_PROTOCOL.md) requires actual
+production Compose controller cancellation/drain and a separate-process reopen,
+using original synthetic bytes and a fresh isolated target. A direct source
+callback does not qualify DocumentsUI, model transfer or SDK inference. Full
+real-model, cache/privacy, phone, ARM64/16 KiB, power-loss and sustained gates
+remain separate. This opt-in experiment is not a production backend selection.

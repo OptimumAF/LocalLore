@@ -2,7 +2,8 @@
 
 Refs #9 (M05.05 prerequisite), #5 (M01.05 supporting). This slice builds on
 the unmerged candidate-volume experiment in PR #141. It introduces no runtime,
-dependency, JNI symbol, syscall, storage destination, or publication fallback.
+dependency, JNI symbol, syscall, candidate/runtime storage destination, or
+publication fallback. Its new synthetic sibling is a test destination only.
 
 `NativeModelPublication.publish(File)` retains its original signature and fixed
 failure behavior. An internal overload accepts a trusted observer that receives
@@ -31,6 +32,12 @@ prove that a particular filesystem lacks support. IO_FAILURE combines directory
 open failure, other rename errors, and a caught native panic. These categories
 are deliberately narrower evidence than an errno, syscall trace, or root cause.
 The implementation of those native codes and `RENAME_NOREPLACE` is unchanged.
+
+The official Android 15 [Bionic header](https://raw.githubusercontent.com/aosp-mirror/platform_bionic/android-15.0.0_r1/libc/include/stdio.h)
+declares the wrapper at API 30; its [symbol map](https://raw.githubusercontent.com/aosp-mirror/platform_bionic/android-15.0.0_r1/libc/libc.map.txt)
+places it in LIBC_R. The installed pinned NDK 29 header agrees. This source
+check confirms the existing compatibility assumption, not actual symbol
+resolution or filesystem support in an executing app. No dependency changes.
 
 Pure JVM tests check all five existing codes, unknown integer boundaries,
 unchanged redacted failures, default observation, and observation ordering. They

@@ -184,3 +184,50 @@ read-only lookup. Root must execute unchanged RED/GREEN, reuse the same existing
 closed error set, restore normal frontend, and record the final native cohort
 before PR acceptance. No full M07/D07, model-quality, Android/device, hosted CI,
 final packaging/reproducibility or release acceptance is supplied.
+
+## Final desktop slice qualification
+
+The two Fork-category cases above actually ran at a0eab86: **1 passed /1 failed**.
+The failed assertion was retained global uncertainty for the unknown category;
+known Cancelled/recovery passed. Repair ea03f72 exports one predicate backed by
+ForkController's existing closed error set and reuses it in BrokerRetention.
+No native error category, canonical rule or cancellation meaning changed. Both
+unchanged tests and the full frontend verifier passed afterward, and the new
+checker is included in routine verification.
+
+Final clean executable/frontend source:
+`ea03f724ede6672ad147f93d4f1d052dfc495a28` (accepted main5e18015 included).
+Native cohort `memory-native-d273571f-9fd2-4a9c-96d6-a362cd649545` passed
+**113 distinct assertions /14 application-owned native WebView2 captures /
+two app processes**; four runner children exit0. Summary SHA-256:
+`7432eb86f46654cec39c7a513fe2e54a53c7ced82a041de2186df24aa2c689e0`.
+Native executable SHA-256:
+`63c2a391f4f32d9de3e154fbfe321a6db294e5d8385690c26434148162068e91`.
+Root opened all14 final PNGs, rechecked capture/snapshot revisions and all recorded
+source/executable hashes. The development frontend hash remains recorded in the
+summary; the current dist file was deliberately replaced by the normal build.
+The same coherent scope/revision/pending/receipt/error/observer and layout checks
+reported above passed inspection, including other-story head0/no receipt,
+Sable facts={} and observations=[], and completed1-of1 after restart/reread.
+Initial107 check entries and restart20 overlap; they are113 distinct assertions.
+Initial buffer exactly2 expected native Cancelled/restart0; no frontend errors.
+Both app stderr logs retain one shutdown1412 diagnostic, exit0. No model call,
+device run, desktop capture/input or power-loss claim.
+
+Normal frontend was restored with the full verifier after this final cohort:
+strict TypeScript/schema, all routine controller/mock suites and development-hook
+exclusion PASS. Normal dist/app.js SHA-256:
+`604ec37bceaa5a50bd60d094933ba32cab32dc759a576278a49ee03dc247f046`.
+Final local logs: fork-category-red.log, fork-category-full-green.log,
+category-native-final.log and normal-final.log in memory-controls-artifacts.
+No source or artifact outside the task-owned worktrees/targets was controlled.
+
+The normal65/native-development69+2-contract and strict Rust checks atccff2fa
+remain applicable: `git diff --exit-code ccff2fa HEAD -- apps/desktop/src-tauri`
+is0 at this final source. Shared Rust and Android source have no changes in this
+desktop slice; accepted Android fork PR124 carries its182-JVM/compiled-APK/lint
+compatibility evidence. Android device/framework execution remains unavailable.
+Original source-only handoff reports are historical; this coordinator report
+records which tests were actually executed and supersedes their unrun status.
+This qualifies only explicit desktop shared-memory maintenance and retained
+broker presentation, not the full M07/D07/D08/D09 milestones or a release.

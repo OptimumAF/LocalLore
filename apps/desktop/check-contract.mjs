@@ -56,6 +56,19 @@ for (const kind of ["give", "ability", "wait", "dialogue"])
 assert(!validate({ version: 2, command: { op: "capabilities" } }));
 assert(!validate(envelope({ op: "capabilities", extra: true })));
 assert(!validate(envelope({ op: "run_sql", sql: "DROP TABLE events" })));
+const thinSnapshot = envelope({
+    op: "play_snapshot_v2",
+    session: "session-1",
+    scope: { story: "quay", branch: "main" },
+    expected_revision: 0,
+});
+assert(validate(thinSnapshot), JSON.stringify(validate.errors));
+assert(
+    !validate({
+        ...thinSnapshot,
+        command: { ...thinSnapshot.command, observer: "mira" },
+    }),
+);
 
 for (const bad of [
     null,

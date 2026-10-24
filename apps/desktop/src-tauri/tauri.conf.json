@@ -17,6 +17,12 @@
                     "windows": ["main-*"],
                     "permissions": [
                         "allow-host-call",
+                        "allow-author-context",
+                        "allow-author-prepare-start",
+                        "allow-author-commit-start",
+                        "allow-author-lookup-start",
+                        "allow-author-preview-discard",
+                        "allow-harness-author-case",
                         "allow-capture-preview",
                         "allow-capture-save",
                         "allow-capture-revoke",

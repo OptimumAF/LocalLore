@@ -394,33 +394,30 @@ impl Engine {
         record: &CanonicalRecord,
         state: &Projection,
         knowledge: &KnowledgeProjectionV2,
-    ) -> Result<(), Error> {
+    ) -> Result<usize, Error> {
         if self.records.len() >= MAX_HISTORY_RECEIPTS {
             return Err(Error::TooLarge);
         }
         check_json_budget(record, MAX_RECEIPT_BYTES)?;
-        let mut bytes = serde_json::to_vec(record)
+        let record_bytes = serde_json::to_vec(record)
             .map_err(|_| Error::TooLarge)?
             .len();
-        for r in &self.records {
-            bytes = bytes
-                .checked_add(serde_json::to_vec(r).map_err(|_| Error::TooLarge)?.len())
-                .ok_or(Error::TooLarge)?;
-            if bytes > MAX_HISTORY_BYTES {
-                return Err(Error::TooLarge);
-            }
-        }
+        let bytes = self
+            .canonical_record_bytes
+            .checked_add(record_bytes)
+            .ok_or(Error::TooLarge)?;
         if bytes > MAX_HISTORY_BYTES {
             return Err(Error::TooLarge);
         }
         if self.domain_version() == 1 && matches!(record, CanonicalRecord::LegacyPlay(_)) {
-            check_json_budget(state, 262_144)
+            check_json_budget(state, 262_144)?;
         } else {
             check_json_budget(
                 &serde_json::json!({"version":2,"mechanical":state,"knowledge":knowledge}),
                 262_144,
-            )
+            )?;
         }
+        Ok(bytes)
     }
     pub(super) fn append_play(&mut self, receipt: Receipt) -> Result<(), Error> {
         let domain_two = self.domain_version() == 2;
@@ -457,10 +454,11 @@ impl Engine {
         } else {
             CanonicalRecord::LegacyPlay(receipt)
         };
-        self.check_record_budget(&record, &state, &knowledge)?;
+        let bytes = self.check_record_budget(&record, &state, &knowledge)?;
         self.state = state;
         self.knowledge = knowledge;
         self.records.push(record);
+        self.canonical_record_bytes = bytes;
         self.receipt_cache.take();
         Ok(())
     }
@@ -516,9 +514,10 @@ impl Engine {
                 sequence,
             },
         );
-        self.check_record_budget(&record, &self.state, &knowledge)?;
+        let bytes = self.check_record_budget(&record, &self.state, &knowledge)?;
         self.knowledge = knowledge;
         self.records.push(record);
+        self.canonical_record_bytes = bytes;
         self.receipt_cache.take();
         Ok(receipt)
     }

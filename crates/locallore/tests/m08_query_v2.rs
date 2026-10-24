@@ -235,12 +235,17 @@ fn owning_player_messages_require_actual_whole_receipt_eligibility() {
     let v = e.preview(&r, &Engine::proposal(&r).unwrap()).unwrap();
     e.commit_prepared(&v).unwrap();
     let p = page(&e, Observer::Player, View::History);
-    assert_eq!(p.total, 3);
-    assert!(p.rows.iter().any(|r|matches!(r,Row::Message{message_kind,text,..} if message_kind=="original_input" && text=="PLAYER_ORIGINAL")));
+    assert_eq!(p.total, 4); // actual event, two scoped messages, neutral author marker
+    assert!(p.rows.iter().any(|r|matches!(r,Row::ScopedMessage{message_kind,text,original_scope,..} if message_kind=="original_input" && text=="PLAYER_ORIGINAL" && original_scope==e.scope())));
     assert!(p
         .rows
         .iter()
-        .any(|r| matches!(r,Row::Message{message_kind,..} if message_kind=="narration")));
+        .any(|r| matches!(r,Row::ScopedMessage{message_kind,original_scope,..} if message_kind=="narration" && original_scope==e.scope())));
+    assert!(p
+        .rows
+        .iter()
+        .any(|r| matches!(r, Row::AuthorCorrection { revision: 1, .. })));
+    assert!(!p.rows.iter().any(|r| matches!(r, Row::Message { .. })));
     let npc = page(&e, Observer::Character { id: "mira".into() }, View::History);
     assert_eq!(npc.total, 1);
     assert!(npc.rows.iter().all(|r| matches!(r, Row::Event { .. })));

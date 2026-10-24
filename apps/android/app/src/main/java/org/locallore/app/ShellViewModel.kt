@@ -4,10 +4,12 @@ package org.locallore.app
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class ShellViewModel internal constructor(
@@ -16,6 +18,9 @@ class ShellViewModel internal constructor(
     archiveGateway: ArchiveGateway? = null,
     deletionGateway: StoryDeletionGateway? = null,
     branchDeletionGateway: BranchDeletionGateway? = null,
+    forkGateway: BranchForkGateway? = null,
+    private val forkContextProvider: ((SavedStory, Long, Long) -> BranchForkContext?)? = null,
+    private val forkRecoveryStore: ForkRecoveryPersistence? = null,
 ) : ViewModel() {
     private val mutable = MutableStateFlow(ShellState())
     val state: StateFlow<ShellState> = mutable.asStateFlow()
@@ -39,15 +44,132 @@ class ShellViewModel internal constructor(
     }
     internal val branchDeletion = branchDeletionController?.state ?: MutableStateFlow(BranchDeletionUiState()).asStateFlow()
 
+    private var forkEpoch = 0L
+    private var forkRecoveryIdentity: BranchForkRecovery? = null
+    private val mutableForkVisible = MutableStateFlow(false)
+    internal val forkVisible = mutableForkVisible.asStateFlow()
+    private val mutableForkProblem = MutableStateFlow<String?>(null)
+    internal val forkProblem = mutableForkProblem.asStateFlow()
+    private val mutableForkRecoveryPending = MutableStateFlow(false)
+    internal val forkRecoveryPending = mutableForkRecoveryPending.asStateFlow()
+    internal val forkController = forkGateway?.let {
+        check(forkContextProvider != null && forkRecoveryStore != null)
+        BranchForkController(viewModelScope, it, ::saveForkRecovery)
+    }
+    internal val fork = forkController?.state ?: MutableStateFlow(BranchForkUiState()).asStateFlow()
+    internal val forkAvailable: Boolean get() = forkController != null
+    private fun forkBlocksActions() = mutableForkVisible.value || fork.value.busy
+    private fun saveForkRecovery(value: BranchForkRecovery?) {
+        checkNotNull(forkRecoveryStore).save(value)
+        forkRecoveryIdentity = value
+        mutableForkRecoveryPending.value = value != null
+        mutableForkProblem.value = null
+    }
+    private fun invalidateForkContext() {
+        forkEpoch++
+        mutableForkVisible.value = false
+        forkController?.contextChanged(null)
+        mutable.value = mutable.value.copy(forkActive = fork.value.busy)
+    }
+    private fun synchronizeForkContext(next: ShellState = mutable.value): BranchForkContext? {
+        val selected = next.selectedStory
+        val context = if (!disposed && next.persistent && !next.busy && !next.archiveActive && !next.deletionActive &&
+            !next.recoveryRequired && !storyRecord.value.visible && !diagnostics.value.visible && selected != null)
+            try { forkContextProvider?.invoke(selected, next.revision, forkEpoch) } catch (_: Exception) { null }
+        else null
+        forkController?.contextChanged(context)
+        return context
+    }
+    internal fun openFork() {
+        val before = mutable.value
+        val controller = forkController ?: return
+        if (disposed || forkBlocksActions() || before.busy || before.archiveActive || before.deletionActive ||
+            before.recoveryRequired || !before.persistent) return
+        diagnosticController.dismiss(); recordController.dismiss()
+        val context = synchronizeForkContext()
+        val saved = forkRecoveryIdentity
+        if (saved != null) controller.restore(saved)
+        else if (mutableForkProblem.value == null) {
+            if (context == null) {
+                mutable.value = mutable.value.copy(notice = "A coherent saved timeline is required before preparing a fork.")
+                return
+            }
+            controller.prepare(context.head)
+        }
+        mutableForkVisible.value = true
+        mutable.value = mutable.value.copy(forkActive = true)
+    }
+    internal fun prepareForkBoundary(rendered: BranchForkInput?, atRevision: Long) {
+        if (disposed || !mutableForkVisible.value || fork.value.busy || forkRecoveryIdentity != null || mutableForkProblem.value != null ||
+            fork.value.input !== rendered) return
+        val context = synchronizeForkContext() ?: return
+        if (fork.value.input !== rendered || context.head != mutable.value.revision) return
+        if (rendered != null && (fork.value.uncertain || fork.value.outcome != null || fork.value.lookupOnly ||
+                rendered.parent != context.parent || rendered.expectedParentRevision != context.head)) return
+        // Editing an unsubmitted boundary keeps its fixed child ID; never reroll a retry.
+        if (rendered == null) forkController?.prepare(atRevision)
+        else forkController?.prepare(atRevision, rendered.childBranch)
+    }
+    internal fun confirmFork(rendered: BranchForkInput, consent: Boolean) {
+        if (disposed || !mutableForkVisible.value || mutableForkProblem.value != null) return
+        synchronizeForkContext()
+        forkController?.confirm(rendered, consent)
+    }
+    internal fun retryFork(consent: Boolean) {
+        if (disposed || !mutableForkVisible.value || mutable.value.busy) return
+        synchronizeForkContext()
+        forkController?.retryExact(consent)
+    }
+    internal fun lookupFork() {
+        if (disposed || !mutableForkVisible.value || mutable.value.busy || mutable.value.archiveActive || mutable.value.deletionActive) return
+        synchronizeForkContext()
+        forkController?.lookup()
+    }
+    internal fun forgetFork(consent: Boolean) {
+        if (disposed || !mutableForkVisible.value || mutable.value.busy) return
+        forkController?.forgetRecovery(consent)
+    }
+    internal fun cancelFork() { if (!disposed && mutableForkVisible.value) forkController?.cancel() }
+    internal fun closeFork() {
+        if (disposed || !mutableForkVisible.value) return
+        if (fork.value.busy) { forkController?.cancel(); return }
+        forkController?.dismiss()
+        mutableForkVisible.value = false
+        mutable.value = mutable.value.copy(forkActive = false)
+        if (forkRecoveryIdentity != null && !mutable.value.busy)
+            savedOperation("Timeline request closed. The original selection is retained; recovery remains explicit.") { gateway.snapshot() }
+        else synchronizeForkContext()
+    }
+    internal fun resumeFork(rendered: BranchForkOutcome) {
+        val before = mutable.value
+        val current = fork.value
+        if (disposed || !mutableForkVisible.value || current.busy || before.busy || current.outcome !== rendered) return
+        val input = current.input ?: return
+        if (!matchesForkOutcome(rendered, input)) return
+        forkController?.dismiss()
+        mutableForkVisible.value = false
+        mutable.value = before.copy(forkActive = false)
+        savedOperation("New timeline resumed. Original history and downstream choices remain unchanged.") {
+            // A lookup can observe a story restored by another owner after this UI's catalog.
+            // Refresh only on this explicit resume action; never create/select on lookup alone.
+            val saved = gateway.snapshot() ?: throw WorkspaceFailure("NotFound")
+            val root = saved.stories.singleOrNull { it.story == rendered.scope.story }
+                ?: throw WorkspaceFailure("NotFound")
+            gateway.resumeSaved(SavedStory(rendered.scope.story, rendered.scope.branch, root.title, rendered.headRevision))
+        }
+    }
+    internal fun stopFork() { if (!disposed) invalidateForkContext() }
+
     fun openBranchDeletion() {
         val controller = branchDeletionController ?: return
         val before = mutable.value
-        if (disposed || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired || !before.persistent) return
+        if (disposed || forkBlocksActions() || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired || !before.persistent) return
         val selected = before.selectedStory ?: return
         val root = before.stories.firstOrNull { it.story == selected.story } ?: return
         if (selected.branch == root.branch) return
         diagnosticController.dismiss()
         recordController.dismiss()
+        invalidateForkContext()
         mutable.value = before.copy(deletionActive = true)
         controller.open(selected.copy(title = root.title, revision = before.revision), root.branch)
     }
@@ -65,11 +187,12 @@ class ShellViewModel internal constructor(
     fun openDeletion() {
         val controller = deletionController ?: return
         val before = mutable.value
-        if (disposed || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired || !before.persistent) return
+        if (disposed || forkBlocksActions() || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired || !before.persistent) return
         val selected = before.selectedStory ?: return
         val root = before.stories.firstOrNull { it.story == selected.story } ?: return
         diagnosticController.dismiss()
         recordController.dismiss()
+        invalidateForkContext()
         mutable.value = before.copy(deletionActive = true)
         controller.open(root)
     }
@@ -84,10 +207,11 @@ class ShellViewModel internal constructor(
     fun openArchive() {
         val controller = archiveController ?: return
         val before = mutable.value
-        if (disposed || before.archiveActive || before.deletionActive || before.busy || before.recoveryRequired || !before.persistent) return
+        if (disposed || forkBlocksActions() || before.archiveActive || before.deletionActive || before.busy || before.recoveryRequired || !before.persistent) return
         val story = before.selectedStory ?: return
         diagnosticController.dismiss()
         recordController.dismiss()
+        invalidateForkContext()
         mutable.value = before.copy(archiveActive = true)
         controller.open(story)
     }
@@ -135,25 +259,52 @@ class ShellViewModel internal constructor(
     }
 
     init {
+        forkController?.let { controller ->
+            try {
+                val saved = checkNotNull(forkRecoveryStore).load()
+                if (saved != null) {
+                    check(saved.version == 1 && validForkInput(saved.input))
+                    forkRecoveryIdentity = saved
+                    mutableForkRecoveryPending.value = true
+                    controller.restore(saved)
+                    controller.dismiss() // Explicit opening/lookup only; never register on startup.
+                }
+            } catch (_: Exception) {
+                mutableForkProblem.value = "The saved fork recovery hint is unavailable. Review and explicitly forget it before creating another timeline."
+            }
+            viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
+                controller.state.collect { current ->
+                    if (!disposed) {
+                        val active = mutableForkVisible.value || current.busy
+                        if (mutable.value.forkActive != active) mutable.value = mutable.value.copy(forkActive = active)
+                    }
+                }
+            }
+        }
         if (gateway.durable) {
             mutable.value = ShellState(busy = true, persistent = true, notice = "Opening local saved stories…")
             savedOperation("Saved story resumed. Uncommitted responses remain outside accepted history.") { gateway.initialize() }
         }
     }
 
-    private fun publishSaved(saved: SavedSnapshot, notice: String): ShellState = mutable.value.copy(
-        busy = false, preparingResponse = false, revision = saved.revision, potionOwner = saved.potionOwner,
-        messages = saved.messages, persistent = true, storageLocation = saved.location,
-        schemaVersion = saved.schemaVersion, stories = saved.stories, selectedStory = saved.selected,
-        uncommittedDrafts = saved.uncommittedDrafts,
-        rulesProfile = saved.rulesProfile,
-        databaseSchemaVersion = saved.databaseSchemaVersion,
-        timelines = saved.timelines,
-        textProvider = saved.textProvider,
-        recoveryRequired = false, notice = notice,
-    )
+    private fun publishSaved(saved: SavedSnapshot, notice: String): ShellState {
+        val next = mutable.value.copy(
+            busy = false, preparingResponse = false, revision = saved.revision, potionOwner = saved.potionOwner,
+            messages = saved.messages, persistent = true, storageLocation = saved.location,
+            schemaVersion = saved.schemaVersion, stories = saved.stories, selectedStory = saved.selected,
+            uncommittedDrafts = saved.uncommittedDrafts,
+            rulesProfile = saved.rulesProfile,
+            databaseSchemaVersion = saved.databaseSchemaVersion,
+            timelines = saved.timelines,
+            textProvider = saved.textProvider,
+            recoveryRequired = false, notice = notice,
+        )
+        synchronizeForkContext(next)
+        return next
+    }
 
     private fun savedOperation(notice: String, operation: suspend () -> SavedSnapshot?) {
+        invalidateForkContext()
         recordController.dismiss()
         val ticket = ++generation
         mutable.value = mutable.value.copy(busy = true, preparingResponse = false, notice = null)
@@ -174,16 +325,16 @@ class ShellViewModel internal constructor(
     }
 
     fun recover() {
-        if (!disposed && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && gateway.durable) savedOperation("Saved progress recovered.") {
+        if (!disposed && !forkBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && gateway.durable) savedOperation("Saved progress recovered.") {
             if (mutable.value.storageLocation == null) gateway.initialize() else gateway.recoverSaved()
         }
     }
     fun resume(story: SavedStory) {
-        if (!disposed && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && gateway.durable) savedOperation("Saved story resumed.") { gateway.resumeSaved(story) }
+        if (!disposed && !forkBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && gateway.durable) savedOperation("Saved story resumed.") { gateway.resumeSaved(story) }
     }
     fun resumeTimeline(timeline: SavedTimeline) {
         val before = mutable.value
-        if (disposed || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired ||
+        if (disposed || forkBlocksActions() || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired ||
             !before.persistent || !gateway.durable || before.selectedStory?.story != timeline.story ||
             before.timelines.none { it === timeline }) return
         val root = before.stories.firstOrNull { it.story == timeline.story } ?: return
@@ -194,16 +345,19 @@ class ShellViewModel internal constructor(
         }
     }
 
-    fun openDiagnostics() { if (!disposed && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive) { recordController.dismiss(); diagnosticController.open() } }
+    fun openDiagnostics() { if (!disposed && !forkBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive) {
+        invalidateForkContext(); recordController.dismiss(); diagnosticController.open()
+    } }
     fun openStoryRecord() {
         val current = mutable.value
         val story = current.selectedStory ?: return
-        if (!disposed && gateway.storyRecords && current.persistent && !current.busy && !current.archiveActive && !current.deletionActive && !current.recoveryRequired) {
+        if (!disposed && !forkBlocksActions() && gateway.storyRecords && current.persistent && !current.busy && !current.archiveActive && !current.deletionActive && !current.recoveryRequired) {
+            invalidateForkContext()
             diagnosticController.dismiss()
             recordController.open(StoryRecordContext(story, current.revision))
         }
     }
-    fun closeStoryRecord() = recordController.dismiss()
+    fun closeStoryRecord() { recordController.dismiss(); synchronizeForkContext() }
     fun recordSection(section: StoryRecordSection) = recordController.select(section)
     fun recordSearch(text: String) = recordController.search(text)
     fun nextRecordPage() = recordController.next()
@@ -216,14 +370,14 @@ class ShellViewModel internal constructor(
     }
     fun backToStoryRecord() = recordController.back()
     fun retryRecordEvent() = recordController.retryEvent()
-    fun closeDiagnostics() = diagnosticController.dismiss()
+    fun closeDiagnostics() { diagnosticController.dismiss(); synchronizeForkContext() }
     fun clearDiagnostics() = diagnosticController.clear()
     fun beginDiagnosticExport() = diagnosticController.beginExport()
     fun diagnosticPickerFailed() = diagnosticController.pickerFailed()
     fun completeDiagnosticExport(writer: (suspend (ByteArray) -> Unit)?) = diagnosticController.completeExport(writer)
 
     fun setMode(mode: DemoMode) {
-        if (!disposed && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && !mutable.value.recoveryRequired) mutable.value = mutable.value.copy(mode = mode, notice = null)
+        if (!disposed && !forkBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && !mutable.value.recoveryRequired) mutable.value = mutable.value.copy(mode = mode, notice = null)
     }
 
     fun submit(action: DemoAction) = submitResponse(action.description()) { before ->
@@ -231,7 +385,7 @@ class ShellViewModel internal constructor(
     }
 
     fun submitText(input: PlayInput) {
-        if (disposed || mutable.value.busy || mutable.value.archiveActive || mutable.value.deletionActive || mutable.value.recoveryRequired ||
+        if (disposed || forkBlocksActions() || mutable.value.busy || mutable.value.archiveActive || mutable.value.deletionActive || mutable.value.recoveryRequired ||
             (gateway.durable && mutable.value.selectedStory == null)) return
         if (mutable.value.textProvider == TextProvider.UNAVAILABLE || !validPlayInput(input)) {
             mutable.value = mutable.value.copy(notice = "Text input is unavailable or invalid. Nothing changed.")
@@ -241,8 +395,9 @@ class ShellViewModel internal constructor(
     }
 
     private fun submitResponse(playerText: String, prepare: suspend (ShellState) -> DemoResult) {
-        if (disposed || mutable.value.busy || mutable.value.archiveActive || mutable.value.deletionActive || mutable.value.recoveryRequired ||
+        if (disposed || forkBlocksActions() || mutable.value.busy || mutable.value.archiveActive || mutable.value.deletionActive || mutable.value.recoveryRequired ||
             (gateway.durable && mutable.value.selectedStory == null)) return
+        invalidateForkContext()
         recordController.dismiss()
         val before = mutable.value
         val ticket = ++generation
@@ -304,6 +459,7 @@ class ShellViewModel internal constructor(
     }
 
     fun cancel() {
+        if (forkBlocksActions()) { cancelFork(); return }
         recordController.dismiss()
         if (!mutable.value.busy) return
         // Opening storage has no cancellable turn. Closing the ViewModel still releases its handle.
@@ -324,7 +480,7 @@ class ShellViewModel internal constructor(
 
     fun reset() {
         // A retained UI callback must not reopen a native session after onCleared.
-        if (disposed || mutable.value.archiveActive || mutable.value.deletionActive) return
+        if (disposed || forkBlocksActions() || mutable.value.archiveActive || mutable.value.deletionActive) return
         if (gateway.durable && mutable.value.busy) return
         val start = System.nanoTime()
         diagnosticController.dismiss()
@@ -340,6 +496,8 @@ class ShellViewModel internal constructor(
 
     override fun onCleared() {
         disposed = true
+        forkController?.dispose() // Cancel/retire before the single workspace transport closes.
+        mutableForkVisible.value = false
         archiveController?.dispose()
         deletionController?.dispose()
         branchDeletionController?.dispose()
@@ -351,7 +509,7 @@ class ShellViewModel internal constructor(
         gateway.close()
         pending?.cancel()
         pending = null
-        mutable.value = mutable.value.copy(busy = false, preparingResponse = false)
+        mutable.value = mutable.value.copy(busy = false, preparingResponse = false, forkActive = false)
         super.onCleared()
     }
 }

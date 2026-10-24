@@ -1,0 +1,201 @@
+{
+  "version": 1,
+  "scope": "android_cancel_ack_protocol_verification",
+  "task_ids": [
+    "M05.04",
+    "M04.04"
+  ],
+  "full_task_acceptance": false,
+  "base": "b90ddc9c0ed955c034a6c1f9e331caf3323e4e9a",
+  "implementation": "8b30155a2132ef59a4f69d2089e41eb9332475d0",
+  "test_mode": "actual_Android_gateway_and_JSONObject_with_synthetic_transport",
+  "protocol_emulators_executed": 1,
+  "android_api": 35,
+  "abi": "x86_64",
+  "gateway_sha256": {
+    "baseline": "ba0542f22673da56a49ae9fd58928a1824265298d9c4f156cd259cea44ff125f",
+    "candidate": "67f217690914ad05ff1b34b3cff165890265b4bf41a6971a5da5044a3b8eefd2"
+  },
+  "frozen_test_sha256": "eb84c0a579dcbbf63baca901c318f95baa3c3c7653365a92e5aa9d00ff4053c4",
+  "test_apk_identical": true,
+  "all_four_native_libraries_identical": true,
+  "apks": {
+    "baseline": {
+      "org.locallore.app.cancelack": {
+        "bytes": 22335188,
+        "sha256": "c75741d371b39067de2bf1c0ecb290f3d688ace78437183c9771f7c65f1cda6b"
+      },
+      "org.locallore.app.cancelack.test": {
+        "bytes": 1693073,
+        "sha256": "43cecd946901b002a9056ec2522d8255ff66f94785660055aa775637ade9c147"
+      }
+    },
+    "candidate": {
+      "org.locallore.app.cancelack": {
+        "bytes": 22524075,
+        "sha256": "342d71e5d68913af1ec16f3f4789723f082739e4836b101b716d78906f36a1cd"
+      },
+      "org.locallore.app.cancelack.test": {
+        "bytes": 1693073,
+        "sha256": "43cecd946901b002a9056ec2522d8255ff66f94785660055aa775637ade9c147"
+      }
+    }
+  },
+  "checks": {
+    "script_tests": 185,
+    "script_test_seconds": 13.952,
+    "jvm": {
+      "tests": 147,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "lint_errors": 0,
+    "lint_warnings": 1,
+    "configuration_refusals": 4,
+    "private_harness_mock_methods": 20,
+    "mock_selections_overlap": true
+  },
+  "protocol": {
+    "baseline": {
+      "elapsed_ms": 10781,
+      "returncode": 0,
+      "command_count": 41,
+      "clients_cleaned": true,
+      "prior_23_package_hashes_matched": true,
+      "map_counts": [
+        24,
+        25,
+        25,
+        25
+      ],
+      "methods": [
+        {
+          "method": "cancelledRecoveryRejectsForeignIncompleteAndNonterminalAcknowledgements",
+          "status": "failed"
+        },
+        {
+          "method": "resumeReleaseRejectsForeignIncompleteAndNonterminalAcknowledgements",
+          "status": "failed"
+        },
+        {
+          "method": "createReleaseRejectsForeignIncompleteAndNonterminalAcknowledgements",
+          "status": "failed"
+        },
+        {
+          "method": "explicitUnknownTurnDisposesCancelledWorkWithoutResubmit",
+          "status": "passed"
+        },
+        {
+          "method": "matchingCommittedRaceUsesOriginalReceiptWithoutAnotherCommit",
+          "status": "passed"
+        },
+        {
+          "method": "cancelSavedRejectsForeignIncompleteAndNonterminalAcknowledgements",
+          "status": "failed"
+        },
+        {
+          "method": "matchingCancelledFailedAndStaleAcknowledgementsCompleteAcrossAllPaths",
+          "status": "passed"
+        },
+        {
+          "method": "malformedCommittedReceiptsCannotClearTheCancelledKey",
+          "status": "passed"
+        },
+        {
+          "method": "closedIsReleaseDispositionButNotGenericCancellationSuccess",
+          "status": "passed"
+        }
+      ],
+      "passed": 5,
+      "failed": 4
+    },
+    "candidate": {
+      "elapsed_ms": 11016,
+      "returncode": 0,
+      "command_count": 42,
+      "clients_cleaned": true,
+      "prior_23_package_hashes_matched": true,
+      "map_counts": [
+        25,
+        25,
+        25,
+        25
+      ],
+      "methods": [
+        {
+          "method": "cancelledRecoveryRejectsForeignIncompleteAndNonterminalAcknowledgements",
+          "status": "passed"
+        },
+        {
+          "method": "resumeReleaseRejectsForeignIncompleteAndNonterminalAcknowledgements",
+          "status": "passed"
+        },
+        {
+          "method": "createReleaseRejectsForeignIncompleteAndNonterminalAcknowledgements",
+          "status": "passed"
+        },
+        {
+          "method": "explicitUnknownTurnDisposesCancelledWorkWithoutResubmit",
+          "status": "passed"
+        },
+        {
+          "method": "matchingCommittedRaceUsesOriginalReceiptWithoutAnotherCommit",
+          "status": "passed"
+        },
+        {
+          "method": "cancelSavedRejectsForeignIncompleteAndNonterminalAcknowledgements",
+          "status": "passed"
+        },
+        {
+          "method": "matchingCancelledFailedAndStaleAcknowledgementsCompleteAcrossAllPaths",
+          "status": "passed"
+        },
+        {
+          "method": "malformedCommittedReceiptsCannotClearTheCancelledKey",
+          "status": "passed"
+        },
+        {
+          "method": "closedIsReleaseDispositionButNotGenericCancellationSuccess",
+          "status": "passed"
+        }
+      ],
+      "passed": 9,
+      "failed": 0
+    }
+  },
+  "stopped_setup_cohorts": [
+    {
+      "reason": "no_selected_emulator",
+      "commands": 1,
+      "tests": 0,
+      "installs": 0
+    },
+    {
+      "reason": "first_emulator_storage",
+      "commands": 7,
+      "tests": 0,
+      "installs": 0
+    },
+    {
+      "reason": "push_install_output_parser",
+      "commands": 16,
+      "tests": 0,
+      "successful_installs": 1
+    }
+  ],
+  "first_emulator_storage": {
+    "status": "blocked",
+    "available_bytes": 1045565440,
+    "required_bytes": 1207959552,
+    "deficit_bytes": 162394112
+  },
+  "canonical_wire_schema_rules_changed": false,
+  "limitations": [
+    "One emulator protocol proof; second target blocked by fixed storage admission",
+    "No Activity, JNI, SQLite or inference call in the selected regression tests",
+    "Both existing AVDs relaunched under earlier user authorization; prior live continuity unverified",
+    "No phone, ARM execution, model quality, sustained session or full milestone acceptance",
+    "Earlier M01 timeout, storage and preservation results remain unchanged"
+  ]
+}

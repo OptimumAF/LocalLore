@@ -118,6 +118,12 @@ not delete saves. All SQLite/replay/JNI work runs on IO workers. Generation runs
 outside the canonical lock and SQLite transaction. A lost commit acknowledgement
 is looked up with its original turn key; **Recover saved progress** retries
 uncertain work without allocating a new key. See [app durability](../../docs/native/APP_DURABILITY.md).
+
+Cancellation also retains its original key until a matching terminal reply is
+validated. A malformed or unfinished acknowledgement requires recovery before
+another turn or story switch. A commit that won the race remains saved. See
+[cancellation acknowledgement verification](../../docs/native/ANDROID_CANCEL_ACK_VERIFICATION_2026-10-23.md)
+for the isolated protocol tests and their device limits.
 Full or Busy storage errors show fixed recovery guidance and retain the original
 request. The confirmed snapshot stays visible until recovery obtains an accepted
 native outcome; new turns and mode changes stay disabled during uncertainty.

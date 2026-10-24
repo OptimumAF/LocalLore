@@ -92,3 +92,35 @@ at the application boundary, recovery hints, Android/UI author exposure, and
 whole-milestone acceptance are unavailable here. Root owns later execution and
 integration. No production behavior is accepted on the strength of these source
 oracles alone.
+
+## Source handoff
+
+Frozen tests: `d5cd898`; frozen contract: `ce31946`; production source:
+`da94d1856e5c652339f544912ba09027dd2179fa`. The production commit changes only
+the five allocated port/wiring/getter paths. Storage changes are exactly the
+readonly `matches_parent_basis` getter; there are no writer/DDL changes. Existing
+tests and generated schemas are unchanged. The separate thin-snapshot/Query2
+future stacks are not prerequisites for this native-only source packet.
+
+Static commands actually run (Rustfmt 1.8.0-stable, Rust 1.93.1):
+
+```text
+rustfmt --edition 2021 --check --config skip_children=true crates/locallore/src/host.rs crates/locallore/src/host/author_port.rs crates/locallore-workspace/src/lib.rs crates/locallore-workspace/src/author_port.rs crates/locallore-storage/src/author_correction.rs crates/locallore-workspace/tests/m08_author_host_port_review.rs
+git diff --check
+```
+
+Both exited 0. Rustfmt is a source parser/format check, not a compiler or test.
+No heavy qualification was authorized or run. SHA-256:
+
+| Source | SHA-256 |
+| --- | --- |
+| Frozen 13-test source | `92962c0ad9515f3d7269d51e7cf873ac8bb59a51af8cc457ac67a016b01734b2` |
+| Core Host native port | `e6ba269db36ad64561965744992ed2d0fdbfb62f915cb36d3cc7111b6b4e1224` |
+| Repository native wrapper | `0ba8a20851952f6446e9ccf9b147f0869e5f41015305f99e2a56f8973e713d51` |
+
+Next runnable task belongs to the coordinator: compile and execute the frozen
+workspace integration test in an authorized heavy slot, preserve any first
+compile failure separately from behavioral RED, then qualify compatible Core,
+Store, workspace, and native consumers. Later application broker consent must
+bind the full current UI/session/window/root context before consuming a capsule;
+this native port does not implement that broker or make UI acceptance claims.

@@ -54,6 +54,22 @@ timeline selection and prefix replay use the shared ancestry rules; author
 corrections remain unavailable. See [D05 native inspection](../../docs/desktop/D05_NATIVE_INSPECTION.md)
 and [verification](../../docs/desktop/D05_NATIVE_VERIFICATION_2026-10-22.md).
 
+**Derived memory** reads the selected saved story's shared maintenance status.
+Preparing derived data requires consent; **Process one chunk** performs one
+bounded step. Cancel a stale job before pruning it, then explicitly prepare a
+new job. These controls preserve canonical events and character knowledge.
+They never run background steps or generate model summaries. A lost reply stays
+unresolved across selection changes: read status in the original selection or
+explicitly acknowledge the uncertainty. Acknowledgement neither cancels nor
+undoes saved work; native storage still enforces Busy.
+
+For the fixed synthetic native maintenance journey, set
+`LOCALLORE_M07_MEMORY_ARTIFACT_ROOT` and `LOCALLORE_M07_MEMORY_TARGET_DIR` to
+task-owned local directories, then run `node apps/desktop/memory-harness.mjs`.
+It uses the same controllers and native IPC, hidden app-only WebView2 rendering
+and an actual process restart. Run `node apps/desktop/verify-frontend.mjs`
+afterward to restore the normal frontend and check test-hook exclusion.
+
 Inspection snapshots now provide structural diagnostics by default, explicit
 private Player/Full readable views, and a separate private consistent SQLite
 copy for deliberate inspection. Preview identifies scope, revision, included

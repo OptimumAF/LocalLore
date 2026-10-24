@@ -1,4 +1,10 @@
-import { archiveErrors, decodePreview, decodeStatus } from "./archive-model";
+import {
+    archiveErrors,
+    archiveBinding,
+    decodeArchiveCompletion,
+    decodePreview,
+    decodeStatus,
+} from "./archive-model";
 import type {
     ArchiveResult,
     ArchiveStatus,
@@ -154,30 +160,13 @@ export class ArchiveController {
                     }).catch(() => {});
             }
             if (status.error) throw Error(status.error);
-            const result = status.result;
-            if (!result) throw Error("Wire");
-            if (
-                !isPreview &&
-                result.status === "imported" &&
-                (preview!.kind !== "import" ||
-                    result.root?.story !== preview!.preview.story_id ||
-                    result.root.branch !== preview!.preview.root_branch)
-            )
-                throw Error("Wire");
-            if (
-                !isPreview &&
-                result.status === "exported" &&
-                (preview!.kind !== "export" ||
-                    result.payload_sha256 !== preview!.preview.payload_sha256)
-            )
-                throw Error("Wire");
+            const result = decodeArchiveCompletion(
+                status,
+                command,
+                preview ? archiveBinding(preview) : undefined,
+            );
             if (result.token) {
                 const p = decodePreview(result);
-                if (
-                    p.kind !==
-                    (command === "archive_export_preview" ? "export" : "import")
-                )
-                    throw Error("Wire");
                 this.patch({
                     preview: p,
                     consent: false,

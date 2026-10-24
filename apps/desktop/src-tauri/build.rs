@@ -18,6 +18,8 @@ fn main() {
                 "archive_catalog",
                 "fork_start",
                 "fork_lookup",
+                "memory_maintenance_start",
+                "harness_memory_case",
                 "harness_fork_case",
                 "archive_export_preview",
                 "archive_import_preview",

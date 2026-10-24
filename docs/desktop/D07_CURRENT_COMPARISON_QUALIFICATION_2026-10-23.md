@@ -76,6 +76,7 @@ without gaining invented estimates or permission to resume under new source.
 | d07-host-policy-original-compile.log | E0277: the fixture attempted to deserialize Core Receipt, which is intentionally Serialize-only. No tests ran; production authority was not opened to satisfy the fixture. |
 | Serialized-only fixture correction 9e91ef3, d07-host-policy-serialized-fixture-first.log | **1 passed / 3 failed**, 0.07s. The three failures read prompt_version from the ready-phase null receipt; this exposed the fixture's wrong phase assumption, not missing committed provenance. |
 | Corrected committed fixture a05254c, d07-host-policy-committed-fixture-corrected.log | **4 passed / 0 failed**, 0.13s. Tests explicitly preserve ready.receipt=null and unchanged precommit canonical state; inspect provenance only after actual committed replies. Both policies, legacy default, held-work configuration fences, policy-changing recorded retry/zero roles and JSON policy refusal pass. |
+| a05254c, d07-shared-full-first.log | Four-package batch exits101 during compilation: comparison_policy.rs directly names serde without a direct dependency (E0433). No tests ran. Test-only 8b4422b uses the existing serde_json stream API; assertions and dependencies are unchanged. The corrected full batch remains active. |
 
 The original frozen Core declarations precede production (edf4d265 / contract
 03308ea1). The Core fix and evaluator closure were separately allocated and
@@ -89,7 +90,7 @@ PR's evidence and does not make the D07 comparison an author/Domain2 corpus.
 | Required evidence | Current disposition |
 | --- | --- |
 | comparison_runner + memory_comparison_v2 terminal batch | Complete:9runner+3protocol passes above. Initial seven-pass partial output was not counted as a completed result. |
-| Current Core/Host fixture and full compatibility checks | Host4 passed after test-only corrections above. Four-package broad shared batch active in d07-shared-full-first.log at a05254c; no partial output is counted as terminal. |
+| Current Core/Host fixture and full compatibility checks | Host4 passed. Original shared compile failed as preserved above; corrected batch active in d07-shared-full-fixture-corrected.log at 8b4422b. No partial output is counted as terminal. |
 | Genuine historical complete-cohort opening | Passed actual opt-in test at 4a36b72; see precise inventory/old-field boundary below. |
 | Real local-model current comparison | Pending separate authorized source-bound execution; no model, worker, speed, memory-quality or enjoyment result inferred from scripted tests. |
 | Exact reproduction and environment | Root will supply final invocations and versions before this report is finalized; the contract's suggested commands are not presented as executed commands. |
@@ -139,12 +140,15 @@ before applying the real Engine.commit_prepared; the other cases commit on
 the actual in-memory Host path. No production Receipt deserializer, prepared
 receipt exposure, Store writer or phase contract was added. This is Core/Host
 fixture execution, not desktop IPC or a real-model result.
+The native snapshot fixture's status is draft-only even after its Engine
+commit, so that case supplies no durable reopen/retry evidence. The separately
+pending actual Repository/Store comparison_policy fixture owns those checks.
 
 ## Retained log integrity
 
 Files are local/gitignored under `<evidence-root>/author-integration-artifacts`.
 No raw model weights, private paths or player stories are published. The
-following eleven completed logs were hashed read-only; active logs are excluded.
+following twelve completed logs were hashed read-only; active logs are excluded.
 
 | Log | Bytes / SHA-256 |
 | --- | --- |
@@ -159,6 +163,7 @@ following eleven completed logs were hashed read-only; active logs are excluded.
 | d07-host-policy-original-compile.log | 1,619 / `a24e8a84dca7361740d1b3c7390f581d725325f1fb0750df112d9c749f0915c5` |
 | d07-host-policy-serialized-fixture-first.log | 2,271 / `efba0fd6c7ca6cc42d79df34e9c039e0e8dfccbd93fc5c054fb10dc42f70cdb5` |
 | d07-host-policy-committed-fixture-corrected.log | 838 / `26dbc746558dfa693a120404b180d6cbc9f5e41333c19781bf49aeea972113b2` |
+| d07-shared-full-first.log | 1,192 / `51fa6c03b42ec6f2808e9785fea146c9ed7f6eb3027c8401fa03dee0259204c2` |
 
 No task checkbox, model-quality conclusion, historical report rewrite,
 PR acceptance, merge, release, repository setting or protected resource is

@@ -107,8 +107,8 @@ PR's evidence and does not make the D07 comparison an author/Domain2 corpus.
 | comparison_runner + memory_comparison_v2 terminal batch | Complete:9runner+3protocol passes above. Initial seven-pass partial output was not counted as a completed result. |
 | Current Core/Host fixture and full compatibility checks | Host4, shared743/10 ignored, evaluator15/1 ignored, strict shared/eval/native lint, frontend/format, native normal88/1 ignored, dev92/1 ignored+standalone2, normal build and fresh Android compatibility all passed. No runtime/UI/model execution is inferred from build/unit evidence. |
 | Genuine historical complete-cohort opening | Passed actual opt-in test at 4a36b72; see precise inventory/old-field boundary below. |
-| Real local-model current comparison | Original source39c paired run completed4scenes/48structural passes/84roles, quality not accepted. Clock fix febc326 passes7focused/73full evaluator checks and corrected strict/frontend/native tests/build. Corrected-source native-model confirmation/rollout remains pending. No original-source rollout is being run. |
-| Exact reproduction and environment | Completed commands below; fresh toolchain versions and terminal compatibility manifests recorded. Real-model command/result remains pending. The contract's suggested commands are not presented as executions. |
+| Real local-model current comparison | Source39c full paired results remain separate. Closed corrected-source febc cohort below has bounded paired12rows/24roles and complete rollout48rows/84roles, all structural/privacy checks passed; quality/human acceptance remains false. Root review/adoption remains separate. |
+| Exact reproduction and environment | Completed commands below, including actual arguments retained in corrected native process records; fresh toolchain versions and terminal manifests recorded. Unrecovered older invocation flags are not inferred from filenames. |
 
 ## Genuine historical read-only compatibility
 
@@ -392,6 +392,90 @@ paired-resume-process.json,291 bytes, SHA-256
 paired-resume-stderr.log is0 bytes, with the empty SHA-256 above.
 The852-byte cohort-manifest.json SHA-256 is
 `6ad6504223809ac703ba7d09e170363109abe873f7b35f559cfc0ef90ad5ccee`.
+
+## Corrected-source native confirmation and rollout
+
+The coordinator-generated progress record for
+`d07-clock-native-088a3cdf-d49a-4159-9469-0f31e233f533` is **finished** at
+2026-10-24T07:34:28.3591106Z. Its eight process records all exit0 at
+**febc326426096f66deb7262f2651e542a3781db6**. These are actual native CPU-worker
+CLI/Host/Store executions, not a desktop WebView journey. The source fingerprint
+is`b86e648a247f49d0a3e262d7a49f383a64de4532e75b1bc2a9a79a7a6474a780`;
+the 15,968,768-byte evaluator executable is bound by SHA-256
+`80bdc4e2db496238da7dddf45dc5850d0ff1fbcc07e2a55c3758efce06596403`.
+Model/profile/runtime/template/worker bindings match the earlier explicit table;
+the new source does not adopt old-source runtime outcomes.
+
+| Corrected-source phase | Actual result |
+| --- | --- |
+| Explicit native-owner refusal / genuine old cohort | One actual pass each; owner test39filtered, historical test4.04s. The current full suite's ignored declarations are not counted as executed there. |
+| Fresh scripted reference | 24 attempts,21accepted,3guard-only,42scripted roles; no model generation in this prerequisite. |
+| Bounded native paired confirmation | 1of4scenes,12rows/12structural passes,24roles,zero repairs/privacy failures; completed=false, source_matches=true. Process258,563ms; max forwarded estimate3259. This is not a full corrected-source paired run. |
+| Native continuous rollout | Four scenes,48rows/48structural passes,84roles; completed=true, source_matches=true. Zero repairs/privacy failures; six exact zero-role guard refusals09Inventory/10Ability/24ClarificationRequired across both arms. No unexpected errors or unavailable items. Process964,188ms; max forwarded estimate4094. |
+| Completed rollout resume | Exit0 in16,548ms with deliberately nonexistent asset paths. Report is byte-identical to retained rollout output; full inventory unchanged. The displayed84roles are historical totals, **zero new role calls**, not84more generations. |
+| New-source inspection of old39c paired run | Exit0, source_matches=false, old48rows/results retained and full inventory unchanged. It does not relabel the old clock source or execute it. |
+
+Paired, rollout, completed-resume and old-inspect stderr are empty. Current
+paired and rollout each use one physical setup (8,691ms and9,781ms respectively),
+not one separate cold load per arm. Model quality remains **false**, human
+review count0. The bounded structural tests do not resolve generic narration,
+human faithfulness/readability/enjoyment or NPC distinctiveness.
+
+At courier-22, recent optional_detail_selected=false and relevant=true, but
+director_private_target_present=true in **both** actual forwarded envelopes
+(selected diagnostic bytes21,647 versus19,874). The target is therefore
+nondiscriminating. No mechanical or comparator-defined semantic divergence
+was recorded; equal finite-schema commands and different optional selection
+do not demonstrate causal recall, narrator-memory benefit or superiority.
+
+Reported corrected rollout durations use the same lower-median/nearest-rank
+p95 definitions as above; this is a different experiment from old paired
+snapshots and is not a before/after speed comparison:
+
+| Corrected rollout scope | n | Lower median ms | p95 ms | Maximum ms |
+| --- | --- | --- | --- | --- |
+| All rows, including six guards | 48 | 21,311 | 30,803 | 31,577 |
+| Generated turns only | 42 | 22,016 | 30,803 | 31,577 |
+| First final response, including guards | 48 | 21,127 | 30,483 | 31,392 |
+| Commit | 42 | 163 | 401 | 423 |
+| Director parent role | 42 | 19,188 | 27,044 | 28,012 |
+| Narrator parent role | 42 | 1,843 | 2,660 | 4,505 |
+
+Across84current rollout roles, maximum worker input/output tokens are3,673/98;
+sampled peak working set1,231,699,968bytes/private950,788,096bytes and lifetime
+peak working set1,233,858,560bytes, with zero failed samples/incomplete role rows.
+These are worker-only counters on this development host, not whole-app/phone
+memory or universal tokenizer/deadline guarantees. No fresh hardware census
+or controlled cross-run performance comparison is inferred.
+
+Actual corrected-source CLI arguments, with only local paths replaced:
+
+```powershell
+cargo build --manifest-path crates/locallore-eval/Cargo.toml --features local-model --locked --offline --jobs 1 --target-dir <shared-target> --bin locallore-eval
+<eval-executable> comparison reference <new-reference>
+<eval-executable> comparison run <new-paired-run> --kind paired --lane native --max-scenes 1 --reference <new-reference> --resource-dir <approved-resources> --model <approved-model>
+<eval-executable> comparison run <new-rollout-run> --kind rollout --lane native --max-scenes 4 --resource-dir <approved-resources> --model <approved-model>
+<eval-executable> comparison resume <same-completed-rollout> --kind rollout --lane native --max-scenes 4 --resource-dir <nonexistent-test-resources> --model <nonexistent-test-model>
+```
+
+Primary output hashes: paired-stdout.log(92,242bytes)
+`b12550e3212fd3744f55ba53c2fbabc80821be4432f8f31a909df6f6f111cbc7`;
+rollout-stdout.log and completed-resume-stdout.log each335,702bytes, both
+`c9ecdbce4adc25a0132db9bb162ba769a8078282f7234c4009896219b4ac1053`.
+Both61,037-byte completed-resume inventory records hash to
+`0e344c120b56c866d35c59876494ea5e35dc987a289fe36a19f23cbf7f8b15d3`;
+both100,962-byte original-paired inventory records hash to
+`27ae10b3ec979208f7acf5cb2d18cda095ba63cfb84fd54bb8ab445653be05b7`.
+
+A read-only aggregate covers32original top-level records totaling1,552,985bytes:
+the eight phase triplets (build,owner-refusal,genuine-historical,reference,
+paired,rollout,completed-resume,original-paired-inspect), plus cohort-manifest,
+executable,progress, completed-resume-before/after/evidence and
+original-paired-before/after JSON. Ordinal filenames, UTF-8 LF-terminated
+`filename|sha256|bytes` rows give
+`2a23786ecd8c38308852f2ddb2030768006f33b28c613b91111c6e07c221e1fc`.
+This names the exact selected records; later analysis files and nested raw/
+Store files are not silently included in its count.
 
 ## Retained log integrity
 

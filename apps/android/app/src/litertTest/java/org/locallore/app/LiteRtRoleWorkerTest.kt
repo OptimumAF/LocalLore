@@ -91,8 +91,18 @@ class LiteRtRoleWorkerTest {
     private suspend fun uncertain(block: suspend () -> Unit) {
         try { block(); fail("Expected fixed ownership uncertainty") }
         catch (expected: LocalInferenceUncertain) {
-            assertEquals("Local inference ownership uncertain", expected.message)
-            assertNull(expected.cause)
+            // Coroutine stack recovery may wrap this final, fixed exception with an identical copy.
+            // Only a finite acyclic chain of these copies is safe; never admit an SDK/private cause.
+            val seen = java.util.IdentityHashMap<Throwable, Boolean>()
+            var current: Throwable? = expected
+            var depth = 0
+            while (current != null) {
+                assertTrue("Unbounded uncertainty cause chain", depth++ < 8)
+                assertNull("Cyclic uncertainty cause chain", seen.put(current, true))
+                assertEquals(LocalInferenceUncertain::class.java, current.javaClass)
+                assertEquals("Local inference ownership uncertain", current.message)
+                current = current.cause
+            }
         }
     }
     private suspend fun eventually(test: () -> Boolean) = withTimeout(2_000) { while (!test()) delay(2) }

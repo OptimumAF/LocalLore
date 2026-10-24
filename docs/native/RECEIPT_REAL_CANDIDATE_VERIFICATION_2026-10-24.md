@@ -60,7 +60,7 @@ Those tests additionally exercise valid candidate consent/lineage (without
 reading weights), three-phase mocked continuation/failure stop, held-FD
 mutation and180/900-second wrapper/barrier/capture/cleanup rules.
 
-Final central host command `python -B -E -m unittest discover -s scripts/tests -v`
+The central host command `python -B -E -m unittest discover -s scripts/tests -v`
 passes659 tests,64.821s,zero failures/errors/skips; original65546 consumed0,
 owned completed0/known cleanup65,531ms,stdout77,729 bytes SHA-256
 `8b717b0dc6ddd183f07b67c60c6ab42ae5fe63c141fcea9a363b5a15bef7cd15`.
@@ -97,7 +97,94 @@ Root and independent review rehash909 installed bindings plus preserved
 registry/token rows,zero mismatches; fresh target/auth are absent at review.
 Original36445 then consumes0 after exact authorization; SDK child0/known cleanup
 3,812ms and preparation/preservation closure pass. No guest boot/model result
-follows. Fresh tiny-device admission and destination consent remain pending.
+follows.
+
+## Actual nonweight preflight
+
+The separate disabled RUN proposal SHA-256
+`7e5b1c59fa4ff4a29f2522e262ebf7b1996fdaa2a9a7e1f08fc43147cda17659`
+passes root and independent linked-input/preserved-state/resource checks before
+authorization. Original plan12700 and root check75930 consume0. One reviewer
+read-only helper-name typo is retained separately from its corrected review;
+no environment operation or result is inferred from that local helper error.
+
+Actual guest execution source is `67576c0f4255d52abbbfde573832238311f3526b`.
+Its1,443-file/17,098,302-byte source index SHA-256 is
+`fbd148fe5b8d6f04ded710554e459eccb675eff9922341b242bb4bfcf0220e8d`.
+The preflight proposal SHA-256
+`95e565aecc1145be9c224c7408ebfd0bc3a6d0dbe175b6bb20acf0900aa6c38e`
+binds69 nonweight inputs/87,190,915 bytes and a checked live environment lease.
+Its six-key grant explicitly leaves local-weight-copy and SDK flags false.
+All inputs are archived; index SHA-256
+`d82d4d0628816334c2950224f641fa2fc8868302e2ecd0bc80954dcc47b34b29`.
+
+Actual command is `python -B -E benchmarks/receipt_real_candidate.py run` with
+the frozen proposal, separate authorization and create-only evidence arguments.
+Original71104 consumes terminal0; owned driver child_exited/worker0,known cleanup
+and complete capture47,891ms. Driver stdout416 bytes SHA-256
+`341bc27e60feff673224b66ad5492486870905dfec4c8237dff529c6d5548066`;
+stderr0. All43 clients complete0 with known cleanup, including exactly two
+installs,one61-byte stream and one fixed SOURCE_PREFLIGHT invocation. Two install
+clients have bounded stderr counts132/143; no all-client-zero claim.
+
+The method passes all12 checks in253ms. Strict raw runner/proof replay and
+before/installed/after facts match independently: empty→exact audited pair,
+distinct UIDs,unchanged volume,APP and TEST-helper both absent at all three
+observations. The1,057-byte proof SHA-256 is
+`b674b79a0925564e30f0b7938de6a9fdb01f7d1a61bc997792efbc0858081890`.
+Actual observations include total memory8,332,292,096 bytes,available-before
+6,280,585,216 bytes; app userdata11,266,945,024 bytes and external
+8,573,050,880 bytes at proof sampling. These satisfy the fixed copy/import
+admission floors,not model fit/performance or cache peak qualification.
+
+The barrier-owned stream's client0 remains remote-exit-unknown/destination-
+unverified. The subsequent app-domain exact source-owner/probe/whitelist checks
+are what qualify the tiny destination. All model-source counters are0,the
+real model is absent and SDK is false. There is no real receipt import,SDK turn,
+reopen or full56-check claim. No old cache or model destination is read/adopted.
+
+At a later check the owner had917s remaining,below the frozen candidate
+900s+20s entry margin even before consent. Do not reduce that guard or extend
+this owner. The exact stop is requested after the completed preflight; original
+owner86848 consumes terminal0. Result stop_requested,cleanup/capture/preservation
+closure are true,349,016ms,worker1 from requested forced drain. Stdout13,847 bytes
+SHA-256 `9958ec534034bc0c319ce2905e3027942352f9909a1314a93429c44c4d2f1980`;
+stderr1,062 bytes SHA-256
+`37ad0e2d49371e1867c5dfd0b1890813033624dbf59ec3ca6c010c77925f4f11`.
+Post-stop recorded host process identities are absent; guest flush/disk-content
+integrity is not claimed. Saved target and every attempt remain retained.
+
+## Candidate-only helper correction and current gate
+
+Actual no-UI preflight has no TEST helper. The first later UI import can create
+one,so treating that initial absence as permanent retirement would reject a
+legitimate future IMPORT. Before any weight transfer,review agrees to one
+narrow first-binding opportunity only AFTER exact IMPORT PASS and its linked
+proof. Before IMPORT,new rows refuse. Empty after IMPORT closes the opportunity;
+a prior row cannot be replaced,and later PLAY/REOPEN cannot create/rebind one.
+APP absence and distinct-UID/foreign/multiple-process refusals remain unchanged.
+The ordinary setup controller and all old holds are unaffected.
+
+A literal regression and full mocked candidate with first helper after IMPORT
+fail against the old controller:2 tests/3 failure observations,owned1/known
+cleanup1,188ms. An earlier selector-name typo produced1 failure/1 loader error;
+that separate attempt is retained. After the focused correction,the same2 tests
+pass,1.359s,owned0/known cleanup1,640ms. No model/SDK/device call is used by these
+regressions. The original69 bound guest inputs remain unchanged and archived.
+This prospective correction does not imply another Android build or reinterpret
+the measured67576c0 preflight as execution of the later source.
+
+The current full host suite passes660 tests,58.026s,zero failures/errors/skips;
+original40442 consumes0,owned completed0/known cleanup58,797ms,stdout77,842 bytes
+SHA-256 `bb0202d038ede0f54411a0bc62a9d3534b9d3f0c7ec5d28801db9a6f75b1cc58`.
+Android/Rust/build inputs remain identical to actual compilation03ee127.
+
+The preparation slice is implemented/locally verified,in review. Real model
+copy remains blocked on new destination-specific human consent. If granted,
+create another fresh owned target and repeat the corrected-source tiny preflight
+with sufficient remaining lease before candidate copy/import/SDK/reopen. Never
+reuse this stopped target or old caches,or borrow its proof for another lease.
+Full M05.05/M01.05 stay unchecked and the reference-phone gate remains blocked.
 
 Retired Markdown trackers remain pointers; tickets own current status. Full
 M05.05/M01.05 and M01.01 reference-phone, real-model/SDK, ARM64/16 KiB,

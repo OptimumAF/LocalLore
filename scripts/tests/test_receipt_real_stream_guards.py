@@ -304,6 +304,9 @@ class ReceiptRealStreamGuardTests(unittest.TestCase):
                         return result
                     if argv[3] == "shell":
                         op = tuple(shlex.split(argv[4]))
+                        if op == q.contract.PS and transport.instruments >= 1:
+                            return SimpleNamespace(status="completed",returncode=0,cleanup_complete=True,
+                                stdout=("PID UID NAME\n604 10311 "+q.TEST+"\n").encode(),stderr_bytes=0,elapsed_ms=1)
                         for phase in ("IMPORT", "PLAY", "REOPEN"):
                             if op == r.selection(phase):
                                 phases.append(phase); transport.instruments += 1
@@ -323,6 +326,7 @@ class ReceiptRealStreamGuardTests(unittest.TestCase):
                     with self.assertRaises(AssertionError): r.run_cohort(owner)
                     self.assertEqual(phases, ["IMPORT"] if failed == "IMPORT" else ["IMPORT", "PLAY"])
                     self.assertFalse((owner.directory / (r.PHASES["REOPEN"][0] + "-instrumentation-v1.json")).exists())
+                    self.assertEqual(owner.process_boundary.next,1 if failed=="IMPORT" else 2)
                 else:
                     result = r.run_cohort(owner)
                     self.assertEqual(phases, ["IMPORT", "PLAY", "REOPEN"])

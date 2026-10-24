@@ -198,6 +198,24 @@ class RealCandidateTests(unittest.TestCase):
         with self.assertRaises(AssertionError):b.observe(raw,uids,label="after-play",stage="after",methods=2)
         with self.assertRaises(AssertionError):b.observe(b"PID UID NAME\n",uids,label="after-play",stage="after",methods=2)
 
+    def test_first_ui_helper_binds_only_after_successful_import(self):
+        uids={q.APP:10310,q.TEST:10311};empty=b"PID UID NAME\n"
+        row=("PID UID NAME\n604 10311 "+q.TEST+"\n").encode()
+        boundary=r.ContinuedBoundary({"target":[],"test_helper":[]})
+        boundary.observe(empty,uids,label="continued-before",stage="before",methods=0)
+        self.assertEqual(boundary.observe(row,uids,label="after-import",stage="after",methods=1)["test_helper"],
+                         [{"pid":604,"uid":10311,"name":q.TEST}])
+        boundary.observe(row,uids,label="after-play",stage="after",methods=2)
+        boundary.observe(empty,uids,label="after-reopen",stage="after",methods=3)
+        for early in (True,False):
+            boundary=r.ContinuedBoundary({"target":[],"test_helper":[]})
+            if early:
+                with self.assertRaises(AssertionError):boundary.observe(row,uids,label="continued-before",stage="before",methods=0)
+            else:
+                boundary.observe(empty,uids,label="continued-before",stage="before",methods=0)
+                boundary.observe(empty,uids,label="after-import",stage="after",methods=1)
+                with self.assertRaises(AssertionError):boundary.observe(row,uids,label="after-play",stage="after",methods=2)
+
     def test_worker_barrier_refuses_before_authorization_or_any_device_action(self):
         for prefix in (b"",b"wrong\n"):
             with patch.object(r.sys,"stdin",SimpleNamespace(buffer=io.BytesIO(prefix))),patch.object(r,"authorize") as auth:

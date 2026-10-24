@@ -112,7 +112,10 @@ The ordinary setup parser keeps its original allowed classes. This new
 controller shares its strict framing only behind the four fixed selectors.
 Raw output precedes parsing; any failed/skipped/unknown runner stops before
 further generation. Saved facts distinguish mandatory APP absence from at most
-the pinned distinct-UID TEST helper. Natural helper disappearance revokes it;
+the pinned distinct-UID TEST helper. If the no-UI preflight and continued-before
+observations have no helper, permit one first binding only after exact IMPORT
+PASS and its linked proof; this is the first UI phase. An absent row there
+closes that opportunity. A preexisting row cannot be replaced. Natural helper disappearance revokes it;
 new/reappearing helpers refuse. This grants no file/runtime authority or claim
 of continuous helper liveness/unobserved PID reuse detection.
 

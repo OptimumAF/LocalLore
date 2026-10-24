@@ -299,6 +299,9 @@ class ContinuedBoundary:
         assert set(previous) == {"target", "test_helper"} and previous["target"] == [] and len(previous["test_helper"]) <= 1
         self.helper = json.loads(json.dumps(previous["test_helper"]))
         self.retired = not self.helper; self.next = 0; self.refused = False
+        # The no-UI source preflight can legitimately have no framework helper.
+        # Only the first UI import, after its exact pass/proof, may bind one.
+        self.bind_after_import = not self.helper
 
     def observe(self, raw, uids, *, label, stage, methods):
         try:
@@ -308,10 +311,14 @@ class ContinuedBoundary:
             parsed = q.contract.parse_processes(raw, uids, {})
             assert parsed["passive"] == [] and len(parsed["owned"]) <= 1
             rows = parsed["owned"]; assert all(row["name"] == q.TEST for row in rows)
-            if rows: assert not self.retired and rows == self.helper
+            if self.next == 1 and self.bind_after_import:
+                self.helper = json.loads(json.dumps(rows))
+                self.retired = not rows
+                self.bind_after_import = False
+            elif rows: assert not self.retired and rows == self.helper
             else: self.retired = True
             self.next += 1
-            return {"target": [], "test_helper": rows}
+            return {"target": [], "test_helper": [dict(row) for row in rows]}
         except BaseException:
             self.refused = True
             raise

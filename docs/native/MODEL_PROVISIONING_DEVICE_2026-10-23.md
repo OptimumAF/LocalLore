@@ -4,8 +4,10 @@ Refs #9 (M05.05 local provisioning prerequisite; M05.04 safe failure supporting)
 This report covers the explicit debug model-setup package. It does not qualify a
 production runtime, phone performance, model quality or active-model cleanup.
 
-**Observed result: the admitted B cohort stopped after two tests passed and two
-failed.** It ran once, retained the failures and made no further device call.
+**Final observed result: all four tests passed in the separately admitted native
+publication B cohort.** The two earlier two-PASS/two-FAIL cohorts and the
+prelaunch/local-audit failures remain recorded below. No real model was loaded
+or generated with, and no A or physical-phone result is claimed.
 
 ## Selection and boundaries
 
@@ -324,3 +326,80 @@ All 23 bindings and 15 raw records rehashed without mismatch; selected files and
 index are read-only, and the lease was released. This is a new observed cleanup
 baseline for any future admission. Neither failed instrumentation cohort was
 resumed or qualified, and no further device action is authorized by this cleanup.
+
+## Final native publication cohort
+
+The coordinator replaced the unsupported publication path with a narrow,
+feature-gated Rust/JNI operation using fixed artifact names and strict no-replace
+publication. The implementation and build/host proof belong to the coordinator's
+source and verification report. This cohort exercised the real publication call
+on Android using the original tiny fixtures; it did not introduce model weights.
+
+Final instrumentation source: 9,566 bytes, SHA-256
+`4ead0ba0cd96c940288be93247679017cf2103767e041e56ab45717610ce19d5`.
+The selected APKs were:
+
+- Application: 73,829,560 bytes, SHA-256
+  `228ec0aa4a742707df3a73c4fe14509a7047d3cd3bc7e20f02b5b352dd527415`.
+- Test: 1,755,365 bytes, SHA-256
+  `6ea5c33f3023280ca304b30f844228760e02279e576902a3ba8d824c37569477`.
+
+Fifty distinct pure controller/budget/CLI fixtures passed after final source
+binding. The proposal also bound the actual signatures/manifests, six aligned
+native libraries/notices, source/feature configuration and the coordinator's
+closed host selection. Both packaged Rust libraries' symbol audits matched the
+APK hashes and showed the publication export, `dlsym` import and no dynamic
+`renameat2` requirement. These are build/ABI observations; ARM64 was not executed.
+Root and reviewer rehashed all 68 final bindings without mismatch. Root promoted
+only the two authorization flags, SHA-256
+`467e4d7a6c690ef5b5869fa24bfc99e2e4cd78585e1193aafaf1a761103b4b12`,
+for exactly one B cohort updating only the same pair from the known 31-map.
+
+The original owned execution reached authoritative terminal: return code zero,
+known cleanup and 22,828 ms elapsed, with zero outer stderr bytes. Observation
+yields were followed by polling the same handle. Every selected method had its
+paired start/PASS terminal and the final runner code:
+
+| Method | Actual result |
+|---|---|
+| `androidSymlinkCannotRedirectImportOrDeleteOutsideFixture` | PASS: valid root precondition, staging symlink refusal, protected bytes preserved |
+| `missingBuiltInModelRendersSetupAndCannotStartInference` | PASS: genuine missing state, disabled start, real candidate/JNI owner metadata, borrowed-handle invalidation and second-attachment refusal |
+| `cancelledBlockedProviderRetainsSlotUntilActualReturn` | PASS: blocked provider retains reservation after cancel, competitor refused, actual drain and staging cleanup, later import succeeds |
+| `verifiedTinyCopyPublishesAtomicallyAndReopensOnAndroidFilesystem` | PASS: real publication/reopen/reuse; native refusal of existing destination and destination symlink preserves destination/staging bytes |
+
+All 47 clients completed with return code zero and known cleanup. Only after all
+four PASS records did fresh process/installed-test-UID/complete-map checks admit
+one exact test-package stop. Subsequent after/final gates observed no LocalLore
+process, and the complete 31-map contained the exact new pair with all other 29
+hashes unchanged. Final userdata available was 1,465,159,680 bytes, above the
+unchanged 1,207,959,552-byte floor; host/API/ABI/page gates passed. Installation
+requested userdata retention; no bytewise private-data audit is claimed.
+Successful install stderr counts were again 174/196 with unavailable contents;
+no cause or zero-stderr claim is assigned to those clients.
+
+Raw instrumentation: 2,998 bytes, SHA-256
+`c37c9c37efcaa155bcd6bd140cef6c0f6bf5f902831df9d0bdfc1330d869deda`.
+The first local-only success closure retained an obsolete initial-install
+assertion that the prior map excluded this pair. It stopped before writing a
+summary/index. That helper and failure receipt remain preserved. Closure v2
+requires the pair's presence and explicit admitted update flag, matching the
+already frozen 31-to-31 device contract. It changed no device gate, controller,
+raw result or dispatch. A separate post-seal audit explicitly verified prior
+pair `24f59ee6…`/`44b1e388…`, final pair `228ec0aa…`/`6ea5c33f…`, identical 31 keys
+and the 29 protected hashes.
+
+The final read-only selection contains 139 files / 270,719 bytes; its 23,588-byte
+index has SHA-256
+`eb664c86a4a9b11a01113512395648aa2e93a007f356b7664c6098cc926ded23`.
+All 68 bindings, 47 raw records and 139 selected files rehashed without mismatch.
+The lease was released after authoritative terminal and local closure. No
+further device action was taken or authorized.
+
+This establishes the tested synthetic provisioning and owner-metadata slice on
+B. The explicit test-host stop does not establish natural process exit, native
+SDK model ownership or active-model cancellation. Actual document-provider/Gemma
+import, real inference/quality, A, ARM64 execution and physical-phone gates remain
+unqualified. The milestone checkboxes remain unchanged pending their full
+acceptance criteria and owner acceptance. Next work is separately admitted
+trusted model provisioning and real-turn evaluation under the outstanding device,
+storage and runtime gates.

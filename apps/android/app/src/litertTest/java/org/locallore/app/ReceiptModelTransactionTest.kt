@@ -64,6 +64,12 @@ class ReceiptModelTransactionTest {
             }
         }
     }
+    private suspend fun refusedBeforeSource(expected: LocalModelFailure? = null,
+        action: suspend (() -> InputStream) -> Unit) {
+        var opened = 0
+        refused(expected) { action { opened++; ByteArrayInputStream(bytes) } }
+        assertEquals("Refused transaction must not open its source", 0, opened)
+    }
     private suspend fun pending(roots: Roots) {
         refused {
             store(roots, checkpoint = {
@@ -134,6 +140,37 @@ class ReceiptModelTransactionTest {
         assertEquals(result, store(roots).installed())
     }
 
+    @Test fun fullReadWithSourceCloseFailurePreservesPendingBytesForSourceFreeRecovery() = runBlocking {
+        val roots = roots()
+        val closed = AtomicInteger()
+        refused(LocalModelFailure.STORAGE) {
+            store(roots).import {
+                object : ByteArrayInputStream(bytes) {
+                    override fun close() {
+                        closed.incrementAndGet()
+                        throw IOException("private source close failure")
+                    }
+                }
+            }
+        }
+        assertEquals(1, closed.get())
+        assertFalse(marker(roots).exists())
+        assertArrayEquals(bytes, model(roots).readBytes())
+        assertArrayEquals(expectedReceipt(roots), receipt(roots).readBytes())
+        assertArrayEquals(expectedOwner(roots), owner(roots).readBytes())
+        val before = payloadSnapshot(roots)
+        assertNull(store(roots).installed())
+        assertEquals(before, payloadSnapshot(roots))
+        val accepted = store(roots).import { error("Full pending source must not reopen after close failure") }
+        assertArrayEquals(bytes, accepted.model.readBytes())
+        assertEquals(before["receipt"], sha(receipt(roots).readBytes()))
+        assertEquals(before["owner"], sha(owner(roots).readBytes()))
+        assertTrue(marker(roots).isFile)
+        assertEquals(0, marker(roots).length())
+        assertEquals(accepted, store(roots).installed())
+        assertEquals(1, closed.get())
+    }
+
     @Test fun equivalentCaseAliasReopensAcceptedCopyWithoutChangingProvenance() = runBlocking {
         val roots = roots()
         val installed = store(roots).import { ByteArrayInputStream(bytes) }
@@ -156,10 +193,10 @@ class ReceiptModelTransactionTest {
 
     @Test fun receiptOnlyInterruptionCanContinueFreshButCannotExposeAHandle() = runBlocking {
         val roots = roots()
-        refused {
+        refusedBeforeSource { source ->
             store(roots, checkpoint = {
                 if (it == ReceiptCheckpoint.RECEIPT_FORCED) throw IOException("private checkpoint")
-            }).import { error("Source must not open before receipt checkpoint") }
+            }).import(source)
         }
         assertFalse(roots.data.exists())
         assertArrayEquals(expectedReceipt(roots), receipt(roots).readBytes())
@@ -237,7 +274,7 @@ class ReceiptModelTransactionTest {
             assertFalse(marker(roots).exists())
             assertArrayEquals(source, model(roots).readBytes())
             assertArrayEquals(expectedReceipt(roots), receipt(roots).readBytes())
-            refused { store(roots).import { error("Partial copy may not silently restart") } }
+            refusedBeforeSource { store(roots).import(it) }
             store(roots).discardUncommitted()
             assertFalse(roots.data.exists())
             assertFalse(receipt(roots).exists())
@@ -300,7 +337,7 @@ class ReceiptModelTransactionTest {
             mutation(roots)
             val before = payloadSnapshot(roots)
             refused { store(roots).installed() }
-            refused { store(roots).import { error("Malformed acceptance cannot select source") } }
+            refusedBeforeSource { store(roots).import(it) }
             refused { store(roots).discardUncommitted() }
             assertEquals(before, payloadSnapshot(roots))
         }
@@ -339,7 +376,7 @@ class ReceiptModelTransactionTest {
         second.control.mkdir()
         File(second.control, "model-import.lock").writeBytes(byteArrayOf())
         receipt(second).writeBytes(receipt(first).readBytes())
-        refused { store(second).import { error("Wrong provenance cannot open source") } }
+        refusedBeforeSource { store(second).import(it) }
         refused { store(second).discardUncommitted() }
         assertFalse(second.data.exists())
         assertArrayEquals(expectedReceipt(first), receipt(second).readBytes())
@@ -358,7 +395,7 @@ class ReceiptModelTransactionTest {
         receipt(foreign).writeBytes(expectedReceipt(foreign))
         assertFalse(expectedOwner(first).contentEquals(expectedOwner(foreign)))
         val before = payloadSnapshot(first)
-        refused { store(foreign).import { error("Foreign pending data cannot reopen source") } }
+        refusedBeforeSource { store(foreign).import(it) }
         refused { store(foreign).discardUncommitted() }
         assertEquals(before, payloadSnapshot(first))
         assertArrayEquals(expectedOwner(first), owner(first).readBytes())
@@ -376,7 +413,7 @@ class ReceiptModelTransactionTest {
             pending(roots)
             mutation(roots)
             val before = payloadSnapshot(roots)
-            refused { store(roots).import { error("Invalid owner must not open source") } }
+            refusedBeforeSource { store(roots).import(it) }
             refused { store(roots).discardUncommitted() }
             assertEquals(before, payloadSnapshot(roots))
             assertTrue(roots.data.isDirectory)
@@ -425,7 +462,7 @@ class ReceiptModelTransactionTest {
         Files.delete(lock.toPath())
         val before = payloadSnapshot(roots)
         refused(LocalModelFailure.UNSAFE_PATH) { store(roots).installed() }
-        refused(LocalModelFailure.UNSAFE_PATH) { store(roots).import { error("Missing lock may not reopen source") } }
+        refusedBeforeSource(LocalModelFailure.UNSAFE_PATH) { store(roots).import(it) }
         refused(LocalModelFailure.UNSAFE_PATH) { store(roots).discardUncommitted() }
         assertEquals(before, payloadSnapshot(roots))
         assertFalse(lock.exists())
@@ -437,7 +474,7 @@ class ReceiptModelTransactionTest {
         Files.delete(installed.cache.toPath())
         val before = payloadSnapshot(roots)
         refused { store(roots).installed() }
-        refused { store(roots).import { error("Missing accepted cache cannot reopen source") } }
+        refusedBeforeSource { store(roots).import(it) }
         refused { store(roots).discardUncommitted() }
         assertEquals(before, payloadSnapshot(roots))
         assertFalse(installed.cache.exists())
@@ -465,23 +502,21 @@ class ReceiptModelTransactionTest {
         val roots = roots()
         roots.data.mkdir()
         val unknown = File(roots.data, "model.litertlm").apply { writeBytes(bytes) }
-        refused { store(roots).import { error("Unowned root cannot open source") } }
+        refusedBeforeSource { store(roots).import(it) }
         assertArrayEquals(bytes, unknown.readBytes())
         assertFalse(receipt(roots).exists())
         val parent = temporary.newFolder().canonicalFile
         for (pair in listOf(Roots(parent, parent), Roots(parent, File(parent, "nested")),
             Roots(File(parent, "nested"), parent))) {
-            refused { store(pair).import { error("Overlapping roots cannot open source") } }
+            refusedBeforeSource { store(pair).import(it) }
         }
         val absentParent = File(temporary.root.canonicalFile, "absent-parent")
-        refused { store(Roots(File(absentParent, "control"), File(absentParent, "data"))).import { error("Missing parent") } }
+        refusedBeforeSource { store(Roots(File(absentParent, "control"), File(absentParent, "data"))).import(it) }
         assertFalse(absentParent.exists())
         val existing = temporary.newFolder().canonicalFile
         File(existing, "alias").mkdir()
-        refused {
-            store(Roots(File(existing, "alias/../control"), File(existing, "data"))).import {
-                error("Noncanonical roots cannot open source")
-            }
+        refusedBeforeSource { source ->
+            store(Roots(File(existing, "alias/../control"), File(existing, "data"))).import(source)
         }
         assertFalse(File(existing, "control").exists())
     }
@@ -552,7 +587,7 @@ class ReceiptModelTransactionTest {
         assertArrayEquals(bytes, model(roots).readBytes())
         val aliases = roots()
         Files.createSymbolicLink(aliases.data.toPath(), roots.data.toPath())
-        refused { store(aliases).import { error("Linked root opened source") } }
+        refusedBeforeSource { store(aliases).import(it) }
         assertEquals("protected target", sentinel.readText())
         assertArrayEquals(bytes, model(roots).readBytes())
     }

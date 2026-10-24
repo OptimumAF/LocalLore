@@ -23,7 +23,7 @@ struct Workspace {
 fn profile() -> Vec<u8> {
     serde_json::to_vec(&json!({"id":PROFILE_ID,"model_sha256":"a".repeat(64),"runtime_revision":"b".repeat(40),
         "template_sha256":"c".repeat(64),"worker_sha256":"d".repeat(64),"profile_manifest_sha256":"e".repeat(64),
-        "context_tokens":2048,"director_tokens":350,"narrator_tokens":220,"deadline_ms":5000,"repair_limit":1})).unwrap()
+        "context_tokens":4096,"director_tokens":350,"narrator_tokens":220,"deadline_ms":5000,"repair_limit":1})).unwrap()
 }
 impl Workspace {
     fn new() -> Self {
@@ -200,7 +200,10 @@ fn check_worker(request: &Value) {
     );
     assert_eq!(request["version"], 1);
     assert_eq!(request["threads"], 4);
-    assert_eq!(request["context_tokens"], 2048);
+    assert_eq!(
+        request["context_tokens"],
+        serde_json::from_slice::<Value>(&profile()).unwrap()["context_tokens"]
+    );
     assert!(request["prompt"]
         .as_str()
         .is_some_and(|prompt| !prompt.is_empty()));
@@ -691,6 +694,61 @@ fn profiles_packet_bounds_and_untrusted_output_fail_closed_without_changing_cano
         "Unsupported"
     );
     normal.close(handle);
+}
+
+#[test]
+fn insufficient_context_fails_before_allocating_a_ticket_and_preserves_accepted_canon() {
+    let workspace = Workspace::new();
+    let before = workspace.snapshot(0);
+    let mut small: Value = serde_json::from_slice(&profile()).unwrap();
+    small["context_tokens"] = json!(2048);
+    let handle = workspace
+        .registry
+        .open_local(
+            &workspace.root.join("stories.sqlite3"),
+            &serde_json::to_vec(&small).unwrap(),
+        )
+        .unwrap();
+    let session = data(host_call(
+        &workspace.registry,
+        handle,
+        json!({"op":"resume","scope":workspace.session["scope"]}),
+    ));
+    let request = workspace.request(
+        "insufficient-context",
+        0,
+        "action",
+        "I give my last potion to Mira.",
+    );
+    assert_eq!(
+        data(host_call(
+            &workspace.registry,
+            handle,
+            json!({"op":"free_text","session":session["session"],"request":request})
+        ))["phase"],
+        "queued"
+    );
+    let terminal = data(host_call(
+        &workspace.registry,
+        handle,
+        json!({"op":"prepare",
+        "session":session["session"],"scope":session["scope"],"turn":"insufficient-context"}),
+    ));
+    assert_eq!(terminal["phase"], "failed");
+    assert_eq!(terminal["error"], "TooLarge");
+    assert!(data(decode(workspace.registry.poll_inference(handle)))["pending"].is_null());
+    assert_eq!(workspace.snapshot(0), before);
+    workspace.registry.close(handle);
+    data(workspace.submit(&workspace.request(
+        "sufficient-context",
+        0,
+        "action",
+        "I give my last potion to Mira.",
+    )));
+    let observed = workspace.prepare("sufficient-context");
+    // The shared registry counter starts at one: the refused package allocated no ticket at all.
+    assert_eq!(observed[0]["ticket"], 1);
+    assert_eq!(workspace.snapshot(0), before); // Ready remains noncanonical without commit.
 }
 
 fn fork_child(workspace: &Workspace) -> Value {

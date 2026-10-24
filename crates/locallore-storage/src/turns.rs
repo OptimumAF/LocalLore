@@ -353,9 +353,19 @@ fn recorded(
     request: &Request,
     engine: &Engine,
 ) -> Result<Option<TurnRecord>> {
-    let row: Option<(i64,String,String,String)> = connection.query_row(
-        "SELECT expected_revision,status,request_json,canonical_kind FROM turns WHERE story_id=?1 AND branch_id=?2 AND turn_id=?3",
-        (&request.scope.story,&request.scope.branch,&request.turn), |r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).optional()?;
+    let version: u32 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
+    let sql = if version >= 5 {
+        "SELECT expected_revision,status,request_json,canonical_kind FROM turns WHERE story_id=?1 AND branch_id=?2 AND turn_id=?3"
+    } else {
+        "SELECT expected_revision,status,request_json,'legacy_play' FROM turns WHERE story_id=?1 AND branch_id=?2 AND turn_id=?3"
+    };
+    let row: Option<(i64, String, String, String)> = connection
+        .query_row(
+            sql,
+            (&request.scope.story, &request.scope.branch, &request.turn),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        )
+        .optional()?;
     let Some((revision, status, input, kind)) = row else {
         return Ok(None);
     };
@@ -554,15 +564,22 @@ impl Store {
         }
         let tx = self.connection.transaction()?;
         let resumed = read_engine(&tx, scope)?;
-        let input: Option<String> = tx
-            .query_row(
-                "SELECT request_json FROM turns WHERE story_id=?1 AND branch_id=?2 AND turn_id=?3",
-                (&scope.story, &scope.branch, turn),
-                |r| r.get(0),
-            )
+        let version: u32 = tx.pragma_query_value(None, "user_version", |r| r.get(0))?;
+        let sql = if version >= 5 {
+            "SELECT request_json,canonical_kind FROM turns WHERE story_id=?1 AND branch_id=?2 AND turn_id=?3"
+        } else {
+            "SELECT request_json,'legacy_play' FROM turns WHERE story_id=?1 AND branch_id=?2 AND turn_id=?3"
+        };
+        let input: Option<(String, String)> = tx
+            .query_row(sql, (&scope.story, &scope.branch, turn), |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
             .optional()?;
-        let request: Request = serde_json::from_str(&input.ok_or(TurnError::UnknownTurn)?)
-            .map_err(|_| TurnError::Integrity)?;
+        let (input, kind) = input.ok_or(TurnError::UnknownTurn)?;
+        if kind == "author_v1" {
+            return Err(TurnError::RetryMismatch);
+        }
+        let request: Request = serde_json::from_str(&input).map_err(|_| TurnError::Integrity)?;
         if request.scope != *scope || request.turn != turn {
             return Err(TurnError::Integrity);
         }

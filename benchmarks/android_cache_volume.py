@@ -128,6 +128,42 @@ def after_probe(before, after, expected_uuid, model_copy_bytes=0):
                   "userdata_net_consumption_bytes": userdata_used, "cache_net_consumption_bytes": cache_used})
 
 
+def _explanation(post=None, groups=None, error=None):
+    return {"version": 1, "scope": "android_cache_post_explanation", "policy_version": 1,
+            "error": error, "post": post, "comparison_available": groups is not None,
+            "host_groups": groups if groups is not None else []}
+
+
+def explain_post(before, after, expected_uuid, model_copy_bytes=0):
+    """Explain the existing gate using supplied samples; collect or authorize nothing.
+
+    The original verdict and reason order remain authoritative. Host-wide net
+    deltas do not attribute consumption to an app or expose peak consumption.
+    Logical roles describe shared physical groups without emitting their private
+    aliases, UUID, device identities or paths. Identity drift forbids comparison.
+    """
+    before, after = validate(before), validate(after)
+    model_copy_bytes = copy_size(model_copy_bytes)
+    post = after_probe(before, after, expected_uuid, model_copy_bytes)
+    if identity(before) != identity(after):
+        return _explanation(post)
+    pre_hosts, post_hosts = host_budgets(before, model_copy_bytes), host_budgets(after, model_copy_bytes)
+    # First logical role determines order, never an arbitrary physical alias.
+    roles = {}
+    for role, key in (("userdata", "userdata_host_volume"), ("cache", "cache_host_volume"),
+                      ("evidence", "evidence_host_volume")):
+        roles.setdefault(before[key], []).append(role)
+    rows = []
+    for alias, members in roles.items():
+        pre, final = pre_hosts[alias], post_hosts[alias]
+        consumption = pre["free"] - final["free"]
+        rows.append({"roles": members, "before_free_bytes": pre["free"], "after_free_bytes": final["free"],
+                     "net_consumption_bytes": consumption, "reserve_bytes": pre["reserve"],
+                     "allowance_bytes": pre["growth"], "reserve_satisfied": final["free"] >= pre["reserve"],
+                     "consumption_satisfied": consumption <= pre["growth"]})
+    return _explanation(post, rows)
+
+
 @dataclass
 class Observation:
     admission: dict
@@ -179,6 +215,7 @@ def run_with_admission(measure, operation, expected_uuid, model_copy_bytes=0):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sample", required=True)
+    parser.add_argument("--after-sample", help="Explain a supplied post-sample without collecting or dispatching anything")
     parser.add_argument("--volume-uuid", required=True)
     parser.add_argument("--model-copy-bytes", type=int, default=0)
     args = parser.parse_args(argv)
@@ -187,10 +224,20 @@ def main(argv=None):
             raw = source.read(16385)
         if len(raw) > 16384:
             raise InvalidSample("sample_size")
-        value = before_probe(strict_json(raw), args.volume_uuid, args.model_copy_bytes)
-        code = 0 if value["status"] == "admitted" else 2
+        before = strict_json(raw)
+        if args.after_sample is not None:
+            with open(args.after_sample, "rb") as source:
+                after_raw = source.read(16385)
+            if len(after_raw) > 16384:
+                raise InvalidSample("sample_size")
+            value = explain_post(before, strict_json(after_raw), args.volume_uuid, args.model_copy_bytes)
+            code = 0 if value["post"]["status"] == "admitted" else 2
+        else:
+            value = before_probe(before, args.volume_uuid, args.model_copy_bytes)
+            code = 0 if value["status"] == "admitted" else 2
     except (OSError, ValueError, UnicodeError, RecursionError):
-        value, code = report("before", ["sample_failed"], None), 1
+        value, code = (_explanation(error="sample_failed") if args.after_sample is not None
+                       else report("before", ["sample_failed"], None)), 1
     print(json.dumps(value, indent=2))
     return code
 

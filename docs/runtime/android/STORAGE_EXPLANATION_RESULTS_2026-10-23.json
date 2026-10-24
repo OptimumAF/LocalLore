@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "scope": "offline_retained_storage_explanation",
+  "task_ids": [
+    "M01.05"
+  ],
+  "full_task_acceptance": false,
+  "base_pr": 117,
+  "base": "16453e77c6b45d160bfa2c996178d83f68edcd2e",
+  "implementation": "a965ddc",
+  "module_sha256": "f0493b72b3db69b4152bef2f5e28c2dac2faef81ff1dbdda113cdf5773c10d6a",
+  "source_aggregate_sha256": "9235a18aaa707194bbc6f46842308e3423fdbaf3c32481c52be2392b72db8358",
+  "original_policy_unchanged": true,
+  "original_post_exact": true,
+  "explanation": {
+    "version": 1,
+    "scope": "android_cache_post_explanation",
+    "policy_version": 1,
+    "error": null,
+    "post": {
+      "version": 1,
+      "phase": "after",
+      "status": "blocked",
+      "reasons": [
+        "host_consumption_budget"
+      ],
+      "bytes": {
+        "cache_bytes": 3153651114,
+        "cache_free_bytes": 2831179776,
+        "cache_host_free_bytes": 321902133248,
+        "evidence_free_bytes": 321902133248,
+        "userdata_free_bytes": 1674371072,
+        "userdata_host_free_bytes": 10284752896
+      },
+      "observed_deltas": {
+        "cache_growth_bytes": 788412770,
+        "userdata_net_consumption_bytes": 90112,
+        "cache_net_consumption_bytes": 788422656
+      }
+    },
+    "comparison_available": true,
+    "host_groups": [
+      {
+        "roles": [
+          "userdata"
+        ],
+        "before_free_bytes": 12667879424,
+        "after_free_bytes": 10284752896,
+        "net_consumption_bytes": 2383126528,
+        "reserve_bytes": 4294967296,
+        "allowance_bytes": 67108864,
+        "reserve_satisfied": true,
+        "consumption_satisfied": false
+      },
+      {
+        "roles": [
+          "cache",
+          "evidence"
+        ],
+        "before_free_bytes": 322707947520,
+        "after_free_bytes": 321902133248,
+        "net_consumption_bytes": 805814272,
+        "reserve_bytes": 10737418240,
+        "allowance_bytes": 1073741824,
+        "reserve_satisfied": true,
+        "consumption_satisfied": true
+      }
+    ]
+  },
+  "checks": {
+    "script_tests": 380,
+    "new_independent_methods": 20,
+    "device_calls": 0,
+    "model_calls": 0
+  },
+  "preservation": {
+    "prior_guarded_cache_metadata_changed": true,
+    "prior_payload_content_hash_available": false,
+    "final_old_database_preservation_verified": false,
+    "cause": "unestablished"
+  },
+  "limitations": [
+    "Supplied sealed endpoint observations, not fresh measurements or authorization",
+    "Whole-host endpoint deltas do not identify writer, timing, peak allocation or cause",
+    "Original director timeout, storage block and incomplete preservation remain unchanged",
+    "No new device/model/native/Android execution or dependency change"
+  ]
+}

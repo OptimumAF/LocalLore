@@ -36,7 +36,7 @@ replace a failing producer/decoder envelope with a mock expected payload.
 
 ## Capture boundary and execution status
 
-The forthcoming optional capture uses only `LOCALLORE_V2_FIXTURE_DIRECTORY`, an
+The optional capture uses only `LOCALLORE_V2_FIXTURE_DIRECTORY`, an
 existing absolute directory, and one fixed `v2-native-fixtures.json` filename.
 It must serialize at most 1MiB of synthetic fixture data before create_new and
 must refuse overwrite. The default Rust test performs all producer assertions
@@ -51,3 +51,30 @@ producer/decoder check; it does not establish native IPC, WebView rendering,
 desktop interaction, durable storage, inference or real model acceptance.
 Root owns every runtime slot and integration/consumer fixes. Any concrete strict
 decoder gap must be reported, never hidden by weakening these assertions.
+
+## Reproducible coordinator commands (not executed here)
+
+Use an unused existing directory under the repository's ignored `target/`.
+PowerShell, from the repository root:
+
+```powershell
+$v2FixtureDir = Join-Path (Get-Location) 'target/v2-native-fixtures-source-cohort'
+New-Item -ItemType Directory -Path $v2FixtureDir -ErrorAction Stop
+$env:LOCALLORE_V2_FIXTURE_DIRECTORY = $v2FixtureDir
+cargo test -p locallore --features host --test m08_v2_transport_capture_review
+Push-Location apps/desktop
+node check-v2-native-fixtures.mjs
+Pop-Location
+Remove-Item Env:LOCALLORE_V2_FIXTURE_DIRECTORY
+```
+
+The directory must be new for a new capture. If the fixed file already exists,
+the Rust test fails rather than replacing earlier evidence. To rerun producer
+oracles without writing, unset the environment variable and run the same Rust
+test. The Node checker requires the variable and fixed captured file. Generated
+fixtures remain local and ignored by default through `target/`; do not publish
+capture output or treat a capture run alone as a decoder pass.
+
+The first immutable producer/checker oracle commit is
+`9d6e1141b6df3cd525e65c6461a48076f327f2ce`. The later capture implementation adds
+only a test-local fixed filename writer, after all source oracles were frozen.

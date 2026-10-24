@@ -10,6 +10,9 @@ use locallore::{
 use serde_json::{json, Value};
 use std::{
     collections::BTreeSet,
+    fs::OpenOptions,
+    io::Write,
+    path::PathBuf,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc, Mutex,
@@ -31,6 +34,30 @@ const VIEWS: [View; 9] = [
     View::Summaries,
     View::RetrievalIndexes,
 ];
+
+fn capture_fixture(encoded: &[u8]) {
+    assert!(encoded.len() <= MAX_FIXTURE_BYTES);
+    let Some(directory) = std::env::var_os("LOCALLORE_V2_FIXTURE_DIRECTORY") else {
+        return;
+    };
+    let directory = PathBuf::from(directory);
+    assert!(
+        directory.is_absolute(),
+        "fixture directory must be absolute"
+    );
+    assert!(
+        std::fs::metadata(&directory).unwrap().is_dir(),
+        "fixture directory must already exist"
+    );
+    // One fixed synthetic file, no overwrite, directory creation, arbitrary
+    // app hook, runtime command or general-purpose file transport.
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(directory.join("v2-native-fixtures.json"))
+        .expect("fixed synthetic fixture capture must not overwrite an existing file");
+    file.write_all(encoded).unwrap();
+}
 
 struct ReadOnlySource {
     engine: Arc<Mutex<Engine>>,
@@ -442,6 +469,5 @@ fn actual_host_v2_transport_has_scoped_identity_private_lenses_and_stable_paging
         encoded.len() <= MAX_FIXTURE_BYTES,
         "synthetic fixture exceeds 1MiB"
     );
-    // Optional fixed-file capture is added only after the producer/checker
-    // oracles above have been frozen in source. No output during this freeze.
+    capture_fixture(&encoded);
 }

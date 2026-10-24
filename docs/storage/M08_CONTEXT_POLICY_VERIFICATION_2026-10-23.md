@@ -275,3 +275,86 @@ Any explicit future-version fixture correction requires coordinator path
 authorization and a separate commit; no production semantics or oracle was
 silently changed. Standalone owned-file rustfmt and git diff checks pass; frozen
 test SHA256 remains `7eb45f0d9f6efdd0076ea81431257d039a672bfcc0a15d4c2b853ed74b313469`.
+
+### Final actual qualification and preserved corrections
+
+The exclusive heavy slot was released immediately after the final review run;
+no build/test/app remains running from this packet. Final code/test checkpoint
+is `fc6611e11178c6def8812f8d73c15b4a2692491c`. The only compiler source change
+after the original implementation is `679f3343e421311c55c03783f34758985522b02f`:
+a scoped documented `too_many_arguments` allowance on the existing bounded
+eight-argument raw visitor. Actual strict default first failed that lint in
+`06-clippy-default.log`; no behavior change was made to satisfy it.
+
+Root separately claimed the existing query future-version fixture and supplied
+`c048e40` (imported here as `b68639c86d7847e825f91c75895b5a51083d6448`): only
+its unsupported-version request changes2 to3, retaining the same Err(Version)
+assertion. The original all-feature RED remains in `05-core-all-features.log`
+(126 passed/1 failed before early stop). The corrected query binary passed
+16/16 at the final compiler source.
+
+Independent source reviewer supplied four new tests in `4206d740` and report
+`72b71cf` (imports439d39e/685e410). The first actual execution produced **0
+passed/4 failed** in `08-independent-review.log`, all InvalidRequest before
+semantic assertions: helper budget20,000 exceeds the unchanged4,096 admission
+limit. Original source SHA256 was
+`7b388021438e21692902d9a5a83aa2018949f17e657b99ab111621d1aa07c78a`.
+Reviewer-owned explicit correction `527d6c9` (importfc6611e) changes ONLY that
+helper budget20,000 to4,096 and documents the RED; the four semantic assertions
+are unchanged. Corrected source SHA256
+`ece6d3824bd3590cc4b74f9fb0fed27f0de9f96e489aa4542909dda449b6e459`
+actually passes4/4, compile0.90s/test0.01s. It proves NPC eligible subsets without
+raw attachments, whole oversized-unit refusal with older-unit selection,
+author-only public head without hidden payload, and historical original-scope
+isolation. It does not establish model behavior or wire integration.
+
+Exact follow-up commands (same locked/offline jobs1 environment above):
+
+```text
+cargo test --locked --offline -p locallore --test inspection_query --all-features --jobs 1
+# 16 passed, 0 failed
+cargo test --locked --offline -p locallore --all-targets --all-features --jobs 1 -- --skip ten_thousand_seeded_attempts_preserve_conservation_bounds_and_replay --skip mixed_private_and_public_receipt_gives_npc_only_eligible_event_subset_and_no_raw_attachment --skip author_only_interval_is_public_head_without_actor_unit_or_hidden_truth_payload --skip historical_policy_snapshot_keeps_current_guard_and_original_event_scope_without_future_truth --skip newest_oversized_whole_unit_is_skipped_and_older_fitting_unit_remains_complete
+# 275 passed, 0 failed, 2 existing ignored, 5 explicitly filtered, 34 binaries
+cargo clippy --locked --offline -p locallore --all-targets --jobs 1 -- -D warnings
+# PASS, 7.88s
+cargo clippy --locked --offline -p locallore --all-targets --all-features --jobs 1 -- -D warnings
+# PASS, 11.77s
+cargo test --locked --offline -p locallore --test m08_context_policy_review --all-features --jobs 1
+# corrected review fixture: 4 passed, 0 failed, 0 ignored, 0 filtered
+```
+
+The five filtered cases are accounted for separately: the unchanged10,000-
+attempt case already passed in the initial all-feature run119.94s, and the four
+review cases passed after their explicit helper correction. Thus the280-case
+all-feature inventory is covered by complementary executions, **not one
+unfiltered all-feature pass**. The default full run remains219 passed/2 existing
+ignored before importing the four review tests. The two existing ignored cases
+are opt-in historical Play fixture/probe tools, not skipped runtime failures.
+Strict gates ran before the review-only numeric fixture correction; production
+source is identical. Owned standalone rustfmt, both new test files, diff check,
+and clean-tree checks passed. No original compiler test or golden bytes changed.
+
+Local evidence SHA256 (raw logs remain outside Git):
+
+| Log | SHA256 |
+|---|---|
+| 01-frozen-policy | `4b45bb448c695a490c708f29fe7708ce6cf04b40b910aa633490ca95d18ed2ac` |
+| 02-existing-compiler | `080bdbab5a023f9f61adbf302ee2dc076bc2798ba73aced0ed7e3f049a1cdead` |
+| 03-accepted-main-legacy-probe | `f6dd4a859ca68e1677a835ee8d8207652a9196161a3127206a795321e2653c32` |
+| 04-core-default | `2ff2c74080e141a5ded88e29aad6bd51f1a62eb00bcd793491ff0793c53a2136` |
+| 05-core-all-features RED | `e532e2e27d2510a4cd4fc7430851fc73a444944bae1ce69d1369d72d01c2a5c5` |
+| 06-clippy-default RED | `f9593ec6e43ff2a6aaea9ecd910d4ac7687055e842f6f7d0962b3b1fe9941919` |
+| 08-independent-review RED | `f53bc5a1c60ea636a89c4439e4dd6b5378db7435295a5ebaf761ac4605482d77` |
+| 09-query-fixture-green | `73f6b917ed442dbd45006fc4c63d700255560b98dbdc0c381dfcca671a996868` |
+| 10-all-features-remaining | `60d4f79f1410602c35532bf72dfd84dcbde10db4bc983ad0951c86b9d80892dd` |
+| 11-clippy-default-green | `ec43378157ebf8a9768777e58480ff1a5d92dfc2dae167c5a963de97c67de474` |
+| 12-clippy-all-features | `dee743e12c2e6d166502cbe7f67c44d5fa0919a0fc59153e4263b943454146e7` |
+| 13-independent-review-green | `77064af4a31ae2156a1be615f5e4436da980c9a972b1f4ec4d06dd9ae8db08b3` |
+
+Status: this bounded compiler implementation is in_review with actual Core
+evidence; qualification claims are released to Root. No milestone checkbox,
+human acceptance, actual model/latency/cost/savings, native/Android, schema5,
+Host/Play2.5/narrator2.2, decoder or comparison-runner gate is claimed. Next
+runnable task is Root's independent integration and full consumer/privacy/
+version closure at its actual combined source, preserving the old bytes and
+the recorded failures above.

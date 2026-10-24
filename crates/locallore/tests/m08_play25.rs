@@ -538,3 +538,49 @@ fn discovered_value_does_not_expand_hidden_actor_allowlist_and_fallback_is_mecha
     );
     assert!(!receipt.narration().contains("Sable"));
 }
+
+#[test]
+fn guarded_phrase_is_supported_only_by_actual_this_turn_observation_not_private_world_truth() {
+    // "golden" is an existing guarded phrase. This pair requires the new safe
+    // evidence seam to matter, while keeping the same private truth in both runs.
+    for discover in [false, true] {
+        let mut engine = authored(&root(), "a golden mark lies beside the quay");
+        let items = engine.state().items.clone();
+        let r = request(
+            &engine,
+            "paired-grounding",
+            PlayInputKind::Action,
+            if discover {
+                "I discover relic-location."
+            } else {
+                "I wait for one tide tick."
+            },
+        );
+        let command = if discover {
+            json!({"op":"discover","fact":"relic-location"})
+        } else {
+            json!({"op":"wait","ticks":1})
+        };
+        let mut provider = Script::values(vec![
+            json!({"commands":[command]}),
+            json!({"text":"You notice a golden mark beside the quay.","event_ids":[2],"speaker":"narrator"}),
+        ]);
+        let receipt = play::execute(
+            &mut engine,
+            &r,
+            &mut provider,
+            &Cancellation::default(),
+            &profile(),
+        )
+        .unwrap();
+        assert_eq!(envelope(&provider, 1).1.contains("golden"), discover);
+        assert_eq!(receipt.play().unwrap().fallback, !discover);
+        assert_eq!(engine.state().items, items);
+        if !discover {
+            assert_eq!(
+                receipt.narration(),
+                locallore::engine::render(receipt.events())
+            );
+        }
+    }
+}

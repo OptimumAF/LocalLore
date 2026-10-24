@@ -52,8 +52,60 @@ timeout. The test suite also adds a full original synthetic failed-runner status
 shape and an actual mocked Owner/cohort path proving raw/observation retention
 before refusal and no helper/restart dispatch.
 
-Corrected final builds, parser checks and actual device observations remain
-pending in this draft. Source-only agent checks are not execution evidence.
+## Corrected host and artifact verification
+
+```text
+python -B -E -m unittest discover -s scripts/tests -v
+```
+
+All608 script tests pass, zero failures/errors/skips,68.011 seconds. Original47399
+consumed terminal0, owned completion0/known cleanup,69,047ms. Stdout71,099 bytes
+SHA-256 `f5f13f7b6f46292d53d211fc385f65889650491b12fddbfaaf78a8a3c00dfab8`.
+The new failure parser has11 tests, including full synthetic failed-runner and
+actual mocked Owner/cohort refusal; no device transport is inferred from mocks.
+
+Central offline builds compile app/instrumentation, run JVM tests and lint:
+
+| Profile | JVM tests / suites | Failures/errors/skips | Lint errors / warnings | Owned ms |
+|---|---:|---:|---:|---:|
+| Corrected receipt |353 /36|0 /0 /0|0 /19|137,875|
+| Regular SDK |340 /35|0 /0 /0|0 /9|153,610|
+| Ordinary |206 /24|0 /0 /0|0 /1|83,750|
+
+The receipt profile includes12 independently authored trace tests and the
+central caller-list mutation regression. All13 pass; source-only agent handoffs
+are not represented as separate test executions. Regular/ordinary exclude the
+receipt-only JVM source set. SDK dependency/analyzer tasks pass unchanged; no new
+runtime/model/native dependency or license choice is introduced.
+
+Original corrected receipt48197, regular99929 and ordinary16335 are consumed
+terminal0; every owned build completes0 with known cleanup. Their stdout hashes:
+
+- Receipt9,947 bytes: `d8dd48d15ba34a236d7df77255a9c80329c6f8c37d1d0586ec95cb5be6b23456`.
+- Regular9,157 bytes: `054484bcab5cf55201eb59d4c3c3f4f158675300f4ffe5e5168527554da6a0e0`.
+- Ordinary5,842 bytes: `1963000c48b1c064acce5edb5c16499d502ea96acc89de2542b5a60dc486f521`.
+
+All three actual APP APK capability/native/manifest audits pass. The receipt
+APK contains all diagnostic classes; regular and ordinary exclude them. SDK
+binary/notice hashes, native ABI alignment and fixed private activities remain
+checked. This is packaging, not ARM64 or16 KiB execution. Both new receipt APK
+signatures verify with known child cleanup. An initial private artifact helper
+incorrectly expected an instrumentation field in `aapt2 dump badging` after its
+three child checks all completed0; that helper assertion is retained. A separate
+XML-tree check verifies the exact target/runner and byte-identical6,244-byte
+instrumentation manifest against the previously audited APK. No signature or
+application failure is inferred from that helper's assumption.
+
+| Frozen corrected APK | Bytes | SHA-256 |
+|---|---:|---|
+| App |74,884,112|`dca8db5ef1244e29318f3b5da1044e8468bc82a6b995ac591f0516eae7dd76f7`|
+| Instrumentation |1,922,787|`bc74a8c89c447999a83cee019e37c78186d7e071e03165e8014517e89fefe4ef`|
+
+Only the controller's two APK pins change after compilation source `ae52ea6`;
+all Android/Rust/build implementation inputs remain identical. A new separately
+reviewed fresh environment and exact guest admission are still required. No
+actual device failure-field framing, import fix or setup/reopen pass is claimed
+before that observation. Old targets are not reused.
 
 ## Remaining gates
 

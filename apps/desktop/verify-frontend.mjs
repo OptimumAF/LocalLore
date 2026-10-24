@@ -11,6 +11,7 @@ for (const args of [
     ["check-v2-routing.mjs"],
     ["check-v2-play-controller.mjs"],
     ["check-author-controller.mjs"],
+    ["check-author-callback-review.mjs"],
     ["check-author-broker-retention.mjs"],
     ["check-main-author-context-review.mjs"],
     ["check-export-controller.mjs"],

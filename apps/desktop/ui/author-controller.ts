@@ -448,6 +448,11 @@ export class AuthorController {
     }
     private async finish(work: Work, status: AuthorStatus) {
         if (work.finalized) return;
+        if (!this.current(work)) {
+            if (work.kind === "prepare" && status.phase === "completed")
+                this.discard(await checkedAuthorPreview(status.result, work.input, work.session));
+            return;
+        }
         if (status.error) {
             work.finalized = true;
             this.patch({
@@ -523,7 +528,7 @@ export class AuthorController {
                 : "No matching child found. Nothing was created by this inspection; a new explicit preview is required to apply.",
         });
         // Library refresh is presentation only; failure cannot demote an actual saved result.
-        if (outcome)
+        if (outcome && this.current(work))
             try {
                 await this.effects.refreshLibrary();
             } catch {
@@ -567,6 +572,12 @@ export class AuthorController {
         }
         const input = this.state.input;
         try {
+            const selectedKey = this.key, generation = this.serial;
+            // A readonly lookup replaces the preview presentation; release its
+            // unused native capability before that ownership disappears.
+            if (this.state.preview) this.invalidate();
+            if (this.key !== selectedKey || this.serial !== generation ||
+                !authorAvailable(this.context)) return;
             const raw = authorRaw({ version: 1, input, author_consent: true });
             const work = this.startWork("lookup", input);
             await this.run(work, () => this.port.lookupStart(raw));

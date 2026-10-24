@@ -123,3 +123,56 @@ Invalid form edits also revoke the displayed preview and both consent stages;
 validation refusal cannot leave an earlier confirm armed. An independent frozen
 NaN-boundary edit case covers native discard and absence of commit calls before
 the focused controller fix. Uncertain-operation input remains immutable instead.
+
+## Source handoff
+
+Branch `impl/m08-author-ui`, isolated `source-author-ui`, exact base above.
+Claims #12 `6379011122`, #30 `6379011301`, #26 `6379011483`. Five NEW files only;
+no existing app, shared broker, model, schema, dependency or test-runner edits.
+
+Freeze/implementation chronology:
+
+- `a4bb009`: independent synthetic checker and exact contract before all modules.
+- `0bef92e`: three additional asynchronous ordering oracles before modules.
+- `4827ff6`: isolated decoder/controller/plain React panel source.
+- `a3d4bb3`: detached async digest and semantic context identity oracles;
+  `999deec`: focused model fix, assertions unchanged.
+- `8377c57`: invalid-edit revocation oracle; `30ae663`: focused controller fix,
+  assertions unchanged. These source-detected seams are not executed REDs.
+
+Actual checks were Git/source inspection and `git diff --check` (exit 0), with
+clean status. No JavaScript/TypeScript parser, checker, formatter, bundler, test,
+React render or native/app execution was run by this agent. In particular,
+compressed source has NOT passed Prettier and TypeScript is NOT yet qualified.
+No generated artifacts were produced. SHA-256:
+
+| New source | SHA-256 |
+| --- | --- |
+| `ui/author-model.ts` | `8f3ddc8f088995d9e7d18e64ded37b8edf3ff062fc9fb09af2ae4835eed64226` |
+| `ui/author-controller.ts` | `4136bc4976a0becea489e7c3a2bf12ad9a01d59a481430ca271da535e0d342b7` |
+| `ui/AuthorPanel.tsx` | `5e249e7ecf328b6b2207a68a7841ddcff38d2ee21f900de21a8c584aefca6383` |
+| `check-author-controller.mjs` | `72ab36ca316431135f4afbd99d7630e6e715001172bf810426d4a3616ba5324b` |
+
+Next coordinator commands, from `apps/desktop` in the authorized heavy slot:
+
+```text
+node check-author-controller.mjs
+node node_modules/typescript/bin/tsc --noEmit
+node node_modules/prettier/bin/prettier.cjs --check ui/author-model.ts ui/author-controller.ts ui/AuthorPanel.tsx check-author-controller.mjs
+```
+
+Use the task's pinned bundled Node/runtime; preserve first compile/checker/format
+failure separately and keep frozen assertions. The standalone checker writes its
+synthetic compiled artifact only under the existing gitignored artifacts/checks
+directory (or explicit caller-owned LOCALLORE_CHECK_OUTPUT_DIR). No package script
+or automatic runner is changed here. A synthetic pass proves presentation logic,
+not actual native execution, current UI import, layout or observer-safe generation.
+
+After checks, Root must close global broker retention, fixed native wrappers for
+the approved port (including owned preview discard), actual root/window teardown,
+selection/observer/head fencing, main/App navigation and V2 resume. Then run the
+application-owned semantic/render/native IPC harness and inspect its artifacts.
+No UI/headless/native screenshots or desktop capture/control was performed here.
+Restart hint recovery, private input persistence, Android author UI and Archive3
+are separate prerequisites, not implicitly completed by this packet. M08/D08/D05
+whole milestone acceptance remains pending.

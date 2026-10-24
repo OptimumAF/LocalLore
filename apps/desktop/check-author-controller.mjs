@@ -805,6 +805,195 @@ for (const kind of ["prepare", "commit"]) {
     );
     c.dispose();
 }
+// Source-frozen loading-boundary regressions. Keep the existing checks above
+// unchanged; collect these two failures independently for honest first-run REDs.
+const loadingBoundaryFailures = [];
+async function loadingBoundary(name, run) {
+    try {
+        await run();
+    } catch (error) {
+        loadingBoundaryFailures.push(new Error(name, { cause: error }));
+    }
+}
+await loadingBoundary(
+    "malformed context during loading must retire captured recovery ownership",
+    async () => {
+        const { c, port, opened, refreshed } = fixture();
+        try {
+            c.setAuthorConsent(true);
+            await c.prepare();
+            c.setPreviewRead(true);
+            port.starts.push(() => Promise.reject(Error("Transport")));
+            await c.confirm(true);
+            const captured = clone(c.get().input);
+            check(
+                c.get().uncertain && captured !== null,
+                "new malformed-boundary fixture starts with real captured unknown commit acknowledgement",
+            );
+            c.contextChanged(null);
+            check(
+                !c.get().available &&
+                    JSON.stringify(c.get().input) === JSON.stringify(captured),
+                "literal null loading preserves recovery input without making actions available",
+            );
+            c.contextChanged({ ...context(), head: -1 });
+            check(
+                c.get().input === null &&
+                    c.get().preview === null &&
+                    c.get().outcome === null &&
+                    !c.get().available &&
+                    !c.get().authorConsent,
+                "malformed context while already null must clear private recovery input and presentation",
+            );
+            c.contextChanged({ ...context(), selectionEpoch: 2 });
+            check(
+                c.get().input === null,
+                "returning valid same-root context cannot resurrect malformed-retired input",
+            );
+            const calls = port.calls.length;
+            await c.lookup();
+            await c.inspectOperation();
+            await c.confirm(true);
+            check(
+                port.calls.length === calls,
+                "retired owner cannot dispatch lookup, status or another commit after valid context returns",
+            );
+            check(
+                port.calls.filter((call) => call.kind === "commit").length ===
+                    1 &&
+                    !port.calls.some((call) => call.kind === "lookup"),
+                "only the original unknown commit was dispatched; no rollback or saved-child result is invented",
+            );
+            check(
+                opened.length === 0 && refreshed.length === 0,
+                "invalid-context retirement cannot open or refresh a fabricated successful child",
+            );
+        } finally {
+            c.dispose();
+        }
+    },
+);
+await loadingBoundary(
+    "positive original preview disposal during null loading must settle only that retired prepare",
+    async () => {
+        const { c, port, opened, refreshed } = fixture();
+        const held = deferred(),
+            started = deferred(),
+            discardEntered = deferred(),
+            discardAcknowledged = deferred();
+        let captured,
+            preparing;
+        port.starts.push((request) => {
+            captured = clone(request);
+            started.resolve();
+            return held.promise;
+        });
+        port.discardPreview = async (session, token) => {
+            const value = { session, token };
+            port.discards.push(value);
+            discardEntered.resolve(value);
+            return await discardAcknowledged.promise;
+        };
+        try {
+            c.setAuthorConsent(true);
+            preparing = c.prepare();
+            await reached(started.promise, "original prepare admission");
+            check(
+                c.get().busy &&
+                    port.calls.filter((call) => call.kind === "prepare")
+                        .length === 1,
+                "valid original prepare is genuinely admitted before null selection",
+            );
+            c.contextChanged(null);
+            check(
+                !c.get().available && c.get().uncertain,
+                "loading makes the admitted prepare unavailable and unresolved",
+            );
+            const original = preview(captured.input, captured.session);
+            held.resolve(complete(77, original));
+            const discarded = await reached(
+                discardEntered.promise,
+                "bound old-preview discard while context remains null",
+            );
+            check(
+                discarded.session === captured.session &&
+                    discarded.token === original.preview_token,
+                "only the validated original session/token is discarded",
+            );
+            check(
+                c.matchesContext(null) &&
+                    !c.get().available &&
+                    c.get().preview === null &&
+                    c.get().outcome === null &&
+                    !c.get().authorConsent &&
+                    c.get().uncertain,
+                "no private preview or outcome is exposed and pending disposal is not called resolved",
+            );
+            discardAcknowledged.resolve(true);
+            await preparing;
+            check(
+                c.matchesContext(null) &&
+                    !c.get().available &&
+                    !c.get().busy &&
+                    !c.get().uncertain &&
+                    c.get().input === null &&
+                    c.get().preview === null &&
+                    c.get().outcome === null &&
+                    !c.get().authorConsent,
+                "positive bound preview disposal settles its prepare even while no context is selected",
+            );
+            c.contextChanged({
+                ...context(),
+                selectionEpoch: 2,
+                session: "returned-session",
+            });
+            check(
+                !c.get().uncertain &&
+                    c.get().input === null &&
+                    c.get().preview === null &&
+                    c.get().outcome === null &&
+                    !c.get().authorConsent,
+                "same-root return cannot retain a stuck disposed prepare or stale private preview",
+            );
+            const calls = port.calls.length;
+            await c.inspectOperation();
+            await c.confirm(true);
+            check(
+                port.calls.length === calls,
+                "disposed prepare owner cannot issue a later status read or commit",
+            );
+            check(
+                port.discards.length === 1 &&
+                    !port.calls.some((call) =>
+                        ["commit", "lookup"].includes(call.kind),
+                    ),
+                "one confirmed discard resolves only non-mutating prepare, with no new write or lookup",
+            );
+            check(
+                opened.length === 0 && refreshed.length === 0,
+                "unused preview disposal is not presented as a saved correction",
+            );
+        } finally {
+            discardAcknowledged.resolve(true);
+            held.resolve({
+                version: 1,
+                operation_id: 77,
+                running: false,
+                phase: "error",
+                error: "Cancelled",
+                result: null,
+            });
+            if (preparing) await preparing;
+            c.dispose();
+        }
+    },
+);
+if (loadingBoundaryFailures.length)
+    throw new AggregateError(
+        loadingBoundaryFailures,
+        "Frozen synthetic author loading-boundary regressions failed",
+    );
+
 console.log(
     `${checks} synthetic author decoder/controller checks passed; no native or rendering execution.`,
 );

@@ -120,3 +120,23 @@ fn retained_actual_context_tamper_or_loss_never_becomes_a_privacy_pass() {
     std::fs::remove_file(&path).unwrap();
     assert!(inspect_comparison(&p).is_err());
 }
+#[test]
+fn committed_missing_ack_uses_actual_lookup_and_never_reopens_a_completed_role() {
+    let p=root("lost-ack").join("run");
+    run_comparison(&p,false,ComparisonKind::ContinuousRollout,&Cancellation::default(),1,LaneFactory::ScriptedBaseline,None).unwrap();
+    // Synthetic interruption boundary: committed SQLite and private outputs exist,
+    // but the final left checkpoint and not-yet-sealed scene acknowledgment do not.
+    let db=std::fs::read(p.join("left/synthetic.sqlite")).unwrap();
+    let before_ledger:Vec<_>=snapshot(&p.join("left")).into_iter().filter(|(path,_)|path.file_name().unwrap().to_string_lossy().starts_with("admission-")).collect();
+    std::fs::remove_file(p.join("left/attempt-05.json")).unwrap();
+    std::fs::remove_file(p.join("scene-00.json")).unwrap();
+    let report=run_comparison(&p,true,ComparisonKind::ContinuousRollout,&Cancellation::default(),1,LaneFactory::ScriptedBaseline,None).unwrap();
+    let recovered=report.turns.iter().find(|t|t.arm=="left" && t.turn=="courier-06").unwrap();
+    assert_eq!(recovered.phase,"committed");
+    assert!(recovered.recovered_without_checkpoint);
+    assert!(!recovered.roles_known);
+    assert!(!recovered.passed);
+    assert_eq!(std::fs::read(p.join("left/synthetic.sqlite")).unwrap(),db);
+    let after_ledger:Vec<_>=snapshot(&p.join("left")).into_iter().filter(|(path,_)|path.file_name().unwrap().to_string_lossy().starts_with("admission-")).collect();
+    assert_eq!(after_ledger,before_ledger);
+}

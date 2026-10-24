@@ -101,18 +101,70 @@ application failure is inferred from that helper's assumption.
 | App |74,884,112|`dca8db5ef1244e29318f3b5da1044e8468bc82a6b995ac591f0516eae7dd76f7`|
 | Instrumentation |1,922,787|`bc74a8c89c447999a83cee019e37c78186d7e071e03165e8014517e89fefe4ef`|
 
-Only the controller's two APK pins change after compilation source `ae52ea6`;
-all Android/Rust/build implementation inputs remain identical. A new separately
-reviewed fresh environment and exact guest admission are still required. No
-actual device failure-field framing, import fix or setup/reopen pass is claimed
-before that observation. Old targets are not reused.
+After compilation source `ae52ea6`, only the controller's two APK pins and this
+verification document change before frozen execution source
+`8f522407f1e36fa00850a2214c7b6664de2f4db2`. All Android/Rust/build implementation
+inputs remain identical. Old targets are not reused.
+
+## Fresh emulator observation and closure
+
+Separate PREPARE, RUN and GUEST proposals and authorizations bound a newly
+created Android 15/API35 Google APIs x86_64 target, emulator35.3.12/build12990079,
+image revision9/extension13, with12 GiB userdata,8 GiB SD,2 GiB RAM and2 CPUs.
+An independent reviewer rehashed the closed inputs before each admission. The
+guest archive contains63 frozen inputs,86,197,679 bytes; its index SHA-256 is
+`0617dc7ac0fef2976528b2156ebf28022d37af959059d0c1cf10bf32ea0b09c4`.
+
+The actual bounded guest run completes0 with known client cleanup in83,109ms;
+original56717 is consumed terminal0. All72 clients complete0 with known cleanup,
+including exactly two installs and two instrumentation invocations. The initial
+three methods pass and the separate-process reopen method passes. Four JSON
+proofs and four empty ready-file reads satisfy all44 unchanged checks. Restart
+matching verifies a changed app process/start with the same app UID. Five process
+boundary observations replay successfully: the app is absent at required
+boundaries and the exact permitted test helper remains stable. This is not an
+all-processes-quiet claim. Independent review replays the raw outputs, proofs and
+checks without mismatch. Guest stdout313 bytes SHA-256:
+`ea0fa146cf90972e119baab539e069e95bf10cedd58a7f7d0f7d1b730cbd9eff`.
+
+Neither instrumentation transcript contains a failure record. Consequently,
+actual failure-status delivery remains unexercised. This positive run neither
+diagnoses the preceding timeout nor demonstrates that diagnostics fixed import.
+No timeout, lifecycle, storage, ownership or production behavior was relaxed.
+No model copy, model inference or extra diagnostic ADB call occurred.
+
+The exact owned stop follows guest success. Original owner37975 is consumed
+terminal0; the owner reports stop_requested, cleanup_complete, closure_verified
+and output_capture_complete,294,125ms. Its worker exit1 reflects the requested
+job drain, separately from the completed guest run. Owner stdout9,233 bytes
+SHA-256 `53402e90f705188b3d799ddb944070882780f5443b62d45e179769241c074ce9`;
+stderr1,019 bytes SHA-256
+`a284a0f051c4720970517d53270781712f442f2252f77ad1f60b34be4c94c164`.
+Post-stop enumeration finds the recorded owner, worker and launcher absent and
+both owned ports free. Guest flush is not claimed. The saved target and disk
+metadata remain retained; no raw disk hash or power-loss durability is inferred.
+
+Private evidence stays outside Git. Final create-only inventories were rehashed
+with zero mismatches:
+
+| Inventory | Files | Bytes | Index SHA-256 |
+|---|---:|---:|---|
+| Host |1,637|271,069,839|`5f8679c8509a7bfeec7e17f0cb822971e4761fa9f43367332587463281ded083`|
+| Environment |23|389,003|`1818cb4a9fc6749e9001db858bbdd6a3cf7bb90ab4cf42f5cd88f17231a16904`|
+| Guest |226|86,347,718|`02d605f5a2de00660896959596de7628c5d5a75d70592adf9cbf0a50f3797404`|
+
+The executed source snapshot contains1,429 files/16,876,263 bytes; its index
+SHA-256 is `17dbb6ef34f7f7c5f48d79fba93d28b585c34917941bff19f6979dfc41a423bf`.
+Final documentation and review changes do not imply another build or guest run.
 
 ## Remaining gates
 
-Diagnose the actual observed failure from a separately admitted fresh run before
-changing behavior; do not extend the wait or infer a storage/lifecycle cause.
-Require the complete three-plus-one setup/reopen, eight proofs/44 checks and
-known final owner cleanup. Real-model/SDK, DocumentsUI, reference phone,
+Next qualify dedicated failure-status delivery and original-failure preservation
+through a separately scoped deterministic negative instrumentation experiment.
+The earlier timeout's cause remains unknown; do not extend the wait or infer a
+storage/lifecycle cause. The fresh three-plus-one setup/reopen, eight proofs/44
+checks and final owner cleanup above passed for this synthetic fixture only.
+Real-model/SDK, DocumentsUI, reference phone,
 ARM64/16 KiB, cache/privacy, power loss, quality and sustained behavior remain
 open, including existing A/#117/#119 holds. Full milestone checkboxes stay
 unchecked pending complete criteria/owner acceptance. No model transfer,

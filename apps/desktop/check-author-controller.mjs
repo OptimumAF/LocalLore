@@ -99,4 +99,7 @@ for(const field of ["head","selectionEpoch","session","observer","rootIncarnatio
 {
  const {c,port}=fixture();c.setAuthorConsent(true);await c.prepare();c.contextChanged(Object.fromEntries(Object.entries(context()).reverse()));check(c.get().preview!==null&&port.discards.length===0,"context property order alone is not a selection change");c.dispose();
 }
+{
+ const {c,port}=fixture();c.setAuthorConsent(true);await c.prepare();c.setPreviewRead(true);c.setDraft({...draft(),fork_revision:NaN});await Promise.resolve();check(c.get().preview===null&&!c.get().authorConsent&&!c.get().previewRead&&port.discards.length===1,"invalid form edit also revokes the displayed preview and both consents");await c.confirm(true);check(!port.calls.some(v=>v.kind==="commit"),"invalid edit cannot leave old confirm armed");c.dispose();
+}
 console.log(`${checks} synthetic author decoder/controller checks passed; no native or rendering execution.`);

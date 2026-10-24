@@ -118,3 +118,8 @@ before asynchronous SHA verification, so caller mutation cannot change a checked
 preview while digest awaits. Context identity is semantic field identity, not
 object-property insertion order. Two new independent synthetic oracles freeze
 these seams before their focused source fix; no observed runtime RED is claimed.
+
+Invalid form edits also revoke the displayed preview and both consent stages;
+validation refusal cannot leave an earlier confirm armed. An independent frozen
+NaN-boundary edit case covers native discard and absence of commit calls before
+the focused controller fix. Uncertain-operation input remains immutable instead.

@@ -511,6 +511,25 @@ pub(crate) fn validate_record_v25(
     {
         return Err(Error::Narration);
     }
+    // These current compiler branches refuse before inspecting any proof. A
+    // finite generic coverage tuple must not claim work they cannot perform.
+    if engine.domain_version() != 1
+        || record.context_policy == Some(PlayContextPolicy::StateRecentTranscriptV1)
+    {
+        let c = &record.context.as_ref().ok_or(Error::Narration)?.coverage;
+        if c.mode != PlayCoverageMode::Raw
+            || c.set_fallback_reason != Some(PlayMemoryFallback::Unsupported)
+            || c.packets_used != 0
+            || c.packets_fell_back != 0
+            || c.timespan_fallback_packets != 0
+            || c.mandatory_fallback_packets != 0
+            || c.covered_through != 0
+            || c.raw_delta_after != 0
+            || c.cached_event_candidates != 0
+        {
+            return Err(Error::Narration);
+        }
+    }
     // Evidence is opaque Core output. Even trusted internal callers must keep
     // its event catalogue/observation attribution bound to this approved turn.
     if evidence

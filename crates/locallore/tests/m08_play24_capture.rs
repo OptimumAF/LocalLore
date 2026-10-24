@@ -71,6 +71,9 @@ fn freeze_original_v24_before_current_version_bump() {
         Ok("1")
     );
     assert_eq!(play::PROMPT_VERSION, "locallore-play-v2.4");
+    let executed_source = std::env::var("LOCALLORE_CAPTURE_SOURCE_COMMIT")
+        .expect("coordinator must bind the actual executed source HEAD");
+    assert!(executed_source.len() == 40 && executed_source.bytes().all(|b| b.is_ascii_hexdigit()));
     let mut engine = Engine::new(seed()).unwrap();
     let request = engine.request(
         "original-v24-play25-boundary",
@@ -114,7 +117,8 @@ fn freeze_original_v24_before_current_version_bump() {
         compact_record
     );
     let fixture = json!({
-        "synthetic":true,"source_commit":"4b0734228b7c891720e5980ed3c5c0440acc23d6",
+        "synthetic":true,"production_source_base_commit":"4b0734228b7c891720e5980ed3c5c0440acc23d6",
+        "executed_source_commit":executed_source,
         "generator":"m08_play24_capture::freeze_original_v24_before_current_version_bump",
         "provider_calls":provider.seen.len(),"seed":engine.seed(),"receipt":receipt,
         "compact_receipt_sha256":format!("{:x}",Sha256::digest(&compact)),

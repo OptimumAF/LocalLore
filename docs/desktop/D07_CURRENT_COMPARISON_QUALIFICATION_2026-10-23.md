@@ -166,9 +166,9 @@ cargo test --offline -p locallore -p locallore-storage -p locallore-workspace -p
 Root freshly records rustc **1.93.1 (01f6ddf75)**, cargo **1.93.1 (083ac5135)**,
 Node **24.22.1** and Java **17.0.6**. Tests use the existing task-owned target
 and serialized execution; no toolchain/model download or physical-device
-execution is inferred. Original compatibility manifest records source8b4422b
-and the evaluator lint101; corrected manifest records all eight resumed stages
-exit0 at39c770d. It does not relabel the earlier failure as a pass.
+execution is inferred. Original compatibility manifest records source 8b4422b
+and the evaluator lint exit 101; corrected manifest records all eight resumed
+stages exiting 0 at 39c770d. It does not relabel the earlier failure as a pass.
 
 Completed compatibility invocations, from repository root, use the existing
 owned `<shared-target>` (the placeholder replaces only the local target path):
@@ -189,8 +189,8 @@ node verify-frontend.mjs
 node node_modules/prettier/bin/prettier.cjs --check 'ui/*.{ts,tsx,html,css}' '*.{json,mjs}'
 ```
 
-Root's local serial launcher uses one Cargo job, dev/test debug info0,
-incremental0, owned temporary/Gradle/output directories, existing SDK/JDK,
+Root's local serial launcher uses one Cargo job, dev/test debug info 0,
+incremental compilation disabled, owned temporary/Gradle/output directories, existing SDK/JDK,
 empty LIBSQLITE3_FLAGS and no SDK download. Source and exit for each stage
 are recorded before advancing. The original failed stage manifest is retained;
 the new prefix does not overwrite it.
@@ -208,10 +208,10 @@ is 903 bytes, SHA-256
 
 ## Fresh Android build/JVM/static evidence
 
-At 39c770d, all78Gradle tasks executed; x86_64 JNI release compilation took
-2m25s and arm64 took4m40s. **182 tests /22JUnit XML files /0failures /0errors /
-0skips** are fresh, timestamped06:06:15.5456086Z–06:06:15.5566332Z on
-2026-10-24 UTC. Fresh lint at06:08:46.7990741Z has0errors and one existing
+At 39c770d, all 78 Gradle tasks executed; x86_64 JNI release compilation took
+2m25s and arm64 took 4m40s. **182 tests / 22 JUnit XML files / 0 failures /
+0 errors / 0 skips** are fresh, timestamped 06:06:15.5456086Z–06:06:15.5566332Z
+on 2026-10-24 UTC. Fresh lint at 06:08:46.7990741Z has 0 errors and one existing
 GradleDependency warning. These are host JVM tests and builds, **not Android
 instrumentation/device execution or Android D2 parity**.
 
@@ -219,13 +219,13 @@ instrumentation/device execution or Android D2 parity**.
 | --- | --- |
 | App APK | 24,115,468 / `83281d57b8f0682e559ff90da1650c8b7a155d528099cb7d36919034623c4720` |
 | Instrumentation APK, built only | 1,715,781 / `40450f596df0d5b5db724f5452aac63124f820cefa20d82bd3a7733a39dc4c36` |
-| Fresh22XML aggregate | `2c6352b1dd6c94ee2876f12e8f856086b934fb6a2f46d43e0f15b62efebda8b7` |
+| Fresh 22 XML aggregate | `2c6352b1dd6c94ee2876f12e8f856086b934fb6a2f46d43e0f15b62efebda8b7` |
 
-Static APK audit passes: four packaged ELFs have16KiB LOAD alignment; the only
+Static APK audit passes: four packaged ELFs have 16KiB LOAD alignment; the only
 permission is the generated non-exported dynamic-receiver permission.
-Instrumentation APK timestamp06:07:29.7033106Z is fresh, but no device is
+Instrumentation APK timestamp 06:07:29.7033106Z is fresh, but no device is
 launched. The XML aggregate was independently recomputed read-only: ordinal
-filename order, UTF-8 without BOM, filename TAB bytes TAB lowercaseSHA256 LF,
+filename order, UTF-8 without BOM, filename TAB bytes TAB lowercase SHA-256 LF,
 including final LF. An earlier unspecified aggregate used literal backtick
 separators; its retained metadata is superseded **only for that aggregate**.
 XML bytes, counts, timestamps, lint and APK evidence do not change.
@@ -237,11 +237,11 @@ and task-owned output init script:
 java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain --offline --no-daemon --max-workers=1 --console=plain -Pandroid.builder.sdkDownload=false --init-script <owned-output-init.gradle> :app:testDebugUnitTest --rerun :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
 ```
 
-Retained metadata hashes: d07-android-artifact-evidence.json (387bytes)
+Retained metadata hashes: d07-android-artifact-evidence.json (387 bytes)
 `41b9d303252fba88e4c269581234832ccf1b0ba29ea606d9388f432588e2d3b6`;
-d07-android-report-evidence.json (508bytes)
+d07-android-report-evidence.json (508 bytes)
 `9e9fb327f5f18d20666a208576558330bb5dd57c58182f899ea32f5fc0d151e3`;
-d07-android-report-aggregate-corrected.json (483bytes)
+d07-android-report-aggregate-corrected.json (483 bytes)
 `c0e3f9eba3d3204345b83e5f9c8a5b8a022b2ba88be209e0802613feab080ac6`.
 Local d07-compat-checks.ps1 SHA-256 is
 `1b200ca9f336b0959315030648c190f1f3d079bf8212e3a14b206a015bd3c5e7`;

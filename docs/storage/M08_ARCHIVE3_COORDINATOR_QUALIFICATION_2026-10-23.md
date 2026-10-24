@@ -2,7 +2,8 @@
 
 This is a partial qualification record for #12 M08.03/.04/.06 and #30
 D08.01/.02/.07. Archive3 remains unmerged at this checkpoint. Shared Store
-tests have executed; app interoperability, consumer closure and the remaining
+tests and the scripted Host transfer have executed; the first desktop consumer
+run has failures. App interoperability, consumer closure and the remaining
 compatibility gates below have not. No milestone acceptance, device support,
 release approval or human review is inferred.
 
@@ -17,8 +18,9 @@ them below without publishing private absolute paths.
 - Executed shared source: `9884a1727b17fb318eb79aa0dc301c2f6fe22684`
   on `qual/m08-archive3`, reconciled with accepted main `c6d0088`.
 - Documentation checkpoint base: `8df48905cc12b2816234f684883bebb241a1bd0f`.
-  Its only difference from the executed source is the two new, unexecuted
-  consumer test files. It does not imply a new shared test execution.
+  Its only difference from `9884a17` is the two new consumer test files. Root's
+  subsequent Host transfer and first desktop consumer execution use this exact
+  clean source, as distinguished below.
 - Shared implementation: `f0f7c5fd61ddad206902a5f6191b7a7194f17b20`;
   original source-only handoff: `0c640c50238c72ad3b5597ea18277fa34a1ec25c`.
   Reconciliation retained accepted main changes; do not replace main with the
@@ -125,20 +127,65 @@ This is logical rollback evidence, not bitwise SQLite-file identity.
   This is exhaustive for this observed fixture path, not every possible SQL
   schedule or an operating-system process-kill experiment.
 
-## Consumer packet: frozen, not executed
+## Completed scripted Host transfer
+
+At exact clean `8df48905cc12b2816234f684883bebb241a1bd0f`, Root ran:
+
+```text
+cargo test --locked --offline --jobs 1 --target-dir <shared-target> -p locallore-workspace --test m08_archive3_play25 -- --test-threads=1
+```
+
+`archive3-host-play25-first.log`: 902 bytes, SHA256
+`3d743e4bb0e76483e0ef7c459d653ec831ee740ebeb26c9f61323ea991d59ebe`.
+Compile15.16s; **1 passed,0 failed,0 ignored,0 filtered**, tests0.42s. This
+executes `durable_play25_discovery_archive3_roundtrip_preserves_observation_sources_and_zero_call_retry`.
+
+Two scripted Structured roles prepare the actual Play2.5 discovery before
+transfer. Actual Host/Store commit and Archive3 export→validate→import→cold
+reopen preserve full canonical records, native bases, corrected per-event
+player observation B, Mira's prior observation A and original ancestor scope.
+Imported exact retries through free_text/prepare/commit/status/cancel return
+the original committed reply with **zero provider factories/polls**; disabling
+the provider still permits the exact retry. A changed original input yields
+`RetryMismatch`, and cold source/destination state remains exact. This is
+shared-port/durable scripted-provider evidence, not real inference, desktop
+UI/WebView, JNI or Android transfer execution.
+
+## Consumer packet: first desktop failures, Android pending
 
 Original producer `145086afe93f92cc8c2b4aef97e67d98ef37af38` is imported as
 `8df48905cc12b2816234f684883bebb241a1bd0f`:
 
 | New path | Frozen coverage | Status |
 | --- | --- | --- |
-| `apps/desktop/check-archive-v3.mjs` | 82 synthetic decoder/controller/headless-panel source cases | UNRUN |
+| `apps/desktop/check-archive-v3.mjs` | 82 synthetic decoder/controller/headless-panel source cases | Root actual70 passed /12 failed at `8df48905` |
 | `apps/android/app/src/androidTest/java/org/locallore/app/ArchiveV3WireTest.kt` | 9 actual Android decoder/JSONObject instrumented test methods | UNCOMPILED / UNRUN |
 
-The available frontend executable is the previously verified Node24.22.1 with
-the existing D09 dependency junction; it has not executed this Archive3 checker
-at this checkpoint. The desktop fixtures are synthetic transport shapes, not newly generated
-native responses. Headless React checks are not native WebView execution.
+Root ran Node24.22.1 with the existing D09 dependency junction from
+`apps/desktop`, setting
+`LOCALLORE_CHECK_OUTPUT_DIR=<artifacts>/archive3-consumer-frozen`:
+
+```text
+node check-archive-v3.mjs
+```
+
+Actual exit1: **70 passed /12 failed**, all82 frozen cases collected. Six
+version3 preview positives fail `Wire` (import/export, omitted/nonempty/explicit
+empty retirement). Three version1 unknown/private-field negatives fail because
+the decoder does not throw. Version3 maximum-bound acceptance, imported
+completion and controller/headless-panel positive cases also fail `Wire`.
+Version3 negative cases passing under blanket rejection do not independently
+qualify their intended field guards; they must rerun after version3 admission.
+
+| Local artifact | Bytes | SHA256 |
+| --- | ---: | --- |
+| `archive3-consumer-first-red.log` | 5717 | `549aa050be655fba7366c15083e4b6266acabfc83d7a3769f36488d4b4efb201` |
+| `archive-v3-07d8ed38-509e-4c94-b3e6-e1426ca788c8.json` | 7508 | `b03c8e88ccfbd8f26a4480bd6f6cee0677dbc0460a02128574dab00c68579798` |
+
+The desktop fixtures are synthetic transport shapes, not newly generated native
+responses. Headless React checks are not native WebView execution. Consumer
+production correction is separately claimed; no corrected source/result or
+native supported-version advertisement closure is established here.
 Android's host-JVM `JSONObject` stub cannot qualify this decoder: the tests
 are deliberately in `androidTest`, using the actual platform implementation.
 Instrumented compilation alone will not establish runtime behavior. No
@@ -155,27 +202,25 @@ gameplay turns would misdescribe the archive.
 
 ## Pending gates and next runnable work
 
-All items below remain pending at this checkpoint; commands are reproduction
-instructions, not results. Use Root's serialized target/TEMP environment.
+Items below remain pending at this checkpoint; commands are reproduction
+instructions, not results. Use Root's serialized target/TEMP environment. Root
+has explicitly started the ignored combined-budget test on `8df48905`; no
+terminal result has been supplied or inferred.
 
 ```text
-cargo test --locked --offline --jobs 1 --target-dir <shared-target> -p locallore-workspace --test m08_archive3_play25 -- --nocapture --test-threads=1
 cargo test --locked --offline --jobs 1 --target-dir <shared-target> -p locallore-storage --test m08_archive3_combined_budget actual_records_cross_only_combined_response_and_native_index_archive_budget -- --ignored --exact --nocapture --test-threads=1
 cargo test --locked --offline --jobs 1 --target-dir <shared-target> -p locallore-storage --test playable_archive --test branch_retention_archive --test archive_interruption -- --test-threads=1
 ```
 
-The Host Play2.5 test must establish generated-current-record metadata,
-per-event corrected observations and durable cold transfer through the real
-shared port; earlier typed-history results do not substitute for it. The
-ignored expensive boundary case must measure the last legal <=16MiB combined
+The ignored expensive boundary case must measure the last legal <=16MiB combined
 canonical-response/native-index total and the next accepted crossing record,
 with every other cap independently legal; no exact-boundary result is claimed
 before execution. Existing Full/checkpoint/interruption and broader Rust,
 Workspace/native compatibility, formatting and strict lint checks remain
 Root-owned and pending on the final integrated source.
 
-From `apps/desktop`, Root's consumer command is `node check-archive-v3.mjs`.
-From `apps/android`, compilation-only is
+The first desktop consumer failure above remains open pending its separately
+owned correction and unchanged rerun. From `apps/android`, compilation-only is
 `./gradlew.bat --offline :app:compileDebugAndroidTestKotlin`. Preserve the first
 actual fixture/compile/behavior failures before any narrow correction, and
 record exact source and results for each rerun. Actual Android instrumented
@@ -187,6 +232,6 @@ relabeled as Archive3 qualification.
 Documentation ownership remains open under
 [#12 claim6381144573](https://github.com/OptimumAF/LocalLore/issues/12#issuecomment-6381144573)
 and [#30 claim6381144716](https://github.com/OptimumAF/LocalLore/issues/30#issuecomment-6381144716)
-for later coordinator results. Next runnable task is Root's actual Host Play2.5
-transfer and combined-budget execution, followed by consumer RED/GREEN and
+for later coordinator results. Next runnable task is completion of Root's
+combined-budget execution, followed by consumer RED/GREEN and
 the compatibility closure; no milestone checkbox changes at this checkpoint.

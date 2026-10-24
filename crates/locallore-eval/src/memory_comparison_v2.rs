@@ -51,12 +51,15 @@ pub(crate) fn mechanical_output(engine:&Engine)->Result<String> {
 #[serde(deny_unknown_fields)]
 pub struct TurnReportV2 {
     pub turn:String,pub scene:u8,pub arm:String,pub policy:ContextPolicy,pub phase:String,pub error:Option<String>,
-    pub expected:String,pub passed:bool,pub roles:usize,pub admission:Option<usize>,pub elapsed_ms:u64,
+    pub expected:String,pub passed:bool,pub roles:usize,pub roles_known:bool,pub recovered_without_checkpoint:bool,pub admission:Option<usize>,pub elapsed_ms:u64,
     pub input_semantic_sha256:String,pub output_semantic_sha256:String,pub mechanical_sha256:String,
     pub policy_matches:bool,pub context_evidence_available:bool,pub privacy_passed:bool,pub fallback:Option<bool>,
     pub capture_sha256:Option<String>,pub recording_sha256:Option<String>,pub raw_sha256:Vec<String>,
     pub role_metrics:Option<Value>,pub trace:Option<Value>,pub actual_receipt_sha256:Option<String>,
     pub source_fallback_reason:Option<String>,pub compiler_fallback_reason:Option<String>,
+    pub narration:Option<String>,pub repairs:Option<u8>,pub stages:Vec<Value>,
+    pub mandatory_sha256:Option<String>,pub optional_detail_selected:Option<bool>,pub director_private_target_present:Option<bool>,
+    pub selected_context_bytes:Option<usize>,pub estimated_context_tokens:Option<u64>,
 }
 #[derive(Clone,Debug,PartialEq,Eq,Serialize,Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -70,6 +73,7 @@ pub struct ComparisonReportV2 {
     pub left_charged_ms:u64,pub right_charged_ms:u64,pub left_reserved_roles:usize,pub right_reserved_roles:usize,
     pub first_semantic_divergence:Option<String>,pub first_mechanical_divergence:Option<String>,
     pub same_input_pairs:usize,pub unavailable:Vec<String>,
+    pub profile:PlayProfile,pub suite_sha256:String,pub source_sha256:String,pub reference_sha256:Option<String>,
 }
 
 /// Private evidence validated against the actual Host capture and recording envelope.

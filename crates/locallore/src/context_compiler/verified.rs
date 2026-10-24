@@ -188,6 +188,9 @@ fn event_key(row: &Row) -> Option<EventKey> {
     }
 }
 
+// Keep the bounded visitor inputs explicit; construction selects the same shared
+// raw candidate path without adding a second compiler or mutable context object.
+#[allow(clippy::too_many_arguments)]
 fn append_raw(
     engine: &Engine,
     observer: &str,

@@ -372,14 +372,13 @@ fn make_row(observation: Observation<'_>) -> Result<TurnReportV2> {
     } else if let protocol::Expected::GuardRejected(g) = step.expected() {
         expected_ok = error.as_deref() == Some(format!("{g:?}").as_str()) && same && roles == 0;
     }
-    if phase == "not_run_dependency" {
-        if !same
+    if phase == "not_run_dependency"
+        && (!same
             || !matches!(step.expected(), protocol::Expected::Accepted(_))
             || protocol::reference_proposal(before, step).is_ok()
-            || roles != 0
-        {
-            return Err("DependencyOracle".into());
-        }
+            || roles != 0)
+    {
+        return Err("DependencyOracle".into());
     }
     let applicable = roles > 0;
     let checked = match (recording, capture) {

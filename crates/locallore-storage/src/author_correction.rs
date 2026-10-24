@@ -13,6 +13,8 @@ use rusqlite::{params, Connection, TransactionBehavior};
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
 type Result<T> = std::result::Result<T, TurnError>;
+#[cfg(test)]
+mod pressure_tests;
 
 #[derive(Clone, Debug)]
 pub struct PreparedStoreAuthorCorrection {

@@ -73,6 +73,12 @@ completion and executor termination precede commit. Uncertain cleanup requires
 process termination and prohibits commit/reuse. Original request/key commit,
 exact retry and strict reopen keep canonical replay independent of inference.
 
+After a process crash without a structured result, canonical status remains
+unknown until validated recovery. The [read-only recovery helper](RECOVERY_VERIFICATION_2026-10-23.md)
+qualifies exact transport bytes before copying the fixed retained session and
+all present sidecars for strict Rust replay. It never retries generation,
+repairs the original database or uses cache growth as accepted-event evidence.
+
 ## Bounds and evidence
 
 Profile:4096 context, director350/narrator220 output tokens, four CPU threads,

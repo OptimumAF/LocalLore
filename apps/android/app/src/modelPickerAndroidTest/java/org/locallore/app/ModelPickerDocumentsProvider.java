@@ -10,6 +10,7 @@ import android.database.MatrixCursor;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
+import android.os.Build;
 import android.os.CancellationSignal;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -22,6 +23,7 @@ import android.provider.DocumentsContract.Root;
 import android.provider.DocumentsProvider;
 import android.system.ErrnoException;
 import android.system.OsConstants;
+import androidx.annotation.RequiresApi;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -33,14 +35,15 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** TEST APK only. Fixed original bytes, real system document grants and real proxy FD ownership. */
 public final class ModelPickerDocumentsProvider extends DocumentsProvider {
     private static final String ROOT = "model-picker-root-v1";
     private static final String DIRECTORY = "root";
-    private static final String[] KINDS = {"valid", "wrong", "open-failure", "blocked"};
+    private static final String[] KINDS = {"valid", "wrong", "open-failure", "blocked", "partial-blocked"};
     private static final String[] TITLES = {"Valid synthetic model.bin", "Wrong synthetic model.bin",
-            "Unavailable synthetic model.bin", "Blocked synthetic model.bin"};
+            "Unavailable synthetic model.bin", "Blocked synthetic model.bin", "Partial blocked synthetic model.bin"};
     private static final byte[] PAYLOAD =
             "LocalLore original model picker fixture v1. No model or story.\n"
                     .getBytes(StandardCharsets.US_ASCII);
@@ -113,6 +116,16 @@ public final class ModelPickerDocumentsProvider extends DocumentsProvider {
         final AtomicInteger reads = new AtomicInteger();
         final AtomicInteger blockedReads = new AtomicInteger();
         final AtomicInteger failures = new AtomicInteger();
+        final AtomicInteger partialPrefixBytes = new AtomicInteger();
+        final AtomicInteger partialConsumerClosed = new AtomicInteger();
+        final AtomicInteger partialConsumerClean = new AtomicInteger();
+        final AtomicInteger partialConsumerPeerError = new AtomicInteger();
+        final AtomicInteger partialWriterWaiting = new AtomicInteger();
+        final AtomicInteger partialWriterStarted = new AtomicInteger();
+        final AtomicInteger partialWriterClosed = new AtomicInteger();
+        final AtomicInteger partialWriterTerminal = new AtomicInteger();
+        final AtomicInteger partialWriterPeerError = new AtomicInteger();
+        final AtomicBoolean partialAllocationUncertain = new AtomicBoolean();
     }
     @Override public boolean onCreate() {
         identity = identity(getContext());
@@ -130,7 +143,9 @@ public final class ModelPickerDocumentsProvider extends DocumentsProvider {
             if ("configure".equals(method)) {
                 if (runs.size() >= 16) throw new IllegalStateException("Fixture capacity reached");
                 for (Run run : runs.values()) {
-                    if (run.active.get() != 0 || run.failures.get() != 0) {
+                    if (run.active.get() != 0 || run.failures.get() != 0
+                            || run.partialWriterStarted.get() != run.partialWriterTerminal.get()
+                            || run.partialWriterStarted.get() != run.partialWriterClosed.get()) {
                         throw new IllegalStateException("Fixture owners not drained");
                     }
                 }
@@ -163,6 +178,16 @@ public final class ModelPickerDocumentsProvider extends DocumentsProvider {
         result.putInt("opened", run.opened.get()); result.putInt("closed", run.closed.get());
         result.putInt("active", run.active.get()); result.putInt("reads", run.reads.get());
         result.putInt("blocked_reads", run.blockedReads.get()); result.putInt("failures", run.failures.get());
+        result.putInt("partial_prefix_bytes", run.partialPrefixBytes.get());
+        result.putInt("partial_consumer_closed", run.partialConsumerClosed.get());
+        result.putInt("partial_consumer_clean", run.partialConsumerClean.get());
+        result.putInt("partial_consumer_peer_error", run.partialConsumerPeerError.get());
+        result.putInt("partial_writer_waiting", run.partialWriterWaiting.get());
+        result.putInt("partial_writer_started", run.partialWriterStarted.get());
+        result.putInt("partial_writer_closed", run.partialWriterClosed.get());
+        result.putInt("partial_writer_terminal", run.partialWriterTerminal.get());
+        result.putInt("partial_writer_peer_error", run.partialWriterPeerError.get());
+        result.putBoolean("partial_allocation_uncertain", run.partialAllocationUncertain.get());
         return result;
     }
     private String title() { return "LocalLore model fixtures (" + getContext().getPackageName() + ")"; }
@@ -213,7 +238,7 @@ public final class ModelPickerDocumentsProvider extends DocumentsProvider {
         Selected(Run run, int kind) { this.run = run; this.kind = kind; }
     }
     private Selected document(String id) throws FileNotFoundException {
-        if (id == null || !id.matches("[a-f0-9]{32}:(valid|wrong|open-failure|blocked)")) throw unavailable();
+        if (id == null || !id.matches("[a-f0-9]{32}:(valid|wrong|open-failure|blocked|partial-blocked)")) throw unavailable();
         Run run = runs.get(id.substring(0, 32));
         int kind = Arrays.asList(KINDS).indexOf(id.substring(33));
         if (run == null || kind < 0) throw unavailable();
@@ -240,7 +265,10 @@ public final class ModelPickerDocumentsProvider extends DocumentsProvider {
         final Selected selected;
         synchronized (gate) {
             selected = document(id);
-            if (selected.run != latest || selected.run.attempts.incrementAndGet() > 16
+            if (selected.run != latest || selected.run.failures.get() != 0 || selected.run.partialAllocationUncertain.get()
+                    || selected.run.partialWriterStarted.get() != selected.run.partialWriterTerminal.get()
+                    || selected.run.partialWriterStarted.get() != selected.run.partialWriterClosed.get()
+                    || selected.run.attempts.incrementAndGet() > 16
                     || selected.run.active.get() != 0) throw unavailable();
             if (selected.kind != 2) selected.run.active.incrementAndGet();
         }
@@ -249,6 +277,12 @@ public final class ModelPickerDocumentsProvider extends DocumentsProvider {
         if (selected.kind == 1) bytes[0] ^= 1;
         Run run = selected.run;
         try {
+            if (selected.kind == 4) {
+                // Only the new interruption fixture needs wrap (API30). The original four
+                // proxy documents remain usable on API26; no invalid short FUSE read is used.
+                if (Build.VERSION.SDK_INT < 30) throw new IOException("Partial fixture unavailable");
+                return openPartial(run);
+            }
             StorageManager manager = getContext().getSystemService(StorageManager.class);
             if (manager == null) throw new IOException("Fixture proxy unavailable");
             ParcelFileDescriptor descriptor = manager.openProxyFileDescriptor(ParcelFileDescriptor.MODE_READ_ONLY,
@@ -279,11 +313,71 @@ public final class ModelPickerDocumentsProvider extends DocumentsProvider {
             run.opened.incrementAndGet();
             return descriptor;
         } catch (IOException failure) {
-            run.active.decrementAndGet();
+            if (selected.kind == 4) {
+                // wrap may detach its input before communication-channel allocation fails.
+                // Keep the reservation sticky; closing an already-detached PFD proves nothing.
+                run.partialAllocationUncertain.set(true); run.failures.incrementAndGet();
+            } else run.active.decrementAndGet();
             throw unavailable();
         } catch (RuntimeException failure) {
-            run.active.decrementAndGet(); run.failures.incrementAndGet();
+            if (selected.kind == 4) run.partialAllocationUncertain.set(true);
+            else run.active.decrementAndGet();
+            run.failures.incrementAndGet();
             throw unavailable();
+        }
+    }
+    /** Public API30 wrap reports actual reader closure; writer ownership is counted separately. */
+    @RequiresApi(30)
+    private ParcelFileDescriptor openPartial(Run run) throws IOException {
+        ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createPipe();
+        ParcelFileDescriptor reader = null;
+        AtomicBoolean consumerAdmitted = new AtomicBoolean(true);
+        try {
+            reader = ParcelFileDescriptor.wrap(pipe[0], callbacks, error -> {
+                if (!consumerAdmitted.compareAndSet(true, false)) return;
+                if (error instanceof ParcelFileDescriptor.FileDescriptorDetachedException) {
+                    run.failures.incrementAndGet(); // Detach cannot prove the consumer closed.
+                    return;
+                }
+                if (error == null) run.partialConsumerClean.incrementAndGet();
+                else run.partialConsumerPeerError.incrementAndGet(); // Finite peer-error class, no prose.
+                run.partialConsumerClosed.incrementAndGet();
+                run.closed.incrementAndGet(); run.active.decrementAndGet();
+            });
+            final ParcelFileDescriptor writer = pipe[1];
+            Thread thread = new Thread(() -> {
+                ParcelFileDescriptor.AutoCloseOutputStream output = new ParcelFileDescriptor.AutoCloseOutputStream(writer);
+                try {
+                    output.write(PAYLOAD, 0, 17);
+                    run.partialPrefixBytes.set(17);
+                    run.partialWriterWaiting.set(1);
+                    if (!run.release.await(30, TimeUnit.SECONDS)) {
+                        run.failures.incrementAndGet();
+                    } else {
+                        output.write(PAYLOAD, 17, PAYLOAD.length - 17);
+                    }
+                } catch (InterruptedException failure) {
+                    Thread.currentThread().interrupt(); run.failures.incrementAndGet();
+                } catch (IOException failure) {
+                    if (run.partialConsumerClosed.get() == 1) run.partialWriterPeerError.incrementAndGet();
+                    else run.failures.incrementAndGet();
+                } finally {
+                    run.partialWriterWaiting.set(0);
+                    try { output.close(); run.partialWriterClosed.incrementAndGet(); }
+                    catch (IOException failure) { run.failures.incrementAndGet(); }
+                    run.partialWriterTerminal.incrementAndGet();
+                }
+            }, "model-picker-partial-writer");
+            run.partialWriterStarted.incrementAndGet();
+            thread.start();
+            run.opened.incrementAndGet();
+            return reader;
+        } catch (IOException | RuntimeException failure) {
+            consumerAdmitted.set(false); // Outer failure retains uncertain partial allocation admission.
+            try { if (reader != null) reader.close(); else pipe[0].close(); }
+            catch (IOException ignored) { run.failures.incrementAndGet(); }
+            try { pipe[1].close(); } catch (IOException ignored) { run.failures.incrementAndGet(); }
+            throw failure;
         }
     }
     private static FileNotFoundException unavailable() { return new FileNotFoundException("Fixture document unavailable"); }

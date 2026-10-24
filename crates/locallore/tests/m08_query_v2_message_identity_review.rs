@@ -157,7 +157,7 @@ fn query1_message_wire_and_original24_receipt_hashes_survive_replay() {
         serde_json::from_str(include_str!("fixtures/accepted_play_v2_4.json")).unwrap();
     let seed: Seed = serde_json::from_value(fixture["seed"].clone()).unwrap();
     let receipt_json = fixture["receipt"].to_string();
-    let engine = Engine::restore(seed.clone(), &[receipt_json.clone()]).unwrap();
+    let engine = Engine::restore(seed.clone(), std::slice::from_ref(&receipt_json)).unwrap();
     let receipt = &engine.receipts()[0];
     let compact = serde_json::to_vec(receipt).unwrap();
     assert_eq!(

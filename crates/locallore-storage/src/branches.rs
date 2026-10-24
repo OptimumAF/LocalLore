@@ -155,6 +155,15 @@ impl Store {
                 return Err(TurnError::RetryMismatch);
             }
             let resumed = turns::read_engine(&tx, &child)?;
+            if resumed.engine.canonical_records().iter().any(|record| {
+                record.original_scope() == &child
+                    && matches!(
+                        record,
+                        locallore::author_correction::CanonicalRecord::AuthorV1(_)
+                    )
+            }) {
+                return Err(TurnError::RetryMismatch);
+            }
             check(cancel)?;
             let head_revision = resumed.engine.revision();
             tx.commit()?;
@@ -166,18 +175,7 @@ impl Store {
                 created: false,
             });
         }
-        let path = lineage(&tx, &request.parent)?;
-        if path.len() >= MAX_BRANCH_DEPTH {
-            return Err(TurnError::TooLarge);
-        }
-        let count: i64 = tx.query_row(
-            "SELECT count(*) FROM (SELECT branch_id FROM branches WHERE story_id=?1 UNION SELECT branch_id FROM branch_retention WHERE story_id=?1)",
-            [&request.parent.story],
-            |r| r.get(0),
-        )?;
-        if count >= MAX_BRANCHES_PER_STORY as i64 {
-            return Err(TurnError::TooLarge);
-        }
+        check_child_capacity(&tx, &request.parent)?;
         let parent = turns::read_engine(&tx, &request.parent)?.engine;
         check(cancel)?;
         if parent.revision() != request.expected_parent_revision {
@@ -186,27 +184,7 @@ impl Store {
         let fork = parent
             .fork(&request.child_branch, request.at_revision)
             .map_err(TurnError::Engine)?;
-        let at = i64::try_from(request.at_revision).map_err(|_| TurnError::TooLarge)?;
-        tx.execute("INSERT INTO branches(story_id,branch_id,parent_branch,fork_revision,head_revision) VALUES(?1,?2,?3,?4,?4)",params![child.story,child.branch,request.parent.branch,at])?;
-        check(cancel)?;
-        // Derive the fixed seed entity registry from validated authority, not a
-        // parent cache/registry that an external connection could have altered.
-        // It is not observed knowledge. Current rules cannot create actors.
-        let seed = fork.seed();
-        for (kind, ids) in [
-            ("actor", seed.actors.keys().collect::<Vec<_>>()),
-            ("item", seed.items.keys().collect()),
-            ("location", seed.locations.iter().collect()),
-            ("ability", seed.abilities.keys().collect()),
-            ("fact", seed.facts.keys().collect()),
-            ("commitment", seed.commitments.keys().collect()),
-        ] {
-            for id in ids {
-                tx.execute("INSERT INTO branch_entities(story_id,branch_id,kind,entity_id) VALUES(?1,?2,?3,?4)",params![child.story,child.branch,kind,id])?;
-            }
-        }
-        check(cancel)?;
-        turns::write_projection(&tx, &fork)?;
+        insert_child(&tx, &request.parent, &fork, request.at_revision, cancel)?;
         check(cancel)?;
         tx.commit()?;
         Ok(ForkOutcome {
@@ -217,4 +195,49 @@ impl Store {
             created: true,
         })
     }
+}
+
+pub(crate) fn check_child_capacity(connection: &Connection, parent: &Scope) -> Result<()> {
+    if lineage(connection, parent)?.len() >= MAX_BRANCH_DEPTH {
+        return Err(TurnError::TooLarge);
+    }
+    let count:i64 = connection.query_row("SELECT count(*) FROM (SELECT branch_id FROM branches WHERE story_id=?1 UNION SELECT branch_id FROM branch_retention WHERE story_id=?1)",[&parent.story],|r|r.get(0))?;
+    if count >= MAX_BRANCHES_PER_STORY as i64 {
+        return Err(TurnError::TooLarge);
+    }
+    Ok(())
+}
+/// Shared insertion inside the caller's single transaction. No independent commit.
+pub(crate) fn insert_child(
+    connection: &Connection,
+    parent: &Scope,
+    engine: &locallore::engine::Engine,
+    at: u64,
+    cancel: &dyn Fn() -> bool,
+) -> Result<()> {
+    check(cancel)?;
+    check_child_capacity(connection, parent)?;
+    let child = engine.scope();
+    crate::retention_state::admit(connection, parent)?;
+    crate::retention_state::admit(connection, child)?;
+    let at = i64::try_from(at).map_err(|_| TurnError::TooLarge)?;
+    let head = i64::try_from(engine.revision()).map_err(|_| TurnError::TooLarge)?;
+    connection.execute("INSERT INTO branches(story_id,branch_id,parent_branch,fork_revision,head_revision) VALUES(?1,?2,?3,?4,?5)",params![child.story,child.branch,parent.branch,at,head])?;
+    // Registry derives only from validated seed authority, never a parent cache.
+    let seed = engine.seed();
+    for (kind, ids) in [
+        ("actor", seed.actors.keys().collect::<Vec<_>>()),
+        ("item", seed.items.keys().collect()),
+        ("location", seed.locations.iter().collect()),
+        ("ability", seed.abilities.keys().collect()),
+        ("fact", seed.facts.keys().collect()),
+        ("commitment", seed.commitments.keys().collect()),
+    ] {
+        for id in ids {
+            connection.execute("INSERT INTO branch_entities(story_id,branch_id,kind,entity_id) VALUES(?1,?2,?3,?4)",params![child.story,child.branch,kind,id])?;
+        }
+    }
+    check(cancel)?;
+    turns::write_projection(connection, engine)?;
+    check(cancel)
 }

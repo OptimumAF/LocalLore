@@ -13,6 +13,13 @@ pub struct AuthorCorrectionInputV1 {
     pub operation: AuthorCorrectionOperationV1,
     pub reason: String,
 }
+impl AuthorCorrectionInputV1 {
+    /// Native bounded syntax validation, also usable for read-only recovery
+    /// without requiring the original parent's creation head to remain live.
+    pub fn validate(&self) -> Result<(), Error> {
+        validate_input(self)
+    }
+}
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 pub enum AuthorCorrectionOperationV1 {

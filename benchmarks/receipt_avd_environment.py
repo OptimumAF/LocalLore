@@ -329,7 +329,7 @@ def emulator_command(proposal):
     return [str(sdk / "emulator/emulator.exe"), "-avd", NAME, "-sysdir",
             str(sdk / "system-images/android-35/google_apis/x86_64"), "-datadir", str(content),
             "-data", str(content / "userdata-qemu.img"), "-sdcard", str(content / "sdcard.img"),
-            "-partition-size", "12288", "-memory", "2048", "-cores", "2", "-ports", "5592,5593",
+            "-memory", "2048", "-cores", "2", "-ports", "5592,5593",
             "-no-window", "-no-audio", "-no-boot-anim", "-no-snapshot", "-no-snapshot-save",
             "-no-metrics", "-accel", "on", "-gpu", "swiftshader_indirect"]
 

@@ -353,6 +353,19 @@ class EnvironmentTests(unittest.TestCase):
             self.assertEqual(result[key], "no")
         self.assertEqual(result["fastboot.forceColdBoot"], "yes")
 
+    def test_large_userdata_uses_config_without_windows_capped_partition_option(self):
+        value = self.proposal()
+        content = Path(value["paths"]["content"])
+        command = env.emulator_command(value)
+        normalized = env.ini(env.normalize_generated_config(ACTUAL_CMDLINE_11_CONFIG,
+                                                             self.generated_registry(content), content))
+        self.assertEqual(normalized["disk.dataPartition.size"], "12G")
+        self.assertEqual(value["userdata_mib"] * 1024 * 1024, 12 * env.GIB)
+        self.assertEqual(command[command.index("-data") + 1], normalized["disk.dataPartition.path"])
+        self.assertNotIn("-partition-size", command)
+        self.assertNotIn("-partition_size", command)
+        self.assertNotIn("12288", command)
+
     def changed_profile(self, **changes):
         values = env.ini(ACTUAL_CMDLINE_11_CONFIG)
         values.update(changes)

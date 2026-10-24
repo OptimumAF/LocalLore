@@ -8,7 +8,7 @@ AVD, the receipt Android process case, a removable volume, or real-model inferen
 
 The fixed target is `locallore_receipt_api35_v1`, console/ADB pair 5592/5593,
 serial `emulator-5592`. The proposed fresh root is
-`D:/LocalLore-receipt-avd-20261024-v2`. It must not exist at prepare admission.
+`D:/LocalLore-receipt-avd-20261024-v3`. It must not exist at prepare admission.
 The content, registry, Android preferences, emulator preferences and temporary
 directories all belong beneath that new root. It issues no SDK list, start,
 stop, wipe, delete or adoption command for an existing AVD. The bounded read-only
@@ -20,7 +20,7 @@ default-registry metadata enumeration is described below. There is no ADB invoca
 
 ```text
 python -B benchmarks/receipt_avd_environment.py plan-prepare \
-  --root D:/LocalLore-receipt-avd-20261024-v2 \
+  --root D:/LocalLore-receipt-avd-20261024-v3 \
   --sdk C:/Users/Avery/AppData/Local/Android/Sdk \
   --java-home C:/Program Files/Java/jdk-21 \
   --output <private-prepare-proposal.json>
@@ -30,7 +30,7 @@ python -B benchmarks/receipt_avd_environment.py prepare \
 
 python -B benchmarks/receipt_avd_environment.py plan-run \
   --proposal <private-prepare-proposal.json> \
-  --prepared D:/LocalLore-receipt-avd-20261024-v2/prepared-v1.json \
+  --prepared D:/LocalLore-receipt-avd-20261024-v3/prepared-v1.json \
   --output <private-run-proposal.json>
 
 python -B benchmarks/receipt_avd_environment.py run \
@@ -175,8 +175,28 @@ and disables first-boot snapshot choices. Foreign identities, disk-init paths,
 old disk paths, mismatched images or registries still refuse before that write.
 The exact 3,201-byte generated profile is a host regression fixture (SHA256
 `5774eccd6c920ec3157a7a43710620645284c7e064a9f06933915f12d05aa6ac`).
-Only a fresh, separately reviewed v2 proposal/authorization can prepare the new
-absent root; this source correction is not a live preparation result.
+That correction was subsequently prepared in the v2 root; neither the failed v1
+nor the retained v2 root is eligible for reuse by the next preparation.
+
+### Preserved v2 launch refusal
+
+The v2 owned launch produced a running descriptor, then the installed emulator
+refused the supplied `-partition-size 12288`: its raw output says the accepted
+range is 10–2047 MB. The supervisor recorded `child_exited`, worker return code 2,
+known cleanup and verified closure (890 ms); no guest command or userdata
+creation followed. That descriptor established a live launch at publication,
+not boot success. The v2 target and raw evidence remain preserved.
+
+The exact emulator 35.3 source parses this flag using a C `long` and caps it at
+`LONG_MAX / ONE_MB`, consistent with the Windows refusal. The flag affects both
+system and data size, and would override the configured userdata size. The
+correction therefore omits the flag entirely, preserving the nonzero
+`disk.dataPartition.size=12G` and explicit fresh `-data` path. The same source
+retains that configured size when no override is present; fresh ext4 creation
+consumes it. It does not substitute 2047 MB or reduce any admission floor.
+Actual successful image creation, boot and guest capacity still require new
+evidence. Only a separately reviewed preparation/run for an absent v3 root can
+exercise this correction; no prior target or authorization is reused.
 
 Host tests use fake SDK files and synthetic Python children. They test mismatch
 refusal before mutation, replay refusal, source/config/token drift, exact owner
@@ -199,6 +219,9 @@ this document.
   and [environment variables](https://developer.android.com/tools/variables).
 - [Emulator 35.3 userdata creation](https://android.googlesource.com/platform/external/qemu/+/refs/heads/emu-35-3-release/android-qemu2-glue/main.cpp):
   `creatUserDataExt4Img` / `createUserData`, factory empty-data marker.
+- [Emulator 35.3 option handling](https://android.googlesource.com/platform/external/qemu/+/refs/heads/emu-35-3-release/android/android-emu/android/main-common.c):
+  lines 779–800 bound the optional partition flag; lines 1023–1035 retain nonzero
+  configured userdata size when the flag is absent.
 - [Windows launcher wait](https://android.googlesource.com/platform/external/qemu/+/refs/heads/emu-35-3-release/android/emu/utils/src/android/utils/exec.cpp):
   `_wspawnv` followed by waiting for the child.
 - [Console token](https://android.googlesource.com/platform/external/qemu/+/refs/heads/emu-35-3-release/android/emu/telnet/auth/src/android/console_auth.cpp)

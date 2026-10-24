@@ -116,13 +116,12 @@ fn prompts(seen: &Seen) -> (String, String) {
 }
 fn assert_record(reply: &Value, policy: ContextPolicy) {
     assert_eq!(reply["status"], "ok", "{reply}");
-    let receipt: Receipt = serde_json::from_value(reply["data"]["receipt"].clone()).unwrap();
-    let record = receipt.play().unwrap();
-    assert_eq!(record.prompt_version, "locallore-play-v2.5");
-    assert_eq!(record.policy, "grounded-prose-v2.2");
-    assert_eq!(record.context_policy, Some(policy));
-    assert_eq!(record.context.as_ref().unwrap().version, 2);
-    assert_eq!(record.context.as_ref().unwrap().compiler_version, 2);
+    let record = &reply["data"]["receipt"]["play"];
+    assert_eq!(record["prompt_version"], "locallore-play-v2.5");
+    assert_eq!(record["policy"], "grounded-prose-v2.2");
+    assert_eq!(record["context_policy"], serde_json::to_value(policy).unwrap());
+    assert_eq!(record["context"]["version"], 2);
+    assert_eq!(record["context"]["compiler_version"], 2);
 }
 fn assert_prompt_policy(seen: &Seen, policy: ContextPolicy) {
     let (director, narrator) = prompts(seen);

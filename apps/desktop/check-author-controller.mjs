@@ -93,4 +93,10 @@ for(const field of ["head","selectionEpoch","session","observer","rootIncarnatio
 {
  const {c,port}=fixture(),gate=deferred();port.starts.push(()=>gate.promise);c.setAuthorConsent(true);const work=c.prepare();await Promise.resolve();await c.cancel();gate.resolve(complete(12,preview()));await work;check(c.get().preview===null,"cancel before start acknowledgment discards late private preview");check(port.discards.length===1,"cancelled prepare cap retired explicitly");c.dispose();
 }
+{
+ const envelope=preview(),expected=input(),original=envelope.preview_json;const checking=checkedAuthorPreview(envelope,expected,"session-1");envelope.session="foreign";envelope.preview_json="{}";expected.reason="changed while digest awaited";const checked=await checking;check(checked.session==="session-1"&&checked.preview_json===original&&checked.preview.input.reason==="PRIVATE_AUTHOR_REASON","async SHA checks use detached envelope and expected input snapshots");
+}
+{
+ const {c,port}=fixture();c.setAuthorConsent(true);await c.prepare();c.contextChanged(Object.fromEntries(Object.entries(context()).reverse()));check(c.get().preview!==null&&port.discards.length===0,"context property order alone is not a selection change");c.dispose();
+}
 console.log(`${checks} synthetic author decoder/controller checks passed; no native or rendering execution.`);

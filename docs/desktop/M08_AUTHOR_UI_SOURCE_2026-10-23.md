@@ -112,3 +112,9 @@ context; cancel before a prepare start acknowledgment must discard a later
 successful preview. These are independent synthetic oracles, UNRUN, not observed
 native/behavioral failures. Production uses private per-operation completion and
 cancellation latches, not a second native operation owner.
+
+Further bounded source review freezes detached envelope/expected-input snapshots
+before asynchronous SHA verification, so caller mutation cannot change a checked
+preview while digest awaits. Context identity is semantic field identity, not
+object-property insertion order. Two new independent synthetic oracles freeze
+these seams before their focused source fix; no observed runtime RED is claimed.

@@ -235,7 +235,12 @@ function row(value: unknown, b: Binding, nested = false): string {
             return JSON.stringify(["scoped_message", original.story, original.branch, r.turn, r.message_kind]);
         }
         case "relationship": requireWire(nested || b.view === "relationships"); keys(["from", "to", "dimension", "value", "source"]); id(r.from); id(r.to); oneOf(r.dimension, ["respect", "trust", "obligation"]); integer(r.value, -100, 100); source(r.source, b); origin(["canonical_field"]); break;
-        case "knowledge": keys(["id", "subject", "text", "confidence", "sources"]); requireWire(nested || b.view === "knowledge"); text(r.id); nullable(r.subject, id); text(r.text); nullable(r.confidence, v => oneOf(v, confidences)); sources(r.sources, b); origin(["canonical_truth", "recorded_statement", "subjective_belief", "recorded_discovery", "known_as_observed"]); break;
+        case "knowledge": {
+            keys(["id", "subject", "text", "confidence", "sources"]); requireWire(nested || b.view === "knowledge"); text(r.id); nullable(r.subject, id); text(r.text); nullable(r.confidence, v => oneOf(v, confidences)); sources(r.sources, b); origin(["canonical_truth", "recorded_statement", "subjective_belief", "recorded_discovery", "known_as_observed"]);
+            if (r.origin === "canonical_truth") requireWire(b.observer.kind === "omniscient" && r.subject === null);
+            if (r.origin === "known_as_observed") requireWire(b.observer.kind !== "omniscient" && r.subject !== null);
+            break;
+        }
         case "promise": requireWire(nested || b.view === "promises"); keys(["id", "from", "to", "terms", "deadline", "status", "return_item", "sources"]); id(r.id); id(r.from); id(r.to); text(r.terms); integer(r.deadline); oneOf(r.status, ["open", "overdue", "fulfilled"]); nullable(r.return_item, id); sources(r.sources, b); origin(["derived_comparison"]); break;
         case "provenance": requireWire(!nested && b.view === "provenance"); keys(["sources"]); sources(r.sources, b); origin(origins); break;
         case "change": {

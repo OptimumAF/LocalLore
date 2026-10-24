@@ -24,6 +24,9 @@ require(liteRt == null || liteRt == "true")
 val modelSetup = providers.gradleProperty("localLoreModelSetupVerification").orNull
 require(modelSetup == null || modelSetup == "true")
 require(modelSetup != "true" || liteRt == "true") { "Model setup verification requires the LiteRT candidate profile." }
+val modelPicker = providers.gradleProperty("localLoreModelPickerVerification").orNull
+require(modelPicker == null || modelPicker == "true") { "Model picker verification must be explicitly true or absent." }
+require(modelPicker != "true" || modelSetup == "true") { "Model picker fixtures require the explicit model setup candidate profile." }
 if (liteRt == "true") {
     val workerBytes = file("src/litert/java/org/locallore/app/LiteRtRoleWorker.kt").readText()
         .replace("\r\n", "\n").toByteArray(Charsets.UTF_8)
@@ -86,7 +89,7 @@ require(archiveCapacity != "true" || gradle.startParameter.taskNames.none { it.c
     "The synthetic capacity fixture is for local debug verification only."
 }
 if (liteRt == "true") {
-    layout.buildDirectory.set(layout.projectDirectory.dir("build-litert-worker"))
+    layout.buildDirectory.set(layout.projectDirectory.dir(if (modelPicker == "true") "build-model-picker" else "build-litert-worker"))
 } else if (externalInference == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-external-inference"))
 } else if (archiveVerification == "true") {
@@ -101,6 +104,7 @@ if (liteRt == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-parent-retention"))
 }
 val verificationSuffix = when {
+    modelPicker == "true" -> ".modelpickerverify"
     modelSetup == "true" -> ".modelverify"
     liteRt == "true" -> ".litertverify"
     externalInference == "true" -> ".externalverify"
@@ -202,6 +206,7 @@ android {
         manifestPlaceholders["diagnosticTestAuthority"] = "org.locallore.app$verificationSuffix.test.diagnostics"
         manifestPlaceholders["archiveTestAuthority"] = "org.locallore.app$verificationSuffix.test.archives"
         manifestPlaceholders["chooserTestAuthority"] = "org.locallore.app$verificationSuffix.test.chooser"
+        manifestPlaceholders["modelPickerTestAuthority"] = "org.locallore.app$verificationSuffix.test.modelpicker"
         if (verificationSuffix.isNotEmpty()) {
             applicationIdSuffix = verificationSuffix
             versionNameSuffix = when { liteRt == "true" -> "-litert-worker"; externalInference == "true" -> "-external-inference"; parentRetention == "true" -> "-parent-retention"; timelineVerification == "true" -> "-timeline-verification"; storyDeletion == "true" -> "-story-deletion"; archiveCapacity == "true" -> "-archive-capacity"; else -> "-archive-verification" }
@@ -219,6 +224,12 @@ android {
         if (modelSetup == "true") sourceSets["debug"].manifest.srcFile("src/litert/AndroidManifest.xml")
         sourceSets["test"].java.srcDir("src/litertTest/java")
         sourceSets["androidTest"].java.srcDir("src/litertAndroidTest/java")
+        if (modelPicker == "true") {
+            sourceSets["debug"].java.srcDir("src/modelPicker/java")
+            sourceSets["debug"].manifest.srcFile("src/modelPicker/AndroidManifest.xml")
+            sourceSets["androidTest"].java.srcDir("src/modelPickerAndroidTest/java")
+            sourceSets["androidTest"].manifest.srcFile("src/modelPickerAndroidTest/AndroidManifest.xml")
+        }
     }
     buildFeatures { compose = true }
     lint { abortOnError = true; if (liteRt == "true") checkDependencies = true }

@@ -59,7 +59,7 @@ export function AuthorPanel({
                 Author-operation recovery after restart is unavailable. Saved
                 timelines can still be reopened from the story library.
             </p>
-            <dl>
+            <dl className="author-context">
                 <dt>Selected story / timeline</dt>
                 <dd>
                     <code>
@@ -183,7 +183,7 @@ export function AuthorPanel({
                 </button>
             </fieldset>
             {preview && state.preview && (
-                <section aria-labelledby="author-preview-title">
+                <section id="author-impact-preview" aria-labelledby="author-preview-title">
                     <h3 id="author-preview-title">
                         Exact private impact preview
                     </h3>
@@ -288,7 +288,7 @@ export function AuthorPanel({
                 </section>
             )}
             {(state.busy || state.uncertain) && (
-                <p role="status">
+                <p id="author-operation-notice" role="status">
                     {state.uncertain
                         ? "Outcome unknown. Inspect only; this action will not be retried automatically."
                         : "Waiting for the native operation. Cancellation does not undo an already committed correction."}
@@ -353,7 +353,7 @@ export function AuthorPanel({
                 </section>
             )}
             {state.error && (
-                <p role="alert">Author correction: {state.error}</p>
+                <p id="author-visible-error" role="alert">Author correction: {state.error}</p>
             )}
             {state.notice && <p role="status">{state.notice}</p>}
         </section>

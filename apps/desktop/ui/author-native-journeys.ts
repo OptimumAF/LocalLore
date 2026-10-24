@@ -309,7 +309,14 @@ export async function authorNativeJourneys({
             root.querySelector(".author-panel") ??
             root.querySelector(".v2-play") ??
             root;
-        panel.scrollIntoView({ block: "start" });
+        const focus = label === "author-native-preview"
+            ? root.querySelector("#author-impact-preview")
+            : ["author-native-consent", "author-native-rejected", "author-native-cancelled"].includes(label)
+                ? root.querySelector("#author-visible-error")
+                : label === "author-native-pending" ? root.querySelector("#author-operation-notice")
+                    : ["author-native-saved", "author-native-late-cancel", "author-native-recovered", "author-native-narrow"].includes(label)
+                        ? root.querySelector("#author-outcome-title") : null;
+        (focus ?? panel).scrollIntoView({ block: "start" });
         await pause();
         check(
             document.documentElement.scrollWidth <= innerWidth + 2,
@@ -593,7 +600,9 @@ export async function authorNativeJourneys({
             let nativeBlocked = false;
             try {
                 await window.__TAURI__.core.invoke("archive_export_preview", {
+                    session: c.selected()!.id,
                     scope: parent,
+                    expectedRevision: 1,
                 });
             } catch (error) {
                 nativeBlocked = String(error).includes("ArchiveBusy");

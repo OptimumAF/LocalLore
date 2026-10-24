@@ -77,7 +77,10 @@ staging headroom remains held. An explicit debug-only
 passes three initial synthetic setup methods and a separate-process reopen on a
 fresh emulator, with all44 proof checks and owned cleanup verified. Earlier
 START-only and READY-timeout attempts remain documented; their causes are unknown.
-The bounded failure-status transport was not exercised by this successful run.
+The positive run emitted no failure status. A separate
+[controlled failing test](docs/native/RECEIPT_SETUP_FAILURE_TRANSPORT_VERIFICATION_2026-10-24.md)
+delivered the bounded record and preserved its original error; it does not
+diagnose the earlier timeout.
 Real inference and physical-phone qualification remain pending. The
 [earlier partial result](docs/native/MODEL_RECEIPT_ANDROID_VERIFICATION_2026-10-24.md)
 is preserved.

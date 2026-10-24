@@ -108,7 +108,8 @@ internal class LocalInferenceOwner(
     fun profileBytes(): ByteArray = profile.copyOf()
     /** Reserve before openLocal: sharing this driver across two transports must allocate no second lease. */
     fun claimTransport(value: Any) = synchronized(lock) {
-        if (transport != null && transport !== value) throw IllegalArgumentException("Local inference owner already attached")
+        if (transport != null && transport !== value || transport == null && port != null)
+            throw IllegalArgumentException("Local inference owner already attached")
         admit()
         transport = value
     }
@@ -141,10 +142,15 @@ internal class LocalInferenceOwner(
     private suspend fun <T> bounded(job: Deferred<T>): T = withTimeout(limits.cleanupMs) { job.await() }
     private fun bound(value: LocalInferenceNativePort) = synchronized(lock) {
         if (port != null && port !== value) throw LocalInferenceUncertain()
+        if (port == null && transport != null) throw IllegalArgumentException("Local inference owner already attached")
         if (port == null) port = value
     }
-    fun attach(value: LocalInferenceNativePort) {
-        bound(value)
+    fun attach(value: LocalInferenceNativePort, transportToken: Any? = null) {
+        synchronized(lock) {
+            if (transport !== transportToken || port != null && port !== value)
+                throw IllegalArgumentException("Local inference owner already attached")
+            port = value
+        }
         if (closed.get() || poisoned.get()) {
             scope.launch { quarantine(value) }
             throw LocalInferenceUncertain()

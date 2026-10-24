@@ -58,7 +58,7 @@ internal class NativeWorkspaceTransport(
                 if (localInference != null) {
                     val port = NativeLocalInferencePort(handle)
                     localPort = port
-                    localInference.attach(port)
+                    localInference.attach(port, this)
                 }
             }
             handle

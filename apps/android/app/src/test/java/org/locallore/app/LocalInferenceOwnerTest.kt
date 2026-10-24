@@ -343,6 +343,26 @@ class LocalInferenceOwnerTest {
         assertFalse(owner.nativeInvalidatedKnown) // No native allocation/closure was invented.
     }
 
+    @Test fun purePortBindingCannotLaterBeReclaimedByAProductionTransport() {
+        val owner = owner(Engine(Call())); val port = Port(request)
+        owner.attach(port)
+        try { owner.claimTransport(Any()); fail() }
+        catch (expected: IllegalArgumentException) { assertEquals("Local inference owner already attached", expected.message) }
+        assertFalse(owner.quarantined); assertEquals(0, port.closes.get())
+        owner.close()
+    }
+
+    @Test fun reservedTransportRejectsForeignPurePortBeforeDispatch() = runBlocking {
+        val owner = owner(Engine(Call())); val port = Port(request); val token = Any()
+        owner.claimTransport(token)
+        try { owner.execute(port, "commit", "commit".toByteArray()); fail() }
+        catch (expected: IllegalArgumentException) { assertEquals("Local inference owner already attached", expected.message) }
+        assertEquals(0, port.commits.get()); assertFalse(owner.quarantined)
+        owner.attach(port, token)
+        assertEquals("ok", owner.execute(port, "turn_status", "turn_status".toByteArray()).toString(Charsets.UTF_8))
+        owner.close()
+    }
+
     @Test fun closeReturnsImmediatelyWhileBlockingNativeInvalidationRemainsUnknown() = runBlocking {
         val gate = CountDownLatch(1)
         val port = object : LocalInferenceNativePort {

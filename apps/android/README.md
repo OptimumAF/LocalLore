@@ -118,6 +118,10 @@ The cancellation diagnostic reports completion only after the acknowledgement
 and saved-history reconciliation succeed. An uncertain reply records an unknown
 outcome and keeps recovery guidance visible; a commit that won the race is not
 described as stopped. See the [presentation regression](../../docs/native/ANDROID_CANCEL_PRESENTATION_VERIFICATION_2026-10-23.md).
+While cancellation is being reconciled, the screen shows **Checking cancellation…**.
+If recovery is required, **New story** and **Saved stories** remain disabled along
+with new turns until **Recover saved progress** succeeds. The in-memory demo
+retains its separate Reset behavior. See the [Compose controls checks](../../docs/native/ANDROID_CANCEL_CONTROLS_VERIFICATION_2026-10-23.md).
 Full or Busy storage errors show fixed recovery guidance and retain the original
 request. The confirmed snapshot stays visible until recovery obtains an accepted
 native outcome; new turns and mode changes stay disabled during uncertainty.

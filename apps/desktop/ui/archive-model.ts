@@ -98,6 +98,7 @@ export function decodeArchiveBinding(value: unknown): ArchiveBinding {
         !object(value) ||
         Object.keys(value).length !== 5 ||
         !uuid(value.token) ||
+        typeof value.kind !== "string" ||
         !["export", "import"].includes(String(value.kind)) ||
         !id(value.story) ||
         !id(value.branch) ||
@@ -169,6 +170,7 @@ export function decodePreview(v: unknown): PreviewToken {
         ) ||
         v.version !== 1 ||
         !uuid(v.token) ||
+        typeof v.kind !== "string" ||
         !["export", "import"].includes(String(v.kind)) ||
         !object(v.preview) ||
         typeof v.warning !== "string" ||
@@ -245,6 +247,7 @@ export function decodeStatus(v: unknown): ArchiveStatus {
         !integer(v.operation_id) ||
         v.operation_id === 0 ||
         typeof v.running !== "boolean" ||
+        typeof v.phase !== "string" ||
         ![
             "starting",
             "capturing",
@@ -269,6 +272,7 @@ export function decodeStatus(v: unknown): ArchiveStatus {
         if (r.version !== 1) wire();
         if (r.token !== undefined) decodePreview(r);
         else if (
+            typeof r.status !== "string" ||
             !["cancelled", "exported", "imported", "failed"].includes(
                 String(r.status),
             )

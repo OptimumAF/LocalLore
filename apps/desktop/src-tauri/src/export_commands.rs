@@ -284,6 +284,10 @@ fn storage_metadata(reply: &Value, cleanup: Value) -> Result<Value, String> {
 }
 
 #[cfg(test)]
+#[path = "m08_storage_metadata_review.rs"]
+mod m08_storage_metadata_review;
+
+#[cfg(test)]
 mod storage_metadata_tests {
     use super::*;
     #[test]

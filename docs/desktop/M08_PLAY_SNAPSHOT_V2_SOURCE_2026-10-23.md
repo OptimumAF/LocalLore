@@ -134,3 +134,28 @@ regenerates Host JSON schema/TS and freezes frontend/Android exact-decoder/nativ
 render checks when that separate consumer closure is allocated. This source
 alone is not functional Domain2 UI or author permission. Exact production and
 handoff hashes are recorded after the minimal edit, without backdating tests.
+
+## Source handoff after implementation
+
+The subsequent host.rs production commit adds exactly37 lines: the five-line
+enum variant and one dispatch arm. It reuses existing refresh_session/get_session
+and direct actual seed/player/item serialization, leaving the legacy arm and
+all other code untouched. Production host.rs SHA256:
+`b1125a1e3d351d3bd2d4e4c740d9b01760d5c38b967cb8d4affe5969d5118302`.
+The frozen test SHA256 remains exactly8a1c6453…a4debef above.
+
+Actually performed after the edit: scoped rustfmt parser/format check and
+`git diff --check`, passed; source/Git/hash review shows only the claimed three
+paths changed. No test/compiler execution occurred. There is no actual RED or
+GREEN and no current first-foundation PR integration. Direct ephemeral Host
+uses the same arm but is not separately exercised by these Persistence fixture
+tests; actual Store/JNI/UI/render/generation integration remains Root-owned.
+No new field is advertised in capabilities and generated schema/TS remain
+intentionally unedited pending Root's separate full consumer closure. Their
+future synchronization is a prerequisite, not a claimed passing schema gate.
+
+The native display omits history by construction; it does not mean characters
+forgot known values or that app generation may access world truth. Return to
+Query2 and its safe observation provenance for detailed reads. No author
+permission or automatic correction capability is introduced. At handoff, the
+three exact path claims release to Root for isolated future qualification.

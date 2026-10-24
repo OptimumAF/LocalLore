@@ -60,15 +60,35 @@ export async function brokerRetentionIncarnationReviewJourneys() {
             },
         },
     });
-    // Only gate admission is under test for the second surface. Native fork
-    // result validation remains in its existing controller's untouched tests.
+    // Still mocked gate admission, now carrying complete native-shaped metadata
+    // so stricter shared semantic validation does not need weaker test fixtures.
+    const forkIdentity = {
+        surface: "fork" as const,
+        session: context.session,
+        story: context.scope.story,
+        branch: context.scope.branch,
+        head: context.expected_head,
+        child: "fixture-child",
+        at: 0,
+        action: "fork",
+    };
     const forkStatus = (operation: number) => ({
         version: 1,
         operation_id: operation,
         running: false,
         phase: "completed",
         error: null,
-        result: { kind: "synthetic-gate-only-fork-result" },
+        result: {
+            kind: "fork",
+            outcome: {
+                version: 1,
+                scope: {story:context.scope.story,branch:forkIdentity.child},
+                parent: {...context.scope},
+                fork_revision: forkIdentity.at,
+                head_revision: forkIdentity.at,
+                created: true,
+            },
+        },
     });
 
     await test("late-known-old-id-cannot-poison-current-consumed-memory-outcome", async () => {
@@ -91,7 +111,7 @@ export async function brokerRetentionIncarnationReviewJourneys() {
             "foreign known old operation leaves current identity, certainty and consumption untouched",
         );
         let dispatched = false;
-        await gate.start({ surface: "fork", action: "fork" }, async () => {
+        await gate.start(forkIdentity, async () => {
             dispatched = true;
             return forkStatus(3);
         });
@@ -145,7 +165,7 @@ export async function brokerRetentionIncarnationReviewJourneys() {
             ) {
                 attemptedDuringDelivery = true;
                 attempted = gate
-                    .start({ surface: "fork", action: "fork" }, async () => {
+                    .start(forkIdentity, async () => {
                         dispatchedDuringDelivery = true;
                         return forkStatus(3);
                     })
@@ -201,7 +221,7 @@ export async function brokerRetentionIncarnationReviewJourneys() {
             "new passive result is independently consumed after actual controller acceptance",
         );
         let explicitDispatch = false;
-        await gate.start({ surface: "fork", action: "fork" }, async () => {
+        await gate.start(forkIdentity, async () => {
             explicitDispatch = true;
             return forkStatus(4);
         });
@@ -270,7 +290,7 @@ export async function brokerRetentionIncarnationReviewJourneys() {
         let prematureDispatch = false;
         let blocked = false;
         try {
-            await gate.start({ surface: "fork", action: "fork" }, async () => {
+            await gate.start(forkIdentity, async () => {
                 prematureDispatch = true;
                 return forkStatus(3);
             });
@@ -287,7 +307,7 @@ export async function brokerRetentionIncarnationReviewJourneys() {
             "own exact terminal operation2 is observed and consumed without restarting it",
         );
         let explicitDispatch = false;
-        await gate.start({ surface: "fork", action: "fork" }, async () => {
+        await gate.start(forkIdentity, async () => {
             explicitDispatch = true;
             return forkStatus(4);
         });

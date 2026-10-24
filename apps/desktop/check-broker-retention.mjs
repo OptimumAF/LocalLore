@@ -34,6 +34,12 @@ const identity = {
     head: 1,
     action: "step",
 };
+// Native-shaped MOCK metadata replaces the original gate-only cross-surface
+// placeholders. Every original admission/retention assertion remains unchanged.
+const forkIdentity = {...identity,surface:"fork",action:"fork",child:"fixture-child",at:0};
+const archiveIdentity = {...identity,surface:"archive",action:"archive_import_preview"};
+const forkOp = (id=1)=>({version:1,operation_id:id,running:false,phase:"completed",error:null,result:{kind:"fork",outcome:{version:1,scope:{story:identity.story,branch:forkIdentity.child},parent:{story:identity.story,branch:identity.branch},fork_revision:forkIdentity.at,head_revision:forkIdentity.at,created:true}}});
+const archiveOp = (id=1)=>({version:1,operation_id:id,running:false,phase:"completed",error:null,result:{version:1,status:"cancelled"}});
 const op = (running, id = 1, action = identity.action) => ({
     version: 1,
     operation_id: id,
@@ -64,7 +70,7 @@ let resolve;
 const held = new Promise((r) => (resolve = r));
 const pending = gate.start(identity, () => held);
 await assert.rejects(
-    () => gate.start({ ...identity, surface: "fork" }, async () => op(false)),
+    () => gate.start(forkIdentity, async () => forkOp()),
     /ArchiveBusy/,
 );
 check(true, "inflight-crosssurface-start-blocked");
@@ -72,12 +78,12 @@ resolve(op(false));
 await pending;
 await assert.rejects(
     () =>
-        gate.start({ ...identity, surface: "archive" }, async () => op(false)),
+        gate.start(archiveIdentity, async () => archiveOp()),
     /ArchiveBusy/,
 );
 check(true, "terminal-awaiting-controller-consumption-retained");
 busy = false;
-await gate.start({ ...identity, surface: "archive" }, async () => op(false, 2));
+await gate.start(archiveIdentity, async () => archiveOp(2));
 check(true, "consumed-terminal-allows-next-explicit-start");
 const unknown = new BrokerRetention(() => false);
 await assert.rejects(
@@ -95,7 +101,7 @@ check(
 );
 await assert.rejects(
     () =>
-        unknown.start({ ...identity, surface: "fork" }, async () => op(false)),
+        unknown.start(forkIdentity, async () => forkOp()),
     /ArchiveBusy/,
 );
 check(true, "unknown-ack-blocks-other-surface");
@@ -155,7 +161,7 @@ check(
 let actualCalls = 0;
 await assert.rejects(
     () =>
-        acknowledged.start({ ...identity, surface: "fork" }, async () => {
+        acknowledged.start(forkIdentity, async () => {
             actualCalls++;
             throw Error("ArchiveBusy");
         }),

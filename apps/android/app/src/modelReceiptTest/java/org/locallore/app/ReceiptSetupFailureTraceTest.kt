@@ -5,12 +5,29 @@ import java.util.concurrent.CancellationException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Assert.*
 import org.junit.Test
 
 /** Pure closed diagnostic values. Does not construct a model, provider, or Android component. */
 class ReceiptSetupFailureTraceTest {
+    private fun assertSameOriginal(action: (Throwable) -> Unit) {
+        val originalCause = IllegalArgumentException("Original cause")
+        val original = IllegalStateException("Original block failure", originalCause)
+        val priorSuppressed = IllegalArgumentException("Original suppressed failure")
+        original.addSuppressed(priorSuppressed)
+        val caught = try {
+            action(original)
+            null
+        } catch (failure: Throwable) {
+            failure
+        }
+        assertSame(original, caught)
+        assertSame(originalCause, original.cause)
+        assertArrayEquals(arrayOf<Throwable>(priorSuppressed), original.suppressed)
+    }
+
     private fun snapshot(trace: ReceiptSetupFailureTrace,
         source: ReceiptSetupSourceProgress = ReceiptSetupSourceProgress(),
     ) = trace.snapshot(LocalModelSetupPhase.READY, LocalModelSetupPhase.FAILED, source)
@@ -256,5 +273,152 @@ class ReceiptSetupFailureTraceTest {
             executor.shutdownNow()
             assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
         }
+    }
+
+    @Test fun reporterSuccessReturnsOriginalValueWithoutTouchingAnyDiagnosticClosure() {
+        val expected = Any()
+        val returned = ReceiptSetupFailureReporter.run(
+            claim = { error("Success must not claim a diagnostic") },
+            snapshot = { error("Success must not create a snapshot") },
+            send = { _, _, _ -> error("Success must not send status") },
+        ) { expected }
+        assertSame(expected, returned)
+        val absent: Any? = ReceiptSetupFailureReporter.run(
+            claim = { error("Null success must not claim") },
+            snapshot = { error("Null success must not snapshot") },
+            send = { _, _, _ -> error("Null success must not send") },
+        ) { null }
+        assertNull(absent)
+    }
+
+    @Test fun reporterFailureEmitsExactStatusOnceInOrderAndRethrowsOriginal() {
+        val order = mutableListOf<String>()
+        val value = snapshot(ReceiptSetupFailureTrace(ReceiptSetupFailureCase.ACCEPT))
+        val sent = mutableListOf<Triple<Int, String, String>>()
+        assertSameOriginal { original ->
+            ReceiptSetupFailureReporter.run(
+                claim = { order.add("claim"); true },
+                snapshot = { order.add("snapshot"); value },
+                send = { code, key, json -> order.add("send"); sent.add(Triple(code, key, json)) },
+            ) { order.add("block"); throw original }
+        }
+        assertEquals(listOf("block", "claim", "snapshot", "send"), order)
+        assertEquals(listOf(Triple(1337, "locallore_receipt_failure_v1", value.json())), sent)
+        assertFalse(sent.single().third.startsWith(ReceiptSetupFailureTrace.WIRE_PREFIX))
+    }
+
+    @Test fun reporterBlockErrorsCancellationAndHostileOriginalKeepExactIdentity() {
+        for (original in listOf(AssertionError("Original assertion"), CancellationException("Original cancellation"), HostileFailure())) {
+            var sent = 0
+            val caught = try {
+                ReceiptSetupFailureReporter.run(
+                    claim = { true },
+                    snapshot = { snapshot(ReceiptSetupFailureTrace(ReceiptSetupFailureCase.DRAIN)) },
+                    send = { _, _, _ -> sent++ },
+                ) { throw original }
+            } catch (failure: Throwable) {
+                failure
+            }
+            assertSame(original, caught)
+            assertEquals(1, sent)
+        }
+    }
+
+    @Test fun reporterDeclinedClaimNeverConstructsSnapshotOrSends() {
+        val claims = AtomicInteger()
+        assertSameOriginal { original ->
+            ReceiptSetupFailureReporter.run(
+                claim = { claims.incrementAndGet(); false },
+                snapshot = { error("Declined claim must not construct a snapshot") },
+                send = { _, _, _ -> error("Declined claim must not send") },
+            ) { throw original }
+        }
+        assertEquals(1, claims.get())
+    }
+
+    @Test fun reporterClaimFailuresIncludingErrorsNeverReplaceOrSuppressOriginal() {
+        for (diagnostic in listOf(AssertionError("Claim error"), CancellationException("Claim cancelled"), HostileFailure())) {
+            var snapshotCalls = 0
+            var sendCalls = 0
+            assertSameOriginal { original ->
+                ReceiptSetupFailureReporter.run(
+                    claim = { throw diagnostic },
+                    snapshot = { snapshotCalls++; snapshot(ReceiptSetupFailureTrace(ReceiptSetupFailureCase.DRAIN)) },
+                    send = { _, _, _ -> sendCalls++ },
+                ) { throw original }
+            }
+            assertEquals(0, snapshotCalls)
+            assertEquals(0, sendCalls)
+        }
+    }
+
+    @Test fun reporterSnapshotOrBoundedValueConstructionFailurePreservesOriginal() {
+        val failedSnapshots: List<() -> ReceiptSetupFailureSnapshot> = listOf(
+            { throw AssertionError("Snapshot error") },
+            { throw HostileFailure() },
+            { throw CancellationException("Snapshot cancelled") },
+            { snapshot(ReceiptSetupFailureTrace(ReceiptSetupFailureCase.DRAIN),
+                ReceiptSetupSourceProgress(readCalls = -1)) },
+        )
+        for (failedSnapshot in failedSnapshots) {
+            var sendCalls = 0
+            assertSameOriginal { original ->
+                ReceiptSetupFailureReporter.run(
+                    claim = { true }, snapshot = failedSnapshot,
+                    send = { _, _, _ -> sendCalls++ },
+                ) { throw original }
+            }
+            assertEquals(0, sendCalls)
+        }
+    }
+
+    @Test fun reporterSendFailuresIncludingErrorsPreserveOriginalWithoutRetry() {
+        for (diagnostic in listOf(AssertionError("Send error"), CancellationException("Send cancelled"), HostileFailure())) {
+            var sendCalls = 0
+            assertSameOriginal { original ->
+                ReceiptSetupFailureReporter.run(
+                    claim = { true },
+                    snapshot = { snapshot(ReceiptSetupFailureTrace(ReceiptSetupFailureCase.DRAIN)) },
+                    send = { _, _, _ -> sendCalls++; throw diagnostic },
+                ) { throw original }
+            }
+            assertEquals(1, sendCalls)
+        }
+    }
+
+    @Test fun reporterAtomicClaimEmitsOnceAcrossSeparateOriginalFailures() {
+        val claimed = AtomicBoolean()
+        var snapshots = 0
+        var sends = 0
+        repeat(2) {
+            assertSameOriginal { original ->
+                ReceiptSetupFailureReporter.run(
+                    claim = { claimed.compareAndSet(false, true) },
+                    snapshot = { snapshots++; snapshot(ReceiptSetupFailureTrace(ReceiptSetupFailureCase.DRAIN)) },
+                    send = { _, _, _ -> sends++ },
+                ) { throw original }
+            }
+        }
+        assertTrue(claimed.get())
+        assertEquals(1, snapshots)
+        assertEquals(1, sends)
+    }
+
+    @Test fun reporterFailedSendStillConsumesOneShotClaimAndCannotResurrectIt() {
+        val claimed = AtomicBoolean()
+        var snapshots = 0
+        var sends = 0
+        repeat(2) {
+            assertSameOriginal { original ->
+                ReceiptSetupFailureReporter.run(
+                    claim = { claimed.compareAndSet(false, true) },
+                    snapshot = { snapshots++; snapshot(ReceiptSetupFailureTrace(ReceiptSetupFailureCase.DRAIN)) },
+                    send = { _, _, _ -> sends++; throw HostileFailure() },
+                ) { throw original }
+            }
+        }
+        assertTrue(claimed.get())
+        assertEquals(1, snapshots)
+        assertEquals(1, sends)
     }
 }

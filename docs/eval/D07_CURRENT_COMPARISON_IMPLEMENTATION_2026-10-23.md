@@ -25,3 +25,5 @@ Source/protocol/suite/policy/kind/order/profile/worker/model/template/runtime/bu
 ## Qualification (initial state)
 
 Only source inspection, Git operations and issue claims have run. All Cargo/Clippy/typecheck/unit/integration/native/model checks remain UNRUN. Root owns actual execution and will retain first failures and any explicit fixture/API corrections. Current source is a future stack, not exposure in the desktop app. No UI, Android, Store/schema, runtime/worker, local_recording, Core compiler or Play implementation edits are allocated here.
+
+Pre-execution fixture correction: `9d284b6` remains immutable. Static inspection showed that its Workspace assertion treated the Director prompt suffix as a complete standalone JSON document and read `compiler_version` at the PlayRecord root. The actual existing format embeds one JSON envelope followed by instructions, with compiler metadata under `context`. The followup uses a streaming JSON value decoder and those actual nested paths. No expected policy, privacy, receipt, retry, source, or budget assertion changed. Neither form was executed.

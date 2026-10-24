@@ -45,14 +45,14 @@ fn actual_repository_both_policies_commit_and_retry_without_provider_after_resta
   assert_eq!(committed["data"]["phase"],"committed","{committed}");
   let record=&committed["data"]["receipt"]["play"];
   assert_eq!(record["prompt_version"],"locallore-play-v2.5");
-  assert_eq!(record["compiler_version"],2);
+  assert_eq!(record["context"]["compiler_version"],2);
   assert_eq!(record["context_policy"],serde_json::to_value(policy).unwrap());
   assert_eq!(seen.lock().unwrap().len(),2);
   let requests=seen.lock().unwrap();
   let Input::Structured{prompt:director,..}=&requests[0].input else {panic!()};
-  let package:Value=serde_json::from_str(director.split_once("Context data: ").unwrap().1).unwrap();
-  assert_eq!(package["version"],2);assert_eq!(package["observer"],seed.player);
-  assert_eq!(package["revision"],12);packages.push(package);
+  let package:Value=serde::Deserialize::deserialize(&mut serde_json::Deserializer::from_str(director.split_once("Context data: ").unwrap().1)).unwrap();
+  assert_eq!(package["context"]["compiler_version"],2);assert_eq!(package["context"]["observer"],seed.player);
+  assert_eq!(package["context"]["revision"],12);packages.push(package["context"].clone());
   let Input::Structured{prompt:narrator,..}=&requests[1].input else {panic!()};
   assert!(!narrator.contains("PUBLIC_OLD_HISTORY_"));assert!(!narrator.contains("SECRET-TIDE-731"));
   drop(requests);

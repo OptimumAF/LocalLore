@@ -1,7 +1,7 @@
 # First mixed-history foundation: consolidated qualification evidence
 
 Date: 2026-10-23. Refs #12 M08.03/.06, #8 M04.04/.06, #25 D04.04/.06,
-#30 prerequisites. **Partial foundation, in review with final checks pending;
+#30 prerequisites. **Partial foundation, in review with final checks recorded below;
 not completed M08/D08, functional correction UI, release or owner acceptance.**
 
 Report baseline: clean `95db6af97107ba52918885759441a9a4eca953b6`, following
@@ -10,7 +10,13 @@ comparison baseline remains `cf9332718cc5ffd98c5a4ab8fa0295205d5c9a10`.
 This evidence-only report is the sole new path on
 `docs/m08-foundation-qualification` / `source-foundation-qualification`, claimed
 in [#12 comment6378421053](https://github.com/OptimumAF/LocalLore/issues/12#issuecomment-6378421053).
-The coordinator owns all executions and final appendix updates. This author
+Final evidence update is based on `689a463ef6fa515f1e1ab1f399e8d3970d7b38df`,
+on separate `docs/m08-final-qualification-update` / `source-final-qualification-update`.
+The only owned edit remains this report, claimed in
+[#12 comment6378929662](https://github.com/OptimumAF/LocalLore/issues/12#issuecomment-6378929662)
+and [#29 comment6378929831](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6378929831).
+Historical95db evidence is retained with its original source, not relabeled689.
+The coordinator owns all executions and final review/publication. This author
 read completed task-owned logs/JSON and hashed evidence; no suite, model or app
 was launched by this documentation assignment.
 
@@ -55,10 +61,10 @@ Archive3 is a separate stacked transfer slice, not qualified by this foundation.
 | Current workspace/Android Rust at clean95db, `workspace-android-current.log` |183 passed /1 existing ignored across35 result groups, including two zero-test doc groups. This is host Rust testing of workspace/Android crate code, not Android JNI or device execution. |
 | Desktop metadata native-command tests, `desktop-schema5-green.log` |5 passed. Actual Store5/Host1 admission and known1–4/future6/protocol refusal checks. Initial missing frontendDist was a compile failure before tests; next run4 passed/1 Wire failure; correction then5 passed. These tests are not WebView execution. |
 
-The full current Core log was left unread/uncounted while running, then checked
-only after the coordinator reported terminal exit0. Final Store is now running;
-strict/frontend/native/Android runs are still listed in the pending appendix.
-None can be inferred from partial logs or earlier source checks.
+The earlier95db Core log was left unread/uncounted while running, then checked
+only after the coordinator reported terminal exit0. These earlier cohorts are
+not added to the final post-counter run below. Its terminal results, including
+Store/strict/frontend/native/Android, are independently source-bound there.
 
 Earlier retained corrections are not hidden: old positional INSERT arity,
 historical schema relabeling, read-only old-schema discriminator SQL, the author
@@ -103,7 +109,7 @@ accepted unmerged current2.5 contradictory output remains evidence; it is not
 rewritten into a fallback receipt or declared valid under the stricter policy.
 Details: [independent ownership report](M08_NARRATION_OWNERSHIP_REVIEW_2026-10-23.md).
 
-## Final actual native/model cohort
+## Historical95db final actual native/model cohort
 
 `model-native-557b90d6-9c24-4872-8b0e-014a63db0a54/summary.json` binds clean95db:
 
@@ -178,9 +184,9 @@ current narration guard does not imply a new execution of it. Helper evidence:
 all executed. Coordinator counted182 passing JVM tests; ordinary Rust JNI
 compiled for x86_64 and arm64-v8a, app/test APKs assembled and lint completed.
 This first schema5 build **predates ownership guard809178d**. It is not the
-final95db Android artifact gate. Its log does not itself print the JVM XML total;
+final post-counter Android artifact gate. Its log does not itself print the JVM XML total;
 182 is the coordinator's test-result count. Final source/build/hash/lint evidence
-must be filled below after Root runs it.
+are recorded below after Root's terminal post-counter run.
 
 The five new M08Schema5AdmissionTest methods compile as Android instrumentation
 source, not local JVM Gateway execution. Android's JSONObject actual Gateway
@@ -260,7 +266,7 @@ controllers/native IPC, capture semantic state and WebView2 CapturePreview, and
 restart their own executable. They neither capture/control the desktop nor
 depend on user clicking. No general remote-debugging/code/file/shell endpoint
 is added. Restore normal frontend/executable and check development hooks are
-absent after qualification; final restoration is pending below.
+absent after qualification; final restoration is recorded below.
 
 Frontend/native and Android final commands, to be source-bound by Root:
 
@@ -296,22 +302,162 @@ ownership report and its passing replay oracle. Original2.4 compact receipt
 compact PlayRecord1352 bytes SHA2566ed4abcd325e14fa334d23ead9b843ebe93afd91e26b28e3167ad95e552b9341.
 No historical golden was regenerated after a current failure.
 
-## Pending final-check appendix — coordinator fills after completion
+## Final post-counter qualification, terminal source-bound results
 
-These are explicit placeholders, not passing results or an assertion that a
-running suite completed. Record exact source/log/hash/count/ignore/failure
-attribution for each before claiming the final reviewable gate.
+`counter-check-results.json` records terminal exit0 for the final stages and
+the retained failed earlier stage. Its SHA is below. The actual command plan is
+`post-counter-foundation-checks.ps1`; it serializes stages, uses locked/offline
+dependencies, jobs1/debug0/incremental0, ordinary empty SQLite flags and owned
+target/TEMP/output roots. The documentation author read completed artifacts;
+none of these checks was launched by this assignment.
 
-| Required final entry | Status at report freeze |
+The unchanged native five-second boundary guard first failed at source
+`96ac4ed5ff6bbe09122e124b9162b1dd10542efe`: native default69 passed/1 failed/1
+ignored; isolated same guard0 passed/1 failed/70 filtered. Checkpoint inspection
+showed all12 cases mechanically correct, but repeated full-prefix serialization
+on each restore append made the32-typed-turn case exceed the existing wait.
+Root did not relax that assertion or substitute its expected output.
+
+Performance source `d73569f95f8d088c5c6d8a49d70538cac8f85911` adds private
+`canonical_record_bytes`, derived from actual compact new-record serialization,
+checked addition and the same limits. It is initialized0, clone-copied and
+updated only at the two successful canonical append sites; it is never a
+serialized value, projection or source/basis authority. The isolated unchanged
+native guard then passed1/1 (70 filtered). A subsequent ordinary parallel native
+run still failed68/2/1 on two other existing boundary waits. Both failures are
+retained; **serial qualification is not a claim that parallel timing is stable**.
+
+Independent source-only audit found no concrete counter drift or cap/source
+regression across constructors, clone, fork, historical replay, both appends and
+cancel/error candidates. It executed no tests and gives no general performance
+approval: [#12 bounded review/release6378755629](https://github.com/OptimumAF/LocalLore/issues/12#issuecomment-6378755629).
+
+Frozen external budget tests preceded production (`645720e`, original oracle
+packet `b7cf0be`). First full post-counter shared run at
+`e3f746a18e935bf9c8e711b14fd2b8af7986fff9` stopped after165 passes/1 failure:
+the boundary test failed `Engine::new(seed)` with Knowledge, before reaching the
+byte-boundary action, because the synthetic seed ID changed without changing
+its seed evidence references. Root's **test-only** `689a463` fixes those original
+belief/commitment references; no size, rejection, hash, replay, cancellation or
+production policy assertion changed. Corrected focused budget tests passed3/3,
+then the complete shared run below passed. Original failure/source remain
+retained. Details: [frozen budget oracles](M08_CANONICAL_BUDGET_FROZEN_ORACLES_2026-10-23.md).
+
+| Final completed stage | Exact source, count and limits |
 | --- | --- |
-| Full current Core (`core-final-current.log`) |COMPLETE312/3 ignores/39 groups, exit0, launch95db; fingerprint in evidence table after terminal log inspection. |
-| Current full Store rerun |RUNNING atd5382a1 (docs-only change after95db); UNCOUNTED until terminal. Earlier209/5 remains historical cohort. |
-| Final strict shared checks, formatting/whitespace |PENDING coordinator result/source/log. |
-| Final frontend check/format and native default/dev tests/strict checks |PENDING coordinator counts/ignores/logs; earlier native-render cohorts remain separately bound. |
-| Final Android after809178d |PENDING current source/JVM XML total/both-ABI build/app+test APK hashes/lint exact counts and environment; no device run inferred. |
-| Normal frontend/default executable restoration |PENDING exact normal asset/binary hashes and absence of dev hooks. |
-| Current launcher/loaded WebView version |Node24.22.1 confirmed; loaded WebView version UNCAPTURED, dated version not promoted to current measurement. |
-| Focused PR/commit review gate |PENDING coordinator publication/review disposition; no merge/release/settings action by this report. |
+| Native default, serial |`e3f746a18e935bf9c8e711b14fd2b8af7986fff9`;70 passed/1 existing ignored, `--test-threads=1`. |
+| Native dev-harness, serial |Samee3f source;74 passed/1 existing ignored plus2 harness-contract tests passed, two result groups. Not76 native UI journeys. |
+| Shared unfiltered all-features |`689a463ef6fa515f1e1ab1f399e8d3970d7b38df`;711 passed/9 existing ignored/0 failed/0 filtered across101 result groups: Core315/3, Android Rust81/0, Store213/5, Workspace102/1, plus4 zero-test doc groups. This one invocation replaces, not adds to, earlier complements. |
+| Shared format and strict |Same689; `cargo fmt --all -- --check` exit0; shared workspace all-target/all-feature Clippy excluding desktop exit0 with `-D warnings`. Fmt emitted no stdout and no `fmt-counter-final.log` was created; its exit0 is recorded in results JSON, not an invented log hash. |
+| Eval all-features + strict |Same689;27 passed/1 existing model-only ignored across5 groups, then all-target/all-feature Clippy exit0. Synthetic runner/recording/cache tests, not a new model cohort. |
+| Runtime all-features |Same689;40 passed/1 existing ignored across5 groups. Earlier13 passed/27 failed/1 ignored at e267 were missing test-worker binary setup; after explicit fixture build, same earlier source passed. That setup failure is retained and is not the final runtime result. |
+| Native strict |Same689; all-target dev-harness Clippy exit0, `-D warnings`. |
+| Frontend |Same689; strict TypeScript, current schema/request checks, actual-controller MOCK suites and absence of development hooks in normal frontend pass; separate full Prettier check exit0. MOCK/SSR assertions are not WebView/native results. |
+| Normal executable |Same689; ordinary `cargo build --no-default-features` exit0 after normal frontend check/build. Restored asset/binary hashes below. |
+
+Exact shared invocation was `cargo test -p locallore -p locallore-storage -p
+locallore-workspace -p locallore-android --all-features --offline --locked
+--target-dir <shared-target>`. Native default/dev used the existing manifest and
+`-- --test-threads=1`; Eval/runtime used their own manifests and `--all-features`.
+Do not report the failed native parallel run as passing or combine focused and
+full runs into an inflated total.
+
+## Final current legacy native renders and ordinary artifact restoration
+
+`legacy-native-7f71efb1-6bd0-4e6a-974a-456e3c8dec07/summary.json` binds clean689:
+**29 distinct checks,8 application-owned captures,two sequential real app
+processes**, actual native WebView2/IPC/Store schema1→5 migration/restart.
+Both reports have empty bounded error arrays (0); Root inspected **all8** new
+images. This is Root's application-owned visual review, not this documentation
+author's inspection or a desktop screenshot. Both app processes still report
+one Chromium class-unregister shutdown1412 diagnostic with successful exit0.
+No real model ran in this migration cohort. Historical95db model execution above
+remains separately bound and was **not rerun or relabeled689**.
+
+The fixture remains reconstructed synthetic schema1 using the actual unchanged
+001 DDL, not an old released app writer or user save. One read-only schema1
+backup, exact original receipt/state, retry/no double-spend, observer isolation,
+restart and no owned worker/session at close passed. This repeats the migration
+journey at the final counter production, while retaining the earlier cohorts.
+
+After this development-harness run, Root's normal frontend verification/build
+and no-default-features executable build completed. Read-only hash checks of
+the restored artifacts found:
+
+| Normal artifact | SHA256 |
+| --- | --- |
+| `<native-target>/debug/locallore-desktop-spike.exe` |739a310af60c5262878512e1ae51b5450a0aeefd0621cafc6afa8563e6b3d704 |
+| `apps/desktop/dist/app.js` |604ec37bceaa5a50bd60d094933ba32cab32dc759a576278a49ee03dc247f046 |
+| `apps/desktop/dist/index.html` |36503276fdc948f730a3855791f159a7d01c85b9f9405e55b9e1b11dbe1aa971 |
+| `apps/desktop/dist/style.css` |b935e32638488e6c4727570dff492598fa5d5a5540229f9978f0b4bdfdda8dca |
+
+The normal verifier explicitly checked its fixed dev journey/control markers
+were absent. Loaded WebView version remains uncaptured; Node24.22.1 is the
+documented actual launcher. No version probe or app launch was performed here.
+
+## Final Android terminal build and read-only artifact evidence
+
+Final `android-counter-final` at689 exited0: **BUILD SUCCESSFUL in4m23s,
+78 actionable tasks:7 executed/71 up-to-date**. Do not call all78 fresh. Actual
+ordinary JNI release compilation rebuilt x86_64 in1m57s and aarch64 in2m11s;
+neither ABI task was excluded. The command retained offline/no-download/one-worker
+settings and ordinary app/test APK/lint targets. `:app:testDebugUnitTest --rerun`
+produced fresh22 XML suites at19:46:51 local: **182 tests,0 failures,0 errors,0
+skips**. This does not execute JNI on Android or any instrumentation/device test.
+
+The named XML files sorted by PowerShell `Sort-Object Name`, encoded as
+`filename:lowercase_SHA256` joined with LF and no final LF, have manifest SHA256
+`bb21b56261439b69d6eadbb6edd53d56f9474901258f2bf1fba54cd91c8528e1`.
+App APK was freshly repackaged; the instrumentation APK and lint analysis/report
+were explicitly UP-TO-DATE. Their existing outputs are hashed, not presented as
+new instrumentation execution or fresh lint analysis. Lint report has0 errors
+and1 existing GradleDependency warning about the newer coroutines dependency;
+no dependency update or SDK/toolchain change occurred.
+
+| Android output under `<task-root>/android-workspace-build/_app/` | Size / SHA256 |
+| --- | --- |
+| `outputs/apk/debug/app-debug.apk` |31,418,696 bytes; b43f93403f54483c33f13e43a840d69f374d384ae34748c5e51c9ef938d69415 |
+| `outputs/apk/androidTest/debug/app-debug-androidTest.apk` |1,715,781 bytes;40450f596df0d5b5db724f5452aac63124f820cefa20d82bd3a7733a39dc4c36 (reused earlier output) |
+| `reports/lint-results-debug.xml` |1fcf8dd41831dda3550375fec0318caf9ded11f02a6909ed312e4c5c0838df35 (reused report) |
+
+Gradle8.11.1 is printed by the completed build; the script uses the existing
+Android Studio JBR and SDK/NDK configuration documented above. A read-only look
+at that JBR's `release` metadata confirms JAVA_VERSION17.0.6, JetBrains,
+Windows/x86_64. No executable version probe, new SDK/dependency or device access
+was introduced by this report.
+
+## Final evidence fingerprints
+
+Every row is a completed task-relative local log/summary, not an uploaded raw
+private diagnostic. Counts above were parsed only after terminal stage records.
+
+| Evidence | SHA256 |
+| --- | --- |
+| counter-check-results.json |e154e6654357c82981a38ee1f793d5c7b5310850bfec9fe3d8c984b197df5b15 |
+| post-counter-foundation-checks.ps1 |b2f9eb17e33b935bfedaeaa1a52f8929c163809c5cba06bd6fed396502f3cddc |
+| native-default-final-current.log (69/1 failure) |37748cf405a443ae498fe3f8b34c523937869854e62893502c2ac09f5c8255a8 |
+| native-evaluation-isolated-current.log (0/1 failure) |a344df3539822a1f1118228c6cf72f4e5a30c249cec066afd40064dc6de97a70 |
+| native-evaluation-counter-green.log (1/0 focused) |a0be6db894426998f0aae816bc2d2a8b3ddd2f00e42e9a1701551853a099e7e3 |
+| native-default-counter-current.log (68/2 parallel failure) |127ea1eef1feef52e67910d675a6c02a454d11cebfdb4874d29a9eba5c52ccad |
+| native-default-counter-serial.log |4c94ff9acec7638eae483e385028629afe99c878db78b0cead85ef1abe6acc1f |
+| native-dev-counter-serial.log |8b690841899226ba7b35022b06e988f98c34474501bb005dfde7ac09c29a555e |
+| shared-counter-final.log (fixture failure) |68af077599ec3b20c6fc8c99a6e96923f74df5217768a774089cae6d444c60d5 |
+| canonical-budget-corrected.log |ef09de31a83232358ad4fcfc9a528d4e44f62728783a779e899c13df9a07caba |
+| shared-counter-corrected-final.log |588832b1670e44606fe5684e257f09c6bea7e17e09a004c873138e21aafe2cd1 |
+| clippy-shared-counter-final.log |c835fdd78724c3c36f78bef9b6059ec621d7e2e1008badf2697de9951f62cfd3 |
+| eval-counter-final.log |711898ef6e52717cdd75e40a81735052029d0508c65f37ccdbdbc8b38b6a5dc6 |
+| clippy-eval-counter-final.log |ece366a523de4457113ac8670529dd65c227854c54ef7a2a0eb6e08399d7e7bd |
+| runtime-counter-final.log |b9121bf4d2e7fc1d128a62ec94e5722d6548d4dbc3e31850bf28aeb77b1a1da7 |
+| runtime-final-current.log (missing-worker setup failure) |4c219b2a3acbf0a955730f6e4a5c58a8c9172d308a86af2c99a987bd08c991d6 |
+| runtime-fixture-build-final-current.log |65b3d5af7794b213eeb8b7cdc5eeeea4e7f65c243cb576902612c7b3aa91cab1 |
+| runtime-final-corrected-current.log |93568a774213a03c60a7f70203ddb6b28cc47311c70cc9bef4a2b0fcdf9cbca8 |
+| clippy-native-counter-final.log |1784ddc649e118e2cb4af23f80dcbdb38c4aee8145f961eaa60d6fbfaac4681c |
+| legacy-native-counter-final.log |a059c72322280556ed69a7035f4278c76bc0688cd80d1b2aef7ca33c424c9f46 |
+| legacy-native-7f71efb1-6bd0-4e6a-974a-456e3c8dec07/summary.json |feaa148c65076b98d0f2dce74d1df0beeaf7d8106cbc61d6c8f2b9bbea9be691 |
+| frontend-counter-final.log |d5d181e18edf90b880208b296b7cf7522d469e59b4dbbcdba786fe66c6cd5e2b |
+| frontend-format-counter-final.log |f20510a9da4717c51c4cffee6d0dd88d6c9a723d0a83711d01216f5b48961283 |
+| native-normal-build-counter-final.log |6c86e7230b127f4073a7644c29ceb75f4d0e209cdeb70e32400c02c1309de6e6 |
+| android-counter-final.log |6364139b619268aad583ecba225956163a6df672f78dc556c8575c38ab4fa56e |
 
 Unavailable gates remain explicit: functional Domain2 Play/inspection UI and
 native author preview/second-consent/commit/recovery; Android V2 read/resume
@@ -322,8 +468,11 @@ Core Query2/compiler2 support is not app decoder closure, and development fake
 provider evidence is not model execution. Current accepted-history replay does
 not require inference.
 
-Next runnable work: finish the coordinator's final checks and appendix, then
-stop at the source-bound first-foundation reviewable PR gate. Follow-on work
-starts with exact V2 consumer/author-port interface freeze and independent
-failure oracles; Archive3 remains separately stacked. This document changes no
-checkbox, production source, fixture, dependency or user resource.
+Next runnable work: Root reviews this source-bound evidence and the focused
+first-foundation PR, completes its eligible publication/merge disposition under
+the existing owner authorization, then continues the full desktop goal through
+the separately frozen V2 consumer/author-port and Archive3 stacks. The first
+foundation gate is an integration boundary, not a request to stop all desktop
+work. Current owner acceptance/merge status must be verified on GitHub; this
+report performs no merge, release or settings action and changes no checkbox,
+production source, fixture, dependency or user resource.

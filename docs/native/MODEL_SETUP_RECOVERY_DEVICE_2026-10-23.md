@@ -105,8 +105,8 @@ The 34-byte cache sentinel retained SHA-256
 Both proofs preserved the 15 explicitly bounded older picker, interruption and
 pending-v2 model/proof/marker files. This is not a byte audit of all userdata.
 
-Private raw identifiers, receipts and client outputs remain local in
-`D:/LocalLore-model-setup-recovery-device-20261023`. The final closed selection
+Private raw identifiers, receipts and client outputs remain in the new private
+local evidence namespace. The final closed selection
 contains 268 files / 1,300,057 bytes; index SHA-256
 `03c18b3ee832a4aee2f021c9245029e2f72c998aff2da64abbb23a779a28635f`.
 Root and the independent reviewer verified the final selection and all 81 raw
@@ -119,7 +119,8 @@ the frozen source copies and selection remain intact.
 The injected failures establish setup catch-boundary and admission behavior,
 not actual OS/SDK failure handling. No SDK initialization, Engine, workspace,
 story, inference, real model weights, cache repair, data clear/reset/uninstall,
-old-31 lifecycle action, emulator A, reference phone or #117/#119 action occurred.
+old-31 lifecycle action, emulator A, reference phone or held #117/#119
+runtime/model operation occurred.
 No real-model/backend or ARM64/16 KiB qualification follows from these synthetic
 API-35 emulator results. Runtime/device holds remain in place.
 

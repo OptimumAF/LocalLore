@@ -6,6 +6,11 @@ PR #139 at `727f8e11416d16bc1f1ebed81ba23db195be6fc1`. The
 synthetic emulator methods passed; full milestone and owner acceptance remain
 pending. No merge or release was performed by this packet.
 
+The final upstream refresh observed PR #139 externally merged. Default-branch
+head `1a9a314` contains the tested prerequisite, so this packet's focused PR
+targets `main`. Checks below apply to the frozen packet source/artifacts;
+they do not claim a rerun of every intervening default-branch change.
+
 ## Implementation and host checks
 
 Author `5205e78` was integrated as `5ebb424`. The two new private fixture/test

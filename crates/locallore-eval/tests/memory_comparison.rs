@@ -224,7 +224,7 @@ fn frozen_24_attempts_use_actual_play_and_preserve_explicit_capability_gaps() {
         "attributed belief never rewritten as fact"
     );
     assert!(!after
-        .character_context("sable")
+        .character_context("sable", after.scope(), after.revision())
         .unwrap()
         .facts
         .contains_key("relic-location"));

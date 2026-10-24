@@ -86,3 +86,16 @@ cargo run --manifest-path crates/locallore-eval/Cargo.toml --locked --offline --
 ```
 
 Current status: implemented source awaiting compiler, synthetic behavior, independent review, native invocation and later human-review gates. No D07 task is marked accepted/done. The next coordinator task is actual isolated import/typecheck and unchanged frozen tests, with any concrete fix separately recorded; app results navigation and model/human evaluation remain later work. All owned claims are released at this handoff; the branch is retained for review without publication/merge.
+
+## Coordinator qualification in progress
+
+Root compiled the all-features `comparison_runner` integration target successfully
+at `02efc910` (`--no-run`, 17.32s). This is compilation only. The first combined
+three-target test command then stopped with E0061 in the original pure protocol
+fixture: `character_context("sable")` omitted the existing required Scope and
+revision arguments. No test executed in that combined attempt. The narrow fixture
+correction supplies `after.scope()` and `after.revision()`; the assertion still
+requires that Sable cannot see `relic-location`. No production API, observer
+filter, expected outcome or frozen scenario is changed. First logs are retained
+locally as `d07-comparison-compile-first.log` and
+`d07-comparison-focused-first.log`. Behavior results remain pending.

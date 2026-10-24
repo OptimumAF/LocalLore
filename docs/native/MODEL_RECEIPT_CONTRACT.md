@@ -64,6 +64,8 @@ a same-process contender returns BUSY without opening another channel to the
 inode. Try an exclusive OS lock; contenders fail BUSY. Keep ownership until the
 source and all owned channels actually return/close. Cancellation request alone
 does not free a blocked source or its reservation. Never unlink the lock.
+Only a control root without receipt or marker may create a missing lock. A
+receipted or accepted transaction with a missing lock refuses reconstruction.
 
 `installed()` takes the process reservation first. An existing persistent lock
 is opened without CREATE and tried before deciding that a marker is absent;
@@ -71,7 +73,8 @@ contention therefore returns BUSY even for pending data. Absent control, or an
 absent marker and absent lock, returns null without creating a lock or cache or
 exposing pending bytes. A marker requires the existing lock, exact
 receipt and owner, zero-byte regular marker, complete model size/digest and safe
-cache. Revalidate after hashing before returning LocalModelFiles. A reader may
+cache. An accepted transaction missing its cache refuses rather than creating
+one. Revalidate after hashing before returning LocalModelFiles. A reader may
 observe null just before another process commits; it never returns pending data.
 
 `import()` holds one lock throughout:

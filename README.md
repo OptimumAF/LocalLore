@@ -69,6 +69,11 @@ both candidates and the existing Rust oracle on authorized emulators. It adds
 no production inference dependency; physical-device and reliability gates remain
 open, with failures retained in the dated results.
 
+Separate [Android model-storage receipt checks](docs/native/MODEL_RECEIPT_ANDROID_VERIFICATION_2026-10-24.md)
+exercise a tiny synthetic file without model inference. Three emulator methods
+passed; process-death qualification remains blocked after a service correction
+by update staging headroom. The experiment does not change the active setup route.
+
 An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects
 the isolated SDK to guarded free-text preparation and durable commit. Its
 [verification](docs/runtime/android/PLAY_VERIFICATION_2026-10-23.md) establishes

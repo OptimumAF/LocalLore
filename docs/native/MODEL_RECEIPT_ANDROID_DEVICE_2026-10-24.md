@@ -1,11 +1,12 @@
 # Android receipt controller verification
 
-Refs #9 (M05.05 prerequisite), #5 (M01.05 supporting). Source/controller
-and read-only readiness plus a failed first qualification attempt. Full receipt
-qualification remains unproven. Synthetic fixture work uses 63 original bytes;
-no real-model or SDK execution is established.
+Refs #9 (M05.05 prerequisite), #5 (M01.05 supporting). Actual first Android
+qualification: **3 PASS / 1 PROCESS failure**, followed by read-only recovery.
+The corrected service passed host/build checks; its fresh v2 run is blocked by
+APK staging headroom. Full receipt qualification remains unproven. Synthetic
+fixture work uses 63 original bytes; no real-model or SDK execution is established.
 
-The new `android_receipt_qualification_probe.py` has two closed profiles. A
+The new `android_receipt_qualification_probe.py` has three closed profiles. A
 read-only readiness profile binds the preceding sealed B identity snapshot and
 rechecks inventory, exact 35 APK hashes/all UIDs, process classifications,
 boot/API/ABI/page-size, volume metadata, userdata and host floors, and absence
@@ -128,3 +129,14 @@ and capacity assessment. The new recovery evidence is sealed in a create-only
 75-file inventory, 115,994 selected bytes, SHA-256
 `759a743b82ea98c62e23d958de6c663e763cb493349ad6366d48840f5836fad8`.
 No source, test, APK or old fixture data changed during recovery.
+
+The final controller now validates both incoming APK files' bounded sizes and
+pinned hashes and reserves their actual total above the unchanged userdata
+floor before its first install. All 22 controller mocks pass, including exact
+capacity success, one-byte-short refusal with zero installs/instrumentation,
+and an invalid second APK refusing before the first update. The central final
+script suite passes all 471 tests. This necessary reserve does not calibrate
+installer overhead. Current observed headroom is 60,973,491 bytes short even
+of the incoming pair reserve; no v2 authorization or live retry was created.
+See the [complete verification](MODEL_RECEIPT_ANDROID_VERIFICATION_2026-10-24.md)
+for source, artifact and final evidence bindings.

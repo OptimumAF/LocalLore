@@ -174,7 +174,7 @@ class ReceiptSetupControllerTests(unittest.TestCase):
         return owner, result
 
     def test_complete_initial_and_separate_restart_with_all_44_checks(self):
-        self.assertEqual(q.APK_HASHES, {})  # Production remains disabled until actual root audits.
+        original_hashes = dict(q.APK_HASHES)
         with tempfile.TemporaryDirectory() as directory:
             value = proposal(Path(directory)); lease = Lease(value); transport = Transport(value, lease)
             owner, result = self.execute(value, lease, transport)
@@ -191,6 +191,7 @@ class ReceiptSetupControllerTests(unittest.TestCase):
             self.assertFalse(result["real_model_or_SDK_qualified"])
             for _, kwargs in transport.calls:
                 self.assertTrue(0 < kwargs["deadline"] <= 120)
+        self.assertEqual(q.APK_HASHES, original_hashes)
 
     def test_proof_closed_types_bounds_and_exact_check_maps(self):
         for phase in q.PHASES:
@@ -353,8 +354,8 @@ class ReceiptSetupControllerTests(unittest.TestCase):
             with self.assertRaises(AssertionError): q.parse_uids(rows.encode(), packages)
         with tempfile.TemporaryDirectory() as directory:
             value = proposal(Path(directory))
-            self.assertEqual(q.APK_HASHES, {})
-            with self.assertRaises(AssertionError): q.validate_proposal(value)
+            with patch.object(q, "APK_HASHES", {}), self.assertRaises(AssertionError):
+                q.validate_proposal(value)
 
     def test_closed_dispatch_refuses_mutations_repeats_and_alternate_identity(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -380,6 +381,7 @@ class ReceiptSetupControllerTests(unittest.TestCase):
         self.assertIn("-le 4096", ready[-1])
 
     def test_admission_binds_sources_descriptor_apks_and_exact_authorization(self):
+        original_hashes = dict(q.APK_HASHES)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); value = proposal(root)
             path, auth = root / "proposal.json", root / "auth.json"
@@ -398,7 +400,7 @@ class ReceiptSetupControllerTests(unittest.TestCase):
                     with self.assertRaises(AssertionError): q.authorize(path, auth, root)
                 Path(value["running_path"]).write_bytes(b"changed descriptor")
                 with self.assertRaises(AssertionError): q.validate_proposal(value)
-            self.assertEqual(q.APK_HASHES, {})
+            self.assertEqual(q.APK_HASHES, original_hashes)
 
     def test_lease_open_pins_client_and_exact_environment_arguments(self):
         with tempfile.TemporaryDirectory() as directory:

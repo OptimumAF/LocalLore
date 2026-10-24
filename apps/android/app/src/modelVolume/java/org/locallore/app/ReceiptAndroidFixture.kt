@@ -61,9 +61,12 @@ internal object ReceiptAndroidFixture {
 
     fun requireIdentity(context: Context, child: Boolean) {
         if (Build.VERSION.SDK_INT < 30) error("Receipt fixture unavailable")
-        check(BuildConfig.MODEL_VOLUME_VERIFICATION && context.packageName == PACKAGE)
-        check(context.applicationInfo.uid == Process.myUid())
-        check(Application.getProcessName() == if (child) CHILD_PROCESS else context.applicationInfo.processName)
+        check(BuildConfig.MODEL_VOLUME_VERIFICATION) { "Receipt build refused" }
+        check(context.packageName == PACKAGE) { "Receipt package refused" }
+        check(context.applicationInfo.uid == Process.myUid()) { "Receipt target UID refused" }
+        check(Application.getProcessName() == if (child) CHILD_PROCESS else context.applicationInfo.processName) {
+            "Receipt process refused"
+        }
     }
 
     suspend fun open(context: Context, child: Boolean = false): Environment = withContext(Dispatchers.IO) {
@@ -86,10 +89,10 @@ internal object ReceiptAndroidFixture {
     ) {
         private val externalBefore = external.usableSpace
         private val userdataBefore = internal.usableSpace
-        private val proofRoot = File(internal, "receipt-android-proof-v1")
+        private val proofRoot = File(internal, "receipt-android-proof-v2")
 
-        fun pair(case: Case): Pair = Pair(File(internal, "receipt-android-${case.suffix}-v1"),
-            File(external, "receipt-android-${if (case == Case.FOREIGN_CONTROL) Case.FOREIGN.suffix else case.suffix}-v1"))
+        fun pair(case: Case): Pair = Pair(File(internal, "receipt-android-${case.suffix}-v2"),
+            File(external, "receipt-android-${if (case == Case.FOREIGN_CONTROL) Case.FOREIGN.suffix else case.suffix}-v2"))
 
         fun fresh(vararg cases: Case) {
             admit()

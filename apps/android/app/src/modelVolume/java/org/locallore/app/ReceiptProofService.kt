@@ -30,13 +30,16 @@ class ReceiptProofService : Service() {
         override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean {
             if (code !in START..HALT) return super.onTransact(code, data, reply, flags)
             ReceiptAndroidFixture.requireIdentity(this@ReceiptProofService, child = true)
-            check(Binder.getCallingUid() == Process.myUid() && flags == 0)
+            check(Binder.getCallingUid() == Process.myUid()) { "Receipt caller refused" }
+            // Binder may add framework bookkeeping flags to a caller's flags=0.
+            // Require synchronous semantics, not a zero transport-flags integer.
+            check((flags and IBinder.FLAG_ONEWAY) == 0) { "Receipt synchronous call required" }
             data.enforceInterface(TOKEN)
-            check(data.dataAvail() == 0)
-            val result = requireNotNull(reply)
+            check(data.dataAvail() == 0) { "Receipt payload refused" }
+            val result = checkNotNull(reply) { "Receipt reply required" }
             when (code) {
                 START -> {
-                    check(state.compareAndSet(State.IDLE, State.RUNNING))
+                    check(state.compareAndSet(State.IDLE, State.RUNNING)) { "Receipt start state refused" }
                     scope.launch {
                         try {
                             val env = ReceiptAndroidFixture.open(applicationContext, child = true)
@@ -65,9 +68,9 @@ class ReceiptProofService : Service() {
                     result.writeLong(Process.getStartElapsedRealtime())
                 }
                 HALT -> {
-                    check(state.get() == State.DATA_FORCED &&
-                        SystemClock.elapsedRealtime() - heldAt.get() < 20_000 &&
-                        haltArmed.compareAndSet(false, true))
+                    check(state.get() == State.DATA_FORCED) { "Receipt halt state refused" }
+                    check(SystemClock.elapsedRealtime() - heldAt.get() < 20_000) { "Receipt halt deadline refused" }
+                    check(haltArmed.compareAndSet(false, true)) { "Receipt halt already armed" }
                     // Return the acknowledgement before the parent removes AUTO_CREATE.
                     // onUnbind then kills this process while the file lock remains held.
                     result.writeNoException(); result.writeInt(1)

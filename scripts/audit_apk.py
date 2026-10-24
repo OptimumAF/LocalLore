@@ -68,14 +68,21 @@ def audit_zip(path, *, litert=False, model_picker=False):
                 "Excessive DEX contents")
         fixture_present = False
         fixture_activity_present = False
+        interruption_present = False
+        interruption_activity_present = False
         for entry in dex:
             require(0 < entry.file_size <= 32 * 1024 * 1024, "Invalid DEX size")
             contents = archive.read(entry)
             fixture_present |= b"ModelPickerFixture" in contents
             fixture_activity_present |= b"ModelPickerFixtureActivity" in contents
+            interruption_present |= b"ModelPickerInterruption" in contents
+            interruption_activity_present |= b"ModelPickerInterruptionFixtureActivity" in contents
             require(b"ModelPickerDocumentsProvider" not in contents, "Test provider packaged in app")
+            require(b"ModelPickerInterruptionTest" not in contents, "Interruption test packaged in app")
         require(fixture_present == model_picker, "Model picker fixture leaked or missing")
+        require(interruption_present == model_picker, "Interruption fixture leaked or missing")
         require(not model_picker or fixture_activity_present, "Missing fixture Activity implementation")
+        require(not model_picker or interruption_activity_present, "Missing interruption Activity implementation")
         for entry in entries:
             if not entry.filename.endswith(".so"):
                 continue
@@ -160,6 +167,7 @@ def audit_model_launcher(badging, tree, *, model_picker=False):
     play = "org.locallore.app.LiteRtPlayActivity"
     main_activity = "org.locallore.app.MainActivity"
     fixture = "org.locallore.app.ModelPickerFixtureActivity"
+    interruption = "org.locallore.app.ModelPickerInterruptionFixtureActivity"
     require(re.findall(r"^launchable-activity: name='([^']+)'", badging, re.M) == [setup],
             "Model setup must be the sole launcher")
     require(":sharedUserId(" not in tree and "E: activity-alias " not in tree,
@@ -186,12 +194,13 @@ def audit_model_launcher(badging, tree, *, model_picker=False):
         names = re.findall(r':name\([^)]*\)="([^"\n]+)"', attributes)
         require(len(names) == 1 and names[0] not in activities, "Ambiguous activity identity")
         activities[names[0]] = (attributes, "\n".join(block))
-    expected = {setup, play, main_activity} | ({fixture} if model_picker else set())
+    expected = {setup, play, main_activity} | ({fixture, interruption} if model_picker else set())
     require({name for name in activities if name.startswith("org.locallore.app.")} ==
             expected, "Unexpected application activity")
     exports = [(setup, "true"), (play, "false"), (main_activity, "false")]
     if model_picker:
         exports.append((fixture, "false"))
+        exports.append((interruption, "false"))
     for name, exported in exports:
         attributes, block = activities[name]
         require(re.findall(r':exported\([^)]*\)=([^\s]+)', attributes) == [exported],

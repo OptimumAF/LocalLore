@@ -17,5 +17,6 @@
         <activity android:name=".LiteRtPlayActivity" android:exported="false"
             android:launchMode="singleTask" />
         <activity android:name=".ModelPickerFixtureActivity" android:exported="false" />
+        <activity android:name=".ModelPickerInterruptionFixtureActivity" android:exported="false" />
     </application>
 </manifest>

@@ -9,6 +9,7 @@ import java.nio.channels.OverlappingFileLockException
 import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
 import java.nio.file.LinkOption.NOFOLLOW_LINKS
+import java.nio.file.OpenOption
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption.CREATE
 import java.nio.file.StandardOpenOption.CREATE_NEW
@@ -216,7 +217,8 @@ internal class ReceiptModelTransaction(
             val before = if (exists(lock)) regular(lock) else null
             if (!create && before == null) unsafe()
             if (before == null && (exists(receipt) || exists(accepted))) unsafe()
-            val options = if (create) arrayOf(CREATE, WRITE, NOFOLLOW_LINKS) else arrayOf(WRITE, NOFOLLOW_LINKS)
+            val options = if (create) arrayOf<OpenOption>(CREATE, WRITE, NOFOLLOW_LINKS)
+                else arrayOf<OpenOption>(WRITE, NOFOLLOW_LINKS)
             FileChannel.open(lock.toPath(), *options).use { channel ->
                 val acquired = try { channel.tryLock() } catch (_: OverlappingFileLockException) { null }
                     ?: fail(LocalModelFailure.BUSY)

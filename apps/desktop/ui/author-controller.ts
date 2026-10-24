@@ -183,7 +183,7 @@ export class AuthorController {
             this.current(work) ||
             work.kind !== "prepare" ||
             this.active !== work ||
-            this.context?.rootIncarnation !== work.context.rootIncarnation
+            this.rootIncarnation !== work.context.rootIncarnation
         )
             return;
         // Only this retired, non-mutating prepare is resolved. No commit/lookup
@@ -215,7 +215,7 @@ export class AuthorController {
             /* Invalid context cannot grant author access. */
         }
         const key = context ? this.contextKey(context) : "none";
-        if (key === this.key) {
+        if (key === this.key && (context !== null || value === null)) {
             if (context?.brokerUncertain !== this.context?.brokerUncertain) {
                 this.context = context;
                 this.patch({ available: authorAvailable(context) });

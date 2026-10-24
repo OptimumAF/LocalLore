@@ -60,7 +60,8 @@ coverage without a narrowly gated integration hook. Proposed Root additions:
    requested production-owner source extension beyond registration.
 5. Add the exact capture labels below to existing HarnessState admission and
    preserve its JSON/PNG/count budgets. No new capture API. Author's native
-   helper exports `LABELS` for Root's membership check if preferred. Add
+   fixed labels and environment admission live in `harness.rs`, keeping its
+   standalone contract tests independent of the fixture module. Add
    authoring to the existing frontend window-config type. Root's frontend
    verifier must exclude this new journey and faults from the normal bundle.
 
@@ -263,9 +264,7 @@ crate::author_harness::before_apply(work)?;
 #[cfg(feature = "dev-harness")]
 crate::author_harness::after_apply(work);
 // harness.rs reserve: reuse its same MAX_JSON/MAX_PNG/MAX_CHECKPOINTS limits:
-if !LABELS.contains(&label)
-    && !(crate::author_harness::active()
-        && crate::author_harness::LABELS.contains(&label))
+if !(LABELS.contains(&label) || (author_active() && AUTHOR_LABELS.contains(&label)))
 {
     return Err("CheckpointInvalid");
 }

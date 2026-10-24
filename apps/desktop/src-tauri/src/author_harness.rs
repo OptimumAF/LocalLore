@@ -9,25 +9,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub const LABELS: &[&str] = &[
-    "author-native-consent",
-    "author-native-preview",
-    "author-native-rejected",
-    "author-native-pending",
-    "author-native-cancelled",
-    "author-native-saved",
-    "author-native-history",
-    "author-native-observer",
-    "author-native-receipt",
-    "author-native-turn-cancelled",
-    "author-native-stale-context",
-    "author-native-late-cancel",
-    "author-native-unknown",
-    "author-native-recovered",
-    "author-native-narrow",
-    "author-native-restarted",
-    "author-native-reopened",
-];
 const CHILDREN: &[&str] = &[
     "author-saved",
     "author-cancelled",
@@ -42,7 +23,7 @@ const REASON: &str = "AUTHOR_PRIVATE_REASON";
 // 0 idle, 1/2 armed before/after, 3/4 entered before/after. One actual worker.
 static GATE: AtomicU8 = AtomicU8::new(0);
 pub fn active() -> bool {
-    crate::harness::active() && std::env::var("LOCALLORE_M08_AUTHOR_HARNESS").as_deref() == Ok("1")
+    crate::harness::author_active()
 }
 fn workspace_path() -> Result<PathBuf, String> {
     if !active() {

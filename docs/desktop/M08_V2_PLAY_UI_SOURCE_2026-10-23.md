@@ -93,3 +93,53 @@ That lets TypeScript recognize its terminating control flow for existing guards.
 No runtime check, assertion, cap, request shape or oracle changes; no `any` cast.
 This correction is source-only and has not been typechecked or executed by this
 agent. Root owns the actual strict rerun and all IPC/render/native qualification.
+
+## Integration handoff
+
+Implementation: `d646b383e7ee3748b560bce812b4cb76bbb9ea6b`.
+Minimal typing correction: `cf4c168dbb6127ab93357954aff2c2a2ab6e59d1`.
+
+| New source | SHA-256 at source handoff |
+|---|---|
+| v2-play-controller.ts | `d451d6b211f258d9c16b4f376b56c37c9cecf290a289535d4f28b961d08d7073` |
+| V2PlayPanel.tsx | `3f6bd6d1c39497e9754b4fb17aec3efed4b9498b6ddf9953582404aab4ec18f4` |
+| check-v2-play-controller.mjs | `12bc579ec4dcae551212211e1058cf2ebd5a92032cf01a6caf2d3c7f625615ba` |
+
+Root's existing main/App adapter must:
+
+- Supply context only from the current actual selected Session plus its coherent
+  native thin V2 snapshot, including actual player ID. Active panel is Domain2;
+  Domain1 retains its existing legacy path, with no synthetic empty receipts or
+  invented Context.
+- Feed selectedContextChanged on every context/control transition. Include own
+  `get().pending`/`uncertain` in global mutation guards, while context pending and
+  blocked flags exclude this controller's own work to avoid self-retirement.
+- Inject the SAME existing Gateway; its actual IPC sends play_snapshot_v2,
+  inspection_query, submit/free_text and original-key control calls. Root owns
+  any Gateway capability/forwarding and generated schema closure.
+- Inject a Root refresh/library callback without V2 recursion. The panel's
+  passive context effect reads only; committed completion reconciles once.
+- Route panel control callbacks to the existing controller's setAction,
+  setFakeMode, setPlayMode and setInputKind methods. Optional existing-panel
+  links route model/debugger/export/timeline/memory without duplicating them.
+  The V2 panel is the active Domain2 composer; do not dispatch its draft through
+  the legacy composer's send path.
+
+Own source-only checks were `git diff a9f79b7 --check`, exact changed-path
+inventory and SHA-256 reads. All passed. No Node/TypeScript/Prettier, Cargo,
+SQLite, app, rendering, model or device execution was performed by this agent.
+The twenty-case checker must be rerun after the typing correction with strict
+TypeScript and formatting checks; run `node check-v2-play-controller.mjs` from
+apps/desktop using established local dependencies. Native Gateway/IPC journeys,
+actual native WebView rendering and image inspection remain coordinator work.
+
+The panel renders text/JSON data only, labels fixture inference and memory-only
+progress, and displays selected scope/head/lens, resource snapshot revision,
+original-operation identity and actual receipt scope/boundary separately. Its
+standalone source is not a layout/render verification. No screenshots/captures
+were generated here. Unavailable summary/index views are explicit Rust statuses.
+
+Uncertainty stays process-memory-only. A closed original session can leave exact
+status/retry unavailable; this module does not invent a different-session lookup,
+automatic release, persistence journal or claim that an unknown admission was
+cancelled. Such missing recovery capability must remain with its native owner.

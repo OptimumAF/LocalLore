@@ -61,9 +61,10 @@ messages never enter UI or public diagnostics.
 requires the first receipt and a different actual process identity. It verifies
 the published bytes, sentinel and older hashes before launching an Activity.
 The new fixture admission and counters must initially be fresh. Actual READY
-then requires one full check, with zero seed imports, file imports, Start calls
+then requires one controller full check, with zero seed imports, file imports, Start calls
 or constructions. Rehashing after observation must still match. No test resets
-the old admission to manufacture this result.
+the old admission to manufacture this result. Controller check counters are
+separate from the independent direct native-store reopen and fixed proof hashes.
 
 The two methods use separate ordinary selected instrumentation invocations.
 Their actual process receipts, rather than runner flags or Activity recreation

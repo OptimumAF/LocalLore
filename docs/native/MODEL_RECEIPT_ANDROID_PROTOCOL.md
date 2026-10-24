@@ -18,7 +18,10 @@ AndroidModelVolume selection on IO. Control parents use the trusted resolved
 no-backup anchor; data parents use the selected Context app-files anchor,
 beside the existing candidate root. Cases are closed constants ACCEPT,
 CANCEL_BEFORE, CANCEL_AFTER, PARTIAL, FOREIGN, FOREIGN_CONTROL, GUARD and
-PROCESS, with fixed `receipt-android-<lowercase-hyphen-case>-v1` children.
+PROCESS, with fixed `receipt-android-<lowercase-hyphen-case>-v2` children. The
+consumed first qualification used v1 children; preserve those roots and their
+evidence. A corrected trial uses only fresh v2 children, never clearing or
+adopting v1.
 FOREIGN_CONTROL may reference the FOREIGN data root solely to prove refusal.
 Initial case roots must be absent; no previously failed or benchmark root can
 be adopted or cleared to prepare the test. Only intentional PROCESS recovery
@@ -41,7 +44,17 @@ exported false, isolatedProcess false, process `:receiptproof`, with no filters
 or permission. Guard the exact build/package, own UID and exact process before
 fixture work or self-kill. No URI, path, fixture selection, intent extras or
 external source can select an operation. Binder token:
-`org.locallore.app.receiptproof.v1`. Same-UID callers only, no trailing payload.
+`org.locallore.app.receiptproof.v1`. Same-UID, synchronous callers only, with a
+nonnull reply and no trailing payload. Reject FLAG_ONEWAY. Do not require the
+entire received flags word to be zero: Android may add framework bookkeeping
+flags to synchronous calls. The first v1 trial demonstrated a remote START
+refusal but did not identify the failing remote check. Official Android 15
+[BinderProxy](https://android.googlesource.com/platform/frameworks/base/+/android-15.0.0_r1/core/java/android/os/BinderProxy.java)
+adds FLAG_COLLECT_NOTED_APP_OPS under its collection policy, and
+[Binder](https://android.googlesource.com/platform/frameworks/base/+/android-15.0.0_r1/core/java/android/os/Binder.java)
+forwards received flags to onTransact. Replacing the zero-word check corrects
+that independently demonstrated compatibility defect; no actual received bit
+value or sole cause is inferred from the old exception.
 
 - START (1): fixed acknowledgment 1, then one IO worker imports PROCESS. At
   DATA_FORCED it holds the actual store/OS lock and waits at most 30 seconds;
@@ -79,7 +92,7 @@ real file/cancellation/ownership outcomes before recording booleans. No SDK,
 native publication, engine or workspace call. A diagnostic refusal is not an
 accepted pass: qualification requires four actual passing tests and all proofs.
 
-Fresh internal `no_backup/receipt-android-proof-v1` contains exactly eight files:
+Fresh internal `no_backup/receipt-android-proof-v2` contains exactly eight files:
 accept-v1.json/accept-ready-v1.txt, cancellation-v1.json/
 cancellation-ready-v1.txt, refusal-v1.json/refusal-ready-v1.txt and
 process-v1.json/process-ready-v1.txt. Each JSON is forced CREATE_NEW, ASCII,

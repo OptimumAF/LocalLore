@@ -124,6 +124,10 @@ validated. A malformed or unfinished acknowledgement requires recovery before
 another turn or story switch. A commit that won the race remains saved. See
 [cancellation acknowledgement verification](../../docs/native/ANDROID_CANCEL_ACK_VERIFICATION_2026-10-23.md)
 for the isolated protocol tests and their device limits.
+The cancellation diagnostic reports completion only after the acknowledgement
+and saved-history reconciliation succeed. An uncertain reply records an unknown
+outcome and keeps recovery guidance visible; a commit that won the race is not
+described as stopped. See the [presentation regression](../../docs/native/ANDROID_CANCEL_PRESENTATION_VERIFICATION_2026-10-23.md).
 Full or Busy storage errors show fixed recovery guidance and retain the original
 request. The confirmed snapshot stays visible until recovery obtains an accepted
 native outcome; new turns and mode changes stay disabled during uncertainty.

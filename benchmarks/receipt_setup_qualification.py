@@ -30,6 +30,7 @@ APK_HASHES = {
 SOURCE_FILES = ("benchmarks/receipt_setup_qualification.py", "benchmarks/receipt_avd_environment.py",
     "benchmarks/receipt_fresh_target.py", "scripts/tests/test_receipt_setup_qualification.py",
     "scripts/tests/test_receipt_setup_helper.py",
+    "scripts/tests/test_receipt_setup_failure.py",
     "apps/android/app/src/litert/java/org/locallore/app/CandidateModelAccess.kt",
     "apps/android/app/src/litert/java/org/locallore/app/ReceiptCandidateModelAccess.kt",
     "apps/android/app/src/litert/java/org/locallore/app/AndroidReceiptModelAccess.kt",
@@ -38,6 +39,8 @@ SOURCE_FILES = ("benchmarks/receipt_setup_qualification.py", "benchmarks/receipt
     "apps/android/app/src/litert/java/org/locallore/app/LocalModelSetupViewModel.kt",
     "apps/android/app/src/litert/java/org/locallore/app/LiteRtRoleWorker.kt",
     "apps/android/app/src/modelReceipt/java/org/locallore/app/ReceiptSetupFixtureActivity.kt",
+    "apps/android/app/src/modelReceipt/java/org/locallore/app/ReceiptSetupFailureTrace.kt",
+    "apps/android/app/src/modelReceiptTest/java/org/locallore/app/ReceiptSetupFailureTraceTest.kt",
     "apps/android/app/src/modelReceiptAndroidTest/java/org/locallore/app/ReceiptSetupQualificationTest.kt",
     "apps/android/app/src/modelReceipt/AndroidManifest.xml", "docs/native/RECEIPT_SETUP_CONTRACT.md",
     "docs/native/RECEIPT_SETUP_PROTOCOL.md", *contract.SOURCE_FILES)
@@ -81,6 +84,66 @@ PROOF_MANIFEST = ("run-as", APP, "sh", "-c", "test -d no_backup && test ! -L no_
 PROOF_KEYS = frozenset(("version", "phase", "pid", "start", "uid", "process", "fixture_bytes", "fixture_sha256",
     "direct_callback", "candidate_roots_absent", "publication_native_invoked", "sdk_invoked", "external_free_before",
     "external_free_after", "userdata_free_before", "userdata_free_after", "source_opened", "source_closed", "checks"))
+FAILURE_PREFIX = "INSTRUMENTATION_STATUS: locallore_receipt_failure_v1="
+FAILURE_STATUS = "INSTRUMENTATION_STATUS_CODE: 1337"
+FAILURE_PHASES = frozenset(("UNCHECKED", "CHECKING", "MISSING", "PICKING", "IMPORTING", "STOPPING", "READY",
+                            "FAILED", "OPENING", "SESSION_HELD"))
+FAILURE_EVENTS = frozenset(("CREATE", "START", "RESUME", "PAUSE", "STOP", "DESTROY", "CHECK_START",
+    "CHECK_PRESENT", "CHECK_MISSING", "CHECK_CANCELLED", "CHECK_FAILED", "IMPORT_START", "IMPORT_RETURNED",
+    "IMPORT_CANCELLED", "IMPORT_FAILED"))
+FAILURE_CODES = frozenset(("NONE", "CANCELLED", "BUSY", "NO_SPACE", "INVALID_MODEL", "UNSAFE_PATH", "STORAGE", "OTHER"))
+FAILURE_LIMIT = 1_000_000
+
+
+def parse_failure_trace(raw):
+    """A bounded observation only: never evidence of READY, acceptance or cleanup."""
+    assert type(raw) is bytes and 0 < len(raw) <= 2048 - len(FAILURE_PREFIX.encode("ascii"))
+    assert all(32 <= byte <= 126 for byte in raw)
+    value = contract.strict_json(raw)
+    assert type(value) is dict and set(value) == {"version", "case", "expected", "actual", "error",
+                                                "events_total", "events_saturated", "events", "source"}
+    assert type(value["version"]) is int and value["version"] == 1
+    for key, options in (("case", {"ACCEPT", "CANCEL_BEFORE", "CANCEL_AFTER", "DRAIN"}),
+                         ("expected", FAILURE_PHASES), ("actual", FAILURE_PHASES), ("error", FAILURE_CODES)):
+        assert type(value[key]) is str and value[key] in options
+    events = value["events"]
+    assert type(events) is list and len(events) <= 16
+    assert all(type(event) is str and event in FAILURE_EVENTS for event in events)
+    assert type(value["events_total"]) is int and len(events) <= value["events_total"] <= FAILURE_LIMIT
+    assert type(value["events_saturated"]) is bool
+    assert not value["events_saturated"] or value["events_total"] == FAILURE_LIMIT
+    source = value["source"]
+    assert type(source) is dict and set(source) == {"opened", "closed", "active", "reads", "bytes",
+                                                  "reads_saturated", "bytes_saturated"}
+    for key in ("opened", "closed", "active", "reads", "bytes"):
+        assert type(source[key]) is int and 0 <= source[key] <= FAILURE_LIMIT
+    for key, count in (("reads_saturated", "reads"), ("bytes_saturated", "bytes")):
+        assert type(source[key]) is bool and (not source[key] or source[count] == FAILURE_LIMIT)
+    return value
+
+
+def extract_failure_trace(raw):
+    text = normalized(raw, 131072)
+    lines = text.splitlines()
+    positions = [index for index, line in enumerate(lines) if line.startswith(FAILURE_PREFIX)]
+    codes = [index for index, line in enumerate(lines) if line == FAILURE_STATUS]
+    if not positions and not codes:
+        assert "locallore_receipt_failure_v1" not in text
+        return None
+    assert len(positions) == len(codes) == 1 and codes[0] == positions[0] + 1
+    assert text.count("locallore_receipt_failure_v1") == 1
+    # A diagnostic can never explain away a passing runner or replace its proof.
+    assert not re.search(r"^OK \([0-9]+ tests?\)$", text, re.MULTILINE)
+    return parse_failure_trace(lines[positions[0]][len(FAILURE_PREFIX):].encode("ascii"))
+
+
+def observe_failure_trace(owner, raw, label):
+    assert label in ("initial", "restart")
+    value = extract_failure_trace(raw)
+    if value is not None:
+        write_json(owner.directory / (label + "-failure-trace-v1.json"), value)
+    # The caller still applies the unchanged strict runner gate to the RAW stream.
+    return value
 
 
 def parse_proof(raw, phase, uid):
@@ -526,7 +589,9 @@ def run_cohort(owner):
     assert owner.shell(PROOF_ABSENT, cap=4096) == b""
     assert owner.shell(contract.INTERNAL_CANDIDATE_ABSENT, cap=4096) == b""
     owner.stage = "instrumentation"
-    initial = parse_instrumentation(owner.shell(INITIAL_INSTRUMENT, deadline=120, cap=131072), INITIAL_CLASS, INITIAL_METHODS)
+    initial_raw = owner.shell(INITIAL_INSTRUMENT, deadline=120, cap=131072)
+    observe_failure_trace(owner, initial_raw, "initial")
+    initial = parse_instrumentation(initial_raw, INITIAL_CLASS, INITIAL_METHODS)
     write_json(owner.directory / "initial-instrumentation-v1.json", initial)
     owner.stage = "after"
     # APP absence is mandatory; a bound distinct-UID TEST row is recorded separately.
@@ -534,7 +599,9 @@ def run_cohort(owner):
     proofs = read_proofs(owner, ("SETUP", "CANCELLATION", "DRAIN"))
     assert len({(v["pid"], v["start"], v["uid"], v["process"]) for v in proofs.values()}) == 1
     owner.stage = "restart"
-    reopened = parse_instrumentation(owner.shell(RESTART_INSTRUMENT, deadline=60, cap=131072), RESTART_CLASS, RESTART_METHODS)
+    restart_raw = owner.shell(RESTART_INSTRUMENT, deadline=60, cap=131072)
+    observe_failure_trace(owner, restart_raw, "restart")
+    reopened = parse_instrumentation(restart_raw, RESTART_CLASS, RESTART_METHODS)
     write_json(owner.directory / "restart-instrumentation-v1.json", reopened)
     owner.stage = "after"
     owner.facts("after-restart", owner.proposal["apk_sha256"])

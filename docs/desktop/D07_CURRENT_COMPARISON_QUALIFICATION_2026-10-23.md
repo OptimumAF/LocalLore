@@ -86,6 +86,9 @@ without gaining invented estimates or permission to resume under new source.
 | 39c770d, corrected-prefix compatibility logs | Evaluator strict Clippy **pass**,6.14s; full frontend and frontend format **pass**; native normal **88 passes /1ignored**,18.53s (compile35.38s); native dev **92 passes /1ignored**,20.36s plus standalone2passes (compile28.52s); native strict Clippy **pass**,16.48s; normal native build **pass**,14.67s. These are Rust tests/build and synthetic/headless frontend checks, not a D07 WebView journey or model comparison. |
 | 39c770d, d07-compat-lint-corrected-android.log | **BUILD SUCCESSFUL**,11m42s, all78tasks executed. Fresh JNI x86_64 and arm64 builds,182JVM tests and APK/lint/static audit evidence below; no device execution. |
 | 39c770d, d07-real-owner-admission-refusal.log | Explicit opt-in native-owner refusal test **1 pass /39filtered**,8.38s. It proves refusal before comparison admission when the native runtime is already owned; no inference or model-quality result. |
+| Frozen clock APIs, d07-clock-frozen-first-compile.log | Exit101,E0425/E0599: new private clock APIs are absent. **Zero tests ran**; this is not a behavioral RED result. Frozen source f55c178 was imported as dd87579, then registered/formatted at5df28ae. |
+| Clock implementation e3b22bc, d07-clock-corrected-first.log | Exit101,E0425: one before-commit check still named removed limit. No tests ran. febc326 uses the same absolute deadline at that final check. |
+| febc326, d07-clock-before-commit-corrected.log | **7 passed /0failed /38filtered**,5.71s after5.26s compilation. Actual-open charging/settlement, original-origin continuation, insufficient/exhausted admission, preserved interrupted unknown reservations and absolute turn deadline/prelude/cleanup cases pass. |
 
 The original frozen Core declarations precede production (edf4d265 / contract
 03308ea1). The Core fix and evaluator closure were separately allocated and
@@ -101,7 +104,7 @@ PR's evidence and does not make the D07 comparison an author/Domain2 corpus.
 | comparison_runner + memory_comparison_v2 terminal batch | Complete:9runner+3protocol passes above. Initial seven-pass partial output was not counted as a completed result. |
 | Current Core/Host fixture and full compatibility checks | Host4, shared743/10 ignored, evaluator15/1 ignored, strict shared/eval/native lint, frontend/format, native normal88/1 ignored, dev92/1 ignored+standalone2, normal build and fresh Android compatibility all passed. No runtime/UI/model execution is inferred from build/unit evidence. |
 | Genuine historical complete-cohort opening | Passed actual opt-in test at 4a36b72; see precise inventory/old-field boundary below. |
-| Real local-model current comparison | Original source39c paired run completed4scenes/48structural passes/84roles, quality not accepted. Independent review found prelude timing gaps; frozen clock regressions/fix and final-source rollout/appropriate paired confirmation remain required. No original-source rollout is being run. |
+| Real local-model current comparison | Original source39c paired run completed4scenes/48structural passes/84roles, quality not accepted. Clock fix febc326 passes7focused regressions; full corrected evaluator suite, final-source rollout and warranted paired confirmation remain pending. No original-source rollout is being run. |
 | Exact reproduction and environment | Completed commands below; fresh toolchain versions and terminal compatibility manifests recorded. Real-model command/result remains pending. The contract's suggested commands are not presented as executions. |
 
 ## Genuine historical read-only compatibility
@@ -292,6 +295,51 @@ unchanged; no original-source rollout will be run. Root will freeze clock regres
 then run rollout and warranted paired confirmation at the corrected source,
 rather than attributing old timings or calls to the future fix.
 
+Corrected clock source is **febc326426096f66deb7262f2651e542a3781db6**.
+A continuing invocation now keeps one monotonic public-entry origin through
+manifest/reference/checkpoint replay. Both arm clocks conservatively include
+common opening work; only measured other-arm work/native setup share are
+excluded. Admission requires the unchanged full preparation reserve, and
+interrupted unknown reservations remain fully charged. Native asset-phase
+120-second allowance is distinct from opening/replay cost. The caller and
+watchdog share one absolute deadline: the earlier of original turn start+60s
+or current instant+actual remaining active time minus cleanup reserve. Prelude
+consumes the turn allowance without being subtracted twice from already-current
+remaining time; an expired queued turn cancels before provider dispatch.
+This remains cooperative cancellation, not hard real-time preemption.
+
+All three clock compile/test invocations used the same actual command below;
+its two compile failures and seven-pass result remain separate:
+
+```powershell
+cargo test --manifest-path crates/locallore-eval/Cargo.toml --locked --offline --jobs 1 --target-dir <shared-target> --lib local_lane::comparison::clock_review_tests -- --nocapture --test-threads=1
+```
+
+Reported old-source diagnostics are retained in paired-completed-analysis.json,
+2,677 bytes, SHA-256
+`0de743ae6b6d303dda75be9b2239c9e47adab1a7b1c5d8ed2890773717326943`.
+The summary uses **lower median** (sorted index floor((n−1)/2)) and
+**nearest-rank p95** (ceil(0.95n), one-based). These pooled old-source values
+are diagnostics, not corrected-clock qualification or an arm ranking:
+
+| Reported duration | n | Lower median ms | p95 ms | Maximum ms |
+| --- | --- | --- | --- | --- |
+| All turn rows, including six zero-role guards | 48 | 20,104 | 23,707 | 24,762 |
+| Generated turns only | 42 | 20,881 | 23,707 | 24,762 |
+| First final response, including guards | 48 | 19,953 | 23,395 | 24,692 |
+| Commit | 42 | 139 | 366 | 425 |
+| Director parent role | 42 | 18,208 | 20,394 | 20,902 |
+| Narrator parent role | 42 | 1,755 | 2,556 | 3,580 |
+
+Across84 roles the retained worker reports max input3,673/output98 tokens,
+sampled peak working set1,217,949,696bytes/private941,670,400bytes and lifetime
+peak working set1,232,691,200bytes, with zero sample failures/incomplete role
+rows. These are **worker-process-only** counters, not whole-app memory,
+Android/phone capacity or true-tokenizer fit for arbitrary future prompts.
+Physical setup19443ms is a distinct reported scope, not an additional arm's
+independent cold-load measurement. No timing scopes are combined or averaged
+into a claimed latency/quality improvement.
+
 Quality remains **not accepted**. The coordinator observed generic forest
 narration unrelated to the actual Say utterance. A structural row pass is not
 a prose-quality pass, and no human-rubric acceptance is inferred. Actual
@@ -326,7 +374,7 @@ The852-byte cohort-manifest.json SHA-256 is
 
 Files are local/gitignored under `<evidence-root>/author-integration-artifacts`.
 No raw model weights, private paths or player stories are published. The
-following thirty completed logs were hashed read-only; active logs are excluded.
+following thirty-three completed logs were hashed read-only; active logs are excluded.
 
 | Log | Bytes / SHA-256 |
 | --- | --- |
@@ -360,6 +408,9 @@ following thirty completed logs were hashed read-only; active logs are excluded.
 | d07-compat-lint-corrected-android.log | 6,099 / `6d64d75b81ddab62e6126fdf7db35ce9dab215502f051f401037d5b5cd286385` |
 | d07-apk-static-audit.log | 783 / `a2220741ab7d3170dc6f144e8b0c0d97b3b85457ef46d7bf0d6e0c76a8cef49f` |
 | d07-real-owner-admission-refusal.log | 595 / `594fca8a53b44db9f0d13fe3272d0ef9760ed3b619b60c731b377e3b454b3453` |
+| d07-clock-frozen-first-compile.log | 7,717 / `816e0cd470b02d3bbc751d274ad3e21cb78bfd27af2639d6c4293ba44d41ef63` |
+| d07-clock-corrected-first.log | 599 / `e27952ba7d245d33262a08077177a9326b7906b38d5287526499b8a2884df0d4` |
+| d07-clock-before-commit-corrected.log | 1,425 / `63a72b97c7bbc2899f373d25fef0c53af282af6a10c29591e9331b0f675e1cd7` |
 
 No task checkbox, model-quality conclusion, historical report rewrite,
 PR acceptance, merge, release, repository setting or protected resource is

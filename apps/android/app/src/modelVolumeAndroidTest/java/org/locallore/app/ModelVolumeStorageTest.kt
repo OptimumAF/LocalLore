@@ -38,7 +38,14 @@ class ModelVolumeStorageTest {
             val proofRoot = File(context.noBackupFilesDir.canonicalFile, "model-volume-proof-v1")
             assertAbsent(proofRoot)
             // Never resolve CandidateLocalModel.store or a runtime/benchmark path.
-            val volume = AndroidModelVolume.select(context)
+            val internalAliasNormalized = context.noBackupFilesDir.absoluteFile != context.noBackupFilesDir.canonicalFile
+            var lastEnteredStep: ModelVolumeStep? = null
+            val volume = try { AndroidModelVolume.select(context) { lastEnteredStep = it } }
+            catch (failure: LocalModelException) {
+                throw AssertionError("Volume admission refused: last_entered_stage=${lastEnteredStep?.name ?: "NONE"}, " +
+                    "internal_alias_normalized=$internalAliasNormalized, failure=${failure.failure.name}")
+            }
+            assertEquals(ModelVolumeStep.STABILITY, lastEnteredStep)
             val candidateRoot = volume.root
             assertEquals("local-model-removable-v1", candidateRoot.name)
             assertAbsent(candidateRoot)
@@ -133,6 +140,8 @@ class ModelVolumeStorageTest {
                 .put("candidate_root_sha256", sha(candidateRoot.path.toByteArray(Charsets.UTF_8)))
                 .put("external_free_before", externalFreeBefore).put("external_free_after", externalFreeAfter)
                 .put("userdata_free_before", userdataFreeBefore).put("userdata_free_after", userdataFreeAfter)
+                .put("internal_alias_normalized", internalAliasNormalized)
+                .put("last_entered_stage", "STABILITY")
                 .put("sentinel_sha256", sha(SENTINEL)).toString().toByteArray(Charsets.US_ASCII)
             assertTrue(proof.size <= 4096)
             forcedNew(File(proofRoot, "volume-proof-v1.json"), proof)

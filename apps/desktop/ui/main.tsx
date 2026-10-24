@@ -279,13 +279,24 @@ const invoke = (command: string, args: Record<string, unknown> = {}) => {
             native,
         );
     }
-    if (command === "archive_status" || command === "archive_cancel")
-        return native().then(async (value) => {
-            if (brokerRetention.get()?.identity.surface === "author")
-                await brokerRetention.observeAuthor(value);
-            else brokerRetention.observe(value);
-            return value;
-        });
+    if (command === "archive_status" || command === "archive_cancel") {
+        const owner = brokerRetention.get()?.identity;
+        const operationId = args.operationId;
+        return native().then(
+            async (value) => {
+                if (owner?.surface === "author") {
+                    if (brokerRetention.get()?.identity === owner)
+                        await brokerRetention.observeAuthor(value);
+                } else brokerRetention.observe(value);
+                return value;
+            },
+            (error) => {
+                if (owner?.surface === "author")
+                    brokerRetention.observeAuthorFailure(owner, operationId);
+                throw error;
+            },
+        );
+    }
     return native();
 };
 const driver =

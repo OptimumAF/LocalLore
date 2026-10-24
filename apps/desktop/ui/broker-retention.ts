@@ -281,6 +281,23 @@ export class BrokerRetention {
         if (owner?.identity.surface === "author")
             await this.recordAuthor(value, false, owner);
     }
+    observeAuthorFailure(owner: BrokerIdentity, operationId: unknown): void {
+        const current = this.retained;
+        if (
+            !current ||
+            current.identity !== owner ||
+            owner.surface !== "author" ||
+            current.operation === null ||
+            current.operation !== operationId ||
+            current.terminal
+        )
+            return;
+        // A rejected transport is no native terminal result. Retain the exact
+        // owner/ID and keep uncertainty sticky until explicit acknowledgement.
+        const checks = this.authorChecks.get(owner)!;
+        checks.fault = true;
+        this.patch({ unknown: true, consumed: false });
+    }
     private async recordAuthor(
         value: unknown,
         admission: boolean,

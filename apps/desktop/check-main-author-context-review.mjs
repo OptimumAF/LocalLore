@@ -638,43 +638,65 @@ test("own author admission stays live and terminal consumption waits for actual 
     });
 });
 test("known author status transport rejection retains original ID and sticky shared unknown", () =>
-    using({
-        authorReply: async () => operation({phase: "author_preparing"}),
-        statusReply: async () => { throw Error("Transport"); },
-    }, async (f) => {
-        f.controller.setView("lab");
-        f.author.setDraft(draft);
-        f.author.setAuthorConsent(true);
-        await f.author.prepare();
-        assert.equal(f.author.get().uncertain, true);
-        assert.equal(f.brokerRetention.get().operation, 11);
-        assert.equal(f.brokerRetention.get().unknown, true);
-        assert.equal(f.brokerRetention.get().consumed, false);
-        await labToPlay(f);
-        assert.equal(f.v2.get().context.blocked, true);
-        await f.brokerRetention.observeAuthor(operation({phase:"author_preparing"}));
-        assert.equal(f.brokerRetention.get().unknown, true, "a later running observation cannot erase transport uncertainty");
-    }));
+    using(
+        {
+            authorReply: async () => operation({ phase: "author_preparing" }),
+            statusReply: async () => {
+                throw Error("Transport");
+            },
+        },
+        async (f) => {
+            f.controller.setView("lab");
+            f.author.setDraft(draft);
+            f.author.setAuthorConsent(true);
+            await f.author.prepare();
+            assert.equal(f.author.get().uncertain, true);
+            assert.equal(f.brokerRetention.get().operation, 11);
+            assert.equal(f.brokerRetention.get().unknown, true);
+            assert.equal(f.brokerRetention.get().consumed, false);
+            await labToPlay(f);
+            assert.equal(f.v2.get().context.blocked, true);
+            await f.brokerRetention.observeAuthor(
+                operation({ phase: "author_preparing" }),
+            );
+            assert.equal(
+                f.brokerRetention.get().unknown,
+                true,
+                "a later running observation cannot erase transport uncertainty",
+            );
+        },
+    ));
 test("late old-owner author status rejection cannot poison an acknowledged replacement", () =>
-    using({
-        authorReply: async () => operation({phase: "author_preparing"}),
-        statusReply: async () => { throw Error("Transport"); },
-    }, async (f) => {
-        f.controller.setView("lab");
-        f.author.setDraft(draft);
-        f.author.setAuthorConsent(true);
-        await f.author.prepare();
-        // Establish an independently malformed status to make this fencing
-        // oracle runnable even on the original transport-unknown baseline.
-        await f.brokerRetention.observeAuthor({operation_id:11});
-        assert.equal(f.brokerRetention.acknowledgeUnresolved(true), true);
-        const oldIdentity = f.brokerRetention.get().identity;
-        await f.brokerRetention.start(archiveIdentity(), async () => operation({operation_id:22}));
-        assert.notEqual(f.brokerRetention.get().identity, oldIdentity);
-        await assert.rejects(f.controller.gateway.native("archive_status", {operationId:11}));
-        assert.equal(f.brokerRetention.get().operation, 22);
-        assert.equal(f.brokerRetention.get().unknown, false);
-    }));
+    using(
+        {
+            authorReply: async () => operation({ phase: "author_preparing" }),
+            statusReply: async () => {
+                throw Error("Transport");
+            },
+        },
+        async (f) => {
+            f.controller.setView("lab");
+            f.author.setDraft(draft);
+            f.author.setAuthorConsent(true);
+            await f.author.prepare();
+            // Establish an independently malformed status to make this fencing
+            // oracle runnable even on the original transport-unknown baseline.
+            await f.brokerRetention.observeAuthor({ operation_id: 11 });
+            assert.equal(f.brokerRetention.acknowledgeUnresolved(true), true);
+            const oldIdentity = f.brokerRetention.get().identity;
+            await f.brokerRetention.start(archiveIdentity(), async () =>
+                operation({ operation_id: 22 }),
+            );
+            assert.notEqual(f.brokerRetention.get().identity, oldIdentity);
+            await assert.rejects(
+                f.controller.gateway.native("archive_status", {
+                    operationId: 11,
+                }),
+            );
+            assert.equal(f.brokerRetention.get().operation, 22);
+            assert.equal(f.brokerRetention.get().unknown, false);
+        },
+    ));
 let passed = 0;
 const results = [];
 for (const { name, run } of tests) {

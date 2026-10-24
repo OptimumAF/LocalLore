@@ -774,6 +774,185 @@ test("validated exact terminal status clears transport-only uncertainty", () =>
             );
         },
     ));
+// New source-frozen Main recovery oracles. These are synthetic transport
+// outcomes, not native/Store evidence and not commit-outcome acknowledgements.
+function heldOriginalPreview(input) {
+    const raw = JSON.stringify({
+        version: 1,
+        input,
+        child: { story: input.parent.story, branch: input.child_branch },
+        before: {
+            fact: input.operation.fact,
+            proposition: input.operation.expected_proposition,
+            source: {
+                kind: "seed_fact",
+                seed_id: "lantern-quay-v1",
+                fact: input.operation.fact,
+            },
+        },
+        creation_revision: input.fork_revision + 1,
+        retained_knowers: 2,
+        excluded_suffix_events: 0,
+        excluded_suffix_records: 0,
+        original_preserved: true,
+        downstream_replayed: false,
+        new_child_requires_fresh_derivatives: true,
+    });
+    return operation({
+        running: false,
+        phase: "completed",
+        result: {
+            version: 1,
+            kind: "author_preview",
+            session,
+            preview_token: "12345678-1234-1234-1234-123456789abc",
+            preview_sha256: createHash("sha256").update(raw).digest("hex"),
+            preview_json: raw,
+            expires_seconds: 600,
+        },
+    });
+}
+async function boundedStalePreviewSignal(promise) {
+    let timer;
+    try {
+        return await Promise.race([
+            promise,
+            new Promise((_, reject) => {
+                timer = setTimeout(
+                    () => reject(Error("ReviewMissingStalePreviewDiscard")),
+                    5000,
+                );
+            }),
+        ]);
+    } finally {
+        clearTimeout(timer);
+    }
+}
+for (const changedSelection of ["player-lens", "play-view"]) {
+    test(`stale held prepare after ${changedSelection} is consumed only after confirmed original preview disposal`, async () => {
+        const reply = deferred(),
+            discardObserved = deferred(),
+            discardAcknowledged = deferred();
+        await using({ authorReply: () => reply.promise }, async (f) => {
+            const native = window.__TAURI__.core.invoke;
+            window.__TAURI__.core.invoke = async (command, args) => {
+                const result = await native(command, args);
+                if (command === "author_preview_discard") {
+                    // The synthetic fixture records the call; validate its
+                    // original binding below and hold the positive reply.
+                    assert.equal(result, true);
+                    discardObserved.resolve(clone(args));
+                    return await discardAcknowledged.promise;
+                }
+                return result;
+            };
+            let preparing;
+            try {
+                f.controller.setView("lab");
+                f.author.setDraft(draft);
+                f.author.setAuthorConsent(true);
+                preparing = f.author.prepare();
+                await tick();
+                const start = f.calls.find(
+                    (c) => c.command === "author_prepare_start",
+                );
+                assert.ok(start, "actual Main must admit the original prepare");
+                const input = JSON.parse(start.args.request).input;
+                assert.equal(f.author.get().busy, true);
+                assert.equal(f.brokerRetention.get().inFlight, true);
+                if (changedSelection === "player-lens")
+                    f.controller.setObserver("player");
+                else f.controller.setView("play");
+                await tick();
+                assert.equal(f.author.get().preview, null);
+                assert.equal(f.author.get().authorConsent, false);
+                const terminal = heldOriginalPreview(input);
+                reply.resolve(terminal);
+                const discard = await boundedStalePreviewSignal(
+                    discardObserved.promise,
+                );
+                assert.deepEqual(JSON.parse(discard.request), {
+                    version: 1,
+                    session,
+                    preview_token: terminal.result.preview_token,
+                });
+                await tick();
+                assert.equal(f.author.get().preview, null);
+                assert.equal(f.author.get().outcome, null);
+                assert.equal(f.author.get().authorConsent, false);
+                assert.equal(f.brokerRetention.get().unknown, false);
+                assert.equal(f.brokerRetention.get().terminal, true);
+                assert.equal(
+                    f.brokerRetention.get().consumed,
+                    false,
+                    "native disposal acknowledgement is still held",
+                );
+                assert.equal(f.v2.get().context.blocked, true);
+                assert.equal(
+                    f.brokerRetention.acknowledgeUnresolved(true),
+                    false,
+                    "a known valid terminal preview is not an unknown commit",
+                );
+                discardAcknowledged.resolve(true);
+                await preparing;
+                await tick();
+                assert.equal(f.author.get().preview, null);
+                assert.equal(f.author.get().outcome, null);
+                assert.equal(f.author.get().authorConsent, false);
+                assert.equal(f.author.get().busy, false);
+                assert.equal(
+                    f.author.get().uncertain,
+                    false,
+                    "validated unused preview and confirmed disposal resolve prepare-only uncertainty",
+                );
+                assert.equal(f.brokerRetention.get().unknown, false);
+                assert.equal(f.brokerRetention.get().inFlight, false);
+                assert.equal(f.brokerRetention.get().terminal, true);
+                assert.equal(f.brokerRetention.get().operation, 11);
+                assert.equal(f.brokerRetention.get().consumed, true);
+                assert.equal(f.v2.get().context.blocked, false);
+                assert.equal(
+                    f.calls.filter(
+                        (c) => c.command === "author_preview_discard",
+                    ).length,
+                    1,
+                );
+                assert.equal(
+                    f.calls.filter(
+                        (c) => c.command === "author_prepare_start",
+                    ).length,
+                    1,
+                );
+                assert.equal(
+                    f.calls.filter((c) =>
+                        ["author_commit_start", "author_lookup_start"].includes(
+                            c.command,
+                        ),
+                    ).length,
+                    0,
+                    "no automatic apply or unrelated lookup may replace the disposed prepare",
+                );
+                assert.equal(
+                    f.hostCalls().filter((c) => writes.has(c.op)).length,
+                    0,
+                    "recovery must not write a gameplay turn",
+                );
+            } finally {
+                discardAcknowledged.resolve(true);
+                reply.resolve(
+                    operation({
+                        running: false,
+                        phase: "error",
+                        error: "Cancelled",
+                    }),
+                );
+                if (preparing) await preparing;
+                window.__TAURI__.core.invoke = native;
+            }
+        });
+    });
+}
+
 let passed = 0;
 const results = [];
 for (const { name, run } of tests) {

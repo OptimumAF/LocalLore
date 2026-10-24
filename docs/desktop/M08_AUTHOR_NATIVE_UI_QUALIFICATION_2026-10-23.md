@@ -24,13 +24,16 @@ hidden, unfocused WebView and CapturePreview, not desktop capture or injected
 input. The [frozen harness contract](M08_AUTHOR_NATIVE_HARNESS_CONTRACT_2026-10-23.md)
 defines the exact closed setup, before/after-apply gates and journey assertions.
 
-Five actual native cohorts stopped at recorded failures. Their accumulated
-checks and 20 images are partial observations, not a completed 17-image
-fresh/restart journey. No cohort reached its restart process. The last native
-cohort reached 71 checks and eight images, including observed A after author
-world truth B and Sable isolation, then continued typed Give failed with native
-`Version` and remained at child head 2. These results do not qualify continued
-V2 Play, the later lost-ack/recovery/cancellation cases or saved-child restart.
+Six actual native cohorts stopped at recorded failures. Their accumulated
+checks and 28 images are partial observations, not a completed 17-image
+fresh/restart journey. No completed cohort reached its restart process. The
+sixth reached 75 checks and eight images: real typed Give saved child head 3,
+removed the player's potion and retained the child receipt's original scope.
+Repeated Give then produced actual native Inventory rejection, but the
+subsequent phase-only durable status erased its displayed cause. A focused
+controller correction passes 21 synthetic cases; its native rerun is pending.
+The later lost-ack/recovery/cancellation cases and saved-child restart remain
+unqualified.
 
 Separate synthetic actual-Main tests now pass 18 cases; actual-controller inert
 React recovery-panel rendering passes six cases. The full frontend verifier
@@ -39,6 +42,8 @@ but are **not** evidence of native IPC or WebView execution of the fixes.
 The coordinator's [PR #135 evidence comment](https://github.com/OptimumAF/LocalLore/pull/135#issuecomment-6379952552)
 records the same boundary. Accepted prerequisite PR #133 has its separate
 [source-bound qualification](M08_V2_PREREQUISITE_QUALIFICATION_2026-10-23.md).
+Typed Domain2 fixture support was subsequently accepted in PR #137 at main
+`cfbe84ec4c78a0537a03b7a88c87a14c1e026717`; the sixth native cohort includes it.
 
 ## Preserved stopped native cohorts
 
@@ -47,10 +52,12 @@ All paths below are relative to the task-owned, gitignored
 and app stdout/stderr/process records, fixed synthetic SQLite and an
 `initial/report.json`. Source associations in this table were explicitly
 confirmed by Root, who committed each correction before launching it and
-recorded the source in the outer tool handoff. **Failed launchers stopped
-before writing summary.json/source/binary hash manifests.** The report does
-not claim a self-contained source manifest or retained matching executable
-for these stopped cohorts, and does not attribute a later executable to them.
+recorded the source in the outer tool handoff. **The first five failed
+launchers stopped before writing summary.json/source/binary hash manifests.**
+The sixth launcher writes source-manifest.json before its build; it binds
+clean `42cb0069ade357c52321db2d084ad1a5529f6c68`, Node 24.22.1 and the input
+file hashes, including inference.rs. It still stopped before its final
+summary/binary manifest. No later executable is attributed to a stopped run.
 
 | Outer log / cohort suffix | Root-recorded source | Checks / images | Actual stop and disposition |
 | --- | --- | --- | --- |
@@ -59,6 +66,7 @@ for these stopped cohorts, and does not attribute a later executable to them.
 | `author-native-layout-corrected.log` / `45fb021d-1284-42fe-b910-4a97f6e8c4ed` | `7d99fdedf3f2804f7bc331805b18175f7795dd72` | 30 / 3 | Concurrent archive probe omitted the native command's required session and expected revision. It could not establish ArchiveBusy contention. `5734a08` supplied the real fixed session/scope/head and focused captures on the relevant visible preview/error/pending/outcome sections. |
 | `author-native-valid-contention.log` / `d416707c-af39-4256-8a15-bb1d0f7e2b30` | `5734a08535b5abe76ae89e4f56baed5dbed4a904` | 55 / 7 | `actual-knowledge-query-returned`: the journey read immediately after a lens change before the visible query control was ready. `13e92ed` waits for actual snapshot and readBusy=false, matching the UI's readiness, and improves scoped header legibility. |
 | `author-native-query-readiness.log` / `5071afe9-f77e-4e07-8a2a-683936a847f4` | `13e92edfdf717727edbcbc4a0d8c5f1e4f403b13` | 71 / 8 | `AuthorDeadline:actual-V2-gift-root-refresh`, with one native `Version` error. The typed fixture inference route still requested legacy character context on Domain2. Shared typed-context support is a separate prerequisite; neither the legacy refusal nor the test's expected saved revision was weakened. |
+| `author-native-typed-v2-corrected.log` / `de295ff7-302f-46ac-bd3d-03e1ff6c8914` | `42cb0069ade357c52321db2d084ad1a5529f6c68` (clean, pre-build manifest) | 75 / 8 | `repeated-gift-is-rejected-by-actual-Rust-rules`: actual typed Give saved r3 and removed the player's potion. Repeated Give emitted native Inventory; durable turn_status deliberately retained only failed phase/error=null and the UI lost the observed cause. `6786d94` preserves original-operation presentation evidence separately, without inventing a durable cause. Full native rerun remains pending. |
 
 Each cohort directory is prefixed `author-native-`. Each first and second build
 process exited 0, then its initial app process (`run-3`) exited 1 with
@@ -67,27 +75,31 @@ reported `AuthorHarnessChildFailure:run-3`; it never started restart. The
 native permissions build log separately records successful compilation in
 12.81 seconds; it is not an app success result.
 
-The last report's `failedCheck` is
+The fifth report's `failedCheck` is
 `author-native-observer-actual-native-WebView2-image`: the harness retains its
 most recently successful check until another assertion updates it. Its actual
 failure is the subsequent Give deadline and native Version error, **not** a
 failed observer image capture. The image exists and its capture metadata says
 `native-webview2`.
 
-All five app stderr files contain one bounded Chromium shutdown diagnostic,
+All six app stderr files contain one bounded Chromium shutdown diagnostic,
 `Failed to unregister class Chrome_WidgetWin_0`, error 1412. The first four
-report error buffers are empty; the fifth has exactly one native Version.
+report error buffers are empty; the fifth has exactly one native Version,
+and the sixth exactly one native Inventory. The sixth reports phase=failed,
+receipt=null and native status.error=null at expected_revision=3. Its failing
+check names the actual repeated-Give assertion, unlike the fifth's retained
+last-successful capture label.
 Neither empty application buffers nor this known shutdown message is described
 as zero-error native qualification. Raw bounded stderr remains local.
 
 ## Render observations and integrity
 
-There are 0 + 2 + 3 + 7 + 8 = **20 actual app-owned PNGs**, each paired with a
+There are 0 + 2 + 3 + 7 + 8 + 8 = **28 actual app-owned PNGs**, each paired with a
 semantic JSON snapshot and `.capture.json` metadata. Every existing image's
 capture metadata reports `native-webview2`. Root reports personally inspecting
-**all 20** across the five cohorts. This report author additionally viewed the
-last cohort's `author-native-preview.png` and `author-native-observer.png`
-through local file inspection only; the other 18 images' visual review is
+**all 28** across the six cohorts. This report author additionally viewed the
+fifth cohort's `author-native-preview.png` and `author-native-observer.png`
+through local file inspection only; the other 26 images' visual review is
 attributed solely to Root.
 Early form/layout and capture-focus defects produced explicit source fixes;
 earlier imperfect images were retained rather than replaced in place.
@@ -102,10 +114,13 @@ Mira's observed A, but this particular PNG does not show A itself. A final
 capture intended to demonstrate visible old-A knowledge must focus that
 inspector; the existing screenshot is not credited with unseen content.
 
-The last cohort contains consent, exact preview, rejected, pending, cancelled,
+Both latest cohorts contain consent, exact preview, rejected, pending, cancelled,
 saved, history and observer images. It contains no continued-turn receipt,
 late-cancel, lost-ack, recovered, narrow, stale-context or restart image. The
-existing eight captures must not stand in for those unexecuted assertions.
+existing eight capture labels must not stand in for those unexecuted assertions.
+Root's sixth-cohort observer review still found A below the fold; the next
+capture anchor targets the actual known_as_observed row. That correction is
+not credited with a passing render before the next terminal cohort.
 Their browser-reported userAgent is Windows x64, Chrome/155.0.0.0 and
 Edg/155.0.0.0. This is a captured userAgent, not a separately queried loaded
 WebView runtime or SDK build version.
@@ -117,6 +132,12 @@ WebView runtime or SDK build version.
 | `45fb021d-1284-42fe-b910-4a97f6e8c4ed` | `1cbe4367dd3d1a2614fd6cfc98516e3aa98b064920df02e4582aed8ae16f0632` | 10 / `5ade5dd24d92f3f7c66cf031d1f7bd8e2b6ebc8574d97a19094bab4da28e56d6` |
 | `d416707c-af39-4256-8a15-bb1d0f7e2b30` | `eab78a619950ef438daabeca72c5b72a1cbbae85aa06bfd7cb786b3a6fc3ac28` | 22 / `b97ba513a73b122890d483381da23341e6edbab29ca340d92822255d420227cb` |
 | `5071afe9-f77e-4e07-8a2a-683936a847f4` | `89805c4a97fecb5f307054b88b9aee02ed73c27560932b54f74152c83305dd0a` | 25 / `44ea1c88b4d835a1e66192a3c45683f63bbdacaa4f53acf90b44fa2460590858` |
+| `de295ff7-302f-46ac-bd3d-03e1ff6c8914` | `19823bb368fd0daa1f2f32a79af23529fb1e7fa15dc8bfd23bb0f29fe0b30279` | 25 / `a86d4ca43989b8693725e78934cd332e51134710a81982ad0d981ef4f4cddfa0` |
+
+The sixth pre-build source-manifest.json is 1,443 bytes, SHA-256
+`73eccd4743ef8ccd0f43c64887a7cf4b0f6123c9b10403dd2cc5feeec981e3da`.
+It is separate from the initial-directory artifact digest above and still
+labels qualification pending.
 
 Each artifact manifest was computed read-only in memory: select all `.json`
 and `.png` files under that cohort's initial directory, sort filenames with
@@ -127,8 +148,8 @@ publishing raw synthetic private previews. No saved artifact was modified.
 
 ## Actual-Main and headless recovery fixes
 
-These are separate from the five native cohorts above and were not validated
-by rerunning native WebView journeys yet. Actual-Main checks import the real
+These are separate from the native cohorts above; the latest controller
+correction has not completed its native rerun. Actual-Main checks import the real
 Main subscriptions/invoke/retention with controlled synthetic transport. Panel
 checks use actual AuthorController and AuthorPanel with inert React server
 markup and mocked native outcomes. Neither category invokes the native app.
@@ -165,6 +186,15 @@ markup and mocked native outcomes. Neither category invokes the native app.
   other runs and are not summed into a count of unique native tests. The
   verifier also confirms dev journey/control hooks absent from the normal
   frontend bundle.
+- Following the sixth native failure, a new V2 scheduling oracle initially
+  observed SessionRequired because its fixture omitted the actual thin
+  refresh. The accessor-only fixture correction then exposed **20 passed /
+  1 failed**, with displayed `failed` instead of the original observed
+  Inventory. `6786d94` passes **21 / 21** and the full frontend verifier.
+  The native assertion now requires failed phase, unchanged native error=null,
+  original observed Inventory/Rule, bounded native error-buffer evidence and
+  an explicit missing-durable-cause notice. This preserves the native status
+  contract and rejection oracle rather than fabricating a persisted cause.
 
 ## Reproduction and retained logs
 
@@ -208,6 +238,7 @@ No fresh physical Android or real-model run is part of these observations.
 | `author-native-layout-corrected.log` | `00290c28ecdc44ac51a9c9fd9a21c6597eafbbd47ee353ce09fa91285cac01c0` |
 | `author-native-valid-contention.log` | `0a27d637e6bf86b459f70511e11463dc29226a3ce8518080c3c9220b8ed5978f` |
 | `author-native-query-readiness.log` | `aebd6cf0ec0c7c48962598feaa5f04649926639f6a4048cf36310caca625b954` |
+| `author-native-typed-v2-corrected.log` | `4b582909a123725eebfedda45ddd4cf067b5f57a3a6cb4fe5d98674517332c76` |
 | `main-author-context-original-red.log` | `c0bf7c101a3d6c2ab09161a2270ae426a7ca295ef932e1465a9565fc8cf0ea32` |
 | `main-author-context-corrected-red.log` | `65df9811550f296876e37f04a0729d209a19cd9a188cba4aaea3a967c4e87b94` |
 | `main-author-context-first-green.log` | `84ad80edae65a1ff9775dbb8a897091276f16083efe530ec6f4f88f6d1040370` |
@@ -219,6 +250,10 @@ No fresh physical Android or real-model run is part of these observations.
 | `author-panel-recovery-original-red.log` | `711268de981bd5a63f2a308c23c3c6dc9428315de5b6e4da1ffa008ae9a0ed07` |
 | `author-panel-recovery-first-green.log` | `a6d8822bf8ad6ff09179094e1d99e78f8e0a5a87ec024b538f42e6fb98c61f5a` |
 | `author-frontend-recovery-corrected.log` | `83061a4c4d1fe3dfb32ebce21a093c6f15ce88730b37c7a5d14cd0dbea8ab13b` |
+| `v2-native-error-retention-original-red.log` | `ec7ed6b02ae559e82284441d18412d5e7dd3a422d3be307a836bc829d74cf752` |
+| `v2-native-error-retention-fixture-corrected-red.log` | `2198b5c6ae4004b8521b30a8c88b3ccbf840e6ce2bc20141a5cb7395ac65c301` |
+| `v2-native-error-retention-first-green.log` | `6cc7d1ef6d69ab293b6de56fdf55b2d4b0db935b2af618f8f9161b6883c88b8a` |
+| `author-frontend-native-error-corrected.log` | `188d97670dfb13560c8c0c7f562df4b7ec0418307360f0d1be82e093d53fc4ef` |
 
 ## Pending final native appendix
 
@@ -227,13 +262,13 @@ The author continues evidence work; it is not a completed acceptance record.
 
 | Required final evidence | Status at this report's current source |
 | --- | --- |
-| Shared typed Domain2 fixture continuation prerequisite | Separate owning PR/checks in progress; no fresh UI qualification inferred. |
+| Shared typed Domain2 fixture continuation prerequisite | PR #137 accepted; actual sixth-cohort Give saved r3. Complete UI qualification remains pending. |
 | Exact integrated source, clean/dirty state and native binary/dist hashes | Await upcoming source-bound cohort. |
-| Complete fresh native journey | Pending; previous cohort stopped before typed Give. |
+| Complete fresh native journey | Pending; sixth cohort stopped at repeated-Give display assertion after saved typed Give. |
 | Second actual process: saved-child Domain2 read/resume | Unrun; no native restart acceptance yet. |
 | All 15 fresh + 2 restart semantic/capture pairs | Planned allocation only; not 17 passing images. |
 | Final expected rejection/cancel errors and bounded native stderr | Await completed reports; preserve original Version/shutdown evidence. |
-| Root inspection of every final image and visible-state corrections | Pending for upcoming cohort. Earlier 20 inspected images remain separate. |
+| Root inspection of every final image and visible-state corrections | Pending for upcoming cohort. Earlier 28 inspected images remain separate. |
 | Normal frontend/native compatibility and Android checks after shared changes | Await Root's source-bound terminal checks; no in-progress run is counted as passed. |
 
 Author-operation recovery after restart remains explicitly unavailable. Only

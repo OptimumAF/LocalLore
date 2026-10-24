@@ -2,15 +2,31 @@ use locallore::inference::Cancellation;
 use std::path::PathBuf;
 fn main() {
     let args: Vec<_> = std::env::args().collect();
-    if args.get(1).is_some_and(|s|s=="comparison") {
+    if args.get(1).is_some_and(|s| s == "comparison") {
         match locallore_eval::local_lane::comparison::cli(&args[2..]) {
-            Ok(report)=>{
-                let failed=report["turns"].as_array().is_some_and(|rows|rows.iter().any(|r|r["passed"]!=true));
-                let unavailable=report["unavailable"].as_array().is_some_and(|rows|!rows.is_empty());
-                println!("{}",serde_json::to_string(&report).expect("serializable bounded report"));
-                if args.get(2).is_some_and(|s|matches!(s.as_str(),"run"|"resume"))&&(failed||unavailable){std::process::exit(1);}
-            },
-            Err(error)=>{eprintln!("Comparison failed: {error}");std::process::exit(2);}
+            Ok(report) => {
+                let failed = report["turns"]
+                    .as_array()
+                    .is_some_and(|rows| rows.iter().any(|r| r["passed"] != true));
+                let unavailable = report["unavailable"]
+                    .as_array()
+                    .is_some_and(|rows| !rows.is_empty());
+                println!(
+                    "{}",
+                    serde_json::to_string(&report).expect("serializable bounded report")
+                );
+                if args
+                    .get(2)
+                    .is_some_and(|s| matches!(s.as_str(), "run" | "resume"))
+                    && (failed || unavailable)
+                {
+                    std::process::exit(1);
+                }
+            }
+            Err(error) => {
+                eprintln!("Comparison failed: {error}");
+                std::process::exit(2);
+            }
         }
         return;
     }

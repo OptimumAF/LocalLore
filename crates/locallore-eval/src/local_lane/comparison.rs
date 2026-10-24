@@ -458,6 +458,14 @@ fn make_row(observation: Observation<'_>) -> Result<TurnReportV2> {
         mechanical_sha256: v2::mechanical_output(after)?,
         policy_matches,
         context_evidence_available: evidence_available && !recovered,
+        context_requirement: if guard {
+            "not_applicable_guard_configured_only"
+        } else if phase == "not_run_dependency" {
+            "not_applicable_dependency"
+        } else {
+            "required_actual_capture"
+        }
+        .into(),
         privacy_passed: privacy && evidence_available && !recovered,
         fallback: record.map(|p| p.fallback),
         capture_sha256: capture.map(|c| encode(c).map(|b| digest(&b))).transpose()?,
@@ -708,7 +716,6 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
     if reply["data"]["phase"] == "queued" {
         reply = op(&host, &session, before.scope(), step.id(), "prepare");
     }
-    watchdog.finish()?;
     if cancel.is_cancelled() || started.elapsed() >= Duration::from_millis(limit) {
         reply = op(&host, &session, before.scope(), step.id(), "cancel");
     }
@@ -725,9 +732,13 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
         .transpose()?;
     let recording_file = evidence_name(index, admission, "recording");
     saved(&dir.join(&recording_file), &recorded, 64 * 1024)?;
+    if cancel.is_cancelled() || started.elapsed() >= Duration::from_millis(limit) {
+        reply = op(&host, &session, before.scope(), step.id(), "cancel");
+    }
     if reply["data"]["phase"] == "ready" {
         reply = op(&host, &session, before.scope(), step.id(), "commit");
     }
+    watchdog.finish()?;
     // Exact durable outcome wins over an acknowledgment error or late cancel.
     let mut actual = Store::open_read_only(path).map_err(|_| "Workspace")?;
     let stored = actual.lookup_turn(before.scope(), step.id()).ok();
@@ -750,6 +761,12 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
     } else {
         reply["data"]["error"].as_str().map(str::to_owned)
     };
+    if !matches!(
+        phase.as_str(),
+        "committed" | "failed" | "cancelled" | "rejected" | "stale"
+    ) {
+        return Err("TransportUnknown".into());
+    }
     let elapsed = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
     let row = make_row(Observation {
         step,
@@ -816,6 +833,39 @@ fn load_turn(
     let after = full.at_revision(stored.after_head).map_err(|_| "Replay")?;
     if stored.request != step.request(&before) {
         return Err("CheckpointMismatch".into());
+    }
+    if let Some(admission) = stored.row.admission {
+        if admission >= MAX_ADMISSIONS {
+            return Err("LedgerIntegrity".into());
+        }
+        let reservation: Reservation =
+            decode(&dir.join(format!("admission-{admission:02}.json")), 4096)?;
+        if reservation.version != 1
+            || reservation.binding != key
+            || reservation.index != admission
+            || reservation.story != format!("scene-{}", step.scene())
+            || reservation.turn != step.id()
+            || reservation.ms != TURN_MS
+            || reservation.roles != 3
+        {
+            return Err("LedgerIntegrity".into());
+        }
+        let path = dir.join(format!("admission-{admission:02}-settled.json"));
+        ordinary(&path)?;
+        if path.exists() {
+            let settled: Settlement = decode(&path, 4096)?;
+            if settled.version != 1
+                || settled.binding != key
+                || settled.index != admission
+                || settled.ms != stored.row.elapsed_ms
+                || !stored.row.roles_known
+                || settled.roles != stored.row.roles
+            {
+                return Err("LedgerIntegrity".into());
+            }
+        }
+    } else if stored.recording_file.is_some() || stored.capture_file.is_some() {
+        return Err("LedgerIntegrity".into());
     }
     let receipt = if stored.row.phase == "committed" {
         Some(
@@ -959,6 +1009,7 @@ pub fn prepare_reference(dir: &Path, cancel: &Cancellation) -> Result<ReferenceR
         roles: turns.iter().map(|t| t.roles).sum(),
         turns,
     };
+    saved(&dir.join("reference.json"), &report, crate::MAX_REPORT)?;
     if report.accepted != 21
         || report.guard_only != 3
         || report.roles != 42
@@ -966,7 +1017,6 @@ pub fn prepare_reference(dir: &Path, cancel: &Cancellation) -> Result<ReferenceR
     {
         return Err("ReferenceFailed".into());
     }
-    saved(&dir.join("reference.json"), &report, crate::MAX_REPORT)?;
     Ok(report)
 }
 pub fn open_reference(dir: &Path) -> Result<ValidatedReference> {
@@ -1067,6 +1117,13 @@ fn copy_reference(reference: &ValidatedReference, dest: &Path) -> Result<()> {
     ];
     for t in &fresh.turns {
         files.push((format!("attempt-{:02}.json", t.index), 256 * 1024));
+        if let Some(admission) = t.row.admission {
+            files.push((format!("admission-{admission:02}.json"), 4096));
+            let settled = format!("admission-{admission:02}-settled.json");
+            if fresh.directory.join(&settled).exists() {
+                files.push((settled, 4096));
+            }
+        }
         if let Some(name) = &t.capture_file {
             files.push((name.clone(), v2::MAX_PRIVATE_CAPTURE + 4096));
         }
@@ -1074,6 +1131,16 @@ fn copy_reference(reference: &ValidatedReference, dest: &Path) -> Result<()> {
             files.push((name.clone(), 64 * 1024));
             let r: RecordingFile = decode(&fresh.directory.join(name), 64 * 1024)?;
             files.extend(r.raw.iter().map(|r| (r.file.clone(), 16384)));
+        }
+    }
+    for index in 0..32 {
+        for name in [
+            format!("invocation-{index:02}.json"),
+            format!("invocation-{index:02}-settled.json"),
+        ] {
+            if fresh.directory.join(&name).exists() {
+                files.push((name, 4096));
+            }
         }
     }
     for (name, cap) in files {
@@ -1226,6 +1293,16 @@ fn validate_rollout_source(engine: &Engine, corpus: &protocol::FrozenSuite) -> R
     Ok(())
 }
 impl ComparisonSession {
+    fn finish_ledgers(&mut self) -> Result<()> {
+        for arm in 0..2 {
+            let began = Instant::now();
+            self.ledgers[arm].finish()?;
+            self.ledgers[1 - arm].exclude_measured_interval(
+                began.elapsed().as_millis().min(u64::MAX as u128) as u64,
+            )?;
+        }
+        Ok(())
+    }
     fn open(
         dir: &Path,
         resume: bool,
@@ -1379,8 +1456,7 @@ impl ComparisonSession {
                 4096,
             )?;
         }
-        self.ledgers[0].finish()?;
-        self.ledgers[1].finish()?;
+        self.finish_ledgers()?;
         let report = inspect_comparison(&self.dir)?;
         publish(&self.dir, &report)?;
         Ok(report)
@@ -1689,8 +1765,7 @@ pub fn run_native_comparison(
             // A known terminal setup may settle actual measured cost. A crash or
             // uncompleted setup never reaches this branch and keeps both full reserves.
             session.setup(true, measured, "failed", None)?;
-            session.ledgers[0].finish()?;
-            session.ledgers[1].finish()?;
+            session.finish_ledgers()?;
             let report = inspect_comparison(dir)?;
             publish(dir, &report)?;
             Err(error)
@@ -1895,18 +1970,46 @@ mod clock_tests {
     fn actual_pending_role_cancel_retains_checkpoint_and_no_canonical_commit() {
         // Run serially with the existing local-lane Pending fixture: its existing
         // polled signal observes an actual production provider poll, not a timer.
-        PENDING_POLLED.store(false,Ordering::Release);
-        let dir=directory("pending-cancel").join("run");
-        let target=dir.clone();let cancel=Cancellation::default();let other=cancel.clone();
-        let worker=std::thread::spawn(move||super::run_comparison(&target,false,super::ComparisonKind::ContinuousRollout,&other,1,LaneFactory::TestFault(TestFault::Pending),None));
-        let began=Instant::now();
-        while !PENDING_POLLED.load(Ordering::Acquire){assert!(began.elapsed()<Duration::from_secs(10),"actual provider did not become pending");std::thread::sleep(Duration::from_millis(2));}
+        PENDING_POLLED.store(false, Ordering::Release);
+        let dir = directory("pending-cancel").join("run");
+        let target = dir.clone();
+        let cancel = Cancellation::default();
+        let other = cancel.clone();
+        let worker = std::thread::spawn(move || {
+            super::run_comparison(
+                &target,
+                false,
+                super::ComparisonKind::ContinuousRollout,
+                &other,
+                1,
+                LaneFactory::TestFault(TestFault::Pending),
+                None,
+            )
+        });
+        let began = Instant::now();
+        while !PENDING_POLLED.load(Ordering::Acquire) {
+            assert!(
+                began.elapsed() < Duration::from_secs(10),
+                "actual provider did not become pending"
+            );
+            std::thread::sleep(Duration::from_millis(2));
+        }
         cancel.cancel();
-        let report=worker.join().unwrap().unwrap();
-        assert!(!report.completed);assert_eq!(report.completed_scenes,0);
-        let row=&report.turns[0];assert_eq!(row.phase,"cancelled");assert_eq!(row.roles,1);assert!(row.roles_known);assert!(!row.passed);
-        let corpus=crate::memory_comparison::frozen_suite().unwrap();
-        assert_eq!(engine(&dir.join("left/synthetic.sqlite"),&corpus.seed().scope).unwrap().revision(),0);
+        let report = worker.join().unwrap().unwrap();
+        assert!(!report.completed);
+        assert_eq!(report.completed_scenes, 0);
+        let row = &report.turns[0];
+        assert_eq!(row.phase, "cancelled");
+        assert_eq!(row.roles, 1);
+        assert!(row.roles_known);
+        assert!(!row.passed);
+        let corpus = crate::memory_comparison::frozen_suite().unwrap();
+        assert_eq!(
+            engine(&dir.join("left/synthetic.sqlite"), &corpus.seed().scope)
+                .unwrap()
+                .revision(),
+            0
+        );
         assert!(dir.join("left/attempt-00.json").exists());
         assert!(dir.join("left/admission-00-settled.json").exists());
     }

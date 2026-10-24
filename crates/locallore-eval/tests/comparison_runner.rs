@@ -271,14 +271,24 @@ fn committed_missing_ack_uses_actual_lookup_and_never_reopens_a_completed_role()
 
 #[test]
 fn removing_reserved_cost_or_changing_known_settlement_is_integrity_failure() {
-    let p=root("ledger-tamper").join("run");
-    run_comparison(&p,false,ComparisonKind::ContinuousRollout,&Cancellation::default(),1,LaneFactory::ScriptedBaseline,None).unwrap();
-    let path=p.join("left/admission-00-settled.json");
-    let original=std::fs::read(&path).unwrap();
-    let mut v:Value=serde_json::from_slice(&original).unwrap();v["roles"]=Value::from(0);
-    std::fs::write(&path,serde_json::to_vec(&v).unwrap()).unwrap();
+    let p = root("ledger-tamper").join("run");
+    run_comparison(
+        &p,
+        false,
+        ComparisonKind::ContinuousRollout,
+        &Cancellation::default(),
+        1,
+        LaneFactory::ScriptedBaseline,
+        None,
+    )
+    .unwrap();
+    let path = p.join("left/admission-00-settled.json");
+    let original = std::fs::read(&path).unwrap();
+    let mut v: Value = serde_json::from_slice(&original).unwrap();
+    v["roles"] = Value::from(0);
+    std::fs::write(&path, serde_json::to_vec(&v).unwrap()).unwrap();
     assert!(inspect_comparison(&p).is_err());
-    std::fs::write(&path,&original).unwrap();
+    std::fs::write(&path, &original).unwrap();
     assert!(inspect_comparison(&p).is_ok());
     std::fs::remove_file(p.join("left/admission-00.json")).unwrap();
     std::fs::remove_file(&path).unwrap();

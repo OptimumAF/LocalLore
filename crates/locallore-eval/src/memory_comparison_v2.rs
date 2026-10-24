@@ -133,6 +133,7 @@ pub struct TurnReportV2 {
     pub mechanical_sha256: String,
     pub policy_matches: bool,
     pub context_evidence_available: bool,
+    pub context_requirement: String,
     pub privacy_passed: bool,
     pub fallback: Option<bool>,
     pub capture_sha256: Option<String>,
@@ -257,9 +258,12 @@ impl CapturedContext {
                         || v["model_profile"] != profile.id
                         || v["schema_id"] != format!("locallore-{role}-v2")
                         || v["input"]["kind"] != "structured"
-                        || v["budget"]["max_output_bytes"]
+                        || v["budget"]["max_output_bytes"] != 16384
+                        || v["budget"]["max_output_tokens"] != 350
+                        || v["budget"]["max_pending_polls"] != 30_000
+                        || v["budget"]["deadline_ms"]
                             .as_u64()
-                            .is_none_or(|n| n > 16384)
+                            .is_none_or(|n| n == 0 || n > profile.deadline_ms)
                         || !matches!(role, "director" | "narrator")
                     {
                         return Err("CaptureBinding".into());
@@ -276,7 +280,12 @@ impl CapturedContext {
                         })
                         .ok_or("CaptureRecordingMismatch")?;
                     if role == "director" {
-                        if matching.compiler_version != Some(2) {
+                        let Intent::FreeText { text, .. } = &request.intent else {
+                            return Err("CaptureBinding".into());
+                        };
+                        if matching.compiler_version != Some(2)
+                            || matching.player_text_sha256 != Some(digest(text.as_bytes()))
+                        {
                             return Err("CaptureVersion".into());
                         }
                         director_prompts.push(prompt.to_owned());

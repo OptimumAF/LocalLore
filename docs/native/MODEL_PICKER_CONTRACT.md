@@ -93,6 +93,14 @@ The controller must observe process absence before selecting readback. Existing
 31 packages, saves, models and caches remain outside that lifecycle scope.
 No A or real-model operation follows from this fixture admission.
 
+DocumentsUI can start other installed test document providers during root
+discovery. A verifier may recognize the nine separately audited legacy TEST
+`:chooser_test_provider` names as passive observations only when each matches
+its pinned APK and current installed package UID. That exception grants no
+ownership or lifecycle action. Unknown original main/other process names still
+stop execution. New fixture cleanup must prove absence of its own exact three
+process names independently of those passive rows.
+
 Official sources checked for this design: [Activity results](https://developer.android.com/training/basics/intents/result),
 [proxy descriptors](https://developer.android.com/reference/android/os/storage/StorageManager#openProxyFileDescriptor(int,%20android.os.ProxyFileDescriptorCallback,%20android.os.Handler)),
 and [descriptor release callbacks](https://developer.android.com/reference/android/os/ProxyFileDescriptorCallback).

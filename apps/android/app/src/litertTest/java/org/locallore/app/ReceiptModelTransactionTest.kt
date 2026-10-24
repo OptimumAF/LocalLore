@@ -10,8 +10,11 @@ import java.security.MessageDigest
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.*
@@ -131,6 +134,26 @@ class ReceiptModelTransactionTest {
         assertEquals(result, store(roots).installed())
     }
 
+    @Test fun equivalentCaseAliasReopensAcceptedCopyWithoutChangingProvenance() = runBlocking {
+        val roots = roots()
+        val installed = store(roots).import { ByteArrayInputStream(bytes) }
+        val alias = Roots(File(roots.control.parentFile, "CONTROL"), File(roots.data.parentFile, "DATA"))
+        // This regression applies only where these actual existing paths share a canonical identity.
+        if (alias.control.canonicalFile != roots.control.canonicalFile ||
+            alias.data.canonicalFile != roots.data.canonicalFile
+        ) return@runBlocking
+        assertNotEquals(roots.control.path, alias.control.path)
+        assertNotEquals(roots.data.path, alias.data.path)
+        assertEquals(roots.control.canonicalPath, alias.control.canonicalPath)
+        assertEquals(roots.data.canonicalPath, alias.data.canonicalPath)
+        val before = payloadSnapshot(roots)
+        assertEquals(installed, store(alias).installed())
+        assertEquals(installed, store(alias).import { error("Equivalent canonical alias cannot reopen source") })
+        assertEquals(before, payloadSnapshot(roots))
+        assertArrayEquals(expectedReceipt(roots), receipt(roots).readBytes())
+        assertArrayEquals(expectedOwner(roots), owner(roots).readBytes())
+    }
+
     @Test fun receiptOnlyInterruptionCanContinueFreshButCannotExposeAHandle() = runBlocking {
         val roots = roots()
         refused {
@@ -160,6 +183,51 @@ class ReceiptModelTransactionTest {
         assertNotNull(store(roots).installed())
         refused { store(roots).discardUncommitted() }
         assertEquals(before, payloadSnapshot(roots))
+    }
+
+    @Test fun actualChildCancellationBeforeAndAfterMarkerPreservesTheAcceptanceBoundary() = runBlocking {
+        for (boundary in listOf(ReceiptCheckpoint.BEFORE_COMMIT, ReceiptCheckpoint.AFTER_COMMIT)) {
+            val roots = roots()
+            val closed = AtomicInteger()
+            val reached = AtomicInteger()
+            lateinit var operation: kotlinx.coroutines.Deferred<LocalModelFiles>
+            operation = async(Dispatchers.IO, start = CoroutineStart.LAZY) {
+                store(roots, checkpoint = {
+                    if (it == boundary) {
+                        reached.incrementAndGet()
+                        operation.cancel()
+                    }
+                }).import {
+                    object : ByteArrayInputStream(bytes) {
+                        override fun close() { closed.incrementAndGet(); super.close() }
+                    }
+                }
+            }
+            operation.start()
+            withTimeout(10_000) { operation.join() }
+            assertTrue("Cancellation must stay confined to the owned child", currentCoroutineContext().isActive)
+            assertTrue(operation.isCancelled)
+            assertEquals(1, reached.get())
+            assertEquals(1, closed.get())
+            assertArrayEquals(bytes, model(roots).readBytes())
+            assertArrayEquals(expectedReceipt(roots), receipt(roots).readBytes())
+            assertArrayEquals(expectedOwner(roots), owner(roots).readBytes())
+            val before = payloadSnapshot(roots)
+            if (boundary == ReceiptCheckpoint.BEFORE_COMMIT) {
+                assertFalse(marker(roots).exists())
+                assertNull(store(roots).installed())
+                assertEquals(before, payloadSnapshot(roots))
+                store(roots).discardUncommitted()
+                assertFalse(roots.data.exists())
+                assertFalse(receipt(roots).exists())
+            } else {
+                assertTrue(marker(roots).isFile)
+                assertEquals(0, marker(roots).length())
+                assertNotNull(store(roots).installed())
+                refused { store(roots).discardUncommitted() }
+                assertEquals(before, payloadSnapshot(roots))
+            }
+        }
     }
 
     @Test fun invalidPartialCopiesArePreservedUntilExplicitDiscardThenRetry() = runBlocking {

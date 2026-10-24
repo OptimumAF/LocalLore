@@ -201,3 +201,34 @@ need explicitly attributed owner corrections, never silent assertion changes.
 No tests/models/scores were changed to improve outcomes. This is an implemented
 source packet **in_review, unqualified**; release owned Play claim to Root for
 independent qualification/integration. No milestone checkoff or human approval.
+
+## Coordinator checkpoint and concrete consumer inventory
+
+Root subsequently reported its combined source imports production976b909,
+Core consuming-stagef5b86d2 and inspection-query fixturea1cc243: actual focused
+**32 passed** (nine pipeline, seven stage, sixteen query). This is Root's
+execution, not this agent's; no real model. The newly added tenth original-byte
+oracle23d2829 was not in that nine-case checkpoint. Root's full all-feature run
+was still pending when this inventory was written. No inferred broad pass.
+
+Source inspection of consumers at the bound baseline/current Play packet found:
+
+| Exact consumer | Concrete implication / required owner action |
+|---|---|
+| `tests/guarded_director_schema.rs:290`, `tests/play_verified_memory.rs:354`, Workspace `tests/generation_play_consumer.rs:193` | Current-call assertions still hardcode2.4. Explicit current2.5 fixture correction required; never alter original historical2.4 fixtures. |
+| `tests/play_verified_memory.rs:337,646–647` | Reference compilation is compiler1 but fresh current calls now compiler2; expected construction must use actual same current policy. Context.version2/compiler_version2 mutation negatives are now allocated valid values, so future negatives need3 with original assertions/failure history retained. This source finding is not an executed RED. |
+| `tests/inspection_query.rs` PlayRecord literal | Root owns None/explicit old2.4 fixture correction; current global constants cannot label context1 as current2.5. Agent did not edit it. |
+| Desktop `ui/model.ts:31,413` | Receipt.play stores arbitrary strings and playView checks scope/events/narration, not the Play tuple. No hardcoded2.4 decoder rejection found; additive context/context_policy is absent from its TypeScript receipt type/display. Supporting/provenance UI is incomplete, not a demonstrated Wire failure. Old `Context.facts` is string-valued; a Domain2 actor2 view cannot silently use that DTO. |
+| Desktop `ui/query-model.ts:1–18,87,338` | Page.version1, Source seed/event/withheld and old origins only. Query2 ScopedEvent/KnownAsObserved requires explicit decoder/view support, or closed unavailability. No policy/inspection grant can bypass it. |
+| Core `turn_capture.rs:137`, native `capture_exports.rs:106–128`, UI `capture-model.ts:66–135` | Selected context is generically encoded; native/UI validate outer capture.version1, artifact kind/ordinal and size. No compiler1 inner-context admission gate found in these production paths. A raw captured Context2 may pass, but this is not a semantic Context2 decoder/qualification. Artifact49,152/outer262,144 and owner/consent caps still apply. |
+| UI `CapturePanel.tsx:111–172`, `capture-journeys.ts:223` | Panel reads generic fields/records/diagnostics; journey checks actual observer/role/records and privacy canaries, not a hardcoded compiler1 version. Current2 requires actual new raw-artifact/render assertions before claiming UI support. No screenshot/native execution by this agent. |
+| Eval `local_lane.rs:986`, `lib.rs:695` | Concrete current provenance checks still expect compiler1 against actual Director envelope. Fresh2.5 returns2, so unchanged current suite checks fail at those checks. Add explicit current protocol/compiler dispatch; leave old reports/results immutable. Not permission to alter expected story outcomes/budgets or hide failures. |
+| Eval `local_recording.rs:154`, `lib.rs:158,190,384` | Recorder captures actual Director compiler_version; Binding records global prompt/narration versions, but Capture has no context_policy or narrator evidence-policy field. Actual compiler2 can be observed, not assumed. A policy-comparison report/configuration needs separate explicit typed admission/accounting; receipt provenance alone is not a paired experiment. |
+| Eval `build.rs`, `local_lane.rs:653`, `desktop_api.rs:198` | Recursive source binding already includes new Rust modules, so stale-source resume invalidation is not missing. Standalone context checks still intentionally call compiler1. The read-only report explicitly lists transcript-only/verified-memory comparisons unsupported; new Play enum does not make those lanes run. |
+| Host/current typed inference/platforms | Root's narrow Domain2 legacy snapshot refusal remains required; old typed Director still has CharacterContext1. Host Work default calls the existing coverage API, now current Relevant; no new JSON policy/author capability is added here. Root owns actual Domain2 actor2 DTO, native/JNI/schema/decoder/export/eval route closure. |
+
+The new policy/count metadata is a closed, basis-bound provenance claim, not
+authentication of past provider envelopes or optional-context contents. Replay
+does not reconstruct a historical cache proof or re-run inference to establish
+which tokens were read. Actual capture/checkpoint source binding is separate;
+no policy label grants knowledge or demonstrates memory quality/savings.

@@ -50,6 +50,7 @@ internal interface LocalRoleEngine {
     suspend fun close(): Boolean
 }
 internal interface LocalRoleCall {
+    /** Known terminal cancellation returns terminal=true (response may be empty); throwing means unknown. */
     suspend fun await(): LocalRoleResult
     fun cancel()
     suspend fun drain(): Boolean

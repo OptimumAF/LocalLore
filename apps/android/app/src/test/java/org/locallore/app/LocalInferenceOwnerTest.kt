@@ -6,9 +6,12 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.*
@@ -156,6 +159,37 @@ class LocalInferenceOwnerTest {
         assertEquals(1, engine.closes.get()); assertEquals(0, port.deliveries.get())
         assertFalse(owner.quarantined)
         owner.close()
+    }
+
+    @Test fun callerCancellationWithKnownTerminalDrainAndCloseKeepsRecoveryAvailable() = runBlocking {
+        val call = Call(); val engine = Engine(call); val port = Port(request); val owner = owner(engine)
+        val operation = launch { prepare(owner, port) }
+        call.entered.await(); operation.cancelAndJoin()
+        assertFalse(owner.quarantined)
+        assertEquals(1, call.cancels.get()); assertEquals(1, call.drains.get()); assertEquals(1, call.closes.get())
+        assertEquals(1, engine.closes.get()); assertEquals(0, port.deliveries.get())
+        assertEquals("ok", owner.execute(port, "turn_status", "turn_status".toByteArray()).toString(Charsets.UTF_8))
+        owner.close()
+    }
+
+    @Test fun inputBytesAreCapturedBeforeIndependentNativeDispatch() = runBlocking {
+        val gate = CountDownLatch(1)
+        val received = AtomicReference<String>()
+        val port = object : LocalInferenceNativePort {
+            override fun call(input: ByteArray): ByteArray {
+                check(gate.await(5, TimeUnit.SECONDS)); received.set(input.toString(Charsets.UTF_8))
+                return "ok".toByteArray()
+            }
+            override fun poll(): LocalInferencePending? = null
+            override fun respond(ticket: Long, response: ByteArray) = false
+            override fun close() { }
+        }
+        val owner = owner(Engine(Call()))
+        val source = "capabilities".toByteArray()
+        val result = async(start = CoroutineStart.UNDISPATCHED) { owner.execute(port, "capabilities", source) }
+        source.fill(0); gate.countDown()
+        assertEquals("ok", result.await().toString(Charsets.UTF_8))
+        assertEquals("capabilities", received.get()); owner.close()
     }
 
     @Test fun changedImmutableRequestUnderSameTicketCannotReceiveOriginalOutput() = runBlocking {

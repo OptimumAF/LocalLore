@@ -153,7 +153,10 @@ fn genuine_pre_forwarded_cohort_opens_read_only_and_cannot_resume() {
             .count(),
         16
     );
-    assert_eq!(original.turns.iter().map(|row| row.roles).sum::<usize>(), 32);
+    assert_eq!(
+        original.turns.iter().map(|row| row.roles).sum::<usize>(),
+        32
+    );
     assert_eq!(original.human_reviewed, 0);
     assert!(!original.quality_accepted);
     assert_eq!(original.human_rubric, "not_reviewed");
@@ -225,7 +228,10 @@ fn genuine_pre_forwarded_cohort_opens_read_only_and_cannot_resume() {
     // Only current source compatibility changes. Preserve all failures, times,
     // reservations and actual evidence; never fill in missing forwarded estimates.
     original.source_matches = false;
-    assert!(inspected == original, "all original report fields must be exact");
+    assert!(
+        inspected == original,
+        "all original report fields must be exact"
+    );
 
     let resumed = run_comparison(
         &directory,

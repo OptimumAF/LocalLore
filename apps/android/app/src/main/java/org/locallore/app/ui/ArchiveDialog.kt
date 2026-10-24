@@ -100,8 +100,10 @@ fun ArchiveDialog(
                     if (imported != null) {
                         Text("Import complete", style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.semantics { heading() })
-                        Text("${imported.branches} timelines · ${imported.committedTurns} committed turns")
+                        Text("${imported.branches} timelines · ${imported.committedTurns} accepted records")
                         Text("Opening is explicit and starts a fresh session. Imported archives never resume old pending operations.",
+                            style = MaterialTheme.typography.bodySmall)
+                        Text("Corrected timelines, when present, are preserved for transfer. Opening corrected timelines on Android is currently unavailable.",
                             style = MaterialTheme.typography.bodySmall)
                         Button(onClick = onOpenImported, enabled = ready,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("archive-open-imported")) {
@@ -122,7 +124,12 @@ fun ArchiveDialog(
                                 Text(preview.title, style = MaterialTheme.typography.titleMedium,
                                     modifier = Modifier.semantics { heading() })
                                 Text("Archive format · ${preview.version}")
-                                Text("${preview.branchHeads.size} timelines · ${preview.committedTurns} committed turns · ${preview.bytes} bytes")
+                                val countLabel = if (preview.version == 3) "accepted records" else "committed turns"
+                                Text("${preview.branchHeads.size} timelines · ${preview.committedTurns} $countLabel · ${preview.bytes} bytes")
+                                if (preview.version == 3) Text(
+                                    "Accepted records include play and author corrections, with correction reasons, prior truth and private discovery source bindings. " +
+                                        "Corrected timelines are preserved for transfer. Opening corrected timelines on Android is currently unavailable.",
+                                    style = MaterialTheme.typography.bodySmall)
                                 preview.branchHeads.forEach { (branch, head) -> Text(
                                     if (branch in preview.retiredBranchIds) "$branch · retained ancestry through $head (not playable)"
                                     else "$branch · accepted head $head",

@@ -38,9 +38,9 @@ export function ArchivePanel({
                 inspection snapshot.
             </p>
             <p>
-                Versions 1 and 2 · maximum 32 MiB · 32 physical branches ·
-                accepted history only. Branch switching and author corrections
-                are unavailable in this panel.
+                Maximum 32 MiB · 32 physical branches · accepted history only.
+                Branch switching and author corrections are unavailable in this
+                panel.
             </p>
             <div className="archive-actions">
                 <button disabled={s.busy} onClick={() => void c.library()}>
@@ -94,13 +94,24 @@ export function ArchivePanel({
                         <dd>{p.root_branch}</dd>
                         <dt>Archive version</dt>
                         <dd>{p.version}</dd>
-                        <dt>Accepted turns</dt>
+                        <dt>
+                            {p.version === 3
+                                ? "Accepted records"
+                                : "Accepted turns"}
+                        </dt>
                         <dd>{p.committed_turns}</dd>
                         <dt>Bytes</dt>
                         <dd>{p.bytes}</dd>
                         <dt>Payload SHA256</dt>
                         <dd>{p.payload_sha256}</dd>
                     </dl>
+                    {p.version === 3 && (
+                        <p>
+                            Accepted records include play and author corrections.
+                            This private archive includes correction reasons,
+                            prior truth and private discovery source bindings.
+                        </p>
+                    )}
                     <table>
                         <caption>Captured physical branch heads</caption>
                         <thead>

@@ -59,7 +59,7 @@ retirement.preview.retired_branch_ids = ["collected", "parent"];
 assert.equal(decodePreview(retirement).preview.version, 2);
 for (const mutate of [
     (v) => {
-        v.preview.version = 3;
+        v.preview.version = 4;
     },
     (v) => {
         v.preview.version = 1;

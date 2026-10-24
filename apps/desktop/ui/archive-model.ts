@@ -35,7 +35,7 @@ export const archiveErrors = new Set([
     "StorageUnavailable",
 ]);
 export interface ArchivePreview {
-    version: 1 | 2;
+    version: 1 | 2 | 3;
     story_id: string;
     title: string;
     root_branch: string;
@@ -163,6 +163,10 @@ function wire(): never {
 export function decodePreview(v: unknown): PreviewToken {
     if (
         !object(v) ||
+        Object.keys(v).length !== 5 ||
+        ["version", "token", "kind", "preview", "warning"].some(
+            (key) => !Object.hasOwn(v, key),
+        ) ||
         v.version !== 1 ||
         !uuid(v.token) ||
         !["export", "import"].includes(String(v.kind)) ||
@@ -173,7 +177,7 @@ export function decodePreview(v: unknown): PreviewToken {
         wire();
     const p = v.preview;
     if (
-        ![1, 2].includes(Number(p.version)) ||
+        ![1, 2, 3].includes(Number(p.version)) ||
         typeof p.version !== "number" ||
         !id(p.story_id) ||
         !id(p.root_branch) ||
@@ -194,14 +198,33 @@ export function decodePreview(v: unknown): PreviewToken {
         p.noncommitted_workflow_transferred !== false
     )
         wire();
-    // V2 includes physical retired ancestors and collected-ID tombstones.
-    if (p.version === 1) {
-        if (p.retired_branch_ids !== undefined) wire();
-    } else {
+    const fields = [
+        "version",
+        "story_id",
+        "title",
+        "root_branch",
+        "branch_heads",
+        "committed_turns",
+        "bytes",
+        "payload_sha256",
+        "privacy_warning",
+        "noncommitted_workflow_transferred",
+    ];
+    const hasRetired = Object.hasOwn(p, "retired_branch_ids");
+    if (p.version === 2 || (p.version === 3 && hasRetired))
+        fields.push("retired_branch_ids");
+    if (
+        Object.keys(p).length !== fields.length ||
+        fields.some((key) => !Object.hasOwn(p, key))
+    )
+        wire();
+    // V1 omits retirement metadata; V2 requires a nonempty list. V3's
+    // producer omits an empty vector, but an explicit empty array is valid too.
+    if (hasRetired) {
         const retired = p.retired_branch_ids;
         if (
             !Array.isArray(retired) ||
-            retired.length === 0 ||
+            (p.version === 2 && retired.length === 0) ||
             retired.length > 256 ||
             retired.some(
                 (value, index) =>

@@ -336,10 +336,12 @@ fn query2_whole_player_eligibility_and_npc_event_only_units_match_actual_core() 
         "PLAYER_SECRET",
         "PRIVATE_B",
         "PRIVATE_REASON",
-        "ACTUAL_INPUT",
     ] {
         assert!(!encoded(&npc.compilation.package).contains(secret));
     }
+    // Heard literal speech remains visible as an accepted Said event, without
+    // attaching the original player input or narrator message to the NPC unit.
+    assert!(encoded(&npc.compilation.package).contains("ACTUAL_INPUT_0"));
 }
 #[test]
 fn relevant_raw_and_actual_verified_inputs_keep_identical_package2_payloads() {

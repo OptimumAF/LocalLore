@@ -78,3 +78,31 @@ capture output or treat a capture run alone as a decoder pass.
 The first immutable producer/checker oracle commit is
 `9d6e1141b6df3cd525e65c6461a48076f327f2ce`. The later capture implementation adds
 only a test-local fixed filename writer, after all source oracles were frozen.
+
+## Source handoff and qualification limits
+
+Capture implementation commit: `c629aa059e8e3e8836a545f006c1d88f516f478f`.
+
+| New source | SHA-256 |
+|---|---|
+| Rust capture test | `909b55f9362afd1e419b4b5d253d2e8756897fe9b978bb59c368a465375ef6db` |
+| Node strict-decoder checker | `bfb7df0e1789833bdac2a88db1cb8f650dc63f09c801d5f328d209a11253e1bb` |
+
+Executed source-only checks: scoped `rustfmt --edition 2021` and `--check` on the
+new Rust test, `git diff 9914bd4 --check`, exact changed-path inventory and
+`git check-ignore target/v2-native-fixtures-source-cohort/v2-native-fixtures.json`.
+These passed; the proposed output path is ignored. No capture file was generated.
+Rust compilation, Rust producer assertions, captured fixture byte count, Node
+syntax/bundle/decoder execution and Node formatting checks are all still unrun.
+Source inspection found no additional concrete decoder mismatch to assert as a
+runtime failure; successful closure remains unknown until the unchanged strict
+decoder consumes actual captured bytes. No native IPC, WebView/headless image,
+SQLite durability, provider or model check is supplied by this packet.
+
+The synthetic read-only port explicitly rejects canonical writes, while the
+test verifies original basis/records and zero write attempts after all granted
+and refused inspection reads. It adds no transport contract or app test hook.
+The custom-player fixture retains old seed evidence IDs unchanged and valid;
+only the selected player and story scope differ, with the original player actor
+retained as a real NPC. Observer comparison in the Node checker uses kind/ID,
+independent of JSON object property order.

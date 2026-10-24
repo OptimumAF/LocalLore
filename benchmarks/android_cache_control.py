@@ -18,6 +18,9 @@ import android_runtime_spike as spike
 PACKAGE = "org.locallore.runtimebench.litert.cacheprobe"
 INSTRUMENTATION = "org.locallore.runtimebench.litert.CacheProbeInstrumentation"
 APK_SHA256 = "04eef96b7177aaef275574f9ee45d25efa9b181bab4fcb0a363d8077a4e4fb7d"
+# Accepted guard-bound schema, core source ba31932; old artifact remains explicit.
+GUARDED_APK_SHA256 = "0cf4c253c41483973fd1578837d0ba147a7ed3d6d6cd8eb5818a989e185c09dd"
+SUPPORTED_APKS = frozenset({APK_SHA256, GUARDED_APK_SHA256})
 MODEL_SHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
 MODEL_BYTES = 2_588_147_712
 MODEL_KEYS = {"verified", "volume_uuid", "sha256", "bytes", "diagnostic"}
@@ -44,10 +47,16 @@ class TrackedDevice(spike.Device):
 
 
 class _Client:
-    def __init__(self, device):
+    def __init__(self, device, apk_sha=APK_SHA256):
         self.device = device
+        self.__apk_sha = apk_sha
         self.clean = getattr(device, "clients_cleaned", None) is True
         self.stage = "none"
+
+    @property
+    def apk_sha(self):
+        """Read-only identity for this lifecycle; never a mutable module pin."""
+        return self.__apk_sha
 
     def known(self):
         self.clean &= getattr(self.device, "clients_cleaned", None) is True
@@ -87,7 +96,7 @@ def _package(client, phase):
         raise _Failure("package_identity_failed")
     client.stage = phase + "_package_hash"
     hashed = client.shell("sha256sum", path)
-    expected = APK_SHA256.encode("ascii") + b"  " + match[1]
+    expected = client.apk_sha.encode("ascii") + b"  " + match[1]
     if hashed not in (expected, expected + b"\n", expected + b"\r\n"):
         raise _Failure("package_identity_failed")
 
@@ -173,8 +182,8 @@ def run_control(device, apk_sha, case, expected_uuid, measure, model_identity, r
               "admission": None, "post": None, "storage_checks_passed": False, "dispatched": False,
               "phone_qualified": False, "wall_ms": 0}
     started = time.monotonic()
-    client = _Client(device)
-    if (type(apk_sha) is not str or apk_sha != APK_SHA256 or type(case) is not str or case not in play.CASES
+    client = _Client(device, apk_sha)
+    if (type(apk_sha) is not str or apk_sha not in SUPPORTED_APKS or type(case) is not str or case not in play.CASES
             or type(expected_uuid) is not str or not admission.UUID.fullmatch(expected_uuid)
             or not callable(measure) or not callable(model_identity) or raw_sink is not None and not callable(raw_sink)):
         report["failure_stage"] = "input"

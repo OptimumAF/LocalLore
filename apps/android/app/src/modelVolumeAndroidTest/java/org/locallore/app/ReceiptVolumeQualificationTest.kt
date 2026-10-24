@@ -145,7 +145,6 @@ class ReceiptVolumeQualificationTest {
             val connection = ProofConnection()
             val intent = Intent().setComponent(ComponentName(context, ReceiptProofService::class.java))
             var attempted = false
-            var registered = false
             var released = false
             var linked = false
             var endpoint: IBinder? = null
@@ -155,7 +154,7 @@ class ReceiptVolumeQualificationTest {
             var primaryFailure: Throwable? = null
             try {
                 attempted = true
-                registered = context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+                val registered = context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
                 assertTrue(registered)
                 assertTrue(connection.connected.await(10, TimeUnit.SECONDS))
                 check(!connection.failed.get())

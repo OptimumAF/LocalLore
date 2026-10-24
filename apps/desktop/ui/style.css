@@ -11,6 +11,43 @@
 body {
     margin: 0;
 }
+.fork-panel {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    padding: 1rem 1.2rem;
+    border-bottom: 1px solid #465247;
+}
+.fork-panel label {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.7rem;
+    margin: 0.8rem 0;
+}
+.fork-panel select {
+    max-width: 100%;
+}
+.fork-panel button {
+    margin: 0.3rem 0.4rem 0.3rem 0;
+    max-width: 100%;
+    white-space: normal;
+}
+.fork-panel dl {
+    display: grid;
+    grid-template-columns: minmax(8rem, 1fr) minmax(0, 2fr);
+    gap: 0.5rem 1rem;
+}
+.fork-panel dd {
+    margin: 0;
+}
+@media (max-width: 680px) {
+    .fork-panel dl {
+        display: block;
+    }
+    .fork-panel dd {
+        margin-bottom: 0.7rem;
+    }
+}
 button,
 input,
 textarea,

@@ -18,6 +18,7 @@ for (const args of [
     ["check-evaluation-controller.mjs"],
     ["check-archive-controller.mjs"],
     ["check-timeline-controller.mjs"],
+    ["check-fork-controller.mjs"],
 ]) {
     const code = await new Promise((resolve, reject) => {
         const child = spawn(process.execPath, args, {
@@ -63,6 +64,8 @@ for (const marker of [
     "MALFORMED_SYNTHETIC_DIRECTOR",
     "d08-native-durable-workspace",
     "d08-timeline-native-durable-workspace",
+    "d08-fork-native-durable-workspace",
+    "harness_fork_case",
     "legacy-v1-native-migrated-resume",
     "export-snapshot-independent-of-later-turn",
 ])

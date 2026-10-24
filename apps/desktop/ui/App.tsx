@@ -2,6 +2,8 @@ import { EvaluationPanel } from "./EvaluationPanel";
 import { ArchivePanel } from "./ArchivePanel";
 import type { ArchiveController } from "./archive-controller";
 import { TimelinePanel } from "./TimelinePanel";
+import { ForkPanel } from "./ForkPanel";
+import type { ForkController } from "./fork-controller";
 import { timelineContext } from "./timeline-controller";
 import type { TimelineController } from "./timeline-controller";
 import type { EvaluationController } from "./evaluation-controller";
@@ -69,12 +71,14 @@ export function App({
     evaluation,
     archive,
     timeline,
+    fork,
 }: {
     controller: Controller;
     capture?: CaptureController;
     evaluation?: EvaluationController;
     archive?: ArchiveController;
     timeline?: TimelineController;
+    fork?: ForkController;
 }) {
     const s = useSyncExternalStore(c.subscribe, c.get),
         selected = c.selected(),
@@ -346,6 +350,13 @@ export function App({
                     {timeline && selected && (
                         <TimelinePanel
                             timeline={timeline}
+                            context={timelineContext(c)}
+                        />
+                    )}
+                    {fork && selected && (
+                        <ForkPanel
+                            fork={fork}
+                            gameplay={c}
                             context={timelineContext(c)}
                         />
                     )}

@@ -10,10 +10,13 @@ mod evaluation;
 mod evaluation_commands;
 mod export_commands;
 mod exports;
+mod fork_commands;
 mod lease;
 mod model_commands;
 mod models;
 use lease::WindowLease;
+#[cfg(feature = "dev-harness")]
+mod fork_harness;
 #[cfg(feature = "dev-harness")]
 mod harness;
 #[cfg(feature = "dev-harness")]
@@ -129,7 +132,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},archiving:{},timelining:{},archiveStage:'{}',stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},archiving:{},timelining:{},forking:{},archiveStage:'{}',stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
@@ -142,6 +145,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
             std::env::var("LOCALLORE_D07_CURATED_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_TIMELINE_HARNESS").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_D08_FORK_HARNESS").as_deref() == Ok("1"),
             match std::env::var("LOCALLORE_D08_STAGE").as_deref(){Ok("import")=>"import",Ok("uncertain")=>"uncertain",Ok("retire")=>"retire",Ok("restarted")=>"restarted",_=>"source"},
             if reopened {
                 "reopened"
@@ -265,6 +269,7 @@ fn main() {
         .manage(Reopen(AtomicBool::new(false)))
         .manage(export_commands::TestExportState::default())
         .manage(archive_commands::TestArchiveState::default())
+        .manage(Arc::new(fork_harness::ForkHarnessState::default()))
         .manage(model_commands::TestModelState::default())
         .invoke_handler(tauri::generate_handler![
             capture_exports::harness_capture_case,
@@ -273,6 +278,9 @@ fn main() {
             capture_exports::capture_revoke,
             host_call,
             archive_commands::archive_catalog,
+            fork_commands::fork_start,
+            fork_commands::fork_lookup,
+            fork_harness::harness_fork_case,
             archive_commands::archive_export_preview,
             archive_commands::archive_import_preview,
             archive_commands::archive_export,
@@ -319,6 +327,8 @@ fn main() {
         capture_exports::capture_revoke,
         host_call,
         archive_commands::archive_catalog,
+        fork_commands::fork_start,
+        fork_commands::fork_lookup,
         archive_commands::archive_export_preview,
         archive_commands::archive_import_preview,
         archive_commands::archive_export,
@@ -366,6 +376,13 @@ fn main() {
                 && std::env::var("LOCALLORE_TEST_RESTART").as_deref() != Ok("1")
             {
                 timeline_harness::seed(&path).map_err(std::io::Error::other)?;
+            }
+            #[cfg(feature = "dev-harness")]
+            if harness::active()
+                && std::env::var("LOCALLORE_D08_FORK_HARNESS").as_deref() == Ok("1")
+                && std::env::var("LOCALLORE_TEST_RESTART").as_deref() != Ok("1")
+            {
+                fork_harness::seed(&path).map_err(std::io::Error::other)?;
             }
             let model_root = path
                 .parent()

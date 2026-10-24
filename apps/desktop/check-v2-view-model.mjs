@@ -71,6 +71,15 @@ for (const observer of [{ kind: "character", id: "mira" }, { kind: "character", 
     rejects(() => page(envelope([marker()], q), q));
     if (observer.kind === "character" && observer.id === "mira") rejects(() => page(envelope([message(original)], q), q));
 }
+// Approved optional provenance argument: derive ONLY from a coherent native thin snapshot.
+const qCustomPlayer = query(); qCustomPlayer.observer = { kind: "character", id: "custom-player" };
+const customMessage = envelope([message(original)], qCustomPlayer);
+accepts(() => page(customMessage, qCustomPlayer, "custom-player"));
+rejects(() => page(customMessage, qCustomPlayer));
+rejects(() => page(customMessage, qCustomPlayer, "mira"));
+const qNpcNamedPlayer = query(); qNpcNamedPlayer.observer = { kind: "character", id: "player" };
+rejects(() => page(envelope([message(original)], qNpcNamedPlayer), qNpcNamedPlayer, "custom-player"));
+rejects(() => page(envelope([message(original)], qNpcNamedPlayer), qNpcNamedPlayer));
 for (const mutate of [
     v => v.version = 1, v => v.head = 2, v => v.revision = 4, v => v.scope.story = "other",
     v => v.privacy = "private_omniscient", v => v.status = "unknown", v => v.reason = "private",

@@ -167,11 +167,11 @@ internal class ReceiptModelTransaction(
         private var lockPin: BasicFileAttributes? = null
         val receiptBytes: ByteArray by lazy {
             ("locallore-model-receipt-v1\n${identity.id}\n${identity.bytes}\n" +
-                "${identity.sha256}\n${sha(data.path.toByteArray(Charsets.UTF_8))}\n")
+                "${identity.sha256}\n${sha(data.canonicalPath.toByteArray(Charsets.UTF_8))}\n")
                 .toByteArray(Charsets.UTF_8).also { if (it.size > RECEIPT_LIMIT) unsafe() }
         }
         val ownerBytes: ByteArray by lazy {
-            ("locallore-model-owner-v1\n${sha(control.path.toByteArray(Charsets.UTF_8))}\n" +
+            ("locallore-model-owner-v1\n${sha(control.canonicalPath.toByteArray(Charsets.UTF_8))}\n" +
                 "${sha(receiptBytes)}\n").toByteArray(Charsets.UTF_8)
         }
 

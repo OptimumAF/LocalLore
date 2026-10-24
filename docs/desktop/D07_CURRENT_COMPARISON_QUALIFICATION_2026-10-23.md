@@ -84,6 +84,7 @@ without gaining invented estimates or permission to resume under new source.
 | 8b4422b, d07-compat-eval-clippy.log | Strict evaluator lint exits101 on collapsible_if in the dependency oracle. Root 39c770d collapses only equivalent phase-and-disjunction guards, with no lint waiver, changed oracle or acceptance relaxation. |
 | 39c770d, d07-dependency-oracle-lint-corrected.log / d07-historical-dependency-guard-corrected.log | Focused actual dependency regression **1 pass /11filtered**,1.99s; genuine historical inspect/resume test **1 pass**,3.46s. Old skips, source mismatch and every retained byte stay unchanged. |
 | 39c770d, corrected-prefix compatibility logs | Evaluator strict Clippy **pass**,6.14s; full frontend and frontend format **pass**; native normal **88 passes /1ignored**,18.53s (compile35.38s); native dev **92 passes /1ignored**,20.36s plus standalone2passes (compile28.52s); native strict Clippy **pass**,16.48s; normal native build **pass**,14.67s. These are Rust tests/build and synthetic/headless frontend checks, not a D07 WebView journey or model comparison. |
+| 39c770d, d07-compat-lint-corrected-android.log | **BUILD SUCCESSFUL**,11m42s, all78tasks executed. Fresh JNI x86_64 and arm64 builds,182JVM tests and APK/lint/static audit evidence below; no device execution. |
 
 The original frozen Core declarations precede production (edf4d265 / contract
 03308ea1). The Core fix and evaluator closure were separately allocated and
@@ -97,10 +98,10 @@ PR's evidence and does not make the D07 comparison an author/Domain2 corpus.
 | Required evidence | Current disposition |
 | --- | --- |
 | comparison_runner + memory_comparison_v2 terminal batch | Complete:9runner+3protocol passes above. Initial seven-pass partial output was not counted as a completed result. |
-| Current Core/Host fixture and full compatibility checks | Host4, shared743/10 ignored, evaluator15/1 ignored, strict shared/eval/native lint, full frontend/format, native normal88/1 ignored, dev92/1 ignored+standalone2 and normal build passed. Android stage remains active under d07-compat-lint-corrected; no Android result yet. |
+| Current Core/Host fixture and full compatibility checks | Host4, shared743/10 ignored, evaluator15/1 ignored, strict shared/eval/native lint, frontend/format, native normal88/1 ignored, dev92/1 ignored+standalone2, normal build and fresh Android compatibility all passed. No runtime/UI/model execution is inferred from build/unit evidence. |
 | Genuine historical complete-cohort opening | Passed actual opt-in test at 4a36b72; see precise inventory/old-field boundary below. |
-| Real local-model current comparison | Pending separate authorized source-bound execution; no model, worker, speed, memory-quality or enjoyment result inferred from scripted tests. |
-| Exact reproduction and environment | Completed commands below; fresh toolchain versions recorded. Remaining compatibility invocations/terminal results await Root. The contract's suggested commands are not presented as executions. |
+| Real local-model current comparison | Allocated in #29 comment6380754782; real-owner admission-refusal check active, no inference or completed comparison yet. No speed, memory-quality or enjoyment result inferred from scripted tests. |
+| Exact reproduction and environment | Completed commands below; fresh toolchain versions and terminal compatibility manifests recorded. Real-model command/result remains pending. The contract's suggested commands are not presented as executions. |
 
 ## Genuine historical read-only compatibility
 
@@ -165,8 +166,9 @@ cargo test --offline -p locallore -p locallore-storage -p locallore-workspace -p
 Root freshly records rustc **1.93.1 (01f6ddf75)**, cargo **1.93.1 (083ac5135)**,
 Node **24.22.1** and Java **17.0.6**. Tests use the existing task-owned target
 and serialized execution; no toolchain/model download or physical-device
-execution is inferred. Full remaining environment/compatibility attribution
-will be recorded with its terminal stage manifest.
+execution is inferred. Original compatibility manifest records source8b4422b
+and the evaluator lint101; corrected manifest records all eight resumed stages
+exit0 at39c770d. It does not relabel the earlier failure as a pass.
 
 Completed compatibility invocations, from repository root, use the existing
 owned `<shared-target>` (the placeholder replaces only the local target path):
@@ -193,11 +195,66 @@ empty LIBSQLITE3_FLAGS and no SDK download. Source and exit for each stage
 are recorded before advancing. The original failed stage manifest is retained;
 the new prefix does not overwrite it.
 
+The normal build at 39c770d records a **29,160,960-byte executable**, SHA-256
+`095f5eaa94ef075625973576986a7599850da73b20922579259ce0b3f2a5d0d1`,
+and **492,023-byte normal app.js**, SHA-256
+`e0c09f611bfa9c4cf7d26ed2caf311bbc7ec07b9f5b8d02317ceef8d34dbff56`.
+Five fixed development fixture/gate markers are absent from the executable;
+frontend hook exclusions and native handler cfg are checked separately.
+This is **bounded static byte evidence**, not exhaustive exclusion proof or
+actual application execution. The local record d07-normal-artifact-evidence.json
+is 903 bytes, SHA-256
+`fec85dab82258489cc0318b75393e31785345c6b85946766b5f0f8728690f583`.
+
+## Fresh Android build/JVM/static evidence
+
+At 39c770d, all78Gradle tasks executed; x86_64 JNI release compilation took
+2m25s and arm64 took4m40s. **182 tests /22JUnit XML files /0failures /0errors /
+0skips** are fresh, timestamped06:06:15.5456086Z–06:06:15.5566332Z on
+2026-10-24 UTC. Fresh lint at06:08:46.7990741Z has0errors and one existing
+GradleDependency warning. These are host JVM tests and builds, **not Android
+instrumentation/device execution or Android D2 parity**.
+
+| Android artifact | Bytes / SHA-256 |
+| --- | --- |
+| App APK | 24,115,468 / `83281d57b8f0682e559ff90da1650c8b7a155d528099cb7d36919034623c4720` |
+| Instrumentation APK, built only | 1,715,781 / `40450f596df0d5b5db724f5452aac63124f820cefa20d82bd3a7733a39dc4c36` |
+| Fresh22XML aggregate | `2c6352b1dd6c94ee2876f12e8f856086b934fb6a2f46d43e0f15b62efebda8b7` |
+
+Static APK audit passes: four packaged ELFs have16KiB LOAD alignment; the only
+permission is the generated non-exported dynamic-receiver permission.
+Instrumentation APK timestamp06:07:29.7033106Z is fresh, but no device is
+launched. The XML aggregate was independently recomputed read-only: ordinal
+filename order, UTF-8 without BOM, filename TAB bytes TAB lowercaseSHA256 LF,
+including final LF. An earlier unspecified aggregate used literal backtick
+separators; its retained metadata is superseded **only for that aggregate**.
+XML bytes, counts, timestamps, lint and APK evidence do not change.
+
+Root's Android invocation, from apps/android with the recorded existing JDK/SDK
+and task-owned output init script:
+
+```powershell
+java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain --offline --no-daemon --max-workers=1 --console=plain -Pandroid.builder.sdkDownload=false --init-script <owned-output-init.gradle> :app:testDebugUnitTest --rerun :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
+```
+
+Retained metadata hashes: d07-android-artifact-evidence.json (387bytes)
+`41b9d303252fba88e4c269581234832ccf1b0ba29ea606d9388f432588e2d3b6`;
+d07-android-report-evidence.json (508bytes)
+`9e9fb327f5f18d20666a208576558330bb5dd57c58182f899ea32f5fc0d151e3`;
+d07-android-report-aggregate-corrected.json (483bytes)
+`c0e3f9eba3d3204345b83e5f9c8a5b8a022b2ba88be209e0802613feab080ac6`.
+Local d07-compat-checks.ps1 SHA-256 is
+`1b200ca9f336b0959315030648c190f1f3d079bf8212e3a14b206a015bd3c5e7`;
+original results manifest SHA-256 is
+`4385a4e0b68d91f7dc434bdfc0a97fedab3d5620658abcebc7baf7895b7ce937`,
+corrected terminal results SHA-256 is
+`eb30f97ab005ad62e22a488be3126ae5592e75f8f34fced8309fb830e8dd0c06`.
+
 ## Retained log integrity
 
 Files are local/gitignored under `<evidence-root>/author-integration-artifacts`.
 No raw model weights, private paths or player stories are published. The
-following twenty-seven completed logs were hashed read-only; active logs are excluded.
+following twenty-nine completed logs were hashed read-only; active logs are excluded.
 
 | Log | Bytes / SHA-256 |
 | --- | --- |
@@ -228,9 +285,10 @@ following twenty-seven completed logs were hashed read-only; active logs are exc
 | d07-compat-lint-corrected-native-dev.log | 10,502 / `dee54391b7e3566c249ea39984640e1a6ad9dc82c3bcaca110cf1242d3ed184a` |
 | d07-compat-lint-corrected-native-clippy.log | 942 / `b9b90e62b0ec93351aadeac18952f4c16028f392c604792b600b70e17589aa2e` |
 | d07-compat-lint-corrected-native-build.log | 213 / `9379b6fba7552a75ab1eaa63d9d51d56ca8df52a192184865e80ad78a0a2ad49` |
+| d07-compat-lint-corrected-android.log | 6,099 / `6d64d75b81ddab62e6126fdf7db35ce9dab215502f051f401037d5b5cd286385` |
+| d07-apk-static-audit.log | 783 / `a2220741ab7d3170dc6f144e8b0c0d97b3b85457ef46d7bf0d6e0c76a8cef49f` |
 
 No task checkbox, model-quality conclusion, historical report rewrite,
 PR acceptance, merge, release, repository setting or protected resource is
-changed by this document. Next: obtain terminal remaining compatibility
-evidence; then record any separately authorized
+changed by this document. Next: record the separately authorized
 native-model cohort with its unchanged scenarios, exact source and failures.

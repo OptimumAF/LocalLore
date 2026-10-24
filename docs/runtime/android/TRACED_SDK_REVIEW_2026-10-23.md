@@ -2,7 +2,8 @@
 
 Refs [#5](https://github.com/OptimumAF/LocalLore/issues/5), M01.03/M01.05,
 claim `6374988994`. The one real guarded gift attempt returned a structured
-director timeout, with no first output observed. Its reported owners drained;
+director timeout, with a false first-output flag. A later source audit found
+that ordinary-run flag was unmeasured, so it cannot prove no output. Its reported owners drained;
 strict Rust replay independently established a failed turn at revision zero,
 zero accepted events/receipts and the player's one potion intact. This is
 verified failure handling, not a successful guarded gift or full task acceptance.
@@ -101,7 +102,7 @@ recorded separately. These counts describe retained owned commands.
 
 The raw 2,341-byte SDK terminal exactly matches the controller's inner result
 and metrics. It reports model initialization, one director call, zero narrator
-calls/repairs, no first output observed, timeout and balanced one-Engine/
+calls/repairs, false first-output flag (later found unmeasured), timeout and balanced one-Engine/
 one-Conversation closure, with cancellation and terminal callbacks. The gift
 check correctly remains false. Load and failed-generation observations are
 7,524.4987 ms and 50,703.7637 ms; token counts are unavailable. Error-row flags

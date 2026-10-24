@@ -234,6 +234,17 @@ raw output first, then stops and verifies the reader before snapshot recovery.
 See its [dated verification](TRACED_SDK_VERIFICATION_2026-10-23.md) for actual
 artifact, device and canonical replay evidence.
 
+The [role-observation protocol](ROLE_OBSERVATION_PROTOCOL_V1.md) corrects an
+older measurement gap: ordinary turns did not measure their first-output flag.
+It adds bounded callback/buffer observations and optional terminal SDK counters,
+with explicit unknown values and mandatory owner cleanup. Buffered output and
+requested configuration do not prove a valid answer or a canonical commit.
+See the [author qualification](ROLE_OBSERVATION_AUTHOR_2026-10-23.md) for the
+separately pinned artifact and hostile resource-ownership tests, and the
+[actual verification](ROLE_OBSERVATION_VERIFICATION_2026-10-23.md) for the one
+failed gift, measured buffered output, storage/preservation failures and
+independent canonical replay.
+
 The native [process owner](../../../benchmarks/spike/android/controller/README.md)
 owns/reaps one trusted direct child. An ADB-client exit is never native cleanup
 evidence. Package termination is limited to the hash-verified isolated SDK app;

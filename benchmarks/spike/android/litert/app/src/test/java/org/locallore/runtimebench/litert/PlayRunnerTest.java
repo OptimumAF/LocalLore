@@ -28,6 +28,7 @@ public class PlayRunnerTest {
         boolean closed, cancelled, answer, malformed, duplicate, changedTerminal, reject, failCommit, rejectSpent, rejectResponse;
         String rejection = "Ability";
         long ticket;
+        Error closeError;
         int commits, modelCloses, conversationsClosed, responses, reopens;
         @Override public synchronized JsonObject call(JsonObject command) throws Exception {
             if (closed) throw new IllegalStateException("closed private owner");
@@ -97,7 +98,9 @@ public class PlayRunnerTest {
             answer = true; pending = null;
             notifyAll(); return ok(number("accepted", 1));
         }
-        @Override public synchronized void close() { closed = true; cancelled = true; pending = null; notifyAll(); }
+        @Override public synchronized void close() {
+            closed = true; cancelled = true; pending = null; notifyAll(); if (closeError != null) throw closeError;
+        }
         @Override public synchronized void reopen() { assertTrue(closed); closed = false; reopens++; }
         private JsonObject view(JsonObject original, String phase, JsonObject receipt) {
             JsonObject value = object("turn", original.get("turn"), "scope", original.get("scope"));
@@ -109,7 +112,11 @@ public class PlayRunnerTest {
     private static final class Model implements WarmRunner.Model {
         final Probe probe;
         boolean failInitialize, uncertainOpen, failRoleClose, failEngineClose, neverDrain, activeOutput, terminalOutput;
-        int opens, resultReads;
+        int opens, resultReads, outputQueries, terminalQueries;
+        boolean outputQueryFails, outputQueryFailsAfterFirst, terminalQueryFails, observeOnCancel, observeOnTerminal, failStart;
+        Boolean outputObservation;
+        Error outputProbeError, terminalProbeError, roleCloseError, modelCloseError;
+        RoleObservation terminalObservation;
         String output = "PRIVATE SDK output";
         Model(Probe probe) { this.probe = probe; }
         @Override public void initialize() throws Exception {
@@ -121,10 +128,28 @@ public class PlayRunnerTest {
             assertEquals("PRIVATE exact original prompt", request.prompt); assertNotNull(request.schema);
             opens++; probe.events.add("open_" + request.role);
             return new WarmRunner.Role() {
-                boolean cancelled;
-                @Override public void start() { probe.events.add("start_" + request.role); }
+                boolean cancelled, terminal, closed;
+                @Override public void start() throws Exception {
+                    probe.events.add("start_" + request.role);
+                    if (failStart) throw new WarmRunner.Failure("generation_failed");
+                }
+                @Override public Boolean observeOutput() throws Exception {
+                    assertFalse("Output queried after close", closed); outputQueries++;
+                    if (outputProbeError != null) throw outputProbeError;
+                    if (outputQueryFails || (outputQueryFailsAfterFirst && outputQueries > 1)) throw new IOException("PRIVATE output diagnostic");
+                    return observeOnCancel ? cancelled : observeOnTerminal ? terminal : outputObservation;
+                }
+                @Override public RoleObservation observeTerminal() throws Exception {
+                    assertFalse("Terminal metadata queried after close", closed);
+                    assertTrue("Terminal metadata queried before known drain", terminal); terminalQueries++;
+                    probe.events.add("observe_terminal_" + request.role);
+                    if (terminalProbeError != null) throw terminalProbeError;
+                    if (terminalQueryFails) throw new IOException("PRIVATE terminal diagnostic"); return terminalObservation;
+                }
                 @Override public boolean hasOutput() { return activeOutput || terminalOutput; }
-                @Override public boolean await(long ms) { return !neverDrain && (!activeOutput || cancelled); }
+                @Override public boolean await(long ms) {
+                    terminal = !neverDrain && (!activeOutput || cancelled); return terminal;
+                }
                 @Override public void cancel() { cancelled = true; probe.events.add("conversation_cancel"); }
                 @Override public JsonObject result(double loadMs) {
                     resultReads++;
@@ -135,12 +160,14 @@ public class PlayRunnerTest {
                     return value;
                 }
                 @Override public void close() throws Exception {
+                    if (roleCloseError != null) throw roleCloseError;
                     if (failRoleClose) throw new IllegalStateException("private role close");
-                    probe.conversationsClosed++; probe.events.add("close_" + request.role);
+                    closed = true; probe.conversationsClosed++; probe.events.add("close_" + request.role);
                 }
             };
         }
         @Override public void close() throws Exception {
+            if (modelCloseError != null) throw modelCloseError;
             if (failEngineClose) throw new IllegalStateException("private engine close");
             probe.modelCloses++; probe.events.add("engine_close");
         }
@@ -191,7 +218,9 @@ public class PlayRunnerTest {
         Probe probe = new Probe(); Model model = new Model(probe); model.terminalOutput = true;
         JsonObject result = run(probe, model, "cancel");
         assertEquals("failed", result.get("outcome").getAsString()); assertEquals("cancel_not_observed", result.get("error").getAsString());
-        assertFalse(result.get("first_output_observed").getAsBoolean()); assertEquals(0, probe.commits);
+        assertTrue(result.get("first_output_observed").getAsBoolean()); assertEquals(0, probe.commits);
+        assertEquals("observed", result.getAsJsonArray("turns").get(0).getAsJsonObject().getAsJsonArray("generations")
+            .get(0).getAsJsonObject().get("output_observation").getAsString());
     }
     @Test public void malformedDuplicateAndExcessRolePacketsNeverCommit() throws Exception {
         for (int kind = 0; kind < 3; kind++) {
@@ -339,6 +368,169 @@ public class PlayRunnerTest {
         assertTrue(Files.size(parent.resolve(PhaseJournal.FILE)) > 0);
         assertTrue(Files.size(parent.resolve(PhaseJournal.FILE)) <= PhaseJournal.MAX_BYTES);
     }
+    @Test public void ordinaryGiftObservesOutputForEveryRoleAndReportsOnlyTypedTerminalMetadata() throws Exception {
+        Probe probe = new Probe(); Model model = new Model(probe); model.outputObservation = true;
+        model.terminalObservation = new RoleObservation(2, 12, "none", true, 0, 0);
+        JsonObject result = run(probe, model, "gift");
+        assertEquals("committed", result.get("outcome").getAsString()); assertTrue(result.get("first_output_observed").getAsBoolean());
+        for (JsonElement value : generations(result)) {
+            JsonObject row = value.getAsJsonObject(); assertEquals("observed", row.get("output_observation").getAsString());
+            assertTrue(row.get("first_output_elapsed_ms").getAsDouble() >= 0); assertTrue(row.get("first_output_elapsed_ms").getAsDouble() <= 180000);
+            JsonObject observation = row.getAsJsonObject("terminal_observation"); assertEquals(8, observation.size());
+            assertEquals(0, observation.get("sdk_input_tokens").getAsInt()); assertEquals(0, observation.get("sdk_output_tokens").getAsInt());
+            assertTrue(observation.get("configuration").isJsonNull()); assertFalse(observation.toString().contains("PRIVATE"));
+        }
+        assertEquals(2, model.terminalQueries); assertTrue(model.outputQueries >= 4);
+        assertTrue(probe.events.indexOf("observe_terminal_director") < probe.events.indexOf("close_director"));
+    }
+    @Test public void unavailableAndKnownNoOutputAreDifferentAndCannotInventFirstOutputTime() throws Exception {
+        for (Boolean observation : new Boolean[] {null, false}) {
+            Probe probe = new Probe(); Model model = new Model(probe); model.outputObservation = observation;
+            model.terminalQueryFails = Boolean.FALSE.equals(observation);
+            JsonObject result = run(probe, model, "gift"); assertEquals("committed", result.get("outcome").getAsString());
+            assertFalse(result.get("first_output_observed").getAsBoolean());
+            for (JsonElement value : generations(result)) {
+                JsonObject row = value.getAsJsonObject();
+                assertEquals(observation == null ? "unknown" : "not_observed", row.get("output_observation").getAsString());
+                assertTrue(row.get("first_output_elapsed_ms").isJsonNull()); assertTrue(row.get("terminal_observation").isJsonNull());
+            }
+        }
+    }
+    @Test public void positiveTerminalBufferIsObservedEvenWhenOutputProbeIsUnavailableOrPreviouslyEmpty() throws Exception {
+        for (Boolean output : new Boolean[] {null, false}) {
+            Probe probe = new Probe(); Model model = new Model(probe); model.outputObservation = output;
+            model.terminalObservation = new RoleObservation(1, 1, "none", false, null, null);
+            JsonObject result = run(probe, model, "gift"); assertEquals("committed", result.get("outcome").getAsString());
+            for (JsonElement value : generations(result)) {
+                JsonObject row = value.getAsJsonObject(); assertEquals("observed", row.get("output_observation").getAsString());
+                assertFalse(row.get("first_output_elapsed_ms").isJsonNull());
+                assertEquals(1, row.getAsJsonObject("terminal_observation").get("buffered_text_bytes").getAsInt());
+            }
+            assertTrue(result.get("first_output_observed").getAsBoolean()); assertEquals(1, probe.commits);
+        }
+    }
+    @Test public void outputAndTerminalDiagnosticFailuresDoNotRejectAnOtherwiseAcceptedGift() throws Exception {
+        Probe probe = new Probe(); Model model = new Model(probe); model.outputQueryFails = true; model.terminalQueryFails = true;
+        JsonObject result = run(probe, model, "gift"); assertEquals("committed", result.get("outcome").getAsString());
+        assertEquals(1, probe.commits); assertEquals(2, probe.conversationsClosed); assertEquals(1, probe.modelCloses);
+        for (JsonElement value : generations(result)) {
+            JsonObject row = value.getAsJsonObject(); assertEquals("unknown", row.get("output_observation").getAsString());
+            assertTrue(row.get("first_output_elapsed_ms").isJsonNull()); assertTrue(row.get("terminal_observation").isJsonNull());
+        }
+        assertFalse(result.toString().contains("PRIVATE")); assertFalse(probe.preparation.isAlive());
+    }
+    @Test public void diagnosticFailureKeepsPositiveEvidenceButMakesOnlyNegativeEvidenceUnknown() throws Exception {
+        for (boolean positive : new boolean[] {false, true}) {
+            Probe probe = new Probe(); Model model = new Model(probe); model.outputObservation = positive; model.outputQueryFailsAfterFirst = true;
+            JsonObject result = run(probe, model, "gift"); JsonObject row = generations(result).get(0).getAsJsonObject();
+            assertEquals(positive ? "observed" : "unknown", row.get("output_observation").getAsString());
+            assertEquals(positive, !row.get("first_output_elapsed_ms").isJsonNull());
+            assertEquals(positive, result.get("first_output_observed").getAsBoolean()); assertEquals(1, probe.commits);
+        }
+    }
+    @Test public void terminalOutputIsObservedBeforeCloseEvenWhenOrdinaryWaitWasInitiallyEmpty() throws Exception {
+        Probe probe = new Probe(); Model model = new Model(probe); model.observeOnTerminal = true;
+        JsonObject result = run(probe, model, "gift"); assertTrue(result.get("first_output_observed").getAsBoolean());
+        for (JsonElement value : generations(result)) assertEquals("observed", value.getAsJsonObject().get("output_observation").getAsString());
+        assertEquals(2, model.terminalQueries); assertEquals(2, probe.conversationsClosed);
+    }
+    @Test public void expiredDeadlineStillObservesKnownCleanupDrainWithoutChangingTimeoutOrCommitting() throws Exception {
+        Probe probe = new Probe(); Model model = new Model(probe); model.observeOnCancel = true;
+        PlayRunner.Checkpoints expireAfterStart = (phase, role) -> { if (phase.equals("role_start_after")) try { Thread.sleep(600); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); throw new IOException("synthetic interrupted"); } };
+        JsonObject result = new PlayRunner(probe, () -> model, new JsonObject(), 500, 100, expireAfterStart).run("gift");
+        assertEquals("timeout", result.get("error").getAsString()); assertEquals(0, probe.commits);
+        JsonObject row = generations(result).get(0).getAsJsonObject(); assertEquals("observed", row.get("output_observation").getAsString());
+        assertTrue(row.get("first_output_elapsed_ms").getAsDouble() >= 500); assertEquals(1, model.terminalQueries);
+        assertEquals(1, probe.conversationsClosed); assertEquals(1, probe.modelCloses); assertFalse(probe.preparation.isAlive());
+    }
+    @Test public void startFailureStillDrainsAndObservesBeforeCloseWhileDiagnosticFailureCannotMaskPrimary() throws Exception {
+        Probe probe = new Probe(); Model model = new Model(probe); model.failStart = true; model.observeOnCancel = true; model.terminalQueryFails = true;
+        JsonObject result = run(probe, model, "gift"); assertEquals("generation_failed", result.get("error").getAsString());
+        assertEquals(0, probe.commits); assertEquals(1, model.terminalQueries); assertEquals(1, probe.conversationsClosed);
+        JsonObject row = generations(result).get(0).getAsJsonObject(); assertEquals("observed", row.get("output_observation").getAsString());
+        assertTrue(row.get("terminal_observation").isJsonNull()); assertFalse(probe.preparation.isAlive());
+    }
+    @Test public void undrainedOwnershipNeverTriggersTerminalMetadataOrPostCloseQueries() throws Exception {
+        Probe probe = new Probe(); Model model = new Model(probe); model.neverDrain = true;
+        model.terminalObservation = new RoleObservation(0, 0, "none", false, null, null);
+        assertThrows(WarmRunner.Undrained.class, () -> new PlayRunner(probe, () -> model, new JsonObject(), 200, 1).run("gift"));
+        assertEquals(0, model.terminalQueries); assertEquals(0, probe.conversationsClosed); assertEquals(0, probe.modelCloses);
+        assertEquals(0, probe.commits); assertTrue(probe.closed); assertFalse(probe.preparation.isAlive());
+    }
+    @Test public void legacyCancelPositiveStillCountsWithoutRequiringTheNewOptionalAdapter() throws Exception {
+        Probe probe = new Probe(); Model model = new Model(probe); model.activeOutput = true;
+        JsonObject result = run(probe, model, "cancel"); assertEquals("cancelled", result.get("outcome").getAsString());
+        assertEquals("observed", generations(result).get(0).getAsJsonObject().get("output_observation").getAsString());
+        assertTrue(result.get("first_output_observed").getAsBoolean()); assertEquals(0, probe.commits);
+    }
+    @Test public void optionalOutputAndTerminalLinkageErrorsAreUnavailableWithoutRejectingGift() throws Exception {
+        for (boolean output : new boolean[] {false, true}) {
+            Probe probe = new Probe(); Model model = new Model(probe);
+            if (output) model.outputProbeError = new NoSuchMethodError("PRIVATE optional output API");
+            else model.terminalProbeError = new NoClassDefFoundError("PRIVATE optional terminal API");
+            JsonObject result = run(probe, model, "gift"); assertEquals("committed", result.get("outcome").getAsString());
+            assertEquals(1, probe.commits); assertEquals(2, probe.conversationsClosed); assertEquals(1, probe.modelCloses);
+            for (JsonElement value : generations(result)) {
+                JsonObject row = value.getAsJsonObject(); assertEquals("unknown", row.get("output_observation").getAsString());
+                assertTrue(row.get("terminal_observation").isJsonNull());
+            }
+            assertFalse(result.toString().contains("PRIVATE")); assertFalse(probe.preparation.isAlive());
+        }
+    }
+    @Test public void optionalLinkageErrorCannotMaskAnExistingTypedStartFailure() throws Exception {
+        for (boolean output : new boolean[] {false, true}) {
+            Probe probe = new Probe(); Model model = new Model(probe); model.failStart = true;
+            if (output) model.outputProbeError = new NoSuchMethodError("PRIVATE output");
+            else model.terminalProbeError = new NoClassDefFoundError("PRIVATE terminal");
+            JsonObject result = run(probe, model, "gift"); assertEquals("generation_failed", result.get("error").getAsString());
+            assertEquals(0, probe.commits); assertEquals(1, probe.conversationsClosed); assertEquals(1, probe.modelCloses);
+            assertTrue(probe.closed); assertFalse(probe.preparation.isAlive());
+        }
+    }
+    @Test public void unexpectedOptionalGetterErrorsPropagateOnlyAfterKnownOwnersCloseAndNativeJoins() throws Exception {
+        for (boolean output : new boolean[] {false, true}) {
+            Probe probe = new Probe(); Model model = new Model(probe); AssertionError fatal = new AssertionError("PRIVATE diagnostic assertion");
+            if (output) model.outputProbeError = fatal; else model.terminalProbeError = fatal;
+            assertSame(fatal, assertThrows(AssertionError.class, () -> run(probe, model, "gift")));
+            assertEquals(0, probe.commits); assertEquals(1, probe.conversationsClosed); assertEquals(1, probe.modelCloses);
+            assertTrue(probe.closed); assertFalse(probe.preparation.isAlive());
+        }
+    }
+    @Test public void roleCloseErrorsRequireProcessTerminationWithoutClosingAnUncertainEngine() throws Exception {
+        for (Error close : new Error[] {new NoSuchMethodError("PRIVATE role API"), new AssertionError("PRIVATE role close")}) {
+            Probe probe = new Probe(); Model model = new Model(probe); model.roleCloseError = close; JsonObject metrics = new JsonObject();
+            WarmRunner.Undrained failure = assertThrows(WarmRunner.Undrained.class,
+                () -> new PlayRunner(probe, () -> model, metrics, 3000, 100).run("gift"));
+            assertTrue(containsFailure(failure, close)); assertTrue(metrics.get("cleanup_requires_process_termination").getAsBoolean());
+            assertEquals(0, probe.modelCloses); assertEquals(0, probe.commits); assertTrue(probe.closed); assertFalse(probe.preparation.isAlive());
+        }
+    }
+    @Test public void modelCloseErrorsStillJoinNativeAndRetainTheOriginalTypedFailure() throws Exception {
+        for (Error close : new Error[] {new NoClassDefFoundError("PRIVATE model API"), new AssertionError("PRIVATE model close")}) {
+            Probe probe = new Probe(); Model model = new Model(probe); model.failStart = true; model.modelCloseError = close; JsonObject metrics = new JsonObject();
+            WarmRunner.Undrained failure = assertThrows(WarmRunner.Undrained.class,
+                () -> new PlayRunner(probe, () -> model, metrics, 3000, 100).run("gift"));
+            assertTrue(containsFailure(failure, close));
+            assertEquals("generation_failed", failure.getSuppressed()[0].getSuppressed()[0].getMessage());
+            assertTrue(metrics.get("cleanup_requires_process_termination").getAsBoolean());
+            assertEquals(1, probe.conversationsClosed); assertEquals(0, probe.commits); assertTrue(probe.closed); assertFalse(probe.preparation.isAlive());
+        }
+    }
+    @Test public void nativeProbeCloseErrorsCannotBecomeGracefulRuntimeUnavailableOrLoseTheOriginalError() throws Exception {
+        for (Error close : new Error[] {new UnsatisfiedLinkError("PRIVATE native close"), new AssertionError("PRIVATE native close")}) {
+            Probe probe = new Probe(); probe.closeError = close; Model model = new Model(probe); model.failInitialize = true; JsonObject metrics = new JsonObject();
+            WarmRunner.Undrained failure = assertThrows(WarmRunner.Undrained.class,
+                () -> new PlayRunner(probe, () -> model, metrics, 3000, 100).run("gift"));
+            assertTrue(containsFailure(failure, close)); assertTrue(metrics.get("cleanup_requires_process_termination").getAsBoolean());
+            assertEquals(0, probe.commits); assertTrue(probe.closed); assertFalse(probe.preparation.isAlive());
+        }
+    }
+    private static boolean containsFailure(Throwable root, Throwable expected) {
+        if (root == expected) return true;
+        for (Throwable nested : root.getSuppressed()) if (containsFailure(nested, expected)) return true;
+        return root.getCause() != null && containsFailure(root.getCause(), expected);
+    }
+    private static JsonArray generations(JsonObject result) { return result.getAsJsonArray("turns").get(0).getAsJsonObject().getAsJsonArray("generations"); }
     private static void assertBracket(List<String> events, String action, String phase, String role) {
         int before = events.indexOf("mark_" + phase + "_before_" + role), actual = events.indexOf(action),
             after = events.indexOf("mark_" + phase + "_after_" + role);

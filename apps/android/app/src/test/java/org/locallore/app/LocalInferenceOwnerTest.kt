@@ -365,18 +365,24 @@ class LocalInferenceOwnerTest {
 
     @Test fun closeReturnsImmediatelyWhileBlockingNativeInvalidationRemainsUnknown() = runBlocking {
         val gate = CountDownLatch(1)
+        val closeEntered = CountDownLatch(1)
         val port = object : LocalInferenceNativePort {
             override fun call(input: ByteArray) = "ok".toByteArray()
             override fun poll(): LocalInferencePending? = null
             override fun respond(ticket: Long, response: ByteArray) = false
-            override fun close() { check(gate.await(5, TimeUnit.SECONDS)) }
+            override fun close() { closeEntered.countDown(); check(gate.await(5, TimeUnit.SECONDS)) }
         }
         val owner = owner(Engine(Call()), LocalInferenceLimits(200, 60, 2))
         owner.attach(port)
-        val before = System.nanoTime(); owner.close()
-        assertTrue((System.nanoTime() - before) / 1_000_000 < 50)
-        delay(100); assertTrue(owner.quarantined); assertFalse(owner.nativeInvalidatedKnown)
-        gate.countDown(); eventually { owner.nativeInvalidatedKnown }
+        val before = System.nanoTime()
+        try {
+            owner.close()
+            assertTrue((System.nanoTime() - before) / 1_000_000 < 50)
+            eventually { closeEntered.count == 0L }
+            eventually { owner.quarantined }
+            assertFalse(owner.nativeInvalidatedKnown)
+        } finally { gate.countDown() }
+        eventually { owner.nativeInvalidatedKnown }
         assertTrue(owner.quarantined)
     }
 }

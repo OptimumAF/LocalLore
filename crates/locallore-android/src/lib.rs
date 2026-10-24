@@ -7,13 +7,13 @@ mod archive_capacity_jni;
 #[cfg(target_os = "android")]
 mod archive_jni;
 mod external_inference;
+#[cfg(all(feature = "model-provisioning", target_os = "android"))]
+mod model_publication;
 mod play_fixture;
 #[cfg(feature = "play-probe")]
 pub mod play_probe;
 #[cfg(all(feature = "play-probe", target_os = "android"))]
 mod play_probe_jni;
-#[cfg(all(feature = "model-provisioning", target_os = "android"))]
-mod model_publication;
 pub mod workspace;
 use locallore::{contracts::*, engine::Engine, inference::*};
 use serde::Deserialize;

@@ -119,7 +119,7 @@ async function test(name, body) {
 function onceOnOperation(f, action) {
     let fired = false;
     const release = f.controller.subscribe(() => {
-        if (!fired && f.controller.get().operation) { fired = true; action(); }
+        if (!fired && f.controller.get().busy && f.controller.get().operation) { fired = true; action(); }
     });
     return () => { release(); assert.ok(fired, "synchronous operation notification was exercised"); };
 }

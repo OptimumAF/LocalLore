@@ -69,3 +69,19 @@ native app/model/device/ADB, desktop/CUA/protected-resource, settings or merge
 action. Root holds all heavy/runtime qualification. Archive3 app/native catalog
 advertisement must stay closed until all separately owned consumers are ready.
 Actual Full/Busy/atomicity or platform acceptance is not inferred from source.
+
+## Explicit advertised-version preservation decision
+
+During source inspection, existing `branch_retention_archive.rs` pins the public
+`ARCHIVE_VERSION` at2 and rejects an ordinary old payload merely relabeled3 as
+Unsupported. Root explicitly approved keeping `ARCHIVE_VERSION=2` as the latest
+**advertised portable interop surface** until platform closure. A private
+version3 constant drives this future shared implementation. Native catalogs
+remain untouched; future consumer integration must deliberately advertise3 and
+the full supported `[1,2,3]` set, with separately allocated metadata assertions.
+
+The exact version3 domain2/sourceDB5/transcript tuple is checked before its
+field-layout dispatch. Thus old1/2 merely relabeled3 remains Unsupported for a
+real contract mismatch, while valid3 tuples with malformed closed fields remain
+Malformed. This is version dispatch, not a test-specific exception. Old1/2
+goldens, public metadata assertions and frozen tests are not edited.

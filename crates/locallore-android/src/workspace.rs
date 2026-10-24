@@ -1,5 +1,7 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Trusted app-private workspace adapter. Calls belong on Kotlin IO workers, never the UI thread.
+#[path = "branch_fork.rs"]
+pub mod branch_fork;
 use locallore::host::{Host, MAX_INPUT, MAX_OUTPUT};
 use serde_json::{json, Value};
 use std::{
@@ -15,6 +17,7 @@ use std::{
 pub struct WorkspaceRegistry {
     entries: Mutex<RegistryState>,
     mutation: Mutex<()>,
+    forks: branch_fork::ForkRegistry,
 }
 #[derive(Default)]
 struct RegistryState {
@@ -124,6 +127,8 @@ impl WorkspaceRegistry {
         }
     }
     pub fn close(&self, handle: u64) {
+        // Cancel registered/running native forks before waiting for their existing owner locks.
+        self.fork_retire_owner(handle);
         let _mutation = self.mutation.lock().unwrap();
         // Remove before waiting for the Host; no new work can acquire this handle.
         let lease = self.entries.lock().unwrap().leases.remove(&handle);
@@ -347,6 +352,7 @@ mod tests {
         });
         let registry = Arc::new(WorkspaceRegistry {
             mutation: Mutex::new(()),
+            forks: Default::default(),
             entries: Mutex::new(RegistryState {
                 next: 1,
                 opening: 0,
@@ -394,6 +400,7 @@ mod tests {
         });
         let registry = WorkspaceRegistry {
             mutation: Mutex::new(()),
+            forks: Default::default(),
             entries: Mutex::new(RegistryState {
                 next: 1,
                 opening: 0,

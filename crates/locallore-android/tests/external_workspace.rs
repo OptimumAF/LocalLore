@@ -105,7 +105,14 @@ impl Workspace {
                 );
                 thread::sleep(Duration::from_millis(1));
             }
-            assert_eq!(data(worker.join().unwrap())["phase"], "ready");
+            let terminal = data(worker.join().unwrap());
+            assert_eq!(
+                terminal["phase"],
+                "ready",
+                "external preparation terminal phase={} error={}",
+                terminal["phase"].as_str().unwrap_or("missing"),
+                terminal["error"].as_str().unwrap_or("none")
+            );
             assert_eq!(seen.len(), 2);
             assert!(seen[1]["ticket"].as_u64().unwrap() > seen[0]["ticket"].as_u64().unwrap());
             seen
@@ -122,7 +129,18 @@ impl Workspace {
 }
 impl Drop for Workspace {
     fn drop(&mut self) {
-        self.registry.close(self.handle);
+        let closed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.registry.close(self.handle);
+        }))
+        .is_ok();
+        // Preserve the first test failure and its synthetic database, rather than double-panic.
+        if std::thread::panicking() {
+            return;
+        }
+        assert!(
+            closed,
+            "synthetic workspace close failed; directory retained"
+        );
         let parent = std::env::temp_dir().canonicalize().unwrap();
         assert_eq!(self.root.parent(), Some(parent.as_path()));
         assert_eq!(self.root.canonicalize().unwrap(), self.root);

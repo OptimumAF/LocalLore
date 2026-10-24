@@ -105,7 +105,7 @@ fn prompts(seen: &Seen) -> (String, String) {
         2,
         "one actual director and one actual narrator"
     );
-    let prompt = |index, expected| match &requests[index].input {
+    let prompt = |index: usize, expected: &str| match &requests[index].input {
         Input::Structured { role, prompt, .. } => {
             assert_eq!(role, expected);
             prompt.clone()

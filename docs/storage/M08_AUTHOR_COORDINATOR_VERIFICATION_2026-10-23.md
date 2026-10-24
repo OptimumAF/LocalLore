@@ -120,18 +120,25 @@ separate, and moves the old future5 oracle to6. All five passed. These are Rust
 native-command/Host tests, not WebView execution. A subsequent native migration
 runner stopped before launching the app: its development fixture only removed
 new tables then relabeled current schema as1. FixtureReadOnly correctly refused
-that altered schema; exact historical-DDL fixture correction and rerun remain
-pending. No render evidence is inferred from that failed attempt.
+that altered schema. The development-only fixture was corrected to construct the
+exact historical DDL; the subsequent actual native run passed 29 distinct checks
+with eight application-owned WebView2 captures across two sequential apps. All
+eight renders were inspected. No render evidence is inferred from the failed
+attempt. Final evidence is recorded in
+[the qualification report](M08_FINAL_FOUNDATION_QUALIFICATION_2026-10-23.md).
 
 Android's five new actual-JSONObject/Gateway tests are instrumentation source;
 they are not local JVM tests. The two production physical-version guards now
 require5 while protocol1 and every recovery/cancellation path remain unchanged.
 Current-target test fixtures were updated explicitly; historical archive bytes,
-schema4 capacity profiles and dated device evidence were preserved. Offline
-ordinary JVM/APK/testAPK/lint and both-ABI qualification are currently running.
-No new JSON dependency or device allocation was introduced.
+schema4 capacity profiles and dated device evidence were preserved. The first
+offline ordinary JVM/APK/testAPK/lint build passed with 182 JVM tests, both native
+ABIs and 78 executed tasks. It preceded the later narration guard; final-current
+checks and artifact identities belong to the qualification report. These five
+instrumentation tests were compiled, not executed. No new JSON dependency or
+device allocation was introduced.
 
-Platform qualification is still pending. No author UI
+Full platform acceptance is still pending. No author UI
 or native author capability is exposed. Archive1/2 reject mixed Domain2 until
 explicit Archive3 support. Legacy Query1/compiler1/inspection exports remain
 closed on Domain2. Memory jobs/proofs return Unsupported; no new summary,
@@ -144,5 +151,9 @@ Runs use CARGO_PROFILE_DEV_DEBUG=0, CARGO_PROFILE_TEST_DEBUG=0,
 CARGO_INCREMENTAL=0, CARGO_BUILD_JOBS=1 and ordinary task-owned TEMP/TMP.
 One heavy suite/application at a time. Commands above additionally use a
 task-local `--target-dir`; generated logs/databases remain local and ignored.
-No real model, native application, device/ADB, desktop control/capture, hosted
-CI, release or repository setting change is part of this report.
+The earlier model-free results above remain attributed to their actual source
+revisions. Later native migration and current real-model journeys, including an
+observed contradictory narration, its regression/fix and corrected run, are
+documented in the qualification report. They do not establish prose quality,
+physical-phone parity or complete D2 consumers. No device/ADB, desktop control
+or desktop capture, hosted CI, release or repository setting change was made.

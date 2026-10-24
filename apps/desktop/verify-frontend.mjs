@@ -7,6 +7,7 @@ for (const args of [
     ["build.mjs"],
     ["node_modules/typescript/bin/tsc", "--noEmit"],
     ["check-contract.mjs"],
+    ["check-v2-view-model.mjs"],
     ["check-export-controller.mjs"],
     ["check-model-controller.mjs"],
     ["check-early-cancel.mjs"],

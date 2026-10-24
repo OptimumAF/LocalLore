@@ -38,9 +38,11 @@ diagnosis; this is not a claim that every synthetic directory was deleted.
 
 Final isolated identities are `org.locallore.app.externalverify` and
 `org.locallore.app.externalverify.test`, using the existing AndroidX runner.
-The final root artifact audit passed both signatures/manifest identities,
-permissions, runner target, native ELF 16 KiB compatibility and ZIP alignment.
+The final root artifact audit passed both manifest identities, permissions,
+runner target, native ELF 16 KiB compatibility and ZIP alignment.
 Neither manifest has `sharedUserId`; the app has no network permission.
+Android subsequently accepted both APK installations. Signature-tool verification
+is not attributed to that pre-dispatch artifact audit.
 
 | Binding | Bytes | SHA256 |
 |---|---:|---|
@@ -74,7 +76,7 @@ after and final maps each contained exactly **27** entries: the unchanged prior
 `631f73dd6e5f67ada687536b958d5c0ac53a7d0f90277af3926b5ebf1306788a`.
 
 The controller captured the newly assigned TEST UID from unambiguous exact
-installed-package metadata only after the signed installs and complete 27-map
+installed-package metadata only after successful installs and the complete 27-map
 check. Its conditional stop path requires all six PASS records, then fresh sole
 TEST process identity, matching fresh package UID, the captured installed UID
 and the exact 27-map. No earlier packet's UID is reused.

@@ -83,7 +83,55 @@ pipeline. Source fallback and compiler Unsupported remain separate. Narrator
 input uses only actual this-turn safe evidence. These are model-free tests,
 not model quality, native IPC or WebView evidence.
 
-Full current Core and platform qualification are still pending. No author UI
+The subsequent independent consuming-stage set passed eight tests. Independent
+provenance tests first failed 0/2: replay accepted an impossible Missing label
+for Domain2 Relevant / Domain1 Recent, whose compiler branch refuses proofs
+before inspection. `b42355b` requires the real Raw/Unsupported tuple and seven
+zero cache/progress counters, retaining independent native source reasons and
+actual raw actor-event counts. Both frozen tests then passed. Combined focused
+qualification passed 34 tests with two existing capture ignores, including exact
+original 2.1–2.4 receipt/hash preservation and current verified-memory checks.
+
+Current Core coverage totals **302 passing tests / three capture-only ignores**
+across complementary cohorts, not a single unfiltered current run. The first
+broad run passed 10,000 seeded attempts (129.65s), then failed a fresh 2.4 label
+assertion after the current prompt became 2.5. Another current-label assertion
+and current compiler1/future2 fixture expectations were explicitly modernized;
+all original agency, bounds, privacy, replay and canonical assertions remained.
+The complement log plus remaining-target log cover every other test; their five
+overlapping guarded tests are counted once. No old golden was regenerated.
+
+Three actual Store integration tests passed: author fork → generated corrected
+discovery → same-Store commit → reopen exact full canon/private bindings and
+playerB/NPC-oldA; zero-provider retry and late-cancel Committed; cancelled draft
+refusal; full-source Stale and unsupported unbound prose Narration. These use
+synthetic provider output and actual SQLite, not native IPC or model inference.
+
+Strict shared `cargo clippy --workspace --all-targets --all-features --offline
+--locked --exclude locallore-desktop-spike -- -D warnings` passed at `b44f911`.
+The evaluator initially passed 16/23 unit tests; its fresh-run compiler envelope
+oracles still expected1. Requiring current POLICY_COMPILER_VERSION2 at the two
+production sites preserved all case expectations and historical checkpoints.
+The unchanged suite then passed 26 tests / one historical-copy ignore.
+
+Desktop metadata's frozen five tests first passed 4/5: actual Store database5
+was rejected as Wire. `5ff4a43` admits known physical versions1–5, keeps protocol1
+separate, and moves the old future5 oracle to6. All five passed. These are Rust
+native-command/Host tests, not WebView execution. A subsequent native migration
+runner stopped before launching the app: its development fixture only removed
+new tables then relabeled current schema as1. FixtureReadOnly correctly refused
+that altered schema; exact historical-DDL fixture correction and rerun remain
+pending. No render evidence is inferred from that failed attempt.
+
+Android's five new actual-JSONObject/Gateway tests are instrumentation source;
+they are not local JVM tests. The two production physical-version guards now
+require5 while protocol1 and every recovery/cancellation path remain unchanged.
+Current-target test fixtures were updated explicitly; historical archive bytes,
+schema4 capacity profiles and dated device evidence were preserved. Offline
+ordinary JVM/APK/testAPK/lint and both-ABI qualification are currently running.
+No new JSON dependency or device allocation was introduced.
+
+Platform qualification is still pending. No author UI
 or native author capability is exposed. Archive1/2 reject mixed Domain2 until
 explicit Archive3 support. Legacy Query1/compiler1/inspection exports remain
 closed on Domain2. Memory jobs/proofs return Unsupported; no new summary,

@@ -8,10 +8,11 @@ AVD, the receipt Android process case, a removable volume, or real-model inferen
 
 The fixed target is `locallore_receipt_api35_v1`, console/ADB pair 5592/5593,
 serial `emulator-5592`. The proposed fresh root is
-`D:/LocalLore-receipt-avd-20261024`. It must not exist at prepare admission.
+`D:/LocalLore-receipt-avd-20261024-v2`. It must not exist at prepare admission.
 The content, registry, Android preferences, emulator preferences and temporary
-directories all belong beneath that new root. The helper never lists, starts,
-stops, wipes, deletes or adopts an existing AVD. There is no ADB invocation in it.
+directories all belong beneath that new root. It issues no SDK list, start,
+stop, wipe, delete or adoption command for an existing AVD. The bounded read-only
+default-registry metadata enumeration is described below. There is no ADB invocation.
 
 ## Two distinct admissions
 
@@ -19,7 +20,7 @@ stops, wipes, deletes or adopts an existing AVD. There is no ADB invocation in i
 
 ```text
 python -B benchmarks/receipt_avd_environment.py plan-prepare \
-  --root D:/LocalLore-receipt-avd-20261024 \
+  --root D:/LocalLore-receipt-avd-20261024-v2 \
   --sdk C:/Users/Avery/AppData/Local/Android/Sdk \
   --java-home C:/Program Files/Java/jdk-21 \
   --output <private-prepare-proposal.json>
@@ -29,7 +30,7 @@ python -B benchmarks/receipt_avd_environment.py prepare \
 
 python -B benchmarks/receipt_avd_environment.py plan-run \
   --proposal <private-prepare-proposal.json> \
-  --prepared D:/LocalLore-receipt-avd-20261024/prepared-v1.json \
+  --prepared D:/LocalLore-receipt-avd-20261024-v2/prepared-v1.json \
   --output <private-run-proposal.json>
 
 python -B benchmarks/receipt_avd_environment.py run \
@@ -152,6 +153,31 @@ are retained state, without an unchanged-content assertion.
 
 ## Verification and limits
 
+### Preserved first preparation refusal
+
+The first root-admitted preparation used `D:/LocalLore-receipt-avd-20261024`.
+Its SDK child completed with return code zero, known cleanup and 4,219 ms. The
+helper then refused `invalid_config`; no boot occurred. The generated command-line
+tools 11 profile contained `avd.id=<build>` / `avd.name=<build>` without an
+`AvdId` entry. The helper's required `AvdId` was an incorrect assumption. The
+retained SD image was exactly 8,589,934,592 bytes, while the generated profile's
+editable `sdcard.size` default still said `512 MB`. No SD resize or guest-capacity
+failure was observed. The failed namespace remains untouched and cannot be
+adopted or retried by the helper.
+
+The focused correction accepts the source-known generated identity placeholders
+only after exact registry path/target/encoding and ABI/architecture/tag/image
+checks. Before changing its newly generated config, it also checks the actual SD
+file size and rejects any existing userdata. It retains the raw generated config,
+normalizes `AvdId` / `avd.id` / `avd.name`, binds the userdata/cache/SD paths to the
+new content directory, makes SD metadata agree with the requested 8192 MiB image,
+and disables first-boot snapshot choices. Foreign identities, disk-init paths,
+old disk paths, mismatched images or registries still refuse before that write.
+The exact 3,201-byte generated profile is a host regression fixture (SHA256
+`5774eccd6c920ec3157a7a43710620645284c7e064a9f06933915f12d05aa6ac`).
+Only a fresh, separately reviewed v2 proposal/authorization can prepare the new
+absent root; this source correction is not a live preparation result.
+
 Host tests use fake SDK files and synthetic Python children. They test mismatch
 refusal before mutation, replay refusal, source/config/token drift, exact owner
 identity and expiry, mutable guest-disk treatment, budgets and actual Windows
@@ -165,6 +191,10 @@ this document.
 
 - [Android avdmanager](https://developer.android.com/tools/avdmanager): content
   path, create semantics and explicit force option.
+- [AVD manager CLI source](https://android.googlesource.com/platform/tools/base/+/mirror-goog-studio-master-dev/sdklib/src/main/java/com/android/sdklib/tool/AvdManagerCli.java):
+  generic hardware/profile defaults and the separate requested SD image parameter.
+  The locally pinned emulator `lib/hardware-properties.ini` defines `avd.id` and
+  `avd.name` with `<build>` defaults and the temporary data-partition path.
 - [Android emulator command line](https://developer.android.com/studio/run/emulator-commandline)
   and [environment variables](https://developer.android.com/tools/variables).
 - [Emulator 35.3 userdata creation](https://android.googlesource.com/platform/external/qemu/+/refs/heads/emu-35-3-release/android-qemu2-glue/main.cpp):

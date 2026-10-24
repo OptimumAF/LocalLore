@@ -17,6 +17,138 @@ from unittest import mock
 
 from benchmarks import receipt_avd_environment as env
 
+# Exact 3201-byte generated profile from the stopped prepare; no device/model data.
+# SHA256 5774eccd6c920ec3157a7a43710620645284c7e064a9f06933915f12d05aa6ac
+ACTUAL_CMDLINE_11_CONFIG = br"""
+PlayStore.enabled=no
+abi.type=x86_64
+avd.id=<build>
+avd.ini.encoding=UTF-8
+avd.name=<build>
+disk.cachePartition=yes
+disk.cachePartition.size=66MB
+disk.dataPartition.path=<temp>
+disk.dataPartition.size=800M
+disk.systemPartition.size=0
+disk.vendorPartition.size=0
+fastboot.forceChosenSnapshotBoot=no
+fastboot.forceColdBoot=no
+fastboot.forceFastBoot=yes
+firstboot.bootFromDownloadableSnapshot=yes
+firstboot.bootFromLocalSnapshot=yes
+firstboot.saveToLocalSnapshot=yes
+hw.accelerometer=yes
+hw.accelerometer_uncalibrated=yes
+hw.arc=no
+hw.arc.autologin=no
+hw.audioInput=yes
+hw.audioOutput=yes
+hw.battery=yes
+hw.camera.back=emulated
+hw.camera.front=none
+hw.cpu.arch=x86_64
+hw.cpu.ncore=4
+hw.dPad=yes
+hw.display1.density=0
+hw.display1.flag=0
+hw.display1.height=0
+hw.display1.width=0
+hw.display1.xOffset=-1
+hw.display1.yOffset=-1
+hw.display2.density=0
+hw.display2.flag=0
+hw.display2.height=0
+hw.display2.width=0
+hw.display2.xOffset=-1
+hw.display2.yOffset=-1
+hw.display3.density=0
+hw.display3.flag=0
+hw.display3.height=0
+hw.display3.width=0
+hw.display3.xOffset=-1
+hw.display3.yOffset=-1
+hw.displayRegion.0.1.height=0
+hw.displayRegion.0.1.width=0
+hw.displayRegion.0.1.xOffset=-1
+hw.displayRegion.0.1.yOffset=-1
+hw.displayRegion.0.2.height=0
+hw.displayRegion.0.2.width=0
+hw.displayRegion.0.2.xOffset=-1
+hw.displayRegion.0.2.yOffset=-1
+hw.displayRegion.0.3.height=0
+hw.displayRegion.0.3.width=0
+hw.displayRegion.0.3.xOffset=-1
+hw.displayRegion.0.3.yOffset=-1
+hw.gltransport=pipe
+hw.gltransport.asg.dataRingSize=32768
+hw.gltransport.asg.writeBufferSize=1048576
+hw.gltransport.asg.writeStepSize=4096
+hw.gltransport.drawFlushInterval=800
+hw.gps=yes
+hw.gpu.enabled=no
+hw.gpu.mode=auto
+hw.gsmModem=yes
+hw.gyroscope=yes
+hw.hotplug_multi_display=no
+hw.initialOrientation=portrait
+hw.keyboard=no
+hw.keyboard.charmap=qwerty2
+hw.keyboard.lid=yes
+hw.lcd.backlight=yes
+hw.lcd.circular=false
+hw.lcd.density=160
+hw.lcd.depth=16
+hw.lcd.height=640
+hw.lcd.vsync=60
+hw.lcd.width=320
+hw.mainKeys=yes
+hw.multi_display_window=no
+hw.ramSize=96M
+hw.rotaryInput=no
+hw.screen=multi-touch
+hw.sdCard=yes
+hw.sensor.hinge=no
+hw.sensor.hinge.count=0
+hw.sensor.hinge.fold_to_displayRegion.0.1_at_posture=1
+hw.sensor.hinge.resizable.config=1
+hw.sensor.hinge.sub_type=0
+hw.sensor.hinge.type=0
+hw.sensor.roll=no
+hw.sensor.roll.count=0
+hw.sensor.roll.resize_to_displayRegion.0.1_at_posture=6
+hw.sensor.roll.resize_to_displayRegion.0.2_at_posture=6
+hw.sensor.roll.resize_to_displayRegion.0.3_at_posture=6
+hw.sensors.gyroscope_uncalibrated=yes
+hw.sensors.heart_rate=no
+hw.sensors.humidity=yes
+hw.sensors.light=yes
+hw.sensors.magnetic_field=yes
+hw.sensors.magnetic_field_uncalibrated=yes
+hw.sensors.orientation=yes
+hw.sensors.pressure=yes
+hw.sensors.proximity=yes
+hw.sensors.rgbclight=no
+hw.sensors.temperature=yes
+hw.sensors.wrist_tilt=no
+hw.trackBall=yes
+hw.useext4=yes
+image.sysdir.1=system-images\android-35\google_apis\x86_64\
+kernel.newDeviceNaming=autodetect
+kernel.supportsYaffs2=autodetect
+runtime.network.latency=none
+runtime.network.speed=full
+sdcard.size=512 MB
+showDeviceFrame=yes
+tag.display=Google APIs
+tag.id=google_apis
+test.delayAdbTillBootComplete=0
+test.monitorAdb=0
+test.quitAfterBootTimeOut=-1
+userdata.useQcow2=no
+vm.heapSize=64M
+
+""".strip(b"\n") + b"\n"
+
 
 @unittest.skipUnless(os.name == "nt", "Windows-only AVD environment ownership")
 class EnvironmentTests(unittest.TestCase):
@@ -188,6 +320,75 @@ class EnvironmentTests(unittest.TestCase):
     def test_config_duplicate_keys_refused(self):
         with self.assertRaisesRegex(env.EnvironmentRefused, "invalid_config"):
             env.ini(b"path=first\npath=second\n")
+
+    def generated_registry(self, content):
+        return ("avd.ini.encoding=UTF-8\npath=" + str(content) + "\ntarget=android-35\n").encode("utf-8")
+
+    def test_actual_cmdline_11_profile_replays_exact_retained_bytes(self):
+        self.assertEqual(len(ACTUAL_CMDLINE_11_CONFIG), 3201)
+        self.assertEqual(hashlib.sha256(ACTUAL_CMDLINE_11_CONFIG).hexdigest(),
+                         "5774eccd6c920ec3157a7a43710620645284c7e064a9f06933915f12d05aa6ac")
+        values = env.ini(ACTUAL_CMDLINE_11_CONFIG)
+        self.assertNotIn("AvdId", values)
+        self.assertEqual(values["avd.id"], "<build>")
+        self.assertEqual(values["sdcard.size"], "512 MB")
+
+    def test_actual_profile_normalizes_only_fresh_confined_identity_and_paths(self):
+        content = self.root / "content" / (env.NAME + ".avd")
+        before = env.ini(ACTUAL_CMDLINE_11_CONFIG)
+        result = env.ini(env.normalize_generated_config(ACTUAL_CMDLINE_11_CONFIG,
+                                                       self.generated_registry(content), content))
+        for key in ("AvdId", "avd.id", "avd.name"):
+            self.assertEqual(result[key], env.NAME)
+        self.assertEqual(result["disk.dataPartition.path"], str(content / "userdata-qemu.img"))
+        self.assertEqual(result["disk.cachePartition.path"], str(content / "cache.img"))
+        self.assertEqual(result["sdcard.path"], str(content / "sdcard.img"))
+        self.assertEqual(result["sdcard.size"], "8192M")
+        self.assertEqual(result["disk.dataPartition.size"], "12G")
+        self.assertEqual(result["hw.ramSize"], "2048")
+        self.assertEqual(result["hw.cpu.ncore"], "2")
+        self.assertEqual(result["hw.lcd.height"], before["hw.lcd.height"])
+        for key in ("firstboot.bootFromDownloadableSnapshot", "firstboot.bootFromLocalSnapshot",
+                    "firstboot.saveToLocalSnapshot", "fastboot.forceFastBoot", "fastboot.forceChosenSnapshotBoot"):
+            self.assertEqual(result[key], "no")
+        self.assertEqual(result["fastboot.forceColdBoot"], "yes")
+
+    def changed_profile(self, **changes):
+        values = env.ini(ACTUAL_CMDLINE_11_CONFIG)
+        values.update(changes)
+        return "".join(k + "=" + v + "\n" for k, v in values.items()).encode("utf-8")
+
+    def test_generated_foreign_identity_never_normalized_into_ownership(self):
+        content = self.root / "content" / (env.NAME + ".avd")
+        for key in ("AvdId", "avd.id", "avd.name"):
+            with self.subTest(key=key), self.assertRaisesRegex(env.EnvironmentRefused, "invalid_config"):
+                env.normalize_generated_config(self.changed_profile(**{key: "other-avd"}),
+                                               self.generated_registry(content), content)
+
+    def test_generated_wrong_image_arch_tag_refused(self):
+        content = self.root / "content" / (env.NAME + ".avd")
+        for key, value in (("abi.type", "arm64-v8a"), ("hw.cpu.arch", "arm64"),
+                           ("tag.id", "google_apis_playstore"), ("image.sysdir.1", "system-images/android-34/google_apis/x86_64/")):
+            with self.subTest(key=key), self.assertRaisesRegex(env.EnvironmentRefused, "invalid_config"):
+                env.normalize_generated_config(self.changed_profile(**{key: value}),
+                                               self.generated_registry(content), content)
+
+    def test_generated_foreign_or_initial_disk_path_refused(self):
+        content = self.root / "content" / (env.NAME + ".avd")
+        for key in ("disk.dataPartition.path", "disk.dataPartition.initPath", "disk.cachePartition.path", "sdcard.path"):
+            with self.subTest(key=key), self.assertRaisesRegex(env.EnvironmentRefused, "invalid_config"):
+                env.normalize_generated_config(self.changed_profile(**{key: "D:\\old-avd\\old.img"}),
+                                               self.generated_registry(content), content)
+
+    def test_generated_registry_wrong_root_target_or_extra_field_refused(self):
+        content = self.root / "content" / (env.NAME + ".avd")
+        original = env.ini(self.generated_registry(content))
+        for changes in ({"path": str(self.base / "other")}, {"target": "android-34"},
+                        {"path.rel": "old-relative"}, {"avd.ini.encoding": "UTF-16"}):
+            values = dict(original, **changes)
+            raw = "".join(k + "=" + v + "\n" for k, v in values.items()).encode("utf-8")
+            with self.subTest(changes=changes), self.assertRaisesRegex(env.EnvironmentRefused, "invalid_registry"):
+                env.normalize_generated_config(ACTUAL_CMDLINE_11_CONFIG, raw, content)
 
     def test_cli_has_no_destructive_or_auth_disabling_flags(self):
         value = self.proposal(); command = env.emulator_command(value)
@@ -392,6 +593,7 @@ class EnvironmentTests(unittest.TestCase):
         def fake_sdk(*args, **kwargs):
             content = Path(value["paths"]["content"]); content.mkdir()
             (content / "config.ini").write_bytes(b"AvdId=wrong\n")
+            (Path(value["paths"]["registry"]) / (env.NAME + ".ini")).write_bytes(self.generated_registry(content))
             return env.host.ProcessResult("completed", 10, b"created", 0, 0, True)
         with mock.patch.object(env, "resource_facts", return_value={}), mock.patch.object(env.host, "run_process", side_effect=fake_sdk):
             with self.assertRaisesRegex(env.EnvironmentRefused, "invalid_config"):
@@ -400,6 +602,35 @@ class EnvironmentTests(unittest.TestCase):
         result = env.read_json(self.root / "prepare-result-v1.json")
         self.assertTrue(result["closure_verified"])
         self.assertFalse(result["prepared_created"])
+
+    def generated_sdk_fixture(self, value, existing_userdata=False):
+        content = Path(value["paths"]["content"]); content.mkdir()
+        (content / "config.ini").write_bytes(ACTUAL_CMDLINE_11_CONFIG)
+        (content / "sdcard.img").write_bytes(b"too small")
+        (Path(value["paths"]["registry"]) / (env.NAME + ".ini")).write_bytes(self.generated_registry(content))
+        if existing_userdata:
+            (content / "userdata-qemu.img").write_bytes(b"must not adopt")
+        return env.host.ProcessResult("completed", 10, b"created", 0, 0, True)
+
+    def test_generated_tiny_sd_refuses_before_rewriting_valid_profile(self):
+        value = self.proposal(); p, a = self.files(value)
+        with mock.patch.object(env, "resource_facts", return_value={}), mock.patch.object(env.host, "run_process", side_effect=lambda *args, **kw: self.generated_sdk_fixture(value)):
+            with self.assertRaisesRegex(env.EnvironmentRefused, "invalid_initial_disks"):
+                env.prepare(p, a)
+        content = Path(value["paths"]["content"])
+        self.assertEqual((content / "config.ini").read_bytes(), ACTUAL_CMDLINE_11_CONFIG)
+        self.assertFalse((content / "config.created.ini").exists())
+        self.assertEqual((content / "sdcard.img").read_bytes(), b"too small")
+
+    def test_generated_existing_userdata_refuses_without_adoption(self):
+        value = self.proposal(); p, a = self.files(value)
+        with mock.patch.object(env, "resource_facts", return_value={}), mock.patch.object(env.host, "run_process", side_effect=lambda *args, **kw: self.generated_sdk_fixture(value, existing_userdata=True)):
+            with self.assertRaisesRegex(env.EnvironmentRefused, "invalid_initial_disks"):
+                env.prepare(p, a)
+        content = Path(value["paths"]["content"])
+        self.assertEqual((content / "userdata-qemu.img").read_bytes(), b"must not adopt")
+        self.assertEqual((content / "config.ini").read_bytes(), ACTUAL_CMDLINE_11_CONFIG)
+        self.assertFalse((content / "config.created.ini").exists())
 
     def test_failed_child_cannot_hide_token_drift_in_closure(self):
         p, a = self.files(self.proposal())

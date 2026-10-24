@@ -346,6 +346,33 @@ def ini(data):
     return result
 
 
+def normalize_generated_config(original, registry_bytes, content):
+    """Only the known installed CLI profile, confined to this newly created AVD."""
+    require(len(original) <= 262144 and len(registry_bytes) <= 65536, "invalid_config")
+    values, registry = ini(original), ini(registry_bytes)
+    require(registry == {"avd.ini.encoding": "UTF-8", "path": str(content), "target": "android-35"},
+            "invalid_registry")
+    require(values.get("abi.type") == "x86_64" and values.get("hw.cpu.arch") == "x86_64" and
+            values.get("tag.id") == "google_apis" and values.get("avd.ini.encoding") == "UTF-8" and
+            values.get("image.sysdir.1", "").replace("\\", "/") ==
+            "system-images/android-35/google_apis/x86_64/", "invalid_config")
+    require(values.get("AvdId") in (None, NAME) and
+            all(values.get(key) in ("<build>", NAME) for key in ("avd.id", "avd.name")), "invalid_config")
+    require(values.get("disk.dataPartition.path") in ("<temp>", str(content / "userdata-qemu.img")) and
+            values.get("disk.dataPartition.initPath", "") == "" and
+            values.get("disk.cachePartition.path") in (None, "<temp>", str(content / "cache.img")) and
+            values.get("sdcard.path") in (None, str(content / "sdcard.img")), "invalid_config")
+    values.update({"AvdId": NAME, "avd.id": NAME, "avd.name": NAME,
+                   "disk.dataPartition.path": str(content / "userdata-qemu.img"),
+                   "disk.dataPartition.size": "12G", "disk.cachePartition.path": str(content / "cache.img"),
+                   "hw.ramSize": "2048", "hw.cpu.ncore": "2", "hw.sdCard": "yes",
+                   "sdcard.path": str(content / "sdcard.img"), "sdcard.size": "8192M",
+                   "fastboot.forceColdBoot": "yes", "fastboot.forceFastBoot": "no",
+                   "fastboot.forceChosenSnapshotBoot": "no", "firstboot.bootFromDownloadableSnapshot": "no",
+                   "firstboot.bootFromLocalSnapshot": "no", "firstboot.saveToLocalSnapshot": "no"})
+    return "".join(k + "=" + values[k] + "\n" for k in sorted(values)).encode("utf-8")
+
+
 def prepare(proposal_path, authorization_path):
     admitted_sha = digest(proposal_path)
     proposal = authorize(proposal_path, authorization_path, "prepare")
@@ -402,23 +429,17 @@ def prepare_contents(proposal, proposal_path, authorization_path, admitted_sha):
     content = safe_path(proposal["paths"]["content"], directory=True)
     config = safe_path(content / "config.ini")
     original = config.read_bytes()
-    values = ini(original)
-    require(values.get("AvdId") == NAME and values.get("abi.type") == "x86_64" and
-            values.get("tag.id") == "google_apis", "invalid_config")
+    registry = safe_path(Path(proposal["paths"]["registry"]) / (NAME + ".ini"))
+    normalized = normalize_generated_config(original, registry.read_bytes(), content)
+    require(not safe_path(content / "userdata-qemu.img", exists=False).exists() and
+            8 * GIB <= safe_path(content / "sdcard.img").stat().st_size <= 8 * GIB + 1024 * 1024,
+            "invalid_initial_disks")
     with (content / "config.created.ini").open("xb") as stream:
         stream.write(original); stream.flush(); os.fsync(stream.fileno())
-    values.update({"disk.dataPartition.size": "12G", "hw.ramSize": "2048", "hw.cpu.ncore": "2",
-                   "hw.sdCard": "yes", "sdcard.path": str(content / "sdcard.img"),
-                   "fastboot.forceColdBoot": "yes", "fastboot.forceFastBoot": "no"})
     # The only replacement write is this freshly generated config, with its original retained.
     with config.open("wb") as stream:
-        stream.write("".join(k + "=" + values[k] + "\n" for k in sorted(values)).encode("utf-8"))
+        stream.write(normalized)
         stream.flush(); os.fsync(stream.fileno())
-    registry = safe_path(Path(proposal["paths"]["registry"]) / (NAME + ".ini"))
-    require(ini(registry.read_bytes()).get("path") == str(content), "invalid_registry")
-    require(not (content / "userdata-qemu.img").exists() and
-            8 * GIB <= (content / "sdcard.img").stat().st_size <= 8 * GIB + 1024 * 1024,
-            "invalid_initial_disks")
     prepared = {"version": 1, "proposal_sha256": admitted_sha, "avd_name": NAME,
                 "immutable": [binding(config), binding(registry), binding(content / "config.created.ini")],
                 "initial_sdcard": binding(content / "sdcard.img"), "userdata_absent": True,

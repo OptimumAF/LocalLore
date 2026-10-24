@@ -408,7 +408,7 @@ the new source does not adopt old-source runtime outcomes.
 
 | Corrected-source phase | Actual result |
 | --- | --- |
-| Explicit native-owner refusal / genuine old cohort | One actual pass each; owner test39filtered, historical test4.04s. The current full suite's ignored declarations are not counted as executed there. |
+| Explicit native-owner refusal / genuine old cohort | One actual pass each; owner test46filtered, historical test4.04s. The current full suite's ignored declarations are not counted as executed there. |
 | Fresh scripted reference | 24 attempts,21accepted,3guard-only,42scripted roles; no model generation in this prerequisite. |
 | Bounded native paired confirmation | 1of4scenes,12rows/12structural passes,24roles,zero repairs/privacy failures; completed=false, source_matches=true. Process258,563ms; max forwarded estimate3259. This is not a full corrected-source paired run. |
 | Native continuous rollout | Four scenes,48rows/48structural passes,84roles; completed=true, source_matches=true. Zero repairs/privacy failures; six exact zero-role guard refusals09Inventory/10Ability/24ClarificationRequired across both arms. No unexpected errors or unavailable items. Process964,188ms; max forwarded estimate4094. |

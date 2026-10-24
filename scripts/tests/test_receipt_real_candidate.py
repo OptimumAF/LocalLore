@@ -222,7 +222,7 @@ class RealCandidateTests(unittest.TestCase):
                 self.assertLessEqual(kwargs["timeout"],150)
                 return SimpleNamespace(returncode=0)
             with patch.object(r,"authorize",return_value=value),patch.object(q,"open_lease",return_value=lease), \
-                 patch.object(q,"APK_HASHES",value["apk_sha256"]),patch.object(r.environment,"process_identity",return_value=identity), \
+                 patch.object(q,"APK_HASHES",value["apk_sha256"]),patch.object(r.environment,"process_identity",return_value=identity),patch.object(r.os,"getppid",return_value=42), \
                  patch.object(r.subprocess,"CREATE_NO_WINDOW",0,create=True),patch.object(r.subprocess,"run",side_effect=child) as run, \
                  patch.object(r.sys,"stdin",SimpleNamespace(buffer=io.BytesIO(r.STREAM_REQUEST+b"10310\n"))):
                 output=io.StringIO()
@@ -242,7 +242,7 @@ class RealCandidateTests(unittest.TestCase):
                         "proposal_sha256":q.sha(owner.proposal_path.read_bytes()),"authorization_sha256":q.sha(owner.authorization_path.read_bytes()),
                         "phase":"preflight","uid":10310,"facts_sha256":"c"*64,"deadline_epoch":time.time()-1})
                 with patch.object(r,"authorize",return_value=value),patch.object(q,"open_lease",return_value=lease), \
-                     patch.object(r.environment,"process_identity",return_value={"pid":42,"creation_filetime":3,"executable":sys.executable}), \
+                     patch.object(r.environment,"process_identity",return_value={"pid":42,"creation_filetime":3,"executable":sys.executable}),patch.object(r.os,"getppid",return_value=42), \
                      patch.object(r.subprocess,"run") as run,patch.object(r.sys,"stdin",SimpleNamespace(buffer=io.BytesIO(r.STREAM_REQUEST+b"10310\n"))):
                     with self.assertRaises((AssertionError,FileNotFoundError)):r.stream_worker(owner.proposal_path,owner.authorization_path,directory)
                     run.assert_not_called()
@@ -269,7 +269,7 @@ class RealCandidateTests(unittest.TestCase):
                  patch.object(q.shutil,"disk_usage",return_value=SimpleNamespace(free=20*r.GIB)), \
                  patch.object(r.environment,"process_identity",return_value={"pid":42,"creation_filetime":3,"executable":sys.executable}):
                 result=r.run_cohort(owner)
-            self.assertFalse(result["model_copied"]);self.assertFalse(result["SDK_qualified"])
+            self.assertFalse(result["model_copied"]);self.assertFalse(result["guarded_sdk_gift_observed"])
             self.assertEqual(transport.instruments,1);self.assertEqual(transport.installs,2)
             self.assertEqual(result["proof"],proof("SOURCE_PREFLIGHT"))
 

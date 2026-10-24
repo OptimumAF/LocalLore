@@ -238,6 +238,7 @@ def stream_worker(proposal_path, authorization_path, evidence):
     parent = q.contract.strict_json(parent_path.read_bytes())
     assert set(parent) == {"version", "parent", "proposal_sha256", "authorization_sha256", "phase", "uid", "facts_sha256", "deadline_epoch"}
     assert type(parent["version"]) is int and parent["version"] == 1
+    assert os.getppid() == parent["parent"]["pid"]
     assert parent["parent"] == environment.process_identity(parent["parent"]["pid"])
     assert parent["parent"]["executable"].lower() == str(Path(sys.executable)).lower()
     assert parent["proposal_sha256"] == q.sha(Path(proposal_path).read_bytes())
@@ -264,6 +265,7 @@ def stream_worker(proposal_path, authorization_path, evidence):
         assert before.st_size == value["source"]["bytes"] and digest.hexdigest() == value["source"]["sha256"]
         stream.seek(0)
         lease.check()
+        assert os.getppid() == parent["parent"]["pid"]
         assert parent["parent"] == environment.process_identity(parent["parent"]["pid"])
         remaining = parent["deadline_epoch"] - time.time() - 5
         assert remaining > 0
@@ -417,7 +419,7 @@ def run_cohort(owner):
         proof, _ = run_selected(owner, "SOURCE_PREFLIGHT")
         owner.stage = "after"; after = owner.facts("after-preflight", q.APK_HASHES)
         return {"before": before, "installed": installed, "transfer": transfer, "proof": proof, "after": after,
-                "model_copied": False, "SDK_qualified": False, "physical_phone_qualified": False}
+                "model_copied": False, "guarded_sdk_gift_observed": False, "physical_phone_qualified": False}
     before = owner.facts("continued-before", q.APK_HASHES)
     assert before["userdata"]["available_bytes"] - q.contract.USERDATA_FLOOR >= MODEL_BYTES
     owner.stage = "source-stream"; transfer = owner.transfer()
@@ -429,7 +431,7 @@ def run_cohort(owner):
         proofs[phase] = value; previous, previous_raw = value, raw
         owner.stage = "after"; owner.facts("after-" + phase.lower(), q.APK_HASHES)
     return {"before": before, "transfer": transfer, "proofs": proofs, "model_copied": True,
-            "SDK_qualified": True, "physical_phone_qualified": False, "DocumentsUI_qualified": False}
+            "guarded_sdk_gift_observed": True, "physical_phone_qualified": False, "DocumentsUI_qualified": False}
 
 
 def worker(proposal_path, authorization_path, evidence):

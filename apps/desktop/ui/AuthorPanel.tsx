@@ -53,6 +53,11 @@ export function AuthorPanel({
                 remains intact. This is separate from dialogue or a character
                 learning new information.
             </p>
+            <p className="muted">
+                Unresolved author requests remain in this window's memory only.
+                Author-operation recovery after restart is unavailable. Saved
+                timelines can still be reopened from the story library.
+            </p>
             <dl>
                 <dt>Selected story / timeline</dt>
                 <dd>

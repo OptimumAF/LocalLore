@@ -4,6 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 #[path = "author_correction.rs"]
 pub mod author_correction;
+#[path = "engine/staged_play.rs"]
+pub mod staged_play;
 use author_correction::{CanonicalRecord, KnowledgeProjectionV2};
 
 #[derive(Clone, Debug)]
@@ -386,10 +388,16 @@ impl Engine {
     }
 
     pub fn preview(&self, request: &Request, proposal: &Proposal) -> Result<Receipt, Error> {
-        // The existing Play/compiler consumers have no Domain 2 contract yet.
+        // The legacy public preview has no Domain 2 generated-Play contract.
         if self.domain_version() == 2 && matches!(request.intent, Intent::FreeText { .. }) {
             return Err(Error::Version);
         }
+        self.preview_resolved(request, proposal)
+    }
+
+    // One resolver for legacy preview and the native, source-bound Play2.5 stage.
+    // This private entry does not change public preview's version admission.
+    fn preview_resolved(&self, request: &Request, proposal: &Proposal) -> Result<Receipt, Error> {
         self.preflight(request)?;
         if request.version != VERSION || proposal.version != VERSION {
             return Err(Error::Version);

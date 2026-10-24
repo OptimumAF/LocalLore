@@ -92,14 +92,19 @@ The final APP is 23,457,912 bytes, SHA256
 `6fb05b1fda50f76a96107bb71e9e38b8fbfaf74485fc15d216bf5ea613e0abf0`.
 The final TEST is 2,376,140 bytes, SHA256
 `6a0f5099e32f3303e9543be8ccbce6e2a7167ed70d410077e3888bf89cd6792b`.
-The final six-method test source is SHA256
+The final six-method built worktree test source (CRLF) is SHA256
 `041b9c9223238a4a4af7269afefcad327b98b08739302fb14bd89ac57465f9d5`.
+The same source normalized to the committed LF bytes is SHA256
+`4edee3a59a919d17efa4c31dbdbb3ad7db4b11afe733b5db524520cce52fe88b`.
 
 Actual aapt/ZIP/ELF audit confirms the exact isolated APP package and its sole
 app-owned signature receiver permission; no Internet capability. The TEST has
 the exact AndroidJUnitRunner/target and only its expected test permission.
 Neither manifest declares sharedUserId. The exact four native libraries are
 uncompressed and 16 KiB ZIP/ELF aligned on both ABIs. TEST has no native library.
+A separate post-execution, read-only `apksigner verify --verbose --print-certs`
+check returned zero for both exact APKs; its output remains a supplemental
+private selection, separate from the pre-dispatch manifest/ZIP/ELF audit.
 Release, combined timeline, combined capacity and wrong-cache profile probes
 all refused with their expected fixed configuration errors and known cleanup.
 

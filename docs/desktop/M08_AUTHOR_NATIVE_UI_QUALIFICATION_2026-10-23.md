@@ -24,8 +24,8 @@ hidden, unfocused WebView and CapturePreview, not desktop capture or injected
 input. The [frozen harness contract](M08_AUTHOR_NATIVE_HARNESS_CONTRACT_2026-10-23.md)
 defines the exact closed setup, before/after-apply gates and journey assertions.
 
-Seven actual native cohorts stopped at recorded failures. Their accumulated
-checks and 37 images are partial observations, not a completed 17-image
+Eight actual native cohorts stopped at recorded failures. Their accumulated
+checks and 49 images are partial observations, not a completed 17-image
 fresh/restart journey. No completed cohort reached its restart process. The
 sixth reached 75 checks and eight images: real typed Give saved child head 3,
 removed the player's potion and retained the child receipt's original scope.
@@ -35,8 +35,11 @@ controller correction passes 21 synthetic cases. The seventh captured the
 accepted r3 receipt, honest failed-turn cause display and visible old-A
 knowledge, then hit the app-owned watchdog before writing its report. Its
 fixture omitted a refresh before Wait and never entered the intended gate.
-The corrected bounded gate fixture is rerunning. Later lost-ack/recovery/
-cancellation cases and saved-child restart remain unqualified.
+The eighth reached 112 checks and 12 images: cancellation, late cancellation
+and known-ID terminal-response loss with explicit status recovery passed.
+Whole-acknowledgement-loss lookup then failed when transient loading cleared
+its in-memory input. The correction passes 100 synthetic controller checks;
+native exact lookup, subsequent cases and saved-child restart remain pending.
 
 Separate synthetic actual-Main tests now pass 18 cases; actual-controller inert
 React recovery-panel rendering passes six cases. The full frontend verifier
@@ -61,8 +64,9 @@ The sixth launcher writes source-manifest.json before its build; it binds
 clean `42cb0069ade357c52321db2d084ad1a5529f6c68`, Node 24.22.1 and the input
 file hashes, including inference.rs. It still stopped before its final
 summary/binary manifest. The seventh also has a clean pre-build manifest,
-but no initial report or final summary. No later executable is attributed to
-a stopped run.
+but no initial report or final summary. The eighth again has both a clean
+pre-build manifest and failed initial report. No later executable is
+attributed to a stopped run.
 
 | Outer log / cohort suffix | Root-recorded source | Checks / images | Actual stop and disposition |
 | --- | --- | --- | --- |
@@ -73,6 +77,7 @@ a stopped run.
 | `author-native-query-readiness.log` / `5071afe9-f77e-4e07-8a2a-683936a847f4` | `13e92edfdf717727edbcbc4a0d8c5f1e4f403b13` | 71 / 8 | `AuthorDeadline:actual-V2-gift-root-refresh`, with one native `Version` error. The typed fixture inference route still requested legacy character context on Domain2. Shared typed-context support is a separate prerequisite; neither the legacy refusal nor the test's expected saved revision was weakened. |
 | `author-native-typed-v2-corrected.log` / `de295ff7-302f-46ac-bd3d-03e1ff6c8914` | `42cb0069ade357c52321db2d084ad1a5529f6c68` (clean, pre-build manifest) | 75 / 8 | `repeated-gift-is-rejected-by-actual-Rust-rules`: actual typed Give saved r3 and removed the player's potion. Repeated Give emitted native Inventory; durable turn_status deliberately retained only failed phase/error=null and the UI lost the observed cause. `6786d94` preserves original-operation presentation evidence separately, without inventing a durable cause. Full native rerun remains pending. |
 | `author-native-rejection-corrected.log` / `95eb81b7-5075-4f18-9dc6-2688d9d1fb6e` | `48fba074567d9b7a734abdaad09ab02187c9f974` (clean, pre-build manifest) | No terminal check count / 9 | App-owned 180-second watchdog: `D02_NATIVE_HARNESS TIMEOUT`, exit 2. The fixture immediately changed action to Wait, resetting thin reads, then waited unboundedly for a gate after send returned SessionRequired; no actual prepare reached it. `e0ebdaf` waits for refreshV2 and bounds gate readiness to 25 seconds. Existing native cancellation assertions remain unchanged. |
+| `author-native-stale-disposal-corrected.log` / `22780deb-ba64-4b19-b7b3-603d88187e6c` | `e0ebdafcecfdd3427bbd284ed3d7b12ad877e852` (clean, pre-build manifest) | 112 / 12 | `same-window-exact-lookup-recovers-lost-whole-ack-without-apply`: transient null context during actual session resume cleared AuthorController's input, so lookup was Unavailable. Global unknown stayed honest. `1f4ab5f` preserves only the native root identity across null/loading, with availability false and no actions; actual foreign/malformed root or dispose clears it. `bd18d76` separately fixes the unknown-ack button's inline overlap. |
 
 Each cohort directory is prefixed `author-native-`. The first six first and second build
 process exited 0, then its initial app process (`run-3`) exited 1 with
@@ -84,6 +89,8 @@ The seventh's two builds also exited 0; its app exited 2 with signal/error=null,
 timedOut=false and truncated=false. The 180-second **app-owned** watchdog fired
 before the launcher's 240-second stage deadline. It produced nine snapshot/
 capture triples, no initial/report.json, no aggregate check count and no restart.
+The eighth again exited 1 with signal/error=null, timedOut=false and
+truncated=false; it wrote its failed initial report but did not start restart.
 
 The fifth report's `failedCheck` is
 `author-native-observer-actual-native-WebView2-image`: the harness retains its
@@ -92,24 +99,25 @@ failure is the subsequent Give deadline and native Version error, **not** a
 failed observer image capture. The image exists and its capture metadata says
 `native-webview2`.
 
-All seven app stderr files contain one bounded Chromium shutdown diagnostic,
+All eight app stderr files contain one bounded Chromium shutdown diagnostic,
 `Failed to unregister class Chrome_WidgetWin_0`, error 1412. The first four
 report error buffers are empty; the fifth has exactly one native Version,
 and the sixth exactly one native Inventory. The sixth reports phase=failed,
 receipt=null and native status.error=null at expected_revision=3. Its failing
 check names the actual repeated-Give assertion, unlike the fifth's retained
-last-successful capture label.
+last-successful capture label. The eighth error buffer contains native
+Inventory and two native Cancelled entries, with no invented lookup success.
 Neither empty application buffers nor this known shutdown message is described
 as zero-error native qualification. Raw bounded stderr remains local.
 
 ## Render observations and integrity
 
-There are 0 + 2 + 3 + 7 + 8 + 8 + 9 = **37 actual app-owned PNGs**, each paired with a
+There are 0 + 2 + 3 + 7 + 8 + 8 + 9 + 12 = **49 actual app-owned PNGs**, each paired with a
 semantic JSON snapshot and `.capture.json` metadata. Every existing image's
 capture metadata reports `native-webview2`. Root reports personally inspecting
-**all 37** across the seven cohorts. This report author additionally viewed the
+**all 49** across the eight cohorts. This report author additionally viewed the
 fifth cohort's `author-native-preview.png` and `author-native-observer.png`
-through local file inspection only; the other 35 images' visual review is
+through local file inspection only; the other 47 images' visual review is
 attributed solely to Root.
 Early form/layout and capture-focus defects produced explicit source fixes;
 earlier imperfect images were retained rather than replaced in place.
@@ -135,6 +143,10 @@ AUTHOR_OBSERVED_A value is visible. Its ninth capture, author-native-receipt,
 shows the accepted r3 receipt and preserved observed Inventory/Rule alongside
 the native failed/error=null status and missing-durable-cause notice. These
 partial captures are credited separately from the unfinished full journey.
+The eighth adds turn-cancelled, late-cancel and unknown captures to those nine
+labels. Root inspected all 12, including the unknown acknowledgement button's
+inline overlap; its separate CSS fix is not yet credited with a native render.
+There is still no completed recovered/narrow/stale/restart capture sequence.
 Their browser-reported userAgent is Windows x64, Chrome/155.0.0.0 and
 Edg/155.0.0.0. This is a captured userAgent, not a separately queried loaded
 WebView runtime or SDK build version.
@@ -148,6 +160,7 @@ WebView runtime or SDK build version.
 | `5071afe9-f77e-4e07-8a2a-683936a847f4` | `89805c4a97fecb5f307054b88b9aee02ed73c27560932b54f74152c83305dd0a` | 25 / `44ea1c88b4d835a1e66192a3c45683f63bbdacaa4f53acf90b44fa2460590858` |
 | `de295ff7-302f-46ac-bd3d-03e1ff6c8914` | `19823bb368fd0daa1f2f32a79af23529fb1e7fa15dc8bfd23bb0f29fe0b30279` | 25 / `a86d4ca43989b8693725e78934cd332e51134710a81982ad0d981ef4f4cddfa0` |
 | `95eb81b7-5075-4f18-9dc6-2688d9d1fb6e` | Unwritten after app watchdog; no report hash | 27 / `864466f46daefa582e1cfd9dcf3847ee0e34ba126f2482af1210596852b92ef0` |
+| `22780deb-ba64-4b19-b7b3-603d88187e6c` | `c452c2e30f5a222ce535a69963f9a09e2873da32d42c625e04196874e48b276f` | 37 / `eb4c30a051d6ed1ca6513d6a387c7752108af4d6022e84fb1000b4232ffd9318` |
 
 The sixth pre-build source-manifest.json is 1,443 bytes, SHA-256
 `73eccd4743ef8ccd0f43c64887a7cf4b0f6123c9b10403dd2cc5feeec981e3da`.
@@ -155,6 +168,8 @@ It is separate from the initial-directory artifact digest above and still
 labels qualification pending.
 The seventh's 1,443-byte pre-build source manifest has SHA-256
 `5e0bcffddebaf60984612136545f157a1bb3380e2f581d2fbc7f3fbe5e1947bb`.
+The eighth's 1,443-byte pre-build source manifest has SHA-256
+`3e3694222c8d5f755c233944108d2af638e314b1aab0bc378099f3a35682c382`.
 
 Each artifact manifest was computed read-only in memory: select all `.json`
 and `.png` files under that cohort's initial directory, sort filenames with
@@ -218,6 +233,14 @@ markup and mocked native outcomes. Neither category invokes the native app.
   native discard acknowledgement before clearing only the same active retired
   prepare. It does not resolve unknown work or a commit. This synthetic result
   is not a native stale-disposal pass until the rerun reaches that assertion.
+- After the eighth native stop, frozen null-to-same-root loading-gap regression
+  `f59d7be` actually failed the input-preservation assertion. Its checker
+  terminated at that assertion, so no completed baseline total is inferred.
+  `1f4ab5f` passes **100 synthetic decoder/controller checks** plus the full
+  frontend verifier. It remembers only native root identity through temporary
+  context absence, keeps author availability false/no actions, and clears on
+  actual root replacement, malformed root or disposal. Recovery stays
+  memory-only and explicit; this is not restart recovery or automatic apply.
 
 ## Reproduction and retained logs
 
@@ -263,6 +286,7 @@ No fresh physical Android or real-model run is part of these observations.
 | `author-native-query-readiness.log` | `aebd6cf0ec0c7c48962598feaa5f04649926639f6a4048cf36310caca625b954` |
 | `author-native-typed-v2-corrected.log` | `4b582909a123725eebfedda45ddd4cf067b5f57a3a6cb4fe5d98674517332c76` |
 | `author-native-rejection-corrected.log` | `6df6b01134d801933230a20dde365bece72501657a3a3ea231c5ced3bc08576a` |
+| `author-native-stale-disposal-corrected.log` | `8ac6c390dfdfbb5721d10643a1467bdd427c4fb47b3e054d840ccffb83189518` |
 | `main-author-context-original-red.log` | `c0bf7c101a3d6c2ab09161a2270ae426a7ca295ef932e1465a9565fc8cf0ea32` |
 | `main-author-context-corrected-red.log` | `65df9811550f296876e37f04a0729d209a19cd9a188cba4aaea3a967c4e87b94` |
 | `main-author-context-first-green.log` | `84ad80edae65a1ff9775dbb8a897091276f16083efe530ec6f4f88f6d1040370` |
@@ -281,6 +305,9 @@ No fresh physical Android or real-model run is part of these observations.
 | `author-stale-disposal-original-red.log` | `819ecb18af7723b1208cd3c746e7d1d05e8dc31c2e6c65227091e2792d6d29fb` |
 | `author-stale-disposal-first-green.log` | `3845b209de25e85e57a83a95c07576e90286b2b92fe3441b823136a0276d8c51` |
 | `author-frontend-stale-disposal-corrected.log` | `3bcf6b4b3d5585e9e78009d171a755ff4a02609ffdb7f436030ff79f95d58630` |
+| `author-loading-gap-original-red.log` | `02c082b1f8b3b546d8232a1c30529dcaa5d3630036e136e005efcfd801af318e` |
+| `author-loading-gap-first-green.log` | `4c86bfdadfaf90a058d79d7661384dee85b046bc06bda9d82dbc4e40aa24aaaa` |
+| `author-frontend-loading-gap-corrected.log` | `9d9620a00799d5029d890c61b9c50414af5afd1f471315a5bc02d6f798eb00ac` |
 
 ## Pending final native appendix
 
@@ -291,11 +318,11 @@ The author continues evidence work; it is not a completed acceptance record.
 | --- | --- |
 | Shared typed Domain2 fixture continuation prerequisite | PR #137 accepted; actual sixth-cohort Give saved r3. Complete UI qualification remains pending. |
 | Exact integrated source, clean/dirty state and native binary/dist hashes | Await upcoming source-bound cohort. |
-| Complete fresh native journey | Pending; seventh cohort captured saved typed Give and honest rejected status, then hit the fixture gate watchdog. |
+| Complete fresh native journey | Pending; eighth passed cancellation/late cancellation/known-ID status recovery, then failed exact whole-ack lookup after transient input loss. |
 | Second actual process: saved-child Domain2 read/resume | Unrun; no native restart acceptance yet. |
 | All 15 fresh + 2 restart semantic/capture pairs | Planned allocation only; not 17 passing images. |
 | Final expected rejection/cancel errors and bounded native stderr | Await completed reports; preserve original Version/shutdown evidence. |
-| Root inspection of every final image and visible-state corrections | Pending for upcoming cohort. Earlier 37 inspected images remain separate. |
+| Root inspection of every final image and visible-state corrections | Pending for upcoming cohort. Earlier 49 inspected images remain separate. |
 | Normal frontend/native compatibility and Android checks after shared changes | Await Root's source-bound terminal checks; no in-progress run is counted as passed. |
 
 Author-operation recovery after restart remains explicitly unavailable. Only

@@ -143,6 +143,32 @@ not delete saves. All SQLite/replay/JNI work runs on IO workers. Generation runs
 outside the canonical lock and SQLite transaction. A lost commit acknowledgement
 is looked up with its original turn key; **Recover saved progress** retries
 uncertain work without allocating a new key. See [app durability](../../docs/native/APP_DURABILITY.md).
+
+Cancellation also retains its original key until a matching terminal reply is
+validated. A malformed or unfinished acknowledgement requires recovery before
+another turn or story switch. A commit that won the race remains saved. See
+[cancellation acknowledgement verification](../../docs/native/ANDROID_CANCEL_ACK_VERIFICATION_2026-10-23.md)
+for the isolated protocol tests and their device limits.
+The cancellation diagnostic reports completion only after the acknowledgement
+and saved-history reconciliation succeed. An uncertain reply records an unknown
+outcome and keeps recovery guidance visible; a commit that won the race is not
+described as stopped. See the [presentation regression](../../docs/native/ANDROID_CANCEL_PRESENTATION_VERIFICATION_2026-10-23.md).
+While cancellation is being reconciled, the screen shows **Checking cancellation…**.
+If recovery is required, **New story** and **Saved stories** remain disabled along
+with new turns until **Recover saved progress** succeeds. The in-memory demo
+retains its separate Reset behavior. See the [Compose controls checks](../../docs/native/ANDROID_CANCEL_CONTROLS_VERIFICATION_2026-10-23.md).
+The [native Compose checks](../../docs/native/ANDROID_NATIVE_CANCEL_CONTROLS_VERIFICATION_2026-10-23.md)
+exercise the production transport, JNI, Rust and SQLite with fake inference.
+Six cases passed on emulator B, including exact-key recovery, commit-before-cancel,
+persisted player-history equality after reopen and availability of all four native
+owner slots after calls drain. They hold ready reply delivery; active model
+generation and OS process-death recovery remain separate gates. Emulator A's
+storage gate remains blocked.
+The [native free-text recovery checks](../../docs/native/ANDROID_NATIVE_TEXT_RECOVERY_VERIFICATION_2026-10-23.md)
+exercise Action and Dialogue entered in the composer, original play-v2 receipts,
+uncertain committed outcomes and recovery with the original request key.
+Literal dialogue claims remain statements; the tested claim grants no ability
+or inventory change. This coverage uses the same explicitly scripted provider.
 Full or Busy storage errors show fixed recovery guidance and retain the original
 request. The confirmed snapshot stays visible until recovery obtains an accepted
 native outcome; new turns and mode changes stay disabled during uncertainty.

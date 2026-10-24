@@ -82,8 +82,11 @@ export async function brokerRetentionIncarnationReviewJourneys() {
             kind: "fork",
             outcome: {
                 version: 1,
-                scope: {story:context.scope.story,branch:forkIdentity.child},
-                parent: {...context.scope},
+                scope: {
+                    story: context.scope.story,
+                    branch: forkIdentity.child,
+                },
+                parent: { ...context.scope },
                 fork_revision: forkIdentity.at,
                 head_revision: forkIdentity.at,
                 created: true,
@@ -233,7 +236,7 @@ export async function brokerRetentionIncarnationReviewJourneys() {
     await test("late-old-status-cannot-adopt-new-unacknowledged-start-operation", async () => {
         let starts = 0;
         let releaseAdmission!: (value: unknown) => void;
-        const heldAdmission = new Promise<unknown>(resolve => {
+        const heldAdmission = new Promise<unknown>((resolve) => {
             releaseAdmission = resolve;
         });
         const running2 = {
@@ -244,23 +247,25 @@ export async function brokerRetentionIncarnationReviewJourneys() {
             error: null,
             result: null,
         };
-        const gate: BrokerRetention = new BrokerRetention(surface =>
-            surface === "memory" && (controller.get().busy || controller.get().uncertain),
+        const gate: BrokerRetention = new BrokerRetention(
+            (surface) =>
+                surface === "memory" &&
+                (controller.get().busy || controller.get().uncertain),
         );
-        const controller: MemoryMaintenanceController = new MemoryMaintenanceController(
-            (command) => {
+        const controller: MemoryMaintenanceController =
+            new MemoryMaintenanceController((command) => {
                 if (command === "archive_status") {
                     const result = memoryStatus(2);
                     gate.observe(result);
                     return Promise.resolve(result);
                 }
                 starts++;
-                return gate.start(identity, () => starts === 1
-                    ? Promise.resolve(memoryStatus(1))
-                    : heldAdmission,
+                return gate.start(identity, () =>
+                    starts === 1
+                        ? Promise.resolve(memoryStatus(1))
+                        : heldAdmission,
                 );
-            },
-        );
+            });
         controller.subscribe(gate.refreshConsumption);
         controller.contextChanged(context);
         await controller.act("status");
@@ -270,21 +275,39 @@ export async function brokerRetentionIncarnationReviewJourneys() {
         );
         const pending = controller.act("status");
         const unidentified = gate.get();
-        const wasPendingUnidentified = unidentified?.inFlight && unidentified.operation === null && !unidentified.terminal;
+        const wasPendingUnidentified =
+            unidentified?.inFlight &&
+            unidentified.operation === null &&
+            !unidentified.terminal;
         // This is an external status/cancel response from the previous call,
         // not the reply to the currently awaited second start admission.
         gate.observe(memoryStatus(1));
         const afterLate = gate.get();
-        const oldReplyWasIgnored = afterLate?.inFlight && afterLate.operation === null && !afterLate.terminal && !afterLate.consumed && !afterLate.unknown;
+        const oldReplyWasIgnored =
+            afterLate?.inFlight &&
+            afterLate.operation === null &&
+            !afterLate.terminal &&
+            !afterLate.consumed &&
+            !afterLate.unknown;
         // Always release the held mock request before any behavioral assertion,
         // including on the broken source, so no fixture promise is left pending.
         releaseAdmission(running2);
         await pending;
-        check(wasPendingUnidentified, "new actual start awaits its own unidentified native acknowledgement");
-        check(oldReplyWasIgnored, "late external old status cannot establish identity or terminal state for new unidentified reservation");
         check(
-            controller.get().operation?.operation_id === 2 && controller.get().operation?.running &&
-            gate.get()?.operation === 2 && !gate.get()?.terminal && !gate.get()?.consumed && !gate.get()?.unknown,
+            wasPendingUnidentified,
+            "new actual start awaits its own unidentified native acknowledgement",
+        );
+        check(
+            oldReplyWasIgnored,
+            "late external old status cannot establish identity or terminal state for new unidentified reservation",
+        );
+        check(
+            controller.get().operation?.operation_id === 2 &&
+                controller.get().operation?.running &&
+                gate.get()?.operation === 2 &&
+                !gate.get()?.terminal &&
+                !gate.get()?.consumed &&
+                !gate.get()?.unknown,
             "own new admission establishes exact running operation2 in both controller and gate",
         );
         let prematureDispatch = false;
@@ -297,13 +320,21 @@ export async function brokerRetentionIncarnationReviewJourneys() {
         } catch (error) {
             blocked = error instanceof Error && error.message === "ArchiveBusy";
         }
-        check(blocked && !prematureDispatch, "new running operation2 retains unconsumed result against crosssurface start");
+        check(
+            blocked && !prematureDispatch,
+            "new running operation2 retains unconsumed result against crosssurface start",
+        );
         await controller.act("status");
         check(
-            starts === 2 && controller.get().reply?.action === "status" &&
-            controller.get().operation?.operation_id === 2 && !controller.get().operation?.running &&
-            controller.get().error === null && !controller.get().uncertain &&
-            gate.get()?.operation === 2 && gate.get()?.terminal && gate.get()?.consumed,
+            starts === 2 &&
+                controller.get().reply?.action === "status" &&
+                controller.get().operation?.operation_id === 2 &&
+                !controller.get().operation?.running &&
+                controller.get().error === null &&
+                !controller.get().uncertain &&
+                gate.get()?.operation === 2 &&
+                gate.get()?.terminal &&
+                gate.get()?.consumed,
             "own exact terminal operation2 is observed and consumed without restarting it",
         );
         let explicitDispatch = false;
@@ -311,7 +342,10 @@ export async function brokerRetentionIncarnationReviewJourneys() {
             explicitDispatch = true;
             return forkStatus(4);
         });
-        check(explicitDispatch, "explicit crosssurface start allowed only after new operation2 consumption");
+        check(
+            explicitDispatch,
+            "explicit crosssurface start allowed only after new operation2 consumption",
+        );
     });
     return results;
 }

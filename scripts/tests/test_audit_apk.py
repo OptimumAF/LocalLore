@@ -90,7 +90,7 @@ class ApkAuditTests(unittest.TestCase):
         self.assertEqual(audit.audit_manifest(BADGING, TREE), [audit.PERMISSION])
 
     def test_capacity_package_requires_explicit_allowlist_and_own_permission(self):
-        for package in ("org.locallore.app.capacity", "org.locallore.app.capacityrelief"):
+        for package in ("org.locallore.app.capacity", "org.locallore.app.capacityrelief", "org.locallore.app.cancelack"):
             badging = BADGING.replace("org.locallore.app", package)
             tree = TREE.replace("org.locallore.app", package)
             with self.subTest(package=package):

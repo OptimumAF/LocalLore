@@ -90,25 +90,11 @@ def valid_turn(value):
     return value["error"] is not None and not changed
 
 
-def parse_result(raw, case):
+def validate_play_result(value, metrics, case):
+    """Shared strict receipt proof; transport-specific ownership metrics are checked by the caller."""
     try:
-        if type(raw) is not bytes or len(raw) > 131072 or case not in CASES:
+        if case not in CASES:
             return None
-        codes = re.findall(rb"^INSTRUMENTATION_CODE: (-?\d+)\r?$", raw, re.M)
-        rows = re.findall(rb"^INSTRUMENTATION_RESULT: play_result=(.*)\r?$", raw, re.M)
-        if codes != [b"-1"] or len(rows) != 1 or b"INSTRUMENTATION_FAILED" in raw:
-            return None
-        terminal = spike.sdk_response(raw)
-        if terminal is None:
-            return None
-        worker = spike.host.parse_worker(terminal[0])
-        if worker["text"] or worker["status"] != "completed" or terminal[1].get("cleanup_requires_process_termination") is True:
-            return None
-        metrics = re.findall(rb"^INSTRUMENTATION_RESULT: metrics=(.*)\r?$", raw, re.M)
-        original_metrics = spike.strict_json(metrics[0])
-        if original_metrics.get("mode") != "play" or type(original_metrics.get("version")) is not int or original_metrics["version"] != 1:
-            return None
-        value = spike.strict_json(rows[0])
         if type(value) is not dict or set(value) != RESULT_KEYS or type(value["version"]) is not int or value["version"] != 1 or value["case"] != case:
             return None
         turns = value["turns"]
@@ -144,13 +130,44 @@ def parse_result(raw, case):
                 return None
         initialized = sum(t["model_initialized"] for t in turns)
         generations = [g for t in turns for g in t["generations"]]
-        conversations = terminal[1]["conversations_opened"]
-        if terminal[1]["engines_opened"] != initialized or not sum(g["status"] in ("completed", "cancelled") for g in generations) <= conversations <= len(generations):
+        conversations = metrics["conversations_opened"]
+        if metrics["engines_opened"] != initialized or not sum(g["status"] in ("completed", "cancelled") for g in generations) <= conversations <= len(generations):
             return None
         if any(t["model_initialized"] is False and any(g["status"] in ("completed", "cancelled") for g in t["generations"]) for t in turns):
             return None
         # Other aggregate booleans are interpreted only alongside each strict per-turn proof.
-        return value, terminal[1]
+        return value, metrics
+    except (ValueError, TypeError, KeyError, UnicodeError, RecursionError, OverflowError):
+        return None
+
+
+def parse_result(raw, case):
+    try:
+        if type(raw) is not bytes or len(raw) > 131072 or case not in CASES:
+            return None
+        codes = re.findall(rb"^INSTRUMENTATION_CODE: (-?\d+)\r?$", raw, re.M)
+        rows = re.findall(rb"^INSTRUMENTATION_RESULT: play_result=(.*)\r?$", raw, re.M)
+        if codes != [b"-1"] or len(rows) != 1 or b"INSTRUMENTATION_FAILED" in raw:
+            return None
+        terminal = spike.sdk_response(raw)
+        if terminal is None:
+            return None
+        worker = spike.host.parse_worker(terminal[0])
+        if worker["text"] or worker["status"] != "completed" or terminal[1].get("cleanup_requires_process_termination") is True:
+            return None
+        metrics = re.findall(rb"^INSTRUMENTATION_RESULT: metrics=(.*)\r?$", raw, re.M)
+        original_metrics = spike.strict_json(metrics[0])
+        if original_metrics.get("mode") != "play" or type(original_metrics.get("version")) is not int or original_metrics["version"] != 1:
+            return None
+        value = spike.strict_json(rows[0])
+        # Current source can emit explicit role observations; old artifacts retain
+        # their exact schema. The cache controller separately binds schema to pin.
+        turns = value.get('turns') if type(value) is dict else None
+        if type(turns) is list and any(type(t) is dict and type(t.get('generations')) is list
+                and any(type(g) is dict and 'output_observation' in g for g in t['generations']) for t in turns):
+            import android_role_observation
+            return android_role_observation.validate_play_result(value, terminal[1], case)
+        return validate_play_result(value, terminal[1], case)
     except (ValueError, TypeError, KeyError, UnicodeError, RecursionError, OverflowError):
         return None
 

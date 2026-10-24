@@ -89,9 +89,9 @@ export async function legacyJourneys({
             "legacy-v1-native-migrated-resume",
         );
         check(
-            c.get().workspace?.database_schema_version === 4 &&
+            c.get().workspace?.database_schema_version === 5 &&
                 c.get().workspace?.schema_version === 1,
-            "legacy-actual-db4-workspace-contract1",
+            "legacy-actual-db5-workspace-contract1",
         );
         check(
             c.get().workspace!.stories.length === 1 &&
@@ -157,7 +157,7 @@ export async function legacyJourneys({
             document
                 .getElementById("root")!
                 .textContent?.includes(
-                    "SQLite schema 4 | Workspace contract 1 | Domain contract domain-v1",
+                    "SQLite schema 5 | Workspace contract 1 | Domain contract domain-v1",
                 ),
             "legacy-render-labels-distinguish-actual-db-contract-domain",
         );

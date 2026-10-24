@@ -77,7 +77,8 @@ def audit_manifest(badging, tree, package="org.locallore.app"):
     require(package in ("org.locallore.app", "org.locallore.app.capacity", "org.locallore.app.capacityrelief", "org.locallore.app.capacityv3",
                         "org.locallore.app.capacityreliefv3", "org.locallore.app.capacityfaultsv3",
                         "org.locallore.app.capacityv4", "org.locallore.app.capacityreliefv4", "org.locallore.app.capacityfaultsv4",
-                        "org.locallore.app.externalverify"),
+                        "org.locallore.app.externalverify",
+                        "org.locallore.app.cancelack"),
             "Unreviewed app package")
     permission = package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
     require(re.search(r"^package: name='" + re.escape(package) + r"' ", badging, re.M), "Wrong app package")

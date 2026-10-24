@@ -21,8 +21,10 @@ pub use playable_archive::{
 };
 mod catalog;
 pub use branches::{ForkOutcome, ForkRequest, MAX_BRANCHES_PER_STORY, MAX_BRANCH_DEPTH};
+mod author_correction;
 pub mod derived_memory;
 pub mod memory_jobs;
+pub use author_correction::{AuthorCorrectionOutcome, PreparedStoreAuthorCorrection};
 mod turns;
 pub use catalog::StorySummary;
 use locallore::{
@@ -37,10 +39,11 @@ use std::{
 };
 pub use turns::{ResumedStory, TurnError, TurnPhase, TurnRecord};
 
-pub const SCHEMA_VERSION: u32 = 4;
+pub const SCHEMA_VERSION: u32 = 5;
 pub const MAX_INSPECTION_DATABASE_BYTES: u64 = 64 * 1024 * 1024;
 const APPLICATION_ID: u32 = 0x4c4c4f52;
 const SCHEMA: &str = include_str!("../migrations/001_initial.sql");
+const MIXED_SCHEMA: &str = include_str!("../migrations/005_mixed_history.sql");
 
 /// Fixed categories deliberately omit paths, SQL, seed text and native error messages.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -229,6 +232,9 @@ fn verify_version(connection: &Connection, version: u32) -> Result<()> {
     if version >= 4 {
         reference.execute_batch(memory_jobs::SCHEMA_SQL)?;
     }
+    if version >= 5 {
+        reference.execute_batch(MIXED_SCHEMA)?;
+    }
     if schema_rows(connection)? != schema_rows(&reference)? {
         return Err(StorageError::SchemaMismatch);
     }
@@ -248,6 +254,9 @@ fn verify_version(connection: &Connection, version: u32) -> Result<()> {
     }
     if version >= 4 {
         expected.push((4, "locallore-storage-v4-memory-jobs".to_owned()));
+    }
+    if version >= 5 {
+        expected.push((5, "locallore-storage-v5-mixed-history".to_owned()));
     }
     if contracts != expected {
         return Err(StorageError::SchemaMismatch);
@@ -335,6 +344,7 @@ fn initialize(connection: &Connection, sql: &str) -> Result<()> {
     connection.execute_batch(derived_memory::DERIVED_SCHEMA_SQL)?;
     connection.execute_batch(retention_state::SCHEMA_SQL)?;
     connection.execute_batch(memory_jobs::SCHEMA_SQL)?;
+    connection.execute_batch(MIXED_SCHEMA)?;
     connection.pragma_update(None, "application_id", APPLICATION_ID)?;
     connection.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     verify(connection)
@@ -346,7 +356,10 @@ fn migrate_known(connection: &Connection, version: u32) -> Result<()> {
     if version < 3 {
         connection.execute_batch(retention_state::SCHEMA_SQL)?;
     }
-    connection.execute_batch(memory_jobs::SCHEMA_SQL)?;
+    if version < 4 {
+        connection.execute_batch(memory_jobs::SCHEMA_SQL)?;
+    }
+    connection.execute_batch(MIXED_SCHEMA)?;
     connection.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     verify(connection)
 }

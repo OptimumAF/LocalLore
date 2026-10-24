@@ -665,6 +665,28 @@
         {
           "additionalProperties": false,
           "properties": {
+            "expected_revision": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "op": {
+              "const": "play_snapshot_v2",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope", "expected_revision"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
             "op": {
               "const": "free_text",
               "type": "string"

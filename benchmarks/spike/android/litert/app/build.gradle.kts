@@ -1,25 +1,60 @@
 import java.security.MessageDigest
+import java.io.File
 
 plugins { id("com.android.application") }
 // The publisher SDK has classfile major 65. Compile our Java 17 source with an
 // already installed Java 21 compiler; never download a toolchain automatically.
 java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+fun explicitFlag(name: String): Boolean {
+    val value = providers.gradleProperty(name).orNull ?: return false
+    require(value == "true" || value == "false") { "Invalid experiment flag" }
+    return value == "true"
+}
+val cacheProbe = explicitFlag("localLoreCacheProbe")
+val phaseProbe = explicitFlag("localLorePhaseProbe")
+val playProbe = explicitFlag("localLorePlayProbe")
+require(!phaseProbe || cacheProbe) { "Phase evidence requires the isolated cache build profile" }
+require(!(cacheProbe && playProbe)) { "Cache and legacy play profiles are separate" }
+val cacheOutput = providers.gradleProperty("localLoreCacheOutput").orNull
+val cacheNative = providers.gradleProperty("localLoreCacheNativeDir").orNull
+require(cacheProbe == (cacheOutput != null && cacheNative != null)) { "Cache profile requires explicit output and JNI paths" }
+require(cacheProbe || (cacheOutput == null && cacheNative == null)) { "Cache paths require opt-in" }
+if (cacheProbe) {
+    fun markedOutput(value: String): File {
+        val path = File(value)
+        require(path.isAbsolute && path.toPath().normalize() == path.toPath()) { "Explicit absolute output required" }
+        require(path.toPath().root.toString().equals("D:\\", ignoreCase = true)) { "Cache output must be on D" }
+        require(path.toPath().toRealPath() == path.toPath()) { "Cache output must resolve to its explicit D path" }
+        return path
+    }
+    val output = markedOutput(cacheOutput!!)
+    layout.buildDirectory.set(output)
+    rootProject.layout.buildDirectory.set(output.parentFile.resolve("root-build"))
+    markedOutput(cacheNative!!)
+}
 android {
     namespace = "org.locallore.runtimebench.litert"
     compileSdk = 36
     buildToolsVersion = "35.0.0"
     defaultConfig {
-        applicationId = "org.locallore.runtimebench.litert"
+        applicationId = if (phaseProbe) "org.locallore.runtimebench.litert.phaseprobe"
+            else if (cacheProbe) "org.locallore.runtimebench.litert.cacheprobe" else "org.locallore.runtimebench.litert"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
-        versionName = "0.18.1-spike"
+        versionName = if (phaseProbe) "0.18.1-phaseprobe-v1" else if (cacheProbe) "0.18.1-cacheprobe-v1" else "0.18.1-spike"
+        manifestPlaceholders["spikeLabel"] = if (phaseProbe) "LocalLore phase evidence experiment"
+            else if (cacheProbe) "LocalLore explicit cache experiment" else "LocalLore SDK experiment"
+        manifestPlaceholders["spikeInstrumentation"] = if (phaseProbe)
+            "org.locallore.runtimebench.litert.PhaseEvidenceInstrumentation" else if (cacheProbe)
+            "org.locallore.runtimebench.litert.CacheProbeInstrumentation" else "org.locallore.runtimebench.litert.SpikeInstrumentation"
         ndk { abiFilters += listOf("x86_64", "arm64-v8a") }
     }
     // Optional Rust pump is built/staged by the explicit play-probe helper only.
-    if (providers.gradleProperty("localLorePlayProbe").orNull == "true") {
+    if (playProbe) {
         sourceSets["main"].jniLibs.srcDir(rootProject.file("../../../../target/android-play-probe/jniLibs"))
     }
+    if (cacheProbe) sourceSets["main"].jniLibs.srcDir(File(cacheNative!!))
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -60,7 +95,8 @@ tasks.register("auditLintAnalyzer") {
         val report = linkedMapOf("version" to 1, "analyzer_version" to analysis.lintTool.versionKey.get(),
             "analysis_did_work" to analysis.state.didWork, "check_dependencies" to android.lint.checkDependencies,
             "artifacts" to artifacts,
-            "model_directory" to analysis.lintModelDirectory.get().asFile.relativeTo(projectDir).invariantSeparatorsPath)
+            "model_directory" to if (cacheProbe) analysis.lintModelDirectory.get().asFile.absolutePath
+                else analysis.lintModelDirectory.get().asFile.relativeTo(projectDir).invariantSeparatorsPath)
         val output = layout.buildDirectory.file("reports/analyzer-audit.json").get().asFile
         output.parentFile.mkdirs()
         output.writeText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(report)) + "\n")

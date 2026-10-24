@@ -85,7 +85,7 @@ internal class DurableGateway(
     }
     private suspend fun workspace(): JSONObject = call(command("workspace")).also {
         check(it.getBoolean("persistent") && it.getInt("schema_version") == 1)
-        check(it.getInt("database_schema_version") == 4)
+        check(it.getInt("database_schema_version") == 5)
         it.getString("location")
         it.getJSONArray("stories")
     }
@@ -155,7 +155,7 @@ internal class DurableGateway(
         val workspace = workspace()
         // Host-v1's workspace contract and the SQLite implementation have separate versions.
         val databaseSchema = workspace.getInt("database_schema_version")
-        check(databaseSchema == 4)
+        check(databaseSchema == 5)
         val stories = workspace.getJSONArray("stories").let { rows -> (0 until rows.length()).map {
             val row = rows.getJSONObject(it); val s = row.getJSONObject("scope")
             SavedStory(s.getString("story"), s.getString("branch"), row.getString("title"), row.getLong("revision"))
@@ -256,6 +256,11 @@ internal class DurableGateway(
         if (resolved !is DemoResult.Prepared && operation === pending) operation = null
         return resolved
     }
+    private fun acknowledgeCancellation(data: JSONObject, pending: Pending) {
+        // An unfinished or foreign reply cannot release the original recovery key.
+        check(data.getString("phase") in setOf("committed", "cancelled", "failed", "stale"))
+        result(data, pending) // Validate the complete original binding before releasing it.
+    }
     override suspend fun commitAsync(result: DemoResult): DemoResult {
         if (result !is DemoResult.Prepared) return result
         val pending = operation ?: return DemoResult.Rejected("Cancelled")
@@ -276,7 +281,7 @@ internal class DurableGateway(
         if (session == null) return initialize()
         operation?.let { pending ->
             if (pending.cancelled) {
-                try { submissionGate.withLock { result(call(scoped("cancel", pending)), pending) } }
+                try { submissionGate.withLock { acknowledgeCancellation(call(scoped("cancel", pending)), pending) } }
                 catch (failure: WorkspaceFailure) {
                     if (failure.category != "UnknownTurn") throw failure
                     if (operation === pending) operation = null
@@ -308,8 +313,7 @@ internal class DurableGateway(
                     if (operation === pending) operation = null
                     return@let
                 }
-            if (status.getString("phase") == "committed") result(status, pending)
-            else if (operation === pending) operation = null
+            acknowledgeCancellation(status, pending)
         }
         return snapshot()
     }
@@ -329,8 +333,7 @@ internal class DurableGateway(
             pending.cancelled = true
             try {
                 val status = submissionGate.withLock { call(scoped("cancel", pending)) }
-                if (status.getString("phase") == "committed") result(status, pending)
-                else if (operation === pending) operation = null
+                acknowledgeCancellation(status, pending)
             } catch (failure: WorkspaceFailure) {
                 if (failure.category !in setOf("Closed", "UnknownTurn")) throw failure
                 if (operation === pending) operation = null

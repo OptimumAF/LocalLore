@@ -1,6 +1,7 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Atomic scoped turns and validated branch-history replay. No inference, file selector or SQL escapes this owner.
 use crate::{StorageError, Store};
+use locallore::author_correction::{CanonicalRecord, CanonicalRecordKind};
 use locallore::{
     contracts::{
         Error, Proposal, Receipt, Request, Scope, Seed, MAX_HISTORY_BYTES, MAX_HISTORY_RECEIPTS,
@@ -136,13 +137,13 @@ fn read_retained_budget(
         }
         .map_err(|_| TurnError::Integrity)?;
         let local: Vec<_> = rebuilt
-            .receipts()
+            .canonical_records()
             .iter()
-            .filter(|r| r.request().scope == branch.scope)
+            .filter(|r| r.original_scope() == &branch.scope)
             .collect();
         if rebuilt.revision() != cap
             || local.len() != requests.len()
-            || local.iter().zip(&requests).any(|(r, q)| r.request() != q)
+            || local.iter().zip(&requests).any(|(r, q)| !q.matches(r))
         {
             return Err(TurnError::Integrity);
         }
@@ -156,7 +157,7 @@ fn read_retained_budget(
         (&scope.story,&scope.branch),|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
     let canonical = engine.canonical_bytes();
     let valid_cache = cache.is_some_and(|(revision, version, json)| {
-        revision == head && version == 1 && json.as_bytes() == canonical
+        revision == head && version == engine.domain_version() && json.as_bytes() == canonical
     });
     Ok((
         ResumedStory {
@@ -168,12 +169,55 @@ fn read_retained_budget(
     ))
 }
 
+struct HistoryRow {
+    turn: String,
+    revision: i64,
+    input: String,
+    response: String,
+    kind: String,
+}
+pub(crate) fn canonical_kind(record: &CanonicalRecord) -> &'static str {
+    match record.kind() {
+        CanonicalRecordKind::LegacyPlay => "legacy_play",
+        CanonicalRecordKind::PlayV2 => "play_v2",
+        CanonicalRecordKind::AuthorCorrection => "author_v1",
+    }
+}
+impl HistoryRow {
+    fn matches(&self, record: &CanonicalRecord) -> bool {
+        if self.turn != record.turn_key() || self.kind != canonical_kind(record) {
+            return false;
+        }
+        match record {
+            CanonicalRecord::AuthorV1(author) => {
+                self.revision == i64::try_from(author.input().fork_revision).unwrap_or(-1)
+                    && locallore::engine::parse_unique_json(self.input.as_bytes(), 24576).is_ok_and(
+                        |value| {
+                            crate::author_correction::request_index(record)
+                                .is_ok_and(|expected| value == expected)
+                        },
+                    )
+                    && serde_json::to_string(record).is_ok_and(|value| value == self.response)
+            }
+            _ => {
+                let Some(receipt) = record.receipt() else {
+                    return false;
+                };
+                self.revision == i64::try_from(receipt.request().expected_revision).unwrap_or(-1)
+                    && serde_json::from_str::<Request>(&self.input)
+                        .is_ok_and(|q| &q == receipt.request())
+                    && (self.kind == "legacy_play"
+                        || serde_json::to_string(record).is_ok_and(|v| v == self.response))
+            }
+        }
+    }
+}
 fn read_history(
     connection: &Connection,
     scope: &Scope,
     cap: u64,
     complete: bool,
-) -> Result<(Vec<String>, Vec<Request>, usize, usize)> {
+) -> Result<(Vec<String>, Vec<HistoryRow>, usize, usize)> {
     let cap = sql_revision(cap)?;
     // Keep the established root/current-branch admission accounting (including
     // terminal drafts); ancestor drafts and later outcomes are not inherited.
@@ -187,26 +231,36 @@ fn read_history(
     {
         return Err(TurnError::TooLarge);
     }
-    let mut query=connection.prepare(
-        "SELECT turn_id,expected_revision,request_json,response_json FROM turns WHERE story_id=?1 AND branch_id=?2 AND status='committed' AND (?4 OR expected_revision<?3) ORDER BY expected_revision,turn_id")?;
+    let version: u32 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
+    let sql = if version >= 5 {
+        "SELECT turn_id,expected_revision,request_json,response_json,canonical_kind FROM turns WHERE story_id=?1 AND branch_id=?2 AND status='committed' AND (?4 OR expected_revision<?3) ORDER BY expected_revision,turn_id"
+    } else {
+        "SELECT turn_id,expected_revision,request_json,response_json,'legacy_play' FROM turns WHERE story_id=?1 AND branch_id=?2 AND status='committed' AND (?4 OR expected_revision<?3) ORDER BY expected_revision,turn_id"
+    };
+    let mut query = connection.prepare(sql)?;
     let mut rows = query.query((&scope.story, &scope.branch, cap, complete))?;
     let mut history = Vec::with_capacity(count as usize);
     let mut requests = Vec::with_capacity(count as usize);
     while let Some(row) = rows.next()? {
         let turn: String = row.get(0)?;
         let revision: i64 = row.get(1)?;
-        let request: Request =
-            serde_json::from_str(&row.get::<_, String>(2)?).map_err(|_| TurnError::Integrity)?;
+        let input: String = row.get(2)?;
         let response: String = row.get(3)?;
+        let kind: String = row.get(4)?;
         if response.len() > MAX_RECEIPT_BYTES
-            || request.scope != *scope
-            || request.turn != turn
-            || sql_revision(request.expected_revision)? != revision
+            || revision < 0
+            || !["legacy_play", "play_v2", "author_v1"].contains(&kind.as_str())
         {
             return Err(TurnError::Integrity);
         }
-        history.push(response);
-        requests.push(request);
+        history.push(response.clone());
+        requests.push(HistoryRow {
+            turn,
+            revision,
+            input,
+            response,
+            kind,
+        });
     }
     Ok((history, requests, count as usize, bytes as usize))
 }
@@ -216,20 +270,45 @@ fn verify_ledger(
     scope: &Scope,
     cap: u64,
     complete: bool,
-    receipts: &[&Receipt],
+    records: &[&CanonicalRecord],
 ) -> Result<()> {
     // The normalized source ledger must agree with original scoped receipts;
     // ancestor envelopes are never copied under a child's branch key.
-    let mut events=connection.prepare("SELECT sequence,turn_id,event_version,envelope_json FROM accepted_events WHERE story_id=?1 AND branch_id=?2 AND (?4 OR sequence<=?3) ORDER BY sequence")?;
+    let version: u32 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
+    let sql = if version >= 5 {
+        "SELECT sequence,turn_id,event_version,envelope_json,record_kind FROM accepted_events WHERE story_id=?1 AND branch_id=?2 AND (?4 OR sequence<=?3) ORDER BY sequence"
+    } else {
+        "SELECT sequence,turn_id,event_version,envelope_json,'play' FROM accepted_events WHERE story_id=?1 AND branch_id=?2 AND (?4 OR sequence<=?3) ORDER BY sequence"
+    };
+    let mut events = connection.prepare(sql)?;
     let mut event_rows =
         events.query((&scope.story, &scope.branch, sql_revision(cap)?, complete))?;
-    for receipt in receipts {
+    for record in records {
+        if let CanonicalRecord::AuthorV1(author) = record {
+            let row = event_rows.next()?.ok_or(TurnError::Integrity)?;
+            if row.get::<_, i64>(0)? != sql_revision(author.sequence())?
+                || row.get::<_, String>(1)? != record.turn_key()
+                || row.get::<_, u16>(2)? != 1
+                || row.get::<_, String>(3)?
+                    != serde_json::to_string(author).map_err(|_| TurnError::Integrity)?
+                || row.get::<_, String>(4)? != "author_correction"
+            {
+                return Err(TurnError::Integrity);
+            }
+            let witnesses:i64 = connection.query_row("SELECT count(*) FROM event_witnesses WHERE story_id=?1 AND branch_id=?2 AND sequence=?3",(&scope.story,&scope.branch,sql_revision(author.sequence())?),|r|r.get(0))?;
+            if witnesses != 0 {
+                return Err(TurnError::Integrity);
+            }
+            continue;
+        }
+        let receipt = record.receipt().ok_or(TurnError::Integrity)?;
         for event in receipt.events() {
             let row = event_rows.next()?.ok_or(TurnError::Integrity)?;
             let stored: String = row.get(3)?;
             if row.get::<_, i64>(0)? != sql_revision(event.sequence())?
                 || row.get::<_, String>(1)? != receipt.request().turn
                 || row.get::<_, u16>(2)? != 1
+                || row.get::<_, String>(4)? != "play"
                 || stored != serde_json::to_string(event).map_err(|_| TurnError::Integrity)?
             {
                 return Err(TurnError::Integrity);
@@ -257,8 +336,9 @@ fn verify_ledger(
     }
     let count:i64=connection.query_row("SELECT count(*) FROM event_witnesses WHERE story_id=?1 AND branch_id=?2 AND (?4 OR sequence<=?3)",
         (&scope.story,&scope.branch,sql_revision(cap)?,complete),|r|r.get(0))?;
-    let expected: usize = receipts
+    let expected: usize = records
         .iter()
+        .filter_map(|r| r.receipt())
         .flat_map(|r| r.events())
         .map(|e| e.witnesses().len())
         .sum();
@@ -273,12 +353,25 @@ fn recorded(
     request: &Request,
     engine: &Engine,
 ) -> Result<Option<TurnRecord>> {
-    let row: Option<(i64,String,String)> = connection.query_row(
-        "SELECT expected_revision,status,request_json FROM turns WHERE story_id=?1 AND branch_id=?2 AND turn_id=?3",
-        (&request.scope.story,&request.scope.branch,&request.turn), |r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
-    let Some((revision, status, input)) = row else {
+    let version: u32 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
+    let sql = if version >= 5 {
+        "SELECT expected_revision,status,request_json,canonical_kind FROM turns WHERE story_id=?1 AND branch_id=?2 AND turn_id=?3"
+    } else {
+        "SELECT expected_revision,status,request_json,'legacy_play' FROM turns WHERE story_id=?1 AND branch_id=?2 AND turn_id=?3"
+    };
+    let row: Option<(i64, String, String, String)> = connection
+        .query_row(
+            sql,
+            (&request.scope.story, &request.scope.branch, &request.turn),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        )
+        .optional()?;
+    let Some((revision, status, input, kind)) = row else {
         return Ok(None);
     };
+    if kind == "author_v1" {
+        return Err(TurnError::RetryMismatch);
+    }
     let original: Request = serde_json::from_str(&input).map_err(|_| TurnError::Integrity)?;
     if original.scope != request.scope
         || original.turn != request.turn
@@ -312,8 +405,8 @@ pub(crate) fn write_projection(connection: &Connection, engine: &Engine) -> Resu
     if bytes.len() > 262144 {
         return Err(TurnError::TooLarge);
     }
-    connection.execute("INSERT INTO branch_projections VALUES (?1,?2,?3,1,?4) ON CONFLICT(story_id,branch_id) DO UPDATE SET revision=excluded.revision,projection_version=1,projection_json=excluded.projection_json",
-        (&engine.scope().story,&engine.scope().branch,sql_revision(engine.revision())?,String::from_utf8(bytes).map_err(|_|TurnError::Integrity)?))?;
+    connection.execute("INSERT INTO branch_projections(story_id,branch_id,revision,projection_version,projection_json) VALUES (?1,?2,?3,?5,?4) ON CONFLICT(story_id,branch_id) DO UPDATE SET revision=excluded.revision,projection_version=excluded.projection_version,projection_json=excluded.projection_json",
+        (&engine.scope().story,&engine.scope().branch,sql_revision(engine.revision())?,String::from_utf8(bytes).map_err(|_|TurnError::Integrity)?,engine.domain_version()))?;
     Ok(())
 }
 
@@ -384,7 +477,7 @@ impl Store {
             return Err(TurnError::TooLarge);
         }
         tx.execute(
-            "INSERT INTO turns VALUES (?1,?2,?3,?4,'draft',?5,NULL)",
+            "INSERT INTO turns(story_id,branch_id,turn_id,expected_revision,status,request_json,response_json) VALUES (?1,?2,?3,?4,'draft',?5,NULL)",
             (
                 &request.scope.story,
                 &request.scope.branch,
@@ -471,15 +564,22 @@ impl Store {
         }
         let tx = self.connection.transaction()?;
         let resumed = read_engine(&tx, scope)?;
-        let input: Option<String> = tx
-            .query_row(
-                "SELECT request_json FROM turns WHERE story_id=?1 AND branch_id=?2 AND turn_id=?3",
-                (&scope.story, &scope.branch, turn),
-                |r| r.get(0),
-            )
+        let version: u32 = tx.pragma_query_value(None, "user_version", |r| r.get(0))?;
+        let sql = if version >= 5 {
+            "SELECT request_json,canonical_kind FROM turns WHERE story_id=?1 AND branch_id=?2 AND turn_id=?3"
+        } else {
+            "SELECT request_json,'legacy_play' FROM turns WHERE story_id=?1 AND branch_id=?2 AND turn_id=?3"
+        };
+        let input: Option<(String, String)> = tx
+            .query_row(sql, (&scope.story, &scope.branch, turn), |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
             .optional()?;
-        let request: Request = serde_json::from_str(&input.ok_or(TurnError::UnknownTurn)?)
-            .map_err(|_| TurnError::Integrity)?;
+        let (input, kind) = input.ok_or(TurnError::UnknownTurn)?;
+        if kind == "author_v1" {
+            return Err(TurnError::RetryMismatch);
+        }
+        let request: Request = serde_json::from_str(&input).map_err(|_| TurnError::Integrity)?;
         if request.scope != *scope || request.turn != turn {
             return Err(TurnError::Integrity);
         }
@@ -625,7 +725,12 @@ impl Store {
             resumed.engine.commit(request, proposal, narration)
         }
         .map_err(TurnError::Engine)?;
-        let response = serde_json::to_string(&receipt).map_err(|_| TurnError::Integrity)?;
+        let canonical = resumed
+            .engine
+            .canonical_records()
+            .last()
+            .ok_or(TurnError::Integrity)?;
+        let response = serde_json::to_string(canonical).map_err(|_| TurnError::Integrity)?;
         if response.len() > MAX_RECEIPT_BYTES
             || history_bytes.saturating_add(response.len()) > MAX_HISTORY_BYTES
         {
@@ -634,7 +739,7 @@ impl Store {
         checkpoint(0)?;
         for event in receipt.events() {
             tx.execute(
-                "INSERT INTO accepted_events VALUES (?1,?2,?3,?4,1,?5)",
+                "INSERT INTO accepted_events(story_id,branch_id,sequence,turn_id,event_version,envelope_json) VALUES (?1,?2,?3,?4,1,?5)",
                 (
                     &request.scope.story,
                     &request.scope.branch,
@@ -652,8 +757,8 @@ impl Store {
         checkpoint(2)?;
         write_projection(&tx, &resumed.engine)?;
         checkpoint(3)?;
-        tx.execute("UPDATE turns SET status='committed',response_json=?4 WHERE story_id=?1 AND branch_id=?2 AND turn_id=?3 AND status='draft'",
-            (&request.scope.story,&request.scope.branch,&request.turn,response))?;
+        tx.execute("UPDATE turns SET status='committed',response_json=?4,canonical_kind=?5 WHERE story_id=?1 AND branch_id=?2 AND turn_id=?3 AND status='draft'",
+            (&request.scope.story,&request.scope.branch,&request.turn,response,canonical_kind(canonical)))?;
         checkpoint(4)?;
         if tx.execute("UPDATE branches SET head_revision=?4 WHERE story_id=?1 AND branch_id=?2 AND head_revision=?3",
             (&request.scope.story,&request.scope.branch,sql_revision(request.expected_revision)?,sql_revision(resumed.engine.revision())?))? != 1 { return Err(TurnError::Stale); }

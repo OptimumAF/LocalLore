@@ -38,7 +38,7 @@ class DurableDeletionRecoveryTest {
             if (op == "workspace") {
                 workspaceFailure?.let { workspaceFailure = null; return rejected(it) }
                 return ok(JSONObject().put("persistent", true).put("schema_version", 1)
-                    .put("database_schema_version", 4).put("location", "/synthetic/stories.sqlite3")
+                    .put("database_schema_version", 5).put("location", "/synthetic/stories.sqlite3")
                     .put("stories", JSONArray().also { rows -> stories.forEach { story ->
                         rows.put(JSONObject().put("scope", scope(story)).put("title", story.title)
                             .put("revision", story.revision).put("drafts", 0))
@@ -87,7 +87,7 @@ class DurableDeletionRecoveryTest {
     private fun assertEmpty(saved: SavedSnapshot) {
         assertNull(saved.selected); assertTrue(saved.stories.isEmpty()); assertTrue(saved.messages.isEmpty())
         assertEquals(0L, saved.revision); assertEquals(0, saved.uncommittedDrafts)
-        assertEquals(1, saved.schemaVersion); assertEquals(4, saved.databaseSchemaVersion)
+        assertEquals(1, saved.schemaVersion); assertEquals(5, saved.databaseSchemaVersion)
         assertEquals("/synthetic/stories.sqlite3", saved.location)
     }
 

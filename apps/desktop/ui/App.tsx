@@ -5,6 +5,11 @@ import { TimelinePanel } from "./TimelinePanel";
 import { ForkPanel } from "./ForkPanel";
 import { MemoryMaintenancePanel } from "./MemoryMaintenancePanel";
 import { BrokerRetentionPanel } from "./BrokerRetentionPanel";
+import { AuthorPanel } from "./AuthorPanel";
+import type { AuthorController } from "./author-controller";
+import type { AuthorContext } from "./author-model";
+import { V2PlayPanel } from "./V2PlayPanel";
+import type { V2PlayController, V2PlayState } from "./v2-play-controller";
 import type { BrokerRetention } from "./broker-retention";
 import type {
     MemoryContext,
@@ -30,6 +35,8 @@ const actions: Record<Action, string> = {
     ability: "Attempt unlearned teleport",
     dialogue: "Say draft aloud to Mira",
 };
+const noScopedSubscription = () => () => {};
+const noScopedSnapshot = () => null;
 function intent(r: Receipt) {
     return r.request.intent.kind === "free_text"
         ? r.request.intent.value.text
@@ -82,6 +89,9 @@ export function App({
     maintenance,
     maintenanceContext,
     brokerRetention,
+    author,
+    authorContext,
+    v2,
 }: {
     controller: Controller;
     capture?: CaptureController;
@@ -92,31 +102,43 @@ export function App({
     maintenance?: MemoryMaintenanceController;
     maintenanceContext?: () => MemoryContext | null;
     brokerRetention?: BrokerRetention;
+    author?: AuthorController;
+    authorContext?: () => AuthorContext | null;
+    v2?: V2PlayController;
 }) {
     const s = useSyncExternalStore(c.subscribe, c.get),
         selected = c.selected(),
         receipt = c.receipt();
+    const scoped = useSyncExternalStore<V2PlayState | null>(
+        v2?.subscribe ?? noScopedSubscription,
+        v2?.get ?? noScopedSnapshot,
+    );
     const receipts = s.play?.receipts ?? [],
         rows = receipts.slice(s.page * PAGE_SIZE, (s.page + 1) * PAGE_SIZE);
+    const play = s.play ?? s.playV2;
     return (
         <div
             className={`app text-${s.textScale} side-${s.sidebarSize} detail-${s.inspectorSize}`}
         >
             <a
                 href={
-                    s.trace.shown
-                        ? "#trace-controls"
-                        : s.query.shown
-                          ? "#memory-controls"
-                          : "#composer"
+                    s.playV2
+                        ? "#v2-play"
+                        : s.trace.shown
+                          ? "#trace-controls"
+                          : s.query.shown
+                            ? "#memory-controls"
+                            : "#composer"
                 }
                 className="skip"
             >
-                {s.trace.shown
-                    ? "Skip to trace controls"
-                    : s.query.shown
-                      ? "Skip to memory controls"
-                      : "Skip to composer"}
+                {s.playV2
+                    ? "Skip to current timeline"
+                    : s.trace.shown
+                      ? "Skip to trace controls"
+                      : s.query.shown
+                        ? "Skip to memory controls"
+                        : "Skip to composer"}
             </a>
             <header className="brandbar">
                 <strong className="brand">LocalLore</strong>
@@ -151,7 +173,7 @@ export function App({
             </header>
             {s.labPending && <LabAcknowledgement controller={c} />}
             <div
-                className={`workspace ${s.inspectorOpen && !s.query.shown && !s.trace.shown ? "" : "collapsed"}`}
+                className={`workspace ${!s.playV2 && s.inspectorOpen && !s.query.shown && !s.trace.shown ? "" : "collapsed"}`}
             >
                 <aside className="sidebar" aria-label="Story sessions">
                     <h2>
@@ -175,19 +197,24 @@ export function App({
                         <button
                             onClick={() => void c.showQuery(!s.query.shown)}
                             aria-pressed={s.query.shown}
+                            disabled={!!s.playV2}
                         >
                             Memory & evidence
                         </button>
                         <button
                             onClick={() => void c.showTrace(!s.trace.shown)}
                             aria-pressed={s.trace.shown}
+                            disabled={!!s.playV2}
                         >
                             Turn debugger
                         </button>
                         <button onClick={() => c.showModel()}>
                             Local model management
                         </button>
-                        <button onClick={() => c.showExports()}>
+                        <button
+                            disabled={!!s.playV2}
+                            onClick={() => c.showExports()}
+                        >
                             Inspection snapshots
                         </button>
                         <button onClick={() => void c.revealStorage()}>
@@ -244,8 +271,8 @@ export function App({
                                     "Not reported"}{" "}
                                 | Workspace contract{" "}
                                 {s.workspace.schema_version} | Domain contract
-                                domain-v1 | Rules{" "}
-                                {s.play?.rules ?? "unavailable"} | Canonical
+                                domain-v{s.playV2?.domain_version ?? 1} | Rules{" "}
+                                {play?.rules ?? "unavailable"} | Canonical
                                 receipts and validated replay
                             </p>
                         </details>
@@ -323,21 +350,25 @@ export function App({
                                         : "Choose New Lantern Quay to begin."}
                                 </small>
                             </div>
-                            <button
-                                aria-expanded={s.inspectorOpen}
-                                onClick={() => c.setInspector(!s.inspectorOpen)}
-                            >
-                                {s.inspectorOpen
-                                    ? "Hide inspector"
-                                    : "Show inspector"}
-                            </button>
+                            {!s.playV2 && (
+                                <button
+                                    aria-expanded={s.inspectorOpen}
+                                    onClick={() =>
+                                        c.setInspector(!s.inspectorOpen)
+                                    }
+                                >
+                                    {s.inspectorOpen
+                                        ? "Hide inspector"
+                                        : "Show inspector"}
+                                </button>
+                            )}
                         </div>
                         <div
                             className="scene-status"
                             aria-label="Engine status"
                         >
-                            <span>Revision {s.play?.revision ?? "—"}</span>
-                            <span>Rules: {s.play?.rules ?? "unavailable"}</span>
+                            <span>Revision {play?.revision ?? "—"}</span>
+                            <span>Rules: {play?.rules ?? "unavailable"}</span>
                             <span>
                                 Provider:{" "}
                                 {s.playMode === "local"
@@ -348,9 +379,15 @@ export function App({
                             </span>
                             <span>
                                 Turn:{" "}
-                                {s.pending?.stage ??
-                                    s.turnStatus?.phase ??
-                                    "idle"}
+                                {s.playV2
+                                    ? scoped?.uncertain
+                                        ? "outcome unknown"
+                                        : (scoped?.pending?.stage ??
+                                          scoped?.status?.phase ??
+                                          "idle")
+                                    : (s.pending?.stage ??
+                                      s.turnStatus?.phase ??
+                                      "idle")}
                             </span>
                         </div>
                     </div>
@@ -363,29 +400,58 @@ export function App({
                     {brokerRetention && (
                         <BrokerRetentionPanel retention={brokerRetention} />
                     )}
-                    {maintenance && maintenanceContext && selected && (
-                        <MemoryMaintenancePanel
-                            maintenance={maintenance}
-                            context={maintenanceContext()}
-                            receipt={
-                                receipt
-                                    ? {
-                                          turn: receipt.request.turn,
-                                          revision:
-                                              receipt.events.at(-1)?.sequence ??
-                                              0,
-                                      }
-                                    : undefined
-                            }
+                    {s.view === "lab" && s.playV2 && (
+                        <label>
+                            Inspection lens
+                            <select
+                                value={s.observer}
+                                onChange={(event) =>
+                                    c.setObserver(event.target.value)
+                                }
+                            >
+                                <option value="omniscient">
+                                    Omniscient developer
+                                </option>
+                                <option value="player">Player history</option>
+                                <option value="mira">Mira</option>
+                                <option value="sable">
+                                    Sable · unwitnessed
+                                </option>
+                            </select>
+                        </label>
+                    )}
+                    {author && authorContext && s.view === "lab" && (
+                        <AuthorPanel
+                            author={author}
+                            context={authorContext()}
                         />
                     )}
-                    {timeline && selected && (
+                    {!s.playV2 &&
+                        maintenance &&
+                        maintenanceContext &&
+                        selected && (
+                            <MemoryMaintenancePanel
+                                maintenance={maintenance}
+                                context={maintenanceContext()}
+                                receipt={
+                                    receipt
+                                        ? {
+                                              turn: receipt.request.turn,
+                                              revision:
+                                                  receipt.events.at(-1)
+                                                      ?.sequence ?? 0,
+                                          }
+                                        : undefined
+                                }
+                            />
+                        )}
+                    {!s.playV2 && timeline && selected && (
                         <TimelinePanel
                             timeline={timeline}
                             context={timelineContext(c)}
                         />
                     )}
-                    {fork && selected && (
+                    {!s.playV2 && fork && selected && (
                         <ForkPanel
                             fork={fork}
                             gameplay={c}
@@ -399,7 +465,7 @@ export function App({
                             allowed={s.view === "lab"}
                         />
                     )}
-                    {archive && (
+                    {!s.playV2 && archive && (
                         <ArchivePanel
                             archive={archive}
                             controller={c}
@@ -407,7 +473,33 @@ export function App({
                             allowed={s.view === "lab"}
                         />
                     )}
-                    {s.query.shown ? (
+                    {s.playV2 && v2 ? (
+                        <div id="v2-play" tabIndex={-1}>
+                            <ModelPanel controller={c} state={s} />
+                            <V2PlayPanel
+                                controller={v2}
+                                controls={{
+                                    action: (value) => c.setAction(value),
+                                    fakeMode: (value) => c.setFakeMode(value),
+                                    playMode: (value) => c.setPlayMode(value),
+                                    inputKind: (value) => c.setInputKind(value),
+                                }}
+                            />
+                            <p className="muted">
+                                This timeline uses scoped native views. Legacy
+                                debugger, inspection exports, archive transfer,
+                                timeline navigation and derived-memory
+                                maintenance remain unavailable for this domain
+                                version until their shared adapters support it.
+                            </p>
+                            <button
+                                disabled={!selected}
+                                onClick={() => void c.closeSession()}
+                            >
+                                Close session | keep save
+                            </button>
+                        </div>
+                    ) : s.query.shown ? (
                         <QueryInspector controller={c} state={s} />
                     ) : (
                         <>
@@ -736,183 +828,203 @@ export function App({
                         </>
                     )}
                 </main>
-                {s.inspectorOpen && !s.query.shown && !s.trace.shown && (
-                    <aside
-                        className="inspector"
-                        aria-label="Revision inspector"
-                    >
-                        <div className="head">
-                            <h2>
-                                {s.view === "lab"
-                                    ? "Story Lab inspector"
-                                    : "Player & receipt"}
-                            </h2>
-                            <button
-                                disabled={!receipt}
-                                onClick={() =>
-                                    void c.copyReceipt((text) =>
-                                        navigator.clipboard.writeText(text),
-                                    )
-                                }
-                            >
-                                Copy receipt
-                            </button>
-                        </div>
-                        <p className="scope">
-                            {selected?.scope.story ?? "No session"} · revision{" "}
-                            {s.play?.revision ?? "—"}
-                        </p>
-                        {s.view === "lab" && (
-                            <label>
-                                Inspection lens
-                                <select
-                                    value={s.observer}
-                                    onChange={(e) =>
-                                        c.setObserver(e.target.value)
+                {!s.playV2 &&
+                    s.inspectorOpen &&
+                    !s.query.shown &&
+                    !s.trace.shown && (
+                        <aside
+                            className="inspector"
+                            aria-label="Revision inspector"
+                        >
+                            <div className="head">
+                                <h2>
+                                    {s.view === "lab"
+                                        ? "Story Lab inspector"
+                                        : "Player & receipt"}
+                                </h2>
+                                <button
+                                    disabled={!receipt}
+                                    onClick={() =>
+                                        void c.copyReceipt((text) =>
+                                            navigator.clipboard.writeText(text),
+                                        )
                                     }
                                 >
-                                    <option value="omniscient">
-                                        Omniscient developer
-                                    </option>
-                                    <option value="player">
-                                        Rowan · player
-                                    </option>
-                                    <option value="mira">Mira</option>
-                                    <option value="sable">
-                                        Sable · unwitnessed
-                                    </option>
-                                </select>
-                            </label>
-                        )}
-                        <section>
-                            <h3>Player sheet</h3>
-                            <dl>
-                                <dt>Name</dt>
-                                <dd>{s.play?.player.self_state.name ?? "—"}</dd>
-                                <dt>Location</dt>
-                                <dd>
-                                    {s.play?.player.self_state.location ?? "—"}
-                                </dd>
-                                <dt>Energy</dt>
-                                <dd>
-                                    {s.play?.player.self_state.energy ?? "—"}
-                                </dd>
-                                <dt>Owned items</dt>
-                                <dd>
-                                    {Object.keys(s.play?.inventory ?? {}).join(
-                                        ", ",
-                                    ) || "None"}
-                                </dd>
-                            </dl>
-                        </section>
-                        <section>
-                            <h3>Finalized receipt</h3>
-                            {receipt && (
-                                <button onClick={() => void c.traceReceipt()}>
-                                    Trace turn & evidence
+                                    Copy receipt
                                 </button>
+                            </div>
+                            <p className="scope">
+                                {selected?.scope.story ?? "No session"} ·
+                                revision {s.play?.revision ?? "—"}
+                            </p>
+                            {s.view === "lab" && (
+                                <label>
+                                    Inspection lens
+                                    <select
+                                        value={s.observer}
+                                        onChange={(e) =>
+                                            c.setObserver(e.target.value)
+                                        }
+                                    >
+                                        <option value="omniscient">
+                                            Omniscient developer
+                                        </option>
+                                        <option value="player">
+                                            Rowan · player
+                                        </option>
+                                        <option value="mira">Mira</option>
+                                        <option value="sable">
+                                            Sable · unwitnessed
+                                        </option>
+                                    </select>
+                                </label>
                             )}
-                            {receipt ? (
-                                <>
-                                    <p className="scope">
-                                        {receipt.request.turn} · revision{" "}
-                                        {receipt.events.at(-1)?.sequence}
-                                    </p>
-                                    <details>
-                                        <summary>
-                                            Accepted events (
-                                            {receipt.events.length})
-                                        </summary>
-                                        <pre tabIndex={0}>
-                                            {JSON.stringify(
-                                                receipt.events,
-                                                null,
-                                                2,
-                                            )}
-                                        </pre>
-                                    </details>
-                                    <details>
-                                        <summary>Request & proposal</summary>
-                                        <pre tabIndex={0}>
-                                            {JSON.stringify(
-                                                {
-                                                    request: receipt.request,
-                                                    proposal: receipt.proposal,
-                                                },
-                                                null,
-                                                2,
-                                            )}
-                                        </pre>
-                                    </details>
-                                    {receipt.play && (
+                            <section>
+                                <h3>Player sheet</h3>
+                                <dl>
+                                    <dt>Name</dt>
+                                    <dd>
+                                        {s.play?.player.self_state.name ?? "—"}
+                                    </dd>
+                                    <dt>Location</dt>
+                                    <dd>
+                                        {s.play?.player.self_state.location ??
+                                            "—"}
+                                    </dd>
+                                    <dt>Energy</dt>
+                                    <dd>
+                                        {s.play?.player.self_state.energy ??
+                                            "—"}
+                                    </dd>
+                                    <dt>Owned items</dt>
+                                    <dd>
+                                        {Object.keys(
+                                            s.play?.inventory ?? {},
+                                        ).join(", ") || "None"}
+                                    </dd>
+                                </dl>
+                            </section>
+                            <section>
+                                <h3>Finalized receipt</h3>
+                                {receipt && (
+                                    <button
+                                        onClick={() => void c.traceReceipt()}
+                                    >
+                                        Trace turn & evidence
+                                    </button>
+                                )}
+                                {receipt ? (
+                                    <>
+                                        <p className="scope">
+                                            {receipt.request.turn} · revision{" "}
+                                            {receipt.events.at(-1)?.sequence}
+                                        </p>
                                         <details>
                                             <summary>
-                                                Local play provenance &amp;
-                                                stage timing
+                                                Accepted events (
+                                                {receipt.events.length})
                                             </summary>
                                             <pre tabIndex={0}>
                                                 {JSON.stringify(
-                                                    receipt.play,
+                                                    receipt.events,
                                                     null,
                                                     2,
                                                 )}
                                             </pre>
                                         </details>
-                                    )}
-                                </>
-                            ) : (
-                                <p className="muted">No accepted turn yet.</p>
-                            )}
-                        </section>
-                        <section>
-                            <h3>
-                                Latest state diff{" "}
-                                {s.diffRevision === null
-                                    ? ""
-                                    : `→ r${s.diffRevision}`}
-                            </h3>
-                            <p className="muted">
-                                Compared player snapshots from Rust.
-                            </p>
-                            <ul className="diff">
-                                {s.diff.map((row) => (
-                                    <li key={row.path}>
-                                        <code>{row.path}</code>
-                                        {JSON.stringify(row.before)} →{" "}
-                                        {JSON.stringify(row.after)}
-                                    </li>
-                                ))}
-                            </ul>
-                        </section>
-                        {s.view === "lab" && (
-                            <section>
-                                <h3>Scoped inspection</h3>
-                                <p className="scope">
-                                    {s.inspectionObserver ?? "Loading"} ·
-                                    revision {s.inspectionRevision ?? "—"}
-                                </p>
-                                <pre tabIndex={0}>
-                                    {s.inspection === null
-                                        ? "No inspection snapshot."
-                                        : JSON.stringify(s.inspection, null, 2)}
-                                </pre>
-                                <p className="muted">
-                                    Summaries, retrieval traces and advanced
-                                    memory views await their shared features.
-                                </p>
+                                        <details>
+                                            <summary>
+                                                Request & proposal
+                                            </summary>
+                                            <pre tabIndex={0}>
+                                                {JSON.stringify(
+                                                    {
+                                                        request:
+                                                            receipt.request,
+                                                        proposal:
+                                                            receipt.proposal,
+                                                    },
+                                                    null,
+                                                    2,
+                                                )}
+                                            </pre>
+                                        </details>
+                                        {receipt.play && (
+                                            <details>
+                                                <summary>
+                                                    Local play provenance &amp;
+                                                    stage timing
+                                                </summary>
+                                                <pre tabIndex={0}>
+                                                    {JSON.stringify(
+                                                        receipt.play,
+                                                        null,
+                                                        2,
+                                                    )}
+                                                </pre>
+                                            </details>
+                                        )}
+                                    </>
+                                ) : (
+                                    <p className="muted">
+                                        No accepted turn yet.
+                                    </p>
+                                )}
                             </section>
-                        )}
-                        <button
-                            className="danger"
-                            disabled={!selected}
-                            onClick={() => void c.closeSession()}
-                        >
-                            {s.ephemeral
-                                ? "Close fixture session"
-                                : "Close session | keep save"}
-                        </button>
-                    </aside>
-                )}
+                            <section>
+                                <h3>
+                                    Latest state diff{" "}
+                                    {s.diffRevision === null
+                                        ? ""
+                                        : `→ r${s.diffRevision}`}
+                                </h3>
+                                <p className="muted">
+                                    Compared player snapshots from Rust.
+                                </p>
+                                <ul className="diff">
+                                    {s.diff.map((row) => (
+                                        <li key={row.path}>
+                                            <code>{row.path}</code>
+                                            {JSON.stringify(row.before)} →{" "}
+                                            {JSON.stringify(row.after)}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </section>
+                            {s.view === "lab" && (
+                                <section>
+                                    <h3>Scoped inspection</h3>
+                                    <p className="scope">
+                                        {s.inspectionObserver ?? "Loading"} ·
+                                        revision {s.inspectionRevision ?? "—"}
+                                    </p>
+                                    <pre tabIndex={0}>
+                                        {s.inspection === null
+                                            ? "No inspection snapshot."
+                                            : JSON.stringify(
+                                                  s.inspection,
+                                                  null,
+                                                  2,
+                                              )}
+                                    </pre>
+                                    <p className="muted">
+                                        Summaries, retrieval traces and advanced
+                                        memory views await their shared
+                                        features.
+                                    </p>
+                                </section>
+                            )}
+                            <button
+                                className="danger"
+                                disabled={!selected}
+                                onClick={() => void c.closeSession()}
+                            >
+                                {s.ephemeral
+                                    ? "Close fixture session"
+                                    : "Close session | keep save"}
+                            </button>
+                        </aside>
+                    )}
             </div>
             <footer className="footer">
                 <span>

@@ -10,6 +10,26 @@ use std::{
     sync::Mutex,
 };
 
+pub(crate) const AUTHOR_LABELS: &[&str] = &[
+    "author-native-consent",
+    "author-native-preview",
+    "author-native-rejected",
+    "author-native-pending",
+    "author-native-cancelled",
+    "author-native-saved",
+    "author-native-history",
+    "author-native-observer",
+    "author-native-receipt",
+    "author-native-turn-cancelled",
+    "author-native-stale-context",
+    "author-native-late-cancel",
+    "author-native-unknown",
+    "author-native-recovered",
+    "author-native-narrow",
+    "author-native-restarted",
+    "author-native-reopened",
+];
+
 const MAX_JSON: usize = 256 * 1024;
 const MAX_PNG: usize = 16 * 1024 * 1024;
 const MAX_CHECKPOINTS: usize = 40;
@@ -163,6 +183,10 @@ pub fn active() -> bool {
     std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1")
 }
 
+pub(crate) fn author_active() -> bool {
+    active() && std::env::var("LOCALLORE_M08_AUTHOR_HARNESS").as_deref() == Ok("1")
+}
+
 struct Progress {
     labels: HashSet<String>,
     finished: bool,
@@ -210,7 +234,7 @@ impl HarnessState {
     }
 
     fn reserve(&self, label: &str) -> Result<(), &'static str> {
-        if !LABELS.contains(&label) {
+        if !(LABELS.contains(&label) || (author_active() && AUTHOR_LABELS.contains(&label))) {
             return Err("CheckpointInvalid");
         }
         let mut progress = self.progress.lock().map_err(|_| "HarnessUnavailable")?;

@@ -581,7 +581,7 @@ fn inherited_history_budget_prevents_committing_an_unrestorable_child() {
     let request = engine.request("new", Intent::Actions(vec![Command::Wait { ticks: 1 }]));
     let input = serde_json::to_string(&request).unwrap();
     let db = Connection::open(temp.path()).unwrap();
-    db.execute("WITH RECURSIVE ids(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM ids WHERE n<?1) INSERT INTO turns SELECT ?2,?3,'cancelled-'||n,1,'cancelled',json_set(?4,'$.turn','cancelled-'||n),NULL FROM ids",params![(MAX_HISTORY_RECEIPTS-1) as i64,child.story,child.branch,input]).unwrap();
+    db.execute("WITH RECURSIVE ids(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM ids WHERE n<?1) INSERT INTO turns(story_id,branch_id,turn_id,expected_revision,status,request_json,response_json) SELECT ?2,?3,'cancelled-'||n,1,'cancelled',json_set(?4,'$.turn','cancelled-'||n),NULL FROM ids",params![(MAX_HISTORY_RECEIPTS-1) as i64,child.story,child.branch,input]).unwrap();
     assert_eq!(store.begin_turn(&request).err(), Some(TurnError::TooLarge));
     assert_eq!(
         count(&db, "turns", &child),

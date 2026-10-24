@@ -983,7 +983,7 @@ fn run_story(
                     format!("{}-compiler-version", step.id),
                     Some(step.id.clone()),
                     "retrieval",
-                    json!(Some(1)),
+                    json!(Some(locallore::context_compiler::POLICY_COMPILER_VERSION)),
                     json!(c.compiler_version),
                 );
                 check(

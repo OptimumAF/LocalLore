@@ -25,6 +25,7 @@ pub enum CoverageError {
     /// A single complete turn cannot be represented. No packet/progress is returned.
     Budget,
     Source,
+    Unsupported,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FallbackReason {
@@ -170,6 +171,9 @@ impl VerifiedCoverage {
         cancel: &dyn Fn() -> bool,
     ) -> Result<CoverageRead> {
         check(cancel)?;
+        if engine.domain_version() != 1 {
+            return verify_coverage(engine, request, &[], cancel);
+        }
         let bytes = self
             .packets
             .iter()
@@ -244,11 +248,11 @@ fn hash_value(value: &impl Serialize) -> Result<String> {
     serde_json::to_writer(&mut writer, value).map_err(|_| CoverageError::Source)?;
     Ok(format!("{:x}", writer.0.finalize()))
 }
-fn binding(
+fn validate_binding(
     engine: &Engine,
     request: &CoverageRequest,
     cancel: &dyn Fn() -> bool,
-) -> Result<(String, String)> {
+) -> Result<()> {
     check(cancel)?;
     if request.scope != *engine.scope() {
         return Err(CoverageError::Scope);
@@ -258,6 +262,17 @@ fn binding(
     }
     if !engine.state().actors.contains_key(&request.observer) {
         return Err(CoverageError::Observer);
+    }
+    Ok(())
+}
+fn binding(
+    engine: &Engine,
+    request: &CoverageRequest,
+    cancel: &dyn Fn() -> bool,
+) -> Result<(String, String)> {
+    validate_binding(engine, request, cancel)?;
+    if engine.domain_version() != 1 {
+        return Err(CoverageError::Unsupported);
     }
     let seed = hash_value(engine.seed())?;
     let lineage = hash_value(
@@ -543,6 +558,10 @@ pub fn verify_coverage(
     packets: &[&[u8]],
     cancel: &dyn Fn() -> bool,
 ) -> Result<CoverageRead> {
+    validate_binding(engine, request, cancel)?;
+    if engine.domain_version() != 1 {
+        return Ok(CoverageRead::RawFallback(FallbackReason::Unsupported));
+    }
     let (seed, lineage) = binding(engine, request, cancel)?;
     if packets.is_empty() {
         return Ok(CoverageRead::RawFallback(FallbackReason::Missing));

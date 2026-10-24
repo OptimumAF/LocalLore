@@ -256,7 +256,7 @@ fn graph(connection: &Connection, story: &str, cancel: &dyn Fn() -> bool) -> Res
         // Digests are a bounded equality check, never an alternative to replay.
         let canon: [u8; 32] = Sha256::digest(engine.canonical_bytes()).into();
         let receipts: [u8; 32] = Sha256::digest(
-            serde_json::to_vec(engine.receipts()).map_err(|_| DeletionError::Integrity)?,
+            serde_json::to_vec(engine.canonical_records()).map_err(|_| DeletionError::Integrity)?,
         )
         .into();
         fingerprints.insert(id.clone(), (canon, receipts));

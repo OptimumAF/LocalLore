@@ -297,17 +297,18 @@ class ShellViewModel internal constructor(
             databaseSchemaVersion = saved.databaseSchemaVersion,
             timelines = saved.timelines,
             textProvider = saved.textProvider,
-            recoveryRequired = false, notice = notice,
+            recoveryRequired = false, checkingCancellation = false, notice = notice,
         )
         synchronizeForkContext(next)
         return next
     }
 
-    private fun savedOperation(notice: String, operation: suspend () -> SavedSnapshot?) {
+    private fun savedOperation(notice: String, checkingCancellation: Boolean = false, operation: suspend () -> SavedSnapshot?) {
         invalidateForkContext()
         recordController.dismiss()
         val ticket = ++generation
-        mutable.value = mutable.value.copy(busy = true, preparingResponse = false, notice = null)
+        mutable.value = mutable.value.copy(busy = true, preparingResponse = false,
+            checkingCancellation = checkingCancellation, notice = null)
         pending = viewModelScope.launch {
             try {
                 val saved = operation()
@@ -319,7 +320,7 @@ class ShellViewModel internal constructor(
                         "Saved progress could not be confirmed. Retry recovery; existing saves are retained."),
                 )
             } finally {
-                if (!disposed && ticket == generation) mutable.value = mutable.value.copy(busy = false)
+                if (!disposed && ticket == generation) mutable.value = mutable.value.copy(busy = false, checkingCancellation = false)
             }
         }
     }
@@ -330,7 +331,7 @@ class ShellViewModel internal constructor(
         }
     }
     fun resume(story: SavedStory) {
-        if (!disposed && !forkBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && gateway.durable) savedOperation("Saved story resumed.") { gateway.resumeSaved(story) }
+        if (!disposed && !forkBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && !mutable.value.recoveryRequired && gateway.durable) savedOperation("Saved story resumed.") { gateway.resumeSaved(story) }
     }
     fun resumeTimeline(timeline: SavedTimeline) {
         val before = mutable.value
@@ -470,8 +471,21 @@ class ShellViewModel internal constructor(
         pending?.cancel()
         pending = null
         if (gateway.durable) {
-            savedOperation("Response stopped. Showing the accepted saved history.") { gateway.cancelSaved() }
-            diagnosticLog.record(DiagnosticPhase.CANCEL, DiagnosticOutcome.COMPLETED, elapsedMillis(start))
+            savedOperation("Cancellation checked. Showing the accepted saved history.", checkingCancellation = true) {
+                try {
+                    gateway.cancelSaved().also {
+                        if (!disposed) diagnosticLog.record(DiagnosticPhase.CANCEL,
+                            DiagnosticOutcome.COMPLETED, elapsedMillis(start))
+                    }
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (failure: Exception) {
+                    if (!disposed) diagnosticLog.record(DiagnosticPhase.CANCEL,
+                        DiagnosticOutcome.UNKNOWN, elapsedMillis(start),
+                        if (failure is WorkspaceFailure) DiagnosticError.fromNative(failure.category)
+                        else DiagnosticError.TRANSPORT)
+                    throw failure
+                }
+            }
             return
         }
         mutable.value = mutable.value.copy(busy = false, preparingResponse = false, notice = "Response cancelled. Nothing changed.")
@@ -481,7 +495,7 @@ class ShellViewModel internal constructor(
     fun reset() {
         // A retained UI callback must not reopen a native session after onCleared.
         if (disposed || forkBlocksActions() || mutable.value.archiveActive || mutable.value.deletionActive) return
-        if (gateway.durable && mutable.value.busy) return
+        if (gateway.durable && (mutable.value.busy || mutable.value.recoveryRequired)) return
         val start = System.nanoTime()
         diagnosticController.dismiss()
         recordController.dismiss()
@@ -509,7 +523,7 @@ class ShellViewModel internal constructor(
         gateway.close()
         pending?.cancel()
         pending = null
-        mutable.value = mutable.value.copy(busy = false, preparingResponse = false, forkActive = false)
+        mutable.value = mutable.value.copy(busy = false, preparingResponse = false, forkActive = false, checkingCancellation = false)
         super.onCleared()
     }
 }

@@ -1,6 +1,8 @@
 use locallore::{contracts::*, engine::Engine};
 use locallore_storage::{derived_memory::*, StorageError, Store, SCHEMA_VERSION};
 use rusqlite::Connection;
+#[path = "support/historical_schema.rs"]
+mod historical_schema;
 use std::{
     path::PathBuf,
     sync::atomic::{AtomicUsize, Ordering},
@@ -54,11 +56,7 @@ fn historical_v1(path: &std::path::Path) -> (Scope, Receipt) {
     let mut store = Store::open(path, None).unwrap();
     let populated = populate(&mut store);
     drop(store);
-    // Exact original schema objects and canonical payloads, without the new derived cache.
-    let initial = include_str!("../migrations/001_initial.sql");
-    let header = initial.split("CREATE TABLE stories").next().unwrap();
-    let db = Connection::open(path).unwrap();
-    db.execute_batch(&format!("BEGIN; DROP TABLE memory_job_packets; DROP TABLE memory_jobs; DROP TABLE branch_retention; DROP TABLE derived_memory; DROP TABLE schema_migrations; {header} PRAGMA user_version=1; COMMIT;")).unwrap();
+    historical_schema::replace_current_fixture(path, 1);
     assert_eq!(
         Store::open_read_only(path)
             .unwrap()

@@ -4,6 +4,8 @@ use crate::{contracts::*, engine::Engine};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
+#[path = "inspection_query_v2.rs"]
+mod v2;
 
 pub const QUERY_VERSION: u16 = 1;
 pub const MAX_ROWS: u16 = 64;
@@ -95,6 +97,10 @@ pub enum Source {
     Event(u64),
     /// Existing context permits the value, but its latest supporting event is not visible.
     Withheld,
+    ScopedEvent {
+        original_scope: Scope,
+        sequence: u64,
+    },
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -107,6 +113,7 @@ pub enum ValueOrigin {
     RecordedObservation,
     RecordedMessage,
     DerivedComparison,
+    KnownAsObserved,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "type", content = "value", rename_all = "snake_case")]
@@ -156,6 +163,23 @@ pub enum Row {
         text: String,
         event_ids: Vec<u64>,
         origin: ValueOrigin,
+    },
+    /// Query2 only: supporting event IDs belong to the actual receipt scope.
+    ScopedMessage {
+        key: String,
+        turn: String,
+        message_kind: String,
+        text: String,
+        event_ids: Vec<u64>,
+        origin: ValueOrigin,
+        original_scope: Scope,
+    },
+    /// Player History presentation only, never an actor observation or source.
+    AuthorCorrection {
+        /// Derived solely from the actual revision for bounded history sorting.
+        #[serde(skip)]
+        key: String,
+        revision: u64,
     },
     Relationship {
         key: String,
@@ -208,6 +232,8 @@ impl Row {
             | Self::Field { key, .. }
             | Self::Event { key, .. }
             | Self::Message { key, .. }
+            | Self::ScopedMessage { key, .. }
+            | Self::AuthorCorrection { key, .. }
             | Self::Relationship { key, .. }
             | Self::Knowledge { key, .. }
             | Self::Promise { key, .. }
@@ -331,7 +357,13 @@ pub fn query(
     request: &Query,
     story_lab_granted: bool,
 ) -> Result<Page, QueryError> {
+    if request.version == 2 {
+        return v2::query(engine, request, story_lab_granted);
+    }
     if request.version != QUERY_VERSION {
+        return Err(QueryError::Version);
+    }
+    if engine.domain_version() != 1 {
         return Err(QueryError::Version);
     }
     if &request.scope != engine.scope() {
@@ -511,6 +543,16 @@ pub(crate) fn actor_context_rows(
         return Err(QueryError::TooLarge);
     }
     Ok(rows)
+}
+
+/// Native actor-only Query2 row port. Compiler2 is allocated separately.
+#[allow(dead_code)] // Until the separately owned compiler2 consumes this narrow port.
+pub(crate) fn actor_context_rows_v2(
+    engine: &Engine,
+    actor: &str,
+    view: View,
+) -> Result<Vec<Row>, QueryError> {
+    v2::actor_rows(engine, actor, view)
 }
 
 fn state_rows(engine: &Engine, lens: &Lens) -> Result<Vec<Row>, QueryError> {

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-author-commit-start"
+description = "Enables the author_commit_start command without any pre-configured scope."
+commands.allow = ["author_commit_start"]
+
+[[permission]]
+identifier = "deny-author-commit-start"
+description = "Denies the author_commit_start command without any pre-configured scope."
+commands.deny = ["author_commit_start"]

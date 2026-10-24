@@ -1,4 +1,5 @@
 use crate::{
+    author_correction::CharacterContextV2,
     contracts::*,
     engine::{check_json_budget, CharacterContext, Engine},
 };
@@ -45,6 +46,11 @@ pub enum Input {
     Director {
         request: Request,
         context: Box<CharacterContext>,
+    },
+    /// Corrected branches expose only this actor's observations, never private world truth.
+    DirectorV2 {
+        request: Request,
+        context: Box<CharacterContextV2>,
     },
     /// Only an approved public description reaches the narrator, never the hidden world seed.
     Narrator { accepted_description: String },
@@ -143,12 +149,33 @@ pub fn execute(
     if request.expected_revision != engine.revision() {
         return Err(Error::Stale);
     }
-    let context = engine.character_context(
-        &engine.seed().player,
-        &request.scope,
-        request.expected_revision,
-    )?;
-    check_json_budget(&context, 32_768)?;
+    let input = match engine.domain_version() {
+        1 => {
+            let context = engine.character_context(
+                &engine.seed().player,
+                &request.scope,
+                request.expected_revision,
+            )?;
+            check_json_budget(&context, 32_768)?;
+            Input::Director {
+                request: request.clone(),
+                context: Box::new(context),
+            }
+        }
+        2 => {
+            let context = engine.character_context_v2(
+                &engine.seed().player,
+                &request.scope,
+                request.expected_revision,
+            )?;
+            check_json_budget(&context, 32_768)?;
+            Input::DirectorV2 {
+                request: request.clone(),
+                context: Box::new(context),
+            }
+        }
+        _ => return Err(Error::Version),
+    };
     let director = GenerationRequest {
         version: VERSION,
         scope: request.scope.clone(),
@@ -157,10 +184,7 @@ pub fn execute(
         model_profile: "deterministic-fake-v1".into(),
         schema: "locallore-proposal-v1".into(),
         budget: budget.clone(),
-        input: Input::Director {
-            request: request.clone(),
-            context: Box::new(context),
-        },
+        input,
     };
     let proposal = Proposal::parse(&generate(provider, &director, cancel)?)?;
     let preview = engine.preview(request, &proposal)?;
@@ -231,7 +255,7 @@ impl InferenceProvider for FakeProvider {
             _ => (),
         }
         let result = match &request.input {
-            Input::Director { request, .. } => {
+            Input::Director { request, .. } | Input::DirectorV2 { request, .. } => {
                 Engine::proposal(request).and_then(|mut proposal| {
                     if matches!(self.mode, FakeMode::Rejected) {
                         proposal.commands = vec![Command::UseAbility {

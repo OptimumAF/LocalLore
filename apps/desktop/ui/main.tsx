@@ -5,6 +5,10 @@ import { ForkController } from "./fork-controller";
 import { MemoryMaintenanceController } from "./memory-maintenance-controller";
 import { memoryContext } from "./memory-context";
 import { BrokerRetention, type BrokerIdentity } from "./broker-retention";
+import { AuthorController } from "./author-controller";
+import type { AuthorContext } from "./author-model";
+import { checkedAuthorBrokerBinding } from "./author-broker-binding";
+import { V2PlayController } from "./v2-play-controller";
 import { CaptureController } from "./capture-controller";
 import {
     TimelineController,
@@ -14,7 +18,7 @@ import {
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { Controller } from "./controller";
-import { ErrorBuffer, IpcGateway } from "./model";
+import { ErrorBuffer, IpcGateway, category } from "./model";
 declare const __DEV_HARNESS__: boolean;
 declare global {
     interface Window {
@@ -44,21 +48,78 @@ declare global {
             timelining?: boolean;
             forking?: boolean;
             maintaining?: boolean;
+            authoring?: boolean;
             archiveStage?:
                 "source" | "import" | "restarted" | "uncertain" | "retire";
         };
     }
 }
 const errors = new ErrorBuffer();
+const authorHarnessModule =
+    __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.authoring
+        ? await import("./author-native-journeys")
+        : null;
+const authorTransport = authorHarnessModule
+    ? new authorHarnessModule.AuthorHarnessTransport()
+    : null;
 const brokerRetention = new BrokerRetention((surface) =>
-    surface === "archive"
-        ? archive.get().busy ||
-          ["Wire", "Transport"].includes(archive.get().error ?? "")
-        : surface === "fork"
-          ? fork.get().busy || fork.get().status === "uncertain"
-          : maintenance.get().busy || maintenance.get().uncertain,
+    surface === "author"
+        ? author.get().busy ||
+          author.get().uncertain ||
+          ["Wire", "Transport", "UnknownArchiveOperation"].includes(
+              author.get().error ?? "",
+          )
+        : surface === "archive"
+          ? archive.get().busy ||
+            ["Wire", "Transport"].includes(archive.get().error ?? "")
+          : surface === "fork"
+            ? fork.get().busy || fork.get().status === "uncertain"
+            : maintenance.get().busy || maintenance.get().uncertain,
 );
 const invoke = (command: string, args: Record<string, unknown> = {}) => {
+    if (
+        command === "host_call" &&
+        (author.get().busy || sharedBrokerBlocked())
+    ) {
+        // The UI gateway admits no new gameplay write while another surface
+        // owns the shared operation. Rust still validates every native request.
+        try {
+            if (
+                typeof args.input === "string" &&
+                args.input.length <= 262144 &&
+                ["prepare", "submit", "free_text", "commit"].includes(
+                    JSON.parse(args.input)?.command?.op,
+                )
+            )
+                return Promise.reject("Busy");
+        } catch {
+            /* Malformed wire is rejected by the native parser. */
+        }
+    }
+    const authorStart = [
+        "author_prepare_start",
+        "author_commit_start",
+        "author_lookup_start",
+    ].includes(command);
+    const otherSharedStart = [
+        "fork_start",
+        "memory_maintenance_start",
+        "archive_export_preview",
+        "archive_import_preview",
+        "archive_export",
+        "archive_import",
+    ].includes(command);
+    if (
+        (otherSharedStart && author.get().busy) ||
+        (authorStart &&
+            (archive.get().busy ||
+                fork.get().busy ||
+                maintenance.get().busy ||
+                !!controller.get().pending ||
+                !!v2.get().pending ||
+                !!v2.get().uncertain))
+    )
+        return Promise.reject("ArchiveBusy");
     // One native broker retains one operation result. Keep the other surface
     // from replacing a completed result before its frontend consumes the reply.
     if (
@@ -76,7 +137,44 @@ const invoke = (command: string, args: Record<string, unknown> = {}) => {
                 maintenance.get().operation?.running))
     )
         return Promise.reject("ArchiveBusy");
-    const native = () => window.__TAURI__.core.invoke(command, args);
+    const rawNative = () => window.__TAURI__.core.invoke(command, args);
+    const native = () =>
+        authorTransport
+            ? authorTransport.native(command, args, rawNative)
+            : rawNative();
+    if (authorStart) {
+        try {
+            if (typeof args.request !== "string") throw Error("InvalidInput");
+            const request = JSON.parse(args.request);
+            const action =
+                command === "author_prepare_start"
+                    ? "prepare"
+                    : command === "author_commit_start"
+                      ? "commit"
+                      : "lookup";
+            const binding = checkedAuthorBrokerBinding({
+                action,
+                session: request.session ?? controller.selected()?.id,
+                input: request.input,
+            });
+            return brokerRetention.start(
+                {
+                    surface: "author",
+                    action,
+                    session: binding.session,
+                    story: binding.input.parent.story,
+                    branch: binding.input.parent.branch,
+                    head: binding.input.expected_parent_revision,
+                    child: binding.input.child_branch,
+                    at: binding.input.fork_revision,
+                    author: binding,
+                },
+                native,
+            );
+        } catch (error) {
+            return Promise.reject(error);
+        }
+    }
     if (command === "memory_maintenance_start") {
         const request = args.request as {
             session: string;
@@ -84,7 +182,10 @@ const invoke = (command: string, args: Record<string, unknown> = {}) => {
             expected_head: number;
             action: string;
         };
-        if (request.action !== "status" && controller.get().pending)
+        if (
+            request.action !== "status" &&
+            (controller.get().pending || v2.get().pending || v2.get().uncertain)
+        )
             return Promise.reject("Busy");
         const identity: BrokerIdentity = {
             surface: "memory",
@@ -178,11 +279,24 @@ const invoke = (command: string, args: Record<string, unknown> = {}) => {
             native,
         );
     }
-    if (command === "archive_status" || command === "archive_cancel")
-        return native().then((value) => {
-            brokerRetention.observe(value);
-            return value;
-        });
+    if (command === "archive_status" || command === "archive_cancel") {
+        const owner = brokerRetention.get()?.identity;
+        const operationId = args.operationId;
+        return native().then(
+            async (value) => {
+                if (owner?.surface === "author") {
+                    if (brokerRetention.get()?.identity === owner)
+                        await brokerRetention.observeAuthor(value);
+                } else brokerRetention.observe(value);
+                return value;
+            },
+            (error) => {
+                if (owner?.surface === "author")
+                    brokerRetention.observeAuthorFailure(owner, operationId);
+                throw error;
+            },
+        );
+    }
     return native();
 };
 const driver =
@@ -199,6 +313,31 @@ const controller = new Controller(gateway, errors, undefined, (work) =>
 );
 const archive = new ArchiveController(invoke, () => controller.library());
 const maintenance = new MemoryMaintenanceController(invoke);
+const v2 = new V2PlayController(gateway, async () => {
+    await controller.refresh();
+    if (controller.get().workspace) await controller.library();
+});
+const author = new AuthorController(
+    {
+        prepareStart: (request) => invoke("author_prepare_start", { request }),
+        commitStart: (request) => invoke("author_commit_start", { request }),
+        lookupStart: (request) => invoke("author_lookup_start", { request }),
+        status: (operationId) => invoke("archive_status", { operationId }),
+        cancel: (operationId) => invoke("archive_cancel", { operationId }),
+        discardPreview: (session, preview_token) =>
+            invoke("author_preview_discard", {
+                request: JSON.stringify({ version: 1, session, preview_token }),
+            }).then((value) => {
+                if (typeof value !== "boolean") throw Error("Wire");
+                return value;
+            }),
+    },
+    {
+        refreshLibrary: () => controller.library(),
+        openChild: (scope) => resumeTimeline(controller, scope),
+    },
+);
+let authorNativeContext: { root: string; granted: boolean } | null = null;
 let memorySelectionEpoch = 0,
     memorySelectionKey = "";
 const forkRecoveryKey = "locallore-fork-recovery-v1";
@@ -213,8 +352,8 @@ const fork = new ForkController(
         }
     },
 );
-const releaseBrokerConsumption = [archive, fork, maintenance].map((surface) =>
-    surface.subscribe(brokerRetention.refreshConsumption),
+const releaseBrokerConsumption = [archive, fork, maintenance, author].map(
+    (surface) => surface.subscribe(brokerRetention.refreshConsumption),
 );
 try {
     const saved = localStorage.getItem(forkRecoveryKey);
@@ -227,15 +366,53 @@ const capture = new CaptureController(gateway, () => controller.readTrace());
 const timeline = new TimelineController(gateway, (scope) =>
     resumeTimeline(controller, scope),
 );
+function sharedBrokerBlocked() {
+    const retained = brokerRetention.get();
+    return (
+        !!retained &&
+        (retained.inFlight ||
+            (!retained.acknowledgedUnresolved &&
+                (retained.unknown || !retained.terminal || !retained.consumed)))
+    );
+}
+function syncV2Context() {
+    const s = controller.get(),
+        selected = controller.selected();
+    v2.selectedContextChanged(
+        selected && s.playV2 && !s.disposed
+            ? {
+                  session: selected.id,
+                  scope: selected.scope,
+                  revision: s.playV2.revision,
+                  player: s.playV2.player.observer,
+                  view: s.view,
+                  observer:
+                      s.view === "play" || s.observer === "player"
+                          ? { kind: "player" }
+                          : s.observer === "omniscient"
+                            ? { kind: "omniscient" }
+                            : { kind: "character", id: s.observer },
+                  persistent: !!s.workspace,
+                  pending: !!s.pending,
+                  blocked: author.get().busy || sharedBrokerBlocked(),
+                  playMode: s.playMode,
+                  inputKind: s.inputKind,
+                  action: s.action,
+                  fakeMode: s.fakeMode,
+              }
+            : null,
+    );
+}
 // Invalidate evaluation replies before React observes a changed story/lens/Play
 // context. Evaluation is independent of gameplay; no gameplay controller changes.
 const syncEvaluationContext = () => {
     const s = controller.get();
+    const play = s.play ?? s.playV2;
     const memoryKey = JSON.stringify([
         s.selectedId,
-        s.play?.scope,
-        s.play?.revision,
-        s.play?.player.observer,
+        play?.scope,
+        play?.revision,
+        play?.player.observer,
         s.view,
         s.observer,
         s.disposed,
@@ -244,6 +421,8 @@ const syncEvaluationContext = () => {
         memorySelectionKey = memoryKey;
         memorySelectionEpoch++;
     }
+    syncV2Context();
+    author.contextChanged(authorContext());
     maintenance.contextChanged(memoryContext(controller, memorySelectionEpoch));
     timeline.contextChanged(timelineContext(controller));
     fork.contextChanged(timelineContext(controller));
@@ -265,8 +444,62 @@ const syncEvaluationContext = () => {
         s.view === "lab",
     );
 };
+function authorContext(): AuthorContext | null {
+    const s = controller.get(),
+        selected = controller.selected(),
+        play = s.play ?? s.playV2,
+        retained = brokerRetention.get();
+    if (!selected || !play || !authorNativeContext || s.disposed) return null;
+    return {
+        rootIncarnation: authorNativeContext.root,
+        selectionEpoch: memorySelectionEpoch,
+        session: selected.id,
+        scope: selected.scope,
+        head: play.revision,
+        player: play.player.observer,
+        observer: s.view === "play" ? "player" : s.observer,
+        view: s.view,
+        persistent: !!s.workspace,
+        spoilerGranted: authorNativeContext.granted && s.view === "lab",
+        pending: !!s.pending || !!v2.get().pending || !!v2.get().uncertain,
+        brokerUncertain:
+            !!retained && !retained.acknowledgedUnresolved && retained.unknown,
+    };
+}
 const releaseEvaluationContext = controller.subscribe(syncEvaluationContext);
+const releaseV2Context = v2.subscribe(() =>
+    author.contextChanged(authorContext()),
+);
+const releaseAuthorContext = author.subscribe(syncV2Context);
+const releaseRetainedContext = brokerRetention.subscribe(syncEvaluationContext);
 syncEvaluationContext();
+void invoke("author_context")
+    .then((value) => {
+        if (!value || typeof value !== "object" || Array.isArray(value))
+            throw Error("Wire");
+        const metadata = value as Record<string, unknown>;
+        if (
+            Object.keys(metadata).sort().join(",") !==
+                "root_incarnation,story_lab_granted,version,window_epoch" ||
+            metadata.version !== 1 ||
+            typeof metadata.root_incarnation !== "string" ||
+            !/^[A-Za-z0-9_-]{1,64}$/.test(metadata.root_incarnation) ||
+            !Number.isSafeInteger(metadata.window_epoch) ||
+            Number(metadata.window_epoch) < 1 ||
+            typeof metadata.story_lab_granted !== "boolean"
+        )
+            throw Error("Wire");
+        authorNativeContext = {
+            root: `${metadata.root_incarnation}_${metadata.window_epoch}`,
+            granted: metadata.story_lab_granted,
+        };
+        syncEvaluationContext();
+    })
+    .catch((error) => {
+        errors.add("native", category(error));
+        authorNativeContext = null;
+        author.contextChanged(null);
+    });
 const onError = () => errors.add("frontend", "UnhandledError");
 window.addEventListener("error", onError);
 window.addEventListener("unhandledrejection", onError);
@@ -287,11 +520,19 @@ root.render(
             memoryContext(controller, memorySelectionEpoch)
         }
         brokerRetention={brokerRetention}
+        author={author}
+        authorContext={authorContext}
+        v2={v2}
     />,
 );
 const dispose = async () => {
     for (const release of releaseBrokerConsumption) release();
     releaseEvaluationContext();
+    releaseV2Context();
+    releaseAuthorContext();
+    releaseRetainedContext();
+    author.dispose();
+    await v2.dispose();
     evaluation.dispose();
     archive.dispose();
     timeline.dispose();
@@ -341,7 +582,20 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
                 : durableDriver
                   ? durableDriver.durableJourneys
                   : driver.journeys;
-    if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.maintaining) {
+    if (authorHarnessModule && authorTransport) {
+        await authorHarnessModule.authorNativeJourneys({
+            controller,
+            author,
+            v2,
+            brokerRetention,
+            gateway: gateway as InstanceType<typeof driver.FaultGateway>,
+            errors,
+            invoke,
+            dispose,
+            config: window.__LOCALLORE_TEST__,
+            transport: authorTransport,
+        });
+    } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.maintaining) {
         const { memoryNativeJourneys } =
             await import("./memory-native-journeys");
         await memoryNativeJourneys({

@@ -200,7 +200,7 @@ fn gift_pressure(reopen_after_full: bool) {
         let tx = store.connection.transaction().unwrap();
         let first = &preview.events()[0];
         tx.execute(
-            "INSERT INTO accepted_events VALUES (?1,?2,?3,?4,1,?5)",
+            "INSERT INTO accepted_events(story_id,branch_id,sequence,turn_id,event_version,envelope_json) VALUES (?1,?2,?3,?4,1,?5)",
             (
                 &scope.story,
                 &scope.branch,

@@ -17,7 +17,9 @@ val timelineVerification = providers.gradleProperty("localLoreTimelineVerificati
 require(timelineVerification == null || timelineVerification == "true")
 val parentRetention = providers.gradleProperty("localLoreParentRetentionVerification").orNull
 require(parentRetention == null || parentRetention == "true")
-require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention).count { it == "true" } <= 1) {
+val externalInference = providers.gradleProperty("localLoreExternalInferenceVerification").orNull
+require(externalInference == null || externalInference == "true")
+require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention, externalInference).count { it == "true" } <= 1) {
     "Verification installations must be selected individually."
 }
 require(archiveVerification != "true" || archiveCapacity != "true") {
@@ -25,6 +27,12 @@ require(archiveVerification != "true" || archiveCapacity != "true") {
 }
 val capacityProjectCache = rootProject.file(".gradle-archive-capacity").canonicalFile
 val selectedProjectCache = (gradle.startParameter.projectCacheDir ?: rootProject.file(".gradle")).canonicalFile
+require((externalInference == "true") == (selectedProjectCache == rootProject.file(".gradle-external-inference").canonicalFile)) {
+    "External inference verification requires its exclusive .gradle-external-inference project cache."
+}
+require(externalInference != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
+    "External inference verification is for local debug verification only."
+}
 require((parentRetention == "true") == (selectedProjectCache == rootProject.file(".gradle-parent-retention").canonicalFile)) {
     "Parent retention verification requires its exclusive .gradle-parent-retention project cache."
 }
@@ -49,7 +57,9 @@ require((archiveCapacity == "true") == (selectedProjectCache == capacityProjectC
 require(archiveCapacity != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
     "The synthetic capacity fixture is for local debug verification only."
 }
-if (archiveVerification == "true") {
+if (externalInference == "true") {
+    layout.buildDirectory.set(layout.projectDirectory.dir("build-external-inference"))
+} else if (archiveVerification == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-archive-verification"))
 } else if (archiveCapacity == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-archive-capacity"))
@@ -61,6 +71,7 @@ if (archiveVerification == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-parent-retention"))
 }
 val verificationSuffix = when {
+    externalInference == "true" -> ".externalverify"
     parentRetention == "true" -> ".parentverify"
     timelineVerification == "true" -> ".timelineverify"
     storyDeletion == "true" -> ".storydelete"
@@ -89,7 +100,7 @@ val reliefFaultTest = reliefFaultOption == "true"
 require(!(reliefFaultTest && reliefOption == "true")) { "Relief and helper-fault modes are mutually exclusive" }
 val reliefTest = reliefOption == "true" || reliefFaultTest
 require(!(capacityTest && reliefTest)) { "Capacity and capacity-relief modes are mutually exclusive" }
-require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention).none { it == "true" } || !(capacityTest || reliefTest)) {
+require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention, externalInference).none { it == "true" } || !(capacityTest || reliefTest)) {
     "Archive verification and capacity modes are mutually exclusive"
 }
 val capacityCache = rootProject.file(".gradle-capacity-v4").canonicalFile
@@ -161,7 +172,7 @@ android {
         manifestPlaceholders["chooserTestAuthority"] = "org.locallore.app$verificationSuffix.test.chooser"
         if (verificationSuffix.isNotEmpty()) {
             applicationIdSuffix = verificationSuffix
-            versionNameSuffix = when { parentRetention == "true" -> "-parent-retention"; timelineVerification == "true" -> "-timeline-verification"; storyDeletion == "true" -> "-story-deletion"; archiveCapacity == "true" -> "-archive-capacity"; else -> "-archive-verification" }
+            versionNameSuffix = when { externalInference == "true" -> "-external-inference"; parentRetention == "true" -> "-parent-retention"; timelineVerification == "true" -> "-timeline-verification"; storyDeletion == "true" -> "-story-deletion"; archiveCapacity == "true" -> "-archive-capacity"; else -> "-archive-verification" }
         }
         ndk { abiFilters += listOf("x86_64", "arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -193,7 +204,7 @@ androidComponents {
 
 androidComponents {
     beforeVariants(selector().withBuildType("release")) {
-        if (archiveCapacity == "true" || storyDeletion == "true" || timelineVerification == "true" || parentRetention == "true") it.enable = false
+        if (archiveCapacity == "true" || storyDeletion == "true" || timelineVerification == "true" || parentRetention == "true" || externalInference == "true") it.enable = false
     }
 }
 

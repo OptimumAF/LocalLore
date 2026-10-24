@@ -81,6 +81,31 @@ are configured; these tests do not qualify OS backup behavior. Existing Gradle,
 AGP, Kotlin/Compose pins and locks remain explicit. See the [Android toolchain](../../docs/android/TOOLCHAIN_2026-10-22.md)
 and [JNI source/license inventory](../../docs/native/SOURCES_2026-10-22.md).
 
+## Optional external inference owner
+
+`NativeWorkspaceTransport(context, localInference = owner)` attaches a trusted
+`LocalInferenceOwner` to the same production Rust workspace lease used by saves,
+forks and deletion. The owner accepts a bounded profile and a `LocalRoleWorker`;
+ordinary app construction still explicitly uses scripted inference. There is no
+production SDK adapter or model-loading UI in this packet.
+
+Build the isolated synthetic JNI qualification pair from `apps/android`:
+
+```powershell
+.\gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest :app:cleanTestDebugUnitTest :app:testDebugUnitTest :app:lintDebug -PlocalLoreExternalInferenceVerification=true --project-cache-dir .gradle-external-inference -Pkotlin.incremental=false --offline --no-daemon --max-workers=2 -Pandroid.builder.sdkDownload=false
+```
+
+This selects `org.locallore.app.externalverify` and `app/build-external-inference`.
+Release, mixed verification/capacity modes and another project cache are refused.
+`ExternalInferenceInstrumentedTest` exercises actual JNI/Host/SQLite with synthetic
+role results, including cancellation, deletion, restart, admission limits and
+uncertain-resource quarantine. Install only this pair on an authorized target
+that passes storage, identity and existing-data preservation checks.
+
+See the [owner contract](../../docs/native/EXTERNAL_INFERENCE_OWNER_CONTRACT.md)
+and [verification report](../../docs/native/EXTERNAL_INFERENCE_OWNER_VERIFICATION_2026-10-23.md).
+These checks do not establish physical-device support or actual SDK/model cleanup.
+
 ## Exercise the engine
 
 Give the potion to Mira, then try giving it again and using the unlearned ability.

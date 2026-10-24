@@ -1,9 +1,15 @@
 # Pending picker verification — 2026-10-23
 
-Refs #9 (M05.05; M05.04 supporting). Implementation is based on open,
+Refs #9 (M05.05; M05.04 supporting). Execution began on then-open,
 unmerged PR #136 at `4ae51ee55509513e21a91210a262a97c0d8e94ba`.
 The [contract](MODEL_PENDING_CONTRACT.md) defines the measured boundary.
 Full milestone acceptance and owner review remain pending.
+
+The final upstream refresh observed #136 merged externally as `b279eff`.
+That default-branch head contains the tested prerequisite. The focused PR targets
+`main`; the checks below apply to this packet's frozen source/artifacts, not a
+new execution of every intervening default-branch change. No merge was performed
+by this packet.
 
 The final synthetic procedure passed on one Android 15 / API 35 x86_64 emulator
 with 4 KiB pages. Android restored the actual pending result into a new process;

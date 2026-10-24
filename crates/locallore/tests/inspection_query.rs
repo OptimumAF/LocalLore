@@ -405,7 +405,7 @@ fn query_bounds_unsupported_views_versions_and_branch_limits_fail_honestly() {
     q.cursor = Some("x".repeat(129));
     assert_eq!(query(&engine, &q, false), Err(QueryError::InvalidCursor));
     q.cursor = None;
-    q.version = 2;
+    q.version = 3; // Query2 is allocated; the next unsupported version remains rejected.
     assert_eq!(query(&engine, &q, false), Err(QueryError::Version));
     q.version = 1;
     q.view = View::TurnDiff;

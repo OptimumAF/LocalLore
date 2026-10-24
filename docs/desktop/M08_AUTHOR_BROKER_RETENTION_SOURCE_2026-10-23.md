@@ -93,3 +93,41 @@ a late same-ID running status/cancel snapshot cannot demote a fully validated
 terminal result. Recheck the latest same-identity terminal flag after async
 validation, before recording progress. This is an additional independent UNRUN
 oracle before the focused source fix, not an executed production failure.
+
+## Source handoff and coordinator execution attribution
+
+Exact claims #12 `6379192232`, #30 `6379192431`, #26 `6379192745`. Frozen
+contract/checker `d53a7597778c4500cee0abc074124ed8874639c6` precedes production
+`a85fb830470562f1bd562ebb1b9edad6c9cacd40`. Coordinator reported actual first
+standalone run on adopted `a562097`: **75 synthetic checks PASS**, no native or
+render execution. This is Root's execution, not this source-only agent's check.
+No claim is made that an unrun old implementation failed these tests.
+
+Additional monotonic terminal oracle `febd04f` precedes focused author-only guard
+`5db3f9b9b06f05e896bc75945428d2f887390f89`. That extra case/final source remains
+UNRUN at this handoff. All old retention checker assertions are unchanged. The
+only old-file edits are additive author handling and logically equivalent
+non-author blocked-expression grouping; legacy record/start/recovery bodies
+remain intact. No old test/calibration change or full regression pass is inferred.
+
+This agent actually ran only Git/source/hash inspection and `git diff --check`
+(exit 0), with clean branch status. Node/TypeScript/Prettier/bundler/old retention
+tests/native/app/model/device/desktop execution are UNRUN by this agent. Root
+owns formatter/type qualification and all existing broker regression runs.
+
+Coordinator next commands, from `apps/desktop` in its authorized heavy slot:
+
+```text
+node check-author-broker-retention.mjs
+node node_modules/typescript/bin/tsc --noEmit
+node node_modules/prettier/bin/prettier.cjs --check ui/broker-retention.ts ui/author-broker-binding.ts check-author-broker-retention.mjs
+```
+
+Then execute the unchanged existing broker-retention, incarnation, surface,
+fork-error, archive, fork, memory and controller checks. Root main must await
+observeAuthor for author status/cancel, construct exact full binding on starts,
+provide author consumption callback, and avoid exposing/persisting private full
+input through generic broker summaries. No actual global UI closure is established
+until those separate main/App/native wrapper/harness tasks are executed. Root
+retains all of those paths. No competing worker, Store, journal or recovery write
+has been added here; no milestone acceptance is claimed.

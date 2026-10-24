@@ -756,3 +756,79 @@ fn explicit_retirement_or_window_destruction_before_apply_cannot_write_or_publis
         assert!(f.manager.caps.lock().unwrap().is_empty());
     }
 }
+
+#[test]
+fn foreign_archive_broker_cannot_bypass_shared_busy_or_consume_a_valid_capability() {
+    let f = Fixture::new(true);
+    let input = f.input("foreign-broker-commit");
+    let preview = f.preview(input.clone());
+    let before = f.engine(&f.parent).canonical_bytes();
+    let (entered, seen) = mpsc::channel();
+    let (release, wait) = mpsc::channel();
+    let busy = f
+        .broker
+        .start(f.lease.clone(), f.epoch, move |work| {
+            entered.send(()).unwrap();
+            wait.recv_timeout(Duration::from_secs(5))
+                .map_err(|_| "TestTimeout".to_owned())?;
+            work.check()?;
+            Ok(json!({"synthetic":true}))
+        })
+        .unwrap();
+    seen.recv_timeout(Duration::from_secs(5)).unwrap();
+    let mut results = Vec::new();
+    // Even an otherwise correct Host/window/epoch/input cannot substitute another
+    // worker owner. Drain each owned foreign broker before any assertion, so the
+    // predicted pre-fix admission failure cannot leave a test worker using Store.
+    for kind in ["prepare", "commit", "lookup"] {
+        let foreign = Arc::new(ArchiveBroker::default());
+        let result = match kind {
+            "prepare" => f.manager.prepare_start(
+                f.host.clone(),
+                f.lease.clone(),
+                foreign.clone(),
+                f.epoch,
+                &f.prepare_raw(f.input("foreign-broker-prepare")),
+            ),
+            "commit" => f.manager.commit_start(
+                f.host.clone(),
+                f.lease.clone(),
+                foreign.clone(),
+                f.epoch,
+                &f.commit_raw(input.clone(), &preview),
+            ),
+            _ => f.manager.lookup_start(
+                f.host.clone(),
+                f.lease.clone(),
+                foreign.clone(),
+                f.epoch,
+                &json!({"version":1,"input":input,"author_consent":true}).to_string(),
+            ),
+        };
+        foreign.retire(f.epoch);
+        foreign.drain(f.epoch);
+        results.push((kind, result));
+    }
+    let original_status = f
+        .broker
+        .status(&f.lease, f.epoch, busy["operation_id"].as_u64().unwrap())
+        .unwrap();
+    release.send(()).unwrap();
+    f.wait(busy);
+    assert_eq!(original_status["running"], true);
+    for (kind, result) in results {
+        assert!(
+            matches!(&result, Err(error) if error == "Integrity"),
+            "foreign broker {kind} must fail before admission/consumption: {result:?}"
+        );
+    }
+    assert_eq!(f.engine(&f.parent).canonical_bytes(), before);
+    f.missing(&input);
+    f.missing(&f.input("foreign-broker-prepare"));
+    // A foreign attempt must not consume a valid preview, unlike a genuine
+    // second-consent attempt refused by the designated broker's Busy state.
+    assert_eq!(
+        f.result(f.commit_start(&f.commit_raw(input, &preview)).unwrap())["outcome"]["created"],
+        true
+    );
+}

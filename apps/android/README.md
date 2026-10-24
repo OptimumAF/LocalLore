@@ -122,6 +122,13 @@ While cancellation is being reconciled, the screen shows **Checking cancellation
 If recovery is required, **New story** and **Saved stories** remain disabled along
 with new turns until **Recover saved progress** succeeds. The in-memory demo
 retains its separate Reset behavior. See the [Compose controls checks](../../docs/native/ANDROID_CANCEL_CONTROLS_VERIFICATION_2026-10-23.md).
+The [native Compose checks](../../docs/native/ANDROID_NATIVE_CANCEL_CONTROLS_VERIFICATION_2026-10-23.md)
+exercise the production transport, JNI, Rust and SQLite with fake inference.
+Six cases passed on emulator B, including exact-key recovery, commit-before-cancel,
+persisted player-history equality after reopen and availability of all four native
+owner slots after calls drain. They hold ready reply delivery; active model
+generation and OS process-death recovery remain separate gates. Emulator A's
+storage gate remains blocked.
 Full or Busy storage errors show fixed recovery guidance and retain the original
 request. The confirmed snapshot stays visible until recovery obtains an accepted
 native outcome; new turns and mode changes stay disabled during uncertainty.

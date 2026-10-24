@@ -197,8 +197,13 @@ def proof_command(name, uid):
 
 
 def parse_instrumentation(raw, expected_class, expected_methods):
-    count = len(expected_methods)
     assert (expected_class, expected_methods) in ((INITIAL_CLASS, INITIAL_METHODS), (RESTART_CLASS, RESTART_METHODS))
+    return _parse_selected_instrumentation(raw, expected_class, expected_methods)
+
+
+def _parse_selected_instrumentation(raw, expected_class, expected_methods):
+    """Trusted fixed experiments share framing, never caller-selected dispatch authority."""
+    count = len(expected_methods)
     text = normalized(raw, 131072)
     records, fields, extra, result = [], {}, [], None
     stream = None
@@ -467,6 +472,10 @@ class Owner:
             else:
                 assert self.stage == "proofs" and op == self.pending_read
                 self.pending_read = None
+        return self._dispatch_checked(args, deadline, cap, boot=boot)
+
+    def _dispatch_checked(self, args, deadline, cap, *, boot=False):
+        """Execute only after a trusted fixed experiment has checked its grammar."""
         remaining = self.until - time.monotonic()
         assert remaining > 0
         deadline = min(deadline, remaining)

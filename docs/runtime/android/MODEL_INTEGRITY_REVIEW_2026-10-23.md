@@ -1,0 +1,45 @@
+# Model integrity and storage review, 2026-10-23
+
+Refs [#5](https://github.com/OptimumAF/LocalLore/issues/5) (M01.03/M01.05), claim6369658039. This independent report-only review starts from accepted aec8ad02a662b87b960723da8878f4ead4f0a28d and reviews tool/tests7278060. Only this new report is owned. No concrete implementation or aggregate discrepancy remains in this bounded review. Full task/owner acceptance and inference admission are not implied.
+
+The host source and B match the pinned identity during the captured reads. A has a stable current mismatch. Its earlier and current differing hashes remain distinct observations; the mechanism and timing are unresolved. The next useful gate is explicit cache-aware storage admission, then a separately admitted unchanged-profile B control if fresh identity/ownership/storage checks pass. A stays untouched. Current identity_match alone does not authorize inference.
+
+## Source and adversarial review
+
+Read repository instructions, the frozen #84 copy/integrity evidence at1bde6a5, actual Java SDK adapter and host transport/copy controller, the new verifier/tests and private observation/preservation collectors. The real-model Java path is passed to Engine/ModelInfo; the explicit corrupt-fixture writer targets a separate synthetic file. Prior pinned source inspection describes model-parent cache default, normal private mappings and separate cache naming. Neither those inspected paths nor the Java adapter audit every native path in the prebuilt SDK, and they do not establish why A differs. This packet changes no runtime/model choice, dependency or production gameplay behavior.
+
+The verifier requires exact version/shapes/types, lowercase digests, bounded sizes, ordered contiguous coverage with the exact partial tail, stable source/observed receipts and the approved source size/full digest. It rejects missing/extra/reordered/duplicate/gapped coverage, bool/float integer substitutions, unknown fields, duplicate JSON keys, nonfinite values, source/observed drift and contradictory whole/chunk comparisons. Local inspection performs two complete same-handle passes with repeated chunk hashes and handle/path fingerprints. It refuses leaf links; it does not audit every ancestor reparse point or defeat same-UID races.
+
+A whole-file digest is observed independently; it cannot be reconstructed from chunk digests. inspect exit0 establishes stable observed reads only. compare separately returns0 for expected identity,2 for mismatch and1 for invalid/failed observation. No ADB, app lifecycle, inference, provision/repair or model writer is introduced. Fixed categories suppress private exception/path output. The15 source tests exercise actual small synthetic read/growth/shrink/between-pass mutation plus adversarial receipts and CLI status/privacy; link refusal is a mocked leaf-link test, not an executed Windows reparse attack. No new source blocker was found.
+
+## Actual evidence audit
+
+Matched the public aggregate SHA256d095208954fb002ea21e4ad3abd27d86ab078a332ce1e1cc4c96d18c8f3ca221 to the read file. Matched both qualified source hashes to workspace bytes and7278060 Git content, accounting for checkout line endings. All31 private device artifacts, sealed index SHA2569f544120124819770fee5b5fc9744d213d708c47ddcca11a0cdd196a39f87524 and20 coordinator evidence byte/hash bindings match. The retained script log records168 passing tests including the15 new methods; the benchmark log records140 passing tests. The coordinator reports the separately focused15 pass. No Rust/JVM/Android rebuild or model execution was run in this packet.
+
+All three receipts cover exactly2,588,147,712 bytes in78 rows:77 full33,554,432-byte chunks and a4,456,448-byte tail at offset2,583,691,264. Independently checked contiguous indices/offsets/lengths and compared each device journal to its receipt. Each device's78 actual transport hash outputs equal its78 journal digests; its two separately recorded whole-file outputs equal the receipt before/after fields. These are complete current coverage observations, not the earlier sparse9MiB evidence restated as complete.
+
+| Receipt | Before and after full SHA256 | Comparison |
+|---|---|---|
+| Source | 181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c | Stable two-pass reference |
+| A | 2dde0b287178132dc8b0fdcbd30fba12b087f54993c0e7ee6d135a5394921700 | Indices0-71 match;72-77 differ |
+| B | 181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c | Every chunk matches source |
+
+A's differing intervals cover [2,415,919,104,2,588,147,712), totaling172,228,608 interval bytes. This is not an exact changed-byte count or atomic snapshot. Its older59d70767f8f7a8710fb2d1427e3cf94917ca5b6847fdbfd11f1fcf2617f0eb4d remains a distinct earlier full-hash observation. An interim progress message assumed that older value before inspecting the current record; the actual current before/after data are2dde throughout. This correction is not an invented extra failed/repeated scan. Root CLI results match the independently derived comparisons: source0, A2, B0.
+
+All702 recorded transport commands are completed with return0 and cleanup true. A/B facts retain stable model/cache metadata and exact21-package equality to each preflight map, including frozen benchmark APK715a6c4521592256b1ee6e1bf9ec4d0f3f1974dcdde040781269163efbc534a6. Frozen process-owner absence guards and final client census are distinct from package hashes. The public projection correctly reports zero selected/inventory clients and one server without treating the raw null-list formatting artifact as an actual PID. No save-byte audit, historical process continuity or exhaustive OS/process audit follows from these checks.
+
+The collector counts then hashes each chunk through separate bounded on-device reads, with full-file hashes before/after and metadata/owner checks. This is trusted read-window consistency, not a single atomic file snapshot, backend writeback forcing or immunity to transient/concurrent changes. The166 retained fresh storage samples match the aggregate bounds; at B completion C: had5,198,635,008 bytes free, D:123,806,466,048. These snapshots do not guarantee future headroom or diagnose earlier volume exhaustion.
+
+## Preserved failures and storage preparation
+
+The initial inventory wrapper AttributeError is retained as setup-only, with original result fields unavailable. The corrected preflight records the two authorized API35/x86_64 targets; inventory contains four emulators and no physical phone. The initial long-scan storage guard failed outside its catch, so the exact failing value was not retained. The later655,175,680-byte sample is explicitly a later observation, not reconstructed historical evidence. No long model scan launched in that failed attempt; logging was corrected without relaxing the guard.
+
+Reviewed the fixed five generated target/debug move allowlist, absolute scope/fresh destination checks, nested-link rejection, process-prefix guard, native PowerShell moves and original-path junction restoration. The process check covers executable/command-line prefixes plus coordinator-known inactive worktrees, not every possible working directory. It does not prove system-wide inactivity. No model/save/AVD path appears in the move allowlist.
+
+Independently rehashed every destination compiler file against the before manifests: all12,507 files/5,144,755,186 logical bytes match with no missing or altered file. Five tree totals equal compiler-verify.json, and the relocation/junction records agree. This reviewer performed that read-only generated-file rehash and evidence parsing only; the coordinator/authors performed tests, source/device scans and relocation. The reviewer did not access model contents, run tests/builds/devices/inference, mutate GitHub or copy/repair/delete caches.
+
+## Remaining limits and next admission
+
+The public report/aggregate agree with the retained data and contain no private absolute paths, serials, raw diagnostics, weight bytes or generated story text. The sealed private artifacts remain local. Host model source/B identity match does not identify A's cause; unchanged exposed metadata does not establish unchanged historical bytes or durable writeback. There was no app launch/stop, inference, cache eviction/repair/copy, physical-phone/ARM64 execution, model-quality/performance qualification or backend selection here.
+
+B ends with1,800,622,080 guest bytes free. The earlier guard required1GiB before a run; it never guaranteed a reserve after cache generation. The previously observed A XNNPACK cache788,412,736 plus1GiB is1,862,154,560, already61,532,480 more than B has. That observed cache size is not a proven maximum, and this comparison does not retroactively redefine the old gate or explain A's mismatch. Before a useful B real-model control, define and satisfy explicit cache-growth/storage admission with fresh source/B full identity and owner checks, preserving A and every failure. Inference remains held through this packet; phone-dependent and full M01 acceptance gates remain open.

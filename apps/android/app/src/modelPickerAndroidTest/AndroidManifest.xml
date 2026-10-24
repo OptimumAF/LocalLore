@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Fixed synthetic control only; exact target/test UID authentication precedes calls. -->
+        <provider android:name="org.locallore.app.ModelPickerDocumentsProvider$Control"
+            android:authorities="${modelPickerTestAuthority}.control"
+            android:exported="true" android:process=":model_picker_provider" />
+        <!-- TEST APK only. Real DocumentsUI grants access to the selected virtual document. -->
+        <provider android:name="org.locallore.app.ModelPickerDocumentsProvider"
+            android:authorities="${modelPickerTestAuthority}" android:exported="true"
+            android:grantUriPermissions="true" android:permission="android.permission.MANAGE_DOCUMENTS"
+            android:process=":model_picker_provider">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
+    </application>
+</manifest>

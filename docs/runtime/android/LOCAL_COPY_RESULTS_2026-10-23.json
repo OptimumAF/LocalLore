@@ -1,0 +1,447 @@
+{
+  "version": 1,
+  "date": "2026-10-23",
+  "scope": "authorized_local_model_copies_and_frozen_sdk_play_probe_followup",
+  "task_status": {
+    "M01.03": "acceptance_pending; real-model case failed and stable identity blocked",
+    "M01.05": "acceptance_pending; bounded source review only",
+    "M01.04": "not_completed",
+    "physical_device": "not_run"
+  },
+  "harness_commit": "e7beb858b271aa4636f2f5e7b34deedda1fc3f21",
+  "controller_sha256": "2895a279e504db912104f542d7b9761938bec01954e1db89510b34748235a4cd",
+  "android_helper_sha256": "cafc6afa267c98331f4379c36a57c5fcdb5d0cf9e6518bf466629e1a0eced4dc",
+  "apk_sha256": "715a6c4521592256b1ee6e1bf9ec4d0f3f1974dcdde040781269163efbc534a6",
+  "runtime": "LiteRT-LM Android 0.18.1 CPU",
+  "runtime_revision": "bda624851d74be34d4e1f7fac1fc4155939539c7",
+  "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+  "model_bytes": 2588147712,
+  "targets": {
+    "count": 2,
+    "android_api": 35,
+    "abi": "x86_64",
+    "page_bytes": 4096
+  },
+  "copies": [
+    {
+      "event": "finished",
+      "target_alias": "A",
+      "status": "verified",
+      "copied": true,
+      "source_verified": true,
+      "destination_verified": true,
+      "other_packages_preserved": true,
+      "benchmark_process_absent": true,
+      "clients_cleaned": true,
+      "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+      "model_bytes": 2588147712,
+      "available_data_bytes": 1948651520,
+      "source_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+      "destination_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+    },
+    {
+      "event": "finished",
+      "target_alias": "B",
+      "status": "verified",
+      "copied": true,
+      "source_verified": true,
+      "destination_verified": true,
+      "other_packages_preserved": true,
+      "benchmark_process_absent": true,
+      "clients_cleaned": true,
+      "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+      "model_bytes": 2588147712,
+      "available_data_bytes": 1905745920,
+      "source_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+      "destination_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+    }
+  ],
+  "attempts": [
+    {
+      "target_alias": "A",
+      "case": "gift",
+      "attempt": "initial",
+      "status": "observed",
+      "result": {
+        "outcome": "failed",
+        "error": "timeout",
+        "roles": 2,
+        "director_calls": 2,
+        "narrator_calls": 0,
+        "repairs": 0,
+        "revision_before": 0,
+        "revision_after": 0,
+        "receipts_before": 0,
+        "receipts_after": 0,
+        "exact_retry": false,
+        "reopen_equal": true,
+        "canon_unchanged": true,
+        "model_initialized": true,
+        "fallback": false,
+        "first_output_observed": false,
+        "owner_drained": true,
+        "version": 1,
+        "case": "gift",
+        "gift_seeded": false,
+        "workspace_retained": true,
+        "turns": [
+          {
+            "outcome": "failed",
+            "error": "timeout",
+            "generations": [
+              {
+                "role": "director",
+                "status": "completed",
+                "error": null,
+                "load_ms": 3579.945983,
+                "generation_ms": 33713.165071,
+                "input_tokens": 1855,
+                "output_tokens": 350,
+                "schema_enforced": true,
+                "thinking_disabled": true,
+                "template_applied": true
+              },
+              {
+                "role": "director",
+                "status": "error",
+                "error": "timeout",
+                "load_ms": 0,
+                "generation_ms": 17091.925382,
+                "input_tokens": null,
+                "output_tokens": null,
+                "schema_enforced": false,
+                "thinking_disabled": false,
+                "template_applied": false
+              }
+            ],
+            "roles": 2,
+            "director_calls": 2,
+            "narrator_calls": 0,
+            "repairs": 0,
+            "revision_before": 0,
+            "revision_after": 0,
+            "receipts_before": 0,
+            "receipts_after": 0,
+            "exact_retry": false,
+            "reopen_equal": true,
+            "canon_unchanged": true,
+            "model_initialized": true,
+            "fallback": false,
+            "first_output_observed": false,
+            "owner_drained": true
+          }
+        ]
+      },
+      "sdk": {
+        "generate_terminal_callback": true,
+        "reload_completed": false,
+        "cancel_called": true,
+        "terminal_callback": true,
+        "owners_balanced": true,
+        "cancel_terminal_callback": true,
+        "generated_text_logged": false,
+        "worker_off_main": true,
+        "cancel_call_ms": 0.060648,
+        "main_pulses": 5162,
+        "engines_closed": 1,
+        "cancel_main_pulses": 1460,
+        "conversations_closed": 2,
+        "conversations_opened": 2,
+        "generate_main_pulses": 2864,
+        "engines_opened": 1,
+        "generation_main_pulses": 1460
+      },
+      "process_absent": true,
+      "clients_cleaned": true,
+      "workspace_removed": true,
+      "check_passed": false,
+      "model_verified": true,
+      "raw_protocol_retained": true,
+      "wall_ms": 82438,
+      "prior_packages_preserved": true
+    },
+    {
+      "target_alias": "A",
+      "case": "dialogue",
+      "attempt": "initial",
+      "status": "setup_failed",
+      "result": null,
+      "sdk": null,
+      "process_absent": true,
+      "clients_cleaned": true,
+      "workspace_removed": false,
+      "check_passed": false,
+      "model_verified": false,
+      "raw_protocol_retained": false,
+      "wall_ms": 14281,
+      "prior_packages_preserved": true,
+      "failure_stage": "model_identity",
+      "workspace_not_created": true
+    }
+  ],
+  "integrity_observation": {
+    "A_verified_after_copy_and_before_first_gift": true,
+    "A_later_bytes": 2588147712,
+    "A_later_sha256": "59d70767f8f7a8710fb2d1427e3cf94917ca5b6847fdbfd11f1fcf2617f0eb4d",
+    "source_unchanged": true,
+    "B_unexecuted_control_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+    "B_matches_source": true,
+    "fixed_1mib_samples": 8,
+    "fixed_1mib_samples_matching": 7,
+    "last_mib_64k_samples": 16,
+    "last_mib_64k_samples_differing": 16,
+    "cause_established": false,
+    "host_writeback_explanation_is_hypothesis": true,
+    "cache_replaced_or_evicted": false,
+    "sampled_bytes": 9437184,
+    "sampling_limit": "Sparse hash-only observations do not locate every changed byte or establish a cause.",
+    "separate_A_xnnpack_cache_bytes": 788412736,
+    "base_model_mtime_predated_cache_mtime_seconds": 777
+  },
+  "B_control_preflight": {
+    "version": 1,
+    "target_alias": "B",
+    "operation": "planned_gift_control_preflight",
+    "status": "blocked",
+    "category": "host_storage_gate",
+    "required_c_bytes": 4294967296,
+    "inference_launched": false,
+    "volumes": [
+      {
+        "DriveLetter": "D",
+        "SizeRemaining": 156439801856
+      },
+      {
+        "DriveLetter": "C",
+        "SizeRemaining": 3024314368
+      }
+    ]
+  },
+  "host_storage_exhaustion_observed_after_A_copy": true,
+  "sdk_role_admissions": 2,
+  "sdk_completed_generations": 1,
+  "committed_turns": 0,
+  "narrator_calls": 0,
+  "explicit_first_output_cancel_observations": 0,
+  "all_admitted_native_and_sdk_owners_drained": true,
+  "all_started_adb_clients_terminal": true,
+  "benchmark_processes_absent_last_verified": true,
+  "previous_package_hashes_preserved": true,
+  "device_ownership_released": true,
+  "source_files_changed": false,
+  "new_dependencies": false,
+  "models_uploaded_or_downloaded": false,
+  "model_quality_qualified": false,
+  "phone_qualified": false,
+  "production_backend_selected": false,
+  "remaining_cases": [
+    "A dialogue did not pass model-identity setup",
+    "A unlearned/spent/cancel/fresh-gift not run",
+    "B fixed cases not run; gift control blocked before launch"
+  ],
+  "next_runnable_task": "Read-only integrity investigation and stable host-storage verification, preserving both caches and the original source. All inference is held; any later case needs fresh coordinator admission and unchanged identity/budget gates.",
+  "acceptance": {
+    "local_copy_checkpoint": "satisfied_on_both_targets_at_initial_full_hash_verification",
+    "stable_model_identity": "blocked_on_A",
+    "planned_B_control": "blocked_before_launch_by_host_storage",
+    "owner_acceptance": "pending",
+    "inference_held": true
+  },
+  "benchmark_package": "org.locallore.runtimebench.litert",
+  "model_artifact": "Gemma 4 E2B LiteRT-LM container",
+  "fixed_profile": {
+    "id": "android-litert-play-probe-v1",
+    "context_tokens": 4096,
+    "director_tokens": 350,
+    "narrator_tokens": 220,
+    "repair_limit": 1,
+    "deadline_ms": 60000,
+    "sdk_watchdog_ms": 90000,
+    "controller_deadline_seconds": 110,
+    "threads": 4,
+    "profile_changed": false
+  },
+  "preflight": {
+    "source_verified": true,
+    "installed_apk_verified_on_both_targets": true,
+    "targets": [
+      {
+        "alias": "A",
+        "boot_completed": true,
+        "available_data_bytes": 4536803328,
+        "model_cache": "absent",
+        "previous_installed_package_count": 13,
+        "benchmark_process_absent": true
+      },
+      {
+        "alias": "B",
+        "boot_completed": true,
+        "available_data_bytes": 4493926400,
+        "model_cache": "absent",
+        "previous_installed_package_count": 13,
+        "benchmark_process_absent": true
+      }
+    ]
+  },
+  "source_review": {
+    "runtime_revision": "bda624851d74be34d4e1f7fac1fc4155939539c7",
+    "findings": [
+      {
+        "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/Config.kt",
+        "observation": "The Java five-argument EngineConfig call matches modelPath/backend/vision/audio/maxNumTokens. Unset cacheDir defaults to the model's parent directory."
+      },
+      {
+        "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/support/util/memory_mapped_file_posix.cc",
+        "observation": "Normal Create uses writable MAP_PRIVATE; separate CreateMutable uses MAP_SHARED. The model loader inspected calls normal Create."
+      },
+      {
+        "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/runtime/util/litert_lm_loader.cc",
+        "observation": "Section mapping delegates to normal MemoryMappedFile::Create. No OpenWritable or CreateMutable call was found in this loader."
+      },
+      {
+        "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/runtime/executor/executor_settings_base.cc",
+        "observation": "CPU weight-cache naming adds a metadata identifier and a cache suffix to the model path or basename, rather than selecting the bare model path."
+      },
+      {
+        "url": "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/bda624851d74be34d4e1f7fac1fc4155939539c7/runtime/util/file_util.cc",
+        "observation": "GetFileCacheIdentifier reads file size and modification time. This implementation does not write the model."
+      }
+    ],
+    "cause_established": false,
+    "hypotheses_not_proven": [
+      "A was copied while the host C volume became full; later backend writeback trouble could have become visible after earlier guest-cache hash reads.",
+      "An uninspected native SDK/LiteRT code path could modify model content. Pinned source review is not proof of all prebuilt AAR behavior."
+    ],
+    "scope_limit": "Inspected pinned source paths do not audit all behavior of the linked prebuilt runtime."
+  },
+  "storage_incident": {
+    "host_system_volume_full_observed_after_A_copy": true,
+    "attribution_established": false,
+    "B_copy_and_inference_held_during_incident": true,
+    "coordinator_relocated_only_known_generated_outputs_intact": true,
+    "B_copy_resumed_after_fresh_host_free_bytes": 8361631744,
+    "B_copy_minimum_host_free_bytes": 8000000000,
+    "no_model_recopy_or_eviction": true
+  },
+  "command_record": {
+    "notation": "Private wrapper and path placeholders are redactions, not runnable literal commands; target aliases replace transport identifiers. Existing Python API calls are recorded separately. No direct controller CLI execution is claimed.",
+    "wrapper_invocations": [
+      {
+        "command": "python <private-copy-wrapper> A",
+        "result": "verified"
+      },
+      {
+        "command": "python <private-copy-wrapper> B",
+        "result": "verified_after_storage_hold"
+      },
+      {
+        "command": "python <private-case-wrapper> A gift initial",
+        "result": "failed_timeout"
+      },
+      {
+        "command": "python <private-case-wrapper> A dialogue initial",
+        "result": "setup_failed_model_identity"
+      },
+      {
+        "command": "python <private-case-wrapper> B gift initial",
+        "result": "host_storage_gate_before_device_or_harness_call"
+      }
+    ],
+    "executed_existing_api_calls": [
+      "device.provision_private_model(verified_local_model)",
+      "play.run_probe(device, frozen_apk_sha256, \"gift\", False, retain_raw)",
+      "play.run_probe(device, frozen_apk_sha256, \"dialogue\", False, retain_raw)"
+    ],
+    "read_only_checks": [
+      "SHA256 and size of the exact host model and preserved APK",
+      "Full destination SHA256 and size through the bounded device shell helper",
+      "Installed package APK hashes before and after copy/case operations",
+      "Full source/A/B model SHA256 rechecks",
+      "Eight fixed 1 MiB hash samples; sixteen final-MiB 64 KiB hash samples",
+      "Fixed-prefix model/cache metadata; host and guest free-space checks"
+    ]
+  },
+  "evidence": [
+    {
+      "id": "preflight.json",
+      "bytes": 3905,
+      "sha256": "c31452c58cfcb744c8d610c2db004b308f3c573459a5108f76b163da6185f54d",
+      "contents_published": false
+    },
+    {
+      "id": "copy-A.jsonl",
+      "bytes": 611,
+      "sha256": "d64afae7ce89f85553f42dd218ce351cc33789451a88b1351de89f59c767f08e",
+      "contents_published": false
+    },
+    {
+      "id": "copy-B.jsonl",
+      "bytes": 611,
+      "sha256": "26e8e666167cd454d60fdd1063609e69d25f309325d7ae9e04f46b37d5584f98",
+      "contents_published": false
+    },
+    {
+      "id": "A-gift-initial.jsonl",
+      "bytes": 2732,
+      "sha256": "bf58d9bfae85d330e12aa54eb5f296b07231d4c5ca8566ea14e5715ef8df1512",
+      "contents_published": false
+    },
+    {
+      "id": "A-gift-initial.raw.txt",
+      "bytes": 2245,
+      "sha256": "2fdd872b7784d40abe62066ad8807642fd0cf1ea7670abd0657d4e7bcd9f23ac",
+      "contents_published": false
+    },
+    {
+      "id": "A-dialogue-initial.jsonl",
+      "bytes": 916,
+      "sha256": "5d9b739e2ff26b49e562ec09fa9336ce4804897ec046b19528278dd64a965d1e",
+      "contents_published": false
+    },
+    {
+      "id": "A-model-recheck.json",
+      "bytes": 356,
+      "sha256": "8b953cbe9354007cd5298788fb93e29afc635557044ad177de67f2fbb22edc1b",
+      "contents_published": false
+    },
+    {
+      "id": "B-model-recheck.json",
+      "bytes": 355,
+      "sha256": "ae8c441d709748a099beb5d158f18080473c5472e0e9f8ff4b4db16046d64bad",
+      "contents_published": false
+    },
+    {
+      "id": "A-chunk-hashes.json",
+      "bytes": 2354,
+      "sha256": "a750aaa805affa061f61deb2d0080eda629eb3a9919dff2a3a24b2ed7e6373c3",
+      "contents_published": false
+    },
+    {
+      "id": "A-tail-hashes.json",
+      "bytes": 5200,
+      "sha256": "7e9723698f66721082a4e5e36c79beff71e85a192e1113c272dd130b8841d3de",
+      "contents_published": false
+    },
+    {
+      "id": "model-cache-metadata.json",
+      "bytes": 900,
+      "sha256": "63894d7085599d8bd220e7ce5a8ff29644557e2c60d680823502d00de18d7ea7",
+      "contents_published": false
+    },
+    {
+      "id": "B-control-blocked-storage.json",
+      "bytes": 400,
+      "sha256": "e8ad10e76c39378ef9c474c54808369751ed132c5f8dfb1e1755a533903aa7bf",
+      "contents_published": false
+    },
+    {
+      "id": "source-review.json",
+      "bytes": 2417,
+      "sha256": "d31dee6b86e69307af831ae74fd17488e56e3db3fd05684b1357465ebbdafc7a",
+      "contents_published": false
+    }
+  ],
+  "evidence_policy": "Raw evidence remains private. IDs, lengths and SHA256 digests identify retained originals; no private paths, device transport identifiers, weights, generated text, prompts or raw logs are published.",
+  "workspace_retained_reporting": "The SDK result reports workspace_retained=true before controller cleanup; the completed A gift controller subsequently verified cleanup and workspace_removed=true. A dialogue created no workspace.",
+  "documentation_validation_scope": "Structured report/evidence-hash/sanitization/link/diff checks only; no new build, device call or inference in this documentation packet."
+}

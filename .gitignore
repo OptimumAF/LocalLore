@@ -23,6 +23,10 @@ apps/android/.gradle-timeline/
 apps/android/app/build-timeline/
 apps/android/.gradle-parent-retention/
 apps/android/app/build-parent-retention/
+apps/android/.gradle-external-inference/
+apps/android/app/build-external-inference/
+apps/android/.gradle-cancel-ack/
+apps/android/app/build-cancel-ack/
 apps/android/app/build-capacity/
 apps/android/.gradle-capacity/
 apps/android/app/build-capacity-relief/
@@ -55,3 +59,7 @@ apps/android/app/build-capacity-relief-v3/
 apps/android/.gradle-capacity-relief-v3/
 apps/android/app/build-capacity-faults-v3/
 apps/android/.gradle-capacity-faults-v3/
+
+apps/android/.gradle-litert-worker/
+apps/android/app/build-litert-worker/
+apps/android/app/build-model-picker/

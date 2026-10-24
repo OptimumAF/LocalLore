@@ -3,6 +3,7 @@
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,15 @@ import zipfile
 
 PERMISSION = "org.locallore.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
 ABIS = {"x86_64": 62, "arm64-v8a": 183}
+# Exact candidate SDK; ordinary APKs must never contain these entries.
+LITERT_NATIVE_HASHES = {
+    "lib/arm64-v8a/liblitertlm_jni.so": "cf4c55139c6fc86425ecfe75f8a907e6193ca665ecc19fbabcaba7ab361bdc43",
+    "lib/x86_64/liblitertlm_jni.so": "ba879b2b46be1f7e08df8c8365a276cfc54c1e21383090e058a24f25e603cdd7",
+}
+LITERT_NOTICES = {
+    "assets/notices/litertlm-0.18.1/LICENSE": "ec40a2da15ab0e8b44a9f787ab210203d3cad32572f5f99744a88eb90ff9ba4e",
+    "assets/notices/litertlm-0.18.1/THIRD_PARTY_NOTICE.txt": "52a70c82685debf85d4ea9d677615b8636ffd3b75435ce71f247bf5982fb2ba2",
+}
 
 
 class AuditError(ValueError):
@@ -44,7 +54,8 @@ def elf_alignments(data, machine):
     return alignments
 
 
-def audit_zip(path):
+def audit_zip(path, *, litert=False, model_picker=False):
+    require(not model_picker or litert, "Model picker fixtures require the explicit SDK profile")
     libraries = []
     with zipfile.ZipFile(path) as archive, open(path, "rb") as raw:
         entries = archive.infolist()
@@ -52,6 +63,33 @@ def audit_zip(path):
         require(len(names) <= 4096 and len(names) == len(set(names)), "Excessive or duplicate APK entries")
         require(not any("lantern_quay_cases" in name for name in names), "Legacy recorded fixture packaged")
         require("AndroidManifest.xml" in names, "Missing Android manifest")
+        dex = [entry for entry in entries if re.fullmatch(r"classes(?:[2-9]|[1-9][0-9]+)?\.dex", entry.filename)]
+        require(len(dex) <= 32 and sum(entry.file_size for entry in dex) <= 128 * 1024 * 1024,
+                "Excessive DEX contents")
+        fixture_present = False
+        fixture_activity_present = False
+        interruption_present = False
+        interruption_activity_present = False
+        pending_present = False
+        pending_activity_present = False
+        for entry in dex:
+            require(0 < entry.file_size <= 32 * 1024 * 1024, "Invalid DEX size")
+            contents = archive.read(entry)
+            fixture_present |= b"ModelPickerFixture" in contents
+            fixture_activity_present |= b"ModelPickerFixtureActivity" in contents
+            interruption_present |= b"ModelPickerInterruption" in contents
+            interruption_activity_present |= b"ModelPickerInterruptionFixtureActivity" in contents
+            pending_present |= b"ModelPickerPending" in contents
+            pending_activity_present |= b"ModelPickerPendingFixtureActivity" in contents
+            require(b"ModelPickerDocumentsProvider" not in contents, "Test provider packaged in app")
+            require(b"ModelPickerInterruptionTest" not in contents, "Interruption test packaged in app")
+            require(b"ModelPickerPendingTest" not in contents, "Pending-picker test packaged in app")
+        require(fixture_present == model_picker, "Model picker fixture leaked or missing")
+        require(interruption_present == model_picker, "Interruption fixture leaked or missing")
+        require(pending_present == model_picker, "Pending-picker fixture leaked or missing")
+        require(not model_picker or fixture_activity_present, "Missing fixture Activity implementation")
+        require(not model_picker or interruption_activity_present, "Missing interruption Activity implementation")
+        require(not model_picker or pending_activity_present, "Missing pending-picker Activity implementation")
         for entry in entries:
             if not entry.filename.endswith(".so"):
                 continue
@@ -69,14 +107,24 @@ def audit_zip(path):
             libraries.append({"entry": entry.filename, "elf_load_alignment": alignment})
         expected = {f"lib/{abi}/{library}" for abi in ABIS for library in
                     ("liblocallore_android.so", "libandroidx.graphics.path.so")}
+        if litert:
+            expected |= set(LITERT_NATIVE_HASHES)
         require({library["entry"] for library in libraries} == expected, "Native library set changed; review dependencies")
+        if litert:
+            for name, digest in {**LITERT_NATIVE_HASHES, **LITERT_NOTICES}.items():
+                require(name in names, "Missing pinned SDK binary or notice")
+                entry = archive.getinfo(name)
+                require(0 < entry.file_size <= 32 * 1024 * 1024, "Invalid SDK binary or notice size")
+                require(hashlib.sha256(archive.read(entry)).hexdigest() == digest, "SDK binary or notice changed")
     return libraries
 
 
 def audit_manifest(badging, tree, package="org.locallore.app"):
     require(package in ("org.locallore.app", "org.locallore.app.capacity", "org.locallore.app.capacityrelief", "org.locallore.app.capacityv3",
                         "org.locallore.app.capacityreliefv3", "org.locallore.app.capacityfaultsv3",
-                        "org.locallore.app.capacityv4", "org.locallore.app.capacityreliefv4", "org.locallore.app.capacityfaultsv4"),
+                        "org.locallore.app.capacityv4", "org.locallore.app.capacityreliefv4", "org.locallore.app.capacityfaultsv4",
+                        "org.locallore.app.externalverify", "org.locallore.app.litertverify",
+                        "org.locallore.app.modelverify", "org.locallore.app.modelpickerverify", "org.locallore.app.cancelack"),
             "Unreviewed app package")
     permission = package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
     require(re.search(r"^package: name='" + re.escape(package) + r"' ", badging, re.M), "Wrong app package")
@@ -120,6 +168,112 @@ def audit_fixed_metadata(tree, namespace, expected):
         require(len(re.findall(pattern, tree, re.M)) == 1, "Wrong fixed capacity metadata value")
 
 
+def audit_model_launcher(badging, tree, *, model_picker=False):
+    """The setup profile must not retain an exported scripted entry point."""
+    setup = "org.locallore.app.LocalModelSetupActivity"
+    play = "org.locallore.app.LiteRtPlayActivity"
+    main_activity = "org.locallore.app.MainActivity"
+    fixture = "org.locallore.app.ModelPickerFixtureActivity"
+    interruption = "org.locallore.app.ModelPickerInterruptionFixtureActivity"
+    pending = "org.locallore.app.ModelPickerPendingFixtureActivity"
+    require(re.findall(r"^launchable-activity: name='([^']+)'", badging, re.M) == [setup],
+            "Model setup must be the sole launcher")
+    require(":sharedUserId(" not in tree and "E: activity-alias " not in tree,
+            "Model candidate cannot share identity or alias an entry point")
+    require(len(re.findall(r':name\([^)]*\)="android.intent.category.LAUNCHER"', tree)) == 1,
+            "Unexpected launcher filter")
+    lines = tree.splitlines()
+    activities = {}
+    for index, line in enumerate(lines):
+        match = re.match(r"(\s*)E: activity \(", line)
+        if not match:
+            continue
+        block = []
+        for following in lines[index + 1:]:
+            if following.strip() and len(following) - len(following.lstrip()) <= len(match[1]):
+                break
+            block.append(following)
+        header = []
+        for item in block:
+            if re.match(r"\s*E:", item):
+                break
+            header.append(item)
+        attributes = "\n".join(header)
+        names = re.findall(r':name\([^)]*\)="([^"\n]+)"', attributes)
+        require(len(names) == 1 and names[0] not in activities, "Ambiguous activity identity")
+        activities[names[0]] = (attributes, "\n".join(block))
+    expected = {setup, play, main_activity} | ({fixture, interruption, pending} if model_picker else set())
+    require({name for name in activities if name.startswith("org.locallore.app.")} ==
+            expected, "Unexpected application activity")
+    exports = [(setup, "true"), (play, "false"), (main_activity, "false")]
+    if model_picker:
+        exports.append((fixture, "false"))
+        exports.append((interruption, "false"))
+        exports.append((pending, "false"))
+    for name, exported in exports:
+        attributes, block = activities[name]
+        require(re.findall(r':exported\([^)]*\)=([^\s]+)', attributes) == [exported],
+                "Wrong model activity export boundary")
+        if name in (setup, play):
+            modes = re.findall(r':launchMode\([^)]*\)=([^\s]+)', attributes)
+            require(len(modes) == 1 and re.fullmatch(r'(?:0x0*2|2)', modes[0]),
+                    "Model activities require singleTask")
+        if name != setup:
+            require("E: intent-filter " not in block, "Unexpected scripted or play intent filter")
+    return {"launcher": setup, "scripted_exported": False, "play_exported": False}
+
+
+def audit_model_picker_test_manifest(tree):
+    """The selected TEST APK owns only the two reviewed model-picker fixture providers."""
+    document = "org.locallore.app.ModelPickerDocumentsProvider"
+    control = document + "$Control"
+    authority = "org.locallore.app.modelpickerverify.test.modelpicker"
+    providers = {}
+    lines = tree.splitlines()
+    for index, line in enumerate(lines):
+        match = re.match(r"(\s*)E: provider \(", line)
+        if not match:
+            continue
+        block = []
+        for following in lines[index + 1:]:
+            if following.strip() and len(following) - len(following.lstrip()) <= len(match[1]):
+                break
+            block.append(following)
+        header = []
+        for item in block:
+            if re.match(r"\s*E:", item):
+                break
+            header.append(item)
+        attributes = "\n".join(header)
+        names = re.findall(r':name\([^)]*\)="([^"\n]+)"', attributes)
+        require(len(names) == 1 and names[0] not in providers, "Ambiguous test provider identity")
+        if names[0].startswith("org.locallore."):
+            providers[names[0]] = (attributes, "\n".join(block))
+    require(set(providers) == {document, control}, "Unexpected model-picker test provider set")
+    for name, expected in ((document, authority), (control, authority + ".control")):
+        attributes, block = providers[name]
+        require(re.findall(r':authorities\([^)]*\)="([^"\n]+)"', attributes) == [expected],
+                "Unexpected test provider authority")
+        require(re.findall(r':process\([^)]*\)="([^"\n]+)"', attributes) == [":model_picker_provider"],
+                "Test provider process changed")
+        require(re.findall(r':exported\([^)]*\)=([^\s]+)', attributes) == ["true"],
+                "Wrong test provider export boundary")
+        permission = re.findall(r':permission\([^)]*\)="([^"\n]+)"', attributes)
+        grants = re.findall(r':grantUriPermissions\([^)]*\)=([^\s]+)', attributes)
+        require(":readPermission(" not in attributes and ":writePermission(" not in attributes and
+                "E: path-permission " not in block, "Unexpected provider permission override")
+        if name == document:
+            require(permission == ["android.permission.MANAGE_DOCUMENTS"] and grants == ["true"],
+                    "Document provider must retain platform grants and protection")
+            require(len(re.findall(r':name\([^)]*\)="android.content.action.DOCUMENTS_PROVIDER"', block)) == 1,
+                    "Missing document-provider discovery action")
+        else:
+            require(not permission and not grants and not re.search(r"^\s*E:", block, re.M),
+                    "Control provider must not delegate document grants")
+    return {"document_authority": authority, "control_authority": authority + ".control",
+            "process": ":model_picker_provider"}
+
+
 def aapt2_path():
     for variable in ("ANDROID_HOME", "ANDROID_SDK_ROOT"):
         value = os.environ.get(variable)
@@ -135,15 +289,29 @@ def aapt2_path():
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("apk", type=Path)
+    parser.add_argument("--litert-verification", action="store_true", help="Audit only the explicit pinned LiteRT debug candidate")
+    parser.add_argument("--model-provisioning", action="store_true", help="Audit the separate local model setup candidate")
+    parser.add_argument("--model-picker-fixture", action="store_true", help="Audit only the explicit synthetic picker fixture profile")
     args = parser.parse_args(argv)
     try:
-        libraries = audit_zip(args.apk)
+        require(not args.model_provisioning or args.litert_verification,
+                "Model provisioning requires the explicit LiteRT audit")
+        require(not args.model_picker_fixture or args.model_provisioning,
+                "Model picker fixture requires the model provisioning audit")
+        libraries = audit_zip(args.apk, litert=args.litert_verification, model_picker=args.model_picker_fixture)
         aapt = str(aapt2_path())
         def dump(*arguments):
             return subprocess.run([aapt, "dump", *arguments], check=True, capture_output=True,
                                   text=True, encoding="utf-8", shell=False).stdout
         permissions = audit_manifest(dump("badging", str(args.apk)),
-                                     dump("xmltree", str(args.apk), "--file", "AndroidManifest.xml"))
+                                     dump("xmltree", str(args.apk), "--file", "AndroidManifest.xml"),
+                                     "org.locallore.app.modelpickerverify" if args.model_picker_fixture else
+                                     "org.locallore.app.modelverify" if args.model_provisioning else
+                                     "org.locallore.app.litertverify" if args.litert_verification else "org.locallore.app")
+        if args.model_provisioning:
+            audit_model_launcher(dump("badging", str(args.apk)),
+                                 dump("xmltree", str(args.apk), "--file", "AndroidManifest.xml"),
+                                 model_picker=args.model_picker_fixture)
         print(json.dumps({"status": "passed", "permissions": permissions, "libraries": libraries}, indent=2))
         return 0
     except (AuditError, OSError, zipfile.BadZipFile, subprocess.CalledProcessError, struct.error) as error:

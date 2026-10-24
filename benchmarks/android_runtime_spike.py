@@ -126,12 +126,17 @@ class Device:
     def __init__(self, adb, serial):
         self.adb, self.serial = str(adb), serial
 
-    def raw(self, args, request=b"", deadline=20, cancel=None):
+    def raw(self, args, request=b"", deadline=20, cancel=None, max_output=None):
+        # Trusted encoded recovery may need more wire bytes than decoded file
+        # bytes. Keep the old default and the existing runner's absolute cap.
+        if max_output is not None and (type(max_output) is not int or not 0 < max_output <= 262_144):
+            raise Failure("invalid_output_budget", command_cleaned=True)
         args = list(args)
         if args and args[0] == "shell":
             args.insert(1, "-T")  # No terminal processing; fixed markers also admit Windows ADB CRLF.
+        options = {} if max_output is None else {"max_output": max_output}
         return host.run_process([self.adb, "-s", self.serial] + args, request,
-                                deadline=deadline, cancel=cancel)
+                                deadline=deadline, cancel=cancel, **options)
 
     def shell(self, *args, deadline=20, request=b""):
         # adb shell joins its argv into shell text; quote every remote argument ourselves.

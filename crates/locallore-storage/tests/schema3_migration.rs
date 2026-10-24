@@ -7,6 +7,8 @@ use locallore_storage::{
     ForkRequest, StorageError, Store, SCHEMA_VERSION,
 };
 use rusqlite::{types::Value, Connection, OpenFlags};
+#[path = "support/historical_schema.rs"]
+mod historical_schema;
 use std::{
     collections::BTreeMap,
     fs,
@@ -140,7 +142,7 @@ impl Fixture {
     }
     fn historical(version: u32) -> Self {
         let fixture = Self::current();
-        historical_schema(&Connection::open(&fixture.path).unwrap(), version);
+        historical_schema::replace_current_fixture(&fixture.path, version);
         assert_eq!(
             Store::open_read_only(&fixture.path)
                 .unwrap()
@@ -157,31 +159,6 @@ impl Fixture {
 }
 // Roots remain under the caller-owned task TEMP for genuine failed-attempt
 // evidence. This helper never recursively deletes or adopts an existing root.
-fn historical_schema(db: &Connection, version: u32) {
-    assert!([1, 2, 3].contains(&version));
-    let initial = include_str!("../migrations/001_initial.sql")
-        .split("CREATE TABLE stories")
-        .next()
-        .unwrap();
-    let derived_header = include_str!("../migrations/002_derived_memory.sql")
-        .split("CREATE TABLE derived_memory")
-        .next()
-        .unwrap();
-    let optional = if version == 1 {
-        "DROP TABLE derived_memory;"
-    } else {
-        ""
-    };
-    let records = if version >= 2 { derived_header } else { "" };
-    let retention = if version == 3 {
-        include_str!("../migrations/003_branch_retention.sql")
-    } else {
-        ""
-    };
-    // Reconstruct the actual historical schema_migrations definition, not an
-    // approximation with current CHECK constraints or a renamed current table.
-    db.execute_batch(&format!("BEGIN IMMEDIATE; DROP TABLE memory_job_packets; DROP TABLE memory_jobs; DROP TABLE branch_retention; {optional} DROP TABLE schema_migrations; {initial} {records} {retention} PRAGMA user_version={version}; COMMIT;")).unwrap();
-}
 fn apply(store: &mut Store, scope: &Scope, id: &str, commands: Vec<Command>) {
     let e = store.resume(scope).unwrap().engine;
     let req = e.request(id, Intent::Actions(commands));
@@ -239,6 +216,9 @@ fn state(path: &Path, scopes: &[Scope]) -> Vec<Vec<u8>> {
 }
 fn rows(path: &Path, derived: bool) -> BTreeMap<String, Vec<Vec<Value>>> {
     let db = read(path);
+    // Additive schema5 metadata is checked separately; compare every original
+    // column and payload, rather than unequal-width SELECT * row vectors.
+    historical_schema::assert_legacy_defaults(&db);
     let mut tables = CANONICAL_TABLES.to_vec();
     if derived {
         tables.push("derived_memory");
@@ -246,14 +226,17 @@ fn rows(path: &Path, derived: bool) -> BTreeMap<String, Vec<Vec<Value>>> {
     tables
         .into_iter()
         .map(|table| {
-            let mut q = db.prepare(&format!("SELECT * FROM {table}")).unwrap();
+            let columns = historical_schema::original_columns(table).join(",");
+            let mut q = db
+                .prepare(&format!("SELECT {columns} FROM {table}"))
+                .unwrap();
             let width = q.column_count();
             let order = (1..=width)
                 .map(|n| n.to_string())
                 .collect::<Vec<_>>()
                 .join(",");
             q = db
-                .prepare(&format!("SELECT * FROM {table} ORDER BY {order}"))
+                .prepare(&format!("SELECT {columns} FROM {table} ORDER BY {order}"))
                 .unwrap();
             let values = q
                 .query_map([], |r| (0..width).map(|i| r.get(i)).collect())
@@ -272,7 +255,7 @@ fn same<T: PartialEq>(a: &T, b: &T) {
 }
 fn verify_retention_empty(store: &Store, path: &Path, scopes: &[Scope]) {
     assert_eq!(store.info().unwrap().schema_version, SCHEMA_VERSION);
-    assert_eq!(SCHEMA_VERSION, 4);
+    assert_eq!(SCHEMA_VERSION, 5);
     for table in ["memory_jobs", "memory_job_packets"] {
         let count: i64 = read(path)
             .query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0))

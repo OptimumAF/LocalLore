@@ -116,10 +116,14 @@ fn prompts(seen: &Seen) -> (String, String) {
 }
 fn assert_record(reply: &Value, policy: ContextPolicy) {
     assert_eq!(reply["status"], "ok", "{reply}");
+    assert_eq!(reply["data"]["phase"], "committed", "{reply}");
     let record = &reply["data"]["receipt"]["play"];
     assert_eq!(record["prompt_version"], "locallore-play-v2.5");
     assert_eq!(record["policy"], "grounded-prose-v2.2");
-    assert_eq!(record["context_policy"], serde_json::to_value(policy).unwrap());
+    assert_eq!(
+        record["context_policy"],
+        serde_json::to_value(policy).unwrap()
+    );
     assert_eq!(record["context"]["version"], 2);
     assert_eq!(record["context"]["compiler_version"], 2);
 }
@@ -160,14 +164,15 @@ fn history_engine() -> Engine {
     engine
 }
 
-// Test-only, read-only canonical fixture. The actual Engine creates every accepted
-// history record. This adapter admits only temporary drafts; it cannot persist a
-// receipt. The actual default Persistence::generation_snapshot must do the read.
-struct ReadFixture {
+// Test-only canonical fixture. The actual Engine creates and validates every
+// accepted record. Preparation must leave it unchanged; an explicit bound commit
+// uses Engine validation. No disk durability is claimed. The actual default
+// Persistence::generation_snapshot must do the coherent read.
+struct NativeSnapshotFixture {
     engine: Engine,
     drafts: BTreeMap<String, Request>,
 }
-impl ReadFixture {
+impl NativeSnapshotFixture {
     fn verify(&self, basis: &AcceptedHistoryBasis) -> Result<(), String> {
         if self
             .engine
@@ -180,7 +185,7 @@ impl ReadFixture {
         }
     }
 }
-impl Persistence for ReadFixture {
+impl Persistence for NativeSnapshotFixture {
     fn location(&self) -> &str {
         "synthetic-read-only-fixture"
     }
@@ -243,6 +248,19 @@ impl Persistence for ReadFixture {
     fn commit(&mut self, _: &Request, _: &Proposal, _: &str) -> Result<Receipt, String> {
         Err("Unsupported".into())
     }
+    fn commit_prepared_bound(
+        &mut self,
+        receipt: &Receipt,
+        basis: &AcceptedHistoryBasis,
+    ) -> Result<Receipt, String> {
+        self.verify(basis)?;
+        if self.drafts.get(&receipt.request().turn) != Some(receipt.request()) {
+            return Err("RetryMismatch".into());
+        }
+        self.engine
+            .commit_prepared(receipt)
+            .map_err(|error| error.to_string())
+    }
     fn cancel(&mut self, _: &Request) -> Result<SavedTurn, String> {
         Err("Unsupported".into())
     }
@@ -264,7 +282,7 @@ fn both_policies_use_actual_host_default_native_snapshot_and_current_record() {
         let before = basis.canonical_bytes();
         let host = Host::with_persistence(
             false,
-            Box::new(ReadFixture {
+            Box::new(NativeSnapshotFixture {
                 engine: basis,
                 drafts: BTreeMap::new(),
             }),
@@ -277,7 +295,7 @@ fn both_policies_use_actual_host_default_native_snapshot_and_current_record() {
         assert_eq!(submit(&host, &session, &r)["data"]["phase"], "queued");
         let ready = operation(&host, &session, &r, "prepare");
         assert_eq!(ready["data"]["phase"], "ready", "{ready}");
-        assert_record(&ready, policy);
+        assert!(ready["data"]["receipt"].is_null());
         assert_prompt_policy(&seen, policy);
         // Default native port returns coherent actual history; prepare never writes it.
         let snapshot = host
@@ -294,6 +312,8 @@ fn both_policies_use_actual_host_default_native_snapshot_and_current_record() {
             call(&host, json!({"op":"model_status"}))["data"]["real_model"],
             false
         );
+        let committed = operation(&host, &session, &r, "commit");
+        assert_record(&committed, policy);
     }
 }
 
@@ -316,7 +336,9 @@ fn legacy_native_configuration_defaults_to_relevant_and_preserves_provenance() {
         assert_eq!(submit(&host, &session, &r)["data"]["phase"], "queued");
         let ready = operation(&host, &session, &r, "prepare");
         assert_eq!(ready["data"]["phase"], "ready", "{ready}");
-        assert_record(&ready, ContextPolicy::StateRelevantMemoryV1);
+        assert!(ready["data"]["receipt"].is_null());
+        let committed = operation(&host, &session, &r, "commit");
+        assert_record(&committed, ContextPolicy::StateRelevantMemoryV1);
         assert_prompt_policy(&seen, ContextPolicy::StateRelevantMemoryV1);
         assert_eq!(
             call(&host, json!({"op":"model_status"}))["data"]["real_model"],
@@ -448,7 +470,7 @@ fn reconfiguration_during_actual_held_work_does_not_relabel_its_policy_or_provid
     drop(cleanup);
     let ready = worker.join().unwrap();
     assert_eq!(ready["data"]["phase"], "ready", "{ready}");
-    assert_record(&ready, ContextPolicy::StateRecentTranscriptV1);
+    assert!(ready["data"]["receipt"].is_null());
     assert_eq!(seen.requests().len(), 2);
     assert!(future.requests().is_empty());
     let committed = operation(&host, &session, &first, "commit");
@@ -458,7 +480,9 @@ fn reconfiguration_during_actual_held_work_does_not_relabel_its_policy_or_provid
     assert_eq!(submit(&host, &session, &next)["data"]["phase"], "queued");
     let next_ready = operation(&host, &session, &next, "prepare");
     assert_eq!(next_ready["data"]["phase"], "ready", "{next_ready}");
-    assert_record(&next_ready, ContextPolicy::StateRelevantMemoryV1);
+    assert!(next_ready["data"]["receipt"].is_null());
+    let next_committed = operation(&host, &session, &next, "commit");
+    assert_record(&next_committed, ContextPolicy::StateRelevantMemoryV1);
     assert_eq!(future.requests().len(), 2);
     assert_eq!(seen.requests().len(), 2);
 }

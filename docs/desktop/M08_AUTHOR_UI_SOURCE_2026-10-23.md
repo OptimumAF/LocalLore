@@ -176,3 +176,20 @@ No UI/headless/native screenshots or desktop capture/control was performed here.
 Restart hint recovery, private input persistence, Android author UI and Archive3
 are separate prerequisites, not implicitly completed by this packet. M08/D08/D05
 whole milestone acceptance remains pending.
+
+## First actual checker result and fixture correction
+
+Root's Node 24 first standalone checker on adopted `30ae663` failed with an
+unhandled rejected synthetic `gate` promise in the older-failed-status case
+(`check-author-controller.mjs` line 88 there). Log `author-ui-first.log` remains
+local under the task artifacts. No passing count was claimed. The fixture used
+only two Promise.resolve turns as an assumption that the controller had entered
+the status request; this was not a deterministic scheduling guarantee.
+
+Source-only correction replaces those drains in BOTH deferred-status cancel
+cases with an explicit status-entry handshake bounded to two seconds. Rejection
+or completion now happens only after the fake port's status function has returned
+that pending promise to the actual controller. Every behavioral assertion and all
+production source remain unchanged. The correction is UNRUN by this agent; Root
+owns the actual rerun. The original failure is a synthetic scheduling/unhandled
+promise failure, not proof of a native or production cancellation defect.

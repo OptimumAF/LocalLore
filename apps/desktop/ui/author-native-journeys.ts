@@ -394,6 +394,8 @@ export async function authorNativeJourneys({
         );
     };
     const page = async (view: "knowledge" | "history") => {
+        await until(() => !!v2.get().snapshot && !v2.get().readBusy,
+            "same-visible-query-control-readiness-after-lens-change");
         const result = await v2.readQuery({
             view,
             atRevision: null,

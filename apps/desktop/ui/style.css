@@ -1041,6 +1041,12 @@ summary {
     padding: 1rem;
     border: 1px solid #465247;
 }
+.v2-play > header.scope {
+    font-size: inherit;
+}
+.v2-play h2 {
+    font-size: 1.1rem;
+}
 .author-panel label,
 .v2-play label {
     display: grid;

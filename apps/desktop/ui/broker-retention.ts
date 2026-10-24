@@ -257,6 +257,7 @@ export class BrokerRetention {
         try {
             const status=await checkedAuthorBrokerOperation(value,owner.identity.author!,current.operation ?? undefined);
             if (!this.sameAuthor(owner)) return;
+            if (this.retained!.terminal && status.running) return;
             // Faults are sticky for this reservation; a panel reset or later partial
             // update does not prove the original private completion was valid.
             this.patch({operation:status.operation_id,terminal:!status.running,unknown:checks.fault});

@@ -541,7 +541,24 @@ fn application_upgrade_creates_one_new_standalone_historical_safety_copy() {
 
 #[test]
 fn v2_upgrade_backup_contains_actual_committed_wal_history_not_just_the_main_file() {
-    let f = Fixture::current();
+    // Build genuine schema2 before any keeper/reader pins WAL. Replacing a
+    // database through the historical factory while pinned would be invalid.
+    let f = Fixture::historical(2);
+    let mut engine = Store::open_read_only(&f.path)
+        .unwrap()
+        .resume(&f.scopes[0])
+        .unwrap()
+        .engine;
+    let request = engine.request(
+        "wal-only-accepted",
+        Intent::Actions(vec![Command::Say {
+            text: "Synthetic committed WAL-only evidence".into(),
+            audience: ["mira".into()].into(),
+        }]),
+    );
+    let proposal = Engine::proposal(&request).unwrap();
+    let receipt = engine.preview(&request, &proposal).unwrap();
+    let receipt = engine.commit_prepared(&receipt).unwrap();
     let keeper = Connection::open(&f.path).unwrap();
     let mode: String = keeper
         .query_row("PRAGMA journal_mode=WAL", [], |r| r.get(0))
@@ -549,7 +566,7 @@ fn v2_upgrade_backup_contains_actual_committed_wal_history_not_just_the_main_fil
     assert_eq!(mode, "wal");
     keeper.pragma_update(None, "wal_autocheckpoint", 0).unwrap();
     // A real old read snapshot keeps later accepted commits in WAL even when
-    // the public Store writer closes. Merely keeping an idle connection open
+    // the fixture writer closes. Merely keeping an idle connection open
     // does not establish the retained reader used by this fixture.
     let pinned_reader = Connection::open(&f.path).unwrap();
     pinned_reader.execute_batch("BEGIN").unwrap();
@@ -558,18 +575,36 @@ fn v2_upgrade_backup_contains_actual_committed_wal_history_not_just_the_main_fil
         .unwrap();
     assert_eq!(old_story_count, 2);
     let main_before = fs::read(&f.path).unwrap();
-    let mut live = Store::open(&f.path, None).unwrap();
-    apply(
-        &mut live,
-        &f.scopes[0],
-        "wal-only-accepted",
-        vec![Command::Say {
-            text: "Synthetic committed WAL-only evidence".into(),
-            audience: ["mira".into()].into(),
-        }],
-    );
-    drop(live);
-    historical_schema(&keeper, 2);
+    {
+        // Fixture SQL persists ONLY this actual Core-validated accepted result
+        // into old schema2. This is not an old production Store writer run:
+        // current Store::open would correctly require a schema migration.
+        let mut writer = Connection::open(&f.path).unwrap();
+        writer.pragma_update(None, "foreign_keys", true).unwrap();
+        writer.pragma_update(None, "wal_autocheckpoint", 0).unwrap();
+        let tx = writer
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .unwrap();
+        let scope = engine.scope();
+        let expected = i64::try_from(request.expected_revision).unwrap();
+        tx.execute("INSERT INTO turns(story_id,branch_id,turn_id,expected_revision,status,request_json,response_json) VALUES(?1,?2,?3,?4,'committed',?5,?6)",rusqlite::params![scope.story,scope.branch,request.turn,expected,serde_json::to_string(&request).unwrap(),serde_json::to_string(&receipt).unwrap()]).unwrap();
+        for event in receipt.events() {
+            let sequence = i64::try_from(event.sequence()).unwrap();
+            tx.execute("INSERT INTO accepted_events(story_id,branch_id,sequence,turn_id,event_version,envelope_json) VALUES(?1,?2,?3,?4,1,?5)",rusqlite::params![scope.story,scope.branch,sequence,request.turn,serde_json::to_string(event).unwrap()]).unwrap();
+            for observer in event.witnesses() {
+                tx.execute("INSERT INTO event_witnesses(story_id,branch_id,sequence,observer_id) VALUES(?1,?2,?3,?4)",rusqlite::params![scope.story,scope.branch,sequence,observer]).unwrap();
+            }
+        }
+        let head = i64::try_from(engine.revision()).unwrap();
+        assert_eq!(tx.execute("UPDATE branch_projections SET revision=?3,projection_version=1,projection_json=?4 WHERE story_id=?1 AND branch_id=?2",rusqlite::params![scope.story,scope.branch,head,String::from_utf8(engine.canonical_bytes()).unwrap()]).unwrap(),1);
+        assert_eq!(tx.execute("UPDATE branches SET head_revision=?4 WHERE story_id=?1 AND branch_id=?2 AND head_revision=?3",rusqlite::params![scope.story,scope.branch,expected,head]).unwrap(),1);
+        assert!(!tx
+            .prepare("PRAGMA foreign_key_check")
+            .unwrap()
+            .exists([])
+            .unwrap());
+        tx.commit().unwrap();
+    }
     same(&main_before, &fs::read(&f.path).unwrap());
     let wal = PathBuf::from(format!("{}-wal", f.path.display()));
     assert!(fs::metadata(&wal).unwrap().len() > 32);

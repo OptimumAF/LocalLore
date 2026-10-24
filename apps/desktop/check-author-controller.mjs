@@ -670,6 +670,41 @@ for (const field of [
     );
     c.dispose();
 }
+// Root integration regression oracles, frozen before changing callback ordering.
+{
+    const { c } = fixture();
+    const next = { ...context(), head: 4, selectionEpoch: 2 };
+    let notifications = 0;
+    const release = c.subscribe(() => {
+        assert.ok(++notifications < 8, "same-context notification must not recurse without bound");
+        c.contextChanged(next);
+    });
+    c.contextChanged(next);
+    check(c.matchesContext(next), "the new context is installed before synchronous notification");
+    release();
+    c.dispose();
+}
+for (const kind of ["prepare", "commit"]) {
+    const { c, port } = fixture();
+    c.setAuthorConsent(true);
+    if (kind === "commit") {
+        await c.prepare();
+        c.setPreviewRead(true);
+    }
+    let changed = false;
+    const release = c.subscribe(() => {
+        if (!changed && c.get().busy) {
+            changed = true;
+            c.contextChanged({ ...context(), selectionEpoch: 2, session: "other-session" });
+        }
+    });
+    if (kind === "commit") await c.confirm(true);
+    else await c.prepare();
+    check(changed, `${kind} exercised synchronous busy notification`);
+    check(!port.calls.some(call => call.kind === kind), `${kind} context retirement before admission prevents native dispatch`);
+    release();
+    c.dispose();
+}
 console.log(
     `${checks} synthetic author decoder/controller checks passed; no native or rendering execution.`,
 );

@@ -81,8 +81,9 @@ without gaining invented estimates or permission to resume under new source.
 | d07-workspace-format-first.log / d07-eval-format-first.log | Workspace and standalone evaluator Rustfmt checks pass, both empty logs. |
 | 8b4422b, d07-compat-shared-clippy.log | Strict workspace all-targets/all-features Clippy (desktop excluded) passes; stage wall duration29.29s. This is a broader feature/lint invocation than the four-package host-feature test suite. |
 | 8b4422b, d07-compat-eval-remaining.log | **15 passed / 1 ignored**: memory_comparison12, local_model_review3, curated_integration_review0passed/1ignored. The ignored native case was not executed. |
-| 8b4422b, d07-compat-eval-clippy.log | Strict evaluator lint exits101 on collapsible_if in the dependency oracle. Root39c770d collapses only equivalent phase-and-disjunction guards, with no lint waiver, changed oracle or acceptance relaxation. |
-| 39c770d, d07-dependency-oracle-lint-corrected.log / d07-historical-dependency-guard-corrected.log | Focused actual dependency regression **1 pass /11filtered**,1.99s; genuine historical inspect/resume test **1 pass**,3.46s. Old skips, source mismatch and every retained byte stay unchanged. Corrected compatibility batch remains active. |
+| 8b4422b, d07-compat-eval-clippy.log | Strict evaluator lint exits101 on collapsible_if in the dependency oracle. Root 39c770d collapses only equivalent phase-and-disjunction guards, with no lint waiver, changed oracle or acceptance relaxation. |
+| 39c770d, d07-dependency-oracle-lint-corrected.log / d07-historical-dependency-guard-corrected.log | Focused actual dependency regression **1 pass /11filtered**,1.99s; genuine historical inspect/resume test **1 pass**,3.46s. Old skips, source mismatch and every retained byte stay unchanged. |
+| 39c770d, corrected-prefix compatibility logs | Evaluator strict Clippy **pass**,6.14s; full frontend and frontend format **pass**; native normal **88 passes /1ignored**,18.53s (compile35.38s); native dev **92 passes /1ignored**,20.36s plus standalone2passes (compile28.52s); native strict Clippy **pass**,16.48s; normal native build **pass**,14.67s. These are Rust tests/build and synthetic/headless frontend checks, not a D07 WebView journey or model comparison. |
 
 The original frozen Core declarations precede production (edf4d265 / contract
 03308ea1). The Core fix and evaluator closure were separately allocated and
@@ -96,7 +97,7 @@ PR's evidence and does not make the D07 comparison an author/Domain2 corpus.
 | Required evidence | Current disposition |
 | --- | --- |
 | comparison_runner + memory_comparison_v2 terminal batch | Complete:9runner+3protocol passes above. Initial seven-pass partial output was not counted as a completed result. |
-| Current Core/Host fixture and full compatibility checks | Host4, four-package host-feature suite743/10 ignored, strict shared Clippy and remaining evaluator15/1 ignored passed. Corrected evaluator lint/frontend/native/Android stages remain active under the new d07-compat-lint-corrected prefix; no partial stage is counted as passed. |
+| Current Core/Host fixture and full compatibility checks | Host4, shared743/10 ignored, evaluator15/1 ignored, strict shared/eval/native lint, full frontend/format, native normal88/1 ignored, dev92/1 ignored+standalone2 and normal build passed. Android stage remains active under d07-compat-lint-corrected; no Android result yet. |
 | Genuine historical complete-cohort opening | Passed actual opt-in test at 4a36b72; see precise inventory/old-field boundary below. |
 | Real local-model current comparison | Pending separate authorized source-bound execution; no model, worker, speed, memory-quality or enjoyment result inferred from scripted tests. |
 | Exact reproduction and environment | Completed commands below; fresh toolchain versions recorded. Remaining compatibility invocations/terminal results await Root. The contract's suggested commands are not presented as executions. |
@@ -173,8 +174,17 @@ owned `<shared-target>` (the placeholder replaces only the local target path):
 ```powershell
 cargo clippy --workspace --all-targets --all-features --offline --locked --exclude locallore-desktop-spike --target-dir <shared-target> -- -D warnings
 cargo test --manifest-path crates/locallore-eval/Cargo.toml --features local-model --offline --locked --target-dir <shared-target> --test memory_comparison --test local_model_review --test curated_integration_review -- --test-threads=1
-# First invocation failed; corrected-source rerun is pending:
+# First invocation failed; corrected source 39c770d passed:
 cargo clippy --manifest-path crates/locallore-eval/Cargo.toml --all-targets --all-features --offline --locked --target-dir <shared-target> -- -D warnings
+
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --offline --locked --target-dir <native-target> -- --test-threads=1
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness --offline --locked --target-dir <native-target> -- --test-threads=1
+cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --features dev-harness --offline --locked --target-dir <native-target> -- -D warnings
+cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --no-default-features --offline --locked --target-dir <native-target>
+
+# apps/desktop; node denotes the pinned task-owned 24.22.1 launcher:
+node verify-frontend.mjs
+node node_modules/prettier/bin/prettier.cjs --check 'ui/*.{ts,tsx,html,css}' '*.{json,mjs}'
 ```
 
 Root's local serial launcher uses one Cargo job, dev/test debug info0,
@@ -187,7 +197,7 @@ the new prefix does not overwrite it.
 
 Files are local/gitignored under `<evidence-root>/author-integration-artifacts`.
 No raw model weights, private paths or player stories are published. The
-following twenty completed logs were hashed read-only; active logs are excluded.
+following twenty-seven completed logs were hashed read-only; active logs are excluded.
 
 | Log | Bytes / SHA-256 |
 | --- | --- |
@@ -211,6 +221,13 @@ following twenty completed logs were hashed read-only; active logs are excluded.
 | d07-compat-eval-clippy.log | 1,839 / `6c16430dadb337e0a053d1de481467d73fa85798a60b24184c6b22322cd1dade` |
 | d07-dependency-oracle-lint-corrected.log | 580 / `97d1300eb3e056f2018a5e919fe62ef42a6c53dd454c4c929f42bfe9b62effe2` |
 | d07-historical-dependency-guard-corrected.log | 589 / `f4a387abd37349e93285d681b0aef376e30e731d92b5386882cce391086c6ab9` |
+| d07-compat-lint-corrected-eval-clippy.log | 202 / `1123d7930560bbc44060fd9816ada710200ab6e5e3df052a4c0e34cb2901b59a` |
+| d07-compat-lint-corrected-frontend.log | 11,351 / `cd08fe8e8ed2aa22cf7dcc0560bac20c9a26ad36730334b3d7e8644e3e0dcf21` |
+| d07-compat-lint-corrected-frontend-format.log | 68 / `f20510a9da4717c51c4cffee6d0dd88d6c9a723d0a83711d01216f5b48961283` |
+| d07-compat-lint-corrected-native-normal.log | 10,399 / `88b4858421016e8ef73d9141a3d0f779c66465905bbb19cd72a7d05eededcccf` |
+| d07-compat-lint-corrected-native-dev.log | 10,502 / `dee54391b7e3566c249ea39984640e1a6ad9dc82c3bcaca110cf1242d3ed184a` |
+| d07-compat-lint-corrected-native-clippy.log | 942 / `b9b90e62b0ec93351aadeac18952f4c16028f392c604792b600b70e17589aa2e` |
+| d07-compat-lint-corrected-native-build.log | 213 / `9379b6fba7552a75ab1eaa63d9d51d56ca8df52a192184865e80ad78a0a2ad49` |
 
 No task checkbox, model-quality conclusion, historical report rewrite,
 PR acceptance, merge, release, repository setting or protected resource is

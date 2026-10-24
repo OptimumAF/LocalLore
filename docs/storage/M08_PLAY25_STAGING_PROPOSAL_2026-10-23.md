@@ -301,3 +301,15 @@ Play/version/consumer paths before any implementation. Then capture2.4 golden
 and freeze meaningful actual test source before editing production. Until the
 complete privacy/version closure and actual qualification, Domain2 generated
 Play and the comparison runner remain unavailable; no acceptance is implied.
+
+## Coordinator interface decision
+
+Root approves the proposed native staging/evidence API and strict record tuple
+as the implementation contract for the next consumer slice. Encoded evidence
+JSON is capped at MAX_RECEIPT_BYTES (65,536 bytes), checked by bounded serialization
+before provider work; it is never truncated into different evidence. Existing
+provider prompt/context/role budgets remain separate and may refuse smaller
+inputs. This approval allocates an interface and frozen-oracle work, not a
+passing implementation, provider experiment or milestone acceptance. Root owns
+Engine/play/version integration; private canonical records stay off provider
+and actor-inspection boundaries.

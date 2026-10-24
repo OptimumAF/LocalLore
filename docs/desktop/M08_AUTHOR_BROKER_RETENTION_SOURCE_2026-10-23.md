@@ -131,3 +131,11 @@ input through generic broker summaries. No actual global UI closure is establish
 until those separate main/App/native wrapper/harness tasks are executed. Root
 retains all of those paths. No competing worker, Store, journal or recovery write
 has been added here; no milestone acceptance is claimed.
+
+Final source SHA-256 (before coordinator formatting):
+
+| Path | SHA-256 |
+| --- | --- |
+| `ui/broker-retention.ts` | `394480c4247d60b4b2e7d9ca07b4d35dae4906ddb654ab3ed7ff2fb41ce72eaf` |
+| `ui/author-broker-binding.ts` | `9cc38ca4d42067872cc52f341c64fd4f8ac6784521a4587357b98d0fbc7ac542` |
+| `check-author-broker-retention.mjs` | `f906c6634e629505b902b8948b499f0c5199f7a5537d1f683fa12612a2142bba` |

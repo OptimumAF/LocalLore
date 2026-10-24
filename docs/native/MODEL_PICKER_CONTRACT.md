@@ -20,6 +20,11 @@ locking and native no-clobber publication. File/provider operations remain on
 IO. The current Activity supplies the play action; a retained ViewModel stores
 only the check/install/admission closures and no Activity reference.
 
+The request explicitly adds `CATEGORY_OPENABLE` and `EXTRA_LOCAL_ONLY` to the
+wildcard `OpenDocument` intent. The pinned AndroidX contract does not add the
+openable category itself. This importer needs a readable byte stream; virtual
+documents requiring typed conversion are outside its accepted input path.
+
 The existing safe policy for an unrecognized late picker result remains:
 a fresh controller does not import an old result without its pending selection.
 It checks its private copy and asks for another selection if needed. Retained

@@ -45,7 +45,9 @@ open class LocalModelSetupActivity : ComponentActivity() {
     private lateinit var model: LocalModelSetupViewModel
     private val picker = registerForActivityResult(object : ActivityResultContracts.OpenDocument() {
         override fun createIntent(context: Context, input: Array<String>): Intent =
-            super.createIntent(context, input).putExtra(Intent.EXTRA_LOCAL_ONLY, true)
+            super.createIntent(context, input)
+                .addCategory(Intent.CATEGORY_OPENABLE)
+                .putExtra(Intent.EXTRA_LOCAL_ONLY, true)
     }) { uri ->
         if (::model.isInitialized) {
             if (uri == null) model.completePicker(null)

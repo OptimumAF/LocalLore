@@ -2,7 +2,7 @@
 
 Status: implementation proposal; no D04/M05 acceptance inferred.
 
-The current experimental implementation uses guarded policy/prompt2.1 and the
+The original experimental implementation used guarded policy/prompt2.1 and the
 finite supported-English action compiler. Unknown or ambiguous syntax requires
 clarification; arbitrary-language understanding is not claimed. It preserves
 accepted v1 receipts and rejects unmerged synthetic prototype2.0 records rather
@@ -10,7 +10,7 @@ than introducing a permissive legacy commit path. See the shared-core
 verification report for that explicit version disposition and actual limitations.
 Refs #9 (M05.01–M05.04), #25 (D04.04).
 
-The M07 production context integration advances the prompt to
+The M07 production context integration advanced the prompt to
 `locallore-play-v2.2`, retaining narration policy `grounded-prose-v2.1`. Fresh
 preparation/commit requires the current prompt. Private validated history rebuild
 accepts recorded `locallore-play-v2.1` under the same interpretation, mechanics,
@@ -18,6 +18,17 @@ provenance and narration checks, including when rebuilding a fork. Exact retry
 returns the original receipt; neither replay nor restore calls inference. The
 unmerged prototype2.0 remains rejected. This is a prompt compatibility decision,
 not a SQLite schema migration or a license to accept arbitrary historical policy.
+
+The accepted guard-bound director refinement advances fresh preparation to
+`locallore-play-v2.3`. The same finite action Command that passed Engine preflight
+now constrains the director and repair schema to its exact operation and
+arguments. Actual provider bytes remain required, parsed, intent-checked and
+Engine-validated; the expected command never substitutes for output. This does
+not expand supported English or grant the model mechanical authority. Recorded
+2.1/2.2 histories retain strict replay, restore, fork and exact-retry eligibility;
+they are refused as fresh prepared current turns. Dialogue, narration policy,
+profile budgets and storage schema are unchanged. Android SDK qualification of
+this exact schema is separate from host/fake-provider and llama grammar checks.
 
 The production director now consumes the portable bounded actor-only context
 compiler, reusing the shared inspection eligibility port without accepting an

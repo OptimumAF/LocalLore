@@ -93,6 +93,16 @@ visible. Simulated delay is not a performance measurement.
 Accepted state survives Activity recreation and native/process owner recreation.
 Startup resumes a default saved story; use **Saved stories** to select another.
 Use **Timelines** to resume an existing root, child or sibling in that story.
+**New timeline…** reviews a completed accepted boundary and a fixed child
+identity before explicit confirmation. It preserves the original and its later
+choices. A small private recovery hint is saved before native admission;
+**Recover timeline request…** only looks for that exact existing child after
+restart. Creating/retrying and opening a confirmed child are explicit actions.
+Cancellation never promises that an earlier commit was undone. Author
+corrections remain unavailable. The current host/build checks cover controller
+and native Rust behavior; Android JNI/framework/Compose, process-death and
+filesystem runtime qualification remain pending. See the
+[fork qualification report](../../docs/native/M08_ANDROID_FORK_APP_QUALIFICATION_2026-10-23.md).
 Inherited accepted receipts retain their original ancestor scopes; Rust filters
 history at fork boundaries. The selector does not create branches. Whole-story
 deletion from a child still previews and confirms every timeline using the root

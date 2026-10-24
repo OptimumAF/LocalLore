@@ -44,7 +44,7 @@ class TimelineProtocolTest {
             } finally { reader.close() }
         }
     }
-    private class Protocol(val storyId: String = "story-a", var databaseSchemaVersion: Int = 4) : WorkspaceTransport {
+    private class Protocol(val storyId: String = "story-a", var databaseSchemaVersion: Int = 5) : WorkspaceTransport {
         var selected = "main"
         var receiptStory = storyId
         var changeCatalog: (JSONObject) -> Unit = {}
@@ -108,7 +108,7 @@ class TimelineProtocolTest {
         try {
             val current = gateway.initialize()
             assertEquals(1, current.schemaVersion)
-            assertEquals(4, current.databaseSchemaVersion)
+            assertEquals(5, current.databaseSchemaVersion)
             assertEquals("main", current.selected?.branch)
             assertFalse(transport.calls.any { it in setOf("create", "submit", "prepare", "commit", "free_text") })
         } finally { gateway.close() }
@@ -117,7 +117,7 @@ class TimelineProtocolTest {
     @Test fun incompatibleLiveSchemaRefusesBeforeResumeOrAnyGameplay(): Unit = runBlocking {
         // Archive source schema is independent. An old archive can be imported
         // by Rust; a LIVE workspace reply must match this application's owner.
-        for (schema in listOf(2, 3, 5)) {
+        for (schema in listOf(2, 3, 4, 6)) {
             val transport = Protocol(databaseSchemaVersion = schema)
             val gateway = DurableGateway(transport, autoCreateIfEmpty = false)
             try {
@@ -131,8 +131,8 @@ class TimelineProtocolTest {
     @Test fun refreshCannotPublishLaterIncompatibleLiveSchema(): Unit = runBlocking {
         val transport = Protocol(); val gateway = DurableGateway(transport, autoCreateIfEmpty = false)
         try {
-            assertEquals(4, gateway.initialize().databaseSchemaVersion)
-            transport.databaseSchemaVersion = 5
+            assertEquals(5, gateway.initialize().databaseSchemaVersion)
+            transport.databaseSchemaVersion = 6
             try { gateway.snapshot(); fail("Incompatible live schema refresh was published") }
             catch (_: IllegalStateException) { /* Preserve the strict refresh fence too. */ }
             assertFalse(transport.calls.any { it in setOf("create", "submit", "prepare", "commit", "free_text") })

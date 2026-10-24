@@ -6,7 +6,12 @@ use crate::{
     inspection_query::{self, FieldValue, Row, Source, ValueOrigin, View},
 };
 
+mod policy;
 mod verified;
+pub use policy::{
+    compile_policy_cancelled, ConstructionDiagnostics, ContextPolicy, PolicyCompilation,
+    TranscriptUnit, POLICY_COMPILER_VERSION,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -76,6 +81,7 @@ pub enum CompileError {
     UnknownReference,
     AmbiguousAlias,
     MandatoryBudget,
+    UnsupportedPolicy,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -90,6 +96,8 @@ pub enum Kind {
     Observation,
     Relationship,
     Commitment,
+    KnownAsObserved,
+    Transcript,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -108,6 +116,8 @@ pub enum Reason {
     Budget,
     OptionalLimit,
     NotRelevant,
+    KnownAsObserved,
+    AlreadySelected,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "type", content = "value", rename_all = "snake_case")]
@@ -122,6 +132,7 @@ pub enum Payload {
         name: String,
     },
     Record(Box<Row>),
+    TranscriptUnit(Box<TranscriptUnit>),
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Selected {
@@ -164,12 +175,45 @@ pub struct ContextPackage {
     pub unsupported: Vec<&'static str>,
 }
 struct Candidate {
-    row: Row,
+    key: String,
+    payload: CandidatePayload,
     encoded: String,
     ids: BTreeSet<String>,
     kind: Kind,
     sources: Vec<Source>,
     revision: u64,
+}
+enum CandidatePayload {
+    Row(Row),
+    TranscriptUnit(TranscriptUnit),
+}
+impl Candidate {
+    fn row(&self) -> Option<&Row> {
+        match &self.payload {
+            CandidatePayload::Row(row) => Some(row),
+            CandidatePayload::TranscriptUnit(_) => None,
+        }
+    }
+    fn key(&self) -> &str {
+        &self.key
+    }
+    fn from_row(row: Row, encoded: String, revision: u64, version: u16) -> Self {
+        let (ids, _) = identifiers(&row);
+        let (kind, sources, revision) = row_info(&row, revision, version);
+        Self {
+            key: row.key().into(),
+            payload: CandidatePayload::Row(row),
+            encoded,
+            ids,
+            kind,
+            sources,
+            revision,
+        }
+    }
+}
+struct CompilationResult {
+    compilation: MemoryCompilation,
+    construction: ConstructionDiagnostics,
 }
 fn valid_id(id: &str) -> bool {
     !id.is_empty()
@@ -188,8 +232,9 @@ fn check(cancel: &dyn Fn() -> bool) -> Result<(), CompileError> {
 fn snapshot<'a>(
     engine: &'a Engine,
     request: &CompileRequest,
+    construction: policy::Construction,
 ) -> Result<Cow<'a, Engine>, CompileError> {
-    if request.version != COMPILER_VERSION {
+    if request.version != construction.version() {
         return Err(CompileError::Version);
     }
     if request.scope != *engine.scope() {
@@ -215,15 +260,24 @@ fn snapshot<'a>(
     }
     Ok(snapshot)
 }
-fn actor_rows(engine: &Engine, observer: &str, view: View) -> Result<Vec<Row>, CompileError> {
-    let rows = inspection_query::actor_context_rows(engine, observer, view)
-        .map_err(|_| CompileError::Source)?;
+fn actor_rows(
+    engine: &Engine,
+    observer: &str,
+    view: View,
+    construction: policy::Construction,
+) -> Result<Vec<Row>, CompileError> {
+    let rows = if construction.is_current() {
+        inspection_query::actor_context_rows_v2(engine, observer, view)
+    } else {
+        inspection_query::actor_context_rows(engine, observer, view)
+    }
+    .map_err(|_| CompileError::Source)?;
     if rows.len() > MAX_CANDIDATES {
         return Err(CompileError::TooLarge);
     }
     Ok(rows)
 }
-fn row_info(row: &Row, revision: u64) -> (Kind, Vec<Source>, u64) {
+fn row_info(row: &Row, revision: u64, version: u16) -> (Kind, Vec<Source>, u64) {
     let (kind, sources) = match row {
         Row::Field { source, .. } => (Kind::CurrentState, vec![source.clone()]),
         Row::Knowledge {
@@ -234,23 +288,31 @@ fn row_info(row: &Row, revision: u64) -> (Kind, Vec<Source>, u64) {
                 ValueOrigin::RecordedStatement => Kind::Statement,
                 ValueOrigin::SubjectiveBelief => Kind::Belief,
                 ValueOrigin::RecordedDiscovery => Kind::Discovery,
+                ValueOrigin::KnownAsObserved => Kind::KnownAsObserved,
                 _ => Kind::Observation,
             },
             sources.clone(),
         ),
-        Row::Event { event, .. } => (Kind::Observation, vec![Source::Event(event.sequence)]),
+        Row::Event { event, .. } => (
+            Kind::Observation,
+            vec![if version == 2 {
+                Source::ScopedEvent {
+                    original_scope: event.scope.clone(),
+                    sequence: event.sequence,
+                }
+            } else {
+                Source::Event(event.sequence)
+            }],
+        ),
         Row::Relationship { source, .. } => (Kind::Relationship, vec![source.clone()]),
         Row::Promise { sources, .. } => (Kind::Commitment, sources.clone()),
         _ => (Kind::Observation, vec![]),
     };
     let source_revision = sources
         .iter()
-        .filter_map(|s| {
-            if let Source::Event(id) = s {
-                Some(*id)
-            } else {
-                None
-            }
+        .filter_map(|s| match s {
+            Source::Event(id) | Source::ScopedEvent { sequence: id, .. } => Some(*id),
+            _ => None,
         })
         .max()
         .unwrap_or(0)
@@ -343,14 +405,19 @@ fn tags(row: &Row) -> &'static str {
 }
 fn selected(candidate: &Candidate, reason: Reason, score: u32, mandatory: bool) -> Selected {
     Selected {
-        id: candidate.row.key().into(),
+        id: candidate.key().into(),
         kind: candidate.kind,
         source_revision: candidate.revision,
         sources: candidate.sources.clone(),
         reason,
         score,
         mandatory,
-        payload: Payload::Record(Box::new(candidate.row.clone())),
+        payload: match &candidate.payload {
+            CandidatePayload::Row(row) => Payload::Record(Box::new(row.clone())),
+            CandidatePayload::TranscriptUnit(unit) => {
+                Payload::TranscriptUnit(Box::new(unit.clone()))
+            }
+        },
     }
 }
 fn measure(package: &mut ContextPackage) -> Result<(), CompileError> {
@@ -411,7 +478,14 @@ pub fn compile_cancelled(
     request: &CompileRequest,
     cancel: &dyn Fn() -> bool,
 ) -> Result<ContextPackage, CompileError> {
-    compile_inner(engine, request, verified::Input::Legacy, cancel).map(|result| result.package)
+    compile_inner(
+        engine,
+        request,
+        verified::Input::Legacy,
+        policy::Construction::Legacy,
+        cancel,
+    )
+    .map(|result| result.compilation.package)
 }
 
 fn event_row(event: &AcceptedEvent) -> Result<Row, CompileError> {
@@ -439,35 +513,49 @@ fn event_row(event: &AcceptedEvent) -> Result<Row, CompileError> {
     })
 }
 
+#[allow(clippy::too_many_arguments)] // Keep scoped range and version dispatch explicit.
 fn visit_events(
     engine: &Engine,
     observer: &str,
     after: u64,
     through: u64,
+    version: u16,
     cancel: &dyn Fn() -> bool,
     visitor: &mut dyn FnMut(&AcceptedEvent) -> Result<(), CompileError>,
 ) -> Result<(), CompileError> {
     let mut failure = None;
-    engine
-        .visit_actor_observations(
+    let mut callback = |event: &AcceptedEvent| match visitor(event) {
+        Ok(()) => true,
+        Err(error) => {
+            failure = Some(error);
+            false
+        }
+    };
+    let result = if version == 2 {
+        engine.visit_actor_observations_v2(
             observer,
             engine.scope(),
             engine.revision(),
             after,
             through,
             &|| check(cancel).is_err(),
-            &mut |event| match visitor(event) {
-                Ok(()) => true,
-                Err(error) => {
-                    failure = Some(error);
-                    false
-                }
-            },
+            &mut |event| callback(&event.event),
         )
-        .map_err(|error| match error {
-            crate::contracts::Error::Cancelled => CompileError::Cancelled,
-            _ => CompileError::Source,
-        })?;
+    } else {
+        engine.visit_actor_observations(
+            observer,
+            engine.scope(),
+            engine.revision(),
+            after,
+            through,
+            &|| check(cancel).is_err(),
+            &mut callback,
+        )
+    };
+    result.map_err(|error| match error {
+        crate::contracts::Error::Cancelled => CompileError::Cancelled,
+        _ => CompileError::Source,
+    })?;
     failure.map_or(Ok(()), Err)
 }
 
@@ -475,9 +563,14 @@ fn compile_inner(
     engine: &Engine,
     request: &CompileRequest,
     input: verified::Input<'_>,
+    construction: policy::Construction,
     cancel: &dyn Fn() -> bool,
-) -> Result<MemoryCompilation, CompileError> {
+) -> Result<CompilationResult, CompileError> {
     check(cancel)?;
+    // Explicit legacy refusal before snapshot/replay, proof inspection or hashing.
+    if !construction.is_current() && engine.domain_version() != 1 {
+        return Err(CompileError::Version);
+    }
     let b = request.budget;
     if !(1024..=MAX_CONTEXT_BYTES).contains(&b.max_bytes)
         || b.estimated_tokens == 0
@@ -493,7 +586,7 @@ fn compile_inner(
     {
         return Err(CompileError::InvalidRequest);
     }
-    let snapshot = snapshot(engine, request)?;
+    let snapshot = snapshot(engine, request, construction)?;
     check(cancel)?;
     let mut rows = vec![];
     let mut row_bytes = 0;
@@ -504,12 +597,19 @@ fn compile_inner(
         View::Relationships,
     ] {
         check(cancel)?;
-        for row in actor_rows(&snapshot, &request.observer, view)? {
+        for row in actor_rows(&snapshot, &request.observer, view, construction)? {
             push_row(&mut rows, &mut row_bytes, row, cancel)?;
         }
     }
-    let mut memory =
-        verified::collect(&snapshot, request, input, &mut rows, &mut row_bytes, cancel)?;
+    let mut memory = verified::collect(
+        &snapshot,
+        request,
+        input,
+        construction,
+        &mut rows,
+        &mut row_bytes,
+        cancel,
+    )?;
     check(cancel)?;
     rows.sort_by(|(a, _), (b, _)| a.key().cmp(b.key()));
     check(cancel)?;
@@ -521,15 +621,12 @@ fn compile_inner(
         let (ids, actors) = identifiers(&row);
         known.extend(ids.iter().cloned());
         known_actors.extend(actors);
-        let (kind, sources, revision) = row_info(&row, snapshot.revision());
-        candidates.push(Candidate {
+        candidates.push(Candidate::from_row(
             row,
             encoded,
-            ids,
-            kind,
-            sources,
-            revision,
-        });
+            snapshot.revision(),
+            request.version,
+        ));
     }
     // Current canonical display names of ALREADY eligible actor IDs only, not a global alias scan.
     if known_actors.len() > 256 {
@@ -583,60 +680,61 @@ fn compile_inner(
     let mut mandatory: BTreeMap<String, Reason> = BTreeMap::new();
     for c in &candidates {
         check(cancel)?;
-        let reason = match &c.row {
-            Row::Field { .. } => Some(Reason::CurrentState),
-            Row::Knowledge {
+        let reason = match c.row() {
+            Some(Row::Field { .. }) => Some(Reason::CurrentState),
+            Some(Row::Knowledge {
                 origin: ValueOrigin::CanonicalTruth,
                 ..
-            } => Some(Reason::KnownTruth),
-            Row::Knowledge {
+            }) => Some(Reason::KnownTruth),
+            Some(Row::Knowledge {
+                origin: ValueOrigin::KnownAsObserved,
+                ..
+            }) => Some(Reason::KnownAsObserved),
+            Some(Row::Knowledge {
                 origin: ValueOrigin::SubjectiveBelief,
                 ..
-            } => Some(Reason::CurrentBelief),
-            Row::Promise { status, .. } if status != "fulfilled" => Some(Reason::OpenCommitment),
-            Row::Relationship { .. } => Some(Reason::Relationship),
+            }) => Some(Reason::CurrentBelief),
+            Some(Row::Promise { status, .. }) if status != "fulfilled" => {
+                Some(Reason::OpenCommitment)
+            }
+            Some(Row::Relationship { .. }) => Some(Reason::Relationship),
             _ => None,
         };
         if let Some(reason) = reason {
-            mandatory.insert(c.row.key().into(), reason);
+            mandatory.insert(c.key().into(), reason);
         }
     }
     let mut events: Vec<_> = candidates
         .iter()
-        .filter(|c| matches!(c.row, Row::Event { .. }))
+        .filter(|c| matches!(c.row(), Some(Row::Event { .. })))
         .collect();
     events.sort_by_key(|c| c.revision);
     for c in events.iter().rev().take(usize::from(b.recent_events)) {
         check(cancel)?;
-        mandatory
-            .entry(c.row.key().into())
-            .or_insert(Reason::Recent);
+        mandatory.entry(c.key().into()).or_insert(Reason::Recent);
     }
     for id in &references {
         check(cancel)?;
         if let Some(c) = events.iter().rev().find(|c| c.ids.contains(id)) {
             mandatory
-                .entry(c.row.key().into())
+                .entry(c.key().into())
                 .or_insert(Reason::Referenced);
         }
     }
     let required_sources: BTreeSet<_> = candidates
         .iter()
-        .filter(|c| mandatory.contains_key(c.row.key()))
+        .filter(|c| mandatory.contains_key(c.key()))
         .flat_map(|c| c.sources.iter())
-        .filter_map(|s| {
-            if let Source::Event(id) = s {
-                Some(*id)
-            } else {
-                None
-            }
+        .filter_map(|s| match s {
+            Source::Event(id) | Source::ScopedEvent { sequence: id, .. } => Some(*id),
+            _ => None,
         })
         .collect();
     for c in &events {
         check(cancel)?;
         if required_sources.contains(&c.revision) {
             mandatory
-                .entry(c.row.key().into())
+                .entry(c.key().into())
                 .or_insert(Reason::SupportingEvidence);
         }
     }
@@ -644,7 +742,7 @@ fn compile_inner(
     // any mandatory/recent/supporting source is replaced as one complete unit.
     memory.replace_mandatory(&snapshot, request, &mut candidates, &mandatory, cancel)?;
     let mut package = ContextPackage {
-        version: COMPILER_VERSION,
+        version: construction.version(),
         scope: request.scope.clone(),
         head: engine.revision(),
         revision: snapshot.revision(),
@@ -652,7 +750,12 @@ fn compile_inner(
         observer: request.observer.clone(),
         role: request.role,
         records: vec![Selected {
-            id: "rules:v1".into(),
+            id: if construction.is_current() {
+                "rules:v2"
+            } else {
+                "rules:v1"
+            }
+            .into(),
             kind: Kind::Rules,
             source_revision: 0,
             sources: vec![Source::Seed(snapshot.seed().id.clone())],
@@ -662,12 +765,22 @@ fn compile_inner(
             payload: Payload::Rules {
                 version: VERSION,
                 profile: snapshot.seed().profile.clone(),
-                policies: vec![
+                policies: if construction.is_current() {
+                    vec![
                     "Engine validates all typed consequences; input is intent, not truth.",
+                    "KnownAsObserved is the observer's actual learned value, not hidden world truth.",
                     "Statements and subjective beliefs are not established facts.",
                     "Never infer an unobserved event or grant knowledge from inspection.",
                     "Use only supplied IDs; no invented powers, inventory or author authority.",
-                ],
+                ]
+                } else {
+                    vec![
+                        "Engine validates all typed consequences; input is intent, not truth.",
+                        "Statements and subjective beliefs are not established facts.",
+                        "Never infer an unobserved event or grant knowledge from inspection.",
+                        "Use only supplied IDs; no invented powers, inventory or author authority.",
+                    ]
+                },
             },
         }],
         diagnostics: Diagnostics {
@@ -680,18 +793,28 @@ fn compile_inner(
         estimated_tokens: 0,
         token_accounting: "estimate_utf8_bytes_div_4_not_measured",
         reserved_tokens: b.reserved_tokens,
-        unsupported: vec![
-            "Measured tokenizer/template/output fit",
-            "Full alias registry",
-            "SQLite FTS",
-            "Summaries and invalidation",
-            "Embeddings",
-            "Branch-scoped derived caches",
-        ],
+        unsupported: if construction.is_current() {
+            vec![
+                "Measured tokenizer/template/output fit",
+                "Full alias registry",
+                "SQLite FTS",
+                "Embeddings",
+                "Domain 2 method-v2 derived coverage",
+            ]
+        } else {
+            vec![
+                "Measured tokenizer/template/output fit",
+                "Full alias registry",
+                "SQLite FTS",
+                "Summaries and invalidation",
+                "Embeddings",
+                "Branch-scoped derived caches",
+            ]
+        },
     };
     for c in &candidates {
         check(cancel)?;
-        if let Some(reason) = mandatory.get(c.row.key()) {
+        if let Some(reason) = mandatory.get(c.key()) {
             package.records.push(selected(c, *reason, 0, true));
         }
     }
@@ -716,13 +839,47 @@ fn compile_inner(
     if !fits(&mut package, b)? {
         return Err(CompileError::MandatoryBudget);
     }
+    let (unit_candidates, mut construction_diagnostics) = if construction.is_recent() {
+        policy::transcript_candidates(&snapshot, request, candidates.len(), &mut row_bytes, cancel)?
+    } else {
+        (vec![], ConstructionDiagnostics::default())
+    };
+    if construction.is_recent() {
+        package.diagnostics.eligible_candidates = package
+            .diagnostics
+            .eligible_candidates
+            .checked_add(unit_candidates.len())
+            .ok_or(CompileError::TooLarge)?;
+    }
+    let mandatory_sources = candidates
+        .iter()
+        .filter(|c| mandatory.contains_key(c.key()))
+        .flat_map(|c| c.sources.iter())
+        .filter_map(|s| match s {
+            Source::ScopedEvent {
+                original_scope,
+                sequence,
+            } => Some((original_scope.clone(), *sequence)),
+            _ => None,
+        })
+        .collect::<BTreeSet<_>>();
     let mut optional: Vec<_> = candidates
         .iter()
-        .filter(|c| !mandatory.contains_key(c.row.key()))
+        .chain(unit_candidates.iter())
+        .filter(|c| !mandatory.contains_key(c.key()))
         .map(|c| {
             check(cancel)?;
+            if construction.is_recent() {
+                return match &c.payload {
+                    CandidatePayload::Row(_)=>Ok((c,0,Reason::NotRelevant)),
+                    CandidatePayload::TranscriptUnit(_)=>{
+                        let overlap=c.sources.iter().any(|s|matches!(s,Source::ScopedEvent {original_scope,sequence} if mandatory_sources.contains(&(original_scope.clone(),*sequence))));
+                        if overlap {construction_diagnostics.overlap_transcript_units+=1;Ok((c,0,Reason::AlreadySelected))}else{Ok((c,1,Reason::Recent))}
+                    }
+                };
+            }
             let exact = c.ids.intersection(&references).count() as u32;
-            let words = tokens(&format!("{} {}", c.encoded, tags(&c.row)));
+            let words = tokens(&format!("{} {}", c.encoded, c.row().map_or("transcript",tags)));
             let lexical = query_tokens.intersection(&words).count() as u32;
             let score = exact
                 .saturating_mul(10000)
@@ -741,13 +898,13 @@ fn compile_inner(
     optional.sort_by(|(a, sa, _), (b, sb, _)| {
         sb.cmp(sa)
             .then_with(|| b.revision.cmp(&a.revision))
-            .then_with(|| a.row.key().cmp(b.row.key()))
+            .then_with(|| a.key().cmp(b.key()))
     });
     let mut accepted = 0;
     for (c, score, reason) in optional {
         check(cancel)?;
         let omission = if score == 0 {
-            Some(Reason::NotRelevant)
+            Some(reason)
         } else if accepted >= b.optional_records {
             Some(Reason::OptionalLimit)
         } else {
@@ -764,7 +921,7 @@ fn compile_inner(
             package.diagnostics.omitted_eligible += 1;
             if package.diagnostics.omissions.len() < MAX_DIAGNOSTICS {
                 package.diagnostics.omissions.push(Omission {
-                    id: c.row.key().into(),
+                    id: c.key().into(),
                     reason,
                 });
             } else {
@@ -785,9 +942,33 @@ fn compile_inner(
             return Err(CompileError::MandatoryBudget);
         }
     }
+    if construction.is_recent() {
+        // Admission retains newest fitting whole units. Presentation is chronological.
+        let first = package
+            .records
+            .iter()
+            .position(|r| !r.mandatory)
+            .unwrap_or(package.records.len());
+        package.records[first..].sort_by(|a, b| {
+            a.source_revision
+                .cmp(&b.source_revision)
+                .then_with(|| a.id.cmp(&b.id))
+        });
+        if !fits(&mut package, b)? {
+            return Err(CompileError::MandatoryBudget);
+        }
+        construction_diagnostics.selected_transcript_units = package
+            .records
+            .iter()
+            .filter(|r| matches!(r.payload, Payload::TranscriptUnit(_)))
+            .count();
+    }
     check(cancel)?;
-    Ok(MemoryCompilation {
-        package,
-        coverage: memory.diagnostics,
+    Ok(CompilationResult {
+        compilation: MemoryCompilation {
+            package,
+            coverage: memory.diagnostics,
+        },
+        construction: construction_diagnostics,
     })
 }

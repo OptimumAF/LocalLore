@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-author-context"
+description = "Enables the author_context command without any pre-configured scope."
+commands.allow = ["author_context"]
+
+[[permission]]
+identifier = "deny-author-context"
+description = "Denies the author_context command without any pre-configured scope."
+commands.deny = ["author_context"]

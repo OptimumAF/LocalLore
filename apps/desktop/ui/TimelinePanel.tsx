@@ -40,8 +40,10 @@ export function TimelinePanel({
                 its original history intact and preserves what characters know.
             </p>
             <p>
-                Forking, rewinding, regenerating committed history and author
-                corrections are unavailable in this view. Saved drafts remain
+                Alternate timeline creation preserves the original. Replacing
+                committed history means starting a new timeline before that
+                turn; downstream choices are never replayed automatically.
+                Author corrections remain unavailable. Saved drafts stay
                 uncommitted.
             </p>
             <button

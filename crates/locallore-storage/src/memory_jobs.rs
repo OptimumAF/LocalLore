@@ -168,6 +168,7 @@ fn core_error(error: coverage::CoverageError) -> MemoryError {
         Boundary => MemoryError::Integrity,
         Budget => MemoryError::TooLarge,
         Source => MemoryError::Integrity,
+        Unsupported => MemoryError::Unsupported,
     }
 }
 fn integer(value: u64) -> Result<i64> {
@@ -216,6 +217,9 @@ fn digest(value: &impl Serialize) -> Result<String> {
 }
 fn basis(connection: &Connection, engine: &Engine, cancel: &dyn Fn() -> bool) -> Result<Basis> {
     check(cancel)?;
+    if engine.domain_version() != 1 {
+        return Err(MemoryError::Unsupported);
+    }
     let path =
         crate::branches::lineage(connection, engine.scope()).map_err(|_| MemoryError::Integrity)?;
     // Mutable ancestor heads are deliberately excluded; accepted selected history
@@ -233,6 +237,17 @@ fn basis(connection: &Connection, engine: &Engine, cancel: &dyn Fn() -> bool) ->
     Ok(result)
 }
 fn validate(engine: &Engine, request: &MemoryJobRequest, cancel: &dyn Fn() -> bool) -> Result<()> {
+    validate_selection(engine, request, cancel)?;
+    if engine.domain_version() != 1 {
+        return Err(MemoryError::Unsupported);
+    }
+    Ok(())
+}
+fn validate_selection(
+    engine: &Engine,
+    request: &MemoryJobRequest,
+    cancel: &dyn Fn() -> bool,
+) -> Result<()> {
     check(cancel)?;
     if engine.scope() != &request.scope {
         return Err(MemoryError::Scope);
@@ -244,6 +259,24 @@ fn validate(engine: &Engine, request: &MemoryJobRequest, cancel: &dyn Fn() -> bo
         return Err(MemoryError::NotFound);
     }
     Ok(())
+}
+// A native selected-player operation cannot turn a cached session into an
+// arbitrary actor grant or accept a replacement history at the same head.
+fn validate_selected(
+    engine: &Engine,
+    request: &MemoryJobRequest,
+    selected: &Engine,
+    cancel: &dyn Fn() -> bool,
+) -> Result<()> {
+    validate(engine, request, cancel)?;
+    if engine.seed().player != request.observer
+        || !engine
+            .extends_accepted_history(selected)
+            .map_err(|_| MemoryError::Stale)?
+    {
+        return Err(MemoryError::Stale);
+    }
+    check(cancel)
 }
 fn read_job(connection: &Connection, handle: &MemoryJobHandle) -> Result<Job> {
     let row=connection.query_row("SELECT basis_revision,next_from,generation,CASE WHEN length(CAST(status AS BLOB))<=9 THEN status ELSE '' END,CASE WHEN last_error IS NULL OR length(CAST(last_error AS BLOB))<=12 THEN last_error ELSE '!' END,CASE WHEN length(CAST(seed_sha256 AS BLOB))=64 THEN seed_sha256 ELSE '' END,CASE WHEN length(CAST(lineage_sha256 AS BLOB))=64 THEN lineage_sha256 ELSE '' END,CASE WHEN length(CAST(source_sha256 AS BLOB))=64 THEN source_sha256 ELSE '' END FROM memory_jobs WHERE job_id=?1 AND story_id=?2 AND branch_id=?3 AND observer_id=?4 AND method=?5 AND summary_version=2",
@@ -376,11 +409,32 @@ impl Store {
         request: &MemoryJobRequest,
         cancel: &dyn Fn() -> bool,
     ) -> Result<MemoryJobInfo> {
+        self.ensure_memory_job_inner(request, None, cancel)
+    }
+    /// Explicit native selected-player admission. Both the initial read and
+    /// the publication transaction check the same cached accepted-history basis.
+    pub fn ensure_selected_memory_job(
+        &mut self,
+        request: &MemoryJobRequest,
+        selected: &Engine,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<MemoryJobInfo> {
+        self.ensure_memory_job_inner(request, Some(selected), cancel)
+    }
+    fn ensure_memory_job_inner(
+        &mut self,
+        request: &MemoryJobRequest,
+        selected: Option<&Engine>,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<MemoryJobInfo> {
         check(cancel)?;
         let (engine, source, old, bytes) = {
             let tx = self.connection.transaction()?;
             let engine = Self::memory_engine(&tx, &request.scope, cancel)?;
             validate(&engine, request, cancel)?;
+            if let Some(selected) = selected {
+                validate_selected(&engine, request, selected, cancel)?;
+            }
             let source = basis(&tx, &engine, cancel)?;
             let old = find_job(&tx, request, &self.memory_job_owner)?;
             let bytes = old
@@ -442,6 +496,9 @@ impl Store {
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
         let actual = Self::memory_engine(&tx, &request.scope, cancel)?;
         validate(&actual, request, cancel)?;
+        if let Some(selected) = selected {
+            validate_selected(&actual, request, selected, cancel)?;
+        }
         if basis(&tx, &actual, cancel)? != source {
             return Err(MemoryError::Stale);
         }
@@ -481,6 +538,35 @@ impl Store {
             insert_packet(&tx, &handle, from, through, &bytes)?;
         }
         let info = read_job(&tx, &handle)?.info;
+        check(cancel)?;
+        tx.commit()?;
+        Ok(info)
+    }
+    /// Passive native lookup, including after reopen. Reissues only a handle
+    /// bound to this Store instance; never admits, retargets, repairs or writes.
+    pub fn lookup_memory_job(
+        &mut self,
+        request: &MemoryJobRequest,
+        selected: &Engine,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<Option<MemoryJobInfo>> {
+        check(cancel)?;
+        let tx = self.connection.transaction()?;
+        let engine = Self::memory_engine(&tx, &request.scope, cancel)?;
+        validate_selected(&engine, request, selected, cancel)?;
+        let info = match find_job(&tx, request, &self.memory_job_owner)? {
+            None => None,
+            Some(job) => {
+                let mut info = job.info;
+                if info.status != MemoryJobStatus::Cancelled
+                    && (engine.revision() != info.basis_revision
+                        || basis(&tx, &engine, cancel)? != job.basis)
+                {
+                    info.status = MemoryJobStatus::Stale;
+                }
+                Some(info)
+            }
+        };
         check(cancel)?;
         tx.commit()?;
         Ok(info)
@@ -653,7 +739,15 @@ impl Store {
         check(cancel)?;
         let tx = self.connection.transaction()?;
         let engine = Self::memory_engine(&tx, &request.scope, cancel)?;
-        validate(&engine, request, cancel)?;
+        validate_selection(&engine, request, cancel)?;
+        if engine.domain_version() != 1 {
+            check(cancel)?;
+            tx.commit()?;
+            return Ok(ContextSnapshot {
+                engine,
+                coverage: CoverageRead::RawFallback(coverage::FallbackReason::Unsupported),
+            });
+        }
         // No writes, admission, cursor repair, or canonical mutation on a read.
         let coverage = match find_job(&tx, request, &self.memory_job_owner) {
             Ok(job) => {

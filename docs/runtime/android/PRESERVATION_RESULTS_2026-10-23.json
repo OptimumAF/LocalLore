@@ -1,0 +1,155 @@
+{
+  "version": 1,
+  "scope": "fresh_read_only_android_preservation_collection",
+  "task_ids": [
+    "M01.05"
+  ],
+  "full_task_acceptance": false,
+  "base_pr": 118,
+  "base": "498a5250cc5f3b55bc4371295814ce4a5acb6e02",
+  "module_sha256": "c1d040439e7208d19df82edbe83fa51ad087ca0fb0371feb87c06439a3aabd4f",
+  "host_tests": {
+    "script_tests": 402,
+    "independent_methods": 22,
+    "adapter_mock_methods": 19,
+    "owner_driver_mock_methods": 3,
+    "selections_overlap": true
+  },
+  "observation": {
+    "owner_status": "completed",
+    "child_returncode": 0,
+    "elapsed_ms": 65469,
+    "cleanup_complete": true,
+    "commands": 627,
+    "device_commands": 626,
+    "host_inventory_commands": 1,
+    "checkpoint_count": 9,
+    "boundary_count": 16,
+    "device_write_calls": 0,
+    "model_content_reads": 0,
+    "inference_calls": 0,
+    "sqlite_opens": 0,
+    "model_metadata_only": true,
+    "result": {
+      "version": 1,
+      "scope": "android_preservation_collection",
+      "status": "observed",
+      "checks": [
+        {
+          "check": "model_metadata",
+          "status": "matched",
+          "boundary_verified": true
+        },
+        {
+          "check": "cache_metadata",
+          "status": "mismatched",
+          "boundary_verified": true
+        },
+        {
+          "check": "prior_canonical",
+          "status": "matched",
+          "boundary_verified": true
+        },
+        {
+          "check": "guarded_canonical",
+          "status": "matched",
+          "boundary_verified": true
+        },
+        {
+          "check": "traced_canonical",
+          "status": "matched",
+          "boundary_verified": true
+        },
+        {
+          "check": "phase_journal",
+          "status": "matched",
+          "boundary_verified": true
+        },
+        {
+          "check": "storage",
+          "status": "matched",
+          "boundary_verified": true
+        },
+        {
+          "check": "inventory",
+          "status": "matched",
+          "boundary_verified": true
+        }
+      ],
+      "clients_cleaned": true,
+      "boundary_verified": true,
+      "retention_complete": true,
+      "collection_complete": true,
+      "preservation_verified": false,
+      "stop_reason": "none"
+    }
+  },
+  "canonical_comparisons": {
+    "prior_canonical": {
+      "full_metadata_hash_size_absence_equal": true,
+      "content_only_equal": true,
+      "present_files": 2,
+      "absent_files": 4
+    },
+    "guarded_canonical": {
+      "full_metadata_hash_size_absence_equal": true,
+      "content_only_equal": true,
+      "present_files": 2,
+      "absent_files": 4
+    },
+    "traced_canonical": {
+      "full_metadata_hash_size_absence_equal": true,
+      "content_only_equal": true,
+      "present_files": 3,
+      "absent_files": 3
+    },
+    "phase_journal": {
+      "full_metadata_hash_size_absence_equal": true,
+      "content_only_equal": true,
+      "present_files": 2,
+      "absent_files": 0
+    }
+  },
+  "cache_metadata": {
+    "prior": "matched",
+    "guarded": "mismatched",
+    "traced": "mismatched",
+    "guarded_directory_inode_changed": true,
+    "guarded_owner_mtime_ctime_delta_seconds": -1,
+    "traced_owner_inode_changed": true,
+    "traced_owner_mtime_ctime_delta_seconds": -1,
+    "marker_content_hash_available": false,
+    "cause": "unestablished"
+  },
+  "inventory": {
+    "initial_final_package_maps_equal": true,
+    "installed_packages_by_target": [
+      21,
+      23
+    ],
+    "emulators": 4,
+    "other_devices": 0,
+    "selected_ready": true
+  },
+  "storage": {
+    "scope": "fresh_inspection_floor_only",
+    "samples": 25,
+    "all_samples_valid": true,
+    "last_boundary": {
+      "version": 1,
+      "host_free_bytes": 9814319104,
+      "evidence_free_bytes": 321416613888,
+      "userdata_free_bytes": 1674006528,
+      "valid": true
+    },
+    "prior_post_consumption_gate": "failed_unchanged"
+  },
+  "limitations": [
+    "Current file comparisons cannot retroactively complete earlier missing final checks",
+    "Overall preservation remains false because full cache metadata differs",
+    "Cache payload and owner marker contents were not hashed; cause is unestablished",
+    "No SQLite replay, new inference, model-content read or lifecycle mutation",
+    "No physical-phone, ARM, model quality, successful guarded turn or backend qualification",
+    "Storage observations admit inspection only; prior 64-MiB consumption failure remains failed"
+  ]
+}

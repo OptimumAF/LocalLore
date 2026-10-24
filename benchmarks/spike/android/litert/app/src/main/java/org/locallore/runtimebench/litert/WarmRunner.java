@@ -22,6 +22,8 @@ final class WarmRunner {
         void start() throws Exception;
         boolean await(long milliseconds) throws Exception;
         default boolean hasOutput() { return false; }
+        default Boolean observeOutput() throws Exception { return null; }
+        default RoleObservation observeTerminal() throws Exception { return null; }
         void cancel() throws Exception;
         JsonObject result(double loadMs) throws Exception;
         @Override void close() throws Exception;

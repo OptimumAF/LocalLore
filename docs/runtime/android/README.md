@@ -22,6 +22,66 @@ The earlier [dated verification](VERIFICATION_2026-10-22.md) and
 turns, cancellation, expected rejection, uncertain cleanup and follow-up checks.
 The original Qwen3.5-4B conversion and M01 physical-device gate remain pending.
 
+## Inspect model integrity without inference
+
+The explicit local utility `benchmarks/model_integrity.py` opens a regular model
+file read-only and makes two complete passes. It emits only size, whole-file and
+ordered 32MiB chunk hashes, plus a before/after identity-stability flag. It does
+not run ADB, initialize a runtime, copy/repair a model or change inference gates.
+Keep receipts local; inspect status 0 means stable observed reads, not approval of
+the model. Compare against the approved source size/hash separately:
+
+```powershell
+python benchmarks/model_integrity.py inspect --model <verified-local-model>
+python benchmarks/model_integrity.py compare --reference <source-receipt.json> --observed <observed-receipt.json> --expected-bytes 2588147712 --expected-sha256 181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c
+```
+
+The second command exits 0 only for a complete stable identity match, 2 for a
+stable content/size mismatch, 1 for incomplete, malformed, changed or failed
+inspection. The library accepts complete device hash receipts collected under
+separate authorized process/package/transport guards. A full-file digest is a
+separate observed read; it cannot be reconstructed from the list of chunk hashes.
+Different chunk digests identify intervals containing differences, not an exact
+changed-byte count or cause. This trusted-local check does not defeat adversarial
+filesystem races, force backend writeback, or establish historical integrity.
+Leaf symlinks are refused; ancestor links are not comprehensively audited.
+The [dated investigation](MODEL_INTEGRITY_VERIFICATION_2026-10-23.md) records
+actual device observations, retained failures, storage gates and limitations.
+
+## Admit a play control
+
+For a new real-model play control, use the explicit
+`android_probe_admission.run_play_probe_with_admission` entrypoint around the
+entire existing controller, including its initial SDK stop. Its trusted sampler
+must collect fresh, bounded, read-only measurements with exact fields `version`
+(1), `host_free_bytes`, `evidence_free_bytes`, `guest_free_bytes`, `cache_bytes`.
+The caller still owns fresh model/APK/process identity and exclusive device
+admission. This wrapper does not change legacy direct `run_probe` callers.
+
+The fixed development policy requires host 4GiB reserve plus 1GiB growth,
+guest 1GiB reserve plus 1GiB growth, and 10GiB evidence space before dispatch.
+After a known-clean controller return it checks remaining reserves and the
+1GiB observed cache/net host/net guest consumption budgets. These are admission
+and later observations, not filesystem quotas or a proven SDK cache maximum.
+Unknown cleanup or a raised probe suppresses the post sampler; callers must also
+suppress other dependent device probes until ownership is resolved.
+
+For policy assessment of an already captured local sample only:
+
+```powershell
+python benchmarks/android_probe_admission.py --sample <private-storage-sample.json>
+```
+
+Exit 0 means that sample meets the policy, 2 means insufficient headroom, and 1
+means an invalid/failed sample. The CLI neither measures freshness nor dispatches
+a probe. The guarded Python entrypoint samples at its call boundary. Its
+`storage_checks_passed` describes storage only: keep the original probe result,
+accepted receipt or exception separately, and require the original probe checks
+plus independent post-model identity for experiment acceptance. A post-storage
+failure cannot roll back an accepted turn. See
+[dated qualification](CACHE_ADMISSION_VERIFICATION_2026-10-23.md) for actual
+refusals, preserved data and the cache-placement prerequisite.
+
 ## Build explicitly
 
 Use the existing pinned Rust1.93.1, NDK29.0.14206865, SDK36/BuildTools35,
@@ -103,6 +163,99 @@ checks. The [control verification](CONTROL_VERIFICATION_2026-10-22.md) preserves
 the earlier unexplained transients separately from this follow-up.
 
 ## Bounds and authority
+
+The separate [cache-volume experiment](CACHE_VOLUME_VERIFICATION_2026-10-23.md)
+adds an opt-in cache destination and a volume-aware policy. It has a different
+package/artifact identity; it is not the original installed SDK control. Keep
+its model and generated cache on an explicitly selected framework-returned
+independent volume, with canonical saves in app-private userdata. No automatic
+internal-directory fallback is allowed. Merely choosing an external-looking
+path does not prove independent storage.
+
+For policy assessment only:
+
+```powershell
+python -B benchmarks/android_cache_volume.py --sample <fresh-private-storage.json> --volume-uuid <exact-selected-uuid> --model-copy-bytes 0
+```
+
+Exit0 means the supplied sample meets this experiment's budgets; exit2 means a
+policy refusal and exit1 means invalid/failed input. This command does not collect
+evidence, start a controller, provision weights or authenticate a backing-volume
+assertion. The trusted caller must map actual guest/host filesystems and sample
+once per host filesystem, preserving fresh APK/model/owner evidence separately.
+`run_with_admission` wraps one whole callback with pre/post observations; unknown
+ownership suppresses every post read and must fence later dependent work. Preserve
+the original result/accepted receipt independently of the storage verdict. The
+new budgets do not retroactively pass the old userdata/host admission gate.
+
+The [explicit-cache SDK controller](CACHE_SDK_CONTROL_HARNESS_2026-10-23.md)
+keeps artifact identity, model integrity, accepted play receipts and storage
+verdicts separate. Its strict decoder preserves a valid committed receipt even
+when a later volume or cleanup check fails. A new app-domain
+[`verify_model` operation](CACHE_MODEL_VERIFY_HARNESS_2026-10-23.md) reads only
+the fixed model leaf in the framework-selected external-files directory, through
+one no-follow descriptor. This closes the gap between shell provisioning and
+the file the app actually reads; `run-as` access is not a substitute. It creates
+no SDK engine and returns no model text or filesystem path. Use the separately
+qualified artifact and trusted live callbacks described in those documents;
+default checks do not provision models or run devices.
+
+The [explicit-cache control verification](CACHE_SDK_CONTROL_VERIFICATION_2026-10-23.md)
+records the qualified app-domain integrity operation, actual local model-copy
+checks, retained transport/setup failures and the bounded emulator observation.
+Its aggregate keeps accepted Rust receipts separate from storage and cleanup
+verdicts. The actual gift request was rejected by the action intent guard with
+unchanged canon; typed canonical events remain authoritative.
+
+The later [guard-bound SDK integration](GUARDED_SDK_VERIFICATION_2026-10-23.md)
+carries the already accepted prompt2.3 schema into a newly built native pair and
+separately qualified APK. Its bridge tests use synthetic bytes, while artifact
+selection is fixed for every package check within a controller run. The earlier
+APK and rejected attempt retain their original identities and evidence.
+
+The [read-only recovery transport](RECOVERY_VERIFICATION_2026-10-23.md)
+requires actual shell-v2 exit and byte controls before inspecting the original
+stopped session's fixed SQLite files. Exact source hashes and sidecar inventory
+precede strict Rust replay on a separate local copy. It invokes no model and
+established a failed turn with zero accepted events and the player's potion
+retained. The SDK crash cause and runtime compatibility remain unqualified.
+
+The [private SDK phase journal](SDK_PHASE_PROTOCOL_V1.md) persists bounded
+content-free lifecycle checkpoints and an optional Android process-instance
+token. Its [verification](SDK_PHASE_VERIFICATION_2026-10-23.md) uses a separate
+no-model self-kill/read package before another SDK control. A last checkpoint
+and an OS exit reason do not establish canonical outcomes or a crash cause.
+
+The [stopped-session SDK reader](TRACED_SDK_PROTOCOL_V1.md) exposes that journal
+through the cacheprobe's distinct `read_phase` operation before any model or
+volume setup. A caller-persisted nonce binds one play attempt to one readback.
+The host requires original-process absence and the qualified new APK, retains
+raw output first, then stops and verifies the reader before snapshot recovery.
+See its [dated verification](TRACED_SDK_VERIFICATION_2026-10-23.md) for actual
+artifact, device and canonical replay evidence.
+
+The [role-observation protocol](ROLE_OBSERVATION_PROTOCOL_V1.md) corrects an
+older measurement gap: ordinary turns did not measure their first-output flag.
+It adds bounded callback/buffer observations and optional terminal SDK counters,
+with explicit unknown values and mandatory owner cleanup. Buffered output and
+requested configuration do not prove a valid answer or a canonical commit.
+See the [author qualification](ROLE_OBSERVATION_AUTHOR_2026-10-23.md) for the
+separately pinned artifact and hostile resource-ownership tests, and the
+[actual verification](ROLE_OBSERVATION_VERIFICATION_2026-10-23.md) for the one
+failed gift, measured buffered output, storage/preservation failures and
+independent canonical replay.
+
+The [offline storage explanation](STORAGE_EXPLANATION_V1.md) shows the existing
+per-physical-host reserves and growth allowances using supplied before/after
+samples. It performs no device operation and changes no admission limit. Its
+[verification](STORAGE_EXPLANATION_VERIFICATION_2026-10-23.md) reproduces the
+retained blocked verdict without attributing host-wide consumption to an app.
+
+The [preservation collector](PRESERVATION_COLLECTION_V1.md) records independent
+metadata, canonical-file, journal, storage and inventory observations after a
+safe mismatch. Unknown ownership, identity or process state still stops later
+reads. Its [verification](PRESERVATION_VERIFICATION_2026-10-23.md) distinguishes
+complete observation from successful preservation.
 
 The native [process owner](../../../benchmarks/spike/android/controller/README.md)
 owns/reaps one trusted direct child. An ADB-client exit is never native cleanup

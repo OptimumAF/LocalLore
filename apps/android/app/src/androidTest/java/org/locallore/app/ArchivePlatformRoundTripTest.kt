@@ -339,9 +339,9 @@ class ArchivePlatformRoundTripTest {
         val current = JSONObject(currentBytes.toString(Charsets.UTF_8))
         val historical = JSONObject(historicalBytes.toString(Charsets.UTF_8))
         verify(current.getInt("version") == 1 && historical.getInt("version") == 1, "Archive version drift")
-        verify(current.getJSONObject("payload").getInt("source_database_schema_version") == 4 &&
+        verify(current.getJSONObject("payload").getInt("source_database_schema_version") == 5 &&
             historical.getJSONObject("payload").getInt("source_database_schema_version") == 2, "Source schema drift")
-        historical.getJSONObject("payload").put("source_database_schema_version", 4)
+        historical.getJSONObject("payload").put("source_database_schema_version", 5)
         historical.getJSONObject("integrity").put("payload_sha256", current.getJSONObject("integrity").getString("payload_sha256"))
         return sameJson(current, historical)
     }

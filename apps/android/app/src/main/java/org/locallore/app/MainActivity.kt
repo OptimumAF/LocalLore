@@ -15,6 +15,7 @@ import org.locallore.app.ui.DiagnosticsDialog
 import org.locallore.app.ui.ArchiveDialog
 import org.locallore.app.ui.StoryDeletionDialog
 import org.locallore.app.ui.BranchDeletionDialog
+import org.locallore.app.ui.BranchForkPanel
 import org.locallore.app.ui.StoryRecordDialog
 
 class MainActivity : ComponentActivity() {
@@ -54,10 +55,15 @@ class MainActivity : ComponentActivity() {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 require(modelClass == ShellViewModel::class.java)
-                return ShellViewModel(DurableGateway(NativeWorkspaceTransport(applicationContext), autoCreateIfEmpty = false),
+                val transport = NativeWorkspaceTransport(applicationContext)
+                val durable = DurableGateway(transport, autoCreateIfEmpty = false)
+                return ShellViewModel(durable,
                     archiveGateway = NativeArchiveGateway(applicationContext),
                     deletionGateway = NativeArchiveGateway(applicationContext),
-                    branchDeletionGateway = NativeArchiveGateway(applicationContext)) as T
+                    branchDeletionGateway = NativeArchiveGateway(applicationContext),
+                    forkGateway = NativeForkGateway(transport::forkHandle),
+                    forkContextProvider = durable::forkContext,
+                    forkRecoveryStore = AtomicForkRecoveryStore(applicationContext)) as T
             }
         }
         model = ViewModelProvider(this, factory)[ShellViewModel::class.java]
@@ -68,6 +74,10 @@ class MainActivity : ComponentActivity() {
             val deletion by model.deletion.collectAsStateWithLifecycle()
             val branchDeletion by model.branchDeletion.collectAsStateWithLifecycle()
             val record by model.storyRecord.collectAsStateWithLifecycle()
+            val fork by model.fork.collectAsStateWithLifecycle()
+            val forkVisible by model.forkVisible.collectAsStateWithLifecycle()
+            val forkProblem by model.forkProblem.collectAsStateWithLifecycle()
+            val forkRecoveryPending by model.forkRecoveryPending.collectAsStateWithLifecycle()
             val renderedRecordContext = record.context
             LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::reset,
                 onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover,
@@ -77,7 +87,13 @@ class MainActivity : ComponentActivity() {
                 deletionAvailable = model.deletionController != null, onDelete = model::openDeletion,
                 onTimeline = model::resumeTimeline,
                 branchDeletionAvailable = model.branchDeletionController != null,
-                onDeleteTimeline = model::openBranchDeletion) {
+                onDeleteTimeline = model::openBranchDeletion,
+                forkAvailable = model.forkAvailable, forkRecoveryAvailable = forkRecoveryPending || forkProblem != null,
+                onFork = model::openFork) {
+                BranchForkPanel(forkVisible, fork, forkProblem, forkRecoveryPending,
+                    onBoundary = model::prepareForkBoundary, onConfirm = model::confirmFork,
+                    onRetry = model::retryFork, onLookup = model::lookupFork, onForget = model::forgetFork,
+                    onCancel = model::cancelFork, onClose = model::closeFork, onResume = model::resumeFork)
                 model.branchDeletionController?.let { controller ->
                     BranchDeletionDialog(branchDeletion, controller::dismiss, controller::cancel, controller::confirm)
                 }
@@ -117,7 +133,10 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         // Conservatively stop sample work when the surface leaves the foreground, including rotation.
         // Accepted state belongs to shared durable storage; configuration recreation retains the ViewModel.
-        if (::model.isInitialized) model.cancel()
+        if (::model.isInitialized) {
+            model.cancel()
+            model.stopFork()
+        }
         super.onStop()
     }
 }

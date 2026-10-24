@@ -1,0 +1,16 @@
+# Fork terminal-category source review — 2026-10-23
+
+Partial #11 M07.01/.03/.04 / #29 D07.02/.06, coordinator-delegated `desktop_memory_ui`. Claims before edits: #11 comment6377403475 / #29 comment6377403690. Isolated `review/m07-fork-errors` / `source-memory-fork-error-review` starts from Root `aeb2e30a0060399ce17451f06464807075fe0f27` (production `0d067c2`). Own only NEW review journey/checker and this short report; no existing production or test file is edited.
+
+Bounded exact source review confirms Root's shared Archive completion helper preserves command-kind/root/hash checks, uses a detached frozen five-field binding captured from the already validated preview before dispatch, and is reused by controller and gate. Fork's exported/renamed `decodeForkOutcome` reuses the identical existing request-bound outcome validator in poll/lookup/gate. Known-ID exclusion and private own-admission processing remain. Root reports full frontend GREEN including the unchanged8/3/7/18 suites after the disclosed mock metadata correction; this is attributed Root execution, not a new reviewer run.
+
+One additional concrete source seam remains: a Fork terminal `phase:error,result:null,error:"SyntheticUnknownCategory"` meets the gate's generic string/64-character checks and skips successful-outcome validation. Actual `ForkController.errorName` correctly maps the unrecognized category to Wire using its existing closed error Set, but the gate records `unknown:false`. Fork context changes preserve local `status:uncertain`; **no context-only release is claimed**. The missing global unresolved metadata is independent of that preserved local presentation.
+
+Frozen NEW2-case source/checker **`54165b923b51c034c93d1f84e76b7d13b38dd322`**, journey SHA-256 **`e826e6e66e4e6cfff6a55cdeac6b1b464ee85395cf44a21c104cd35c4aed1ac8`**:
+
+- Unknown native error category must become actual controller Wire and retained global uncertainty across context change, with no second-surface dispatch or automatic fork retry.
+- Known native Cancelled remains Cancelled and locally uncertain; an explicit exact-child lookup remains read-only and permits subsequent explicit activity after known-error recovery. It does not claim cancellation proves rollback or absence recreates a branch.
+
+Both use actual `ForkController`/`BrokerRetention` with fixed **mocked IPC**, not native/Store/render evidence. Both are **UNCOMPILED/UNRUN by this reviewer**. Only source/Git/hash/whitespace checks ran PASS; no Node, Cargo, Gradle, app, native IPC, WebView/images, browser, model, device, desktop-control, protected-resource, download or PR/merge action occurred.
+
+Root's planned narrow fix exports `isForkError` backed by the **same existing closed Set**, uses it in existing controller normalization and in gate terminal-error acceptance alongside the existing length bound. No duplicate error or canonical validator is needed. Root owns actual RED before correction, unchanged2-case GREEN, full existing regression/native qualification and acceptance. Pending checker from `apps/desktop`: `node check-broker-fork-error-review.mjs` with own ignored output and an allocated resource slot. Claims release at handoff; full M07/D07 remains open.

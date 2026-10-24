@@ -4,12 +4,14 @@ use locallore::{
     contracts::*,
     engine::Engine,
     host::{
-        Host, Persistence, SavedTurn, WorkspaceBranch, WorkspaceBranchCatalog,
-        WorkspaceForkOutcome, WorkspaceForkRequest, WorkspaceSummary,
+        Host, HostGenerationSnapshot, Persistence, SavedTurn, WorkspaceBranch,
+        WorkspaceBranchCatalog, WorkspaceForkOutcome, WorkspaceForkRequest, WorkspaceSummary,
     },
 };
 use locallore_storage::{StorageError, Store, TurnError, TurnPhase, TurnRecord};
 use std::path::Path;
+mod author_port;
+mod maintenance;
 pub const DATABASE_SCHEMA_VERSION: u32 = locallore_storage::SCHEMA_VERSION;
 
 struct Repository {
@@ -31,6 +33,22 @@ fn turn(error: TurnError) -> String {
         TurnError::Terminal => "Cancelled".into(),
         TurnError::Full => "Full".into(),
     }
+}
+fn generation_memory(error: locallore_storage::derived_memory::MemoryError) -> String {
+    use locallore_storage::derived_memory::MemoryError::*;
+    match error {
+        Scope => "Scope",
+        Stale | NotFound => "Stale",
+        InvalidInput => "InvalidInput",
+        Unsupported => "Unsupported",
+        TooLarge => "TooLarge",
+        Cancelled => "Cancelled",
+        Integrity => "Integrity",
+        Database => "Database",
+        Busy => "Busy",
+        Full => "Full",
+    }
+    .into()
 }
 fn saved(record: TurnRecord) -> SavedTurn {
     SavedTurn {
@@ -83,6 +101,84 @@ pub fn inspection_database_copy(
         .collect())
 }
 impl Persistence for Repository {
+    fn prepare_author_correction(
+        &mut self,
+        input: &locallore::author_correction::AuthorCorrectionInputV1,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<Box<dyn locallore::host::NativeAuthorPreparation>, String> {
+        author_port::prepare(self, input, cancel)
+    }
+    fn apply_author_correction(
+        &mut self,
+        prepared: &dyn locallore::host::NativeAuthorPreparation,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<locallore::host::WorkspaceAuthorOutcomeV1, String> {
+        author_port::apply(self, prepared, cancel)
+    }
+    fn lookup_author_correction(
+        &mut self,
+        input: &locallore::author_correction::AuthorCorrectionInputV1,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<Option<locallore::host::WorkspaceAuthorOutcomeV1>, String> {
+        author_port::lookup(self, input, cancel)
+    }
+    fn begin_bound(
+        &mut self,
+        request: &Request,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+    ) -> Result<SavedTurn, String> {
+        self.store
+            .begin_bound(request, basis)
+            .map(saved)
+            .map_err(turn)
+    }
+    fn status_bound(
+        &mut self,
+        request: &Request,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+    ) -> Result<SavedTurn, String> {
+        self.store
+            .turn_status_bound(request, basis)
+            .map(saved)
+            .map_err(turn)
+    }
+    fn commit_prepared_bound(
+        &mut self,
+        receipt: &Receipt,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+    ) -> Result<Receipt, String> {
+        self.store
+            .commit_prepared_bound(receipt, basis)
+            .map_err(turn)
+    }
+    fn finish_bound(
+        &mut self,
+        request: &Request,
+        basis: &locallore::engine::AcceptedHistoryBasis,
+        phase: locallore::host::DraftDisposition,
+    ) -> Result<SavedTurn, String> {
+        let phase = match phase {
+            locallore::host::DraftDisposition::Cancelled => TurnPhase::Cancelled,
+            locallore::host::DraftDisposition::Failed => TurnPhase::Failed,
+            locallore::host::DraftDisposition::Stale => TurnPhase::Stale,
+        };
+        self.store
+            .finish_bound(request, basis, phase)
+            .map(saved)
+            .map_err(turn)
+    }
+    fn memory_maintenance(
+        &mut self,
+        selected: &Engine,
+        expected_head: u64,
+        action: locallore::host::memory_maintenance::MaintenanceAction,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<
+        locallore::host::memory_maintenance::MaintenanceReply,
+        locallore::host::memory_maintenance::MaintenanceError,
+    > {
+        maintenance::run(self, selected, expected_head, action, cancel)
+    }
     fn validate_scope(&mut self, scope: &Scope) -> Result<(), String> {
         if self.store.is_branch_active(scope).map_err(storage)? {
             Ok(())
@@ -170,6 +266,32 @@ impl Persistence for Repository {
     }
     fn resume(&mut self, scope: &Scope) -> Result<Engine, String> {
         Ok(self.store.resume(scope).map_err(turn)?.engine)
+    }
+    fn generation_snapshot(
+        &mut self,
+        scope: &Scope,
+        expected_head: u64,
+        observer: &str,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<HostGenerationSnapshot, String> {
+        let snapshot = self
+            .store
+            .context_snapshot(
+                &locallore_storage::memory_jobs::MemoryJobRequest {
+                    scope: scope.clone(),
+                    expected_head,
+                    observer: observer.into(),
+                },
+                cancel,
+            )
+            .map_err(generation_memory)?;
+        if snapshot.engine.seed().player != observer {
+            return Err("Stale".into());
+        }
+        Ok(HostGenerationSnapshot {
+            engine: snapshot.engine,
+            coverage: snapshot.coverage,
+        })
     }
     fn begin(&mut self, request: &Request) -> Result<SavedTurn, String> {
         self.store.begin_turn(request).map(saved).map_err(turn)

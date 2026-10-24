@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-harness-fork-case"
+description = "Enables the harness_fork_case command without any pre-configured scope."
+commands.allow = ["harness_fork_case"]
+
+[[permission]]
+identifier = "deny-harness-fork-case"
+description = "Denies the harness_fork_case command without any pre-configured scope."
+commands.deny = ["harness_fork_case"]

@@ -20,7 +20,7 @@ import org.junit.Test
 class LocalInferenceOwnerTest {
     private val request = LocalInferenceRequest(1, "director", "original prompt", 350, 4096, 4, "{\"type\":\"object\"}")
     private val limits = LocalInferenceLimits(turnMs = 1_000, cleanupMs = 300, pollMs = 2)
-    private class Port(request: LocalInferenceRequest) : LocalInferenceNativePort {
+    private open class Port(request: LocalInferenceRequest) : LocalInferenceNativePort {
         val pending = AtomicReference<LocalInferencePending?>(LocalInferencePending(7, request))
         val nativeEntered = CountDownLatch(1)
         private val terminal = CountDownLatch(1)
@@ -200,6 +200,23 @@ class LocalInferenceOwnerTest {
         assertEquals("cancelled", result.await().toString(Charsets.UTF_8))
         assertEquals(0, port.deliveries.get()); assertEquals(1, call.cancels.get())
         owner.close()
+    }
+
+    @Test fun invalidationAfterKnownRoleCloseDoesNotCancelClosedSdkObject() = runBlocking {
+        val call = object : Call() {
+            override fun cancel() { error("a terminal closed role must not be cancelled") }
+        }.also { it.success() }
+        val engine = Engine(call)
+        val port = object : Port(request) {
+            override fun poll(): LocalInferencePending? {
+                if (call.closes.get() > 0) invalidate()
+                return super.poll()
+            }
+        }
+        val owner = owner(engine)
+        assertEquals("cancelled", prepare(owner, port).toString(Charsets.UTF_8))
+        assertFalse(owner.quarantined); assertEquals(0, port.deliveries.get())
+        assertEquals(1, engine.closes.get()); owner.close()
     }
 
     @Test fun duplicateConsumedTicketCannotOpenAnotherRoleOrDeliverAgain() = runBlocking {

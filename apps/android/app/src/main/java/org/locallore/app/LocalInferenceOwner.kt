@@ -258,7 +258,12 @@ internal class LocalInferenceOwner(
 
     private suspend fun releaseRole(role: Role, cancel: Boolean): Boolean {
         var known = true
-        if (cancel) try {
+        // A native cancellation can race after a proven terminal/closed role. Never cancel that
+        // already-closed SDK object merely because its native response ticket disappeared later.
+        val terminal = role.await?.let {
+            if (!it.isCompleted) false else try { it.await().terminal } catch (_: Throwable) { false }
+        } == true
+        if (cancel && !terminal) try {
             val job = synchronized(role) { role.cancel ?: task { role.value.cancel() }.also { role.cancel = it } }
             bounded(job)
         } catch (_: Throwable) { known = false }

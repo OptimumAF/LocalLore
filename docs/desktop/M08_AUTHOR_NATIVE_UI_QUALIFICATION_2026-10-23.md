@@ -41,8 +41,9 @@ and known-ID terminal-response loss with explicit status recovery passed.
 Whole-acknowledgement-loss lookup then failed when transient loading cleared
 its in-memory input. The correction passes 100 synthetic controller checks;
 the ninth actually passed exact lookup, subsequent cases and saved-child
-restart. Two additional loading-boundary regressions are now being frozen;
-the owner requires their fix and another native confirmation before PR-ready
+restart. Two additional frozen loading-boundary regressions then actually
+failed; their correction passes 116 synthetic checks. The owner requires
+corrected native checks and another native confirmation before PR-ready
 status. The first full pass is preserved rather than attributed to later code.
 
 Earlier separate synthetic actual-Main tests passed 18 cases; actual-controller inert
@@ -247,6 +248,25 @@ markup and mocked native outcomes. Neither category invokes the native app.
   context absence, keeps author availability false/no actions, and clears on
   actual root replacement, malformed root or disposal. Recovery stays
   memory-only and explicit; this is not restart recovery or automatic apply.
+- Independent loading-boundary review then froze two further cases in
+  `1a7ab78`: malformed context while already null must retire recovery input,
+  and positive bound preview disposal while null must settle only that
+  retired prepare. The retained AggregateError names **both actual failures**;
+  it is not a completed baseline count. A two-line controller correction
+  passes **116 synthetic checks** and the complete frontend verifier.
+  Final native confirmation is pending at this report's current source.
+
+The first broader native Rust check at the earlier bd18d76 candidate passed
+the normal suite (**88 passed / 1 ignored**), but the dev-harness suite failed
+to compile E0433: standalone harness_contract includes harness.rs without
+author_harness, which the new label check referenced. No dev tests ran in
+that failed invocation. Strict Clippy separately rejected two needless
+`&work` borrows and a nonminimal boolean; Rust formatting passed. Root's
+source correction moves the same fixed 17 author labels and environment
+gate into harness.rs, delegates author_harness activation to it and removes
+the borrows. It does not broaden the capture/action set or weaken assertions.
+Corrected dev/strict/normal-build results remain pending; these retained
+failures are not hidden by the successful UI journey.
 
 ## Reproduction and retained logs
 
@@ -315,6 +335,13 @@ No fresh physical Android or real-model run is part of these observations.
 | `author-loading-gap-original-red.log` | `02c082b1f8b3b546d8232a1c30529dcaa5d3630036e136e005efcfd801af318e` |
 | `author-loading-gap-first-green.log` | `4c86bfdadfaf90a058d79d7661384dee85b046bc06bda9d82dbc4e40aa24aaaa` |
 | `author-frontend-loading-gap-corrected.log` | `9d9620a00799d5029d890c61b9c50414af5afd1f471315a5bc02d6f798eb00ac` |
+| `author-loading-boundaries-original-red.log` | `bbe4f11a3410dea1965361faf361005628fd22a8de13c2cb3f977ccec99b2439` |
+| `author-loading-boundaries-first-green.log` | `abfd5df8cf923a95e88284a48e8a95659ce51bae1675778be743405cf9acc839` |
+| `author-frontend-loading-boundaries-corrected.log` | `cd08fe8e8ed2aa22cf7dcc0560bac20c9a26ad36730334b3d7e8644e3e0dcf21` |
+| `author-ui-native-normal-serial.log` | `38c8fe7101ab6c2e6e55e42456013b3c3a457cf82c9fdba623c388d05d7edf32` |
+| `author-ui-native-dev-serial.log` | `b3ffa035a6d647c7d2e7daa4ab0016dbe46d1580e85c4832b8e736373aefa2c4` |
+| `author-ui-native-clippy.log` | `3b598056883558f5dff201b783591f0ab10ead6052fe025f4ebc150e12115e70` |
+| `author-ui-rust-format.log` | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
 
 ## First complete actual native and restart pass
 
@@ -391,7 +418,7 @@ The author continues evidence work; it is not a completed acceptance record.
 | Required final evidence | Status at this report's current source |
 | --- | --- |
 | Shared typed Domain2 fixture continuation prerequisite | PR #137 accepted; actual sixth-cohort Give saved r3. Complete UI qualification remains pending. |
-| Exact integrated source, clean/dirty state and native binary/dist hashes | First full-pass bd18d76 hashes above; final candidate pending two loading-boundary regressions. |
+| Exact integrated source, clean/dirty state and native binary/dist hashes | First full-pass bd18d76 hashes above; two loading-boundary fixes pass 116 synthetic checks, final native candidate pending. |
 | Complete fresh native journey | First full pass 123 distinct assertions; repeat after final loading fix pending. |
 | Second actual process: saved-child Domain2 read/resume | First actual process restart passed at bd18d76; repeat final candidate pending. |
 | All 15 fresh + 2 restart semantic/capture pairs | All 17 passed at bd18d76; not yet final candidate's images. |

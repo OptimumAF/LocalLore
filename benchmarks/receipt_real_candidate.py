@@ -57,6 +57,7 @@ COMMON_KEYS = frozenset(("version", "phase", "pid", "start", "uid", "process", "
     "external_free_before", "external_free_after", "memory_total_bytes", "memory_available_before", "memory_available_after", "checks"))
 EXTRA_KEYS = frozenset(("phase", "source", "preflight", "human_consent"))
 SOURCE_FILES = (*q.SOURCE_FILES, "benchmarks/receipt_real_candidate.py", "scripts/tests/test_receipt_real_candidate.py",
+    "scripts/tests/test_receipt_real_stream_guards.py",
     "apps/android/app/src/modelReceiptAndroidTest/java/org/locallore/app/ReceiptRealCandidateTest.kt",
     "scripts/audit_apk.py", "scripts/tests/test_audit_apk.py", "scripts/tests/test_receipt_avd_environment.py",
     "benchmarks/fixtures/receipt_real_source_probe_v1.txt", "docs/native/RECEIPT_REAL_CANDIDATE_PROTOCOL.md")

@@ -190,7 +190,7 @@ fn actual_missing_cache_uses_raw_without_admission_and_exact_receipt_survives_re
     let context = &committed["data"]["receipt"]["play"]["context"];
     assert_eq!(
         committed["data"]["receipt"]["play"]["prompt_version"],
-        "locallore-play-v2.4"
+        "locallore-play-v2.5"
     );
     assert_eq!(context["observer"], "player");
     assert_eq!(context["source_fallback_reason"], "missing");

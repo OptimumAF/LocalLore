@@ -273,7 +273,8 @@ fn actual_verified_prefix_and_raw_delta_preserve_same_prompt_state_and_mandatory
         Some(&retained),
         &|| false,
     )
-    .unwrap().compilation;
+    .unwrap()
+    .compilation;
     let mut raw = base.clone();
     let mut cached = base.clone();
     let mut p1 = wait_script(266);

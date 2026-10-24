@@ -2,7 +2,8 @@
 
 Started 2026-10-23 local date; continued 2026-10-24. Retained execution
 timestamps are UTC and attributed below.
-Refs #29 D07.01–.06 partial / #11 M07.01. **Qualification in progress.**
+Refs #29 D07.01–.06 partial / #11 M07.01. **Bounded qualification record;
+coordinator review/adoption remains pending.**
 This report does not accept the whole D07 milestone, a model-quality result,
 native tokenizer fit or a physical-device gate.
 
@@ -100,7 +101,7 @@ merged accepted typed-inference PR #137. Candidate b8913a7 then merged accepted
 desktop-author PR #135. That integration does not rerun or relabel either
 PR's evidence and does not make the D07 comparison an author/Domain2 corpus.
 
-## Pending evidence
+## Evidence boundary and open gates
 
 | Required evidence | Current disposition |
 | --- | --- |
@@ -109,6 +110,7 @@ PR's evidence and does not make the D07 comparison an author/Domain2 corpus.
 | Genuine historical complete-cohort opening | Passed actual opt-in test at 4a36b72; see precise inventory/old-field boundary below. |
 | Real local-model current comparison | Source39c full paired results remain separate. Closed corrected-source febc cohort below has bounded paired12rows/24roles and complete rollout48rows/84roles, all structural/privacy checks passed; quality/human acceptance remains false. Root review/adoption remains separate. |
 | Exact reproduction and environment | Completed commands below, including actual arguments retained in corrected native process records; fresh toolchain versions and terminal manifests recorded. Unrecovered older invocation flags are not inferred from filenames. |
+| Quality, app UI and physical qualification | human_reviewed=0, quality_accepted=false. Formal faithfulness/agency/readability/repetition/enjoyment review remains unavailable; NPC distinctiveness is unsupported by this narrator-only lane. No actual current-comparison desktop WebView journey, Android parity or physical-device qualification. |
 
 ## Genuine historical read-only compatibility
 
@@ -260,7 +262,7 @@ original results manifest SHA-256 is
 corrected terminal results SHA-256 is
 `eb30f97ab005ad62e22a488be3126ae5592e75f8f34fced8309fb830e8dd0c06`.
 
-## Original-source actual paired comparison; clock qualification pending
+## Original-source actual paired comparison; old timings unqualified
 
 Authorized allocation [#29 6380754782](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6380754782)
 runs at clean 39c770d. Local cohort
@@ -275,7 +277,7 @@ The process stderr is empty. These are finite partial actual-model observations;
 they do not qualify unexecuted scenes, rollout or statistical memory benefits.
 The same run subsequently resumes without retuning the original corpus or budgets.
 
-The continuation exits 0 at source39c with **completed=true, four scenes,
+The continuation exits 0 at source 39c with **completed=true, four scenes,
 48 structural rows passed, 84 roles, zero repairs and zero privacy failures**.
 Its six error fields are the expected zero-role refusals: courier-09 Inventory,
 courier-10 Ability and courier-24 ClarificationRequired, once per arm.
@@ -294,9 +296,9 @@ cost and extend the nominal turn interval by its prelude. **No observed
 overrun is claimed.** Outer process elapsed time, structural/privacy outcomes
 and raw evidence remain source-bound facts; they do not qualify the flawed
 accounting/deadline implementation. The pinned old paired run completed
-unchanged; no original-source rollout will be run. Root froze clock regressions
-and corrected that boundary, and will run rollout and warranted paired confirmation at the corrected source,
-rather than attributing old timings or calls to the future fix.
+unchanged; no original-source rollout was run. Root froze clock regressions
+and corrected that boundary, then ran the bounded paired confirmation and
+complete rollout below. Old timings and calls are not attributed to that fix.
 
 Corrected clock source is **febc326426096f66deb7262f2651e542a3781db6**.
 A continuing invocation now keeps one monotonic public-entry origin through
@@ -321,14 +323,14 @@ cargo test --manifest-path crates/locallore-eval/Cargo.toml --locked --offline -
 cargo test --manifest-path crates/locallore-eval/Cargo.toml --all-features --locked --offline --jobs 1 --target-dir <shared-target> -- --test-threads=1
 ```
 
-Source comparison from39c770d throughfebc326 changes only evaluator
+Source comparison from 39c770d through febc326 changes only evaluator
 local_lane.rs, comparison.rs, the new clock tests and the contract document.
 Core/Host/Store/Android source trees are unchanged. The earlier shared/native/
 Android results retain their original source attribution; they are not called
-reruns atfebc326. The evaluator/native artifact subsequently rebuilt successfully
+reruns at febc326. The evaluator/native artifact subsequently rebuilt successfully
 and its corrected-source strict/frontend/native tests passed as above; fresh
-model confirmation remains pending. Independent source rereview reports no further clock
-finding atfebc326 ([call-site evidence](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6381131827));
+model confirmation subsequently completed below. Independent source rereview reports no further clock
+finding at febc326 ([call-site evidence](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6381131827));
 that review is not runtime or owner acceptance.
 The completed seven-stage clock compatibility manifest is1,466 bytes,
 SHA-256`4e28d332f145e0cc07fcbe50c9c607318e760b2ef673b8bb10902c6be1588e91`;
@@ -336,7 +338,7 @@ its local d07-clock-compat-checks.ps1 is4,086 bytes,
 SHA-256`3c4e2bbd0d755ab343e3bcd244bb195d3aa641b61a5e2dadeabf81e13d5c01e8`.
 It uses the same exact evaluator/native/frontend command arguments shown in
 the compatibility section, without rerunning Android or relabelling its
-earlier source39c evidence.
+earlier source 39c evidence.
 
 Reported old-source diagnostics are retained in paired-completed-analysis.json,
 2,677 bytes, SHA-256
@@ -397,10 +399,10 @@ The852-byte cohort-manifest.json SHA-256 is
 
 The coordinator-generated progress record for
 `d07-clock-native-088a3cdf-d49a-4159-9469-0f31e233f533` is **finished** at
-2026-10-24T07:34:28.3591106Z. Its eight process records all exit0 at
+2026-10-24T07:34:28.3591106Z. Its eight process records all exited 0 at
 **febc326426096f66deb7262f2651e542a3781db6**. These are actual native CPU-worker
 CLI/Host/Store executions, not a desktop WebView journey. The source fingerprint
-is`b86e648a247f49d0a3e262d7a49f383a64de4532e75b1bc2a9a79a7a6474a780`;
+is `b86e648a247f49d0a3e262d7a49f383a64de4532e75b1bc2a9a79a7a6474a780`;
 the 15,968,768-byte evaluator executable is bound by SHA-256
 `80bdc4e2db496238da7dddf45dc5850d0ff1fbcc07e2a55c3758efce06596403`.
 Model/profile/runtime/template/worker bindings match the earlier explicit table;
@@ -408,7 +410,7 @@ the new source does not adopt old-source runtime outcomes.
 
 | Corrected-source phase | Actual result |
 | --- | --- |
-| Explicit native-owner refusal / genuine old cohort | One actual pass each; owner test46filtered, historical test4.04s. The current full suite's ignored declarations are not counted as executed there. |
+| Explicit native-owner refusal / genuine old cohort | One actual pass each; owner test 46 filtered, historical test 4.04s. The current full suite's ignored declarations are not counted as executed there. |
 | Fresh scripted reference | 24 attempts,21accepted,3guard-only,42scripted roles; no model generation in this prerequisite. |
 | Bounded native paired confirmation | 1of4scenes,12rows/12structural passes,24roles,zero repairs/privacy failures; completed=false, source_matches=true. Process258,563ms; max forwarded estimate3259. This is not a full corrected-source paired run. |
 | Native continuous rollout | Four scenes,48rows/48structural passes,84roles; completed=true, source_matches=true. Zero repairs/privacy failures; six exact zero-role guard refusals09Inventory/10Ability/24ClarificationRequired across both arms. No unexpected errors or unavailable items. Process964,188ms; max forwarded estimate4094. |
@@ -416,7 +418,7 @@ the new source does not adopt old-source runtime outcomes.
 | New-source inspection of old39c paired run | Exit0, source_matches=false, old48rows/results retained and full inventory unchanged. It does not relabel the old clock source or execute it. |
 
 Paired, rollout, completed-resume and old-inspect stderr are empty. Current
-paired and rollout each use one physical setup (8,691ms and9,781ms respectively),
+paired and rollout each use one physical setup (8,691ms and 9,781ms respectively),
 not one separate cold load per arm. Model quality remains **false**, human
 review count0. The bounded structural tests do not resolve generic narration,
 human faithfulness/readability/enjoyment or NPC distinctiveness.
@@ -527,7 +529,8 @@ following forty-one completed logs were hashed read-only; active logs are exclud
 | d07-clock-compat-native-clippy.log | 354 / `a01a92c4d98f1264bbfce6e3895f01c5ae7f7506f034a99d17f29c1020eac5db` |
 | d07-clock-compat-native-build.log | 213 / `803ae10396e75b105e26289db85a135b6fd944c6928e002d160d50ce72674998` |
 
-No task checkbox, model-quality conclusion, historical report rewrite,
+No task checkbox, model-quality acceptance, historical report rewrite,
 PR acceptance, merge, release, repository setting or protected resource is
-changed by this document. Next: record the separately authorized
-native-model cohort with its unchanged scenarios, exact source and failures.
+changed by this document. Next: coordinator review/adoption of this bounded
+packet, followed by chronological human-rubric review and the current-comparison
+application/UI gates. Structural success does not close those D07 requirements.

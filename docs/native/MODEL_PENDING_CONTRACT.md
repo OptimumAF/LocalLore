@@ -10,7 +10,8 @@ Only the explicit `localLoreModelPickerVerification=true` debug profile includes
 `ModelPickerPendingFixtureActivity`. It is non-exported and has no intent filter.
 The normal setup Activity remains the sole launcher. The private Activity uses
 the existing original 63-byte synthetic payload and native publication path,
-refuses inference, and owns only `no_backup/model-picker-pending-v1`. The older
+refuses inference, and owns only `no_backup/model-picker-pending-v2`. The failed
+v1 attempt's root is retained without reset. The older
 picker and interruption roots, receipts, sentinels and cache remain unchanged.
 There is no reset, downloader, new dependency, permission or gameplay authority.
 
@@ -38,7 +39,8 @@ The controller normally launches only the existing setup launcher to obtain the
 live app required by no-restart instrumentation; it never chooses Start.
 
 `armPendingPickerAndTerminateOwnProcess` launches the private Activity without
-CLEAR_TASK, selects the actual Choose control, and observes one real local-only,
+CLEAR_TASK, uses a five-second readiness deadline for its exact visible synthetic identity
+before acting, selects the actual Choose control, and observes one real local-only,
 openable wildcard OPEN_DOCUMENT request. DocumentsUI must be foreground while
 the Activity is saved and PICKING, with no source opened or staging/model file.
 It forces a CREATE_NEW ready proof and marker, then waits at most 30 seconds for

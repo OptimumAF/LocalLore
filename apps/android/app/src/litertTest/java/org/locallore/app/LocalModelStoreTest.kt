@@ -73,6 +73,38 @@ class LocalModelStoreTest {
         assertFalse(root.exists())
     }
 
+    @Test fun volumeRefusalPrecedesRootCreationAndSourceOpen() = runBlocking {
+        val root = root()
+        var opens = 0
+        val store = LocalModelStore(root, identity, publish = { error("Refused storage cannot publish") }, storageAdmission = {
+            throw LocalModelException(LocalModelFailure.STORAGE)
+        })
+        failure(LocalModelFailure.STORAGE) { store.import { opens++; ByteArrayInputStream(bytes) } }
+        failure(LocalModelFailure.STORAGE) { store.installed() }
+        assertEquals(0, opens)
+        assertFalse(root.exists())
+    }
+
+    @Test fun changedVolumeAfterSourceOpenPreventsPublishAndCleanupOnReplacement() = runBlocking {
+        val root = root()
+        var changed = false
+        var admittedBytes = -1L
+        var publications = 0
+        val store = LocalModelStore(root, identity, publish = { publications++ },
+            availableBytes = { Long.MAX_VALUE }, storageAdmission = { missing ->
+                if (changed) throw LocalModelException(LocalModelFailure.STORAGE)
+                admittedBytes = maxOf(admittedBytes, missing)
+            })
+        failure(LocalModelFailure.STORAGE) {
+            store.import { changed = true; ByteArrayInputStream(bytes) }
+        }
+        assertEquals(identity.bytes, admittedBytes)
+        assertEquals(0, publications)
+        assertFalse(File(root, "model.litertlm").exists())
+        // Refusal preserves the owned partial stage: cleanup cannot operate on a changed mount.
+        assertArrayEquals(bytes, File(root, "model.part").readBytes())
+    }
+
     @Test fun importPublishesExactBytesAndRestartRehashes() = runBlocking {
         val root = root()
         val result = store(root).import { ByteArrayInputStream(bytes) }

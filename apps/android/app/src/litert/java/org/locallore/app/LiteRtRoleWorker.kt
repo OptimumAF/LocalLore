@@ -38,6 +38,7 @@ internal data class LiteRtWorkerConfig(
     val narratorTokens: Int = 220,
     val deadlineMs: Long = 60_000,
     val repairLimit: Int = 1,
+    val storageAdmission: () -> Unit = {},
 ) {
     init {
         require(expectedModelBytes > 0)
@@ -72,6 +73,7 @@ internal data class LiteRtWorkerConfig(
 
     /** Runs on IO before SDK construction. Does not create directories, copy files or fall back. */
     internal fun admit(): LiteRtPaths {
+        storageAdmission()
         val base = root.canonicalFile
         val weights = model.canonicalFile
         val scratch = cache.canonicalFile
@@ -96,6 +98,7 @@ internal data class LiteRtWorkerConfig(
         check(digest.digest().joinToString("") { "%02x".format(it) } == modelSha256)
         check(model.canonicalFile == weights && cache.canonicalFile == scratch && root.canonicalFile == base)
         check(weights.isFile && weights.length() == expectedModelBytes && weights.lastModified() == modified)
+        storageAdmission()
         // Path-based SDK opening cannot authenticate hostile concurrent OS replacement after this read.
         return LiteRtPaths(weights.path, scratch.path, contextTokens)
     }
@@ -152,6 +155,7 @@ internal class LiteRtRoleWorker(
         try {
             val resource = resources.engine(config.admit())
             synchronized(lock) { retained += resource }
+            config.storageAdmission()
             resource.initialize() // Blocking initialization is not made interruptible by coroutine cancellation.
             OwnedEngine(resource).also { synchronized(lock) { check(!poisoned); active = it } }
         } catch (_: Throwable) {
@@ -181,10 +185,14 @@ internal class LiteRtRoleWorker(
                     check(!poisoned && !closing && !closed && !starting && roles.all { it.closedKnown })
                     starting = true
                 }
+                config.storageAdmission()
                 val conversation = resource.conversation(request)
                 val call = OwnedCall(conversation)
                 synchronized(lock) { roles += call }
-                try { conversation.send(request, call) }
+                try {
+                    config.storageAdmission()
+                    conversation.send(request, call)
+                }
                 catch (_: Throwable) { call.failedStart(); throw LocalInferenceUncertain() }
                 call.started()
                 call

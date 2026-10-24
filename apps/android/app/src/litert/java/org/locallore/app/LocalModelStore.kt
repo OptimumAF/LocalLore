@@ -56,6 +56,7 @@ internal class LocalModelStore(
     private val identity: LocalModelIdentity,
     private val publish: (File) -> Unit = NativeModelPublication::publish,
     private val availableBytes: () -> Long = { root.usableSpace },
+    private val storageAdmission: (missingModelBytes: Long) -> Unit = {},
 ) {
     private val base = root.absoluteFile
     private val model = File(base, "model.litertlm")
@@ -65,6 +66,9 @@ internal class LocalModelStore(
 
     /** Pure path planning only; existence/integrity is never inferred from these returned paths. */
     fun plannedFiles(): LocalModelFiles = LocalModelFiles(base, model, cache)
+
+    /** Rechecked on IO immediately before deferred runtime construction. */
+    internal fun admitRuntime() = storageAdmission(0)
 
     /** Rehash on every reopen. Missing means absent; corrupt/unsafe/busy is an explicit failure. */
     suspend fun installed(): LocalModelFiles? = guarded {
@@ -89,6 +93,7 @@ internal class LocalModelStore(
                 return@locked plannedFiles()
             }
             checkCache()
+            storageAdmission(identity.bytes)
             val free = availableBytes()
             if (free < identity.reserveBytes || free - identity.reserveBytes < identity.bytes) {
                 fail(LocalModelFailure.NO_SPACE)
@@ -154,6 +159,7 @@ internal class LocalModelStore(
     }
 
     private suspend fun validateModel() {
+        storageAdmission(0)
         val before = regular(model.toPath())
         if (before.size() != identity.bytes) fail(LocalModelFailure.INVALID_MODEL)
         val digest = MessageDigest.getInstance("SHA-256")
@@ -183,13 +189,14 @@ internal class LocalModelStore(
     }
 
     private fun prepareRoot(create: Boolean): Boolean {
+        storageAdmission(0)
         if (base.canonicalFile != base || base.toPath().normalize() != base.toPath()) {
             fail(LocalModelFailure.UNSAFE_PATH)
         }
         if (!exists(base.toPath())) {
             if (!create) return false
             try {
-                Files.createDirectory(base.toPath()) // Parent is existing noBackupFilesDir.
+                Files.createDirectory(base.toPath()) // Parent is the admitted app-owned anchor.
             } catch (_: FileAlreadyExistsException) {
                 // A concurrent cooperating store may have created the root before taking its lock.
             }
@@ -199,6 +206,7 @@ internal class LocalModelStore(
     }
 
     private fun checkRoot() {
+        storageAdmission(0)
         if (base.canonicalFile != base || !attributes(base.toPath()).isDirectory) {
             fail(LocalModelFailure.UNSAFE_PATH)
         }

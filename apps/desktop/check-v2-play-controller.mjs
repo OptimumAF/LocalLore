@@ -129,6 +129,8 @@ test("original-scoped-source-stays-selected-child-and-must-match-actual-event",a
   assert.deepEqual(inspected.query.scope,{story:"quay",branch:"child"});
   assert.equal(inspected.query.at_revision,null);assert.equal(f.controller.get().sourceMatched,true);
   assert.deepEqual(f.controller.get().source.value.original_scope,source.value.original_scope);
+  await f.controller.source({...source,value:{...source.value,original_scope:{story:"quay",branch:"child"}}});
+  assert.equal(f.controller.get().sourceMatched,false);
 });
 test("reentrant-subscriber-cannot-dispatch-second-turn",async()=>{
   const admission=deferred();const f=fixture(c=>c.op==="submit"?admission.promise:undefined);
@@ -136,6 +138,53 @@ test("reentrant-subscriber-cannot-dispatch-second-turn",async()=>{
   f.controller.subscribe(()=>{if(f.controller.get().pending&&!reentered){reentered=true;void f.controller.send();}});
   const running=f.controller.send();await tick();assert.equal(f.calls.filter(c=>c.op==="submit").length,1);
   admission.resolve(status(f.request,"queued"));await running;
+});
+test("own-root-head-advance-keeps-actual-receipt-and-reconciles-once",async()=>{
+  let c=context(),request,controller,refreshes=0;
+  const gateway={call:async command=>{
+    if(command.op==="play_snapshot_v2")return thin(c);
+    if(command.op==="inspection_query")return page(command.query);
+    if(command.op==="submit"){request=clone(command.request);return status(request,"queued");}
+    if(command.op==="prepare")return status(request,"ready");
+    if(command.op==="commit")return status(request,"committed");
+    throw Error("Unsupported");
+  }};
+  controller=new V2PlayController(gateway,async()=>{refreshes++;c={...c,revision:request.expected_revision+1};controller.selectedContextChanged(c);},"own-head");
+  controller.selectedContextChanged(c);await controller.refresh(false);await controller.send();
+  assert.equal(refreshes,1);assert.equal(controller.get().snapshot.revision,3);
+  assert.equal(controller.get().status.phase,"committed");assert.deepEqual(controller.get().receipt.request,request);
+});
+test("late-original-status-error-cannot-pollute-another-session",async()=>{
+  const lookup=deferred();const f=fixture(c=>c.op==="submit"?Promise.reject(Error("Transport")):c.op==="turn_status"?lookup.promise:undefined);
+  await f.controller.refresh();await f.controller.send();const original=clone(f.request);
+  const reading=f.controller.status();f.select({...f.ctx,session:"session-2",scope:{story:"other",branch:"main"}});
+  lookup.reject(Error("Closed"));await reading;
+  assert.equal(f.controller.get().error,null);assert.deepEqual(f.controller.get().uncertain.request,original);
+});
+test("snapshot-player-must-match-coherent-root-player",async()=>{
+  const f=fixture(c=>c.op==="play_snapshot_v2"?thin({...context(),player:"hero"}):undefined);
+  await f.controller.refresh();assert.equal(f.controller.get().error,"Wire");assert.equal(f.controller.get().snapshot,null);
+  assert.ok(!f.calls.some(c=>c.op==="inspection_query"));
+});
+test("unknown-ack-cancel-needs-actual-original-status-before-native-cancel",async()=>{
+  const f=fixture((c,r)=>c.op==="submit"?Promise.reject(Error("Transport")):c.op==="turn_status"?status(r,"queued"):undefined);
+  await f.controller.refresh();await f.controller.send();await f.controller.cancel();
+  assert.ok(!f.calls.some(c=>c.op==="cancel"));assert.ok(f.controller.get().uncertain);
+  await f.controller.status();await f.controller.cancel();
+  assert.equal(f.calls.filter(c=>c.op==="cancel").length,1);assert.equal(f.controller.get().status.phase,"cancelled");
+  assert.equal(f.controller.get().uncertain,null);
+});
+test("other-root-work-blocks-admission",async()=>{
+  for(const flag of ["pending","blocked"]){const f=fixture();f.select({...f.ctx,[flag]:true});await f.controller.refresh();await f.controller.send();assert.ok(!f.calls.some(c=>c.op==="submit"||c.op==="free_text"));}
+});
+test("late-private-query-cannot-replace-new-observer-page",async()=>{
+  const old=deferred();let first=true,oldQuery;
+  const f=fixture(c=>c.op==="inspection_query"&&c.query.view==="knowledge"&&first?(first=false,oldQuery=clone(c.query),old.promise):undefined);
+  f.select({...f.ctx,view:"lab",observer:{kind:"character",id:"mira"}});await f.controller.refresh(false);
+  const reading=f.controller.readQuery({view:"knowledge",atRevision:null,search:""});await tick();
+  f.select({...f.ctx,observer:{kind:"omniscient"}});await f.controller.refresh(false);await f.controller.readQuery({view:"knowledge",atRevision:null,search:""});
+  old.resolve(page(oldQuery));await reading;
+  assert.deepEqual(f.controller.get().inspection.page.observer,{kind:"omniscient"});
 });
 let passed=0;
 for(const test of tests){try{await test.run();passed++;}catch(error){console.error(JSON.stringify({test:test.name,error:String(error?.message??error).slice(0,2048)}));process.exitCode=1;}}

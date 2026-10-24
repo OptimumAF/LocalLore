@@ -58,3 +58,21 @@ capture/strict decoder evidence is not relabelled controller or rendering proof.
 ALL new code is currently UNCOMPILED/UNRUN. No Node/Cargo/app/SQLite/provider/model/
 device/browser/desktop execution is authorized here. Root owns execution,
 existing-file integration, concrete consumer fixes and native rendering checks.
+
+Initial fourteen-case checker/contract freeze:
+`d0e7a9ff5818f33bf3a378aecf01f419e46192f1`, before controller/panel source.
+Six additive source oracles preserve all original assertions and cover approved
+Root head reconciliation/receipt retention, retired-status errors, coherent
+custom-player binding, unresolved-ack cancel recovery, other-work admission
+guards and private-query observer races. These additions are source-only; no
+RED/GREEN execution is claimed. The existing source case also now checks a
+wrong-original-scope event cannot be called a match.
+
+Approved refresh handshake: `refresh(reconcile=true)` invokes the injected Root
+callback once before capturing the new coherent context. Root callback refreshes
+its existing controller/library only and MUST NOT call V2.refresh. Passive panel
+context effects use `refresh(false)`; actual committed completion uses refresh()
+once. Preserve actual last receipt/status across same-session/scope head advance
+only when the new head includes its accepted final sequence; other lens/session/
+scope presentations are cleared. Source links may pass their exact current bound
+page to preserve its completed boundary; stale page objects cannot navigate.

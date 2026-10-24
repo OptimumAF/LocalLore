@@ -164,6 +164,23 @@ pub enum Row {
         event_ids: Vec<u64>,
         origin: ValueOrigin,
     },
+    /// Query2 only: supporting event IDs belong to the actual receipt scope.
+    ScopedMessage {
+        key: String,
+        turn: String,
+        message_kind: String,
+        text: String,
+        event_ids: Vec<u64>,
+        origin: ValueOrigin,
+        original_scope: Scope,
+    },
+    /// Player History presentation only, never an actor observation or source.
+    AuthorCorrection {
+        /// Derived solely from the actual revision for bounded history sorting.
+        #[serde(skip)]
+        key: String,
+        revision: u64,
+    },
     Relationship {
         key: String,
         from: String,
@@ -215,6 +232,8 @@ impl Row {
             | Self::Field { key, .. }
             | Self::Event { key, .. }
             | Self::Message { key, .. }
+            | Self::ScopedMessage { key, .. }
+            | Self::AuthorCorrection { key, .. }
             | Self::Relationship { key, .. }
             | Self::Knowledge { key, .. }
             | Self::Promise { key, .. }

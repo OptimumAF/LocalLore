@@ -446,6 +446,12 @@ synthetic bytes and refuses inference. Dated reports distinguish actual results
 from remaining device/model gates. The [pending-result verification](../../docs/native/MODEL_PENDING_VERIFICATION_2026-10-23.md)
 records actual restored-result rejection and a later native import on one emulator.
 
+The same explicit profile includes a private [setup recovery fixture](../../docs/native/MODEL_SETUP_RECOVERY_CONTRACT.md).
+It exercises injected launch/construction failures through the actual setup
+buttons, retained admission across Activity close/reopen, and a separately
+verified fresh process. It never starts an SDK or story workspace; its contract
+is not a real-model or phone qualification result.
+
 The opt-in isolated archive application also has an explicit
 [system chooser verification procedure](../../docs/native/ARCHIVE_CHOOSER_VERIFICATION_2026-10-23.md).
 Its synthetic DocumentsProvider is packaged only in the instrumentation APK;

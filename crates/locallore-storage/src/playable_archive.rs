@@ -244,6 +244,7 @@ pub struct ArchivePreview {
     /// Retired physical rows are ancestry only; absent IDs remain deletion tombstones.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub retired_branch_ids: Vec<String>,
+    /// Committed canonical records; v1/v2 contain only ordinary accepted turns.
     pub committed_turns: usize,
     pub bytes: usize,
     pub payload_sha256: String,
@@ -269,7 +270,7 @@ struct ValidatedBranch {
     basis: Option<AcceptedHistoryBasis>,
 }
 /// Opaque native capability: no public construction, mutation or Deserialize.
-/// Carries validated original local receipts, not untrusted projections as canon.
+/// Carries validated original native canonical records, not supplied projections.
 pub struct ValidatedArchive {
     story: Story,
     branches: Vec<ValidatedBranch>,
@@ -285,6 +286,7 @@ impl ValidatedArchive {
 pub struct ImportOutcome {
     pub root: Scope,
     pub branches: usize,
+    /// Committed canonical records, including author rows for Archive3.
     pub committed_turns: usize,
 }
 
@@ -362,6 +364,8 @@ fn request_bytes(record: &CanonicalRecord) -> Result<Vec<u8>> {
     }
 }
 
+// Untrusted prefix selection only. Each complete physical branch is separately
+// regenerated and raw-compared; this field cannot establish canonical authority.
 fn expected_revision(raw: &Value, mixed: bool) -> Option<u64> {
     if mixed && raw.get("record_version").is_some() {
         if raw["kind"] == "author_correction" {

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-harness-author-case"
+description = "Enables the harness_author_case command without any pre-configured scope."
+commands.allow = ["harness_author_case"]
+
+[[permission]]
+identifier = "deny-harness-author-case"
+description = "Denies the harness_author_case command without any pre-configured scope."
+commands.deny = ["harness_author_case"]

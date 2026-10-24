@@ -1,5 +1,5 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
-//! Future native author broker. Test compilation only; no registered Tauri IPC.
+//! Native private author capabilities on the existing bounded shared worker.
 use crate::{archive::ArchiveBroker, lease::WindowLease};
 use locallore::{
     author_correction::{AuthorCorrectionInputV1, AuthorCorrectionOperationV1},
@@ -208,6 +208,36 @@ fn bounded(value: Value) -> PortResult<Value> {
     }
 }
 impl AuthorManager {
+    pub fn check_binding(
+        &self,
+        host: &Arc<Host>,
+        lease: &Arc<WindowLease>,
+        broker: &Arc<ArchiveBroker>,
+        epoch: u64,
+    ) -> PortResult<()> {
+        self.check_owner(host, lease, epoch)?;
+        self.check_broker(broker)
+    }
+    pub fn discard_raw(
+        &self,
+        host: &Arc<Host>,
+        lease: &Arc<WindowLease>,
+        broker: &Arc<ArchiveBroker>,
+        epoch: u64,
+        request: &str,
+    ) -> PortResult<bool> {
+        self.check_binding(host, lease, broker, epoch)?;
+        let value = raw(request)?;
+        object(&value, &["version", "session", "preview_token"])?;
+        version(&value)?;
+        self.discard_preview(
+            host,
+            lease,
+            epoch,
+            &session(&value["session"])?,
+            text(&value["preview_token"])?,
+        )
+    }
     pub fn new(
         host: &Arc<Host>,
         lease: &Arc<WindowLease>,
@@ -376,10 +406,14 @@ impl AuthorManager {
             work.phase("author_applying")?;
             #[cfg(test)]
             manager.gate(false)?;
+            #[cfg(feature = "dev-harness")]
+            crate::author_harness::before_apply(work)?;
             work.check()?;
             let cancelled = || work.cancelled() || cap.created.elapsed() >= TTL || manager.generation.load(Ordering::SeqCst) != cap.generation;
             if cancelled() { return Err("Cancelled".into()); }
             let outcome = host.apply_author_correction(&cap.prepared, &cancelled)?;
+            #[cfg(feature = "dev-harness")]
+            crate::author_harness::after_apply(work);
             #[cfg(test)]
             let _ = manager.gate(true);
             // Successful actual Store commit is never relabeled by a late cancel.

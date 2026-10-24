@@ -90,6 +90,10 @@ fn validate_outcome(
     }
 }
 impl Host {
+    /// Native capability metadata only; a renderer value cannot change this grant.
+    pub fn story_lab_granted(&self) -> bool {
+        self.story_lab
+    }
     /// IO-owner only. Callbacks must be bounded and may not reenter Host/Store.
     pub fn prepare_author_correction(
         &self,

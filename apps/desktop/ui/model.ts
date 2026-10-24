@@ -151,6 +151,7 @@ export interface State {
     view: "play" | "lab";
     observer: string;
     play: PlayView | null;
+    playV2?: import("./v2-view-model").PlaySnapshotV2 | null;
     inspection: Json;
     inspectionRevision: number | null;
     inspectionObserver: string | null;
@@ -284,6 +285,7 @@ export class ErrorBuffer {
     }
 }
 export interface Gateway {
+    readonly playSnapshotV2?: boolean;
     call(command: Command): Promise<unknown>;
     native?(
         command: NativeAction,
@@ -307,6 +309,7 @@ export type NativeAction =
     | "inspection_storage"
     | "inspection_load";
 export class IpcGateway implements Gateway {
+    readonly playSnapshotV2 = true;
     constructor(
         private invoke: (
             command: string,

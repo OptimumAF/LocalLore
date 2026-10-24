@@ -78,3 +78,9 @@ Rust/Core/Store execution, a browser/headless render, native WebView rendering,
 model execution or owner acceptance. Window/document/localStorage are in-memory
 stubs; no desktop or unrelated application is observed or controlled. No runtime
 latency claim, restart persistence or author recovery acceptance follows.
+
+Source-audit amendment after initial freeze `db7fe86`: the Domain1 cleanup
+rejects its deferred author reply only when an author request actually started.
+The other three states never consume that promise; rejecting it would create an
+unhandled synthetic rejection. All fourteen cases and assertions are unchanged.
+This was identified by source inspection, before any execution by this author.

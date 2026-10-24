@@ -225,8 +225,10 @@ for (const state of ["known", "unknown", "acknowledged-inFlight", "author-busy"]
                 assert.equal(f.hostCalls().filter((c) => writes.has(c.op)).length, before,
                     "guard must reject BEFORE native transport, not merely receive native Busy");
             } finally {
-                reply.reject(Error("Transport"));
-                if (preparing) await preparing;
+                if (preparing) {
+                    reply.reject(Error("Transport"));
+                    await preparing;
+                }
             }
         });
     });

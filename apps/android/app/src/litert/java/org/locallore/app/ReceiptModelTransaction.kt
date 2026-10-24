@@ -35,7 +35,7 @@ internal class ReceiptModelTransaction(
     controlRoot: File,
     dataRoot: File,
     private val identity: LocalModelIdentity,
-    private val availableBytes: () -> Long = { dataRoot.parentFile.usableSpace },
+    private val availableBytes: () -> Long = { dataRoot.parentFile?.usableSpace ?: 0 },
     private val storageAdmission: (Long) -> Unit = {},
     private val checkpoint: (ReceiptCheckpoint) -> Unit = {},
 ) {

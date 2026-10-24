@@ -63,10 +63,12 @@ const thinSnapshot = envelope({
     expected_revision: 0,
 });
 assert(validate(thinSnapshot), JSON.stringify(validate.errors));
-assert(!validate({
-    ...thinSnapshot,
-    command: { ...thinSnapshot.command, observer: "mira" },
-}));
+assert(
+    !validate({
+        ...thinSnapshot,
+        command: { ...thinSnapshot.command, observer: "mira" },
+    }),
+);
 
 for (const bad of [
     null,

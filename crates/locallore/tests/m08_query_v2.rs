@@ -241,8 +241,11 @@ fn owning_player_messages_require_actual_whole_receipt_eligibility() {
         .rows
         .iter()
         .any(|r| matches!(r,Row::ScopedMessage{message_kind,original_scope,..} if message_kind=="narration" && original_scope==e.scope())));
-    assert!(p.rows.iter().any(|r| matches!(r, Row::AuthorCorrection{revision:1,..})));
-    assert!(!p.rows.iter().any(|r| matches!(r, Row::Message{..})));
+    assert!(p
+        .rows
+        .iter()
+        .any(|r| matches!(r, Row::AuthorCorrection { revision: 1, .. })));
+    assert!(!p.rows.iter().any(|r| matches!(r, Row::Message { .. })));
     let npc = page(&e, Observer::Character { id: "mira".into() }, View::History);
     assert_eq!(npc.total, 1);
     assert!(npc.rows.iter().all(|r| matches!(r, Row::Event { .. })));

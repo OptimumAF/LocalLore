@@ -2,7 +2,9 @@
 
 Refs #9 (M05.05 provisioning prerequisite; M05.04 supporting). This follows
 the pending-result fixture in PR #139. The implementation and execution are
-separate obligations; this contract does not claim a device result.
+separate obligations. See the [dated verification](MODEL_SETUP_RECOVERY_VERIFICATION_2026-10-23.md),
+[device report](MODEL_SETUP_RECOVERY_DEVICE_2026-10-23.md) and
+[independent review](MODEL_SETUP_RECOVERY_REVIEW_2026-10-23.md) for actual results.
 
 ## Existing authority
 

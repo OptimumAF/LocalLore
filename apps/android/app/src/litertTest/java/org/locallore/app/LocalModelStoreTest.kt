@@ -76,7 +76,7 @@ class LocalModelStoreTest {
     @Test fun volumeRefusalPrecedesRootCreationAndSourceOpen() = runBlocking {
         val root = root()
         var opens = 0
-        val store = LocalModelStore(root, identity, storageAdmission = {
+        val store = LocalModelStore(root, identity, publish = { error("Refused storage cannot publish") }, storageAdmission = {
             throw LocalModelException(LocalModelFailure.STORAGE)
         })
         failure(LocalModelFailure.STORAGE) { store.import { opens++; ByteArrayInputStream(bytes) } }

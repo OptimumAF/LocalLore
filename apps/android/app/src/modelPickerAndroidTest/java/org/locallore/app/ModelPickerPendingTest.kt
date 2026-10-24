@@ -246,7 +246,8 @@ class ModelPickerPendingTest {
             if (actOnAppNode({ it.text?.toString() == "Choose local model file" }, AccessibilityNodeInfo.ACTION_CLICK)) return
             verify(activePackage() == context.packageName, "Only the owned app may be scrolled for its choose control")
             actOnAppNode({ it.isScrollable }, AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
-            Thread.sleep(20)
+            instrumentation.waitForIdleSync()
+            Thread.sleep(100)
         }
         throw AssertionError("Actual owned choose-file button unavailable")
     }

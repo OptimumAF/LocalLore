@@ -50,6 +50,7 @@ open class LocalModelSetupActivity : ComponentActivity() {
                 .putExtra(Intent.EXTRA_LOCAL_ONLY, true)
     }) { uri ->
         if (::model.isInitialized) {
+            val before = model.state.value.phase
             if (uri == null) model.completePicker(null)
             else {
                 val resolver = applicationContext.contentResolver
@@ -57,8 +58,16 @@ open class LocalModelSetupActivity : ComponentActivity() {
                     resolver.openInputStream(uri) ?: throw IOException("Selected document unavailable")
                 }
             }
+            onModelPickerResultObserved(uri != null, before, model.state.value.phase)
         }
     }
+
+    /** Observation only. No URI/source escapes; normal setup performs no work here. */
+    internal open fun onModelPickerResultObserved(
+        selected: Boolean,
+        before: LocalModelSetupPhase,
+        after: LocalModelSetupPhase,
+    ) = Unit
 
     /** The normal launcher always uses the fixed built-in profile. No Intent selects dependencies. */
     internal open fun createSetupDependencies(): LocalModelSetupDependencies {

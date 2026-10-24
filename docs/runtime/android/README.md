@@ -48,6 +48,40 @@ Leaf symlinks are refused; ancestor links are not comprehensively audited.
 The [dated investigation](MODEL_INTEGRITY_VERIFICATION_2026-10-23.md) records
 actual device observations, retained failures, storage gates and limitations.
 
+## Admit a play control
+
+For a new real-model play control, use the explicit
+`android_probe_admission.run_play_probe_with_admission` entrypoint around the
+entire existing controller, including its initial SDK stop. Its trusted sampler
+must collect fresh, bounded, read-only measurements with exact fields `version`
+(1), `host_free_bytes`, `evidence_free_bytes`, `guest_free_bytes`, `cache_bytes`.
+The caller still owns fresh model/APK/process identity and exclusive device
+admission. This wrapper does not change legacy direct `run_probe` callers.
+
+The fixed development policy requires host 4GiB reserve plus 1GiB growth,
+guest 1GiB reserve plus 1GiB growth, and 10GiB evidence space before dispatch.
+After a known-clean controller return it checks remaining reserves and the
+1GiB observed cache/net host/net guest consumption budgets. These are admission
+and later observations, not filesystem quotas or a proven SDK cache maximum.
+Unknown cleanup or a raised probe suppresses the post sampler; callers must also
+suppress other dependent device probes until ownership is resolved.
+
+For policy assessment of an already captured local sample only:
+
+```powershell
+python benchmarks/android_probe_admission.py --sample <private-storage-sample.json>
+```
+
+Exit 0 means that sample meets the policy, 2 means insufficient headroom, and 1
+means an invalid/failed sample. The CLI neither measures freshness nor dispatches
+a probe. The guarded Python entrypoint samples at its call boundary. Its
+`storage_checks_passed` describes storage only: keep the original probe result,
+accepted receipt or exception separately, and require the original probe checks
+plus independent post-model identity for experiment acceptance. A post-storage
+failure cannot roll back an accepted turn. See
+[dated qualification](CACHE_ADMISSION_VERIFICATION_2026-10-23.md) for actual
+refusals, preserved data and the cache-placement prerequisite.
+
 ## Build explicitly
 
 Use the existing pinned Rust1.93.1, NDK29.0.14206865, SDK36/BuildTools35,

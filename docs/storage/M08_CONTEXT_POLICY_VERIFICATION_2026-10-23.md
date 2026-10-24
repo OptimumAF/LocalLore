@@ -255,3 +255,23 @@ Baseline log `03-accepted-main-legacy-probe.log` retained locally. Full default/
 all-feature and strict checks are pending at this intermediate addendum. These
 actual compiler runs do not enable the unchanged eval protocol's policy gates
 or establish Domain2 Host/Play/Store integration, human review or model quality.
+
+### Broad-check checkpoint before independent review import
+
+At unchanged source `cbe5702`, actual `cargo test --locked --offline -p locallore
+--all-targets --jobs 1` passed **219 tests, 0 failed, 2 existing ignored** across
+33 binaries. Frozen12 passed again. Default compile23.21s; the existing 10,000
+attempt replay/conservation binary passed26 tests in118.70s.
+
+The sequential all-feature command stopped exit101 at the existing
+`inspection_query.rs:409` future-version fixture: its version2 request expected
+`Err(Version)` but now returns the intentionally implemented Query2 Page.version2.
+That binary passed15/failed1; preceding binaries passed, including the unchanged
+10,000-attempt binary26/26 in119.94s. This is an observed compatibility-test RED,
+not a compiler-policy failure or a completed all-feature qualification. Original
+test/assertion/source and `05-core-all-features.log` remain intact at this
+checkpoint. The sequential script therefore did not execute either Clippy gate.
+Any explicit future-version fixture correction requires coordinator path
+authorization and a separate commit; no production semantics or oracle was
+silently changed. Standalone owned-file rustfmt and git diff checks pass; frozen
+test SHA256 remains `7eb45f0d9f6efdd0076ea81431257d039a672bfcc0a15d4c2b853ed74b313469`.

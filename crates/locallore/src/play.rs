@@ -15,7 +15,10 @@ use std::{
     time::{Duration, Instant},
 };
 pub(crate) mod director_budget;
-pub use director_budget::{director_forwarded_budget_v25, DirectorPassV25, ForwardedEstimateV1};
+pub use director_budget::{
+    director_forwarded_budget_v25, director_repair_matches_v25, DirectorPassV25,
+    ForwardedEstimateV1,
+};
 
 struct Trace<'a> {
     sink: Option<&'a mut dyn TraceSink>,

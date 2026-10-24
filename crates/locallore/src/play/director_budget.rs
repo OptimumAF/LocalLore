@@ -10,6 +10,11 @@ pub enum DirectorPassV25 {
     Initial,
     Repair,
 }
+/// Pure relation over two actual prompts; never constructs a prompt or grants
+/// eligibility. Keep the current fixed renderer suffix in one production place.
+pub fn director_repair_matches_v25(initial: &str, repair: &str) -> bool {
+    repair.strip_prefix(initial) == Some(REPAIR_SUFFIX)
+}
 
 /// Counts over actual current role bytes, not measured tokenizer/template fit.
 /// Serialize-only metadata cannot authenticate the selected context or its source.

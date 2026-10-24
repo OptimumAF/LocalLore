@@ -803,7 +803,7 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
         .transpose()?;
     let recording_file = evidence_name(index, admission, "recording");
     saved(&dir.join(&recording_file), &recorded, 64 * 1024)?;
-    if cancel.is_cancelled() || started.elapsed() >= Duration::from_millis(limit) {
+    if cancel.is_cancelled() || Instant::now() >= deadline {
         reply = op(&host, &session, before.scope(), step.id(), "cancel");
     }
     let mut commit_elapsed_ms = None;

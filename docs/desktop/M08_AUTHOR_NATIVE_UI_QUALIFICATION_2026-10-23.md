@@ -1,8 +1,8 @@
 # Author / V2 desktop UI qualification evidence
 
 2026-10-23 local date; retained checks below ended on 2026-10-24 UTC.
-Refs #12 M08.03 / #30 D08.05 and draft PR #135. **First complete native journey
-and actual restart passed; final-candidate confirmation/build checks remain pending.** No whole
+Refs #12 M08.03 / #30 D08.05 and draft PR #135. **Final corrected native journey,
+actual restart and normal application build passed.** No whole
 M08/D08, model-quality, Android consumer, installer or release gate is accepted
 by this report.
 
@@ -44,7 +44,8 @@ the ninth actually passed exact lookup, subsequent cases and saved-child
 restart. Two additional frozen loading-boundary regressions then actually
 failed; their correction passes 116 synthetic checks. The owner requires
 corrected native checks and another native confirmation before PR-ready
-status. The first full pass is preserved rather than attributed to later code.
+status. Both now passed at f008f09 below. The first full pass is preserved
+rather than attributed to later code; the normal build also passed at 03513def.
 
 Earlier separate synthetic actual-Main tests passed 18 cases; actual-controller inert
 React recovery-panel rendering passes six cases. The full frontend verifier
@@ -55,6 +56,16 @@ records the same boundary. Accepted prerequisite PR #133 has its separate
 [source-bound qualification](M08_V2_PREREQUISITE_QUALIFICATION_2026-10-23.md).
 Typed Domain2 fixture support was subsequently accepted in PR #137 at main
 `cfbe84ec4c78a0537a03b7a88c87a14c1e026717`; the sixth native cohort includes it.
+Its [shared/Android qualification](M08_TYPED_FIXTURE_V2_QUALIFICATION_2026-10-23.md)
+records 743 shared passes / 9 ignored and 182 fresh JVM tests, offline JNI/
+Gradle and static APK checks at its own 3904cb5/6766486/1066958 source chain.
+Those are accepted prerequisite checks, **not reruns at f008f09/03513def**.
+PR #135's shared production delta is the four-line native grant metadata getter
+in host/author_port.rs; its remaining implementation is desktop-owned. No new
+Android or physical-device execution is claimed for this UI PR; Android D2
+consumer/author UX and parity remain unavailable. The coordinator's final
+[PR #135 evidence comment](https://github.com/OptimumAF/LocalLore/pull/135#issuecomment-6380371015)
+records the completed current desktop boundary.
 
 ## Preserved stopped native cohorts
 
@@ -80,12 +91,12 @@ attributed to a stopped run.
 | `author-native-layout-corrected.log` / `45fb021d-1284-42fe-b910-4a97f6e8c4ed` | `7d99fdedf3f2804f7bc331805b18175f7795dd72` | 30 / 3 | Concurrent archive probe omitted the native command's required session and expected revision. It could not establish ArchiveBusy contention. `5734a08` supplied the real fixed session/scope/head and focused captures on the relevant visible preview/error/pending/outcome sections. |
 | `author-native-valid-contention.log` / `d416707c-af39-4256-8a15-bb1d0f7e2b30` | `5734a08535b5abe76ae89e4f56baed5dbed4a904` | 55 / 7 | `actual-knowledge-query-returned`: the journey read immediately after a lens change before the visible query control was ready. `13e92ed` waits for actual snapshot and readBusy=false, matching the UI's readiness, and improves scoped header legibility. |
 | `author-native-query-readiness.log` / `5071afe9-f77e-4e07-8a2a-683936a847f4` | `13e92edfdf717727edbcbc4a0d8c5f1e4f403b13` | 71 / 8 | `AuthorDeadline:actual-V2-gift-root-refresh`, with one native `Version` error. The typed fixture inference route still requested legacy character context on Domain2. Shared typed-context support is a separate prerequisite; neither the legacy refusal nor the test's expected saved revision was weakened. |
-| `author-native-typed-v2-corrected.log` / `de295ff7-302f-46ac-bd3d-03e1ff6c8914` | `42cb0069ade357c52321db2d084ad1a5529f6c68` (clean, pre-build manifest) | 75 / 8 | `repeated-gift-is-rejected-by-actual-Rust-rules`: actual typed Give saved r3 and removed the player's potion. Repeated Give emitted native Inventory; durable turn_status deliberately retained only failed phase/error=null and the UI lost the observed cause. `6786d94` preserves original-operation presentation evidence separately, without inventing a durable cause. Full native rerun remains pending. |
+| `author-native-typed-v2-corrected.log` / `de295ff7-302f-46ac-bd3d-03e1ff6c8914` | `42cb0069ade357c52321db2d084ad1a5529f6c68` (clean, pre-build manifest) | 75 / 8 | `repeated-gift-is-rejected-by-actual-Rust-rules`: actual typed Give saved r3 and removed the player's potion. Repeated Give emitted native Inventory; durable turn_status deliberately retained only failed phase/error=null and the UI lost the observed cause. `6786d94` preserves original-operation presentation evidence separately, without inventing a durable cause. Later full native cohorts pass this unchanged rejection boundary. |
 | `author-native-rejection-corrected.log` / `95eb81b7-5075-4f18-9dc6-2688d9d1fb6e` | `48fba074567d9b7a734abdaad09ab02187c9f974` (clean, pre-build manifest) | No terminal check count / 9 | App-owned 180-second watchdog: `D02_NATIVE_HARNESS TIMEOUT`, exit 2. The fixture immediately changed action to Wait, resetting thin reads, then waited unboundedly for a gate after send returned SessionRequired; no actual prepare reached it. `e0ebdaf` waits for refreshV2 and bounds gate readiness to 25 seconds. Existing native cancellation assertions remain unchanged. |
 | `author-native-stale-disposal-corrected.log` / `22780deb-ba64-4b19-b7b3-603d88187e6c` | `e0ebdafcecfdd3427bbd284ed3d7b12ad877e852` (clean, pre-build manifest) | 112 / 12 | `same-window-exact-lookup-recovers-lost-whole-ack-without-apply`: transient null context during actual session resume cleared AuthorController's input, so lookup was Unavailable. Global unknown stayed honest. `1f4ab5f` preserves only the native root identity across null/loading, with availability false and no actions; actual foreign/malformed root or dispose clears it. `bd18d76` separately fixes the unknown-ack button's inline overlap. |
 
-Each cohort directory is prefixed `author-native-`. The first six first and second build
-process exited 0, then its initial app process (`run-3`) exited 1 with
+Each cohort directory is prefixed `author-native-`. For each of the first six,
+both build processes exited 0, then its initial app process (`run-3`) exited 1 with
 `timedOut=false`, `truncated=false` and no spawn error. The outer launcher then
 reported `AuthorHarnessChildFailure:run-3`; it never started restart. The
 native permissions build log separately records successful compilation in
@@ -122,9 +133,10 @@ app-owned PNGs**, each paired with a
 semantic JSON snapshot and `.capture.json` metadata. Every existing image's
 capture metadata reports `native-webview2`. Root reports personally inspecting
 **all 49** across those eight, plus **all 17** of the first full pass below:
-**66 images across nine cohorts**. This report author additionally viewed the
+**66 images across nine cohorts**, then all 17 final-candidate images below:
+**83 across ten cohorts**. This report author additionally viewed the
 fifth cohort's `author-native-preview.png` and `author-native-observer.png`
-through local file inspection only; the other 64 images' visual review is
+through local file inspection only; the other 81 images' visual review is
 attributed solely to Root.
 Early form/layout and capture-focus defects produced explicit source fixes;
 earlier imperfect images were retained rather than replaced in place.
@@ -187,8 +199,8 @@ publishing raw synthetic private previews. No saved artifact was modified.
 
 ## Actual-Main and headless recovery fixes
 
-These are separate from the native cohorts above; the latest controller
-correction has not completed its native rerun. Actual-Main checks import the real
+These synthetic/headless results are separate from the actual native cohorts.
+The final corrected native rerun is reported below. Actual-Main checks import the real
 Main subscriptions/invoke/retention with controlled synthetic transport. Panel
 checks use actual AuthorController and AuthorPanel with inert React server
 markup and mocked native outcomes. Neither category invokes the native app.
@@ -254,7 +266,7 @@ markup and mocked native outcomes. Neither category invokes the native app.
   retired prepare. The retained AggregateError names **both actual failures**;
   it is not a completed baseline count. A two-line controller correction
   passes **116 synthetic checks** and the complete frontend verifier.
-  Final native confirmation is pending at this report's current source.
+  Final native confirmation subsequently passed at f008f09 below.
 
 The first broader native Rust check at the earlier bd18d76 candidate passed
 the normal suite (**88 passed / 1 ignored**), but the dev-harness suite failed
@@ -265,8 +277,11 @@ that failed invocation. Strict Clippy separately rejected two needless
 source correction moves the same fixed 17 author labels and environment
 gate into harness.rs, delegates author_harness activation to it and removes
 the borrows. It does not broaden the capture/action set or weaken assertions.
-Corrected dev/strict/normal-build results remain pending; these retained
-failures are not hidden by the successful UI journey.
+At corrected source `f008f09be8488da7b058759bbc4022aedba13a55`, the dev suite
+passes **92 / 1 ignored**, with **2 additional standalone harness_contract
+passes**; strict Clippy passes in 9.62 seconds. Normal final tests and the
+native rerun also passed; normal final build passed at 03513def. The retained original failures are not hidden
+by the successful UI journey.
 
 ## Reproduction and retained logs
 
@@ -279,6 +294,12 @@ the existing bundled Node and task-owned absolute existing directories.
 node check-main-author-context-review.mjs
 node check-author-panel-recovery-review.mjs
 node verify-frontend.mjs
+
+# Repository root, actual corrected native suites (exclusive execution slot):
+cargo test --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness -- --test-threads=1
+cargo clippy --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --features dev-harness -- -D warnings
+cargo test --offline --manifest-path apps/desktop/src-tauri/Cargo.toml -- --test-threads=1
+cargo build --offline --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
 
 # apps/desktop, ONLY after exclusive native execution allocation:
 $env:LOCALLORE_M07_MEMORY_ARTIFACT_ROOT = '<owned-artifact-root>'
@@ -301,6 +322,10 @@ Windows 11 Pro x64 build 26300/toolchain baseline is inherited environment
 metadata, not a fresh probe by this report. Frontend/native dependency pins
 and earlier Android/build evidence are in the prerequisite qualification.
 No fresh physical Android or real-model run is part of these observations.
+Corrected native unit/strict checks use the existing owned archive-ui-native
+target, one job, debug info and incremental compilation disabled, task-owned
+temporary directories and empty LIBSQLITE3_FLAGS. Native Cargo commands above
+are recorded exactly; the launcher build separately retains --locked.
 
 | Relative log | SHA-256 |
 | --- | --- |
@@ -342,6 +367,21 @@ No fresh physical Android or real-model run is part of these observations.
 | `author-ui-native-dev-serial.log` | `b3ffa035a6d647c7d2e7daa4ab0016dbe46d1580e85c4832b8e736373aefa2c4` |
 | `author-ui-native-clippy.log` | `3b598056883558f5dff201b783591f0ab10ead6052fe025f4ebc150e12115e70` |
 | `author-ui-rust-format.log` | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| `author-ui-native-dev-corrected.log` | `3bcc295db008042d40d6efbcb6b50f7edff98e4fc0c567781abc08f00f0ef231` |
+| `author-ui-native-clippy-corrected.log` | `06966ab6c1b89f0130b6baf8c7cad60d24ed2df345421238be56e17341449c3f` |
+| `author-native-final-boundaries-corrected.log` | `31e7b00fee18cc3a152b8d2c21806b85cdd657404ada9cf050c62d1eb7cda707` |
+| `author-ui-native-normal-final.log` | `32951251ac1db3b825164ea6581fabf5c674154970aa0ba85a6712afbe0c618b` |
+| `author-frontend-final-production.log` | `cd08fe8e8ed2aa22cf7dcc0560bac20c9a26ad36730334b3d7e8644e3e0dcf21` |
+| `author-frontend-format-final.log` | `3302ffd4a42e6aaa365ea8c389adf82a4497d7dbd1d115d7a4e96112d9021505` |
+| `author-frontend-format-final-corrected.log` | `f20510a9da4717c51c4cffee6d0dd88d6c9a723d0a83711d01216f5b48961283` |
+| `author-ui-rust-format-final.log` | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| `author-ui-normal-build-final.log` | `0ecc4f276ce05121a4c13113b03dcec8750f0d906b4e9219cb9aa4de5bfd62b6` |
+
+All **47 log rows** above were verified read-only against the retained files:
+139,887 bytes, no hash mismatch. Their aggregate ordinal UTF-8 LF rows
+`relative-log-name|sha256|bytes` have SHA-256
+`db9eed23f35d5d9f90d333ac76979231d214d5a6a346a2780fbb396856e2acf6`.
+This is separate from each cohort's captured-artifact manifest.
 
 ## First complete actual native and restart pass
 
@@ -410,24 +450,85 @@ is substituted for this recorded harness executable. Commands and environment
 are the reproduction block above; the actual outer log is
 author-native-loading-gap-corrected.log (539 bytes, hash in the log table).
 
-## Pending final-candidate appendix
+## Corrected final native candidate
 
-This section is deliberately pending until Root's next terminal results.
-The author continues evidence work; it is not a completed acceptance record.
+The tenth cohort, `author-native-6d618e03-b1cc-49b0-8c01-b35bf4846875`,
+passed at clean **f008f09be8488da7b058759bbc4022aedba13a55**, including the
+loading-boundary and standalone harness fixes. All four subprocesses exited
+0 without truncation or timeout. It repeats **123 distinct assertions**, raw
+133 initial / 18 restart, **15 + 2 actual native captures** and actual
+process restart. Initial native errors remain exactly Inventory and Cancelled
+twice; restart has no frontend/native errors. Both processes retain their
+single bounded Chromium 1412 shutdown line. Real-model generation and author
+operation recovery after restart remain false.
+
+Root personally inspected all 17 new images: header, exact preview, receipt,
+error, Mira's observed A, unknown recovery, narrow layout and restart remain
+readable. Total Root visual review is 83 saved app-owned images across ten
+cohorts; none is a desktop screenshot. This report author's independent
+pixel inspection remains only the two explicitly named earlier images.
+
+Read-only verification matched **all 53 artifact hashes and lengths**, totaling
+**1,849,270 bytes**, and **39 production/source input hashes** against the
+current checkout. The recorded dev bundle/executable are excluded from that
+current-file comparison because a subsequent normal build can replace them.
+Their source-bound hashes remain in the final summary rather than being
+substituted with later build output.
+
+| Corrected final cohort artifact | Bytes / SHA-256 |
+| --- | --- |
+| source-manifest.json | 1,443 / `d49307016e03a949a26c207ab8c2a81099a0065fa19f0cfcadf0b04ec6ca5aec` |
+| summary.json | 31,412 / `8654144f8db73b6985a501a5b61e4978ef29b1a18927e93554dc2dbce723e65d` |
+| initial/report.json | 8,697 / `b66f46fbb52bc47065a765b490f4bb8a09aa825128c2241eeafb91821e3f5024` |
+| restart/report.json | 1,238 / `402641e8cb8cb7cb6c05876585c5eebf52024fbf778b9e685e638aeef53bd22a` |
+| Aggregate of all 53 relative artifact rows | `c2bec10b5f93ffdaf0c7bf7c47b811d204c5ff18e9e8cc276e5854681a84b61a` |
+| Dev-harness executable recorded by summary | `7ebe4089695f450a5be42ec3f9b566c4f0c5ef4482430f653af05851f476c888` |
+| Dev dist/app.js recorded by summary | `f4e602ee12ccb7cfac3f5f9132ab53d6645d0d07b440838b8811e437066ee331` |
+
+Normal final native tests pass **88 / 1 ignored** in 16.42 seconds, and the
+complete frontend verifier passes again. The first final Prettier check
+failed only in two frozen regression checker files. Commit
+`03513defca95c604080011522c5a0a13fc943267` applies 7 insertions / 5 deletions
+of formatting in those two files only; source comparison confirms no
+production or native-harness input changes from f008f09. Controller 116 and
+callback 13 synthetic checks still pass after formatting; corrected Prettier
+and Rustfmt pass. The normal application build separately passes in **10.75
+seconds** at clean 03513def; it is not inferred from a dev-harness build or
+test executable.
+
+| Normal build artifact | Bytes / SHA-256 |
+| --- | --- |
+| Executable | 28,934,656 / `89a9d32e9f690538027d76867381e51d16ce30880c1bf65bc3f0afc20e3c9d21` |
+| Normal app.js | 492,023 / `e0c09f611bfa9c4cf7d26ed2caf311bbc7ec07b9f5b8d02317ceef8d34dbff56` |
+| author-ui-normal-artifact-evidence.json | 867 / `5f2adbac214388b13b1285112a9f6fdd2ed7fb06f0a6bb12b26c46a08eb37831` |
+
+The normal executable excludes five explicit dev-fixture/gate byte markers;
+normal frontend verification independently checks its development-hook
+exclusions. Byte-marker absence is **static evidence only**, not exhaustive
+proof or actual normal-production UI execution. Root separately reviewed the
+normal handler cfg. These normal artifacts are distinct from the final
+dev-harness executable/bundle above.
+
+## Final-candidate check disposition
+
+The requested bounded source/check evidence is complete. This report
+qualifies the journeys and checks named here; it is not whole-epic,
+model-quality, installed-release or physical-device acceptance.
 
 | Required final evidence | Status at this report's current source |
 | --- | --- |
-| Shared typed Domain2 fixture continuation prerequisite | PR #137 accepted; actual sixth-cohort Give saved r3. Complete UI qualification remains pending. |
-| Exact integrated source, clean/dirty state and native binary/dist hashes | First full-pass bd18d76 hashes above; two loading-boundary fixes pass 116 synthetic checks, final native candidate pending. |
-| Complete fresh native journey | First full pass 123 distinct assertions; repeat after final loading fix pending. |
-| Second actual process: saved-child Domain2 read/resume | First actual process restart passed at bd18d76; repeat final candidate pending. |
-| All 15 fresh + 2 restart semantic/capture pairs | All 17 passed at bd18d76; not yet final candidate's images. |
-| Final expected rejection/cancel errors and bounded native stderr | First full pass has Inventory+Cancelled twice / restart empty; both stderr shutdown lines retained. Final candidate pending. |
-| Root inspection of every final image and visible-state corrections | All first-full-pass 17 inspected, 66 across nine cohorts; final-candidate images pending. |
-| Normal frontend/native compatibility and Android checks after shared changes | Await Root's source-bound terminal checks; no in-progress run is counted as passed. |
+| Shared typed Domain2 fixture continuation prerequisite | PR #137 accepted; real typed Give and continued receipt passed in the final desktop cohort. |
+| Exact integrated source, clean/dirty state and native binary/dist hashes | Clean f008f09 final native cohort above; subsequent 03513def changes regression formatting only. |
+| Complete fresh native journey | Corrected final cohort passed, 123 distinct assertions. |
+| Second actual process: saved-child Domain2 read/resume | Corrected final actual restart passed at r3 with inventory transfer preserved. |
+| All 15 fresh + 2 restart semantic/capture pairs | All 17 final-candidate captures passed. |
+| Final expected rejection/cancel errors and bounded native stderr | Inventory+Cancelled twice / restart empty; two bounded shutdown stderr lines retained. |
+| Root inspection of every final image and visible-state corrections | All 17 final images inspected, 83 across ten cohorts. |
+| Normal frontend/native compatibility | Full frontend, normal 88/1 ignored, dev 92/1 ignored + standalone 2, strict Clippy, frontend formatting, Rustfmt and normal application build passed. |
+| Android compatibility | Shared typed continuation owns accepted PR #137 checks; no Android consumer/physical execution is inferred from the desktop cohort. |
 
 Author-operation recovery after restart remains explicitly unavailable. Only
-saved timeline read/resume is proposed for the restart stage; no persisted
+saved timeline read/resume is demonstrated by the restart stage; no persisted
 private fullinput, recovery journal or automatic apply is added. Fake inference
 must stay visibly labeled; local in-memory progress must not be called durable.
 Native inspection never grants knowledge or generation privileges. Missing

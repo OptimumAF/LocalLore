@@ -133,6 +133,45 @@ class LiteRtRoleWorkerTest {
         assertFalse(config.model.exists()); assertFalse(config.cache.exists())
     }
 
+    @Test fun volumeRefusalBeforeAndAfterHashNeverConstructsSdk() = runBlocking {
+        for (refuseAt in 1..2) {
+            var observations = 0
+            val config = config().copy(storageAdmission = {
+                observations++
+                check(observations < refuseAt)
+            })
+            val resources = Resources()
+            uncertain { LiteRtRoleWorker(config, resources).open() }
+            assertEquals(refuseAt, observations)
+            assertTrue(resources.engines.isEmpty())
+        }
+    }
+
+    @Test fun changedVolumeFencesInitializationConversationAndSendWithoutClosingUnknownParents() = runBlocking {
+        for (refuseAt in 3..5) {
+            var observations = 0
+            val config = config().copy(storageAdmission = {
+                observations++
+                check(observations < refuseAt)
+            })
+            val resources = Resources()
+            val worker = LiteRtRoleWorker(config, resources)
+            if (refuseAt == 3) {
+                uncertain { worker.open() }
+                assertNull(resources.engines.single().initializeThread)
+            } else {
+                val engine = worker.open()
+                uncertain { engine.start(request) }
+                assertFalse(engine.close())
+            }
+            assertEquals(refuseAt, observations)
+            val resource = resources.engines.single()
+            assertEquals(0, resource.closes.get())
+            if (refuseAt < 5) assertTrue(resource.conversations.isEmpty())
+            else assertEquals(1L, resource.conversations.single().sent.count)
+        }
+    }
+
     @Test fun fullHashMismatchAndSizeMismatchNeverConstructSdk() = runBlocking {
         listOf(config().copy(modelSha256 = "0".repeat(64)), config().copy(expectedModelBytes = 5)).forEach {
             val resources = Resources()

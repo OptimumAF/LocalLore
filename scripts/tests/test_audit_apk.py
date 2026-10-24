@@ -139,6 +139,21 @@ class ApkAuditTests(unittest.TestCase):
             self.assertEqual(audit.main(["not-read.apk", "--model-picker-fixture"]), 1)
             self.assertEqual(audit.main(["not-read.apk", "--litert-verification", "--model-picker-fixture"]), 1)
 
+    def test_removable_profile_has_exact_package_and_no_storage_permissions(self):
+        package = "org.locallore.app.modelvolumeverify"
+        badging = BADGING.replace("org.locallore.app", package)
+        tree = TREE.replace("org.locallore.app", package)
+        self.assertEqual(audit.audit_manifest(badging, tree, package),
+                         [package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"])
+        for permission in ("android.permission.MANAGE_EXTERNAL_STORAGE",
+                           "android.permission.READ_EXTERNAL_STORAGE", "android.permission.INTERNET"):
+            with self.subTest(permission=permission), self.assertRaises(audit.AuditError):
+                audit.audit_manifest(badging + "uses-permission: name='" + permission + "'\n", tree, package)
+        with patch("builtins.print"):
+            self.assertEqual(audit.main(["not-read.apk", "--model-volume-verification"]), 1)
+            self.assertEqual(audit.main(["not-read.apk", "--litert-verification", "--model-provisioning",
+                                         "--model-volume-verification", "--model-picker-fixture"]), 1)
+
     def test_model_picker_fixture_requires_explicit_mode_and_excludes_provider_from_app(self):
         with tempfile.TemporaryDirectory() as directory:
             path = self.archive(directory)

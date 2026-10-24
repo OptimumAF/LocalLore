@@ -5,6 +5,8 @@ use std::sync::Arc;
 use tauri::Manager;
 mod archive;
 mod archive_commands;
+#[cfg(test)]
+mod author_commands;
 mod capture_exports;
 mod evaluation;
 mod evaluation_commands;

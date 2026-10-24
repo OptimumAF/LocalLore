@@ -6,6 +6,7 @@ struct ReadLens {
     base: Lens,
     events: Vec<ActorEventV2>,
     scopes: BTreeMap<u64, Scope>,
+    player_history_markers: bool,
 }
 fn source(event: &AcceptedEvent) -> Source {
     Source::ScopedEvent {
@@ -107,6 +108,7 @@ impl ReadLens {
             },
             events,
             scopes,
+            player_history_markers: matches!(observer, Observer::Player),
         })
     }
     fn scoped(&self, value: &Source) -> Source {
@@ -392,7 +394,7 @@ fn history(engine: &Engine, lens: &ReadLens) -> Result<Vec<Row>, QueryError> {
                     ids.last()
                 }
                 .ok_or(QueryError::Integrity)?;
-                rows.push(Row::Message {
+                rows.push(Row::ScopedMessage {
                     key: key(&[
                         "history",
                         &format!("{sequence:020}"),
@@ -401,12 +403,30 @@ fn history(engine: &Engine, lens: &ReadLens) -> Result<Vec<Row>, QueryError> {
                         } else {
                             "narration"
                         },
+                        &receipt.request().scope.story,
+                        &receipt.request().scope.branch,
+                        &receipt.request().turn,
+                        kind,
                     ]),
                     turn: receipt.request().turn.clone(),
                     message_kind: kind.into(),
                     text: text.into(),
                     event_ids: ids.clone(),
                     origin: ValueOrigin::RecordedMessage,
+                    original_scope: receipt.request().scope.clone(),
+                });
+            }
+        }
+    }
+    if lens.player_history_markers {
+        // The reconstructed snapshot already contains only the selected prefix.
+        // Inspect just the closed kind/revision, never the private author payload.
+        for record in engine.canonical_records() {
+            if record.kind() == crate::author_correction::CanonicalRecordKind::AuthorCorrection {
+                let revision = record.last_revision();
+                rows.push(Row::AuthorCorrection {
+                    key: key(&["history", &format!("{revision:020}"), "author_correction"]),
+                    revision,
                 });
             }
         }

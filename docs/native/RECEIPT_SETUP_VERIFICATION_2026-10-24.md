@@ -1,8 +1,9 @@
 # Receipt-backed debug setup verification - 2026-10-24
 
 Refs #9 (M05.05 prerequisite), #5 (M01.05 supporting). The explicit receipt
-candidate route is implemented and its integrated host gates pass. Actual
-emulator setup/restart qualification is pending in this execution report.
+candidate route is implemented and its integrated host gates pass. All three
+initial emulator UI methods passed. The controller then refused its process
+gate; restart and host proof-read qualification remain incomplete.
 Full tasks remain unchecked pending complete criteria and owner acceptance.
 
 ## Implemented boundary
@@ -97,7 +98,22 @@ tests,5.308s. Owned compilation10,079ms and JUnit5,625ms both completed0 with
 known cleanup; all21 source/tool bindings remained unchanged. This is not an
 Android or Java17-runtime measurement.
 
-Regular SDK and ordinary-build exclusion/regression results remain pending.
+The regular SDK build also passed340 tests/35 suites, zero failures/errors/skips;
+lint0errors/9warnings. Its APK audit passed and excludes receipt test helpers.
+Owned build completed0 with known cleanup,335,047ms;12,264-byte stdout SHA-256
+`a33fc5f97339442baedbed260b8b3217030c40db99e5afec908c3dd5a56839e8`.
+
+The ordinary app passed206 tests/24 suites, zero failures/errors/skips;
+lint0errors/1warning. Its APK audit passed with four native libraries and no SDK
+or receipt helpers. Owned build completed0 with known cleanup,363,250ms;
+8,937-byte stdout SHA-256
+`1943968f21f4a7483451b81b44e831546c401a665f95f6b374b15ba3b3a53f53`.
+
+Six actual Gradle configurations refused with their exact expected diagnostics,
+each returning1: explicit false receipt flag, missing volume, missing SDK/setup,
+mixed picker, release task, and wrong project cache. The owned verification
+completed0 with known cleanup,68,187ms;4,703-byte stdout SHA-256
+`2826a3adc2b2a267a55c7fd9bbf40f4af3ec5e96f5aaa0860e811cd61cb89d94`.
 
 ## Preparation and review findings
 
@@ -129,11 +145,75 @@ or old target mutation occurred.
 
 Run proposal SHA-256:
 `347108ad67a41916e818035517ed1b0edc7a3076194a7ba387810f8365042ce9`.
-Boot admission and guest results remain pending. A prepared AVD is not boot evidence.
+Actual guest identity subsequently matched API35/x86_64/4096-byte pages. This
+is emulator execution, not physical-phone or ARM64 qualification.
 
 The controller test author retained an initial fake-DF percent-formatting defect
 that caused11 mock errors, then fixed the test transport. Subsequent19-test and
 central559-test runs passed; this was not a production or guest failure.
+
+## Actual guest result and stopped restart gate
+
+Execution source is `4b6c2db48c342b13b2c6b9e6cc8e599eab003dc2`. Its actual-byte
+snapshot contains1,418 files/16,705,626 bytes; source-index SHA-256
+`9a1cefc913f9419b9a1bf05c7c9c3e7d9c9e6a37588cf5228f70e8f9df2149d2`.
+The app sources match the receipt compilation; all911 non-Markdown snapshot rows
+remain identical after execution. Only documentation changed afterward.
+Independent review rehashed the snapshot and46 admitted guest inputs.
+
+Guest proposal SHA-256:
+`8f5504473d9ae244f5967027d2dec1185479f8d4a7119c64463349635a624614`.
+The source-bound live lease was checked before and after each of36 actual
+clients. Both exact APKs installed on the fresh target without replace mode.
+Initial LocalLore inventory was empty; installed inventory was exactly the
+two packages with distinct discovered UIDs. Userdata available was11,350,724,608
+bytes before installation and11,273,560,064 afterward, above the unchanged floor.
+
+The one ordinary initial instrumentation invocation actually passed:
+
+- `importsAndRechecksThroughActualReceiptSetup`
+- `cancelsBeforeAndAfterAcceptanceThroughCompose`
+- `disposedScopeRetainsSourceUntilActualDrain`
+
+The retained runner bytes independently parse as3PASS/0FAIL. Its raw2,165-byte
+stdout SHA-256 is
+`5f43de09289442850b97da8a15f7fe6713babe661168cfc93190ff7867550dc1`.
+These methods exercise the real receipt access class, actual setup ViewModel and
+Compose controls, including cancellation before/after acceptance and disposal
+with a still-owned blocked source. Successful synthetic callbacks do not qualify
+DocumentsUI or real-model provisioning.
+
+The after-stage process inventory contained no APP target process, but retained
+the known TEST APK main process under its distinct installed UID. The frozen
+controller required both absent, so it stopped before proof reads and the
+second instrumentation invocation. Do not call this a restart pass, a test
+failure, an all-quiet result, or successful44-check host proof validation.
+No final facts or proof-read records were produced. Final capacity was not
+observed by this stopped controller.
+
+All36 actual clients completed0 with known cleanup. The owned qualification
+worker completed2, known cleanup,65,734ms;345-byte stdout SHA-256
+`579d700003ef2b99b9de7d158235675dce653a6eac14a0e69717ef2c4ce7e5cf`,
+stderr0. The original outer tool execution was consumed terminal nonzero
+(`exit_code=1`); this is distinct from the recorded worker returncode2.
+
+A separately admitted continuation was proposed in ticket comment6387480676,
+then deferred in6387504095 before any implementation or call: the original
+owner lacked a comfortable full source/test/admission/cohort/closure window.
+No continuation source or test result is claimed. The next runnable task is to
+qualify a separate controller that records the exact TEST helper independently
+of required APP absence, rejects foreign/new process rows, and runs the3+1
+sequence on another fresh admitted namespace. Keep the original all-quiet
+refusal unchanged; never silently adopt its proofs as a completed run.
+
+The exact stop request closed the original emulator owner. Its original tool
+handle was consumed terminal0; owner status `stop_requested`, cleanup and
+immutable/default-registry/token closure verified,920,000ms. Owner stdout13,805
+bytes/stderr214 bytes; owned worker returncode1 reflects job termination and
+does not change the guest test result. All three original host process IDs were
+absent afterward and the owned port pair was free. The saved virtual disks were
+retained. Their reported sizes are metadata only, without a post-run disk hash
+or graceful guest-flush/power-loss durability claim.
 
 ## Remaining gates and evidence custody
 
@@ -143,9 +223,20 @@ receipt APK pair is copied create-only and rehashed. Earlier failed/held targets
 old data and immutable evidence are preserved. No model was copied or SDK
 inference invoked by these host/preparation checks.
 
-Still required: actual initial/restart UI cohorts, final source/input closure,
-separate emulator-owner terminal cleanup and focused PR handoff. Full real
+All admitted inputs are archived locally. Root sealed the final inventories;
+the independent reviewer rehashed every entry with zero mismatches:
+
+| Private inventory | Files | Bytes | Index SHA-256 |
+|---|---:|---:|---|
+| Host |1,570|197,304,811|`64c1267450678c0fdd161ee318fa005c1b714939f1022917b2a03d644b9b7cb9`|
+| Environment |23|561,229|`55fb2c86480db40f4612c526deac066ff85ec826438410a44e59fe9501529115`|
+| Device |129|86,124,753|`a8a7faad8d2e82cb73baa73def32a7f483b4e31c21c9d14fc1453ab363ac050c`|
+
+Still required: the separately qualified restart/proof-read cohort. Full real
 candidate import/SDK inference, DocumentsUI delivery, physical reference phone,
 ARM64/16KiB execution, media replacement, power loss, cache confidentiality,
 quality and sustained behavior remain unqualified. Existing A/#117/#119 holds
-are unchanged. No merge, release, access change or production backend selection.
+are unchanged. [Draft PR147](https://github.com/OptimumAF/LocalLore/pull/147)
+is stacked on unmerged146. Full M05.05/M01.05 remain partial and in review;
+M01.01 remains blocked on an established authorized reference phone. No merge,
+release, access change or production backend selection.

@@ -138,8 +138,9 @@ class NativeCancelControlsTest {
         fun contained() {
             check(root.name.startsWith("synthetic-native-cancel-"))
             check(root.canonicalFile.parentFile == parent)
-            check(database.canonicalFile.parentFile == File(root, "workspace-v1").canonicalFile)
-            check(database.canonicalFile.parentFile.parentFile == root)
+            val directory = checkNotNull(database.canonicalFile.parentFile)
+            check(directory == File(root, "workspace-v1").canonicalFile)
+            check(directory.parentFile == root)
         }
     }
 

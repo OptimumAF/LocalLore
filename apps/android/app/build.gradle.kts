@@ -35,7 +35,9 @@ if (liteRt == "true") {
 }
 val externalInference = providers.gradleProperty("localLoreExternalInferenceVerification").orNull
 require(externalInference == null || externalInference == "true")
-require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention, externalInference, liteRt).count { it == "true" } <= 1) {
+val cancelAckVerification = providers.gradleProperty("localLoreCancelAckVerification").orNull
+require(cancelAckVerification == null || cancelAckVerification == "true")
+require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention, cancelAckVerification, externalInference, liteRt).count { it == "true" } <= 1) {
     "Verification installations must be selected individually."
 }
 require(archiveVerification != "true" || archiveCapacity != "true") {
@@ -60,6 +62,12 @@ require((externalInference == "true") == (selectedProjectCache == rootProject.fi
 }
 require(externalInference != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
     "External inference verification is for local debug verification only."
+}
+require((cancelAckVerification == "true") == (selectedProjectCache == rootProject.file(".gradle-cancel-ack").canonicalFile)) {
+    "Cancellation acknowledgement verification requires its exclusive .gradle-cancel-ack project cache."
+}
+require(cancelAckVerification != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
+    "Cancellation acknowledgement verification is for local debug verification only."
 }
 require((parentRetention == "true") == (selectedProjectCache == rootProject.file(".gradle-parent-retention").canonicalFile)) {
     "Parent retention verification requires its exclusive .gradle-parent-retention project cache."
@@ -99,11 +107,14 @@ if (liteRt == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-timeline"))
 } else if (parentRetention == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-parent-retention"))
+} else if (cancelAckVerification == "true") {
+    layout.buildDirectory.set(layout.projectDirectory.dir("build-cancel-ack"))
 }
 val verificationSuffix = when {
     modelSetup == "true" -> ".modelverify"
     liteRt == "true" -> ".litertverify"
     externalInference == "true" -> ".externalverify"
+    cancelAckVerification == "true" -> ".cancelack"
     parentRetention == "true" -> ".parentverify"
     timelineVerification == "true" -> ".timelineverify"
     storyDeletion == "true" -> ".storydelete"
@@ -132,7 +143,7 @@ val reliefFaultTest = reliefFaultOption == "true"
 require(!(reliefFaultTest && reliefOption == "true")) { "Relief and helper-fault modes are mutually exclusive" }
 val reliefTest = reliefOption == "true" || reliefFaultTest
 require(!(capacityTest && reliefTest)) { "Capacity and capacity-relief modes are mutually exclusive" }
-require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention, externalInference, liteRt).none { it == "true" } || !(capacityTest || reliefTest)) {
+require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention, cancelAckVerification, externalInference, liteRt).none { it == "true" } || !(capacityTest || reliefTest)) {
     "Archive verification and capacity modes are mutually exclusive"
 }
 val capacityCache = rootProject.file(".gradle-capacity-v4").canonicalFile
@@ -204,7 +215,7 @@ android {
         manifestPlaceholders["chooserTestAuthority"] = "org.locallore.app$verificationSuffix.test.chooser"
         if (verificationSuffix.isNotEmpty()) {
             applicationIdSuffix = verificationSuffix
-            versionNameSuffix = when { liteRt == "true" -> "-litert-worker"; externalInference == "true" -> "-external-inference"; parentRetention == "true" -> "-parent-retention"; timelineVerification == "true" -> "-timeline-verification"; storyDeletion == "true" -> "-story-deletion"; archiveCapacity == "true" -> "-archive-capacity"; else -> "-archive-verification" }
+            versionNameSuffix = when { liteRt == "true" -> "-litert-worker"; externalInference == "true" -> "-external-inference"; cancelAckVerification == "true" -> "-cancel-ack-verification"; parentRetention == "true" -> "-parent-retention"; timelineVerification == "true" -> "-timeline-verification"; storyDeletion == "true" -> "-story-deletion"; archiveCapacity == "true" -> "-archive-capacity"; else -> "-archive-verification" }
         }
         ndk { abiFilters += listOf("x86_64", "arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -243,7 +254,7 @@ androidComponents {
 
 androidComponents {
     beforeVariants(selector().withBuildType("release")) {
-        if (archiveCapacity == "true" || storyDeletion == "true" || timelineVerification == "true" || parentRetention == "true" || externalInference == "true" || liteRt == "true") it.enable = false
+        if (archiveCapacity == "true" || storyDeletion == "true" || timelineVerification == "true" || parentRetention == "true" || externalInference == "true" || liteRt == "true" || cancelAckVerification == "true") it.enable = false
     }
 }
 

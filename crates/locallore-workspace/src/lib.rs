@@ -10,6 +10,7 @@ use locallore::{
 };
 use locallore_storage::{StorageError, Store, TurnError, TurnPhase, TurnRecord};
 use std::path::Path;
+mod author_port;
 mod maintenance;
 pub const DATABASE_SCHEMA_VERSION: u32 = locallore_storage::SCHEMA_VERSION;
 
@@ -100,6 +101,27 @@ pub fn inspection_database_copy(
         .collect())
 }
 impl Persistence for Repository {
+    fn prepare_author_correction(
+        &mut self,
+        input: &locallore::author_correction::AuthorCorrectionInputV1,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<Box<dyn locallore::host::NativeAuthorPreparation>, String> {
+        author_port::prepare(self, input, cancel)
+    }
+    fn apply_author_correction(
+        &mut self,
+        prepared: &dyn locallore::host::NativeAuthorPreparation,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<locallore::host::WorkspaceAuthorOutcomeV1, String> {
+        author_port::apply(self, prepared, cancel)
+    }
+    fn lookup_author_correction(
+        &mut self,
+        input: &locallore::author_correction::AuthorCorrectionInputV1,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<Option<locallore::host::WorkspaceAuthorOutcomeV1>, String> {
+        author_port::lookup(self, input, cancel)
+    }
     fn begin_bound(
         &mut self,
         request: &Request,

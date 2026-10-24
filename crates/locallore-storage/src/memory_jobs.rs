@@ -168,6 +168,7 @@ fn core_error(error: coverage::CoverageError) -> MemoryError {
         Boundary => MemoryError::Integrity,
         Budget => MemoryError::TooLarge,
         Source => MemoryError::Integrity,
+        Unsupported => MemoryError::Unsupported,
     }
 }
 fn integer(value: u64) -> Result<i64> {
@@ -216,6 +217,9 @@ fn digest(value: &impl Serialize) -> Result<String> {
 }
 fn basis(connection: &Connection, engine: &Engine, cancel: &dyn Fn() -> bool) -> Result<Basis> {
     check(cancel)?;
+    if engine.domain_version() != 1 {
+        return Err(MemoryError::Unsupported);
+    }
     let path =
         crate::branches::lineage(connection, engine.scope()).map_err(|_| MemoryError::Integrity)?;
     // Mutable ancestor heads are deliberately excluded; accepted selected history
@@ -233,6 +237,17 @@ fn basis(connection: &Connection, engine: &Engine, cancel: &dyn Fn() -> bool) ->
     Ok(result)
 }
 fn validate(engine: &Engine, request: &MemoryJobRequest, cancel: &dyn Fn() -> bool) -> Result<()> {
+    validate_selection(engine, request, cancel)?;
+    if engine.domain_version() != 1 {
+        return Err(MemoryError::Unsupported);
+    }
+    Ok(())
+}
+fn validate_selection(
+    engine: &Engine,
+    request: &MemoryJobRequest,
+    cancel: &dyn Fn() -> bool,
+) -> Result<()> {
     check(cancel)?;
     if engine.scope() != &request.scope {
         return Err(MemoryError::Scope);
@@ -724,7 +739,15 @@ impl Store {
         check(cancel)?;
         let tx = self.connection.transaction()?;
         let engine = Self::memory_engine(&tx, &request.scope, cancel)?;
-        validate(&engine, request, cancel)?;
+        validate_selection(&engine, request, cancel)?;
+        if engine.domain_version() != 1 {
+            check(cancel)?;
+            tx.commit()?;
+            return Ok(ContextSnapshot {
+                engine,
+                coverage: CoverageRead::RawFallback(coverage::FallbackReason::Unsupported),
+            });
+        }
         // No writes, admission, cursor repair, or canonical mutation on a read.
         let coverage = match find_job(&tx, request, &self.memory_job_owner) {
             Ok(job) => {

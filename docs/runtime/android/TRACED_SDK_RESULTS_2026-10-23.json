@@ -1,0 +1,341 @@
+{
+  "version": 1,
+  "scope": "synthetic_emulator_traced_guarded_sdk",
+  "task_ids": [
+    "M01.03",
+    "M01.05"
+  ],
+  "full_task_acceptance": false,
+  "source": {
+    "base": "731b46cfc818a17e15140d466c403e1f1c1a51b2",
+    "java": "5123c3c42a74479b6f23509fe0dd6b634edb208f",
+    "apk_orchestration": "e8ef8e77e74570ea1ceb9d6dfa54f25753847361",
+    "controller_pin_commit": "0b89eb6",
+    "native": "ba31932665eab2079c54a02a0182857f598fa0c4"
+  },
+  "environment": {
+    "api": 35,
+    "abi": "x86_64",
+    "runtime": "LiteRT-LM Android 0.18.1",
+    "sdk_revision": "bda624851d74be34d4e1f7fac1fc4155939539c7",
+    "backend": "CPU",
+    "threads": 4,
+    "context_tokens": 4096,
+    "director_tokens": 350,
+    "narrator_tokens": 220,
+    "repair_limit": 1,
+    "turn_deadline_ms": 60000,
+    "app_watchdog_ms": 90000,
+    "client_deadline_seconds": 110,
+    "cohort_deadline_seconds": 180,
+    "model_bytes": 2588147712,
+    "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+  },
+  "checks": {
+    "script_tests": 343,
+    "benchmark_tests": 140,
+    "sdk_helper_tests": 34,
+    "jvm_tests": 105,
+    "jvm_failures": 0,
+    "jvm_errors": 0,
+    "jvm_skips": 0,
+    "lint_errors": 0,
+    "lint_warnings": 9,
+    "dependency_manifest_native_alignment_audits": true,
+    "new_native_build": false
+  },
+  "artifact": {
+    "bytes": 63666936,
+    "sha256": "f4d247f3e24c302a7e8d2431d7ee8c9fccc476909c0d82789ea1f84083ddfd81",
+    "native_libraries_unchanged": true
+  },
+  "preparation": {
+    "owned_process": {
+      "status": "completed",
+      "returncode": 0,
+      "elapsed_ms": 63187,
+      "cleanup_complete": true,
+      "stderr_bytes": 0
+    },
+    "command_counts": {
+      "commands": 376,
+      "known_clean": 376,
+      "exit_zero": 373,
+      "exit_one": 3,
+      "exit_37": 0
+    },
+    "source_integrity_complete_passes": 2,
+    "source_integrity_elapsed_ms": 23218,
+    "source_and_fingerprint_verified": true,
+    "UID_and_app_root_preserved": true,
+    "old_session_hashes_preserved": true,
+    "package_counts": {
+      "A": 21,
+      "B": 23
+    },
+    "only_selected_B_APK_updated": true,
+    "model_copy_calls": 0,
+    "sdk_calls": 0
+  },
+  "critical": {
+    "owned_process": {
+      "status": "completed",
+      "returncode": 0,
+      "elapsed_ms": 124687,
+      "cleanup_complete": true,
+      "stderr_bytes": 0
+    },
+    "command_counts": {
+      "commands": 338,
+      "known_clean": 338,
+      "exit_zero": 318,
+      "exit_one": 19,
+      "exit_37": 1
+    },
+    "play_attempts": 1,
+    "read_phase_attempts": 1,
+    "app_domain_full_model_hash_verified": true,
+    "model_identity_calls": 1,
+    "inference_retries": 0,
+    "controller": {
+      "status": "observed",
+      "model_verified": true,
+      "failure_stage": "none",
+      "cleanup_failure_stage": "none",
+      "worker_status": "completed",
+      "worker_error": null,
+      "storage_samples_valid": true,
+      "transport_valid": true,
+      "process_absent": true,
+      "clients_cleaned": true,
+      "check_passed": false,
+      "raw_protocol_retained": true,
+      "storage_checks_passed": true,
+      "wall_ms": 92953
+    },
+    "turn": {
+      "outcome": "failed",
+      "error": "timeout",
+      "roles": 1,
+      "director_calls": 1,
+      "narrator_calls": 0,
+      "repairs": 0,
+      "revision_before": 0,
+      "revision_after": 0,
+      "receipts_before": 0,
+      "receipts_after": 0,
+      "reopen_equal": true,
+      "canon_unchanged": true,
+      "model_initialized": true,
+      "first_output_observed": false,
+      "owner_drained": true
+    },
+    "generation_observation": {
+      "role": "director",
+      "status": "error",
+      "error": "timeout",
+      "load_ms": 7524.4987,
+      "generation_ms": 50703.7637,
+      "input_tokens": null,
+      "output_tokens": null,
+      "schema_enforced": false,
+      "thinking_disabled": false,
+      "template_applied": false
+    },
+    "sdk_owners": {
+      "engines_opened": 1,
+      "engines_closed": 1,
+      "conversations_opened": 1,
+      "conversations_closed": 1,
+      "cleanup_requires_process_termination": false,
+      "owners_balanced": true,
+      "cancel_called": true,
+      "cancel_terminal_callback": true,
+      "terminal_callback": true,
+      "cancel_call_ms": 67.3024
+    },
+    "storage_before": {
+      "version": 1,
+      "phase": "before",
+      "status": "admitted",
+      "reasons": [],
+      "bytes": {
+        "cache_bytes": 1576825574,
+        "cache_free_bytes": 4408025088,
+        "cache_host_free_bytes": 325072949248,
+        "evidence_free_bytes": 325072949248,
+        "userdata_free_bytes": 1674608640,
+        "userdata_host_free_bytes": 8464388096
+      },
+      "model_copy_bytes": 0
+    },
+    "storage_after": {
+      "version": 1,
+      "phase": "after",
+      "status": "admitted",
+      "reasons": [],
+      "bytes": {
+        "cache_bytes": 2365238344,
+        "cache_free_bytes": 3619602432,
+        "cache_host_free_bytes": 324262211584,
+        "evidence_free_bytes": 324262211584,
+        "userdata_free_bytes": 1674469376,
+        "userdata_host_free_bytes": 8436760576
+      },
+      "observed_deltas": {
+        "cache_growth_bytes": 788412770,
+        "userdata_net_consumption_bytes": 139264,
+        "cache_net_consumption_bytes": 788422656
+      }
+    }
+  },
+  "phase": {
+    "controller": {
+      "status": "observed",
+      "failure_stage": "none",
+      "cleanup_failure_stage": "none",
+      "dispatched": true,
+      "raw_protocol_retained": true,
+      "clients_cleaned": true,
+      "process_absent": true,
+      "journal_verified": true,
+      "instance_matched": true
+    },
+    "observation": {
+      "version": 1,
+      "status": "completed",
+      "error": "none",
+      "model_execution": false,
+      "journal_valid": true,
+      "checkpoint_count": 27,
+      "last_phase": "terminal",
+      "last_role": "none",
+      "fresh_reader_process": true,
+      "exit_history_available": true,
+      "exit_records_examined": 1,
+      "exit_instance_matches": 1,
+      "exit_instance_matched": true,
+      "exit_reason": 10,
+      "exit_status": 0
+    },
+    "crash_cause_established": false
+  },
+  "recovery": {
+    "snapshot_main_bytes": 65536,
+    "snapshot_main_sha256": "e16975473712cc1663bbf9e6c2c2274f50345018b374e88cf46d4680cf2c8aba",
+    "all_three_sidecars_absent": true,
+    "source_facts_stable": true,
+    "process": {
+      "version": 1,
+      "status": "completed",
+      "returncode": 0,
+      "cleanup_complete": true,
+      "elapsed_ms": 62,
+      "stdout_bytes": 586,
+      "stdout_sha256": "0c95f9f8b7ad7586bfd09a1e673061f44d9700eef64d4c81cd81971f17b382ef",
+      "stderr_bytes": 0,
+      "model_execution": false
+    },
+    "preservation": {
+      "version": 1,
+      "pristine_unchanged": true,
+      "working_main_unchanged": true
+    },
+    "canonical": {
+      "branch_summaries": [
+        {
+          "accepted_events": 0,
+          "accepted_given_events": 0,
+          "accepted_player_to_mira_sole_potion_events": 0,
+          "accepted_receipts": 0,
+          "branch_index": 0,
+          "draft_turns": 0,
+          "potion_owner": "player",
+          "potion_quantity": 1,
+          "projection_needs_rebuild": false,
+          "requested_turn_has_receipt": false,
+          "requested_turn_phase": "failed",
+          "revision": 0,
+          "story_index": 0,
+          "strict_replay": true
+        }
+      ],
+      "branches": 1,
+      "foreign_keys": true,
+      "input_main_unchanged": true,
+      "integrity": "validated_schema_and_replay",
+      "model_execution": false,
+      "schema_version": 2,
+      "scope": "copied_snapshot_only",
+      "status": "passed",
+      "stories": 1,
+      "version": 1
+    }
+  },
+  "final": {
+    "inventory": {
+      "emulators": 4,
+      "other_devices": 0,
+      "selected_ready": true
+    },
+    "storage": {
+      "version": 1,
+      "host_free_bytes": 8430669824,
+      "evidence_free_bytes": 324255764480,
+      "userdata_free_bytes": 1674469376,
+      "valid": true
+    },
+    "old_session_hashes_preserved": true,
+    "A_metadata_only": true,
+    "B_process_namespace_absent": true,
+    "device_commands": 714,
+    "device_clients_cleaned": true,
+    "separate_host_metadata_clients": 7,
+    "separate_host_metadata_clients_known_clean": true
+  },
+  "limits": {
+    "successful_guarded_gift": false,
+    "schema_response_compatibility_qualified": false,
+    "physical_phone_qualified": false,
+    "ARM_execution": false,
+    "quality_qualified": false,
+    "sustained_memory_thermal_qualified": false,
+    "old_crash_cause_known": false,
+    "production_runtime_selected": false,
+    "raw_private_payload_uploaded": false,
+    "merge_or_release": false,
+    "post_SDK_whole_model_hash_performed": false
+  },
+  "evidence_indexes": {
+    "author": {
+      "index_bytes": 2420,
+      "index_sha256": "f6c178ed3006a7af2595a8457e0c70def90e963aaf8ce10959a2e60a7ea8217f",
+      "selected_entries": 13,
+      "selected_bytes": 48214
+    },
+    "qualification": {
+      "index_bytes": 11675,
+      "index_sha256": "48d6fc2c521f04897f21c8b1a3236413081fd053c41f3dd45cb56aa2536fdb57",
+      "selected_entries": 48,
+      "selected_bytes": 139690183
+    },
+    "device": {
+      "index_bytes": 270329,
+      "index_sha256": "01ed9984f0f0dc1b9883f06f3417e8575b923623c0f5dbf9261e6ce1b5815445",
+      "selected_entries": 1515,
+      "selected_bytes": 1135954
+    },
+    "replay": {
+      "index_bytes": 3093,
+      "index_sha256": "220198ee27d15a7c03aa87d11cdaa03334d3f978e1cb5cff281a5942f5dbfcd2",
+      "selected_entries": 14,
+      "selected_bytes": 4725902
+    },
+    "root_checks": {
+      "index_bytes": 2410,
+      "index_sha256": "5e2d5bf419fd39aeefd437578641477d1e822bf977394641bbf355e417be3314",
+      "selected_entries": 11,
+      "selected_bytes": 100242
+    }
+  }
+}

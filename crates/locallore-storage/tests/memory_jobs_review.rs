@@ -14,6 +14,8 @@ use std::{
     path::PathBuf,
     sync::atomic::{AtomicU64, Ordering},
 };
+#[path = "support/historical_schema.rs"]
+mod historical_schema;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 struct Temp(PathBuf);
@@ -206,35 +208,7 @@ fn historical_schema3_retired_catalog_stays_readable_without_job_tables_or_write
     let canonical = store.resume(&child.scope).unwrap().engine.canonical_bytes();
     drop(store);
 
-    // Recreate only the exact historical migration ledger and remove new derived
-    // tables. Accepted history, projections and actual retirement rows are intact.
-    let reference = rusqlite::Connection::open_in_memory().unwrap();
-    reference
-        .execute_batch(include_str!("../migrations/001_initial.sql"))
-        .unwrap();
-    reference
-        .execute_batch(include_str!("../migrations/002_derived_memory.sql"))
-        .unwrap();
-    reference
-        .execute_batch(include_str!("../migrations/003_branch_retention.sql"))
-        .unwrap();
-    let ledger: String = reference
-        .query_row(
-            "SELECT sql FROM sqlite_schema WHERE type='table' AND name='schema_migrations'",
-            [],
-            |row| row.get(0),
-        )
-        .unwrap();
-    let db = rusqlite::Connection::open(&path).unwrap();
-    db.execute_batch(&format!(
-        "BEGIN IMMEDIATE; DROP TABLE memory_job_packets; DROP TABLE memory_jobs; \
-         DROP TABLE schema_migrations; {ledger}; \
-         INSERT INTO schema_migrations VALUES \
-         (1,'locallore-storage-v1'),(2,'locallore-storage-v2-derived-memory'),\
-         (3,'locallore-storage-v3-branch-retention'); PRAGMA user_version=3; COMMIT;"
-    ))
-    .unwrap();
-    drop(db);
+    historical_schema::replace_current_fixture(&path, 3);
     let before = std::fs::read(&path).unwrap();
     let mut historical = Store::open_read_only(&path).unwrap();
     assert_eq!(historical.info().unwrap().schema_version, 3);

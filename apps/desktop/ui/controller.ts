@@ -1,6 +1,7 @@
 import { initialTrace, checkedTrace, attemptKey } from "./trace-model";
 import type { TraceQuery } from "./trace-model";
 import { initialQuery, checkedPage } from "./query-model";
+import { checkedPlaySnapshotV2 } from "./v2-view-model";
 import type { InspectionQuery, Source, Row } from "./query-model";
 import {
     category,
@@ -72,6 +73,7 @@ export class Controller {
         view: "play",
         observer: "player",
         play: null,
+        playV2: null,
         inspection: null,
         inspectionRevision: null,
         inspectionObserver: null,
@@ -514,6 +516,7 @@ export class Controller {
                 selectedId: session.id,
                 draft: "",
                 play: null,
+                playV2: null,
                 pending: null,
                 turnStatus: null,
                 receiptTurn: null,
@@ -564,6 +567,7 @@ export class Controller {
                 selectedId: session.id,
                 draft: "",
                 play: null,
+                playV2: null,
                 pending: null,
                 turnStatus: null,
                 receiptTurn: null,
@@ -597,6 +601,7 @@ export class Controller {
             selectedId: id,
             draft: this.drafts.get(id) ?? "",
             play: null,
+            playV2: null,
             pending: null,
             turnStatus: null,
             receiptTurn: null,
@@ -627,6 +632,7 @@ export class Controller {
             sessions,
             selectedId: sessions[0]?.id ?? null,
             play: null,
+            playV2: null,
             pending: null,
             turnStatus: null,
             draft: sessions[0] ? (this.drafts.get(sessions[0].id) ?? "") : "",
@@ -680,6 +686,47 @@ export class Controller {
                     session: session.id,
                     scope: session.scope,
                 })) as { revision: number };
+                if (this.gateway.playSnapshotV2) {
+                    const thin = checkedPlaySnapshotV2(
+                        await this.gateway.call({
+                            op: "play_snapshot_v2",
+                            session: session.id,
+                            scope: session.scope,
+                            expected_revision: open.revision,
+                        }),
+                        session.scope,
+                        open.revision,
+                    );
+                    if (
+                        !this.current({ session, epoch }) ||
+                        sequence !== this.readSequence ||
+                        (this.state.playV2 &&
+                            this.state.playV2.revision > thin.revision)
+                    )
+                        return;
+                    if (
+                        thin.domain_version === 2 ||
+                        thin.player.observer !== "player"
+                    ) {
+                        this.clearQuery();
+                        this.clearTrace();
+                        this.queryPatch({ shown: false });
+                        this.tracePatch({ shown: false });
+                        this.patch({
+                            play: null,
+                            playV2: thin,
+                            inspection: null,
+                            inspectionRevision: null,
+                            inspectionObserver: null,
+                            sessions: this.state.sessions.map((s) =>
+                                s.id === session.id
+                                    ? { ...s, revision: thin.revision }
+                                    : s,
+                            ),
+                        });
+                        return;
+                    }
+                }
                 const view = playView(
                     await this.gateway.call({
                         op: "play_snapshot",
@@ -708,6 +755,7 @@ export class Controller {
                 }
                 this.patch({
                     play: view,
+                    playV2: null,
                     sessions: this.state.sessions.map((s) =>
                         s.id === session.id
                             ? { ...s, revision: view.revision }
@@ -1970,9 +2018,10 @@ export class Controller {
     }
     semantic() {
         const s = this.state,
-            session = this.selected();
+            session = this.selected(),
+            play = s.play ?? s.playV2;
         return {
-            version: 1,
+            version: s.playV2 ? 2 : 1,
             query: s.query,
             trace: s.trace,
             model: s.model,
@@ -1982,7 +2031,7 @@ export class Controller {
             workspace: s.workspace,
             ephemeral: s.ephemeral,
             synthetic: true,
-            uiRevision: s.play?.revision ?? 0,
+            uiRevision: play?.revision ?? 0,
             view: s.view,
             session,
             observer: s.view === "play" ? "player" : s.observer,
@@ -1998,18 +2047,23 @@ export class Controller {
                           observer: s.inspectionObserver,
                           data: s.inspection,
                       },
-            rules: s.play?.rules ?? null,
-            player: s.play?.player ?? null,
-            inventory: s.play?.inventory ?? null,
-            transcript: {
-                page: s.page,
-                total: s.play?.receipts.length ?? 0,
-                rows:
-                    s.play?.receipts.slice(
-                        s.page * PAGE_SIZE,
-                        (s.page + 1) * PAGE_SIZE,
-                    ) ?? [],
-            },
+            rules: play?.rules ?? null,
+            player: play?.player ?? null,
+            inventory: play?.inventory ?? null,
+            transcript: s.playV2
+                ? {
+                      source: "query2",
+                      status: "owned_by_scoped_controller",
+                  }
+                : {
+                      page: s.page,
+                      total: s.play?.receipts.length ?? 0,
+                      rows:
+                          s.play?.receipts.slice(
+                              s.page * PAGE_SIZE,
+                              (s.page + 1) * PAGE_SIZE,
+                          ) ?? [],
+                  },
             draft: s.draft,
             diff: s.diff,
             diffRevision: s.diffRevision,
@@ -2035,6 +2089,7 @@ export class Controller {
             inspectionRevision: null,
             inspectionObserver: null,
             play: null,
+            playV2: null,
             sessions: [],
             selectedId: null,
             draft: "",

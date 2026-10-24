@@ -297,7 +297,7 @@ fn stored_intent_count_is_bounded_including_terminal_rows() {
         Intent::Actions(vec![Command::Wait { ticks: 1 }]),
     );
     let input = serde_json::to_string(&request).unwrap();
-    db.execute("WITH RECURSIVE ids(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM ids WHERE n<?1) INSERT INTO turns SELECT ?2,?3,'terminal-'||n,0,'cancelled',json_set(?4,'$.turn','terminal-'||n),NULL FROM ids", (MAX_HISTORY_RECEIPTS as i64, &request.scope.story, &request.scope.branch, input)).unwrap();
+    db.execute("WITH RECURSIVE ids(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM ids WHERE n<?1) INSERT INTO turns(story_id,branch_id,turn_id,expected_revision,status,request_json,response_json) SELECT ?2,?3,'terminal-'||n,0,'cancelled',json_set(?4,'$.turn','terminal-'||n),NULL FROM ids", (MAX_HISTORY_RECEIPTS as i64, &request.scope.story, &request.scope.branch, input)).unwrap();
     assert_eq!(store.resume(&request.scope).unwrap().engine.revision(), 0);
     assert!(matches!(
         store.begin_turn(&request),
@@ -346,7 +346,7 @@ fn replay_byte_budget_is_checked_before_loading_individual_requests() {
     assert!(input.len() < 24576);
     let rows = MAX_HISTORY_BYTES / input.len() + 1;
     assert!(rows < MAX_HISTORY_RECEIPTS);
-    fixture.sql().execute("WITH RECURSIVE ids(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM ids WHERE n<?1) INSERT INTO turns SELECT ?2,?3,'terminal-'||n,0,'failed',json_set(?4,'$.turn','terminal-'||n),NULL FROM ids", (rows as i64, &request.scope.story, &request.scope.branch, input)).unwrap();
+    fixture.sql().execute("WITH RECURSIVE ids(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM ids WHERE n<?1) INSERT INTO turns(story_id,branch_id,turn_id,expected_revision,status,request_json,response_json) SELECT ?2,?3,'terminal-'||n,0,'failed',json_set(?4,'$.turn','terminal-'||n),NULL FROM ids", (rows as i64, &request.scope.story, &request.scope.branch, input)).unwrap();
     assert!(matches!(
         store.resume(&request.scope),
         Err(TurnError::TooLarge)

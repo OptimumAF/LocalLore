@@ -18,6 +18,8 @@ use std::{
 };
 
 pub const HOST_VERSION: u16 = 1;
+mod author_port;
+pub use author_port::{HostAuthorPreparation, NativeAuthorPreparation, WorkspaceAuthorOutcomeV1};
 pub mod memory_maintenance;
 pub const MAX_INPUT: usize = 24_576;
 pub const MAX_OUTPUT: usize = 262_144;
@@ -175,6 +177,11 @@ pub enum HostCommand {
     },
     ModelStatus {},
     PlaySnapshot {
+        session: String,
+        scope: Scope,
+        expected_revision: u64,
+    },
+    PlaySnapshotV2 {
         session: String,
         scope: Scope,
         expected_revision: u64,
@@ -357,6 +364,28 @@ pub enum DraftDisposition {
     Stale,
 }
 pub trait Persistence: Send {
+    /// Native-only capability; legacy ports fail closed without a Store owner.
+    fn prepare_author_correction(
+        &mut self,
+        _input: &crate::author_correction::AuthorCorrectionInputV1,
+        _cancel: &dyn Fn() -> bool,
+    ) -> Result<Box<dyn NativeAuthorPreparation>, String> {
+        Err("Unsupported".into())
+    }
+    fn apply_author_correction(
+        &mut self,
+        _prepared: &dyn NativeAuthorPreparation,
+        _cancel: &dyn Fn() -> bool,
+    ) -> Result<WorkspaceAuthorOutcomeV1, String> {
+        Err("Unsupported".into())
+    }
+    fn lookup_author_correction(
+        &mut self,
+        _input: &crate::author_correction::AuthorCorrectionInputV1,
+        _cancel: &dyn Fn() -> bool,
+    ) -> Result<Option<WorkspaceAuthorOutcomeV1>, String> {
+        Err("Unsupported".into())
+    }
     fn begin_bound(
         &mut self,
         _request: &Request,
@@ -1373,6 +1402,9 @@ impl Host {
                     if !self.story_lab {
                         return reject("Forbidden");
                     }
+                    if s.engine.domain_version() != 1 {
+                        return reject("Version");
+                    }
                     ok(
                         json!({"scope":scope,"observer":observer,"revision":s.engine.revision(),"state":s.engine.state(),"receipts":s.engine.receipts()}),
                     )
@@ -1389,6 +1421,38 @@ impl Host {
                     }
                 }
             }
+            HostCommand::PlaySnapshotV2 {
+                session,
+                scope,
+                expected_revision,
+            } => {
+                if state.persistence.is_some() {
+                    if let Err(error) = refresh_session(state, &session, &scope) {
+                        return error;
+                    }
+                }
+                let selected = match get_session(state, &session, &scope) {
+                    Ok(selected) => selected,
+                    Err(error) => return error,
+                };
+                let engine = &selected.engine;
+                if expected_revision != engine.revision() {
+                    return reject("Stale");
+                }
+                let player = &engine.seed().player;
+                let inventory: BTreeMap<_, _> = engine
+                    .state()
+                    .items
+                    .iter()
+                    .filter(|(_, item)| &item.owner == player)
+                    .collect();
+                // Thin native player display only. History/observed facts use
+                // separately paged Query2; no context or private record is built.
+                ok(json!({"version":2,"domain_version":engine.domain_version(),
+                    "scope":engine.scope(),"revision":engine.revision(),"rules":engine.seed().profile,
+                    "player":{"observer":player,"self_state":engine.state().actors[player]},
+                    "inventory":inventory}))
+            }
             HostCommand::PlaySnapshot {
                 session,
                 scope,
@@ -1402,10 +1466,13 @@ impl Host {
                     return reject("Stale");
                 }
                 let player = &s.engine.seed().player;
-                let context = s
+                let context = match s
                     .engine
                     .character_context(player, &scope, expected_revision)
-                    .unwrap();
+                {
+                    Ok(context) => context,
+                    Err(error) => return reject(error),
+                };
                 let inventory: BTreeMap<_, _> = s
                     .engine
                     .state()

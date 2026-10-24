@@ -8,6 +8,16 @@ and [review](PLAY_REVIEW_2026-10-23.md).
 The later [captured-main compatibility proof](PLAY_COMPAT_VERIFICATION_2026-10-23.md)
 records a separate build and emulator cohort without rewriting the original.
 
+The [guarded SDK bridge tests](GUARDED_SDK_BRIDGE_TESTS_2026-10-23.md) carry the
+accepted prompt2.3 refinement through the same public native byte interface.
+Supported action grammar binds the exact Engine-preflighted command; actual
+provider bytes still undergo parsing, intent and mechanical validation. Earlier
+APK/model observations retain their original source identity. The separately
+[qualified prompt2.3 artifact](GUARDED_SDK_VERIFICATION_2026-10-23.md) returned a
+process-crash terminal without a structured SDK result in its one actual run;
+its native schema compatibility remains unqualified. The earlier `04eef96b...`
+artifact and its Agency rejection are prompt2.2 evidence.
+
 ## Build and run
 
 Use existing Windows Rust1.93.1, NDK29.0.14206865, Android SDK, cached Gradle
@@ -62,6 +72,18 @@ Terminal/drain and successful Conversation close, Engine close, native future
 completion and executor termination precede commit. Uncertain cleanup requires
 process termination and prohibits commit/reuse. Original request/key commit,
 exact retry and strict reopen keep canonical replay independent of inference.
+
+After a process crash without a structured result, canonical status remains
+unknown until validated recovery. The [read-only recovery helper](RECOVERY_VERIFICATION_2026-10-23.md)
+qualifies exact transport bytes before copying the fixed retained session and
+all present sidecars for strict Rust replay. It never retries generation,
+repairs the original database or uses cache growth as accepted-event evidence.
+
+The cache experiment also syncs a [private phase journal](SDK_PHASE_PROTOCOL_V1.md)
+before SDK boundaries. Failed diagnostic persistence blocks later SDK/commit
+entry while mandatory cleanup continues. A failed post-commit checkpoint
+requires canonical recovery; it cannot undo an accepted turn or justify an
+automatic retry.
 
 ## Bounds and evidence
 

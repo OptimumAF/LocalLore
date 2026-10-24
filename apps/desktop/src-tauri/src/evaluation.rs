@@ -62,14 +62,20 @@ mod tests {
         fs::remove_dir_all(path).unwrap();
     }
     fn done(m: &EvaluationManager, l: &WindowLease, e: u64, t: &str) -> Value {
-        for _ in 0..1000 {
+        // This is a fixture scheduling bound, not the native operation budget.
+        // The twelve real SQLite cases can exceed five seconds on Windows.
+        let deadline = Instant::now() + Duration::from_secs(30);
+        loop {
             let status = m.status(l, e, t).unwrap();
             if status["running"] == false {
                 return status;
             }
+            assert!(
+                Instant::now() < deadline,
+                "native evaluation did not reach boundary; last status: {status}"
+            );
             std::thread::sleep(Duration::from_millis(5));
         }
-        panic!("native evaluation did not reach boundary")
     }
     #[test]
     fn retirement_between_admission_and_registration_drains_without_running() {

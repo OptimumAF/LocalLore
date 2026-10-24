@@ -1,0 +1,190 @@
+{
+  "version": 1,
+  "scope": "guard_bound_android_sdk_integration",
+  "date": "2026-10-23",
+  "task_ids": [
+    "M01.03",
+    "M01.05"
+  ],
+  "status": "in_review_partial",
+  "source": {
+    "base_pr": 108,
+    "base_commit": "b85d1d4e494ef0e4f864fec5fda118d9eda07666",
+    "native_commit": "ba31932665eab2079c54a02a0182857f598fa0c4",
+    "controller_commit": "8e8d351296b2479aa6f2c3d7dca5918500133abb",
+    "accepted_schema_commit": "5138427ab7e5965315a1d937777bf38cf439b661",
+    "prompt_version": "locallore-play-v2.3",
+    "all_current_main_qualified": false
+  },
+  "artifact": {
+    "apk_bytes": 63650552,
+    "apk_sha256": "0cf4c253c41483973fd1578837d0ba147a7ed3d6d6cd8eb5818a989e185c09dd",
+    "raw_native": {
+      "x86_64": {
+        "bytes": 7672232,
+        "sha256": "515e4d25c99b0b428203407c1c6671784827fa16352b3f6348f1ae5dd6719f62"
+      },
+      "arm64_v8a": {
+        "bytes": 7519000,
+        "sha256": "f6a3f1714557658cb321d63da6163191f1d07e574b72d2c818a4571db81cda9a"
+      }
+    },
+    "fresh_compilation": true,
+    "apk_audits_passed": true,
+    "jni_exports_each": 5,
+    "elf_load_alignment_bytes": 16384,
+    "manifest_permissions": 0,
+    "arm64_executed": false
+  },
+  "runtime": {
+    "name": "LiteRT-LM",
+    "version": "0.18.1",
+    "source_commit": "bda624851d74be34d4e1f7fac1fc4155939539c7",
+    "backend": "CPU",
+    "threads": 4
+  },
+  "model": {
+    "bytes": 2588147712,
+    "sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+    "downloaded": false,
+    "uploaded": false,
+    "new_local_copy_this_packet": false
+  },
+  "budgets": {
+    "context_tokens": 4096,
+    "director_tokens": 350,
+    "narrator_tokens": 220,
+    "repair_count": 1,
+    "turn_ms": 60000,
+    "app_watchdog_ms": 90000,
+    "instrumentation_ms": 110000
+  },
+  "checks": {
+    "workspace_rust": {
+      "passed": 423,
+      "failed": 0,
+      "ignored": 4
+    },
+    "strict_workspace_all_targets_clippy": true,
+    "workspace_fmt": true,
+    "scripts_python": 264,
+    "benchmark_python": 140,
+    "sdk_helpers_python": 33,
+    "cache_focused_overlapping_scripts": 76,
+    "new_bridge_methods": 5,
+    "jvm": {
+      "tests": 73,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0
+    },
+    "lint": {
+      "errors": 0,
+      "warnings": 9
+    }
+  },
+  "retained_failures": [
+    "two pre-spawn qualification wrapper errors",
+    "180-second native-stage timeout with known cleanup",
+    "qualified build wrapper post-write wrong-key print failure",
+    "initial artifact-test fixture duplicate-keyword setup error",
+    "bridge author compile and assertion failures preserved in author report"
+  ],
+  "device_attempt": {
+    "attempts": 1,
+    "case": "gift",
+    "os": "Android 15",
+    "api": 35,
+    "abi": "x86_64",
+    "controller_status": "invalid_terminal",
+    "failure_stage": "terminal_parse",
+    "structured_result_present": false,
+    "terminal_short_message": "Process crashed.",
+    "instrumentation_code": 0,
+    "controller_check_passed": false,
+    "wall_ms": 97719,
+    "complete_turn_latency_qualified": false,
+    "schema_sdk_compatibility_qualified": false,
+    "generation_outcome": "unknown",
+    "sdk_owner_balance": "unknown",
+    "canonical_outcome": "unknown",
+    "process_absent": true,
+    "clients_cleaned": true,
+    "transport_valid": true,
+    "storage_checks_passed": true,
+    "cache_before_bytes": 788412804,
+    "cache_after_bytes": 1576825574,
+    "cache_growth_bytes": 788412770,
+    "fresh_per_session_cache": true,
+    "previous_caches_preserved": true,
+    "compiled_cache_reuse_qualified": false,
+    "inference_retries": 0
+  },
+  "evidence": {
+    "host": {
+      "index_bytes": 15197,
+      "index_sha256": "07f87229f0187228f38cd036941023fa5fbc59733d9f52197b419e6cee226528",
+      "files": 66,
+      "selected_bytes": 79096924
+    },
+    "bridge_author": {
+      "index_bytes": 4276,
+      "index_sha256": "629d920b6daec7d9f1bd89a52f15908eeea620d9e48ed21f4a1e8eb154eeb028",
+      "files": 25,
+      "selected_bytes": 15309
+    },
+    "raw_sdk_protocol_sha256": "d0f2b6dde1f8adfbf979931b20da5e7954c4ac5b83ad1796e34cdbc4214efcac",
+    "device": {
+      "index_bytes": 11269,
+      "index_sha256": "cad8d03fd87761aa2148f4fa17e276a1e401827941761949b8162b791ca8d76a",
+      "files": 66,
+      "selected_bytes": 905793
+    }
+  },
+  "limitations": [
+    "physical phone unavailable",
+    "A below userdata admission floor; read-only preservation only",
+    "process crash cause unestablished",
+    "no successful actual guarded turn",
+    "no physical latency, thermal, quality, sustained-session or production backend qualification",
+    "stacked unmerged prerequisite PR108",
+    "recovery transport payload omitted; only failed byte-control length/hash/status retained"
+  ],
+  "next_task": "Qualify and retain exact recovery transport bytes, then inspect the retained session read-only through strict Rust replay and bounded crash diagnostics; no automatic inference retry.",
+  "recovery": {
+    "status": "unavailable",
+    "stage": "tiny_binary_control",
+    "expected_bytes": 262,
+    "received_bytes": 1101,
+    "expected_sha256": "b905c1b82d628e1ce2d152af2a60f935d7b6cf3d471176b5638b7c2503d74b12",
+    "received_sha256": "efb98b9585466aa3f6e4d95b0e26219598248f8e0d81700f9915f333b328b2ac",
+    "client_returncode": 0,
+    "client_cleanup_complete": true,
+    "actual_received_payload_retained": false,
+    "db_metadata_read": false,
+    "db_copied": false,
+    "sqlite_opened": false,
+    "crash_log_read": false,
+    "inference_retried": false,
+    "helper_used_on_actual_db": false,
+    "synthetic_replay_helper_selfcheck_passed": true
+  },
+  "final_preservation": {
+    "status": "verified",
+    "inventory": {
+      "emulators": 7,
+      "other_devices": 0,
+      "selected_ready": true
+    },
+    "all_recorded_clients_clean": true,
+    "old_new_apps_absent": true,
+    "original_APKs_and_protected_metadata_preserved": true,
+    "host_free_bytes": {
+      "C": 4627820544,
+      "D": 330770919424
+    },
+    "A_userdata_free_bytes": 1057042432,
+    "B_userdata_free_bytes": 1738698752,
+    "device_model_reverified": true
+  }
+}

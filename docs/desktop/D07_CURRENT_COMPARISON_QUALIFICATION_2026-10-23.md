@@ -85,6 +85,7 @@ without gaining invented estimates or permission to resume under new source.
 | 39c770d, d07-dependency-oracle-lint-corrected.log / d07-historical-dependency-guard-corrected.log | Focused actual dependency regression **1 pass /11filtered**,1.99s; genuine historical inspect/resume test **1 pass**,3.46s. Old skips, source mismatch and every retained byte stay unchanged. |
 | 39c770d, corrected-prefix compatibility logs | Evaluator strict Clippy **pass**,6.14s; full frontend and frontend format **pass**; native normal **88 passes /1ignored**,18.53s (compile35.38s); native dev **92 passes /1ignored**,20.36s plus standalone2passes (compile28.52s); native strict Clippy **pass**,16.48s; normal native build **pass**,14.67s. These are Rust tests/build and synthetic/headless frontend checks, not a D07 WebView journey or model comparison. |
 | 39c770d, d07-compat-lint-corrected-android.log | **BUILD SUCCESSFUL**,11m42s, all78tasks executed. Fresh JNI x86_64 and arm64 builds,182JVM tests and APK/lint/static audit evidence below; no device execution. |
+| 39c770d, d07-real-owner-admission-refusal.log | Explicit opt-in native-owner refusal test **1 pass /39filtered**,8.38s. It proves refusal before comparison admission when the native runtime is already owned; no inference or model-quality result. |
 
 The original frozen Core declarations precede production (edf4d265 / contract
 03308ea1). The Core fix and evaluator closure were separately allocated and
@@ -100,7 +101,7 @@ PR's evidence and does not make the D07 comparison an author/Domain2 corpus.
 | comparison_runner + memory_comparison_v2 terminal batch | Complete:9runner+3protocol passes above. Initial seven-pass partial output was not counted as a completed result. |
 | Current Core/Host fixture and full compatibility checks | Host4, shared743/10 ignored, evaluator15/1 ignored, strict shared/eval/native lint, frontend/format, native normal88/1 ignored, dev92/1 ignored+standalone2, normal build and fresh Android compatibility all passed. No runtime/UI/model execution is inferred from build/unit evidence. |
 | Genuine historical complete-cohort opening | Passed actual opt-in test at 4a36b72; see precise inventory/old-field boundary below. |
-| Real local-model current comparison | Allocated in #29 comment6380754782; real-owner admission-refusal check active, no inference or completed comparison yet. No speed, memory-quality or enjoyment result inferred from scripted tests. |
+| Real local-model current comparison | First actual native paired scene completed:12structural passes/24roles,1of4scenes. Same-run resume and rollout pending; quality not accepted. Exact partial cohort below. |
 | Exact reproduction and environment | Completed commands below; fresh toolchain versions and terminal compatibility manifests recorded. Real-model command/result remains pending. The contract's suggested commands are not presented as executions. |
 
 ## Genuine historical read-only compatibility
@@ -235,6 +236,9 @@ and task-owned output init script:
 
 ```powershell
 java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain --offline --no-daemon --max-workers=1 --console=plain -Pandroid.builder.sdkDownload=false --init-script <owned-output-init.gradle> :app:testDebugUnitTest --rerun :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
+
+# Repository root; ANDROID_HOME points to the existing SDK:
+python scripts/audit_apk.py <owned-output-root>/_app/outputs/apk/debug/app-debug.apk
 ```
 
 Retained metadata hashes: d07-android-artifact-evidence.json (387 bytes)
@@ -250,11 +254,48 @@ original results manifest SHA-256 is
 corrected terminal results SHA-256 is
 `eb30f97ab005ad62e22a488be3126ae5592e75f8f34fced8309fb830e8dd0c06`.
 
+## Initial actual local-model scene; full comparisons pending
+
+Authorized allocation [#29 6380754782](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6380754782)
+runs at clean 39c770d. Local cohort
+`d07-current-native-d5e85003-0ffe-4d51-b13c-a3affe062a4c` first constructs a
+fresh **scripted** reference:24 attempts/21accepted/3guards/42roles, exit0.
+This is the bounded reference prerequisite, not native model-arm generation.
+
+Its first actual native PairedSnapshots process then exits0 with **12
+structural rows passed /24roles /1of4scenes**, elapsed323,466ms. All privacy
+checks are true, with no repairs/errors and maximum forwarded estimate3259.
+The process stderr is empty. These are finite partial actual-model observations;
+they do not qualify unexecuted scenes, rollout or statistical memory benefits.
+The same run is being resumed without retuning the original corpus or budgets.
+
+Quality remains **not accepted**. The coordinator observed generic forest
+narration unrelated to the actual Say utterance. A structural row pass is not
+a prose-quality pass, and no human-rubric acceptance is inferred. Actual
+model identity and source are bound to the retained report:
+
+| Partial native binding | SHA-256 / identity |
+| --- | --- |
+| Profile | qwen3-0.6b-q8-cpu-v1;4096/350/350;repair1;deadline120,000ms |
+| Model | `9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031` |
+| Profile manifest | `01ad542001b04a96f4a8ed6c841be1866eb025350836e0c5d0a4969fdb361d38` |
+| Runtime revision | `620d2225cc436ab0b001e3200e590e3b286ef9ab` |
+| Template | `57f1fd00f0013a2be96aa79b857391f27e23df5b5f847072b524c897e24d0361` |
+| Worker | `b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434` |
+
+Frozen initial-process evidence: paired-initial-process.json,271bytes,
+SHA-256`5ac69f2d365824356ec59573ccda3d32bdef597e5935080b946a3b54b277127c`;
+paired-initial-stdout.json,92,273bytes,
+SHA-256`46c7aa18723f6526f40328e1c9a5e6de5b3d5c11fc7247476be1df10ffa4cbdb`;
+paired-initial-stderr.log,0bytes,empty SHA-256
+`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+Mutable resumed reports are not frozen under these initial-output hashes.
+
 ## Retained log integrity
 
 Files are local/gitignored under `<evidence-root>/author-integration-artifacts`.
 No raw model weights, private paths or player stories are published. The
-following twenty-nine completed logs were hashed read-only; active logs are excluded.
+following thirty completed logs were hashed read-only; active logs are excluded.
 
 | Log | Bytes / SHA-256 |
 | --- | --- |
@@ -287,6 +328,7 @@ following twenty-nine completed logs were hashed read-only; active logs are excl
 | d07-compat-lint-corrected-native-build.log | 213 / `9379b6fba7552a75ab1eaa63d9d51d56ca8df52a192184865e80ad78a0a2ad49` |
 | d07-compat-lint-corrected-android.log | 6,099 / `6d64d75b81ddab62e6126fdf7db35ce9dab215502f051f401037d5b5cd286385` |
 | d07-apk-static-audit.log | 783 / `a2220741ab7d3170dc6f144e8b0c0d97b3b85457ef46d7bf0d6e0c76a8cef49f` |
+| d07-real-owner-admission-refusal.log | 595 / `594fca8a53b44db9f0d13fe3272d0ef9760ed3b619b60c731b377e3b454b3453` |
 
 No task checkbox, model-quality conclusion, historical report rewrite,
 PR acceptance, merge, release, repository setting or protected resource is

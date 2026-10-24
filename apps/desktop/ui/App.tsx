@@ -5,6 +5,11 @@ import { TimelinePanel } from "./TimelinePanel";
 import { ForkPanel } from "./ForkPanel";
 import { MemoryMaintenancePanel } from "./MemoryMaintenancePanel";
 import { BrokerRetentionPanel } from "./BrokerRetentionPanel";
+import { AuthorPanel } from "./AuthorPanel";
+import type { AuthorController } from "./author-controller";
+import type { AuthorContext } from "./author-model";
+import { V2PlayPanel } from "./V2PlayPanel";
+import type { V2PlayController } from "./v2-play-controller";
 import type { BrokerRetention } from "./broker-retention";
 import type {
     MemoryContext,
@@ -82,6 +87,9 @@ export function App({
     maintenance,
     maintenanceContext,
     brokerRetention,
+    author,
+    authorContext,
+    v2,
 }: {
     controller: Controller;
     capture?: CaptureController;
@@ -92,19 +100,23 @@ export function App({
     maintenance?: MemoryMaintenanceController;
     maintenanceContext?: () => MemoryContext | null;
     brokerRetention?: BrokerRetention;
+    author?: AuthorController;
+    authorContext?: () => AuthorContext | null;
+    v2?: V2PlayController;
 }) {
     const s = useSyncExternalStore(c.subscribe, c.get),
         selected = c.selected(),
         receipt = c.receipt();
     const receipts = s.play?.receipts ?? [],
         rows = receipts.slice(s.page * PAGE_SIZE, (s.page + 1) * PAGE_SIZE);
+    const play = s.play ?? s.playV2;
     return (
         <div
             className={`app text-${s.textScale} side-${s.sidebarSize} detail-${s.inspectorSize}`}
         >
             <a
                 href={
-                    s.trace.shown
+                    s.playV2 ? "#v2-play" : s.trace.shown
                         ? "#trace-controls"
                         : s.query.shown
                           ? "#memory-controls"
@@ -112,7 +124,7 @@ export function App({
                 }
                 className="skip"
             >
-                {s.trace.shown
+                {s.playV2 ? "Skip to current timeline" : s.trace.shown
                     ? "Skip to trace controls"
                     : s.query.shown
                       ? "Skip to memory controls"
@@ -151,7 +163,7 @@ export function App({
             </header>
             {s.labPending && <LabAcknowledgement controller={c} />}
             <div
-                className={`workspace ${s.inspectorOpen && !s.query.shown && !s.trace.shown ? "" : "collapsed"}`}
+                className={`workspace ${!s.playV2 && s.inspectorOpen && !s.query.shown && !s.trace.shown ? "" : "collapsed"}`}
             >
                 <aside className="sidebar" aria-label="Story sessions">
                     <h2>
@@ -244,8 +256,8 @@ export function App({
                                     "Not reported"}{" "}
                                 | Workspace contract{" "}
                                 {s.workspace.schema_version} | Domain contract
-                                domain-v1 | Rules{" "}
-                                {s.play?.rules ?? "unavailable"} | Canonical
+                                domain-v{ s.playV2?.domain_version ?? 1 } | Rules{" "}
+                                {play?.rules ?? "unavailable"} | Canonical
                                 receipts and validated replay
                             </p>
                         </details>
@@ -336,8 +348,8 @@ export function App({
                             className="scene-status"
                             aria-label="Engine status"
                         >
-                            <span>Revision {s.play?.revision ?? "—"}</span>
-                            <span>Rules: {s.play?.rules ?? "unavailable"}</span>
+                            <span>Revision {play?.revision ?? "—"}</span>
+                            <span>Rules: {play?.rules ?? "unavailable"}</span>
                             <span>
                                 Provider:{" "}
                                 {s.playMode === "local"
@@ -362,6 +374,19 @@ export function App({
                     )}
                     {brokerRetention && (
                         <BrokerRetentionPanel retention={brokerRetention} />
+                    )}
+                    {s.view === "lab" && s.playV2 && (
+                        <label>Inspection lens
+                            <select value={s.observer} onChange={event => c.setObserver(event.target.value)}>
+                                <option value="omniscient">Omniscient developer</option>
+                                <option value="player">Player history</option>
+                                <option value="mira">Mira</option>
+                                <option value="sable">Sable · unwitnessed</option>
+                            </select>
+                        </label>
+                    )}
+                    {author && authorContext && s.view === "lab" && (
+                        <AuthorPanel author={author} context={authorContext()} />
                     )}
                     {maintenance && maintenanceContext && selected && (
                         <MemoryMaintenancePanel
@@ -407,7 +432,19 @@ export function App({
                             allowed={s.view === "lab"}
                         />
                     )}
-                    {s.query.shown ? (
+                    {s.playV2 && v2 ? (
+                        <div id="v2-play" tabIndex={-1}>
+                            <ModelPanel controller={c} state={s} />
+                            <V2PlayPanel controller={v2} controls={{
+                                action: value => c.setAction(value),
+                                fakeMode: value => c.setFakeMode(value),
+                                playMode: value => c.setPlayMode(value),
+                                inputKind: value => c.setInputKind(value),
+                            }} />
+                            <p className="muted">Corrected timelines use scoped native views. Legacy debugger, inspection exports, archive transfer, timeline navigation and derived-memory maintenance remain unavailable for this domain version until their shared adapters support it.</p>
+                            <button disabled={!selected} onClick={() => void c.closeSession()}>Close session | keep save</button>
+                        </div>
+                    ) : s.query.shown ? (
                         <QueryInspector controller={c} state={s} />
                     ) : (
                         <>
@@ -736,7 +773,7 @@ export function App({
                         </>
                     )}
                 </main>
-                {s.inspectorOpen && !s.query.shown && !s.trace.shown && (
+                {!s.playV2 && s.inspectorOpen && !s.query.shown && !s.trace.shown && (
                     <aside
                         className="inspector"
                         aria-label="Revision inspector"

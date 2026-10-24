@@ -18,6 +18,8 @@ use std::{
 };
 
 pub const HOST_VERSION: u16 = 1;
+mod author_port;
+pub use author_port::{HostAuthorPreparation, NativeAuthorPreparation, WorkspaceAuthorOutcomeV1};
 pub mod memory_maintenance;
 pub const MAX_INPUT: usize = 24_576;
 pub const MAX_OUTPUT: usize = 262_144;
@@ -362,6 +364,28 @@ pub enum DraftDisposition {
     Stale,
 }
 pub trait Persistence: Send {
+    /// Native-only capability; legacy ports fail closed without a Store owner.
+    fn prepare_author_correction(
+        &mut self,
+        _input: &crate::author_correction::AuthorCorrectionInputV1,
+        _cancel: &dyn Fn() -> bool,
+    ) -> Result<Box<dyn NativeAuthorPreparation>, String> {
+        Err("Unsupported".into())
+    }
+    fn apply_author_correction(
+        &mut self,
+        _prepared: &dyn NativeAuthorPreparation,
+        _cancel: &dyn Fn() -> bool,
+    ) -> Result<WorkspaceAuthorOutcomeV1, String> {
+        Err("Unsupported".into())
+    }
+    fn lookup_author_correction(
+        &mut self,
+        _input: &crate::author_correction::AuthorCorrectionInputV1,
+        _cancel: &dyn Fn() -> bool,
+    ) -> Result<Option<WorkspaceAuthorOutcomeV1>, String> {
+        Err("Unsupported".into())
+    }
     fn begin_bound(
         &mut self,
         _request: &Request,

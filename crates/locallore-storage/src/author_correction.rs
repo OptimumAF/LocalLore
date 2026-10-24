@@ -30,6 +30,10 @@ impl PreparedStoreAuthorCorrection {
     pub fn preview_bytes(&self) -> &[u8] {
         &self.preview_bytes
     }
+    /// Readonly native admission fence; the captured source remains opaque.
+    pub fn matches_parent_basis(&self, basis: &AcceptedHistoryBasis) -> bool {
+        &self.parent == basis
+    }
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AuthorCorrectionOutcome {

@@ -12,10 +12,14 @@ class ModelPublicationResultTest {
         assertEquals(ModelPublicationResult.UNSUPPORTED, ModelPublicationResult.fromWire(2))
         assertEquals(ModelPublicationResult.IO_FAILURE, ModelPublicationResult.fromWire(3))
         assertEquals(ModelPublicationResult.INVALID_INPUT, ModelPublicationResult.fromWire(4))
+        assertEquals(ModelPublicationResult.SYMBOL_UNAVAILABLE, ModelPublicationResult.fromWire(5))
+        assertEquals(ModelPublicationResult.RENAME_INVALID, ModelPublicationResult.fromWire(6))
+        assertEquals(ModelPublicationResult.RENAME_UNAVAILABLE, ModelPublicationResult.fromWire(7))
+        assertEquals(ModelPublicationResult.RENAME_UNSUPPORTED, ModelPublicationResult.fromWire(8))
     }
 
     @Test fun unknownWireCodesIncludingIntegerExtremesRemainUnknown() {
-        listOf(Int.MIN_VALUE, -65_536, -1, 5, 65_536, Int.MAX_VALUE).forEach { code ->
+        listOf(Int.MIN_VALUE, -65_536, -1, 9, 65_536, Int.MAX_VALUE).forEach { code ->
             assertEquals(ModelPublicationResult.UNKNOWN, ModelPublicationResult.fromWire(code))
             assertFailure(LocalModelFailure.STORAGE) { ModelPublicationResult.fromWire(code).requirePublished() }
         }
@@ -30,6 +34,10 @@ class ModelPublicationResultTest {
         assertFailure(LocalModelFailure.STORAGE) { ModelPublicationResult.fromWire(2).requirePublished() }
         assertFailure(LocalModelFailure.STORAGE) { ModelPublicationResult.fromWire(3).requirePublished() }
         assertFailure(LocalModelFailure.UNSAFE_PATH) { ModelPublicationResult.fromWire(4).requirePublished() }
+        assertFailure(LocalModelFailure.STORAGE) { ModelPublicationResult.fromWire(5).requirePublished() }
+        assertFailure(LocalModelFailure.STORAGE) { ModelPublicationResult.fromWire(6).requirePublished() }
+        assertFailure(LocalModelFailure.STORAGE) { ModelPublicationResult.fromWire(7).requirePublished() }
+        assertFailure(LocalModelFailure.STORAGE) { ModelPublicationResult.fromWire(8).requirePublished() }
         assertFailure(LocalModelFailure.STORAGE) { ModelPublicationResult.UNKNOWN.requirePublished() }
     }
 
@@ -39,6 +47,10 @@ class ModelPublicationResultTest {
             ModelPublicationResult.UNSUPPORTED to LocalModelFailure.STORAGE,
             ModelPublicationResult.IO_FAILURE to LocalModelFailure.STORAGE,
             ModelPublicationResult.INVALID_INPUT to LocalModelFailure.UNSAFE_PATH,
+            ModelPublicationResult.SYMBOL_UNAVAILABLE to LocalModelFailure.STORAGE,
+            ModelPublicationResult.RENAME_INVALID to LocalModelFailure.STORAGE,
+            ModelPublicationResult.RENAME_UNAVAILABLE to LocalModelFailure.STORAGE,
+            ModelPublicationResult.RENAME_UNSUPPORTED to LocalModelFailure.STORAGE,
             ModelPublicationResult.UNKNOWN to LocalModelFailure.STORAGE,
         )
         ModelPublicationResult.values().forEach { result ->

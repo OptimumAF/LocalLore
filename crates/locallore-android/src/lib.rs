@@ -9,6 +9,8 @@ mod archive_jni;
 mod external_inference;
 #[cfg(all(feature = "model-provisioning", target_os = "android"))]
 mod model_publication;
+#[cfg(any(test, all(feature = "model-provisioning", target_os = "android")))]
+mod model_publication_status;
 mod play_fixture;
 #[cfg(feature = "play-probe")]
 pub mod play_probe;

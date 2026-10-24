@@ -226,6 +226,14 @@ token. Its [verification](SDK_PHASE_VERIFICATION_2026-10-23.md) uses a separate
 no-model self-kill/read package before another SDK control. A last checkpoint
 and an OS exit reason do not establish canonical outcomes or a crash cause.
 
+The [stopped-session SDK reader](TRACED_SDK_PROTOCOL_V1.md) exposes that journal
+through the cacheprobe's distinct `read_phase` operation before any model or
+volume setup. A caller-persisted nonce binds one play attempt to one readback.
+The host requires original-process absence and the qualified new APK, retains
+raw output first, then stops and verifies the reader before snapshot recovery.
+See its [dated verification](TRACED_SDK_VERIFICATION_2026-10-23.md) for actual
+artifact, device and canonical replay evidence.
+
 The native [process owner](../../../benchmarks/spike/android/controller/README.md)
 owns/reaps one trusted direct child. An ADB-client exit is never native cleanup
 evidence. Package termination is limited to the hash-verified isolated SDK app;

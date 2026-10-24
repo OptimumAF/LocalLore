@@ -207,7 +207,8 @@ def verify_installation(proposal):
         check_binding(item)
 
 
-def plan_prepare(root, sdk, java_home, output):
+def plan_prepare(root, sdk, java_home, output, real_candidate=False):
+    require(type(real_candidate) is bool, "invalid_profile")
     require(os.name == "nt", "windows_required")
     p = paths(root)
     require(Path(root).drive.upper() == "D:" and not Path(root).exists(), "target_exists")
@@ -224,9 +225,9 @@ def plan_prepare(root, sdk, java_home, output):
                 "old_avd": old_registry_snapshot(),
                 "bindings": [binding(x) for x in sorted(set(files))],
                 "userdata_mib": 12288, "sdcard_mib": 8192,
-                "memory_mib": 2048, "cores": 2,
+                "memory_mib": 8192 if real_candidate else 2048, "cores": 2,
                 "host_free_min": {"C:": 16 * GIB, "D:": 40 * GIB},
-                "host_available_memory_min": 4 * GIB,
+                "host_available_memory_min": (12 if real_candidate else 4) * GIB,
                 "allow_environment_calls": False, "root_go_pending": True}
     create_json(output, proposal)
     return proposal
@@ -242,7 +243,7 @@ def validate_proposal(proposal, phase):
             proposal["phase"] == phase and proposal["avd_name"] == NAME and
             proposal["serial"] == "emulator-5592" and proposal["console_port"] == PORT and
             proposal["userdata_mib"] == 12288 and proposal["sdcard_mib"] == 8192 and
-            proposal["memory_mib"] == 2048 and proposal["cores"] == 2 and
+            proposal["cores"] == 2 and
             proposal["allow_environment_calls"] is False and proposal["root_go_pending"] is True,
             "invalid_proposal")
     require(proposal["paths"] == paths(proposal["paths"]["root"]) and
@@ -251,7 +252,9 @@ def validate_proposal(proposal, phase):
             "invalid_proposal")
     require(proposal["token"]["path"] == token_path(), "console_token_unavailable")
     require(proposal["host_free_min"] == {"C:": 16 * GIB, "D:": 40 * GIB} and
-            proposal["host_available_memory_min"] == 4 * GIB, "invalid_proposal")
+            type(proposal["memory_mib"]) is int and type(proposal["host_available_memory_min"]) is int and
+            (proposal["memory_mib"], proposal["host_available_memory_min"]) in
+            ((2048, 4 * GIB), (8192, 12 * GIB)), "invalid_proposal")
     items = proposal["bindings"]
     require(isinstance(items, list) and len({x["path"] for x in items}) == len(items), "invalid_proposal")
     required = {str(Path(__file__).resolve()), str(Path(host.__file__).resolve()), proposal["adb_path"],
@@ -329,7 +332,7 @@ def emulator_command(proposal):
     return [str(sdk / "emulator/emulator.exe"), "-avd", NAME, "-sysdir",
             str(sdk / "system-images/android-35/google_apis/x86_64"), "-datadir", str(content),
             "-data", str(content / "userdata-qemu.img"), "-sdcard", str(content / "sdcard.img"),
-            "-memory", "2048", "-cores", "2", "-ports", "5592,5593",
+            "-memory", str(proposal["memory_mib"]), "-cores", "2", "-ports", "5592,5593",
             "-no-window", "-no-audio", "-no-boot-anim", "-no-snapshot", "-no-snapshot-save",
             "-no-metrics", "-accel", "on", "-gpu", "swiftshader_indirect"]
 
@@ -346,8 +349,9 @@ def ini(data):
     return result
 
 
-def normalize_generated_config(original, registry_bytes, content):
+def normalize_generated_config(original, registry_bytes, content, memory_mib=2048):
     """Only the known installed CLI profile, confined to this newly created AVD."""
+    require(type(memory_mib) is int and memory_mib in (2048, 8192), "invalid_profile")
     require(len(original) <= 262144 and len(registry_bytes) <= 65536, "invalid_config")
     values, registry = ini(original), ini(registry_bytes)
     require(registry == {"avd.ini.encoding": "UTF-8", "path": str(content), "target": "android-35"},
@@ -365,7 +369,7 @@ def normalize_generated_config(original, registry_bytes, content):
     values.update({"AvdId": NAME, "avd.id": NAME, "avd.name": NAME,
                    "disk.dataPartition.path": str(content / "userdata-qemu.img"),
                    "disk.dataPartition.size": "12G", "disk.cachePartition.path": str(content / "cache.img"),
-                   "hw.ramSize": "2048", "hw.cpu.ncore": "2", "hw.sdCard": "yes",
+                   "hw.ramSize": str(memory_mib), "hw.cpu.ncore": "2", "hw.sdCard": "yes",
                    "sdcard.path": str(content / "sdcard.img"), "sdcard.size": "8192M",
                    "fastboot.forceColdBoot": "yes", "fastboot.forceFastBoot": "no",
                    "fastboot.forceChosenSnapshotBoot": "no", "firstboot.bootFromDownloadableSnapshot": "no",
@@ -430,7 +434,7 @@ def prepare_contents(proposal, proposal_path, authorization_path, admitted_sha):
     config = safe_path(content / "config.ini")
     original = config.read_bytes()
     registry = safe_path(Path(proposal["paths"]["registry"]) / (NAME + ".ini"))
-    normalized = normalize_generated_config(original, registry.read_bytes(), content)
+    normalized = normalize_generated_config(original, registry.read_bytes(), content, proposal["memory_mib"])
     require(not safe_path(content / "userdata-qemu.img", exists=False).exists() and
             8 * GIB <= safe_path(content / "sdcard.img").stat().st_size <= 8 * GIB + 1024 * 1024,
             "invalid_initial_disks")
@@ -836,12 +840,14 @@ def main(argv=None):
                                           "_prepare-worker", "_run-worker"))
     for name in ("proposal", "authorization", "root", "sdk", "java-home", "output", "prepared"):
         parser.add_argument("--" + name)
+    parser.add_argument("--real-model-candidate", action="store_true")
     args = parser.parse_args(argv)
     try:
+        require(not args.real_model_candidate or args.phase == "plan-prepare", "invalid_profile")
         if args.phase.startswith("_"):
             return worker(args.phase)
         if args.phase == "plan-prepare":
-            plan_prepare(args.root, args.sdk, args.java_home, args.output)
+            plan_prepare(args.root, args.sdk, args.java_home, args.output, real_candidate=args.real_model_candidate)
         elif args.phase == "prepare":
             prepare(args.proposal, args.authorization)
         elif args.phase == "plan-run":

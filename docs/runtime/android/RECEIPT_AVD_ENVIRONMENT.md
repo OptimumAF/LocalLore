@@ -39,6 +39,17 @@ python -B benchmarks/receipt_avd_environment.py run \
   --proposal <private-run-proposal.json> --authorization <run-authorization.json>
 ```
 
+The default planning profile retains 2048 MiB RAM and a 4 GiB minimum of
+available host memory. A separately admitted real-candidate environment can be
+planned with `--real-model-candidate` on `plan-prepare`, or with
+`plan_prepare(root, sdk, java_home, output, real_candidate=True)`. That closed
+profile assigns 8192 MiB RAM and requires 12 GiB available host memory (8 GiB
+allocation plus 4 GiB spare). No other RAM/floor pair is accepted, and the flag
+is rejected on every other phase before dispatch. The proposal schema stays
+unchanged; the existing `memory_mib` and `host_available_memory_min` fields bind
+the selected pair through prepare and run. Selecting this profile neither
+authorizes execution nor establishes actual guest capacity or model support.
+
 The displayed paths are examples for this host; quote arguments containing spaces.
 Planning reads installed files and creates only the requested new proposal file.
 It creates no AVD. Root reviews each immutable proposal before creating its
@@ -55,13 +66,14 @@ prevent a second execution. A failure preserves newly created files for review;
 the helper has no repair, retry, overwrite-existing-target, or deletion command.
 
 Prepare freshly measures available host memory and C/D free bytes. Its fixed
-floors are 4 GiB available memory, 16 GiB C free, and 40 GiB D free; these are
+floors are the profile's 4 or 12 GiB available memory, 16 GiB C free, and 40 GiB D free; these are
 boundary observations, not reservations against other host processes. It uses
 the pinned JDK directly to call the installed `AvdManagerCli`, avoiding shell
 interpolation, inherited Java options and default registries. It supplies `no`
 to the custom-profile prompt and creates a new 8192 MiB SD image. It retains the
 generated config before editing only that new config for 12 GiB userdata,
-2048 MiB RAM and two CPUs. It never uses `--force`, `-wipe-data`, an old disk,
+the admitted profile's 2048 or 8192 MiB RAM and two CPUs. The owned launcher
+uses the same admitted RAM value. It never uses `--force`, `-wipe-data`, an old disk,
 or a snapshot.
 
 Prepare pins all files in the installed emulator, command-line tools, platform

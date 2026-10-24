@@ -303,6 +303,24 @@ The read-only selection contains 35 files / 106,929 bytes. Its 5,592-byte index
 has SHA-256 `9241369740d4829ef2175f60a23f89595bc91890cda2b7f635478010496e3bd2`.
 All 72 bindings and nine raw records rehashed without mismatch; selected files
 and index are read-only, and the lease was released after terminal and seal.
-A fresh exact disposable test-host cleanup proposal is prepared but disabled;
-its 34 pure fixtures passed. It requires new root review/admission before any
-device action. Root's storage-operation investigation continues independently.
+A fresh exact disposable test-host cleanup proposal was prepared separately;
+its 34 pure fixtures passed before the new admission below. Root's
+storage-operation investigation continues independently.
+
+Root then admitted exactly one cleanup for that newly captured test process,
+after rehashing all 23 bindings. Authorization SHA-256:
+`ab865e7293a0071376ac8c9b3ae63efe72cba9a8628e17931c154a2fd0070b28`.
+It completed before the first yield, return code zero, known cleanup and
+7,468 ms elapsed. All 15 clients completed with return code zero, known cleanup
+and zero stderr bytes. Fresh PID/UID/package metadata matched the captured test
+host; it was stopped once. Subsequent observation found no LocalLore process and
+the same complete 31-package map. Userdata available was 1,465,200,640 bytes both
+before and after, above the original floor; host floors passed. No application
+stop, installation, instrumentation, model or A operation occurred.
+
+The cleanup selection contains 51 files / 130,004 bytes; its 8,170-byte index has
+SHA-256 `957435d934b517901b6512f02a4842e80ad099f8da7055966990dbe8309f63fa`.
+All 23 bindings and 15 raw records rehashed without mismatch; selected files and
+index are read-only, and the lease was released. This is a new observed cleanup
+baseline for any future admission. Neither failed instrumentation cohort was
+resumed or qualified, and no further device action is authorized by this cleanup.

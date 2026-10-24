@@ -7,12 +7,11 @@ import java.io.File
 internal object NativeModelPublication {
     init { System.loadLibrary("locallore_android") }
 
-    fun publish(root: File) {
-        when (publishNoReplace(root.path.toByteArray(Charsets.UTF_8))) {
-            0 -> Unit
-            1, 4 -> throw LocalModelException(LocalModelFailure.UNSAFE_PATH)
-            else -> throw LocalModelException(LocalModelFailure.STORAGE)
-        }
+    fun publish(root: File) = publish(root) {}
+
+    fun publish(root: File, onResult: (ModelPublicationResult) -> Unit) {
+        ModelPublicationResult.fromWire(publishNoReplace(root.path.toByteArray(Charsets.UTF_8)))
+            .requirePublished(onResult)
     }
 
     private external fun publishNoReplace(root: ByteArray): Int

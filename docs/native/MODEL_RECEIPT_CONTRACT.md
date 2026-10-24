@@ -3,6 +3,10 @@
 Status: proposed host protocol for M05.05/M01.05; unwired to Android adapters or
 runtime. See [ADR0011](../adr/0011-model-receipt-transaction.md).
 
+An isolated [Android qualification fixture](MODEL_RECEIPT_ANDROID_PROTOCOL.md)
+may exercise this same class under real Context/volume guards. It does not wire
+the class into model setup or runtime, or qualify an unexecuted device gate.
+
 ## Interface and authority
 
 `ReceiptModelTransaction(controlRoot, dataRoot, identity, availableBytes,

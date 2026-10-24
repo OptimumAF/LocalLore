@@ -1,6 +1,7 @@
 # ADR-0011: Prove model publication through an exclusive acceptance receipt
 
-Status: proposed, host proof only; Android qualification and owner acceptance pending.
+Status: proposed, host proof and partial Android checks; complete Android
+qualification and owner acceptance pending.
 Refs #9 (M05.05 prerequisite), #5 (M01.05 supporting).
 
 ## Context
@@ -72,3 +73,14 @@ shortfall and all reserves remain independent; this protocol cannot manufacture
 space. Do not copy a real model until those gates and destination authority are
 established. No phone, ARM64, 16 KiB, SDK, model quality, cache confidentiality,
 power-loss or sustained-runtime result follows from this host proof.
+
+## Partial Android observation — 2026-10-24
+
+An isolated volume-debug fixture passed accept/reopen, cancellation across
+acceptance and foreign/incomplete-data refusal on one API35 x86_64 emulator.
+Its fourth process-death method failed at the remote START acknowledgment.
+The separately reviewed synchronous Binder check correction compiles; a fresh
+v2 run is blocked by APK staging headroom above unchanged userdata floors.
+Read-only recovery verified three historical proofs and current quiet package
+state, not process-death acceptance. No active setup route or fallback changed.
+See [actual verification and remaining gates](../native/MODEL_RECEIPT_ANDROID_VERIFICATION_2026-10-24.md).

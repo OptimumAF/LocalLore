@@ -49,7 +49,9 @@ external source can select an operation. Binder token:
 - SNAPSHOT (2): after writeNoException, state int IDLE=0/RUNNING=1/
   DATA_FORCED=2/FAILED=3, PID int, UID int, start elapsed realtime long.
 - HALT (3): validate held DATA_FORCED/identity, atomically arm self-halt and
-  return acknowledgment 1. This acknowledgment does not prove death.
+  return acknowledgment 1 only while at least ten seconds remain before the
+  hold deadline. Parent binding release/death observation is bounded to five
+  seconds. This acknowledgment does not prove death.
 
 The parent links a death recipient to that exact binder, proves distinct PID
 and same UID, validates actual pending files, and proves all three competing
@@ -103,10 +105,12 @@ reacquisition and source-free verified acceptance. Every check must be true.
 The device controller starts disabled, binds exact source/artifact hashes and a
 fresh admission, owns/bounds all client processes, and permits only the planned
 app/test pair update. Preserve prior APK hashes/UIDs outside that pair and all
-UIDs including the pair. No force-stop, clear, uninstall, old-root cleanup,
+UIDs including the pair. No explicit controller force-stop, clear, uninstall, old-root cleanup,
 emulator/storage creation, model copy or SDK call. Require final own app/test/
 service/provider absence. Known unrelated chooser providers may only be
 classified against exact installed UID evidence, never acted on; unknown state
 refuses. Report actual counts rather than claiming passive absence by assumption.
+Ordinary instrumentation/framework setup may restart its target; controller
+command counts are not evidence that Android made no lifecycle changes.
 Existing A/#117/#119, capacity, physical-phone/ARM64/16 KiB, cache privacy and
 model-quality gates remain independent.

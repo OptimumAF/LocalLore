@@ -305,6 +305,8 @@ struct Observation<'a> {
     trace: Option<Value>,
     admission: Option<usize>,
     elapsed_ms: u64,
+    first_final_response_ms: Option<u64>,
+    commit_elapsed_ms: Option<u64>,
     profile: &'a PlayProfile,
     recovered: bool,
 }
@@ -323,6 +325,8 @@ fn make_row(observation: Observation<'_>) -> Result<TurnReportV2> {
         trace,
         admission,
         elapsed_ms,
+        first_final_response_ms,
+        commit_elapsed_ms,
         profile,
         recovered,
     } = observation;
@@ -434,6 +438,39 @@ fn make_row(observation: Observation<'_>) -> Result<TurnReportV2> {
         .and_then(|r| r.context.as_ref())
         .and_then(|c| serde_json::to_value(c.coverage.set_fallback_reason).ok())
         .and_then(|v| v.as_str().map(str::to_owned));
+    let mut failures = Vec::new();
+    if !expected_ok {
+        failures.push(
+            match error.as_deref() {
+                Some("Agency") => "player_agency",
+                Some("Stale" | "Scope") => "stale_source",
+                Some("Malformed" | "Provider" | "TooLarge") => "provider_or_parse",
+                _ if phase == "not_run_dependency" => "not_run_dependency",
+                _ => "scenario_outcome",
+            }
+            .into(),
+        );
+    }
+    if !policy_matches && !guard {
+        failures.push("no_matching_current_policy_receipt".into());
+    }
+    if !evidence_available {
+        failures.push("context_evidence_unavailable".into());
+    }
+    if !privacy {
+        failures.push("observer_or_output_privacy".into());
+    }
+    if recovered {
+        failures.push("unknown_historical_calls_and_checkpoint".into());
+    }
+    if recording.is_some_and(|r| r.lost) {
+        failures.push("recording_loss".into());
+    }
+    let quality_flags = if record.is_some_and(|r| r.fallback) {
+        vec!["narration_fallback_no_quality_acceptance".into()]
+    } else {
+        vec![]
+    };
     Ok(TurnReportV2 {
         turn: step.id().into(),
         scene: step.scene(),
@@ -448,11 +485,15 @@ fn make_row(observation: Observation<'_>) -> Result<TurnReportV2> {
             && privacy
             && !recovered
             && recording.is_none_or(|r| !r.lost),
+        failures,
+        quality_flags,
         roles,
         roles_known: !recovered,
         recovered_without_checkpoint: recovered,
         admission,
         elapsed_ms,
+        first_final_response_ms,
+        commit_elapsed_ms,
         input_semantic_sha256: v2::semantic_input(before, &request)?,
         output_semantic_sha256: v2::semantic_output(after)?,
         mechanical_sha256: v2::mechanical_output(after)?,
@@ -570,6 +611,8 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
             trace: None,
             admission: None,
             elapsed_ms: 0,
+            first_final_response_ms: None,
+            commit_elapsed_ms: None,
             profile: &factory.profile()?,
             recovered: true,
         })?;
@@ -606,6 +649,8 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
             trace: None,
             admission: None,
             elapsed_ms: 0,
+            first_final_response_ms: None,
+            commit_elapsed_ms: None,
             profile: &profile,
             recovered: false,
         })?;
@@ -735,9 +780,13 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
     if cancel.is_cancelled() || started.elapsed() >= Duration::from_millis(limit) {
         reply = op(&host, &session, before.scope(), step.id(), "cancel");
     }
+    let mut commit_elapsed_ms = None;
     if reply["data"]["phase"] == "ready" {
+        let committed = Instant::now();
         reply = op(&host, &session, before.scope(), step.id(), "commit");
+        commit_elapsed_ms = Some(committed.elapsed().as_millis().min(u64::MAX as u128) as u64);
     }
+    let response_ms = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
     watchdog.finish()?;
     // Exact durable outcome wins over an acknowledgment error or late cancel.
     let mut actual = Store::open_read_only(path).map_err(|_| "Workspace")?;
@@ -767,6 +816,28 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
     ) {
         return Err("TransportUnknown".into());
     }
+    let first_final_response_ms = Some(
+        if reply["data"]["phase"] == "committed"
+            || reply["status"] == "rejected"
+            || matches!(
+                reply["data"]["phase"].as_str(),
+                Some("failed" | "cancelled" | "stale")
+            )
+        {
+            response_ms
+        } else {
+            started.elapsed().as_millis().min(u64::MAX as u128) as u64
+        },
+    );
+    let committed_trace = call(
+        &host,
+        json!({"op":"trace_read","session":session,"scope":request.scope,"expected_head":after.revision(),"base_revision":request.expected_revision,"observer":{"kind":"player"},"turn":request.turn,"attempt":null}),
+    );
+    let trace = if committed_trace["status"] == "ok" {
+        Some(committed_trace["data"]["snapshot"].clone())
+    } else {
+        trace
+    };
     let elapsed = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
     let row = make_row(Observation {
         step,
@@ -782,6 +853,8 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
         trace,
         admission: Some(admission),
         elapsed_ms: elapsed,
+        first_final_response_ms,
+        commit_elapsed_ms,
         profile: &profile,
         recovered: false,
     })?;
@@ -917,6 +990,8 @@ fn load_turn(
         trace: stored.row.trace.clone(),
         admission: stored.row.admission,
         elapsed_ms: stored.row.elapsed_ms,
+        first_final_response_ms: stored.row.first_final_response_ms,
+        commit_elapsed_ms: stored.row.commit_elapsed_ms,
         profile,
         recovered: stored.row.recovered_without_checkpoint,
     })?;
@@ -1567,6 +1642,14 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV2> {
         }
         setups.push(setup);
     }
+    for setup in &setups {
+        if setup.status == "failed" {
+            unavailable.push(format!(
+                "native_setup_failed_invocation:{}",
+                setup.left_invocation
+            ));
+        }
+    }
     let native: Vec<_> = setups.iter().filter(|s| s.native).collect();
     let physical_setup_ms = if native.is_empty() {
         None
@@ -1623,6 +1706,7 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV2> {
         suite_sha256: manifest.binding.suite_sha256,
         source_sha256: manifest.source_sha256,
         reference_sha256: manifest.reference_sha256,
+        limitations:vec!["Synthetic 24-attempt finite-intent suite, not general prose comprehension.".into(),"Both selectors feed Director; narrator deliberately receives only Core-grounded outcomes/observations, no optional history.".into(),"Diagnostic capture/checkpoint overhead is included in observed desktop turn cost; this is not a phone measurement.".into(),"Hashes detect drift and bind retained data; they do not authenticate adversarially rewritten evaluation evidence.".into(),"No human enjoyment/distinctiveness/repetition review has been performed.".into()],
     })
 }
 fn reference_digest(

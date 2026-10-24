@@ -123,11 +123,15 @@ pub struct TurnReportV2 {
     pub error: Option<String>,
     pub expected: String,
     pub passed: bool,
+    pub failures: Vec<String>,
+    pub quality_flags: Vec<String>,
     pub roles: usize,
     pub roles_known: bool,
     pub recovered_without_checkpoint: bool,
     pub admission: Option<usize>,
     pub elapsed_ms: u64,
+    pub first_final_response_ms: Option<u64>,
+    pub commit_elapsed_ms: Option<u64>,
     pub input_semantic_sha256: String,
     pub output_semantic_sha256: String,
     pub mechanical_sha256: String,
@@ -192,6 +196,7 @@ pub struct ComparisonReportV2 {
     pub suite_sha256: String,
     pub source_sha256: String,
     pub reference_sha256: Option<String>,
+    pub limitations: Vec<String>,
 }
 
 /// Private evidence validated against the actual Host capture and recording envelope.

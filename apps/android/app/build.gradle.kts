@@ -31,6 +31,9 @@ val modelVolume = providers.gradleProperty("localLoreModelVolumeVerification").o
 require(modelVolume == null || modelVolume == "true") { "Model volume verification must be explicitly true or absent." }
 require(modelVolume != "true" || modelSetup == "true") { "Model volume verification requires model setup and LiteRT candidate profiles." }
 require(modelVolume != "true" || modelPicker != "true") { "Model volume and picker fixtures are separate installations." }
+val modelReceipt = providers.gradleProperty("localLoreModelReceiptVerification").orNull
+require(modelReceipt == null || modelReceipt == "true") { "Model receipt verification must be explicitly true or absent." }
+require(modelReceipt != "true" || modelVolume == "true") { "Model receipt verification requires the explicit model volume, setup and LiteRT profiles." }
 if (liteRt == "true") {
     val workerBytes = file("src/litert/java/org/locallore/app/LiteRtRoleWorker.kt").readText()
         .replace("\r\n", "\n").toByteArray(Charsets.UTF_8)
@@ -102,6 +105,7 @@ require(archiveCapacity != "true" || gradle.startParameter.taskNames.none { it.c
 }
 if (liteRt == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir(when {
+        modelReceipt == "true" -> "build-model-receipt"
         modelVolume == "true" -> "build-model-volume"
         modelPicker == "true" -> "build-model-picker"
         else -> "build-litert-worker"
@@ -214,6 +218,7 @@ android {
 
     defaultConfig {
         buildConfigField("boolean", "MODEL_VOLUME_VERIFICATION", (modelVolume == "true").toString())
+        buildConfigField("boolean", "MODEL_RECEIPT_VERIFICATION", (modelReceipt == "true").toString())
         applicationId = when {
             capacityTest -> "org.locallore.app.capacityv4"
             reliefFaultTest -> "org.locallore.app.capacityfaultsv4"
@@ -249,6 +254,11 @@ android {
             sourceSets["debug"].java.srcDir("src/modelVolume/java")
             sourceSets["debug"].manifest.srcFile("src/modelVolume/AndroidManifest.xml")
             sourceSets["androidTest"].java.srcDir("src/modelVolumeAndroidTest/java")
+            if (modelReceipt == "true") {
+                sourceSets["debug"].java.srcDir("src/modelReceipt/java")
+                sourceSets["debug"].manifest.srcFile("src/modelReceipt/AndroidManifest.xml")
+                sourceSets["androidTest"].java.srcDir("src/modelReceiptAndroidTest/java")
+            }
         }
         if (modelPicker == "true") {
             sourceSets["debug"].java.srcDir("src/modelPicker/java")

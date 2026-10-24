@@ -14,6 +14,10 @@ import zipfile
 
 PERMISSION = "org.locallore.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
 ABIS = {"x86_64": 62, "arm64-v8a": 183}
+RECEIPT_SETUP_ACTIVITIES = (
+    "ReceiptSetupAcceptActivity", "ReceiptSetupCancelBeforeActivity",
+    "ReceiptSetupCancelAfterActivity", "ReceiptSetupDrainActivity",
+)
 # Exact candidate SDK; ordinary APKs must never contain these entries.
 LITERT_NATIVE_HASHES = {
     "lib/arm64-v8a/liblitertlm_jni.so": "cf4c55139c6fc86425ecfe75f8a907e6193ca665ecc19fbabcaba7ab361bdc43",
@@ -54,9 +58,10 @@ def elf_alignments(data, machine):
     return alignments
 
 
-def audit_zip(path, *, litert=False, model_picker=False, model_volume=False):
+def audit_zip(path, *, litert=False, model_picker=False, model_volume=False, model_receipt=False):
     require(not model_picker or litert, "Model picker fixtures require the explicit SDK profile")
     require(not model_volume or (litert and not model_picker), "Receipt volume fixture requires its separate SDK profile")
+    require(not model_receipt or model_volume, "Receipt setup fixtures require the explicit volume profile")
     libraries = []
     with zipfile.ZipFile(path) as archive, open(path, "rb") as raw:
         entries = archive.infolist()
@@ -75,6 +80,7 @@ def audit_zip(path, *, litert=False, model_picker=False, model_volume=False):
         pending_activity_present = False
         receipt_service_present = False
         receipt_fixture_present = False
+        receipt_setup_present = set()
         for entry in dex:
             require(0 < entry.file_size <= 32 * 1024 * 1024, "Invalid DEX size")
             contents = archive.read(entry)
@@ -87,6 +93,11 @@ def audit_zip(path, *, litert=False, model_picker=False, model_volume=False):
             receipt_service_present |= b"ReceiptProofService" in contents
             receipt_fixture_present |= b"ReceiptAndroidFixture" in contents
             require(b"ReceiptVolumeQualificationTest" not in contents, "Receipt test packaged in app")
+            for name in ("ReceiptSetupFixtureActivity", *RECEIPT_SETUP_ACTIVITIES):
+                if name.encode("ascii") in contents:
+                    receipt_setup_present.add(name)
+            require(b"ReceiptSetupQualificationTest" not in contents and b"ReceiptSetupRestartTest" not in contents,
+                    "Receipt setup test packaged in app")
             require(b"ModelPickerDocumentsProvider" not in contents, "Test provider packaged in app")
             require(b"ModelPickerInterruptionTest" not in contents, "Interruption test packaged in app")
             require(b"ModelPickerPendingTest" not in contents, "Pending-picker test packaged in app")
@@ -99,6 +110,8 @@ def audit_zip(path, *, litert=False, model_picker=False, model_volume=False):
         require(not model_volume or litert, "Receipt volume fixture requires the SDK candidate")
         require(receipt_service_present == model_volume, "Receipt service leaked or missing")
         require(receipt_fixture_present == model_volume, "Receipt fixture leaked or missing")
+        expected_setup = {"ReceiptSetupFixtureActivity", *RECEIPT_SETUP_ACTIVITIES} if model_receipt else set()
+        require(receipt_setup_present == expected_setup, "Receipt setup fixture leaked or missing")
         for entry in entries:
             if not entry.filename.endswith(".so"):
                 continue
@@ -178,7 +191,7 @@ def audit_fixed_metadata(tree, namespace, expected):
         require(len(re.findall(pattern, tree, re.M)) == 1, "Wrong fixed capacity metadata value")
 
 
-def audit_model_launcher(badging, tree, *, model_picker=False):
+def audit_model_launcher(badging, tree, *, model_picker=False, model_receipt=False):
     """The setup profile must not retain an exported scripted entry point."""
     setup = "org.locallore.app.LocalModelSetupActivity"
     play = "org.locallore.app.LiteRtPlayActivity"
@@ -186,6 +199,8 @@ def audit_model_launcher(badging, tree, *, model_picker=False):
     fixture = "org.locallore.app.ModelPickerFixtureActivity"
     interruption = "org.locallore.app.ModelPickerInterruptionFixtureActivity"
     pending = "org.locallore.app.ModelPickerPendingFixtureActivity"
+    require(not (model_picker and model_receipt), "Picker and receipt setup fixtures are separate profiles")
+    receipt_activities = {"org.locallore.app." + name for name in RECEIPT_SETUP_ACTIVITIES}
     require(re.findall(r"^launchable-activity: name='([^']+)'", badging, re.M) == [setup],
             "Model setup must be the sole launcher")
     require(":sharedUserId(" not in tree and "E: activity-alias " not in tree,
@@ -213,6 +228,8 @@ def audit_model_launcher(badging, tree, *, model_picker=False):
         require(len(names) == 1 and names[0] not in activities, "Ambiguous activity identity")
         activities[names[0]] = (attributes, "\n".join(block))
     expected = {setup, play, main_activity} | ({fixture, interruption, pending} if model_picker else set())
+    if model_receipt:
+        expected |= receipt_activities
     require({name for name in activities if name.startswith("org.locallore.app.")} ==
             expected, "Unexpected application activity")
     exports = [(setup, "true"), (play, "false"), (main_activity, "false")]
@@ -220,6 +237,8 @@ def audit_model_launcher(badging, tree, *, model_picker=False):
         exports.append((fixture, "false"))
         exports.append((interruption, "false"))
         exports.append((pending, "false"))
+    if model_receipt:
+        exports.extend((name, "false") for name in sorted(receipt_activities))
     for name, exported in exports:
         attributes, block = activities[name]
         require(re.findall(r':exported\([^)]*\)=([^\s]+)', attributes) == [exported],
@@ -230,6 +249,10 @@ def audit_model_launcher(badging, tree, *, model_picker=False):
                     "Model activities require singleTask")
         if name != setup:
             require("E: intent-filter " not in block, "Unexpected scripted or play intent filter")
+        if name in receipt_activities:
+            require(not re.search(r"^\s*E:", block, re.M), "Receipt setup activity has child declarations")
+            require(not re.search(r':(?:permission|process|taskAffinity|launchMode)\(', attributes),
+                    "Receipt setup activity overrides its fixed process/lifecycle boundary")
     return {"launcher": setup, "scripted_exported": False, "play_exported": False}
 
 
@@ -337,6 +360,7 @@ def main(argv=None):
     parser.add_argument("--model-provisioning", action="store_true", help="Audit the separate local model setup candidate")
     parser.add_argument("--model-picker-fixture", action="store_true", help="Audit only the explicit synthetic picker fixture profile")
     parser.add_argument("--model-volume-verification", action="store_true", help="Audit the separate candidate-owned removable storage profile")
+    parser.add_argument("--model-receipt-verification", action="store_true", help="Audit only the explicit receipt setup debug profile")
     args = parser.parse_args(argv)
     try:
         require(not args.model_provisioning or args.litert_verification,
@@ -347,8 +371,10 @@ def main(argv=None):
                 "Model volume verification requires the model provisioning audit")
         require(not (args.model_volume_verification and args.model_picker_fixture),
                 "Model volume and picker fixtures are separate profiles")
+        require(not args.model_receipt_verification or args.model_volume_verification,
+                "Receipt setup verification requires the explicit volume audit")
         libraries = audit_zip(args.apk, litert=args.litert_verification, model_picker=args.model_picker_fixture,
-                              model_volume=args.model_volume_verification)
+                              model_volume=args.model_volume_verification, model_receipt=args.model_receipt_verification)
         aapt = str(aapt2_path())
         def dump(*arguments):
             return subprocess.run([aapt, "dump", *arguments], check=True, capture_output=True,
@@ -362,7 +388,7 @@ def main(argv=None):
         if args.model_provisioning:
             audit_model_launcher(dump("badging", str(args.apk)),
                                  dump("xmltree", str(args.apk), "--file", "AndroidManifest.xml"),
-                                 model_picker=args.model_picker_fixture)
+                                 model_picker=args.model_picker_fixture, model_receipt=args.model_receipt_verification)
         audit_receipt_service(dump("xmltree", str(args.apk), "--file", "AndroidManifest.xml"),
                               model_volume=args.model_volume_verification)
         print(json.dumps({"status": "passed", "permissions": permissions, "libraries": libraries}, indent=2))

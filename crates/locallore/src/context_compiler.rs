@@ -513,6 +513,7 @@ fn event_row(event: &AcceptedEvent) -> Result<Row, CompileError> {
     })
 }
 
+#[allow(clippy::too_many_arguments)] // Keep scoped range and version dispatch explicit.
 fn visit_events(
     engine: &Engine,
     observer: &str,

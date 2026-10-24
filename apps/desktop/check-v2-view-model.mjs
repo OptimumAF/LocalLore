@@ -104,6 +104,11 @@ const badQuery = query(); badQuery.search = "\u0000"; rejects(() => page(envelop
 const qKnowledge = query(); qKnowledge.view = "knowledge";
 const knowledge = { kind: "knowledge", key: '["observed","relic-location"]', id: "relic-location", subject: "player", text: "Observed A", confidence: null, sources: [scoped()], origin: "known_as_observed" };
 accepts(() => page(envelope([knowledge], qKnowledge), qKnowledge));
+const privateTruthInActor = clone(knowledge); privateTruthInActor.origin = "canonical_truth"; privateTruthInActor.subject = null;
+rejects(() => page(envelope([privateTruthInActor], qKnowledge), qKnowledge));
+const qOmniKnowledge = clone(qKnowledge); qOmniKnowledge.observer = { kind: "omniscient" };
+rejects(() => page(envelope([knowledge], qOmniKnowledge), qOmniKnowledge));
+accepts(() => page(envelope([privateTruthInActor], qOmniKnowledge), qOmniKnowledge));
 for (const source of [{ kind: "scoped_event", original_scope: original, sequence: 1 }, { kind: "event", value: 1 }, { kind: "scoped_event", value: { original_scope: { story: "foreign", branch: "main" }, sequence: 1 } }, { kind: "scoped_event", value: { original_scope: original, sequence: 4 } }]) {
     const k = clone(knowledge); k.sources = [source]; rejects(() => page(envelope([k], qKnowledge), qKnowledge));
 }

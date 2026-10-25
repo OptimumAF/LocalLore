@@ -31,3 +31,6 @@ required-features = ["dev-harness"]
 
 [build-dependencies]
 tauri-build = { version = "=2.7.4", features = [] }
+
+[dev-dependencies]
+locallore-local-runtime = { path = "../../../crates/locallore-local-runtime", features = ["engine-adapter", "development-worker"] }

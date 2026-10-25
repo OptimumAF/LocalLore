@@ -539,7 +539,7 @@ internal class ReceiptModelTransaction(
     private fun fail(reason: LocalModelFailure): Nothing = throw LocalModelException(reason)
 
     private companion object {
-        const val BUFFER_BYTES = 1024 * 1024
+        const val BUFFER_BYTES = 4 * 1024 * 1024
         const val RECEIPT_LIMIT = 512
         val processSlot = AtomicBoolean()
     }

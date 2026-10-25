@@ -9,6 +9,10 @@ use std::sync::{atomic::Ordering, OnceLock};
 
 #[path = "open_replacement_review_tests.rs"]
 mod open_replacement_review_tests;
+#[path = "shutdown_handoff_review_tests.rs"]
+mod shutdown_handoff_review_tests;
+#[path = "transfer_close_review_tests.rs"]
+mod transfer_close_review_tests;
 
 type Inventory = BTreeMap<PathBuf, Option<Vec<u8>>>;
 fn inventory(root: &Path) -> Inventory {

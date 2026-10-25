@@ -7,6 +7,28 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
 
+type RetiredModels = Option<(
+    u64,
+    Option<Arc<std::sync::Mutex<locallore_local_runtime::LocalRuntime>>>,
+)>;
+pub(crate) fn drain_owned_work(
+    evaluations: &crate::evaluation::EvaluationManager,
+    archives: &crate::archive::ArchiveBroker,
+    models: &crate::models::ModelManager,
+    host: Option<&locallore::host::Host>,
+    retired: RetiredModels,
+    epoch: u64,
+) -> bool {
+    evaluations.drain(epoch);
+    archives.drain(epoch);
+    let _ = evaluations.selected_cleanup_retired(epoch);
+    models.close(host, retired);
+    if let Some(host) = host {
+        host.close_all();
+    }
+    evaluations.cleanup_complete() && models.cleanup_complete()
+}
+
 fn status(app: &tauri::AppHandle, phase: &str) {
     // Fixed bounded metadata only. Emission failure cannot certify cleanup.
     let _ = app.emit("locallore-close-status", json!({"version":1,"phase":phase}));
@@ -80,16 +102,14 @@ pub(crate) fn request(app: &tauri::AppHandle, label: &str, intent: Intent) -> Re
     let handle = app.clone();
     status(app, "closing");
     tauri::async_runtime::spawn_blocking(move || {
-        evaluations.drain(epoch);
-        archives.drain(epoch);
-        let _ = evaluations.selected_cleanup_retired(epoch);
-        // A selected handoff can occur after retirement; ModelManager close
-        // re-reads its actual slot AFTER evaluation drain.
-        models.close(host.as_deref(), retired);
-        if let Some(host) = &host {
-            host.close_all();
-        }
-        if !evaluations.cleanup_complete() || !models.cleanup_complete() {
+        if !drain_owned_work(
+            &evaluations,
+            &archives,
+            &models,
+            host.as_deref(),
+            retired,
+            epoch,
+        ) {
             if let Ok(mut gate) = handle.state::<WorkspaceState>().close_gate.lock() {
                 gate.pause(ticket);
             }

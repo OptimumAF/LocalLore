@@ -64,6 +64,8 @@
                         "allow-harness-reopen",
                         "allow-evaluation-catalog",
                         "allow-application-close",
+                        "core:event:allow-listen",
+                        "core:event:allow-unlisten",
                         "allow-evaluation-curated",
                         "allow-evaluation-comparison",
                         "allow-evaluation-selected",

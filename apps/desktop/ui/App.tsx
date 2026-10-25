@@ -2,6 +2,7 @@ import { EvaluationPanel } from "./EvaluationPanel";
 import { ComparisonReaderPanel } from "./ComparisonReaderPanel";
 import { SelectedEvaluationView } from "./selected-evaluation-view";
 import type { SelectedEvaluationController } from "./selected-evaluation-controller";
+import type { NativeCloseController } from "./native-close-controller";
 import type { ComparisonReaderController } from "./comparison-reader-controller";
 import { ArchivePanel } from "./ArchivePanel";
 import type { ArchiveController } from "./archive-controller";
@@ -112,12 +113,47 @@ function SelectedExperiment({
         />
     );
 }
+function NativeCloseNotice({
+    controller,
+}: {
+    controller: NativeCloseController;
+}) {
+    const phase = useSyncExternalStore(
+        controller.subscribe,
+        controller.get,
+        controller.get,
+    );
+    if (phase === "open") return null;
+    return (
+        <aside
+            role="status"
+            aria-live="assertive"
+            className="comparison-unavailable"
+            data-native-close={phase}
+        >
+            {phase === "cleanup_required" ? (
+                <>
+                    Worker cleanup is not confirmed. LocalLore is staying open
+                    and new work is blocked.{" "}
+                    <button onClick={() => void controller.retry()}>
+                        Retry cleanup and close
+                    </button>
+                </>
+            ) : phase === "closing" ? (
+                "Stopping work and confirming local worker cleanup…"
+            ) : (
+                "Cleanup confirmed. Closing LocalLore…"
+            )}
+        </aside>
+    );
+}
 export function App({
     controller: c,
     capture,
     evaluation,
     comparison,
     selectedEvaluation,
+    nativeClose,
     archive,
     timeline,
     fork,
@@ -133,6 +169,7 @@ export function App({
     evaluation?: EvaluationController;
     comparison?: ComparisonReaderController;
     selectedEvaluation?: SelectedEvaluationController;
+    nativeClose?: NativeCloseController;
     archive?: ArchiveController;
     timeline?: TimelineController;
     fork?: ForkController;
@@ -157,6 +194,7 @@ export function App({
         <div
             className={`app text-${s.textScale} side-${s.sidebarSize} detail-${s.inspectorSize}`}
         >
+            {nativeClose && <NativeCloseNotice controller={nativeClose} />}
             <a
                 href={
                     s.playV2

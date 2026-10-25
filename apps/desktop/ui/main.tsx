@@ -1,6 +1,7 @@
 import { EvaluationController } from "./evaluation-controller";
 import { ComparisonReaderController } from "./comparison-reader-controller";
 import { SelectedEvaluationController } from "./selected-evaluation-controller";
+import { NativeCloseController } from "./native-close-controller";
 import { ArchiveController } from "./archive-controller";
 import { archiveBinding } from "./archive-model";
 import { ForkController } from "./fork-controller";
@@ -25,6 +26,12 @@ declare const __DEV_HARNESS__: boolean;
 declare global {
     interface Window {
         __TAURI__: {
+            event?: {
+                listen: (
+                    name: string,
+                    listener: (event: { payload: unknown }) => void,
+                ) => Promise<() => void>;
+            };
             core: {
                 invoke: (
                     command: string,
@@ -325,6 +332,17 @@ const comparison = new ComparisonReaderController(invoke, (code) =>
 const selectedEvaluation = new SelectedEvaluationController(invoke, (code) =>
     errors.add("native", code),
 );
+const nativeClose = new NativeCloseController(invoke, () =>
+    errors.add("native", "NativeCloseStatusUnavailable"),
+);
+const releaseNativeClose = await window.__TAURI__.event
+    ?.listen("locallore-close-status", (event) =>
+        nativeClose.receive(event.payload),
+    )
+    .catch(() => {
+        errors.add("native", "NativeCloseStatusUnavailable");
+        return undefined;
+    });
 const base = new IpcGateway(invoke, errors),
     gateway = driver ? new driver.FaultGateway(base) : base;
 const controller = new Controller(gateway, errors, undefined, (work) =>
@@ -562,6 +580,7 @@ root.render(
         evaluation={evaluation}
         comparison={comparison}
         selectedEvaluation={selectedEvaluation}
+        nativeClose={nativeClose}
         archive={archive}
         capture={capture}
         timeline={timeline}
@@ -587,6 +606,7 @@ const dispose = async () => {
     evaluation.dispose();
     comparison.dispose();
     selectedEvaluation.dispose();
+    releaseNativeClose?.();
     archive.dispose();
     timeline.dispose();
     fork.dispose();

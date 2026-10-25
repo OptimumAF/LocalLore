@@ -29,6 +29,7 @@ APK_HASHES = {
 }
 SOURCE_FILES = ("benchmarks/receipt_setup_qualification.py", "benchmarks/receipt_avd_environment.py",
     "benchmarks/receipt_fresh_target.py", "scripts/tests/test_receipt_setup_qualification.py",
+    "scripts/tests/test_receipt_setup_helper.py",
     "apps/android/app/src/litert/java/org/locallore/app/CandidateModelAccess.kt",
     "apps/android/app/src/litert/java/org/locallore/app/ReceiptCandidateModelAccess.kt",
     "apps/android/app/src/litert/java/org/locallore/app/AndroidReceiptModelAccess.kt",
@@ -293,6 +294,52 @@ def parse_uids(raw, packages):
     return result
 
 
+class ProcessBoundary:
+    """Track the distinct TEST process without granting it target-app authority."""
+    observations = (("before", "before", 0), ("installed", "installed", 0),
+                    ("after-initial", "after", 1), ("after-restart", "after", 2), ("final", "final", 2))
+
+    def __init__(self):
+        self._next = 0
+        self._helper = None
+        self._retired = False
+        self._refused = False
+
+    def observe(self, raw, uids, *, label, stage, methods):
+        try:
+            assert not self._refused and self._next < len(self.observations)
+            assert type(label) is str and type(stage) is str and type(methods) is int
+            assert (label, stage, methods) == self.observations[self._next]
+            assert type(uids) is dict
+            if self._next == 0:
+                assert uids == {}
+            else:
+                assert set(uids) == {APP, TEST} and all(type(uid) is int and 10000 <= uid < 2 ** 31 for uid in uids.values())
+                assert uids[APP] != uids[TEST]
+            parsed = contract.parse_processes(raw, uids, {})
+            assert parsed["passive"] == []
+            rows = parsed["owned"]
+            if self._next < 2:
+                assert rows == []
+            else:
+                # APP, its service, provider and every foreign LocalLore row refuse.
+                assert len(rows) <= 1 and all(row["name"] == TEST for row in rows)
+                helper = (rows[0]["pid"], rows[0]["uid"], rows[0]["name"]) if rows else None
+                if self._next == 2:
+                    # The sole binding point follows exact initial passes and APP absence.
+                    self._helper = helper
+                elif helper is not None:
+                    assert not self._retired and helper == self._helper
+                elif self._helper is not None:
+                    self._retired = True
+            self._next += 1
+            # Copies prevent diagnostic consumers from modifying the bound tuple.
+            return {"target": [], "test_helper": [dict(row) for row in rows]}
+        except Exception:
+            self._refused = True
+            raise
+
+
 class Owner:
     def __init__(self, proposal, lease):
         self.proposal, self.lease = proposal, lease
@@ -310,6 +357,7 @@ class Owner:
         self.pending_install, self.pending_read = None, None
         self.uid_map, self.volume = None, None
         self.boot_returncode, self.boot_stderr_bytes = None, None
+        self.process_boundary = ProcessBoundary()
 
     def check_owner(self):
         assert self.owner_live
@@ -425,14 +473,14 @@ class Owner:
                 assert label == "installed"
                 self.uid_map = uids
             assert uids == self.uid_map
-        processes = contract.parse_processes(self.shell(contract.PS), uids, {})
-        assert processes == {"owned": [], "passive": []}
+        processes = self.process_boundary.observe(self.shell(contract.PS), uids,
+            label=label, stage=self.stage, methods=self.methods)
         volume = contract.parse_volume(self.shell(contract.VOLUMES, cap=4096))
         if self.volume is None:
             self.volume = volume
         assert volume == self.volume
         storage = contract.parse_storage(self.shell(contract.DF), self.shell(contract.DEVICES, cap=128))
-        value = {"version": 1, "packages": observed, "uid_map": uids, "processes": processes,
+        value = {"version": 2, "packages": observed, "uid_map": uids, "processes": processes,
                  "volume": volume, "userdata": storage, "host_free": host_free}
         write_json(self.directory / (label + "-facts.json"), value)
         return value
@@ -481,7 +529,7 @@ def run_cohort(owner):
     initial = parse_instrumentation(owner.shell(INITIAL_INSTRUMENT, deadline=120, cap=131072), INITIAL_CLASS, INITIAL_METHODS)
     write_json(owner.directory / "initial-instrumentation-v1.json", initial)
     owner.stage = "after"
-    # Quiet actual PS after instrumentation establishes original process absence.
+    # APP absence is mandatory; a bound distinct-UID TEST row is recorded separately.
     after_initial = owner.facts("after-initial", owner.proposal["apk_sha256"])
     proofs = read_proofs(owner, ("SETUP", "CANCELLATION", "DRAIN"))
     assert len({(v["pid"], v["start"], v["uid"], v["process"]) for v in proofs.values()}) == 1

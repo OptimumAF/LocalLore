@@ -91,8 +91,10 @@ correction. The real-backend PLAY attempt stops at its inference-ownership
 fence; an accepted real-model gift and restart remain unverified. The
 [earlier partial result](docs/native/MODEL_RECEIPT_ANDROID_VERIFICATION_2026-10-24.md)
 is preserved. [Closed worker-stage observations](docs/native/LITERT_WORKER_TRACE_CONTRACT.md)
-locate future failed attempts without exposing prompts or private errors;
-their host checks do not establish a new successful SDK turn.
+expose no prompts or private errors. A separately admitted
+[C-root follow-up](docs/native/RECEIPT_C_ROOT_EXECUTION_VERIFICATION_2026-10-25.md)
+passes full import and records a first SDK terminal/close observation before a
+second conversation attempt lacks a return. An accepted gift/restart remains unverified.
 
 An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects
 the isolated SDK to guarded free-text preparation and durable commit. Its

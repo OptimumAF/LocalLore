@@ -27,12 +27,19 @@ require(modelSetup != "true" || liteRt == "true") { "Model setup verification re
 val modelPicker = providers.gradleProperty("localLoreModelPickerVerification").orNull
 require(modelPicker == null || modelPicker == "true") { "Model picker verification must be explicitly true or absent." }
 require(modelPicker != "true" || modelSetup == "true") { "Model picker fixtures require the explicit model setup candidate profile." }
+val modelVolume = providers.gradleProperty("localLoreModelVolumeVerification").orNull
+require(modelVolume == null || modelVolume == "true") { "Model volume verification must be explicitly true or absent." }
+require(modelVolume != "true" || modelSetup == "true") { "Model volume verification requires model setup and LiteRT candidate profiles." }
+require(modelVolume != "true" || modelPicker != "true") { "Model volume and picker fixtures are separate installations." }
+val modelReceipt = providers.gradleProperty("localLoreModelReceiptVerification").orNull
+require(modelReceipt == null || modelReceipt == "true") { "Model receipt verification must be explicitly true or absent." }
+require(modelReceipt != "true" || modelVolume == "true") { "Model receipt verification requires the explicit model volume, setup and LiteRT profiles." }
 if (liteRt == "true") {
     val workerBytes = file("src/litert/java/org/locallore/app/LiteRtRoleWorker.kt").readText()
         .replace("\r\n", "\n").toByteArray(Charsets.UTF_8)
     val workerHash = MessageDigest.getInstance("SHA-256").digest(workerBytes)
         .joinToString("") { "%02x".format(it) }
-    require(workerHash == "e4545d4f01b6e2b825be478bc9944162ee364b077d66a752e2020b97ab95e9bb") {
+    require(workerHash == "aabbe5e27a5f53e8ddf02a16124a3cb14d1898d57bbc552df4f5d1dd257391a4") {
         "Update and review the trusted candidate worker provenance before building changed worker source."
     }
 }
@@ -97,7 +104,12 @@ require(archiveCapacity != "true" || gradle.startParameter.taskNames.none { it.c
     "The synthetic capacity fixture is for local debug verification only."
 }
 if (liteRt == "true") {
-    layout.buildDirectory.set(layout.projectDirectory.dir(if (modelPicker == "true") "build-model-picker" else "build-litert-worker"))
+    layout.buildDirectory.set(layout.projectDirectory.dir(when {
+        modelReceipt == "true" -> "build-model-receipt"
+        modelVolume == "true" -> "build-model-volume"
+        modelPicker == "true" -> "build-model-picker"
+        else -> "build-litert-worker"
+    }))
 } else if (externalInference == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-external-inference"))
 } else if (archiveVerification == "true") {
@@ -114,6 +126,7 @@ if (liteRt == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-cancel-ack"))
 }
 val verificationSuffix = when {
+    modelVolume == "true" -> ".modelvolumeverify"
     modelPicker == "true" -> ".modelpickerverify"
     modelSetup == "true" -> ".modelverify"
     liteRt == "true" -> ".litertverify"
@@ -204,6 +217,8 @@ android {
     sourceSets["main"].jniLibs.srcDir(layout.buildDirectory.dir("generated/rustJniLibs"))
 
     defaultConfig {
+        buildConfigField("boolean", "MODEL_VOLUME_VERIFICATION", (modelVolume == "true").toString())
+        buildConfigField("boolean", "MODEL_RECEIPT_VERIFICATION", (modelReceipt == "true").toString())
         applicationId = when {
             capacityTest -> "org.locallore.app.capacityv4"
             reliefFaultTest -> "org.locallore.app.capacityfaultsv4"
@@ -235,6 +250,17 @@ android {
         if (modelSetup == "true") sourceSets["debug"].manifest.srcFile("src/litert/AndroidManifest.xml")
         sourceSets["test"].java.srcDir("src/litertTest/java")
         sourceSets["androidTest"].java.srcDir("src/litertAndroidTest/java")
+        if (modelVolume == "true") {
+            sourceSets["debug"].java.srcDir("src/modelVolume/java")
+            sourceSets["debug"].manifest.srcFile("src/modelVolume/AndroidManifest.xml")
+            sourceSets["androidTest"].java.srcDir("src/modelVolumeAndroidTest/java")
+            if (modelReceipt == "true") {
+                sourceSets["debug"].java.srcDir("src/modelReceipt/java")
+                sourceSets["debug"].manifest.srcFile("src/modelReceipt/AndroidManifest.xml")
+                sourceSets["androidTest"].java.srcDir("src/modelReceiptAndroidTest/java")
+                sourceSets["test"].java.srcDir("src/modelReceiptTest/java")
+            }
+        }
         if (modelPicker == "true") {
             sourceSets["debug"].java.srcDir("src/modelPicker/java")
             sourceSets["debug"].manifest.srcFile("src/modelPicker/AndroidManifest.xml")
@@ -242,7 +268,7 @@ android {
             sourceSets["androidTest"].manifest.srcFile("src/modelPickerAndroidTest/AndroidManifest.xml")
         }
     }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     lint { abortOnError = true; if (liteRt == "true") checkDependencies = true }
     if (capacityTest) {
         sourceSets["debug"].manifest.srcFile("src/capacityTest/CapacityAppManifest.xml")

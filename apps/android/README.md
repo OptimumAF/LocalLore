@@ -125,6 +125,42 @@ for cancellation, interrupted-copy recovery and API/filesystem limits, and the
 for the passing synthetic checks on one API 35 x86_64 emulator. Real inference
 through this setup profile remains unqualified.
 
+The separate `-PlocalLoreModelVolumeVerification=true` flag requires the LiteRT
+and model-setup flags and refuses picker mixing. It builds
+`org.locallore.app.modelvolumeverify` in `build-model-volume`. On API 30+, this
+explicit experiment selects exactly one suitable Context-owned removable-files
+volume and refuses identity/capacity changes without fallback. Model/cache data
+on removable media has different confidentiality and availability limits;
+canonical saves stay internal. See the [storage contract](../../docs/native/MODEL_VOLUME_CONTRACT.md)
+and proposed [ADR-0010](../../docs/adr/0010-candidate-volume-storage.md).
+Audit with `scripts/audit_apk.py <apk> --litert-verification --model-provisioning --model-volume-verification`.
+The [current verification](../../docs/native/MODEL_VOLUME_VERIFICATION_2026-10-23.md)
+passes host/build checks but fails native publication on the selected emulator;
+positive removable-filesystem compatibility remains blocked.
+Real-model copies and SDK execution require their own admission; the flag does
+not discharge existing device/runtime holds.
+
+A separate [receipt transaction](../../docs/native/MODEL_RECEIPT_CONTRACT.md)
+uses exclusive creation plus an empty acceptance marker, with no rename or
+overwrite. Its JVM tests cover pending recovery, explicit discard, ownership,
+cancellation and child-process death. The volume debug profile includes an
+isolated fixture and private child service; ordinary and regular SDK builds
+exclude them. Its first emulator cohort passed three methods and failed the
+process-death method; a separately admitted fresh target subsequently passed
+[all four methods](../../docs/native/RECEIPT_FRESH_TARGET_VERIFICATION_2026-10-24.md).
+The earlier failure and held targets remain preserved.
+
+The additional `-PlocalLoreModelReceiptVerification=true` flag requires all three
+LiteRT/setup/volume flags and selects receipt-backed setup in `build-model-receipt`.
+It retains the isolated `.modelvolumeverify` package, fixed real candidate identity
+and unchanged worker. Only this explicit flag selects the new trusted Context
+roots; existing publication roots refuse, without migration or fallback. Use a
+separately admitted fresh target. Audit with the existing volume options plus
+`--model-receipt-verification`. See the [setup contract](../../docs/native/RECEIPT_SETUP_CONTRACT.md),
+[qualification](../../docs/native/RECEIPT_SETUP_VERIFICATION_2026-10-24.md) and proposed
+[ADR0011](../../docs/adr/0011-model-receipt-transaction.md). Synthetic setup tests
+do not qualify real-model copies, DocumentsUI or SDK inference.
+
 The additional `-PlocalLoreModelPickerVerification=true` flag requires both
 candidate flags above and selects the separate `.modelpickerverify` debug
 fixture. It inherits the real picker/resolver/setup flow with 63 original
@@ -471,6 +507,13 @@ restart cannot verify that framework relationship. This fixture uses original
 synthetic bytes and refuses inference. Dated reports distinguish actual results
 from remaining device/model gates. The [pending-result verification](../../docs/native/MODEL_PENDING_VERIFICATION_2026-10-23.md)
 records actual restored-result rejection and a later native import on one emulator.
+
+The same explicit profile includes a private [setup recovery fixture](../../docs/native/MODEL_SETUP_RECOVERY_CONTRACT.md).
+It exercises injected launch/construction failures through the actual setup
+buttons, retained admission across Activity close/reopen, and a separately
+verified fresh process. It never starts an SDK or story workspace; its contract
+is not a real-model or phone qualification result. Its [dated verification](../../docs/native/MODEL_SETUP_RECOVERY_VERIFICATION_2026-10-23.md)
+records both selected synthetic methods passing on one emulator.
 
 The opt-in isolated archive application also has an explicit
 [system chooser verification procedure](../../docs/native/ARCHIVE_CHOOSER_VERIFICATION_2026-10-23.md).

@@ -139,6 +139,21 @@ class ApkAuditTests(unittest.TestCase):
             self.assertEqual(audit.main(["not-read.apk", "--model-picker-fixture"]), 1)
             self.assertEqual(audit.main(["not-read.apk", "--litert-verification", "--model-picker-fixture"]), 1)
 
+    def test_removable_profile_has_exact_package_and_no_storage_permissions(self):
+        package = "org.locallore.app.modelvolumeverify"
+        badging = BADGING.replace("org.locallore.app", package)
+        tree = TREE.replace("org.locallore.app", package)
+        self.assertEqual(audit.audit_manifest(badging, tree, package),
+                         [package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"])
+        for permission in ("android.permission.MANAGE_EXTERNAL_STORAGE",
+                           "android.permission.READ_EXTERNAL_STORAGE", "android.permission.INTERNET"):
+            with self.subTest(permission=permission), self.assertRaises(audit.AuditError):
+                audit.audit_manifest(badging + "uses-permission: name='" + permission + "'\n", tree, package)
+        with patch("builtins.print"):
+            self.assertEqual(audit.main(["not-read.apk", "--model-volume-verification"]), 1)
+            self.assertEqual(audit.main(["not-read.apk", "--litert-verification", "--model-provisioning",
+                                         "--model-volume-verification", "--model-picker-fixture"]), 1)
+
     def test_model_picker_fixture_requires_explicit_mode_and_excludes_provider_from_app(self):
         with tempfile.TemporaryDirectory() as directory:
             path = self.archive(directory)
@@ -149,7 +164,7 @@ class ApkAuditTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path, hashes, notices = self.candidate_archive(directory)
             with zipfile.ZipFile(path, "a") as apk:
-                apk.writestr("classes.dex", b"original synthetic DEX markers ModelPickerFixtureActivity ModelPickerInterruptionFixtureActivity ModelPickerPendingFixtureActivity")
+                apk.writestr("classes.dex", b"original synthetic DEX markers ModelPickerFixtureActivity ModelPickerInterruptionFixtureActivity ModelPickerPendingFixtureActivity ModelSetupRecoveryFixtureActivity")
             with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
                 self.assertEqual(len(audit.audit_zip(path, litert=True, model_picker=True)), 6)
                 with self.assertRaises(audit.AuditError):
@@ -172,13 +187,13 @@ class ApkAuditTests(unittest.TestCase):
             with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
                 path, hashes, notices = self.candidate_archive(directory)
                 with zipfile.ZipFile(path, "a") as apk:
-                    apk.writestr("classes.dex", b"ModelPickerPendingFixtureActivity " + marker)
+                    apk.writestr("classes.dex", b"ModelPickerPendingFixtureActivity ModelSetupRecoveryFixtureActivity " + marker)
                 with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
                     with self.assertRaises(audit.AuditError):
                         audit.audit_zip(path, litert=True, model_picker=True)
 
     def test_pending_picker_helpers_require_the_private_implementation_and_test_exclusion(self):
-        base = b"ModelPickerFixtureActivity ModelPickerInterruptionFixtureActivity "
+        base = b"ModelPickerFixtureActivity ModelPickerInterruptionFixtureActivity ModelSetupRecoveryFixtureActivity "
         for marker in (b"ModelPickerPending", b"ModelPickerPendingFixtureActivity"):
             with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
                 path = self.archive(directory)
@@ -194,6 +209,148 @@ class ApkAuditTests(unittest.TestCase):
                 with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
                     with self.assertRaises(audit.AuditError):
                         audit.audit_zip(path, litert=True, model_picker=True)
+
+    def test_setup_recovery_helpers_require_explicit_private_implementation_and_test_exclusion(self):
+        base = b"ModelPickerFixtureActivity ModelPickerInterruptionFixtureActivity ModelPickerPendingFixtureActivity "
+        for marker in (b"ModelSetupRecovery", b"ModelSetupRecoveryFixtureActivity"):
+            with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
+                path, hashes, notices = self.candidate_archive(directory)
+                with zipfile.ZipFile(path, "a") as apk:
+                    apk.writestr("classes.dex", marker)
+                with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
+                    for litert in (False, True):
+                        with self.subTest(litert=litert), self.assertRaises(audit.AuditError):
+                            audit.audit_zip(path, litert=litert)
+        for marker in (b"", b"ModelSetupRecovery", b"ModelSetupRecoveryFixtureActivity ModelSetupRecoveryTest"):
+            with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
+                path, hashes, notices = self.candidate_archive(directory)
+                with zipfile.ZipFile(path, "a") as apk:
+                    apk.writestr("classes.dex", base + marker)
+                with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
+                    with self.assertRaises(audit.AuditError):
+                        audit.audit_zip(path, litert=True, model_picker=True)
+
+    def test_receipt_service_requires_private_same_uid_process_in_volume_only(self):
+        service = ('    E: service (line=1)\n'
+                   '      A: android:name(1)="org.locallore.app.ReceiptProofService"\n'
+                   '      A: android:exported(2)=false\n'
+                   '      A: android:process(3)=":receiptproof"\n'
+                   '      A: android:isolatedProcess(4)=false\n')
+        self.assertEqual(audit.audit_receipt_service(service, model_volume=True),
+                         {"receipt_service": True, "exported": False})
+        self.assertFalse(audit.audit_receipt_service("")["receipt_service"])
+        for malformed in ("", service.replace("exported(2)=false", "exported(2)=true"),
+                          service.replace(":receiptproof", ":other"),
+                          service.replace("isolatedProcess(4)=false", "isolatedProcess(4)=true"),
+                          service.replace('      A: android:isolatedProcess(4)=false\n', ""),
+                          service + '      E: intent-filter (line=2)\n',
+                          service + '      A: android:permission(5)="custom.permission"\n',
+                          service + service,
+                          service.replace("ReceiptProofService", "UnexpectedService")):
+            with self.subTest(malformed=malformed), self.assertRaises(audit.AuditError):
+                audit.audit_receipt_service(malformed, model_volume=True)
+        with self.assertRaises(audit.AuditError):
+            audit.audit_receipt_service(service)
+
+    def test_receipt_implementation_cannot_leak_into_ordinary_or_regular_sdk_apk(self):
+        for marker in (b"ReceiptProofService", b"ReceiptAndroidFixture", b"ReceiptVolumeQualificationTest"):
+            with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
+                path = self.archive(directory)
+                with zipfile.ZipFile(path, "a") as apk:
+                    apk.writestr("classes.dex", marker)
+                with self.assertRaises(audit.AuditError):
+                    audit.audit_zip(path)
+            with self.subTest(sdk=marker), tempfile.TemporaryDirectory() as directory:
+                path, hashes, notices = self.candidate_archive(directory)
+                with zipfile.ZipFile(path, "a") as apk:
+                    apk.writestr("classes.dex", marker)
+                with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
+                    with self.assertRaises(audit.AuditError):
+                        audit.audit_zip(path, litert=True)
+
+    def test_volume_receipt_apk_requires_both_implementations_and_excludes_test_class(self):
+        both = b"ReceiptProofService ReceiptAndroidFixture"
+        for marker in (b"", b"ReceiptProofService", b"ReceiptAndroidFixture",
+                       both + b" ReceiptVolumeQualificationTest", both):
+            with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
+                path, hashes, notices = self.candidate_archive(directory)
+                with zipfile.ZipFile(path, "a") as apk:
+                    apk.writestr("classes.dex", marker)
+                with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
+                    if marker == both:
+                        self.assertEqual(len(audit.audit_zip(path, litert=True, model_volume=True)), 6)
+                    else:
+                        with self.assertRaises(audit.AuditError):
+                            audit.audit_zip(path, litert=True, model_volume=True)
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(audit.AuditError):
+                audit.audit_zip(self.archive(directory), model_volume=True)
+            with self.assertRaises(audit.AuditError):
+                audit.audit_zip(self.archive(directory), litert=True, model_volume=True, model_picker=True)
+
+    def test_receipt_setup_classes_require_explicit_profile_and_cannot_include_tests(self):
+        volume = b"ReceiptProofService ReceiptAndroidFixture "
+        names = audit.RECEIPT_SETUP_CLASSES
+        complete = " ".join(names).encode("ascii")
+        variants = [complete, b"", *(complete.replace(name.encode("ascii"), b"") for name in names),
+                    complete + b" ReceiptSetupQualificationTest", complete + b" ReceiptSetupRestartTest",
+                    complete + b" ReceiptSetupFailureTraceTest", complete + b" ReceiptSetupFailureTransportTest",
+                    complete + b" ReceiptRealSourcePreflightTest"]
+        for marker in variants:
+            with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
+                path, hashes, notices = self.candidate_archive(directory)
+                with zipfile.ZipFile(path, "a") as apk:
+                    apk.writestr("classes.dex", volume + marker)
+                with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
+                    if marker == complete:
+                        self.assertEqual(len(audit.audit_zip(path, litert=True, model_volume=True, model_receipt=True)), 6)
+                    else:
+                        with self.assertRaises(audit.AuditError):
+                            audit.audit_zip(path, litert=True, model_volume=True, model_receipt=True)
+                    if marker:
+                        with self.assertRaises(audit.AuditError):
+                            audit.audit_zip(path, litert=True, model_volume=True)
+                    with self.assertRaises(audit.AuditError):
+                        audit.audit_zip(path, litert=True, model_receipt=True)
+
+    def test_receipt_setup_cli_refuses_incomplete_profiles_before_any_tool_call(self):
+        for flags in (["--model-receipt-verification"],
+                      ["--litert-verification", "--model-provisioning", "--model-receipt-verification"],
+                      ["--litert-verification", "--model-provisioning", "--model-receipt-verification",
+                       "--model-volume-verification", "--model-picker-fixture"]):
+            with self.subTest(flags=flags), patch.object(audit, "aapt2_path") as tool, patch.object(audit, "audit_zip") as archive:
+                self.assertEqual(audit.main(["absent.apk", *flags]), 1)
+                tool.assert_not_called()
+                archive.assert_not_called()
+
+    def test_receipt_setup_activities_are_complete_private_and_have_no_extra_authority(self):
+        setup = "org.locallore.app.LocalModelSetupActivity"
+        def activity(name, exported="false", extra="", children=""):
+            return (f'    E: activity (line=1)\n'
+                    f'      A: android:name(1)="{name}"\n'
+                    f'      A: android:exported(2)={exported}\n' + extra + children)
+        launcher = activity(setup, "true", '      A: android:launchMode(3)=0x2\n',
+                            '      E: intent-filter (line=2)\n'
+                            '        E: category (line=3)\n'
+                            '          A: android:name(1)="android.intent.category.LAUNCHER"\n')
+        ordinary = launcher + activity("org.locallore.app.LiteRtPlayActivity", extra='      A: android:launchMode(3)=0x2\n') + activity("org.locallore.app.MainActivity")
+        names = ["org.locallore.app." + name for name in audit.RECEIPT_SETUP_ACTIVITIES]
+        fixtures = "".join(activity(name) for name in names)
+        badging = f"launchable-activity: name='{setup}' label='LocalLore'\n"
+        self.assertEqual(audit.audit_model_launcher(badging, ordinary + fixtures, model_receipt=True)["launcher"], setup)
+        with self.assertRaises(audit.AuditError):
+            audit.audit_model_launcher(badging, ordinary + fixtures)
+        with self.assertRaises(audit.AuditError):
+            audit.audit_model_launcher(badging, ordinary + fixtures, model_receipt=True, model_picker=True)
+        for name in names:
+            replacements = ["", activity(name, "true"), activity(name, children='      E: intent-filter (line=2)\n'),
+                            activity(name, extra='      A: android:process(3)=":other"\n'),
+                            activity(name, extra='      A: android:permission(3)="foreign"\n'),
+                            activity(name, extra='      A: android:taskAffinity(3)="other"\n'),
+                            activity(name, extra='      A: android:launchMode(3)=0x2\n')]
+            for replacement in replacements:
+                with self.subTest(name=name, replacement=replacement), self.assertRaises(audit.AuditError):
+                    audit.audit_model_launcher(badging, ordinary + fixtures.replace(activity(name), replacement), model_receipt=True)
 
     def test_model_picker_document_provider_retains_platform_grants_and_exact_control_boundary(self):
         document = "org.locallore.app.ModelPickerDocumentsProvider"
@@ -260,7 +417,9 @@ class ApkAuditTests(unittest.TestCase):
         fixture = "org.locallore.app.ModelPickerFixtureActivity"
         interruption = "org.locallore.app.ModelPickerInterruptionFixtureActivity"
         pending = "org.locallore.app.ModelPickerPendingFixtureActivity"
-        fixture_tree = tree + activity(fixture, "false") + activity(interruption, "false") + activity(pending, "false")
+        recovery = "org.locallore.app.ModelSetupRecoveryFixtureActivity"
+        fixture_tree = (tree + activity(fixture, "false") + activity(interruption, "false") +
+                        activity(pending, "false") + activity(recovery, "false"))
         self.assertEqual(audit.audit_model_launcher(badging, fixture_tree, model_picker=True)["launcher"], setup)
         for candidate in (tree, fixture_tree.replace(activity(fixture, "false"), activity(fixture, "true")),
                           fixture_tree.replace(activity(fixture, "false"), activity(fixture, "false", extra=filter_text)),
@@ -271,7 +430,11 @@ class ApkAuditTests(unittest.TestCase):
                           fixture_tree.replace(activity(pending, "false"), ""),
                           fixture_tree.replace(activity(pending, "false"), activity(pending, "true")),
                           fixture_tree.replace(activity(pending, "false"), activity(pending, "false", extra=filter_text)),
-                          fixture_tree + activity(pending + "Other", "false")):
+                          fixture_tree + activity(pending + "Other", "false"),
+                          fixture_tree.replace(activity(recovery, "false"), ""),
+                          fixture_tree.replace(activity(recovery, "false"), activity(recovery, "true")),
+                          fixture_tree.replace(activity(recovery, "false"), activity(recovery, "false", extra=filter_text)),
+                          fixture_tree + activity(recovery + "Other", "false")):
             with self.subTest(tree=candidate), self.assertRaises(audit.AuditError):
                 audit.audit_model_launcher(badging, candidate, model_picker=True)
         with self.assertRaises(audit.AuditError):

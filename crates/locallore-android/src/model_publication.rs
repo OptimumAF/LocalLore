@@ -1,6 +1,7 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Fixed-name atomic publication for the development model setup profile only.
 //! No fallback to a replacing rename or hard link; unsupported kernels fail closed.
+use super::model_publication_status::{rename_failure, SYMBOL_UNAVAILABLE};
 use jni::{
     objects::{JByteArray, JObject},
     sys::jint,
@@ -63,7 +64,7 @@ fn publish(root: &[u8]) -> jint {
     // Android's supported 64-bit ABIs define RTLD_DEFAULT as null.
     let symbol = unsafe { dlsym(std::ptr::null_mut(), c"renameat2".as_ptr()) };
     if symbol.is_null() {
-        return 2;
+        return SYMBOL_UNAVAILABLE;
     }
     // dlsym resolved this exact public C signature. Pointers and directory fd outlive the call.
     let rename: RenameAt2 = unsafe { std::mem::transmute(symbol) };
@@ -79,11 +80,8 @@ fn publish(root: &[u8]) -> jint {
     if result == 0 {
         return 0;
     }
-    match std::io::Error::last_os_error().raw_os_error() {
-        Some(17) => 1, // EEXIST: any existing destination, including a dangling symlink.
-        Some(22 | 38 | 95) => 2, // EINVAL, ENOSYS, EOPNOTSUPP: unsupported, no fallback.
-        _ => 3,
-    }
+    // Capture errno immediately, then return only a closed category. No retry or fallback.
+    rename_failure(std::io::Error::last_os_error().raw_os_error())
 }
 
 #[no_mangle]

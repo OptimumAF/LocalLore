@@ -43,6 +43,8 @@ import java.io.IOException
 /** Only the explicit SDK candidate has this launcher. Intent extras never select a model/profile. */
 open class LocalModelSetupActivity : ComponentActivity() {
     private lateinit var model: LocalModelSetupViewModel
+    /** Internal subclasses share the actual lifecycle controller; no Intent selects its inputs. */
+    internal val setupController: LocalModelSetupViewModel get() = model
     private val picker = registerForActivityResult(object : ActivityResultContracts.OpenDocument() {
         override fun createIntent(context: Context, input: Array<String>): Intent =
             super.createIntent(context, input)
@@ -119,7 +121,9 @@ open class LocalModelSetupActivity : ComponentActivity() {
                             Text("LocalLore", style = MaterialTheme.typography.headlineLarge,
                                 fontFamily = FontFamily.Serif, modifier = Modifier.semantics { heading() })
                             Text("Experimental local model", style = MaterialTheme.typography.titleLarge)
-                            Text("Choose an existing local file. LocalLore checks its size and SHA-256, then keeps a copy in private app storage. Stories stay on this device during play.")
+                            Text(if (BuildConfig.MODEL_VOLUME_VERIFICATION)
+                                "Storage experiment: the checked model and runtime cache use this app's removable-storage directory. The cache may contain sensitive data. Removing the media makes the model unavailable. Story saves stay in internal app storage."
+                                else "Choose an existing local file. LocalLore checks its size and SHA-256, then keeps a copy in private app storage. Stories stay on this device during play.")
                             Text("The picker requests local storage; your file provider controls where its documents come from.",
                                 style = MaterialTheme.typography.bodySmall)
                             Text("Expected model · ${dependencies.identity.id}")

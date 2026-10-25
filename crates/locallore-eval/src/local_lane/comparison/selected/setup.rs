@@ -1,7 +1,7 @@
 //! Read-only selected-native setup evidence. No assets, approval or runtime owner.
 use super::{
-    decode, ordinary, read, shared_setup_shares, Ledger, Reservation, Result, Settlement, SetupRecord,
-    PREPARATION_MS,
+    decode, ordinary, read, shared_setup_shares, Ledger, Reservation, Result, Settlement,
+    SetupRecord, PREPARATION_MS,
 };
 use serde_json::Value;
 use std::{collections::BTreeMap, collections::BTreeSet, fs, io::ErrorKind, path::Path};
@@ -75,10 +75,7 @@ pub(super) fn read_setups(dir: &Path, binding: &str, native: bool) -> Result<Vec
     for arm in ["left", "right"] {
         let path = dir.join(arm);
         ordinary(&path).map_err(|_| "SetupIntegrity")?;
-        if !fs::metadata(&path)
-            .map_err(|_| "SetupIntegrity")?
-            .is_dir()
-        {
+        if !fs::metadata(&path).map_err(|_| "SetupIntegrity")?.is_dir() {
             return Err("SetupIntegrity".into());
         }
         // Reuse the real bounded ledger decoder for gaps, orphan settlements,
@@ -116,8 +113,7 @@ pub(super) fn read_setups(dir: &Path, binding: &str, native: bool) -> Result<Vec
         // Typed decoding rejects unknown/duplicate top-level fields. Option<Value> would
         // default a missing load key to None, so separately require its presence
         // in the SAME bounded bytes; explicit failed/null remains supported.
-        let setup: SetupRecord =
-            serde_json::from_slice(&bytes).map_err(|_| "SetupIntegrity")?;
+        let setup: SetupRecord = serde_json::from_slice(&bytes).map_err(|_| "SetupIntegrity")?;
         let value: Value = serde_json::from_slice(&bytes).map_err(|_| "SetupIntegrity")?;
         if value
             .as_object()
@@ -139,7 +135,12 @@ pub(super) fn read_setups(dir: &Path, binding: &str, native: bool) -> Result<Vec
         }
         let (left_share, right_share) = shared_setup_shares(setup.physical_ms);
         invocation(&dir.join("left"), binding, index, left_share)?;
-        invocation(&dir.join("right"), binding, setup.right_invocation, right_share)?;
+        invocation(
+            &dir.join("right"),
+            binding,
+            setup.right_invocation,
+            right_share,
+        )?;
         if setups.insert(index, setup).is_some() {
             return Err("SetupIntegrity".into());
         }

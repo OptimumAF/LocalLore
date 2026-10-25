@@ -378,3 +378,29 @@ fn callback_error_allowlist_discards_unknown_private_text_in_code_cause_and_debu
         );
     }
 }
+
+#[test]
+fn confirmed_poison_cleanup_keeps_the_original_fixed_cause() {
+    let fixture = FixedOwner::new();
+    let state = ReservationState::new(true);
+    let runtime = fixture.runtime.clone();
+    assert!(std::thread::spawn(move || {
+        let _held = runtime.lock().unwrap();
+        panic!("synthetic owner poison with initial failure");
+    })
+    .join()
+    .is_err());
+    let failure = native_owner::finish_owner(
+        Reservation::new(&state),
+        fixture.runtime.clone(),
+        Some("RunBudget".into()),
+    )
+    .unwrap_err();
+    assert_eq!(failure.code(), "Cleanup");
+    assert_eq!(failure.cause(), Some("RunBudget"));
+    assert!(!failure.cleanup_uncertain());
+    assert!(failure.into_retained().is_err());
+    fixture.assert_confirmed();
+    state.assert_events(&["drop"]);
+    assert_eq!(state.drops.load(Ordering::SeqCst), 1);
+}

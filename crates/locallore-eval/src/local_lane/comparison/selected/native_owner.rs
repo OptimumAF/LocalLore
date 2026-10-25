@@ -12,10 +12,7 @@ pub(super) type SharedRuntime = Arc<Mutex<LocalRuntime>>;
 
 pub trait SelectedNativeReservation {
     fn assets(&self) -> NativeAssets<'_>;
-    fn retain_uncertain(
-        &mut self,
-        owner: SharedRuntime,
-    ) -> std::result::Result<(), SharedRuntime>;
+    fn retain_uncertain(&mut self, owner: SharedRuntime) -> std::result::Result<(), SharedRuntime>;
 }
 
 /// Fixed diagnostics plus, only after a rejected transfer, the actual owner pair.
@@ -70,29 +67,123 @@ impl<R> fmt::Debug for SelectedNativeFailure<R> {
 // callback string or accept a private suffix merely because its prefix is known.
 fn closed_code(error: &str) -> &'static str {
     const CODES: &[&str] = &[
-        "Agency", "AliasedDestination", "AttemptLimit", "Binding", "BindingBudget",
-        "BootstrapIncomplete", "CaptureBinding", "CaptureConsent", "CaptureForwardedBudget",
-        "CaptureMalformed", "CaptureRepairMismatch", "CaseBudget", "CheckpointBudget",
-        "CheckpointEvidenceMismatch", "CheckpointIntegrity", "CheckpointMalformed",
-        "CheckpointMismatch", "CheckpointOrder", "CheckpointOutcomeMismatch", "Cleanup",
-        "ClockIntegrity", "ComparisonBinding", "ComparisonDirectory", "Create", "DependencyOracle", "Encoding", "EvidenceBudget", "Forbidden", "Fork",
-        "Interrupted", "InvalidSeed", "InvalidStep", "InvalidSuite", "Io", "LedgerIntegrity",
-        "Lookup", "Malformed", "NativeFeatureUnavailable", "OutputExists", "PreparationDeadline",
-        "OutputBudget", "Profile", "Provider", "RawBudget", "RawIntegrity", "ReceiptBinding", "ReceiptReplay", "Reparse",
-        "Recording", "RecordingIntegrity", "RecordingLost", "ReferenceBinding", "ReferenceChanged",
-        "ReferenceFailed", "ReferenceInputMismatch", "ReferenceIntegrity", "ReferenceNotApplicable",
-        "ReferenceOracle", "ReferenceOrder", "ReferencePrefix", "ReferenceReplay", "ReferenceRequired",
-        "ReferenceSourceMismatch", "Replay", "ReportBudget", "Resume", "RoleBudget", "RoleOrder",
-        "RolloutContinuity", "RolloutSource", "RunBudget", "RunBusy", "RuntimeInvalidRequest",
-        "RuntimeModelInvalid", "RuntimeWorkerUnavailable", "RuntimeProtocol", "RuntimeBusy",
-        "RuntimeCancelled", "RuntimeTimeout", "RuntimeCleanup", "RuntimeRuntime", "SceneBudget",
-        "SceneIntegrity", "SceneOrder", "Scope", "Seed", "SelectedBinding", "SelectedDirectory",
-        "SelectedExecution", "SelectedIdentity", "SelectedInput", "SelectedLaneMismatch", "SetupBegin",
-        "SetupCommit", "SetupIntegrity", "SetupProposal", "SetupReplay", "SetupValidation",
-        "SnapshotMismatch", "Source", "SourceDestinationOverlap", "SourceMismatch", "Stale",
-        "Storage", "Suite", "SuiteBudget", "TerminalCheckpointMissing", "TooLarge", "TransportUnknown",
-        "UnknownCase", "UnknownRow", "UnsupportedDomain", "UnsupportedPlatform", "Usage",
-        "UseNativeComparisonEntry", "Watchdog", "Workspace",
+        "Agency",
+        "AliasedDestination",
+        "AttemptLimit",
+        "Binding",
+        "BindingBudget",
+        "BootstrapIncomplete",
+        "CaptureBinding",
+        "CaptureConsent",
+        "CaptureForwardedBudget",
+        "CaptureMalformed",
+        "CaptureRepairMismatch",
+        "CaseBudget",
+        "CheckpointBudget",
+        "CheckpointEvidenceMismatch",
+        "CheckpointIntegrity",
+        "CheckpointMalformed",
+        "CheckpointMismatch",
+        "CheckpointOrder",
+        "CheckpointOutcomeMismatch",
+        "Cleanup",
+        "ClockIntegrity",
+        "ComparisonBinding",
+        "ComparisonDirectory",
+        "Create",
+        "DependencyOracle",
+        "Encoding",
+        "EvidenceBudget",
+        "Forbidden",
+        "Fork",
+        "Interrupted",
+        "InvalidSeed",
+        "InvalidStep",
+        "InvalidSuite",
+        "Io",
+        "LedgerIntegrity",
+        "Lookup",
+        "Malformed",
+        "NativeFeatureUnavailable",
+        "OutputExists",
+        "PreparationDeadline",
+        "OutputBudget",
+        "Profile",
+        "Provider",
+        "RawBudget",
+        "RawIntegrity",
+        "ReceiptBinding",
+        "ReceiptReplay",
+        "Reparse",
+        "Recording",
+        "RecordingIntegrity",
+        "RecordingLost",
+        "ReferenceBinding",
+        "ReferenceChanged",
+        "ReferenceFailed",
+        "ReferenceInputMismatch",
+        "ReferenceIntegrity",
+        "ReferenceNotApplicable",
+        "ReferenceOracle",
+        "ReferenceOrder",
+        "ReferencePrefix",
+        "ReferenceReplay",
+        "ReferenceRequired",
+        "ReferenceSourceMismatch",
+        "Replay",
+        "ReportBudget",
+        "Resume",
+        "RoleBudget",
+        "RoleOrder",
+        "RolloutContinuity",
+        "RolloutSource",
+        "RunBudget",
+        "RunBusy",
+        "RuntimeInvalidRequest",
+        "RuntimeModelInvalid",
+        "RuntimeWorkerUnavailable",
+        "RuntimeProtocol",
+        "RuntimeBusy",
+        "RuntimeCancelled",
+        "RuntimeTimeout",
+        "RuntimeCleanup",
+        "RuntimeRuntime",
+        "SceneBudget",
+        "SceneIntegrity",
+        "SceneOrder",
+        "Scope",
+        "Seed",
+        "SelectedBinding",
+        "SelectedDirectory",
+        "SelectedExecution",
+        "SelectedIdentity",
+        "SelectedInput",
+        "SelectedLaneMismatch",
+        "SetupBegin",
+        "SetupCommit",
+        "SetupIntegrity",
+        "SetupProposal",
+        "SetupReplay",
+        "SetupValidation",
+        "SnapshotMismatch",
+        "Source",
+        "SourceDestinationOverlap",
+        "SourceMismatch",
+        "Stale",
+        "Storage",
+        "Suite",
+        "SuiteBudget",
+        "TerminalCheckpointMissing",
+        "TooLarge",
+        "TransportUnknown",
+        "UnknownCase",
+        "UnknownRow",
+        "UnsupportedDomain",
+        "UnsupportedPlatform",
+        "Usage",
+        "UseNativeComparisonEntry",
+        "Watchdog",
+        "Workspace",
     ];
     CODES
         .iter()
@@ -159,14 +250,15 @@ pub(super) fn finish_owner<R: SelectedNativeReservation>(
             // Keep our original Arc even if a faulty native adapter panics or
             // returns the wrong Arc. A rejected handoff cannot release this pair.
             let transfer = owned.1.clone();
-            let accepted = match catch_unwind(AssertUnwindSafe(|| owned.0.retain_uncertain(transfer))) {
-                Ok(Ok(())) => true,
-                Ok(Err(returned)) => {
-                    drop(returned);
-                    false
-                }
-                Err(_) => false,
-            };
+            let accepted =
+                match catch_unwind(AssertUnwindSafe(|| owned.0.retain_uncertain(transfer))) {
+                    Ok(Ok(())) => true,
+                    Ok(Err(returned)) => {
+                        drop(returned);
+                        false
+                    }
+                    Err(_) => false,
+                };
             let retained = if accepted {
                 // The same actual Arc was installed before the ticket drops.
                 drop(owned);

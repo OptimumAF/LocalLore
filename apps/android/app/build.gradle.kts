@@ -39,7 +39,7 @@ if (liteRt == "true") {
         .replace("\r\n", "\n").toByteArray(Charsets.UTF_8)
     val finiteCodecHash = MessageDigest.getInstance("SHA-256").digest(finiteCodecBytes)
         .joinToString("") { "%02x".format(it) }
-    require(finiteCodecHash == "b89ba9aa332529a629e0f532f5d8e55997eef8f68229665f898eae53010af96f") {
+    require(finiteCodecHash == "4d2a5e531c78b99c7dd3d0f203460fa79194e07b8266e395d071b939ccb6364c") {
         "Review the finite-schema codec and its worker provenance before building changed source."
     }
     require(file("src/litert/java/org/locallore/app/LiteRtRoleWorker.kt").readText()
@@ -50,7 +50,7 @@ if (liteRt == "true") {
         .replace("\r\n", "\n").toByteArray(Charsets.UTF_8)
     val workerHash = MessageDigest.getInstance("SHA-256").digest(workerBytes)
         .joinToString("") { "%02x".format(it) }
-    require(workerHash == "a1cf7dee7a0396d6e812c090fcbee80890843f7354da5713e813a02ab7a777f0") {
+    require(workerHash == "efc5f9217b22ed772b10805fdd83122d9afe8647c374e6db234209748865ea52") {
         "Update and review the trusted candidate worker provenance before building changed worker source."
     }
 }

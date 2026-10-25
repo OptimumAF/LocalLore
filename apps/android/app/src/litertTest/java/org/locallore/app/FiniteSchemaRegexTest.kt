@@ -157,6 +157,7 @@ class FiniteSchemaRegexTest {
         assertEquals(14 + allowed * 13, localUtf8(regex).size)
         assertEquals("\\A(?:(?:\"" + "(?: |\\\\u0020)".repeat(allowed) + "\"))\\z", regex)
         Pattern.compile(regex)
+        exportPressurePatternIfRequested(schema(allowed), regex, allowed)
         // Java Pattern's recursive matcher is not the native compiler's stack model.
         // Check the complete maximum pattern above and representative combinations here.
         assertTrue(matches(schema(64), quote(" ".repeat(64))))
@@ -274,6 +275,43 @@ class FiniteSchemaRegexTest {
         assertEquals(result, finiteSchemaRegex(before))
         assertTrue(matches("""{"const":"an arbitrary literal unrelated to actors or actions"}""", quote("an arbitrary literal unrelated to actors or actions")))
         assertNull(finiteSchemaRegex("""{"op":"say","text":"a model claim","grant":true}"""))
+    }
+
+    /** Native pressure input only: Java's recursive matcher is not the native pressure oracle. */
+    private fun exportPressurePatternIfRequested(schema: String, regex: String, spaces: Int) {
+        val name = System.getenv("LOCALLORE_FINITE_PRESSURE_OUTPUT") ?: return
+        val target = Path.of(name)
+        require(target.isAbsolute && !Files.isSymbolicLink(target))
+        val positive = JsonArray().apply {
+            add(JsonObject().apply { addProperty("id", "canonical"); addProperty("json", quote(" ".repeat(spaces))) })
+            add(JsonObject().apply { addProperty("id", "escaped"); addProperty("json", "\"" + "\\u0020".repeat(spaces) + "\"") })
+        }
+        val negative = JsonArray().apply {
+            listOf(quote(" ".repeat(spaces - 1)), quote(" ".repeat(spaces - 1) + "x"), "\"" + " ".repeat(spaces)).forEachIndexed { index, text ->
+                add(JsonObject().apply { addProperty("id", "negative-$index"); addProperty("json", text) })
+            }
+        }
+        val corpus = JsonObject().apply {
+            addProperty("version", 1); addProperty("scope", "locallore_llguidance_oracle_v1")
+            add("cases", JsonArray().apply { add(JsonObject().apply {
+                addProperty("id", "space-budget-boundary"); addProperty("schema_json", schema)
+                add("positives", positive); add("negatives", negative)
+            }) }); add("refusals", JsonArray())
+        }.toString()
+        val patterns = JsonObject().apply {
+            addProperty("version", 1); addProperty("scope", "locallore_finite_regex_corpus_v1")
+            addProperty("source_corpus_sha256", sha(localUtf8(corpus)))
+            add("cases", JsonArray().apply { add(JsonObject().apply {
+                addProperty("index", 0); addProperty("schema_sha256", sha(localUtf8(schema))); addProperty("regex", regex)
+            }) })
+        }.toString()
+        val wire = localUtf8(JsonObject().apply {
+            addProperty("version", 1); addProperty("scope", "locallore_finite_pressure_v1")
+            addProperty("spaces", spaces); addProperty("regex_bytes", localUtf8(regex).size)
+            addProperty("corpus_json", corpus); addProperty("patterns_json", patterns)
+        }.toString())
+        require(wire.size <= 262144)
+        Files.write(target, wire, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)
     }
 
     /** Root-owned evidence path only; never used by the app or default test run. */

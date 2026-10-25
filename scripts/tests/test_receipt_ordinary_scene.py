@@ -264,6 +264,7 @@ class OrdinaryControllerTests(unittest.TestCase):
         raw=callback_record().replace(b'"OUTPUT_BYTES":120',b'"OUTPUT_BYTES":true')+transcript("ORDINARY_START",False)
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);owner,_=owner_fixture(root)
+            owner.methods=1  # The selected START follows the already completed IMPORT.
             with patch.object(q.host,"run_process",return_value=api.client(raw)),patch.object(s,"read_proof") as read:
                 with self.assertRaises(AssertionError):s.run_selected(owner,"ORDINARY_START")
                 read.assert_not_called()

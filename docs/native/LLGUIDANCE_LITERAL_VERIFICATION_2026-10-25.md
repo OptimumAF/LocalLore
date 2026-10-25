@@ -247,3 +247,77 @@ readback, unchanged APK verification and40/40 resource checks, a separate
 resumed, retried or queried for its unread proof. At this dated admission,
 second preflight, full local stream/import, real SDK and reopen remain pending
 actual results; no success is inferred from the corrected parser.
+
+## Second fresh attempt: import and real gift pass; Dialogue still fails
+
+Executed controller source24b4b800 has the same93 bound source bytes as the
+7fac8a9c source indexv2; its later change is this unbound evidence document.
+The separately admitted new API35/x86_64 four-core target passed preflight:
+1method/12checks,44 known-clean commands, outer52087ms/worker0/output complete/
+0stderr. Independent review matched the raw805-byte runner, all command hashes,
+source/proof/UID/package links and stronger40/40 postguard. Its descriptor is
+distinct from the first attempt. No full weights or SDK entered preflight.
+
+The separate ordinary grant bound all four successful preflight records,
+the same live owner, consent, source and audited APKs. Its once-only full
+held-source transfer completed with the expected size/hash and client0;
+destination authority still came from the subsequent app proof.
+
+| Actual phase | Result | Evidence |
+| --- | --- | --- |
+| IMPORT |PASS,16checks; runner106.623s/app105845ms |Full source hash/size, one opened/closed verification and import stream, accepted receipt/owner/full recheck; SDKfalse |
+| ORDINARY_START |PASS,28checks; runner94.872s/app94468ms |Actual production setup Start/New story/Send; local SDK director+narrator; canonical revision1/one gift receipt, repairs0/fallbackfalse, full model postcheck and native handle closed |
+| ORDINARY_DIALOGUE |FAIL, runner57.102s |Wrapper-declared CODE13/INTERNAL after15validated chunks/58UTF8bytes; no accepted Dialogue proof |
+| ORDINARY_REOPEN |Not dispatched |The failed prior phase prevents continuation; no restart qualification |
+
+Together with preflight this is **56 qualified checks across three passing
+methods**. This does not qualify all122 checks or the complete M05 scene.
+The gift worker trace has two DONE/two settled drains/two known conversation
+closes/one known engine close and zero uncertainty. The recorded gift receipt
+SHA256 is`cdf0e1ca6d08195dd40e30603249e6e611c1dead6a3c647f0b13d80df51ef695`.
+It remains the last qualified revision/receipt observation; no post-failure
+canonical/model state was queried or inferred. Fixture/runner timings are
+not a physical-phone performance tier or isolated generation benchmark.
+
+The failing Dialogue raw runner is6565bytes, SHA256
+`9b64efd6` (full hash is retained in its command record and selected index).
+Its trace observes only DIRECTOR creation, SEND returned,15callbacks then
+one wrapper status13. DONE and settled drain remain0, conversation/engine
+known close remain0, uncertainty2. These are chunks/bytes, **not token counts**.
+The original425-byte engine-schema trace field remains unchanged. It is not
+the generated regex size, schema hash or an authenticated observation of the
+actual selected SDK response format. Compiled codec/selector/source evidence
+does not replace that missing runtime observation. The ordinary INTERNAL13
+cause is still unknown; the separately reproduced escaped compiler-tail
+defect must not be claimed as its explanation or cure.
+
+The ordinary controller stopped at`instrument-ORDINARY_DIALOGUE`:46 known-clean
+client commands/three instrumentation attempts, outer413566ms/worker2/output
+complete/0stderr. No subsequent guest/model/cache/proof read, SDK retry or
+REOPEN was issued after uncertainty. Only the exact proposal-bound host owner
+was stopped. Its receipt records735332ms, stop_requested, known cleanup,
+complete output and preservation closure; no graceful guest-flush claim.
+The sampled guard ended healthy with no monitor failure. All targets, source
+and failures remain retained.
+
+The final second-device selection binds253files/666792bytes, indexSHA256
+`b1dc72119690d2a3d35b5684def3549c856daa2c8f6127048404ec28ac4b0b64`;
+owner receiptSHA256
+`2aa36ed9b8b856b8dde71a3b4765f5bbdfab19ac04c0e505915bb1248b740ead`.
+The follow-up host selection binds12files/77439687bytes, indexSHA256
+`3e4281d6880b458ae369070c97e45e42ff6284981a6cd73708ada3b2ec376eac`.
+Original93 source files are captured separately. An initial index construction
+refused the1910-byte original`start-worker-v2.json.raw` suffix; the corrected
+explicit bounded allowance preserved those exact bytes, with no result
+regeneration. Images, weights, caches and keys remain excluded. Nothing was
+uploaded from these private selections.
+
+PR175 was externally merged atf1709713/a7feb420 while execution continued;
+this packet performed no merge. Later phase validation, both D-root attempts
+and their evidence belong to [PR176](https://github.com/OptimumAF/LocalLore/pull/176).
+M05.05 remains partial/in_review, with real Dialogue/restart blocked on this
+reproducible SDK failure. M01.01 reference-phone and ARM64/16KiB execution,
+quality, sustained and full milestone gates remain unqualified. The next
+runnable source/host task is a bounded response-format selection observation
+and actual-model-tokenizer mask comparison for this original ordinary schema;
+no further call or read on the quarantined target is authorized by its failure.

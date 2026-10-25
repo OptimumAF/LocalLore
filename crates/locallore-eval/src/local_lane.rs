@@ -1355,6 +1355,18 @@ impl Session {
         cancel: &Cancellation,
         max_stories: usize,
     ) -> Result<Report> {
+        self.execute_body(&factory, cancel, max_stories)?;
+        self.finalize()
+    }
+    // Native ownership callers keep this same session/ledger alive until the
+    // actual worker is drained and positively reaped. Legacy execute retains
+    // its original finalize-before-factory-Drop behavior and report format.
+    fn execute_body(
+        &mut self,
+        factory: &LaneFactory,
+        cancel: &Cancellation,
+        max_stories: usize,
+    ) -> Result<()> {
         if !(1..=6).contains(&max_stories) {
             return Err("CaseBudget".into());
         }
@@ -1397,7 +1409,7 @@ impl Session {
             }
             let (attempt, path) = destination.ok_or("AttemptLimit")?;
             let (result, metadata) =
-                match run_story(&story, &path, &factory, cancel, &mut self.ledger) {
+                match run_story(&story, &path, factory, cancel, &mut self.ledger) {
                     Ok(value) => value,
                     Err(error) if error == "Interrupted" || error == "RunBudget" => {
                         self.report.cancelled = cancel.is_cancelled();
@@ -1431,7 +1443,7 @@ impl Session {
             self.metadata.push(metadata);
             executed += 1;
         }
-        self.finalize()
+        Ok(())
     }
     fn all_saved(&self) -> Result<bool> {
         for (index, story) in self.stories.iter().enumerate() {
@@ -1742,3 +1754,8 @@ pub mod desktop_api;
 
 /// Version2 comparison uses the same native lane, provider recording and resource ledger.
 pub mod comparison;
+
+#[cfg(feature = "local-model")]
+pub use comparison::selected::{
+    SelectedNativeFailure as NativeFailure, SelectedNativeReservation as NativeReservation,
+};

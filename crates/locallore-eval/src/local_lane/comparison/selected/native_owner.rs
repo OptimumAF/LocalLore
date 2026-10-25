@@ -40,7 +40,7 @@ impl<R> SelectedNativeFailure<R> {
             None => Err(self),
         }
     }
-    pub(super) fn from_error(error: String) -> Self {
+    pub(crate) fn from_error(error: String) -> Self {
         let code = closed_code(&error);
         Self {
             code,
@@ -225,7 +225,7 @@ fn cleanup(runtime: &SharedRuntime) -> Cleanup {
 
 /// The caller has already drained Host/provider use and still owns its ledgers.
 /// This function does not settle reservations, publish reports or inspect assets.
-pub(super) fn finish_owner<R: SelectedNativeReservation>(
+pub(crate) fn finish_owner<R: SelectedNativeReservation>(
     reservation: R,
     runtime: SharedRuntime,
     cause: Option<String>,

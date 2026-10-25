@@ -5,6 +5,9 @@ use super::*;
 const LANE: &str = "scripted_selected_case";
 const MANIFEST_CAP: usize = 128 * 1024;
 
+#[cfg(test)]
+mod review_tests;
+
 pub enum SelectedLane {
     ScriptedBaseline,
 }

@@ -19,9 +19,10 @@ receipt-completed cuts and existing replay/request validation drive the result.
 Full-run committed recovery reuses it; profile validation now precedes lookup.
 Noncommitted admission/clock/provider/watchdog/persistence behavior is unchanged.
 
-The helper is **not yet wired to a native selected entry**. Full native setup
-still constructs its factory first. It does not yet avoid native model load on
-completed recovery, implement selected execution/public authority or change GUI.
+The helper is **not yet wired to a native selected entry**. For a committed turn
+whose workflow checkpoint is missing, the existing full native runner still
+loads its factory first. This prerequisite does not yet change that ordering,
+implement selected execution/public authority or change GUI.
 
 ## Frozen failures, correction and actual results
 

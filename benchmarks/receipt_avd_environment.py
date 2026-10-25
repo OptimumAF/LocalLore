@@ -585,14 +585,81 @@ def open_live_owner(proposal_path, running_path, expected_running_sha256):
         raise EnvironmentRefused("invalid_owner") from None
 
 
+class LiveOutput:
+    """Force a bounded private prefix while the owner is alive; no terminal claim."""
+    names = ("owner-stdout-v1.bin", "owner-stderr-v1.bin")
+
+    def __init__(self, root):
+        self.failed = threading.Event()
+        self.overflow = threading.Event()
+        self._lock = threading.Lock()
+        self._sizes = [0, 0]
+        self._files = []
+        self._closed = False
+        try:
+            root = safe_path(root, directory=True)
+            paths = [safe_path(root / name, exists=False) for name in self.names]
+            require(not any(path.exists() for path in paths), "output_exists")
+            for path in paths:
+                stream = path.open("xb", buffering=0)
+                self._files.append(stream)
+                stream.flush()
+                os.fsync(stream.fileno())
+        except BaseException:
+            self.failed.set()
+            self.close()
+            raise
+
+    @property
+    def sizes(self):
+        with self._lock:
+            return list(self._sizes)
+
+    def append(self, channel, data):
+        with self._lock:
+            if self.failed.is_set() or self.overflow.is_set() or self._closed:
+                return False
+            try:
+                require(type(channel) is int and channel in (0, 1) and type(data) is bytes,
+                        "invalid_output")
+                left = MAX_OUTPUT - sum(self._sizes)
+                kept = data[:left]
+                if kept:
+                    stream = self._files[channel]
+                    require(stream.write(kept) == len(kept), "short_output_write")
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                    self._sizes[channel] += len(kept)
+                if len(data) > left:
+                    self.overflow.set()
+                    return False
+                return True
+            except Exception:
+                self.failed.set()
+                return False
+
+    def close(self):
+        with self._lock:
+            if not self._closed:
+                self._closed = True
+                for stream in self._files:
+                    try:
+                        stream.close()
+                    except Exception:
+                        self.failed.set()
+            return not self.failed.is_set()
+
+
 def supervise(command, request, root, seconds, on_started, stop_proposal_sha256=None):
     """Barrier child is assigned before request. Ordinary exit also kills descendants."""
     require(os.name == "nt" and type(seconds) is int and 0 < seconds <= MAX_SECONDS and
             len(request) <= 131072, "invalid_budget")
-    child = None; job = None; readers = []; chunks = [bytearray(), bytearray()]
-    overflow = threading.Event(); lock = threading.Lock(); status = "spawn_failed"; cleaned = False
+    child = None; job = None; readers = []; capture = None
+    status = "spawn_failed"; cleaned = False
     started = time.monotonic()
     try:
+        # Both exclusive empty files are forced before any child can exist.
+        capture = LiveOutput(root)
         child = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                  bufsize=0, creationflags=subprocess.CREATE_NO_WINDOW)
         job = host.WindowsJob(child.pid)
@@ -602,20 +669,19 @@ def supervise(command, request, root, seconds, on_started, stop_proposal_sha256=
                     data = stream.read(4096)
                     if not data:
                         break
-                    with lock:
-                        left = MAX_OUTPUT - sum(map(len, chunks))
-                        chunks[channel].extend(data[:max(0, left)])
-                        if len(data) > left:
-                            overflow.set(); break
-            except (OSError, ValueError):
-                pass
+                    if not capture.append(channel, data):
+                        break
+            except Exception:
+                capture.failed.set()
         for index, stream in enumerate((child.stdout, child.stderr)):
             t = threading.Thread(target=drain, args=(stream, index), daemon=True)
             readers.append(t); t.start()
         child.stdin.write(request); child.stdin.close()
         status = "running"; announced = False
         while True:
-            if overflow.is_set():
+            if capture.failed.is_set():
+                status = "evidence_failed"; break
+            if capture.overflow.is_set():
                 status = "output_limit"; break
             if time.monotonic() - started >= seconds:
                 status = "expired"; break
@@ -633,7 +699,7 @@ def supervise(command, request, root, seconds, on_started, stop_proposal_sha256=
     except KeyboardInterrupt:
         status = "cancelled"
     except (EnvironmentRefused, OSError, ValueError, KeyError, TypeError):
-        status = "owner_failed"
+        status = "evidence_failed" if capture is None or capture.failed.is_set() else "owner_failed"
     finally:
         if child is not None:
             if job is not None:
@@ -649,14 +715,30 @@ def supervise(command, request, root, seconds, on_started, stop_proposal_sha256=
             cleaned = cleaned and not any(t.is_alive() for t in readers)
             if cleaned:
                 for stream in (child.stdin, child.stdout, child.stderr):
-                    stream.close()
-        for index, name in enumerate(("owner-stdout-v1.bin", "owner-stderr-v1.bin")):
-            with (root / name).open("xb") as stream:
-                stream.write(chunks[index]); stream.flush(); os.fsync(stream.fileno())
+                    try:
+                        stream.close()
+                    except (OSError, ValueError):
+                        cleaned = False
+        # A trailing reader/force/close failure must override an earlier stop/exit.
+        stalled_reader = any(t.is_alive() for t in readers)
+        if capture is not None and stalled_reader:
+            # Never wait on its capture lock or close a file still being written.
+            capture.failed.set()
+            status = "evidence_failed"
+        elif capture is not None:
+            capture.close()
+            if capture.failed.is_set():
+                status = "evidence_failed"
+            elif capture.overflow.is_set():
+                status = "output_limit"
+    sizes = [None, None] if stalled_reader else capture.sizes if capture is not None else [0, 0]
+    capture_complete = (capture is not None and not capture.failed.is_set() and
+                        not capture.overflow.is_set() and not any(t.is_alive() for t in readers))
     return {"status": status, "cleanup_complete": cleaned,
             "elapsed_ms": round((time.monotonic() - started) * 1000),
             "worker_returncode": child.returncode if child else None,
-            "stdout_bytes": len(chunks[0]), "stderr_bytes": len(chunks[1])}
+            "stdout_bytes": sizes[0], "stderr_bytes": sizes[1],
+            "output_capture_complete": capture_complete}
 
 
 def run(proposal_path, authorization_path):
@@ -667,7 +749,8 @@ def run(proposal_path, authorization_path):
     facts = resource_facts(proposal); ports_free()
     root = Path(proposal["paths"]["root"])
     require(not any((root / name).exists() for name in
-                    ("run-start-v1.json", "running-v1.json", "worker-start-v1.json", "stop-v1.json", "owner-result-v1.json")),
+                    ("run-start-v1.json", "running-v1.json", "worker-start-v1.json", "stop-v1.json", "owner-result-v1.json",
+                     *LiveOutput.names)),
             "target_used")
     create_json(root / "run-start-v1.json", {"proposal_sha256": admitted_sha, "facts": facts,
                                            "owner": process_identity(os.getpid())})

@@ -242,7 +242,18 @@ def stream_worker(proposal_path, authorization_path, evidence):
     raw = sys.stdin.buffer.read(128)
     assert raw.startswith(STREAM_REQUEST) and re.fullmatch(rb"[1-9][0-9]{4,9}\n", raw[len(STREAM_REQUEST):])
     uid = int(raw[len(STREAM_REQUEST):]); integer(uid, 10000, 2 ** 31 - 1)
-    value = authorize(proposal_path, authorization_path, evidence); lease = q.open_lease(value); lease.check()
+    value = authorize(proposal_path, authorization_path, evidence)
+    return stream_authorized(value, uid, proposal_path, authorization_path, evidence)
+
+
+def stream_authorized(value, uid, proposal_path, authorization_path, evidence):
+    """Trusted callers supply their fixed authorizer's value after the stdin barrier.
+
+    This internal sharing point is not a CLI or a capability to authorize a scope.
+    Parent binding, one-shot claim, live lease and held-FD transfer remain here.
+    """
+    integer(uid, 10000, 2 ** 31 - 1)
+    lease = q.open_lease(value); lease.check()
     cohort = Path(evidence) / "cohort"
     parent_path = cohort / "stream-parent-v1.json"
     parent = q.contract.strict_json(parent_path.read_bytes())
@@ -334,6 +345,9 @@ class ContinuedBoundary:
 
 
 class Owner(q.Owner):
+    # Trusted subclasses may use their own fixed authorizer module. No input selects it.
+    STREAM_SCRIPT = Path(__file__).resolve()
+
     def __init__(self, value, lease):
         super().__init__(value, lease)
         self.proposal_path = self.authorization_path = None
@@ -391,7 +405,7 @@ class Owner(q.Owner):
                 "parent": environment.process_identity(os.getpid()), "proposal_sha256": q.sha(Path(self.proposal_path).read_bytes()),
                 "authorization_sha256": q.sha(Path(self.authorization_path).read_bytes()), "phase": self.real_phase,
                 "uid": self.uid_map[q.APP], "facts_sha256": q.sha(facts.read_bytes()), "deadline_epoch": time.time() + min(180, remaining)})
-            result = q.host.run_process([sys.executable, "-B", "-E", str(Path(__file__).resolve()), "_stream",
+            result = q.host.run_process([sys.executable, "-B", "-E", str(self.STREAM_SCRIPT), "_stream",
                 "--proposal", str(self.proposal_path), "--authorization", str(self.authorization_path),
                 "--evidence", self.proposal["evidence_root"]],
                 request=STREAM_REQUEST + str(self.uid_map[q.APP]).encode("ascii") + b"\n", deadline=min(180, remaining), max_output=4096)

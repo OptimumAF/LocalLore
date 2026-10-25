@@ -103,6 +103,11 @@ now passes 56 protocol checks: full local model import, one actual SDK gift
 validated/committed by Rust, and a new-process reopen of the unchanged receipt
 without inference. This is a synthetic emulator proof; phone, sustained-use,
 DocumentsUI and performance qualification remain open. Earlier failures are retained.
+The subsequent [real cancellation/recovery control](docs/native/RECEIPT_REAL_CANCELLATION_VERIFICATION_2026-10-25.md)
+passes 82 checks across five emulator methods. It verifies the Main-thread
+gateway API's actual SDK cancellation with unchanged canon, then a new-process
+gift and no-inference reopen. Compose Cancel-button timing and broader phone
+qualification remain open.
 
 An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects
 the isolated SDK to guarded free-text preparation and durable commit. Its

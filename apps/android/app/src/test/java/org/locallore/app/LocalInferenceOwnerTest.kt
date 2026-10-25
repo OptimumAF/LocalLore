@@ -161,6 +161,97 @@ class LocalInferenceOwnerTest {
         owner.close()
     }
 
+    @Test fun explicitCancelAcknowledgementWaitsForSdkCleanupBeforeRefresh() = runBlocking {
+        val closeGate = CompletableDeferred<Boolean>()
+        val call = Call()
+        val engine = object : Engine(call) {
+            override suspend fun close(): Boolean { closes.incrementAndGet(); return closeGate.await() }
+        }
+        val port = Port(request)
+        val owner = owner(engine, LocalInferenceLimits(turnMs = 2_000, cleanupMs = 1_000, pollMs = 2))
+        val operation = async { prepare(owner, port) }
+        call.entered.await()
+        val cancellation = async { owner.execute(port, "cancel", "cancel".toByteArray()) }
+        try {
+            eventually { engine.closes.get() == 1 }
+            assertTrue(port.cancels.get() >= 1)
+            assertFalse("Cancel ACK must not permit a refresh while SDK close is still owned", cancellation.isCompleted)
+            assertFalse(owner.quarantined)
+            for (operationName in listOf("open", "branches")) {
+                try {
+                    owner.execute(port, operationName, operationName.toByteArray())
+                    fail("Refresh must remain Busy while the captured cleanup is owned")
+                } catch (_: LocalInferenceBusy) { /* No early refresh permission is granted. */ }
+            }
+        } finally {
+            closeGate.complete(true)
+        }
+        assertEquals("ok", cancellation.await().toString(Charsets.UTF_8))
+        assertEquals("cancelled", operation.await().toString(Charsets.UTF_8))
+        assertEquals("ok", owner.execute(port, "open", "open".toByteArray()).toString(Charsets.UTF_8))
+        assertEquals(0, port.deliveries.get()); assertEquals(0, port.commits.get())
+        assertFalse(owner.quarantined)
+        owner.close()
+    }
+
+    @Test fun explicitCancelNeverAcknowledgesFailedOrUnreturnedCleanup() = runBlocking {
+        for (unreturned in listOf(false, true)) {
+            val gate = CompletableDeferred<Boolean>()
+            val call = Call()
+            val engine = object : Engine(call) {
+                override suspend fun close(): Boolean {
+                    closes.incrementAndGet()
+                    return if (unreturned) gate.await() else false
+                }
+            }
+            val port = Port(request)
+            val owner = owner(engine, LocalInferenceLimits(turnMs = 1_000, cleanupMs = 80, pollMs = 2))
+            val operation = async { runCatching { prepare(owner, port) } }
+            call.entered.await()
+            val cancellation = runCatching { owner.execute(port, "cancel", "cancel".toByteArray()) }
+            assertTrue(cancellation.exceptionOrNull() is LocalInferenceUncertain)
+            assertTrue(operation.await().exceptionOrNull() is LocalInferenceUncertain)
+            assertTrue(owner.quarantined)
+            assertEquals(0, port.deliveries.get()); assertEquals(0, port.commits.get())
+            refused(owner, port, "open"); refused(owner, port, "branches")
+            gate.complete(true) // Late physical completion cannot reopen the quarantined owner.
+            refused(owner, port, "open")
+            owner.close()
+        }
+    }
+
+    @Test fun uiStyleCallerCancellationStillJoinsKnownCleanupBeforeRefresh() = runBlocking {
+        val gate = CompletableDeferred<Boolean>()
+        val call = Call()
+        val engine = object : Engine(call) {
+            override suspend fun close(): Boolean { closes.incrementAndGet(); return gate.await() }
+        }
+        val port = Port(request)
+        val owner = owner(engine, LocalInferenceLimits(turnMs = 2_000, cleanupMs = 1_000, pollMs = 2))
+        val operation = launch { prepare(owner, port) }
+        call.entered.await()
+        operation.cancel() // The UI cancels its await; this alone is not a release observation.
+        val cancellation = async { owner.execute(port, "cancel", "cancel".toByteArray()) }
+        try {
+            eventually { engine.closes.get() == 1 && port.cancels.get() >= 1 }
+            assertFalse(cancellation.isCompleted)
+        } finally { gate.complete(true) }
+        assertEquals("ok", cancellation.await().toString(Charsets.UTF_8))
+        operation.join()
+        assertFalse(owner.quarantined)
+        assertEquals("ok", owner.execute(port, "branches", "branches".toByteArray()).toString(Charsets.UTF_8))
+        assertEquals(0, port.deliveries.get()); assertEquals(0, port.commits.get())
+        owner.close()
+    }
+
+    @Test fun cancellingWithoutAnActiveRunRetainsFiniteNativeAcknowledgement() = runBlocking {
+        val port = Port(request); val owner = owner(Engine(Call()))
+        assertEquals("ok", owner.execute(port, "cancel", "cancel".toByteArray()).toString(Charsets.UTF_8))
+        assertFalse(owner.quarantined)
+        assertEquals(1, port.cancels.get()); assertEquals(0, port.commits.get())
+        owner.close()
+    }
+
     @Test fun callerCancellationWithKnownTerminalDrainAndCloseKeepsRecoveryAvailable() = runBlocking {
         val call = Call(); val engine = Engine(call); val port = Port(request); val owner = owner(engine)
         val operation = launch { prepare(owner, port) }

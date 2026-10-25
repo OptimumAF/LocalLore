@@ -79,7 +79,8 @@ def selection(phase):
 
 def parse_runner(raw, phase):
     assert phase in PHASES
-    return q._parse_selected_instrumentation(raw, "org.locallore.app." + PHASES[phase][1], frozenset((PHASES[phase][2],)))
+    return q._parse_selected_instrumentation(raw, "org.locallore.app." + PHASES[phase][1], frozenset((PHASES[phase][2],)),
+        phase_budget_ms=PHASES[phase][3])
 
 
 def integer(value, low=0, high=2 ** 63 - 1):

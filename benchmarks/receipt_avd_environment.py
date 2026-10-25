@@ -22,8 +22,10 @@ import time
 
 try:
     from benchmarks import runtime_spike as host
+    from benchmarks import host_commit_capacity as commit_capacity
 except ModuleNotFoundError:
     import runtime_spike as host
+    import host_commit_capacity as commit_capacity
 
 NAME = "locallore_receipt_api35_v1"
 PORT = 5592
@@ -194,7 +196,7 @@ def tree_files(root):
 
 def installation_files(sdk, java):
     sdk, java = Path(sdk), Path(java)
-    files = [Path(__file__).resolve(), Path(host.__file__).resolve()]
+    files = [Path(__file__).resolve(), Path(host.__file__).resolve(), Path(commit_capacity.__file__).resolve()]
     for folder in (sdk / "emulator", sdk / "cmdline-tools/latest",
                    sdk / "system-images/android-35/google_apis/x86_64", java,
                    sdk / "licenses", sdk / "platform-tools"):
@@ -269,7 +271,8 @@ def validate_proposal(proposal, phase):
             valid_profile(proposal), "invalid_proposal")
     items = proposal["bindings"]
     require(isinstance(items, list) and len({x["path"] for x in items}) == len(items), "invalid_proposal")
-    required = {str(Path(__file__).resolve()), str(Path(host.__file__).resolve()), proposal["adb_path"],
+    required = {str(Path(__file__).resolve()), str(Path(host.__file__).resolve()),
+                str(Path(commit_capacity.__file__).resolve()), proposal["adb_path"],
                 str(Path(proposal["sdk"]) / "emulator/emulator.exe"),
                 str(Path(proposal["sdk"]) / "cmdline-tools/latest/bin/avdmanager.bat"),
                 str(Path(proposal["sdk"]) / "system-images/android-35/google_apis/x86_64/data/empty_data_disk")}
@@ -322,6 +325,11 @@ def resource_facts(proposal):
     facts = {"free_bytes": disks, "available_memory": memory.available}
     if logical_cpus is not None:
         facts["logical_cpus"] = logical_cpus
+    try:
+        facts["commit_capacity"] = commit_capacity.require_capacity(commit_capacity.read_commit(), proposal["memory_mib"])
+    except commit_capacity.HostCommitRefused as error:
+        reason = "host_commit_capacity" if str(error) == "commit_capacity" else "host_commit_unavailable"
+        raise EnvironmentRefused(reason) from None
     return facts
 
 
@@ -850,8 +858,7 @@ def worker(mode):
     start = read_json(root / (phase + "-start-v1.json"), 8192)
     require(start["proposal_sha256"] == request["proposal_sha256"] and
             process_identity(start["owner"]["pid"]) == start["owner"], "owner_lost")
-    if proposal["cores"] == 4:
-        resource_facts(proposal)  # Recheck the new profile in the admitted worker before SDK dispatch.
+    resource_facts(proposal)  # Recheck every profile in the admitted worker before SDK dispatch.
     create_json(root / (phase + "-worker-claimed-v1.json"),
                 {"proposal_sha256": request["proposal_sha256"], "worker": process_identity(os.getpid())})
     if mode == "_prepare-worker":

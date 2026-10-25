@@ -159,6 +159,11 @@ stop during model copy before SDK execution. A bounded host trace identifies a
 client timeout with a partial host read on the second attempt. Import, corrected
 Dialogue and restart remain unqualified.
 
+The [original synthetic transfer probe](docs/native/RECEIPT_TRANSFER_PROBE_VERIFICATION_2026-10-25.md)
+adds fixed local copy controls and a Windows commit-capacity guard. Its host
+checks pass; the first emulator exits before preflight for insufficient commit
+headroom. No transport speedup or new inference result is qualified.
+
 An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects
 the isolated SDK to guarded free-text preparation and durable commit. Its
 [verification](docs/runtime/android/PLAY_VERIFICATION_2026-10-23.md) establishes

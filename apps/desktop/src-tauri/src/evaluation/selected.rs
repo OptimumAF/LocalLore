@@ -933,6 +933,7 @@ impl EvaluationManager {
                 r.error = None;
                 r.cause = None;
                 r.run_token = None;
+                r.run_id = None;
                 r.binding = None;
                 Ok(Work::Open {
                     run_id: run,

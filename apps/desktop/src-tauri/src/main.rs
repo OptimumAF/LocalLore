@@ -500,6 +500,12 @@ fn main() {
                     std::thread::sleep(std::time::Duration::from_secs(
                         if std::env::var("LOCALLORE_D04_HARNESS").as_deref() == Ok("1") {
                             900
+                        } else if std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref()
+                            == Ok("1")
+                        {
+                            // Serial real SQLite fixtures, read revalidation and
+                            // 20+ app-owned render checkpoints; not a turn SLA.
+                            600
                         } else {
                             180
                         },

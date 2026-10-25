@@ -19,6 +19,7 @@ export async function comparisonReaderJourneys({
 }) {
     const checks: string[] = [];
     let failedCheck = "comparison-start";
+    let failureCategory: string | null = null;
     let fixtureInventory: Record<string, string> | null = null;
     const check = (value: unknown, label: string) => {
         failedCheck = label;
@@ -67,49 +68,106 @@ export async function comparisonReaderJourneys({
         );
         const overflow = document.documentElement.scrollWidth > innerWidth + 2;
         const nested = !!panel && panel.scrollWidth > panel.clientWidth + 2;
-        await invoke("harness_checkpoint", {
-            label,
-            snapshot: {
-                synthetic: true,
-                uiRevision: (c.get().play ?? c.get().playV2)?.revision ?? 0,
-                checks: [...checks],
-                errors: errors.snapshot(),
-                fixtureInventory: includeSummary ? fixtureInventory : null,
-                selectedStory: c.selected()?.scope,
-                observer: state.observer,
-                revision: selected?.source.after_head ?? null,
-                pendingOperation: state.status?.operation_id ?? null,
-                displayedReceipt:
-                    state.evidence?.body.kind === "receipt"
-                        ? state.evidence.body.receipt
-                        : null,
-                visibleError: state.error,
-                comparison: {
-                    status: state.status,
-                    source: state.source,
-                    selected: state.selected,
-                    summary: includeSummary ? state.summary : null,
-                    evidence: state.evidence,
-                    uncertain: state.uncertain,
+        const summaryProjection =
+            includeSummary && state.summary
+                ? {
+                      kind: "summary_projection",
+                      binding: state.summary.binding,
+                      report: {
+                          version: state.summary.report.version,
+                          kind: state.summary.report.kind,
+                          lane: state.summary.report.lane,
+                          source_matches: state.summary.report.source_matches,
+                          completed: state.summary.report.completed,
+                          completed_scenes:
+                              state.summary.report.completed_scenes,
+                          profile: state.summary.report.profile,
+                          unavailable: state.summary.report.unavailable,
+                          limitations: state.summary.report.limitations,
+                          turns: state.summary.report.turns.map((row) => ({
+                              turn: row.turn,
+                              arm: row.arm,
+                              phase: row.phase,
+                              error: row.error,
+                              expected: row.expected,
+                              passed: row.passed,
+                              failures: row.failures,
+                              roles: row.roles,
+                              roles_known: row.roles_known,
+                              input_semantic_sha256: row.input_semantic_sha256,
+                              output_semantic_sha256:
+                                  row.output_semantic_sha256,
+                          })),
+                      },
+                  }
+                : null;
+        try {
+            await invoke("harness_checkpoint", {
+                label,
+                snapshot: {
+                    synthetic: true,
+                    uiRevision: (c.get().play ?? c.get().playV2)?.revision ?? 0,
+                    checks: [...checks],
+                    errors: errors.snapshot(),
+                    fixtureInventory: includeSummary ? fixtureInventory : null,
+                    selectedStory: c.selected()?.scope,
+                    observer: state.observer,
+                    revision: selected?.source.after_head ?? null,
+                    pendingOperation: state.status?.operation_id ?? null,
+                    displayedReceipt:
+                        state.evidence?.body.kind === "receipt"
+                            ? state.evidence.body.receipt
+                            : null,
+                    visibleError: state.error,
+                    comparison: {
+                        status: state.status,
+                        source: state.source,
+                        selected: state.selected,
+                        summaryProjection,
+                        evidence: state.evidence,
+                        uncertain: state.uncertain,
+                    },
+                    dom: {
+                        text: panel?.innerText.slice(0, 24576),
+                        controls: [
+                            ...(panel?.querySelectorAll(
+                                "button,select,summary",
+                            ) ?? []),
+                        ].map((node) => ({
+                            tag: node.tagName,
+                            text: node.textContent?.slice(0, 256),
+                            disabled:
+                                (node as HTMLButtonElement).disabled ?? false,
+                        })),
+                        width: innerWidth,
+                        userAgent: navigator.userAgent,
+                        devicePixelRatio,
+                        horizontalOverflow: overflow,
+                        nestedOverflow: nested,
+                    },
                 },
-                dom: {
-                    text: panel?.innerText.slice(0, 24576),
-                    controls: [
-                        ...(panel?.querySelectorAll("button,select,summary") ??
-                            []),
-                    ].map((node) => ({
-                        tag: node.tagName,
-                        text: node.textContent?.slice(0, 256),
-                        disabled: (node as HTMLButtonElement).disabled ?? false,
-                    })),
-                    width: innerWidth,
-                    userAgent: navigator.userAgent,
-                    devicePixelRatio,
-                    horizontalOverflow: overflow,
-                    nestedOverflow: nested,
-                },
-            },
-        });
+            });
+        } catch (error) {
+            const categories = new Set([
+                "ArtifactTooLarge",
+                "ArtifactInvalid",
+                "CheckpointInvalid",
+                "CheckpointLimit",
+                "CheckpointDuplicate",
+                "RevisionRequired",
+                "SyntheticFixtureRequired",
+                "Forbidden",
+                "Closed",
+                "CaptureUnavailable",
+                "CaptureFailed",
+                "CaptureTimeout",
+            ]);
+            failureCategory =
+                typeof error === "string" && categories.has(error)
+                    ? error
+                    : "CheckpointFailed";
+            throw error;
+        }
         check(!overflow, `${label}-no-page-overflow`);
         check(!nested, `${label}-no-panel-overflow`);
     };
@@ -326,6 +384,7 @@ export async function comparisonReaderJourneys({
                 passed: false,
                 stage: config.stage,
                 failedCheck,
+                failureCategory,
                 checks,
                 errors: errors.snapshot(),
                 comparisonError: r.get().error,

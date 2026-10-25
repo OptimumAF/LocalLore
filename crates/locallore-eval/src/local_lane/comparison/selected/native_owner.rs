@@ -237,7 +237,10 @@ pub(super) fn finish_owner<R: SelectedNativeReservation>(
         Cleanup::Confirmed { poisoned } => {
             drop(owned);
             if poisoned {
-                Err(SelectedNativeFailure::from_error("Cleanup".into()))
+                let mut failure =
+                    SelectedNativeFailure::from_error(cause.unwrap_or_else(|| "Cleanup".into()));
+                failure.code = "Cleanup";
+                Err(failure)
             } else {
                 match cause {
                     Some(error) => Err(SelectedNativeFailure::from_error(error)),

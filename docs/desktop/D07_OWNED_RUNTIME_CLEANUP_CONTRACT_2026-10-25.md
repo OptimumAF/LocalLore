@@ -34,7 +34,7 @@ OS failure claim. Existing successful worker fixtures are finite evidence.
 ```rust
 pub enum OwnedStartFailure {
     BeforeChild(Error),
-    AfterChild { cause: Error, owner: LocalRuntime },
+    AfterChild { cause: Error, owner: Box<LocalRuntime> },
 }
 pub fn spawn_packaged_owned_expected_cancelled(
     resource_dir: &Path, model: &Path, expected_sha256: &str,
@@ -46,6 +46,9 @@ pub fn terminate_and_reap(&mut self) -> Result<(), Error>;
 The methods are inherent LocalRuntime methods; the enum/owner are not Clone or
 Serialize/Deserialize. Implement redacted Debug for OwnedStartFailure: show only
 fixed Error/variant, never runtime internals, handles, model paths or raw output.
+The boxed representation corrects actual strict-lint large-variant/large-error
+findings. Preallocate its storage before process creation; it retains the same
+actual owner. Type-only dereferences do not alter any behavior assertion.
 
 Use ONE private owned startup implementation and common existing verification/
 pipe helpers. Every failure before child creation is BeforeChild. Every failure

@@ -17,6 +17,7 @@ type SharedRuntime = Arc<Mutex<LocalRuntime>>;
 #[cfg(test)]
 thread_local! {
     static FAIL_CLEANUP_ONCE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static CLOSE_REVOKE_PAUSE: std::cell::RefCell<Option<(std::sync::mpsc::SyncSender<()>, std::sync::mpsc::Receiver<()>)>> = const { std::cell::RefCell::new(None) };
 }
 // The worker staged with this application, verified on the held file before
 // process creation. A renderer or editable profile cannot select this identity.
@@ -490,6 +491,13 @@ impl ModelManager {
         };
         let current = self.inner.lock().map(|s| s.job == job && s.closing == Some(job)).unwrap_or(false);
         if !current { return; }
+        #[cfg(test)]
+        CLOSE_REVOKE_PAUSE.with(|hook| {
+            if let Some((entered, release)) = hook.borrow_mut().take() {
+                let _ = entered.try_send(());
+                let _ = release.recv_timeout(std::time::Duration::from_secs(5));
+            }
+        });
         // The closing ticket excludes a replacement while supplier revocation
         // waits outside the metadata lock. A duplicate stale close cannot revoke it.
         if let Some(host) = host {

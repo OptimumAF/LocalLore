@@ -15,6 +15,9 @@ use std::{
 const MAX_SUMMARY: usize = 2 * 1024 * 1024;
 const MAX_EVIDENCE: usize = 256 * 1024;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Arm {
     Left,

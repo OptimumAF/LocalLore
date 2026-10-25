@@ -81,6 +81,40 @@ fn cleanup_owner<T>(
         }
     }
 }
+
+fn try_cleanup_owner<T>(
+    owner: &Mutex<T>,
+    shutdown: impl FnOnce(&mut T) -> Result<(), String>,
+) -> CleanupOutcome {
+    #[cfg(test)]
+    if FAIL_CLEANUP_ONCE.with(|fault| fault.replace(false)) {
+        return CleanupOutcome {
+            confirmed: false,
+            result: Err("Cleanup".into()),
+        };
+    }
+    let (mut runtime, poisoned) = match owner.try_lock() {
+        Ok(runtime) => (runtime, false),
+        Err(TryLockError::Poisoned(poisoned)) => (poisoned.into_inner(), true),
+        Err(TryLockError::WouldBlock) => {
+            return CleanupOutcome {
+                confirmed: false,
+                result: Err("Cleanup".into()),
+            }
+        }
+    };
+    // Keep this same guard through actual cleanup: dropping it and relocking
+    // would reintroduce an unbounded wait on a newly occupied runtime mutex.
+    let result = shutdown(&mut runtime);
+    CleanupOutcome {
+        confirmed: result.is_ok(),
+        result: if poisoned {
+            Err("Cleanup".into())
+        } else {
+            result
+        },
+    }
+}
 #[cfg(test)]
 fn shutdown_owner<T>(
     owner: &Mutex<T>,
@@ -690,7 +724,7 @@ impl ModelManager {
                 }
             }
         };
-        let outcome = cleanup_owner(&runtime, |runtime| {
+        let outcome = try_cleanup_owner(&runtime, |runtime| {
             runtime.terminate_and_reap().map_err(runtime_error)
         });
         let result = outcome.result.clone();

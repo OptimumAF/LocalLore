@@ -18,6 +18,11 @@ RECEIPT_SETUP_ACTIVITIES = (
     "ReceiptSetupAcceptActivity", "ReceiptSetupCancelBeforeActivity",
     "ReceiptSetupCancelAfterActivity", "ReceiptSetupDrainActivity",
 )
+RECEIPT_SETUP_CLASSES = (
+    "ReceiptSetupFixtureActivity", *RECEIPT_SETUP_ACTIVITIES,
+    "ReceiptSetupFailureTrace", "ReceiptSetupFailureSnapshot", "ReceiptSetupSourceProgress",
+    "ReceiptSetupFailureCase", "ReceiptSetupFailureEvent", "ReceiptSetupFailureCode",
+)
 # Exact candidate SDK; ordinary APKs must never contain these entries.
 LITERT_NATIVE_HASHES = {
     "lib/arm64-v8a/liblitertlm_jni.so": "cf4c55139c6fc86425ecfe75f8a907e6193ca665ecc19fbabcaba7ab361bdc43",
@@ -95,10 +100,11 @@ def audit_zip(path, *, litert=False, model_picker=False, model_volume=False, mod
             receipt_service_present |= b"ReceiptProofService" in contents
             receipt_fixture_present |= b"ReceiptAndroidFixture" in contents
             require(b"ReceiptVolumeQualificationTest" not in contents, "Receipt test packaged in app")
-            for name in ("ReceiptSetupFixtureActivity", *RECEIPT_SETUP_ACTIVITIES):
+            for name in RECEIPT_SETUP_CLASSES:
                 if name.encode("ascii") in contents:
                     receipt_setup_present.add(name)
-            require(b"ReceiptSetupQualificationTest" not in contents and b"ReceiptSetupRestartTest" not in contents,
+            require(all(name not in contents for name in
+                        (b"ReceiptSetupQualificationTest", b"ReceiptSetupRestartTest", b"ReceiptSetupFailureTraceTest")),
                     "Receipt setup test packaged in app")
             recovery_present |= b"ModelSetupRecovery" in contents
             recovery_activity_present |= b"ModelSetupRecoveryFixtureActivity" in contents
@@ -116,7 +122,7 @@ def audit_zip(path, *, litert=False, model_picker=False, model_volume=False, mod
         require(not model_volume or litert, "Receipt volume fixture requires the SDK candidate")
         require(receipt_service_present == model_volume, "Receipt service leaked or missing")
         require(receipt_fixture_present == model_volume, "Receipt fixture leaked or missing")
-        expected_setup = {"ReceiptSetupFixtureActivity", *RECEIPT_SETUP_ACTIVITIES} if model_receipt else set()
+        expected_setup = set(RECEIPT_SETUP_CLASSES) if model_receipt else set()
         require(receipt_setup_present == expected_setup, "Receipt setup fixture leaked or missing")
         require(not model_picker or recovery_activity_present, "Missing setup recovery Activity implementation")
         for entry in entries:

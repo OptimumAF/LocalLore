@@ -2,6 +2,7 @@
 package org.locallore.app
 
 import android.os.Process
+import android.os.Bundle
 import android.os.SystemClock
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -43,6 +44,8 @@ abstract class ReceiptSetupUiHarness {
     internal val context get() = instrumentation.targetContext
     internal var scenario: ActivityScenario<out ReceiptSetupFixtureActivity>? = null
     internal lateinit var model: LocalModelSetupViewModel
+    private lateinit var failureTrace: ReceiptSetupFailureTrace
+    private var selectedSource: ReceiptSetupFixture.Source? = null
     private val sources = mutableListOf<ReceiptSetupFixture.Source>()
     private val gates = mutableListOf<ReceiptSetupFixture.Gate>()
     private val observers = mutableListOf<CoroutineScope>()
@@ -51,11 +54,35 @@ abstract class ReceiptSetupUiHarness {
     internal fun gate(case: Case) = ReceiptSetupFixture.arm(case).also { gates += it }
     internal fun launch(type: Class<out ReceiptSetupFixtureActivity>) {
         scenario = ActivityScenario.launch(type)
-        requireNotNull(scenario).onActivity { model = it.setupController }
+        captureCurrentActivity()
+    }
+    internal fun captureCurrentActivity() {
+        selectedSource = null
+        // This is the current Activity's trace; retained-VM operation events can
+        // still belong to the original Activity's dependency closure.
+        requireNotNull(scenario).onActivity { model = it.setupController; failureTrace = it.failureTrace }
     }
     internal fun main(action: () -> Unit) = instrumentation.runOnMainSync { action() }
-    internal fun await(phase: LocalModelSetupPhase) = compose.waitUntil(10_000) { model.state.value.phase == phase }
+    internal fun await(phase: LocalModelSetupPhase) {
+        try {
+            compose.waitUntil(10_000) { model.state.value.phase == phase }
+        } catch (failure: Throwable) {
+            if (ReceiptSetupFixture.claimFailureEmission()) {
+                try {
+                    val progress = selectedSource?.progress() ?: ReceiptSetupSourceProgress()
+                    val snapshot = failureTrace.snapshot(phase, model.state.value.phase, progress)
+                    instrumentation.sendStatus(ReceiptSetupFailureTrace.STATUS_CODE, Bundle().apply {
+                        putString(ReceiptSetupFailureTrace.STATUS_KEY, snapshot.json())
+                    })
+                } catch (_: Throwable) {
+                    // Diagnostics never replace, wrap, suppress or convert the original failure.
+                }
+            }
+            throw failure
+        }
+    }
     internal fun select(source: ReceiptSetupFixture.Source) = main {
+        selectedSource = source
         check(model.beginPicker())
         model.completePicker(source::open)
     }
@@ -69,7 +96,10 @@ abstract class ReceiptSetupUiHarness {
         compose.onNodeWithTag("model-start").performScrollTo().assertIsNotEnabled()
         compose.onNodeWithTag("model-choose").performScrollTo().assertIsEnabled()
     }
-    internal fun recheck() = compose.onNodeWithTag("model-recheck").performScrollTo().performClick()
+    internal fun recheck() {
+        selectedSource = null
+        compose.onNodeWithTag("model-recheck").performScrollTo().performClick()
+    }
     internal fun cancel() = compose.onNodeWithTag("model-import-cancel").performScrollTo().performClick()
     internal fun history(target: LocalModelSetupViewModel): Pair<CopyOnWriteArrayList<LocalModelSetupPhase>, Job> {
         val values = CopyOnWriteArrayList<LocalModelSetupPhase>()
@@ -133,7 +163,7 @@ class ReceiptSetupQualificationTest : ReceiptSetupUiHarness() {
         recheck(); ready()
         check(checks, "ui_recheck_ready", model.state.value.ready)
         requireNotNull(scenario).recreate()
-        requireNotNull(scenario).onActivity { model = it.setupController }
+        captureCurrentActivity()
         ready()
         check(checks, "activity_recreation_ready", model.state.value.ready)
         val unopened = source()

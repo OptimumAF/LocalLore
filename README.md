@@ -73,10 +73,12 @@ Separate [Android model-storage receipt checks](docs/native/RECEIPT_FRESH_TARGET
 passed four methods on a fresh isolated emulator, including cancellation and
 owned process-death recovery, using a tiny synthetic file. Existing-target
 staging headroom remains held. An explicit debug-only
-[receipt-backed setup route](docs/native/RECEIPT_SETUP_HELPER_VERIFICATION_2026-10-24.md)
-is under separate qualification. Its helper-classification correction passes
-host tests; the fresh device runner stopped before a method completed, leaving
-restart verification and real inference pending. The
+[receipt-backed setup route](docs/native/RECEIPT_SETUP_FAILURE_TRACE_VERIFICATION_2026-10-24.md)
+passes three initial synthetic setup methods and a separate-process reopen on a
+fresh emulator, with all44 proof checks and owned cleanup verified. Earlier
+START-only and READY-timeout attempts remain documented; their causes are unknown.
+The bounded failure-status transport was not exercised by this successful run.
+Real inference and physical-phone qualification remain pending. The
 [earlier partial result](docs/native/MODEL_RECEIPT_ANDROID_VERIFICATION_2026-10-24.md)
 is preserved.
 

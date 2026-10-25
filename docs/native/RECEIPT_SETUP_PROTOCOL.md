@@ -89,3 +89,42 @@ Pure mocked tests qualify controller rules only. Report actual failures and
 all attempts; do not repair or repeat an installation silently. Successful
 synthetic UI qualification still leaves real-model/cache/privacy, physical
 phone, ARM64/16 KiB, sustained behavior and the existing A/#117/#119 gates open.
+
+## Bounded failure observations
+
+Only the explicit receipt debug fixture contains `ReceiptSetupFailureTrace`
+and its related types. The receipt-only JVM source set tests this pure encoder;
+APK audits require these classes in that profile and exclude them elsewhere.
+No activity, permission, provider or service is added.
+
+On a failed phase wait, the fixture makes at most one diagnostic emission
+attempt per app process. It sends status1337 with the sole Bundle field
+`locallore_receipt_failure_v1`, then rethrows the identical original failure.
+This dedicated record avoids JUnit's repeated exception-message rendering.
+Encoding/send failure consumes the sampling attempt and cannot suppress, wrap
+or convert the original failure. The10-second wait and original pass gates stay
+unchanged. No failure-time filesystem, native or SDK work is introduced.
+
+The complete `INSTRUMENTATION_STATUS: locallore_receipt_failure_v1=` prefix plus
+JSON is at most2,048 UTF-8 bytes, excluding the line terminator. Values are
+closed ASCII case/phase/error/event enums, version1 and bounded integer/Boolean
+observations. No Throwable text/class/stack/cause, path, URI, identity, file/model
+or story content enters the payload. Error means the last observed typed
+operation error, not the current ViewModel's cause or a diagnosis.
+
+The per-Activity trace owns the newest16 event entries and copies snapshots.
+Its total saturates explicitly at1,000,000 with a flag. Selected synthetic-source
+opened/closed/active/read/returned-byte counters are independent observations;
+read/byte counters saturate with explicit flags at that same bound. They are
+not a jointly atomic resource state, accepted/persisted-byte count or runtime
+admission. A recreated Activity has a new lifecycle trace while a retained
+ViewModel can still invoke its original dependency closure's trace. That new
+trace is not a complete retained-ViewModel operation/error history.
+
+Host extraction accepts one adjacent exact status-field/status1337 pair, closed
+keys/types/enums/counter bounds and at most16 events. Duplicate, malformed,
+oversize, unknown or passing-run diagnostics refuse. Generic instrumentation
+framing remains LF or consistent CRLF; the console-name-only CRCRLF exception
+does not apply here. A finite trace may be saved before the unchanged strict
+runner gate rejects the RAW failed transcript. It never satisfies three initial
+passes, helper binding, restart, canonical acceptance or the44 proof checks.

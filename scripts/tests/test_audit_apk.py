@@ -290,10 +290,11 @@ class ApkAuditTests(unittest.TestCase):
 
     def test_receipt_setup_classes_require_explicit_profile_and_cannot_include_tests(self):
         volume = b"ReceiptProofService ReceiptAndroidFixture "
-        names = ("ReceiptSetupFixtureActivity", *audit.RECEIPT_SETUP_ACTIVITIES)
+        names = audit.RECEIPT_SETUP_CLASSES
         complete = " ".join(names).encode("ascii")
         variants = [complete, b"", *(complete.replace(name.encode("ascii"), b"") for name in names),
-                    complete + b" ReceiptSetupQualificationTest", complete + b" ReceiptSetupRestartTest"]
+                    complete + b" ReceiptSetupQualificationTest", complete + b" ReceiptSetupRestartTest",
+                    complete + b" ReceiptSetupFailureTraceTest"]
         for marker in variants:
             with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
                 path, hashes, notices = self.candidate_archive(directory)

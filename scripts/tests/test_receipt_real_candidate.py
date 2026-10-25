@@ -297,14 +297,47 @@ class RealCandidateTests(unittest.TestCase):
         for uid in (True,1,-1,"10310"):
             with self.assertRaises(AssertionError):r.source_write(uid,"candidate")
 
-    def transfer_fixture(self,root):
+    def transfer_fixture(self,root,owner_type=r.Owner):
         value=fixture.proposal(root);value.update(phase="preflight",source={"bytes":r.PROBE_BYTES})
-        lease=fixture.Lease(value);owner=r.Owner(value,lease);owner.stage="source-stream";owner.uid_map={q.APP:10310,q.TEST:10311}
+        lease=fixture.Lease(value);owner=owner_type(value,lease);owner.stage="source-stream";owner.uid_map={q.APP:10310,q.TEST:10311}
         owner.proposal_path=root/"proposal.json";owner.authorization_path=root/"auth.json"
         owner.proposal_path.write_bytes(b"proposal");owner.authorization_path.write_bytes(b"grant")
         q.write_json(owner.directory/"installed-facts.json",{"packages":value["apk_sha256"],"uid_map":owner.uid_map,
             "processes":{"target":[],"test_helper":[]},"userdata":{"available_bytes":q.contract.USERDATA_FLOOR+r.PROBE_BYTES}})
         return owner,lease
+
+    def test_transfer_script_is_fixed_by_trusted_control_not_proposal_input(self):
+        class FixedControl(r.Owner):
+            STREAM_SCRIPT = Path(__file__).resolve().parent / "trusted-cancel-driver.py"
+        for owner_type in (r.Owner, FixedControl):
+            with self.subTest(owner=owner_type.__name__), tempfile.TemporaryDirectory() as directory:
+                owner, lease = self.transfer_fixture(Path(directory), owner_type)
+                owner.proposal["stream_script"] = "untrusted-proposal-selection.py"
+                with patch.object(r.environment, "process_identity", return_value={"pid": 42, "creation_filetime": 3, "executable": sys.executable}), \
+                     patch.object(q.host, "run_process", return_value=stream_result()) as run:
+                    owner.transfer()
+                self.assertEqual(run.call_args.args[0][3], str(owner_type.STREAM_SCRIPT))
+                self.assertNotIn("untrusted-proposal-selection.py", run.call_args.args[0])
+                self.assertEqual(run.call_args.args[0][4], "_stream")
+
+    def test_stream_sharing_does_not_bypass_barrier_or_fixed_authorizer(self):
+        value = {"scope": r.SCOPE}
+        for raw in (b"", b"wrong\n", r.STREAM_REQUEST+b"1\n"):
+            with self.subTest(raw=raw), patch.object(r.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(raw))), \
+                 patch.object(r, "authorize") as auth, patch.object(r, "stream_authorized") as shared:
+                with self.assertRaises(AssertionError): r.stream_worker("p", "a", "e")
+                auth.assert_not_called(); shared.assert_not_called()
+        with patch.object(r.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(r.STREAM_REQUEST+b"10310\n"))), \
+             patch.object(r, "authorize", side_effect=AssertionError("refused")) as auth, \
+             patch.object(r, "stream_authorized") as shared:
+            with self.assertRaises(AssertionError): r.stream_worker("p", "a", "e")
+            auth.assert_called_once_with("p", "a", "e"); shared.assert_not_called()
+        with patch.object(r.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(r.STREAM_REQUEST+b"10310\n"))), \
+             patch.object(r, "authorize", return_value=value) as auth, \
+             patch.object(r, "stream_authorized", return_value=37) as shared:
+            self.assertEqual(r.stream_worker("p", "a", "e"), 37)
+            auth.assert_called_once_with("p", "a", "e")
+            shared.assert_called_once_with(value, 10310, "p", "a", "e")
 
     def test_transfer_is_one_shot_and_client_zero_never_verifies_destination(self):
         with tempfile.TemporaryDirectory() as directory:

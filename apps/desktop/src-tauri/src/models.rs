@@ -600,6 +600,8 @@ pub fn choose_model(owner: isize) -> Result<Option<PathBuf>, String> {
 }
 
 #[cfg(test)]
+mod owned_cleanup_tests;
+#[cfg(test)]
 mod tests {
     use super::*;
     struct Root(PathBuf);

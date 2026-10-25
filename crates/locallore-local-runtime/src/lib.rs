@@ -689,6 +689,8 @@ fn parse_reply(frame: &[u8], id: u64) -> Result<Reply, Error> {
 }
 
 #[cfg(all(test, feature = "development-worker"))]
+mod owned_cleanup_tests;
+#[cfg(all(test, feature = "development-worker"))]
 mod tests {
     use super::*;
     use std::sync::atomic::AtomicU64;

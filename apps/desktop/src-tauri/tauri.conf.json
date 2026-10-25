@@ -63,6 +63,7 @@
                         "allow-harness-oracle",
                         "allow-harness-reopen",
                         "allow-evaluation-catalog",
+                        "allow-application-close",
                         "allow-evaluation-curated",
                         "allow-evaluation-comparison",
                         "allow-harness-comparison-reader-case",

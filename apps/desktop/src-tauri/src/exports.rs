@@ -836,7 +836,10 @@ pub fn confirm_selected(owner: isize, metadata: &Value) -> Result<bool, String> 
         fn MessageBoxW(owner: isize, text: *const u16, caption: *const u16, flags: u32) -> i32;
     }
     let message: Vec<u16> = purpose.encode_utf16().chain(Some(0)).collect();
-    let title: Vec<u16> = "LocalLore selected experiment".encode_utf16().chain(Some(0)).collect();
+    let title: Vec<u16> = "LocalLore selected experiment"
+        .encode_utf16()
+        .chain(Some(0))
+        .collect();
     match unsafe { MessageBoxW(owner, message.as_ptr(), title.as_ptr(), 0x4 | 0x30 | 0x100) } {
         6 => Ok(true),
         7 => Ok(false),

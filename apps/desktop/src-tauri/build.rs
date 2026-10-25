@@ -11,6 +11,7 @@ fn main() {
             .windows_attributes(tauri_build::WindowsAttributes::new().window_icon_path(&icon))
             .app_manifest(tauri_build::AppManifest::new().commands(&[
                 "host_call",
+                "application_close",
                 "author_context",
                 "author_prepare_start",
                 "author_commit_start",

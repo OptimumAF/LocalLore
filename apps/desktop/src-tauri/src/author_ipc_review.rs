@@ -9,6 +9,7 @@ fn workspace() -> WorkspaceState {
         exports::identifier().unwrap()
     ));
     WorkspaceState {
+        close_gate: std::sync::Mutex::new(crate::close_gate::CloseGate::default()),
         incarnation: exports::identifier().unwrap(),
         path: root.join("synthetic.sqlite"),
         lease: Arc::new(WindowLease::default()),

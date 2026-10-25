@@ -66,6 +66,9 @@ impl Default for CloseGate {
 }
 
 impl CloseGate {
+    pub(crate) fn current_epoch(&self) -> u64 {
+        self.epoch
+    }
     pub(crate) fn opened(&mut self, epoch: u64) -> Result<(), &'static str> {
         if epoch == 0
             || epoch.is_multiple_of(2)

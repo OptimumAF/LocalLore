@@ -28,6 +28,7 @@ APK_HASHES = {
     TEST: "e5d09b0f436237b51c647b4cc43a74e8f76b08bfdfe045907aa89ee6724f359d",
 }
 SOURCE_FILES = ("benchmarks/receipt_setup_qualification.py", "benchmarks/receipt_avd_environment.py",
+    "benchmarks/host_commit_capacity.py", "scripts/tests/test_host_commit_capacity.py",
     "benchmarks/receipt_fresh_target.py", "scripts/tests/test_receipt_setup_qualification.py",
     "scripts/tests/test_receipt_setup_helper.py",
     "scripts/tests/test_receipt_setup_failure.py",

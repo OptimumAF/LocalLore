@@ -1,6 +1,9 @@
 # Proposed selected-case desktop consumer — 2026-10-25
 
-Refs #29 D07.06 and D04.02, partial. **PROPOSED / UNIMPLEMENTED / UNRUN.**
+Refs #29 D07.06 and D04.02, partial. **The desktop consumer remains proposed.**
+Only the frozen shared read-only allocation below is implemented; its
+[qualification](D07_SELECTED_CASE_DESKTOP_READ_QUALIFICATION_2026-10-25.md)
+owns executed checks and limits. The remaining consumer proposal is unimplemented.
 Source inspected: `33c17d88857473b9e6c688c370d16caedb7f3713`.
 This is the next consumer proposal after shared PR172 owner acceptance, not an
 acceptance record for that PR, a native UI implementation, or a D07 exit gate.

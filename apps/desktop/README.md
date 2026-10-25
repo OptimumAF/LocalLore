@@ -220,6 +220,15 @@ both-arm/source preflight and one native reservation callback; uncertain cleanup
 retains the actual owner and conservative charges. This is a developer Rust API,
 not an enabled desktop control. Opt-in runs require the already approved assets
 locally; they never fetch a model or worker.
+
+The additive shared `selected::desktop_read` Rust capability provides bounded
+metadata and actual observer-filtered before/after evidence for isolated selected
+runs, including supported native history without loading assets. Its
+[qualification](../../docs/desktop/D07_SELECTED_CASE_DESKTOP_READ_QUALIFICATION_2026-10-25.md)
+records source-specific checks. It never exposes the full report as an actor
+summary, repairs missing checkpoints or grants execution. Desktop selected
+consent, IPC/controller controls and rendered result views remain unavailable.
+
 Run these developer checks from the repository root; the qualification record
 identifies the executed source, target directories and results:
 

@@ -370,6 +370,10 @@ Root adopts proposal `19bdb499` with these narrow clarifications before editing:
   The only picker injection is a Rust closure returning a native-selected path,
   captured by the IPC from the fixed production picker or test-only fixed double.
   No path/closure/code/consent field is added to renderer IPC.
+- Native may reject an actor's raw-artifact request with `Forbidden` even before
+  token lookup/admission. It need not acquire private source state merely to call
+  the shared denial path. Permitted Query/Omniscient evidence still uses the
+  unchanged shared reader, whose independent authorization tests remain required.
 
 Implementation worktree: `source-d07-comparison-native-ui`, branch
 `impl/d07-comparison-native-ui`, from unchanged reader `ddcecbbc`. The earlier

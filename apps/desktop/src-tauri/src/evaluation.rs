@@ -464,7 +464,14 @@ struct Run {
     phase: String,
     error: Option<String>,
 }
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum JobKind {
+    Builtin,
+    Curated,
+    ComparisonRead,
+}
 struct Job {
+    kind: JobKind,
     epoch: u64,
     id: u64,
     run: String,
@@ -483,6 +490,7 @@ struct State {
     next: u64,
 }
 pub struct EvaluationManager {
+    comparison: Mutex<comparison::ComparisonState>,
     curated: Mutex<curated::CuratedState>,
     root: PathBuf,
     state: Mutex<State>,
@@ -507,6 +515,7 @@ pub struct EvaluationManager {
 impl EvaluationManager {
     pub fn new(root: PathBuf) -> Self {
         Self {
+            comparison: Mutex::new(comparison::ComparisonState::default()),
             curated: Mutex::new(curated::CuratedState::default()),
             root,
             state: Mutex::new(State::default()),
@@ -743,7 +752,12 @@ impl EvaluationManager {
             let j = s
                 .job
                 .as_ref()
-                .filter(|j| j.epoch == epoch && j.id == operation && j.run == run)
+                .filter(|j| {
+                    j.epoch == epoch
+                        && j.id == operation
+                        && j.run == run
+                        && j.kind != JobKind::ComparisonRead
+                })
                 .ok_or("StaleEvaluationOperation")?;
             j.cancel.cancel();
             if let Some(retained) = s.runs.get_mut(&run) {
@@ -855,7 +869,7 @@ impl EvaluationManager {
                     if id>9_007_199_254_740_991{return Err("EvaluationBudget".into())}
                     let cancel=Cancellation::default();if recover{cancel.cancel()}
                     let r=s.runs.get_mut(&run).ok_or("EvaluationInternal")?;r.phase=if recover{"validating_checkpoints"}else{"running"}.into();r.error=None;let selected=r.selection.clone();
-                    s.job=Some(Job{epoch,id,run:run.clone(),cancel:cancel.clone()});
+                    s.job=Some(Job{kind:JobKind::Builtin,epoch,id,run:run.clone(),cancel:cancel.clone()});
                     self.register_cancellation(lease,epoch,id,&cancel);
                     (run,token,id,cancel,resume,selected)
                 };
@@ -909,6 +923,7 @@ impl EvaluationManager {
         }
     }
     pub fn retire(&self, epoch: u64) {
+        self.comparison_retire(epoch);
         // No IO/state/lease/worker locks are acquired while holding this slot.
         // Cleanup recovers poison; ordinary presentation calls still fail closed.
         {
@@ -938,6 +953,7 @@ impl EvaluationManager {
         if let Some((_, handle)) = old {
             let _ = handle.join();
         }
+        self.comparison_drain(epoch);
         let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
         state.tokens.retain(|_, t| t.epoch != epoch);
     }
@@ -958,7 +974,10 @@ impl EvaluationManager {
             .swap(false, std::sync::atomic::Ordering::SeqCst)
     }
 }
+mod comparison;
 mod curated;
+
+pub use comparison::ComparisonEvidenceRequest;
 #[cfg(test)]
 #[path = "evaluation/retirement_review.rs"]
 mod retirement_review;

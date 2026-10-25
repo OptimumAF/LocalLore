@@ -31,6 +31,22 @@ pub(crate) const AUTHOR_LABELS: &[&str] = &[
 ];
 
 const MAX_JSON: usize = 256 * 1024;
+const COMPARISON_READER_LABELS: &[&str] = &[
+    "comparison-open",
+    "comparison-receipt",
+    "comparison-capture",
+    "comparison-mira",
+    "comparison-sable",
+    "comparison-guard",
+    "comparison-pending",
+    "comparison-closed",
+    "comparison-recovered",
+    "comparison-rollout",
+    "comparison-narrow",
+    "comparison-restarted",
+    "comparison-switched",
+    "comparison-finished",
+];
 const MAX_PNG: usize = 16 * 1024 * 1024;
 const MAX_CHECKPOINTS: usize = 40;
 const LABELS: &[&str] = &[
@@ -186,6 +202,9 @@ pub fn active() -> bool {
 pub(crate) fn author_active() -> bool {
     active() && std::env::var("LOCALLORE_M08_AUTHOR_HARNESS").as_deref() == Ok("1")
 }
+fn comparison_reader_active() -> bool {
+    active() && std::env::var("LOCALLORE_D07_COMPARISON_READER_HARNESS").as_deref() == Ok("1")
+}
 
 struct Progress {
     labels: HashSet<String>,
@@ -234,7 +253,10 @@ impl HarnessState {
     }
 
     fn reserve(&self, label: &str) -> Result<(), &'static str> {
-        if !(LABELS.contains(&label) || (author_active() && AUTHOR_LABELS.contains(&label))) {
+        if !(LABELS.contains(&label)
+            || (author_active() && AUTHOR_LABELS.contains(&label))
+            || (comparison_reader_active() && COMPARISON_READER_LABELS.contains(&label)))
+        {
             return Err("CheckpointInvalid");
         }
         let mut progress = self.progress.lock().map_err(|_| "HarnessUnavailable")?;

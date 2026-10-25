@@ -64,6 +64,8 @@
                         "allow-harness-reopen",
                         "allow-evaluation-catalog",
                         "allow-evaluation-curated",
+                        "allow-evaluation-comparison",
+                        "allow-harness-comparison-reader-case",
                         "allow-evaluation-start",
                         "allow-evaluation-open",
                         "allow-evaluation-status",

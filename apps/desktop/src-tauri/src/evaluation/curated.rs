@@ -398,6 +398,7 @@ impl EvaluationManager {
                 let operation = state.next;
                 let cancel = Cancellation::default();
                 state.job = Some(Job {
+                    kind: JobKind::Curated,
                     epoch,
                     id: operation,
                     run: id.clone(),

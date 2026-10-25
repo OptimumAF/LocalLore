@@ -373,8 +373,8 @@ impl EvaluationManager {
                     let lane=SelectedInputLane::parse(&index.lane)?;let selection=&index.prepared["selection"];let arm=if selection["clicked_arm"]=="left"{Arm::Left}else{Arm::Right};
                     let plan=producer::prepare_selected(&origin,&source_binding,&source_reader::RowId{turn:selection["turn"].as_str().ok_or("EvaluationIntegrity")?.into(),arm},producer::SelectedIntent{client_id:index.client_id.clone(),lane:lane.shared()},cancel).map_err(|error|failure(&error))?;
                     let fresh=producer::prepared_metadata(&plan).map_err(|error|failure(&error))?;if fresh!=index.prepared{return Err("EvaluationSourceMismatch".into())}drop(plan);
-                    check(cancel,lease,epoch)?;if !consent(&fresh).map_err(|error|failure(&error))?{return Err("Cancelled".into())}check(cancel,lease,epoch)?;Ok((index,path,pins,lane))})();
-                let (index,path,_pins,lane)=match setup{Ok(value)=>value,Err(error)=>return Outcome::plain(Err(error))};
+                    check(cancel,lease,epoch)?;if !consent(&fresh).map_err(|error|failure(&error))?{return Err("Cancelled".into())}check(cancel,lease,epoch)?;Ok((index,path,pins,lane,ExecutionGrant))})();
+                let (index,path,_pins,lane,_execution)=match setup{Ok(value)=>value,Err(error)=>return Outcome::plain(Err(error))};
                 let binding=match index.prepared["binding"].as_str(){Some(binding)=>binding,None=>return Outcome::plain(Err("EvaluationIntegrity".into()))};
                 match lane{
                     SelectedInputLane::ScriptedBaseline=>if let Err(error)=producer::resume_selected(&path,&origin,binding,cancel){return Outcome::plain(Err(failure(&error)))},
@@ -474,11 +474,11 @@ impl EvaluationManager {
             let Some(payload)=payload else{let (value,removed)=lease.dispatch(epoch,||self.selected_cleanup_snapshot(None))?;drop(registration);drop(removed);return Ok(value)};
             let expected_epoch=payload.epoch;let operation=payload.operation;
             let held=Arc::new(Mutex::new(Some(payload)));let worker_held=held.clone();let manager=self.clone();let (send,registered)=mpsc::channel();
-            let worker=move||{if registered.recv().is_err(){return;}if let Some(work)=worker_held.lock().unwrap_or_else(|p|p.into_inner()).take(){manager.selected_do_cleanup(work);}};
+            let worker=move||{if registered.recv().is_err(){return;}let work={worker_held.lock().unwrap_or_else(|p|p.into_inner()).take()};if let Some(work)=work{manager.selected_do_cleanup(work);}};
             match std::thread::Builder::new().name("locallore-evaluation".into()).spawn(worker){
                 Ok(handle)=>{*self.worker.lock().unwrap_or_else(|p|p.into_inner())=Some((expected_epoch,handle));let _=send.send(());drop(registration);return Ok(cleanup_envelope(true,true,None));}
                 Err(_)=>{let mut payload=held.lock().unwrap_or_else(|p|p.into_inner()).take().ok_or("EvaluationInternal")?;
-                    {let mut parent=self.state()?;let job=parent.job.as_mut().filter(|j|j.kind==JobKind::Selected&&j.epoch==expected_epoch&&j.id==operation).ok_or("EvaluationInternal")?;let ownership=job.selected.as_mut().ok_or("EvaluationInternal")?;ownership.cleanup_running=false;ownership.retained=payload.pair.take();}
+                    {let mut parent=self.state.lock().unwrap_or_else(|p|p.into_inner());let job=parent.job.as_mut().filter(|j|j.kind==JobKind::Selected&&j.epoch==expected_epoch&&j.id==operation).ok_or("EvaluationInternal")?;let ownership=job.selected.as_mut().ok_or("EvaluationInternal")?;ownership.cleanup_running=false;ownership.retained=payload.pair.take();}
                     drop(registration);drop(payload);return Err("EvaluationInternal".into());}
             }
         }

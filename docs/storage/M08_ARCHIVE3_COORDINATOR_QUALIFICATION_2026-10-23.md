@@ -2,9 +2,11 @@
 
 This is a partial qualification record for #12 M08.03/.04/.06 and #30
 D08.01/.02/.07. Archive3 remains unmerged at this checkpoint. Shared Store
-tests and the scripted Host transfer have executed; the first desktop consumer
-run has failures. App interoperability, consumer closure and the remaining
-compatibility gates below have not. No milestone acceptance, device support,
+tests, the scripted Host transfer and the explicit combined-budget case have
+passed. Desktop synthetic consumer and acknowledgement failures were retained
+and corrected; the frontend gate passed at `230b4ba`. Actual native transfer,
+Android runtime and the remaining compatibility gates below are pending.
+No milestone acceptance, device support,
 release approval or human review is inferred.
 
 Root performed the executions reported here. The documentation agent read
@@ -35,6 +37,12 @@ them below without publishing private absolute paths.
   transfer test: `d115e54`, accessor/serialized-preview fixture correction
   `a8c7eeb`, formatted in `cdd6626`; pressure source: `0e2b7fc`, registered
   and formatted in `9884a17`. These source preparations are not executions.
+- Consumer correction `f240579f701134fa4bc8e3f9718c703339d30287` changes only
+  the allocated TS/Kotlin preview decoders, record labels and the old future
+  version-negative fixture. Frozen acknowledgement tests `32b27f76e94767c91db5381398378779b062ef4f`
+  precede the strict-string correction in `230b4baec3358f4d466fa2231ab8a0368a36bf1c`.
+  Source formatting and frontend-check registration in the latter are not
+  additional test executions.
 
 Actual executed-file SHA256, also read at the documentation base:
 
@@ -151,14 +159,51 @@ the provider still permits the exact retry. A changed original input yields
 shared-port/durable scripted-provider evidence, not real inference, desktop
 UI/WebView, JNI or Android transfer execution.
 
-## Consumer packet: first desktop failures, Android pending
+## Completed explicit combined-budget boundary
+
+At clean `8df48905cc12b2816234f684883bebb241a1bd0f`, Root explicitly opted
+into the otherwise ignored expensive test:
+
+```text
+cargo test --locked --offline --jobs 1 --target-dir <shared-target> -p locallore-storage --test m08_archive3_combined_budget actual_records_cross_only_combined_response_and_native_index_archive_budget -- --ignored --exact --nocapture --test-threads=1
+```
+
+`archive3-combined-budget-first.log`: 1169 bytes, SHA256
+`fc6ab0e37d88de3363dfd50c2d566e5979e8298016bde5dbaf13282c8b517997`.
+Compile0.92s; **1 passed,0 failed,0 ignored,0 filtered**, tests107.83s. The
+test's ordinary default status remains ignored; this invocation actually ran it.
+
+| Measured quantity | Last accepted below cap | Next accepted crossing |
+| --- | ---: | ---: |
+| Canonical response bytes | 12855480 | 12884019 |
+| Native request-index bytes | 3913290 | 3921972 |
+| Combined bytes, cap16777216 | 16768770 | 16805991 |
+| Canonical records | 480 | 481 |
+| Physical branches | 31 | 31 |
+
+The below total is8446 bytes short of16MiB, not exact equality. Its actual
+export is12867586 bytes. The next real accepted record adds28539 response and
+8682 index bytes, crossing the combined cap by28775 bytes. The separately
+assembled hostile envelope is12896126 bytes. All history was accepted through
+actual Engine/Store APIs; read-only SQL measures the real native index rather
+than fabricating canonical rows or a duplicate index generator.
+
+The below source exports→validates→imports→cold-reopens exactly. Above-cap
+export and validation of a separately assembled archive from those same actual
+accepted records both return `TooLarge`; the destination remains unchanged.
+Response-only16MiB, per-record/request/proposal, record/branch, projection, seed
+and wire caps remain independently legal. This qualifies the demonstrated
+combined accounting boundary, not exact equality, every boundary permutation,
+physical storage exhaustion, or app/native transfer.
+
+## Consumer packet: retained desktop failures and corrected synthetic gates
 
 Original producer `145086afe93f92cc8c2b4aef97e67d98ef37af38` is imported as
 `8df48905cc12b2816234f684883bebb241a1bd0f`:
 
 | New path | Frozen coverage | Status |
 | --- | --- | --- |
-| `apps/desktop/check-archive-v3.mjs` | 82 synthetic decoder/controller/headless-panel source cases | Root actual70 passed /12 failed at `8df48905` |
+| `apps/desktop/check-archive-v3.mjs` | 82 synthetic decoder/controller/headless-panel source cases | First70 passed /12 failed at `8df48905`; corrected82 passed |
 | `apps/android/app/src/androidTest/java/org/locallore/app/ArchiveV3WireTest.kt` | 9 actual Android decoder/JSONObject instrumented test methods | UNCOMPILED / UNRUN |
 
 Root ran Node24.22.1 with the existing D09 dependency junction from
@@ -176,16 +221,55 @@ the decoder does not throw. Version3 maximum-bound acceptance, imported
 completion and controller/headless-panel positive cases also fail `Wire`.
 Version3 negative cases passing under blanket rejection do not independently
 qualify their intended field guards; they must rerun after version3 admission.
+The corrected run does rerun all82 cases and passes them all, including the
+previously blocked version3 positives and their field guards. Root's source
+record binds this run to `f240579f701134fa4bc8e3f9718c703339d30287`.
 
 | Local artifact | Bytes | SHA256 |
 | --- | ---: | --- |
 | `archive3-consumer-first-red.log` | 5717 | `549aa050be655fba7366c15083e4b6266acabfc83d7a3769f36488d4b4efb201` |
 | `archive-v3-07d8ed38-509e-4c94-b3e6-e1426ca788c8.json` | 7508 | `b03c8e88ccfbd8f26a4480bd6f6cee0677dbc0460a02128574dab00c68579798` |
+| `archive3-consumer-first-corrected.log` | 4954 | `7ce17b0f1fb85406de6573a9224c15ba8af2e68089bec77b158d8eb44e6d9f2e` |
+
+Root also executed the separately frozen29 acknowledgement cases with
+`node check-archive-v3-ack.mjs`. The first actual result is **16 passed /13
+failed**, exit1: array-valued statuses/phases/kinds were accepted through
+coercion, and malformed imported/exported acknowledgements could incorrectly
+resolve retained uncertainty and admit competing work. The narrow production
+correction requires literal strings before closed-value membership tests.
+The unchanged semantic cases then report **29 passed /0 failed**. Correct
+native-shaped cancellation resolves only the original operation; invalid
+acknowledgements retain its uncertainty. These are synthetic actual-decoder
+and broker-retention checks, not native execution or an actual hostile IPC run.
+Root binds the first failure to `32b27f76e94767c91db5381398378779b062ef4f`.
+The29-pass run used the coordinator's working correction immediately before
+commit `230b4ba`, not a clean committed `230b4ba` tree. Subsequent formatting
+and commit produced exact clean `230b4baec3358f4d466fa2231ab8a0368a36bf1c`,
+which is the source of the full frontend execution. Source chronology is
+coordinator-attributed, not inferred from process timestamps or commit dates.
+
+| Local log | Bytes | SHA256 | Actual result |
+| --- | ---: | --- | --- |
+| `archive3-ack-first-red.log` | 3827 | `a0965008fbd9e227c6e99142817958502355026810182f72290f9b8009015fd7` | 16 passed /13 failed |
+| `archive3-ack-first-corrected.log` | 2802 | `b818526163d3fa75b1a14cee41d3e8c9e139fd6c8c8568f0a2b4668cdfba0f88` | 29 passed /0 failed |
+| `archive3-full-frontend-first.log` | 19107 | `c203a3281da69721755364a56506adfedfc2acad206b7a22febd080261f289f5` | Full frontend gate PASS at `230b4ba` |
+
+The full frontend result includes strict TypeScript, current request/schema
+checks, the normal frontend build and exclusion of development journey/control
+hooks. It runs the current frontend synthetic/controller/headless suites,
+including both Archive3 checkers. Their counts overlap the focused runs and
+are not added into a fictional aggregate. The Node logs do not contain elapsed
+suite timings; none are invented. This frontend build is not a native binary
+build, WebView render cohort or Android test execution.
+Root invoked the already approved Node24.22.1 executable directly from
+`apps/desktop`, with `verify-frontend.mjs` as its argument (locally represented
+as `<node24-executable> verify-frontend.mjs`); no npm install/run was involved.
 
 The desktop fixtures are synthetic transport shapes, not newly generated native
 responses. Headless React checks are not native WebView execution. Consumer
-production correction is separately claimed; no corrected source/result or
-native supported-version advertisement closure is established here.
+production correction has synthetic evidence, but native supported-version
+advertisement closure is not established here. Kotlin source correction is
+not Android compilation or runtime evidence.
 Android's host-JVM `JSONObject` stub cannot qualify this decoder: the tests
 are deliberately in `androidTest`, using the actual platform implementation.
 Instrumented compilation alone will not establish runtime behavior. No
@@ -193,7 +277,8 @@ Android device/emulator/ADB execution is authorized for this cohort.
 
 The public archive2 constant and catalogs listing `[1,2]` are not a reliable
 exposure fence: shared export/import can already produce/accept genuine3 on
-this future stack, while current app decoders reject3. Root must close the
+this future stack. The initially executed app decoders rejected3; the corrected
+TS decoder now has the synthetic evidence above. Root must still close the
 native preview/completion DTOs, strict TS/Kotlin version dispatch, omitted
 empty versus nonempty retirement fields, canonical-record count labels,
 consent/token/recovery and supported-version advertisement before accepting
@@ -203,24 +288,27 @@ gameplay turns would misdescribe the archive.
 ## Pending gates and next runnable work
 
 Items below remain pending at this checkpoint; commands are reproduction
-instructions, not results. Use Root's serialized target/TEMP environment. Root
-has explicitly started the ignored combined-budget test on `8df48905`; no
-terminal result has been supplied or inferred.
+instructions, not results. Use Root's serialized target/TEMP environment.
 
 ```text
-cargo test --locked --offline --jobs 1 --target-dir <shared-target> -p locallore-storage --test m08_archive3_combined_budget actual_records_cross_only_combined_response_and_native_index_archive_budget -- --ignored --exact --nocapture --test-threads=1
 cargo test --locked --offline --jobs 1 --target-dir <shared-target> -p locallore-storage --test playable_archive --test branch_retention_archive --test archive_interruption -- --test-threads=1
 ```
 
-The ignored expensive boundary case must measure the last legal <=16MiB combined
-canonical-response/native-index total and the next accepted crossing record,
-with every other cap independently legal; no exact-boundary result is claimed
-before execution. Existing Full/checkpoint/interruption and broader Rust,
+New native broker transfer oracles are frozen at
+`ab43563c3097966c295e761fca2779b80fd2ed82`, sole new source
+`apps/desktop/src-tauri/src/archive_v3_tests.rs`. They are not yet adopted,
+registered, compiled or run in this packet. No native success is inferred from
+their source. Existing Full/checkpoint/interruption and broader Rust,
 Workspace/native compatibility, formatting and strict lint checks remain
 Root-owned and pending on the final integrated source.
 
-The first desktop consumer failure above remains open pending its separately
-owned correction and unchanged rerun. From `apps/android`, compilation-only is
+Root separately observed shared Cargo target contamination in another Core
+source cohort. Future final checks will use source-owned target directories.
+That observation is not evidence that these previously source-bound Archive3
+executions used a wrong artifact, nor is it a new execution of them; retain
+their exact sources/logs and record final target/source ownership explicitly.
+
+From `apps/android`, compilation-only is
 `./gradlew.bat --offline :app:compileDebugAndroidTestKotlin`. Preserve the first
 actual fixture/compile/behavior failures before any narrow correction, and
 record exact source and results for each rerun. Actual Android instrumented
@@ -232,6 +320,7 @@ relabeled as Archive3 qualification.
 Documentation ownership remains open under
 [#12 claim6381144573](https://github.com/OptimumAF/LocalLore/issues/12#issuecomment-6381144573)
 and [#30 claim6381144716](https://github.com/OptimumAF/LocalLore/issues/30#issuecomment-6381144716)
-for later coordinator results. Next runnable task is completion of Root's
-combined-budget execution, followed by consumer RED/GREEN and
-the compatibility closure; no milestone checkbox changes at this checkpoint.
+for later coordinator results. Next runnable task is Root's native broker
+oracle adoption/execution and source-owned compatibility qualification,
+followed by authorized consumer/platform closure; no milestone checkbox changes
+at this checkpoint.

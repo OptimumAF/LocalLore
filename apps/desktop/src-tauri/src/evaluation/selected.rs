@@ -6,6 +6,7 @@ use locallore::inspection_query::Observer;
 use locallore_eval::local_lane::comparison::{desktop_api as source_reader, selected as producer};
 use producer::desktop_read as shared;
 use source_reader::{Arm, EvidenceRequest};
+use std::io::Read;
 #[cfg(test)]
 use source_reader::Edge;
 use std::sync::{mpsc, Weak};
@@ -202,7 +203,7 @@ impl EvaluationManager {
     fn selected_index(&self, run: &str) -> Result<Index> {
         if !id(run){return Err("InvalidEvaluationInput".into())} let path=self.selected_root().join(run).join("native.json");let _pins=pin(&path)?;
         let info=fs::metadata(&path).map_err(|_|"EvaluationIntegrity")?;if !info.is_file()||info.len()>INDEX_CAP as u64{return Err("EvaluationIntegrity".into())}
-        let bytes=fs::read(&path).map_err(|_|"EvaluationIo")?;if bytes.len()>INDEX_CAP{return Err("EvaluationBudget".into())}
+        let file=File::open(&path).map_err(|_|"EvaluationIo")?;let mut bytes=Vec::new();file.take(INDEX_CAP as u64+1).read_to_end(&mut bytes).map_err(|_|"EvaluationIo")?;if bytes.len()>INDEX_CAP{return Err("EvaluationBudget".into())}
         let index:Index=serde_json::from_slice(&bytes).map_err(|_|"EvaluationIntegrity")?;
         if index.version!=1||index.run_id!=run||!id(&index.client_id)||index.created>SAFE||!hex(&index.source_binding)||!prepared_valid(&index.prepared)||index.prepared["lane"].as_str()!=Some(SelectedInputLane::parse(&index.lane)?.stored()){return Err("EvaluationIntegrity".into())}
         Ok(index)
@@ -223,9 +224,11 @@ impl EvaluationManager {
     }
     pub fn selected_catalog(&self, lease: &WindowLease, epoch: u64, granted: bool) -> Result<Value> {
         if !granted{return Err("Forbidden".into())} if !lease.valid(epoch){return Err("Closed".into())}
+        (||{
         let _registration=self.registration.lock().map_err(|_|"EvaluationInternal")?;let root=self.selected_root();let mut runs=vec![];
         if root.exists(){let _pins=pin(&root)?;for entry in fs::read_dir(&root).map_err(|_|"EvaluationIo")?{if runs.len()>=32{return Err("EvaluationRunLimit".into())}let entry=entry.map_err(|_|"EvaluationIo")?;let name=entry.file_name().into_string().map_err(|_|"EvaluationIntegrity")?;let index=self.selected_index(&name)?;runs.push(json!({"run_id":name,"created":index.created,"lane":index.lane,"selection":index.prepared["selection"]}));}}
         if !lease.valid(epoch){return Err("Closed".into())} bounded(json!({"version":1,"kind":"selected_catalog","runs":runs}),64*1024)
+        })().map_err(|error:String|failure(&error))
     }
     fn selected_new_record(&self, state: &mut SelectedState, lease: &Arc<WindowLease>, models: &Arc<ModelManager>, epoch: u64, client: &str, operation: u64, cancel: &Cancellation) -> Result<()> {
         if state.records.contains_key(client){return Err("EvaluationBusy".into())}
@@ -419,10 +422,10 @@ impl EvaluationManager {
     fn selected_worker_active(&self) -> bool {
         self.worker.lock().unwrap_or_else(|p|p.into_inner()).as_ref().is_some_and(|(_,worker)|!worker.is_finished())
     }
-    fn selected_cleanup_snapshot(&self) -> Result<(Value,Option<Job>)> {
+    fn selected_cleanup_snapshot(&self, expected_epoch:Option<u64>) -> Result<(Value,Option<Job>)> {
         let active=self.selected_worker_active();let mut removed=None;
         let (required,running)={let mut parent=self.state()?;
-            match parent.job.as_ref().filter(|job|job.kind==JobKind::Selected){
+            match parent.job.as_ref().filter(|job|job.kind==JobKind::Selected&&expected_epoch.is_none_or(|epoch|job.epoch==epoch)){
                 None=>(false,false),
                 Some(job)=>{let ownership=job.selected.as_ref().ok_or("EvaluationInternal")?;
                     if !active&&!ownership.cleanup_running&&ownership.retained.is_none()&&ownership.witness.as_ref().is_some_and(models::CleanupWitness::confirmed){removed=parent.job.take();(false,false)}
@@ -433,7 +436,7 @@ impl EvaluationManager {
     }
     pub fn selected_cleanup_status(&self, lease:&WindowLease, epoch:u64)->Result<Value> {
         let registration=self.registration.lock().map_err(|_|"EvaluationInternal")?;
-        let (value,removed)=lease.dispatch(epoch,||self.selected_cleanup_snapshot())?;drop(registration);drop(removed);Ok(value)
+        let (value,removed)=lease.dispatch(epoch,||self.selected_cleanup_snapshot(None))?;drop(registration);drop(removed);Ok(value)
     }
     fn selected_take_cleanup(&self, expected_epoch:Option<u64>, models:Option<&Arc<ModelManager>>)->Result<Option<CleanupWork>> {
         if self.selected_worker_active(){return Ok(None)}
@@ -464,11 +467,11 @@ impl EvaluationManager {
         loop {
             let registration=self.registration.lock().map_err(|_|"EvaluationInternal")?;
             if !lease.valid(epoch){return Err("Closed".into())}
-            if self.selected_worker_active(){let (value,removed)=lease.dispatch(epoch,||self.selected_cleanup_snapshot())?;drop(registration);drop(removed);return Ok(value)}
+            if self.selected_worker_active(){let (value,removed)=lease.dispatch(epoch,||self.selected_cleanup_snapshot(None))?;drop(registration);drop(removed);return Ok(value)}
             let previous=self.worker.lock().unwrap_or_else(|p|p.into_inner()).take();
             if let Some((_,handle))=previous{drop(registration);handle.join().map_err(|_|"EvaluationInternal")?;continue;}
             let payload=lease.dispatch(epoch,||self.selected_take_cleanup(None,Some(models)))?;
-            let Some(payload)=payload else{let (value,removed)=lease.dispatch(epoch,||self.selected_cleanup_snapshot())?;drop(registration);drop(removed);return Ok(value)};
+            let Some(payload)=payload else{let (value,removed)=lease.dispatch(epoch,||self.selected_cleanup_snapshot(None))?;drop(registration);drop(removed);return Ok(value)};
             let expected_epoch=payload.epoch;let operation=payload.operation;
             let held=Arc::new(Mutex::new(Some(payload)));let worker_held=held.clone();let manager=self.clone();let (send,registered)=mpsc::channel();
             let worker=move||{if registered.recv().is_err(){return;}if let Some(work)=worker_held.lock().unwrap_or_else(|p|p.into_inner()).take(){manager.selected_do_cleanup(work);}};
@@ -485,7 +488,7 @@ impl EvaluationManager {
     pub(crate) fn selected_cleanup_retired(&self, epoch:u64)->Result<Value> {
         let registration=self.registration.lock().map_err(|_|"EvaluationInternal")?;
         let work=self.selected_take_cleanup(Some(epoch),None)?;drop(registration);
-        match work{Some(work)=>Ok(self.selected_do_cleanup(work)),None=>{let (value,removed)=self.selected_cleanup_snapshot()?;drop(removed);Ok(value)}}
+        match work{Some(work)=>Ok(self.selected_do_cleanup(work)),None=>{let (value,removed)=self.selected_cleanup_snapshot(Some(epoch))?;drop(removed);Ok(value)}}
     }
 }
 

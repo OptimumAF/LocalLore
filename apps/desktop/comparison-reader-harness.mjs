@@ -41,6 +41,7 @@ async function run(label, command, args, env = {}, limit = 240000) {
         const child = spawn(command, args, {
             cwd: root,
             shell: false,
+            windowsHide: true,
             stdio: ["ignore", "pipe", "pipe"],
             env: {
                 ...process.env,

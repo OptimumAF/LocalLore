@@ -185,6 +185,28 @@ unavailable. Reader progress is in memory, and selected-case rerun/comparison
 execution are explicitly unavailable. The linked guide gives exact fixed native
 harness commands and distinguishes synthetic frontend checks from IPC/rendering.
 
+The [shared scripted selected-case Rust API](../../docs/desktop/D07_SELECTED_CASE_SCRIPTED_CONTRACT_2026-10-25.md)
+is implemented; final qualification and owner acceptance remain **pending**.
+The [incoming qualification record](../../docs/desktop/D07_SELECTED_CASE_SCRIPTED_QUALIFICATION_2026-10-25.md)
+is a separate, pending evidence packet, not an accepted result on `main` yet.
+This adds no GUI/native selected start or resume: those controls remain unavailable.
+Reader handles/progress remain in memory; the shared selected runner writes durable
+isolated `selected.json`, Stores, checkpoints, ledgers and local diagnostic reports.
+It uses the original case index and both actual full requests/prefixes in new disjoint
+Stores; it does not import experiment state into a source or live gameplay story.
+Completed resume is read-only; a finished failed/cancelled attempt needs a new
+destination/client to try again. Lost-checkpoint committed recovery is model-free
+and leaves missing call/capture/timing evidence unknown. Inspection grants no knowledge.
+Developer commands below are prospective, from the repository root, not executed results:
+
+```powershell
+cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --test comparison_selected_review -- --nocapture --test-threads=1
+cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --test comparison_selected_alias_review -- --nocapture --test-threads=1
+cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --lib local_lane::comparison::selected:: -- --nocapture --test-threads=1
+# Optional only with LOCALLORE_D07_HISTORICAL_COHORT naming the genuine retained cohort:
+cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --test comparison_selected_historical_review -- --ignored --nocapture --test-threads=1
+```
+
 ```powershell
 npm --prefix apps/desktop run check
 npm --prefix apps/desktop run format:check

@@ -11,6 +11,19 @@ The reviewed design proposal is commit
 its scripted shared API. It does not introduce a second provider, ledger, Store,
 canonical database format, context compiler or validator.
 
+## Implementation status, pending qualification
+
+At source `2838cef87b4bfb6d916f76461caba79df8536ebc`, the shared scripted Rust API
+below is implemented; final qualification/owner acceptance are pending in the
+[separate incoming evidence record](D07_SELECTED_CASE_SCRIPTED_QUALIFICATION_2026-10-25.md),
+not yet an accepted `main` result. This status note is not measured verification.
+Both arms' admission capacity and preparation budgets are checked before reservation;
+common `load_turn` validates actual Store phase/full request/receipt against checkpoints.
+Existing destination files with hardlink aliases refuse before writable Store access;
+neither source nor contradictory evidence is silently repaired. Frozen keys/caps stay unchanged.
+Native/GUI selected start/resume remain unavailable: later integration needs a new
+native affirmation and shared model owner; a read-only token is never upgraded.
+
 ## Shared API and authority
 
 Module `local_lane::comparison::selected` exposes:

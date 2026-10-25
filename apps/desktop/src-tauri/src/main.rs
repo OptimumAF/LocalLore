@@ -14,6 +14,7 @@ mod author_ipc;
 #[cfg(all(test, windows))]
 mod author_ipc_review;
 mod capture_exports;
+mod close_gate;
 mod comparison_commands;
 #[cfg(feature = "dev-harness")]
 mod comparison_reader_harness;
@@ -26,6 +27,10 @@ mod lease;
 mod memory_maintenance_commands;
 mod model_commands;
 mod models;
+mod selected_commands;
+#[cfg(feature = "dev-harness")]
+mod selected_harness;
+mod shutdown;
 use lease::WindowLease;
 #[cfg(feature = "dev-harness")]
 mod fork_harness;
@@ -43,6 +48,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 struct Reopen(AtomicBool);
 
 struct WorkspaceState {
+    close_gate: std::sync::Mutex<close_gate::CloseGate>,
     incarnation: String,
     path: std::path::PathBuf,
     lease: Arc<WindowLease>,
@@ -144,11 +150,17 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         .begin()
         .map_err(std::io::Error::other)?;
     let label = format!("main-{epoch}");
+    app.state::<WorkspaceState>()
+        .close_gate
+        .lock()
+        .map_err(|_| std::io::Error::other("Cleanup"))?
+        .opened(epoch)
+        .map_err(std::io::Error::other)?;
     let testing = cfg!(feature = "dev-harness")
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},comparisonReading:{},archiving:{},timelining:{},forking:{},maintaining:{},authoring:{},archiveStage:'{}',stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},comparisonReading:{},selectedEvaluating:{},archiving:{},timelining:{},forking:{},maintaining:{},authoring:{},archiveStage:'{}',stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
@@ -160,6 +172,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
             std::env::var("LOCALLORE_D07_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D07_CURATED_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D07_COMPARISON_READER_HARNESS").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_TIMELINE_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_FORK_HARNESS").as_deref() == Ok("1"),
@@ -299,6 +312,7 @@ fn main() {
             capture_exports::capture_save,
             capture_exports::capture_revoke,
             host_call,
+            shutdown::application_close,
             archive_commands::archive_catalog,
             author_ipc::author_prepare_start,
             author_ipc::author_context,
@@ -323,6 +337,8 @@ fn main() {
             evaluation_commands::evaluation_catalog,
             evaluation_commands::evaluation_curated,
             comparison_commands::evaluation_comparison,
+            selected_commands::evaluation_selected,
+            selected_harness::harness_selected_case,
             comparison_reader_harness::harness_comparison_reader_case,
             evaluation_commands::evaluation_start,
             evaluation_commands::evaluation_open,
@@ -359,6 +375,7 @@ fn main() {
         capture_exports::capture_save,
         capture_exports::capture_revoke,
         host_call,
+        shutdown::application_close,
         archive_commands::archive_catalog,
         author_ipc::author_prepare_start,
         author_ipc::author_context,
@@ -378,6 +395,7 @@ fn main() {
         evaluation_commands::evaluation_catalog,
         evaluation_commands::evaluation_curated,
         comparison_commands::evaluation_comparison,
+        selected_commands::evaluation_selected,
         evaluation_commands::evaluation_start,
         evaluation_commands::evaluation_open,
         evaluation_commands::evaluation_status,
@@ -404,6 +422,8 @@ fn main() {
             app.manage(Arc::new(
                 comparison_reader_harness::ComparisonReaderHarness::default(),
             ));
+            #[cfg(feature = "dev-harness")]
+            app.manage(Arc::new(selected_harness::SelectedHarness::default()));
             let path = app.path().app_local_data_dir()?.join("stories-v1.sqlite");
             #[cfg(feature = "dev-harness")]
             let path = if harness::active() {
@@ -464,6 +484,7 @@ fn main() {
                     .join("evaluation-runs-v1"),
             )));
             app.manage(WorkspaceState {
+                close_gate: std::sync::Mutex::new(close_gate::CloseGate::default()),
                 incarnation: exports::identifier().map_err(std::io::Error::other)?,
                 path,
                 lease: Arc::new(WindowLease::default()),
@@ -479,6 +500,12 @@ fn main() {
                     std::thread::sleep(std::time::Duration::from_secs(
                         if std::env::var("LOCALLORE_D04_HARNESS").as_deref() == Ok("1") {
                             900
+                        } else if std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref()
+                            == Ok("1")
+                        {
+                            // Serial real SQLite fixtures, read revalidation and
+                            // 20+ app-owned render checkpoints; not a turn SLA.
+                            600
                         } else {
                             180
                         },
@@ -491,60 +518,34 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if matches!(event, tauri::WindowEvent::Destroyed) {
-                let state = window.state::<WorkspaceState>();
-                if let Some(closed) = state.lease.invalidate(window.label()) {
-                    state.retire_author(closed - 1);
-                    window
-                        .state::<Arc<capture_exports::CaptureBroker>>()
-                        .invalidate(closed - 1);
-                    window
-                        .state::<Arc<exports::ExportBroker>>()
-                        .invalidate(closed - 1);
-                    let model_manager = window
-                        .app_handle()
-                        .state::<Arc<models::ModelManager>>()
-                        .inner()
-                        .clone();
-                    let evaluation_manager = window
-                        .state::<Arc<evaluation::EvaluationManager>>()
-                        .inner()
-                        .clone();
-                    evaluation_manager.retire(closed - 1);
-                    let archive_manager = window
-                        .state::<Arc<archive::ArchiveBroker>>()
-                        .inner()
-                        .clone();
-                    archive_manager.retire(closed - 1);
-                    let retired = model_manager.retire();
-                    let lease = state.lease.clone();
-                    let host = state.ready();
-                    tauri::async_runtime::spawn_blocking(move || {
-                        evaluation_manager.drain(closed - 1);
-                        archive_manager.drain(closed - 1);
-                        lease.finish_close(closed, || {
-                            if let Some(host) = &host {
-                                host.close_all();
-                            }
-                        });
-                        model_manager.close(host.as_deref(), retired);
-                    });
-                }
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = shutdown::request(
+                    window.app_handle(),
+                    window.label(),
+                    close_gate::Intent::Window,
+                );
+            } else if matches!(event, tauri::WindowEvent::Destroyed) {
+                // Also fence direct destruction in the app-owned dev harness.
+                let _ = shutdown::request(
+                    window.app_handle(),
+                    window.label(),
+                    close_gate::Intent::Window,
+                );
             }
         })
         .build(tauri::generate_context!())
         .expect("desktop startup failed")
-        .run(|_app, event| {
-            #[cfg(feature = "dev-harness")]
-            if harness::active() {
-                if let tauri::RunEvent::ExitRequested {
-                    api, code: None, ..
-                } = event
-                {
+        .run(|app, event| {
+            if let tauri::RunEvent::ExitRequested { api, code, .. } = event {
+                #[cfg(feature = "dev-harness")]
+                if harness::active() && code.is_none() {
+                    api.prevent_exit();
+                    return;
+                }
+                if !shutdown::exit_requested(app, code) {
                     api.prevent_exit();
                 }
             }
-            #[cfg(not(feature = "dev-harness"))]
-            let _ = event;
         });
 }

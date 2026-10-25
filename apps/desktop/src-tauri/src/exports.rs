@@ -812,6 +812,45 @@ pub fn choose_comparison_directory(_: isize) -> Result<Option<PathBuf>, String> 
     Err("Unsupported".into())
 }
 
+/// Native-owned, purpose-bound affirmation. Callers supply only Rust-validated
+/// selected metadata. A renderer Boolean or generic Story Lab grant cannot
+/// authorize running a case or opening its private experiment evidence.
+#[cfg(windows)]
+pub fn confirm_selected(owner: isize, metadata: &Value) -> Result<bool, String> {
+    let purpose = match metadata["kind"].as_str() {
+        Some("selected_prepared") => {
+            "Run this selected synthetic case in an isolated local experiment?\n\nThe scripted lane uses fake inference. The approved native lane loads your installed model and consumes local CPU and memory. Both arms use Rust-owned scope, validation and resource limits. This does not modify the source story or establish story quality."
+        }
+        Some("selected_read") => {
+            "Inspect this selected experiment's private evidence?\n\nOmniscient inspection may reveal character secrets, model inputs and outputs. Reading does not authorize generation or change what any character knows."
+        }
+        _ => return Err("InvalidEvaluationInput".into()),
+    };
+    if owner == 0 {
+        return Err("Closed".into());
+    }
+    // Windows' fixed Yes/No dialog defaults to No. No foreground activation,
+    // topmost flag, custom renderer text or new dependency is involved.
+    #[link(name = "user32")]
+    extern "system" {
+        fn MessageBoxW(owner: isize, text: *const u16, caption: *const u16, flags: u32) -> i32;
+    }
+    let message: Vec<u16> = purpose.encode_utf16().chain(Some(0)).collect();
+    let title: Vec<u16> = "LocalLore selected experiment"
+        .encode_utf16()
+        .chain(Some(0))
+        .collect();
+    match unsafe { MessageBoxW(owner, message.as_ptr(), title.as_ptr(), 0x4 | 0x30 | 0x100) } {
+        6 => Ok(true),
+        7 => Ok(false),
+        _ => Err("PickerUnavailable".into()),
+    }
+}
+#[cfg(not(windows))]
+pub fn confirm_selected(_: isize, _: &Value) -> Result<bool, String> {
+    Err("PickerUnavailable".into())
+}
+
 fn io_category(error: std::io::Error) -> String {
     if error.kind() == std::io::ErrorKind::StorageFull {
         "Full".into()

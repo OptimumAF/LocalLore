@@ -11,6 +11,7 @@ fn main() {
             .windows_attributes(tauri_build::WindowsAttributes::new().window_icon_path(&icon))
             .app_manifest(tauri_build::AppManifest::new().commands(&[
                 "host_call",
+                "application_close",
                 "author_context",
                 "author_prepare_start",
                 "author_commit_start",
@@ -39,6 +40,8 @@ fn main() {
                 "evaluation_catalog",
                 "evaluation_curated",
                 "evaluation_comparison",
+                "evaluation_selected",
+                "harness_selected_case",
                 "harness_comparison_reader_case",
                 "evaluation_start",
                 "evaluation_open",

@@ -530,13 +530,17 @@ impl Ledger {
         }
         Ok(())
     }
-    fn admit(&mut self, story: &str, turn: &str) -> Result<usize> {
+    fn preflight_admission(&self) -> Result<()> {
         if self.admissions >= MAX_ADMISSIONS
             || self.charged_roles + 3 > MAX_ROLES
             || self.remaining() < TURN_MS + CLEANUP_RESERVE_MS
         {
             return Err("RunBudget".into());
         }
+        Ok(())
+    }
+    fn admit(&mut self, story: &str, turn: &str) -> Result<usize> {
+        self.preflight_admission()?;
         let index = self.admissions;
         self.reserve_file("admission", index, story, turn, TURN_MS, 3)?;
         self.admissions += 1;
@@ -1267,6 +1271,17 @@ impl Session {
         profile: PlayProfile,
         preowned: bool,
     ) -> Result<Self> {
+        Self::open_with_entry(directory, resume, selected, native, profile, preowned, None)
+    }
+    fn open_with_entry(
+        directory: &Path,
+        resume: bool,
+        selected: Option<&str>,
+        native: bool,
+        profile: PlayProfile,
+        preowned: bool,
+        entry_started: Option<Instant>,
+    ) -> Result<Self> {
         let corpus = corpus()?;
         if selected.is_some_and(|id| !corpus.stories.iter().any(|s| s.id == id)) {
             return Err("UnknownCase".into());
@@ -1300,6 +1315,9 @@ impl Session {
             return Err("CheckpointMismatch".into());
         }
         let mut ledger = Ledger::load(directory, &binding)?;
+        if let Some(started) = entry_started {
+            ledger.started = started;
+        }
         ledger.begin_invocation()?;
         let report = Report {
             version: VERSION,
@@ -1355,6 +1373,18 @@ impl Session {
         cancel: &Cancellation,
         max_stories: usize,
     ) -> Result<Report> {
+        self.execute_body(&factory, cancel, max_stories)?;
+        self.finalize()
+    }
+    // Native ownership callers keep this same session/ledger alive until the
+    // actual worker is drained and positively reaped. Legacy execute retains
+    // its original finalize-before-factory-Drop behavior and report format.
+    fn execute_body(
+        &mut self,
+        factory: &LaneFactory,
+        cancel: &Cancellation,
+        max_stories: usize,
+    ) -> Result<()> {
         if !(1..=6).contains(&max_stories) {
             return Err("CaseBudget".into());
         }
@@ -1397,7 +1427,7 @@ impl Session {
             }
             let (attempt, path) = destination.ok_or("AttemptLimit")?;
             let (result, metadata) =
-                match run_story(&story, &path, &factory, cancel, &mut self.ledger) {
+                match run_story(&story, &path, factory, cancel, &mut self.ledger) {
                     Ok(value) => value,
                     Err(error) if error == "Interrupted" || error == "RunBudget" => {
                         self.report.cancelled = cancel.is_cancelled();
@@ -1431,7 +1461,7 @@ impl Session {
             self.metadata.push(metadata);
             executed += 1;
         }
-        self.finalize()
+        Ok(())
     }
     fn all_saved(&self) -> Result<bool> {
         for (index, story) in self.stories.iter().enumerate() {
@@ -1742,3 +1772,13 @@ pub mod desktop_api;
 
 /// Version2 comparison uses the same native lane, provider recording and resource ledger.
 pub mod comparison;
+
+#[cfg(feature = "local-model")]
+mod owned_curated;
+#[cfg(feature = "local-model")]
+pub use owned_curated::run_native_curated_owned;
+
+#[cfg(feature = "local-model")]
+pub use comparison::selected::{
+    SelectedNativeFailure as NativeFailure, SelectedNativeReservation as NativeReservation,
+};

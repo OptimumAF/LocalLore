@@ -843,3 +843,261 @@ fn offsetting_genuine_invocation_settlements_change_snapshot_even_when_report_an
         );
     }
 }
+
+// Additive frozen diagnostics contract: SOURCE-ONLY / UNRUN at handoff.
+// The existing scripted fixture measures plumbing, not native inference/quality.
+#[test]
+fn selected_diagnostics_exposes_only_bounded_manual_report_fields_to_omniscient_inspection() {
+    let fixture = Fixture::new("diagnostics-safe");
+    // Obtain the actual report before acquiring the opaque reader's run lock.
+    let report =
+        serde_json::to_value(selected::inspect_selected(&fixture.target).unwrap()).unwrap();
+    let before = [fixture.full("left"), fixture.full("right")];
+    let files = inventory(&fixture.root);
+    let opened = desktop_read::open_read_only(&fixture.target).unwrap();
+    let binding = snapshot_binding(&desktop_read::summary(&opened, true).unwrap());
+    let value = desktop_read::diagnostics(&opened, &binding, Observer::Omniscient, true).unwrap();
+    keys(
+        &value,
+        &[
+            "version",
+            "kind",
+            "binding",
+            "lane",
+            "completed",
+            "rows",
+            "physical_setups",
+            "physical_setup_ms",
+            "left_charged_ms",
+            "right_charged_ms",
+            "left_reserved_roles",
+            "right_reserved_roles",
+            "human_reviewed",
+            "quality_accepted",
+            "unavailable",
+        ],
+    );
+    assert_eq!(value["version"], 1);
+    assert_eq!(value["kind"], "selected_diagnostics");
+    assert_eq!(value["binding"], binding);
+    assert_ne!(
+        value["binding"], report["binding"],
+        "read cap is not execution authority"
+    );
+    for field in [
+        "lane",
+        "completed",
+        "physical_setups",
+        "physical_setup_ms",
+        "left_charged_ms",
+        "right_charged_ms",
+        "left_reserved_roles",
+        "right_reserved_roles",
+        "human_reviewed",
+        "quality_accepted",
+        "unavailable",
+    ] {
+        assert_eq!(
+            value[field], report[field],
+            "actual selected report field {field}"
+        );
+    }
+    assert_eq!(value["lane"], "scripted_selected_case");
+    assert_eq!(value["completed"], true);
+    assert_eq!(value["physical_setups"], 0);
+    assert!(
+        value["physical_setup_ms"].is_null(),
+        "no fabricated native measurement"
+    );
+    assert_eq!(value["human_reviewed"], 0);
+    assert_eq!(value["quality_accepted"], false);
+    let rows = value["rows"].as_array().unwrap();
+    let actual = report["rows"].as_array().unwrap();
+    assert_eq!((rows.len(), actual.len()), (2, 2));
+    for (row, actual) in rows.iter().zip(actual) {
+        let fields = [
+            "turn",
+            "arm",
+            "phase",
+            "error",
+            "expected",
+            "passed",
+            "failures",
+            "quality_flags",
+            "roles",
+            "roles_known",
+            "elapsed_ms",
+            "actual_receipt_sha256",
+            "privacy_passed",
+            "context_evidence_available",
+        ];
+        keys(row, &fields);
+        for field in fields {
+            assert_eq!(row[field], actual[field], "actual report row {field}");
+        }
+        assert_eq!(row["roles_known"], true);
+        assert_eq!(row["passed"], true);
+        assert_eq!(row["privacy_passed"], true);
+        assert_eq!(row["phase"], "committed");
+    }
+    fn no_private(value: &Value) {
+        match value {
+            Value::Object(fields) => {
+                for (key, value) in fields {
+                    assert!(![
+                        "source_inputs",
+                        "request",
+                        "profile",
+                        "source_profile",
+                        "path",
+                        "source_binding",
+                        "observer",
+                        "trace",
+                        "capture",
+                        "narration",
+                        "outputs",
+                        "raw",
+                        "text",
+                        "stages",
+                        "role_metrics",
+                        "native_load"
+                    ]
+                    .contains(&key.as_str()));
+                    no_private(value);
+                }
+            }
+            Value::Array(values) => {
+                for value in values {
+                    no_private(value);
+                }
+            }
+            Value::String(value) => assert!(
+                !value.contains(SECRET)
+                    && !value.contains("amber stitch")
+                    && !value.contains("I move to pier.")
+            ),
+            _ => {}
+        }
+    }
+    no_private(&value);
+    let encoded = encode(&value).unwrap();
+    assert!(encoded.len() <= 256 * 1024);
+    assert!(!String::from_utf8(encoded)
+        .unwrap()
+        .contains(fixture.root.to_str().unwrap()));
+    assert_eq!(
+        desktop_read::diagnostics(&opened, &binding, Observer::Omniscient, true).unwrap(),
+        value
+    );
+    drop(opened);
+    for (index, arm) in ["left", "right"].into_iter().enumerate() {
+        let after = fixture.full(arm);
+        assert!(after.canonical_bytes() == before[index].canonical_bytes());
+        assert!(after.receipts() == before[index].receipts());
+        assert!(
+            after.accepted_history_basis().unwrap()
+                == before[index].accepted_history_basis().unwrap()
+        );
+        assert_eq!(
+            generation_contexts(&after),
+            generation_contexts(&before[index])
+        );
+    }
+    assert!(inventory(&fixture.root) == files);
+}
+
+#[test]
+fn selected_diagnostics_denies_actor_and_native_grant_before_binding_or_corrupt_other_arm_probes() {
+    let fixture = Fixture::new("diagnostics-denial");
+    let before = [fixture.full("left"), fixture.full("right")];
+    let mut expected = inventory(&fixture.root);
+    let opened = desktop_read::open_read_only(&fixture.target).unwrap();
+    let binding = snapshot_binding(&desktop_read::summary(&opened, true).unwrap());
+    assert!(desktop_read::diagnostics(&opened, &binding, Observer::Omniscient, true).is_ok());
+    assert_eq!(
+        refused(desktop_read::diagnostics(
+            &opened,
+            "invalid-binding",
+            Observer::Omniscient,
+            true
+        )),
+        "SnapshotMismatch"
+    );
+    // Exercise both intact and intentionally corrupt right-arm snapshots. An
+    // actor or revoked native grant must not learn which validation would fail.
+    for corrupt in [false, true] {
+        if corrupt {
+            let cp = fixture.cp("right");
+            fs::write(&cp, b"[").unwrap();
+            assert!(expected
+                .insert(
+                    cp.strip_prefix(&fixture.root).unwrap().to_owned(),
+                    Some(b"[".to_vec())
+                )
+                .is_some());
+        }
+        for supplied in [binding.as_str(), "invalid-binding"] {
+            for observer in [
+                Observer::Player,
+                Observer::Character { id: "mira".into() },
+                Observer::Character { id: "sable".into() },
+                Observer::Character {
+                    id: "unknown-reader-actor".into(),
+                },
+            ] {
+                for native_grant in [true, false] {
+                    assert_eq!(
+                        refused(desktop_read::diagnostics(
+                            &opened,
+                            supplied,
+                            observer.clone(),
+                            native_grant
+                        )),
+                        "Forbidden"
+                    );
+                }
+            }
+            assert_eq!(
+                refused(desktop_read::diagnostics(
+                    &opened,
+                    supplied,
+                    Observer::Omniscient,
+                    false
+                )),
+                "Forbidden"
+            );
+        }
+    }
+    // A previously valid result is never returned as a fallback after drift.
+    let error = refused(desktop_read::diagnostics(
+        &opened,
+        &binding,
+        Observer::Omniscient,
+        true,
+    ));
+    assert_ne!(error, "Forbidden");
+    assert_eq!(
+        refused(desktop_read::diagnostics(
+            &opened,
+            &binding,
+            Observer::Omniscient,
+            true
+        )),
+        error
+    );
+    drop(opened);
+    for (index, arm) in ["left", "right"].into_iter().enumerate() {
+        let after = fixture.full(arm);
+        assert!(after.canonical_bytes() == before[index].canonical_bytes());
+        assert!(after.receipts() == before[index].receipts());
+        assert!(
+            after.accepted_history_basis().unwrap()
+                == before[index].accepted_history_basis().unwrap()
+        );
+        assert_eq!(
+            generation_contexts(&after),
+            generation_contexts(&before[index])
+        );
+    }
+    assert!(inventory(&fixture.root) == expected);
+}

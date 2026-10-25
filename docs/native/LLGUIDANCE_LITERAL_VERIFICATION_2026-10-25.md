@@ -205,3 +205,45 @@ framing, and replays this original raw result offline. It raises no worker,
 generation, client, profile or acceptance deadline. A newly frozen source
 and fresh target/preflight are required before repeating the ordinary cohort;
 the old target remains retained. Checkboxes and physical/quality gates stay open.
+
+## Phase-duration correction and second admission
+
+Correctionb7508016 adds keyword-only `phase_budget_ms=120000` to the shared
+runner framing parser. Only exact integers30000/120000/150000/170000 are
+accepted; booleans, floats and arbitrary larger limits are refused. Real and
+ordinary selectors supply their existing `PHASES` constant. Other/synthetic
+callers retain120000. Class/method/start/end/result framing, source proof,
+client/SDK/aggregate/lease limits and cleanup checks remain unchanged.
+Tests include exact and one-nanosecond-beyond summaries, invalid budget types,
+default120, fixed forwarding, CRLF and malformed framing. The original
+134.086-second raw IMPORT now parses under150000ms and still refuses under
+the default120000ms. This is offline parser evidence, not a retroactive import
+proof or SDK run. The author's72 targeted tests passed; their stdout remains
+in the original tool transcript, not an invented separate raw log.
+
+The broader repeat on the host-selected CPython3.14.7 ran871tests with one
+failure: the preexisting fake-symlink test patched only `Path.lstat`, whereas
+the newer `Path.is_symlink` can use `os.path.islink` directly. The deliberately
+nonexistent fake path therefore reached `missing_path` instead of its intended
+`unsafe_path`. Raw failed output is retained, SHA256
+`a819d38f5fa5ba70efac56a539863dba1f3142acf1d09c8c57c0fd3396936276`,
+owner80910ms/return1/known cleanup. Fix7fac8a9c explicitly models both synthetic
+link observations without creating a link or changing production path guards.
+Its focused test passes. A new full owned run passed **871tests,0failures,
+errors or skips**,73.038s runner/74100ms owner0/known cleanup/0stderr,
+rawSHA256`2a44167beaf7dd2bd11bccd4552c161ab16cb7c8a085d43c415ed34d9521ac08`.
+
+The new93-source indexv2 SHA256
+`b998728c0a23b52bd5e7aa642e26bd935c2838f04e445824aee7d8664a5dcc29`
+binds7fac8a9c and the observed Python3.14.7 executable/version. All six Android
+compilation crossbindings and the audited receipt APK pair remain byte-identical;
+they are reused with that explicit evidence, not described as newly rebuilt.
+The earlier source index and failed raw reports remain intact.
+
+A second **new** plain D-root was separately prepared, owned SDK child7688ms/0/
+known cleanup, same8GiB RAM/4CPU/12GiB userdata/8GiB SD. After871passes, source
+readback, unchanged APK verification and40/40 resource checks, a separate
+1800-second BOOT-only grant was frozen. The old target was not adopted,
+resumed, retried or queried for its unread proof. At this dated admission,
+second preflight, full local stream/import, real SDK and reopen remain pending
+actual results; no success is inferred from the corrected parser.

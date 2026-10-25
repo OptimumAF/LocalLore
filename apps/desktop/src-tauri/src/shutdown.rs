@@ -53,6 +53,7 @@ pub(crate) fn request(app: &tauri::AppHandle, label: &str, intent: Intent) -> Re
     };
     // This is synchronous before scheduling a drain. A retry targets only this
     // gate's captured epoch after its original lease has already been revoked.
+    let epoch = ticket.epoch();
     let closed = state.lease.invalidate(label).unwrap_or(epoch + 1);
     state.retire_author(epoch);
     app.state::<Arc<crate::capture_exports::CaptureBroker>>()

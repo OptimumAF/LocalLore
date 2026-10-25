@@ -1,7 +1,6 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Fixed synthetic selected consent/ack doubles, never user acceptance evidence.
 //! No caller path, command, runtime owner, inference fault or execution server.
-#![cfg(feature = "dev-harness")]
 use crate::WorkspaceState;
 use serde_json::{json, Value};
 use std::{

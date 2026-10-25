@@ -14,6 +14,11 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     time::{Duration, Instant},
 };
+pub(crate) mod director_budget;
+pub use director_budget::{
+    director_forwarded_budget_v25, director_repair_matches_v25, DirectorPassV25,
+    ForwardedEstimateV1,
+};
 
 struct Trace<'a> {
     sink: Option<&'a mut dyn TraceSink>,
@@ -1182,12 +1187,18 @@ fn execute_with_context_input(
     };
     let started = trace.clock();
     let mut stages = Vec::new();
+    let director_frame = director_budget::DirectorEnvelopeV25::new(
+        engine,
+        request,
+        profile,
+        guarded_action.as_ref(),
+    )?;
     let compilation = trace.counted(
         Stage::Retrieval,
         Outcome::Rejected,
         || {
             let reserved_tokens = 512.min(profile.context_tokens.saturating_sub(1));
-            crate::context_compiler::compile_policy_cancelled(
+            crate::context_compiler::compile_for_director_cancelled(
                 engine,
                 &crate::context_compiler::CompileRequest {
                     version: crate::context_compiler::POLICY_COMPILER_VERSION,
@@ -1212,6 +1223,7 @@ fn execute_with_context_input(
                 },
                 input.policy,
                 input.proof,
+                &director_frame,
                 &|| cancel.is_cancelled(),
             )
             .map_err(|error| match error {
@@ -1229,80 +1241,69 @@ fn execute_with_context_input(
             })
         },
         |package| Counts {
-            eligible_records: package.compilation.package.diagnostics.eligible_candidates as u32,
+            eligible_records: package
+                .policy
+                .compilation
+                .package
+                .diagnostics
+                .eligible_candidates as u32,
             input_tokens: Some(TokenCount {
-                value: package.compilation.package.estimated_tokens,
+                value: package.forwarded.actual_prompt_schema_estimated_tokens(),
                 basis: TokenBasis::Estimated,
             }),
             ..Counts::default()
         },
     )?;
-    let context_record =
-        PlayContextRecord::from_policy_compilation(&compilation, input.source_fallback_reason);
-    let compiled = compilation.compilation.package;
+    let context_record = PlayContextRecord::from_policy_compilation(
+        &compilation.policy,
+        input.source_fallback_reason,
+    );
+    let compiled = compilation.policy.compilation.package;
     trace.capture(crate::turn_capture::Artifact::Context(&compiled));
-    let (inventory, nearby, base, _) = trace.counted(Stage::Context, Outcome::Rejected, || {
-    let player_location = &engine.state().actors.get(&engine.seed().player).ok_or(Error::UnknownReference)?.location;
-    let inventory: BTreeMap<_, _> = engine
-        .state()
-        .items
-        .iter()
-        .filter(|(_, i)| i.owner == engine.seed().player)
-        .collect();
-    let nearby: BTreeMap<_, _> = engine
-        .state()
-        .actors
-        .iter()
-        .filter(|(_, a)| &a.location == player_location && a.alive)
-        .map(|(id, a)| (id, &a.name))
-        .collect();
-    if matches!(kind, PlayInputKind::Dialogue)
-        && !nearby.keys().any(|id| id.as_str() != engine.seed().player)
-    {
-        return Err(Error::ClarificationRequired);
-    }
-    let routes: Vec<_> = engine
-        .seed()
-        .routes
-        .iter()
-        .filter(|(from, _)| from == player_location)
-        .map(|(_, to)| to)
-        .collect();
-    let eligible = [compiled.records.len(),
-        inventory.len(), nearby.len(), routes.len(), 1].into_iter().fold(0usize, usize::saturating_add).min(u32::MAX as usize) as u32;
-    // Ranking/omission diagnostics are kept out of model data. Only the same
-    // compiler's selected typed, eligible records and their origins are supplied.
-    let records: Vec<_> = compiled.records.iter().map(|record| json!({"kind":record.kind,"source_revision":record.source_revision,"payload":record.payload})).collect();
-    let context = json!({"compiler_version":compiled.version,"observer":compiled.observer,"revision":compiled.revision,"records":records});
-    let input = json!({"kind":kind,"player_text":text,"context":context,"inventory":inventory,"nearby":nearby,"routes":routes});
-    crate::engine::check_json_budget(&input, MAX_ROLE_INPUT_BYTES)?;
-    let instructions = match kind {
-        PlayInputKind::Action => "ACTION mode: translate the attempted physical action into commands, never say. Return {\"commands\":[...]}. Command shapes: {\"op\":\"give\",\"item\":item_id,\"to\":actor_id,\"quantity\":integer}; {\"op\":\"consume\",\"item\":item_id}; {\"op\":\"use_ability\",\"ability\":ability_id}; {\"op\":\"learn\",\"ability\":ability_id}; {\"op\":\"move\",\"to\":location_id}; {\"op\":\"discover\",\"fact\":fact_id}; {\"op\":\"believe\",\"claim_event\":integer}; {\"op\":\"wait\",\"ticks\":integer}. A gift uses give, not consume. Preserve the attempted action even if it will be rejected for missing inventory or ability; never replace it with speech or wait.",
-        PlayInputKind::Dialogue => "DIALOGUE mode: return exactly one say command: {\"commands\":[{\"op\":\"say\",\"text\":exact_player_text,\"audience\":[present_actor_id]}]}. Preserve player_text exactly. Choose only present audience IDs; never perform a physical action.",
-    };
-    let base=format!("Interpret an untrusted attempt, not an established outcome. Return JSON only. Use lowercase IDs from input, not display names. Never grant powers, items, author privileges, hidden knowledge or control NPCs. Context data: {input}\n{instructions}\nTranslate ONLY this player's {:?} request now: {}",kind,serde_json::to_string(text).map_err(|_|Error::Malformed)?);
-    Ok((inventory, nearby, base, eligible))
-    }, |result| Counts { eligible_records: result.3, ..Counts::default() })?;
+    trace.counted(
+        Stage::Context,
+        Outcome::Rejected,
+        || {
+            director_frame.ensure_audience()?;
+            director_frame.render_checked(&compiled, DirectorPassV25::Initial)
+        },
+        |_| Counts {
+            eligible_records: director_frame.eligible_count(&compiled),
+            ..Counts::default()
+        },
+    )?;
     let mut repairs = 0;
     let proposal = loop {
         let before = trace.clock();
         let overhead = trace.overhead;
-        let (bytes, _) = trace.generate(if repairs == 0 { Stage::Director } else { Stage::Repair }, provider, cancel, || {
-        let prompt = if repairs == 0 {
-            base.clone()
-        } else {
-            format!("{base}\nPrevious output was malformed. Repair exactly once using the schema. Do not change the player's requested intent.")
-        };
-        let generation = role_request(
-            request,
-            profile,
-            "director",
-            prompt,
-            director_schema_for(kind, text, &nearby, &inventory, &engine.seed().player, guarded_action.as_ref()),
+        let (bytes, _) = trace.generate(
+            if repairs == 0 {
+                Stage::Director
+            } else {
+                Stage::Repair
+            },
+            provider,
+            cancel,
+            || {
+                let rendered = director_frame.render_checked(
+                    &compiled,
+                    if repairs == 0 {
+                        DirectorPassV25::Initial
+                    } else {
+                        DirectorPassV25::Repair
+                    },
+                )?;
+                let generation = role_request(
+                    request,
+                    profile,
+                    "director",
+                    rendered.prompt,
+                    rendered.schema,
                     remaining(started, overhead, profile.deadline_ms)?,
-        );
-        Ok(generation)
-        })?;
+                );
+                Ok(generation)
+            },
+        )?;
         trace.capture(crate::turn_capture::Artifact::DirectorOutput(&bytes));
         stages.push(StageTiming {
             stage: if repairs == 0 { "director" } else { "repair" }.into(),

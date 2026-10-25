@@ -269,6 +269,7 @@ struct LocalPlay {
     profile: crate::play::PlayProfile,
     provider: ProviderFactory,
     real_model: bool,
+    policy: crate::play::PlayContextPolicy,
 }
 
 /// Trusted native persistence boundary. Implemented by the one SQLite owner adapter,
@@ -505,7 +506,20 @@ impl Host {
         profile: crate::play::PlayProfile,
         provider: ProviderFactory,
     ) -> Result<(), String> {
-        self.configure_provider(profile, provider, true)
+        self.configure_local_provider_with_policy(
+            profile,
+            provider,
+            crate::play::PlayContextPolicy::StateRelevantMemoryV1,
+        )
+    }
+    /// Trusted native construction policy for future work only. No JSON capability.
+    pub fn configure_local_provider_with_policy(
+        &self,
+        profile: crate::play::PlayProfile,
+        provider: ProviderFactory,
+        policy: crate::play::PlayContextPolicy,
+    ) -> Result<(), String> {
+        self.configure_provider(profile, provider, true, policy)
     }
     /// Synthetic plumbing, configured by trusted native code only. Never claims a real model.
     pub fn configure_fixture_provider(
@@ -513,13 +527,27 @@ impl Host {
         profile: crate::play::PlayProfile,
         provider: ProviderFactory,
     ) -> Result<(), String> {
-        self.configure_provider(profile, provider, false)
+        self.configure_fixture_provider_with_policy(
+            profile,
+            provider,
+            crate::play::PlayContextPolicy::StateRelevantMemoryV1,
+        )
+    }
+    /// Synthetic native policy plumbing; never claims a real model or comparison run.
+    pub fn configure_fixture_provider_with_policy(
+        &self,
+        profile: crate::play::PlayProfile,
+        provider: ProviderFactory,
+        policy: crate::play::PlayContextPolicy,
+    ) -> Result<(), String> {
+        self.configure_provider(profile, provider, false, policy)
     }
     fn configure_provider(
         &self,
         profile: crate::play::PlayProfile,
         provider: ProviderFactory,
         real_model: bool,
+        policy: crate::play::PlayContextPolicy,
     ) -> Result<(), String> {
         profile.validate().map_err(|e| e.to_string())?;
         self.state
@@ -529,6 +557,7 @@ impl Host {
             profile,
             provider,
             real_model,
+            policy,
         });
         Ok(())
     }
@@ -2005,7 +2034,7 @@ impl Host {
                         .trace
                         .clone()
                         .map(|handle| RingSink::new(Arc::clone(&self.trace), handle));
-                    crate::play::execute_traced_with_coverage(
+                    crate::play::execute_traced_with_policy(
                         &mut engine,
                         &work.request,
                         &mut *(local.provider)(),
@@ -2013,7 +2042,10 @@ impl Host {
                         &local.profile,
                         sink.as_mut()
                             .map(|sink| sink as &mut dyn turn_trace::TraceSink),
-                        work.coverage.as_ref().expect("coherent free-text input"),
+                        crate::play::PlayConstructionInput {
+                            coverage: work.coverage.as_ref().expect("coherent free-text input"),
+                            policy: local.policy,
+                        },
                     )
                 } else {
                     Err(Error::Provider)

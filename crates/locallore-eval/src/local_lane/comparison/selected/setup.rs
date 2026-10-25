@@ -163,6 +163,7 @@ pub(super) fn read_setups(dir: &Path, binding: &str, native: bool) -> Result<Vec
             || !setup.native
             || !matches!(setup.status.as_str(), "loaded" | "failed")
             || (setup.status == "loaded" && setup.load.is_none())
+            || (setup.status == "loaded" && setup.physical_ms > PREPARATION_MS)
             || strict
                 .load
                 .as_ref()

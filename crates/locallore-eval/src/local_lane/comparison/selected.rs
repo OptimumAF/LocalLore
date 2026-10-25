@@ -395,6 +395,28 @@ impl PreparedSelectedPlan {
     }
 }
 
+/// Identity of an already validated, native-owned plan. This performs no IO and
+/// grants neither read permission nor execution; consuming run still refreshes
+/// the whole source. Do not serialize the manifest or its full Requests here.
+pub fn prepared_metadata(plan: &PreparedSelectedPlan) -> Result<Value> {
+    let manifest = &plan.manifest;
+    let arms: Vec<Value> = manifest
+        .source_inputs
+        .iter()
+        .map(|input| {
+            json!({"arm":input.arm,"scope":input.scope,"before_head":input.before_head,
+            "prefix_sha256":input.prefix_sha256,
+            "input_semantic_sha256":input.input_semantic_sha256})
+        })
+        .collect();
+    let value = json!({"version":1,"kind":"selected_prepared","binding":manifest.binding,
+        "lane":manifest.lane,"selection":manifest.selection,"arms":arms});
+    if encode(&value)?.len() > 16 * 1024 {
+        return Err("ReportBudget".into());
+    }
+    Ok(value)
+}
+
 struct Destination {
     dir: PathBuf,
     manifest: SelectedManifest,

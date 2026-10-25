@@ -127,6 +127,12 @@ helper errors and metadata stay outside Git. Raw output SHA-256 values:
 No new ordinary APK/build, physical phone, ARM64 or16KiB execution result is
 claimed. Packaging and host tests do not establish those gates.
 
+The final sealed private evidence index records177 files/154,244,091B;
+index SHA-256 `10317ff800aec8cd78a24e05f05c454b09b71632f81afb638668f74951a80a3a`.
+It includes both capacity observations and all retained harness errors, and
+contains no model weights or virtual-disk contents. The sealed namespace is
+read-only after that inventory.
+
 ## Fresh-run capacity and next task
 
 No new emulator, model copy, SDK call, accepted gift or restart ran in this

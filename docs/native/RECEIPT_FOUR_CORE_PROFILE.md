@@ -4,8 +4,10 @@ Refs #9 (M05.05 / M01.04 / M01.05 prerequisite). This is an explicit resource
 experiment for a fresh isolated emulator, not a runtime qualification or a
 promised speedup. The coordinator's preceding v2 observations placed director
 creation at 1867 ms, director send-to-DONE at 42175 ms, and narrator creation
-entry at 59580 ms of the unchanged 60000 ms turn budget. A snapshot at 60098 ms
-left that creation pending for 518 ms. These historical recording points do not
+entry at 59580 ms after trace construction, near the unchanged 60-second turn
+deadline. A snapshot at 60098 ms observed that creation pending for 518 ms.
+Trace and turn timers have different origins; exact remaining turn time is not
+established. These historical recording points do not
 establish a native hang, cause, missing callback, or performance remedy.
 
 ## Closed selection and proposal shape

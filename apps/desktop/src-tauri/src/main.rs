@@ -27,6 +27,7 @@ mod lease;
 mod memory_maintenance_commands;
 mod model_commands;
 mod models;
+mod selected_commands;
 mod shutdown;
 use lease::WindowLease;
 #[cfg(feature = "dev-harness")]
@@ -333,6 +334,7 @@ fn main() {
             evaluation_commands::evaluation_catalog,
             evaluation_commands::evaluation_curated,
             comparison_commands::evaluation_comparison,
+            selected_commands::evaluation_selected,
             comparison_reader_harness::harness_comparison_reader_case,
             evaluation_commands::evaluation_start,
             evaluation_commands::evaluation_open,
@@ -389,6 +391,7 @@ fn main() {
         evaluation_commands::evaluation_catalog,
         evaluation_commands::evaluation_curated,
         comparison_commands::evaluation_comparison,
+        selected_commands::evaluation_selected,
         evaluation_commands::evaluation_start,
         evaluation_commands::evaluation_open,
         evaluation_commands::evaluation_status,

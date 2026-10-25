@@ -173,6 +173,17 @@ pub fn evidence(
     if !native_inspection_granted {
         return Err("Forbidden".into());
     }
+    // Deny an actor's raw-artifact request before even probing identities or
+    // source integrity. Those errors must not expose private artifact state.
+    let raw_forbidden = match &request {
+        EvidenceRequest::Query { .. } => false,
+        EvidenceRequest::Receipt { observer }
+        | EvidenceRequest::Capture { observer }
+        | EvidenceRequest::Outputs { observer } => !matches!(observer, Observer::Omniscient),
+    };
+    if raw_forbidden {
+        return Err("Forbidden".into());
+    }
     if run.snapshot["binding"].as_str() != Some(expected_binding) {
         return Err("SnapshotMismatch".into());
     }
@@ -230,9 +241,6 @@ pub fn evidence(
             )
         }
         EvidenceRequest::Receipt { observer } => {
-            if !matches!(observer, Observer::Omniscient) {
-                return Err("Forbidden".into());
-            }
             let body = if turn.row.phase != "committed" {
                 missing("no_accepted_receipt")
             } else {
@@ -252,9 +260,6 @@ pub fn evidence(
             (observer, json!("after"), body)
         }
         EvidenceRequest::Capture { observer } => {
-            if !matches!(observer, Observer::Omniscient) {
-                return Err("Forbidden".into());
-            }
             let body = match &turn.capture_file {
                 None => missing("capture_unavailable"),
                 Some(name) => {
@@ -275,9 +280,6 @@ pub fn evidence(
             (observer, Value::Null, body)
         }
         EvidenceRequest::Outputs { observer } => {
-            if !matches!(observer, Observer::Omniscient) {
-                return Err("Forbidden".into());
-            }
             let body = match &turn.recording_file {
                 None => missing("recording_unavailable"),
                 Some(name) => {

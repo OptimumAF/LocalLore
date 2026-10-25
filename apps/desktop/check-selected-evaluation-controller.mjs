@@ -6,6 +6,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
+import selectedRetirementReview from "./check-selected-retirement-review.mjs";
 const root = fileURLToPath(new URL(".", import.meta.url));
 const output =
     process.env.LOCALLORE_CHECK_OUTPUT_DIR ??
@@ -880,6 +881,15 @@ await test("retired preparing client waits for actual native drain", async () =>
     assert.ok(closes >= 2);
     assert.equal(f.calls.filter((v) => v.action === "prepare").length, 1);
     f.c.dispose();
+});
+await selectedRetirementReview({
+    test,
+    fixture,
+    status,
+    deferred,
+    tick,
+    source,
+    row,
 });
 const result = {
     version: 1,

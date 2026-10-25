@@ -35,6 +35,7 @@ const COMPARISON_READER_LABELS: &[&str] = &[
     "comparison-open",
     "comparison-receipt",
     "comparison-capture",
+    "comparison-outputs",
     "comparison-mira",
     "comparison-sable",
     "comparison-guard",

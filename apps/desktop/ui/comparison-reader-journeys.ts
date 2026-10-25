@@ -70,6 +70,25 @@ export async function comparisonReaderJourneys({
         );
         const overflow = document.documentElement.scrollWidth > innerWidth + 2;
         const nested = !!panel && panel.scrollWidth > panel.clientWidth + 2;
+        const evidence = state.evidence;
+        const inspectedRevision = evidence
+            ? evidence.body.kind === "query"
+                ? evidence.body.page.revision
+                : evidence.edge === "before"
+                  ? evidence.before_head
+                  : evidence.edge === "after"
+                    ? evidence.after_head
+                    : null
+            : (selected?.source.after_head ?? null);
+        const pendingOperation = state.status?.running
+            ? {
+                  id: state.status.operation_id,
+                  phase: state.status.phase,
+                  client: state.clientId,
+              }
+            : state.busy
+              ? { id: null, phase: "awaiting_reply", client: state.clientId }
+              : null;
         const summaryProjection =
             includeSummary && state.summary
                 ? {
@@ -108,14 +127,22 @@ export async function comparisonReaderJourneys({
                 label,
                 snapshot: {
                     synthetic: true,
+                    semanticVersion: 2,
                     uiRevision: (c.get().play ?? c.get().playV2)?.revision ?? 0,
                     checks: [...checks],
                     errors: errors.snapshot(),
                     fixtureInventory: includeSummary ? fixtureInventory : null,
-                    selectedStory: c.selected()?.scope,
+                    selectedStory: selected?.source.scope ?? null,
+                    selectedReport: state.status?.run_token ?? null,
                     observer: state.observer,
-                    revision: selected?.source.after_head ?? null,
-                    pendingOperation: state.status?.operation_id ?? null,
+                    revision: inspectedRevision,
+                    pendingOperation,
+                    gameplayContext: {
+                        scope: c.selected()?.scope ?? null,
+                        revision:
+                            (c.get().play ?? c.get().playV2)?.revision ?? null,
+                        observer: c.get().observer,
+                    },
                     displayedReceipt:
                         state.evidence?.body.kind === "receipt"
                             ? state.evidence.body.receipt
@@ -129,6 +156,8 @@ export async function comparisonReaderJourneys({
                         summaryProjection,
                         evidence: state.evidence,
                         uncertain: state.uncertain,
+                        busy: state.busy,
+                        error: state.error,
                     },
                     dom: {
                         text: panel?.innerText.slice(0, 24576),
@@ -141,6 +170,10 @@ export async function comparisonReaderJourneys({
                             text: node.textContent?.slice(0, 256),
                             disabled:
                                 (node as HTMLButtonElement).disabled ?? false,
+                            value:
+                                node instanceof HTMLSelectElement
+                                    ? node.value
+                                    : null,
                         })),
                         width: innerWidth,
                         userAgent: navigator.userAgent,
@@ -236,6 +269,10 @@ export async function comparisonReaderJourneys({
             r.get().evidence?.body.kind === "outputs",
             "actual-recorded-role-outputs",
         );
+        await capture("comparison-outputs", ".comparison-evidence");
+        await invoke("harness_viewport", { preset: "capture-narrow" });
+        await capture("comparison-narrow", ".comparison-evidence");
+        await invoke("harness_viewport", { preset: "wide" });
         r.setObserver({ kind: "character", id: "mira" });
         check(
             r.get().summary === null && r.get().evidence === null,
@@ -298,9 +335,6 @@ export async function comparisonReaderJourneys({
             "guard-does-not-invent-receipt",
         );
         await capture("comparison-guard", ".comparison-selected");
-        await invoke("harness_viewport", { preset: "capture-narrow" });
-        await capture("comparison-narrow", ".comparison-selected");
-        await invoke("harness_viewport", { preset: "wide" });
         await r.close();
         check(r.get().source === null, "explicit-close-clears-private-source");
         await scenario("hold-picker");

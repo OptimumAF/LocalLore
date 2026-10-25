@@ -221,7 +221,7 @@ for (const stage of ["initial", "restart"]) {
     const captures = (await readdir(directory)).filter((name) =>
         name.endsWith(".png"),
     );
-    assert(captures.length >= 10, `ActualWebViewImages:${stage}`);
+    assert.equal(captures.length, 14, `ActualWebViewImages:${stage}`);
     for (const name of captures) {
         const capture = JSON.parse(
             await readFile(
@@ -234,6 +234,105 @@ for (const stage of ["initial", "restart"]) {
             "native-webview2",
             `ActualNativeRendering:${name}`,
         );
+        const snapshot = JSON.parse(
+            await readFile(
+                path.join(directory, name.replace(/\.png$/, ".json")),
+                "utf8",
+            ),
+        );
+        assert.equal(snapshot.semanticVersion, 2, `SemanticVersion:${name}`);
+        const state = snapshot.comparison;
+        const selected = state.source?.rows.find(
+            (row) =>
+                row.row.turn === state.selected?.turn &&
+                row.row.arm === state.selected?.arm,
+        );
+        assert.deepEqual(
+            snapshot.selectedStory,
+            selected?.source.scope ?? null,
+            `ExperimentScope:${name}`,
+        );
+        assert.equal(
+            snapshot.gameplayContext.revision,
+            snapshot.uiRevision,
+            `GameplayRevision:${name}`,
+        );
+        assert.equal(
+            snapshot.visibleError,
+            state.error,
+            `VisibleError:${name}`,
+        );
+        assert.equal(
+            snapshot.selectedReport,
+            state.status?.run_token ?? null,
+            `ReportToken:${name}`,
+        );
+        const evidence = state.evidence;
+        const revision = evidence
+            ? evidence.body.kind === "query"
+                ? evidence.body.page.revision
+                : evidence.edge === "before"
+                  ? evidence.before_head
+                  : evidence.edge === "after"
+                    ? evidence.after_head
+                    : null
+            : (selected?.source.after_head ?? null);
+        assert.equal(snapshot.revision, revision, `InspectionRevision:${name}`);
+        assert.deepEqual(
+            snapshot.displayedReceipt,
+            evidence?.body.kind === "receipt" ? evidence.body.receipt : null,
+            `DisplayedReceipt:${name}`,
+        );
+        if (evidence) {
+            assert.deepEqual(
+                snapshot.observer,
+                evidence.observer,
+                `DisplayedObserver:${name}`,
+            );
+            assert.deepEqual(
+                snapshot.selectedStory,
+                evidence.scope,
+                `DisplayedScope:${name}`,
+            );
+            if (evidence.body.kind === "query") {
+                assert.equal(
+                    evidence.edge,
+                    state.querySelection.edge,
+                    `QueryEdge:${name}`,
+                );
+                assert.equal(
+                    evidence.body.page.view,
+                    state.querySelection.view,
+                    `QueryView:${name}`,
+                );
+                const selectedValues = snapshot.dom.controls
+                    .filter((control) => control.tag === "SELECT")
+                    .map((control) => control.value);
+                assert(
+                    selectedValues.includes(state.querySelection.edge) &&
+                        selectedValues.includes(state.querySelection.view),
+                    `ActualControlSelection:${name}`,
+                );
+            }
+        }
+        if (state.status?.running)
+            assert.equal(
+                snapshot.pendingOperation?.id,
+                state.status.operation_id,
+                `ActualPendingOperation:${name}`,
+            );
+        else if (state.busy)
+            assert.equal(
+                snapshot.pendingOperation?.id,
+                null,
+                `UnobservedPendingIdentity:${name}`,
+            );
+        else
+            assert.equal(
+                snapshot.pendingOperation,
+                null,
+                `NoInventedPendingOperation:${name}`,
+            );
     }
 }
 assert.equal(

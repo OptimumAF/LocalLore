@@ -200,8 +200,10 @@ class EnvironmentTests(unittest.TestCase):
                              "allow_environment_calls": authorized, "root_go_pending": not authorized})
         return proposal, auth
 
-    def prepared_run(self):
+    def prepared_run(self, real_candidate=False):
         prepare = self.proposal()
+        if real_candidate:
+            prepare.update(memory_mib=8192, host_available_memory_min=12 * env.GIB)
         initial, _ = self.files(prepare, "prepare.json")
         self.root.mkdir()
         content = Path(prepare["paths"]["content"])
@@ -298,6 +300,124 @@ class EnvironmentTests(unittest.TestCase):
         with mock.patch.object(env, "resource_facts", side_effect=env.EnvironmentRefused("host_capacity")), self.assertRaises(env.EnvironmentRefused):
             env.prepare(p, a)
         self.assertFalse(self.root.exists())
+
+    def test_plan_real_candidate_changes_only_closed_memory_pair(self):
+        fixture = self.proposal()
+        files = [Path(item["path"]) for item in fixture["bindings"]]
+        with mock.patch.object(env, "installation_files", return_value=files), mock.patch.object(
+                env, "old_registry_snapshot", return_value=fixture["old_avd"]):
+            default = env.plan_prepare(self.root, self.sdk, self.java, self.base / "default-plan.json")
+            real = env.plan_prepare(self.root, self.sdk, self.java, self.base / "real-plan.json", real_candidate=True)
+        self.assertEqual(set(default), set(fixture))
+        self.assertEqual(default["memory_mib"], 2048)
+        self.assertEqual(default["host_available_memory_min"], 4 * env.GIB)
+        self.assertEqual(real, dict(default, memory_mib=8192, host_available_memory_min=12 * env.GIB))
+        for value in (default, real):
+            env.validate_proposal(value, "prepare")
+            self.assertFalse(value["allow_environment_calls"])
+            self.assertTrue(value["root_go_pending"])
+        self.assertFalse(self.root.exists())
+
+    def test_plan_profile_argument_refuses_non_boolean_before_inputs_or_mutation(self):
+        for argument in (None, 0, 1, "real", 8192):
+            with self.subTest(argument=argument), mock.patch.object(env, "installation_files") as inputs:
+                with self.assertRaisesRegex(env.EnvironmentRefused, "invalid_profile"):
+                    env.plan_prepare(self.root, self.sdk, self.java, self.base / "never.json", real_candidate=argument)
+                inputs.assert_not_called()
+                self.assertFalse(self.root.exists())
+                self.assertFalse((self.base / "never.json").exists())
+
+    def test_validator_accepts_only_exact_integer_profile_pairs_in_both_phases(self):
+        for phase in ("prepare", "run"):
+            value = self.proposal(phase)
+            if phase == "run":
+                value.update(prepare_proposal={}, prepared={}, prepare_result={}, max_seconds=1200)
+            for memory, floor in ((2048, 4 * env.GIB), (8192, 12 * env.GIB)):
+                env.validate_proposal(dict(value, memory_mib=memory, host_available_memory_min=floor), phase)
+            for memory, floor in ((8192, 4 * env.GIB), (2048, 12 * env.GIB), (4096, 8 * env.GIB),
+                                  (8192, 12 * env.GIB - 1), (8192.0, 12 * env.GIB),
+                                  (8192, float(12 * env.GIB)), (True, 4 * env.GIB)):
+                with self.subTest(phase=phase, memory=memory, floor=floor):
+                    with self.assertRaisesRegex(env.EnvironmentRefused, "invalid_proposal"):
+                        env.validate_proposal(dict(value, memory_mib=memory, host_available_memory_min=floor), phase)
+
+    def test_real_profile_config_and_launcher_use_same_ram_without_disk_changes(self):
+        default = self.proposal()
+        real = dict(default, memory_mib=8192, host_available_memory_min=12 * env.GIB)
+        content = Path(real["paths"]["content"])
+        original = env.ini(env.normalize_generated_config(ACTUAL_CMDLINE_11_CONFIG,
+                                                          self.generated_registry(content), content))
+        upgraded = env.ini(env.normalize_generated_config(ACTUAL_CMDLINE_11_CONFIG,
+                                  self.generated_registry(content), content, real["memory_mib"]))
+        self.assertEqual(upgraded, dict(original, **{"hw.ramSize": "8192"}))
+        self.assertEqual(upgraded["disk.dataPartition.size"], "12G")
+        self.assertEqual(upgraded["sdcard.size"], "8192M")
+        before, after = env.emulator_command(default), env.emulator_command(real)
+        expected = list(before); expected[expected.index("-memory") + 1] = "8192"
+        self.assertEqual(after, expected)
+        self.assertEqual(env.prepare_command(real), env.prepare_command(default))
+        self.assertEqual(after[after.index("-cores") + 1], "2")
+        self.assertNotIn("-partition-size", after)
+        for bad in (4096, True, 8192.0, "8192"):
+            with self.subTest(bad=bad), self.assertRaisesRegex(env.EnvironmentRefused, "invalid_profile"):
+                env.normalize_generated_config(ACTUAL_CMDLINE_11_CONFIG, self.generated_registry(content), content, bad)
+
+    def test_profile_memory_floor_accepts_exact_threshold_and_refuses_one_byte_short(self):
+        value = self.proposal()
+        for memory_mib, minimum in ((2048, 4 * env.GIB), (8192, 12 * env.GIB)):
+            value.update(memory_mib=memory_mib, host_available_memory_min=minimum)
+            for available in (minimum, minimum - 1):
+                def memory_status(pointer):
+                    pointer._obj.available = available
+                    return 1
+                with self.subTest(memory=memory_mib, available=available), mock.patch.object(
+                        env.ctypes.windll.kernel32, "GlobalMemoryStatusEx", side_effect=memory_status), mock.patch.object(
+                        env.shutil, "disk_usage", return_value=type("Disk", (), {"free": 40 * env.GIB})()):
+                    if available < minimum:
+                        with self.assertRaisesRegex(env.EnvironmentRefused, "host_capacity"):
+                            env.resource_facts(value)
+                    else:
+                        self.assertEqual(env.resource_facts(value)["available_memory"], minimum)
+
+    def test_real_profile_memory_shortfall_prevents_prepare_creation_or_child(self):
+        value = self.proposal()
+        value.update(memory_mib=8192, host_available_memory_min=12 * env.GIB)
+        proposal, authorization = self.files(value)
+        def memory_status(pointer):
+            pointer._obj.available = 12 * env.GIB - 1
+            return 1
+        with mock.patch.object(env.ctypes.windll.kernel32, "GlobalMemoryStatusEx", side_effect=memory_status), mock.patch.object(
+                env.shutil, "disk_usage", return_value=type("Disk", (), {"free": 40 * env.GIB})()), mock.patch.object(
+                env.host, "run_process") as child:
+            with self.assertRaisesRegex(env.EnvironmentRefused, "host_capacity"):
+                env.prepare(proposal, authorization)
+        child.assert_not_called()
+        self.assertFalse(self.root.exists())
+
+    def test_real_profile_flag_is_plan_prepare_only_before_other_dispatch(self):
+        for phase in ("prepare", "plan-run", "run", "_prepare-worker", "_run-worker"):
+            with self.subTest(phase=phase), mock.patch.object(env, "prepare") as prepare, mock.patch.object(
+                    env, "plan_run") as plan, mock.patch.object(env, "run") as run, mock.patch.object(
+                    env, "worker") as worker, mock.patch.object(sys, "stdout", new=io.StringIO()):
+                self.assertEqual(env.main([phase, "--real-model-candidate"]), 2)
+                for operation in (prepare, plan, run, worker):
+                    operation.assert_not_called()
+
+    def test_plan_prepare_cli_selects_explicit_or_default_profile(self):
+        for flags, expected in (([], False), (["--real-model-candidate"], True)):
+            with self.subTest(expected=expected), mock.patch.object(env, "plan_prepare") as plan:
+                self.assertEqual(env.main(["plan-prepare", "--root", "root", "--sdk", "sdk",
+                    "--java-home", "java", "--output", "output"] + flags), 0)
+                plan.assert_called_once_with("root", "sdk", "java", "output", real_candidate=expected)
+
+    def test_real_run_retains_profile_and_refuses_downgrade_from_bound_prepare(self):
+        run, _, _ = self.prepared_run(real_candidate=True)
+        env.validate_proposal(run, "run")
+        env.verify_prepared(run)
+        changed = dict(run, memory_mib=2048, host_available_memory_min=4 * env.GIB)
+        env.validate_proposal(changed, "run")  # Valid synthetic pair, wrong admitted environment.
+        with self.assertRaisesRegex(env.EnvironmentRefused, "prepared_changed"):
+            env.verify_prepared(changed)
 
     def test_token_drift_precedes_creation(self):
         p, a = self.files(self.proposal()); self.token.write_bytes(b"changed")

@@ -294,7 +294,8 @@ class ApkAuditTests(unittest.TestCase):
         complete = " ".join(names).encode("ascii")
         variants = [complete, b"", *(complete.replace(name.encode("ascii"), b"") for name in names),
                     complete + b" ReceiptSetupQualificationTest", complete + b" ReceiptSetupRestartTest",
-                    complete + b" ReceiptSetupFailureTraceTest", complete + b" ReceiptSetupFailureTransportTest"]
+                    complete + b" ReceiptSetupFailureTraceTest", complete + b" ReceiptSetupFailureTransportTest",
+                    complete + b" ReceiptRealSourcePreflightTest"]
         for marker in variants:
             with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
                 path, hashes, notices = self.candidate_archive(directory)

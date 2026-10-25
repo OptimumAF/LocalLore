@@ -221,28 +221,44 @@ fn save_setup(
     status: &str,
     load: Option<Value>,
 ) -> Result<()> {
+    save_setup_at(
+        &destination.dir,
+        &destination.manifest.binding,
+        &mut work.ledgers,
+        physical_ms,
+        status,
+        load,
+    )
+}
+
+fn save_setup_at(
+    dir: &Path,
+    binding: &str,
+    ledgers: &mut [Ledger; 2],
+    physical_ms: u64,
+    status: &str,
+    load: Option<Value>,
+) -> Result<()> {
     // Only this native-private workflow reaches here: either actual load is
     // observed, or startup has ended with confirmed cleanup/BeforeChild.
     // Unknown cleanup never calls it as a failed/settled terminal measurement.
     let record = SetupRecord {
         version: 2,
-        binding: destination.manifest.binding.clone(),
-        left_invocation: work.ledgers[0].invocation,
-        right_invocation: work.ledgers[1].invocation,
+        binding: binding.into(),
+        left_invocation: ledgers[0].invocation,
+        right_invocation: ledgers[1].invocation,
         native: true,
         physical_ms,
         status: status.into(),
         load,
     };
     saved(
-        &destination
-            .dir
-            .join(format!("setup-{:02}.json", record.left_invocation)),
+        &dir.join(format!("setup-{:02}.json", record.left_invocation)),
         &record,
         64 * 1024,
     )?;
     let (left, right) = shared_setup_shares(physical_ms);
-    for (ledger, share) in work.ledgers.iter_mut().zip([left, right]) {
+    for (ledger, share) in ledgers.iter_mut().zip([left, right]) {
         if physical_ms <= PREPARATION_MS {
             ledger.record_shared_setup(physical_ms, share)?;
         } else {

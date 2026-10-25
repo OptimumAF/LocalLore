@@ -142,7 +142,15 @@ await test("retry transport rejection does not fabricate cleanup acknowledgement
     assert.equal(errors, 2);
     assert.equal(c.get(), "cleanup_required");
 });
-assert.ok(cases > 0);
+await test("failed window continuation is distinct from uncertain worker cleanup", () => {
+    let errors = 0;
+    const c = new NativeCloseController(async () => ({}), () => { errors += 1; });
+    c.receive({ version: 1, phase: "closing" });
+    c.receive({ version: 1, phase: "close_failed" });
+    assert.equal(c.get(), "close_failed");
+    assert.equal(errors, 0);
+});
+assert.equal(cases, 18);
 console.log(
     `${cases} actual-controller synthetic status checks PASS; no native cleanup proof`,
 );

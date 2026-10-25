@@ -7,6 +7,7 @@ import io
 import json
 from pathlib import Path
 import shlex
+import stat
 import subprocess
 import sys
 import tempfile
@@ -35,7 +36,7 @@ def proof_bytes(mode, *, binary=False):
 
 
 def summary(mode):
-    return {"version": 1, "mode": mode, "source_bytes": c.SOURCE_BYTES, "source_verified": True,
+    return {"version": 1, "mode": mode, "source_bytes": len(c.BINARY_PAYLOAD) if mode == "SHELL_BINARY" else c.SOURCE_BYTES, "source_verified": True,
             "client_returncode": 0, "remote_exit_status_known": False, "destination_verified": False,
             "client_elapsed_ms": 7}
 
@@ -110,7 +111,8 @@ class StreamInputs(Inputs):
         self.value["source"].update(bytes=self.source.stat().st_size, sha256=q.sha(self.source.read_bytes()))
         self.cohort = root / "cohort"
         self.cohort.mkdir()
-        prior = "continued-before" if mode == "CAT" else "after-" + c.MODES[c.MODES.index(mode)-1].lower().replace("_", "-")
+        prior = ("continued-before" if mode == "CAT" else "after-dd-1m" if mode == "SHELL_BINARY"
+                 else "after-" + c.MODES[c.MODES.index(mode)-1].lower().replace("_", "-"))
         self.fp = self.cohort / (prior + "-facts.json")
         self.fp.write_bytes(encoded(self.facts))
         self.identity = {"pid": 4242, "started": "synthetic-instance", "executable": str(Path(sys.executable))}
@@ -364,22 +366,27 @@ class TransferProbeTests(unittest.TestCase):
     def shell_owner(self, root):
         data = Inputs(root); owner, lease = data.owner(); owner.stage = "shell-gate"; owner.created = True
         owner.attempted = ["CAT", "DD_1M"]; owner.verified = list(owner.attempted)
+        (owner.directory / "after-dd-1m-facts.json").write_bytes(encoded(data.facts))
         return owner, lease
 
     def test_shell_gate_exact_protocol_binary_request_and_raw_before_decode(self):
         with tempfile.TemporaryDirectory() as directory:
             owner, _ = self.shell_owner(Path(directory))
-            results = [completed(b"shell_v2\ncmd\n"), completed(code=42), completed(), completed()]
+            results = [completed(b"shell_v2\ncmd\n"), completed(code=42), completed(), completed(encoded(summary("SHELL_BINARY")))]
             with patch.dict(p.os.environ, {}, clear=True), patch.object(q.host, "run_process", side_effect=results) as run, \
+                 patch.object(e, "process_identity", return_value={"pid": 1}), \
                  patch.object(owner, "shell", return_value=proof_bytes("SHELL_CAT", binary=True)) as read:
                 owner.shell_gate()
                 self.assertTrue(owner.binary_verified); self.assertEqual(run.call_count, 4)
                 calls = run.call_args_list
                 self.assertEqual(calls[0].args[0][-1:], ["features"])
-                for call in calls[1:]:
+                for call in calls[1:3]:
                     self.assertEqual(call.args[0][7:11], ["shell", "-T", "-e", "none"])
                     self.assertLessEqual(call.kwargs["deadline"], 10); self.assertEqual(call.kwargs["max_output"], 4096)
-                self.assertEqual(calls[-1].kwargs["request"], bytes(range(256)) * 3)
+                self.assertIn("_stream", calls[-1].args[0])
+                self.assertEqual(calls[-1].kwargs["request"], p.STREAM_REQUEST + b"SHELL_BINARY\n10310\n")
+                self.assertLessEqual(calls[-1].kwargs["deadline"], 180)
+                self.assertEqual(json.loads((owner.directory / "shell-binary-transfer-v1.json").read_bytes()), summary("SHELL_BINARY"))
                 self.assertEqual(read.call_args.args[0], c.binary_proof_command(UID))
                 self.assertEqual((owner.directory / "shell-binary-proof.raw.txt").read_bytes(), proof_bytes("SHELL_CAT", binary=True))
                 with self.assertRaises(AssertionError): owner.shell_gate()
@@ -407,13 +414,116 @@ class TransferProbeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             owner, _ = self.shell_owner(Path(directory))
             with patch.dict(p.os.environ, {}, clear=True), \
-                 patch.object(q.host, "run_process", side_effect=[completed(b"shell_v2\n"), completed(code=42), completed(), completed()]) as run, \
+                 patch.object(q.host, "run_process", side_effect=[completed(b"shell_v2\n"), completed(code=42), completed(), completed(encoded(summary("SHELL_BINARY")))]) as run, \
+                 patch.object(e, "process_identity", return_value={"pid": 1}), \
                  patch.object(owner, "shell", return_value=b"bad-proof"):
                 with self.assertRaises(c.TransferContractRefused): owner.shell_gate()
                 self.assertEqual((owner.directory / "shell-binary-proof.raw.txt").read_bytes(), b"bad-proof")
                 owner.stage = "source-stream"
                 with self.assertRaises(AssertionError): owner.transfer("SHELL_CAT")
                 self.assertEqual(run.call_count, 4); self.assertEqual(owner.verified, ["CAT", "DD_1M"])
+
+    def test_binary_worker_reads_exact_fixed_768_bytes_through_regular_fd(self):
+        with tempfile.TemporaryDirectory() as directory:
+            data = StreamInputs(Path(directory), "SHELL_BINARY"); held = []
+            def client(argv, **kwargs):
+                stream = kwargs["stdin"]; held.append(stream)
+                self.assertTrue(stat.S_ISREG(p.os.fstat(stream.fileno()).st_mode))
+                self.assertEqual(Path(stream.name), data.cohort / "shell-binary-source-v1.bin")
+                self.assertEqual(stream.tell(), 0); self.assertEqual(stream.read(), bytes(range(256)) * 3)
+                self.assertEqual(argv[7:], ["shell", "-T", "-e", "none", shlex.join(c.binary_write_command(UID))])
+                self.assertNotIn("TERM", kwargs["env"])
+                self.assertEqual(kwargs["stdout"], subprocess.DEVNULL); self.assertEqual(kwargs["stderr"], subprocess.DEVNULL)
+                self.assertGreater(kwargs["timeout"], 0); self.assertLessEqual(kwargs["timeout"], 150)
+                return SimpleNamespace(returncode=0)
+            with data.patches(), patch.object(p, "source_path", side_effect=AssertionError("caller source must not select binary bytes")) as source, \
+                 patch.object(p.subprocess, "run", side_effect=client) as run:
+                status, raw = data.invoke()
+                self.assertEqual(status, 0); p.parse_summary(raw.encode("ascii"), "SHELL_BINARY")
+                self.assertEqual(json.loads(raw)["source_bytes"], 768); source.assert_not_called()
+                with self.assertRaises(FileExistsError): data.invoke()
+                self.assertEqual(run.call_count, 1)
+            self.assertTrue(held[0].closed)
+
+    def test_binary_internal_selector_has_fixed_summary_and_barrier(self):
+        self.assertNotIn("SHELL_BINARY", c.MODES)
+        with self.assertRaises(AssertionError): p.mode_value("SHELL_BINARY")
+        value = summary("SHELL_BINARY")
+        self.assertEqual(p.parse_summary(encoded(value), "SHELL_BINARY"), value)
+        for size in (True, 767, 769, c.SOURCE_BYTES):
+            with self.subTest(size=size), self.assertRaises(AssertionError):
+                p.parse_summary(encoded(dict(value, source_bytes=size)), "SHELL_BINARY")
+        request = p.STREAM_REQUEST + b"SHELL_BINARY\n10310\n"
+        with patch.object(p.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(request))), \
+             patch.object(p, "authorize", return_value={"synthetic": True}) as authorize, \
+             patch.object(p, "stream_authorized", return_value=0) as stream:
+            self.assertEqual(p.stream_worker("proposal", "grant", "evidence"), 0)
+            authorize.assert_called_once_with("proposal", "grant", "evidence")
+            stream.assert_called_once_with({"synthetic": True}, "SHELL_BINARY", UID, "proposal", "grant", "evidence")
+
+    def test_binary_parent_facts_and_original_lease_still_fence_before_creation(self):
+        for change in ("parent", "facts", "lease"):
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as directory:
+                data = StreamInputs(Path(directory), "SHELL_BINARY")
+                if change == "parent": data.parent["mode"] = "SHELL_CAT"; data.save_parent()
+                if change == "facts": data.fp.write_bytes(encoded(dict(data.facts, processes={"target": ["active"], "test_helper": []})))
+                if change == "lease": data.lease.live = False
+                with data.patches(), patch.object(p.subprocess, "run") as run:
+                    with self.assertRaises((AssertionError, RuntimeError)): data.invoke()
+                    run.assert_not_called(); self.assertFalse(data.claim.exists())
+                    self.assertFalse((data.cohort / "shell-binary-source-v1.bin").exists())
+
+    def test_binary_source_create_only_hash_and_post_fd_mutation_refuse(self):
+        for change in ("existing", "hash", "mutated"):
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as directory:
+                data = StreamInputs(Path(directory), "SHELL_BINARY")
+                binary = data.cohort / "shell-binary-source-v1.bin"
+                if change == "existing": binary.write_bytes(b"existing caller bytes")
+                def client(*args, **kwargs):
+                    with binary.open("ab") as out: out.write(b"changed")
+                    return SimpleNamespace(returncode=0)
+                with data.patches(), patch.object(p.subprocess, "run", side_effect=client) as run, \
+                     patch.object(c, "BINARY_SHA256", "0" * 64 if change == "hash" else c.BINARY_SHA256):
+                    with self.assertRaises((AssertionError, FileExistsError)): data.invoke()
+                    self.assertTrue(data.claim.exists())
+                    self.assertEqual(run.call_count, 1 if change == "mutated" else 0)
+                    if change == "existing": self.assertEqual(binary.read_bytes(), b"existing caller bytes")
+
+    def test_binary_owner_requires_consumed_shell_gate_and_does_not_advance_large_modes(self):
+        for change in ("stage", "gate", "prior", "success", "unknown"):
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as directory:
+                owner, _ = self.shell_owner(Path(directory)); owner.stage = "shell-gate-binary"; owner.shell_gate_attempted = True
+                if change == "stage": owner.stage = "source-stream"
+                if change == "gate": owner.shell_gate_attempted = False
+                if change == "prior": owner.attempted = ["CAT"]
+                value = completed(encoded(summary("SHELL_BINARY")), clean=change != "unknown")
+                with patch.object(q.host, "run_process", return_value=value) as run, \
+                     patch.object(e, "process_identity", return_value={"pid": 1}):
+                    if change == "success": self.assertEqual(owner.transfer("SHELL_BINARY"), summary("SHELL_BINARY"))
+                    else:
+                        with self.assertRaises(AssertionError): owner.transfer("SHELL_BINARY")
+                    self.assertEqual(run.call_count, 1 if change in ("success", "unknown") else 0)
+                    self.assertEqual(owner.verified, ["CAT", "DD_1M"])
+                    if change in ("success", "unknown"):
+                        self.assertEqual(owner.attempted, ["CAT", "DD_1M"]); self.assertTrue(owner.binary_stream_attempted)
+                        with self.assertRaises(AssertionError): owner.transfer("SHELL_BINARY")
+                        self.assertEqual(run.call_count, 1)
+                    self.assertFalse(owner.binary_verified)
+
+    def test_binary_unknown_cleanup_stops_before_guest_proof_or_large_shell(self):
+        with tempfile.TemporaryDirectory() as directory:
+            owner, _ = self.shell_owner(Path(directory))
+            results = [completed(b"shell_v2\n"), completed(code=42), completed(),
+                       completed(encoded(summary("SHELL_BINARY")), clean=False)]
+            with patch.dict(p.os.environ, {}, clear=True), patch.object(q.host, "run_process", side_effect=results) as run, \
+                 patch.object(e, "process_identity", return_value={"pid": 1}), patch.object(owner, "shell") as proof:
+                with self.assertRaises(AssertionError): owner.shell_gate()
+                self.assertFalse(owner.clean); self.assertFalse(owner.binary_verified); proof.assert_not_called()
+                self.assertEqual((owner.commands / "command-0004.stdout.bin").read_bytes(), results[-1].stdout)
+                with self.assertRaises(AssertionError): owner.shell_gate()
+                owner.stage = "source-stream"
+                with self.assertRaises(AssertionError): owner.transfer("SHELL_CAT")
+                self.assertEqual(run.call_count, 4)
 
     def cohort(self, root, fail=None):
         owner, _ = Inputs(root).owner(); events = []

@@ -2164,8 +2164,12 @@ mod selected_recovery_tests {
                     .unwrap();
                     assert_eq!(turn.row.phase, "committed");
                     assert!(turn.row.passed);
-                    // Real durable commit, intentionally no workflow checkpoint:
-                    // the caller can lose its acknowledgement at this boundary.
+                    // The producer writes a real checkpoint before settlement.
+                    // Remove only that actual workflow file to model its loss;
+                    // the canonical Store receipt and evidence stay untouched.
+                    let checkpoint = checkpoint_path(&directory, index);
+                    assert!(checkpoint.is_file());
+                    fs::remove_file(checkpoint).unwrap();
                     assert!(!checkpoint_path(&directory, index).exists());
                     produced.push(turn);
                 }

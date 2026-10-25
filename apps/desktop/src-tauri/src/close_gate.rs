@@ -195,9 +195,12 @@ impl CloseGate {
         if ticket.epoch != self.epoch || ticket.sequence != self.sequence {
             return false;
         }
-        if !matches!(self.phase, Phase::WindowContinued)
-            && !(self.phase == Phase::ExitContinued && self.exit_permit.is_some())
-        {
+        let issued = match self.phase {
+            Phase::WindowContinued => true,
+            Phase::ExitContinued => self.exit_permit.is_some(),
+            _ => false,
+        };
+        if !issued {
             return false;
         }
         self.exit_permit = None;

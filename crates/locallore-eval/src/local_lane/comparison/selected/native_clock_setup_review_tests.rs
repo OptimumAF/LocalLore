@@ -467,7 +467,8 @@ fn loaded_overrun_refuses_but_failed_cost_remains_unclamped_read_only() {
                 ledger.finish().unwrap();
                 let settled: Settlement = serde_json::from_slice(
                     &fs::read(dir.join("invocation-01-settled.json")).unwrap(),
-                ).unwrap();
+                )
+                .unwrap();
                 assert!(settled.ms >= share);
                 settled_sum = settled_sum.checked_add(settled.ms).unwrap();
                 let reloaded = Ledger::load(&dir, &fixture.binding).unwrap();
@@ -476,7 +477,10 @@ fn loaded_overrun_refuses_but_failed_cost_remains_unclamped_read_only() {
                 assert!(!dir.join("invocation-00-settled.json").exists());
                 charges.push(reloaded.charged_ms);
             }
-            assert!(settled_sum >= physical, "real settlements cover the unclamped synthetic overrun");
+            assert!(
+                settled_sum >= physical,
+                "real settlements cover the unclamped synthetic overrun"
+            );
             fixture.setup(1, 1, status, Some(synthetic_metrics()));
             let path = fixture.root.join("setup-01.json");
             let mut diagnostic = read_json(&path);
@@ -484,14 +488,19 @@ fn loaded_overrun_refuses_but_failed_cost_remains_unclamped_read_only() {
             replace_json(&path, &diagnostic);
             let before = inventory(&fixture.root);
             let result = setup::read_setups(&fixture.root, &fixture.binding, true);
-            assert_eq!(inventory(&fixture.root), before, "reader cannot repair or settle evidence");
+            assert_eq!(
+                inventory(&fixture.root),
+                before,
+                "reader cannot repair or settle evidence"
+            );
             if status == "loaded" {
                 match result {
                     Err(error) => assert_eq!(error, "SetupIntegrity"),
                     Ok(_) => wrongly_accepted.push(physical),
                 }
             } else {
-                let setups = result.expect("known failed overrun remains valid retained diagnostics");
+                let setups =
+                    result.expect("known failed overrun remains valid retained diagnostics");
                 assert_eq!(setups.len(), 1);
                 assert_eq!(setups[0].physical_ms, physical);
                 assert_eq!(setups[0].status, "failed");
@@ -499,11 +508,20 @@ fn loaded_overrun_refuses_but_failed_cost_remains_unclamped_read_only() {
             }
             for (arm, name) in ARM_NAMES.iter().enumerate() {
                 let dir = fixture.root.join(name);
-                assert_eq!(fs::read(dir.join("invocation-00.json")).unwrap(), prior_bytes[arm]);
+                assert_eq!(
+                    fs::read(dir.join("invocation-00.json")).unwrap(),
+                    prior_bytes[arm]
+                );
                 assert!(!dir.join("invocation-00-settled.json").exists());
-                assert_eq!(Ledger::load(&dir, &fixture.binding).unwrap().charged_ms, charges[arm]);
+                assert_eq!(
+                    Ledger::load(&dir, &fixture.binding).unwrap().charged_ms,
+                    charges[arm]
+                );
             }
         }
     }
-    assert!(wrongly_accepted.is_empty(), "reader accepted impossible Loaded overruns: {wrongly_accepted:?}");
+    assert!(
+        wrongly_accepted.is_empty(),
+        "reader accepted impossible Loaded overruns: {wrongly_accepted:?}"
+    );
 }

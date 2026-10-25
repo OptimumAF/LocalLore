@@ -82,7 +82,11 @@ def compare(reference, observed, expected_bytes, expected_sha256):
 
 
 def fingerprint(value):
-    return (value.st_dev, value.st_ino, value.st_mode, value.st_size, value.st_mtime_ns, value.st_ctime_ns)
+    # Windows creation identity moved to birthtime in Python 3.12. Path and FD
+    # ctime representations can differ; keep POSIX metadata-change semantics.
+    created_or_changed = (getattr(value, "st_birthtime_ns", value.st_ctime_ns)
+                          if os.name == "nt" else value.st_ctime_ns)
+    return (value.st_dev, value.st_ino, value.st_mode, value.st_size, value.st_mtime_ns, created_or_changed)
 
 
 def read_hash(source, size):

@@ -225,6 +225,24 @@ class RealCandidateTests(unittest.TestCase):
             self.assertEqual(r.parse_runner(transcript(phase),phase)["passed"],1)
             with self.assertRaises(AssertionError):q.parse_instrumentation(transcript(phase),q.INITIAL_CLASS,q.INITIAL_METHODS)
 
+    def test_runner_uses_each_existing_fixed_phase_budget_only(self):
+        self.assertEqual([value[3] for value in r.PHASES.values()], [30000,150000,170000,120000])
+        for phase in r.PHASES:
+            budget = r.PHASES[phase][3]
+            exact = transcript(phase).replace(b"Time: 0.04", b"Time: " + str(budget//1000).encode())
+            with patch.object(q,"_parse_selected_instrumentation",wraps=q._parse_selected_instrumentation) as parse:
+                self.assertEqual(r.parse_runner(exact,phase)["passed"],1)
+                self.assertEqual(parse.call_args.kwargs,{"phase_budget_ms":budget})
+            beyond = transcript(phase).replace(b"Time: 0.04", b"Time: " + str(budget//1000).encode() + b".000000001")
+            with self.assertRaises(AssertionError):r.parse_runner(beyond,phase)
+
+    def test_import_over_synthetic120_but_within_existing150_is_not_a_failed_app(self):
+        raw=transcript("IMPORT").replace(b"Time: 0.04",b"Time: 134.086")
+        self.assertEqual(r.parse_runner(raw,"IMPORT")["passed"],1)
+        cls="org.locallore.app."+r.PHASES["IMPORT"][1];methods=frozenset((r.PHASES["IMPORT"][2],))
+        with self.assertRaises(AssertionError):q._parse_selected_instrumentation(raw,cls,methods)
+        self.assertEqual(q._parse_selected_instrumentation(raw,cls,methods,phase_budget_ms=150000)["passed"],1)
+
     def test_unknown_keys_missing_checks_wrong_types_and_bounds_refuse(self):
         for phase in r.PHASES:
             for key,invalid in (("version",True),("uid",True),("model_bytes",True),("pid",0),("memory_available_before",4*r.GIB-1),

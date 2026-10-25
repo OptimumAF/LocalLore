@@ -209,7 +209,10 @@ class ReceiptRealStreamGuardTests(unittest.TestCase):
             run = state.mocks(stack, source=source, child=child)
             with redirect_stdout(io.StringIO()) as output, self.assertRaises(AssertionError):
                 r.stream_worker(state.proposal, state.authorization, state.root)
-            self.assertEqual(output.getvalue(), "")
+            trace = r.source_trace.extract_source_stream_trace(output.getvalue().encode("ascii"))
+            self.assertEqual(trace["phase"], "SOURCE_POSTCHECK")
+            self.assertTrue(trace["source_verified"])  # Historical pre-transfer check only.
+            self.assertEqual(len(output.getvalue().splitlines()), 1)
             self.assertEqual(run.call_count, 1)
 
     def test_stream_barrier_bad_requests_refuse_before_authorization(self):

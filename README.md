@@ -144,6 +144,26 @@ no private error payload and grants no resource or gameplay authority. Import
 and the real ordinary gift pass again; Dialogue and ordinary restart remain
 unqualified. A host grammar oracle is the next experiment; the cause is unproven.
 
+The [format and tokenizer follow-up](docs/native/SDK_FORMAT_TOKENIZER_VERIFICATION_2026-10-25.md)
+records the actual prepared REGEX argument on a fresh Dialogue failure. Import
+and the real Rust-committed gift pass again; Dialogue and ordinary restart remain
+unqualified. The selected SentencePiece vocabulary has no raw ASCII-space pieces.
+Native controls retain every original sample and expose representation/callback
+limits; they do not establish the SDK failure's cause. All owned emulator
+processes are stopped, and earlier failures remain preserved.
+
+The [JSON spelling controls](docs/native/JSON_SPELLING_VERIFICATION_2026-10-25.md)
+preserve decoded speech while allowing bounded equivalent space/Unicode escapes.
+Rust, JVM and native controls pass their stated scopes; both fresh attempts
+stop during model copy before SDK execution. A bounded host trace identifies a
+client timeout with a partial host read on the second attempt. Import, corrected
+Dialogue and restart remain unqualified.
+
+The [original synthetic transfer probe](docs/native/RECEIPT_TRANSFER_PROBE_VERIFICATION_2026-10-25.md)
+adds fixed local copy controls and a Windows commit-capacity guard. Its host
+checks pass; the first emulator exits before preflight for insufficient commit
+headroom. No transport speedup or new inference result is qualified.
+
 An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects
 the isolated SDK to guarded free-text preparation and durable commit. Its
 [verification](docs/runtime/android/PLAY_VERIFICATION_2026-10-23.md) establishes
@@ -211,7 +231,10 @@ uses exact public regex constraints for supported finite schemas. Actual Kotlin
 output passed215 native byte-mask cases, and both Android variants passed host
 tests and package audits. This addresses a reproduced escaped-literal compiler
 tail omission; it does not establish the cause of earlier SDK errors or qualify
-real-model play. Fresh Android inference and restart remain separate checks.
+the full real-model scene. The [fresh Android follow-up](docs/native/LLGUIDANCE_LITERAL_VERIFICATION_2026-10-25.md#second-fresh-attempt-import-and-real-gift-pass-dialogue-still-fails)
+passes full receipt import and one ordinary Rust-committed SDK gift. Dialogue
+still reports INTERNAL13, so its restart check remains unrun. The actual SDK
+format selection and model-tokenizer failure need further investigation.
 
 The [isolated LLGuidance development oracle](docs/native/LLGUIDANCE_ORACLE_PROTOCOL.md)
 exports actual engine Dialogue schemas and checks their exact bytes with a

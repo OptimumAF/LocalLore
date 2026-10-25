@@ -7,6 +7,7 @@ Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -20,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import receipt_setup_qualification as q
 import receipt_avd_environment as environment
 import litert_worker_trace as worker_trace
+import receipt_source_stream_trace as source_trace
 
 GIB = 1024 ** 3
 SCOPE = "receipt_real_candidate"
@@ -58,6 +60,8 @@ COMMON_KEYS = frozenset(("version", "phase", "pid", "start", "uid", "process", "
     "external_free_before", "external_free_after", "memory_total_bytes", "memory_available_before", "memory_available_after", "checks"))
 EXTRA_KEYS = frozenset(("phase", "source", "preflight", "human_consent"))
 SOURCE_FILES = (*q.SOURCE_FILES, "benchmarks/receipt_real_candidate.py", "scripts/tests/test_receipt_real_candidate.py",
+    "benchmarks/receipt_source_stream_trace.py", "scripts/tests/test_receipt_source_stream_trace.py",
+    "scripts/tests/test_receipt_stream_trace_integration.py", "docs/native/RECEIPT_SOURCE_STREAM_TRACE.md",
     "benchmarks/litert_worker_trace.py", "scripts/tests/test_litert_worker_trace.py",
     "apps/android/app/src/litert/java/org/locallore/app/LiteRtWorkerTrace.kt",
     "apps/android/app/src/litertTest/java/org/locallore/app/LiteRtWorkerTraceTest.kt",
@@ -79,7 +83,8 @@ def selection(phase):
 
 def parse_runner(raw, phase):
     assert phase in PHASES
-    return q._parse_selected_instrumentation(raw, "org.locallore.app." + PHASES[phase][1], frozenset((PHASES[phase][2],)))
+    return q._parse_selected_instrumentation(raw, "org.locallore.app." + PHASES[phase][1], frozenset((PHASES[phase][2],)),
+        phase_budget_ms=PHASES[phase][3])
 
 
 def integer(value, low=0, high=2 ** 63 - 1):
@@ -252,6 +257,49 @@ def stream_authorized(value, uid, proposal_path, authorization_path, evidence):
     This internal sharing point is not a CLI or a capability to authorize a scope.
     Parent binding, one-shot claim, live lease and held-FD transfer remain here.
     """
+    trace = None
+    try:
+        trace = source_trace.SourceStreamTrace(value["source"]["bytes"])
+    except BaseException:
+        pass
+    try:
+        status = _stream_authorized(value, uid, proposal_path, authorization_path, evidence, trace)
+    except BaseException:
+        _stream_trace_emit(trace)
+        raise
+    if status != 0:
+        _stream_trace_emit(trace)
+    return status
+
+
+def _stream_trace_observe(trace, method, *args):
+    # Diagnostics cannot change authorization, transfer, cleanup or failure.
+    try:
+        if trace is not None:
+            getattr(trace, method)(*args)
+    except BaseException:
+        pass
+
+
+def _stream_trace_position(trace, stream):
+    try:
+        _stream_trace_observe(trace, "position", stream.tell())
+    except BaseException:
+        pass
+
+
+def _stream_trace_emit(trace):
+    try:
+        if trace is None:
+            return
+        raw = trace.json().encode("ascii")
+        source_trace.parse_source_stream_trace(raw)
+        print(source_trace.PREFIX + raw.decode("ascii"))
+    except BaseException:
+        pass
+
+
+def _stream_authorized(value, uid, proposal_path, authorization_path, evidence, trace):
     integer(uid, 10000, 2 ** 31 - 1)
     lease = q.open_lease(value); lease.check()
     cohort = Path(evidence) / "cohort"
@@ -275,26 +323,42 @@ def stream_authorized(value, uid, proposal_path, authorization_path, evidence):
     q.write_json(cohort / "stream-worker-claimed-v1.json", {"version": 1,
         "parent_sha256": q.sha(parent_path.read_bytes()), "proposal_sha256": q.sha(Path(proposal_path).read_bytes()),
         "worker": environment.process_identity(os.getpid())})
+    _stream_trace_observe(trace, "phase", source_trace.StreamPhase.SOURCE_OPEN)
     source = source_path(value["source"], value["phase"])
     argv = [value["adb_path"], "-H", "127.0.0.1", "-P", "5037", "-s", lease.descriptor["serial"], "exec-in", shlex.join(source_write(uid, value["phase"]))]
     # The parent assigned this barrier worker to its Job before sending REQUEST.
     # The transfer child inherits that Job; model bytes never enter Python memory.
     with source.open("rb", buffering=0) as stream:
         before = os.fstat(stream.fileno())
+        _stream_trace_observe(trace, "phase", source_trace.StreamPhase.SOURCE_HASH)
         digest = hashlib.sha256()
         for block in iter(lambda: stream.read(1024 * 1024), b""): digest.update(block)
         assert before.st_size == value["source"]["bytes"] and digest.hexdigest() == value["source"]["sha256"]
+        _stream_trace_observe(trace, "source_verified")
         stream.seek(0)
         lease.check()
         assert os.getppid() == parent["parent"]["pid"]
         assert parent["parent"] == environment.process_identity(parent["parent"]["pid"])
+        _stream_trace_observe(trace, "phase", source_trace.StreamPhase.CLIENT)
         remaining = parent["deadline_epoch"] - time.time() - 5
         assert remaining > 0
-        result = subprocess.run(argv, stdin=stream, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=min(150, remaining),
-                                creationflags=subprocess.CREATE_NO_WINDOW)
+        timeout = min(150, remaining)
+        _stream_trace_observe(trace, "client_start", math.ceil(timeout * 1000))
+        try:
+            result = subprocess.run(argv, stdin=stream, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=timeout,
+                                    creationflags=subprocess.CREATE_NO_WINDOW)
+        except subprocess.TimeoutExpired:
+            _stream_trace_observe(trace, "client_timeout")
+            _stream_trace_position(trace, stream)
+            raise
+        _stream_trace_observe(trace, "client_return", result.returncode)
+        _stream_trace_position(trace, stream)
+        _stream_trace_observe(trace, "phase", source_trace.StreamPhase.SOURCE_POSTCHECK)
         after = os.fstat(stream.fileno())
     assert (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) == (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+    _stream_trace_observe(trace, "phase", source_trace.StreamPhase.LEASE_POSTCHECK)
     lease.check()
+    _stream_trace_observe(trace, "phase", source_trace.StreamPhase.COMPLETE)
     print(json.dumps({"version": 1, "source_bytes": before.st_size, "source_verified": True, "client_returncode": result.returncode,
                       "remote_exit_status_known": False, "destination_verified": False}))
     return 0 if result.returncode == 0 else 2

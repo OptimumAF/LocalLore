@@ -51,6 +51,8 @@ SOURCE_FILES = (*r.SOURCE_FILES, "benchmarks/receipt_real_cancellation.py", "scr
     "apps/android/app/src/litert/java/org/locallore/app/LiteRtSendTrace.kt",
     "apps/android/app/src/litertTest/java/org/locallore/app/LiteRtSendTraceTest.kt",
     "docs/native/LITERT_SEND_TRACE_CONTRACT.md",
+    "docs/native/LITERT_SEND_TRACE_V2_CONTRACT.md",
+    "docs/native/FINITE_JSON_SPELLINGS.md",
     "benchmarks/litert_callback_trace.py", "scripts/tests/test_litert_callback_trace.py",
     "apps/android/app/src/litert/java/org/locallore/app/LiteRtCallbackTrace.kt",
     "apps/android/app/src/litertTest/java/org/locallore/app/LiteRtCallbackTraceTest.kt",
@@ -92,8 +94,9 @@ def selection(phase):
 
 def parse_runner(raw, phase):
     assert phase in PHASES
-    # Keep the conservative runner Time<=120s gate separate from proof/client caps.
-    return q._parse_selected_instrumentation(raw, "org.locallore.app." + PHASES[phase][1], frozenset((PHASES[phase][2],)))
+    # Bind runner time to this fixed existing phase; no client/SDK deadline changes.
+    return q._parse_selected_instrumentation(raw, "org.locallore.app." + PHASES[phase][1], frozenset((PHASES[phase][2],)),
+        phase_budget_ms=PHASES[phase][3])
 
 
 def parse_proof(raw, phase, uid):

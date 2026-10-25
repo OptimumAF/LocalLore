@@ -7,7 +7,7 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.google.gson.JsonPrimitive
 
-/** A canonical finite representation only. The original schema/engine still validates outcomes. */
+/** Finite JSON spellings only. The original schema/engine still validates outcomes. */
 internal fun finiteSchemaRegex(schemaJson: String): String? = try {
     require(schemaJson.length in 1..FINITE_BYTES)
     require(localUtf8(schemaJson).size in 1..FINITE_BYTES)
@@ -41,13 +41,60 @@ private class FiniteText {
         }
         append(value.substring(start))
     }
+    /** Only string data gets equivalent spellings; JSON structure remains compact and exact. */
+    fun jsonLiteral(value: String) {
+        var at = 0
+        var start = 0
+        while (at < value.length) {
+            if (value[at] != '"') { at++; continue }
+            escaped(value.substring(start, at))
+            val begin = at++
+            var closed = false
+            while (at < value.length) {
+                val char = value[at++]
+                if (char == '\\') { require(at < value.length); at++ }
+                else if (char == '"') { closed = true; break }
+            }
+            require(closed)
+            stringLiteral(JsonParser.parseString(value.substring(begin, at)).stringValue())
+            start = at
+        }
+        escaped(value.substring(start))
+    }
+    fun stringLiteral(value: String) {
+        localUtf8(value)
+        escaped("\"")
+        var at = 0
+        while (at < value.length) {
+            val scalar = value.codePointAt(at)
+            val text = String(Character.toChars(scalar))
+            val quoted = quoted(text)
+            val canonical = quoted.substring(1, quoted.length - 1)
+            if (scalar == 0x20 || scalar >= 0x80) {
+                // Charge the whole bounded alternative before mutating this output.
+                val alternative = FiniteText().apply {
+                    append("(?:"); escaped(canonical); append("|")
+                    for (unit in text) {
+                        escaped("\\u")
+                        for (hex in unit.code.toString(16).padStart(4, '0')) {
+                            if (hex in 'a'..'f') append("[$hex${hex.uppercaseChar()}]") else append(hex.toString())
+                        }
+                    }
+                    append(")")
+                }.text()
+                append(alternative)
+            } else escaped(canonical)
+            at += Character.charCount(scalar)
+        }
+        escaped("\"")
+    }
     fun schema(value: JsonObject) {
         val keys = value.namesSet()
         when {
             value.has("const") || value.has("enum") -> {
                 val choices = finiteChoices(value)
                 append("(?:")
-                choices.forEachIndexed { index, choice -> if (index > 0) append("|"); escaped(choice) }
+                choices.forEachIndexed { index, choice -> if (index > 0) append("|"); jsonLiteral(choice) }
                 append(")")
             }
             value.has("oneOf") -> {
@@ -67,7 +114,7 @@ private class FiniteText {
                 escaped("{")
                 properties.namesSet().sorted().forEachIndexed { index, name ->
                     if (index > 0) escaped(",")
-                    escaped(quoted(name) + ":")
+                    stringLiteral(name); escaped(":")
                     schema(properties.get(name).objectValue())
                 }
                 escaped("}")

@@ -44,4 +44,49 @@ class LiteRtResponseFormatTest {
             // Existing SDK constructor failure; no generated response or commit authority.
         }
     }
+
+    @Test fun observesPreparedPublicKindsWithoutChangingTheArgumentOrDispatch() {
+        val schemas = listOf("""{"const":"literal"}""", """{"type":"string","maxLength":180}""")
+        for ((schema, expected) in schemas.zip(listOf(LiteRtSendFormat.REGEX, LiteRtSendFormat.JSON_OBJECT))) {
+            val trace = LiteRtSendTrace()
+            val argument = liteRtResponseFormat(schema)
+            val payload = argument.schemaOrPattern
+            var sends = 0
+            observedLiteRtSend(trace, prepare = { argument }, dispatch = { actual ->
+                observedLiteRtResponseFormat(trace, actual)
+                assertSame(argument, actual)
+                assertEquals(payload, actual.schemaOrPattern)
+                sends++
+            })
+            assertEquals(1, sends)
+            val snapshot = trace.snapshot()
+            assertEquals(expected, snapshot.lastFormat)
+            assertEquals(1, snapshot.formatCounts.getValue(expected))
+            assertEquals(1, snapshot.formatCounts.values.sum())
+            assertEquals(1, snapshot.counts.getValue(LiteRtSendEvent.ASYNC_CALL_RETURNED))
+        }
+    }
+
+    @Test fun formatObserverFailureCannotReplaceDispatchOrItsOriginalFailure() {
+        val observerFailure = AssertionError("Private observer failure")
+        val observer = object : LiteRtSendObserver {
+            override fun record(event: LiteRtSendEvent) { throw observerFailure }
+            override fun format(value: LiteRtSendFormat) { throw observerFailure }
+        }
+        val argument = liteRtResponseFormat("""{"const":"literal"}""")
+        var sends = 0
+        observedLiteRtSend(observer, prepare = { argument }, dispatch = { actual ->
+            observedLiteRtResponseFormat(observer, actual); sends++
+        })
+        assertEquals(1, sends)
+        val original = IllegalStateException("Original dispatch failure")
+        try {
+            observedLiteRtSend(observer, prepare = { argument }, dispatch = { actual ->
+                observedLiteRtResponseFormat(observer, actual); throw original
+            })
+            fail("Dispatch failure lost")
+        } catch (observed: Throwable) { assertSame(original, observed) }
+        assertTrue(original.suppressed.isEmpty())
+        observedLiteRtResponseFormat(null, argument)
+    }
 }

@@ -15,12 +15,12 @@ internal object CandidateLocalModel {
     @Volatile private var receiptCallbackTrace: LiteRtCallbackTrace? = null
     @Volatile private var receiptStatusTrace: LiteRtStatusTrace? = null
     const val MODEL_SHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
-    const val WORKER_SHA256 = "db4d5f18318b7b5d67fbeb33bddee7781ddce7adc41477d9c17808e92c23df27"
+    const val WORKER_SHA256 = "efc5f9217b22ed772b10805fdd83122d9afe8647c374e6db234209748865ea52"
     val identity = LocalModelIdentity("gemma-4-e2b-it-litertlm-a790a852", 2_588_147_712L, MODEL_SHA256)
 
     // Exact UTF-8 profile description, hashed separately from the model and worker source.
     // Template identity denotes the bundled container, not an extracted independent template.
-    internal const val MANIFEST = """{"version":1,"scope":"debug_candidate_not_phone_qualified","model_repository":"litert-community/gemma-4-E2B-it-litert-lm","model_revision":"a790a852d433991c0c0a41c1154cf9b3850300fa","model_path":"gemma-4-E2B-it.litertlm","model_bytes":2588147712,"model_sha256":"181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c","runtime_revision":"bda624851d74be34d4e1f7fac1fc4155939539c7","worker_source_sha256":"db4d5f18318b7b5d67fbeb33bddee7781ddce7adc41477d9c17808e92c23df27","template_identity":"bundled_model_container","context_tokens":4096,"director_tokens":350,"narrator_tokens":220,"deadline_ms":60000,"repair_limit":1,"threads":4}"""
+    internal const val MANIFEST = """{"version":1,"scope":"debug_candidate_not_phone_qualified","model_repository":"litert-community/gemma-4-E2B-it-litert-lm","model_revision":"a790a852d433991c0c0a41c1154cf9b3850300fa","model_path":"gemma-4-E2B-it.litertlm","model_bytes":2588147712,"model_sha256":"181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c","runtime_revision":"bda624851d74be34d4e1f7fac1fc4155939539c7","worker_source_sha256":"efc5f9217b22ed772b10805fdd83122d9afe8647c374e6db234209748865ea52","template_identity":"bundled_model_container","context_tokens":4096,"director_tokens":350,"narrator_tokens":220,"deadline_ms":60000,"repair_limit":1,"threads":4}"""
 
     fun store(context: Context): CandidateModelAccess = preparedStore ?: synchronized(this) {
         preparedStore ?: run {

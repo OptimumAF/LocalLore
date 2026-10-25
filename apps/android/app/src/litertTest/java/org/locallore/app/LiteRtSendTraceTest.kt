@@ -43,6 +43,7 @@ class LiteRtSendTraceTest {
     @Test fun eventOrderAndWireConstantsAreIndependentAndClosed() {
         assertEquals(listOf("ARGUMENTS_ENTERED", "ARGUMENTS_RETURNED", "ARGUMENTS_THROWN", "ASYNC_CALL_ENTERED", "ASYNC_CALL_RETURNED", "ASYNC_CALL_THROWN"),
             LiteRtSendEvent.entries.map { it.name })
+        assertEquals(listOf("REGEX", "JSON_OBJECT", "OTHER"), LiteRtSendFormat.entries.map { it.name })
         assertEquals("locallore_receipt_send_v1", LiteRtSendTrace.STATUS_KEY)
         assertEquals(1338, LiteRtSendTrace.STATUS_CODE)
         assertEquals("INSTRUMENTATION_STATUS: locallore_receipt_send_v1=", LiteRtSendTrace.WIRE_PREFIX)
@@ -53,11 +54,13 @@ class LiteRtSendTraceTest {
         val current = LiteRtSendTrace().snapshot()
         assertTrue(current.counts.values.all { it == 0 }); assertTrue(current.lastMs.values.all { it == null })
         assertTrue(current.saturated.isEmpty()); assertFalse(current.timeSaturated)
+        assertTrue(current.formatCounts.values.all { it == 0 }); assertTrue(current.formatSaturated.isEmpty()); assertNull(current.lastFormat)
         assertTrue(current.snapshotMs in 0..LiteRtSendTrace.MAX_MS)
         val value = snapshot().json()
         val counts = LiteRtSendEvent.entries.joinToString(",") { "\"${it.name}\":0" }
         val times = LiteRtSendEvent.entries.joinToString(",") { "\"${it.name}\":null" }
-        assertEquals("{\"version\":1,\"counts\":{$counts},\"saturated\":[],\"last_ms\":{$times},\"snapshot_ms\":0,\"time_saturated\":false}", value)
+        assertEquals("{\"version\":2,\"counts\":{$counts},\"saturated\":[],\"last_ms\":{$times},\"snapshot_ms\":0,\"time_saturated\":false," +
+            "\"format_counts\":{\"REGEX\":0,\"JSON_OBJECT\":0,\"OTHER\":0},\"format_saturated\":[],\"last_format\":null}", value)
     }
     @Test fun traceSnapshotsAreHistoricalCopiesWithMonotonicObservationTimes() {
         val trace = LiteRtSendTrace()
@@ -133,25 +136,124 @@ class LiteRtSendTraceTest {
         } finally { pool.shutdownNow(); assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS)) }
     }
     @Test fun denseWireHasClosedOrderedKeysAndIncludesPrefixInCap() {
-        val value = snapshot(LiteRtSendTrace.MAX_COUNT, LiteRtSendTrace.MAX_MS, LiteRtSendTrace.MAX_MS, true, true)
+        val value = LiteRtSendSnapshot(LiteRtSendEvent.entries.associateWith { LiteRtSendTrace.MAX_COUNT },
+            LiteRtSendEvent.entries.toSet(), LiteRtSendEvent.entries.associateWith { LiteRtSendTrace.MAX_MS },
+            LiteRtSendTrace.MAX_MS, true, LiteRtSendFormat.entries.associateWith { LiteRtSendTrace.MAX_COUNT },
+            LiteRtSendFormat.entries.toSet(), LiteRtSendFormat.OTHER)
         val wire = value.json()
         assertEquals(wire, value.json()); assertTrue(wire.all { it.code in 32..126 })
         assertTrue((LiteRtSendTrace.WIRE_PREFIX + wire).toByteArray(Charsets.UTF_8).size <= LiteRtSendTrace.MAX_BYTES)
-        assertEquals(552, wire.toByteArray(Charsets.US_ASCII).size)
-        assertEquals(602, (LiteRtSendTrace.WIRE_PREFIX + wire).toByteArray(Charsets.US_ASCII).size)
-        assertEquals("12402ccfe90b5203a3abcf569d6cee9be95112778c8668b6a3733a5318bf86a6",
+        assertEquals(697, wire.toByteArray(Charsets.US_ASCII).size)
+        assertEquals(747, (LiteRtSendTrace.WIRE_PREFIX + wire).toByteArray(Charsets.US_ASCII).size)
+        assertEquals("4359c8f70c2e3024b59e94fe7738e7d117a72a8caf9f682a944b6558f7e6fd65",
             MessageDigest.getInstance("SHA-256").digest(wire.toByteArray(Charsets.US_ASCII)).joinToString("") { "%02x".format(it) })
         assertEquals(1, Regex("\"version\":").findAll(wire).count())
         val expectedSet = LiteRtSendEvent.entries.joinToString(",", "\"saturated\":[", "]") { "\"${it.name}\"" }
-        assertTrue(wire.contains(expectedSet)); assertTrue(wire.endsWith("\"snapshot_ms\":180000,\"time_saturated\":true}"))
+        assertTrue(wire.contains(expectedSet)); assertTrue(wire.endsWith(
+            "\"format_counts\":{\"REGEX\":1000000,\"JSON_OBJECT\":1000000,\"OTHER\":1000000}," +
+                "\"format_saturated\":[\"REGEX\",\"JSON_OBJECT\",\"OTHER\"],\"last_format\":\"OTHER\"}"))
     }
     @Test fun traceSurfaceCannotInspectRawPrivateDataOrCallerClock() {
         for (constructor in LiteRtSendTrace::class.java.declaredConstructors) assertTrue(constructor.parameterTypes.isEmpty())
         val method = LiteRtSendTrace::class.java.getDeclaredMethod("record", LiteRtSendEvent::class.java)
         assertEquals(Void.TYPE, method.returnType)
+        assertEquals(Void.TYPE, LiteRtSendTrace::class.java.getDeclaredMethod("format", LiteRtSendFormat::class.java).returnType)
         for (field in LiteRtSendTrace::class.java.declaredFields) assertFalse(field.type == Throwable::class.java ||
             field.type.name.startsWith("java.io.") || field.type.name.startsWith("kotlin.jvm.functions."))
         val wire = snapshot().json(); assertFalse(wire.contains("prompt")); assertFalse(wire.contains("message")); assertFalse(wire.contains("cause"))
+    }
+    private fun formats(
+        counts: Map<LiteRtSendFormat, Int> = LiteRtSendFormat.entries.associateWith { 0 },
+        saturated: Set<LiteRtSendFormat> = emptySet(),
+        last: LiteRtSendFormat? = null,
+    ) = LiteRtSendSnapshot(LiteRtSendEvent.entries.associateWith { 0 }, emptySet(),
+        LiteRtSendEvent.entries.associateWith { null }, 0, false, counts, saturated, last)
+
+    @Test fun oldEventLambdaStillHasANoopDefaultFormatMethod() {
+        val events = mutableListOf<LiteRtSendEvent>()
+        val observer = LiteRtSendObserver { events.add(it) }
+        LiteRtSendFormat.entries.forEach { observer.format(it) }
+        assertTrue(events.isEmpty())
+        observedLiteRtSend(observer, { 7 }, { assertEquals(7, it) })
+        assertEquals(listOf(LiteRtSendEvent.ARGUMENTS_ENTERED, LiteRtSendEvent.ARGUMENTS_RETURNED,
+            LiteRtSendEvent.ASYNC_CALL_ENTERED, LiteRtSendEvent.ASYNC_CALL_RETURNED), events)
+    }
+    @Test fun formatsObserveOnlyTheirOwnClosedCountersAndLastEnum() {
+        val trace = LiteRtSendTrace()
+        trace.format(LiteRtSendFormat.REGEX)
+        val first = trace.snapshot(); val firstWire = first.json()
+        trace.format(LiteRtSendFormat.JSON_OBJECT); trace.format(LiteRtSendFormat.REGEX); trace.format(LiteRtSendFormat.OTHER)
+        val latest = trace.snapshot()
+        assertEquals(firstWire, first.json()); assertEquals(LiteRtSendFormat.REGEX, first.lastFormat)
+        assertEquals(mapOf(LiteRtSendFormat.REGEX to 2, LiteRtSendFormat.JSON_OBJECT to 1, LiteRtSendFormat.OTHER to 1), latest.formatCounts)
+        assertEquals(LiteRtSendFormat.OTHER, latest.lastFormat)
+        assertTrue(latest.counts.values.all { it == 0 }); assertTrue(latest.lastMs.values.all { it == null })
+        assertTrue(latest.saturated.isEmpty()); assertTrue(latest.formatSaturated.isEmpty())
+        // Event-only observations remain valid without a claimed response-format observation.
+        assertNull(snapshot(1, 0).lastFormat)
+    }
+    @Test fun formatSnapshotCopiesAndProtectsMapsEntriesAndSets() {
+        val counts = LiteRtSendFormat.entries.associateWith { LiteRtSendTrace.MAX_COUNT }.toMutableMap()
+        val saturated = LiteRtSendFormat.entries.toMutableSet()
+        val value = formats(counts, saturated, LiteRtSendFormat.JSON_OBJECT); val wire = value.json()
+        counts.clear(); saturated.clear(); assertEquals(wire, value.json())
+        @Suppress("UNCHECKED_CAST") val copiedCounts = value.formatCounts as MutableMap<LiteRtSendFormat, Int>
+        @Suppress("UNCHECKED_CAST") val copiedSet = value.formatSaturated as MutableSet<LiteRtSendFormat>
+        immutable { copiedCounts.clear() }; immutable { copiedCounts.entries.first().setValue(0) }
+        immutable { copiedSet.clear() }; immutable { copiedSet.iterator().apply { next(); remove() } }
+    }
+    @Test fun formatSnapshotRefusesMissingKeysCountsFlagsAndInconsistentLast() {
+        val zero = LiteRtSendFormat.entries.associateWith { 0 }
+        val positive = zero + (LiteRtSendFormat.REGEX to 1)
+        refuses { formats(emptyMap()) }; refuses { formats(zero - LiteRtSendFormat.OTHER) }
+        refuses { formats(zero + (LiteRtSendFormat.REGEX to -1), last = LiteRtSendFormat.REGEX) }
+        refuses { formats(zero + (LiteRtSendFormat.REGEX to LiteRtSendTrace.MAX_COUNT + 1), last = LiteRtSendFormat.REGEX) }
+        refuses { formats(positive) }; refuses { formats(zero, last = LiteRtSendFormat.REGEX) }
+        refuses { formats(positive, last = LiteRtSendFormat.OTHER) }
+        refuses { formats(positive, setOf(LiteRtSendFormat.REGEX), LiteRtSendFormat.REGEX) }
+        val cap = zero + (LiteRtSendFormat.REGEX to LiteRtSendTrace.MAX_COUNT)
+        assertNotNull(formats(cap, last = LiteRtSendFormat.REGEX).json())
+        assertNotNull(formats(cap, setOf(LiteRtSendFormat.REGEX), LiteRtSendFormat.REGEX).json())
+    }
+    @Test fun formatCollectionsAreBoundedBeforeCallerIteration() {
+        val hostileMap = object : AbstractMap<LiteRtSendFormat, Int>() {
+            override val size: Int get() = 4
+            override val entries: Set<Map.Entry<LiteRtSendFormat, Int>> get() = error("Must not copy oversized map")
+        }
+        val hostileSet = object : AbstractSet<LiteRtSendFormat>() {
+            override val size: Int get() = 4
+            override fun iterator(): Iterator<LiteRtSendFormat> = error("Must not copy oversized set")
+        }
+        refuses { formats(hostileMap) }
+        refuses { formats(saturated = hostileSet) }
+    }
+    @Test fun actualFormatCounterFlagsOnlyOverflowAndRetainsOtherKinds() {
+        val trace = LiteRtSendTrace()
+        repeat(LiteRtSendTrace.MAX_COUNT) { trace.format(LiteRtSendFormat.REGEX) }
+        val exact = trace.snapshot()
+        assertEquals(LiteRtSendTrace.MAX_COUNT, exact.formatCounts.getValue(LiteRtSendFormat.REGEX))
+        assertTrue(exact.formatSaturated.isEmpty()); assertEquals(LiteRtSendFormat.REGEX, exact.lastFormat)
+        repeat(2) { trace.format(LiteRtSendFormat.REGEX) }; trace.format(LiteRtSendFormat.JSON_OBJECT)
+        val overflow = trace.snapshot()
+        assertEquals(LiteRtSendTrace.MAX_COUNT, overflow.formatCounts.getValue(LiteRtSendFormat.REGEX))
+        assertEquals(setOf(LiteRtSendFormat.REGEX), overflow.formatSaturated)
+        assertEquals(1, overflow.formatCounts.getValue(LiteRtSendFormat.JSON_OBJECT))
+        assertEquals(LiteRtSendFormat.JSON_OBJECT, overflow.lastFormat); assertTrue(exact.formatSaturated.isEmpty())
+        assertTrue(overflow.counts.values.all { it == 0 })
+    }
+    @Test fun concurrentFormatsEventsAndSnapshotsStayBoundedAndIndependent() {
+        val trace = LiteRtSendTrace(); val pool = Executors.newFixedThreadPool(5); val start = CountDownLatch(1)
+        try {
+            val jobs = LiteRtSendFormat.entries.map { format -> pool.submit { start.await(); repeat(5000) { trace.format(format) } } }
+            val events = pool.submit { start.await(); repeat(5000) { trace.record(LiteRtSendEvent.ASYNC_CALL_ENTERED) } }
+            val observer = pool.submit { start.await(); repeat(100) { assertTrue(trace.snapshot().json().length < 2048) } }
+            start.countDown(); jobs.forEach { it.get(10, TimeUnit.SECONDS) }; events.get(10, TimeUnit.SECONDS); observer.get(10, TimeUnit.SECONDS)
+            val final = trace.snapshot()
+            assertTrue(final.formatCounts.values.all { it == 5000 }); assertNotNull(final.lastFormat)
+            assertEquals(5000, final.counts.getValue(LiteRtSendEvent.ASYNC_CALL_ENTERED))
+            assertTrue(final.counts.filterKeys { it != LiteRtSendEvent.ASYNC_CALL_ENTERED }.values.all { it == 0 })
+            assertTrue(final.formatSaturated.isEmpty())
+        } finally { pool.shutdownNow(); assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS)) }
     }
     @Test fun normalHelperPassesExactPreparedObjectOnceInOrder() {
         val events = mutableListOf<LiteRtSendEvent>(); val token = Any(); var prepares = 0; var dispatches = 0

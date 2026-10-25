@@ -164,7 +164,7 @@ class ApkAuditTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path, hashes, notices = self.candidate_archive(directory)
             with zipfile.ZipFile(path, "a") as apk:
-                apk.writestr("classes.dex", b"original synthetic DEX markers ModelPickerFixtureActivity ModelPickerInterruptionFixtureActivity ModelPickerPendingFixtureActivity")
+                apk.writestr("classes.dex", b"original synthetic DEX markers ModelPickerFixtureActivity ModelPickerInterruptionFixtureActivity ModelPickerPendingFixtureActivity ModelSetupRecoveryFixtureActivity")
             with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
                 self.assertEqual(len(audit.audit_zip(path, litert=True, model_picker=True)), 6)
                 with self.assertRaises(audit.AuditError):
@@ -187,13 +187,13 @@ class ApkAuditTests(unittest.TestCase):
             with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
                 path, hashes, notices = self.candidate_archive(directory)
                 with zipfile.ZipFile(path, "a") as apk:
-                    apk.writestr("classes.dex", b"ModelPickerPendingFixtureActivity " + marker)
+                    apk.writestr("classes.dex", b"ModelPickerPendingFixtureActivity ModelSetupRecoveryFixtureActivity " + marker)
                 with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
                     with self.assertRaises(audit.AuditError):
                         audit.audit_zip(path, litert=True, model_picker=True)
 
     def test_pending_picker_helpers_require_the_private_implementation_and_test_exclusion(self):
-        base = b"ModelPickerFixtureActivity ModelPickerInterruptionFixtureActivity "
+        base = b"ModelPickerFixtureActivity ModelPickerInterruptionFixtureActivity ModelSetupRecoveryFixtureActivity "
         for marker in (b"ModelPickerPending", b"ModelPickerPendingFixtureActivity"):
             with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
                 path = self.archive(directory)
@@ -202,6 +202,26 @@ class ApkAuditTests(unittest.TestCase):
                 with self.assertRaises(audit.AuditError):
                     audit.audit_zip(path)
         for marker in (b"", b"ModelPickerPending", b"ModelPickerPendingFixtureActivity ModelPickerPendingTest"):
+            with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
+                path, hashes, notices = self.candidate_archive(directory)
+                with zipfile.ZipFile(path, "a") as apk:
+                    apk.writestr("classes.dex", base + marker)
+                with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
+                    with self.assertRaises(audit.AuditError):
+                        audit.audit_zip(path, litert=True, model_picker=True)
+
+    def test_setup_recovery_helpers_require_explicit_private_implementation_and_test_exclusion(self):
+        base = b"ModelPickerFixtureActivity ModelPickerInterruptionFixtureActivity ModelPickerPendingFixtureActivity "
+        for marker in (b"ModelSetupRecovery", b"ModelSetupRecoveryFixtureActivity"):
+            with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
+                path, hashes, notices = self.candidate_archive(directory)
+                with zipfile.ZipFile(path, "a") as apk:
+                    apk.writestr("classes.dex", marker)
+                with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
+                    for litert in (False, True):
+                        with self.subTest(litert=litert), self.assertRaises(audit.AuditError):
+                            audit.audit_zip(path, litert=litert)
+        for marker in (b"", b"ModelSetupRecovery", b"ModelSetupRecoveryFixtureActivity ModelSetupRecoveryTest"):
             with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
                 path, hashes, notices = self.candidate_archive(directory)
                 with zipfile.ZipFile(path, "a") as apk:
@@ -395,7 +415,9 @@ class ApkAuditTests(unittest.TestCase):
         fixture = "org.locallore.app.ModelPickerFixtureActivity"
         interruption = "org.locallore.app.ModelPickerInterruptionFixtureActivity"
         pending = "org.locallore.app.ModelPickerPendingFixtureActivity"
-        fixture_tree = tree + activity(fixture, "false") + activity(interruption, "false") + activity(pending, "false")
+        recovery = "org.locallore.app.ModelSetupRecoveryFixtureActivity"
+        fixture_tree = (tree + activity(fixture, "false") + activity(interruption, "false") +
+                        activity(pending, "false") + activity(recovery, "false"))
         self.assertEqual(audit.audit_model_launcher(badging, fixture_tree, model_picker=True)["launcher"], setup)
         for candidate in (tree, fixture_tree.replace(activity(fixture, "false"), activity(fixture, "true")),
                           fixture_tree.replace(activity(fixture, "false"), activity(fixture, "false", extra=filter_text)),
@@ -406,7 +428,11 @@ class ApkAuditTests(unittest.TestCase):
                           fixture_tree.replace(activity(pending, "false"), ""),
                           fixture_tree.replace(activity(pending, "false"), activity(pending, "true")),
                           fixture_tree.replace(activity(pending, "false"), activity(pending, "false", extra=filter_text)),
-                          fixture_tree + activity(pending + "Other", "false")):
+                          fixture_tree + activity(pending + "Other", "false"),
+                          fixture_tree.replace(activity(recovery, "false"), ""),
+                          fixture_tree.replace(activity(recovery, "false"), activity(recovery, "true")),
+                          fixture_tree.replace(activity(recovery, "false"), activity(recovery, "false", extra=filter_text)),
+                          fixture_tree + activity(recovery + "Other", "false")):
             with self.subTest(tree=candidate), self.assertRaises(audit.AuditError):
                 audit.audit_model_launcher(badging, candidate, model_picker=True)
         with self.assertRaises(audit.AuditError):

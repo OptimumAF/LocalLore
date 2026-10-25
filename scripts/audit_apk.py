@@ -81,6 +81,8 @@ def audit_zip(path, *, litert=False, model_picker=False, model_volume=False, mod
         receipt_service_present = False
         receipt_fixture_present = False
         receipt_setup_present = set()
+        recovery_present = False
+        recovery_activity_present = False
         for entry in dex:
             require(0 < entry.file_size <= 32 * 1024 * 1024, "Invalid DEX size")
             contents = archive.read(entry)
@@ -98,12 +100,16 @@ def audit_zip(path, *, litert=False, model_picker=False, model_volume=False, mod
                     receipt_setup_present.add(name)
             require(b"ReceiptSetupQualificationTest" not in contents and b"ReceiptSetupRestartTest" not in contents,
                     "Receipt setup test packaged in app")
+            recovery_present |= b"ModelSetupRecovery" in contents
+            recovery_activity_present |= b"ModelSetupRecoveryFixtureActivity" in contents
             require(b"ModelPickerDocumentsProvider" not in contents, "Test provider packaged in app")
             require(b"ModelPickerInterruptionTest" not in contents, "Interruption test packaged in app")
             require(b"ModelPickerPendingTest" not in contents, "Pending-picker test packaged in app")
+            require(b"ModelSetupRecoveryTest" not in contents, "Setup recovery test packaged in app")
         require(fixture_present == model_picker, "Model picker fixture leaked or missing")
         require(interruption_present == model_picker, "Interruption fixture leaked or missing")
         require(pending_present == model_picker, "Pending-picker fixture leaked or missing")
+        require(recovery_present == model_picker, "Setup recovery fixture leaked or missing")
         require(not model_picker or fixture_activity_present, "Missing fixture Activity implementation")
         require(not model_picker or interruption_activity_present, "Missing interruption Activity implementation")
         require(not model_picker or pending_activity_present, "Missing pending-picker Activity implementation")
@@ -112,6 +118,7 @@ def audit_zip(path, *, litert=False, model_picker=False, model_volume=False, mod
         require(receipt_fixture_present == model_volume, "Receipt fixture leaked or missing")
         expected_setup = {"ReceiptSetupFixtureActivity", *RECEIPT_SETUP_ACTIVITIES} if model_receipt else set()
         require(receipt_setup_present == expected_setup, "Receipt setup fixture leaked or missing")
+        require(not model_picker or recovery_activity_present, "Missing setup recovery Activity implementation")
         for entry in entries:
             if not entry.filename.endswith(".so"):
                 continue
@@ -201,6 +208,7 @@ def audit_model_launcher(badging, tree, *, model_picker=False, model_receipt=Fal
     pending = "org.locallore.app.ModelPickerPendingFixtureActivity"
     require(not (model_picker and model_receipt), "Picker and receipt setup fixtures are separate profiles")
     receipt_activities = {"org.locallore.app." + name for name in RECEIPT_SETUP_ACTIVITIES}
+    recovery = "org.locallore.app.ModelSetupRecoveryFixtureActivity"
     require(re.findall(r"^launchable-activity: name='([^']+)'", badging, re.M) == [setup],
             "Model setup must be the sole launcher")
     require(":sharedUserId(" not in tree and "E: activity-alias " not in tree,
@@ -227,7 +235,7 @@ def audit_model_launcher(badging, tree, *, model_picker=False, model_receipt=Fal
         names = re.findall(r':name\([^)]*\)="([^"\n]+)"', attributes)
         require(len(names) == 1 and names[0] not in activities, "Ambiguous activity identity")
         activities[names[0]] = (attributes, "\n".join(block))
-    expected = {setup, play, main_activity} | ({fixture, interruption, pending} if model_picker else set())
+    expected = {setup, play, main_activity} | ({fixture, interruption, pending, recovery} if model_picker else set())
     if model_receipt:
         expected |= receipt_activities
     require({name for name in activities if name.startswith("org.locallore.app.")} ==
@@ -237,6 +245,7 @@ def audit_model_launcher(badging, tree, *, model_picker=False, model_receipt=Fal
         exports.append((fixture, "false"))
         exports.append((interruption, "false"))
         exports.append((pending, "false"))
+        exports.append((recovery, "false"))
     if model_receipt:
         exports.extend((name, "false") for name in sorted(receipt_activities))
     for name, exported in exports:

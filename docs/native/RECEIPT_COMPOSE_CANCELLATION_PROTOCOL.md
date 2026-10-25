@@ -72,9 +72,18 @@ both actual persisted player/narrator messages, plus the exact canonical gift,
 single receipt/profile, known SDK close and full model recheck. This recheck
 occurs AFTER the production ViewModel's automatic commit; it is not a precommit
 full-hash gate. The unchanged production runtime guards still run before SDK
-boundaries. Dynamic narrative
-lookup failures become a fixed test error rather than carrying narration in an
-assertion message. It never clicks the scripted Give-potion/demo controls.
+boundaries. Transcript scrolling and lookup use the unique production
+`message-body-<SceneMessage.id>` tag, require exactly one body, and compare that
+body's actual Text semantics exactly to the accepted message. Visibility still
+requires the same nonempty clipped on-screen portion through `isDisplayed()`;
+the retained composer draft is neither cleared nor used as a text fallback.
+Failures carry only fixed `COMPOSE_TRANSCRIPT_*` codes: MISSING (no body composed
+after scroll), DUPLICATE, SCROLL (body exists but scrolling failed), TEXT,
+VISIBILITY, or LOOKUP (semantics query itself failed). No diagnostic includes
+narration, matcher text or a framework cause. The earlier generic visibility
+failure did not identify the failing lookup or message, so this correction
+addresses a demonstrated source ambiguity without attributing that actual
+failure's cause. It never clicks the scripted Give-potion/demo controls.
 
 UI_REOPEN requires another different `(pid,start)`, full accepted verification
 and production UI launch. It shows the persisted revision1/gift and unchanged

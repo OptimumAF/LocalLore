@@ -6,6 +6,7 @@ import android.os.Looper
 import android.os.Process
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
@@ -213,12 +214,22 @@ abstract class ReceiptComposeCancellationHarness : ReceiptRealHarness() {
         check(state.revision == 1L && state.messages.size == 2)
         check(state.messages.single { it.isPlayer }.text == cancelAction.text)
         for (message in state.messages) {
-            // Keep dynamically generated narration out of assertion/error messages.
-            val displayed = try {
-                compose.onNodeWithTag("story-list").performScrollToNode(hasText(message.text))
-                compose.onNodeWithText(message.text).isDisplayed()
+            // Match accepted-history identity, never the retained draft's identical editable text.
+            val bodyTag = "message-body-${message.id}"
+            val scrolled = try {
+                compose.onNodeWithTag("story-list").performScrollToNode(hasTestTag(bodyTag))
+                true
             } catch (_: Throwable) { false }
-            check(displayed) { "Accepted transcript is not visible" }
+            val bodies = try { compose.onAllNodesWithTag(bodyTag).fetchSemanticsNodes() }
+                catch (_: Throwable) { error("COMPOSE_TRANSCRIPT_LOOKUP") }
+            check(bodies.isNotEmpty()) { "COMPOSE_TRANSCRIPT_MISSING" }
+            check(bodies.size == 1) { "COMPOSE_TRANSCRIPT_DUPLICATE" }
+            check(scrolled) { "COMPOSE_TRANSCRIPT_SCROLL" }
+            val exactText = bodies.single().config.getOrNull(SemanticsProperties.Text)?.map { it.text } == listOf(message.text)
+            check(exactText) { "COMPOSE_TRANSCRIPT_TEXT" }
+            // Preserve the same partial-clipped visibility requirement without leaking semantics on error.
+            val displayed = try { compose.onNodeWithTag(bodyTag).isDisplayed() } catch (_: Throwable) { false }
+            check(displayed) { "COMPOSE_TRANSCRIPT_VISIBILITY" }
         }
     }
     internal fun enterGift(checks: MutableMap<String, Boolean>) {

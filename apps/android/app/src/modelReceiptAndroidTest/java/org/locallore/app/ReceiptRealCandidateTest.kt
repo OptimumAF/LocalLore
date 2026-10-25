@@ -5,6 +5,7 @@ import android.app.ActivityManager
 import android.app.Application
 import android.content.Context
 import android.os.Build
+import android.os.Bundle
 import android.os.Looper
 import android.os.Process
 import android.os.SystemClock
@@ -85,8 +86,26 @@ internal class ReceiptRealCounts {
     val importOpened = AtomicLong()
     val importClosed = AtomicLong()
     val importBytes = AtomicLong()
+    val importActive = AtomicLong()
+    private val importReadCalls = AtomicLong()
     val offMain = AtomicBoolean(true)
     fun claim(verification: Boolean) = (if (verification) verificationClaimed else importClaimed).compareAndSet(false, true)
+    fun observeImportRead() {
+        importReadCalls.updateAndGet { if (it == Long.MAX_VALUE) it else it + 1 }
+    }
+    /** Capped independent source observations, never persisted bytes or a resource proof. */
+    fun importFailureProgress(): ReceiptSetupSourceProgress {
+        val opened = importOpened.get()
+        val closed = importClosed.get()
+        val active = importActive.get()
+        val reads = importReadCalls.get()
+        val bytes = importBytes.get()
+        val limit = ReceiptSetupFailureTrace.MAX_PROGRESS.toLong()
+        fun clipped(value: Long): Int = value.coerceIn(0L, limit).toInt()
+        return ReceiptSetupSourceProgress(opened = clipped(opened), closed = clipped(closed), active = clipped(active),
+            readCalls = clipped(reads), bytesRead = clipped(bytes),
+            readsSaturated = reads > limit, bytesSaturated = bytes > limit)
+    }
     fun unopened() = verifyOpened.get() == 0L && verifyClosed.get() == 0L && verifyBytes.get() == 0L &&
         importOpened.get() == 0L && importClosed.get() == 0L && importBytes.get() == 0L
 }
@@ -302,7 +321,9 @@ internal class ReceiptRealSource(private val env: ReceiptRealEnvironment, privat
         val closed = if (verification) counts.verifyClosed else counts.importClosed
         val bytes = if (verification) counts.verifyBytes else counts.importBytes
         check(opened.incrementAndGet() == 1L)
+        if (!verification) counts.importActive.incrementAndGet()
         return object : InputStream() {
+            private val importCloseObserved = AtomicBoolean()
             private fun observe(n: Int): Int {
                 if (n > 0) check(bytes.addAndGet(n.toLong()) <= ReceiptRealEnvironment.MODEL_BYTES)
                 return n
@@ -311,11 +332,22 @@ internal class ReceiptRealSource(private val env: ReceiptRealEnvironment, privat
                 if (Looper.myLooper() == Looper.getMainLooper()) counts.offMain.set(false)
                 ReceiptRealEnvironment.offMain(); deadline.remaining()
             }
-            override fun read(buffer: ByteArray, offset: Int, length: Int): Int { io(); return observe(raw.read(buffer, offset, length)) }
-            override fun read(): Int { io(); val result = raw.read(); if (result >= 0) observe(1); return result }
+            override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                io()
+                if (!verification) counts.observeImportRead()
+                return observe(raw.read(buffer, offset, length))
+            }
+            override fun read(): Int {
+                io()
+                if (!verification) counts.observeImportRead()
+                val result = raw.read()
+                if (result >= 0) observe(1)
+                return result
+            }
             override fun close() {
                 ReceiptRealEnvironment.offMain()
                 raw.close()
+                if (!verification && importCloseObserved.compareAndSet(false, true)) counts.importActive.decrementAndGet()
                 check(closed.incrementAndGet() == 1L)
                 val after = ReceiptRealEnvironment.regular(model, ReceiptRealEnvironment.MODEL_BYTES)
                 check(after.fileKey() == pin.fileKey() && after.lastModifiedTime() == pin.lastModifiedTime())
@@ -407,7 +439,25 @@ abstract class ReceiptRealUiHarness : ReceiptRealHarness() {
         requireNotNull(scenario).onActivity { model = it.setupController }
     }
     internal fun await(deadline: ReceiptRealDeadline, phase: LocalModelSetupPhase, cap: Long) {
-        compose.waitUntil(deadline.remaining(cap)) { model.state.value.phase == phase }
+        if (deadline.phase == ReceiptRealPhase.IMPORT && phase == LocalModelSetupPhase.READY) {
+            ReceiptSetupFailureReporter.run(
+                claim = { ReceiptSetupFixture.claimFailureEmission() },
+                snapshot = {
+                    // ACCEPT labels the intended import flow, not an accepted receipt.
+                    // No production lifecycle event or typed cause was observed here:
+                    // empty events/error NONE remain truthful even when actual is FAILED.
+                    ReceiptSetupFailureTrace(ReceiptSetupFailureCase.ACCEPT).snapshot(phase,
+                        model.state.value.phase, requireNotNull(activeCounts).importFailureProgress())
+                },
+                send = { code, key, json ->
+                    InstrumentationRegistry.getInstrumentation().sendStatus(code,
+                        Bundle().apply { putString(key, json) })
+                },
+                block = { compose.waitUntil(deadline.remaining(cap)) { model.state.value.phase == phase } },
+            )
+        } else {
+            compose.waitUntil(deadline.remaining(cap)) { model.state.value.phase == phase }
+        }
     }
     internal fun choose(source: ReceiptRealSource) = InstrumentationRegistry.getInstrumentation().runOnMainSync {
         check(model.beginPicker()); model.completePicker(source::openImport)

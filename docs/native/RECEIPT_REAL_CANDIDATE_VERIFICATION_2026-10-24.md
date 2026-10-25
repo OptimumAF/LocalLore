@@ -1,5 +1,10 @@
 # Real receipt-candidate experiment — 2026-10-24
 
+This report preserves the preapproval preparation. The owner subsequently
+authorized the fresh receipt destination; see the
+[authorized execution and scheduling discovery](RECEIPT_REAL_EXECUTION_VERIFICATION_2026-10-24.md).
+Statements below about pending consent describe that earlier preparation.
+
 Refs #9 (M05.05 prerequisite), #5 (M01.05 support), stacked on open #151 head
 `d8aa83d84628da839d6e6b1109a448cb0b7da866`. The [fixed protocol](RECEIPT_REAL_CANDIDATE_PROTOCOL.md)
 separates nonweight source preflight from separately consented local model copy,

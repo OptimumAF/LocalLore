@@ -29,6 +29,8 @@ NAME = "locallore_receipt_api35_v1"
 PORT = 5592
 PACKAGE = "system-images;android-35;google_apis;x86_64"
 MAX_SECONDS = 1200
+REAL_MAX_SECONDS = 1800
+SUPERVISOR_MAX_SECONDS = 1800
 MAX_OUTPUT = 262144
 GIB = 1024 ** 3
 BARRIER = b"receipt-avd-owner-v1\n"
@@ -263,7 +265,8 @@ def validate_proposal(proposal, phase):
                 str(Path(proposal["sdk"]) / "system-images/android-35/google_apis/x86_64/data/empty_data_disk")}
     require(required <= {x["path"] for x in items}, "invalid_proposal")
     if phase == "run":
-        require(type(proposal["max_seconds"]) is int and 0 < proposal["max_seconds"] <= MAX_SECONDS,
+        ceiling = REAL_MAX_SECONDS if proposal["memory_mib"] == 8192 else MAX_SECONDS
+        require(type(proposal["max_seconds"]) is int and 0 < proposal["max_seconds"] <= ceiling,
                 "invalid_budget")
 
 
@@ -451,9 +454,11 @@ def prepare_contents(proposal, proposal_path, authorization_path, admitted_sha):
     return prepared
 
 
-def plan_run(prepare_proposal, prepared_path, output, max_seconds=MAX_SECONDS):
+def plan_run(prepare_proposal, prepared_path, output, max_seconds=None):
     source = read_json(prepare_proposal)
     validate_proposal(source, "prepare")
+    if max_seconds is None:
+        max_seconds = REAL_MAX_SECONDS if source["memory_mib"] == 8192 else MAX_SECONDS
     prepared = read_json(prepared_path)
     require(prepared["proposal_sha256"] == digest(prepare_proposal) and
             str(Path(prepared_path)) == str(Path(source["paths"]["root"]) / "prepared-v1.json"),
@@ -656,7 +661,7 @@ class LiveOutput:
 
 def supervise(command, request, root, seconds, on_started, stop_proposal_sha256=None):
     """Barrier child is assigned before request. Ordinary exit also kills descendants."""
-    require(os.name == "nt" and type(seconds) is int and 0 < seconds <= MAX_SECONDS and
+    require(os.name == "nt" and type(seconds) is int and 0 < seconds <= SUPERVISOR_MAX_SECONDS and
             len(request) <= 131072, "invalid_budget")
     child = None; job = None; readers = []; capture = None
     status = "spawn_failed"; cleaned = False

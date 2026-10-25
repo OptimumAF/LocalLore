@@ -349,3 +349,86 @@ fn closed_metrics_and_each_known_settlement_share_are_validated_without_repair()
         refuse_without_writes(&fixture, true);
     }
 }
+
+#[test]
+fn raw_metric_names_are_unique_and_failed_nullable_load_key_stays_required() {
+    // Actual ledger reservations back all records. Only derived synthetic setup
+    // bytes are adversarially changed; no canonical receipt/history is invented.
+    let mut wrongly_accepted = Vec::new();
+    for (label, duplicate, last_value) in [
+        (
+            "duplicate-forward",
+            r#""model_loads":1,"model_loads":2"#,
+            2_u64,
+        ),
+        (
+            "duplicate-reversed",
+            r#""model_loads":2,"model_loads":1"#,
+            1_u64,
+        ),
+        (
+            "duplicate-escaped",
+            r#""model_loads":1,"model\u005floads":2"#,
+            2_u64,
+        ),
+    ] {
+        let fixture = Fixture::new(label);
+        fixture.setup(0, 0, "loaded", Some(synthetic_metrics()));
+        let path = fixture.root.join("setup-00.json");
+        let original = fs::read_to_string(&path).unwrap();
+        let needle = r#""model_loads":1"#;
+        assert_eq!(original.matches(needle).count(), 1);
+        let raw = original.replacen(needle, duplicate, 1);
+
+        // This is syntactically valid JSON. A plain Value silently retains the
+        // last value and still reports nine keys, so numeric validation alone
+        // cannot establish raw metric-name uniqueness.
+        let collapsed: Value = serde_json::from_str(&raw).unwrap();
+        assert_eq!(collapsed["load"].as_object().unwrap().len(), 9);
+        assert_eq!(collapsed["load"]["model_loads"], last_value);
+        fs::write(&path, raw.as_bytes()).unwrap();
+        let before = inventory(&fixture.root);
+        let result = setup::read_setups(&fixture.root, &fixture.binding, true);
+        assert_eq!(inventory(&fixture.root), before);
+        if result.is_ok() {
+            wrongly_accepted.push(label);
+        }
+    }
+
+    let fixture = Fixture::new("failed-required-null-load");
+    fixture.setup(0, 0, "failed", None);
+    fixture.finish("left");
+    let before = inventory(&fixture.root);
+    let valid = setup::read_setups(&fixture.root, &fixture.binding, true).unwrap();
+    assert_eq!(valid.len(), 1);
+    assert_eq!(valid[0].status, "failed");
+    assert!(valid[0].load.is_none());
+    assert_eq!(inventory(&fixture.root), before);
+    assert_eq!(
+        Ledger::load(&fixture.root.join("right"), &fixture.binding)
+            .unwrap()
+            .charged_ms,
+        PREPARATION_MS
+    );
+
+    let path = fixture.root.join("setup-00.json");
+    let mut missing = read_json(&path);
+    assert!(missing.as_object_mut().unwrap().remove("load").unwrap().is_null());
+    replace_json(&path, &missing);
+    let before = inventory(&fixture.root);
+    let result = setup::read_setups(&fixture.root, &fixture.binding, true);
+    assert_eq!(inventory(&fixture.root), before);
+    if result.is_ok() {
+        wrongly_accepted.push("failed-missing-load");
+    }
+    assert_eq!(
+        Ledger::load(&fixture.root.join("right"), &fixture.binding)
+            .unwrap()
+            .charged_ms,
+        PREPARATION_MS
+    );
+    assert!(
+        wrongly_accepted.is_empty(),
+        "invalid raw setup fields accepted: {wrongly_accepted:?}"
+    );
+}

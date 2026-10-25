@@ -18,6 +18,13 @@ import android_runtime_spike as spike
 PACKAGE = "org.locallore.runtimebench.litert.cacheprobe"
 INSTRUMENTATION = "org.locallore.runtimebench.litert.CacheProbeInstrumentation"
 APK_SHA256 = "04eef96b7177aaef275574f9ee45d25efa9b181bab4fcb0a363d8077a4e4fb7d"
+# Accepted guard-bound schema, core source ba31932; old artifact remains explicit.
+GUARDED_APK_SHA256 = "0cf4c253c41483973fd1578837d0ba147a7ed3d6d6cd8eb5818a989e185c09dd"
+# Fresh stopped-session readback Java; unchanged guarded native/runtime bytes.
+TRACED_APK_SHA256 = "f4d247f3e24c302a7e8d2431d7ee8c9fccc476909c0d82789ea1f84083ddfd81"
+# Qualified optional role observations, with unchanged native/runtime bytes.
+ROLE_OBSERVATION_APK_SHA256 = "9417a3e914975918d018c8a7d8954f192c09e40e10320b08c86be8a50fd7217f"
+SUPPORTED_APKS = frozenset({APK_SHA256, GUARDED_APK_SHA256, TRACED_APK_SHA256, ROLE_OBSERVATION_APK_SHA256})
 MODEL_SHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
 MODEL_BYTES = 2_588_147_712
 MODEL_KEYS = {"verified", "volume_uuid", "sha256", "bytes", "diagnostic"}
@@ -44,10 +51,16 @@ class TrackedDevice(spike.Device):
 
 
 class _Client:
-    def __init__(self, device):
+    def __init__(self, device, apk_sha=APK_SHA256):
         self.device = device
+        self.__apk_sha = apk_sha
         self.clean = getattr(device, "clients_cleaned", None) is True
         self.stage = "none"
+
+    @property
+    def apk_sha(self):
+        """Read-only identity for this lifecycle; never a mutable module pin."""
+        return self.__apk_sha
 
     def known(self):
         self.clean &= getattr(self.device, "clients_cleaned", None) is True
@@ -87,7 +100,7 @@ def _package(client, phase):
         raise _Failure("package_identity_failed")
     client.stage = phase + "_package_hash"
     hashed = client.shell("sha256sum", path)
-    expected = APK_SHA256.encode("ascii") + b"  " + match[1]
+    expected = client.apk_sha.encode("ascii") + b"  " + match[1]
     if hashed not in (expected, expected + b"\n", expected + b"\r\n"):
         raise _Failure("package_identity_failed")
 
@@ -155,13 +168,15 @@ def _expected(result, metrics, case):
     return bool(okay)
 
 
-def run_control(device, apk_sha, case, expected_uuid, measure, model_identity, raw_sink=None):
+def run_control(device, apk_sha, case, expected_uuid, measure, model_identity, raw_sink=None, *, session_nonce=None):
     """One attempt, no provisioning/retry/removal. Callbacks are trusted bounded evidence adapters.
 
     model_identity must use THIS tracked device (or update its sticky clients_cleaned
     on every ADB call). measure has the same ownership obligation. raw_sink only
     retains bytes in caller-owned private host evidence; it must not dispatch devices.
     Original callback diagnostics belong in that caller's private journal.
+    A trusted caller may persist a fresh session_nonce privately before dispatch
+    for later stopped-session diagnostics. It is never returned in this report.
     """
     report = {"version": 1, "scope": "android_explicit_cache_sdk_control", "case": case if type(case) is str and case in play.CASES else "invalid",
               "status": "input_refused", "result": None, "sdk": None, "model_verified": False,
@@ -173,10 +188,11 @@ def run_control(device, apk_sha, case, expected_uuid, measure, model_identity, r
               "admission": None, "post": None, "storage_checks_passed": False, "dispatched": False,
               "phone_qualified": False, "wall_ms": 0}
     started = time.monotonic()
-    client = _Client(device)
-    if (type(apk_sha) is not str or apk_sha != APK_SHA256 or type(case) is not str or case not in play.CASES
+    client = _Client(device, apk_sha)
+    if (type(apk_sha) is not str or apk_sha not in SUPPORTED_APKS or type(case) is not str or case not in play.CASES
             or type(expected_uuid) is not str or not admission.UUID.fullmatch(expected_uuid)
-            or not callable(measure) or not callable(model_identity) or raw_sink is not None and not callable(raw_sink)):
+            or not callable(measure) or not callable(model_identity) or raw_sink is not None and not callable(raw_sink)
+            or session_nonce is not None and (type(session_nonce) is not str or re.fullmatch(r"[a-f0-9]{32}", session_nonce) is None)):
         report["failure_stage"] = "input"
         return report
     if not client.known():
@@ -208,7 +224,7 @@ def run_control(device, apk_sha, case, expected_uuid, measure, model_identity, r
             _stop(client, "verified_model")
             client.stage = "profile"
             profile = base64.b64encode(json.dumps(play.make_profile(apk_sha), separators=(",", ":")).encode("utf-8")).decode("ascii")
-            command = shlex.join(["am", "instrument", "-w", "-r", "-e", "operation", "play", "-e", "session", uuid.uuid4().hex,
+            command = shlex.join(["am", "instrument", "-w", "-r", "-e", "operation", "play", "-e", "session", session_nonce if session_nonce is not None else uuid.uuid4().hex,
                 "-e", "volume_uuid", expected_uuid, "-e", "play_case", case, "-e", "profile_base64", profile,
                 PACKAGE + "/" + INSTRUMENTATION])
             client.stage = "instrumentation"
@@ -226,7 +242,10 @@ def run_control(device, apk_sha, case, expected_uuid, measure, model_identity, r
                 report["status"] = "invalid_terminal"
                 raise _Failure("invalid_terminal")
             client.stage = "terminal_parse"
-            decoded = cache_result.parse_result(raw, case, expected_uuid)
+            if apk_sha == ROLE_OBSERVATION_APK_SHA256:
+                decoded = cache_result.parse_result(raw, case, expected_uuid, role_observations=True)
+            else:
+                decoded = cache_result.parse_result(raw, case, expected_uuid)
             if decoded is None:
                 report["status"] = "invalid_terminal"
                 raise _Failure("invalid_terminal")

@@ -90,7 +90,7 @@ def metrics_valid(value, has_play):
             and value["conversations_opened"] == value["conversations_closed"])
 
 
-def parse_result(raw, case, expected_uuid):
+def parse_result(raw, case, expected_uuid, *, role_observations=False):
     """Return a safe observation, retaining valid receipts despite an outer post error.
 
     Samples are shape/identity observations, not fresh host/backing admission.
@@ -98,7 +98,7 @@ def parse_result(raw, case, expected_uuid):
     Caller retains raw bytes privately before this decoder, including refusals.
     """
     try:
-        if (type(raw) is not bytes or len(raw) > 131072 or case not in play.CASES
+        if (type(role_observations) is not bool or type(raw) is not bytes or len(raw) > 131072 or case not in play.CASES
                 or type(expected_uuid) is not str or not storage.UUID.fullmatch(expected_uuid)):
             return None
         value = terminal(raw)
@@ -122,7 +122,11 @@ def parse_result(raw, case, expected_uuid):
         if has_play:
             if value.get("explicit_cache_directory") is not True:
                 return None
-            validated = play.validate_play_result(value["play_result"], metrics, case)
+            if role_observations:
+                import android_role_observation
+                validated = android_role_observation.validate_play_result(value["play_result"], metrics, case)
+            else:
+                validated = play.validate_play_result(value["play_result"], metrics, case)
             if validated is None:
                 return None
             result = validated[0]

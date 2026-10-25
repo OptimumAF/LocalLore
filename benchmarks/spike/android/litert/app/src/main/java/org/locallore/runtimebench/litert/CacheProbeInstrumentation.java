@@ -38,6 +38,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /** Explicit separate-package cache experiment; never installs/provisions or searches for a model. */
 public final class CacheProbeInstrumentation extends Instrumentation {
     private String operation, uuid, session, playCase, profile;
+    private boolean readPhaseExtrasInvalid;
     private final AtomicBoolean finished = new AtomicBoolean();
     private final AtomicInteger pulses = new AtomicInteger();
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -47,6 +48,7 @@ public final class CacheProbeInstrumentation extends Instrumentation {
     @Override public void onCreate(Bundle arguments) {
         super.onCreate(arguments);
         Bundle args = arguments == null ? new Bundle() : arguments;
+        readPhaseExtrasInvalid = !args.keySet().equals(new java.util.HashSet<>(Arrays.asList("operation", "session")));
         operation = args.getString("operation", ""); uuid = args.getString("volume_uuid");
         session = args.getString("session"); playCase = args.getString("play_case"); profile = args.getString("profile_base64");
         Thread watchdog = new Thread(() -> {
@@ -56,6 +58,7 @@ public final class CacheProbeInstrumentation extends Instrumentation {
         watchdog.setDaemon(true); watchdog.start(); main.post(pulse); start();
     }
     @Override public void onStart() {
+        if ("read_phase".equals(operation)) { readPhase(); return; }
         JsonObject report = new JsonObject(); report.addProperty("version", 1);
         report.addProperty("operation", Arrays.asList("inspect", "mmap", "play", "verify_model").contains(operation) ? operation : "invalid");
         report.addProperty("status", "error"); report.addProperty("error", "runtime_failed");
@@ -64,6 +67,7 @@ public final class CacheProbeInstrumentation extends Instrumentation {
             metrics.addProperty(field, 0);
         metrics.addProperty("cleanup_requires_process_termination", false);
         AtomicBoolean descriptorsUncertain = new AtomicBoolean();
+        Throwable terminalFailure = null;
         try (QuietDescriptors ignored = new QuietDescriptors(descriptorsUncertain)) {
             if (!CacheVolume.PACKAGE.equals(getTargetContext().getPackageName())
                     || Looper.myLooper() == Looper.getMainLooper()) throw new CacheVolume.Problem("identity_invalid");
@@ -99,39 +103,71 @@ public final class CacheProbeInstrumentation extends Instrumentation {
                     byte[] encoded = Base64.decode(profile, Base64.DEFAULT);
                     if (encoded.length == 0 || encoded.length > 4096) throw new CacheVolume.Problem("invalid_request");
                     Path saves = CacheVolume.freshSession(userdata, session);
-                    Engine.Companion.setNativeMinLogSeverity(LogSeverity.INFINITY);
-                    ExperimentalFlags.INSTANCE.setEnableBenchmark(true);
-                    ExperimentalFlags.INSTANCE.setEnableSpeculativeDecoding(false);
-                    NativePlayProbe.Adapter probe = new NativePlayProbe.Adapter(saves.resolve("stories.sqlite3").toString(), encoded);
-                    report.add("play_result", new PlayRunner(probe, () -> {
-                        CacheVolume.Candidate current = refresh(selected, userdata, userdataDevice);
-                        CacheVolume.capacity(current, userdata.getUsableSpace()); CacheVolume.owner(cache);
-                        if (current.device != selected.device || Os.stat(cache.toString()).st_dev != selected.device
-                                || Os.stat(CacheVolume.model(current).getPath()).st_dev != selected.device)
-                            throw new CacheVolume.Problem("volume_changed");
-                        return new CacheSdkModel(model, cache.toFile(), metrics, pulses);
-                    }, metrics).run(playCase));
+                    PhaseJournal.Identity phaseIdentity = PhaseAndroidEvidence.identity();
+                    try (PhaseJournal journal = new PhaseJournal(saves, session, phaseIdentity, PhaseAndroidEvidence.clock())) {
+                        journal.mark("instrumentation_start", "none");
+                        PhaseAndroidEvidence.publishSummary(getTargetContext(), session, phaseIdentity);
+                        Engine.Companion.setNativeMinLogSeverity(LogSeverity.INFINITY);
+                        ExperimentalFlags.INSTANCE.setEnableBenchmark(true);
+                        ExperimentalFlags.INSTANCE.setEnableSpeculativeDecoding(false);
+                        NativePlayProbe.Adapter probe = new NativePlayProbe.Adapter(saves.resolve("stories.sqlite3").toString(), encoded);
+                        report.add("play_result", new PlayRunner(probe, () -> {
+                            CacheVolume.Candidate current = refresh(selected, userdata, userdataDevice);
+                            CacheVolume.capacity(current, userdata.getUsableSpace()); CacheVolume.owner(cache);
+                            if (current.device != selected.device || Os.stat(cache.toString()).st_dev != selected.device
+                                    || Os.stat(CacheVolume.model(current).getPath()).st_dev != selected.device)
+                                throw new CacheVolume.Problem("volume_changed");
+                            return new CacheSdkModel(model, cache.toFile(), metrics, pulses);
+                        }, metrics, journal).run(playCase));
+                        journal.mark("terminal", "none");
+                    }
                     report.addProperty("explicit_cache_directory", true);
                 }
                 CacheVolume.Candidate after = refresh(selected, userdata, userdataDevice);
                 report.add("post_sample", sample(after, userdataDevice, userdata.getUsableSpace()));
             }
             report.addProperty("status", "completed"); report.add("error", JsonNull.INSTANCE);
-        } catch (WarmRunner.Undrained | CacheModelIdentity.OwnershipUnknown unknown) {
+        } catch (WarmRunner.Undrained | CacheModelIdentity.OwnershipUnknown | PhaseJournal.OwnershipUnknown unknown) {
             // Abrupt own-process termination is not reported as successful resource disposal.
             Process.killProcess(Process.myPid()); return;
-        } catch (CacheVolume.Problem problem) { report.addProperty("error", problem.category);
-        } catch (UnsatisfiedLinkError | NoClassDefFoundError unavailable) { report.addProperty("error", "runtime_unavailable");
-        } catch (Exception failure) { report.addProperty("error", "runtime_failed"); }
+        } catch (CacheVolume.Problem problem) { terminalFailure = problem; report.addProperty("error", problem.category);
+        } catch (UnsatisfiedLinkError | NoClassDefFoundError unavailable) { terminalFailure = unavailable; report.addProperty("error", "runtime_unavailable");
+        } catch (Exception failure) { terminalFailure = failure; report.addProperty("error", "runtime_failed"); }
         // A body exception can suppress a TWR cleanup exception. The independent flag
         // also covers constructor rollback, so neither path can publish graceful completion.
-        if (descriptorsUncertain.get()) { Process.killProcess(Process.myPid()); return; }
+        if (descriptorsUncertain.get() || PhaseFailure.journalOwnershipUnknown(terminalFailure)) {
+            Process.killProcess(Process.myPid()); return;
+        }
         finished.set(true); main.removeCallbacks(pulse);
         metrics.addProperty("main_pulses", pulses.get());
         metrics.addProperty("owners_balanced", metrics.get("engines_opened").equals(metrics.get("engines_closed"))
             && metrics.get("conversations_opened").equals(metrics.get("conversations_closed")));
         report.add("metrics", metrics);
         Bundle result = new Bundle(); result.putString("cache_result", report.toString());
+        finish(Activity.RESULT_OK, result);
+    }
+    private void readPhase() {
+        JsonObject report = SdkPhaseReadback.error();
+        try {
+            if (!CacheVolume.PACKAGE.equals(getTargetContext().getPackageName())
+                    || Looper.myLooper() == Looper.getMainLooper() || readPhaseExtrasInvalid
+                    || session == null || !session.matches("[a-f0-9]{32}")) throw new IOException("invalid_read_phase");
+            Path root = getTargetContext().getNoBackupFilesDir().getCanonicalFile().toPath();
+            // Canonical framework app-private root only; the reader creates no session or marker.
+            Path directory = root.resolve("locallore-cache-probe-v1-" + session);
+            report = SdkPhaseReadback.read(directory, session, Process.getStartElapsedRealtime(), identity -> {
+                JsonObject observation = new JsonObject();
+                PhaseAndroidEvidence.addExitObservation(getTargetContext(), session, identity, observation);
+                return new SdkPhaseReadback.Exit(observation.get("exit_history_available").getAsBoolean(),
+                    observation.get("exit_records_examined").getAsInt(), observation.get("exit_instance_matches").getAsInt(),
+                    observation.get("exit_reason").getAsInt(), observation.get("exit_status").getAsInt());
+            });
+        } catch (Exception failure) {
+            if (PhaseFailure.journalOwnershipUnknown(failure)) { Process.killProcess(Process.myPid()); return; }
+            report = SdkPhaseReadback.error();
+        }
+        finished.set(true); main.removeCallbacks(pulse);
+        Bundle result = new Bundle(); result.putString("sdk_phase_result", report.toString());
         finish(Activity.RESULT_OK, result);
     }
     private CacheModelIdentity.Result verifyModel(CacheVolume.Candidate selected) throws Exception {

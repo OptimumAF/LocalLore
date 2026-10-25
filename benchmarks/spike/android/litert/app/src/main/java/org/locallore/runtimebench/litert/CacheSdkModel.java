@@ -14,6 +14,7 @@ import com.google.ai.edge.litertlm.ThinkingConfig;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -44,9 +45,12 @@ final class CacheSdkModel implements WarmRunner.Model {
             if (conversation.renderMessageIntoString(Message.Companion.user(request.prompt), Collections.emptyMap()).isEmpty())
                 throw new WarmRunner.Failure("unsupported_template");
             return new Role(conversation, request);
-        } catch (Exception failure) {
+        } catch (Exception | Error failure) {
             try { conversation.close(); increment("conversations_closed"); }
-            catch (Exception close) { throw new WarmRunner.Undrained(); }
+            catch (Exception | Error close) {
+                WarmRunner.Undrained unknown = new WarmRunner.Undrained();
+                unknown.addSuppressed(failure); if (close != failure) unknown.addSuppressed(close); throw unknown;
+            }
             throw failure;
         }
     }
@@ -57,11 +61,22 @@ final class CacheSdkModel implements WarmRunner.Model {
     private final class Role implements WarmRunner.Role {
         private final Conversation conversation;
         private final Request request;
+        private final RoleObservation.Config configuration;
         private final SpikeInstrumentation.Stream stream = new SpikeInstrumentation.Stream();
         private long began;
         private int startingPulses;
         private boolean cancelling;
-        Role(Conversation conversation, Request request) { this.conversation = conversation; this.request = request; }
+        Role(Conversation conversation, Request request) {
+            this.conversation = conversation; this.request = request;
+            // This describes arguments/rendering only; it does not certify model enforcement.
+            RoleObservation.Config observed;
+            try {
+                observed = new RoleObservation.Config(request.schema != null, true, true, request.maxTokens,
+                    request.prompt.getBytes(StandardCharsets.UTF_8).length,
+                    request.schema == null ? 0 : request.schema.toString().getBytes(StandardCharsets.UTF_8).length);
+            } catch (IllegalArgumentException unavailable) { observed = null; }
+            configuration = observed;
+        }
         @Override public void start() {
             began = System.nanoTime(); startingPulses = pulses.get();
             ResponseFormat format = request.schema == null ? null : ResponseFormat.json(request.schema.toString());
@@ -81,6 +96,21 @@ final class CacheSdkModel implements WarmRunner.Model {
             metrics.addProperty("cancel_call_ms", elapsed(started));
         }
         @Override public boolean hasOutput() { return stream.hasOutput(); }
+        @Override public Boolean observeOutput() { return stream.hasOutput(); }
+        @Override public RoleObservation observeTerminal() {
+            // No dependent SDK call before callback drain or after Conversation closure.
+            if (stream.done.getCount() != 0) return null;
+            boolean available = false; Integer input = null, output = null;
+            try {
+                if (conversation.isAlive()) {
+                    BenchmarkInfo info = conversation.getBenchmarkInfo();
+                    int in = info.getLastPrefillTokenCount(), out = info.getLastDecodeTokenCount();
+                    if (in >= 0 && out >= 0) { available = true; input = in; output = out; }
+                }
+            } catch (RuntimeException unavailable) { /* Optional snapshot cannot replace the turn failure. */ }
+            // SDK-reported zero is retained as an ambiguous/default counter, not proof of zero work.
+            return stream.observation(configuration, available, input, output);
+        }
         @Override public JsonObject result(double loadMs) throws Exception {
             String text = stream.text();
             BenchmarkInfo info = conversation.getBenchmarkInfo();

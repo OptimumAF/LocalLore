@@ -81,6 +81,147 @@ are configured; these tests do not qualify OS backup behavior. Existing Gradle,
 AGP, Kotlin/Compose pins and locks remain explicit. See the [Android toolchain](../../docs/android/TOOLCHAIN_2026-10-22.md)
 and [JNI source/license inventory](../../docs/native/SOURCES_2026-10-22.md).
 
+## Optional external inference owner
+
+`NativeWorkspaceTransport(context, localInference = owner)` attaches a trusted
+`LocalInferenceOwner` to the same production Rust workspace lease used by saves,
+forks and deletion. The owner accepts a bounded profile and a `LocalRoleWorker`;
+ordinary app construction still explicitly uses scripted inference. There is no
+production SDK adapter or model-loading UI in this packet.
+
+Build the isolated synthetic JNI qualification pair from `apps/android`:
+
+```powershell
+.\gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest :app:cleanTestDebugUnitTest :app:testDebugUnitTest :app:lintDebug -PlocalLoreExternalInferenceVerification=true --project-cache-dir .gradle-external-inference -Pkotlin.incremental=false --offline --no-daemon --max-workers=2 -Pandroid.builder.sdkDownload=false
+```
+
+This selects `org.locallore.app.externalverify` and `app/build-external-inference`.
+Release, mixed verification/capacity modes and another project cache are refused.
+`ExternalInferenceInstrumentedTest` exercises actual JNI/Host/SQLite with synthetic
+role results, including cancellation, deletion, restart, admission limits and
+uncertain-resource quarantine. Install only this pair on an authorized target
+that passes storage, identity and existing-data preservation checks.
+
+See the [owner contract](../../docs/native/EXTERNAL_INFERENCE_OWNER_CONTRACT.md)
+and [verification report](../../docs/native/EXTERNAL_INFERENCE_OWNER_VERIFICATION_2026-10-23.md).
+These checks do not establish physical-device support or actual SDK/model cleanup.
+
+## Concrete LiteRT worker candidate
+
+The additional `-PlocalLoreModelSetupVerification=true` flag enables the local
+file setup and real-worker construction candidate in a separate
+`org.locallore.app.modelverify` package. Add it to the command below; retain all
+existing SDK/analyzer/cache/toolchain flags. This profile requests a local file,
+verifies the built-in artifact's full size/hash, and opens the existing story
+shell with the paired local owner. It bundles no weights and adds no download
+or network capability. Its sole launcher is setup; scripted MainActivity and
+the local play Activity are not exported. One runtime attachment is permitted
+per process; another requires a complete process restart. File verification is
+not evidence of successful model load or supported phone performance.
+Audit its APK with `scripts/audit_apk.py <apk> --litert-verification --model-provisioning`.
+See the [provisioning contract](../../docs/native/MODEL_PROVISIONING_CONTRACT.md)
+for cancellation, interrupted-copy recovery and API/filesystem limits, and the
+[verification](../../docs/native/MODEL_PROVISIONING_VERIFICATION_2026-10-23.md)
+for the passing synthetic checks on one API 35 x86_64 emulator. Real inference
+through this setup profile remains unqualified.
+
+The separate `-PlocalLoreModelVolumeVerification=true` flag requires the LiteRT
+and model-setup flags and refuses picker mixing. It builds
+`org.locallore.app.modelvolumeverify` in `build-model-volume`. On API 30+, this
+explicit experiment selects exactly one suitable Context-owned removable-files
+volume and refuses identity/capacity changes without fallback. Model/cache data
+on removable media has different confidentiality and availability limits;
+canonical saves stay internal. See the [storage contract](../../docs/native/MODEL_VOLUME_CONTRACT.md)
+and proposed [ADR-0010](../../docs/adr/0010-candidate-volume-storage.md).
+Audit with `scripts/audit_apk.py <apk> --litert-verification --model-provisioning --model-volume-verification`.
+The [current verification](../../docs/native/MODEL_VOLUME_VERIFICATION_2026-10-23.md)
+passes host/build checks but fails native publication on the selected emulator;
+positive removable-filesystem compatibility remains blocked.
+Real-model copies and SDK execution require their own admission; the flag does
+not discharge existing device/runtime holds.
+
+A separate [receipt transaction](../../docs/native/MODEL_RECEIPT_CONTRACT.md)
+uses exclusive creation plus an empty acceptance marker, with no rename or
+overwrite. Its JVM tests cover pending recovery, explicit discard, ownership,
+cancellation and child-process death. The volume debug profile includes an
+isolated fixture and private child service; ordinary and regular SDK builds
+exclude them. Its first emulator cohort passed three methods and failed the
+process-death method; a separately admitted fresh target subsequently passed
+[all four methods](../../docs/native/RECEIPT_FRESH_TARGET_VERIFICATION_2026-10-24.md).
+The earlier failure and held targets remain preserved.
+
+The additional `-PlocalLoreModelReceiptVerification=true` flag requires all three
+LiteRT/setup/volume flags and selects receipt-backed setup in `build-model-receipt`.
+It retains the isolated `.modelvolumeverify` package, fixed real candidate identity
+and unchanged worker. Only this explicit flag selects the new trusted Context
+roots; existing publication roots refuse, without migration or fallback. Use a
+separately admitted fresh target. Audit with the existing volume options plus
+`--model-receipt-verification`. See the [setup contract](../../docs/native/RECEIPT_SETUP_CONTRACT.md),
+[qualification](../../docs/native/RECEIPT_SETUP_VERIFICATION_2026-10-24.md) and proposed
+[ADR0011](../../docs/adr/0011-model-receipt-transaction.md). Synthetic setup tests
+do not qualify real-model copies, DocumentsUI or SDK inference.
+
+The additional `-PlocalLoreModelPickerVerification=true` flag requires both
+candidate flags above and selects the separate `.modelpickerverify` debug
+fixture. It inherits the real picker/resolver/setup flow with 63 original
+synthetic bytes; its private fixture Activity always refuses inference. The
+normal launcher still uses the fixed real candidate identity. Its conditional
+TEST APK supplies a platform-protected DocumentsUI provider with observable
+descriptor release. The source is excluded from ordinary and regular candidate
+APKs. Outputs go to `app/build-model-picker`; audit that app with
+`scripts/audit_apk.py <apk> --litert-verification --model-provisioning --model-picker-fixture`.
+The preparation and process-readback methods must run in separate processes;
+running the entire test class together intentionally fails readback. See the
+[picker contract](../../docs/native/MODEL_PICKER_CONTRACT.md) and dated
+[verification](../../docs/native/MODEL_PICKER_VERIFICATION_2026-10-23.md) for
+exact selection, admission and qualification limits. The first phase requires
+an absent synthetic root and performs no reset.
+
+The explicit synthetic model-picker profile also has a separate
+[interrupted-import contract](../../docs/native/MODEL_INTERRUPTION_CONTRACT.md).
+Its two `ModelPickerInterruptionTest` methods must be selected individually in
+separate processes: the arm intentionally kills its own target process and can
+never count as PASS; recovery must pass normally. Run only after a fresh
+source/APK-bound device admission, preserving the older fixture data. Do not
+select this class through a broad connected suite. The new partial document
+requires API 30; ordinary builds and production minimum SDK are unchanged.
+The [dated interruption evidence](../../docs/native/MODEL_INTERRUPTION_VERIFICATION_2026-10-23.md)
+records a real partial-read process interruption and separate recovery PASS on
+one API-35 x86_64 emulator. It does not establish pending-picker callback
+restoration, real inference or physical-phone support.
+
+The optional [LiteRT worker](../../docs/native/LITERT_WORKER_CONTRACT.md) implements
+`LocalRoleWorker` against the actual SDK. Its trusted configuration factory pairs
+the native provenance/profile and worker. With only the LiteRT verification flag,
+MainActivity continues constructing the scripted provider. The additional model
+setup flag above selects the separate file-import launcher and paired owner.
+
+With the already provisioned Java 21 installation configured for Gradle toolchain
+discovery, keep Java 17 as the build daemon and run from `apps/android`:
+
+```powershell
+.\gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest :app:cleanTestDebugUnitTest :app:testDebugUnitTest :app:lintDebug :app:auditLiteRtDependencies :app:auditLintAnalyzer -PlocalLoreLiteRtVerification=true --project-cache-dir .gradle-litert-worker -Pandroid.experimental.lint.version=9.4.1 -Porg.gradle.java.installations.auto-download=false -Pandroid.builder.sdkDownload=false -Pkotlin.incremental=false --offline --no-daemon --max-workers=2
+```
+
+The profile selects `org.locallore.app.litertverify`, `app/build-litert-worker`,
+`app/gradle-litert.lockfile` and source directories `litert`, `litertTest` and
+`litertAndroidTest`. Ordinary builds exclude them and retain their original graph.
+First-time dependency provisioning may use the declared public repositories;
+no model or Java/Android toolchain is downloaded by this command. After changing
+packaging inputs, clean the two package outputs before assembling to avoid
+incremental APK gaps: `:app:cleanPackageDebug :app:cleanPackageDebugAndroidTest`.
+
+From the repository root, with the SDK environment configured:
+
+```powershell
+python scripts/audit_apk.py apps/android/app/build-litert-worker/outputs/apk/debug/app-debug.apk --litert-verification
+```
+
+`LiteRtWorkerInstrumentedTest` covers packaged SDK library linkage and synthetic
+file admission through the actual workspace owner. It does not initialize a
+model or render Compose. Install only on a separately admitted target; current
+model/cache holds still apply. See the [dated verification](../../docs/native/LITERT_WORKER_VERIFICATION_2026-10-23.md).
+
 ## Exercise the engine
 
 Give the potion to Mira, then try giving it again and using the unlearned ability.
@@ -118,6 +259,32 @@ not delete saves. All SQLite/replay/JNI work runs on IO workers. Generation runs
 outside the canonical lock and SQLite transaction. A lost commit acknowledgement
 is looked up with its original turn key; **Recover saved progress** retries
 uncertain work without allocating a new key. See [app durability](../../docs/native/APP_DURABILITY.md).
+
+Cancellation also retains its original key until a matching terminal reply is
+validated. A malformed or unfinished acknowledgement requires recovery before
+another turn or story switch. A commit that won the race remains saved. See
+[cancellation acknowledgement verification](../../docs/native/ANDROID_CANCEL_ACK_VERIFICATION_2026-10-23.md)
+for the isolated protocol tests and their device limits.
+The cancellation diagnostic reports completion only after the acknowledgement
+and saved-history reconciliation succeed. An uncertain reply records an unknown
+outcome and keeps recovery guidance visible; a commit that won the race is not
+described as stopped. See the [presentation regression](../../docs/native/ANDROID_CANCEL_PRESENTATION_VERIFICATION_2026-10-23.md).
+While cancellation is being reconciled, the screen shows **Checking cancellation…**.
+If recovery is required, **New story** and **Saved stories** remain disabled along
+with new turns until **Recover saved progress** succeeds. The in-memory demo
+retains its separate Reset behavior. See the [Compose controls checks](../../docs/native/ANDROID_CANCEL_CONTROLS_VERIFICATION_2026-10-23.md).
+The [native Compose checks](../../docs/native/ANDROID_NATIVE_CANCEL_CONTROLS_VERIFICATION_2026-10-23.md)
+exercise the production transport, JNI, Rust and SQLite with fake inference.
+Six cases passed on emulator B, including exact-key recovery, commit-before-cancel,
+persisted player-history equality after reopen and availability of all four native
+owner slots after calls drain. They hold ready reply delivery; active model
+generation and OS process-death recovery remain separate gates. Emulator A's
+storage gate remains blocked.
+The [native free-text recovery checks](../../docs/native/ANDROID_NATIVE_TEXT_RECOVERY_VERIFICATION_2026-10-23.md)
+exercise Action and Dialogue entered in the composer, original play-v2 receipts,
+uncertain committed outcomes and recovery with the original request key.
+Literal dialogue claims remain statements; the tested claim grants no ability
+or inventory change. This coverage uses the same explicitly scripted provider.
 Full or Busy storage errors show fixed recovery guidance and retain the original
 request. The confirmed snapshot stays visible until recovery obtains an accepted
 native outcome; new turns and mode changes stay disabled during uncertainty.
@@ -330,6 +497,23 @@ and [event navigation verification](../../docs/native/ANDROID_EVENT_VERIFICATION
 for exact checks and the remaining milestone gates.
 
 ## Verification and limits
+
+The opt-in model picker profile also includes a non-exported pending-result
+fixture. Its [contract](../../docs/native/MODEL_PENDING_CONTRACT.md) requires
+actual saved-task restoration after process death, safe rejection of the old
+selection, and a later explicit import. Run its two methods separately under
+the documented external owner; a broad connected suite or ordinary runner
+restart cannot verify that framework relationship. This fixture uses original
+synthetic bytes and refuses inference. Dated reports distinguish actual results
+from remaining device/model gates. The [pending-result verification](../../docs/native/MODEL_PENDING_VERIFICATION_2026-10-23.md)
+records actual restored-result rejection and a later native import on one emulator.
+
+The same explicit profile includes a private [setup recovery fixture](../../docs/native/MODEL_SETUP_RECOVERY_CONTRACT.md).
+It exercises injected launch/construction failures through the actual setup
+buttons, retained admission across Activity close/reopen, and a separately
+verified fresh process. It never starts an SDK or story workspace; its contract
+is not a real-model or phone qualification result. Its [dated verification](../../docs/native/MODEL_SETUP_RECOVERY_VERIFICATION_2026-10-23.md)
+records both selected synthetic methods passing on one emulator.
 
 The opt-in isolated archive application also has an explicit
 [system chooser verification procedure](../../docs/native/ARCHIVE_CHOOSER_VERIFICATION_2026-10-23.md).

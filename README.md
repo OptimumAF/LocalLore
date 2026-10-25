@@ -69,6 +69,26 @@ both candidates and the existing Rust oracle on authorized emulators. It adds
 no production inference dependency; physical-device and reliability gates remain
 open, with failures retained in the dated results.
 
+Separate [Android model-storage receipt checks](docs/native/RECEIPT_FRESH_TARGET_VERIFICATION_2026-10-24.md)
+passed four methods on a fresh isolated emulator, including cancellation and
+owned process-death recovery, using a tiny synthetic file. Existing-target
+staging headroom remains held. An explicit debug-only
+[receipt-backed setup route](docs/native/RECEIPT_SETUP_FAILURE_TRACE_VERIFICATION_2026-10-24.md)
+passes three initial synthetic setup methods and a separate-process reopen on a
+fresh emulator, with all44 proof checks and owned cleanup verified. Earlier
+START-only and READY-timeout attempts remain documented; their causes are unknown.
+The positive run emitted no failure status. A separate
+[controlled failing test](docs/native/RECEIPT_SETUP_FAILURE_TRANSPORT_VERIFICATION_2026-10-24.md)
+delivered the bounded record and preserved its original error; it does not
+diagnose the earlier timeout.
+Real inference and physical-phone qualification remain pending. The
+[real-candidate probe](docs/native/RECEIPT_REAL_CANDIDATE_VERIFICATION_2026-10-24.md)
+is compiled and host-tested; its fresh8 GiB emulator preflight verified tiny
+local staging and capacity. Real weights, receipt import and SDK play await
+separate consent for this new test-app destination. The
+[earlier partial result](docs/native/MODEL_RECEIPT_ANDROID_VERIFICATION_2026-10-24.md)
+is preserved.
+
 An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects
 the isolated SDK to guarded free-text preparation and durable commit. Its
 [verification](docs/runtime/android/PLAY_VERIFICATION_2026-10-23.md) establishes

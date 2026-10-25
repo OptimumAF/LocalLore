@@ -207,6 +207,56 @@ Its aggregate keeps accepted Rust receipts separate from storage and cleanup
 verdicts. The actual gift request was rejected by the action intent guard with
 unchanged canon; typed canonical events remain authoritative.
 
+The later [guard-bound SDK integration](GUARDED_SDK_VERIFICATION_2026-10-23.md)
+carries the already accepted prompt2.3 schema into a newly built native pair and
+separately qualified APK. Its bridge tests use synthetic bytes, while artifact
+selection is fixed for every package check within a controller run. The earlier
+APK and rejected attempt retain their original identities and evidence.
+
+The [read-only recovery transport](RECOVERY_VERIFICATION_2026-10-23.md)
+requires actual shell-v2 exit and byte controls before inspecting the original
+stopped session's fixed SQLite files. Exact source hashes and sidecar inventory
+precede strict Rust replay on a separate local copy. It invokes no model and
+established a failed turn with zero accepted events and the player's potion
+retained. The SDK crash cause and runtime compatibility remain unqualified.
+
+The [private SDK phase journal](SDK_PHASE_PROTOCOL_V1.md) persists bounded
+content-free lifecycle checkpoints and an optional Android process-instance
+token. Its [verification](SDK_PHASE_VERIFICATION_2026-10-23.md) uses a separate
+no-model self-kill/read package before another SDK control. A last checkpoint
+and an OS exit reason do not establish canonical outcomes or a crash cause.
+
+The [stopped-session SDK reader](TRACED_SDK_PROTOCOL_V1.md) exposes that journal
+through the cacheprobe's distinct `read_phase` operation before any model or
+volume setup. A caller-persisted nonce binds one play attempt to one readback.
+The host requires original-process absence and the qualified new APK, retains
+raw output first, then stops and verifies the reader before snapshot recovery.
+See its [dated verification](TRACED_SDK_VERIFICATION_2026-10-23.md) for actual
+artifact, device and canonical replay evidence.
+
+The [role-observation protocol](ROLE_OBSERVATION_PROTOCOL_V1.md) corrects an
+older measurement gap: ordinary turns did not measure their first-output flag.
+It adds bounded callback/buffer observations and optional terminal SDK counters,
+with explicit unknown values and mandatory owner cleanup. Buffered output and
+requested configuration do not prove a valid answer or a canonical commit.
+See the [author qualification](ROLE_OBSERVATION_AUTHOR_2026-10-23.md) for the
+separately pinned artifact and hostile resource-ownership tests, and the
+[actual verification](ROLE_OBSERVATION_VERIFICATION_2026-10-23.md) for the one
+failed gift, measured buffered output, storage/preservation failures and
+independent canonical replay.
+
+The [offline storage explanation](STORAGE_EXPLANATION_V1.md) shows the existing
+per-physical-host reserves and growth allowances using supplied before/after
+samples. It performs no device operation and changes no admission limit. Its
+[verification](STORAGE_EXPLANATION_VERIFICATION_2026-10-23.md) reproduces the
+retained blocked verdict without attributing host-wide consumption to an app.
+
+The [preservation collector](PRESERVATION_COLLECTION_V1.md) records independent
+metadata, canonical-file, journal, storage and inventory observations after a
+safe mismatch. Unknown ownership, identity or process state still stops later
+reads. Its [verification](PRESERVATION_VERIFICATION_2026-10-23.md) distinguishes
+complete observation from successful preservation.
+
 The native [process owner](../../../benchmarks/spike/android/controller/README.md)
 owns/reaps one trusted direct child. An ADB-client exit is never native cleanup
 evidence. Package termination is limited to the hash-verified isolated SDK app;

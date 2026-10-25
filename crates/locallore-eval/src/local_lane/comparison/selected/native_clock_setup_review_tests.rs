@@ -76,12 +76,7 @@ fn replace_json(path: &Path, value: &Value) {
     fs::write(path, serde_json::to_vec(value).unwrap()).unwrap();
 }
 fn inventory(root: &Path) -> BTreeMap<PathBuf, Option<Vec<u8>>> {
-    fn visit(
-        root: &Path,
-        dir: &Path,
-        out: &mut BTreeMap<PathBuf, Option<Vec<u8>>>,
-        depth: usize,
-    ) {
+    fn visit(root: &Path, dir: &Path, out: &mut BTreeMap<PathBuf, Option<Vec<u8>>>, depth: usize) {
         assert!(depth <= 3 && out.len() <= 128);
         for entry in fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
@@ -93,7 +88,9 @@ fn inventory(root: &Path) -> BTreeMap<PathBuf, Option<Vec<u8>>> {
                 visit(root, &path, out, depth + 1);
             } else {
                 assert!(metadata.is_file() && metadata.len() <= 64 * 1024);
-                assert!(out.insert(relative, Some(fs::read(path).unwrap())).is_none());
+                assert!(out
+                    .insert(relative, Some(fs::read(path).unwrap()))
+                    .is_none());
             }
         }
     }
@@ -104,7 +101,11 @@ fn inventory(root: &Path) -> BTreeMap<PathBuf, Option<Vec<u8>>> {
 fn refuse_without_writes(fixture: &Fixture, native: bool) {
     let before = inventory(&fixture.root);
     let result = setup::read_setups(&fixture.root, &fixture.binding, native);
-    assert_eq!(inventory(&fixture.root), before, "reader must not repair evidence");
+    assert_eq!(
+        inventory(&fixture.root),
+        before,
+        "reader must not repair evidence"
+    );
     assert!(result.is_err(), "hostile setup evidence must refuse");
 }
 
@@ -175,24 +176,56 @@ fn supported_setup_states_and_one_sided_actual_finish_remain_read_only() {
         assert_eq!(right.charged_ms, PREPARATION_MS);
         assert_eq!(right.admissions, 0);
         assert_eq!(right.charged_roles, 0);
-        assert!(!fixture.root.join("right/invocation-00-settled.json").exists());
+        assert!(!fixture
+            .root
+            .join("right/invocation-00-settled.json")
+            .exists());
         let before = inventory(&fixture.root);
-        assert_eq!(setup::read_setups(&fixture.root, &fixture.binding, true).unwrap().len(), 1);
+        assert_eq!(
+            setup::read_setups(&fixture.root, &fixture.binding, true)
+                .unwrap()
+                .len(),
+            1
+        );
         assert_eq!(inventory(&fixture.root), before);
-        assert_eq!(Ledger::load(&fixture.root.join("right"), &fixture.binding).unwrap().charged_ms, PREPARATION_MS);
+        assert_eq!(
+            Ledger::load(&fixture.root.join("right"), &fixture.binding)
+                .unwrap()
+                .charged_ms,
+            PREPARATION_MS
+        );
         fixture.finish("right");
         let before = inventory(&fixture.root);
-        assert_eq!(setup::read_setups(&fixture.root, &fixture.binding, true).unwrap().len(), 1);
+        assert_eq!(
+            setup::read_setups(&fixture.root, &fixture.binding, true)
+                .unwrap()
+                .len(),
+            1
+        );
         assert_eq!(inventory(&fixture.root), before);
     }
 }
 
 #[test]
 fn setup_requires_actual_unique_reservations_exact_names_and_closed_native_identity() {
-    for fault in ["missing-left", "missing-right", "version", "binding", "index", "story", "turn", "ms", "roles"] {
+    for fault in [
+        "missing-left",
+        "missing-right",
+        "version",
+        "binding",
+        "index",
+        "story",
+        "turn",
+        "ms",
+        "roles",
+    ] {
         let fixture = Fixture::new(fault);
         fixture.setup(0, 0, "loaded", Some(synthetic_metrics()));
-        let arm = if fault == "missing-left" { "left" } else { "right" };
+        let arm = if fault == "missing-left" {
+            "left"
+        } else {
+            "right"
+        };
         let path = fixture.root.join(arm).join("invocation-00.json");
         if matches!(fault, "missing-left" | "missing-right") {
             fs::remove_file(&path).unwrap();
@@ -212,7 +245,14 @@ fn setup_requires_actual_unique_reservations_exact_names_and_closed_native_ident
         }
         refuse_without_writes(&fixture, true);
     }
-    for fault in ["right-ref", "filename-index", "native", "status", "extra-key", "out-of-range-name"] {
+    for fault in [
+        "right-ref",
+        "filename-index",
+        "native",
+        "status",
+        "extra-key",
+        "out-of-range-name",
+    ] {
         let fixture = Fixture::new(fault);
         fixture.setup(0, 0, "loaded", Some(synthetic_metrics()));
         let path = fixture.root.join("setup-00.json");
@@ -250,14 +290,24 @@ fn setup_requires_actual_unique_reservations_exact_names_and_closed_native_ident
 
 #[test]
 fn closed_metrics_and_each_known_settlement_share_are_validated_without_repair() {
-    for fault in ["missing-load", "missing-key", "extra-key", "negative", "null", "fraction", "overflow"] {
+    for fault in [
+        "missing-load",
+        "missing-key",
+        "extra-key",
+        "negative",
+        "null",
+        "fraction",
+        "overflow",
+    ] {
         let fixture = Fixture::new(fault);
         fixture.setup(0, 0, "loaded", Some(synthetic_metrics()));
         let path = fixture.root.join("setup-00.json");
         let mut record = read_json(&path);
         match fault {
             "missing-load" => record["load"] = Value::Null,
-            "missing-key" => { record["load"].as_object_mut().unwrap().remove("total_ms"); }
+            "missing-key" => {
+                record["load"].as_object_mut().unwrap().remove("total_ms");
+            }
             "extra-key" => record["load"]["extra"] = json!(0),
             "negative" => record["load"]["load_ms"] = json!(-0.5),
             "null" => record["load"]["total_ms"] = Value::Null,
@@ -268,10 +318,21 @@ fn closed_metrics_and_each_known_settlement_share_are_validated_without_repair()
         replace_json(&path, &record);
         refuse_without_writes(&fixture, true);
     }
-    for fault in ["version", "binding", "index", "roles", "left-share", "right-share"] {
+    for fault in [
+        "version",
+        "binding",
+        "index",
+        "roles",
+        "left-share",
+        "right-share",
+    ] {
         let fixture = Fixture::new(fault);
         fixture.setup(0, 0, "failed", Some(synthetic_metrics()));
-        let arm = if fault == "right-share" { "right" } else { "left" };
+        let arm = if fault == "right-share" {
+            "right"
+        } else {
+            "left"
+        };
         fixture.finish(arm);
         let path = fixture.root.join(arm).join("invocation-00-settled.json");
         let mut settlement = read_json(&path);

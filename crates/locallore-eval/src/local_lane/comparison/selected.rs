@@ -6,8 +6,12 @@ const LANE: &str = "scripted_selected_case";
 const NATIVE_LANE: &str = "native_selected_case";
 const MANIFEST_CAP: usize = 128 * 1024;
 
+#[cfg(test)]
+mod native_clock_setup_review_tests;
 #[cfg(all(test, feature = "protocol-owner-tests"))]
 mod native_owner_review_tests;
+#[cfg(all(test, feature = "local-model"))]
+mod native_path_review_tests;
 
 #[cfg(test)]
 mod divergent_tests;

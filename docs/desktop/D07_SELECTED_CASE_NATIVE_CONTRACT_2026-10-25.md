@@ -1,11 +1,11 @@
 # Selected-case native extension contract — 2026-10-25
 
-Refs #29 D07.06, partial. **PROPOSED / UNIMPLEMENTED / UNRUN until Root freezes.**
+Refs #29 D07.06, partial. **FROZEN DESIGN / implementation and checks pending.**
 Accepted base: `008c54182a5d7d51574d3f059bf7210085721df4` (PR166).
 This revision supersedes the assets-only reservation proposal at `7fba1fdd`;
 that proposal remains in Git history. Root claim6397635480 owns reconciliation.
 No native selected driver, GUI, model quality or whole-D07 acceptance follows
-from this document. All interfaces below are proposals, not existing API claims.
+from this document. Interfaces below specify the target, not verified API claims.
 
 ## Scope and accepted prerequisites
 
@@ -23,7 +23,7 @@ same ModelManager runtime slot. Legacy full native comparison still uses its
 legacy constructor; this selected extension must not imply that caller changed.
 Its actual failure/ownership behavior needs a separate allocation if upgraded.
 
-## Proposed exact native surface and owned failure
+## Frozen native surface and owned failure
 
 ```rust
 pub enum SelectedLane { ScriptedBaseline, ApprovedNative }
@@ -79,7 +79,7 @@ opaque/non-Clone and retains the actual source capability.
 2. Before any new destination, callback, invocation or assets, read-only validate
    both existing destination arms, checkpoints/phases/full inputs, aliases,
    ordinary single-link/reparse constraints, disjoint pinned canonical parent
-   and both ledger capacities. Refuse missing terminal noncommitted checkpoints;
+   and both ledger structures. Refuse missing terminal noncommitted checkpoints;
    never clear their keys. Known terminal checkpoints remain finished.
 3. Classify completed, actual committed-recoverable, dependency-only and missing
    provider-eligible work. Completed resume returns unchanged inventory.
@@ -89,7 +89,9 @@ opaque/non-Clone and retains the actual source capability.
    Expected-only guard interpreter or fabricated row. Persist neither half until
    full both-arm preflight has succeeded. These three paths call reserve/assets
    zero times and do not spawn/load; unknown historical charges remain unknown.
-4. Call reserve exactly once iff unfinished, nonrecovered, nondependency work
+4. Completed read-only resume bypasses new invocation/admission capacity and
+   preparation-expiry checks. For unfinished work check both capacities, then
+   call reserve exactly once iff nonrecovered, nondependency work
    exists. This includes finite Core guards: the normal Host/Core path can
    reject before inference, but measured startup is allowed after consent.
    The callback only reserves existing owner exclusion; no probing/hash/load/
@@ -227,3 +229,22 @@ prose quality, native IPC/WebView/GUI, offline/hardware or device behavior.
 Root assigns shared driver/helper/native job/UI paths separately after freeze.
 This sole-doc revision performed source/Git inspection only; no test/build/
 formatter/compiler/worker/model/app/device/SDK/desktop/protected execution.
+
+### Selected setup validation refinement
+
+Selected inspection cross-checks each setup against BOTH actual preparation
+reservation files (version, binding, index, preparation story/turn, 120000ms,
+zero roles), exact setup-00..31 naming, and unique referenced invocation pairs.
+Loaded requires closed, finite, nonnegative observed load metrics; failed may
+retain real load metrics after a late load, or null when none were observed.
+Each existing invocation settlement must bind the same reservation and charge
+at least its ceil/floor physical setup share. One-sided settlement is valid:
+a crash between the two independent finish writes leaves the other full
+reservation unknown. Inspection never invents or refunds the missing settlement.
+The unrelated legacy full-comparison reader remains unchanged.
+
+The opt-in protocol-owner-tests feature enables only the existing fixed runtime
+fixture for cross-crate cleanup tests. It adds no dependency, executable path
+input, renderer endpoint or production profile bypass. Default/local-model tests
+do not require the fixture binary. Actual approved native Host execution remains
+an installed-asset opt-in gate distinct from fixed-worker ownership tests.

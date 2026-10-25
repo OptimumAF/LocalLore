@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest import mock
 
@@ -26,6 +27,26 @@ def receipt(size=integrity.CHUNK_BYTES + 7, whole="a" * 64):
 
 
 class ModelIntegrityTest(unittest.TestCase):
+    def test_windows_creation_identity_uses_birthtime_and_preserves_every_other_field(self):
+        values = dict(st_dev=1, st_ino=2, st_mode=3, st_size=4, st_mtime_ns=5,
+                      st_ctime_ns=100, st_birthtime_ns=90)
+        with mock.patch.object(integrity.os, "name", "nt"):
+            baseline = integrity.fingerprint(SimpleNamespace(**values))
+            self.assertEqual(baseline, integrity.fingerprint(SimpleNamespace(**dict(values, st_ctime_ns=110))))
+            for field in ("st_dev", "st_ino", "st_mode", "st_size", "st_mtime_ns", "st_birthtime_ns"):
+                changed = dict(values); changed[field] += 1
+                self.assertNotEqual(baseline, integrity.fingerprint(SimpleNamespace(**changed)), field)
+
+    def test_legacy_windows_and_posix_keep_their_original_ctime_checks(self):
+        values = dict(st_dev=1, st_ino=2, st_mode=3, st_size=4, st_mtime_ns=5, st_ctime_ns=100)
+        with mock.patch.object(integrity.os, "name", "nt"):
+            baseline = integrity.fingerprint(SimpleNamespace(**values))
+            self.assertNotEqual(baseline, integrity.fingerprint(SimpleNamespace(**dict(values, st_ctime_ns=110))))
+        with mock.patch.object(integrity.os, "name", "posix"):
+            baseline = integrity.fingerprint(SimpleNamespace(**dict(values, st_birthtime_ns=90)))
+            self.assertEqual(baseline, integrity.fingerprint(SimpleNamespace(**dict(values, st_birthtime_ns=99))))
+            self.assertNotEqual(baseline, integrity.fingerprint(SimpleNamespace(**dict(values, st_ctime_ns=110))))
+
     def compare(self, reference, observed):
         return integrity.compare(reference, observed, reference["before"]["bytes"], reference["before"]["sha256"])
 

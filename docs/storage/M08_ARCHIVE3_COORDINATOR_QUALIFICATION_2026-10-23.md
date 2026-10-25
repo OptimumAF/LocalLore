@@ -367,3 +367,18 @@ The four actual Store/Host authorization groups are independently frozen at
 `ac71e22`, adopted as `3dff85a` in the new `archive_authorization_tests.rs`.
 Their intended private helper is absent and the module unregistered; all four
 remain uncompiled/unrun. No Android runtime or whole M08/D08 acceptance is added.
+
+Subsequent source preparation: Root adopted all three fixed app-owned harness
+files from `de00f2e` as `d85c13c`, after reading their complete source. They remain
+unregistered/uncompiled/unrun; no image count or native success is inferred.
+The orchestrator additionally refuses success if the source revision, listed
+inputs, binary/frontend hashes or clean working-tree state change by the end
+of the final app stage. This is source hardening, not measured qualification.
+
+Root `73ce67a` subsequently registered the four authorization test groups and
+factored the existing `inspection_snapshot(Full)` call into their private
+helper. That preserves the old implementation and its Domain2 limitation,
+so the first actual tests can measure the old authorization path. Query2
+authorization is still unimplemented. All nine new native broker/authorization
+groups remain uncompiled/unrun; Domain2 App exposure/catalog3 and the actual
+hidden application-owned IPC/render/visual review gates remain pending.

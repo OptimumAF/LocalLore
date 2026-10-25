@@ -150,8 +150,14 @@ const archives = await published(); assert.equal(archives.length, 3);
 assert(archives.every((file) => file.sha256 === transferSHA256), "Source/import/restart exports preserve exact accepted archive bytes");
 assert.equal(hash(await bounded(path.join(picker, "transfer.json"), 128 * 1024)), transferSHA256, "Original input unchanged");
 assert(artifacts.reduce((sum, item) => sum + item.bytes, 0) <= 128 * 1024 * 1024, "Bounded local evidence");
+assert.equal(await git(["rev-parse", "HEAD"]), sourceRevision, "Source revision changed during cohort");
+assert.deepEqual(await hashes(), sourceHashes, "Source changed during final app stage");
+assert.equal(hash(await bounded(executable, 512 * 1024 * 1024)), executableSHA256);
+assert.equal(hash(await bounded(path.join(root, "dist/app.js"), 16 * 1024 * 1024)), appSHA256);
+const sourceDirtyAfter = !!(await git(["status", "--porcelain"]));
+assert.equal(sourceDirtyAfter, false, "Qualification must finish on the same clean source");
 await writeFile(path.join(folder, "summary.json"), JSON.stringify({
-    synthetic: true, passed: true, sourceRevision, sourceDirtyBefore, sourceDirtyAfter: !!(await git(["status", "--porcelain"])),
+    synthetic: true, passed: true, sourceRevision, sourceDirtyBefore, sourceDirtyAfter,
     backend: "native-ipc-webview2", nativeDialogUIAutomated: false, desktopControl: false, realModelGeneration: false,
     actualProcessRestart: true, visualReview: "pending-inspection-of-app-owned-images", androidRuntimeVerified: false,
     environment, sourceSHA256: sourceHashes, executableSHA256, appSHA256, transferSHA256, executions, artifacts, reports,

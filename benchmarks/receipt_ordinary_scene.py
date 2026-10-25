@@ -67,7 +67,9 @@ SOURCE_FILES = (*r.SOURCE_FILES, "benchmarks/receipt_real_cancellation.py", "scr
     "apps/android/app/src/main/java/org/locallore/app/ui/StoryRecordDialog.kt",
     "apps/android/app/src/main/java/org/locallore/app/ui/LocalLoreScreen.kt",
     "apps/android/app/src/main/java/org/locallore/app/ui/PlayInputComposer.kt",
-    "fixtures/lantern_quay.json", "crates/locallore/src/intent_guard.rs", "crates/locallore/src/play.rs")
+    "fixtures/lantern_quay.json", "crates/locallore/src/intent_guard.rs", "crates/locallore/src/play.rs",
+    "crates/locallore/src/play/director_budget.rs", "crates/locallore/tests/portable_dialogue_schema.rs",
+    "docs/native/PORTABLE_DIALOGUE_SCHEMA.md")
 
 
 def selection(phase):

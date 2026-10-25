@@ -1,5 +1,5 @@
 /* Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0 */
-// Finite-schema codec source SHA-256: b89ba9aa332529a629e0f532f5d8e55997eef8f68229665f898eae53010af96f
+// Finite-schema codec source SHA-256: 4d2a5e531c78b99c7dd3d0f203460fa79194e07b8266e395d071b939ccb6364c
 package org.locallore.app
 
 import com.google.ai.edge.litertlm.Backend

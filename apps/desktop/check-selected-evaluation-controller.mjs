@@ -196,6 +196,19 @@ await test("actual completed result wins late cancelling status", async () => {
     f.hooks.set("cancel", () => status(client, "cancelling")); await f.c.cancel();
     assert.equal(f.c.get().status.phase, "completed"); assert.equal(f.c.get().status.run_id, runId); f.c.dispose();
 });
+await test("actual completed held poll wins racing cancel without closing the still-owned client", async () => {
+    const f = fixture(); await f.c.prepare(source, row, "scripted_baseline"); const client = f.c.get().clientId;
+    const polled = deferred(), cancelled = deferred(), reachedPoll = deferred();
+    f.hooks.set("start", () => status(client, "running"));
+    f.hooks.set("status", () => { reachedPoll.resolve(); return polled.promise; });
+    f.hooks.set("cancel", () => cancelled.promise);
+    const start = f.c.start(); await reachedPoll.promise;
+    const cancel = f.c.cancel(); await tick();
+    polled.resolve(status(client)); await start;
+    cancelled.resolve(status(client, "cancelling")); await cancel;
+    assert.equal(f.c.get().status.phase, "completed"); assert.equal(f.c.get().status.run_id, runId);
+    assert.equal(f.calls.filter((v) => v.action === "close").length, 0); f.c.dispose();
+});
 await test("retained cleanup status blocks admission and retry is explicit", async () => {
     const f = fixture(); f.hooks.set("cleanup_status", () => ({ version: 1, kind: "selected_cleanup", cleanup_required: true, running: false, error: "Cleanup" }));
     await f.c.cleanupStatus(); await f.c.prepare(source, row, "scripted_baseline");

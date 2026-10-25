@@ -908,6 +908,33 @@ pub fn narration_schema(events: &[AcceptedEvent]) -> Value {
     json!({"type":"object","properties":{"text":{"type":"string","maxLength":4096},"event_ids":{"const":events.iter().map(|e|e.sequence()).collect::<Vec<_>>()},"speaker":{"const":"narrator"}},"required":["text","event_ids","speaker"],"additionalProperties":false})
 }
 
+/// Every semantic audience set has one sorted representation. Grow only within the
+/// existing full-schema byte budget; never materialize an unbounded powerset.
+fn dialogue_audience_sets(
+    eligible: &[&String],
+    from: usize,
+    selected: &mut Vec<String>,
+    choices: &mut Vec<Value>,
+    schema_bytes: &mut usize,
+) -> Result<(), Error> {
+    for index in from..eligible.len() {
+        selected.push(eligible[index].clone());
+        crate::engine::check_json_budget(selected, MAX_PROPOSAL_BYTES)?;
+        let bytes = serde_json::to_vec(selected).map_err(|_| Error::TooLarge)?;
+        *schema_bytes = schema_bytes
+            .checked_add(bytes.len())
+            .and_then(|size| size.checked_add(usize::from(!choices.is_empty())))
+            .filter(|size| *size <= MAX_PROPOSAL_BYTES)
+            .ok_or(Error::TooLarge)?;
+        choices.push(serde_json::to_value(&*selected).map_err(|_| Error::TooLarge)?);
+        if selected.len() < 4 {
+            dialogue_audience_sets(eligible, index + 1, selected, choices, schema_bytes)?;
+        }
+        selected.pop();
+    }
+    Ok(())
+}
+
 fn director_schema_for(
     kind: &PlayInputKind,
     text: &str,
@@ -915,7 +942,7 @@ fn director_schema_for(
     inventory: &BTreeMap<&String, &Item>,
     player: &str,
     guarded_action: Option<&Command>,
-) -> Value {
+) -> Result<Value, Error> {
     let mut schema = director_schema();
     if let Some(command) = guarded_action {
         // The same finite guard result already passed Engine preflight. Constrain generation
@@ -932,7 +959,7 @@ fn director_schema_for(
             "additionalProperties":false
         }]);
         schema["properties"]["commands"]["maxItems"] = json!(1);
-        return schema;
+        return Ok(schema);
     }
     let variants = schema["properties"]["commands"]["items"]["oneOf"]
         .as_array_mut()
@@ -961,13 +988,34 @@ fn director_schema_for(
         schema["properties"]["commands"]["maxItems"] = json!(1);
         let properties = &mut schema["properties"]["commands"]["items"]["oneOf"][0]["properties"];
         properties["text"] = json!({"const":text});
-        let audience: Vec<_> = nearby.keys().filter(|id| id.as_str() != player).collect();
+        let audience: Vec<&String> = nearby
+            .keys()
+            .filter(|id| id.as_str() != player)
+            .copied()
+            .collect();
         properties["audience"]["items"] = json!({"enum":audience});
-        properties["audience"]["uniqueItems"] = json!(true);
+        // Array-valued enum is supported by the pinned constrained decoder;
+        // uniqueItems is not. Keep all sets, not only the first nearby listener.
+        properties["audience"]["enum"] = json!([]);
+        crate::engine::check_json_budget(&schema, MAX_PROPOSAL_BYTES)?;
+        let mut schema_bytes = serde_json::to_vec(&schema)
+            .map_err(|_| Error::TooLarge)?
+            .len();
+        let mut choices = Vec::new();
+        dialogue_audience_sets(
+            &audience,
+            0,
+            &mut Vec::new(),
+            &mut choices,
+            &mut schema_bytes,
+        )?;
+        schema["properties"]["commands"]["items"]["oneOf"][0]["properties"]["audience"]["enum"] =
+            Value::Array(choices);
+        crate::engine::check_json_budget(&schema, MAX_PROPOSAL_BYTES)?;
     }
     // This guarded profile supports one explicit action or utterance per turn.
     schema["properties"]["commands"]["maxItems"] = json!(1);
-    schema
+    Ok(schema)
 }
 
 fn role_request(

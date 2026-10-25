@@ -12,6 +12,18 @@ SD,2 virtual CPUs and12 GiB host available-memory floor. The old2 GiB/4 GiB
 synthetic profile stays unchanged. Observe actual7–8 GiB guest total and at
 least4 GiB available before each phase; this is admission, not a fit benchmark.
 
+The separately explicit `--real-model-candidate --four-core-candidate` profile
+uses4 guest vCPUs with the same RAM/disks/floors/deadlines. It requires at least8
+reported logical host CPUs, rechecked before owned SDK launch. It is a resource
+experiment matching the existing four inference threads, not an accepted device
+tier or a latency fix. See [closed profile](RECEIPT_FOUR_CORE_PROFILE.md).
+After boot, before install or model copy, the four-core controller makes one
+bounded `cat /sys/devices/system/cpu/online` observation, requiring exactly
+`0-3` plus a line ending. It retains the ordinary owned client record and a
+closed three-integer `guest-cpu-profile-v1.json`; mismatch, unknown cleanup,
+owner loss or failed retention stops before copy/inference. The existing two-core
+profiles issue no additional guest command. No such probe runs after SDK uncertainty.
+
 ## Separate preflight and candidate authority
 
 `benchmarks/receipt_real_candidate.py` requires a closed disabled proposal and
@@ -135,3 +147,30 @@ The exact owned emulator stop/terminal/cleanup/capture/preservation closure is
 required separately. Retain all targets/attempts, without guest-flush or
 power-loss integrity claims. Full physical-phone, ARM64/16 KiB, sustained,
 quality, cache/privacy, DocumentsUI and milestone acceptance remain open.
+
+## Passive worker failure observations
+
+The exact PLAY fixture may attach the final, in-memory
+[closed worker trace](LITERT_WORKER_TRACE_V2_CONTRACT.md) to the same production
+candidate owner. It does not replace resources, supply generated output or alter
+any limit. If `respondText` throws or its existing Prepared assertion fails,
+before the existing catch/finally cleanup it
+attempts one bounded `locallore_receipt_worker_v2` status1337 record per process.
+Successful calls emit none. Snapshot or delivery failure cannot replace the
+identical original throwable. No extra SDK, model-file or transport call is made
+to obtain the snapshot; no path, prompt, response or exception text is serialized.
+
+The controller demultiplexes this worker channel only for PLAY. Other phases
+retain the separate setup-failure channel and forbid worker records. A worker
+record is retained before the unchanged strict runner gate; it cannot explain
+away a failed, skipped or malformed runner, replace a proof, qualify resource
+reclamation or permit REOPEN. Returned/settled/known counts are historical
+observations at the specified Kotlin points, not independent JNI completion,
+caller-delivery or current-ownership evidence. Missing counters never authorize
+retry; the existing owner quarantine remains authoritative.
+
+V2 adds closed DIRECTOR/NARRATOR creation ordinals and bounded monotonic offsets,
+including pending/returned/closed-category failure observations. It retains the
+original counters and4096-byte wire cap; v1 remains strictly readable. Timing is
+relative to the trace's own creation, not wall-clock or native substep time.
+Neither version can qualify a failed runner or permit a later phase.

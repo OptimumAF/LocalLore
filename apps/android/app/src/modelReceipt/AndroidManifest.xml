@@ -18,5 +18,6 @@
         <activity android:name=".ReceiptSetupCancelBeforeActivity" android:exported="false" />
         <activity android:name=".ReceiptSetupCancelAfterActivity" android:exported="false" />
         <activity android:name=".ReceiptSetupDrainActivity" android:exported="false" />
+        <activity android:name=".ReceiptComposeCancellationActivity" android:exported="false" />
     </application>
 </manifest>

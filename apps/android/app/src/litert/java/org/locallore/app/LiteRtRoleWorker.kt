@@ -1,4 +1,5 @@
 /* Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0 */
+// Finite-schema codec source SHA-256: b89ba9aa332529a629e0f532f5d8e55997eef8f68229665f898eae53010af96f
 package org.locallore.app
 
 import com.google.ai.edge.litertlm.Backend
@@ -8,6 +9,7 @@ import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.MessageCallback
+import com.google.ai.edge.litertlm.LiteRtLmJniException
 import com.google.ai.edge.litertlm.ResponseFormat
 import com.google.ai.edge.litertlm.Role
 import com.google.ai.edge.litertlm.SamplerConfig
@@ -52,11 +54,15 @@ internal data class LiteRtWorkerConfig(
     /** Pair provenance and worker budgets; callers cannot supply a different native profile. */
     fun createOwner(
         limits: LocalInferenceLimits = LocalInferenceLimits(turnMs = deadlineMs),
-        resources: LiteRtResources = SdkLiteRtResources,
+        resources: LiteRtResources? = null,
+        trace: LiteRtWorkerTrace? = null,
+        sendTrace: LiteRtSendTrace? = null,
+        callbackTrace: LiteRtCallbackTrace? = null,
+        statusTrace: LiteRtStatusTrace? = null,
     ): LocalInferenceOwner {
         require(limits.turnMs == deadlineMs)
         lateinit var owner: LocalInferenceOwner
-        val worker = LiteRtRoleWorker(this, resources) { owner.close() }
+        val worker = LiteRtRoleWorker(this, resources ?: SdkLiteRtResources(sendTrace, statusTrace), trace, callbackTrace) { owner.close() }
         owner = LocalInferenceOwner(profileBytes(), worker, limits = limits)
         return owner
     }
@@ -124,6 +130,8 @@ internal interface LiteRtCallbacks {
     fun message(read: () -> LiteRtChunk)
     fun done()
     fun error(cancelled: Boolean)
+    /** Passive closed provenance only, after the original error path has fenced the owner. */
+    fun errorCategory(category: LiteRtCallbackError) {}
 }
 internal data class LiteRtChunk(
     val modelRole: Boolean = true,
@@ -141,7 +149,9 @@ internal data class LiteRtChunk(
  */
 internal class LiteRtRoleWorker(
     private val config: LiteRtWorkerConfig,
-    private val resources: LiteRtResources = SdkLiteRtResources,
+    private val resources: LiteRtResources = SdkLiteRtResources(),
+    private val trace: LiteRtWorkerTrace? = null,
+    private val callbackTrace: LiteRtCallbackTrace? = null,
     private val onUncertain: () -> Unit = {},
 ) : LocalRoleWorker {
     private val lock = Any()
@@ -153,10 +163,19 @@ internal class LiteRtRoleWorker(
     override suspend fun open(): LocalRoleEngine = withContext(Dispatchers.IO) {
         synchronized(lock) { check(!poisoned && !opening && active == null); opening = true }
         try {
-            val resource = resources.engine(config.admit())
+            trace?.record(LiteRtWorkerEvent.ADMISSION_ENTERED)
+            val paths = config.admit()
+            trace?.record(LiteRtWorkerEvent.ADMISSION_RETURNED)
+            trace?.record(LiteRtWorkerEvent.ENGINE_CREATE_ENTERED)
+            val resource = resources.engine(paths)
+            trace?.record(LiteRtWorkerEvent.ENGINE_CREATE_RETURNED)
             synchronized(lock) { retained += resource }
+            trace?.record(LiteRtWorkerEvent.INITIALIZE_ADMISSION_ENTERED)
             config.storageAdmission()
+            trace?.record(LiteRtWorkerEvent.INITIALIZE_ADMISSION_RETURNED)
+            trace?.record(LiteRtWorkerEvent.INITIALIZE_ENTERED)
             resource.initialize() // Blocking initialization is not made interruptible by coroutine cancellation.
+            trace?.record(LiteRtWorkerEvent.INITIALIZE_RETURNED)
             OwnedEngine(resource).also { synchronized(lock) { check(!poisoned); active = it } }
         } catch (_: Throwable) {
             unknown()
@@ -168,7 +187,10 @@ internal class LiteRtRoleWorker(
     private fun notifyUnknown() {
         // Factory hook synchronously fences the SAME owner. Its eventual native close is a separate
         // observation; scheduling close never establishes resource reclamation or rolls back history.
-        if (synchronized(lock) { poisoned }) try { onUncertain() } catch (_: Throwable) { }
+        if (synchronized(lock) { poisoned }) {
+            try { onUncertain() } catch (_: Throwable) { }
+            trace?.record(LiteRtWorkerEvent.UNCERTAIN)
+        }
     }
     private fun unknown() { markUnknown(); notifyUnknown() }
 
@@ -179,26 +201,52 @@ internal class LiteRtRoleWorker(
         private var closing = false
         private var closed = false
         override suspend fun start(request: LocalInferenceRequest): LocalRoleCall = withContext(Dispatchers.IO) {
+            var creationOrdinal = 0
+            var creationReturned = false
             try {
                 config.validateRequest(request)
                 synchronized(lock) {
                     check(!poisoned && !closing && !closed && !starting && roles.all { it.closedKnown })
                     starting = true
                 }
+                trace?.record(LiteRtWorkerEvent.ROLE_ADMISSION_ENTERED)
                 config.storageAdmission()
+                trace?.record(LiteRtWorkerEvent.ROLE_ADMISSION_RETURNED)
+                trace?.record(LiteRtWorkerEvent.CONVERSATION_CREATE_ENTERED)
+                // Configured byte lengths are not tokenizer usage. Diagnostics cannot change admission.
+                val observation = try { callbackTrace?.begin(
+                    if (request.role == "director") LiteRtCallbackRole.DIRECTOR else LiteRtCallbackRole.NARRATOR,
+                    request.contextTokens, request.maxTokens, localUtf8(request.prompt).size, localUtf8(request.schemaJson).size,
+                ) } catch (_: Throwable) { null }
+                // Request validation above admits only these two closed roles. No prompt/schema
+                // or exception string enters the passive observation.
+                creationOrdinal = trace?.creationEntered(when (request.role) {
+                    "director" -> LiteRtTraceRole.DIRECTOR
+                    else -> LiteRtTraceRole.NARRATOR
+                }) ?: 0
                 val conversation = resource.conversation(request)
-                val call = OwnedCall(conversation)
+                val call = OwnedCall(conversation, observation)
                 synchronized(lock) { roles += call }
+                // Retain the returned resource before doing diagnostic work.
+                creationReturned = true
+                trace?.creationReturned(creationOrdinal)
+                trace?.record(LiteRtWorkerEvent.CONVERSATION_CREATE_RETURNED)
                 try {
+                    trace?.record(LiteRtWorkerEvent.SEND_ADMISSION_ENTERED)
                     config.storageAdmission()
+                    trace?.record(LiteRtWorkerEvent.SEND_ADMISSION_RETURNED)
+                    trace?.record(LiteRtWorkerEvent.SEND_ENTERED)
                     conversation.send(request, call)
+                    trace?.record(LiteRtWorkerEvent.SEND_RETURNED)
                 }
                 catch (_: Throwable) { call.failedStart(); throw LocalInferenceUncertain() }
                 call.started()
                 call
-            } catch (_: Throwable) {
+            } catch (failure: Throwable) {
                 synchronized(lock) { startUnknown = true }
                 unknown()
+                if (!creationReturned) trace?.creationFailed(creationOrdinal,
+                    if (failure is CancellationException) LiteRtTraceFailure.CANCELLED else LiteRtTraceFailure.OTHER)
                 throw LocalInferenceUncertain()
             } finally { synchronized(lock) { starting = false } }
         }
@@ -209,18 +257,23 @@ internal class LiteRtRoleWorker(
                 if (poisoned || closing || starting || startUnknown || roles.any { !it.closedKnown }) return@withContext false
                 closing = true
             }
+            trace?.record(LiteRtWorkerEvent.ENGINE_CLOSE_ENTERED)
             val known = try { resource.close() } catch (_: Throwable) { false }
             val result = synchronized(lock) {
                 if (known && !poisoned && roles.all { it.closedKnown }) { closed = true; retained.remove(resource); active = null }
                 else poisoned = true
                 closed && !poisoned
             }
+            if (result) trace?.record(LiteRtWorkerEvent.ENGINE_CLOSE_KNOWN)
             if (!result) notifyUnknown()
             result
         }
     }
 
-    private inner class OwnedCall(private val resource: LiteRtConversationResource) : LocalRoleCall, LiteRtCallbacks {
+    private inner class OwnedCall(
+        private val resource: LiteRtConversationResource,
+        private val observation: LiteRtCallbackCall?,
+    ) : LocalRoleCall, LiteRtCallbacks {
         private val state = Any()
         private val cancelScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         private val bytes = ByteArrayOutputStream()
@@ -239,17 +292,23 @@ internal class LiteRtRoleWorker(
         fun started() = synchronized(state) { startReturned = true }
         fun failedStart() { synchronized(state) { fail() }; notifyUnknown() }
 
-        private fun callback(body: () -> Unit) {
+        private fun callback(entered: LiteRtWorkerEvent, returned: LiteRtWorkerEvent, body: () -> Unit) {
             synchronized(state) { callbacks++; if (closedKnown || closing) fail() }
+            trace?.record(entered)
             try { body() }
             catch (_: Throwable) { synchronized(state) { fail() } }
-            finally { synchronized(state) { callbacks-- }; notifyUnknown() }
+            finally {
+                synchronized(state) { callbacks-- }; notifyUnknown()
+                // Observed callback body exit, never a claim about hidden JNI epilogues.
+                trace?.record(returned)
+            }
         }
 
-        override fun message(read: () -> LiteRtChunk) = callback {
+        override fun message(read: () -> LiteRtChunk) = callback(LiteRtWorkerEvent.MESSAGE_ENTERED, LiteRtWorkerEvent.MESSAGE_RETURNED) {
             synchronized(state) { if (terminal || failed) { fail(); return@callback } }
             val chunk = read()
             synchronized(state) {
+                val before = bytes.size()
                 check(chunk.modelRole && !chunk.nonText && !chunk.channels && !chunk.tools)
                 chunk.text.forEach {
                     check(it.length <= 16_384)
@@ -259,19 +318,28 @@ internal class LiteRtRoleWorker(
                 }
                 val text = localText(bytes.toByteArray(), 16_384)
                 check(!text.contains("<think>", ignoreCase = true) && !text.contains("</think>", ignoreCase = true))
+                // Only bytes that passed the original chunk/buffer checks, not SDK tokens or all callbacks.
+                try { observation?.output(bytes.size() - before) } catch (_: Throwable) { }
             }
         }
 
-        override fun done() = callback { synchronized(state) {
-            if (terminal) fail()
-            terminal = true
-        } }
+        override fun done() {
+            callback(LiteRtWorkerEvent.DONE_ENTERED, LiteRtWorkerEvent.DONE_RETURNED) { synchronized(state) {
+                if (terminal) fail()
+                terminal = true
+            } }
+            try { observation?.done() } catch (_: Throwable) { }
+        }
 
-        override fun error(cancelled: Boolean) = callback { synchronized(state) {
+        override fun error(cancelled: Boolean) = callback(LiteRtWorkerEvent.ERROR_ENTERED, LiteRtWorkerEvent.ERROR_RETURNED) { synchronized(state) {
             if (terminal) fail()
             terminal = true
             if (cancelled && cancelRequested) this.cancelled = true else fail()
         } }
+
+        override fun errorCategory(category: LiteRtCallbackError) {
+            try { observation?.error(category) } catch (_: Throwable) { }
+        }
 
         private fun settled(): Boolean = terminal && callbacks == 0 && startReturned && !cancelRunning
 
@@ -295,7 +363,11 @@ internal class LiteRtRoleWorker(
                 cancelRunning = true
             }
             cancelScope.launch {
-                try { resource.cancel() }
+                try {
+                    trace?.record(LiteRtWorkerEvent.CANCEL_ENTERED)
+                    resource.cancel()
+                    trace?.record(LiteRtWorkerEvent.CANCEL_RETURNED)
+                }
                 catch (_: Throwable) { synchronized(state) { fail() } }
                 finally { synchronized(state) { cancelRunning = false }; notifyUnknown() }
             }
@@ -305,7 +377,10 @@ internal class LiteRtRoleWorker(
             while (true) {
                 synchronized(state) {
                     if (failed) return@withContext false
-                    if (settled()) return@withContext true
+                    if (settled()) {
+                        trace?.record(LiteRtWorkerEvent.DRAIN_SETTLED)
+                        return@withContext true
+                    }
                 }
                 delay(2)
             }
@@ -319,20 +394,34 @@ internal class LiteRtRoleWorker(
                 if (closing || failed || !settled()) return@withContext false
                 closing = true
             }
+            trace?.record(LiteRtWorkerEvent.CONVERSATION_CLOSE_ENTERED)
             val known = try { resource.close() } catch (_: Throwable) { false }
             val result = synchronized(state) {
                 // A callback concurrent with close remains uncertainty even if SDK close returns.
                 if (known && !failed && callbacks == 0) closedKnown = true else fail()
                 closedKnown
             }
+            if (result) trace?.record(LiteRtWorkerEvent.CONVERSATION_CLOSE_KNOWN)
             if (!result) notifyUnknown()
             result
         }
     }
 }
 
-/** The default path calls the pinned SDK directly; no native library is touched by seam-only tests. */
-private object SdkLiteRtResources : LiteRtResources {
+/** All application arguments are constructed before the observed public SDK call site. */
+private data class SdkSendArguments(
+    val prompt: String,
+    val callback: MessageCallback,
+    val maxOutputToken: Int,
+    val thinkingConfig: ThinkingConfig,
+    val responseFormat: ResponseFormat,
+)
+
+/** The default path calls the pinned SDK; resource tests need no native library or model. */
+private class SdkLiteRtResources(
+    private val sendTrace: LiteRtSendTrace? = null,
+    private val statusTrace: LiteRtStatusTrace? = null,
+) : LiteRtResources {
     override fun engine(paths: LiteRtPaths): LiteRtEngineResource {
         val engine = Engine(EngineConfig(
             modelPath = paths.model, backend = Backend.CPU(threadCount = 4),
@@ -350,9 +439,8 @@ private object SdkLiteRtResources : LiteRtResources {
                 ))
                 return object : LiteRtConversationResource {
                     override fun send(request: LocalInferenceRequest, callbacks: LiteRtCallbacks) {
-                        conversation.sendMessageAsync(
-                            request.prompt,
-                            object : MessageCallback {
+                        observedLiteRtSend(sendTrace, prepare = {
+                            SdkSendArguments(request.prompt, object : MessageCallback {
                                 override fun onMessage(message: Message) = callbacks.message {
                                     // SDK-private jsonToMessage normalizes raw roles and drops unknown raw
                                     // content kinds. Only SDK-exposed fields can be checked here.
@@ -364,16 +452,45 @@ private object SdkLiteRtResources : LiteRtResources {
                                     )
                                 }
                                 override fun onDone() = callbacks.done()
-                                override fun onError(throwable: Throwable) = callbacks.error(throwable is CancellationException)
-                            },
-                            maxOutputToken = request.maxTokens, thinkingConfig = ThinkingConfig(false, 0),
-                            responseFormat = ResponseFormat.json(request.schemaJson),
-                        )
+                                override fun onError(throwable: Throwable) = observedLiteRtError(throwable, callbacks, statusTrace)
+                            }, request.maxTokens, ThinkingConfig(false, 0), liteRtResponseFormat(request.schemaJson))
+                        }, dispatch = { arguments ->
+                            // This is the public Kotlin call site, not an SDK body/JNI/native-entry
+                            // observation. All application argument construction is complete above.
+                            conversation.sendMessageAsync(
+                                arguments.prompt, arguments.callback, maxOutputToken = arguments.maxOutputToken,
+                                thinkingConfig = arguments.thinkingConfig, responseFormat = arguments.responseFormat,
+                            )
+                        })
                     }
                     override fun cancel() = conversation.cancelProcess()
                     override fun close(): Boolean { conversation.close(); return true }
                 }
             }
+        }
+    }
+}
+
+/** Encoding only: the original Rust schema/intent and commit validation remain authoritative. */
+internal fun liteRtResponseFormat(schemaJson: String): ResponseFormat =
+    finiteSchemaRegex(schemaJson)?.let { ResponseFormat.regex(it) } ?: ResponseFormat.json(schemaJson)
+
+/** Type identity only; no message, class name, stack, cause or hidden numeric status is read. */
+internal fun liteRtCallbackError(throwable: Throwable): LiteRtCallbackError = when (throwable) {
+    is CancellationException -> LiteRtCallbackError.CANCELLED
+    is LiteRtLmJniException -> LiteRtCallbackError.SDK_JNI
+    else -> LiteRtCallbackError.OTHER
+}
+
+/** Keep fencing first and preserve any original callback failure over diagnostic failures. */
+internal fun observedLiteRtError(throwable: Throwable, callbacks: LiteRtCallbacks, statusTrace: LiteRtStatusTrace? = null) {
+    try { callbacks.error(throwable is CancellationException) }
+    finally {
+        try { callbacks.errorCategory(liteRtCallbackError(throwable)) } catch (_: Throwable) { }
+        // Default/regular owners do not retrieve exception text. The optional receipt trace
+        // sees only a closed pinned-wrapper prefix result after the original fence.
+        if (statusTrace != null) {
+            try { statusTrace.record(liteRtDeclaredStatus(throwable)) } catch (_: Throwable) { }
         }
     }
 }

@@ -24,8 +24,8 @@ _spec.loader.exec_module(contract)
 
 APP, TEST = contract.APP, contract.TEST
 APK_HASHES = {
-    APP: "17f41d2bb3560a600ca80ce03346020431d639ed1f8bd2b2a895a6e095b59283",
-    TEST: "28918767790e357f5adb5e1f0f148d81037d1c18bf6df21d50dde45a4f7d4b7d",
+    APP: "83797af66672e5bab89e17d53339478eb7c57bee66773c9c72edd13466911a8a",
+    TEST: "e5d09b0f436237b51c647b4cc43a74e8f76b08bfdfe045907aa89ee6724f359d",
 }
 SOURCE_FILES = ("benchmarks/receipt_setup_qualification.py", "benchmarks/receipt_avd_environment.py",
     "benchmarks/receipt_fresh_target.py", "scripts/tests/test_receipt_setup_qualification.py",
@@ -38,6 +38,9 @@ SOURCE_FILES = ("benchmarks/receipt_setup_qualification.py", "benchmarks/receipt
     "apps/android/app/src/litert/java/org/locallore/app/LocalModelSetupActivity.kt",
     "apps/android/app/src/litert/java/org/locallore/app/LocalModelSetupViewModel.kt",
     "apps/android/app/src/litert/java/org/locallore/app/LiteRtRoleWorker.kt",
+    "apps/android/app/src/litert/java/org/locallore/app/FiniteSchemaRegex.kt",
+    "apps/android/app/src/litertTest/java/org/locallore/app/FiniteSchemaRegexTest.kt",
+    "apps/android/app/src/litertTest/java/org/locallore/app/LiteRtResponseFormatTest.kt",
     "apps/android/app/src/modelReceipt/java/org/locallore/app/ReceiptSetupFixtureActivity.kt",
     "apps/android/app/src/modelReceipt/java/org/locallore/app/ReceiptSetupFailureTrace.kt",
     "apps/android/app/src/modelReceiptTest/java/org/locallore/app/ReceiptSetupFailureTraceTest.kt",

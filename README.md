@@ -81,21 +81,74 @@ The positive run emitted no failure status. A separate
 [controlled failing test](docs/native/RECEIPT_SETUP_FAILURE_TRANSPORT_VERIFICATION_2026-10-24.md)
 delivered the bounded record and preserved its original error; it does not
 diagnose the earlier timeout.
-Real inference and physical-phone qualification remain pending. The
-[real-candidate probe](docs/native/RECEIPT_REAL_CANDIDATE_VERIFICATION_2026-10-24.md)
+The earlier [real-candidate probe](docs/native/RECEIPT_REAL_CANDIDATE_VERIFICATION_2026-10-24.md)
 is compiled and host-tested; its fresh8 GiB emulator preflight verified tiny
 local staging and capacity. The owner has now authorized the new test-app
 destination. The [authorized execution](docs/native/RECEIPT_REAL_EXECUTION_VERIFICATION_2026-10-24.md)
-records successful full-model receipt import after a tested bounded I/O
-correction. The real-backend PLAY attempt stops at its inference-ownership
-fence; an accepted real-model gift and restart remain unverified. The
+records the earlier successful full-model receipt import after a tested bounded I/O
+correction. Its PLAY attempt stopped at the inference-ownership fence before
+an accepted gift or restart. The
 [earlier partial result](docs/native/MODEL_RECEIPT_ANDROID_VERIFICATION_2026-10-24.md)
-is preserved.
+is preserved. [Closed worker-stage observations](docs/native/LITERT_WORKER_TRACE_CONTRACT.md)
+expose no prompts or private errors. A separately admitted
+[C-root follow-up](docs/native/RECEIPT_C_ROOT_EXECUTION_VERIFICATION_2026-10-25.md)
+passes full import and records a first SDK terminal/close observation before a
+second conversation attempt lacks a return. The subsequent
+[role-aware timed run](docs/native/LITERT_WORKER_TIMING_VERIFICATION_2026-10-25.md)
+passes import and observes42.175s from director send to DONE; narration starts
+59.580s after trace creation near the60s turn deadline and PLAY fails its ownership fence. This does
+not establish a long second-creation hang. A separately admitted
+[fresh four-core run](docs/native/RECEIPT_FOUR_CORE_VERIFICATION_2026-10-25.md)
+now passes 56 protocol checks: full local model import, one actual SDK gift
+validated/committed by Rust, and a new-process reopen of the unchanged receipt
+without inference. This is a synthetic emulator proof; phone, sustained-use,
+DocumentsUI and performance qualification remain open. Earlier failures are retained.
+The subsequent [real cancellation/recovery control](docs/native/RECEIPT_REAL_CANCELLATION_VERIFICATION_2026-10-25.md)
+passes 82 checks across five emulator methods. It verifies the Main-thread
+gateway API's actual SDK cancellation with unchanged canon, then a new-process
+gift and no-inference reopen. Cancellation latency and broader phone
+qualification remain open.
+The [real Compose control](docs/native/RECEIPT_COMPOSE_CANCELLATION_VERIFICATION_2026-10-25.md)
+passes 95 checks across five fresh-emulator methods: actual New story/Send/Cancel,
+unchanged cancelled canon, a real recovery gift and another-process visible
+reopen of the same receipt without inference. Stable accepted-message IDs keep
+transcript checks distinct from retained draft text. The initial visibility
+failure is preserved; its discarded cause remains unproven. Whole-test timings
+do not measure cancellation latency or qualify physical-phone performance.
+The [ordinary setup route](docs/native/RECEIPT_ORDINARY_ROUTE_VERIFICATION_2026-10-25.md)
+now passes the actual setup READY/Start transition into `LiteRtPlayActivity` and
+one real, Rust-committed gift on a fresh emulator: 56 qualified checks including
+preflight/import. Its later inspector/dialogue method fails inside the director
+send wrapper; no Dialogue receipt or ordinary-route reopen is qualified. The
+retained trace does not identify the discarded exception or prove SDK async-call
+entry. The next gate is a bounded observation separating argument construction
+from SDK invocation, while preserving quarantine and the existing deadlines.
+The [portable Dialogue follow-up](docs/native/LITERT_SEND_BOUNDARY_VERIFICATION_2026-10-25.md)
+replaces a known unsupported schema keyword with bounded choices covering every
+permitted audience set. Its fresh ordinary Start/gift passes again. Dialogue now
+returns from the public SDK call and receives 21 message callbacks before an
+asynchronous error; no accepted Dialogue or ordinary-route reopen is qualified.
+The new privacy-safe send record works on the actual failure path. The async
+error's cause remains unknown; all owned processes stopped and evidence is sealed.
+The [closed callback follow-up](docs/native/LITERT_CALLBACK_VERIFICATION_2026-10-25.md)
+again passes import and the ordinary Start/gift. Its actual failure record shows
+one SDK JNI-category error after 21 accepted chunks/61 UTF-8 bytes; configured
+request sizes are recorded without text. These are not token counts or an error
+diagnosis. Dialogue and ordinary-route reopen remain unqualified; all owned
+processes stopped and evidence is sealed. Safe native-status retention is the
+next investigation, with the existing privacy and ownership fences preserved.
+The [wrapper-declared status follow-up](docs/native/LITERT_STATUS_VERIFICATION_2026-10-25.md)
+tests a receipt-only bounded prefix bridge: the wrapper declares code13/INTERNAL on
+the actual Dialogue failure, after 15 validated chunks/58 UTF-8 bytes. It retains
+no private error payload and grants no resource or gameplay authority. Import
+and the real ordinary gift pass again; Dialogue and ordinary restart remain
+unqualified. A host grammar oracle is the next experiment; the cause is unproven.
 
 An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects
 the isolated SDK to guarded free-text preparation and durable commit. Its
 [verification](docs/runtime/android/PLAY_VERIFICATION_2026-10-23.md) establishes
-host/build and missing-model cleanup checks; real generation remains pending.
+host/build and missing-model cleanup checks; that separate probe's real-generation
+qualification remains pending.
 
 ## Run the Android engine demo
 
@@ -152,6 +205,18 @@ the separate preview described above. See
 [deletion verification and limits](docs/native/STORY_DELETION_VERIFICATION_2026-10-23.md).
 
 ## Initial technical direction
+
+The [finite-schema SDK correction](docs/native/LLGUIDANCE_LITERAL_VERIFICATION_2026-10-25.md)
+uses exact public regex constraints for supported finite schemas. Actual Kotlin
+output passed215 native byte-mask cases, and both Android variants passed host
+tests and package audits. This addresses a reproduced escaped-literal compiler
+tail omission; it does not establish the cause of earlier SDK errors or qualify
+real-model play. Fresh Android inference and restart remain separate checks.
+
+The [isolated LLGuidance development oracle](docs/native/LLGUIDANCE_ORACLE_PROTOCOL.md)
+exports actual engine Dialogue schemas and checks their exact bytes with a
+pinned host compiler. It uses original synthetic fixtures and no model or SDK;
+its result does not qualify real inference or a phone.
 
 The [shared SQLite owner](docs/storage/README.md) provides scoped seed storage,
 atomic root-branch turns and validated save/resume with exact durable retries.

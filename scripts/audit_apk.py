@@ -17,12 +17,15 @@ ABIS = {"x86_64": 62, "arm64-v8a": 183}
 RECEIPT_SETUP_ACTIVITIES = (
     "ReceiptSetupAcceptActivity", "ReceiptSetupCancelBeforeActivity",
     "ReceiptSetupCancelAfterActivity", "ReceiptSetupDrainActivity",
+    "ReceiptComposeCancellationActivity",
 )
 RECEIPT_SETUP_CLASSES = (
     "ReceiptSetupFixtureActivity", *RECEIPT_SETUP_ACTIVITIES,
     "ReceiptSetupFailureTrace", "ReceiptSetupFailureSnapshot", "ReceiptSetupSourceProgress",
     "ReceiptSetupFailureCase", "ReceiptSetupFailureEvent", "ReceiptSetupFailureCode",
     "ReceiptSetupFailureReporter",
+    "ComposeCancellationProof", "ComposeCancellationPhase",
+    "OrdinaryRouteProof", "OrdinaryRoutePhase",
 )
 # Exact candidate SDK; ordinary APKs must never contain these entries.
 LITERT_NATIVE_HASHES = {
@@ -102,12 +105,20 @@ def audit_zip(path, *, litert=False, model_picker=False, model_volume=False, mod
             receipt_fixture_present |= b"ReceiptAndroidFixture" in contents
             require(b"ReceiptVolumeQualificationTest" not in contents, "Receipt test packaged in app")
             require(b"ReceiptReal" not in contents, "Real candidate instrumentation packaged in app")
+            require(b"LiteRtSendTraceTest" not in contents, "LiteRT send test packaged in app")
+            require(b"LiteRtCallbackTraceTest" not in contents, "LiteRT callback test packaged in app")
+            require(b"LiteRtCallbackIntegrationTest" not in contents, "LiteRT callback integration test packaged in app")
+            require(b"LiteRtStatusTraceTest" not in contents, "LiteRT status test packaged in app")
+            require(b"LiteRtStatusIntegrationTest" not in contents, "LiteRT status integration test packaged in app")
             for name in RECEIPT_SETUP_CLASSES:
                 if name.encode("ascii") in contents:
                     receipt_setup_present.add(name)
             require(all(name not in contents for name in
                         (b"ReceiptSetupQualificationTest", b"ReceiptSetupRestartTest", b"ReceiptSetupFailureTraceTest",
-                         b"ReceiptSetupFailureTransportTest")),
+                         b"ReceiptSetupFailureTransportTest", b"ReceiptComposeCancellationTest",
+                         b"ReceiptComposeCancelTest", b"ReceiptComposeRecoverTest", b"ReceiptComposeReopenTest",
+                         b"ComposeCancellationProofTest", b"ReceiptOrdinaryRouteTest", b"ReceiptOrdinaryStartTest",
+                         b"ReceiptOrdinaryDialogueTest", b"ReceiptOrdinaryReopenTest", b"OrdinaryRouteProofTest")),
                     "Receipt setup test packaged in app")
             recovery_present |= b"ModelSetupRecovery" in contents
             recovery_activity_present |= b"ModelSetupRecoveryFixtureActivity" in contents

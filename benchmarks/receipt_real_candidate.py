@@ -19,6 +19,7 @@ import time
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import receipt_setup_qualification as q
 import receipt_avd_environment as environment
+import litert_worker_trace as worker_trace
 
 GIB = 1024 ** 3
 SCOPE = "receipt_real_candidate"
@@ -57,6 +58,13 @@ COMMON_KEYS = frozenset(("version", "phase", "pid", "start", "uid", "process", "
     "external_free_before", "external_free_after", "memory_total_bytes", "memory_available_before", "memory_available_after", "checks"))
 EXTRA_KEYS = frozenset(("phase", "source", "preflight", "human_consent"))
 SOURCE_FILES = (*q.SOURCE_FILES, "benchmarks/receipt_real_candidate.py", "scripts/tests/test_receipt_real_candidate.py",
+    "benchmarks/litert_worker_trace.py", "scripts/tests/test_litert_worker_trace.py",
+    "apps/android/app/src/litert/java/org/locallore/app/LiteRtWorkerTrace.kt",
+    "apps/android/app/src/litertTest/java/org/locallore/app/LiteRtWorkerTraceTest.kt",
+    "apps/android/app/src/modelReceipt/java/org/locallore/app/ReceiptWorkerFailureReporter.kt",
+    "apps/android/app/src/modelReceiptTest/java/org/locallore/app/ReceiptWorkerFailureReporterTest.kt",
+    "docs/native/LITERT_WORKER_TRACE_CONTRACT.md",
+    "docs/native/LITERT_WORKER_TRACE_V2_CONTRACT.md",
     "scripts/tests/test_receipt_real_stream_guards.py",
     "apps/android/app/src/modelReceiptAndroidTest/java/org/locallore/app/ReceiptRealCandidateTest.kt",
     "scripts/audit_apk.py", "scripts/tests/test_audit_apk.py", "scripts/tests/test_receipt_avd_environment.py",
@@ -161,6 +169,7 @@ def validate_proposal(value):
     assert not os.environ.get("ADB_SERVER_SOCKET") and not os.environ.get("ANDROID_ADB_SERVER_PORT")
     env = q.contract.strict_json(Path(value["environment_proposal_path"]).read_bytes())
     assert env["memory_mib"] == 8192 and env["host_available_memory_min"] == 12 * GIB
+    assert type(env["cores"]) is int and env["cores"] in (2, 4)
     source_path(value["source"], value["phase"])
     if value["phase"] == "preflight":
         assert value["preflight"] is None and value["human_consent"] is None
@@ -233,7 +242,18 @@ def stream_worker(proposal_path, authorization_path, evidence):
     raw = sys.stdin.buffer.read(128)
     assert raw.startswith(STREAM_REQUEST) and re.fullmatch(rb"[1-9][0-9]{4,9}\n", raw[len(STREAM_REQUEST):])
     uid = int(raw[len(STREAM_REQUEST):]); integer(uid, 10000, 2 ** 31 - 1)
-    value = authorize(proposal_path, authorization_path, evidence); lease = q.open_lease(value); lease.check()
+    value = authorize(proposal_path, authorization_path, evidence)
+    return stream_authorized(value, uid, proposal_path, authorization_path, evidence)
+
+
+def stream_authorized(value, uid, proposal_path, authorization_path, evidence):
+    """Trusted callers supply their fixed authorizer's value after the stdin barrier.
+
+    This internal sharing point is not a CLI or a capability to authorize a scope.
+    Parent binding, one-shot claim, live lease and held-FD transfer remain here.
+    """
+    integer(uid, 10000, 2 ** 31 - 1)
+    lease = q.open_lease(value); lease.check()
     cohort = Path(evidence) / "cohort"
     parent_path = cohort / "stream-parent-v1.json"
     parent = q.contract.strict_json(parent_path.read_bytes())
@@ -325,10 +345,14 @@ class ContinuedBoundary:
 
 
 class Owner(q.Owner):
+    # Trusted subclasses may use their own fixed authorizer module. No input selects it.
+    STREAM_SCRIPT = Path(__file__).resolve()
+
     def __init__(self, value, lease):
         super().__init__(value, lease)
         self.proposal_path = self.authorization_path = None
         self.stream_attempted = False
+        self.guest_cpu_check_attempted = False
         self.real_phase = value["phase"]
         phases = ("SOURCE_PREFLIGHT",) if self.real_phase == "preflight" else ("IMPORT", "PLAY", "REOPEN")
         self.instrumentation_steps = tuple((selection(phase), "instrument-" + phase, index) for index, phase in enumerate(phases))
@@ -340,6 +364,11 @@ class Owner(q.Owner):
             self.process_boundary = ContinuedBoundary(facts["processes"])
 
     def dispatch(self, args, deadline=15, cap=65536):
+        if self.stage == "guest-cpus":
+            assert self.guest_cpu_check_attempted and self.methods == 0
+            assert args == ["shell", "cat /sys/devices/system/cpu/online"]
+            assert self.clean; self.check_owner()
+            return self._dispatch_checked(args, deadline, cap)
         if self.stage == "source-root":
             assert self.real_phase == "preflight" and self.methods == 0
             assert args == ["shell", shlex.join(source_create(self.uid_map[q.APP]))]
@@ -347,6 +376,22 @@ class Owner(q.Owner):
             return self._dispatch_checked(args, deadline, cap)
         assert self.stage in {"boot", "before", "updating", "installed", "after", "proofs", *(step[1] for step in self.instrumentation_steps)}
         return super().dispatch(args, deadline, cap)
+
+    def check_guest_cpu_profile(self):
+        """One pre-work observation for the explicit four-core experiment only."""
+        assert self.stage == "before" and self.methods == 0 and not self.guest_cpu_check_attempted
+        self.guest_cpu_check_attempted = True
+        env = q.contract.strict_json(Path(self.proposal["environment_proposal_path"]).read_bytes())
+        assert type(env["cores"]) is int and env["cores"] in (2, 4)
+        if env["cores"] == 2:
+            return
+        assert env["memory_mib"] == 8192 and env["host_available_memory_min"] == 12 * GIB
+        self.stage = "guest-cpus"
+        raw = self.shell(("cat", "/sys/devices/system/cpu/online"), deadline=5, cap=128)
+        assert q.normalized(raw, 128) == "0-3\n"
+        q.write_json(self.directory / "guest-cpu-profile-v1.json",
+                     {"version": 1, "requested_cores": 4, "observed_online_cores": 4})
+        self.stage = "before"
 
     def transfer(self):
         assert self.stage == "source-stream" and self.clean and self.methods == 0 and not self.stream_attempted
@@ -360,7 +405,7 @@ class Owner(q.Owner):
                 "parent": environment.process_identity(os.getpid()), "proposal_sha256": q.sha(Path(self.proposal_path).read_bytes()),
                 "authorization_sha256": q.sha(Path(self.authorization_path).read_bytes()), "phase": self.real_phase,
                 "uid": self.uid_map[q.APP], "facts_sha256": q.sha(facts.read_bytes()), "deadline_epoch": time.time() + min(180, remaining)})
-            result = q.host.run_process([sys.executable, "-B", "-E", str(Path(__file__).resolve()), "_stream",
+            result = q.host.run_process([sys.executable, "-B", "-E", str(self.STREAM_SCRIPT), "_stream",
                 "--proposal", str(self.proposal_path), "--authorization", str(self.authorization_path),
                 "--evidence", self.proposal["evidence_root"]],
                 request=STREAM_REQUEST + str(self.uid_map[q.APP]).encode("ascii") + b"\n", deadline=min(180, remaining), max_output=4096)
@@ -402,7 +447,9 @@ def read_proof(owner, phase):
 def run_selected(owner, phase):
     owner.stage = "instrument-" + phase
     raw = owner.shell(selection(phase), deadline=180 if phase != "SOURCE_PREFLIGHT" else 60, cap=131072)
-    q.observe_failure_trace(owner, raw, "initial" if phase in ("SOURCE_PREFLIGHT", "IMPORT") else "restart")
+    worker_trace.observe_worker_trace(owner, raw, phase)
+    if phase != "PLAY":
+        q.observe_failure_trace(owner, raw, "initial" if phase in ("SOURCE_PREFLIGHT", "IMPORT") else "restart")
     result = parse_runner(raw, phase)
     q.write_json(owner.directory / (PHASES[phase][0] + "-instrumentation-v1.json"), result)
     return read_proof(owner, phase)
@@ -410,6 +457,7 @@ def run_selected(owner, phase):
 
 def run_cohort(owner):
     owner.wait_boot()
+    owner.check_guest_cpu_profile()
     if owner.real_phase == "preflight":
         before = owner.facts("before", {})
         sizes = q.validate_apks(owner.proposal)

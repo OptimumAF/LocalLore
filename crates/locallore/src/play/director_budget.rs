@@ -186,7 +186,7 @@ impl DirectorEnvelopeV25 {
             .map(|(id, actor)| (id, &actor.name))
             .collect();
         let schema =
-            super::director_schema_for(kind, text, &nearby, &inventory, player, guarded_action);
+            super::director_schema_for(kind, text, &nearby, &inventory, player, guarded_action)?;
         Ok(Self {
             scope: request.scope.clone(),
             revision: request.expected_revision,

@@ -186,7 +186,7 @@ class EnvironmentTests(unittest.TestCase):
                  "token": env.token_binding(self.token), "old_avd": env.old_registry_snapshot(),
                  "bindings": [env.binding(x) for x in files],
                  "userdata_mib": 12288, "sdcard_mib": 8192, "memory_mib": 2048, "cores": 2,
-                 "host_free_min": {"C:": 16 * env.GIB, "D:": 40 * env.GIB},
+                 "host_free_min": {"C:": (40 if self.root.drive.upper() == "C:" else 16) * env.GIB, "D:": 40 * env.GIB},
                  "host_available_memory_min": 4 * env.GIB,
                  "allow_environment_calls": False, "root_go_pending": True}
         return value
@@ -200,10 +200,12 @@ class EnvironmentTests(unittest.TestCase):
                              "allow_environment_calls": authorized, "root_go_pending": not authorized})
         return proposal, auth
 
-    def prepared_run(self, real_candidate=False):
+    def prepared_run(self, real_candidate=False, four_core_candidate=False):
         prepare = self.proposal()
-        if real_candidate:
+        if real_candidate or four_core_candidate:
             prepare.update(memory_mib=8192, host_available_memory_min=12 * env.GIB)
+        if four_core_candidate:
+            prepare["cores"] = 4
         initial, _ = self.files(prepare, "prepare.json")
         self.root.mkdir()
         content = Path(prepare["paths"]["content"])
@@ -318,6 +320,140 @@ class EnvironmentTests(unittest.TestCase):
             self.assertTrue(value["root_go_pending"])
         self.assertFalse(self.root.exists())
 
+    def c_root(self):
+        scratch = tempfile.TemporaryDirectory(prefix="receipt-c-root-test-", dir=Path(os.environ["LOCALAPPDATA"]) / "Temp")
+        self.addCleanup(scratch.cleanup)
+        parent = Path(scratch.name).resolve()
+        self.assertEqual(parent.drive.upper(), "C:")
+        return parent / "new-avd"
+
+    def test_explicit_c_plan_binds_stronger_floors_without_changing_d_plan(self):
+        fixture = self.proposal()
+        files = [Path(item["path"]) for item in fixture["bindings"]]
+        c_root = self.c_root()
+        with mock.patch.object(env, "installation_files", return_value=files), mock.patch.object(
+                env, "old_registry_snapshot", return_value=fixture["old_avd"]):
+            d_plan = env.plan_prepare(self.root, self.sdk, self.java, self.base / "d-drive-plan.json")
+            c_plan = env.plan_prepare(c_root, self.sdk, self.java, self.base / "c-drive-plan.json", real_candidate=True)
+        expected_d = dict(fixture, bindings=sorted(fixture["bindings"], key=lambda item: Path(item["path"])))
+        self.assertEqual(d_plan, expected_d)
+        self.assertEqual(env.encoded(d_plan), env.encoded(expected_d))
+        self.assertEqual(c_plan, dict(d_plan, paths=env.paths(c_root),
+            host_free_min={"C:": 40 * env.GIB, "D:": 40 * env.GIB},
+            memory_mib=8192, host_available_memory_min=12 * env.GIB))
+        env.validate_proposal(c_plan, "prepare")
+        self.assertFalse(c_root.exists())
+        self.assertFalse(self.root.exists())
+        self.assertFalse(c_plan["allow_environment_calls"])
+        self.assertTrue(c_plan["root_go_pending"])
+
+    def test_root_drive_and_floor_pair_are_closed_in_prepare_and_run(self):
+        c_root = self.c_root()
+        for phase in ("prepare", "run"):
+            original = self.proposal(phase)
+            if phase == "run":
+                original.update(prepare_proposal={}, prepared={}, prepare_result={}, max_seconds=1200)
+            for root, expected in ((self.root, {"C:": 16 * env.GIB, "D:": 40 * env.GIB}),
+                                   (c_root, {"C:": 40 * env.GIB, "D:": 40 * env.GIB})):
+                valid = dict(original, paths=env.paths(root), host_free_min=expected)
+                env.validate_proposal(valid, phase)
+                wrong = ({"C:": 16 * env.GIB, "D:": 40 * env.GIB} if root.drive.upper() == "C:" else
+                         {"C:": 40 * env.GIB, "D:": 40 * env.GIB})
+                for floors in (wrong, dict(expected, **{"C:": expected["C:"] - 1}),
+                               dict(expected, **{"D:": 40 * env.GIB - 1}),
+                               dict(expected, **{"D:": True}), dict(expected, **{"C:": float(expected["C:"])}),
+                               dict(expected, **{"E:": 40 * env.GIB})):
+                    with self.subTest(phase=phase, root=root.drive, floors=floors), self.assertRaises(env.EnvironmentRefused):
+                        env.validate_proposal(dict(valid, host_free_min=floors), phase)
+
+    def test_other_drives_relative_and_boolean_roots_refuse_before_sdk_inputs(self):
+        for root in ("E:/receipt-c-root-refusal", "C:relative", "relative", True, False, None):
+            with self.subTest(root=root), mock.patch.object(env, "installation_files") as inputs:
+                with self.assertRaises(env.EnvironmentRefused):
+                    env.plan_prepare(root, self.sdk, self.java, self.base / "never-drive-plan.json")
+                inputs.assert_not_called()
+                self.assertFalse((self.base / "never-drive-plan.json").exists())
+        value = self.proposal()
+        for root in (True, None, "E:/receipt-c-root-refusal", "relative", "C:relative"):
+            invalid = dict(value["paths"], root=root)
+            with self.subTest(proposal_root=root), self.assertRaises(env.EnvironmentRefused):
+                env.validate_proposal(dict(value, paths=invalid), "prepare")
+
+    def test_c_root_preexisting_and_symlink_metadata_refuse_without_adoption(self):
+        root = self.c_root()
+        root.mkdir()
+        sentinel = root / "preserve-original.txt"
+        sentinel.write_bytes(b"Original refusal fixture, no AVD")
+        with mock.patch.object(env, "installation_files") as inputs:
+            with self.assertRaisesRegex(env.EnvironmentRefused, "target_exists"):
+                env.plan_prepare(root, self.sdk, self.java, self.base / "preexisting-c.json")
+        inputs.assert_not_called()
+        self.assertEqual(list(root.iterdir()), [sentinel])
+        self.assertEqual(sentinel.read_bytes(), b"Original refusal fixture, no AVD")
+        fresh = self.c_root()
+        original_lstat = Path.lstat
+        def lstat(path, *args, **kwargs):
+            if path == fresh:
+                return type("LinkMetadata", (), {"st_mode": 0o120777, "st_file_attributes": 0})()
+            return original_lstat(path, *args, **kwargs)
+        with mock.patch.object(Path, "lstat", new=lstat), mock.patch.object(env, "installation_files") as inputs:
+            with self.assertRaisesRegex(env.EnvironmentRefused, "unsafe_path"):
+                env.plan_prepare(fresh, self.sdk, self.java, self.base / "linked-c.json")
+        inputs.assert_not_called()
+        self.assertFalse(fresh.exists())
+        self.assertFalse((self.base / "linked-c.json").exists())
+
+    def test_c_root_path_shape_cannot_escape_its_explicit_root(self):
+        value = self.proposal()
+        root = self.c_root()
+        value.update(paths=env.paths(root), host_free_min={"C:": 40 * env.GIB, "D:": 40 * env.GIB})
+        for key in ("content", "registry", "android", "emulator_home", "tmp"):
+            wrong = dict(value["paths"], **{key: str(self.base / "foreign-owned-test-path")})
+            with self.subTest(key=key), self.assertRaisesRegex(env.EnvironmentRefused, "invalid_proposal"):
+                env.validate_proposal(dict(value, paths=wrong), "prepare")
+        with self.assertRaises(env.EnvironmentRefused):
+            env.validate_proposal(dict(value, paths=dict(value["paths"], extra=str(root / "extra"))), "prepare")
+
+    def test_c_root_capacity_keeps_both_40gib_reserves(self):
+        value = self.proposal()
+        value.update(paths=env.paths(self.c_root()), host_free_min={"C:": 40 * env.GIB, "D:": 40 * env.GIB},
+                     memory_mib=8192, host_available_memory_min=12 * env.GIB)
+        def memory(pointer):
+            pointer._obj.available = 12 * env.GIB
+            return 1
+        for c_free, d_free in ((40 * env.GIB, 40 * env.GIB), (40 * env.GIB - 1, 100 * env.GIB),
+                               (100 * env.GIB, 40 * env.GIB - 1)):
+            available = {"C:": c_free, "D:": d_free}
+            with self.subTest(c_free=c_free, d_free=d_free), mock.patch.object(
+                    env.ctypes.windll.kernel32, "GlobalMemoryStatusEx", side_effect=memory), mock.patch.object(
+                    env.shutil, "disk_usage", side_effect=lambda drive: type("Disk", (), {"free": available[drive[:2]]})()):
+                if min(c_free, d_free) < 40 * env.GIB:
+                    with self.assertRaisesRegex(env.EnvironmentRefused, "host_capacity"):
+                        env.resource_facts(value)
+                else:
+                    self.assertEqual(env.resource_facts(value)["free_bytes"], available)
+
+    def test_c_run_preserves_floor_binding_owner_window_and_refuses_replay(self):
+        self.root = self.c_root()
+        run, _, _ = self.prepared_run(real_candidate=True)
+        planned = env.plan_run(run["prepare_proposal"]["path"], run["prepared"]["path"], self.base / "c-run-plan.json")
+        self.assertEqual(planned, dict(run, max_seconds=1800))
+        env.validate_proposal(planned, "run")
+        env.verify_prepared(planned)
+        wrong = dict(planned, paths=env.paths(self.base / "different-d-root"),
+                     host_free_min={"C:": 16 * env.GIB, "D:": 40 * env.GIB})
+        env.validate_proposal(wrong, "run")
+        with self.assertRaisesRegex(env.EnvironmentRefused, "prepared_changed"):
+            env.verify_prepared(wrong)
+        proposal, authorization = self.files(planned, "c-run-used.json")
+        sentinel = self.root / "run-start-v1.json"
+        sentinel.write_bytes(b"Original consumed run, preserve")
+        with mock.patch.object(env, "resource_facts", return_value={}), mock.patch.object(env, "ports_free"), mock.patch.object(env, "supervise") as child:
+            with self.assertRaisesRegex(env.EnvironmentRefused, "target_used"):
+                env.run(proposal, authorization)
+        child.assert_not_called()
+        self.assertEqual(sentinel.read_bytes(), b"Original consumed run, preserve")
+
     def test_plan_profile_argument_refuses_non_boolean_before_inputs_or_mutation(self):
         for argument in (None, 0, 1, "real", 8192):
             with self.subTest(argument=argument), mock.patch.object(env, "installation_files") as inputs:
@@ -408,7 +544,8 @@ class EnvironmentTests(unittest.TestCase):
             with self.subTest(expected=expected), mock.patch.object(env, "plan_prepare") as plan:
                 self.assertEqual(env.main(["plan-prepare", "--root", "root", "--sdk", "sdk",
                     "--java-home", "java", "--output", "output"] + flags), 0)
-                plan.assert_called_once_with("root", "sdk", "java", "output", real_candidate=expected)
+                plan.assert_called_once_with("root", "sdk", "java", "output", real_candidate=expected,
+                                             four_core_candidate=False)
 
     def test_real_run_retains_profile_and_refuses_downgrade_from_bound_prepare(self):
         run, _, _ = self.prepared_run(real_candidate=True)
@@ -418,6 +555,198 @@ class EnvironmentTests(unittest.TestCase):
         env.validate_proposal(changed, "run")  # Valid synthetic pair, wrong admitted environment.
         with self.assertRaisesRegex(env.EnvironmentRefused, "prepared_changed"):
             env.verify_prepared(changed)
+
+    def test_four_core_plan_changes_only_cores_from_explicit_real_profile(self):
+        fixture = self.proposal()
+        files = [Path(item["path"]) for item in fixture["bindings"]]
+        with mock.patch.object(env, "installation_files", return_value=files), mock.patch.object(
+                env, "old_registry_snapshot", return_value=fixture["old_avd"]):
+            old = env.plan_prepare(self.root, self.sdk, self.java, self.base / "old-two.json")
+            real = env.plan_prepare(self.root, self.sdk, self.java, self.base / "real-two.json", real_candidate=True)
+            four = env.plan_prepare(self.root, self.sdk, self.java, self.base / "real-four.json",
+                                    real_candidate=True, four_core_candidate=True)
+        self.assertEqual(old, dict(fixture, bindings=sorted(fixture["bindings"], key=lambda item: Path(item["path"]))))
+        self.assertEqual(real, dict(old, memory_mib=8192, host_available_memory_min=12 * env.GIB))
+        self.assertEqual(env.encoded(four), env.encoded(dict(real, cores=4)))
+        self.assertEqual(set(four), set(old))
+        env.validate_proposal(four, "prepare")
+        self.assertFalse(four["allow_environment_calls"])
+        self.assertTrue(four["root_go_pending"])
+        self.assertFalse(self.root.exists())
+
+    def test_four_core_option_requires_exact_booleans_and_real_before_inputs(self):
+        for real, four in ((False, True), (0, True), (1, True), (None, True),
+                           (True, None), (True, 0), (True, 1), (True, 4), (True, "four")):
+            with self.subTest(real=real, four=four), mock.patch.object(env, "installation_files") as inputs:
+                with self.assertRaisesRegex(env.EnvironmentRefused, "invalid_profile"):
+                    env.plan_prepare(self.root, self.sdk, self.java, self.base / "never-four.json",
+                                     real_candidate=real, four_core_candidate=four)
+                inputs.assert_not_called()
+                self.assertFalse((self.base / "never-four.json").exists())
+                self.assertFalse(self.root.exists())
+
+    def test_four_core_validator_binds_exact_typed_memory_cpu_profile_in_both_phases(self):
+        for phase in ("prepare", "run"):
+            original = self.proposal(phase)
+            if phase == "run":
+                original.update(prepare_proposal={}, prepared={}, prepare_result={}, max_seconds=1800)
+            four = dict(original, memory_mib=8192, host_available_memory_min=12 * env.GIB, cores=4)
+            env.validate_proposal(four, phase)
+            for changes in ({"memory_mib": 2048, "host_available_memory_min": 4 * env.GIB},
+                            {"memory_mib": 4096}, {"host_available_memory_min": 12 * env.GIB - 1},
+                            {"host_available_memory_min": 4 * env.GIB}, {"four_core_candidate": True}):
+                with self.subTest(phase=phase, changes=changes), self.assertRaisesRegex(env.EnvironmentRefused, "invalid_proposal"):
+                    env.validate_proposal(dict(four, **changes), phase)
+            for cores in (True, False, None, "4", 2.0, 4.0, 0, 1, 3, 5, 8):
+                with self.subTest(phase=phase, cores=cores), self.assertRaisesRegex(env.EnvironmentRefused, "invalid_proposal"):
+                    env.validate_proposal(dict(four, cores=cores), phase)
+
+    def test_four_core_config_and_argv_agree_without_other_profile_changes(self):
+        two = dict(self.proposal(), memory_mib=8192, host_available_memory_min=12 * env.GIB)
+        four = dict(two, cores=4)
+        content = Path(four["paths"]["content"])
+        two_config = env.ini(env.normalize_generated_config(ACTUAL_CMDLINE_11_CONFIG,
+            self.generated_registry(content), content, 8192, 2))
+        four_config = env.ini(env.normalize_generated_config(ACTUAL_CMDLINE_11_CONFIG,
+            self.generated_registry(content), content, 8192, 4))
+        self.assertEqual(four_config, dict(two_config, **{"hw.cpu.ncore": "4"}))
+        before, after = env.emulator_command(two), env.emulator_command(four)
+        expected = list(before); expected[expected.index("-cores") + 1] = "4"
+        self.assertEqual(after, expected)
+        self.assertEqual(env.prepare_command(two), env.prepare_command(four))
+        self.assertEqual(four_config["disk.dataPartition.size"], "12G")
+        self.assertEqual(four_config["sdcard.size"], "8192M")
+        self.assertNotIn("-partition-size", after)
+        for memory, cores in ((2048, 4), (4096, 4), (True, 4), (8192, True), (8192, 4.0), (8192, 3)):
+            with self.subTest(memory=memory, cores=cores), self.assertRaisesRegex(env.EnvironmentRefused, "invalid_profile"):
+                env.normalize_generated_config(ACTUAL_CMDLINE_11_CONFIG, self.generated_registry(content), content, memory, cores)
+        with self.assertRaisesRegex(env.EnvironmentRefused, "invalid_profile"):
+            env.emulator_command(dict(four, cores=3))
+
+    def test_four_core_host_cpu_floor_refuses_unknown_and_records_logical_metadata(self):
+        four = dict(self.proposal(), memory_mib=8192, host_available_memory_min=12 * env.GIB, cores=4)
+        def memory(pointer):
+            pointer._obj.available = 12 * env.GIB
+            return 1
+        for count in (None, True, False, 0, -1, 4, 7, 8.0, "8", 8, 12):
+            with self.subTest(count=count), mock.patch.object(env.os, "cpu_count", return_value=count), mock.patch.object(
+                    env.ctypes.windll.kernel32, "GlobalMemoryStatusEx", side_effect=memory), mock.patch.object(
+                    env.shutil, "disk_usage", return_value=type("Disk", (), {"free": 40 * env.GIB})()):
+                if type(count) is int and count >= 8:
+                    self.assertEqual(env.resource_facts(four), {"free_bytes": {"C:": 40 * env.GIB, "D:": 40 * env.GIB},
+                        "available_memory": 12 * env.GIB, "logical_cpus": count})
+                else:
+                    with self.assertRaisesRegex(env.EnvironmentRefused, "host_cpu_capacity"):
+                        env.resource_facts(four)
+
+    def test_two_core_profiles_do_not_query_host_cpu_or_change_resource_facts_shape(self):
+        value = self.proposal()
+        for memory_mib, floor in ((2048, 4 * env.GIB), (8192, 12 * env.GIB)):
+            value.update(memory_mib=memory_mib, host_available_memory_min=floor)
+            def memory(pointer):
+                pointer._obj.available = floor
+                return 1
+            with mock.patch.object(env.os, "cpu_count", side_effect=AssertionError("Old profile queried CPUs")) as query, mock.patch.object(
+                    env.ctypes.windll.kernel32, "GlobalMemoryStatusEx", side_effect=memory), mock.patch.object(
+                    env.shutil, "disk_usage", return_value=type("Disk", (), {"free": 40 * env.GIB})()):
+                self.assertEqual(env.resource_facts(value), {"free_bytes": {"C:": 40 * env.GIB, "D:": 40 * env.GIB},
+                                                            "available_memory": floor})
+                query.assert_not_called()
+
+    def test_four_core_low_cpu_refuses_parent_prepare_before_root_or_child(self):
+        four = dict(self.proposal(), memory_mib=8192, host_available_memory_min=12 * env.GIB, cores=4)
+        proposal, authorization = self.files(four)
+        with mock.patch.object(env.os, "cpu_count", return_value=7), mock.patch.object(env.host, "run_process") as child:
+            with self.assertRaisesRegex(env.EnvironmentRefused, "host_cpu_capacity"):
+                env.prepare(proposal, authorization)
+        child.assert_not_called()
+        self.assertFalse(self.root.exists())
+
+    def test_four_core_low_cpu_refuses_parent_run_without_consuming_start(self):
+        _, proposal, authorization = self.prepared_run(four_core_candidate=True)
+        with mock.patch.object(env.os, "cpu_count", return_value=None), mock.patch.object(env, "supervise") as child:
+            with self.assertRaisesRegex(env.EnvironmentRefused, "host_cpu_capacity"):
+                env.run(proposal, authorization)
+        child.assert_not_called()
+        self.assertFalse((self.root / "run-start-v1.json").exists())
+
+    def test_four_core_worker_rechecks_cpu_after_parent_admission_before_sdk_spawn(self):
+        for mode, phase in (("_prepare-worker", "prepare"), ("_run-worker", "run")):
+            with self.subTest(mode=mode):
+                value = dict(self.proposal(phase), memory_mib=8192, host_available_memory_min=12 * env.GIB, cores=4)
+                if phase == "run":
+                    value.update(prepare_proposal={}, prepared={}, prepare_result={}, max_seconds=1800)
+                proposal, authorization = self.files(value, phase + "-cpu.json")
+                self.root.mkdir(exist_ok=True)
+                identity = {"pid": 123, "creation_filetime": 456, "executable": sys.executable}
+                env.create_json(self.root / (phase + "-start-v1.json"), {"proposal_sha256": env.digest(proposal), "owner": identity})
+                request = env.encoded({"proposal": str(proposal), "proposal_sha256": env.digest(proposal), "authorization": str(authorization)})
+                with mock.patch.object(env.sys, "stdin", mock.Mock(buffer=io.BytesIO(request))), mock.patch.object(
+                        env, "process_identity", return_value=identity), mock.patch.object(env.os, "cpu_count", return_value=7) as query, mock.patch.object(
+                        env.subprocess, "run") as prepare, mock.patch.object(env.subprocess, "Popen") as launch:
+                    with self.assertRaisesRegex(env.EnvironmentRefused, "host_cpu_capacity"):
+                        env.worker(mode)
+                query.assert_called_once_with()
+                prepare.assert_not_called(); launch.assert_not_called()
+                self.assertFalse((self.root / (phase + "-worker-claimed-v1.json")).exists())
+
+    def test_four_core_worker_cpu_admission_precedes_mocked_sdk_dispatch(self):
+        value = dict(self.proposal(), memory_mib=8192, host_available_memory_min=12 * env.GIB, cores=4)
+        proposal, authorization = self.files(value)
+        self.root.mkdir()
+        identity = {"pid": 123, "creation_filetime": 456, "executable": sys.executable}
+        env.create_json(self.root / "prepare-start-v1.json", {"proposal_sha256": env.digest(proposal), "owner": identity})
+        request = env.encoded({"proposal": str(proposal), "proposal_sha256": env.digest(proposal), "authorization": str(authorization)})
+        observations = []
+        def cpu():
+            observations.append("cpu")
+            return 8
+        def memory(pointer):
+            pointer._obj.available = 12 * env.GIB
+            return 1
+        def dispatch(command, **kwargs):
+            self.assertEqual(observations, ["cpu"])
+            self.assertTrue((self.root / "prepare-worker-claimed-v1.json").exists())
+            self.assertEqual(command, env.prepare_command(value))
+            observations.append("mocked_sdk")
+            return type("Completed", (), {"returncode": 0})()
+        with mock.patch.object(env.sys, "stdin", mock.Mock(buffer=io.BytesIO(request))), mock.patch.object(
+                env, "process_identity", return_value=identity), mock.patch.object(env.os, "cpu_count", side_effect=cpu), mock.patch.object(
+                env.ctypes.windll.kernel32, "GlobalMemoryStatusEx", side_effect=memory), mock.patch.object(
+                env.shutil, "disk_usage", return_value=type("Disk", (), {"free": 40 * env.GIB})()), mock.patch.object(
+                env.subprocess, "run", side_effect=dispatch) as child:
+            self.assertEqual(env.worker("_prepare-worker"), 0)
+        child.assert_called_once()
+        self.assertEqual(observations, ["cpu", "mocked_sdk"])
+
+    def test_four_core_run_cannot_replay_a_different_core_prepare_or_mutable_config(self):
+        run, _, _ = self.prepared_run(four_core_candidate=True)
+        env.verify_prepared(run)
+        changed = dict(run, cores=2)
+        env.validate_proposal(changed, "run")
+        with self.assertRaisesRegex(env.EnvironmentRefused, "prepared_changed"):
+            env.verify_prepared(changed)
+        config = Path(run["paths"]["content"]) / "config.ini"
+        config.write_bytes(b"hw.cpu.ncore=2\n")
+        with self.assertRaisesRegex(env.EnvironmentRefused, "binding_changed"):
+            env.verify_prepared(run)
+
+    def test_four_core_cli_requires_real_and_plan_prepare_without_other_dispatch(self):
+        for phase in ("plan-prepare", "prepare", "plan-run", "run", "_prepare-worker", "_run-worker"):
+            for real in (False, True):
+                if phase == "plan-prepare" and real:
+                    continue
+                arguments = [phase, "--four-core-candidate"] + (["--real-model-candidate"] if real else [])
+                with self.subTest(phase=phase, real=real), mock.patch.object(env, "plan_prepare") as plan, mock.patch.object(
+                        env, "prepare") as prepare, mock.patch.object(env, "plan_run") as planned, mock.patch.object(
+                        env, "run") as run, mock.patch.object(env, "worker") as worker, mock.patch.object(sys, "stdout", new=io.StringIO()):
+                    self.assertEqual(env.main(arguments), 2)
+                    for operation in (plan, prepare, planned, run, worker):
+                        operation.assert_not_called()
+        with mock.patch.object(env, "plan_prepare") as plan:
+            self.assertEqual(env.main(["plan-prepare", "--root", "root", "--sdk", "sdk", "--java-home", "java",
+                                      "--output", "output", "--real-model-candidate", "--four-core-candidate"]), 0)
+            plan.assert_called_once_with("root", "sdk", "java", "output", real_candidate=True, four_core_candidate=True)
 
     def test_token_drift_precedes_creation(self):
         p, a = self.files(self.proposal()); self.token.write_bytes(b"changed")

@@ -56,7 +56,7 @@ def transcript(phase):
 def proposal(root):
     value = fixture.proposal(root); value.update(scope=r.SCOPE, phase="preflight", preflight=None, human_consent=None,
         source={"path": str(r.PROBE_PATH.resolve()), "bytes": r.PROBE_BYTES, "sha256": r.PROBE_SHA})
-    env = Path(value["environment_proposal_path"]); env.write_bytes(encoded({"memory_mib":8192,"host_available_memory_min":12*r.GIB}))
+    env = Path(value["environment_proposal_path"]); env.write_bytes(encoded({"memory_mib":8192,"host_available_memory_min":12*r.GIB,"cores":2}))
     value["bindings"][str(env.resolve())] = q.sha(env.read_bytes())
     for name in r.SOURCE_FILES:
         p = (q.ROOT/name).resolve(); value["bindings"][str(p)] = q.sha(p.read_bytes())
@@ -70,6 +70,151 @@ def stream_result(clean=True):
 
 
 class RealCandidateTests(unittest.TestCase):
+    def cpu_fixture(self, root, cores=4):
+        value = proposal(root)
+        env = Path(value["environment_proposal_path"])
+        env.write_bytes(encoded({"memory_mib": 8192, "host_available_memory_min": 12*r.GIB, "cores": cores}))
+        lease = fixture.Lease(value)
+        owner = r.Owner(value, lease)
+        owner.stage = "before"
+        return owner, lease
+
+    def test_four_core_guest_observation_precedes_work_and_is_one_shot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            owner, lease = self.cpu_fixture(Path(directory))
+            value = SimpleNamespace(status="completed", returncode=0, cleanup_complete=True,
+                                    stdout=b"0-3\n", stderr_bytes=0, elapsed_ms=1)
+            with patch.object(q.host, "run_process", return_value=value) as run:
+                owner.check_guest_cpu_profile()
+                self.assertEqual(owner.stage, "before")
+                self.assertEqual(owner.methods, 0)
+                self.assertEqual(run.call_count, 1)
+                self.assertEqual(run.call_args.args[0][-2:], ["shell", "cat /sys/devices/system/cpu/online"])
+                self.assertLessEqual(run.call_args.kwargs["deadline"], 5)
+                self.assertEqual(run.call_args.kwargs["max_output"], 128)
+                with self.assertRaises(AssertionError): owner.check_guest_cpu_profile()
+                self.assertEqual(run.call_count, 1)
+            self.assertEqual(json.loads((owner.directory/"guest-cpu-profile-v1.json").read_bytes()),
+                             {"version": 1, "requested_cores": 4, "observed_online_cores": 4})
+
+    def test_guest_cpu_mismatch_or_unknown_cleanup_stops_before_copy_and_sdk(self):
+        for raw, clean in [(b"0-1\n", True), (b"0-7\n", True), (b"4\n", True), (b"", True),
+                           (b"0-3\nextra\n", True), (b"0-3\n", False)]:
+            with self.subTest(raw=raw, clean=clean), tempfile.TemporaryDirectory() as directory:
+                owner, lease = self.cpu_fixture(Path(directory))
+                value = SimpleNamespace(status="completed", returncode=0, cleanup_complete=clean,
+                                        stdout=raw, stderr_bytes=0, elapsed_ms=1)
+                with patch.object(q.host, "run_process", return_value=value) as run, \
+                     patch.object(owner, "wait_boot"), patch.object(owner, "facts") as facts, \
+                     patch.object(owner, "transfer") as transfer, patch.object(r, "run_selected") as selected:
+                    with self.assertRaises(AssertionError): r.run_cohort(owner)
+                    facts.assert_not_called(); transfer.assert_not_called(); selected.assert_not_called()
+                    with self.assertRaises(AssertionError): owner.check_guest_cpu_profile()
+                    self.assertEqual(run.call_count, 1)
+                self.assertFalse((owner.directory/"guest-cpu-profile-v1.json").exists())
+
+    def test_two_core_profile_dispatches_no_new_guest_command(self):
+        with tempfile.TemporaryDirectory() as directory:
+            owner, _ = self.cpu_fixture(Path(directory), 2)
+            with patch.object(q.host, "run_process") as run:
+                owner.check_guest_cpu_profile()
+                run.assert_not_called()
+            self.assertEqual(owner.stage, "before")
+            self.assertEqual(list(owner.commands.iterdir()), [])
+            self.assertFalse((owner.directory/"guest-cpu-profile-v1.json").exists())
+
+    def test_guest_cpu_retention_failure_or_late_owner_loss_stops_and_keeps_raw_client(self):
+        for mode in ("retention", "late-owner-loss"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                owner, lease = self.cpu_fixture(Path(directory))
+                value = SimpleNamespace(status="completed", returncode=0, cleanup_complete=True,
+                                        stdout=b"0-3\n", stderr_bytes=0, elapsed_ms=1)
+                original_write = q.write_json
+                def write(path, data):
+                    if mode == "retention" and Path(path).name == "guest-cpu-profile-v1.json":
+                        raise OSError("private evidence failure")
+                    return original_write(path, data)
+                def dispatch(*args, **kwargs):
+                    if mode == "late-owner-loss": lease.live = False
+                    return value
+                with patch.object(q.host, "run_process", side_effect=dispatch) as run, \
+                     patch.object(q, "write_json", side_effect=write), patch.object(owner, "wait_boot"), \
+                     patch.object(owner, "facts") as facts, patch.object(owner, "transfer") as transfer, \
+                     patch.object(r, "run_selected") as selected:
+                    with self.assertRaises((AssertionError, OSError, RuntimeError)): r.run_cohort(owner)
+                    facts.assert_not_called(); transfer.assert_not_called(); selected.assert_not_called()
+                    with self.assertRaises(AssertionError): owner.check_guest_cpu_profile()
+                    self.assertEqual(run.call_count, 1)
+                self.assertEqual((owner.commands/"command-0001.stdout.bin").read_bytes(), b"0-3\n")
+                self.assertTrue((owner.commands/"command-0001.json").is_file())
+                self.assertFalse((owner.directory/"guest-cpu-profile-v1.json").exists())
+
+    def test_guest_cpu_guard_cannot_run_after_work_or_unknown_owner(self):
+        for mode in ("stage", "methods", "owner", "boolean"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                owner, lease = self.cpu_fixture(Path(directory), True if mode == "boolean" else 4)
+                if mode == "stage": owner.stage = "after"
+                if mode == "methods": owner.methods = 1
+                if mode == "owner": lease.live = False
+                with patch.object(q.host, "run_process") as run:
+                    with self.assertRaises((AssertionError, RuntimeError)): owner.check_guest_cpu_profile()
+                    run.assert_not_called()
+
+    def test_v2_role_timing_is_retained_before_failed_runner_without_enabling_later_actions(self):
+        counts = {event: 0 for event in r.worker_trace.EVENTS}
+        counts.update(CONVERSATION_CREATE_ENTERED=2, CONVERSATION_CREATE_RETURNED=1)
+        last = {event: None for event in r.worker_trace.EVENTS}
+        last.update(CONVERSATION_CREATE_ENTERED=100, CONVERSATION_CREATE_RETURNED=50)
+        value = {"version": 2, "counts": counts, "saturated": [], "last_ms": last,
+                 "snapshot_ms": 200, "time_saturated": False, "creations_total": 2,
+                 "creations_saturated": False, "creations": [
+                     {"ordinal": 1, "role": "DIRECTOR", "entered_ms": 20, "returned_ms": 50,
+                      "failed_ms": None, "failure": "NONE"},
+                     {"ordinal": 2, "role": "NARRATOR", "entered_ms": 100, "returned_ms": None,
+                      "failed_ms": None, "failure": "NONE"}]}
+        wire = (r.worker_trace.PREFIX + encoded(value).decode("ascii") +
+                "\nINSTRUMENTATION_STATUS_CODE: 1337\nFAILURES!!!\n").encode("ascii")
+        with tempfile.TemporaryDirectory() as directory:
+            owner = SimpleNamespace(directory=Path(directory), shell=lambda *a, **kw: wire)
+            with patch.object(r, "read_proof") as read:
+                with self.assertRaises(AssertionError): r.run_selected(owner, "PLAY")
+                read.assert_not_called()
+            self.assertEqual(value, json.loads((Path(directory) / "play-worker-trace-v2.json").read_bytes()))
+            self.assertFalse((Path(directory) / "play-instrumentation-v1.json").exists())
+        for phase in r.PHASES:
+            with tempfile.TemporaryDirectory() as directory:
+                owner = SimpleNamespace(directory=Path(directory), shell=lambda *a, **kw: wire + transcript(phase))
+                with patch.object(r, "read_proof") as read:
+                    with self.assertRaises(AssertionError): r.run_selected(owner, phase)
+                    read.assert_not_called()
+                self.assertEqual([], list(Path(directory).iterdir()))
+
+    def test_play_worker_observation_is_retained_before_unchanged_failed_runner_gate(self):
+        counts = {event: 0 for event in r.worker_trace.EVENTS}
+        counts["INITIALIZE_ENTERED"] = 1
+        value = {"version": 1, "counts": counts, "saturated": []}
+        wire = ("INSTRUMENTATION_STATUS: locallore_receipt_worker_v1=" + encoded(value).decode("ascii") +
+                "\nINSTRUMENTATION_STATUS_CODE: 1337\nFAILURES!!!\n").encode("ascii")
+        with tempfile.TemporaryDirectory() as directory:
+            owner = SimpleNamespace(directory=Path(directory), shell=lambda *a, **kw: wire)
+            with patch.object(r, "read_proof") as read:
+                with self.assertRaises(AssertionError): r.run_selected(owner, "PLAY")
+                read.assert_not_called()
+            self.assertEqual(value, json.loads((Path(directory) / "play-worker-trace-v1.json").read_bytes()))
+            self.assertFalse((Path(directory) / "play-instrumentation-v1.json").exists())
+
+    def test_play_worker_trace_cannot_qualify_success_or_appear_in_other_phases(self):
+        value = {"version": 1, "counts": {event: 0 for event in r.worker_trace.EVENTS}, "saturated": []}
+        wire = ("INSTRUMENTATION_STATUS: locallore_receipt_worker_v1=" + encoded(value).decode("ascii") +
+                "\nINSTRUMENTATION_STATUS_CODE: 1337\n").encode("ascii")
+        for phase in r.PHASES:
+            with tempfile.TemporaryDirectory() as directory:
+                owner = SimpleNamespace(directory=Path(directory), shell=lambda *a, **kw: wire + transcript(phase))
+                with patch.object(r, "read_proof") as read:
+                    with self.assertRaises(AssertionError): r.run_selected(owner, phase)
+                    read.assert_not_called()
+                self.assertEqual([], list(Path(directory).iterdir()))
+
     def reject_proof(self, value):
         with self.assertRaises((AssertionError, ValueError, KeyError)): r.parse_proof(encoded(value), value["phase"], 10310)
 
@@ -152,14 +297,47 @@ class RealCandidateTests(unittest.TestCase):
         for uid in (True,1,-1,"10310"):
             with self.assertRaises(AssertionError):r.source_write(uid,"candidate")
 
-    def transfer_fixture(self,root):
+    def transfer_fixture(self,root,owner_type=r.Owner):
         value=fixture.proposal(root);value.update(phase="preflight",source={"bytes":r.PROBE_BYTES})
-        lease=fixture.Lease(value);owner=r.Owner(value,lease);owner.stage="source-stream";owner.uid_map={q.APP:10310,q.TEST:10311}
+        lease=fixture.Lease(value);owner=owner_type(value,lease);owner.stage="source-stream";owner.uid_map={q.APP:10310,q.TEST:10311}
         owner.proposal_path=root/"proposal.json";owner.authorization_path=root/"auth.json"
         owner.proposal_path.write_bytes(b"proposal");owner.authorization_path.write_bytes(b"grant")
         q.write_json(owner.directory/"installed-facts.json",{"packages":value["apk_sha256"],"uid_map":owner.uid_map,
             "processes":{"target":[],"test_helper":[]},"userdata":{"available_bytes":q.contract.USERDATA_FLOOR+r.PROBE_BYTES}})
         return owner,lease
+
+    def test_transfer_script_is_fixed_by_trusted_control_not_proposal_input(self):
+        class FixedControl(r.Owner):
+            STREAM_SCRIPT = Path(__file__).resolve().parent / "trusted-cancel-driver.py"
+        for owner_type in (r.Owner, FixedControl):
+            with self.subTest(owner=owner_type.__name__), tempfile.TemporaryDirectory() as directory:
+                owner, lease = self.transfer_fixture(Path(directory), owner_type)
+                owner.proposal["stream_script"] = "untrusted-proposal-selection.py"
+                with patch.object(r.environment, "process_identity", return_value={"pid": 42, "creation_filetime": 3, "executable": sys.executable}), \
+                     patch.object(q.host, "run_process", return_value=stream_result()) as run:
+                    owner.transfer()
+                self.assertEqual(run.call_args.args[0][3], str(owner_type.STREAM_SCRIPT))
+                self.assertNotIn("untrusted-proposal-selection.py", run.call_args.args[0])
+                self.assertEqual(run.call_args.args[0][4], "_stream")
+
+    def test_stream_sharing_does_not_bypass_barrier_or_fixed_authorizer(self):
+        value = {"scope": r.SCOPE}
+        for raw in (b"", b"wrong\n", r.STREAM_REQUEST+b"1\n"):
+            with self.subTest(raw=raw), patch.object(r.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(raw))), \
+                 patch.object(r, "authorize") as auth, patch.object(r, "stream_authorized") as shared:
+                with self.assertRaises(AssertionError): r.stream_worker("p", "a", "e")
+                auth.assert_not_called(); shared.assert_not_called()
+        with patch.object(r.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(r.STREAM_REQUEST+b"10310\n"))), \
+             patch.object(r, "authorize", side_effect=AssertionError("refused")) as auth, \
+             patch.object(r, "stream_authorized") as shared:
+            with self.assertRaises(AssertionError): r.stream_worker("p", "a", "e")
+            auth.assert_called_once_with("p", "a", "e"); shared.assert_not_called()
+        with patch.object(r.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(r.STREAM_REQUEST+b"10310\n"))), \
+             patch.object(r, "authorize", return_value=value) as auth, \
+             patch.object(r, "stream_authorized", return_value=37) as shared:
+            self.assertEqual(r.stream_worker("p", "a", "e"), 37)
+            auth.assert_called_once_with("p", "a", "e")
+            shared.assert_called_once_with(value, 10310, "p", "a", "e")
 
     def test_transfer_is_one_shot_and_client_zero_never_verifies_destination(self):
         with tempfile.TemporaryDirectory() as directory:

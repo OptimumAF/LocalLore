@@ -118,3 +118,24 @@ not a reservation. Raw 283-byte SHA256:
 Other-project emulator processes are distinct from the closed LocalLore owner.
 Permission to interrupt one specifically named emulator is requested separately;
 no such process is stopped without a human reply. No task acceptance is inferred.
+
+## Final source and retained evidence
+
+The post-guard host-only freeze contains 64 required source files, eight unchanged
+Android compilation bindings and the same audited APK identities. Its 9685-byte
+manifest SHA256 is
+`9247ae90c7cfbf63f8d2148012d02b954695ee36b4cf9a860d2e059a2aebac5f`;
+its explicit scope says `new_emulator_execution=false`. It follows the executed
+62-file snapshot and does not relabel that earlier failed startup. Later protocol/
+report wording is documentation only; all 112 captured Python sources match.
+
+Private host evidence contains 196 files / 3044530 bytes. Its 32471-byte index
+SHA256 is `6c22a8a1ab27414c606ec4ace4df9fbb1e37bfcffa93b5f3c88b4abd622a9e1d`.
+Environment evidence contains 29 files / 399645 bytes. Its 3816-byte index SHA256
+is `8f7cbbe331a765551611209742a3fe2191ef6ab2efd6475ae3846c9bcf43dac0`.
+Independent review verifies all 225 indexed sizes/hashes, both source sets,
+host-test logs, owner/guard bindings and the proposal-only preflight namespace.
+The raw lease-refusal traceback remains in the task's tool output, outside those
+indexes. Environment prepare/run grants existed; preflight/probe grants did not.
+The original 1 GiB payload and APKs are outside these indexes; prior independent
+APK verification stands. No weights, images, keys or raw diagnostics are uploaded.

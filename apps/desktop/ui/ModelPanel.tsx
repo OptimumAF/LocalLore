@@ -83,9 +83,9 @@ export function ModelPanel({
                         </>
                     ) : (
                         <>
-                            {model.error}. Choose the approved artifact, free disk
-                            space or retry loading. Real-model failure never
-                            selects a fake provider.
+                            {model.error}. Choose the approved artifact, free
+                            disk space or retry loading. Real-model failure
+                            never selects a fake provider.
                         </>
                     )}
                 </p>

@@ -6,6 +6,11 @@ comparison GUI, selected-run implementation, model evaluation, native IPC,
 WebView render or JNI qualification. No score, human approval, milestone
 acceptance or publication readiness is claimed.
 
+Latest recorded selective-reader source `ddcecbbc` passes14 Rust integration
+tests across three targets, with one genuine historical opt-in still ignored.
+The source-bound update below supplements every original failure and baseline;
+it does not turn these checks into native GUI or real-model evidence.
+
 Documentation base: `32755d70ac9e5fd1453da0fdb87fd255f097cc59`, on isolated
 `docs/d07-reader-qualification` / `source-d07-reader-qualification`. Only this
 new document is owned. The documentation agent read source, completed logs and
@@ -93,7 +98,7 @@ Both failures are fixture assumptions, retained verbatim:
 Tests-only `beb12165b801bb280a5554fe34f2f2ee0a32bcc7` corrects those fixture
 assumptions and the authorization fixture's analogous Windows inventory
 handling. Production remains the77 reader. A full corrected desktop-suite
-pass is **not yet recorded here**; the later two authorization passes are
+pass was **not yet recorded at that checkpoint**; the later two authorization passes are
 their own target, not a substitute for rerunning all eight normal groups.
 The genuine historical33356-cohort test remains ignored without its explicit
 authorized local opt-in; no historical cohort is manufactured by relabeling.
@@ -123,7 +128,7 @@ All42 denial expectations remain, along with permitted Query2 corruption
 refusal and full post-release inventory equality. Legitimate raw Omniscient
 requests still validate actual evidence rather than hiding corruption as missing.
 
-## First selective-snapshot boundary tests: optimization still pending
+## First selective-snapshot boundary tests: pre-optimization checkpoint
 
 The frozen three-case snapshot source is original `c5aaf382`, adopted as
 `32755d70ac9e5fd1453da0fdb87fd255f097cc59`. Root runs it against unchanged
@@ -149,13 +154,14 @@ The retained run lock is a cooperative writer contract, not global OS immutabili
 At this document's32755 checkpoint the selective optimization is not implemented
 or measured. A fourth coherent selected timing/checkpoint-drift oracle is being
 frozen before implementation; it has no execution result here. No speedup or
-new green result is predicted from the proposed reduction in repeated replay.
+new green result was predicted from the proposed reduction in repeated replay.
+The later executed update below records the actual implementation and results.
 Future selected-run planning must independently fresh-preflight both full source
 prefixes before reservations/assets; this read capability grants no execution.
 
 ## Commands, environment and immutable evidence inventory
 
-All five recorded commands use the source-owned
+All recorded commands use the source-owned
 `<task-root>/d07-comparison-view-eval-target`, existing locked/offline dependencies,
 one job and serial tests. Root's wrapper sets `CARGO_PROFILE_DEV_DEBUG=0`,
 `CARGO_PROFILE_TEST_DEBUG=0`, `CARGO_INCREMENTAL=0`, `CARGO_BUILD_JOBS=1`,
@@ -193,10 +199,9 @@ paired process record, all of which report terminal status:
 
 ## Remaining gate and handoff
 
-Root must first freeze the fourth oracle, implement the selected validation
-with its fresh Query2 guards, and execute the unchanged baseline/corrected
-desktop, authorization and snapshot targets, preserving any new failures.
-Genuine historical reader execution, broad evaluator/shared/native lint and
+The fourth oracle, selective implementation and three-target execution were
+pending at the initial handoff and are now recorded below. Genuine historical
+reader execution, broad evaluator/shared/native lint and
 compatibility, native grant/lease adapter, strict frontend decoder/controller,
 actual IPC/WebView source navigation/render inspection and isolated selected
 rerun/cancel/resume/restart remain pending. No Android/JNI/device, model-quality
@@ -206,3 +211,103 @@ This sole-document claim
 [#29 comment6393653372](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6393653372)
 returns to Root at handoff; adoption waits for its active immutable checks.
 No existing contract, source, test, artifact or milestone checkbox is modified.
+
+## Executed selective-reader update — 2026-10-24
+
+Root first freezes the fourth snapshot oracle at exact
+`ad11481ee86659530022451b49fb455c077028d0`, before changing production7c.
+The actual old-code baseline runs just
+`coherently_changed_selected_checkpoint_is_valid_now_but_not_the_original_opened_snapshot`:
+**1 passed,0 failed,0 ignored,3 filtered**,15.65s, compile0.96s. It deliberately
+updates selected checkpoint elapsed time and its actual admission settlement
+together, proves the existing producer inspector accepts the internally
+consistent diagnostics, then requires the old opened binding to refuse them.
+This is a passing preservation oracle, not an invented defect or RED.
+
+Root implements selective validation at clean
+`ddcecbbc81c08f2340b9076aa063160652df1c49`. Source inspection shows:
+
+- Full cohort/report/reference validation still occurs at open under retained
+  directory pins and the cooperative exclusive run lock. Native manifest, key
+  and validated `StoredTurn` arrays are retained privately with the immutable
+  summary; no public serialized capability or execution API is added.
+- Evidence preserves early native/raw-lens authorization, binding and known-row
+  checks. It freshly validates the entire manifest and requires full equality,
+  calls existing `load_turn` for the selected actual index/arm/policy/key/path,
+  then compares the complete encoded checkpoint, including timing/diagnostics,
+  to its captured value. Receipt/capture/recording/raw hashes and caps stay fresh.
+- Query2's separate Store read uses `checked_edges`: actual before-input,
+  after-output and mechanical fingerprints must match that validated selected
+  row. The returned page is built from those same immutable checked engines.
+  No alternate resolver, context authority, persistence or provider is introduced.
+
+The contract gains the explicit selective-validation decision. The opaque
+summary is the last fully validated snapshot, not refreshed whole-run health.
+Unselected diagnostics may change behind a noncooperating writer without
+invalidating independently unchanged selected evidence; reopening still checks
+and rejects the whole damaged cohort. Prefix Play diagnostics are deliberately
+outside actor semantic fingerprints; no global private-history freshness is
+claimed. Future execution still requires its own fresh full two-arm preflight.
+
+Root's actual combined command finishes at the same clean source with exit0
+and `terminalSourceUnchanged:true`:
+
+| Target | Passed | Failed | Ignored | Filtered | Test time |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `comparison_desktop_review` | 8 | 0 | 1 | 0 | 241.40s |
+| `comparison_reader_authorization_review` | 2 | 0 | 0 | 0 | 15.94s |
+| `comparison_reader_snapshot_review` | 4 | 0 | 0 | 0 | 34.09s |
+
+Compilation is6.92s. Process timestamps are
+`2026-10-25T05:01:09.5104188Z`→`2026-10-25T05:06:09.2448971Z`,299.7344783s
+for the whole three-target command. These are14 passing tests/one historical
+ignore across3 targets, not a broad workspace qualification or real-model run.
+No elapsed-time pass/fail threshold was relaxed. Comparing this run to the
+original1097.48s target is not a controlled speed benchmark: fixture corrections,
+the clarified snapshot behavior and combined target selection differ. Report
+the exact durations without a generalized throughput or model-speed claim.
+
+The eight desktop groups now include the corrected real empty guard capture
+and full post-release Windows lock inventory cases. Authorization retains all42
+denials, permitted-query corruption refusal and nonmutation. All four snapshot
+groups pass: manifest drift, selected source/evidence corruption, unrelated
+diagnostic isolation with whole-cohort rejection on reopen, and a currently
+valid but changed selected checkpoint versus its old binding. Earlier first
+compile, fixture failures, authorization RED and unrelated-diagnostic baseline
+failure remain above; this success does not erase or reclassify them.
+
+At exact executeddd, directly read file SHA256 values are:
+
+| Path | SHA256 |
+| --- | --- |
+| `crates/locallore-eval/src/local_lane/comparison/desktop_api.rs` | `dd18d79147ad8fc41a08409bafdb3fe9577a639fd749172a3285d9fc54d162ac` |
+| `crates/locallore-eval/tests/comparison_reader_snapshot_review.rs` | `5ff953c46371e903a7b34e6d42c47f2cbe848691fae912bd57e3775f1690b89b` |
+| `docs/desktop/D07_COMPARISON_GUI_CONTRACT_2026-10-24.md` | `5ece5b797f96db42d25594a071ac5ebeaeeffc4f11c00492399c4a8972c2a1b32` |
+
+The documentation agent verifies the source delta and reads these exact files;
+it does not independently execute the tests or declare a human approval.
+Commands use the same source-owned target and environment as above:
+
+```text
+cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --target-dir <d07-comparison-view-eval-target> --test comparison_reader_snapshot_review -- coherently_changed_selected_checkpoint_is_valid_now_but_not_the_original_opened_snapshot --nocapture --test-threads=1
+cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --target-dir <d07-comparison-view-eval-target> --test comparison_desktop_review --test comparison_reader_authorization_review --test comparison_reader_snapshot_review -- --nocapture --test-threads=1
+```
+
+| Immutable local artifact | Bytes | SHA256 |
+| --- | ---: | --- |
+| `d07-reader-snapshot-coherent-first.log` | 644 | `bdd17fb3628ab71ce88421b65c5841f856059b779ddacc9536a3b152e0ad3e6d` |
+| `d07-reader-snapshot-coherent-first-process.json` | 800 | `cde94e3c72df68eab3b0c3cb1a4dc577e35fae4e0b36b2de9d6c205bf473fe66` |
+| `d07-reader-selective-first.log` | 2800 | `fc8e958f27f6636cfd72c169df01c48e5a9b233f6098169d14cb5869361b31ec` |
+| `d07-reader-selective-first-process.json` | 814 | `883d59869d03a2c799327c7a34d7daab49caadaaa7b1c414f93751220843dcc41` |
+
+Remaining limits are unchanged: genuine historical opt-in is not executed;
+numeric new provider-role counts are not inferred from summary flags; new
+native IPC/WebView/JNI/GUI/source-navigation and selected execution gates are
+not satisfied. Broad evaluator/shared/native checks and final integration
+review remain pending. No old Archive3 execution is relabeled as this reader's
+qualification, and no model-quality or D07 milestone completion is claimed.
+
+The follow-up sole-document claim
+[#29 comment6393755038](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6393755038)
+returns to Root. The commit chain stays on the isolated documentation branch
+above `f1117632`; the documentation agent does not cherry-pick into Root.

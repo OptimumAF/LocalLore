@@ -32,7 +32,11 @@ pub(super) struct SelectedSource {
 }
 impl SelectedSource {
     pub(super) fn into_origin(self) -> (PathBuf, String) {
-        let Self { opened, origin, binding } = self;
+        let Self {
+            opened,
+            origin,
+            binding,
+        } = self;
         // The caller executes this in its registered worker, outside metadata,
         // window-lease and admission gates. Releasing the File lock can do IO.
         drop(opened);
@@ -200,16 +204,32 @@ impl EvaluationManager {
         binding: &str,
     ) -> Result<SelectedSource> {
         let mut state = self.comparison_lock()?;
-        let record = state.records.get_mut(client).filter(|record| {
-            record.owns(lease, epoch) && record.granted && !record.expired
-                && !record.running && record.phase == "ready"
-                && record.touched.elapsed() <= TTL
-                && record.token.as_deref() == Some(token)
-        }).ok_or("UnknownEvaluationRun")?;
-        if record.snapshot.as_ref().and_then(|value| value["binding"].as_str()) != Some(binding) {
+        let record = state
+            .records
+            .get_mut(client)
+            .filter(|record| {
+                record.owns(lease, epoch)
+                    && record.granted
+                    && !record.expired
+                    && !record.running
+                    && record.phase == "ready"
+                    && record.touched.elapsed() <= TTL
+                    && record.token.as_deref() == Some(token)
+            })
+            .ok_or("UnknownEvaluationRun")?;
+        if record
+            .snapshot
+            .as_ref()
+            .and_then(|value| value["binding"].as_str())
+            != Some(binding)
+        {
             return Err("EvaluationSourceMismatch".into());
         }
-        let Capability { opened, origin, _grant } = record.cap.take().ok_or("UnknownEvaluationRun")?;
+        let Capability {
+            opened,
+            origin,
+            _grant,
+        } = record.cap.take().ok_or("UnknownEvaluationRun")?;
         record.cancel.cancel();
         record.granted = false;
         record.token = None;
@@ -217,7 +237,11 @@ impl EvaluationManager {
         record.phase = "closed";
         record.operation = None;
         record.error = None;
-        Ok(SelectedSource { opened, origin, binding: binding.into() })
+        Ok(SelectedSource {
+            opened,
+            origin,
+            binding: binding.into(),
+        })
     }
     fn comparison_lock(&self) -> Result<std::sync::MutexGuard<'_, ComparisonState>> {
         self.comparison

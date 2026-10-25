@@ -4,13 +4,14 @@
 //! and with local-model. No assets, factory, reservation, execution or repair API.
 //! Genuine producer provenance is supplied by the coordinator, not authenticated
 //! by a native lane label or report hashes. No model/GUI/device quality claim.
-use locallore::{contracts::Request, context_compiler::ContextPolicy, play::PlayProfile};
-use locallore_eval::{
-    local_lane::comparison::selected,
-    memory_comparison_v2::TurnReportV2,
-};
+use locallore::{context_compiler::ContextPolicy, contracts::Request, play::PlayProfile};
+use locallore_eval::{local_lane::comparison::selected, memory_comparison_v2::TurnReportV2};
 use serde_json::Value;
-use std::{collections::BTreeMap, fs, path::{Path, PathBuf}};
+use std::{
+    collections::BTreeMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
 const HISTORY_ENV: &str = "LOCALLORE_SELECTED_NATIVE_HISTORY";
 const HISTORICAL_PROFILE: &str = "qwen3-0.6b-q8-cpu-v1";
@@ -18,13 +19,20 @@ type Inventory = BTreeMap<PathBuf, Option<Vec<u8>>>;
 
 fn inventory(root: &Path) -> Inventory {
     fn visit(root: &Path, path: &Path, depth: usize, total: &mut usize, out: &mut Inventory) {
-        assert!(depth <= 8 && out.len() < 1024, "bounded retained target inventory");
+        assert!(
+            depth <= 8 && out.len() < 1024,
+            "bounded retained target inventory"
+        );
         let metadata = fs::symlink_metadata(path).unwrap();
         assert!(!metadata.file_type().is_symlink());
         #[cfg(windows)]
         {
             use std::os::windows::fs::MetadataExt;
-            assert_eq!(metadata.file_attributes() & 0x400, 0, "no retained reparse entries");
+            assert_eq!(
+                metadata.file_attributes() & 0x400,
+                0,
+                "no retained reparse entries"
+            );
         }
         let relative = path.strip_prefix(root).unwrap().to_owned();
         if metadata.is_dir() {
@@ -47,14 +55,19 @@ fn inventory(root: &Path) -> Inventory {
 
 fn hex(value: &str) -> bool {
     value.len() == 64
-        && value.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
 }
 
 #[test]
 #[ignore = "requires explicit LOCALLORE_SELECTED_NATIVE_HISTORY naming a genuine retained native selected target"]
 fn genuine_native_selected_history_is_readable_without_execution_or_any_byte_change() {
     let directory = PathBuf::from(std::env::var_os(HISTORY_ENV).expect(HISTORY_ENV));
-    assert!(directory.is_absolute(), "explicit genuine retained target only");
+    assert!(
+        directory.is_absolute(),
+        "explicit genuine retained target only"
+    );
     let manifest_path = directory.join("selected.json");
     let metadata = fs::symlink_metadata(&manifest_path).unwrap();
     assert!(metadata.is_file() && !metadata.file_type().is_symlink());
@@ -70,17 +83,24 @@ fn genuine_native_selected_history_is_readable_without_execution_or_any_byte_cha
     // are examined; these public results are serialized data, not execution grants.
     let before = inventory(&directory);
     let first = {
-        let report = selected::inspect_selected(&directory).expect("genuine retained native history");
+        let report =
+            selected::inspect_selected(&directory).expect("genuine retained native history");
         serde_json::to_vec(&report).unwrap()
     };
     assert!(first.len() <= 2 * 1024 * 1024);
-    assert!(inventory(&directory) == before, "first read changed retained evidence");
+    assert!(
+        inventory(&directory) == before,
+        "first read changed retained evidence"
+    );
     let second = {
         let report = selected::inspect_selected(&directory).expect("same retained native history");
         serde_json::to_vec(&report).unwrap()
     };
     assert_eq!(first, second, "complete serialized reports must match");
-    assert!(inventory(&directory) == before, "second read changed retained evidence");
+    assert!(
+        inventory(&directory) == before,
+        "second read changed retained evidence"
+    );
 
     let report: Value = serde_json::from_slice(&first).unwrap();
     assert_eq!(report["version"], 1);
@@ -105,13 +125,19 @@ fn genuine_native_selected_history_is_readable_without_execution_or_any_byte_cha
     let measured = report["physical_setups"].as_u64().unwrap();
     assert!(measured > 0 && measured <= 32);
     assert!(report["physical_setup_ms"].as_u64().is_some());
-    let load = report["native_load"].as_array().expect("retained measured load entries");
+    let load = report["native_load"]
+        .as_array()
+        .expect("retained measured load entries");
     assert_eq!(load.len() as u64, measured);
     assert!(load.iter().any(|metrics| {
         metrics.as_object().is_some_and(|fields| {
             fields.len() == 9
-                && metrics["load_ms"].as_f64().is_some_and(|ms| ms.is_finite() && ms >= 0.0)
-                && metrics["model_loads"].as_u64().is_some_and(|count| count > 0)
+                && metrics["load_ms"]
+                    .as_f64()
+                    .is_some_and(|ms| ms.is_finite() && ms >= 0.0)
+                && metrics["model_loads"]
+                    .as_u64()
+                    .is_some_and(|count| count > 0)
         })
     }));
 
@@ -124,7 +150,10 @@ fn genuine_native_selected_history_is_readable_without_execution_or_any_byte_cha
         let request: Request = serde_json::from_value(input["request"].clone()).unwrap();
         assert_eq!(request.version, 1);
         assert_eq!(request.turn, report["selection"]["turn"].as_str().unwrap());
-        assert_eq!(request.expected_revision, input["before_head"].as_u64().unwrap());
+        assert_eq!(
+            request.expected_revision,
+            input["before_head"].as_u64().unwrap()
+        );
         assert!(serde_json::to_value(&request.scope).unwrap() == input["scope"]);
         assert!(hex(input["prefix_sha256"].as_str().unwrap()));
         assert!(hex(input["input_semantic_sha256"].as_str().unwrap()));
@@ -141,17 +170,33 @@ fn genuine_native_selected_history_is_readable_without_execution_or_any_byte_cha
             _ => panic!("unknown retained arm"),
         };
         assert_eq!(row.turn, requests[row.arm.as_str()].turn);
-        assert_eq!(row.input_semantic_sha256, inputs[index]["input_semantic_sha256"].as_str().unwrap());
-        assert_eq!(row.policy, if index == 0 { ContextPolicy::StateRecentTranscriptV1 } else { ContextPolicy::StateRelevantMemoryV1 });
+        assert_eq!(
+            row.input_semantic_sha256,
+            inputs[index]["input_semantic_sha256"].as_str().unwrap()
+        );
+        assert_eq!(
+            row.policy,
+            if index == 0 {
+                ContextPolicy::StateRecentTranscriptV1
+            } else {
+                ContextPolicy::StateRelevantMemoryV1
+            }
+        );
         if let Some(receipt) = &row.actual_receipt_sha256 {
             assert!(hex(receipt));
         }
     }
-    assert!(rows.iter().any(|row| {
-        row.phase == "committed" && row.actual_receipt_sha256.as_deref().is_some_and(hex)
-    }), "at least one actual committed receipt, not just a native label");
+    assert!(
+        rows.iter().any(|row| {
+            row.phase == "committed" && row.actual_receipt_sha256.as_deref().is_some_and(hex)
+        }),
+        "at least one actual committed receipt, not just a native label"
+    );
     assert_eq!(report["completed"].as_bool().unwrap(), rows.len() == 2);
     // Recovered lost-checkpoint rows can retain unknown roles/timings and failed
     // quality checks. Never require all rows to pass or invent missing metrics.
-    assert!(inventory(&directory) == before, "validation changed original evidence");
+    assert!(
+        inventory(&directory) == before,
+        "validation changed original evidence"
+    );
 }

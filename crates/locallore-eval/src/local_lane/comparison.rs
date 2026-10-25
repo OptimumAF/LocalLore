@@ -1,5 +1,8 @@
 //! Current-policy comparison over the existing Host, Store, provider and ledger.
 pub mod desktop_api;
+#[cfg(test)]
+mod outcome_review_tests;
+pub mod selected;
 use super::*;
 pub use crate::memory_comparison_v2::{ComparisonKind, ComparisonReportV2};
 use crate::{
@@ -1053,18 +1056,48 @@ fn load_turn(
     } else if stored.recording_file.is_some() || stored.capture_file.is_some() {
         return Err("LedgerIntegrity".into());
     }
-    let receipt = if stored.row.phase == "committed" {
-        Some(
-            Store::open_read_only(path)
-                .map_err(|_| "Workspace")?
-                .lookup_turn(before.scope(), step.id())
-                .map_err(|_| "Lookup")?
-                .receipt
-                .ok_or("Lookup")?,
-        )
-    } else {
-        None
+    // A diagnostic checkpoint cannot hide a real commit or relabel the Store's
+    // terminal result. This validator is shared by source and selected readers.
+    let actual = match Store::open_read_only(path)
+        .map_err(|_| "Workspace")?
+        .lookup_turn(before.scope(), step.id())
+    {
+        Ok(record) => Some(record),
+        Err(locallore_storage::TurnError::UnknownTurn) => None,
+        Err(_) => return Err("Lookup".into()),
     };
+    let phase_agrees = match actual.as_ref().map(|record| record.phase) {
+        Some(locallore_storage::TurnPhase::Committed) => stored.row.phase == "committed",
+        Some(locallore_storage::TurnPhase::Failed) => {
+            matches!(stored.row.phase.as_str(), "failed" | "rejected")
+        }
+        Some(locallore_storage::TurnPhase::Cancelled) => stored.row.phase == "cancelled",
+        Some(locallore_storage::TurnPhase::Stale) => stored.row.phase == "stale",
+        Some(locallore_storage::TurnPhase::Draft) => false,
+        None => matches!(
+            stored.row.phase.as_str(),
+            "failed" | "rejected" | "cancelled" | "stale" | "not_run_dependency"
+        ),
+    };
+    if !phase_agrees
+        || actual
+            .as_ref()
+            .is_some_and(|record| record.request != stored.request)
+        || (stored.row.phase != "committed" && stored.before_head != stored.after_head)
+    {
+        return Err("CheckpointOutcomeMismatch".into());
+    }
+    let receipt = actual.and_then(|record| record.receipt);
+    if stored.row.phase == "committed" {
+        let receipt = receipt.as_ref().ok_or("Lookup")?;
+        if receipt.request().expected_revision != stored.before_head
+            || receipt.events().last().map(|event| event.sequence()) != Some(stored.after_head)
+        {
+            return Err("CheckpointOutcomeMismatch".into());
+        }
+    } else if receipt.is_some() {
+        return Err("CheckpointOutcomeMismatch".into());
+    }
     let recording = stored
         .recording_file
         .as_ref()

@@ -10,6 +10,8 @@ mod divergent_tests;
 #[cfg(test)]
 mod lifecycle_tests;
 #[cfg(test)]
+mod preflight_review_tests;
+#[cfg(test)]
 mod review_tests;
 #[cfg(test)]
 thread_local! {

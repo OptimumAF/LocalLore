@@ -131,6 +131,19 @@ await test("evidence binds exact selected scope/head/observer/row/token and chec
     missing.body = { kind: "missing", reason: "checkpoint_unavailable" };
     m.checkedSelectedEvidence(wrapped("selected_evidence", "evidence", missing), token, absent, "right", request);
 });
+await test("actor Query2 goes through the existing closed page decoder without private raw promotion", async () => {
+    const f = fixture(); await ready(f); f.c.setObserver(player);
+    const request = { kind: "query", edge: "after", observer: player, view: "history" };
+    const value = evidence(request); value.edge = "after";
+    value.body = { kind: "query", page: { version: 2, scope: clone(scope), head: 3, revision: 3, story_time: 3,
+        observer: player, view: "history", privacy: "player_visible", status: "supported", total: 0,
+        rows: [], next_cursor: null, unsupported: [] } };
+    const raw = wrapped("selected_evidence", "evidence", value);
+    m.checkedSelectedEvidence(raw, token, summary(), "right", request);
+    rejects((v) => { v.evidence.body.page.observer = omni; }, (v) => m.checkedSelectedEvidence(v, token, summary(), "right", request), raw);
+    f.hooks.set("evidence", () => raw); await f.c.readEvidence("right", request);
+    assert.equal(f.c.get().evidence.body.kind, "query"); f.c.dispose();
+});
 await test("exact wire actions and same identity through prepare/start/catalog/open/resume", async () => {
     const f = fixture(); await f.c.catalog(); await f.c.prepare(source, row, "scripted_baseline");
     const client = f.c.get().clientId; await f.c.start(); await f.c.start();
@@ -222,6 +235,11 @@ await test("retained cleanup status blocks admission and retry is explicit", asy
     assert.equal(f.calls.filter((v) => v.action === "retry_cleanup").length, 0);
     await f.c.retryCleanup(); await f.c.prepare(source, row, "scripted_baseline");
     assert.equal(f.calls.filter((v) => v.action === "prepare").length, 1); f.c.dispose();
+});
+await test("generic cleanup recovery remains callable without private inspection eligibility", async () => {
+    const f = fixture(); f.c.setContext("retired-private-context", false);
+    await f.c.cleanupStatus(); await f.c.retryCleanup(); await f.c.catalog();
+    assert.deepEqual(f.calls.map((v) => v.action), ["cleanup_status", "retry_cleanup"]); f.c.dispose();
 });
 await test("summary token mismatch and capability loss clear private results without invented completion", async () => {
     const f = fixture(); await ready(f); await f.c.readDiagnostics();

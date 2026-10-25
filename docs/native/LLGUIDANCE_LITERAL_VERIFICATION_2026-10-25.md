@@ -73,6 +73,30 @@ The native report35809bytes SHA256
 `02708b00f2da25a0a17068ae6f8170b14109fe3dcb15f3050a0a8d702e9619a5`.
 The original JSON mismatch remains documented separately.
 
+Core reproduction uses the same pinned commands (choose a new private target):
+
+```powershell
+cargo +1.93.1 test --frozen --offline -p locallore --features host --all-targets --target-dir C:/private/new-core-target
+cargo +1.93.1 clippy --frozen --offline -p locallore --features host --all-targets --target-dir C:/private/new-core-target -- -D warnings
+cargo +1.93.1 fmt --all -- --check
+```
+
+Actual Gradle task sets were `cleanTestDebugUnitTest testDebugUnitTest`,
+`assembleDebug assembleDebugAndroidTest`, and
+`lintDebug auditLiteRtDependencies auditLintAnalyzer`. Both profiles used
+`localLoreLiteRtVerification=true`, `localLoreModelSetupVerification=true`,
+offline/no-daemon, max-workers2, Kotlin incrementalfalse, analyzer9.4.1,
+Java21 and disabled automatic SDK/JDK downloads. Receipt additionally used
+`localLoreModelVolumeVerification=true` and
+`localLoreModelReceiptVerification=true`. Its JVM task exported actual patterns
+using the two environment paths specified in the oracle protocol. Exact
+argument arrays and source/command workers are retained with the local results.
+Native `literal` and `finite` calls use the public commands in that protocol;
+neither loads a model. APK audit commands used `--litert-verification
+--model-provisioning`, plus `--model-volume-verification
+--model-receipt-verification` for receipt, followed by installed35.0.0
+`apksigner verify --print-certs` on each APP/test pair.
+
 Raw JVM XML, command arrays, source captures, bounded process reports,
 compiler reports and artifacts remain in private local evidence. The first
 JVM attempt512tests/12failures is preserved: Android's unmocked `org.json`

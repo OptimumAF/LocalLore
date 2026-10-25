@@ -7,6 +7,8 @@ const MANIFEST_CAP: usize = 128 * 1024;
 
 #[cfg(test)]
 mod review_tests;
+#[cfg(test)]
+mod divergent_tests;
 
 pub enum SelectedLane {
     ScriptedBaseline,

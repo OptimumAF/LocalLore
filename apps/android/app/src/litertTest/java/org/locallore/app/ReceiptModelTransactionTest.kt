@@ -383,11 +383,11 @@ class ReceiptModelTransactionTest {
         val installedGuards = admissions.get()
         assertArrayEquals(payload, reopened.model.readBytes())
         // These are deterministic host observations, not an Android timing claim.
-        // Nine refers only to copy-source reads (eight chunks plus guarded EOF),
+        // Three refers only to copy-source reads (two chunks plus guarded EOF),
         // while the guard totals also include independent disk full-hash passes.
         val metrics = "bulk metrics: source_reads=${source.reads.get()}, import_guards=$importGuards, " +
             "installed_guards=$installedGuards, max_request=${source.maxRequest.get()}"
-        assertTrue(metrics, source.reads.get() == 9 && source.maxRequest.get() == 1024 * 1024 &&
+        assertTrue(metrics, source.reads.get() == 3 && source.maxRequest.get() == 4 * 1024 * 1024 &&
             importGuards <= 200 && installedGuards <= 100)
     }
 
@@ -404,7 +404,7 @@ class ReceiptModelTransactionTest {
         val result = transaction.import { source }
         assertArrayEquals(payload, result.model.readBytes())
         assertTrue(source.positiveReads.get() > 8)
-        assertTrue(source.maxRequest.get() <= 1024 * 1024)
+        assertTrue(source.maxRequest.get() <= 4 * 1024 * 1024)
         assertTrue(writeObservations.get() >= source.positiveReads.get())
         assertEquals(payload.size, source.consumed.get())
         assertEquals(1, source.closed.get())

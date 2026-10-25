@@ -638,7 +638,100 @@ evidence, not native model, WebView or device execution. Bounded independent
 source rereview found no additional concrete issue; see
 [#29 comment6391834257](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6391834257).
 It is not human approval or an exhaustive proof. Broader regression, lint and
-latest-main compatibility gates remain pending before PR readiness.
+latest-main compatibility results follow below.
 All model measurements above retain their original
 source/fingerprint; this new source is not retroactively attributed to them.
 Whole D07, human quality, current comparison UI and platform gates stay open.
+
+## Final focused-packet integration — 2026-10-24 local
+
+Root fetched accepted main `b39ab361d8cbb71c0337f1dca74da51f074eb814`
+and merged it as clean `cb9051dabfec35da2ac75e93dc67dbb64e8a157e`.
+An explicit diff against `75093c8` was empty for all evaluator fingerprint
+inputs, desktop code, manifests and lockfiles. Accepted Android work is
+preserved. These final checks used source-owned `d07-main-integration-target`
+and fresh `d07-main-native-target`, never the earlier mixed-checkout target.
+All eleven serialized stages completed exit0 at `cb9051d`; no app/WebView,
+model or Android device was launched by these integration checks.
+
+| Executed gate | Actual result |
+| --- | --- |
+| Shared workspace all-target/all-feature Clippy, excluding desktop, `-D warnings` | PASS |
+| Changed Android Rust package with `locallore/host` | 90 passed, no failures/ignores |
+| Remaining all-feature evaluator regressions | 73 passed, no failures, 3 opt-in ignored, 5 explicitly filtered |
+| Evaluator all-target/all-feature Clippy, `-D warnings` | PASS |
+| Full frontend and frontend formatting | PASS |
+| Fresh native normal Rust tests | 88 passed, 0 failed, 1 ignored |
+| Fresh native development Rust tests | main92 passed/0 failed/1 ignored; standalone contract2 passed |
+| Native development all-target Clippy, `-D warnings` | PASS |
+| Normal native build, `--no-default-features` | PASS |
+| Default offline Android unit/APK/instrumented-APK/lint build | PASS3m49s;81 tasks,28 executed/53 up-to-date |
+| Workspace and separate evaluator Rust formatting | both PASS |
+
+The remaining evaluator command deliberately filters the five already-passed
+`75093c8` regressions, whose source inputs are unchanged at `cb9051d`. It does
+not rerun them or invent a single 78-test invocation. The changed Android
+package's90 passes likewise do not relabel the earlier four-package759 result
+as a newly executed combined suite.
+
+Use the earlier exact Clippy/frontend/Android commands with the source-owned
+targets; these additional exact commands reproduce the final changed-package,
+remaining-regression and native gates from the repository root:
+
+```text
+cargo test -p locallore-android --features locallore/host --offline --locked --jobs 1 --target-dir <source-owned-target> -- --test-threads=1
+cargo test --manifest-path crates/locallore-eval/Cargo.toml --all-features --offline --locked --jobs 1 --target-dir <source-owned-target> -- --test-threads=1 --skip refuses_before_new_work --skip both_current_steps_with_lost_checkpoints_recover_actual_commits_without_new_roles
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --offline --locked --target-dir <native-owned-target> -- --test-threads=1
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness --offline --locked --target-dir <native-owned-target> -- --test-threads=1
+cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --features dev-harness --offline --locked --target-dir <native-owned-target> -- -D warnings
+cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --no-default-features --offline --locked --target-dir <native-owned-target>
+cargo fmt --all --check
+cargo fmt --manifest-path crates/locallore-eval/Cargo.toml --check
+python scripts/audit_apk.py <owned-default-app-debug.apk>
+```
+
+Fresh Android JUnit evidence is copied locally before later builds can replace
+the output:24 XML files,38,541bytes,206 tests, zero failures/errors/skips.
+Its5,188-byte manifest SHA256 is
+`4df647ab64902f137cda857773d3764aef6c43e286d16a276f6c720b54674112`.
+The current default APK static audit passed with Python3.9.12 and existing
+Build Tools35.0.0: only the normal non-exported dynamic-receiver permission,
+four expected native libraries, all ELF load alignments16KiB. This is static
+APK/build evidence, not installation, JNI execution, Android JSON runtime or
+desktop/Android transfer parity.
+
+Fresh normal EXE:29,174,784bytes, SHA256
+`c91156215143953d1afb2cca35814e8a64cbc5705a02884018efba8f428efbae`.
+Actual normal `app.js`:492,023bytes, unchanged SHA256
+`e0c09f611bfa9c4cf7d26ed2caf311bbc7ec07b9f5b8d02317ceef8d34dbff56`.
+The five earlier fixed development fixture markers are absent from both.
+The1,230-byte local artifact-evidence JSON SHA256 is
+`82f387374be6d466253cb3513e5fa4974ec21ed6ca331fedfecc1cfb0b7284c4`.
+This is bounded byte-marker exclusion, not application execution or exhaustive
+security qualification.
+
+| Additional retained log | Bytes | SHA256 |
+| --- | ---: | --- |
+| `d07-resume-basis-first-red.log` | 2727 | `23c87fbba03016e25b7291742a88bffe477feea762a178c5ab7ce18a3e8fbdda` |
+| `d07-resume-basis-first-corrected.log` | 954 | `cb150de3b7c8c2eee60f34923bd91b741ec1f999f67394019ca525673e743beb` |
+| `d07-resume-final-shared-clippy.log` | 208 | `41c458d65d7261258e5f0a4cda7c172f8d4a67f3e8c110787c8a1ab31aafe1dc` |
+| `d07-resume-final-android-host.log` | 13801 | `5a9ca5cf35c97e4a7571df24d705537f41e9f456ed57198e19d669ea6dc488d7` |
+| `d07-resume-final-eval-regressions.log` | 10978 | `420d09717de1aa7c25b61441aa1c01c7d36cc97bdd78568c749fcc244634c920` |
+| `d07-resume-final-eval-clippy.log` | 202 | `37b40eac66790f73006edbf4f87a1a017c3d148b644ad484958c20f0a524c334` |
+| `d07-resume-final-frontend.log` | 11351 | `cd08fe8e8ed2aa22cf7dcc0560bac20c9a26ad36730334b3d7e8644e3e0dcf21` |
+| `d07-resume-final-frontend-format.log` | 68 | `f20510a9da4717c51c4cffee6d0dd88d6c9a723d0a83711d01216f5b48961283` |
+| `d07-resume-final-native-normal.log` | 18046 | `f69cce6e51cb479ee468e7afe110c21ba838680d9b80d37135c7a1f16c9ac787` |
+| `d07-resume-final-native-dev.log` | 10512 | `bcce0aa8b3f47f59923424bb97cc78a1927d5782272b5287796452e0eb459061` |
+| `d07-resume-final-native-clippy.log` | 5607 | `6e725616547ffb66340538ea4da298b2800598a6d4c2a34b98635a815b36ac78` |
+| `d07-resume-final-native-build.log` | 213 | `41f35d06c5088c082557211d7328332d02298368b08b3155ed5a9fddd454aef8` |
+| `d07-resume-final-android.log` | 5915 | `4179dca3526063bc0f083da0a563127bcba1d6c8826c80c6c4a880e6b0beb51d` |
+| `d07-resume-final-apk-static-audit.log` | 783 | `33d292acd39d4040aeb6f7032aad4acaed7619a3446d32a3799b10a220be9699` |
+| `d07-resume-final-workspace-format.log` | 0 | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| `d07-resume-final-eval-format.log` | 0 | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+
+This focused prerequisite packet is qualified for review, not whole D07
+acceptance. Current-comparison desktop opening/source inspection and isolated
+selected-case reruns, literal transcript-only comparison, human rubric review,
+whole-app memory measurement and platform parity remain required work. No
+old model source, current UI coverage, Android runtime or physical-phone gate
+is promoted by these integration results.

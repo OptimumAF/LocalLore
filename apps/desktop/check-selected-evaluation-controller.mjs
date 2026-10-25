@@ -232,6 +232,14 @@ await test("held original start retirement cleans only captured old client, neve
     assert.equal(f.c.get().status, null); assert.equal(f.c.get().clientId, null);
     assert.ok(f.calls.some((v) => v.action === "close" && v.body.clientId === old)); f.c.dispose();
 });
+await test("unknown old-client close remains a generic barrier after private context is cleared", async () => {
+    const f = fixture(); await f.c.prepare(source, row, "scripted_baseline"); const old = f.c.get().clientId;
+    f.hooks.set("close", () => { throw new Error("EvaluationIo"); }); f.c.setContext("new-session", true); await tick();
+    assert.equal(f.c.get().status, null); assert.equal(f.c.get().clientId, null); assert.equal(f.c.get().uncertain, true);
+    await f.c.prepare(source, row, "scripted_baseline"); assert.equal(f.calls.filter((v) => v.action === "prepare").length, 1);
+    f.hooks.delete("close"); await f.c.prepare(source, row, "scripted_baseline");
+    assert.equal(f.calls.filter((v) => v.action === "prepare").length, 2); assert.notEqual(f.c.get().clientId, old); f.c.dispose();
+});
 await test("actual completed result wins late cancelling status", async () => {
     const f = fixture(); await ready(f); const client = f.c.get().clientId;
     f.hooks.set("cancel", () => status(client, "cancelling")); await f.c.cancel();

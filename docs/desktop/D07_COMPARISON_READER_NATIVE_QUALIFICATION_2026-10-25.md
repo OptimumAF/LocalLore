@@ -298,7 +298,15 @@ and panel TSX `f8a75a4e76bd1ae39e859dc68aa0c5c7b7e6672ecd0054a7e700c30eee7e34d8`
 The manifest retains the complete source-file and 626-file fixture inventories.
 These hashes belong to 6c2's harness build, not an unexecuted 566 or release build.
 
-## Remaining gates and next runnable work
+## Completed Android compatibility followup
+
+This supplements the initial document commit `ffbd8362`, which correctly left
+the fresh Android work pending at its handoff. All three completed stage records
+now bind exact source `56650ebe64d496080252f7b5b4db956989ef2e11`, initial clean
+source and `terminalSourceUnchanged:true`; no result is relabelled as another
+source. The runner refuses an existing `d07-reader-android-build` directory;
+this output root was absent before invocation. Existing SDK/Java/Gradle caches
+were reused, with SDK downloads disabled, one Gradle worker and no device.
 
 Root's Android **host Rust** stage at exact `56650ebe` completed during this
 documentation task: `cargo test -p locallore-android --locked --offline --jobs 1
@@ -314,16 +322,79 @@ Individual result durations in log order are 1.65/.09/.53/.60/1.26/.97/.68/.69/
 .30/.94/0/.09/2.91/0/1.12/.15/3.39/0 seconds. This is host Rust compatibility,
 not Android device/JNI execution.
 
-Fresh-output Gradle compatibility work in `d07-reader-android-build` was still
-running at handoff: two ABI rebuilds, APKs, JVM checks and lint have no terminal
-result here. Its mutable progress file is not hashed as final evidence. No
-phone/emulator or desktop/Android semantic parity result is inferred. Final
+The Gradle stage ran 06:49:49.3097783Z–06:57:52.3953936Z, exit 0. Its own log
+reports **BUILD SUCCESSFUL in 8m 2s; 81 actionable tasks, all 81 executed**.
+The two actual Rust Android release builds finished in 2m48s and 2m35s. App and
+instrumented test APK assembly, JVM tests and lint all completed. A read-only
+parse of the fresh 24 JUnit XML files found **206 tests, 0 failures, 0 errors,
+0 skipped**. These counts belong to host JVM tests, not instrumented execution.
+The nine `ArchiveV3WireTest` platform JSONObject/Compose methods compiled into
+the instrumented APK only; neither those methods nor other androidTest cases
+were run on a device or emulator.
+
+The existing Kotlin warning remains in the log at
+`FrameworkInterruptionTest.kt:128:50`: `AtomicReference` identity equality with
+`Boolean?` may be inconsistent. It is retained as a warning, not concealed or
+reclassified as a new test failure. No warning-related source change was made.
+
+Exact Gradle reproduction from `<source>/apps/android`, with the already
+installed Android Studio JBR and SDK, existing `<task-root>/gradle-home`, and
+the retained output init script:
+
+```text
+<android-studio-jbr>/bin/java.exe -classpath <source>/apps/android/gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain --offline --no-daemon --max-workers=1 --console=plain -Pandroid.builder.sdkDownload=false --init-script <artifact-root>/d07-reader-android-output.gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest :app:lintDebug
+```
+
+The init script maps each project to a task-owned build directory beneath
+`<task-root>/d07-reader-android-build`; it does not change tracked sources or
+global Gradle configuration. The APK audit ran from repository root:
+
+```text
+python scripts/audit_apk.py <task-root>/d07-reader-android-build/_app/outputs/apk/debug/app-debug.apk
+```
+
+Audit exit 0 at 06:57:52.4999346Z–06:57:53.1891756Z. Its JSON reports status
+`passed`, the sole permission
+`org.locallore.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`, and four native
+libraries: `libandroidx.graphics.path.so` and `liblocallore_android.so` for each
+of arm64-v8a and x86_64. Each reported ELF LOAD alignment is 16384 bytes (16KiB).
+This is the audit's bounded manifest/library result, not Android runtime evidence.
+
+| Fresh completed artifact | Bytes | SHA256 |
+| --- | ---: | --- |
+| App debug APK | 24308076 | `210d6a42ad2c4150e841b9e4760878d903e5eea563a2b6ce3f85cf3f867de942` |
+| Instrumented test APK | 1847971 | `6782e0466bc6137a3df3e401fdfe6b14c6fc1f0dfaf95147d93346cadf516d6e` |
+
+Both APK hashes match the separately recorded accepted Archive3 source65 and
+its fresh build in
+[Archive3 qualification](../storage/M08_ARCHIVE3_COORDINATOR_QUALIFICATION_2026-10-23.md).
+This is an observed local byte equality for these particular artifacts. It is
+not generalized reproducibility, release approval, Android runtime or parity
+qualification.
+
+| Completed local evidence | SHA256 |
+| --- | --- |
+| `d07-reader-android-fresh-jni-host.log` | `4f051a3afa87125c42b9fc5706e868706e642156773f7258d2d580e977cc6f4b` |
+| `d07-reader-android-fresh-gradle.log` | `fa28ef1fcdb7d50b0bad14e210f302371d37ebe4ec745f95c1e25b37bc0715ba` |
+| `d07-reader-android-fresh-apk-audit.log` | `a2220741ab7d3170dc6f144e8b0c0d97b3b85457ef46d7bf0d6e0c76a8cef49f` |
+| `d07-reader-android-fresh-results.json` | `f815e9c32de4d09d9fa85c41c7b9c42360ad88abd0a94ece86794cbc45e0ff9a` |
+| `d07-reader-android-output.gradle` | `9fad5748edfbbff709379551841c7a1446727c4b4eb1426d6a92a0c0673139a4` |
+| `d07-reader-android-check.ps1` | `f0084c73e69c6b19422df423763cc07fefe76eb3fe5c0361a623e9d624f3d947` |
+
+The results file is now terminal for all three stages and hashed as such; the
+earlier mutable progress file is not used as immutable qualification evidence.
+
+## Remaining gates and next runnable work
+
+No phone/emulator, Android device/JNI runtime or desktop/Android semantic parity
+result is inferred from the completed compatibility work. Final
 normal frontend/executable restoration and any later strict/broad checks need
 their own exact source and logs; the earlier normal verifier is not a claim
 about the current dev-harness executable.
 
-Next: finish the immutable running compatibility check, execute the coherent
-semanticVersion2 cohort at its clean source, inspect all final actual PNGs,
+Root's semanticVersion2/30-PNG native cohort at source566 was running during
+this Android followup. No terminal result has been supplied or inferred here.
+Next: finish that immutable cohort, inspect all final actual PNGs,
 record bounded errors and exact hashes, and update PR #157's reviewable evidence.
 Selected-case rerun and comparison execution remain explicitly unavailable;
 reader recovery is in memory and process restart requires explicit source

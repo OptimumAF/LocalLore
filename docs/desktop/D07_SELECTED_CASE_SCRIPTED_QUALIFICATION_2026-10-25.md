@@ -241,7 +241,7 @@ successful format log has the standard empty SHA, not missing evidence.
 | `preflight-clippy-corrected` | `c4567015698d8dca53f032238fae8e9750decd360c34390ab6f199c5359225ea` |
 | `final2-historical` | `4dbdde72c5a6fb5fa113c46fe3afa34d699d8889657ff088c0cf8435183dde48` |
 | `final2-library` | `d1858ff5f43c20d104395f1579ba27a940fff636b1a608fd57298287b2311539` |
-| `final2-legacy` | `cec62b77e75eba7486b640877bbeebea51afa3fdc420b39b951af6977918bc13a` |
+| `final2-legacy` | `cec62b77e75eba7486b640877beebea51afa3fdc420b39b951af6977918bc13a` |
 | `final2-public` | `f39e21904057abcda5799b0076db743a50ff3c0d69b32ff40ac93441a2925980` |
 | `final2-native-frontend` | `32a1137ae707f7d06eedf39e686a5a34a4948152b5e4248cedc350ce4e1348ed` |
 | `final2-native-frontend-format` | `f20510a9da4717c51c4cffee6d0dd88d6c9a723d0a83711d01216f5b48961283` |

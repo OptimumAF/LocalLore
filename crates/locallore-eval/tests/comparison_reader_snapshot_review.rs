@@ -1,7 +1,7 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Frozen selective-reader contract; UNCOMPILED/UNRUN by this author.
 //! Base7c1d7bdaf2ff84aa51005fdb6ab3c5ab3cac06e2, claim #29 6393593224.
-//! Exactly THREE tests. The old whole-run-on-each-click reader is expected to
+//! Exactly FOUR tests (the first three froze atc5aaf382). The old whole-run-on-each-click reader is expected to
 //! fail the unselected diagnostic case; only Root's execution can establish RED.
 //! Root: cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --test comparison_reader_snapshot_review -- --nocapture --test-threads=1
 //! Cooperative run.lock protects normal writers. Deliberate noncooperating
@@ -232,4 +232,74 @@ fn unselected_diagnostic_fault_preserves_last_validated_summary_and_selected_cor
         closed_error(desktop_api::open_read_only(&directory));
         assert!(inventory(&directory) == expected,"whole reopen rejects unrelated corruption without repair or publication");
     }
+}
+
+#[test]
+fn coherently_changed_selected_checkpoint_is_valid_now_but_not_the_original_opened_snapshot() {
+    let directory = owned_copy("coherent-selected-diagnostic");
+    // Approved setup: a recoverable lost-scene-ACK prefix of the ACTUAL public
+    // producer, not invented history. Only its scene acknowledgement is absent
+    // before opening; every DB/checkpoint/recording byte remains original.
+    let mut expected = inventory(&directory);
+    expect_remove(&directory,Path::new("scene-00.json"),&mut expected);
+    assert!(inventory(&directory)==expected);
+    let before_report = comparison::inspect_comparison(&directory).unwrap();
+    assert_eq!(before_report.completed_scenes,0);
+    assert_eq!(before_report.turns.len(),12);
+    let opened = desktop_api::open_read_only(&directory).unwrap();
+    let summary = desktop_api::summary(&opened,true).unwrap();
+    assert_eq!(summary["report"],serde_json::to_value(&before_report).unwrap());
+    let binding = summary["binding"].as_str().unwrap();
+    let row = known_row();
+    desktop_api::evidence(&opened,binding,&row,query(desktop_api::Edge::After,Observer::Player,View::History),true).unwrap();
+
+    let checkpoint_path = Path::new("left/attempt-00.json");
+    let checkpoint_bytes = expected.files.get(checkpoint_path).unwrap();
+    let mut checkpoint:Value = serde_json::from_slice(checkpoint_bytes).unwrap();
+    let admission = checkpoint["row"]["admission"].as_u64().unwrap();
+    let old_ms = checkpoint["row"]["elapsed_ms"].as_u64().unwrap();
+    let new_ms = old_ms.checked_add(1).unwrap();
+    let settlement_path = PathBuf::from(format!("left/admission-{admission:02}-settled.json"));
+    let reservation = json_file(&directory.join(format!("left/admission-{admission:02}.json")));
+    assert!(new_ms <= reservation["ms"].as_u64().unwrap(),"fixed synthetic change stays within the actual reservation");
+    let settlement_bytes = expected.files.get(&settlement_path).unwrap();
+    let mut settlement:Value = serde_json::from_slice(settlement_bytes).unwrap();
+    assert_eq!(settlement["ms"].as_u64().unwrap(),old_ms);
+
+    // Replace exactly the known numeric fields in actual producer serialization,
+    // preserving every other byte (including field order/whitespace). These are
+    // synthetic diagnostic faults, never new timing/model measurements.
+    fn replace_once(bytes:&[u8],needle:&str,replacement:&str)->Vec<u8> {
+        let text=std::str::from_utf8(bytes).unwrap();
+        assert_eq!(text.matches(needle).count(),1);
+        text.replacen(needle,replacement,1).into_bytes()
+    }
+    let changed_checkpoint = replace_once(checkpoint_bytes,
+        &format!("\"admission\":{admission},\"elapsed_ms\":{old_ms}"),
+        &format!("\"admission\":{admission},\"elapsed_ms\":{new_ms}"));
+    let changed_settlement = replace_once(settlement_bytes,&format!("\"ms\":{old_ms}"),&format!("\"ms\":{new_ms}"));
+    checkpoint["row"]["elapsed_ms"]=json!(new_ms);
+    settlement["ms"]=json!(new_ms);
+    assert_eq!(serde_json::from_slice::<Value>(&changed_checkpoint).unwrap(),checkpoint);
+    assert_eq!(serde_json::from_slice::<Value>(&changed_settlement).unwrap(),settlement);
+    expect_write(&directory,checkpoint_path,&changed_checkpoint,&mut expected);
+    expect_write(&directory,&settlement_path,&changed_settlement,&mut expected);
+
+    // Public producer validation must accept BOTH coherent changed diagnostics.
+    // A checksum/closure/ledger failure would not exercise snapshot identity.
+    let after_report=comparison::inspect_comparison(&directory).unwrap();
+    assert_eq!(after_report.completed_scenes,before_report.completed_scenes);
+    assert_eq!(after_report.turns.len(),before_report.turns.len());
+    assert_eq!(after_report.left_charged_ms,before_report.left_charged_ms+1);
+    assert_eq!(after_report.right_charged_ms,before_report.right_charged_ms);
+    for (before,after) in before_report.turns.iter().zip(&after_report.turns) {
+        let mut expected_row=before.clone();
+        if before.turn==row.turn && before.arm=="left" { expected_row.elapsed_ms=new_ms; }
+        assert_eq!(after,&expected_row);
+    }
+    closed_error(desktop_api::evidence(&opened,binding,&row,query(desktop_api::Edge::After,Observer::Player,View::History),true));
+    closed_error(desktop_api::evidence(&opened,binding,&row,desktop_api::EvidenceRequest::Receipt{observer:Observer::Omniscient},true));
+    assert_eq!(desktop_api::summary(&opened,true).unwrap(),summary,"still only the immutable last-validated summary");
+    drop(opened);
+    assert!(inventory(&directory)==expected,"only the two known diagnostic fields changed after opening; no reader repair");
 }

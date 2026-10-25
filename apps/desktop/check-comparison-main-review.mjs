@@ -348,56 +348,85 @@ await run(
 // Additive fifth oracle frozen at 99531a3c; the original four remain unchanged.
 // App-owned journeys invoke the controller directly, without DOM input. Its
 // accepted query selection must therefore drive the actual panel controls too.
-await run("direct-controller-query-keeps-panel-selection-coherent", async () => {
-    begin(true);
-    let pending;
-    const calls = [];
-    const controller = new Controller(async (name, args) => {
-        assert.equal(name, "evaluation_comparison");
-        calls.push(clone(args));
-        if (args.action === "pick") return status(args.query.clientId);
-        if (args.action === "source")
-            return { version: 1, kind: "comparison_reader", run_token: token, source: clone(source) };
-        if (args.action === "close") return status(args.query.clientId, "closed");
-        if (args.action === "evidence") {
-            assert.equal(pending, undefined, "OnlyOneDirectRead");
-            return new Promise((resolve) => { pending = { resolve, request: clone(args.query.request) }; });
+await run(
+    "direct-controller-query-keeps-panel-selection-coherent",
+    async () => {
+        begin(true);
+        let pending;
+        const calls = [];
+        const controller = new Controller(async (name, args) => {
+            assert.equal(name, "evaluation_comparison");
+            calls.push(clone(args));
+            if (args.action === "pick") return status(args.query.clientId);
+            if (args.action === "source")
+                return {
+                    version: 1,
+                    kind: "comparison_reader",
+                    run_token: token,
+                    source: clone(source),
+                };
+            if (args.action === "close")
+                return status(args.query.clientId, "closed");
+            if (args.action === "evidence") {
+                assert.equal(pending, undefined, "OnlyOneDirectRead");
+                return new Promise((resolve) => {
+                    pending = { resolve, request: clone(args.query.request) };
+                });
+            }
+            assert.fail(`UnexpectedNativeAction:${args.action}`);
+        });
+        try {
+            controller.contextChanged("root/window/session/head/Lab", true);
+            await controller.pick();
+            controller.select(row);
+            assert.equal(controls(controller).edge.props.value, "after");
+            assert.equal(controls(controller).view.props.value, "knowledge");
+            const request = {
+                kind: "query",
+                edge: "before",
+                view: "history",
+                observer: { kind: "omniscient" },
+            };
+            const work = controller.inspect(request);
+            assert(pending, "DirectControllerUsesActualNativeQueryPath");
+            const pendingState = controller.get();
+            const pendingControls = controls(controller);
+            const pendingSelection = {
+                edge: pendingControls.edge.props.value,
+                view: pendingControls.view.props.value,
+            };
+            pending.resolve(evidence(pending.request));
+            await work;
+            assert.equal(pendingState.busy, true);
+            assert.deepEqual(pending.request, request);
+            assert.deepEqual(
+                pendingSelection,
+                { edge: "before", view: "history" },
+                "PendingPanelControlsMatchActualDirectQuery",
+            );
+            assert.equal(
+                controller.get().error,
+                null,
+                "ActualQuery2DecoderAcceptsBeforeBoundary",
+            );
+            assert.equal(controller.get().busy, false);
+            assert.equal(controller.get().evidence?.edge, "before");
+            assert.equal(controller.get().evidence?.body.page.view, "history");
+            assert.equal(controller.get().evidence?.body.page.head, 0);
+            assert.equal(controller.get().evidence?.body.page.revision, 0);
+            assert.equal(controls(controller).edge.props.value, "before");
+            assert.equal(controls(controller).view.props.value, "history");
+            assert.equal(controller.get().source.rows[0].source.before_head, 0);
+            assert.equal(controller.get().source.rows[0].source.after_head, 1);
+            assert.deepEqual(
+                calls.map((call) => call.action),
+                ["pick", "source", "evidence"],
+            );
+        } finally {
+            controller.dispose();
         }
-        assert.fail(`UnexpectedNativeAction:${args.action}`);
-    });
-    try {
-        controller.contextChanged("root/window/session/head/Lab", true);
-        await controller.pick();
-        controller.select(row);
-        assert.equal(controls(controller).edge.props.value, "after");
-        assert.equal(controls(controller).view.props.value, "knowledge");
-        const request = { kind: "query", edge: "before", view: "history", observer: { kind: "omniscient" } };
-        const work = controller.inspect(request);
-        assert(pending, "DirectControllerUsesActualNativeQueryPath");
-        const pendingState = controller.get();
-        const pendingControls = controls(controller);
-        const pendingSelection = {
-            edge: pendingControls.edge.props.value,
-            view: pendingControls.view.props.value,
-        };
-        pending.resolve(evidence(pending.request));
-        await work;
-        assert.equal(pendingState.busy, true);
-        assert.deepEqual(pending.request, request);
-        assert.deepEqual(pendingSelection, { edge: "before", view: "history" }, "PendingPanelControlsMatchActualDirectQuery");
-        assert.equal(controller.get().error, null, "ActualQuery2DecoderAcceptsBeforeBoundary");
-        assert.equal(controller.get().busy, false);
-        assert.equal(controller.get().evidence?.edge, "before");
-        assert.equal(controller.get().evidence?.body.page.view, "history");
-        assert.equal(controller.get().evidence?.body.page.head, 0);
-        assert.equal(controller.get().evidence?.body.page.revision, 0);
-        assert.equal(controls(controller).edge.props.value, "before");
-        assert.equal(controls(controller).view.props.value, "history");
-        assert.equal(controller.get().source.rows[0].source.before_head, 0);
-        assert.equal(controller.get().source.rows[0].source.after_head, 1);
-        assert.deepEqual(calls.map((call) => call.action), ["pick", "source", "evidence"]);
-    } finally { controller.dispose(); }
-});
+    },
+);
 console.log(
     JSON.stringify(
         {

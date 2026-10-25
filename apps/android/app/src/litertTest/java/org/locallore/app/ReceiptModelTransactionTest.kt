@@ -42,6 +42,40 @@ class ReceiptModelTransactionTest {
     private fun owner(roots: Roots) = File(roots.data, "model.owner")
     private fun sha(value: ByteArray) = MessageDigest.getInstance("SHA-256").digest(value)
         .joinToString("") { "%02x".format(it) }
+    private fun bulkBytes() = ByteArray(8 * 1024 * 1024) { index ->
+        ((index * 31 + (index ushr 7)) and 255).toByte()
+    }
+    private fun bulkIdentity(payload: ByteArray) =
+        LocalModelIdentity("synthetic-receipt-bulk-v1", payload.size.toLong(), sha(payload), 1024)
+    private class BulkSource(payload: ByteArray, private val admissions: AtomicInteger,
+        private val cap: Int = Int.MAX_VALUE, private val afterRead: (Int) -> Unit = {},
+    ) : ByteArrayInputStream(payload) {
+        val reads = AtomicInteger()
+        val positiveReads = AtomicInteger()
+        val consumed = AtomicInteger()
+        val closed = AtomicInteger()
+        val maxRequest = AtomicInteger()
+        var firstReadBytes = 0
+            private set
+        private var lastAdmission = -1
+        override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+            // Observation only: an intervening write guard may also advance this.
+            assertTrue("Admission observations must continue between reads", admissions.get() > lastAdmission)
+            lastAdmission = admissions.get()
+            maxRequest.set(maxOf(maxRequest.get(), length))
+            val call = reads.incrementAndGet()
+            val count = super.read(buffer, offset, minOf(length, cap))
+            if (count > 0) {
+                positiveReads.incrementAndGet()
+                consumed.addAndGet(count)
+                if (call == 1) firstReadBytes = count
+            }
+            afterRead(call)
+            return count
+        }
+        override fun read(): Int = error("Bulk source must use bounded reads")
+        override fun close() { closed.incrementAndGet(); super.close() }
+    }
     private fun expectedReceipt(roots: Roots): ByteArray =
         ("locallore-model-receipt-v1\n${identity.id}\n${identity.bytes}\n${identity.sha256}\n" +
             sha(roots.data.canonicalPath.toByteArray(Charsets.UTF_8)) + "\n").toByteArray(Charsets.UTF_8)
@@ -322,6 +356,122 @@ class ReceiptModelTransactionTest {
         assertNull(store(roots).installed())
         store(roots).discardUncommitted()
         assertNotNull(store(roots).import { ByteArrayInputStream(bytes) })
+    }
+
+    @Test fun multiChunkCopyAndFullRecheckBoundGuardAmplificationWithoutSkippingValidation() = runBlocking {
+        val roots = roots()
+        val payload = bulkBytes()
+        val admissions = AtomicInteger()
+        val writeObservations = AtomicInteger()
+        val opened = AtomicInteger()
+        val source = BulkSource(payload, admissions)
+        val transaction = ReceiptModelTransaction(roots.control, roots.data, bulkIdentity(payload), { Long.MAX_VALUE }, {
+            admissions.incrementAndGet()
+            if (source.closed.get() == 0 && source.consumed.get() > model(roots).length()) writeObservations.incrementAndGet()
+        })
+        val accepted = transaction.import { opened.incrementAndGet(); source }
+        val importGuards = admissions.get()
+        assertArrayEquals(payload, accepted.model.readBytes())
+        assertEquals(sha(payload), sha(accepted.model.readBytes()))
+        assertTrue(marker(roots).isFile)
+        assertEquals(0L, marker(roots).length())
+        assertEquals(1, opened.get())
+        assertEquals(1, source.closed.get())
+        assertTrue(writeObservations.get() >= source.positiveReads.get())
+        admissions.set(0)
+        val reopened = requireNotNull(transaction.installed())
+        val installedGuards = admissions.get()
+        assertArrayEquals(payload, reopened.model.readBytes())
+        // These are deterministic host observations, not an Android timing claim.
+        // Three refers only to copy-source reads (two chunks plus guarded EOF),
+        // while the guard totals also include independent disk full-hash passes.
+        val metrics = "bulk metrics: source_reads=${source.reads.get()}, import_guards=$importGuards, " +
+            "installed_guards=$installedGuards, max_request=${source.maxRequest.get()}"
+        assertTrue(metrics, source.reads.get() == 3 && source.maxRequest.get() == 4 * 1024 * 1024 &&
+            importGuards <= 200 && installedGuards <= 100)
+    }
+
+    @Test fun shortBulkReadsRetainHashAndContinuingGuardObservations() = runBlocking {
+        val roots = roots()
+        val payload = bulkBytes()
+        val admissions = AtomicInteger()
+        val writeObservations = AtomicInteger()
+        val source = BulkSource(payload, admissions, cap = 127 * 1024 + 13)
+        val transaction = ReceiptModelTransaction(roots.control, roots.data, bulkIdentity(payload), { Long.MAX_VALUE }, {
+            admissions.incrementAndGet()
+            if (source.closed.get() == 0 && source.consumed.get() > model(roots).length()) writeObservations.incrementAndGet()
+        })
+        val result = transaction.import { source }
+        assertArrayEquals(payload, result.model.readBytes())
+        assertTrue(source.positiveReads.get() > 8)
+        assertTrue(source.maxRequest.get() <= 4 * 1024 * 1024)
+        assertTrue(writeObservations.get() >= source.positiveReads.get())
+        assertEquals(payload.size, source.consumed.get())
+        assertEquals(1, source.closed.get())
+        assertNotNull(transaction.installed())
+    }
+
+    @Test fun multiChunkOversizeByOneAndWrongDigestPreserveUnacceptedBytes() = runBlocking {
+        val expected = bulkBytes()
+        val wrong = expected.copyOf().also { it[it.lastIndex] = (it.last() + 1).toByte() }
+        for (oversize in listOf(true, false)) {
+            val roots = roots()
+            val supplied = if (oversize) expected + byteArrayOf(7) else wrong
+            val observations = AtomicInteger()
+            val transaction = ReceiptModelTransaction(roots.control, roots.data, bulkIdentity(expected), { Long.MAX_VALUE }, {
+                observations.incrementAndGet()
+            })
+            val counted = BulkSource(supplied, observations)
+            refused(LocalModelFailure.INVALID_MODEL) { transaction.import { counted } }
+            assertFalse(marker(roots).exists())
+            assertEquals(1, counted.closed.get())
+            assertEquals(expected.size.toLong(), model(roots).length())
+            assertArrayEquals(if (oversize) expected else wrong, model(roots).readBytes())
+            val before = payloadSnapshot(roots)
+            assertNull(transaction.installed())
+            assertEquals(before, payloadSnapshot(roots))
+        }
+    }
+
+    @Test fun cancellationInsideSecondBulkReadStopsBeforeItsWriteAndAcceptance() = runBlocking {
+        val roots = roots()
+        val payload = bulkBytes()
+        val observations = AtomicInteger()
+        lateinit var operation: kotlinx.coroutines.Deferred<LocalModelFiles>
+        val source = BulkSource(payload, observations, afterRead = { if (it == 2) operation.cancel() })
+        val transaction = ReceiptModelTransaction(roots.control, roots.data, bulkIdentity(payload), { Long.MAX_VALUE }, {
+            observations.incrementAndGet()
+        })
+        operation = async(Dispatchers.IO, start = CoroutineStart.LAZY) { transaction.import { source } }
+        operation.start()
+        withTimeout(10_000) { operation.join() }
+        assertTrue(currentCoroutineContext().isActive)
+        assertTrue(operation.isCancelled)
+        assertEquals(2, source.reads.get())
+        assertEquals(1, source.closed.get())
+        assertEquals(source.firstReadBytes.toLong(), model(roots).length())
+        assertArrayEquals(payload.copyOf(source.firstReadBytes), model(roots).readBytes())
+        assertTrue(source.consumed.get() > model(roots).length())
+        assertFalse(marker(roots).exists())
+        assertNull(transaction.installed())
+    }
+
+    @Test fun syntheticVolumeRevocationAfterSecondBulkReadStopsBeforeWriteAndAcceptance() = runBlocking {
+        val roots = roots()
+        val payload = bulkBytes()
+        val observations = AtomicInteger()
+        val source = BulkSource(payload, observations)
+        val transaction = ReceiptModelTransaction(roots.control, roots.data, bulkIdentity(payload), { Long.MAX_VALUE }, {
+            observations.incrementAndGet()
+            if (source.reads.get() == 2) throw LocalModelException(LocalModelFailure.STORAGE)
+        })
+        refused(LocalModelFailure.STORAGE) { transaction.import { source } }
+        assertEquals(2, source.reads.get())
+        assertEquals(1, source.closed.get())
+        assertEquals(source.firstReadBytes.toLong(), model(roots).length())
+        assertArrayEquals(payload.copyOf(source.firstReadBytes), model(roots).readBytes())
+        assertTrue(source.consumed.get() > model(roots).length())
+        assertFalse(marker(roots).exists())
     }
 
     @Test fun markerAndReceiptCorruptionCannotExposeOrDiscardAcceptedBytes() = runBlocking {

@@ -324,7 +324,7 @@ class ReceiptSupervisorEvidenceTests(unittest.TestCase):
         captures[0].close()
 
     def test_invalid_budget_refuses_before_evidence_or_spawn(self):
-        for seconds, request in ((0, b"x"), (1201, b"x"), (True, b"x"), (5, b"x" * 131073)):
+        for seconds, request in ((0, b"x"), (1801, b"x"), (True, b"x"), (5, b"x" * 131073)):
             with self.subTest(seconds=seconds), mock.patch.object(env.subprocess, "Popen") as spawn:
                 with self.assertRaisesRegex(env.EnvironmentRefused, "invalid_budget"):
                     env.supervise(["must-not-spawn"], request, self.root, seconds, lambda _: True)

@@ -131,7 +131,15 @@ function NativeCloseNotice({
             className="comparison-unavailable"
             data-native-close={phase}
         >
-            {phase === "cleanup_required" ? (
+            {phase === "close_failed" ? (
+                <>
+                    Worker cleanup is confirmed. LocalLore could not close its
+                    window.{" "}
+                    <button onClick={() => void controller.retry()}>
+                        Retry close
+                    </button>
+                </>
+            ) : phase === "cleanup_required" ? (
                 <>
                     Worker cleanup is not confirmed. LocalLore is staying open
                     and new work is blocked.{" "}

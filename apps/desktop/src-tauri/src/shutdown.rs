@@ -39,6 +39,17 @@ fn status(app: &tauri::AppHandle, phase: &str) {
     // Fixed bounded metadata only. Emission failure cannot certify cleanup.
     let _ = app.emit("locallore-close-status", json!({"version":1,"phase":phase}));
 }
+fn continuation_failed(app: &tauri::AppHandle, ticket: CloseTicket) {
+    let restored = app
+        .state::<WorkspaceState>()
+        .close_gate
+        .lock()
+        .map(|mut gate| gate.continuation_failed(ticket))
+        .unwrap_or(false);
+    if restored {
+        status(app, "close_failed");
+    }
+}
 fn continue_close(app: &tauri::AppHandle, ticket: CloseTicket) {
     let continuation = app
         .state::<WorkspaceState>()
@@ -48,14 +59,19 @@ fn continue_close(app: &tauri::AppHandle, ticket: CloseTicket) {
         .and_then(|mut gate| gate.take_continuation(ticket));
     if let Some(continuation) = continuation {
         let handle = app.clone();
-        let _ = app.run_on_main_thread(move || match continuation {
+        let scheduled = app.run_on_main_thread(move || match continuation {
             Continuation::DestroyWindow { epoch } => {
                 if let Some(window) = handle.get_webview_window(&format!("main-{epoch}")) {
-                    let _ = window.destroy();
+                    if window.destroy().is_err() {
+                        continuation_failed(&handle, ticket);
+                    }
                 }
             }
             Continuation::Exit { code } => handle.exit(code.unwrap_or(0)),
         });
+        if scheduled.is_err() {
+            continuation_failed(app, ticket);
+        }
     }
 }
 

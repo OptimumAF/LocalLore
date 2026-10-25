@@ -188,6 +188,23 @@ impl CloseGate {
         true
     }
 
+    /// A trusted native scheduling/destroy failure can reissue only this
+    /// already-proven continuation. It cannot undo a consumed exit, later
+    /// continuation sequence or a newer window's lifetime.
+    pub(crate) fn continuation_failed(&mut self, ticket: CloseTicket) -> bool {
+        if ticket.epoch != self.epoch || ticket.sequence != self.sequence {
+            return false;
+        }
+        if !matches!(self.phase, Phase::WindowContinued)
+            && !(self.phase == Phase::ExitContinued && self.exit_permit.is_some())
+        {
+            return false;
+        }
+        self.exit_permit = None;
+        self.phase = Phase::Confirmed(ticket);
+        true
+    }
+
     /// Coordination status only: false never proves that a child is terminal.
     pub(crate) fn pending(&self) -> bool {
         matches!(self.phase, Phase::InFlight(_) | Phase::Uncertain(_))
@@ -197,6 +214,8 @@ impl CloseGate {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[path = "continuation_review_tests.rs"]
+    mod continuation_review_tests;
 
     fn start(gate: &mut CloseGate, epoch: u64, intent: Intent) -> CloseTicket {
         match gate.request(epoch, intent).expect("valid native request") {

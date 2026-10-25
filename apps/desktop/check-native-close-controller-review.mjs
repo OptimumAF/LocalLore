@@ -144,7 +144,12 @@ await test("retry transport rejection does not fabricate cleanup acknowledgement
 });
 await test("failed window continuation is distinct from uncertain worker cleanup", () => {
     let errors = 0;
-    const c = new NativeCloseController(async () => ({}), () => { errors += 1; });
+    const c = new NativeCloseController(
+        async () => ({}),
+        () => {
+            errors += 1;
+        },
+    );
     c.receive({ version: 1, phase: "closing" });
     c.receive({ version: 1, phase: "close_failed" });
     assert.equal(c.get(), "close_failed");

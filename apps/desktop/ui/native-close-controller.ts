@@ -1,6 +1,6 @@
 // Presentation only. Native managers and CloseGate own all cleanup proof.
 export type NativeClosePhase =
-    "open" | "closing" | "cleanup_required" | "closed";
+    "open" | "closing" | "cleanup_required" | "close_failed" | "closed";
 export class NativeCloseController {
     private phase: NativeClosePhase = "open";
     private listeners = new Set<() => void>();
@@ -27,7 +27,9 @@ export class NativeCloseController {
             !Object.hasOwn(record, "phase") ||
             record.version !== 1 ||
             typeof record.phase !== "string" ||
-            !["closing", "cleanup_required", "closed"].includes(record.phase)
+            !["closing", "cleanup_required", "close_failed", "closed"].includes(
+                record.phase,
+            )
         ) {
             this.error();
             return;

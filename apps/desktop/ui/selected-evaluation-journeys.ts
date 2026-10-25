@@ -385,7 +385,10 @@ export async function selectedEvaluationJourneys({
                 s.get().summary?.lane === "scripted_selected_case",
             "opened-summary-binds-actual-selected-case",
         );
-        await capture("selected-summary");
+        await capture(
+            "selected-summary",
+            "[aria-label='Selected experiment summary']",
+        );
         for (const arm of ["left", "right"] as const) {
             const bound = s
                 .get()
@@ -567,7 +570,10 @@ export async function selectedEvaluationJourneys({
                 guardEvidence.body.reason === "no_accepted_receipt",
             "guard-no-invented-receipt",
         );
-        await capture("selected-guard");
+        await capture(
+            "selected-guard",
+            "[aria-label='Displayed selected evidence']",
+        );
         await s.close();
 
         const lost = await source();

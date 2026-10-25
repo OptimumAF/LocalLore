@@ -26,6 +26,7 @@ for (const args of [
     ["check-capture-review.mjs"],
     ["check-evaluation-controller.mjs"],
     ["check-selected-evaluation-controller.mjs"],
+    ["check-native-close-controller-review.mjs"],
     ["check-comparison-reader.mjs"],
     ["check-comparison-main-review.mjs"],
     ["check-comparison-capability-review.mjs"],

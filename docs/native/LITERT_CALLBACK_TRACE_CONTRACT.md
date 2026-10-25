@@ -71,7 +71,7 @@ Top-level keys/order are EXACT:
 {"version":1,"requests":integer,"requests_saturated":boolean,"calls":[...]}
 ```
 
-Each call's keys/order are EXACT:
+Each call's canonical producer keys/order are:
 
 ```text
 ordinal,role,context_tokens,max_output_tokens,prompt_bytes,schema_bytes,counts,saturated
@@ -84,6 +84,8 @@ No extra fields/arrays/role names/arbitrary strings are encoded. Configured byte
 lengths/caps are not measured tokenizer work, actual context use, generated
 tokens or SDK-native request admission. No cross-counter lifecycle consistency
 or inference/canonical/resource authority follows from this metadata.
+The host accepts JSON object key permutations while refusing duplicate keys;
+array order, contiguous ordinals and the ordered saturation subset remain checked.
 
 Canonical dense fixture: requests1000000/saturatedtrue; three NARRATOR calls
 ordinal1..3, context4096/output350/prompt16384/schema16384, every counter1000000,

@@ -198,7 +198,10 @@ fn native_import_then_play25_wait_survives_cold_retry_without_repeating_generati
         assert_eq!(saved.request, request);
         let receipt = saved.receipt.as_ref().unwrap();
         assert_eq!(receipt.request(), &request);
-        assert_eq!(receipt.proposal().commands, vec![Command::Wait { ticks: 1 }]);
+        assert_eq!(
+            receipt.proposal().commands,
+            vec![Command::Wait { ticks: 1 }]
+        );
         assert_eq!(receipt.events().len(), 1);
         assert_eq!(receipt.events()[0].sequence(), 4);
         assert_eq!(receipt.events()[0].scope(), &fixture.active);
@@ -271,7 +274,10 @@ fn native_import_then_play25_wait_survives_cold_retry_without_repeating_generati
         equivalent(&read(&target, &fixture.root), &fixture.root_engine);
         equivalent(&read(&target, &foreign), &foreign_engine);
         equivalent(&read(&fixture.path, &fixture.root), &fixture.root_engine);
-        equivalent(&read(&fixture.path, &fixture.active), &fixture.active_engine);
+        equivalent(
+            &read(&fixture.path, &fixture.active),
+            &fixture.active_engine,
+        );
         assert_eq!(fs::read(&fixture.path).unwrap(), source_database);
         assert_eq!(fs::read(&fixture.input).unwrap(), fixture.bytes);
         let cold_export = Store::open_read_only(&target)

@@ -91,11 +91,15 @@ def validate_proposal(value):
     owned = q.contract.strict_json(Path(previous["owned_result"]["path"]).read_bytes())
     assert result["scope"] == r.SCOPE and result["phase"] == "preflight" and result["status"] == "observed"
     assert result["failure"] is None and result["clients_cleaned"] is True and result["owner_live"] is True
-    assert result["running_sha256"] == value["running_sha256"] and result["instrumentation_commands"] == 1
-    assert owned["status"] == "child_exited" and owned["worker_returncode"] == 0
+    assert result["running_sha256"] == value["running_sha256"]
+    assert type(result["instrumentation_commands"]) is int and result["instrumentation_commands"] == 1
+    assert owned["status"] == "child_exited"
+    assert type(owned["worker_returncode"]) is int and owned["worker_returncode"] == 0
     assert owned["cleanup_complete"] is True and owned["output_capture_complete"] is True
     facts = q.contract.strict_json(Path(previous["facts"]["path"]).read_bytes())
-    assert facts["packages"] == q.APK_HASHES and set(facts["uid_map"]) == {q.APP, q.TEST}
+    assert facts["packages"] == q.APK_HASHES and type(facts["uid_map"]) is dict and set(facts["uid_map"]) == {q.APP, q.TEST}
+    for uid in facts["uid_map"].values(): r.integer(uid, 10000, 2 ** 31 - 1)
+    assert len(set(facts["uid_map"].values())) == 2
     assert facts["processes"] == {"target": [], "test_helper": []}
     proof = r.parse_proof(Path(previous["proof"]["path"]).read_bytes(), "SOURCE_PREFLIGHT", facts["uid_map"][q.APP])
     assert result["result"]["proof"] == proof and result["result"]["after"] == facts
@@ -255,6 +259,7 @@ class Owner(q.Owner):
         self.attempted, self.verified = [], []
         self.created = False
         self.binary_verified = False
+        self.shell_gate_attempted = False
 
     def dispatch(self, args, deadline=15, cap=65536):
         if self.stage == "probe-root":
@@ -314,6 +319,8 @@ class Owner(q.Owner):
         """Fixed protocol and binary controls before the candidate large transfer."""
         assert self.stage == "shell-gate" and self.verified == ["CAT", "DD_1M"]
         assert self.attempted == self.verified and not self.binary_verified and "TERM" not in os.environ
+        assert not self.shell_gate_attempted
+        self.shell_gate_attempted = True
         prefix = [self.proposal["adb_path"], "-H", "127.0.0.1", "-P", "5037", "-s", self.serial]
         def control(args, expected, request=b""):
             assert self.clean; self.check_owner(); self.count += 1

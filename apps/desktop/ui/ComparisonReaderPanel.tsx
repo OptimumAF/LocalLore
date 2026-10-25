@@ -1,4 +1,4 @@
-import { useCallback, useState, useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import type { ComparisonReaderController } from "./comparison-reader-controller";
 import type { ObserverV2, ViewV2 } from "./v2-view-model";
 
@@ -35,8 +35,7 @@ export function ComparisonReaderPanel({
     );
     const get = useCallback(() => c.get(), [c]);
     const s = useSyncExternalStore(subscribe, get, get);
-    const [edge, setEdge] = useState<"before" | "after">("after");
-    const [view, setView] = useState<ViewV2>("knowledge");
+    const { edge, view } = s.querySelection;
     if (!s.allowed) return null;
     const selected = s.source?.rows.find((row) => same(row.row, s.selected));
     const turn = s.summary?.report.turns.find((row) => same(row, s.selected));
@@ -350,7 +349,7 @@ export function ComparisonReaderPanel({
                                         <dt>Actual phase</dt>
                                         <dd>{turn.phase}</dd>
                                         <dt>Error</dt>
-                                        <dd>{display(turn.error)}</dd>
+                                        <dd>{turn.error ?? "None"}</dd>
                                         <dt>Policy</dt>
                                         <dd>{turn.policy}</dd>
                                         <dt>Role calls</dt>
@@ -410,10 +409,10 @@ export function ComparisonReaderPanel({
                                         disabled={s.busy}
                                         onChange={(event) => {
                                             if (c.get().busy) return;
-                                            c.clearEvidence();
-                                            setEdge(
+                                            c.setQuerySelection(
                                                 event.target.value as
                                                     "before" | "after",
+                                                view,
                                             );
                                         }}
                                     >
@@ -432,8 +431,8 @@ export function ComparisonReaderPanel({
                                         disabled={s.busy}
                                         onChange={(event) => {
                                             if (c.get().busy) return;
-                                            c.clearEvidence();
-                                            setView(
+                                            c.setQuerySelection(
+                                                edge,
                                                 event.target.value as ViewV2,
                                             );
                                         }}

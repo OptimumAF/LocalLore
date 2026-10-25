@@ -2,6 +2,7 @@
 import type { Controller } from "./controller";
 import type { ComparisonReaderController } from "./comparison-reader-controller";
 import { structural, type ErrorBuffer } from "./model";
+import type { ViewV2 } from "./v2-view-model";
 export async function comparisonReaderJourneys({
     controller: c,
     comparison: r,
@@ -40,6 +41,7 @@ export async function comparisonReaderJourneys({
     const inspect = async (
         kind: "query" | "receipt" | "capture" | "outputs",
         edge: "before" | "after" = "after",
+        view: ViewV2 = "knowledge",
     ) => {
         failedCheck = `comparison-inspect-${kind}-${edge}`;
         if (kind === "query")
@@ -47,7 +49,7 @@ export async function comparisonReaderJourneys({
                 kind,
                 edge,
                 observer: r.get().observer,
-                view: "knowledge",
+                view,
             });
         else await r.inspect({ kind, observer: r.get().observer });
     };
@@ -123,6 +125,7 @@ export async function comparisonReaderJourneys({
                         status: state.status,
                         source: state.source,
                         selected: state.selected,
+                        querySelection: state.querySelection,
                         summaryProjection,
                         evidence: state.evidence,
                         uncertain: state.uncertain,
@@ -238,17 +241,21 @@ export async function comparisonReaderJourneys({
             r.get().summary === null && r.get().evidence === null,
             "mira-transition-clears-all-raw-presentation",
         );
-        await inspect("query");
+        await inspect("query", "after", "history");
         check(
-            JSON.stringify(r.get().evidence).includes("SECRET-TIDE-731"),
-            "mira-actual-known-private-fact",
+            JSON.stringify(r.get().evidence).includes(
+                "The pennant I carry has an amber stitch.",
+            ) && !JSON.stringify(r.get().evidence).includes("SECRET-TIDE-731"),
+            "mira-observed-dialogue-without-player-private-secret",
         );
         await capture("comparison-mira", ".comparison-selected");
         r.setObserver({ kind: "character", id: "sable" });
-        await inspect("query");
+        await inspect("query", "after", "history");
         check(
-            !JSON.stringify(r.get().evidence).includes("SECRET-TIDE-731"),
-            "sable-actual-query-withholds-unseen-secret",
+            !JSON.stringify(r.get().evidence).includes(
+                "The pennant I carry has an amber stitch.",
+            ) && !JSON.stringify(r.get().evidence).includes("SECRET-TIDE-731"),
+            "sable-withholds-unseen-dialogue-and-player-secret",
         );
         await capture("comparison-sable", ".comparison-selected");
         const status = r.get().status!,
@@ -275,8 +282,8 @@ export async function comparisonReaderJourneys({
         r.setObserver({ kind: "player" });
         await inspect("query", "before");
         check(
-            !JSON.stringify(r.get().evidence).includes("SECRET-TIDE-731"),
-            "player-before-state-isolation",
+            JSON.stringify(r.get().evidence).includes("SECRET-TIDE-731"),
+            "player-before-state-preserves-own-original-seed-knowledge",
         );
         r.setObserver({ kind: "omniscient" });
         await r.loadSummary();

@@ -26,6 +26,10 @@ export type ComparisonReaderInvoke = (
     name: string,
     args: Record<string, unknown>,
 ) => Promise<unknown>;
+type QuerySelection = Pick<
+    Extract<EvidenceRequest, { kind: "query" }>,
+    "edge" | "view"
+>;
 export type ComparisonReaderState = {
     context: string;
     allowed: boolean;
@@ -36,6 +40,7 @@ export type ComparisonReaderState = {
     summary: ReaderSummary | null;
     selected: RowId | null;
     evidence: ReaderEvidence | null;
+    querySelection: QuerySelection;
     busy: boolean;
     uncertain: boolean;
     error: ReaderError | null;
@@ -91,6 +96,7 @@ export class ComparisonReaderController {
         summary: null,
         selected: null,
         evidence: null,
+        querySelection: { edge: "after", view: "knowledge" },
         busy: false,
         uncertain: false,
         error: null,
@@ -321,6 +327,34 @@ export class ComparisonReaderController {
             error: null,
         });
     }
+    setQuerySelection(
+        edge: QuerySelection["edge"],
+        view: QuerySelection["view"],
+    ): void {
+        if (this.disposed || this.state.busy) return;
+        try {
+            checkedReaderRequest({
+                kind: "query",
+                edge,
+                view,
+                observer: this.state.observer,
+            });
+        } catch {
+            this.invalid("ComparisonReaderWire");
+            return;
+        }
+        if (
+            this.state.querySelection.edge === edge &&
+            this.state.querySelection.view === view
+        )
+            return;
+        this.requestEpoch++;
+        this.patch({
+            querySelection: { edge, view },
+            evidence: null,
+            error: null,
+        });
+    }
     clearEvidence(): void {
         if (this.disposed || this.state.busy) return;
         this.requestEpoch++;
@@ -499,7 +533,7 @@ export class ComparisonReaderController {
             }
         }
     }
-    private beginRead(): {
+    private beginRead(querySelection?: QuerySelection): {
         ticket: Ticket;
         token: string;
         source: ReaderSource;
@@ -518,7 +552,12 @@ export class ComparisonReaderController {
             return null;
         const ticket = this.ticket(clientId),
             token = status.run_token;
-        this.patch({ busy: true, error: null, evidence: null });
+        this.patch({
+            busy: true,
+            error: null,
+            evidence: null,
+            ...(querySelection ? { querySelection } : {}),
+        });
         return this.live(ticket) ? { ticket, token, source } : null;
     }
     async loadSummary(): Promise<void> {
@@ -570,7 +609,11 @@ export class ComparisonReaderController {
             this.invalid("InvalidEvaluationInput");
             return;
         }
-        const read = this.beginRead();
+        const read = this.beginRead(
+            request.kind === "query"
+                ? { edge: request.edge, view: request.view }
+                : undefined,
+        );
         if (!read) return;
         const { ticket, token, source } = read;
         try {

@@ -74,16 +74,24 @@ class FakeMatcher:
             raise RuntimeError(PRIVATE)
         if self.owner.fault == "wrong-mask":
             return b""
-        mask = bytearray(((len(self.owner.tokens) + 31) // 32) * 4)
+        # Match the pinned Python API's complete SimpleVob allocation, including
+        # its extra capacity word at vocabulary boundaries.
+        vocab = len(self.owner.tokens)
+        mask = bytearray((((vocab + 1) // 32) + 1) * 4)
         for token in range(len(self.owner.tokens)):
             allowed = any(text == self.prefix for text in self.allowed) if token == self.owner.eos else any(
                 text.startswith(self.prefix + self.tokenizer.piece(token)) for text in self.allowed)
             if allowed:
                 mask[token // 8] |= 1 << (token % 8)
-        if self.owner.fault == "eos-mismatch":
+        if self.owner.fault in ("eos-mismatch", "padding-eos-mismatch"):
             mask[self.owner.eos // 8] &= ~(1 << (self.owner.eos % 8))
+        if self.owner.fault in ("padding-ones", "padding-only", "padding-error", "padding-eos-mismatch"):
+            if self.owner.fault == "padding-only":
+                mask[:] = bytes(len(mask))
+            for token in range(vocab, len(mask) * 8):
+                mask[token // 8] |= 1 << (token % 8)
         self.ready = True
-        if self.owner.fault == "mask-error":
+        if self.owner.fault in ("mask-error", "padding-error"):
             self.error = True
         return bytes(mask)
 
@@ -159,6 +167,81 @@ class CompareTests(unittest.TestCase):
         if "cases" in report:
             self.assertTrue(c.validate_report(report, actual))
         return report
+
+    def test_exact_pinned_storage_sizes_and_all_other_lengths_refused(self):
+        class StaticMask:
+            def is_error(self): return False
+            def stop_reason(self): return "NotStopped"
+            def compute_bitmask(self): return self.mask
+
+        # Literal expectations independently pin both V % 32 == 0 and == 31.
+        sizes = {1: 4, 30: 4, 31: 8, 32: 8, 33: 8, 62: 8, 63: 12,
+                 64: 12, 65: 12, 95: 16, 96: 16, 97: 16, 262144: 32772}
+        matcher = StaticMask()
+        for vocab, expected in sizes.items():
+            with self.subTest(vocab=vocab):
+                matcher.mask = bytes(expected)
+                self.assertEqual(c._mask(matcher, vocab, lambda: None), matcher.mask)
+                packed = ((vocab + 31) // 32) * 4
+                wrong = {0, expected - 4, expected - 1, expected + 1, expected + 4, packed} - {expected}
+                for size in wrong:
+                    matcher.mask = bytes(size)
+                    with self.assertRaises(c.CompareRefused) as failure:
+                        c._mask(matcher, vocab, lambda: None)
+                    self.assertEqual(failure.exception.reason, "matcher_mask")
+                matcher.mask = bytearray(expected)
+                with self.assertRaises(c.CompareRefused):
+                    c._mask(matcher, vocab, lambda: None)
+
+    def test_padded_vocabulary_boundaries_keep_complete_original_coverage(self):
+        base = tuple(b" " if piece == "\u2581".encode() else piece for piece in TOKENS)
+        for vocab in (31, 32, 63, 64):
+            with self.subTest(vocab=vocab):
+                raw = base + tuple(("extra-" + str(i)).encode() for i in range(vocab - len(base)))
+                report = self.run_compare(FakeModule("padding-ones", tokens=raw), raw=raw, tokenizer_json=None)
+                self.assertEqual(report["status"], "passed")
+                self.assertEqual(report["sample_count"], 3)
+                self.assertEqual(report["modes"]["raw_piece"]["checked"], 3)
+
+    def test_padding_cannot_authorize_real_tokens_or_inflate_prefix_counts(self):
+        report = self.run_compare(FakeModule("padding-ones"), tokenizer_json=None)
+        positive = report["cases"][0]["samples"][0]["raw_piece"]
+        self.assertEqual(positive["prefix_outcome"], "MASK_COMPUTED")
+        self.assertEqual(positive["next_allowed_count"], 0)
+        self.assertIsNone(positive["accepted"])
+        module = FakeModule("padding-only")
+        report = self.run_compare(module)
+        for sample in report["cases"][0]["samples"]:
+            for name in report["modes"]:
+                self.assertEqual(sample[name]["outcome"], "TOKEN_MASK")
+                self.assertEqual(sample[name]["checked_tokens"], 0)
+                self.assertFalse(sample[name]["accepted"])
+        self.assertFalse(any(event[0] == "consume" for event in module.events))
+
+    def test_padding_cannot_authorize_out_of_vocab_ids_or_eos_or_hide_sticky_error(self):
+        for ids in ([len(TOKENS)], [len(TOKENS) + 1], [31]):
+            with self.subTest(ids=ids):
+                module = FakeModule("padding-ones"); module.bad_ids = ids
+                report = self.run_compare(module)
+                self.assertEqual(report["reason"], "token_ids")
+                self.assertEqual(report["modes"]["semantic_hf"]["checked"], 0)
+        for eos in (len(TOKENS), 31):
+            module = FakeModule("padding-ones"); module.eos = eos
+            report = c.compare_tokenizers(module, None, TOKENS, eos, corpus())
+            self.assertEqual(report["reason"], "input_invalid")
+            self.assertEqual(module.events, [])
+        base = tuple(b" " if piece == "\u2581".encode() else piece for piece in TOKENS)
+        raw = base + tuple(("extra-" + str(i)).encode() for i in range(32 - len(base)))
+        for fault in ("padding-error", "padding-eos-mismatch"):
+            with self.subTest(fault=fault):
+                report = self.run_compare(FakeModule(fault, tokens=raw), raw=raw, tokenizer_json=None)
+                self.assertEqual(report["status"], "failed")
+                self.assertEqual(report["reason"], "matcher_state")
+                positive = report["cases"][0]["samples"][0]["raw_piece"]
+                self.assertEqual(positive["outcome"], "FAILED")
+                self.assertIsNone(positive["accepted"])
+                if fault == "padding-error":
+                    self.assertEqual(report["modes"]["raw_piece"]["checked"], 0)
 
     def test_inert_fake_control_retains_every_original_hash_and_disagreement(self):
         original = corpus()

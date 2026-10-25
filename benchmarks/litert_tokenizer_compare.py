@@ -159,7 +159,15 @@ def _mask(matcher, vocab, guard):
     _state(matcher, guard)
     value = _call("matcher_runtime", matcher.compute_bitmask)
     _state(matcher, guard)
-    _require(type(value) is bytes and len(value) == ((vocab + 31) // 32) * 4, "matcher_mask")
+    # Pinned LLGuidance 1.3.0 returns the entire SimpleVob backing allocation,
+    # unlike its pointer API's ceil(V/32) words. TokTrie requests capacity V+1;
+    # SimpleVob.resize allocates floor(capacity/32)+1 u32 words. Sources at
+    # guidance-ai/llguidance commit 29e33a219f77be1cc37d8394630440f448d19945:
+    # python_ext/src/llmatcher.rs426-430, toktrie/src/toktree.rs239-246,
+    # toktrie/src/svob.rs75-80,252-256. Padding never names a token: all consumed
+    # IDs and EOS are independently bounded; prefix counts mask it out below.
+    expected = (((vocab + 1) // 32) + 1) * 4
+    _require(type(value) is bytes and len(value) == expected, "matcher_mask")
     return value
 
 

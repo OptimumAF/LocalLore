@@ -53,7 +53,7 @@ struct Opened {
     saved: Vec<Option<LocalStored>>,
     ledger: Ledger,
 }
-fn pin_directory(path: &Path) -> Result<Vec<File>> {
+pub(super) fn pin_directory(path: &Path) -> Result<Vec<File>> {
     let absolute = std::path::absolute(path).map_err(|_| "Io")?;
     let mut parents: Vec<_> = absolute.ancestors().collect();
     parents.reverse();

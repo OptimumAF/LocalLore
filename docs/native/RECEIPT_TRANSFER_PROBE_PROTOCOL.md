@@ -66,3 +66,11 @@ source input attribution, timing, proofs, failure-only stream observations and
 host owner closure. No weights, selected tokenizer payloads, emulator images,
 keys or raw private diagnostics are published. Host closure is not guest flush,
 SDK drain, model acceptance, phone latency or full scene qualification.
+
+The environment also checks Windows system commit headroom, separately from
+physical RAM. Conservative launch policy is twice guest RAM plus a 2 GiB
+reserve (6/18 GiB for the existing 2/8 GiB profiles). The helper is source-bound;
+both parent and owned worker recheck before allocation/claim/SDK launch. A
+snapshot is not a reservation or a launch guarantee. Insufficient capacity does
+not authorize a smaller profile, interruption of another project, OS/pagefile
+changes, or reuse of a stopped target.

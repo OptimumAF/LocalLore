@@ -1,5 +1,9 @@
 # Fixed-name publication diagnostics
 
+This records the initial combined-code boundary. The subsequent
+[native-origin contract](MODEL_PUBLICATION_ORIGIN_CONTRACT.md) adds closed
+origin categories while retaining these legacy mappings and fixed UI failures.
+
 Refs #9 (M05.05 prerequisite), #5 (M01.05 supporting). This slice builds on
 the unmerged candidate-volume experiment in PR #141. It introduces no runtime,
 dependency, JNI symbol, syscall, candidate/runtime storage destination, or

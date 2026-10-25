@@ -1756,6 +1756,11 @@ pub mod desktop_api;
 pub mod comparison;
 
 #[cfg(feature = "local-model")]
+mod owned_curated;
+#[cfg(feature = "local-model")]
+pub use owned_curated::run_native_curated_owned;
+
+#[cfg(feature = "local-model")]
 pub use comparison::selected::{
     SelectedNativeFailure as NativeFailure, SelectedNativeReservation as NativeReservation,
 };

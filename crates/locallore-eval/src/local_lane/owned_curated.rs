@@ -29,9 +29,10 @@ fn check_preparation(cancel: &Cancellation, deadline: Instant) -> Result<()> {
     }
 }
 
-fn known_failure<R>(mut session: Session, failure: NativeFailure<R>)
-    -> std::result::Result<Report, NativeFailure<R>>
-{
+fn known_failure<R>(
+    mut session: Session,
+    failure: NativeFailure<R>,
+) -> std::result::Result<Report, NativeFailure<R>> {
     // Exactly one attempt after positive no-child/cleanup confirmation. The
     // original closed failure remains primary if settlement IO also fails.
     // This API cannot carry a second diagnostic: a missing/partial settlement
@@ -74,10 +75,11 @@ pub fn run_native_curated_owned<R: NativeReservation>(
         Ok(false) => {}
         Err(error) => return known_failure(session, failure(error)),
     }
-    let deadline = match preparation_deadline(entry_started, session.ledger.remaining(), Instant::now()) {
-        Ok(deadline) => deadline,
-        Err(error) => return known_failure(session, failure(error)),
-    };
+    let deadline =
+        match preparation_deadline(entry_started, session.ledger.remaining(), Instant::now()) {
+            Ok(deadline) => deadline,
+            Err(error) => return known_failure(session, failure(error)),
+        };
     if let Err(error) = check_preparation(cancel, deadline) {
         return known_failure(session, failure(error));
     }
@@ -85,7 +87,10 @@ pub fn run_native_curated_owned<R: NativeReservation>(
     let started = {
         let assets = reservation.assets();
         LocalRuntime::spawn_packaged_owned_expected_cancelled(
-            assets.resource_dir, assets.model, &profile.worker_sha256, stopped,
+            assets.resource_dir,
+            assets.model,
+            &profile.worker_sha256,
+            stopped,
         )
     };
     let (runtime, mut cause) = match started {
@@ -94,9 +99,10 @@ pub fn run_native_curated_owned<R: NativeReservation>(
             drop(reservation); // Positively no process owner was created.
             return known_failure(session, failure(format!("Runtime{error:?}")));
         }
-        Err(OwnedStartFailure::AfterChild { cause, owner }) => {
-            (Arc::new(Mutex::new(*owner)), Some(format!("Runtime{cause:?}")))
-        }
+        Err(OwnedStartFailure::AfterChild { cause, owner }) => (
+            Arc::new(Mutex::new(*owner)),
+            Some(format!("Runtime{cause:?}")),
+        ),
     };
     if cause.is_none() {
         // Keep the actual Arc/R outside this unwind boundary. A failed load or
@@ -107,20 +113,31 @@ pub fn run_native_curated_owned<R: NativeReservation>(
             if owner.profile_manifest_sha256() != profile.profile_manifest_sha256 {
                 return Err("Profile".into());
             }
-            let load = owner.load(stopped).map_err(|error| format!("Runtime{error:?}"))?;
-            session.report.provenance["native_load"] = serde_json::to_value(load).map_err(|_| "Encoding")?;
+            let load = owner
+                .load(stopped)
+                .map_err(|error| format!("Runtime{error:?}"))?;
+            session.report.provenance["native_load"] =
+                serde_json::to_value(load).map_err(|_| "Encoding")?;
             check_preparation(cancel, deadline)
         }));
-        cause = preparation.unwrap_or_else(|_| Err("SelectedExecution".into())).err();
+        cause = preparation
+            .unwrap_or_else(|_| Err("SelectedExecution".into()))
+            .err();
     }
     if cause.is_none() {
-        let factory = LaneFactory::Native { runtime: runtime.clone(), profile };
+        let factory = LaneFactory::Native {
+            runtime: runtime.clone(),
+            profile,
+        };
         let execution = catch_unwind(AssertUnwindSafe(|| {
-            factory.profile()
+            factory
+                .profile()
                 .and_then(|_| check_preparation(cancel, deadline))
                 .and_then(|_| session.execute_body(&factory, cancel, max_new_stories))
         }));
-        cause = execution.unwrap_or_else(|_| Err("SelectedExecution".into())).err();
+        cause = execution
+            .unwrap_or_else(|_| Err("SelectedExecution".into()))
+            .err();
         // Actual story Host/provider/watchdog scopes have returned/unwound.
         // Drop the last factory reference before the explicit owner cleanup.
         drop(factory);

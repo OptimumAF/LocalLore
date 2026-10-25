@@ -423,7 +423,11 @@ fn cleanup_envelope(required: bool, running: bool, error: Option<String>) -> Val
 }
 impl EvaluationManager {
     fn selected_worker_active(&self) -> bool {
-        self.worker.lock().unwrap_or_else(|p|p.into_inner()).as_ref().is_some_and(|(_,worker)|!worker.is_finished())
+        let handle_running=self.worker.lock().unwrap_or_else(|p|p.into_inner()).as_ref().is_some_and(|(_,worker)|!worker.is_finished());
+        // Parent drain temporarily takes the handle before joining outside its
+        // gate. That empty slot is not proof the admitted selected work ended.
+        // Reuse its existing presentation operation flag, not a second registry.
+        handle_running||self.selected.lock().unwrap_or_else(|p|p.into_inner()).records.values().any(|record|record.running)
     }
     fn selected_cleanup_snapshot(&self, expected_epoch:Option<u64>) -> Result<(Value,Option<Job>)> {
         let active=self.selected_worker_active();let mut removed=None;

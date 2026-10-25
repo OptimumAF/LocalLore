@@ -217,8 +217,10 @@ fn inventory(directory: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
 #[test]
 #[ignore = "expensive explicit accepted-record 16MiB boundary; coordinator runs serially"]
 fn actual_records_cross_only_combined_response_and_native_index_archive_budget() {
-    assert!(CHILDREN + 1 <= MAX_ARCHIVE_BRANCHES);
-    assert!(SAY_BYTES <= MAX_TEXT_BYTES);
+    const {
+        assert!(CHILDREN < MAX_ARCHIVE_BRANCHES);
+        assert!(SAY_BYTES <= MAX_TEXT_BYTES);
+    }
     let directory = std::env::temp_dir().join(format!(
         "locallore-archive3-combined-{}-{}",
         std::process::id(),

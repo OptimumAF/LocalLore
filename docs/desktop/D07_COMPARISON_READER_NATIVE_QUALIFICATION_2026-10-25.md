@@ -7,12 +7,15 @@ formatter, application, provider, model, device or desktop operation was run by
 the documentation author. Raw artifacts remain local and gitignored. Paths in
 commands use `<task-root>`, `<artifact-root>`, `<source>` and `<node24>` placeholders.
 
-**Native IPC journeys at `6c2caf2a` passed, but their top-level semantic snapshot
-qualification remains incomplete.** Delegated visual review is recorded below;
-Root's disposition of its corrected manifest is pending. The retained cohort has
-100 check entries and 26 actual WebView2 PNGs. It is not the later planned
-semanticVersion2/30-PNG cohort. It does not establish model quality, selected-case
-execution, Android runtime behavior, human approval or whole-D07 completion.
+**The completed semanticVersion2 cohort at `56650ebe` passed its actual native
+IPC, per-capture semantic assertions and delegated visible-area review:**
+108 recorded check entries, 30 actual WebView2 PNGs and unchanged original
+fixture bytes across both stages. Final production frontend/build/format/Clippy
+checks at that source remain pending. The earlier `6c2caf2a` cohort is preserved
+with its top-level semantic defect and distinct 100 entries / 26 PNGs; its
+evidence is not relabelled as the newer cohort. Neither cohort establishes model
+quality, selected-case execution, Android runtime behavior, human approval or
+whole-D07 completion.
 
 This document is based on exact
 `56650ebe64d496080252f7b5b4db956989ef2e11`, isolated branch
@@ -212,7 +215,7 @@ also retain 115 bytes with that diagnostic. No zero-native-stderr claim is made.
 Fixture creation is scripted; flags such as `modelExecution:false` and a
 non-executing reader API are not numerical measurements of provider/role counts.
 
-## Semantic and visual supplement remains pending
+## Historical semantic gap and source-frozen correction
 
 After the completed 6c2 run, Root found top-level snapshots mixed the live
 gameplay `selectedStory` with an experiment revision. `pendingOperation` also
@@ -226,8 +229,10 @@ experiment scope/report token and displayed edge revision, actual observer,
 receipt/error, native pending operation only while running, unknown-ack pending
 with null ID, and a separate live `gameplayContext`. They also check actual query
 control values and add explicit wide/narrow raw-output and unknown-ack images.
-The planned cohort is 15 PNG/stage, 30 total. It has **not** been executed in the
-evidence supplied to this document. A read-only diff confirms these changes are
+At initial document commit `ffbd8362`, the planned 15 PNG/stage, 30-total cohort
+was UNRUN; the Android followup `738e462c` still correctly left it pending.
+Its later actual execution is recorded separately below. A read-only diff
+confirms these changes are
 limited to the journey, fixed harness runner and dev artifact allowlist, with no
 production UI/controller/native-reader behavior change after 6c2.
 
@@ -237,13 +242,115 @@ finding no visible blocking layout defect and a minor adjacent Role/Inspect
 header. Its first local manifest mistakenly had an empty image list; that
 artifact is preserved. The corrected manifest lists 26 images, SHA256
 `e32e9098288f1fdd89377ad5d4969fb0af2ad9773c1bb7d5358d3d59c0782d48`.
-Root had not yet reviewed that corrected manifest at this update. This is
+Root had not yet reviewed that corrected manifest at the initial update. This is
 an attributed reviewer observation, not human approval or a cure for the known
 semantic defect. The original manifest SHA256 is
 `ac968d795d22bdfc6d4776515f169828ea062c7bd8c5c25d546c86e6ffba7969`.
 This author read metadata only and did not inspect images. DOM overflow checks
-do not replace visual review. Final raw-output layout and coherent
-semanticVersion2 images remain required gates.
+do not replace visual review; the later 30-image review below has its own source
+and manifest.
+
+## Completed semanticVersion2 native supplement
+
+Root subsequently completed cohort
+`comparison-reader-native-7c52b544-0d51-4ca6-b7d4-72e67904718b`, exact clean source
+`56650ebe64d496080252f7b5b4db956989ef2e11`. The fixed runner asserts unchanged
+HEAD and clean source before writing its final `qualification.json`; both source
+assertions passed. Frontend build, dev-harness native build, initial actual app
+and restarted actual app all exited 0 with null signals, no timeout and no output
+overflow. These are the same closed harness command/environment above, not a
+different reader or model lane.
+
+| Completed 566 execution | UTC start → end | Elapsed | Exit |
+| --- | --- | --- | --- |
+| frontend harness build | 06:59:17.368 → 06:59:17.723 | 0.355s | 0 |
+| native dev-harness build | 06:59:17.724 → 06:59:38.916 | 21.192s | 0 |
+| initial actual application | 06:59:38.916 → 07:01:41.971 | 123.055s | 0 |
+| restarted actual application | 07:01:42.241 → 07:02:31.973 | 49.732s | 0 |
+
+Each app report contains **54 recorded check entries**, giving **108 entries**
+across the two stages, not 108 distinct tests. Initial produced 15 PNGs totalling
+789276 bytes; restart produced 15 totalling 785486 bytes: **30 PNGs, 1574762
+bytes** overall. The complete **626 original fixture-file hashes** match the
+captured initial baseline after each stage and across process restart. Live
+synthetic gameplay canon also matches its pre-inspection state in each journey.
+
+Every capture passed the Node runner's actual semanticVersion2 assertions:
+selected experiment scope/report token, displayed observer and inspection
+revision, separate live gameplay scope/revision, actual query edge/view controls,
+displayed receipt and visible error. Pending metadata has the real operation ID
+only while native status is running; unknown acknowledgement retains the original
+client with null ID; idle/finished states have null pending metadata. The app
+snapshots therefore no longer mix the live gameplay scope with an experiment
+revision or label a completed operation as pending. These additional per-capture
+Node assertions are separate from the 108 recorded journey entries.
+
+The wider evidence set now includes actual wide and 620px narrow raw-output
+frames, the visible EvaluationIo unknown-acknowledgement state, and explicit
+SAME-client recovery. Mira/Sable frames show After/history Query2 controls,
+page revision 1, filtered evidence only, private summary absent and no raw
+receipt/capture/output controls. Their metadata records one eligible history
+row for Mira and zero for Sable. The guard frame reports Inventory rejection and
+`no_accepted_receipt`, rather than inventing a receipt. The actual native IPC
+Player-before query at source edge 0 also positively checked the Player's own
+original secret; it has no dedicated PNG.
+
+Both app reports retain exactly one expected native-source Transport entry from
+deliberately lost opening acknowledgement. Both processes retain 115 bytes of
+Chromium stderr with `Chrome_WidgetWin_0` unregister error 1412. Initial stdout
+and restart stdout each contain 24 bytes. No empty-error-buffer or empty-stderr
+claim is made. The reader remained read-only; fixed scripted fixture production
+is not real model execution or a selected-execution implementation.
+
+The delegated reviewer individually viewed **all 30 PNGs** and read/hashed their
+semantic and capture siblings. Its local manifest
+`d07-comparison-semantic2-visual-review.json` is 47753 bytes, SHA256
+`c16fb833002717b07bde7693f68d75fd8b13e247c4e0f6fd0985ec4900f9a773`, with
+30 per-image records and the exact qualification digest below. It reports no
+blocking visible layout/clipping/overflow/label defect within captured areas;
+all page/panel overflow flags are false. Normal 1280px and narrow 620px output
+views show wrapped long hashes/escaped text in bounded scrollable areas.
+Unknown acknowledgement, recovered ready state, actor isolation, guard absence
+and source/lens labels were visibly reviewed. This is attributed agent visual
+evidence, not human prose-quality approval or a universal privacy proof.
+
+Only visible scroll portions were assessed. There is no dedicated
+closing-in-flight or Player-before-query PNG. Genuine historical reports were
+covered separately by Rust and synthetic frontend checks, **not** by a historical
+native-app opening in this cohort. Native picker doubles do not establish actual
+OS dialog interaction. No image/cohort bytes or prior review manifests were
+overwritten by this documentation task.
+
+Root verified, and this author independently checked with read-only Git diff,
+that production model/controller/panel/App/main/CSS bytes are identical from
+`6c2caf2a` to `56650ebe` (exit 0). The delta is fixed harness metadata, allowlist
+and capture coverage, not a production UI change. The changed dev bundle and
+executable hashes below belong to the **new** source-bound run. The old 6c2
+cohort remains 50 entries/stage and 26 PNGs with its known metadata limitation.
+
+| Completed 566 evidence | SHA256 |
+| --- | --- |
+| `d07-comparison-native-harness-semantic-v2.log` | `2e2bcccb15d990973083815c7b8396ad6c86d942299816e19a23dd6d22cdb40f` |
+| cohort `qualification.json` (78552 bytes) | `2f7c494404f25c8abc847de12d799c891615901de4d254498d391129190590de` |
+| cohort `executions.json` | `3947a49909d94a9f7345aa510fcf5dbb5ce4df9732fb449b68cdb47412f48f7a` |
+| cohort `initial/report.json` | `504bfdda3c036a55a27c95d6331ecaaa11b5f3ba42ecf2c7e3e52718f965b3d3` |
+| cohort `restart/report.json` | `9a76b4d13931e760a97af0c001987bec83b270f6c2865999832ceb8990390a93` |
+| cohort `app-initial.stderr.log` | `c5ee6cce6ea765184b1ae12497fc25e1577d05c82a59e06c475f51146f86f866` |
+| cohort `app-restart.stderr.log` | `c96b6bae92ca7aa9dcc4eb7d7ae9b4d4dd06ecd1e600158fcdc730206f3ac75b` |
+| each app stdout log | `497e049b0cec6950eeffbad3a1ce5e1e770e34725796f1bdcbfbf59e58f0307c` |
+
+The completed 566 executable SHA256 is
+`7d75096633a056bf1f53d8dba3f11f2f19d13bab7b3fafa3227eb7e02bdb606a`;
+`dist/app.js` is
+`c42ed20180e7c7c84d1e531add354abc97e1fe91bede3dfe4fc4cb2ce4d715e3`.
+The changed journey TS is
+`c5b6463ea7781819ffec8f7ceb59b6798ff5f6719b61e0162c2360208dea660e`,
+fixed runner JS is
+`e79ce9b4302d0cf72cefe32e1bd852b81e68634a22c5912681d7849991aac062`,
+and native dev artifact module is
+`d6329f6cc4191a8816e324be3e8231e66c1b4640b0c0d1ce155fc4e025c01bc0`.
+The qualification manifest retains all other exact source hashes and original
+fixture hashes; the visual manifest retains all 30 PNG/semantic/capture hashes.
 
 ## Immutable evidence identifiers
 
@@ -387,15 +494,16 @@ earlier mutable progress file is not used as immutable qualification evidence.
 ## Remaining gates and next runnable work
 
 No phone/emulator, Android device/JNI runtime or desktop/Android semantic parity
-result is inferred from the completed compatibility work. Final
-normal frontend/executable restoration and any later strict/broad checks need
-their own exact source and logs; the earlier normal verifier is not a claim
-about the current dev-harness executable.
+result is inferred from the completed compatibility work. Final full frontend,
+format, strict Clippy and normal production frontend/executable restoration at
+source566 have not yet been run in the evidence supplied to this followup. They
+need their own exact source and logs; earlier verifier/lint results are not
+silently relabelled as final566 checks or as a claim about the dev executable.
 
-Root's semanticVersion2/30-PNG native cohort at source566 was running during
-this Android followup. No terminal result has been supplied or inferred here.
-Next: finish that immutable cohort, inspect all final actual PNGs,
-record bounded errors and exact hashes, and update PR #157's reviewable evidence.
+Next: Root runs those remaining final production checks/restoration, records
+their source-bound results, and updates PR #157's reviewable evidence. The native
+semantic2/30-image cohort and delegated visual review are now completed as
+recorded above; the first failed cohorts and old6c metadata defect stay retained.
 Selected-case rerun and comparison execution remain explicitly unavailable;
 reader recovery is in memory and process restart requires explicit source
 selection. Access-time expiry is not a wall-clock lock-release guarantee.

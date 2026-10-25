@@ -86,9 +86,9 @@ Real inference and physical-phone qualification remain pending. The
 is compiled and host-tested; its fresh8 GiB emulator preflight verified tiny
 local staging and capacity. The owner has now authorized the new test-app
 destination. The [authorized execution](docs/native/RECEIPT_REAL_EXECUTION_VERIFICATION_2026-10-24.md)
-records verified local staging and an import timeout. A tested bounded I/O
-correction is awaiting another fresh-target run; real receipt import and SDK
-play are still unverified. The
+records successful full-model receipt import after a tested bounded I/O
+correction. The real-backend PLAY attempt stops at its inference-ownership
+fence; an accepted real-model gift and restart remain unverified. The
 [earlier partial result](docs/native/MODEL_RECEIPT_ANDROID_VERIFICATION_2026-10-24.md)
 is preserved.
 

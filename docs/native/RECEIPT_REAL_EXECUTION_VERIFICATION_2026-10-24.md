@@ -278,14 +278,133 @@ only one APP DEX payload differs. APK container bytes/sizes vary, so no byte
 reproducibility claim follows. A new admitted target remains required. This
 is another bounded cost correction, not a claim that the timeout cause is proven.
 
+## Fourth attempt: real import passes, PLAY is fenced
+
+Frozen source `f942f790c2fbaad35ef5496c64cc4424c864ce8a`, compilationF90,
+uses the audited4 MiB receipt pair above. Fresh private `real-bulk` namespaces
+preserve this attempt. PREPARE proposal
+`e50ef36b8c7c3289535b548804696db6ba9b342d2fe0878febb62d332637d011`
+passes full root/independent checks; original40666 terminal0, SDK child0/known
+cleanup3,594ms and verified prepare closure. RUN proposal
+`042816c339034a90a3ff0b87cc09ed976b8145bae5b4b3b40307e5edcf0ddb71`
+passes full prelaunch checks; its fresh owner is bounded1,800s.
+
+Preflight proposal
+`ee079065cd0170fc027bf46c08cc081cc9db032355f5f04fec3d404f13d83273`
+binds79 nonweight inputs/86,476,050B. Original59707 terminal0, owned worker0,
+known cleanup/capture53,438ms, stdout416B/stderr0; all43 clients complete0
+with known cleanup. One source-preflight method passes12 checks, proof SHA-256
+`08a9773e6feed837eb057e8e0ba9b1df4b1ceb46a184b05d46c37fa65d7f50a5`.
+
+Candidate proposal
+`3e8710f6c9adae14b9266b8b5e8253721a1a9c8c7fddd0dd5feb2bdf068756ba`
+binds83 nonweight inputs/86,482,291B, exact consent and successful same-owner
+preflight. Independent live check observes1,615s remaining before admission.
+File-backed staging completes; **actual production IMPORT passes**, including
+all16 closed checks, independent source verification/import each exactly
+1 open/1 close/2,588,147,712B, accepted full recheck and runtime admission.
+Elapsed89,805ms includes test verification work, not inference latency.
+Raw IMPORT proof1,350B SHA-256
+`df5a67a62372865be631819a4c524c223dadb3d59d1306a526ab3c7238c1ee93`.
+The success runner is independently parsed; post-import facts preserve exact
+audited packages/distinct UIDs/same volume/storage floors. APP is absent; one
+distinct-UID TEST helper is bound at the explicitly allowed first-UI boundary.
+This is no claim of continuous process liveness or undetected PID-reuse safety.
+
+The subsequent production real-backend PLAY **fails**. Original candidate39202
+terminates1; owned worker2, cleanup/capture known300,344ms, stdout453B/stderr0.
+All28 clients complete0/known cleanup, but of the two candidate methods only
+IMPORT passes. PLAY takes80.445s and throws `LocalInferenceUncertain` at the
+existing poisoned/unknown-cleanup gate in `LocalInferenceOwner.kt:228`.
+Raw runner6,023B SHA-256
+`16420829f64550f63e901c09e9525990592b6289c3dde8a8423f0948997421a3`.
+
+The frozen sequential source establishes that accepted-model verification,
+runtime admission, production local-transport attachment and the initial
+revision-zero/empty-receipt checks returned before `respondText` threw.
+It does **not** identify SDK initialization, generation, terminal callback,
+drain or close as the cause. No lower-level SDK-entry or generation observation
+is invented. There is no Prepared result, commit request, PLAY proof or final
+gift/restart proof. Post-SDK accepted-model rehash is deliberately not forced
+after uncertain ownership. The successful28 checks are preflight12+IMPORT16;
+they are not the full56-check experiment.
+
+The controller stops dispatch before REOPEN; no retry/fake provider/manual
+acceptance marker or unsafe restart substitutes for the missing PLAY proof.
+Exact owner76889 stops, original terminal0; known cleanup/capture/preservation
+closure588,969ms, worker1 from requested drain and guest flush false. Actual
+recorded processes are absent and owned ports free. Known host/VM job closure
+does not establish cooperative SDK terminal/drain/close or native reclamation.
+All targets/model copies remain retained, without reading their virtual-disk
+contents or clearing prior integrity/cache holds.
+
+## Commands and acceptance boundary
+
+Actual host command is `python -B -E -m unittest discover -s scripts/tests -v`.
+The targeted red runs use the same offline Gradle setup below but select only
+`:app:cleanTestDebugUnitTest :app:testDebugUnitTest --tests org.locallore.app.ReceiptModelTransactionTest`.
+The complete receipt builds run from `apps/android`, using the existing JBR
+`java.exe`, the saved project `gradle/wrapper/gradle-wrapper.jar` classpath and
+`org.gradle.wrapper.GradleWrapperMain` with these exact task/options:
+
+```text
+:app:assembleDebug :app:assembleDebugAndroidTest :app:cleanTestDebugUnitTest
+:app:testDebugUnitTest :app:lintDebug :app:auditLiteRtDependencies :app:auditLintAnalyzer
+--offline --no-daemon --console=plain --max-workers=2
+-Pandroid.builder.sdkDownload=false -Pkotlin.incremental=false
+-Pandroid.experimental.lint.version=9.4.1
+-Porg.gradle.java.installations.auto-download=false
+-Porg.gradle.java.installations.paths=C:/Program Files/Java/jdk-21
+-PlocalLoreLiteRtVerification=true -PlocalLoreModelSetupVerification=true
+--project-cache-dir .gradle-litert-worker
+-PlocalLoreModelVolumeVerification=true -PlocalLoreModelReceiptVerification=true
+```
+
+Regular builds omit only the last two volume/receipt flags. Existing ordinary
+artifacts are explicitly reused. Raw full argv/tool hashes and original failed
+and successful XML/output remain in the sealed private evidence. The owned
+controller commands are `receipt_avd_environment.py plan-prepare/prepare/plan-run/run`
+and `receipt_real_candidate.py run --proposal … --authorization … --evidence …`;
+each disabled proposal receives a separate bound grant only after input review.
+
 ## Remaining gates
 
-Both model attempts verify local staging but fail receipt import verification;
-SDK gift and restart remain unrun. The next corrected build needs a fresh
-admitted target and another actual import/play/reopen run, with all limits intact.
+Real model import is now verified on one fresh Android15/API35 x86_64 emulator.
+The real-backend PLAY attempt is observed failing its existing ownership fence;
+a successful SDK turn, accepted gift and final restart remain unverified.
+Next runnable task: bounded closed worker-stage/ownership observations that can
+distinguish admission, SDK construction, generation, terminal, drain and close
+without prompt/path/error-text leakage or weaker deadlines. Then qualify a new
+fresh PLAY/reopen run; never continue on the quarantined owner.
 The exact existing Gemma4-E2B/LiteRT-LM0.18.1 pins and publisher/container
 verification remain unchanged; no new dependency or runtime choice is made.
 Full M05.05/M01.05, physical phone, ARM64/16KiB execution, DocumentsUI,
 cache/privacy, power loss, sustained inference and narrative quality remain
 pending. Consent for the fresh receipt destination is now granted; do not ask
 for it again merely because the scheduling prerequisite needs correction.
+
+
+## Sealed evidence inventories
+
+All rows below are independently rehashed with zero mismatches. Inventories
+exclude model weights and virtual-disk contents; targets/disks remain retained.
+Only sanitized aggregate results and source are committed publicly.
+
+| Private namespace | Files | Bytes | Inventory SHA-256 |
+|---|---:|---:|---|
+| real-execution/host | 1456 | 17,499,649 | `1f0e700d10b6ff847a7021e74fb9eda186d9c8fb6089f80b604673d005b3b7b1` |
+| real-execution/environment | 23 | 381,784 | `e0af567ff134082ee13da2ba2f9ebc85c1addf8214b09ea8f5a572c4d3907e97` |
+| real-execution/preflight | 173 | 87,344,373 | `a2dc5f860896ca5b5c7d37a71fdb868a26dcbadb6d458a5f6708ec495f69ffe6` |
+| real-execution/candidate | 78 | 87,287,619 | `6bf0789d1960389faac3005a82e97dff05d72fa1aa6afb01bbdea9d2b874cf0e` |
+| real-window/host | 1450 | 17,423,208 | `f9e96df40e708b9ef420ab378a68c8ec3c3316b1a15400c9a0474fbc2b9ff773` |
+| real-window/environment | 22 | 376,923 | `c78ca9149daf026d667de7b0472015644609eb1ca674c4192561f4b36240d93e` |
+| real-window/preflight | 178 | 87,438,998 | `dd7f6f7136928f62ce2be749f557bc35f132a5d3dfb4298e8c9cced560c174dc` |
+| real-window/candidate | 119 | 87,405,937 | `a0b3e2d2244337cdb248932c8ac7687f0aeb2b31beece6e490ee1178485bff05` |
+| real-io/host | 1591 | 173,589,472 | `654f1799b7284434316e1878c8b790bf644c97a89ea25f0410d2a0ff1a9eaec2` |
+| real-io/environment | 22 | 381,266 | `3b0f581ae3ec50ed1893673b9f2bcd7914be72538b2c041d764fa7618ca6d14e` |
+| real-io/preflight | 182 | 87,815,821 | `3ac8a4005d7155386f70e757f85c16ca992b2c784b96057c0719c61d9cd5a755` |
+| real-io/candidate | 124 | 87,784,951 | `3eb3244a5e2da044cd32fbed90e9e39800994151b9ad2d6de867ee109724638c` |
+| real-bulk/host | 1592 | 172,371,061 | `2c5803ed52614861d630979383039573ac161154cd664ec5b5b55f9817f64620` |
+| real-bulk/environment | 22 | 381,516 | `185a4a94363fde7aec023fb0fca6a22e9deaec3a6801a94c28bc6512db5ebff5` |
+| real-bulk/preflight | 182 | 86,577,926 | `3ed3e7e45b2c57fadbe24abb3ca239672369183d57cdea2a2578306958c23a38` |
+| real-bulk/candidate | 155 | 86,571,415 | `5f724c2e8eceb7e101a2d242ba118b4af11eae069d5ee8f0ccb972e089762fab` |

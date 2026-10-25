@@ -131,7 +131,8 @@ def audit_manifest(badging, tree, package="org.locallore.app"):
                         "org.locallore.app.capacityreliefv3", "org.locallore.app.capacityfaultsv3",
                         "org.locallore.app.capacityv4", "org.locallore.app.capacityreliefv4", "org.locallore.app.capacityfaultsv4",
                         "org.locallore.app.externalverify", "org.locallore.app.litertverify",
-                        "org.locallore.app.modelverify", "org.locallore.app.modelpickerverify", "org.locallore.app.cancelack"),
+                        "org.locallore.app.modelverify", "org.locallore.app.modelpickerverify",
+                        "org.locallore.app.modelvolumeverify", "org.locallore.app.cancelack"),
             "Unreviewed app package")
     permission = package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
     require(re.search(r"^package: name='" + re.escape(package) + r"' ", badging, re.M), "Wrong app package")
@@ -301,12 +302,17 @@ def main(argv=None):
     parser.add_argument("--litert-verification", action="store_true", help="Audit only the explicit pinned LiteRT debug candidate")
     parser.add_argument("--model-provisioning", action="store_true", help="Audit the separate local model setup candidate")
     parser.add_argument("--model-picker-fixture", action="store_true", help="Audit only the explicit synthetic picker fixture profile")
+    parser.add_argument("--model-volume-verification", action="store_true", help="Audit the separate candidate-owned removable storage profile")
     args = parser.parse_args(argv)
     try:
         require(not args.model_provisioning or args.litert_verification,
                 "Model provisioning requires the explicit LiteRT audit")
         require(not args.model_picker_fixture or args.model_provisioning,
                 "Model picker fixture requires the model provisioning audit")
+        require(not args.model_volume_verification or args.model_provisioning,
+                "Model volume verification requires the model provisioning audit")
+        require(not (args.model_volume_verification and args.model_picker_fixture),
+                "Model volume and picker fixtures are separate profiles")
         libraries = audit_zip(args.apk, litert=args.litert_verification, model_picker=args.model_picker_fixture)
         aapt = str(aapt2_path())
         def dump(*arguments):
@@ -314,6 +320,7 @@ def main(argv=None):
                                   text=True, encoding="utf-8", shell=False).stdout
         permissions = audit_manifest(dump("badging", str(args.apk)),
                                      dump("xmltree", str(args.apk), "--file", "AndroidManifest.xml"),
+                                     "org.locallore.app.modelvolumeverify" if args.model_volume_verification else
                                      "org.locallore.app.modelpickerverify" if args.model_picker_fixture else
                                      "org.locallore.app.modelverify" if args.model_provisioning else
                                      "org.locallore.app.litertverify" if args.litert_verification else "org.locallore.app")

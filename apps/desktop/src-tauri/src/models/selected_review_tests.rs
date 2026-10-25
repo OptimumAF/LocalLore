@@ -582,3 +582,78 @@ fn genuine_late_selected_handoff_after_empty_retire_is_cleaned_by_matching_close
             .expect("late owner is actually terminal"),
     );
 }
+
+// Separately frozen after the source-only blocking-runtime finding. This
+// scheduler bound classifies the controlled fixture; it is not an OS cleanup
+// latency guarantee. No existing nine assertions or helpers are changed.
+#[test]
+fn selected_cleanup_of_busy_runtime_returns_unconfirmed_before_guard_release_then_retries() {
+    let _reset = FaultReset;
+    let fixture = FixedOwner::new();
+    let manager = manager();
+    let mut reservation = manager.reserve_evaluation().unwrap();
+    let witness = reservation.cleanup_witness();
+    assert!(SelectedNativeReservation::retain_uncertain(&mut reservation, fixture.owner().clone()).is_ok());
+    drop(reservation);
+    assert!(!witness.confirmed());
+
+    // Release the actual held guard before joining on every path, including a
+    // failed channel assertion. Joining is cooperative for this fixed fixture;
+    // no unsafe cancellation/process kill/general-purpose callback is added.
+    struct Probe<'a> {
+        held: Option<std::sync::MutexGuard<'a, LocalRuntime>>,
+        worker: Option<std::thread::JoinHandle<()>>,
+    }
+    impl Probe<'_> {
+        fn release(&mut self) {
+            drop(self.held.take());
+        }
+        fn join(&mut self) {
+            self.release();
+            if let Some(worker) = self.worker.take() {
+                worker.join().expect("controlled cleanup worker completion");
+            }
+        }
+    }
+    impl Drop for Probe<'_> {
+        fn drop(&mut self) {
+            self.release();
+            if let Some(worker) = self.worker.take() {
+                let _ = worker.join();
+            }
+        }
+    }
+    let mut probe = Probe { held: Some(fixture.owner().lock().unwrap()), worker: None };
+    let (sent, received) = std::sync::mpsc::sync_channel(1);
+    let owned_manager = manager.clone();
+    let owned_witness = witness.clone();
+    probe.worker = Some(std::thread::spawn(move || {
+        let outcome = owned_manager.cleanup_selected(&owned_witness);
+        let _ = sent.send(outcome);
+    }));
+    let first_reply = received.recv_timeout(std::time::Duration::from_millis(200));
+    let replied_while_held = first_reply.is_ok();
+    let confirmed_while_held = witness.confirmed();
+    probe.release();
+    let outcome = match first_reply {
+        Ok(outcome) => outcome,
+        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => received
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .expect("old blocking path drains after guard release"),
+        Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+            panic!("cleanup worker exited without its outcome")
+        }
+    };
+    probe.join();
+    // The predicted old blocking path is fully drained before this assertion.
+    assert!(replied_while_held, "cleanup_selected waited for an occupied runtime mutex");
+    assert!(!confirmed_while_held);
+    assert!(!outcome.confirmed);
+    assert_eq!(outcome.result.err().as_deref(), Some("Cleanup"));
+    assert!(!witness.confirmed());
+    let retry = manager.cleanup_selected(&witness);
+    assert!(retry.confirmed && retry.result.is_ok());
+    assert!(witness.confirmed());
+    assert_eq!(fixture.owner().lock().unwrap().status(), Status::Failed);
+    drop(manager.reserve_evaluation().expect("explicit actual cleanup releases slot"));
+}

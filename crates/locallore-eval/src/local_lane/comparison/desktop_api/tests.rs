@@ -77,12 +77,11 @@ fn accepted_after(before: &Engine, turn: &str, command: Command) -> Engine {
 
 fn mismatch(full: &Engine, turn: &StoredTurn) {
     // Engine's existing debug traits are not required for failure extraction.
-    assert_eq!(
-        checked_edges(full, turn)
-            .err()
-            .expect("must reject different bound edges"),
-        "SnapshotMismatch"
-    );
+    let error = match checked_edges(full, turn) {
+        Ok(_) => panic!("must reject different bound edges"),
+        Err(error) => error,
+    };
+    assert_eq!(error, "SnapshotMismatch");
 }
 
 #[test]

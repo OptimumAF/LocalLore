@@ -89,7 +89,7 @@ pub enum Error {
 /// Post-spawn failure retains the exact cleanup owner; this is never wire data.
 pub enum OwnedStartFailure {
     BeforeChild(Error),
-    AfterChild { cause: Error, owner: LocalRuntime },
+    AfterChild { cause: Error, owner: Box<LocalRuntime> },
 }
 impl std::fmt::Debug for OwnedStartFailure {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -451,19 +451,24 @@ impl LocalRuntime {
         let (worker, digest) = verified_worker(executable, expected_sha256, cancel)
             .map_err(OwnedStartFailure::BeforeChild)?;
         let result = Self::start_owned_cancelled(&worker.path, &model.path, model.file, cancel);
-        let (mut owner, cause) = match result {
-            Ok(owner) => (owner, None),
-            Err(OwnedStartFailure::AfterChild { cause, owner }) => (owner, Some(cause)),
-            Err(failure) => return Err(failure),
-        };
         // Retain all verified model/worker/ancestor pins on BOTH result paths.
-        owner._ancestors = model.ancestors;
-        owner._worker = Some(worker.file);
-        owner._worker_ancestors = worker.ancestors;
-        owner.worker_sha256 = digest;
-        match cause {
-            Some(cause) => Err(OwnedStartFailure::AfterChild { cause, owner }),
-            None => Ok(owner),
+        // Borrow the error's existing box; never unbox/rebox after spawning.
+        let retain_pins = move |owner: &mut Self| {
+            owner._ancestors = model.ancestors;
+            owner._worker = Some(worker.file);
+            owner._worker_ancestors = worker.ancestors;
+            owner.worker_sha256 = digest;
+        };
+        match result {
+            Ok(mut owner) => {
+                retain_pins(&mut owner);
+                Ok(owner)
+            }
+            Err(OwnedStartFailure::AfterChild { cause, mut owner }) => {
+                retain_pins(owner.as_mut());
+                Err(OwnedStartFailure::AfterChild { cause, owner })
+            }
+            Err(failure) => Err(failure),
         }
     }
     #[cfg(all(test, feature = "development-worker"))]
@@ -518,9 +523,12 @@ impl LocalRuntime {
         // returns this owner, including its still-pending pipe endpoints.
         let threads = Vec::with_capacity(3);
         let startup_pipes = Arc::new(StartupPipes::default());
+        // Allocate the error owner's storage before creating any child. Safe
+        // Box::write initializes that same allocation without an error-path allocation.
+        let storage = Box::<Self>::new_uninit();
         let child = command.spawn()
             .map_err(|_| OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?;
-        let mut owner = Self {
+        let mut owner = Box::write(storage, Self {
             child,
             writer: Some(writer),
             replies,
@@ -536,7 +544,7 @@ impl LocalRuntime {
             status: Status::Unloaded,
             deadline: Duration::from_secs(60),
             last_metrics: None,
-        };
+        });
         #[cfg(all(test, windows, feature = "development-worker"))]
         if FAIL_PIPE_STAGE.with(|fail| fail.get().is_some()) {
             use std::os::windows::io::AsHandle;
@@ -544,7 +552,9 @@ impl LocalRuntime {
                 *handle.borrow_mut() = Some(owner.child.as_handle().try_clone_to_owned().unwrap())
             });
         }
-        let started = (|| -> Result<(), Error> {
+        let started = {
+        let owner = owner.as_mut();
+        (|| -> Result<(), Error> {
         *owner.startup_pipes.stdin.lock().map_err(|_| Error::WorkerUnavailable)? =
             Some(owner.child.stdin.take().ok_or(Error::WorkerUnavailable)?);
         *owner.startup_pipes.stdout.lock().map_err(|_| Error::WorkerUnavailable)? =
@@ -621,9 +631,10 @@ impl LocalRuntime {
         .map_err(|_| Error::WorkerUnavailable)?;
         owner.threads.push(error_thread);
         Ok(())
-        })();
+        })()
+        };
         match started {
-            Ok(()) => Ok(owner),
+            Ok(()) => Ok(*owner),
             Err(cause) => {
                 owner.status = Status::Failed;
                 Err(OwnedStartFailure::AfterChild { cause, owner })

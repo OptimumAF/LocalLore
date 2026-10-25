@@ -296,8 +296,9 @@ cargo test --locked --offline --jobs 1 --target-dir <shared-target> -p locallore
 
 New native broker transfer oracles are frozen at
 `ab43563c3097966c295e761fca2779b80fd2ed82`, sole new source
-`apps/desktop/src-tauri/src/archive_v3_tests.rs`. They are not yet adopted,
-registered, compiled or run in this packet. No native success is inferred from
+`apps/desktop/src-tauri/src/archive_v3_tests.rs`. Root adopted them as
+`d1f65d3` and registered them as `53928c9`; they remain uncompiled and unrun
+at this addendum. No native success is inferred from
 their source. Existing Full/checkpoint/interruption and broader Rust,
 Workspace/native compatibility, formatting and strict lint checks remain
 Root-owned and pending on the final integrated source.
@@ -324,3 +325,45 @@ for later coordinator results. Next runnable task is Root's native broker
 oracle adoption/execution and source-owned compatibility qualification,
 followed by authorized consumer/platform closure; no milestone checkbox changes
 at this checkpoint.
+
+## Selected Domain2 panel action addendum — 2026-10-24
+
+Root adopted the independent frozen eleven-case checker `801adfc` as
+`a5f45c7`, after preserving accepted main `beb1587` in merge `88fbab7`.
+The first actual command, `<node24-executable> check-archive-v3-selection.mjs`
+from `apps/desktop`, returned five passes and six failures. All six failures
+stopped at missing JSX-captured button elements, including ordinary Play1.
+They do not demonstrate six product defects. The project automatic JSX
+configuration bypassed the checker's classic JSX capture function. The narrow
+test-only `tsconfigRaw` correction was committed as `91ec2b0`; it preserves
+all assertions and delegates element creation to actual React.
+
+The corrected test fixture then measured **seven passes and four failures**:
+both selected Domain2 positives found the actual disabled export button, and
+retained real callbacks dispatched after selection or same-session head changes.
+Ordinary Play1, denied/stale panel rendering, held-reply disposal and explicit
+V3 consent/record labels passed. That behavioral run used the test-only working
+patch immediately before `91ec2b0`, not a clean committed tree.
+
+Root changed only the panel to select the coherent `play ?? playV2` snapshot
+and recheck its captured context/session/scope/head against the current controller
+before dispatch. The same eleven cases then passed with zero failures, using
+the working correction immediately before formatting/commit `b080b73`.
+The checker is now registered in the full frontend gate; a new full-gate result
+is still pending at this addendum. Root has not yet exposed this panel in the
+Domain2 App mount: actual native authorization and application-owned rendering
+must be qualified separately.
+
+| Local log | Bytes | SHA256 | Actual result |
+| --- | ---: | --- | --- |
+| `archive3-selection-first-red.log` | 2432 | `6338fca16bee8b1c36cd665f5b9729c3583d7e75295c2a3ae10e1163701b46db` | 5 pass / 6 fixture-capture failures |
+| `archive3-selection-first-behavioral.log` | 2763 | `72a1278cf578dcbedd3d8b40c5d618ff7519f08b0e1612e3f8902fea15dee2a1` | 7 pass / 4 product behavioral failures |
+| `archive3-selection-first-corrected.log` | 1451 | `102512fc642c8428ba9281bca9b922f6892bb939a1cfe8b1da936ca836ed8dee` | 11 pass / 0 failure |
+
+These execute the actual React SSR component handlers and ArchiveController
+against a synthetic gateway. They are not native IPC, DOM event dispatch,
+WebView render evidence, an App-mount test or proof of the native private grant.
+The four actual Store/Host authorization groups are independently frozen at
+`ac71e22`, adopted as `3dff85a` in the new `archive_authorization_tests.rs`.
+Their intended private helper is absent and the module unregistered; all four
+remain uncompiled/unrun. No Android runtime or whole M08/D08 acceptance is added.

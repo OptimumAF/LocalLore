@@ -7,6 +7,8 @@ use locallore::inspection_query::{Observer, View};
 use locallore_eval::local_lane::{comparison as producer, LaneFactory};
 use std::sync::{atomic::Ordering, OnceLock};
 
+#[path = "execution_receipt_review_tests.rs"]
+mod execution_receipt_review_tests;
 #[path = "open_replacement_review_tests.rs"]
 mod open_replacement_review_tests;
 #[path = "shutdown_handoff_review_tests.rs"]

@@ -593,7 +593,10 @@ fn selected_cleanup_of_busy_runtime_returns_unconfirmed_before_guard_release_the
     let manager = manager();
     let mut reservation = manager.reserve_evaluation().unwrap();
     let witness = reservation.cleanup_witness();
-    assert!(SelectedNativeReservation::retain_uncertain(&mut reservation, fixture.owner().clone()).is_ok());
+    assert!(
+        SelectedNativeReservation::retain_uncertain(&mut reservation, fixture.owner().clone())
+            .is_ok()
+    );
     drop(reservation);
     assert!(!witness.confirmed());
 
@@ -623,7 +626,10 @@ fn selected_cleanup_of_busy_runtime_returns_unconfirmed_before_guard_release_the
             }
         }
     }
-    let mut probe = Probe { held: Some(fixture.owner().lock().unwrap()), worker: None };
+    let mut probe = Probe {
+        held: Some(fixture.owner().lock().unwrap()),
+        worker: None,
+    };
     let (sent, received) = std::sync::mpsc::sync_channel(1);
     let owned_manager = manager.clone();
     let owned_witness = witness.clone();
@@ -646,7 +652,10 @@ fn selected_cleanup_of_busy_runtime_returns_unconfirmed_before_guard_release_the
     };
     probe.join();
     // The predicted old blocking path is fully drained before this assertion.
-    assert!(replied_while_held, "cleanup_selected waited for an occupied runtime mutex");
+    assert!(
+        replied_while_held,
+        "cleanup_selected waited for an occupied runtime mutex"
+    );
     assert!(!confirmed_while_held);
     assert!(!outcome.confirmed);
     assert_eq!(outcome.result.err().as_deref(), Some("Cleanup"));
@@ -655,5 +664,9 @@ fn selected_cleanup_of_busy_runtime_returns_unconfirmed_before_guard_release_the
     assert!(retry.confirmed && retry.result.is_ok());
     assert!(witness.confirmed());
     assert_eq!(fixture.owner().lock().unwrap().status(), Status::Failed);
-    drop(manager.reserve_evaluation().expect("explicit actual cleanup releases slot"));
+    drop(
+        manager
+            .reserve_evaluation()
+            .expect("explicit actual cleanup releases slot"),
+    );
 }

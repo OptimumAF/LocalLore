@@ -319,3 +319,35 @@ fn owned_parent_thread_panic_reports_cleanup_then_explicit_retry_drains_and_stay
     drop(owner);
     std::fs::remove_dir_all(directory).unwrap();
 }
+
+#[cfg(windows)]
+#[test]
+fn partial_start_valid_fixture_owner_is_failed_and_cannot_load_before_cleanup() {
+    let _reset = FaultReset;
+    FAIL_PIPE_STAGE.with(|fault| fault.set(Some(3)));
+    // The public fixed fixture uses VALID mode, so its surviving writer/reader
+    // can expose accidental inference reuse after stderr-thread startup fails.
+    let result = LocalRuntime::development_protocol_fixture().map(|(owner, _directory)| owner);
+    FAIL_PIPE_STAGE.with(|fault| fault.set(None));
+    let (initial_error, mut owner) = require_after_child(result);
+    let exact_child = STARTED_CHILD.with(|handle| handle.borrow_mut().take().unwrap());
+    let returned_status = owner.status();
+    let before_request_id = owner.next_id;
+    let first_load = owner.load(|| false);
+    let after_request_id = owner.next_id;
+
+    // Cleanup precedes assertions about the failing behavior on the old source.
+    // The fixed helper retains its own synthetic directory on startup failure;
+    // it does not disclose that path through OwnedStartFailure diagnostics.
+    let cleanup = owner.terminate_and_reap();
+    assert_eq!(cleanup, Ok(()));
+    assert_exact_child_terminal(&exact_child);
+    assert_cleanup_confirmed(&mut owner);
+    drop(exact_child);
+    drop(owner);
+
+    assert_eq!(initial_error, Error::WorkerUnavailable);
+    assert_eq!(returned_status, Status::Failed);
+    assert_eq!(first_load, Err(Error::WorkerUnavailable));
+    assert_eq!(after_request_id, before_request_id);
+}

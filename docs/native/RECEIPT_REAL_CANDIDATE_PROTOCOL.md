@@ -12,6 +12,18 @@ SD,2 virtual CPUs and12 GiB host available-memory floor. The old2 GiB/4 GiB
 synthetic profile stays unchanged. Observe actual7–8 GiB guest total and at
 least4 GiB available before each phase; this is admission, not a fit benchmark.
 
+The separately explicit `--real-model-candidate --four-core-candidate` profile
+uses4 guest vCPUs with the same RAM/disks/floors/deadlines. It requires at least8
+reported logical host CPUs, rechecked before owned SDK launch. It is a resource
+experiment matching the existing four inference threads, not an accepted device
+tier or a latency fix. See [closed profile](RECEIPT_FOUR_CORE_PROFILE.md).
+After boot, before install or model copy, the four-core controller makes one
+bounded `cat /sys/devices/system/cpu/online` observation, requiring exactly
+`0-3` plus a line ending. It retains the ordinary owned client record and a
+closed three-integer `guest-cpu-profile-v1.json`; mismatch, unknown cleanup,
+owner loss or failed retention stops before copy/inference. The existing two-core
+profiles issue no additional guest command. No such probe runs after SDK uncertainty.
+
 ## Separate preflight and candidate authority
 
 `benchmarks/receipt_real_candidate.py` requires a closed disabled proposal and

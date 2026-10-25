@@ -56,7 +56,7 @@ def transcript(phase):
 def proposal(root):
     value = fixture.proposal(root); value.update(scope=r.SCOPE, phase="preflight", preflight=None, human_consent=None,
         source={"path": str(r.PROBE_PATH.resolve()), "bytes": r.PROBE_BYTES, "sha256": r.PROBE_SHA})
-    env = Path(value["environment_proposal_path"]); env.write_bytes(encoded({"memory_mib":8192,"host_available_memory_min":12*r.GIB}))
+    env = Path(value["environment_proposal_path"]); env.write_bytes(encoded({"memory_mib":8192,"host_available_memory_min":12*r.GIB,"cores":2}))
     value["bindings"][str(env.resolve())] = q.sha(env.read_bytes())
     for name in r.SOURCE_FILES:
         p = (q.ROOT/name).resolve(); value["bindings"][str(p)] = q.sha(p.read_bytes())
@@ -70,6 +70,96 @@ def stream_result(clean=True):
 
 
 class RealCandidateTests(unittest.TestCase):
+    def cpu_fixture(self, root, cores=4):
+        value = proposal(root)
+        env = Path(value["environment_proposal_path"])
+        env.write_bytes(encoded({"memory_mib": 8192, "host_available_memory_min": 12*r.GIB, "cores": cores}))
+        lease = fixture.Lease(value)
+        owner = r.Owner(value, lease)
+        owner.stage = "before"
+        return owner, lease
+
+    def test_four_core_guest_observation_precedes_work_and_is_one_shot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            owner, lease = self.cpu_fixture(Path(directory))
+            value = SimpleNamespace(status="completed", returncode=0, cleanup_complete=True,
+                                    stdout=b"0-3\n", stderr_bytes=0, elapsed_ms=1)
+            with patch.object(q.host, "run_process", return_value=value) as run:
+                owner.check_guest_cpu_profile()
+                self.assertEqual(owner.stage, "before")
+                self.assertEqual(owner.methods, 0)
+                self.assertEqual(run.call_count, 1)
+                self.assertEqual(run.call_args.args[0][-2:], ["shell", "cat /sys/devices/system/cpu/online"])
+                self.assertLessEqual(run.call_args.kwargs["deadline"], 5)
+                self.assertEqual(run.call_args.kwargs["max_output"], 128)
+                with self.assertRaises(AssertionError): owner.check_guest_cpu_profile()
+                self.assertEqual(run.call_count, 1)
+            self.assertEqual(json.loads((owner.directory/"guest-cpu-profile-v1.json").read_bytes()),
+                             {"version": 1, "requested_cores": 4, "observed_online_cores": 4})
+
+    def test_guest_cpu_mismatch_or_unknown_cleanup_stops_before_copy_and_sdk(self):
+        for raw, clean in [(b"0-1\n", True), (b"0-7\n", True), (b"4\n", True), (b"", True),
+                           (b"0-3\nextra\n", True), (b"0-3\n", False)]:
+            with self.subTest(raw=raw, clean=clean), tempfile.TemporaryDirectory() as directory:
+                owner, lease = self.cpu_fixture(Path(directory))
+                value = SimpleNamespace(status="completed", returncode=0, cleanup_complete=clean,
+                                        stdout=raw, stderr_bytes=0, elapsed_ms=1)
+                with patch.object(q.host, "run_process", return_value=value) as run, \
+                     patch.object(owner, "wait_boot"), patch.object(owner, "facts") as facts, \
+                     patch.object(owner, "transfer") as transfer, patch.object(r, "run_selected") as selected:
+                    with self.assertRaises(AssertionError): r.run_cohort(owner)
+                    facts.assert_not_called(); transfer.assert_not_called(); selected.assert_not_called()
+                    with self.assertRaises(AssertionError): owner.check_guest_cpu_profile()
+                    self.assertEqual(run.call_count, 1)
+                self.assertFalse((owner.directory/"guest-cpu-profile-v1.json").exists())
+
+    def test_two_core_profile_dispatches_no_new_guest_command(self):
+        with tempfile.TemporaryDirectory() as directory:
+            owner, _ = self.cpu_fixture(Path(directory), 2)
+            with patch.object(q.host, "run_process") as run:
+                owner.check_guest_cpu_profile()
+                run.assert_not_called()
+            self.assertEqual(owner.stage, "before")
+            self.assertEqual(list(owner.commands.iterdir()), [])
+            self.assertFalse((owner.directory/"guest-cpu-profile-v1.json").exists())
+
+    def test_guest_cpu_retention_failure_or_late_owner_loss_stops_and_keeps_raw_client(self):
+        for mode in ("retention", "late-owner-loss"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                owner, lease = self.cpu_fixture(Path(directory))
+                value = SimpleNamespace(status="completed", returncode=0, cleanup_complete=True,
+                                        stdout=b"0-3\n", stderr_bytes=0, elapsed_ms=1)
+                original_write = q.write_json
+                def write(path, data):
+                    if mode == "retention" and Path(path).name == "guest-cpu-profile-v1.json":
+                        raise OSError("private evidence failure")
+                    return original_write(path, data)
+                def dispatch(*args, **kwargs):
+                    if mode == "late-owner-loss": lease.live = False
+                    return value
+                with patch.object(q.host, "run_process", side_effect=dispatch) as run, \
+                     patch.object(q, "write_json", side_effect=write), patch.object(owner, "wait_boot"), \
+                     patch.object(owner, "facts") as facts, patch.object(owner, "transfer") as transfer, \
+                     patch.object(r, "run_selected") as selected:
+                    with self.assertRaises((AssertionError, OSError, RuntimeError)): r.run_cohort(owner)
+                    facts.assert_not_called(); transfer.assert_not_called(); selected.assert_not_called()
+                    with self.assertRaises(AssertionError): owner.check_guest_cpu_profile()
+                    self.assertEqual(run.call_count, 1)
+                self.assertEqual((owner.commands/"command-0001.stdout.bin").read_bytes(), b"0-3\n")
+                self.assertTrue((owner.commands/"command-0001.json").is_file())
+                self.assertFalse((owner.directory/"guest-cpu-profile-v1.json").exists())
+
+    def test_guest_cpu_guard_cannot_run_after_work_or_unknown_owner(self):
+        for mode in ("stage", "methods", "owner", "boolean"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                owner, lease = self.cpu_fixture(Path(directory), True if mode == "boolean" else 4)
+                if mode == "stage": owner.stage = "after"
+                if mode == "methods": owner.methods = 1
+                if mode == "owner": lease.live = False
+                with patch.object(q.host, "run_process") as run:
+                    with self.assertRaises((AssertionError, RuntimeError)): owner.check_guest_cpu_profile()
+                    run.assert_not_called()
+
     def test_v2_role_timing_is_retained_before_failed_runner_without_enabling_later_actions(self):
         counts = {event: 0 for event in r.worker_trace.EVENTS}
         counts.update(CONVERSATION_CREATE_ENTERED=2, CONVERSATION_CREATE_RETURNED=1)

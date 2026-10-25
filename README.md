@@ -81,14 +81,13 @@ The positive run emitted no failure status. A separate
 [controlled failing test](docs/native/RECEIPT_SETUP_FAILURE_TRANSPORT_VERIFICATION_2026-10-24.md)
 delivered the bounded record and preserved its original error; it does not
 diagnose the earlier timeout.
-Real inference and physical-phone qualification remain pending. The
-[real-candidate probe](docs/native/RECEIPT_REAL_CANDIDATE_VERIFICATION_2026-10-24.md)
+The earlier [real-candidate probe](docs/native/RECEIPT_REAL_CANDIDATE_VERIFICATION_2026-10-24.md)
 is compiled and host-tested; its fresh8 GiB emulator preflight verified tiny
 local staging and capacity. The owner has now authorized the new test-app
 destination. The [authorized execution](docs/native/RECEIPT_REAL_EXECUTION_VERIFICATION_2026-10-24.md)
-records successful full-model receipt import after a tested bounded I/O
-correction. The real-backend PLAY attempt stops at its inference-ownership
-fence; an accepted real-model gift and restart remain unverified. The
+records the earlier successful full-model receipt import after a tested bounded I/O
+correction. Its PLAY attempt stopped at the inference-ownership fence before
+an accepted gift or restart. The
 [earlier partial result](docs/native/MODEL_RECEIPT_ANDROID_VERIFICATION_2026-10-24.md)
 is preserved. [Closed worker-stage observations](docs/native/LITERT_WORKER_TRACE_CONTRACT.md)
 expose no prompts or private errors. A separately admitted
@@ -98,12 +97,18 @@ second conversation attempt lacks a return. The subsequent
 [role-aware timed run](docs/native/LITERT_WORKER_TIMING_VERIFICATION_2026-10-25.md)
 passes import and observes42.175s from director send to DONE; narration starts
 59.580s after trace creation near the60s turn deadline and PLAY fails its ownership fence. This does
-not establish a long second-creation hang. An accepted gift/restart remains unverified.
+not establish a long second-creation hang. A separately admitted
+[fresh four-core run](docs/native/RECEIPT_FOUR_CORE_VERIFICATION_2026-10-25.md)
+now passes 56 protocol checks: full local model import, one actual SDK gift
+validated/committed by Rust, and a new-process reopen of the unchanged receipt
+without inference. This is a synthetic emulator proof; phone, sustained-use,
+DocumentsUI and performance qualification remain open. Earlier failures are retained.
 
 An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects
 the isolated SDK to guarded free-text preparation and durable commit. Its
 [verification](docs/runtime/android/PLAY_VERIFICATION_2026-10-23.md) establishes
-host/build and missing-model cleanup checks; real generation remains pending.
+host/build and missing-model cleanup checks; that separate probe's real-generation
+qualification remains pending.
 
 ## Run the Android engine demo
 

@@ -169,6 +169,7 @@ def validate_proposal(value):
     assert not os.environ.get("ADB_SERVER_SOCKET") and not os.environ.get("ANDROID_ADB_SERVER_PORT")
     env = q.contract.strict_json(Path(value["environment_proposal_path"]).read_bytes())
     assert env["memory_mib"] == 8192 and env["host_available_memory_min"] == 12 * GIB
+    assert type(env["cores"]) is int and env["cores"] in (2, 4)
     source_path(value["source"], value["phase"])
     if value["phase"] == "preflight":
         assert value["preflight"] is None and value["human_consent"] is None
@@ -337,6 +338,7 @@ class Owner(q.Owner):
         super().__init__(value, lease)
         self.proposal_path = self.authorization_path = None
         self.stream_attempted = False
+        self.guest_cpu_check_attempted = False
         self.real_phase = value["phase"]
         phases = ("SOURCE_PREFLIGHT",) if self.real_phase == "preflight" else ("IMPORT", "PLAY", "REOPEN")
         self.instrumentation_steps = tuple((selection(phase), "instrument-" + phase, index) for index, phase in enumerate(phases))
@@ -348,6 +350,11 @@ class Owner(q.Owner):
             self.process_boundary = ContinuedBoundary(facts["processes"])
 
     def dispatch(self, args, deadline=15, cap=65536):
+        if self.stage == "guest-cpus":
+            assert self.guest_cpu_check_attempted and self.methods == 0
+            assert args == ["shell", "cat /sys/devices/system/cpu/online"]
+            assert self.clean; self.check_owner()
+            return self._dispatch_checked(args, deadline, cap)
         if self.stage == "source-root":
             assert self.real_phase == "preflight" and self.methods == 0
             assert args == ["shell", shlex.join(source_create(self.uid_map[q.APP]))]
@@ -355,6 +362,22 @@ class Owner(q.Owner):
             return self._dispatch_checked(args, deadline, cap)
         assert self.stage in {"boot", "before", "updating", "installed", "after", "proofs", *(step[1] for step in self.instrumentation_steps)}
         return super().dispatch(args, deadline, cap)
+
+    def check_guest_cpu_profile(self):
+        """One pre-work observation for the explicit four-core experiment only."""
+        assert self.stage == "before" and self.methods == 0 and not self.guest_cpu_check_attempted
+        self.guest_cpu_check_attempted = True
+        env = q.contract.strict_json(Path(self.proposal["environment_proposal_path"]).read_bytes())
+        assert type(env["cores"]) is int and env["cores"] in (2, 4)
+        if env["cores"] == 2:
+            return
+        assert env["memory_mib"] == 8192 and env["host_available_memory_min"] == 12 * GIB
+        self.stage = "guest-cpus"
+        raw = self.shell(("cat", "/sys/devices/system/cpu/online"), deadline=5, cap=128)
+        assert q.normalized(raw, 128) == "0-3\n"
+        q.write_json(self.directory / "guest-cpu-profile-v1.json",
+                     {"version": 1, "requested_cores": 4, "observed_online_cores": 4})
+        self.stage = "before"
 
     def transfer(self):
         assert self.stage == "source-stream" and self.clean and self.methods == 0 and not self.stream_attempted
@@ -420,6 +443,7 @@ def run_selected(owner, phase):
 
 def run_cohort(owner):
     owner.wait_boot()
+    owner.check_guest_cpu_profile()
     if owner.real_phase == "preflight":
         before = owner.facts("before", {})
         sizes = q.validate_apks(owner.proposal)

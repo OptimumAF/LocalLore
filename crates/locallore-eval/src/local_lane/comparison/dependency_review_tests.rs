@@ -15,24 +15,35 @@ impl Fixture {
             "locallore-dependency-review-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
         ));
         fs::create_dir(&directory).unwrap();
         let path = directory.join("actual-history.sqlite");
         let corpus = suite().unwrap();
         let mut store = Store::open_application(&path).unwrap();
-        store.create_story("Synthetic dependency extraction", corpus.seed().clone()).unwrap();
+        store
+            .create_story("Synthetic dependency extraction", corpus.seed().clone())
+            .unwrap();
         let mut full = store.resume(&corpus.seed().scope).unwrap().engine;
         let mut commands = vec![("dependency-setup-wait", Command::Wait { ticks: 1 })];
         if learn_beacon {
-            commands.push(("dependency-setup-learn", Command::Learn { ability: "beacon".into() }));
+            commands.push((
+                "dependency-setup-learn",
+                Command::Learn {
+                    ability: "beacon".into(),
+                },
+            ));
         }
         for (turn, command) in commands {
             let request = full.request(turn, Intent::Actions(vec![command]));
             let proposal = Engine::proposal(&request).unwrap();
             let preview = full.preview(&request, &proposal).unwrap();
             store.begin_turn(&request).unwrap();
-            let actual = store.commit_turn(&request, &proposal, preview.narration()).unwrap();
+            let actual = store
+                .commit_turn(&request, &proposal, preview.narration())
+                .unwrap();
             assert!(actual == preview);
             full = store.resume(&corpus.seed().scope).unwrap().engine;
         }
@@ -40,7 +51,11 @@ impl Fixture {
         drop(store);
         let reopened = engine(&path, full.scope()).unwrap();
         assert!(reopened.receipts() == full.receipts());
-        Self { directory, path, full: reopened }
+        Self {
+            directory,
+            path,
+            full: reopened,
+        }
     }
     fn inventory(&self) -> BTreeMap<String, Vec<u8>> {
         let mut files = BTreeMap::new();
@@ -58,15 +73,23 @@ impl Fixture {
         files
     }
     fn unchanged(&self, files: &BTreeMap<String, Vec<u8>>, before: &Engine) {
-        assert!(self.inventory() == *files, "pure helper changed actual Store files");
+        assert!(
+            self.inventory() == *files,
+            "pure helper changed actual Store files"
+        );
         assert_eq!(self.full.canonical_bytes(), before.canonical_bytes());
         assert!(self.full.receipts() == before.receipts());
-        assert!(self.full.accepted_history_basis().unwrap() == before.accepted_history_basis().unwrap());
+        assert!(
+            self.full.accepted_history_basis().unwrap() == before.accepted_history_basis().unwrap()
+        );
         let cold = engine(&self.path, before.scope()).unwrap();
         assert_eq!(cold.canonical_bytes(), before.canonical_bytes());
         assert!(cold.receipts() == before.receipts());
         assert!(cold.accepted_history_basis().unwrap() == before.accepted_history_basis().unwrap());
-        assert!(self.inventory() == *files, "cold read changed actual Store files");
+        assert!(
+            self.inventory() == *files,
+            "cold read changed actual Store files"
+        );
     }
     fn finish(self) {
         drop(self.full);
@@ -75,20 +98,40 @@ impl Fixture {
 }
 
 fn index_for(corpus: &protocol::FrozenSuite, text: &str) -> usize {
-    corpus.steps().iter().position(|step| step.text() == text).unwrap()
+    corpus
+        .steps()
+        .iter()
+        .position(|step| step.text() == text)
+        .unwrap()
 }
 fn read_dependency(
-    full: &Engine, corpus: &protocol::FrozenSuite, index: usize,
-    arm: &str, policy: ContextPolicy, binding: &str, profile: &PlayProfile,
+    full: &Engine,
+    corpus: &protocol::FrozenSuite,
+    index: usize,
+    arm: &str,
+    policy: ContextPolicy,
+    binding: &str,
+    profile: &PlayProfile,
 ) -> Result<Option<StoredTurn>> {
     // The frozen seam intentionally has no external execution/resource inputs.
     dependency_turn(DependencyJob {
-        full, index, arm, policy, binding, step: &corpus.steps()[index], profile,
+        full,
+        index,
+        arm,
+        policy,
+        binding,
+        step: &corpus.steps()[index],
+        profile,
     })
 }
 fn assert_dependency(
-    turn: &StoredTurn, full: &Engine, step: &protocol::Step, index: usize,
-    arm: &str, policy: ContextPolicy, binding: &str,
+    turn: &StoredTurn,
+    full: &Engine,
+    step: &protocol::Step,
+    index: usize,
+    arm: &str,
+    policy: ContextPolicy,
+    binding: &str,
 ) {
     assert_eq!(turn.version, 2);
     assert_eq!(turn.binding, binding);
@@ -99,8 +142,10 @@ fn assert_dependency(
     assert_eq!(turn.request.scope, *full.scope());
     assert_eq!(turn.request.turn, step.id());
     assert_eq!(turn.request.expected_revision, full.revision());
-    assert!(matches!(&turn.request.intent, Intent::FreeText { kind, text }
-        if *kind == step.kind() && text == step.text()));
+    assert!(
+        matches!(&turn.request.intent, Intent::FreeText { kind, text }
+        if *kind == step.kind() && text == step.text())
+    );
     assert_eq!(turn.before_head, full.revision());
     assert_eq!(turn.after_head, full.revision());
     assert!(turn.capture_file.is_none() && turn.recording_file.is_none());
@@ -110,9 +155,15 @@ fn assert_dependency(
     assert_eq!(row.arm, arm);
     assert_eq!(row.policy, policy);
     assert_eq!(row.phase, "not_run_dependency");
-    assert_eq!(row.expected, serde_json::to_string(step.expected()).unwrap());
+    assert_eq!(
+        row.expected,
+        serde_json::to_string(step.expected()).unwrap()
+    );
     assert!(row.error.is_none() && !row.passed && !row.policy_matches);
-    assert_eq!(row.failures, ["not_run_dependency", "no_matching_current_policy_receipt"]);
+    assert_eq!(
+        row.failures,
+        ["not_run_dependency", "no_matching_current_policy_receipt"]
+    );
     // Existing make_row semantics: this path explicitly did not run roles.
     // Its elapsed-zero sentinel is not a measured native/model latency.
     assert_eq!(row.roles, 0);
@@ -131,8 +182,14 @@ fn assert_dependency(
     assert!(row.director_private_target_present.is_none() && row.selected_context_bytes.is_none());
     assert!(row.estimated_context_tokens.is_none() && row.forwarded_director_estimates.is_none());
     assert!(row.source_fallback_reason.is_none() && row.compiler_fallback_reason.is_none());
-    assert_eq!(row.input_semantic_sha256, v2::semantic_input(full, &request).unwrap());
-    assert_eq!(row.output_semantic_sha256, v2::semantic_output(full).unwrap());
+    assert_eq!(
+        row.input_semantic_sha256,
+        v2::semantic_input(full, &request).unwrap()
+    );
+    assert_eq!(
+        row.output_semantic_sha256,
+        v2::semantic_output(full).unwrap()
+    );
     assert_eq!(row.mechanical_sha256, v2::mechanical_output(full).unwrap());
 }
 
@@ -149,8 +206,17 @@ fn actual_missing_learn_dependency_keeps_full_identity_honest_row_and_durable_hi
     let binding = "a".repeat(64);
     let profile = LaneFactory::ScriptedBaseline.profile().unwrap();
     for (arm, policy) in ARM_NAMES.into_iter().zip(POLICIES) {
-        let turn = read_dependency(&fixture.full, &corpus, index, arm, policy, &binding, &profile)
-            .unwrap().expect("actual missing prerequisite must produce dependency row");
+        let turn = read_dependency(
+            &fixture.full,
+            &corpus,
+            index,
+            arm,
+            policy,
+            &binding,
+            &profile,
+        )
+        .unwrap()
+        .expect("actual missing prerequisite must produce dependency row");
         assert_dependency(&turn, &before, step, index, arm, policy, &binding);
     }
     fixture.unchanged(&files, &before);
@@ -164,16 +230,29 @@ fn actual_learned_accepted_step_and_actual_core_guard_are_not_dependency_rows() 
     let accepted = index_for(&corpus, "I use beacon.");
     assert!(protocol::reference_proposal(&fixture.full, &corpus.steps()[accepted]).is_ok());
     let guard = index_for(&corpus, "I use blink.");
-    assert!(matches!(corpus.steps()[guard].expected(),
-        protocol::Expected::GuardRejected(protocol::GuardRejection::Ability)));
-    assert!(matches!(protocol::reference_proposal(&fixture.full, &corpus.steps()[guard]),
-        Err(locallore::contracts::Error::Ability)));
+    assert!(matches!(
+        corpus.steps()[guard].expected(),
+        protocol::Expected::GuardRejected(protocol::GuardRejection::Ability)
+    ));
+    assert!(matches!(
+        protocol::reference_proposal(&fixture.full, &corpus.steps()[guard]),
+        Err(locallore::contracts::Error::Ability)
+    ));
     let before = fixture.full.clone();
     let files = fixture.inventory();
     let profile = LaneFactory::ScriptedBaseline.profile().unwrap();
     for index in [accepted, guard] {
-        assert!(read_dependency(&fixture.full, &corpus, index, "left", POLICIES[0],
-            &"b".repeat(64), &profile).unwrap().is_none());
+        assert!(read_dependency(
+            &fixture.full,
+            &corpus,
+            index,
+            "left",
+            POLICIES[0],
+            &"b".repeat(64),
+            &profile
+        )
+        .unwrap()
+        .is_none());
     }
     fixture.unchanged(&files, &before);
     fixture.finish();
@@ -189,8 +268,15 @@ fn invalid_profile_is_fixed_profile_error_without_mutating_dependency_or_guard_h
     profile.context_tokens = 0;
     assert!(profile.validate().is_err());
     for text in ["I use beacon.", "I learn beacon.", "I use blink."] {
-        let result = read_dependency(&fixture.full, &corpus, index_for(&corpus, text),
-            "right", POLICIES[1], &"c".repeat(64), &profile);
+        let result = read_dependency(
+            &fixture.full,
+            &corpus,
+            index_for(&corpus, text),
+            "right",
+            POLICIES[1],
+            &"c".repeat(64),
+            &profile,
+        );
         assert!(matches!(result, Err(ref error) if error == "Profile"));
     }
     fixture.unchanged(&files, &before);
@@ -209,10 +295,26 @@ fn approved_native_profile_can_describe_pure_dependency_without_runtime_or_asset
     assert!(profile.validate().is_ok());
     assert_eq!(profile.id, locallore_local_runtime::PROFILE);
     let binding = "d".repeat(64);
-    let turn = read_dependency(&fixture.full, &corpus, index, "right", POLICIES[1],
-        &binding, &profile).unwrap().expect("model-free native-profile dependency");
-    assert_dependency(&turn, &before, &corpus.steps()[index], index,
-        "right", POLICIES[1], &binding);
+    let turn = read_dependency(
+        &fixture.full,
+        &corpus,
+        index,
+        "right",
+        POLICIES[1],
+        &binding,
+        &profile,
+    )
+    .unwrap()
+    .expect("model-free native-profile dependency");
+    assert_dependency(
+        &turn,
+        &before,
+        &corpus.steps()[index],
+        index,
+        "right",
+        POLICIES[1],
+        &binding,
+    );
     fixture.unchanged(&files, &before);
     fixture.finish();
 }

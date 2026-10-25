@@ -79,8 +79,8 @@ does **not** make every existing native evaluation failure cleanup-proven.
 ## Test fixtures and normal-build boundary
 
 Runtime tests use the existing protocol-fixture executable and narrowly scoped
-private test faults. ModelManager tests require a real LocalRuntime owner, not
-a fabricated runtime/status object. A zero-argument development-worker-only
+private test faults. Owner-carrying ModelManager tests use real LocalRuntime
+owners; the two pending-startup cases are metadata-only. A zero-argument development-worker-only
 helper chooses the fixed executable relative to the test executable and creates
 its own synthetic temporary fixture. Callers cannot supply an executable,
 mode, argument list or arbitrary command. It exposes no IPC/server interface.
@@ -118,7 +118,7 @@ Filtered/focused groups overlap later full suites; their counts are not added.
 | Partial owner `e89bcf2f` | Actual 0/1 failure: returned owner Unloaded rather than Failed | `partial-start-first-red` |
 | Bounded diagnostic `5a519903` | Actual 0/1 failure: owner.load returned Ok; request ID advanced 0→1 | `partial-start-diagnostic-red` |
 | Failed-owner fix `cc0e78a8` | Same seven Runtime groups passed, 41 filtered, 0.15s | `api-corrected-green` |
-| Manager quarantine `c0d98237` | Eight real-owner groups passed, 115 filtered, 0.30s | `manager-first-green` |
+| Manager quarantine `c0d98237` | Eight model-ownership groups passed: two metadata-only, six fixed-owner; 115 filtered, 0.30s | `manager-first-green` |
 | Runtime strict lint `c0d98237` | Five large_enum_variant/result_large_err errors, exit101 | `first-clippy` |
 | Box amendment `90fed0e1` | Seven groups passed, 0.16s; strict Runtime Clippy passed, 2.02s | `boxed-green`, `boxed-clippy` |
 | Stale close `9698c34e` | Actual 0/1 failure after replacement installed: Host free_text became false | `close-race-first-red` |

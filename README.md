@@ -144,6 +144,14 @@ no private error payload and grants no resource or gameplay authority. Import
 and the real ordinary gift pass again; Dialogue and ordinary restart remain
 unqualified. A host grammar oracle is the next experiment; the cause is unproven.
 
+The [format and tokenizer follow-up](docs/native/SDK_FORMAT_TOKENIZER_VERIFICATION_2026-10-25.md)
+records the actual prepared REGEX argument on a fresh Dialogue failure. Import
+and the real Rust-committed gift pass again; Dialogue and ordinary restart remain
+unqualified. The selected SentencePiece vocabulary has no raw ASCII-space pieces.
+Native controls retain every original sample and expose representation/callback
+limits; they do not establish the SDK failure's cause. All owned emulator
+processes are stopped, and earlier failures remain preserved.
+
 An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects
 the isolated SDK to guarded free-text preparation and durable commit. Its
 [verification](docs/runtime/android/PLAY_VERIFICATION_2026-10-23.md) establishes

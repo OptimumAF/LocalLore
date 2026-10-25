@@ -457,6 +457,7 @@ private class SdkLiteRtResources(
                         }, dispatch = { arguments ->
                             // This is the public Kotlin call site, not an SDK body/JNI/native-entry
                             // observation. All application argument construction is complete above.
+                            observedLiteRtResponseFormat(sendTrace, arguments.responseFormat)
                             conversation.sendMessageAsync(
                                 arguments.prompt, arguments.callback, maxOutputToken = arguments.maxOutputToken,
                                 thinkingConfig = arguments.thinkingConfig, responseFormat = arguments.responseFormat,
@@ -474,6 +475,17 @@ private class SdkLiteRtResources(
 /** Encoding only: the original Rust schema/intent and commit validation remain authoritative. */
 internal fun liteRtResponseFormat(schemaJson: String): ResponseFormat =
     finiteSchemaRegex(schemaJson)?.let { ResponseFormat.regex(it) } ?: ResponseFormat.json(schemaJson)
+
+/** Observe only the exact prepared public argument's kind; never inspect its schema/pattern. */
+internal fun observedLiteRtResponseFormat(observer: LiteRtSendObserver?, format: ResponseFormat) {
+    try {
+        observer?.format(when (format.type.value) {
+            1 -> LiteRtSendFormat.REGEX
+            2 -> LiteRtSendFormat.JSON_OBJECT
+            else -> LiteRtSendFormat.OTHER
+        })
+    } catch (_: Throwable) { /* Observation failure cannot change dispatch or resource authority. */ }
+}
 
 /** Type identity only; no message, class name, stack, cause or hidden numeric status is read. */
 internal fun liteRtCallbackError(throwable: Throwable): LiteRtCallbackError = when (throwable) {

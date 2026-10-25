@@ -186,11 +186,103 @@ stdout78,824B SHA-256
 `90500af8e502db80e42e1a0f5c832295d0b233e7d686c1f226a1aed7525f9e9f`.
 No real-device performance or successful SDK result follows from these builds.
 
+## Third attempt: pending import observed directly
+
+The corrected1 MiB implementation uses frozen source
+`f32984213c4d99a8536896575f5b7b4a06f63171` and the new audited receipt pair.
+Fresh private `real-io` namespaces preserve all results. PREPARE proposal
+`f686e5f448ce86f0e7fb5988fe29e19fdb44741a8ee664f154425dc7124b12b1`
+passes full root/independent checks; original70776 terminal0, SDK child0/known
+cleanup6,031ms and verified prepare closure. RUN proposal
+`645eb23504c2126ea62d06ade1fa6ed0d3c994e065fcecc810e3ae7f515ff10e`
+passes full prelaunch checks and admits a fresh1,800s owner.
+
+Preflight proposal
+`fc565d2f5a1b478c6381a2602be4eb4a70e6122e31b0f23121167b74831888ca`
+has79 nonweight bindings/87,715,593B. Original73867 terminal0; owned worker0,
+cleanup/capture true79,485ms,43 completed0/known clients and1PASS/12 checks.
+Candidate proposal
+`5b4504cdb7b9b9f6588eeee4f377b6a787ee80d5102cead9d8ede3762cff62a3`
+has83 bindings/87,721,836B and same-owner successful proof/consent links;
+independent live check observes1,574s remaining before admission.
+
+Staging completes again. Original candidate64927 terminates1; owned worker2,
+cleanup/capture known260,968ms, stdout455B/stderr0,14 completed0/known clients.
+IMPORT fails129.974s with the original READY120,000ms ComposeTimeout.
+The new existing1337 failure frame actually records:
+
+| Observation at failure | Value |
+|---|---|
+| Expected / actual setup phase | READY / IMPORTING |
+| Cause / events | NONE / empty (unobserved, not invented) |
+| Import source opened / closed / active | 1 / 1 / 0 |
+| Read calls | 2,470 |
+| Returned bytes | capped1,000,000; saturation true |
+
+These observations are independently sampled, not a jointly atomic completion
+snapshot or persisted-byte count. They do not establish successful receipt
+acceptance or diagnose the remaining work. The strict runner gate still refuses
+the failed transcript; no IMPORT proof, SDK, PLAY or REOPEN follows. The1 MiB
+cost correction therefore **did not resolve the observed device timeout**.
+Exact owner63329 stops, original terminal0; known cleanup/capture/preservation
+closure531,532ms, worker1 from requested drain; guest flush false. Actual
+recorded processes are absent and ports free. No retained virtual-disk/model
+contents were inspected or cleaned.
+
+## Further bounded batching, with original time limits
+
+[Plan6392117108](https://github.com/OptimumAF/LocalLore/issues/9#issuecomment-6392117108)
+proposed a longer import observation. It is explicitly superseded **before any
+patch/build** by [6392151716](https://github.com/OptimumAF/LocalLore/issues/9#issuecomment-6392151716):
+the shared trusted client ceiling is180s. No300s import or210s READY change
+is applied. All150/120/180s import/client limits,870/900s aggregate,920s entry,
+1,800s owner and SDK60/cleanup5 limits remain unchanged.
+
+The next measured implementation uses a fixed4 MiB buffer, preserving every
+guard/cancellation/hash/byte/force/lock/stamp placement. Its original8 MiB bulk
+case stays multi-chunk, two positive reads plus EOF; the tiny-provider case
+still truthfully records requested length before its127 KiB return cap. Only
+the two fixed request/read-count oracles change; all200/100 guard ceilings and
+other protection assertions remain unchanged. The buffer is approximately0.1%
+of the4 GiB available-memory admission floor, not an unbounded allocation.
+
+Tests-first on the1 MiB implementation: original72727 terminal1,28 tests,
+one intended bulk-oracle failure, other27 pass, zero errors/skips. Actual
+metrics are nine reads,163 import guards,73 reopen guards, maximum request
+1,048,576B. Owned completion1/known cleanup73,203ms; stdout4,776B SHA-256
+`b536daaa754590da72901ce0362bd3bb7701b461de1b579db51dfd27ff0a83ad`.
+XML/output are retained before the next clean test task. The subsequent exact
+one-constant4 MiB change has compilation source
+`f90a55e968031befc1e31ff8cdce3c253148e1c6`. Actual receipt build11170 terminal0
+passes367 JVM/36 suites, zero failures/errors/skips, lint0 errors/19 warnings,
+dependency/analyzer audits; known cleanup154,672ms, stdout9,815B SHA-256
+`6fcde56d34563b656a6ef24a9330394af737010951f97279d30de895df7837de`.
+The unchanged protection cases and revised bulk oracle pass, verifying three
+copy-source reads/max4 MiB and the unchanged200/100 guard ceilings.
+
+Actual regular build28269 terminal0 passes345 JVM/35 suites, zero F/E/S,
+lint0/9 and dependency/analyzer audits; known cleanup132,828ms, stdout9,157B
+SHA-256 `667faf620ab8e449397b9d4488135cb4568bb39ef22e04208c1d87d1a78e2a77`.
+Current full host98809 terminal0 passes668 tests/70.291s, zero F/E/S;
+known cleanup72,344ms, stdout78,824B SHA-256
+`c8907b79bbefc0294e9d58cae9bc7f478675ef59b37efabd61749138b1a794b9`.
+Three APP audits (fresh receipt/regular, reused unchanged ordinary), both receipt
+signatures and exact TEST manifest equality pass with known cleanup.
+
+New receipt APP74,884,112B SHA-256
+`17f41d2bb3560a600ca80ce03346020431d639ed1f8bd2b2a895a6e095b59283`;
+TEST1,963,339B SHA-256
+`28918767790e357f5adb5e1f0f148d81037d1c18bf6df21d50dde45a4f7d4b7d`.
+TEST uncompressed entry contents are identical to the preceding1 MiB build;
+only one APP DEX payload differs. APK container bytes/sizes vary, so no byte
+reproducibility claim follows. A new admitted target remains required. This
+is another bounded cost correction, not a claim that the timeout cause is proven.
+
 ## Remaining gates
 
-The second attempt verifies local staging but fails receipt import verification;
-SDK gift and restart remain unrun. The corrected build needs a fresh admitted
-target and another actual import/play/reopen run, with all limits intact.
+Both model attempts verify local staging but fail receipt import verification;
+SDK gift and restart remain unrun. The next corrected build needs a fresh
+admitted target and another actual import/play/reopen run, with all limits intact.
 The exact existing Gemma4-E2B/LiteRT-LM0.18.1 pins and publisher/container
 verification remain unchanged; no new dependency or runtime choice is made.
 Full M05.05/M01.05, physical phone, ARM64/16KiB execution, DocumentsUI,

@@ -195,7 +195,18 @@ pending; no acceptance or cleanup result is claimed by this document.
 Source review at the author base `b23f100b8c91b1c09a69b362043ffa727f98d100`
 also identified a production ordering risk: `cancelSaved()` acknowledges cancel
 and immediately calls `snapshot()`, whose `open`/`branches` operations may run
-while `LocalInferenceOwner.active` still excludes them. The coordinator owns
-reproduction and any narrow production fix. This fixture neither retries nor
-skips that public call, and no successful cancellation result is inferred from
-the source review.
+while `LocalInferenceOwner.active` still excludes them. The coordinator's JVM
+test reproduced the early acknowledgement with engine close held. The owner now
+waits for that captured run's known cleanup before acknowledging cancellation,
+within one unchanged cleanup deadline covering both native ACK and cleanup.
+The active-operation whitelist remains unchanged; failed or unreturned cleanup
+quarantines instead of granting refresh permission. The fixture neither retries
+nor skips the public call. Targeted owner tests pass; full build and actual
+real-model cancellation remain separate qualification gates.
+
+The host retains the existing conservative selected-runner `Time <= 120s`
+parser gate, separately from the inner proof observation caps of170/170/120s.
+The870s aggregate/900s outer/920s entry requirements are unchanged. Per-phase
+caps do not guarantee every worst-case phase plus overhead fits; exhausted
+remaining time stops actual dispatch and suppresses later phases. An attempted
+method counter is not evidence that a client was dispatched.

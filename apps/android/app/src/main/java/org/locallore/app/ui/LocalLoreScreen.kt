@@ -263,7 +263,10 @@ fun LocalLoreScreen(
                         }
                     }
                     items(state.messages, key = { "message-${it.id}" }) { message ->
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Column(
+                            modifier = Modifier.testTag("message-row-${message.id}"),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
                             Text(
                                 if (message.isPlayer) "You" else "Narrator",
                                 style = MaterialTheme.typography.labelMedium,
@@ -271,6 +274,7 @@ fun LocalLoreScreen(
                             )
                             Text(
                                 message.text,
+                                modifier = Modifier.testTag("message-body-${message.id}"),
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontFamily = if (message.isPlayer) {
                                     FontFamily.SansSerif

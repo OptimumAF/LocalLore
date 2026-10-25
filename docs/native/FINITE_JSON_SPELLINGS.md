@@ -13,7 +13,9 @@ JSON permits character escapes and paired UTF-16 escapes for supplementary
 characters; isolated surrogate units are not accepted by this implementation.
 See [RFC8259 sections7–8](https://www.rfc-editor.org/rfc/rfc8259#section-7).
 
-The codec retains every previously admitted canonical spelling. For each decoded
+Within the unchanged compilation budget, the codec retains canonical branches.
+Expansion can make a previously compilable schema exceed that budget and use
+the existing null/fallback path. For each decoded
 space or non-ASCII Unicode scalar inside a JSON string, it adds the exact JSON
 Unicode escape spelling as an alternative. A supplementary scalar uses its
 complete two-unit UTF-16 pair in one alternative; raw and escaped surrogate

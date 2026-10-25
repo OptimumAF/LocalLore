@@ -13,8 +13,10 @@ and all failed attempts remain retained.
 The old finite pattern requires literal spaces in the original Dialogue text.
 The authenticated SP raw vocabulary has no ASCII-space pieces. A separate
 representation/forcing matrix now tests that mismatch before changing the app.
-The [bounded spelling contract](FINITE_JSON_SPELLINGS.md) preserves every old
-canonical JSON form and adds equivalent space/non-ASCII string escapes. Engine
+The [bounded spelling contract](FINITE_JSON_SPELLINGS.md) preserves canonical
+branches within the unchanged compilation budget and adds equivalent
+space/non-ASCII string escapes. Expansion may trigger the existing null/fallback
+path for a previously compilable schema. All original corpus forms pass. Engine
 schema, exact user speech, actor/audience scopes, event/claim distinctions,
 generation budgets, ownership fences, local-only operation and dependencies
 remain unchanged. Explicit `no_forcing` is a host control, not a production fix.
@@ -265,6 +267,9 @@ mismatches and checks all 116 command metadata/stdout pairs, eight preflight
 bindings and both final owner/guard links. Both ordinary attempts stop at
 command 14 with zero candidate instrumentation and no dependent dispatch. The
 unsealed partial first device group is retained but is outside that final audit.
+Final review clarifies compilation-budget wording in the spelling contract;
+that documentation-only change follows the executed `a3c50643` source freeze.
+Its old captured document remains intact; no production code or APK changes.
 
 M05.01/M05.05 partial implementation is in review; full acceptance stays unchecked.
 Next runnable work is a source-bound original synthetic transfer probe on a

@@ -15,6 +15,8 @@ pub use native::{resume_native_selected, run_native_selected};
 #[cfg(feature = "local-model")]
 pub use native_owner::{SelectedNativeFailure, SelectedNativeReservation};
 
+#[cfg(all(test, feature = "local-model"))]
+mod native_asset_review_tests;
 #[cfg(test)]
 mod native_clock_setup_review_tests;
 #[cfg(all(test, feature = "protocol-owner-tests"))]

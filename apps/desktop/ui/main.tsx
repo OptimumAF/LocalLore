@@ -58,6 +58,8 @@ declare global {
                 | "v3-source"
                 | "v3-import"
                 | "v3-restarted"
+                | "v3-continued"
+                | "v3-continued-restarted"
                 | "v3-uncertain";
         };
     }

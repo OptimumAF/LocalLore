@@ -163,7 +163,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
             std::env::var("LOCALLORE_M08_AUTHOR_HARNESS").as_deref() == Ok("1"),
             match std::env::var("LOCALLORE_D08_STAGE").as_deref(){
                 Ok("import")=>"import",Ok("uncertain")=>"uncertain",Ok("retire")=>"retire",Ok("restarted")=>"restarted",
-                Ok("v3-source")=>"v3-source",Ok("v3-import")=>"v3-import",Ok("v3-restarted")=>"v3-restarted",Ok("v3-uncertain")=>"v3-uncertain",_=>"source"
+                Ok("v3-source")=>"v3-source",Ok("v3-import")=>"v3-import",Ok("v3-restarted")=>"v3-restarted",Ok("v3-uncertain")=>"v3-uncertain",Ok("v3-continued")=>"v3-continued",Ok("v3-continued-restarted")=>"v3-continued-restarted",_=>"source"
             },
             if reopened {
                 "reopened"

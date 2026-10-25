@@ -1,4 +1,4 @@
-// Fixed synthetic actual-controller/native-IPC journeys. UNRUN at source freeze.
+// Fixed synthetic actual-controller/native-IPC journeys; results are source-bound.
 import type { Controller } from "./controller";
 import type { ArchiveController } from "./archive-controller";
 import type { V2PlayController } from "./v2-play-controller";
@@ -16,8 +16,8 @@ interface Fixture {
     source_present: boolean;
     root: Scope;
     child: Scope;
-    expected_revision: 3;
-    expected_accepted_records: 3;
+    expected_revision: 3 | 4;
+    expected_accepted_records: 3 | 4;
     player: "player";
     foreign: {
         scope: Scope;
@@ -28,7 +28,7 @@ interface Fixture {
         canonical_sha256: string;
         basis_equal: true;
         full_records_equal: true;
-        accepted_records: 3;
+        accepted_records: 3 | 4;
         all_actor_contexts_and_views_equal: true;
         player_current_mira_prior_sable_unaware: true;
     } | null;
@@ -92,15 +92,18 @@ export async function archiveV3Journeys({
                 result.root.branch === "main" &&
                 result.child?.story === result.root.story &&
                 result.child.branch === "corrected" &&
-                result.expected_revision === 3 &&
-                result.expected_accepted_records === 3,
+                (result.expected_revision === 3 ||
+                    (config.archiveStage?.startsWith("v3-continued") &&
+                        result.expected_revision === 4)) &&
+                result.expected_accepted_records === result.expected_revision,
             "v3-fixed-native-fixture-metadata",
         );
         if (result.source_present)
             check(
                 result.proof?.full_records_equal &&
                     result.proof.basis_equal &&
-                    result.proof.accepted_records === 3 &&
+                    result.proof.accepted_records ===
+                        result.expected_revision &&
                     result.proof.all_actor_contexts_and_views_equal &&
                     result.proof.player_current_mira_prior_sable_unaware,
                 "v3-native-full-canon-basis-actor-view-oracle",
@@ -122,7 +125,7 @@ export async function archiveV3Journeys({
         await until(
             () =>
                 c.get().playV2?.domain_version === 2 &&
-                revision() === 3 &&
+                revision() === fixture.expected_revision &&
                 c.selected()?.scope.branch === fixture.child.branch,
             "selected-domain2",
         );
@@ -134,13 +137,14 @@ export async function archiveV3Journeys({
         await until(
             () =>
                 v2.get().context?.scope.branch === fixture.child.branch &&
-                v2.get().context?.revision === 3 &&
+                v2.get().context?.revision === fixture.expected_revision &&
                 !v2.get().readBusy,
             "v2-context",
         );
         await v2.refresh(false);
         check(
-            v2.get().snapshot?.revision === 3 && !v2.get().error,
+            v2.get().snapshot?.revision === fixture.expected_revision &&
+                !v2.get().error,
             "v3-actual-native-player-snapshot2",
         );
     };
@@ -158,6 +162,15 @@ export async function archiveV3Journeys({
             `${label}-selected-story-visible`,
         );
         const target =
+            (label === "observer"
+                ? root!.querySelector(
+                      'section[aria-label="Read-only V2 inspector"]',
+                  )
+                : label === "continued"
+                  ? root!.querySelector(
+                        'section[aria-label="Actual native receipt"]',
+                    )
+                  : null) ??
             root!.querySelector(".archive-panel") ??
             root!.querySelector(".v2-play") ??
             root!;
@@ -248,7 +261,7 @@ export async function archiveV3Journeys({
         check(
             preview?.kind === "export" &&
                 preview.preview.version === 3 &&
-                preview.preview.committed_turns === 3,
+                preview.preview.committed_turns === revision(),
             "v3-selected-child-private-export-preview",
         );
         await until(
@@ -310,6 +323,25 @@ export async function archiveV3Journeys({
                           : found.current),
                 `v3-${observer}-observed-truth-isolation`,
             );
+            await new Promise<void>((resolve) =>
+                requestAnimationFrame(() =>
+                    requestAnimationFrame(() => resolve()),
+                ),
+            );
+            const inspector = document.querySelector(
+                'section[aria-label="Read-only V2 inspector"]',
+            );
+            const rendered = inspector?.textContent ?? "";
+            check(
+                !!inspector &&
+                    !rendered.includes(REASON) &&
+                    (observer === "mira"
+                        ? rendered.includes(A) && !rendered.includes(B)
+                        : observer === "sable"
+                          ? !rendered.includes(A) && !rendered.includes(B)
+                          : rendered.includes(B)),
+                `v3-${observer}-actual-rendered-knowledge-isolation`,
+            );
             if (observer === "mira") await capture("observer");
         }
         await lab();
@@ -317,9 +349,14 @@ export async function archiveV3Journeys({
     try {
         const stage = config.archiveStage;
         check(
-            ["v3-source", "v3-import", "v3-restarted", "v3-uncertain"].includes(
-                stage ?? "",
-            ),
+            [
+                "v3-source",
+                "v3-import",
+                "v3-restarted",
+                "v3-uncertain",
+                "v3-continued",
+                "v3-continued-restarted",
+            ].includes(stage ?? ""),
             "v3-closed-stage",
         );
         if (stage === "v3-source") await oracle("prepare-source");
@@ -344,7 +381,10 @@ export async function archiveV3Journeys({
             await capture("narrow");
             await invoke("harness_viewport", { preset: "wide" });
             await observers();
-        } else if (stage === "v3-restarted") {
+        } else if (
+            stage === "v3-restarted" ||
+            stage === "v3-continued-restarted"
+        ) {
             check(
                 fixture.source_present &&
                     fixture.foreign &&
@@ -355,6 +395,66 @@ export async function archiveV3Journeys({
             );
             await selectedChild(fixture);
             await capture("reopened");
+            await observers();
+            await exportSelected("copy");
+            await capture("receipt");
+        } else if (stage === "v3-continued") {
+            check(
+                fixture.source_present &&
+                    fixture.expected_revision === 3 &&
+                    fixture.foreign,
+                "v3-continuation-starts-from-imported-history",
+            );
+            const before = fixture;
+            await selectedChild(fixture);
+            c.returnToPlay();
+            c.setPlayMode("fixture");
+            c.setAction("wait");
+            c.setFakeMode("accepted");
+            await until(
+                () =>
+                    v2.get().context?.view === "play" &&
+                    v2.get().context?.playMode === "fixture" &&
+                    v2.get().context?.action === "wait",
+                "continuation-composer",
+            );
+            await v2.refresh(false);
+            await until(
+                () =>
+                    !!document.querySelector(
+                        'form[aria-label="Native turn composer"] button[type="submit"]:not(:disabled)',
+                    ),
+                "continuation-visible-send-control",
+            );
+            await v2.send();
+            check(
+                v2.get().status?.phase === "committed" &&
+                    v2.get().receipt?.request.expected_revision === 3 &&
+                    v2.get().receipt?.events.at(-1)?.sequence === 4 &&
+                    !v2.get().pending &&
+                    !v2.get().error &&
+                    revision() === 4,
+                "v3-ui-typed-fixture-wait-commits-three-to-four-once",
+            );
+            fixture = await oracle();
+            check(
+                fixture.expected_revision === 4 &&
+                    fixture.proof?.accepted_records === 4 &&
+                    fixture.proof.canonical_sha256 !==
+                        before.proof?.canonical_sha256 &&
+                    structural(fixture.foreign) === structural(before.foreign),
+                "v3-native-core-proves-exact-wait-and-foreign-unchanged",
+            );
+            await capture("continued");
+            await v2.retryExact();
+            check(
+                revision() === 4 &&
+                    !v2.get().error &&
+                    structural((await oracle()).proof) ===
+                        structural(fixture.proof),
+                "v3-ui-exact-retry-does-not-duplicate-accepted-wait",
+            );
+            await lab();
             await observers();
             await exportSelected("copy");
             await capture("receipt");
@@ -456,7 +556,7 @@ export async function archiveV3Journeys({
         await c.refreshModel();
         check(
             c.get().model?.loaded === false,
-            "v3-transfer-does-not-load-or-run-inference",
+            "v3-transfer-does-not-load-a-real-model",
         );
         fixture = await oracle();
         check(
@@ -484,7 +584,12 @@ export async function archiveV3Journeys({
                 errors: errors.snapshot(),
                 oracle: fixture,
                 observerEvidence,
-                generationExecuted: false,
+                generationExecuted: stage === "v3-continued",
+                realModelGeneration: false,
+                continuationMode:
+                    stage === "v3-continued"
+                        ? "typed-Wait-synthetic-provider"
+                        : null,
                 evidence: "actual-native-IPC-WebView2-fixed-synthetic-fixture",
             },
         });

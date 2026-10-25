@@ -186,7 +186,7 @@ export class ArchiveController {
                         result.status === "imported"
                             ? "Imported as a saved story. Open it explicitly; old pending operations and model selections were not resumed."
                             : result.status === "exported"
-                              ? "Private playable archive published. The original story and archive are unchanged by later play."
+                              ? "Private playable archive published. This file preserves the captured history; later play does not update it."
                               : result.status === "cancelled"
                                 ? "Native file selection cancelled. No transfer occurred."
                                 : "Transfer failed. Check cleanup status; no automatic retry.",

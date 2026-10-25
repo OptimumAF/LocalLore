@@ -1,8 +1,9 @@
-// SOURCE-ONLY at freeze. Run only in Root's exclusively allocated native slot:
+// Run only in Root's exclusively allocated native slot; evidence is source-bound:
 // LOCALLORE_D08_ARTIFACT_ROOT=<ignored-local-root> LOCALLORE_D08_TARGET_DIR=<own-target>
 // node archive-v3-harness.mjs
 // Actual app-owned IPC/WebView2 CapturePreview; fixed picker doubles. No desktop,
 // keyboard/mouse/window activation, OS screenshot, browser/CDP or real inference.
+// The continued stage executes one actual typed Wait using the synthetic provider.
 import assert from "node:assert/strict";
 import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -260,7 +261,7 @@ const otherHarnesses = Object.fromEntries(
 let transferSHA256, foreign;
 async function published() {
     const names = await readdir(exported);
-    assert(names.length <= 3, "Only three fixed publications expected");
+    assert(names.length <= 5, "Only five fixed publications expected");
     return Promise.all(
         names.map(async (name) => {
             assert(
@@ -284,6 +285,8 @@ for (const stage of [
     "v3-import",
     "v3-restarted",
     "v3-uncertain",
+    "v3-continued",
+    "v3-continued-restarted",
 ]) {
     assert.deepEqual(
         await hashes(),
@@ -329,7 +332,10 @@ for (const stage of [
             LOCALLORE_D02_ARTIFACT_DIR: directory,
             LOCALLORE_TEST_MEMORY: "0",
             LOCALLORE_TEST_WORKSPACE: path.join(workspace, "stories-v1.sqlite"),
-            LOCALLORE_TEST_RESTART: stage === "v3-restarted" ? "1" : "0",
+            LOCALLORE_TEST_RESTART:
+                stage === "v3-restarted" || stage === "v3-continued-restarted"
+                    ? "1"
+                    : "0",
         },
         240000,
     );
@@ -339,26 +345,47 @@ for (const stage of [
         ).toString(),
     );
     assert.equal(report.passed, true, JSON.stringify(report));
-    assert.equal(report.generationExecuted, false);
+    assert.equal(report.generationExecuted, stage === "v3-continued");
+    assert.equal(report.realModelGeneration, false);
     assert.deepEqual(
         report.errors,
         [],
         "No app error-buffer records are cleared or ignored",
     );
     assert.equal(report.oracle.source_present, true);
-    if (reports.length)
+    if (reports.length && !stage.startsWith("v3-continued"))
         assert.deepEqual(
             report.oracle.proof,
             reports[0].report.oracle.proof,
             "Full native canonical/basis/actor proof agrees across actual process boundaries",
         );
     if (stage === "v3-import") foreign = report.oracle.foreign;
-    if (stage === "v3-restarted")
+    if (stage === "v3-restarted" || stage.startsWith("v3-continued"))
         assert.deepEqual(
             report.oracle.foreign,
             foreign,
             "Foreign workspace survives cold process restart",
         );
+    assert.equal(
+        report.oracle.expected_revision,
+        stage.startsWith("v3-continued") ? 4 : 3,
+    );
+    assert.equal(
+        report.oracle.proof.accepted_records,
+        report.oracle.expected_revision,
+    );
+    if (stage === "v3-continued-restarted") {
+        assert.deepEqual(
+            report.oracle.proof,
+            reports.at(-1).report.oracle.proof,
+            "Continued accepted history survives the second cold process restart",
+        );
+        assert.notEqual(
+            report.oracle.proof.canonical_sha256,
+            reports[0].report.oracle.proof.canonical_sha256,
+            "Actual accepted Wait changes the imported history exactly once",
+        );
+    }
     reports.push({ stage, report });
     const files = await readdir(directory);
     assert(files.length <= 40);
@@ -388,10 +415,17 @@ for (const stage of [
         );
 }
 const archives = await published();
-assert.equal(archives.length, 3);
+assert.equal(archives.length, 5);
 assert(
-    archives.every((file) => file.sha256 === transferSHA256),
-    "Source/import/restart exports preserve exact accepted archive bytes",
+    archives.filter((file) => file.sha256 === transferSHA256).length === 3,
+    "Source/import/first-restart exports preserve exact captured archive bytes",
+);
+const continued = archives.filter((file) => file.sha256 !== transferSHA256);
+assert.equal(continued.length, 2);
+assert.equal(
+    continued[0].sha256,
+    continued[1].sha256,
+    "Continued and second-restart exports preserve exact updated history",
 );
 assert.equal(
     hash(await bounded(path.join(picker, "transfer.json"), 128 * 1024)),
@@ -447,6 +481,7 @@ await writeFile(
             executableSHA256,
             appSHA256,
             transferSHA256,
+            continuedSHA256: continued[0].sha256,
             executions,
             artifacts,
             reports,

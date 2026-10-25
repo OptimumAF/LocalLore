@@ -36,7 +36,10 @@ fn checked_path(path: &Path) -> Result<bool, String> {
     let stage = std::env::var("LOCALLORE_D08_STAGE").map_err(|_| "SyntheticStageRequired")?;
     let source = match (role, stage.as_str()) {
         ("source-workspace", "v3-source") => true,
-        ("destination-workspace", "v3-import" | "v3-restarted")
+        (
+            "destination-workspace",
+            "v3-import" | "v3-restarted" | "v3-continued" | "v3-continued-restarted",
+        )
         | ("uncertain-workspace", "v3-uncertain") => false,
         _ => return Err("SyntheticWorkspaceRequired".into()),
     };
@@ -201,7 +204,8 @@ fn prepare(path: &Path) -> Result<(), String> {
 fn oracle(path: &Path) -> Result<Value, String> {
     let source_role = checked_path(path)?;
     let mut store = Store::open_read_only(path).map_err(|_| "SyntheticRead")?;
-    let (root, child) = expected()?;
+    let (root, mut child) = expected()?;
+    let stage = std::env::var("LOCALLORE_D08_STAGE").map_err(|_| "SyntheticStageRequired")?;
     let stories = store.stories().map_err(|_| "SyntheticLibrary")?;
     let mut foreign = None;
     for story in &stories {
@@ -243,6 +247,34 @@ fn oracle(path: &Path) -> Result<Value, String> {
     let present = actual.is_some();
     let mut digest = None;
     if let Some(actual) = actual {
+        // Read-only oracle for the one actual UI fixture action. Derive its
+        // expected receipt through Core; never copy accepted authority or write.
+        if actual.revision() == 4
+            && matches!(stage.as_str(), "v3-continued" | "v3-continued-restarted")
+        {
+            let last = actual
+                .canonical_records()
+                .last()
+                .and_then(CanonicalRecord::receipt)
+                .ok_or("SyntheticContinuationReceipt")?;
+            let request = child.request(
+                &last.request().turn,
+                Intent::Actions(vec![Command::Wait { ticks: 1 }]),
+            );
+            if last.request() != &request {
+                return Err("SyntheticContinuationRequest".into());
+            }
+            let proposal = Engine::proposal(&request).map_err(|_| "SyntheticProposal")?;
+            let receipt = child
+                .preview(&request, &proposal)
+                .map_err(|_| "SyntheticPreview")?;
+            child
+                .commit_prepared(&receipt)
+                .map_err(|_| "SyntheticCommit")?;
+        }
+        if stage == "v3-continued-restarted" && actual.revision() != 4 {
+            return Err("SyntheticContinuationMissing".into());
+        }
         same(
             &store
                 .resume(root.scope())
@@ -252,13 +284,13 @@ fn oracle(path: &Path) -> Result<Value, String> {
         )?;
         same(&actual, &child)?;
         let player = actual
-            .observed_facts("player", actual.scope(), 3)
+            .observed_facts("player", actual.scope(), actual.revision())
             .map_err(|_| "SyntheticPlayer")?;
         let mira = actual
-            .observed_facts("mira", actual.scope(), 3)
+            .observed_facts("mira", actual.scope(), actual.revision())
             .map_err(|_| "SyntheticMira")?;
         let sable = actual
-            .observed_facts("sable", actual.scope(), 3)
+            .observed_facts("sable", actual.scope(), actual.revision())
             .map_err(|_| "SyntheticSable")?;
         if player
             .get("relic-location")
@@ -285,8 +317,8 @@ fn oracle(path: &Path) -> Result<Value, String> {
     }
     Ok(
         json!({"version":1,"synthetic":true,"evidence":"actual-read-only-Store-Core-fixed-fixture",
-        "source_present":present,"root":root.scope(),"child":child.scope(),"expected_revision":3,
-        "expected_accepted_records":3,"player":"player","foreign":foreign,"proof":digest}),
+        "source_present":present,"root":root.scope(),"child":child.scope(),"expected_revision":child.revision(),
+        "expected_accepted_records":child.canonical_record_count(),"player":"player","foreign":foreign,"proof":digest}),
     )
 }
 #[tauri::command]

@@ -86,9 +86,15 @@ export async function comparisonReaderJourneys({
                   phase: state.status.phase,
                   client: state.clientId,
               }
-            : state.busy
-              ? { id: null, phase: "awaiting_reply", client: state.clientId }
-              : null;
+            : state.uncertain
+              ? {
+                    id: null,
+                    phase: "acknowledgement_unknown",
+                    client: state.clientId,
+                }
+              : state.busy
+                ? { id: null, phase: "awaiting_reply", client: state.clientId }
+                : null;
         const summaryProjection =
             includeSummary && state.summary
                 ? {
@@ -364,6 +370,7 @@ export async function comparisonReaderJourneys({
             r.get().uncertain && !!r.get().clientId,
             "lost-open-ack-keeps-exact-client-for-recovery",
         );
+        await capture("comparison-unknown");
         const client = r.get().clientId;
         await r.recover();
         check(

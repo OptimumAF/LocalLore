@@ -221,7 +221,7 @@ for (const stage of ["initial", "restart"]) {
     const captures = (await readdir(directory)).filter((name) =>
         name.endsWith(".png"),
     );
-    assert.equal(captures.length, 14, `ActualWebViewImages:${stage}`);
+    assert.equal(captures.length, 15, `ActualWebViewImages:${stage}`);
     for (const name of captures) {
         const capture = JSON.parse(
             await readFile(
@@ -321,7 +321,18 @@ for (const stage of ["initial", "restart"]) {
                 state.status.operation_id,
                 `ActualPendingOperation:${name}`,
             );
-        else if (state.busy)
+        else if (state.uncertain) {
+            assert.equal(
+                snapshot.pendingOperation?.id,
+                null,
+                `UnknownPendingIdentity:${name}`,
+            );
+            assert.equal(
+                snapshot.pendingOperation?.phase,
+                "acknowledgement_unknown",
+                `UnknownPendingPhase:${name}`,
+            );
+        } else if (state.busy)
             assert.equal(
                 snapshot.pendingOperation?.id,
                 null,

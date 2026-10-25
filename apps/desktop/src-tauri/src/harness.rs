@@ -42,6 +42,7 @@ const COMPARISON_READER_LABELS: &[&str] = &[
     "comparison-pending",
     "comparison-closed",
     "comparison-recovered",
+    "comparison-unknown",
     "comparison-rollout",
     "comparison-narrow",
     "comparison-restarted",

@@ -1151,7 +1151,74 @@ summary {
     display: block;
     max-width: 100%;
 }
+.comparison-reader {
+    margin-block: 1.5rem;
+    padding-block: 1rem;
+    border-block: 1px solid var(--border, #526273);
+    min-width: 0;
+}
+.comparison-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 0.75rem;
+    margin-block: 1rem;
+}
+.comparison-reader label {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    max-width: 100%;
+}
+.comparison-reader .comparison-table {
+    max-height: 24rem;
+    overflow: auto;
+    margin-block: 1rem;
+}
+.comparison-reader table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.comparison-reader th,
+.comparison-reader td {
+    text-align: left;
+    padding: 0.6rem;
+    border-bottom: 1px solid var(--border, #526273);
+    overflow-wrap: anywhere;
+}
+.comparison-reader tr[aria-selected="true"] {
+    outline: 2px solid var(--accent, #9ccbd5);
+    outline-offset: -2px;
+}
+.comparison-reader pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 24rem;
+    overflow: auto;
+    padding: 0.75rem;
+    border: 1px solid var(--border, #526273);
+}
+.comparison-reader dl {
+    display: grid;
+    grid-template-columns: minmax(9rem, 1fr) minmax(0, 3fr);
+    gap: 0.45rem 1rem;
+}
+.comparison-reader dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+.comparison-reader .hash-value,
+.comparison-reader .comparison-selected p {
+    overflow-wrap: anywhere;
+}
+.comparison-unavailable {
+    border-left: 3px solid var(--accent, #9ccbd5);
+    padding-left: 0.75rem;
+}
 @media (max-width: 700px) {
+    .comparison-reader dl {
+        grid-template-columns: 1fr;
+    }
     .author-panel dl,
     .v2-play dl {
         grid-template-columns: 1fr;

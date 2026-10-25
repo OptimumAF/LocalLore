@@ -1,4 +1,5 @@
 import { EvaluationController } from "./evaluation-controller";
+import { ComparisonReaderController } from "./comparison-reader-controller";
 import { ArchiveController } from "./archive-controller";
 import { archiveBinding } from "./archive-model";
 import { ForkController } from "./fork-controller";
@@ -44,6 +45,7 @@ declare global {
             legacy?: boolean;
             evaluating?: boolean;
             curated?: boolean;
+            comparisonReading?: boolean;
             archiving?: boolean;
             timelining?: boolean;
             forking?: boolean;
@@ -316,6 +318,9 @@ const driver =
 const evaluation = new EvaluationController(invoke, (code) =>
     errors.add("native", code),
 );
+const comparison = new ComparisonReaderController(invoke, (code) =>
+    errors.add("native", code),
+);
 const base = new IpcGateway(invoke, errors),
     gateway = driver ? new driver.FaultGateway(base) : base;
 const controller = new Controller(gateway, errors, undefined, (work) =>
@@ -449,6 +454,21 @@ const syncEvaluationContext = () => {
         `${s.selectedId}|${s.view}|${s.observer}`,
         s.view === "lab",
     );
+    // Only actual selection/head/native context changes retire a reader. Its
+    // own pending/read updates are excluded from this presentation identity.
+    comparison.contextChanged(
+        JSON.stringify([
+            authorNativeContext?.root ?? null,
+            authorNativeContext?.granted ?? false,
+            s.selectedId,
+            play?.scope ?? null,
+            play?.revision ?? null,
+            s.view,
+            s.observer,
+            s.disposed,
+        ]),
+        !!authorNativeContext?.granted && s.view === "lab" && !s.disposed,
+    );
     archive.contextChanged(
         `${s.selectedId}|${s.view}|${s.observer}`,
         s.view === "lab",
@@ -509,6 +529,7 @@ void invoke("author_context")
         errors.add("native", category(error));
         authorNativeContext = null;
         author.contextChanged(null);
+        syncEvaluationContext();
     });
 const onError = () => errors.add("frontend", "UnhandledError");
 window.addEventListener("error", onError);
@@ -521,6 +542,7 @@ root.render(
     <App
         controller={controller}
         evaluation={evaluation}
+        comparison={comparison}
         archive={archive}
         capture={capture}
         timeline={timeline}
@@ -544,6 +566,7 @@ const dispose = async () => {
     author.dispose();
     await v2.dispose();
     evaluation.dispose();
+    comparison.dispose();
     archive.dispose();
     timeline.dispose();
     fork.dispose();
@@ -636,6 +659,20 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
             controller,
             timeline,
             gateway: gateway as InstanceType<typeof driver.FaultGateway>,
+            errors,
+            invoke,
+            dispose,
+            config: window.__LOCALLORE_TEST__,
+        });
+    } else if (
+        __DEV_HARNESS__ &&
+        window.__LOCALLORE_TEST__?.comparisonReading
+    ) {
+        const { comparisonReaderJourneys } =
+            await import("./comparison-reader-journeys");
+        await comparisonReaderJourneys({
+            controller,
+            comparison,
             errors,
             invoke,
             dispose,

@@ -1,4 +1,6 @@
 import { EvaluationPanel } from "./EvaluationPanel";
+import { ComparisonReaderPanel } from "./ComparisonReaderPanel";
+import type { ComparisonReaderController } from "./comparison-reader-controller";
 import { ArchivePanel } from "./ArchivePanel";
 import type { ArchiveController } from "./archive-controller";
 import { TimelinePanel } from "./TimelinePanel";
@@ -83,6 +85,7 @@ export function App({
     controller: c,
     capture,
     evaluation,
+    comparison,
     archive,
     timeline,
     fork,
@@ -96,6 +99,7 @@ export function App({
     controller: Controller;
     capture?: CaptureController;
     evaluation?: EvaluationController;
+    comparison?: ComparisonReaderController;
     archive?: ArchiveController;
     timeline?: TimelineController;
     fork?: ForkController;
@@ -464,6 +468,9 @@ export function App({
                             context={`${s.selectedId}|${s.view}|${s.observer}`}
                             allowed={s.view === "lab"}
                         />
+                    )}
+                    {comparison && (
+                        <ComparisonReaderPanel controller={comparison} />
                     )}
                     {archive && (
                         <ArchivePanel

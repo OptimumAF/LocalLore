@@ -38,6 +38,8 @@ fn main() {
                 "harness_archive_v3_fixture",
                 "evaluation_catalog",
                 "evaluation_curated",
+                "evaluation_comparison",
+                "harness_comparison_reader_case",
                 "evaluation_start",
                 "evaluation_open",
                 "evaluation_status",

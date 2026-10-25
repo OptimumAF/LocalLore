@@ -175,6 +175,16 @@ text; it cannot execute HTML, load external images or grant debug privileges.
 
 ## Verify without desktop control
 
+Story Lab also provides a dedicated [memory comparison reader](../../docs/desktop/D07_COMPARISON_READER.md)
+for actual version2 paired/rollout cohorts. The app's native picker explicitly
+asks to inspect private evidence. Rust retains source validation, actual Query2
+observer filtering and read-only locks; valid historical reports stay viewable.
+The reader shows actual source revisions, expected/actual results, accepted
+receipts, retained captures and recorded role outputs. Missing evidence stays
+unavailable. Reader progress is in memory, and selected-case rerun/comparison
+execution are explicitly unavailable. The linked guide gives exact fixed native
+harness commands and distinguishes synthetic frontend checks from IPC/rendering.
+
 ```powershell
 npm --prefix apps/desktop run check
 npm --prefix apps/desktop run format:check

@@ -740,6 +740,16 @@ pub fn identifier() -> Result<String, String> {
 }
 #[cfg(windows)]
 pub fn choose_directory(owner: isize) -> Result<Option<PathBuf>, String> {
+    choose_directory_for(owner, false)
+}
+/// A successful native affirmation is consent to inspect this selected source.
+/// No renderer argument can change the purpose, warning or affirmative label.
+#[cfg(windows)]
+pub fn choose_comparison_directory(owner: isize) -> Result<Option<PathBuf>, String> {
+    choose_directory_for(owner, true)
+}
+#[cfg(windows)]
+fn choose_directory_for(owner: isize, comparison: bool) -> Result<Option<PathBuf>, String> {
     use windows::{
         core::HSTRING,
         Win32::{Foundation::HWND, System::Com::*, UI::Shell::*},
@@ -761,11 +771,19 @@ pub fn choose_directory(owner: isize) -> Result<Option<PathBuf>, String> {
                         | FOS_DONTADDTORECENT,
                 )
                 .map_err(|_| "PickerUnavailable")?;
+            let title = if comparison {
+                "Inspect a LocalLore comparison: private character truth, inputs, prompts and outputs may reveal spoilers"
+            } else {
+                "Choose a folder for this LocalLore inspection snapshot"
+            };
             dialog
-                .SetTitle(&HSTRING::from(
-                    "Choose a folder for this LocalLore inspection snapshot",
-                ))
+                .SetTitle(&HSTRING::from(title))
                 .map_err(|_| "PickerUnavailable")?;
+            if comparison {
+                dialog
+                    .SetOkButtonLabel(&HSTRING::from("Inspect private evidence"))
+                    .map_err(|_| "PickerUnavailable")?;
+            }
             if let Err(error) = dialog.Show(Some(HWND(owner as *mut _))) {
                 return if error.code().0 as u32 == 0x800704c7 {
                     Ok(None)
@@ -787,6 +805,10 @@ pub fn choose_directory(owner: isize) -> Result<Option<PathBuf>, String> {
 }
 #[cfg(not(windows))]
 pub fn choose_directory(_: isize) -> Result<Option<PathBuf>, String> {
+    Err("Unsupported".into())
+}
+#[cfg(not(windows))]
+pub fn choose_comparison_directory(_: isize) -> Result<Option<PathBuf>, String> {
     Err("Unsupported".into())
 }
 

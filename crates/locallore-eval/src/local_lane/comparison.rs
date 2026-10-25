@@ -1,6 +1,8 @@
 //! Current-policy comparison over the existing Host, Store, provider and ledger.
 pub mod desktop_api;
 pub mod selected;
+#[cfg(test)]
+mod outcome_review_tests;
 use super::*;
 pub use crate::memory_comparison_v2::{ComparisonKind, ComparisonReportV2};
 use crate::{

@@ -218,7 +218,8 @@ distinguishes actual worker/model tests, model-free history, static headless
 export images and unrun desktop UI/IPC checks. Native startup occurs only after
 both-arm/source preflight and one native reservation callback; uncertain cleanup
 retains the actual owner and conservative charges. This is a developer Rust API,
-not an enabled desktop control. No new model or worker download is required.
+not an enabled desktop control. Opt-in runs require the already approved assets
+locally; they never fetch a model or worker.
 Run these developer checks from the repository root; the qualification record
 identifies the executed source, target directories and results:
 

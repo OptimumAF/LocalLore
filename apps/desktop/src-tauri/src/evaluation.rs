@@ -549,11 +549,20 @@ impl EvaluationManager {
     /// Registry readiness only. Whole-app acknowledgement also requires the
     /// actual model/Host owners' confirmation; finished presentation is no proof.
     pub(crate) fn cleanup_complete(&self) -> bool {
-        self.state.try_lock().map(|s| s.job.is_none()).unwrap_or(false)
-            && self.worker.try_lock().map(|slot| {
-                slot.as_ref().is_none_or(|(_, worker)| worker.is_finished())
-            }).unwrap_or(false)
-            && self.cancellation.try_lock().map(|slot| slot.is_none()).unwrap_or(false)
+        self.state
+            .try_lock()
+            .map(|s| s.job.is_none())
+            .unwrap_or(false)
+            && self
+                .worker
+                .try_lock()
+                .map(|slot| slot.as_ref().is_none_or(|(_, worker)| worker.is_finished()))
+                .unwrap_or(false)
+            && self
+                .cancellation
+                .try_lock()
+                .map(|slot| slot.is_none())
+                .unwrap_or(false)
     }
     fn register_cancellation(
         &self,
@@ -593,9 +602,16 @@ impl EvaluationManager {
             0
         };
         let selected = self.selected_root();
-        let selected_bytes = if selected.exists() { bytes(&selected, &mut 0)? } else { 0 };
+        let selected_bytes = if selected.exists() {
+            bytes(&selected, &mut 0)?
+        } else {
+            0
+        };
         if free_space(&self.root)? < 64 * 1024 * 1024
-            || bytes(&self.root, &mut 0)?.saturating_add(extra).saturating_add(selected_bytes) > ROOT_BYTES
+            || bytes(&self.root, &mut 0)?
+                .saturating_add(extra)
+                .saturating_add(selected_bytes)
+                > ROOT_BYTES
         {
             return Err("EvaluationBudget".into());
         }
@@ -1003,3 +1019,8 @@ pub use comparison::ComparisonEvidenceRequest;
 #[path = "evaluation/retirement_review.rs"]
 mod retirement_review;
 pub use curated::{CuratedEvidenceRequest, CuratedStart};
+
+pub use selected::{
+    SelectedEvidenceInput, SelectedInputLane, SelectedPrepareInput, SelectedReadInput,
+    SelectedResumeInput,
+};

@@ -299,7 +299,9 @@ impl ModelManager {
         self: &Arc<Self>,
         owner: SharedRuntime,
     ) -> (EvaluationReservation, SharedRuntime) {
-        let mut reservation = self.reserve_evaluation().expect("isolated selected fixture");
+        let mut reservation = self
+            .reserve_evaluation()
+            .expect("isolated selected fixture");
         {
             let mut s = self.inner.lock().unwrap();
             assert_eq!(s.evaluation, Some(reservation.ticket));
@@ -320,11 +322,18 @@ impl ModelManager {
     /// This manager's tracked ownership only; callers must independently drain
     /// evaluation/Host owners before acknowledging a whole-app close.
     pub(crate) fn cleanup_complete(&self) -> bool {
-        self.inner.try_lock().map(|s| {
-            s.runtime.is_none() && s.runtime_cleanup_witness.is_none()
-                && s.evaluation.is_none() && s.retained_evaluations == 0
-                && s.starting.is_none() && s.closing.is_none() && !s.cleanup_uncertain
-        }).unwrap_or(false)
+        self.inner
+            .try_lock()
+            .map(|s| {
+                s.runtime.is_none()
+                    && s.runtime_cleanup_witness.is_none()
+                    && s.evaluation.is_none()
+                    && s.retained_evaluations == 0
+                    && s.starting.is_none()
+                    && s.closing.is_none()
+                    && !s.cleanup_uncertain
+            })
+            .unwrap_or(false)
     }
 
     pub fn new(root: PathBuf, resource: PathBuf) -> Self {

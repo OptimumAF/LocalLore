@@ -157,3 +157,21 @@ source/docs inspection only; `git diff --check`. No executable, Windows API,
 benchmark, device or model ran. No tests were added/run within this sole-doc
 ownership. Coordinator owns implementation, regression checks and actual
 authorized launch; task/phone gates remain unchecked.
+
+## Coordinator resolution: explicit single-guest budget
+
+The implementation uses `guest_plus_reserve_v2`: one guest-sized allocation plus
+its existing explicit 2 GiB project reserve. Required headroom is therefore
+4 GiB for the 2 GiB profile and 10 GiB for the 8 GiB profile. The source review's
+20% heuristic would give 9.6 GiB for the latter; the chosen 10 GiB retains a
+slightly larger, separately labeled project margin without charging a second
+unsubstantiated guest allocation. Neither is the OS's hard minimum or a launch
+guarantee. Assessment keys remain unchanged and separately record guest bytes,
+reserve bytes and required bytes; the helper source hash identifies the policy.
+
+Historical reports and failed attempts retain their old 6/18 GiB assessment.
+Recorded headroom values between the revised 10 GiB budget and old 18 GiB cutoff
+are accepted by the revised policy, while below-guest and below-budget controls
+remain refused. No physical-RAM floor, guest profile, disk/CPU/ownership/source
+check, deadline, system setting or other emulator is changed to obtain a pass.
+Fresh parent and worker checks and actual startup observations remain required.

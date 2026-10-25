@@ -773,21 +773,21 @@ impl ModelManager {
         Some((s.job, s.runtime.clone()))
     }
     pub fn close(&self, host: Option<&Host>, retired: Option<(u64, Option<SharedRuntime>)>) {
-        let Some((job, runtime)) = retired else {
+        let Some((job, _retired_runtime)) = retired else {
             return;
         };
         // Retirement remains synchronous/nonblocking on this worker gate.
         // A superseding close cannot release replacement admission before this
         // worker's already-authorized Host side effects have finished.
         let _close_worker = self.close_worker.lock().unwrap_or_else(|p| p.into_inner());
-        let current = self
-            .inner
-            .lock()
-            .map(|s| s.job == job && s.closing == Some(job))
-            .unwrap_or(false);
-        if !current {
-            return;
-        }
+        // The evaluation drain precedes this call. Its final selected handoff
+        // may have installed the actual owner AFTER synchronous retirement.
+        // Validate this retirement, then capture that current slot under the
+        // same gate; the earlier None snapshot is not a cleanup acknowledgement.
+        let runtime = match self.inner.lock() {
+            Ok(s) if s.job == job && s.closing == Some(job) => s.runtime.clone(),
+            _ => return,
+        };
         #[cfg(test)]
         CLOSE_REVOKE_PAUSE.with(|hook| {
             if let Some((entered, release)) = hook.borrow_mut().take() {

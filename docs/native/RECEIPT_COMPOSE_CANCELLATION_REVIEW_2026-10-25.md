@@ -64,8 +64,8 @@ unchanged. Nominal phase sums do not guarantee completion after all overhead.
 
 Initial execution source is `89a335df2480bc6041c652c46b8085bb23a2bd1b`; receipt/regular
 compilation source is `c50f72546d502d6c5dd579ff751fbce1c6ba4a11`.
-All **1,546 source rows / 18,949,246 bytes** match current source and snapshot;
-all **213** compiled Android rows match. Receipt results contain **423 JVM tests
+All **1,546 source rows / 18,949,246 bytes** matched current source and snapshot
+at initial admission; all **213** compiled Android rows matched. Receipt results contain **423 JVM tests
 / 40 suites**, regular **377 / 36**, with zero failures/errors/skips. Lint has
 zero errors and 19/9 warnings respectively. Six APK audit/signature receipts
 and their retained output hashes agree with successful known cleanup.
@@ -176,8 +176,9 @@ and lint zero errors/19 and nine warnings. Six artifact audit/signature records
 passed with known cleanup. Corrected APP/TEST DEX also contains the new body tags
 and all fixed diagnostic categories. No SDK-worker, dependency or budget changed.
 
-Corrected execution source `b1e4437d3e6aaa2a97ec9c579fe83e1d5f88cd43` matches all
-1,546 current/snapshot rows, 18,951,108 bytes, and all 213 compiled Android rows.
+Corrected execution source `b1e4437d3e6aaa2a97ec9c579fe83e1d5f88cd43` matched all
+1,546 current/snapshot rows, 18,951,108 bytes, and all 213 compiled Android rows
+at corrected admission. Later verification/review changes are documentation only.
 Its full host run passed 758 tests/77.453s, known cleanup 78,750ms; 89,623 bytes,
 SHA `a41cd488ba3a79dcfbd7067d81480313615eebd07d97a9d98fba721f2fb080ab`.
 

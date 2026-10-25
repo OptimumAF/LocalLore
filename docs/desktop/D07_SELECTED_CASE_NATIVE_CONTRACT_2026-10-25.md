@@ -1,11 +1,13 @@
 # Selected-case native extension contract — 2026-10-25
 
-Refs #29 D07.06, partial. **FROZEN DESIGN / implementation and checks pending.**
+Refs #29 D07.06, partial. **Shared implementation and source-specific checks
+are documented in the [qualification record](D07_SELECTED_CASE_NATIVE_QUALIFICATION_2026-10-25.md).**
+The desktop consumer remains unwired; its requirements below are future gates.
 Accepted base: `008c54182a5d7d51574d3f059bf7210085721df4` (PR166).
 This revision supersedes the assets-only reservation proposal at `7fba1fdd`;
 that proposal remains in Git history. Root claim6397635480 owns reconciliation.
-No native selected driver, GUI, model quality or whole-D07 acceptance follows
-from this document. Interfaces below specify the target, not verified API claims.
+This contract alone establishes no GUI, model quality or whole-D07 acceptance.
+The qualification record identifies implemented interfaces, checks and limits.
 
 ## Scope and accepted prerequisites
 

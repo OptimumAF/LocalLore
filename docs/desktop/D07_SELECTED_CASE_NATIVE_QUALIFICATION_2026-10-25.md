@@ -1,8 +1,9 @@
 # Native selected-case qualification — 2026-10-25
 
 Refs #29 D07.06, partial; draft [PR172](https://github.com/OptimumAF/LocalLore/pull/172).
-**UNREVIEWED qualification draft. Focused results below are terminal; final
-library/compatibility/build/frontend/Android-host gates remain pending.**
+**Shared implementation qualified by the source-specific checks below.**
+Merge acceptance is recorded on the issue; desktop consumer integration remains
+a separate, unimplemented gate.
 This does not complete D07 or expose native selected execution in the desktop UI.
 
 ## Source and measurement boundary
@@ -28,7 +29,8 @@ needed to review the result. Active logs were not read or hashed.
 | Owner checks | Actual tiny fixed protocol child, synthetic reservation-port spy; no approved model identity substitution |
 | Approved-asset four-case opt-in | Headless Rust selected driver, real packaged native worker and installed model |
 | Retained historical reads | Same genuine native Move target inspected feature-off and with local-model; no execution/assets |
-| Desktop native IPC / WebView / images | Not run by this packet |
+| Static export images | Three genuine synthetic exports, nine headless Chromium images; not application UI |
+| Desktop native IPC / WebView | Not run by this packet |
 | Human prose quality / hardware / offline / device | Not qualified |
 
 The actual approved-asset test adapter exercises the shared reservation trait;
@@ -224,20 +226,79 @@ changes add the retained Loaded-bound check, remove a redundant dependency borro
 correct two test iterator lints and add/format the genuine historical oracle.
 No approved-asset rerun at33c17 is implied. Raw private evidence stays local.
 
-## Pending final checks and remaining gates
+## Final candidate checks and remaining gates
 
-| Gate at final candidate | Status at this draft handoff |
+Final Rust candidate: `90b6c8042772ce96622cd23327b7dc71c1180868`.
+Compared with broadly tested `33c17d88`, only the selected setup reader and its
+frozen token-cap regression changed. The reader now also enforces the existing
+Runtime reply limits of 4096 input/350 output tokens. Six prior groups passed
+and the new group reproduced all four impossible loaded/failed counts at
+`f45184b4`; after the fix, all seven groups pass. Other counters retain the
+Runtime's existing u32 bounds. This adds no inference or canonical-state rule.
+
+The broad suites were not repeated after that narrow reader correction. Its
+affected branches were checked with valid/invalid boundaries, feature-off
+inspection and genuine retained native/legacy history, followed by final strict
+lint/format and native build. Counts below are attributed to their actual source;
+they are not a claim that a newly enlarged full suite ran at the final commit.
+
+| Gate / source | Actual result |
 | --- | --- |
 | Complete evaluator library with protocol-owner-tests (enables all evaluator features), source `33c17d88` | 86 passed / 5 explicitly ignored / 0 failed, 932.97s; all 91 selected, no filter |
-| Remaining integrations and final strict/format compatibility | Pending Root terminal evidence |
-| Frontend and normal native build/artifact restoration | Pending Root terminal evidence |
-| Android Rust-host compatibility | Pending Root terminal evidence; no JNI/JVM/ABI/APK/device claim |
+| All 14 public integration targets, `c3bb151f` (Rust identical to `33c17d88`) | 53 passed / 5 explicit historical-fixture skips / 0 failed, no filter; `all-public-integrations` |
+| Final setup/clock groups, `90b6c804` | 7 passed, 1.36s; feature-off 6 passed, 1.37s; `token-caps-fixed` / `final-setup-feature-off` |
+| Genuine native Move history, `90b6c804` | Feature-off 1 passed, 0.94s; local-model 1 passed, 0.97s; `final-history-feature-off` / `final-history-local-model` |
+| Genuine legacy 33356 history, `90b6c804` | Three explicitly ignored tests selected and passed, 12.35s / 3.94s / 15.08s; `final-legacy-historical` |
+| Final evaluator strict lint and format, `90b6c804` | All targets/features Clippy exit0, 7.30s; separate-workspace rustfmt check exit0; `token-final-clippy` / `final-eval-format` |
+| Native app units, `c3bb151f` | 123 passed / 1 existing Windows privilege skip, 150.00s; standalone harness contracts 2 passed, 0.01s; `app-all-features` |
+| Frontend/format/native workspace format, `c3bb151f` | Full existing frontend verification, frontend format and native workspace rustfmt all exit0; `production-first-results.json` |
+| Final native strict lint/build, `90b6c804` | All targets/features Clippy exit0, 8.47s; normal build exit0, 15.06s; `token-final-app-clippy` / `token-final-normal-build` |
+| Android Rust-host compatibility, `c3bb151f` | 20 passed, 1.75s; graph exit0 excludes evaluator/local-runtime; `android-host` / `android-graph`; no JNI/JVM/ABI/APK/device claim |
 | Desktop ModelManager handoff adapter + native job/GUI consent | Unwired, separate allocation |
 
-Root owns updates to this section after terminal results and independent review.
-No pending stage counts as a pass. This draft is source/log documentation only,
-not human approval, merge authorization or an epic checkbox.
-No native IPC/WebView/render images, fresh whole-RAM/hardware measurements,
+The five default public-suite skips require historical fixtures; three legacy
+checks and the separate native-history check above were explicitly run with
+their actual retained cohorts. The curated v2.2/schema2 optional copy was not
+rerun in this packet; its earlier accepted evidence remains separately dated.
+The five library skips are four explicitly opted-in native-asset cases (run
+separately at `8218548f`) and the existing preowned-native asset case.
+
+Normal frontend remains 525661 bytes, SHA256
+`5c7f13bc24d244396dd535002cb12beb4523aa2868f63e55584669798829d489`.
+The all-feature native test build was followed by an explicit normal rebuild.
+Final executable at `90b6c804`: 32597504 bytes, SHA256
+`9d0079cd9ed42f6c68b7bd30cb2a8117ada8052d7905dcb1649173b3988781d0`.
+These are local developer artifacts, not an installer or release. Earlier normal
+builds at the same `c3bb151f` source had equal sizes but different SHA256 values
+before/after the all-feature test build. Byte reproducibility is not established.
+
+### Static export render inspection
+
+Root rendered the guard, recovered-Move and resumed-Move HTML exports from the
+genuine `8218548f` cohort with JavaScript disabled and all browser requests
+aborted. The fixed local harness accepts no caller code/path or remote endpoint.
+It compares parsed visible JSON with each report, rejects active elements,
+collects bounded page/console errors, and captures top/rows/completion viewports.
+All nine 1400x960 images were inspected: labels and fields are readable, guard
+failure is distinct from an unexpected error, recovery retains its receipt while
+marking role/context evidence unknown, and completion never implies human quality.
+There were no page/console errors or unexpected active elements. These are plain
+preformatted diagnostic exports, not the desktop panel layout.
+
+Playwright1.64.1 / headless Chromium156.0.8078.4 / Node24.22.1; no browser install
+or desktop capture/control. Fifteen files (nine PNGs, three semantic trees,
+three coherent export snapshots), 585595 bytes, aggregate by the same ordinal
+manifest recipe:
+`2e8ea5deff188aa8068ed5d24e521bd18cbd575003a69dbef4729e9858ff5c0b`.
+Local review JSON SHA256
+`199a8524414d47d2d12f6353566c309e926a3813bc5dfefe7cef754050f6e1e4`.
+The snapshots label static headless export scope, original experiment heads,
+spoiler-bearing export observer, no pending operation, actual receipts/errors
+and quality fields. They exercise no frontend controller or native IPC and are
+not substituted for the separate native application harness gate.
+
+This is source/log documentation, not human approval, merge authorization or
+an epic checkbox. No native application IPC/WebView images, fresh whole-RAM/hardware measurements,
 offline/licensing qualification, real-device run or human narrative-quality
 review is claimed. Human-reviewed remains0 and quality acceptance false.
 The next runnable product task is the separately frozen desktop native selected

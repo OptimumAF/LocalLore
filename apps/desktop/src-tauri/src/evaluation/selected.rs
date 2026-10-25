@@ -292,7 +292,7 @@ impl EvaluationManager {
                 let operation=parent.next.checked_add(1).filter(|n|*n<=SAFE).ok_or("EvaluationBudget")?;
                 let cancel=Cancellation::default();let mut state=self.selected_lock()?;
                 let payload=prepare.take().ok_or("EvaluationInternal")?(&mut state,operation,&cancel)?;
-                parent.next=operation;parent.job=Some(Job{kind:JobKind::Selected,epoch,id:operation,run:client.clone(),cancel:cancel.clone(),selected:Some(SelectedOwnership{models:models.clone(),witness:None,retained:None,cleanup_running:false})});
+                parent.next=operation;parent.job=Some(Job{kind:JobKind::Selected,worker_active:true,epoch,id:operation,run:client.clone(),cancel:cancel.clone(),selected:Some(SelectedOwnership{models:models.clone(),witness:None,retained:None,cleanup_running:false})});
                 let initial=state.records.get(&client).ok_or("EvaluationInternal")?.status()?;Ok((operation,cancel,payload,initial))
             })?;
             self.register_cancellation(lease,epoch,operation,&cancel);
@@ -395,6 +395,9 @@ impl EvaluationManager {
             let job=parent.job.as_mut().filter(|job|job.kind==JobKind::Selected&&job.epoch==epoch&&job.id==operation&&job.run==client).ok_or("Closed")?;
             let ownership=job.selected.as_mut().ok_or("EvaluationInternal")?;
             ownership.retained=outcome.retained.take();
+            // Actual shared execution has returned, including its owned cleanup
+            // result. Retirement/TTL/drain never manufacture this acknowledgement.
+            job.worker_active=false;
         }
         let mut publication=Some(outcome.result);let mut discard=vec![];
         let answer=lease.dispatch(epoch,||{let mut state=self.selected_lock()?;let r=state.records.get_mut(client).filter(|r|r.owns(lease,epoch)&&r.operation==Some(operation)).ok_or("Closed")?;r.running=false;r.cleanup_required=outcome.uncertain;
@@ -415,7 +418,7 @@ impl EvaluationManager {
 }
 
 struct CleanupWork {
-    epoch: u64, operation: u64, models: Arc<ModelManager>,
+    kind: JobKind, epoch: u64, operation: u64, models: Arc<ModelManager>,
     witness: Option<models::CleanupWitness>, pair: Option<(models::EvaluationReservation, Runtime)>,
 }
 fn cleanup_envelope(required: bool, running: bool, error: Option<String>) -> Value {
@@ -425,14 +428,14 @@ impl EvaluationManager {
     fn selected_worker_active(&self) -> bool {
         let handle_running=self.worker.lock().unwrap_or_else(|p|p.into_inner()).as_ref().is_some_and(|(_,worker)|!worker.is_finished());
         // Parent drain temporarily takes the handle before joining outside its
-        // gate. That empty slot is not proof the admitted selected work ended.
-        // Reuse its existing presentation operation flag, not a second registry.
-        handle_running||self.selected.lock().unwrap_or_else(|p|p.into_inner()).records.values().any(|record|record.running)
+        // gate. The same authoritative Job flag also covers owned NativeCurated;
+        // presentation records are not a second worker registry or an ack.
+        handle_running||self.state.lock().unwrap_or_else(|p|p.into_inner()).job.as_ref().is_some_and(|job|job.worker_active)
     }
     fn selected_cleanup_snapshot(&self, expected_epoch:Option<u64>) -> Result<(Value,Option<Job>)> {
         let active=self.selected_worker_active();let mut removed=None;
         let (required,running)={let mut parent=self.state()?;
-            match parent.job.as_ref().filter(|job|job.kind==JobKind::Selected&&expected_epoch.is_none_or(|epoch|job.epoch==epoch)){
+            match parent.job.as_ref().filter(|job|job.selected.is_some()&&expected_epoch.is_none_or(|epoch|job.epoch==epoch)){
                 None=>(false,false),
                 Some(job)=>{let ownership=job.selected.as_ref().ok_or("EvaluationInternal")?;
                     if !active&&!ownership.cleanup_running&&ownership.retained.is_none()&&ownership.witness.as_ref().is_some_and(models::CleanupWitness::confirmed){removed=parent.job.take();(false,false)}
@@ -440,7 +443,7 @@ impl EvaluationManager {
                 }
             }
         };let mut selected=self.selected_lock()?;
-        if let Some(job)=&removed{for record in selected.records.values_mut().filter(|r|r.epoch==job.epoch&&r.operation==Some(job.id)){record.cleanup_required=false;if record.phase=="cleanup_required"{record.phase="failed";}let value=record.status()?;if let Some((_,cached))=record.consumed.as_mut(){*cached=value;}}}
+        if let Some(job)=removed.as_ref().filter(|job|job.kind==JobKind::Selected){for record in selected.records.values_mut().filter(|r|r.epoch==job.epoch&&r.operation==Some(job.id)){record.cleanup_required=false;if record.phase=="cleanup_required"{record.phase="failed";}let value=record.status()?;if let Some((_,cached))=record.consumed.as_mut(){*cached=value;}}}
         let error=selected.cleanup_error.clone();drop(selected);Ok((cleanup_envelope(required,running,error),removed))
     }
     pub fn selected_cleanup_status(&self, lease:&WindowLease, epoch:u64)->Result<Value> {
@@ -450,25 +453,25 @@ impl EvaluationManager {
     fn selected_take_cleanup(&self, expected_epoch:Option<u64>, models:Option<&Arc<ModelManager>>)->Result<Option<CleanupWork>> {
         if self.selected_worker_active(){return Ok(None)}
         let mut parent=self.state()?;
-        let Some(job)=parent.job.as_mut().filter(|job|job.kind==JobKind::Selected&&expected_epoch.is_none_or(|epoch|job.epoch==epoch))else{return Ok(None)};
+        let Some(job)=parent.job.as_mut().filter(|job|job.selected.is_some()&&expected_epoch.is_none_or(|epoch|job.epoch==epoch))else{return Ok(None)};
         let ownership=job.selected.as_mut().ok_or("EvaluationInternal")?;
         if models.is_some_and(|models|!Arc::ptr_eq(models,&ownership.models)){return Err("EvaluationModelBusy".into())}
         if ownership.cleanup_running{return Ok(None)}ownership.cleanup_running=true;
-        Ok(Some(CleanupWork{epoch:job.epoch,operation:job.id,models:ownership.models.clone(),witness:ownership.witness.clone(),pair:ownership.retained.take()}))
+        Ok(Some(CleanupWork{kind:job.kind,epoch:job.epoch,operation:job.id,models:ownership.models.clone(),witness:ownership.witness.clone(),pair:ownership.retained.take()}))
     }
     fn selected_do_cleanup(&self, mut work:CleanupWork)->Value {
         let outcome=if let Some((reservation,owner))=work.pair.as_mut(){reservation.cleanup_retained(owner)}else if let Some(witness)=&work.witness{work.models.cleanup_selected(witness)}else{models::CleanupOutcome{confirmed:false,result:Err("Cleanup".into())}};
         let diagnostic=outcome.result.as_ref().err().map(|_|"Cleanup".to_owned());
         let mut removed=None;
         {let mut parent=self.state.lock().unwrap_or_else(|p|p.into_inner());
-            if let Some(job)=parent.job.as_mut().filter(|job|job.kind==JobKind::Selected&&job.epoch==work.epoch&&job.id==work.operation){
+            if let Some(job)=parent.job.as_mut().filter(|job|job.kind==work.kind&&job.epoch==work.epoch&&job.id==work.operation){
                 if let Some(ownership)=job.selected.as_mut().filter(|owned|Arc::ptr_eq(&owned.models,&work.models)){
                     ownership.cleanup_running=false;
                     if !outcome.confirmed{ownership.retained=work.pair.take();}else{removed=parent.job.take();}
                 }
             }
         }
-        {let mut state=self.selected.lock().unwrap_or_else(|p|p.into_inner());state.cleanup_error=diagnostic.clone();for record in state.records.values_mut().filter(|r|r.epoch==work.epoch&&r.operation==Some(work.operation)){record.cleanup_required=!outcome.confirmed;if outcome.confirmed&&record.phase=="cleanup_required"{record.phase="failed";}if let Ok(value)=record.status(){if let Some((_,cached))=record.consumed.as_mut(){*cached=value;}}}}
+        {let mut state=self.selected.lock().unwrap_or_else(|p|p.into_inner());state.cleanup_error=diagnostic.clone();if work.kind==JobKind::Selected{for record in state.records.values_mut().filter(|r|r.epoch==work.epoch&&r.operation==Some(work.operation)){record.cleanup_required=!outcome.confirmed;if outcome.confirmed&&record.phase=="cleanup_required"{record.phase="failed";}if let Ok(value)=record.status(){if let Some((_,cached))=record.consumed.as_mut(){*cached=value;}}}}}
         // Actual R Drop/model ownership drops happen only after metadata gates.
         drop(removed);drop(work);cleanup_envelope(!outcome.confirmed,false,diagnostic)
     }
@@ -481,13 +484,13 @@ impl EvaluationManager {
             if let Some((_,handle))=previous{drop(registration);handle.join().map_err(|_|"EvaluationInternal")?;continue;}
             let payload=lease.dispatch(epoch,||self.selected_take_cleanup(None,Some(models)))?;
             let Some(payload)=payload else{let (value,removed)=lease.dispatch(epoch,||self.selected_cleanup_snapshot(None))?;drop(registration);drop(removed);return Ok(value)};
-            let expected_epoch=payload.epoch;let operation=payload.operation;
+            let expected_kind=payload.kind;let expected_epoch=payload.epoch;let operation=payload.operation;
             let held=Arc::new(Mutex::new(Some(payload)));let worker_held=held.clone();let manager=self.clone();let (send,registered)=mpsc::channel();
             let worker=move||{if registered.recv().is_err(){return;}let work={worker_held.lock().unwrap_or_else(|p|p.into_inner()).take()};if let Some(work)=work{manager.selected_do_cleanup(work);}};
             match std::thread::Builder::new().name("locallore-evaluation".into()).spawn(worker){
                 Ok(handle)=>{*self.worker.lock().unwrap_or_else(|p|p.into_inner())=Some((expected_epoch,handle));let _=send.send(());drop(registration);return Ok(cleanup_envelope(true,true,None));}
                 Err(_)=>{let mut payload=held.lock().unwrap_or_else(|p|p.into_inner()).take().ok_or("EvaluationInternal")?;
-                    {let mut parent=self.state.lock().unwrap_or_else(|p|p.into_inner());let job=parent.job.as_mut().filter(|j|j.kind==JobKind::Selected&&j.epoch==expected_epoch&&j.id==operation).ok_or("EvaluationInternal")?;let ownership=job.selected.as_mut().ok_or("EvaluationInternal")?;ownership.cleanup_running=false;ownership.retained=payload.pair.take();}
+                    {let mut parent=self.state.lock().unwrap_or_else(|p|p.into_inner());let job=parent.job.as_mut().filter(|j|j.kind==expected_kind&&j.epoch==expected_epoch&&j.id==operation).ok_or("EvaluationInternal")?;let ownership=job.selected.as_mut().ok_or("EvaluationInternal")?;ownership.cleanup_running=false;ownership.retained=payload.pair.take();}
                     drop(registration);drop(payload);return Err("EvaluationInternal".into());}
             }
         }

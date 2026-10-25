@@ -72,6 +72,10 @@ fn valid_load(load: &Value) -> bool {
                 .and_then(Value::as_u64)
                 .is_some_and(|value| u32::try_from(value).is_ok())
         })
+        // Same reply limits as LocalRuntime::parse_reply, without requiring a
+        // runtime dependency merely to inspect retained native diagnostics.
+        && fields["input_tokens"].as_u64().is_some_and(|value| value <= 4096)
+        && fields["output_tokens"].as_u64().is_some_and(|value| value <= 350)
 }
 
 fn invocation(dir: &Path, binding: &str, index: usize, minimum_share: u64) -> Result<()> {

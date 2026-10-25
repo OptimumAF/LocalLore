@@ -6,6 +6,10 @@ use native_owner::{SelectedNativeFailure, SelectedNativeReservation, SharedRunti
 
 type NativeResult<T, R> = std::result::Result<T, SelectedNativeFailure<R>>;
 
+#[cfg(test)]
+#[path = "native_accounting_review_tests.rs"]
+mod accounting_review_tests;
+
 // `remaining` is already measured at `now`. Entry preflight is not subtracted
 // twice, and this absolute cap is never restarted at callback/load boundaries.
 pub(super) fn preparation_deadline(

@@ -208,21 +208,21 @@ class LiteRtSendTraceTest {
 
     private enum class FailurePoint { ARGUMENTS, CALL, TERMINAL_THEN_CALL, CALLBACK_ERROR }
     private class SendResources(private val point: FailurePoint, private val observer: LiteRtSendObserver?) : LiteRtResources {
-        val engines = AtomicInteger(); val dispatches = AtomicInteger(); val callbacks = AtomicInteger()
+        val engines = AtomicInteger(); val dispatches = AtomicInteger(); val callbackCount = AtomicInteger()
         val engineCloses = AtomicInteger(); val conversationCloses = AtomicInteger()
         override fun engine(paths: LiteRtPaths): LiteRtEngineResource {
             engines.incrementAndGet()
             return object : LiteRtEngineResource {
                 override fun initialize() = Unit
                 override fun conversation(request: LocalInferenceRequest): LiteRtConversationResource = object : LiteRtConversationResource {
-                    override fun send(request: LocalInferenceRequest, callback: LiteRtCallbacks) {
+                    override fun send(request: LocalInferenceRequest, callbacks: LiteRtCallbacks) {
                         observedLiteRtSend(observer, {
                             if (point == FailurePoint.ARGUMENTS) throw HostileFailure()
                             Unit
                         }, {
                             dispatches.incrementAndGet()
-                            if (point == FailurePoint.TERMINAL_THEN_CALL) { callbacks.incrementAndGet(); callback.done() }
-                            if (point == FailurePoint.CALLBACK_ERROR) { callbacks.incrementAndGet(); callback.error(false) }
+                            if (point == FailurePoint.TERMINAL_THEN_CALL) { callbackCount.incrementAndGet(); callbacks.done() }
+                            if (point == FailurePoint.CALLBACK_ERROR) { callbackCount.incrementAndGet(); callbacks.error(false) }
                             else throw HostileFailure()
                         })
                     }

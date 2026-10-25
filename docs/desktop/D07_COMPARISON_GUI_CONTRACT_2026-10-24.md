@@ -456,8 +456,12 @@ pretend they all came from one before/after context. Closed missing reasons are
 `capture_unavailable`, `recording_unavailable`, `no_accepted_receipt`.
 Present required evidence that fails its producer hash/semantic checks is an
 error, not a missing capture. A guard-only row has no invented accepted receipt.
-Query2 uses no search/cursor, its existing bounded page and explicit head/scope;
-this gate supplies one bounded page, not an invented full-history view.
+Query2 first cuts the actual Store engine with `at_revision(edge_head)`, then
+queries that cut with version2, its exact scope, expected_head=edge_head,
+at_revision=None, limit64 (existing MAX_ROWS), empty search and no cursor.
+Both page.head and page.revision therefore equal the requested edge; a later
+full-run head is not presented as this selected snapshot. This gate supplies
+one bounded page, not an invented full-history view.
 
 Missing native inspection grant returns `Forbidden` for summary and evidence.
 Receipt/capture/output additionally require `Observer::Omniscient`; a granted

@@ -12,6 +12,7 @@ internal object CandidateLocalModel {
     @Volatile private var preparedStore: CandidateModelAccess? = null
     @Volatile private var receiptTrace: LiteRtWorkerTrace? = null
     @Volatile private var receiptSendTrace: LiteRtSendTrace? = null
+    @Volatile private var receiptCallbackTrace: LiteRtCallbackTrace? = null
     const val MODEL_SHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
     const val WORKER_SHA256 = "aa004c6b32782f1f29606942427ace0494e1c29c78fda44c1c2c431b37b8bdb4"
     val identity = LocalModelIdentity("gemma-4-e2b-it-litertlm-a790a852", 2_588_147_712L, MODEL_SHA256)
@@ -57,19 +58,24 @@ internal object CandidateLocalModel {
     internal fun receiptSendSnapshot(): LiteRtSendSnapshot? =
         if (BuildConfig.MODEL_RECEIPT_VERIFICATION) receiptSendTrace?.snapshot() else null
 
+    internal fun receiptCallbackSnapshot(): LiteRtCallbackSnapshot? =
+        if (BuildConfig.MODEL_RECEIPT_VERIFICATION) receiptCallbackTrace?.snapshot() else null
+
     fun createTransport(context: Context, trace: LiteRtWorkerTrace? = null): NativeWorkspaceTransport = admission.attach {
         // Setup establishes this on IO. ViewModel construction must not query/create directories.
         val store = preparedStore ?: throw WorkspaceConstructionUnavailable()
         val files = store.plannedFiles()
         val observedTrace = trace ?: if (BuildConfig.MODEL_RECEIPT_VERIFICATION) LiteRtWorkerTrace() else null
         val observedSend = if (BuildConfig.MODEL_RECEIPT_VERIFICATION) LiteRtSendTrace() else null
+        val observedCallback = if (BuildConfig.MODEL_RECEIPT_VERIFICATION) LiteRtCallbackTrace() else null
         if (BuildConfig.MODEL_RECEIPT_VERIFICATION) receiptTrace = observedTrace
         if (BuildConfig.MODEL_RECEIPT_VERIFICATION) receiptSendTrace = observedSend
+        if (BuildConfig.MODEL_RECEIPT_VERIFICATION) receiptCallbackTrace = observedCallback
         val owner = config(files) {
             // Capture-only on Main; the unchanged worker invokes this on IO before SDK boundaries.
             check(Looper.myLooper() != Looper.getMainLooper())
             store.admitRuntime()
-        }.createOwner(trace = observedTrace, sendTrace = observedSend)
+        }.createOwner(trace = observedTrace, sendTrace = observedSend, callbackTrace = observedCallback)
         try { NativeWorkspaceTransport(context, owner) }
         catch (failure: Exception) { owner.close(); throw failure }
     }

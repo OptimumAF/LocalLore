@@ -115,6 +115,14 @@ reopen of the same receipt without inference. Stable accepted-message IDs keep
 transcript checks distinct from retained draft text. The initial visibility
 failure is preserved; its discarded cause remains unproven. Whole-test timings
 do not measure cancellation latency or qualify physical-phone performance.
+The [ordinary setup route](docs/native/RECEIPT_ORDINARY_ROUTE_VERIFICATION_2026-10-25.md)
+now passes the actual setup READY/Start transition into `LiteRtPlayActivity` and
+one real, Rust-committed gift on a fresh emulator: 56 qualified checks including
+preflight/import. Its later inspector/dialogue method fails inside the director
+send wrapper; no Dialogue receipt or ordinary-route reopen is qualified. The
+retained trace does not identify the discarded exception or prove SDK async-call
+entry. The next gate is a bounded observation separating argument construction
+from SDK invocation, while preserving quarantine and the existing deadlines.
 
 An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects
 the isolated SDK to guarded free-text preparation and durable commit. Its

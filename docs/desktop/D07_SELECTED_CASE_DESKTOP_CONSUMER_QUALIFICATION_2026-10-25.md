@@ -1,8 +1,8 @@
-# Selected desktop consumer — qualification draft, 2026-10-25
+# Selected desktop consumer — qualification, 2026-10-25
 
 Refs #29 D07.06 and #25 D04.02/.03. **Partial developer guide and evidence
-draft; current UI5, approved-asset repeat and final compatibility gates remain
-pending.** GitHub owns task status and owner acceptance. This document does not
+record; UI5 passed, approved-asset repeat and final compatibility gates remain
+pending at this source checkpoint.** GitHub owns task status and owner acceptance. This document does not
 close D07/D04, approve story quality, or establish phone/runtime parity.
 
 ## Source and evidence boundary
@@ -13,10 +13,10 @@ waits for actual native acknowledgement rather than treating a context change
 as worker completion. Earlier measurements below retain their executed source;
 they are not relabeled as tests of this final guide source.
 
-Root executed the commands and inspected the initial prepared image. The author
-of this draft read source, completed local logs/process records and historical
-cohort reports only. No build, test, formatter, worker, model, application,
-desktop input/capture or device command was executed to author this document.
+Root executed the commands and visually inspected all41 UI5 images. A bounded
+documentation contributor read historical source/logs; Root then integrated
+and updated this record from the terminal cohort. No desktop input/capture or
+device command was used.
 Raw traces, databases, private absolute paths and generated render artifacts
 remain local/gitignored. `<artifact-root>`, `<native-target>`, `<eval-target>`
 and `<task-temp>` below are task-owned absolute paths, not product inputs.
@@ -163,6 +163,52 @@ reproduced here. None of these failed image sets has a new blanket visual/layout
 approval in this draft. Source checkpoints and failure explanation are also
 recorded on [#29](https://github.com/OptimumAF/LocalLore/issues/29).
 
+## Successful native UI5 cohort
+
+Source `5187065eef87c6f8fbb74d8e4c3792b246dce74a`, local synthetic cohort
+`5cb7f856-cad9-4616-9fb3-d990898bad83`. Both processes exited0, with no outer
+timeout or output overflow. Source remained clean and unchanged through both.
+
+| Stage | Recorded checks | Actual native PNGs | App wall seconds |
+|---|---:|---:|---:|
+| Initial executable process |154|20|516.315|
+| New executable process, same workspace |160|21|419.869|
+
+The launcher also verifies every required semantic field and native capture
+marker, complete original/final source-fixture hashes and cross-process source
+byte equality. Each stage records exactly one deliberate lost-start-ACK
+Transport error; each retains115 bytes of the existing WebView unregister1412
+stderr warning. These are not zero-error-output claims.
+
+Actual normal controllers/native IPC exercise accepted Move4 to5 in both
+isolated arms, rejected guard8 to8 with unavailable receipt, independent private
+read consent, both observer lenses, same-client status/retry after lost ACK,
+actual held consent cancellation/denial and context retirement. Live gameplay
+stays unchanged. New-process open is historical inspection, not the explicit
+resume action. Native consent/picker responses are fixed development doubles;
+inference is scripted. No model executes in this cohort.
+
+Root inspected all20 initial and21 restart application-owned images: prepared,
+completed, summary, both arm queries, receipt, capture, outputs,620px narrow,
+Mira3/Sable0 history, guard missing evidence, unknown ACK/recovery, pending/actor
+consent, cancel/deny, retired context, finished and cold reopen. No visible
+layout/state defect was observed. Raw JSON views wrap in bounded scroll panes;
+capture truncation is labeled. Retirement clears story/revision/pending/receipt
+and visible error. These observations are model visual QA, not human narrative
+quality acceptance. A requested150ms scheduling probe measured163ms in one
+summary snapshot; this is not foreground performance qualification.
+
+| Local evidence | SHA256 |
+|---|---|
+| UI5 qualification.json |6c649763a0f4034545f44acec59af4ba2300f5fa5e8c60557556397292fddfc6|
+| UI5 visual-review-initial.json |a7cf5961d25fad3534404126a88157a32b2db60e199a65284e8524ab27a501ed|
+| UI5 visual-review-restart.json |a32b27206a3b8986bb960e5ba3ab365506dfdb9cfbd124a7fc60d1b8b9dd9f1e|
+
+The retirement controller regression at `e9df2377` failed22pass/1fail, then
+`5187065e` passed23/23. Independent regressions adopted from `af698d7f` and
+registered/formatted at `904c26b1` passed29/29 using the actual bundled
+controller with mock transport. This adds no native/model/rendering claim.
+
 ## Reproducing the bounded checks
 
 Use the existing locked dependencies and already approved installed environment:
@@ -191,7 +237,7 @@ The launcher requires clean source and an absolute artifact root; it creates
 one UUID cohort, builds the harness frontend and dev-harness native binary,
 then launches two fixed hidden/unfocused app stages. Current expected minimums
 are154 initial /160 restart recorded check entries and20/21 actual captures.
-Those are requirements, not results. Its own child environment uses the fixed
+UI5 met those requirements as recorded above. Its own child environment uses the fixed
 development-only background-timer-throttling flag; it changes no registry,
 desktop focus, security setting, debugging endpoint or production browser flag.
 
@@ -236,16 +282,14 @@ not identical runs; per-cohort report/execution hashes distinguish them.
 
 ## Handoff and remaining gates
 
-UI5 at518 is running at this draft boundary: no result, screenshot count,
-visual review or source-stability success is inferred. Root must append actual
-terminal evidence, retain any failure, inspect every required render and bounded
-error buffer, then repeat approved-asset/current-source and final compatibility
-checks and restore normal artifacts. Current-source full native/Rust/frontend,
+UI5 at518 passed as recorded above; earlier failures remain retained. Root must
+repeat approved-asset/current-source and final compatibility checks and restore
+normal artifacts. Current-source full native/Rust/frontend,
 format/Clippy, normal-hook exclusion and build qualification are pending.
 
 Actual direct UI resume, native-model service resume, native model UI, real
 normal-build OS consent/picker interaction, performance claims, human quality
 review, physical phone execution and desktop/Android semantic parity remain
-unavailable. The retired-client correction has source review and separately
-frozen synthetic followups; neither substitutes for its pending native rerun.
+unavailable. The retired-client correction has source review,29 passing mock
+cases and the actual UI5 native rerun; these are separate evidence cohorts.
 No acceptance checkbox or whole-milestone/readiness claim follows from this draft.

@@ -194,15 +194,18 @@ asks to inspect private evidence. Rust retains source validation, actual Query2
 observer filtering and read-only locks; valid historical reports stay viewable.
 The reader shows actual source revisions, expected/actual results, accepted
 receipts, retained captures and recorded role outputs. Missing evidence stays
-unavailable. Reader progress is in memory, and selected-case rerun/comparison
-execution are explicitly unavailable. The linked guide gives exact fixed native
+unavailable. Reader progress is in memory. A dedicated selected-case experiment
+panel now prepares and starts an original case in two isolated Rust-owned
+Stores, then explicitly opens saved results for inspection. Full-comparison
+execution remains separate. The linked guide gives exact fixed native
 harness commands and distinguishes synthetic frontend checks from IPC/rendering.
 
 The [shared scripted selected-case Rust API](../../docs/desktop/D07_SELECTED_CASE_SCRIPTED_CONTRACT_2026-10-25.md)
 is implemented and has passed its source-bound checks. See [D07 #29](https://github.com/OptimumAF/LocalLore/issues/29) for acceptance status.
 The [qualification record](../../docs/desktop/D07_SELECTED_CASE_SCRIPTED_QUALIFICATION_2026-10-25.md)
 records exact commands, results, retained failures and unavailable checks.
-Desktop IPC/controller selected start and resume controls remain unavailable.
+Desktop IPC/controller selected start, explicit resume and result controls are
+implemented; qualification and remaining limits are recorded below.
 Reader handles/progress remain in memory; the shared selected runner writes durable
 isolated `selected.json`, Stores, checkpoints, ledgers and local diagnostic reports.
 It uses the original case index and both actual full requests/prefixes in new disjoint
@@ -218,7 +221,7 @@ distinguishes actual worker/model tests, model-free history, static headless
 export images and unrun desktop UI/IPC checks. Native startup occurs only after
 both-arm/source preflight and one native reservation callback; uncertain cleanup
 retains the actual owner and conservative charges. This is a developer Rust API,
-not an enabled desktop control. Opt-in runs require the already approved assets
+also used by the desktop's approved-native lane. Opt-in runs require the already approved assets
 locally; they never fetch a model or worker.
 
 The additive shared `selected::desktop_read` Rust capability provides bounded
@@ -226,8 +229,26 @@ metadata and actual observer-filtered before/after evidence for isolated selecte
 runs, including supported native history without loading assets. Its
 [qualification](../../docs/desktop/D07_SELECTED_CASE_DESKTOP_READ_QUALIFICATION_2026-10-25.md)
 records source-specific checks. It never exposes the full report as an actor
-summary, repairs missing checkpoints or grants execution. Desktop selected
-consent, IPC/controller controls and rendered result views remain unavailable.
+summary, repairs missing checkpoints or grants execution.
+
+The [desktop consumer qualification](../../docs/desktop/D07_SELECTED_CASE_DESKTOP_CONSUMER_QUALIFICATION_2026-10-25.md)
+records actual hidden/unfocused WebView2 and native IPC:154 initial checks/20
+app-owned images, then160 checks/21 images in a new process reopening the same
+workspace. These runs use scripted fake inference and fixed consent/picker
+doubles. All41 images were inspected. The panel separates execution and private
+read permission, preserves same-request recovery after an unknown acknowledgement,
+and shows actual before/after scopes, Rust receipts and observer-filtered Query2.
+Inspection never changes generation permissions or character knowledge.
+
+From `apps/desktop`, with already provisioned dependencies, an absolute local
+`LOCALLORE_D07_SELECTED_ARTIFACT_ROOT` and optional
+`LOCALLORE_D07_SELECTED_TARGET_DIR`, run `node selected-evaluation-harness.mjs`.
+It uses only app-owned hidden WebViews and fixed development-only hooks; no
+desktop input, activation, screenshot, debugging server or model is needed.
+Explicit UI resume, native-model UI execution, real OS dialogs, human story
+quality, whole-app performance and physical-phone parity remain unqualified.
+The guide distinguishes service tests, mock transport and native execution,
+preserves earlier failures and provides commands for restoring normal builds.
 
 Run these developer checks from the repository root; the qualification record
 identifies the executed source, target directories and results:

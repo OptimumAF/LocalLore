@@ -1,6 +1,6 @@
 """Strict optional send-boundary failure observations, never outcome authority.
 
-The six counters are independent historical observations. No SDK, file, model,
+The counters are independent historical observations. No SDK, file, model,
 controller or device operation runs at import.
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
@@ -18,6 +18,7 @@ MAX_COUNT = 1_000_000
 MAX_MS = 180_000
 EVENTS = ("ARGUMENTS_ENTERED", "ARGUMENTS_RETURNED", "ARGUMENTS_THROWN",
     "ASYNC_CALL_ENTERED", "ASYNC_CALL_RETURNED", "ASYNC_CALL_THROWN")
+FORMATS = ("REGEX", "JSON_OBJECT", "OTHER")
 
 
 @lru_cache(maxsize=1)
@@ -34,8 +35,11 @@ def parse_send_trace(rawbytes):
     assert type(rawbytes) is bytes and 0 < len(rawbytes) <= MAX_BYTES - len(PREFIX.encode("ascii"))
     assert all(32 <= byte <= 126 for byte in rawbytes)
     value = _controller().contract.strict_json(rawbytes)
-    assert type(value) is dict and set(value) == {"version", "counts", "saturated", "last_ms", "snapshot_ms", "time_saturated"}
-    assert type(value["version"]) is int and value["version"] == 1
+    assert type(value) is dict and type(value.get("version")) is int and value["version"] in (1, 2)
+    keys = {"version", "counts", "saturated", "last_ms", "snapshot_ms", "time_saturated"}
+    if value["version"] == 2:
+        keys |= {"format_counts", "format_saturated", "last_format"}
+    assert set(value) == keys
     counts, saturated = value["counts"], value["saturated"]
     assert type(counts) is dict and set(counts) == set(EVENTS)
     assert all(type(count) is int and 0 <= count <= MAX_COUNT for count in counts.values())
@@ -52,6 +56,18 @@ def parse_send_trace(rawbytes):
             assert last[event] is None
         else:
             assert type(last[event]) is int and 0 <= last[event] <= snapshot
+    if value["version"] == 2:
+        formats, overflow = value["format_counts"], value["format_saturated"]
+        assert type(formats) is dict and tuple(formats) == FORMATS
+        assert all(type(count) is int and 0 <= count <= MAX_COUNT for count in formats.values())
+        assert type(overflow) is list and all(type(kind) is str and kind in FORMATS for kind in overflow)
+        assert overflow == [kind for kind in FORMATS if kind in overflow]
+        assert all(formats[kind] == MAX_COUNT for kind in overflow)
+        kind = value["last_format"]
+        if not any(formats.values()):
+            assert kind is None
+        else:
+            assert type(kind) is str and kind in FORMATS and formats[kind] > 0
     return value
 
 

@@ -22,6 +22,13 @@ def value():
         "last_ms": {event: None for event in s.EVENTS}, "snapshot_ms": 0, "time_saturated": False}
 
 
+def value_v2():
+    candidate = value()
+    candidate.update(version=2, format_counts={kind: 0 for kind in s.FORMATS},
+        format_saturated=[], last_format=None)
+    return candidate
+
+
 def raw(candidate=None):
     return json.dumps(value() if candidate is None else candidate, separators=(",", ":")).encode("ascii")
 
@@ -171,6 +178,138 @@ class SendTraceTests(unittest.TestCase):
         self.assertEqual(len(s.PREFIX.encode())+len(maximum), 602)
         self.assertLessEqual(len(s.PREFIX.encode())+len(maximum), s.MAX_BYTES)
         self.assertEqual(hashlib.sha256(maximum).hexdigest(), "12402ccfe90b5203a3abcf569d6cee9be95112778c8668b6a3733a5318bf86a6")
+
+
+class SendTraceV2Tests(unittest.TestCase):
+    refuses = SendTraceTests.refuses
+
+    def test_versions_remain_closed_and_v1_has_no_fabricated_formats(self):
+        self.assertEqual(s.FORMATS, ("REGEX", "JSON_OBJECT", "OTHER"))
+        self.assertEqual(s.parse_send_trace(raw(value_v2())), value_v2())
+        legacy = s.parse_send_trace(raw())
+        self.assertEqual(legacy, value())
+        self.assertEqual(tuple(legacy), tuple(value()))
+        self.assertTrue(set(s.FORMATS).isdisjoint(legacy))
+        for version in (0, 3, -1, True, False, 2.0, "2", None, [], {}):
+            candidate = value_v2(); candidate["version"] = version; self.refuses(raw(candidate))
+        for key in ("format_counts", "format_saturated", "last_format"):
+            candidate = value_v2(); del candidate[key]; self.refuses(raw(candidate))
+            candidate = value(); candidate[key] = value_v2()[key]; self.refuses(raw(candidate))
+        candidate = value_v2(); candidate["PRIVATE_CANARY"] = "content://model"; self.refuses(raw(candidate))
+        candidate = value_v2(); candidate["version"] = 1; self.refuses(raw(candidate))
+        candidate = value(); candidate["version"] = 2; self.refuses(raw(candidate))
+
+    def test_format_map_exact_order_keys_and_count_types(self):
+        for kind in s.FORMATS:
+            for count in (-1, s.MAX_COUNT+1, 2**64, True, False, 0.0, 1.5, "PRIVATE_CANARY", None, [], {}):
+                candidate = value_v2(); candidate["format_counts"][kind] = count; self.refuses(raw(candidate))
+            candidate = value_v2(); del candidate["format_counts"][kind]; self.refuses(raw(candidate))
+        for counts in (None, [], 0, "PRIVATE_CANARY", {"REGEX": 0, "JSON_OBJECT": 0, "OTHER": 0, "PRIVATE_CANARY": 0},
+                {"OTHER": 0, "JSON_OBJECT": 0, "REGEX": 0}, {"REGEX": 0, "OTHER": 0, "JSON_OBJECT": 0}):
+            candidate = value_v2(); candidate["format_counts"] = counts; self.refuses(raw(candidate))
+
+    def test_last_format_null_iff_all_zero_and_only_positive_kind(self):
+        for kind in s.FORMATS:
+            for count in (1, s.MAX_COUNT):
+                candidate = value_v2(); candidate["format_counts"][kind] = count; candidate["last_format"] = kind
+                self.assertEqual(s.parse_send_trace(raw(candidate)), candidate)
+            for last in (None, True, 1, [], {}, "PRIVATE_CANARY") + tuple(other for other in s.FORMATS if other != kind):
+                candidate = value_v2(); candidate["format_counts"][kind] = 1; candidate["last_format"] = last
+                self.refuses(raw(candidate))
+        for last in s.FORMATS + (True, 0, "PRIVATE_CANARY", [], {}):
+            candidate = value_v2(); candidate["last_format"] = last; self.refuses(raw(candidate))
+        candidate = value_v2(); candidate["format_counts"] = dict.fromkeys(s.FORMATS, 7)
+        for kind in s.FORMATS:
+            candidate["last_format"] = kind; self.assertEqual(s.parse_send_trace(raw(candidate)), candidate)
+
+    def test_format_saturation_is_ordered_overflow_subset(self):
+        candidate = value_v2(); candidate["format_counts"] = dict.fromkeys(s.FORMATS, s.MAX_COUNT)
+        candidate["last_format"] = "OTHER"
+        for mask in range(8):
+            candidate["format_saturated"] = [kind for bit, kind in enumerate(s.FORMATS) if mask & (1 << bit)]
+            self.assertEqual(s.parse_send_trace(raw(candidate)), candidate)
+        for overflow in (None, {}, True, "REGEX", [True], ["PRIVATE_CANARY"], ["REGEX", "REGEX"],
+                ["OTHER", "REGEX"], ["JSON_OBJECT", "REGEX"], list(reversed(s.FORMATS))):
+            changed = copy.deepcopy(candidate); changed["format_saturated"] = overflow; self.refuses(raw(changed))
+        for kind in s.FORMATS:
+            changed = copy.deepcopy(candidate); changed["format_saturated"] = [kind]
+            changed["format_counts"][kind] = s.MAX_COUNT-1; self.refuses(raw(changed))
+
+    def test_format_counters_do_not_impose_causal_crosscounter_patterns(self):
+        # Format observation can precede a thrown dispatch; the wire never claims
+        # SDK entry, enforcement, terminal state, or a relation to event totals.
+        for kind in s.FORMATS:
+            candidate = value_v2(); candidate["format_counts"][kind] = s.MAX_COUNT
+            candidate["format_saturated"] = [kind]; candidate["last_format"] = kind
+            self.assertEqual(s.parse_send_trace(raw(candidate)), candidate)
+        candidate = value_v2(); candidate["snapshot_ms"] = 1
+        for event in s.EVENTS: candidate["counts"][event] = 7; candidate["last_ms"][event] = 1
+        self.assertEqual(s.parse_send_trace(raw(candidate)), candidate)
+        candidate["format_counts"]["OTHER"] = 1; candidate["last_format"] = "OTHER"
+        self.assertEqual(s.parse_send_trace(raw(candidate)), candidate)
+
+    def test_v2_shared_event_and_time_invariants_still_apply(self):
+        for key, bad in (("counts", {}), ("saturated", ["ARGUMENTS_ENTERED"]), ("last_ms", {}),
+                ("snapshot_ms", True), ("snapshot_ms", s.MAX_MS+1), ("time_saturated", 1), ("time_saturated", True)):
+            candidate = value_v2(); candidate[key] = bad; self.refuses(raw(candidate))
+        candidate = value_v2(); candidate["counts"][s.EVENTS[0]] = 1
+        self.refuses(raw(candidate))
+        candidate["last_ms"][s.EVENTS[0]] = 0
+        self.assertEqual(s.parse_send_trace(raw(candidate)), candidate)
+
+    def test_v2_duplicate_keys_private_data_and_nonfinite_refuse(self):
+        good = raw(value_v2())
+        for before, after in ((b'"version":2', b'"version":2,"version":1'),
+                (b'"format_counts":{', b'"format_counts":{"REGEX":0,'),
+                (b'"format_saturated":[]', b'"format_saturated":[],"format_saturated":[]'),
+                (b'"last_format":null', b'"last_format":null,"last_format":null')):
+            self.refuses(good.replace(before, after))
+        for count in (b"NaN", b"Infinity", b"-Infinity"):
+            self.refuses(good.replace(b'"REGEX":0', b'"REGEX":'+count))
+        for suffix in (b"\n", b"\r", b"\v", b"\f", b"\x00", b"\xff", b"{}", b" PRIVATE_CANARY"):
+            self.refuses(good+suffix)
+        for key in ("prompt", "schema", "pattern", "output", "throwable", "path", "sha256"):
+            candidate = value_v2(); candidate[key] = "PRIVATE_CANARY"; self.refuses(raw(candidate))
+
+    def test_v2_extractor_keeps_failure_channel_and_framing_rules(self):
+        candidate = value_v2(); candidate["format_counts"]["REGEX"] = 1; candidate["last_format"] = "REGEX"
+        self.assertEqual(s.extract_send_trace(failed(candidate)), candidate)
+        self.assertEqual(s.extract_send_trace(failed(candidate).replace(b"\n", b"\r\n")), candidate)
+        for payload in (record(candidate)+record(candidate), record()+record(candidate), record(candidate)+record(),
+                record(candidate)+s.STATUS.encode()+b"\n", record(candidate)+b"OK (1 test)\n",
+                record(candidate)+b"OK (2 tests)\n", b" "+record(candidate),
+                record(candidate).replace(s.STATUS.encode(), b"INSTRUMENTATION_STATUS_CODE: 01338"),
+                record(candidate).replace(b"\n", b"\r\r\n"), record(candidate).replace(b"\n", b"\v"),
+                record(candidate).replace(b"\n", b"\f")):
+            with self.subTest(payload=payload[:70]), self.assertRaises(AssertionError): s.extract_send_trace(payload)
+        combined = worker.record(worker.timed())+failed(candidate)
+        self.assertEqual(s.extract_send_trace(combined), candidate)
+        self.assertEqual(worker.w.extract_worker_trace(combined), worker.timed())
+
+    def test_v2_prefix_inclusive_limit_and_fresh_return_objects(self):
+        good = raw(value_v2()); room = s.MAX_BYTES-len(s.PREFIX.encode())-len(good)
+        self.assertGreater(room, 0)
+        self.assertEqual(s.parse_send_trace(good+b" "*room), value_v2())
+        self.refuses(good+b" "*(room+1))
+        self.assertEqual(s.extract_send_trace(s.PREFIX.encode()+good+b" "*room+b"\n"+s.STATUS.encode()+b"\n"), value_v2())
+        decoded = s.parse_send_trace(good); decoded["format_counts"]["REGEX"] = 99
+        decoded["format_saturated"].append("PRIVATE_CANARY")
+        self.assertEqual(s.parse_send_trace(good), value_v2())
+
+    def test_dense_v2_fixture_matches_kotlin_declared_serialization(self):
+        candidate = value_v2(); candidate.update(snapshot_ms=s.MAX_MS, time_saturated=True)
+        candidate["saturated"] = list(s.EVENTS)
+        for event in s.EVENTS: candidate["counts"][event] = s.MAX_COUNT; candidate["last_ms"][event] = s.MAX_MS
+        candidate["format_counts"] = dict.fromkeys(s.FORMATS, s.MAX_COUNT)
+        candidate["format_saturated"] = list(s.FORMATS); candidate["last_format"] = "OTHER"
+        maximum = raw(candidate)
+        self.assertEqual(tuple(candidate), ("version", "counts", "saturated", "last_ms", "snapshot_ms", "time_saturated",
+            "format_counts", "format_saturated", "last_format"))
+        self.assertEqual(s.parse_send_trace(maximum), candidate)
+        self.assertEqual(len(maximum), 697)
+        self.assertEqual(len(s.PREFIX.encode())+len(maximum), 747)
+        self.assertEqual(hashlib.sha256(maximum).hexdigest(), "4359c8f70c2e3024b59e94fe7738e7d117a72a8caf9f682a944b6558f7e6fd65")
+        self.assertLessEqual(len(s.PREFIX.encode())+len(maximum), s.MAX_BYTES)
 
 
 if __name__ == "__main__": unittest.main()

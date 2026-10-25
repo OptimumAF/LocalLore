@@ -1,6 +1,8 @@
 //! Current-policy comparison over the existing Host, Store, provider and ledger.
 pub mod desktop_api;
 #[cfg(test)]
+mod dependency_review_tests;
+#[cfg(test)]
 mod outcome_review_tests;
 pub mod selected;
 use super::*;

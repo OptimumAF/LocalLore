@@ -298,7 +298,9 @@ class ApkAuditTests(unittest.TestCase):
                     complete + b" ReceiptRealSourcePreflightTest",
                     *(complete + b" " + name for name in (
                         b"ReceiptComposeCancellationTest", b"ReceiptComposeCancelTest", b"ReceiptComposeRecoverTest",
-                        b"ReceiptComposeReopenTest", b"ComposeCancellationProofTest"))]
+                        b"ReceiptComposeReopenTest", b"ComposeCancellationProofTest", b"ReceiptOrdinaryRouteTest",
+                        b"ReceiptOrdinaryStartTest", b"ReceiptOrdinaryDialogueTest", b"ReceiptOrdinaryReopenTest",
+                        b"OrdinaryRouteProofTest"))]
         for marker in variants:
             with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
                 path, hashes, notices = self.candidate_archive(directory)

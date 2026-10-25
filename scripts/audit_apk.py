@@ -25,6 +25,7 @@ RECEIPT_SETUP_CLASSES = (
     "ReceiptSetupFailureCase", "ReceiptSetupFailureEvent", "ReceiptSetupFailureCode",
     "ReceiptSetupFailureReporter",
     "ComposeCancellationProof", "ComposeCancellationPhase",
+    "OrdinaryRouteProof", "OrdinaryRoutePhase",
 )
 # Exact candidate SDK; ordinary APKs must never contain these entries.
 LITERT_NATIVE_HASHES = {
@@ -111,7 +112,8 @@ def audit_zip(path, *, litert=False, model_picker=False, model_volume=False, mod
                         (b"ReceiptSetupQualificationTest", b"ReceiptSetupRestartTest", b"ReceiptSetupFailureTraceTest",
                          b"ReceiptSetupFailureTransportTest", b"ReceiptComposeCancellationTest",
                          b"ReceiptComposeCancelTest", b"ReceiptComposeRecoverTest", b"ReceiptComposeReopenTest",
-                         b"ComposeCancellationProofTest")),
+                         b"ComposeCancellationProofTest", b"ReceiptOrdinaryRouteTest", b"ReceiptOrdinaryStartTest",
+                         b"ReceiptOrdinaryDialogueTest", b"ReceiptOrdinaryReopenTest", b"OrdinaryRouteProofTest")),
                     "Receipt setup test packaged in app")
             recovery_present |= b"ModelSetupRecovery" in contents
             recovery_activity_present |= b"ModelSetupRecoveryFixtureActivity" in contents

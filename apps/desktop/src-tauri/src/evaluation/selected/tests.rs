@@ -5,10 +5,7 @@
 use super::*;
 use locallore::inspection_query::{Observer, View};
 use locallore_eval::local_lane::{comparison as producer, LaneFactory};
-use std::sync::{
-    atomic::Ordering,
-    OnceLock,
-};
+use std::sync::{atomic::Ordering, OnceLock};
 
 type Inventory = BTreeMap<PathBuf, Option<Vec<u8>>>;
 fn inventory(root: &Path) -> Inventory {

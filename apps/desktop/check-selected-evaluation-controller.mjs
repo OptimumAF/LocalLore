@@ -47,6 +47,7 @@ function evidence(request, arm = "right") { return { version: 1, binding: hash, 
         : { kind: "missing", reason: request.kind === "capture" ? "capture_unavailable" : "recording_unavailable" } }; }
 function deferred() { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; }
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+const controllers = new Set();
 function fixture() {
     const calls = [], hooks = new Map();
     let current;
@@ -67,13 +68,18 @@ function fixture() {
         if (["cleanup_status", "retry_cleanup"].includes(args.action)) return { version: 1, kind: "selected_cleanup", cleanup_required: false, running: false, error: null };
         throw new Error("unexpected mock action");
     });
-    c.setContext("synthetic-session-a", true); c.setObserver(omni);
+    controllers.add(c); c.setContext("synthetic-session-a", true); c.setObserver(omni);
     return { c, calls, hooks };
 }
 async function ready(f) { await f.c.prepare(source, row, "scripted_baseline"); await f.c.start(); await f.c.loadSummary(); }
 const cases = [];
-async function test(name, run) { try { await run(); cases.push({ name, passed: true }); }
-    catch (error) { cases.push({ name, passed: false, error: error instanceof Error ? error.message.slice(0, 160) : "failure" }); } }
+async function test(name, run) {
+    let timer;
+    try { await Promise.race([run(), new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("bounded mock case did not complete")), 3000); })]);
+        cases.push({ name, passed: true }); }
+    catch (error) { cases.push({ name, passed: false, error: error instanceof Error ? error.message.slice(0, 160) : "failure" }); }
+    finally { clearTimeout(timer); for (const c of controllers) c.dispose(); controllers.clear(); }
+}
 function rejects(change, check, value) { const bad = clone(value); change(bad); assert.throws(() => check(bad), /SelectedEvaluationWire/); }
 
 await test("closed status and prepared DTO keys, nullable fields, lanes and safe scalars", () => {

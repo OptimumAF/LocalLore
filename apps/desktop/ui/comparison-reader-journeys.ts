@@ -103,6 +103,8 @@ export async function comparisonReaderJourneys({
                         disabled: (node as HTMLButtonElement).disabled ?? false,
                     })),
                     width: innerWidth,
+                    userAgent: navigator.userAgent,
+                    devicePixelRatio,
                     horizontalOverflow: overflow,
                     nestedOverflow: nested,
                 },

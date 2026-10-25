@@ -10,6 +10,8 @@ description = "Bounded synthetic deterministic evaluation using the shared durab
 
 [features]
 local-model = ["dep:locallore-local-runtime"]
+# Opt-in fixed-child ownership tests. No arbitrary executable or model input.
+protocol-owner-tests = ["local-model", "locallore-local-runtime/development-worker"]
 
 [dependencies]
 locallore-local-runtime = { path = "../locallore-local-runtime", features = ["engine-adapter"], optional = true }

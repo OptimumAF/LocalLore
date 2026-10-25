@@ -202,7 +202,7 @@ The [shared scripted selected-case Rust API](../../docs/desktop/D07_SELECTED_CAS
 is implemented and has passed its source-bound checks. See [D07 #29](https://github.com/OptimumAF/LocalLore/issues/29) for acceptance status.
 The [qualification record](../../docs/desktop/D07_SELECTED_CASE_SCRIPTED_QUALIFICATION_2026-10-25.md)
 records exact commands, results, retained failures and unavailable checks.
-This adds no GUI/native selected start or resume: those controls remain unavailable.
+Desktop IPC/controller selected start and resume controls remain unavailable.
 Reader handles/progress remain in memory; the shared selected runner writes durable
 isolated `selected.json`, Stores, checkpoints, ledgers and local diagnostic reports.
 It uses the original case index and both actual full requests/prefixes in new disjoint
@@ -210,6 +210,16 @@ Stores; it does not import experiment state into a source or live gameplay story
 Completed resume is read-only; a finished failed/cancelled attempt needs a new
 destination/client to try again. Lost-checkpoint committed recovery is model-free
 and leaves missing call/capture/timing evidence unknown. Inspection grants no knowledge.
+
+The additive [shared native selected-case API](../../docs/desktop/D07_SELECTED_CASE_NATIVE_CONTRACT_2026-10-25.md)
+uses the same Rust turn path and approved local worker. Its
+[qualification record](../../docs/desktop/D07_SELECTED_CASE_NATIVE_QUALIFICATION_2026-10-25.md)
+distinguishes actual worker/model tests, model-free history, static headless
+export images and unrun desktop UI/IPC checks. Native startup occurs only after
+both-arm/source preflight and one native reservation callback; uncertain cleanup
+retains the actual owner and conservative charges. This is a developer Rust API,
+not an enabled desktop control. Opt-in runs require the already approved assets
+locally; they never fetch a model or worker.
 Run these developer checks from the repository root; the qualification record
 identifies the executed source, target directories and results:
 

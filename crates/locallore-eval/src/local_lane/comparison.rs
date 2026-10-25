@@ -1,4 +1,6 @@
 //! Current-policy comparison over the existing Host, Store, provider and ledger.
+#[cfg(test)]
+mod dependency_review_tests;
 pub mod desktop_api;
 #[cfg(test)]
 mod outcome_review_tests;
@@ -700,6 +702,69 @@ fn recover_committed_turn(job: RecoveryJob<'_>) -> Result<Option<StoredTurn>> {
     Ok(None)
 }
 
+struct DependencyJob<'a> {
+    full: &'a Engine,
+    index: usize,
+    arm: &'a str,
+    policy: ContextPolicy,
+    binding: &'a str,
+    step: &'a protocol::Step,
+    profile: &'a PlayProfile,
+}
+
+// Pure extraction of the existing actual-prefix dependency branch. Core guards
+// deliberately return None and still run through the normal Host path.
+fn dependency_turn(job: DependencyJob<'_>) -> Result<Option<StoredTurn>> {
+    let DependencyJob {
+        full: before,
+        index,
+        arm,
+        policy,
+        binding,
+        step,
+        profile,
+    } = job;
+    profile.validate().map_err(|_| "Profile")?;
+    let request = step.request(before);
+    if matches!(step.expected(), protocol::Expected::Accepted(_))
+        && protocol::reference_proposal(before, step).is_err()
+    {
+        let row = make_row(Observation {
+            step,
+            arm,
+            policy,
+            before,
+            after: before,
+            phase: "not_run_dependency",
+            error: None,
+            receipt: None,
+            recording: None,
+            capture: None,
+            trace: None,
+            admission: None,
+            elapsed_ms: 0,
+            first_final_response_ms: None,
+            commit_elapsed_ms: None,
+            profile,
+            recovered: false,
+            forwarded_budget_version: Some(1),
+        })?;
+        return Ok(Some(StoredTurn {
+            version: 2,
+            binding: binding.into(),
+            index,
+            arm: arm.into(),
+            request,
+            before_head: before.revision(),
+            after_head: before.revision(),
+            row,
+            capture_file: None,
+            recording_file: None,
+        }));
+    }
+    Ok(None)
+}
+
 fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
     let TurnJob {
         dir,
@@ -739,41 +804,16 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
     let before = full;
     let request = step.request(&before);
     let profile = factory.profile()?;
-    if matches!(step.expected(), protocol::Expected::Accepted(_))
-        && protocol::reference_proposal(&before, step).is_err()
-    {
-        let row = make_row(Observation {
-            step,
-            arm,
-            policy,
-            before: &before,
-            after: &before,
-            phase: "not_run_dependency",
-            error: None,
-            receipt: None,
-            recording: None,
-            capture: None,
-            trace: None,
-            admission: None,
-            elapsed_ms: 0,
-            first_final_response_ms: None,
-            commit_elapsed_ms: None,
-            profile: &profile,
-            recovered: false,
-            forwarded_budget_version: Some(1),
-        })?;
-        return Ok(StoredTurn {
-            version: 2,
-            binding: binding.into(),
-            index,
-            arm: arm.into(),
-            request,
-            before_head: before.revision(),
-            after_head: before.revision(),
-            row,
-            capture_file: None,
-            recording_file: None,
-        });
+    if let Some(turn) = dependency_turn(DependencyJob {
+        full: &before,
+        index,
+        arm,
+        policy,
+        binding,
+        step,
+        profile: &profile,
+    })? {
+        return Ok(turn);
     }
     if cancel.is_cancelled() {
         return Err("Interrupted".into());

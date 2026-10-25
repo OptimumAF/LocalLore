@@ -1,7 +1,7 @@
 //! Native-owned adapter over the single accepted curated runner. Never runs a CLI.
 use super::*;
 use crate::models::ModelManager;
-use locallore_eval::local_lane::{self, desktop_api, LaneFactory, NativeAssets};
+use locallore_eval::local_lane::{self, desktop_api, LaneFactory};
 pub struct CuratedStart<'a> {
     pub client: &'a str,
     pub chosen_lane: &'a str,
@@ -147,7 +147,7 @@ impl EvaluationManager {
         let curated = self.curated_lock()?;
         let run = curated.runs.get(id).ok_or("UnknownEvaluationRun")?;
         Ok(
-            json!({"version":1,"run_token":token,"run_id":id,"operation_id":job.map(|j|j.id),"running":job.is_some(),"phase":run.phase,"error":run.error,
+            json!({"version":1,"run_token":token,"run_id":id,"operation_id":job.map(|j|j.id),"running":job.is_some_and(|j|j.worker_active),"phase":run.phase,"error":run.error,
             "completed_cases":run.snapshot.as_ref().map(|s|&s["checkpointed_stories"]).cloned().unwrap_or(json!(0)),"completed":run.snapshot.as_ref().is_some_and(|s|s["completed"]==true),
             "lane":run.metadata["lane"],"client_id":run.metadata["client_id"],"source_binding":run.metadata["source_binding"],"snapshot":run.snapshot}),
         )
@@ -376,7 +376,7 @@ impl EvaluationManager {
             if native && !consent {
                 return Err("InvalidEvaluationInput".into());
             }
-            let reservation = if native {
+            let mut reservation = if native {
                 Some(models.reserve_evaluation().map_err(|e| {
                     if e == "Busy" || e == "ModelLoaded" {
                         "EvaluationModelBusy".to_owned()
@@ -399,7 +399,14 @@ impl EvaluationManager {
                 let cancel = Cancellation::default();
                 state.job = Some(Job {
                     kind: JobKind::Curated,
-                    selected: None,
+                    selected: reservation
+                        .as_ref()
+                        .map(|reservation| selected::SelectedOwnership {
+                            models: models.clone(),
+                            witness: Some(reservation.cleanup_witness()),
+                            retained: None,
+                            cleanup_running: false,
+                        }),
                     worker_active: true,
                     epoch,
                     id: operation,
@@ -424,6 +431,10 @@ impl EvaluationManager {
                 if registered.recv().is_err() {
                     return;
                 }
+                // The shared runner's failure owns the actual reservation/runtime
+                // until it is transferred into this SAME parent Job. Keep it
+                // outside the unwind boundary and presentation lease.
+                let mut native_failure = None;
                 let result =
                     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<Value> {
                         #[cfg(test)]
@@ -454,23 +465,16 @@ impl EvaluationManager {
                         let resume = directory.join("run.json").exists();
                         let selected = metadata["selection"].as_str();
                         if native {
-                            let assets = reservation.as_ref().ok_or("EvaluationInternal")?;
-                            local_lane::run_native_curated(
-                                &directory,
-                                resume,
-                                selected,
-                                &cancel,
-                                max,
-                                NativeAssets {
-                                    resource_dir: &assets.resource,
-                                    model: &assets.model,
-                                },
-                            )
-                            .map_err(|error| {
+                            let reserved = reservation.take().ok_or("EvaluationInternal")?;
+                            if let Err(error) = local_lane::run_native_curated_owned(
+                                &directory, resume, selected, &cancel, max, reserved,
+                            ) {
                                 #[cfg(test)]
-                                eprintln!("curated native runner: {error}");
-                                failure(error)
-                            })?;
+                                eprintln!("curated owned native runner: {}", error.code());
+                                let category = failure(error.code().to_owned());
+                                native_failure = Some(error);
+                                return Err(category);
+                            }
                         } else {
                             local_lane::run_curated(
                                 &directory,
@@ -491,6 +495,23 @@ impl EvaluationManager {
                     }))
                     .unwrap_or_else(|_| Err("EvaluationInternal".into()));
                 drop(reservation);
+                let uncertain = native_failure
+                    .as_ref()
+                    .is_some_and(|error| error.cleanup_uncertain());
+                let retained = native_failure.and_then(|error| error.into_retained().ok());
+                {
+                    let mut state = manager.state.lock().unwrap_or_else(|p| p.into_inner());
+                    // Retirement/drain cannot replace this job before actual
+                    // completion. The ownership payload precedes the terminal flag.
+                    if let Some(job) = state.job.as_mut().filter(|j| {
+                        j.kind == JobKind::Curated && j.id == operation && j.epoch == epoch
+                    }) {
+                        if let Some(ownership) = job.selected.as_mut() {
+                            ownership.retained = retained;
+                        }
+                        job.worker_active = false;
+                    }
+                }
                 let _ = owner.dispatch(epoch, || {
                     let mut runs = manager.curated_lock()?;
                     if let Some(run) = runs.runs.get_mut(&run_id) {
@@ -520,7 +541,9 @@ impl EvaluationManager {
                     .as_ref()
                     .is_some_and(|j| j.id == operation && j.epoch == epoch)
                 {
-                    state.job = None;
+                    if !uncertain {
+                        state.job = None;
+                    }
                 }
                 if !owner.valid(epoch) {
                     if let Some(run) = manager

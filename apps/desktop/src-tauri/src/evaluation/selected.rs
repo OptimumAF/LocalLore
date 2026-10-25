@@ -602,7 +602,9 @@ impl EvaluationManager {
             created: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .map_err(|_| "EvaluationIo")?
-                .as_secs(),
+                .as_millis()
+                .try_into()
+                .map_err(|_| "EvaluationBudget")?,
             client_id: client.into(),
             lane: lane.input().into(),
             source_binding: prepared.source_binding.clone(),

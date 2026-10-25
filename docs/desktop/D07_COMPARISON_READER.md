@@ -79,6 +79,7 @@ Use existing provisioned dependencies. From `apps/desktop`:
 ```powershell
 node check-comparison-reader.mjs
 node check-comparison-main-review.mjs
+node check-comparison-capability-review.mjs
 node verify-frontend.mjs
 ```
 
@@ -105,6 +106,10 @@ automate an OS dialog. Captures come only from application-owned WebView2
 desktop input, activation, desktop screenshot, browser debugger or arbitrary
 execution endpoint is used. Inspect every resulting image before acceptance.
 The launcher verifies original cohort file hashes after each process.
+It also checks every semantic-version2 capture against its actual inspected
+scope/revision/observer, selected query controls, receipt and error. Live gameplay
+context is recorded separately. Pending operation IDs are actual, explicitly
+unknown after lost acknowledgement, or null when no operation is pending.
 
 Artifacts stay local under the explicit output root. Repository defaults ignore
 `artifacts/`, databases and generated bundles. Use synthetic fixtures and do not

@@ -14,6 +14,7 @@ mod author_ipc;
 #[cfg(all(test, windows))]
 mod author_ipc_review;
 mod capture_exports;
+mod close_gate;
 mod comparison_commands;
 #[cfg(feature = "dev-harness")]
 mod comparison_reader_harness;

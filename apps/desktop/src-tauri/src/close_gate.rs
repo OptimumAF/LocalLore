@@ -85,7 +85,10 @@ impl CloseGate {
     fn next_ticket(&mut self) -> Result<CloseTicket, &'static str> {
         let sequence = self.sequence.checked_add(1).ok_or("Closed")?;
         self.sequence = sequence;
-        Ok(CloseTicket { epoch: self.epoch, sequence })
+        Ok(CloseTicket {
+            epoch: self.epoch,
+            sequence,
+        })
     }
 
     fn upgrade_intent(&mut self, requested: Intent) {
@@ -162,7 +165,9 @@ impl CloseGate {
         match self.intent {
             Intent::Window => {
                 self.phase = Phase::WindowContinued;
-                Some(Continuation::DestroyWindow { epoch: ticket.epoch })
+                Some(Continuation::DestroyWindow {
+                    epoch: ticket.epoch,
+                })
             }
             Intent::Exit(code) => {
                 self.exit_permit = Some(code.unwrap_or(0));
@@ -204,13 +209,21 @@ mod tests {
         let ticket = start(&mut gate, 1, Intent::Window);
         assert_eq!(ticket.epoch(), 1);
         assert!(gate.pending());
-        for intent in [Intent::Window, Intent::Exit(None), Intent::Exit(Some(7)), Intent::Exit(Some(9))] {
+        for intent in [
+            Intent::Window,
+            Intent::Exit(None),
+            Intent::Exit(Some(7)),
+            Intent::Exit(Some(9)),
+        ] {
             assert_eq!(gate.request(1, intent), Ok(Decision::Pending));
         }
         assert!(gate.confirm(ticket)); // Synthetic trusted-callsite acknowledgment only.
         assert!(!gate.pending());
         assert!(!gate.confirm(ticket));
-        assert_eq!(gate.take_continuation(ticket), Some(Continuation::Exit { code: Some(7) }));
+        assert_eq!(
+            gate.take_continuation(ticket),
+            Some(Continuation::Exit { code: Some(7) })
+        );
         assert_eq!(gate.take_continuation(ticket), None);
         assert!(!gate.consume_exit(Some(9)));
         assert!(gate.consume_exit(Some(7)));
@@ -224,10 +237,22 @@ mod tests {
         gate.opened(1).unwrap();
         let ticket = start(&mut gate, 1, Intent::Exit(None));
         assert!(gate.confirm(ticket));
-        assert_eq!(gate.request(1, Intent::Exit(Some(17))), Ok(Decision::Continue(ticket)));
-        assert_eq!(gate.request(1, Intent::Window), Ok(Decision::Continue(ticket)));
-        assert_eq!(gate.take_continuation(ticket), Some(Continuation::Exit { code: Some(17) }));
-        assert_eq!(gate.request(1, Intent::Exit(Some(23))), Ok(Decision::Pending));
+        assert_eq!(
+            gate.request(1, Intent::Exit(Some(17))),
+            Ok(Decision::Continue(ticket))
+        );
+        assert_eq!(
+            gate.request(1, Intent::Window),
+            Ok(Decision::Continue(ticket))
+        );
+        assert_eq!(
+            gate.take_continuation(ticket),
+            Some(Continuation::Exit { code: Some(17) })
+        );
+        assert_eq!(
+            gate.request(1, Intent::Exit(Some(23))),
+            Ok(Decision::Pending)
+        );
         assert!(!gate.consume_exit(Some(23)));
         assert!(gate.consume_exit(Some(17)));
         assert_eq!(gate.opened(3), Err("Closed"));
@@ -251,7 +276,10 @@ mod tests {
         assert!(!gate.confirm(old));
         assert_eq!(gate.take_continuation(old), None);
         assert!(gate.confirm(retry));
-        assert_eq!(gate.take_continuation(retry), Some(Continuation::Exit { code: Some(4) }));
+        assert_eq!(
+            gate.take_continuation(retry),
+            Some(Continuation::Exit { code: Some(4) })
+        );
     }
 
     #[test]
@@ -273,7 +301,10 @@ mod tests {
         assert!(!gate.pause(foreign_epoch));
         assert_eq!(gate.take_continuation(foreign_epoch), None);
         assert!(gate.confirm(current));
-        assert_eq!(gate.take_continuation(current), Some(Continuation::DestroyWindow { epoch: 3 }));
+        assert_eq!(
+            gate.take_continuation(current),
+            Some(Continuation::DestroyWindow { epoch: 3 })
+        );
         assert!(!gate.consume_exit(None));
     }
 
@@ -288,7 +319,10 @@ mod tests {
         let retry = start(&mut gate, 1, Intent::Window);
         assert!(gate.confirm(retry));
         assert_eq!(gate.opened(3), Err("Closed"));
-        assert_eq!(gate.take_continuation(retry), Some(Continuation::DestroyWindow { epoch: 1 }));
+        assert_eq!(
+            gate.take_continuation(retry),
+            Some(Continuation::DestroyWindow { epoch: 1 })
+        );
         for invalid in [0, 1, 2] {
             assert_eq!(gate.opened(invalid), Err("Closed"));
         }
@@ -309,7 +343,10 @@ mod tests {
         gate.opened(1).unwrap();
         let window = start(&mut gate, 1, Intent::Window);
         assert!(gate.confirm(window));
-        assert_eq!(gate.take_continuation(window), Some(Continuation::DestroyWindow { epoch: 1 }));
+        assert_eq!(
+            gate.take_continuation(window),
+            Some(Continuation::DestroyWindow { epoch: 1 })
+        );
         assert_eq!(gate.request(1, Intent::Window), Ok(Decision::Pending));
         let exit = match gate.request(1, Intent::Exit(None)).unwrap() {
             Decision::Continue(ticket) => ticket,
@@ -318,9 +355,15 @@ mod tests {
         assert_ne!(exit, window);
         assert!(!gate.pending());
         assert_eq!(gate.opened(3), Err("Closed"));
-        assert_eq!(gate.request(1, Intent::Exit(Some(12))), Ok(Decision::Continue(exit)));
+        assert_eq!(
+            gate.request(1, Intent::Exit(Some(12))),
+            Ok(Decision::Continue(exit))
+        );
         assert_eq!(gate.take_continuation(window), None);
-        assert_eq!(gate.take_continuation(exit), Some(Continuation::Exit { code: Some(12) }));
+        assert_eq!(
+            gate.take_continuation(exit),
+            Some(Continuation::Exit { code: Some(12) })
+        );
         assert!(gate.consume_exit(Some(12)));
     }
 
@@ -335,11 +378,20 @@ mod tests {
             let mut gate = CloseGate::default();
             gate.opened(1).unwrap();
             let ticket = start(&mut gate, 1, Intent::Exit(requested));
-            assert!(!gate.consume_exit(matching), "confirmation alone has not issued exit");
+            assert!(
+                !gate.consume_exit(matching),
+                "confirmation alone has not issued exit"
+            );
             assert!(gate.confirm(ticket));
             assert!(!gate.consume_exit(matching));
-            assert_eq!(gate.take_continuation(ticket), Some(Continuation::Exit { code: requested }));
-            assert!(!gate.consume_exit(wrong), "wrong event cannot discard the actual permit");
+            assert_eq!(
+                gate.take_continuation(ticket),
+                Some(Continuation::Exit { code: requested })
+            );
+            assert!(
+                !gate.consume_exit(wrong),
+                "wrong event cannot discard the actual permit"
+            );
             assert!(gate.consume_exit(matching));
             assert!(!gate.consume_exit(matching));
             assert_eq!(gate.opened(3), Err("Closed"));
@@ -363,7 +415,10 @@ mod tests {
         closed.opened(1).unwrap();
         let ticket = start(&mut closed, 1, Intent::Window);
         assert!(closed.confirm(ticket));
-        assert_eq!(closed.take_continuation(ticket), Some(Continuation::DestroyWindow { epoch: 1 }));
+        assert_eq!(
+            closed.take_continuation(ticket),
+            Some(Continuation::DestroyWindow { epoch: 1 })
+        );
         closed.sequence = u64::MAX;
         assert_eq!(closed.request(1, Intent::Exit(Some(8))), Err("Closed"));
         // Refusing a new exit ticket must not silently latch Exit and wedge reopen.

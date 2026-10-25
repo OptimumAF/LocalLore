@@ -1,7 +1,9 @@
 # Proposed native comparison reader — 2026-10-25
 
-Refs #29 D07.06, partial prerequisite. **FROZEN FOR IMPLEMENTATION / UNVERIFIED.**
-Root must review/freeze this adapter contract before assigning tests or production.
+Refs #29 D07.06, partial prerequisite. **FROZEN READ-ONLY INTERFACE / IMPLEMENTED.**
+The dated sections preserve the design and test freeze. Exact executed sources,
+results, retained failures and remaining gates are recorded in the
+[native qualification](D07_COMPARISON_READER_NATIVE_QUALIFICATION_2026-10-25.md).
 This document does not claim GUI acceptance, selected rerun, model execution or
 approval of the shared reader. The sole owned new file is this document, on
 `docs/d07-comparison-native-reader-contract` / `source-d07-comparison-native-reader-contract`,
@@ -378,4 +380,6 @@ Root adopts proposal `19bdb499` with these narrow clarifications before editing:
 Implementation worktree: `source-d07-comparison-native-ui`, branch
 `impl/d07-comparison-native-ui`, from unchanged reader `ddcecbbc`. The earlier
 reader checkout remains immutable during preserved-regression execution.
-All native/frontend/harness acceptance cases above remain required and UNRUN.
+At this freeze all native/frontend/harness acceptance cases above were UNRUN.
+Later execution is attributed separately in the linked qualification; this
+interface document does not turn a proposed oracle into an executed test.

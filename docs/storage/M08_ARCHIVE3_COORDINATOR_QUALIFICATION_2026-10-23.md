@@ -5,10 +5,12 @@ D08.01/.02/.05/.07. Archive3 remains unmerged at this checkpoint. Shared Store
 tests, the scripted Host transfer and the explicit combined-budget case have
 passed. Desktop synthetic consumer and acknowledgement failures were retained
 and corrected. Subsequent native broker/authorization tests, integrated frontend
-checks and the four-process app-owned IPC/WebView transfer cohort have passed
-at their exact sources below. Native unit continuation also passed. The first
-app cohort does not exercise post-import continued play; visual copy/knowledge
-capture corrections, that UI continuation and Android runtime remain pending.
+checks, the original four-process transfer cohort and the corrected six-process
+app-owned IPC/WebView continuation cohort have passed at their exact sources
+below. Native unit continuation also passed. The first app cohort's missing
+UI continuation and two visual findings are addressed by the later immutable
+cohort, not relabeled as original success. Final serialized compatibility and
+Android/runtime/platform gates remain pending.
 No milestone acceptance, device support,
 release approval or human review is inferred.
 
@@ -321,9 +323,12 @@ qualification and owner acceptance remain unavailable. The native cohort uses
 fixed picker doubles, not automation of system dialogs or the desktop. D07
 model/timing cohorts are separate evidence and are not relabeled here.
 
-Next runnable work is Root's corrected snapshot notice, visible knowledge-row
-capture and six-stage actual-UI continuation/cold-reopen cohort, followed by
-final source-owned compatibility and authorized platform checks. This is
+The corrected snapshot notice, visible knowledge-row capture and six-stage
+actual-UI continuation/cold-reopen cohort now have the later evidence below.
+Root's final serialized source-owned Rust/native/Android compatibility pipeline
+is still running; no partial output is reported as its terminal result. Next
+runnable work is completion and exact attribution of that pipeline, followed
+by authorized platform checks. This is
 qualified native transport evidence within the synthetic fixture, not Android
 Domain2 opening support or whole M08/D08/publication readiness.
 
@@ -532,6 +537,10 @@ zero-native-error claim.
 
 ## Attributed visual review and remaining actual-UI gap
 
+This subsection records the first four-process cohort and its original open
+findings. The later six-process section records their correction on a different
+source; this earlier cohort and its manifests are preserved unchanged.
+
 The immutable cohort summary intentionally still says visual review pending.
 Root subsequently inspected **all20 images** and wrote the separate
 `archive3-app-first-visual-review.json`,4629 bytes, SHA256
@@ -582,3 +591,135 @@ and [#30 claim6392496411](https://github.com/OptimumAF/LocalLore/issues/30#issue
 Root retains all implementation, final compatibility, native/Android consumer
 acceptance and publication decisions. No whole milestone or readiness claim
 is made by this documentation update.
+
+## Six-stage continuation: retained capture failure and corrected cohort
+
+The first six-stage attempt used clean
+`63fff4b4e51ef035d6d84bc7eda5350e37ae2c5b` and local cohort
+`archive-v3-native-16e068e5-1997-4841-82fb-c06aa901ede1`. Four app processes
+completed successfully. The fifth, `v3-continued`, **actually committed the
+typed Wait3→4** and passed the exact native Core full-record/basis/actor oracle
+before its capture failed; the sixth process was not launched. There is no
+successful final summary for this cohort.
+
+Root diagnosed the fixed label `continued` as outside the existing native
+checkpoint allowlist: native capture rejects it with `CheckpointInvalid`.
+The retained fifth report records generic `ArchiveV3Failure` and the older
+`failedCheck` value `continued-no-horizontal-overflow`; that last layout check
+is already in its passing-check list. It must not be called an actual overflow
+or commit failure. The report still has native revision/record count4,
+unchanged foreign control, full native proof and an empty app ErrorBuffer.
+The runner exits on that app's exit1. Failed run records remain immutable:
+
+| Local artifact, relative to failed cohort unless specified | Bytes | SHA256 |
+| --- | ---: | --- |
+| `archive3-six-stage-first.log` (outside cohort) | 630 | `2e90abbe6aa3b4659f90071668b8adef8b7638da7223183d8d4847559192140b` |
+| `source.json` | 4350 | `9495b039504a254f744a643f3e5baf5f8928978ffd742520d8c0444ecdf8d70b` |
+| `binary.json` | 239 | `4a73abdf7fcacf507549ba9d3bf67dae65eed10a744f3d9748ccdf85dc9084c9` |
+| `executions.json` | 2816 | `902dfa27f6673685823f6cac8adc67c053d20ea755656651e83d9e5f3201b714` |
+| `v3-continued/report.json` | 1873 | `e69dd05d4b895dda8a16feb189973f7d5187acb7876fcab6276ec63cc8a3b368` |
+
+The source-only correction at exact
+`96bca63937d5c4f64fd3a563ca23a21c72820059` changes just five lines in
+`ui/archive-v3-journeys.ts`: reuse the existing `play-accepted` capture label,
+use that label to target the actual native receipt section, and set
+`failedCheck` immediately before invoking native capture. It does not enlarge
+the native checkpoint API, alter acceptance assertions or change the committed
+Wait. Root reran from a new owned artifact root using the same launcher command
+and trusted environment placeholders documented above.
+
+Actual corrected cohort:
+`archive-v3-native-b229aaa2-e4ea-478c-96cc-62cf1932e992`, source
+`96bca63937d5c4f64fd3a563ca23a21c72820059`. All **six app processes /eight
+total child processes**, including frontend/native builds, exit0 with no
+timeout or output overflow. Source starts/ends clean and identical; listed
+source, binary and frontend hashes remain stable. No script-suite elapsed
+times are present in these manifests, so none are invented.
+
+| Stage | Final native head | Recorded check entries | Distinct labels within stage | Native PNGs | App ErrorBuffer |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `v3-source` | 3 | 48 | 44 | 5 | 0 |
+| `v3-import` | 3 | 63 | 57 | 6 | 0 |
+| `v3-restarted` | 3 | 47 | 45 | 5 | 0 |
+| `v3-uncertain` | 3 | 47 | 42 | 4 | 0 |
+| `v3-continued` | 4 | 54 | 48 | 5 | 0 |
+| `v3-continued-restarted` | 4 | 47 | 45 | 5 | 0 |
+
+These are **306 recorded check entries /83 distinct label strings** across
+the cohort, not306 independent tests. There are30 actual app-owned WebView2
+CapturePreview PNGs,2011434 PNG bytes; the recorded artifact set totals2836342
+bytes. All six stderr logs retain one115-byte Chromium
+`Chrome_WidgetWin_0` unregister1412 teardown diagnostic each. The empty six
+app ErrorBuffers are separate evidence, not a zero-native-stderr claim.
+`executions.json` preserves each exit and bounded stdout/stderr hash.
+
+The continued stage uses the actual V2 composer/controller action and native
+IPC to submit **one typed `Wait { ticks:1 }` with the synthetic fixture
+provider**, not a free-text real model or scripted Play2.5 generation. Actual
+receipt/native history move3→4 exactly once. The read-only fixed oracle derives
+that exact request/receipt through Core from the original child3, then compares
+complete canonical records, projection, opaque accepted-history basis and all
+actor contexts/views. Only the two closed continued stages permit this exact
+extra record; the restarted-continued stage requires4. The actual controller's
+exact-retry action leaves that proof/head unchanged. This UI assertion proves
+no duplicate accepted Wait; it does **not** measure zero provider calls. The
+separate native scripted Play2.5 test above owns the cold0-call retry evidence.
+
+Three original3-record publications still share the old captured/input hash
+`64cc6e34b6d471eeffaf41939c91f2ed866cc572a240378aeb02b0bd4c18fe4e`.
+The continued4-record export and its second cold-process re-export share a new,
+different SHA256
+`aa5dcacf8fed47f751da3c5408fa9eccc60452c05cb22a665fd040f1a88cc5e1`.
+The continued and cold-reopened native record digest is
+`c408e02c06b2f878cbc5b6af6e759d0019374376777fd4f77f96ad51d39240a3`.
+The original input is unchanged, the foreign story's canonical proof remains
+identical, all owned staging directories are empty, and no new or overwritten
+source history is inferred from matching checksums alone: full replay/basis
+comparison remains native authority.
+
+Corrected executable SHA256:
+`53f47e7fdaa9d8da964b7afeb5058b6b201065ffd485115213111d2c47524085`;
+frontend SHA256:
+`f7ae89699311e1701498dd48be6be70ed4b480bd384d766ccfdddef9b20367cc`.
+Environment remains recorded Node24.22.1/win32/x64 and Rust/Cargo1.93.1 with
+the exact version strings in the first cohort section. All stages keep
+`realModelGeneration:false`; only the continued stage marks synthetic fixture
+generation activity. No model assets, Android execution, OS-picker automation,
+desktop capture/input or general-purpose debug capability is involved.
+
+| Local artifact, relative to corrected cohort unless specified | Bytes | SHA256 |
+| --- | ---: | --- |
+| `archive3-six-stage-label-corrected.log` (outside cohort) | 235 | `114007e123931d95ed8231963b85458ae67b82851279a85b041d051118831410` |
+| `summary.json` | 52755 | `bd78f775b1c2ee77943cce8163798165a5487c5a06b4a74464d3d0d398a4977e` |
+| `source.json` | 4350 | `6d0dddfd98337c07242c60be25703bf65040642fefee65f972040c21c89fd544` |
+| `binary.json` | 239 | `807b52ac129f49b09588f05fab2d3471a1f2678e8bee25becbb5ee1f9a10ef16` |
+| `executions.json` | 3169 | `4277178910af7b49ca5a1b69099303c769188043db911df8c7c1f674b1c27e06` |
+
+## Later attributed visual review and current limit
+
+Root inspected **all30 corrected images via `view_image`**, recorded separately
+in `archive3-six-stage-visual-review.json`,6972 bytes, SHA256
+`7f1f6e4536806f0750e963d3d603ccf8e44750041e454943de907f8c9f26c3e2`.
+The documentation agent read that review/manifest, not the rendered pixels.
+The corrected export receipts visibly describe a frozen file while the story
+can continue. All six observer images visibly show Mira's prior A at selected
+revision3 or4, without current B or the private reason in that inspector.
+Separate actual rendered-DOM checks cover Mira, Sable and Player knowledge
+isolation. The continued receipt visibly shows3→4 and story time100→101;
+the new preview shows4 records and the cold reopened history/resources agree.
+Root reports readable1280×900 and680×900 layouts without observed clipping,
+overlap or horizontal overflow; long panels require vertical scrolling.
+
+This later source-bound evidence addresses the two visual findings and actual
+UI continuation gap from the original20-image cohort. It does not overwrite
+that cohort or the failed six-stage attempt. Native full-story transport and
+synthetic actual-UI continuation are evidenced; real-model quality, Android
+Domain2 opening/bidirectional parity, physical-device behavior, final broad
+compatibility, owner acceptance and publication readiness remain outside this
+packet. Root's final serialized compatibility pipeline remains pending until
+its own terminal results and source ownership are recorded.
+
+Sole-document work is handed back under
+[#12 claim6392608340](https://github.com/OptimumAF/LocalLore/issues/12#issuecomment-6392608340)
+and [#30 claim6392608484](https://github.com/OptimumAF/LocalLore/issues/30#issuecomment-6392608484).
+No milestone checkboxes or other source/test paths are changed.

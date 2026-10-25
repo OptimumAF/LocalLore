@@ -9,8 +9,11 @@ checks, the original four-process transfer cohort and the corrected six-process
 app-owned IPC/WebView continuation cohort have passed at their exact sources
 below. Native unit continuation also passed. The first app cohort's missing
 UI continuation and two visual findings are addressed by the later immutable
-cohort, not relabeled as original success. Final serialized compatibility and
-Android/runtime/platform gates remain pending.
+cohort, not relabeled as original success. The first broad shared test run and
+the corrected ten-stage compatibility/build pipeline have now completed at
+their separately recorded sources. Extra final focused tests and explicit
+budget qualification have passed; the fresh Android build is still running.
+Android runtime/platform gates remain open.
 No milestone acceptance, device support,
 release approval or human review is inferred.
 
@@ -317,7 +320,7 @@ From `apps/android`, compilation-only is
 `./gradlew.bat --offline :app:compileDebugAndroidTestKotlin`. Preserve the first
 actual fixture/compile/behavior failures before any narrow correction, and
 record exact source and results for each rerun. The nine Android instrumented
-methods remain uncompiled/unrun in this packet. Real OS-picker interaction,
+methods are compiled in the test APK, but remain unexecuted. Real OS-picker interaction,
 Android instrumented runtime, desktop↔Android roundtrip, physical-phone
 qualification and owner acceptance remain unavailable. The native cohort uses
 fixed picker doubles, not automation of system dialogs or the desktop. D07
@@ -325,10 +328,11 @@ model/timing cohorts are separate evidence and are not relabeled here.
 
 The corrected snapshot notice, visible knowledge-row capture and six-stage
 actual-UI continuation/cold-reopen cohort now have the later evidence below.
-Root's final serialized source-owned Rust/native/Android compatibility pipeline
-is still running; no partial output is reported as its terminal result. Next
-runnable work is completion and exact attribution of that pipeline, followed
-by authorized platform checks. This is
+The first final serialized source-owned Rust/native/Android pipeline completed
+as recorded below. A separate extra pipeline is still running; its completed
+focused/budget tests are distinguished from the pending fresh Android stages.
+Next runnable work is its terminal attribution, followed by authorized platform
+checks. This is
 qualified native transport evidence within the synthetic fixture, not Android
 Domain2 opening support or whole M08/D08/publication readiness.
 
@@ -716,10 +720,202 @@ that cohort or the failed six-stage attempt. Native full-story transport and
 synthetic actual-UI continuation are evidenced; real-model quality, Android
 Domain2 opening/bidirectional parity, physical-device behavior, final broad
 compatibility, owner acceptance and publication readiness remain outside this
-packet. Root's final serialized compatibility pipeline remains pending until
-its own terminal results and source ownership are recorded.
+packet. Final compatibility was pending at this cohort handoff; its subsequent
+terminal sources/results and remaining extra gates are recorded below.
 
 Sole-document work is handed back under
 [#12 claim6392608340](https://github.com/OptimumAF/LocalLore/issues/12#issuecomment-6392608340)
 and [#30 claim6392608484](https://github.com/OptimumAF/LocalLore/issues/30#issuecomment-6392608484).
 No milestone checkboxes or other source/test paths are changed.
+
+## Broad compatibility: exact sources, retained lint failures and terminal checks
+
+Root ran the shared all-feature workspace tests at clean
+`96bca63937d5c4f64fd3a563ca23a21c72820059` in the source-owned
+`<archive3-shared-target>`. Actual totals parsed from116 Cargo result rows:
+**795 passed,11 ignored,0 failed,0 filtered**. This includes empty result rows
+and is a Cargo-command aggregate, not116 independent test suites. Process
+timestamps record781.5385928 seconds, **13m1.5s** including compilation and
+the command's full work. The actual UI/native-render cohort remains the
+previously executed96 source, not silently relabeled as a later commit.
+
+The immediately following strict shared Clippy run failed at
+`playable_archive.rs:590` on `manual_range_patterns`. Root commit
+`45d3467962e46e7084bbad7d75bc0ef18690466b` changes only the equivalent
+version guard `1 | 2 | 3` to `1..=3`, plus documentation. Its next strict run
+reaches the frozen combined-budget fixture and fails at220/221 on
+`int_plus_one` and `assertions_on_constants`. Root commit
+`65b1ee4d5ca25cf596016d03fed0f797d2fd89e6` preserves the same finite bounds
+as compile-time assertions, using equivalent `CHILDREN < MAX_ARCHIVE_BRANCHES`
+and unchanged `SAY_BYTES <= MAX_TEXT_BYTES`. No corpus, limits, assertions of
+runtime behavior or expected accepted history are weakened.
+
+Source inspection confirms96→65 changes only that production guard syntax,
+the test constant assertions and documentation. There are no frontend/native
+production changes in that interval. This supports the precise change scope;
+it does not pretend the795 tests or the30-image UI cohort were re-executed at65.
+
+| Immutable local artifact | Bytes | SHA256 |
+| --- | ---: | --- |
+| `archive3-final-shared-tests.log` | 107292 | `66e4ad1779196590bd8a104c1df7a949be6c90f1ae02cfc4230ada849ed6e7ae` |
+| `archive3-final-results.json` | 1237 | `ade35a8e0e84f6b50a35a08f356fb34cfc7f5d91cd64005a34a8303f299057e8` |
+| `archive3-final-shared-clippy.log` | 1643 | `0e254c1287af483eb6ce4b1521c74c3d924b545c84548f02e126855a80856530` |
+| `archive3-final-corrected-results.json` | 582 | `0d8812bf3fc77cf0b09a2538ea98e566726238a44a100b95abca26e9c2d9a768` |
+| `archive3-final-corrected-shared-clippy.log` | 2199 | `6ed64337519c2e529690f7004a5720992efaa4a005d9b5c08602c91bd8ab7c0c` |
+| `archive3-final-lint-corrected-results.json` | 5567 | `06094524544566147225756fc0d080e12b763cf10c4dc7de1538c98a4c307818` |
+
+The corrected pipeline at clean65 completes **all ten stages with exit0**:
+
+| Stage | Actual result |
+| --- | --- |
+| Shared Clippy | All targets/all features, warnings denied, PASS |
+| Frontend | Normal build, strict TypeScript/schema/synthetic suites and normal-hook exclusion PASS |
+| Frontend format | Existing Prettier scope PASS |
+| Rust format | `cargo fmt --all -- --check` PASS |
+| Normal native tests | 98 passed,1 ignored,0 failed/filtered; tests24.48s, compile34.83s |
+| Development native tests | 102 passed,1 ignored,0 failed/filtered; tests19.68s, compile24.55s; standalone harness contracts2 passed in0.01s |
+| Native Clippy | All targets with `dev-harness`, warnings denied, PASS |
+| Normal native build | `--no-default-features`, compile14.20s, PASS; not an app launch |
+| Default Android | Offline JVM/APK/testAPK/lint build PASS, Gradle8m9s; reports81 actionable tasks /81 executed |
+| APK audit | PASS: one declared non-exported receiver permission, four native libraries with16KiB ELF load alignment |
+
+The ten-stage manifest records individual process timestamps and exact arguments.
+These stages have overlapping tests and are not added to795 as a new single
+unfiltered cohort. The Android log retains a compiler warning about existing
+`AtomicReference<Boolean?>` identity equality in `FrameworkInterruptionTest`;
+successful build/lint is not a claim of zero warning text. Both JNI ABIs were
+rebuilt: x86_64 in1m59s and arm64 in2m24s. Compilation/package presence does
+not establish execution on either architecture.
+
+| Corrected pipeline log | Bytes | SHA256 |
+| --- | ---: | --- |
+| `archive3-final-lint-corrected-shared-clippy.log` | 506 | `1100b1f2a4412499b9096d36c5d86af80b3cf3ab59cf347d000017ef0cb98b03` |
+| `archive3-final-lint-corrected-frontend.log` | 20558 | `a8eb7b8b8170a26bffad04002941554c0dfd0a6ef058c7b205be8c288c5df232` |
+| `archive3-final-lint-corrected-frontend-format.log` | 68 | `f20510a9da4717c51c4cffee6d0dd88d6c9a723d0a83711d01216f5b48961283` |
+| `archive3-final-lint-corrected-rust-format.log` | 0 | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| `archive3-final-lint-corrected-native-normal.log` | 11477 | `bda4a06ba8d509310260833fca04e0fe0c9b0e6dfedffb53294128112f10d11d` |
+| `archive3-final-lint-corrected-native-dev.log` | 11862 | `fb8467a4855b348b855838e021c05a983e4cb97e6b5dfd312ff09ac3aef3e17d` |
+| `archive3-final-lint-corrected-native-clippy.log` | 5637 | `7bb9c2243fd0354fd8beb889a6d3c332e4014b08adeb8613116526923719219b` |
+| `archive3-final-lint-corrected-native-build.log` | 218 | `3a16b2d71986a91a1f15794f1d40e6763cb16c6a08e44385e756396eaae158e0` |
+| `archive3-final-lint-corrected-android.log` | 6219 | `2e7abce5b1ce073627af3755e4aff888fe89f5a4f45031bb0a39ad580d8d3bed` |
+| `archive3-final-lint-corrected-apk-audit.log` | 783 | `a2220741ab7d3170dc6f144e8b0c0d97b3b85457ef46d7bf0d6e0c76a8cef49f` |
+
+### Exact reproduction commands and ignored scope
+
+Use the previously documented debug0/incremental0/jobs1/empty SQLite flags,
+task-owned targets/TEMP and existing offline dependencies. From repository
+root, these commands are the manifest arguments with private paths replaced:
+
+```text
+cargo test --workspace --exclude locallore-desktop-spike --all-features --offline --locked --jobs 1 --target-dir <archive3-shared-target> -- --test-threads=1
+cargo clippy --workspace --exclude locallore-desktop-spike --all-targets --all-features --offline --locked --jobs 1 --target-dir <archive3-shared-target> -- -D warnings
+cargo fmt --all -- --check
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --offline --locked --jobs 1 --target-dir <archive3-native-target> -- --test-threads=1
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness --offline --locked --jobs 1 --target-dir <archive3-native-target> -- --test-threads=1
+cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --features dev-harness --offline --locked --jobs 1 --target-dir <archive3-native-target> -- -D warnings
+cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --no-default-features --offline --locked --jobs 1 --target-dir <archive3-native-target>
+python scripts/audit_apk.py <android-output>/_app/outputs/apk/debug/app-debug.apk
+```
+
+From `apps/desktop`: `<node24-executable> verify-frontend.mjs`, then
+`<node24-executable> node_modules/prettier/bin/prettier.cjs --check "ui/*.{ts,tsx,html,css}" "*.{json,mjs}"`.
+From `apps/android`, with existing Java/SDK/Gradle cache and the coordinator's
+task-output init script, exact wrapper arguments are:
+
+```text
+<java-executable> -classpath <repository>/apps/android/gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain --offline --no-daemon --max-workers=1 --console=plain -Pandroid.builder.sdkDownload=false --init-script <task-root>/workspace-android-output.gradle :app:testDebugUnitTest --rerun :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
+```
+
+The shared run's11 ignores remain explicit: four original-source historical
+baseline/capture probes, one special compiled SQLite page-limit qualifier,
+two parent-owned child-process helper entries, the expensive opt-in combined
+boundary, two Windows symlink-privilege cases and one explicitly superseded
+same-source-Open oracle. Parent tests execute their fixed child helpers; an
+ignored helper entry is not standalone acceptance. The boundary has its earlier
+explicit execution and the new65 opt-in pass below. Native normal/dev each retain
+the same one Windows model-import reparse/symlink privilege ignore. No OS
+privilege/settings change or unavailable symlink execution is invented.
+
+### JVM snapshot and normal build artifacts
+
+The immutable24 XML files in `archive3-final-android-junit` sum to **206 JVM
+tests,0 failures,0 errors,0 skipped**. The documentation agent read all24 files
+and verified every SHA256 and test count against
+`archive3-final-android-junit-manifest.json`:6087 bytes, SHA256
+`3aa571eea1c6299df0e376c378163adf3e520b5ac65aad89dcf1a4e4e649d634`.
+The nine platform `JSONObject`/Compose Archive3 methods are compiled in the
+instrumented APK, **not executed**. JVM tests and instrumentation compilation
+do not prove Android native runtime, corrected-timeline opening or parity.
+
+Normal outputs at source65 are pinned by
+`archive3-final-build-artifacts.json`,840 bytes, SHA256
+`46367ab8aec0a8ab33d79f7cba10ad97006ce8e85b36d850c6c39b27f56035b3`:
+
+| Artifact | Bytes | SHA256 |
+| --- | ---: | --- |
+| Normal frontend | 493069 | `77aa7e47b4a5fa6cdc06a3e6e87ec244a200bcc6236d529b05817984ee83676b` |
+| Normal executable | 29244416 | `f420abf1ebfdde8e57ccd754f54f0ce9956de389f3499531dfccd5ebcbe8ea06` |
+| Default Android APK | 24308076 | `210d6a42ad2c4150e841b9e4760878d903e5eea563a2b6ce3f85cf3f867de942` |
+| Instrumented Android APK | 1847971 | `6782e0466bc6137a3df3e401fdfe6b14c6fc1f0dfaf95147d93346cadf516d6e` |
+
+The artifact manifest explicitly records `normalAppExecuted:false` and
+`androidRuntimeExecuted:false`. These normal build hashes are different from
+the executed dev-harness binaries; the six-process UI cohort stays bound to96.
+
+## Extra final focused checks: command failure preserved, pending stages explicit
+
+The first extra command mistakenly selected `m08_archive3_play25` under
+`locallore-storage`; that test belongs to `locallore-workspace`. Cargo exits101
+before executing tests. This is command selection failure, not behavioral RED:
+`archive3-extra-focused-archive.log`,163 bytes, SHA256
+`9267e6808d48fad2099e10a4b4aed89e5208598ea431dbda169376fdd2d38e56`;
+`archive3-extra-results.json`,756 bytes, SHA256
+`2c8f02b53463f3e84d9368414560e0ffac4d4fc1413599356ca36dc95d6258e0`.
+
+At exact65 the corrected commands have completed:
+
+```text
+cargo test -p locallore-storage --locked --offline --jobs 1 --target-dir <archive3-shared-target> --test m08_archive3 --test m08_archive3_hostile --test playable_archive --test branch_retention_archive --test archive_interruption -- --test-threads=1
+cargo test -p locallore-workspace --locked --offline --jobs 1 --target-dir <archive3-shared-target> --test m08_archive3_play25 -- --test-threads=1
+```
+
+Storage passes **38 tests /1 child-worker ignore /0 failures**, across five
+binaries:3+9+7+6+13 passes; compile23.09s, per-binary test times0.96/1.85/1.94/
+4.38/4.90s. The three real parent-owned process-interruption cases pass; the
+worker helper stays ignored as a standalone target. Workspace passes1 test
+in0.27s, compile3.84s. Logs:
+
+| Local log | Bytes | SHA256 |
+| --- | ---: | --- |
+| `archive3-extra-corrected-focused-archive.log` | 5573 | `44e4451c9a73f6dceb3bd7560c6584b824753538a117e54f7ea55bb0ee664ffb` |
+| `archive3-extra-corrected-focused-play25.log` | 769 | `6a57e6b82ece1c8aee66e6aa431abc4fd90ad69d2d3cb354174ba7f67c8c03dc` |
+
+The extra explicit combined-budget run at65 is now **1 passed,0 failed,0
+ignored,0 filtered**,103.70s after0.81s compilation. Actual command:
+
+```text
+cargo test -p locallore-storage --locked --offline --jobs 1 --target-dir <archive3-shared-target> --test m08_archive3_combined_budget -- --ignored --nocapture --test-threads=1
+```
+
+`archive3-extra-corrected-combined-budget.log`:1173 bytes, SHA256
+`cd09e3d67e9efdc2c497ea659379cad1790b463215030795fd47da4eaf31df48`.
+The measured last-below total remains16768770 bytes, gap8446,480 records and31
+branches, wire12867586. The next accepted record crosses to16805991 bytes
+(responses12884019 +indexes3921972),481 records/31 branches and hostile wire
+12896126, against the unchanged16777216 cap. This new actual pass retains the
+same exact export/import/refusal/destination-preservation oracle as the earlier
+explicit run; neither source's result is relabeled as the other.
+
+The fresh task-owned `archive3-android-build` build is now running from a
+previously absent output directory; its audit is pending. Earlier Android
+results do not substitute for those new stages, and no fresh terminal output
+is inferred. Final owner acceptance,
+Android runtime/physical phone/model quality/bidirectional parity, unavailable
+symlink qualifiers and whole-milestone/publication readiness remain open.
+
+Sole-document ownership returns to Root under
+[#12 claim6392876085](https://github.com/OptimumAF/LocalLore/issues/12#issuecomment-6392876085)
+and [#30 claim6392876207](https://github.com/OptimumAF/LocalLore/issues/30#issuecomment-6392876207).
+Root will adopt only after its active clean-source pipeline ends. No other
+source/test path, acceptance checkbox, build or runtime is changed by the
+documentation agent.

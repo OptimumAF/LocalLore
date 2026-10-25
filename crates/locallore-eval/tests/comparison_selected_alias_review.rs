@@ -2,6 +2,9 @@
 //! Frozen actual producer hardlink regression; SOURCE-ONLY, UNCOMPILED/UNRUN.
 //! Exact baseline f1377ea7d3f4dc250d88056c18c202f716b9994d. No canonical SQL,
 //! fabricated receipt, native/model provider or external source path.
+//! Fixture correction after Root's first run failed before linking: a generated
+//! accepted row's Play diagnostics need not equal the reference receipt. Use an
+//! actual guard-only database, whose copied reference prefix is unchanged.
 //! Root: cargo test --manifest-path crates/locallore-eval/Cargo.toml --locked --offline --test comparison_selected_alias_review -- --nocapture --test-threads=1
 use locallore::{engine::Engine, inference::Cancellation};
 use locallore_eval::{
@@ -9,13 +12,12 @@ use locallore_eval::{
         comparison::{self, desktop_api, selected, ComparisonKind},
         LaneFactory,
     },
-    memory_comparison::frozen_suite,
+    memory_comparison::{frozen_suite, Expected},
 };
 use locallore_storage::Store;
 use serde_json::Value;
 use std::{collections::BTreeMap, fs, path::{Path, PathBuf}};
 
-const INDEX: usize = 4;
 type Inventory = BTreeMap<PathBuf, Option<Vec<u8>>>;
 
 fn owned_root() -> PathBuf {
@@ -87,29 +89,51 @@ fn resume_refuses_valid_prefix_hardlinked_to_earlier_paired_source_before_any_mu
     let root = owned_root();
     let source = root.join("paired");
     let reference_path = root.join("reference");
+    let suite = frozen_suite().unwrap();
+    let guard_index = suite.steps().windows(2).position(|steps| {
+        matches!(steps[0].expected(), Expected::GuardRejected(_))
+            && matches!(steps[1].expected(), Expected::Accepted(_))
+    }).expect("actual guard-only step immediately before an accepted selected step");
+    let selected_index = guard_index + 1;
+    let scenes = selected_index / 6 + 1;
+    assert!(scenes <= 4);
     let reference_report = comparison::prepare_reference(&reference_path, &Cancellation::default()).unwrap();
     assert_eq!((reference_report.accepted, reference_report.guard_only, reference_report.roles), (21, 3, 42));
     let reference = comparison::open_reference(&reference_path).unwrap();
     let produced = comparison::run_comparison(
         &source, false, ComparisonKind::PairedSnapshots, &Cancellation::default(),
-        1, LaneFactory::ScriptedBaseline, Some(&reference),
+        scenes, LaneFactory::ScriptedBaseline, Some(&reference),
     ).unwrap();
-    assert_eq!(produced.turns.len(), 12);
-    assert_eq!(produced.completed_scenes, 1);
+    assert_eq!(produced.turns.len(), scenes * 12);
+    assert_eq!(produced.completed_scenes, scenes);
     assert!(produced.turns.iter().all(|row| row.passed));
     drop(reference);
 
-    let selected_source = source.join("left").join(format!("pair-{INDEX:02}.sqlite"));
-    let earlier_source = source.join("left").join(format!("pair-{:02}.sqlite", INDEX - 1));
-    let source_checkpoint = value(&source.join("left").join(format!("attempt-{INDEX:02}.json")));
+    let selected_source = source.join("left").join(format!("pair-{selected_index:02}.sqlite"));
+    let earlier_source = source.join("left").join(format!("pair-{guard_index:02}.sqlite"));
+    let source_checkpoint = value(&source.join("left").join(format!("attempt-{selected_index:02}.json")));
+    let guard_checkpoint = value(&source.join("left").join(format!("attempt-{guard_index:02}.json")));
+    let guard_rejection = match suite.steps()[guard_index].expected() {
+        Expected::GuardRejected(rejection) => format!("{rejection:?}"),
+        _ => unreachable!("guard derived from the frozen suite"),
+    };
+    assert_eq!(guard_checkpoint["row"]["phase"], "failed");
+    assert_eq!(guard_checkpoint["row"]["error"], guard_rejection);
+    assert_eq!(guard_checkpoint["row"]["roles"], 0);
+    assert!(guard_checkpoint["row"]["actual_receipt_sha256"].is_null());
+    assert_eq!(guard_checkpoint["before_head"], guard_checkpoint["after_head"]);
+    assert_eq!(source_checkpoint["row"]["phase"], "committed", "selected step actually accepted, not dependency-skipped");
+    assert!(!source_checkpoint["row"]["actual_receipt_sha256"].is_null());
     {
         let full = engine(&selected_source);
         let selected_before = full.at_revision(source_checkpoint["before_head"].as_u64().unwrap()).unwrap();
         let earlier_after = engine(&earlier_source);
-        assert_eq!(selected_before.receipts().len(), INDEX);
+        assert_eq!(earlier_after.revision(), guard_checkpoint["after_head"].as_u64().unwrap());
+        assert!(earlier_after.receipts().iter().all(|receipt| receipt.request().turn != suite.steps()[guard_index].id()),
+            "the actual guard database has no accepted receipt for its failed step");
         assert_eq!(earlier_after.revision(), selected_before.revision());
-        assert_eq!(earlier_after.receipts(), selected_before.receipts());
-        assert_eq!(earlier_after.canonical_bytes(), selected_before.canonical_bytes());
+        assert!(earlier_after.receipts() == selected_before.receipts(), "full actual receipt prefix equality");
+        assert!(earlier_after.canonical_bytes() == selected_before.canonical_bytes(), "full actual canonical prefix equality");
         assert!(earlier_after.accepted_history_basis().unwrap() == selected_before.accepted_history_basis().unwrap());
     }
     let source_binding = {
@@ -120,7 +144,7 @@ fn resume_refuses_valid_prefix_hardlinked_to_earlier_paired_source_before_any_mu
         binding
     };
     let selection = desktop_api::RowId {
-        turn: frozen_suite().unwrap().steps()[INDEX].id().into(),
+        turn: suite.steps()[selected_index].id().into(),
         arm: desktop_api::Arm::Left,
     };
     let plan = selected::prepare_selected(
@@ -137,9 +161,12 @@ fn resume_refuses_valid_prefix_hardlinked_to_earlier_paired_source_before_any_mu
     ).unwrap();
     assert_eq!(selected_report["completed"], true);
     assert_eq!(selected_report["rows"].as_array().unwrap().len(), 2);
+    assert!(selected_report["rows"].as_array().unwrap().iter()
+        .all(|row| row["phase"] == "committed" && row["passed"] == true),
+        "both actual selected arms commit the legitimate accepted step");
     let selected_binding = selected_report["binding"].as_str().unwrap().to_owned();
-    let left_checkpoint = destination.join("left").join(format!("attempt-{INDEX:02}.json"));
-    let right_checkpoint = destination.join("right").join(format!("attempt-{INDEX:02}.json"));
+    let left_checkpoint = destination.join("left").join(format!("attempt-{selected_index:02}.json"));
+    let right_checkpoint = destination.join("right").join(format!("attempt-{selected_index:02}.json"));
     assert!(left_checkpoint.is_file() && right_checkpoint.is_file());
     let left_database = sole_database(&destination, "left");
     // Both producer calls have returned and all Store/read capabilities were
@@ -148,7 +175,7 @@ fn resume_refuses_valid_prefix_hardlinked_to_earlier_paired_source_before_any_mu
     fs::remove_file(&left_database).unwrap();
     fs::hard_link(&earlier_source, &left_database)
         .expect("the ordinary-file hardlink must actually succeed; no skip/pass fallback");
-    assert_eq!(fs::read(&left_database).unwrap(), fs::read(&earlier_source).unwrap());
+    assert!(fs::read(&left_database).unwrap() == fs::read(&earlier_source).unwrap(), "actual hardlinked bytes equal");
     assert!(!left_checkpoint.exists());
     assert!(right_checkpoint.is_file(), "the completed right half is retained intact");
 

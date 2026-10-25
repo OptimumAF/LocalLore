@@ -260,7 +260,7 @@ fn retired_private_job_keeps_genuine_rejected_owner_pair_until_actual_generic_cl
     {
         let mut parent = fixture.manager.state().unwrap();
         parent.next += 1;
-        parent.job = Some(Job { kind: JobKind::Selected, epoch: fixture.epoch, id: parent.next,
+        parent.job = Some(Job { kind: JobKind::Selected, worker_active: false, epoch: fixture.epoch, id: parent.next,
             run: client, cancel: Cancellation::default(), selected: Some(SelectedOwnership {
                 models: fixture.models.clone(), witness: Some(witness.clone()),
                 retained: Some((reservation, returned)), cleanup_running: false,
@@ -287,4 +287,38 @@ fn retired_private_job_keeps_genuine_rejected_owner_pair_until_actual_generic_cl
     assert!(fixture.manager.state().unwrap().job.is_none());
     assert_eq!(owner.lock().unwrap().status(), locallore_local_runtime::Status::Failed);
     drop(fixture.models.reserve_evaluation().expect("only actual proof releases Models fence"));
+}
+
+#[test]
+fn owned_curated_job_with_borrowed_handle_remains_active_then_unknown_without_private_selected_rows() {
+    // Frozen source-only metadata fixture for Root's common Job.worker_active
+    // seam. No runtime/provider exists here and no cleanup proof is invented.
+    let fixture = Fixture::new();
+    let client = uuid().unwrap();
+    {
+        let mut parent = fixture.manager.state().unwrap();
+        parent.next += 1;
+        parent.job = Some(Job { kind: JobKind::Curated, worker_active: true,
+            epoch: fixture.epoch, id: parent.next, run: client, cancel: Cancellation::default(),
+            selected: Some(SelectedOwnership { models: fixture.models.clone(), witness: None,
+                retained: None, cleanup_running: false }) });
+    }
+    assert!(fixture.manager.worker.lock().unwrap().is_none(), "parent drain borrowed handle fixture");
+    let active = fixture.manager.selected_cleanup_status(&fixture.lease, fixture.epoch).unwrap();
+    assert_eq!(active["running"], true);
+    assert_eq!(active["cleanup_required"], false);
+    let unchanged = fixture.manager.selected_retry_cleanup(&fixture.lease, &fixture.models, fixture.epoch).unwrap();
+    assert_eq!(unchanged["running"], true);
+    assert!(fixture.manager.state().unwrap().job.as_ref().unwrap().worker_active);
+    assert!(!fixture.manager.state().unwrap().job.as_ref().unwrap().selected.as_ref().unwrap().cleanup_running);
+    // Test-only acknowledgement of this metadata fixture, not actual worker
+    // completion or actual Runtime cleanup. Without a proof the job stays held.
+    fixture.manager.state().unwrap().job.as_mut().unwrap().worker_active = false;
+    let ended = fixture.manager.selected_cleanup_status(&fixture.lease, fixture.epoch).unwrap();
+    assert_eq!(ended["running"], false);
+    assert_eq!(ended["cleanup_required"], true);
+    assert!(fixture.manager.state().unwrap().job.is_some());
+    assert!(fixture.manager.selected_lock().unwrap().records.is_empty());
+    // No owner was created in this synthetic metadata-only fixture.
+    let job = fixture.manager.state().unwrap().job.take(); drop(job);
 }

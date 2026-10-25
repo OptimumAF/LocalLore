@@ -153,3 +153,63 @@ The original escaped positive remains a positive even if the pinned native
 compiler rejects it. A red oracle is useful counterexample evidence, not
 permission to remove fixtures, loosen literal speech, or mark real inference
 as verified.
+
+## Escaped literals and the finite SDK representation
+
+The additional `literal` command reproduces the original escaped string,
+performs bounded deletion minimization, and compares default JSON, the default
+Lark JSON wrapper, explicit Lark `no_forcing`, and an exact whole-JSON regex.
+It checks full-string acceptance and the erroneous shortened string separately.
+An authenticated `observed` report exits0; this records an upstream mismatch,
+not a successful JSON compiler. See [source research](LLGUIDANCE_LITERAL_RESEARCH_2026-10-25.md)
+and [verification](LLGUIDANCE_LITERAL_VERIFICATION_2026-10-25.md).
+
+```powershell
+python -I -S -B scripts/llguidance_oracle.py literal --runtime C:/private/new-llg-runtime --output C:/private/new-literal-evidence
+```
+
+The Android development worker now uses the public `ResponseFormat.regex`
+for schemas completely representable by `FiniteSchemaRegex.kt`. Unsupported
+or nonfinite schemas retain the public JSON format. The encoder uses the
+already pinned Gson dependency, validates strict JSON syntax and duplicate
+decoded keys before parsing, and bounds UTF8 input/output at32768 bytes,
+512 JSON values and depth12. It supports closed required objects, exact
+constants/enums and fixed single-item arrays with supported constraints. All
+enum members must satisfy their supported siblings; it never silently filters
+members or discards unsupported keywords. It emits sorted keys, compact JSON
+and exact escaped literals between `\A` and `\z` anchors. This preserves the
+supported semantic choices through a canonical serialization subset. It does
+not preserve every whitespace or property-order permutation.
+
+This is syntax translation at the SDK boundary. The original Rust schema,
+guarded intent, parsed provider output, engine validation, character visibility,
+commit and replay remain authoritative. Narration with a nonfinite string
+schema still uses JSON. The trace's `schema_bytes` remains the original engine
+JSON schema size, not the generated regex payload size. Worker identity binds
+the codec source hash; Gradle verifies both normalized source pins.
+
+To test the actual Kotlin output, first obtain a fresh engine corpus using
+the original `run` export. Extend only with the original literal fixtures
+when reproducing this packet. Set both absolute paths in the environment of
+the existing offline receipt JVM task:
+
+```powershell
+$env:LOCALLORE_FINITE_ORACLE_CORPUS = 'C:/private/corpus.json'
+$env:LOCALLORE_FINITE_ORACLE_OUTPUT = 'C:/private/new-regex-corpus.json'
+# Run :app:testDebugUnitTest with the existing receipt verification flags.
+python -I -S -B scripts/llguidance_oracle.py finite --runtime C:/private/new-llg-runtime --output C:/private/new-finite-evidence --corpus C:/private/corpus.json --patterns C:/private/new-regex-corpus.json
+```
+
+The export test computes every pattern with production Kotlin before creating
+the output file. Both variables absent means no export; one absent fails.
+The artifact binds the exact raw input SHA, schema indexes and schema hashes.
+The native bridge validates these links before constructing fresh regex
+matchers, then applies the original byte-mask/EOS checker to every sample.
+It accepts no Python-generated substitute. Hash links alone do not establish
+who generated an arbitrary artifact: retain actual JVM execution, source
+readback and exported bytes together. `finite` exits0 only for a complete
+passing report with known process cleanup;1 records a valid mismatch.
+
+The byte tokenizer, mask controls and regex language checks do not exercise
+the Android model vocabulary, templating, SDK callbacks, ownership, cancellation,
+latency or prose. A fresh real-model run remains a separate gate.

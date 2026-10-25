@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "scope": "locallore_llguidance_oracle_v1",
+  "cases": [
+    {
+      "id": "original",
+      "schema_json": "{\"const\":\"Hello \\\"Mira\\\" \\\\ \u96ea.\\nIs the tideglass here?\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "full",
+          "json": "\"Hello \\\"Mira\\\" \\\\ \u96ea.\\nIs the tideglass here?\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "wrong-short",
+          "json": "\"Hello \\\"Mira\""
+        },
+        {
+          "id": "suffix",
+          "json": "\"Hello \\\"Mira\\\" \\\\ \u96ea.\\nIs the tideglass here?\"x"
+        }
+      ]
+    },
+    {
+      "id": "deletion-minimum",
+      "schema_json": "{\"const\":\"\\\"\\\" \\\\ \u96ea.\\nIs the tideglass here?\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "full",
+          "json": "\"\\\"\\\" \\\\ \u96ea.\\nIs the tideglass here?\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "wrong-short",
+          "json": "\"\\\"\""
+        },
+        {
+          "id": "suffix",
+          "json": "\"\\\"\\\" \\\\ \u96ea.\\nIs the tideglass here?\"x"
+        }
+      ]
+    },
+    {
+      "id": "boundary-31",
+      "schema_json": "{\"const\":\"\\\"\\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "full",
+          "json": "\"\\\"\\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaa\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "wrong-short",
+          "json": "\"\\\"\\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaa\""
+        },
+        {
+          "id": "suffix",
+          "json": "\"\\\"\\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"x"
+        }
+      ]
+    },
+    {
+      "id": "boundary-32",
+      "schema_json": "{\"const\":\"\\\"\\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "full",
+          "json": "\"\\\"\\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "wrong-short",
+          "json": "\"\\\"\""
+        },
+        {
+          "id": "suffix",
+          "json": "\"\\\"\\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"x"
+        }
+      ]
+    },
+    {
+      "id": "boundary-33",
+      "schema_json": "{\"const\":\"\\\"\\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "full",
+          "json": "\"\\\"\\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "wrong-short",
+          "json": "\"\\\"\\\"\""
+        },
+        {
+          "id": "suffix",
+          "json": "\"\\\"\\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"x"
+        }
+      ]
+    }
+  ],
+  "refusals": []
+}

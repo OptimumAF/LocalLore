@@ -187,7 +187,8 @@ class NativeBackend:
     Official v1.3.0 sources: python_ext/src/py.rs37–59 reserves 'byte';
     toktrie/src/tokenv.rs145–167 defines byte IDs0..255/EOS261/vocab262.
     python_ext/src/llmatcher.rs277–350 requires validate_grammar beyond wrapper;
-    parser/src/matcher.rs and default InferenceCapabilities disable implicit FF.
+    No public FF helpers are called. Default inference flags do not disable
+    every internal forced-byte optimization (tokenparser.rs can_force_bytes).
     https://github.com/guidance-ai/llguidance/tree/v1.3.0
     """
     native = True

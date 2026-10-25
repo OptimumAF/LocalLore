@@ -35,11 +35,22 @@ val modelReceipt = providers.gradleProperty("localLoreModelReceiptVerification")
 require(modelReceipt == null || modelReceipt == "true") { "Model receipt verification must be explicitly true or absent." }
 require(modelReceipt != "true" || modelVolume == "true") { "Model receipt verification requires the explicit model volume, setup and LiteRT profiles." }
 if (liteRt == "true") {
+    val finiteCodecBytes = file("src/litert/java/org/locallore/app/FiniteSchemaRegex.kt").readText()
+        .replace("\r\n", "\n").toByteArray(Charsets.UTF_8)
+    val finiteCodecHash = MessageDigest.getInstance("SHA-256").digest(finiteCodecBytes)
+        .joinToString("") { "%02x".format(it) }
+    require(finiteCodecHash == "b89ba9aa332529a629e0f532f5d8e55997eef8f68229665f898eae53010af96f") {
+        "Review the finite-schema codec and its worker provenance before building changed source."
+    }
+    require(file("src/litert/java/org/locallore/app/LiteRtRoleWorker.kt").readText()
+        .contains("// Finite-schema codec source SHA-256: $finiteCodecHash")) {
+        "The worker source identity must bind the reviewed finite-schema codec."
+    }
     val workerBytes = file("src/litert/java/org/locallore/app/LiteRtRoleWorker.kt").readText()
         .replace("\r\n", "\n").toByteArray(Charsets.UTF_8)
     val workerHash = MessageDigest.getInstance("SHA-256").digest(workerBytes)
         .joinToString("") { "%02x".format(it) }
-    require(workerHash == "c014b6e2df10c39120e4590efcb581185e6ed415c979b0f1a67698e9e72dded9") {
+    require(workerHash == "db4d5f18318b7b5d67fbeb33bddee7781ddce7adc41477d9c17808e92c23df27") {
         "Update and review the trusted candidate worker provenance before building changed worker source."
     }
 }

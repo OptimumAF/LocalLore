@@ -259,6 +259,24 @@ class LauncherTests(unittest.TestCase):
             self.assertEqual(calls[0][-3], "check")
             self.assertEqual((output / "corpus.json").read_bytes(), raw)
 
+    def test_literal_probe_rejects_shortcut_report_and_unclean_worker(self):
+        with self.wheel() as wheel:
+            runtime = self.root / "runtime"
+            s.provision(wheel, runtime)
+            for status, clean in (("completed", True), ("cleanup_failed", False)):
+                output = self.root / status
+                def runner(command, **kwargs):
+                    self.assertEqual(command[-3], "literal")
+                    self.assertEqual(kwargs["request"], s.BARRIER)
+                    self.assertEqual(kwargs["deadline"], 60)
+                    self.assertEqual(kwargs["max_output"], 131072)
+                    return SimpleNamespace(status=status, elapsed_ms=1, returncode=0, cleanup_complete=clean,
+                                           stdout=b'{"version":1,"native":true,"status":"observed"}', stderr_bytes=0)
+                report = s.literal_probe(runtime, output, runner)
+                self.assertEqual(report["status"], "failed")
+                self.assertFalse((output / "probe.json").exists())
+                self.assertTrue((output / "rejected-probe.json").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,6 @@
 //! Read-only selected-native setup evidence. No assets, approval or runtime owner.
 use super::{
-    decode, ordinary, shared_setup_shares, Ledger, Reservation, Result, Settlement, SetupRecord,
+    decode, ordinary, read, shared_setup_shares, Ledger, Reservation, Result, Settlement, SetupRecord,
     PREPARATION_MS,
 };
 use serde_json::Value;
@@ -112,7 +112,19 @@ pub(super) fn read_setups(dir: &Path, binding: &str, native: bool) -> Result<Vec
         if name != format!("setup-{index:02}.json") || !native {
             return Err("SetupIntegrity".into());
         }
-        let setup: SetupRecord = decode(&entry.path(), 64 * 1024).map_err(|_| "SetupIntegrity")?;
+        let bytes = read(&entry.path(), 64 * 1024).map_err(|_| "SetupIntegrity")?;
+        // Typed decoding rejects unknown/duplicate fields. Option<Value> would
+        // default a missing load key to None, so separately require its presence
+        // in the SAME bounded bytes; explicit failed/null remains supported.
+        let setup: SetupRecord =
+            serde_json::from_slice(&bytes).map_err(|_| "SetupIntegrity")?;
+        let value: Value = serde_json::from_slice(&bytes).map_err(|_| "SetupIntegrity")?;
+        if value
+            .as_object()
+            .is_none_or(|fields| fields.len() != 8 || !fields.contains_key("load"))
+        {
+            return Err("SetupIntegrity".into());
+        }
         if setup.version != 2
             || setup.binding != binding
             || setup.left_invocation != index

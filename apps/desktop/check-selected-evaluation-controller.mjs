@@ -180,6 +180,16 @@ await test("lost start ACK retains client; only explicit same-client status reco
     assert.equal(f.c.get().uncertain, false); assert.equal(f.c.get().status.phase, "completed");
     assert.equal(f.calls.find((v) => v.action === "status").body.clientId, client); f.c.dispose();
 });
+await test("same-client native replies cannot substitute another selected row or plan token", async () => {
+    const f = fixture(); f.hooks.set("prepare", (body) => {
+        const value = status(body.clientId, "prepared"); value.prepared.selection.turn = "foreign-turn"; return value;
+    });
+    await f.c.prepare(source, row, "scripted_baseline"); assert.equal(f.c.get().error, "SelectedEvaluationWire");
+    assert.equal(f.c.get().uncertain, true); await f.c.close(); f.hooks.delete("prepare");
+    await f.c.prepare(source, row, "scripted_baseline"); const client = f.c.get().clientId;
+    f.hooks.set("start", () => status(client, "completed", { plan_token: runId })); await f.c.start();
+    assert.equal(f.c.get().error, "SelectedEvaluationWire"); assert.equal(f.c.get().uncertain, true); f.c.dispose();
+});
 await test("held status survives lens epoch, wrong client cannot publish", async () => {
     const f = fixture(); await ready(f); const client = f.c.get().clientId, held = deferred();
     f.hooks.set("status", () => held.promise); const work = f.c.status(); await tick(); f.c.setObserver(player);

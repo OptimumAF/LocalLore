@@ -1,5 +1,10 @@
 # Bounded LiteRT worker-stage observations
 
+Historical v1 wire contract. Current builds use the
+[v2 role/timing contract](LITERT_WORKER_TRACE_V2_CONTRACT.md); strict v1 decoding
+remains available for retained earlier results. V2 does not add missing timing
+or role observations to those earlier snapshots.
+
 M05.05 / M01.05 prerequisite. This contract defines a small in-memory diagnostic
 value, not a worker implementation, model qualification or gameplay event log.
 The engine's accepted events remain canonical. Trace counts grant no storage,

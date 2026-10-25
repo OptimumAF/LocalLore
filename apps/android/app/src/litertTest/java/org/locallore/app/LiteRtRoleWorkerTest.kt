@@ -90,6 +90,35 @@ class LiteRtRoleWorkerTest {
         val hash = MessageDigest.getInstance("SHA-256").digest(model.readBytes()).joinToString("") { "%02x".format(it) }
         return LiteRtWorkerConfig(root, model, cache, 4, hash, "a".repeat(64), "b".repeat(64), "c".repeat(64))
     }
+
+    /** Scripted native request sequence, without a second gameplay reducer. */
+    private class SequencePort(private val requests: List<LocalInferenceRequest>) : LocalInferenceNativePort {
+        private val terminal = CountDownLatch(1)
+        private var index = 0
+        private var invalidated = false
+        val deliveries = AtomicInteger()
+        val commits = AtomicInteger()
+        val closes = AtomicInteger()
+        override fun call(input: ByteArray): ByteArray = when (input.toString(Charsets.UTF_8)) {
+            "prepare" -> {
+                check(terminal.await(3, TimeUnit.SECONDS))
+                synchronized(this) { (if (invalidated) "cancelled" else "ready").toByteArray() }
+            }
+            "cancel" -> { invalidate(); "cancelled".toByteArray() }
+            "commit" -> { commits.incrementAndGet(); "accepted-receipt".toByteArray() }
+            else -> error("Unknown synthetic operation")
+        }
+        @Synchronized override fun poll(): LocalInferencePending? =
+            if (invalidated || index == requests.size) null else LocalInferencePending(index + 1L, requests[index])
+        @Synchronized override fun respond(ticket: Long, response: ByteArray): Boolean {
+            if (invalidated || index == requests.size || ticket != index + 1L) return false
+            deliveries.incrementAndGet(); index++
+            if (index == requests.size) terminal.countDown()
+            return true
+        }
+        @Synchronized private fun invalidate() { invalidated = true; terminal.countDown() }
+        override fun close() { closes.incrementAndGet(); invalidate() }
+    }
     private suspend fun uncertain(block: suspend () -> Unit) {
         try { block(); fail("Expected fixed ownership uncertainty") }
         catch (expected: LocalInferenceUncertain) {
@@ -111,6 +140,90 @@ class LiteRtRoleWorkerTest {
     private fun CountDownLatch.boundedAwait() { check(await(2, TimeUnit.SECONDS)) }
     private suspend fun healthyClose(call: LocalRoleCall, engine: LocalRoleEngine) {
         assertTrue(call.drain()); assertTrue(call.close()); assertTrue(engine.close())
+    }
+
+    @Test fun structuredRoleOrderAndOriginalSchemasSurviveFreshConversationCreation() = runBlocking {
+        for (roles in listOf(listOf("director", "narrator"), listOf("director", "director", "narrator"))) {
+            val resources = Resources()
+            val trace = LiteRtWorkerTrace()
+            val engine = LiteRtRoleWorker(config(), resources, trace).open()
+            for ((index, role) in roles.withIndex()) {
+                val schema = """{"type":"object","properties":{"canary_$index":{"type":"string"}}}"""
+                val original = request.copy(role = role, maxTokens = if (role == "narrator") 220 else 350,
+                    schemaJson = schema, prompt = "original private prompt $index")
+                val call = engine.start(original)
+                val conversation = resources.engines.single().conversations.last()
+                assertSame(original, conversation.request)
+                assertEquals(schema, conversation.request.schemaJson)
+                assertEquals(index + 1, trace.snapshot().creations[index].ordinal)
+                assertEquals(if (role == "director") LiteRtTraceRole.DIRECTOR else LiteRtTraceRole.NARRATOR,
+                    trace.snapshot().creations[index].role)
+                conversation.text("{}"); conversation.done(); call.await()
+                assertTrue(call.drain()); assertTrue(call.close())
+            }
+            assertEquals(roles.size, resources.engines.single().conversations.toSet().size)
+            assertTrue(resources.engines.single().conversations.all { it.closes.get() == 1 })
+            assertTrue(engine.close())
+            val observed = trace.snapshot()
+            assertEquals(roles.size, observed.creations.size)
+            assertTrue(observed.creations.all { it.returnedMs != null && it.failedMs == null && it.failure == LiteRtTraceFailure.NONE })
+            assertFalse(observed.json().contains("private prompt")); assertFalse(observed.json().contains("canary_"))
+        }
+    }
+
+    @Test fun unfinishedSecondCreationKeepsRoleTimingAndNeverAuthorizesCommit() = runBlocking {
+        val resources = Resources()
+        val trace = LiteRtWorkerTrace()
+        val first = Conversation().also { conversation -> conversation.sendAction = { conversation.text("{}"); conversation.done() } }
+        val second = Conversation().also { conversation -> conversation.sendAction = { conversation.text("{}"); conversation.done() } }
+        val entered = CountDownLatch(1); val release = CountDownLatch(1)
+        val factories = AtomicInteger()
+        resources.next.conversationAction = {
+            if (factories.incrementAndGet() == 1) first else {
+                entered.countDown(); release.boundedAwait(); second
+            }
+        }
+        val config = config().copy(deadlineMs = 500)
+        val owner = config.createOwner(LocalInferenceLimits(turnMs = 500, cleanupMs = 100, pollMs = 2), resources, trace)
+        val port = SequencePort(listOf(request, request.copy(role = "narrator", maxTokens = 220)))
+        val preparing = async { uncertain { owner.execute(port, "prepare", "prepare".toByteArray(), "cancel".toByteArray()) } }
+        try {
+            eventually { entered.count == 0L }
+            preparing.await()
+            val observed = trace.snapshot()
+            assertTrue(owner.quarantined); assertEquals(1, port.deliveries.get()); assertEquals(0, port.commits.get())
+            assertEquals(listOf(LiteRtTraceRole.DIRECTOR, LiteRtTraceRole.NARRATOR), observed.creations.map { it.role })
+            assertNotNull(observed.creations[0].returnedMs)
+            assertNull(observed.creations[1].returnedMs); assertNull(observed.creations[1].failedMs)
+            assertTrue(observed.creations[1].enteredMs <= observed.snapshotMs)
+            assertEquals(1, first.closes.get()); assertEquals(0, second.closes.get())
+            assertEquals(0, observed.counts.getValue(LiteRtWorkerEvent.ENGINE_CLOSE_KNOWN))
+        } finally { release.countDown() }
+        eventually { trace.snapshot().creations[1].returnedMs != null }
+        uncertain { owner.execute(port, "commit", "commit".toByteArray()) }
+        assertTrue(owner.quarantined); assertEquals(1, port.deliveries.get()); assertEquals(0, port.commits.get())
+    }
+
+    @Test fun failedCreationReportsClosedCategoryAfterOriginalFenceWithoutPrivateError() = runBlocking {
+        for (cancelled in listOf(false, true)) {
+            val resources = Resources()
+            val trace = LiteRtWorkerTrace()
+            var observedBeforeFailureMark = false
+            val worker = LiteRtRoleWorker(config(), resources, trace) {
+                observedBeforeFailureMark = trace.snapshot().creations.single().failedMs == null
+            }
+            val engine = worker.open()
+            resources.engines.single().conversationAction = {
+                if (cancelled) throw java.util.concurrent.CancellationException("private cancellation source")
+                else throw AssertionError("private native path/cause/schema")
+            }
+            uncertain { engine.start(request) }
+            assertTrue(observedBeforeFailureMark)
+            val observed = trace.snapshot()
+            assertEquals(if (cancelled) LiteRtTraceFailure.CANCELLED else LiteRtTraceFailure.OTHER, observed.creations.single().failure)
+            assertNotNull(observed.creations.single().failedMs); assertNull(observed.creations.single().returnedMs)
+            assertFalse(observed.json().contains("private")); assertFalse(engine.close())
+        }
     }
 
     @Test fun stageTraceDistinguishesBlockedAdmissionConstructionAndInitialization() = runBlocking {

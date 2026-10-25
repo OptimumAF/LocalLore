@@ -64,6 +64,7 @@ SOURCE_FILES = (*q.SOURCE_FILES, "benchmarks/receipt_real_candidate.py", "script
     "apps/android/app/src/modelReceipt/java/org/locallore/app/ReceiptWorkerFailureReporter.kt",
     "apps/android/app/src/modelReceiptTest/java/org/locallore/app/ReceiptWorkerFailureReporterTest.kt",
     "docs/native/LITERT_WORKER_TRACE_CONTRACT.md",
+    "docs/native/LITERT_WORKER_TRACE_V2_CONTRACT.md",
     "scripts/tests/test_receipt_real_stream_guards.py",
     "apps/android/app/src/modelReceiptAndroidTest/java/org/locallore/app/ReceiptRealCandidateTest.kt",
     "scripts/audit_apk.py", "scripts/tests/test_audit_apk.py", "scripts/tests/test_receipt_avd_environment.py",

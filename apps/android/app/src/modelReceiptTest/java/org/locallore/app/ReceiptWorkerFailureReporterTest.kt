@@ -11,8 +11,11 @@ class ReceiptWorkerFailureReporterTest {
         val trace = LiteRtWorkerTrace()
         var sends = 0
         val send: (Int, String, String) -> Unit = { code, key, json ->
-            assertEquals(1337, code); assertEquals("locallore_receipt_worker_v1", key)
-            assertEquals(trace.snapshot().json(), json); sends++
+            assertEquals(1337, code); assertEquals("locallore_receipt_worker_v2", key)
+            assertTrue(json.startsWith("{\"version\":2,\"counts\":{"))
+            assertTrue(json.contains("\"creations\":[]"))
+            assertTrue((LiteRtWorkerTrace.WIRE_PREFIX + json).length <= LiteRtWorkerTrace.MAX_BYTES)
+            sends++
         }
         assertEquals(42, reporter.run(trace, send) { 42 })
         assertEquals(0, sends)

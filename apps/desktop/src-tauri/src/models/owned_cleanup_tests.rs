@@ -418,4 +418,164 @@ mod actual_owned_cleanup {
         let reservation = manager.reserve_evaluation().unwrap();
         drop(reservation);
     }
+
+    // A fixed private pause is supplied by Root after close's ticket check.
+    // Completion channels are bounded; joins after release are cooperative
+    // cleanup of these controlled fixture threads, not universal OS deadlines.
+    struct CloseWorker {
+        done: std::sync::mpsc::Receiver<()>,
+        thread: Option<std::thread::JoinHandle<()>>,
+    }
+    struct CloseWorkers {
+        release: Option<std::sync::mpsc::SyncSender<()>>,
+        workers: Vec<CloseWorker>,
+    }
+    impl CloseWorkers {
+        fn release_old(&mut self) {
+            if let Some(release) = self.release.take() {
+                let _ = release.try_send(());
+            }
+        }
+        fn finish(&mut self) {
+            self.release_old();
+            for worker in &mut self.workers {
+                worker
+                    .done
+                    .recv_timeout(std::time::Duration::from_secs(5))
+                    .expect("controlled close worker completion");
+                worker.thread.take().unwrap().join().unwrap();
+            }
+        }
+    }
+    impl Drop for CloseWorkers {
+        fn drop(&mut self) {
+            // Also covers a failed entered/install assertion or worker panic:
+            // release the old worker before joining either owned thread.
+            self.release_old();
+            for worker in &mut self.workers {
+                if let Some(thread) = worker.thread.take() {
+                    let _ = thread.join();
+                }
+            }
+        }
+    }
+    struct CloseDone(std::sync::mpsc::SyncSender<()>);
+    impl Drop for CloseDone {
+        fn drop(&mut self) {
+            let _ = self.0.try_send(());
+        }
+    }
+
+    #[test]
+    fn close_checked_before_supersession_cannot_revoke_the_replacement_host_supplier() {
+        use std::{sync::mpsc, time::Duration};
+        let _reset = FaultReset;
+        let first_fixture = FixedOwner::new();
+        let replacement_fixture = FixedOwner::new();
+        let manager = metadata_manager();
+        let first = first_fixture.arc();
+        let replacement = replacement_fixture.arc();
+        let host = Arc::new(Host::new(true));
+        let provider_constructed = Arc::new(AtomicBool::new(false));
+        let observed = provider_constructed.clone();
+        let factory: locallore::host::ProviderFactory = Arc::new(move || {
+            observed.store(true, Ordering::SeqCst);
+            Box::new(locallore::inference::FakeProvider::new(
+                locallore::inference::FakeMode::Accepted,
+            ))
+        });
+        let profile = PlayProfile {
+            id: "close-race-original".into(),
+            model_sha256: "a".repeat(64),
+            runtime_revision: "b".repeat(40),
+            template_sha256: "c".repeat(64),
+            worker_sha256: "d".repeat(64),
+            profile_manifest_sha256: "e".repeat(64),
+            context_tokens: 4096,
+            director_tokens: 350,
+            narrator_tokens: 350,
+            deadline_ms: 5000,
+            repair_limit: 1,
+        };
+        handoff(&manager, &first);
+        host.configure_fixture_provider(profile.clone(), factory.clone())
+            .unwrap();
+        let old_retired = manager.retire().unwrap();
+        let (entered_tx, entered_rx) = mpsc::sync_channel(1);
+        let (release_tx, release_rx) = mpsc::sync_channel(1);
+        let (old_done_tx, old_done_rx) = mpsc::sync_channel(1);
+        let old_manager = manager.clone();
+        let old_host = host.clone();
+        let old_thread = std::thread::spawn(move || {
+            let _done = CloseDone(old_done_tx);
+            CLOSE_REVOKE_PAUSE.with(|pause| {
+                *pause.borrow_mut() = Some((entered_tx, release_rx));
+            });
+            old_manager.close(Some(&old_host), Some(old_retired));
+        });
+        let mut workers = CloseWorkers {
+            release: Some(release_tx),
+            workers: vec![CloseWorker {
+                done: old_done_rx,
+                thread: Some(old_thread),
+            }],
+        };
+        entered_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("old close reached the fixed post-check pause");
+
+        let next_retired = manager.retire().unwrap();
+        let (installed_tx, installed_rx) = mpsc::sync_channel(1);
+        let (next_done_tx, next_done_rx) = mpsc::sync_channel(1);
+        let next_manager = manager.clone();
+        let next_host = host.clone();
+        let next_owner = replacement.clone();
+        let mut next_profile = profile;
+        next_profile.id = "close-race-replacement".into();
+        let next_thread = std::thread::spawn(move || {
+            let _done = CloseDone(next_done_tx);
+            next_manager.close(Some(&next_host), Some(next_retired));
+            handoff(&next_manager, &next_owner);
+            next_host
+                .configure_fixture_provider(next_profile, factory)
+                .unwrap();
+            installed_tx.try_send(()).unwrap();
+        });
+        workers.workers.push(CloseWorker {
+            done: next_done_rx,
+            thread: Some(next_thread),
+        });
+
+        // A safe implementation may serialize the second close, or permit it
+        // while conditionally refusing the stale Host revocation. Test only
+        // the supplier outcome, never the presence of a particular mutex.
+        let installed_early = match installed_rx.recv_timeout(Duration::from_secs(1)) {
+            Ok(()) => true,
+            Err(mpsc::RecvTimeoutError::Timeout) => false,
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                panic!("replacement worker failed before installation");
+            }
+        };
+        eprintln!("replacement_installed_before_old_release={installed_early}");
+        workers.release_old();
+        if !installed_early {
+            installed_rx
+                .recv_timeout(Duration::from_secs(5))
+                .expect("replacement installs after controlled old-close release");
+        }
+        workers.finish();
+
+        retained_same_owner(&manager, &replacement);
+        let capabilities = host.call(br#"{"version":1,"command":{"op":"capabilities"}}"#);
+        assert_eq!(capabilities["status"], "ok");
+        assert_eq!(capabilities["data"]["free_text"], true);
+        let model = host.call(br#"{"version":1,"command":{"op":"model_status"}}"#);
+        assert_eq!(model["status"], "ok");
+        assert_eq!(model["data"]["profile"]["id"], "close-race-replacement");
+        assert_eq!(model["data"]["real_model"], false);
+        assert!(!provider_constructed.load(Ordering::SeqCst));
+        host.disable_local_provider();
+        unload(&manager).unwrap();
+        assert_released(&manager, &replacement);
+    }
 }

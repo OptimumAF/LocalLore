@@ -9,6 +9,13 @@ const MANIFEST_CAP: usize = 128 * 1024;
 mod review_tests;
 #[cfg(test)]
 mod divergent_tests;
+#[cfg(test)]
+mod lifecycle_tests;
+#[cfg(test)]
+thread_local! {
+    // Fixed unit-test cancellation boundary; no app/IPC/runtime hook.
+    static CANCEL_AFTER_ARM: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
 
 pub enum SelectedLane {
     ScriptedBaseline,
@@ -671,6 +678,10 @@ fn execute_selected(
             saved(&checkpoint_path(&d, index), &turn, 256 * 1024)?;
         }
         turns[arm] = Some(turn);
+        #[cfg(test)]
+        if CANCEL_AFTER_ARM.with(std::cell::Cell::get) {
+            cancel.cancel();
+        }
         ledgers[1 - arm].exclude_measured_interval(
             began.elapsed().as_millis().min(u64::MAX as u128) as u64)?;
     }

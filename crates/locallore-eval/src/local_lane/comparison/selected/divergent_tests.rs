@@ -123,8 +123,8 @@ fn genuine_rollout_divergence_keeps_each_selected_actual_prefix_and_full_request
     let mut actual_before = Vec::new();
     let mut actual_requests = Vec::new();
     let mut source_rows = Vec::new();
-    for arm in 0..2 {
-        let d = source.join(ARM_NAMES[arm]);
+    for arm_name in &ARM_NAMES {
+        let d = source.join(arm_name);
         let cp: StoredTurn = decode(&checkpoint_path(&d, INDEX), 256 * 1024).unwrap();
         assert_eq!(cp.row.phase, "committed");
         assert!(cp.row.roles_known && cp.row.passed);

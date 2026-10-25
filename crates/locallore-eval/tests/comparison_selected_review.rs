@@ -92,7 +92,10 @@ fn keys(value: &Value, expected: &[&str]) {
 }
 fn fixed_error<T>(result: Result<T, String>) -> String {
     // Opaque capabilities and reports intentionally need no Debug/public fields.
-    let error = result.err().expect("fixed refusal, never a successful capability");
+    let error = match result {
+        Ok(_) => panic!("fixed refusal, never a successful capability"),
+        Err(error) => error,
+    };
     assert!(!error.is_empty() && error.len() <= 96);
     assert!(error.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_'));
     error

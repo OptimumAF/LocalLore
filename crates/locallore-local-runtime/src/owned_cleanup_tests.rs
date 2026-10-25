@@ -347,7 +347,11 @@ fn partial_start_valid_fixture_owner_is_failed_and_cannot_load_before_cleanup() 
     drop(owner);
 
     assert_eq!(initial_error, Error::WorkerUnavailable);
-    assert_eq!(returned_status, Status::Failed);
+    assert_eq!(
+        returned_status,
+        Status::Failed,
+        "fixed fixture load: {first_load:?}; request id {before_request_id} -> {after_request_id}"
+    );
     assert_eq!(first_load, Err(Error::WorkerUnavailable));
     assert_eq!(after_request_id, before_request_id);
 }

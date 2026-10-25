@@ -624,7 +624,10 @@ impl LocalRuntime {
         })();
         match started {
             Ok(()) => Ok(owner),
-            Err(cause) => Err(OwnedStartFailure::AfterChild { cause, owner }),
+            Err(cause) => {
+                owner.status = Status::Failed;
+                Err(OwnedStartFailure::AfterChild { cause, owner })
+            }
         }
     }
     /// Identity of the exact read-only executable handle retained across process creation.

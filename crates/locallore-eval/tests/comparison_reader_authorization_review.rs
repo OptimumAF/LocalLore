@@ -153,6 +153,10 @@ fn actor_raw_denial_precedes_live_required_evidence_loss_or_corruption_while_que
         ("corrupt-checkpoint", false, false),
     ] {
         let directory = copy_run(label);
+        // Windows run.lock is mandatory-locked while the capability is open.
+        // Capture ALL bytes before opening; alter only the expected fixture fault
+        // below, then read/compare the entire inventory only after dropping it.
+        let mut after_fault = inventory(&directory);
         let opened = desktop_api::open_read_only(&directory).unwrap();
         let summary = desktop_api::summary(&opened, true).unwrap();
         let binding = summary["binding"].as_str().unwrap();
@@ -165,9 +169,16 @@ fn actor_raw_denial_precedes_live_required_evidence_loss_or_corruption_while_que
         let fault_path = if capture { directory.join("left").join(capture_file) } else { checkpoint_path };
         // Deliberate noncooperating-writer fault in this freshly owned clone,
         // AFTER valid opening/binding. It adds no accepted history or fake row.
-        if remove { fs::remove_file(&fault_path).unwrap(); }
-        else { fs::write(&fault_path, b"SYNTHETIC_REQUIRED_EVIDENCE_CORRUPTION").unwrap(); }
-        let after_fault = inventory(&directory);
+        let relative = fault_path.strip_prefix(&directory).unwrap();
+        assert!(after_fault.files.contains_key(relative));
+        if remove {
+            fs::remove_file(&fault_path).unwrap();
+            assert!(after_fault.files.remove(relative).is_some());
+        } else {
+            let corrupted = b"SYNTHETIC_REQUIRED_EVIDENCE_CORRUPTION";
+            fs::write(&fault_path, corrupted).unwrap();
+            assert!(after_fault.files.insert(relative.into(), corrupted.to_vec()).is_some());
+        }
         for observer in [Observer::Player, Observer::Character { id: "mira".into() }] {
             for kind in 0..3 {
                 denials.push(error(desktop_api::evidence(&opened, binding, &known, raw(kind, observer.clone()), true)));

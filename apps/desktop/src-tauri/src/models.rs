@@ -16,6 +16,22 @@ use std::{
     },
 };
 type SharedRuntime = Arc<Mutex<LocalRuntime>>;
+
+/// Native-only acknowledgement, never a renderer value or a cleanup request.
+/// A clone observes the same actual cleanup even after the slot is replaced.
+#[derive(Clone)]
+pub(crate) struct CleanupWitness(Arc<AtomicBool>);
+impl CleanupWitness {
+    pub(crate) fn confirmed(&self) -> bool {
+        self.0.load(Ordering::Acquire)
+    }
+    fn confirm(&self) {
+        self.0.store(true, Ordering::Release);
+    }
+    fn same(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
 #[cfg(test)]
 thread_local! {
     static FAIL_CLEANUP_ONCE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
@@ -76,6 +92,7 @@ struct Inner {
     evaluation: Option<u64>,
     evaluation_sequence: u64,
     retained_evaluations: usize,
+    runtime_cleanup_witness: Option<(Weak<Mutex<LocalRuntime>>, CleanupWitness)>,
     starting: Option<u64>,
     closing: Option<u64>,
     cleanup_uncertain: bool,
@@ -98,6 +115,8 @@ pub struct EvaluationReservation {
     owner: Arc<ModelManager>,
     ticket: u64,
     retained_owner: Option<Weak<Mutex<LocalRuntime>>>,
+    selected_identity: Option<Weak<Mutex<LocalRuntime>>>,
+    cleanup_witness: CleanupWitness,
     pub resource: PathBuf,
     pub model: PathBuf,
 }
@@ -122,6 +141,13 @@ impl EvaluationReservation {
 
     fn mark_selected_owner(&mut self, runtime: &SharedRuntime) -> Result<(), ()> {
         let identity = Arc::downgrade(runtime);
+        if self
+            .selected_identity
+            .as_ref()
+            .is_some_and(|bound| !Weak::ptr_eq(bound, &identity))
+        {
+            return Err(());
+        }
         if let Some(bound) = &self.retained_owner {
             return if Weak::ptr_eq(bound, &identity) {
                 Ok(())
@@ -133,8 +159,13 @@ impl EvaluationReservation {
         // Overflow cannot wrap admission open. The existing nonzero count stays
         // fail-closed and the shared failure still retains the actual R + Arc.
         s.retained_evaluations = s.retained_evaluations.checked_add(1).ok_or(())?;
+        self.selected_identity = Some(identity.clone());
         self.retained_owner = Some(identity);
         Ok(())
+    }
+
+    pub(crate) fn cleanup_witness(&self) -> CleanupWitness {
+        self.cleanup_witness.clone()
     }
 
     fn release_selected_owner(&mut self) -> bool {
@@ -173,6 +204,9 @@ impl EvaluationReservation {
             outcome.confirmed = false;
             outcome.result = Err("Cleanup".into());
         }
+        if outcome.confirmed {
+            self.cleanup_witness.confirm();
+        }
         outcome
     }
 }
@@ -195,6 +229,19 @@ impl locallore_eval::local_lane::comparison::selected::SelectedNativeReservation
         }
         let original = runtime.clone();
         EvaluationReservation::retain_uncertain(self, runtime)?;
+        {
+            let mut s = self.owner.inner.lock().unwrap_or_else(|p| p.into_inner());
+            if s.evaluation != Some(self.ticket)
+                || !s
+                    .runtime
+                    .as_ref()
+                    .is_some_and(|owner| Arc::ptr_eq(owner, &original))
+            {
+                return Err(original);
+            }
+            s.runtime_cleanup_witness =
+                Some((Arc::downgrade(&original), self.cleanup_witness.clone()));
+        }
         // The exact actual owner is now in the same manager's Cleanup slot.
         // Either this count or that slot excludes admission throughout handoff.
         if self.release_selected_owner() {
@@ -222,6 +269,7 @@ impl ModelManager {
                 evaluation: None,
                 evaluation_sequence: 0,
                 retained_evaluations: 0,
+                runtime_cleanup_witness: None,
                 starting: None,
                 closing: None,
                 cleanup_uncertain: false,
@@ -329,6 +377,8 @@ impl ModelManager {
             owner: self.clone(),
             ticket,
             retained_owner: None,
+            selected_identity: None,
+            cleanup_witness: CleanupWitness(Arc::new(AtomicBool::new(false))),
             resource: self.resource.clone(),
             model: self.path(),
         })
@@ -588,6 +638,72 @@ impl ModelManager {
         };
         self.finish_cleanup(job, runtime.as_ref(), outcome)
     }
+
+    /// Cleanup only the selected slot associated with this opaque native token.
+    /// An older acknowledged token never touches a newer runtime or Host.
+    pub(crate) fn cleanup_selected(&self, witness: &CleanupWitness) -> CleanupOutcome {
+        let admitted = (|| -> Result<(u64, SharedRuntime), String> {
+            let mut s = self.inner.lock().map_err(|_| "Cleanup")?;
+            if witness.confirmed() {
+                return Err("AlreadyClean".into());
+            }
+            if s.evaluation.is_some()
+                || s.retained_evaluations > 0
+                || s.starting.is_some()
+                || s.closing.is_some()
+                || matches!(
+                    s.phase,
+                    "choosing" | "checking" | "copying" | "loading" | "unloading"
+                )
+            {
+                return Err("Busy".into());
+            }
+            let runtime = s.runtime.clone().ok_or("Cleanup")?;
+            if !s
+                .runtime_cleanup_witness
+                .as_ref()
+                .is_some_and(|(owner, current)| {
+                    current.same(witness) && Weak::ptr_eq(owner, &Arc::downgrade(&runtime))
+                })
+            {
+                return Err("Cleanup".into());
+            }
+            if s.job >= 9_007_199_254_740_991 {
+                return Err("TooLarge".into());
+            }
+            s.job += 1;
+            s.closing = Some(s.job);
+            s.phase = "unloading";
+            s.percent = 0;
+            Ok((s.job, runtime))
+        })();
+        let (job, runtime) = match admitted {
+            Ok(admitted) => admitted,
+            Err(error) => {
+                return CleanupOutcome {
+                    confirmed: witness.confirmed(),
+                    result: if witness.confirmed() {
+                        Ok(())
+                    } else {
+                        Err(error)
+                    },
+                }
+            }
+        };
+        let outcome = cleanup_owner(&runtime, |runtime| {
+            runtime.terminate_and_reap().map_err(runtime_error)
+        });
+        let result = outcome.result.clone();
+        let _ = self.finish_cleanup(job, Some(&runtime), outcome);
+        CleanupOutcome {
+            confirmed: witness.confirmed(),
+            result: if witness.confirmed() {
+                result
+            } else {
+                Err("Cleanup".into())
+            },
+        }
+    }
     fn finish_cleanup(
         &self,
         job: u64,
@@ -606,6 +722,14 @@ impl ModelManager {
                     _ => false,
                 };
                 if same && outcome.confirmed {
+                    if let (Some(owner), Some((bound, witness))) =
+                        (owner, &s.runtime_cleanup_witness)
+                    {
+                        if Weak::ptr_eq(bound, &Arc::downgrade(owner)) {
+                            witness.confirm();
+                        }
+                    }
+                    s.runtime_cleanup_witness = None;
                     s.runtime = None;
                     s.profile = None;
                     s.cleanup_uncertain = false;

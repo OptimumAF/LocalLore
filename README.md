@@ -123,6 +123,13 @@ send wrapper; no Dialogue receipt or ordinary-route reopen is qualified. The
 retained trace does not identify the discarded exception or prove SDK async-call
 entry. The next gate is a bounded observation separating argument construction
 from SDK invocation, while preserving quarantine and the existing deadlines.
+The [portable Dialogue follow-up](docs/native/LITERT_SEND_BOUNDARY_VERIFICATION_2026-10-25.md)
+replaces a known unsupported schema keyword with bounded choices covering every
+permitted audience set. Its fresh ordinary Start/gift passes again. Dialogue now
+returns from the public SDK call and receives 21 message callbacks before an
+asynchronous error; no accepted Dialogue or ordinary-route reopen is qualified.
+The new privacy-safe send record works on the actual failure path. The async
+error's cause remains unknown; all owned processes stopped and evidence is sealed.
 
 An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects
 the isolated SDK to guarded free-text preparation and durable commit. Its

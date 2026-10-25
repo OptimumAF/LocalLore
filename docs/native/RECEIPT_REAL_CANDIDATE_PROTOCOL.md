@@ -139,11 +139,11 @@ quality, cache/privacy, DocumentsUI and milestone acceptance remain open.
 ## Passive worker failure observations
 
 The exact PLAY fixture may attach the final, in-memory
-[closed worker trace](LITERT_WORKER_TRACE_CONTRACT.md) to the same production
+[closed worker trace](LITERT_WORKER_TRACE_V2_CONTRACT.md) to the same production
 candidate owner. It does not replace resources, supply generated output or alter
 any limit. If `respondText` throws or its existing Prepared assertion fails,
 before the existing catch/finally cleanup it
-attempts one bounded `locallore_receipt_worker_v1` status1337 record per process.
+attempts one bounded `locallore_receipt_worker_v2` status1337 record per process.
 Successful calls emit none. Snapshot or delivery failure cannot replace the
 identical original throwable. No extra SDK, model-file or transport call is made
 to obtain the snapshot; no path, prompt, response or exception text is serialized.
@@ -156,3 +156,9 @@ reclamation or permit REOPEN. Returned/settled/known counts are historical
 observations at the specified Kotlin points, not independent JNI completion,
 caller-delivery or current-ownership evidence. Missing counters never authorize
 retry; the existing owner quarantine remains authoritative.
+
+V2 adds closed DIRECTOR/NARRATOR creation ordinals and bounded monotonic offsets,
+including pending/returned/closed-category failure observations. It retains the
+original counters and4096-byte wire cap; v1 remains strictly readable. Timing is
+relative to the trace's own creation, not wall-clock or native substep time.
+Neither version can qualify a failed runner or permit a later phase.

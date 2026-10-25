@@ -193,6 +193,8 @@ internal class LiteRtRoleWorker(
         private var closing = false
         private var closed = false
         override suspend fun start(request: LocalInferenceRequest): LocalRoleCall = withContext(Dispatchers.IO) {
+            var creationOrdinal = 0
+            var creationReturned = false
             try {
                 config.validateRequest(request)
                 synchronized(lock) {
@@ -203,10 +205,19 @@ internal class LiteRtRoleWorker(
                 config.storageAdmission()
                 trace?.record(LiteRtWorkerEvent.ROLE_ADMISSION_RETURNED)
                 trace?.record(LiteRtWorkerEvent.CONVERSATION_CREATE_ENTERED)
+                // Request validation above admits only these two closed roles. No prompt/schema
+                // or exception string enters the passive observation.
+                creationOrdinal = trace?.creationEntered(when (request.role) {
+                    "director" -> LiteRtTraceRole.DIRECTOR
+                    else -> LiteRtTraceRole.NARRATOR
+                }) ?: 0
                 val conversation = resource.conversation(request)
-                trace?.record(LiteRtWorkerEvent.CONVERSATION_CREATE_RETURNED)
                 val call = OwnedCall(conversation)
                 synchronized(lock) { roles += call }
+                // Retain the returned resource before doing diagnostic work.
+                creationReturned = true
+                trace?.creationReturned(creationOrdinal)
+                trace?.record(LiteRtWorkerEvent.CONVERSATION_CREATE_RETURNED)
                 try {
                     trace?.record(LiteRtWorkerEvent.SEND_ADMISSION_ENTERED)
                     config.storageAdmission()
@@ -218,9 +229,11 @@ internal class LiteRtRoleWorker(
                 catch (_: Throwable) { call.failedStart(); throw LocalInferenceUncertain() }
                 call.started()
                 call
-            } catch (_: Throwable) {
+            } catch (failure: Throwable) {
                 synchronized(lock) { startUnknown = true }
                 unknown()
+                if (!creationReturned) trace?.creationFailed(creationOrdinal,
+                    if (failure is CancellationException) LiteRtTraceFailure.CANCELLED else LiteRtTraceFailure.OTHER)
                 throw LocalInferenceUncertain()
             } finally { synchronized(lock) { starting = false } }
         }

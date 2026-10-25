@@ -70,6 +70,35 @@ def stream_result(clean=True):
 
 
 class RealCandidateTests(unittest.TestCase):
+    def test_v2_role_timing_is_retained_before_failed_runner_without_enabling_later_actions(self):
+        counts = {event: 0 for event in r.worker_trace.EVENTS}
+        counts.update(CONVERSATION_CREATE_ENTERED=2, CONVERSATION_CREATE_RETURNED=1)
+        last = {event: None for event in r.worker_trace.EVENTS}
+        last.update(CONVERSATION_CREATE_ENTERED=100, CONVERSATION_CREATE_RETURNED=50)
+        value = {"version": 2, "counts": counts, "saturated": [], "last_ms": last,
+                 "snapshot_ms": 200, "time_saturated": False, "creations_total": 2,
+                 "creations_saturated": False, "creations": [
+                     {"ordinal": 1, "role": "DIRECTOR", "entered_ms": 20, "returned_ms": 50,
+                      "failed_ms": None, "failure": "NONE"},
+                     {"ordinal": 2, "role": "NARRATOR", "entered_ms": 100, "returned_ms": None,
+                      "failed_ms": None, "failure": "NONE"}]}
+        wire = (r.worker_trace.PREFIX + encoded(value).decode("ascii") +
+                "\nINSTRUMENTATION_STATUS_CODE: 1337\nFAILURES!!!\n").encode("ascii")
+        with tempfile.TemporaryDirectory() as directory:
+            owner = SimpleNamespace(directory=Path(directory), shell=lambda *a, **kw: wire)
+            with patch.object(r, "read_proof") as read:
+                with self.assertRaises(AssertionError): r.run_selected(owner, "PLAY")
+                read.assert_not_called()
+            self.assertEqual(value, json.loads((Path(directory) / "play-worker-trace-v2.json").read_bytes()))
+            self.assertFalse((Path(directory) / "play-instrumentation-v1.json").exists())
+        for phase in r.PHASES:
+            with tempfile.TemporaryDirectory() as directory:
+                owner = SimpleNamespace(directory=Path(directory), shell=lambda *a, **kw: wire + transcript(phase))
+                with patch.object(r, "read_proof") as read:
+                    with self.assertRaises(AssertionError): r.run_selected(owner, phase)
+                    read.assert_not_called()
+                self.assertEqual([], list(Path(directory).iterdir()))
+
     def test_play_worker_observation_is_retained_before_unchanged_failed_runner_gate(self):
         counts = {event: 0 for event in r.worker_trace.EVENTS}
         counts["INITIALIZE_ENTERED"] = 1

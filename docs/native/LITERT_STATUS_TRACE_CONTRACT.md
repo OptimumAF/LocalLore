@@ -39,9 +39,12 @@ Every prefix includes the period and the final space. Unknown17+, negatives,
 pluses, zero padding, leading/changed whitespace, case changes, and malformed
 boundaries return UNRECOGNIZED. No regex, integer parsing, substring, trim,
 toString, cause/stack/suppressed access, whole-message scan, logging, copying,
-payload validation or message retention is performed. The original String may
-already contain arbitrarily private/large/control/Unicode suffix data; that
-suffix does not affect the classification and is never exported. This source
+payload validation or message retention is performed. Comparisons inspect only
+the expected header window of at most26 UTF-16 code units. Malformed or locally
+constructed messages may put private characters within that bounded window;
+none are retained or exported. In a well-formed wrapper, arbitrarily private,
+large, control or Unicode suffix data does not affect classification and is
+never traversed or exported. This source
 property is not a measured allocation/timing guarantee for the entire SDK.
 
 The root integration invokes this bridge ONLY when its receipt-only status

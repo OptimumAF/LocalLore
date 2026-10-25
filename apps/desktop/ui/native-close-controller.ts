@@ -23,10 +23,11 @@ export class NativeCloseController {
         const record = value as Record<string, unknown>;
         if (
             Object.keys(record).length !== 2 ||
+            !Object.hasOwn(record, "version") ||
+            !Object.hasOwn(record, "phase") ||
             record.version !== 1 ||
-            !["closing", "cleanup_required", "closed"].includes(
-                String(record.phase),
-            )
+            typeof record.phase !== "string" ||
+            !["closing", "cleanup_required", "closed"].includes(record.phase)
         ) {
             this.error();
             return;

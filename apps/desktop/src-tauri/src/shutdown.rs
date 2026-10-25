@@ -26,6 +26,12 @@ pub(crate) fn drain_owned_work(
     if let Some(host) = host {
         host.close_all();
     }
+    if models.cleanup_complete() {
+        // Accepted handoff cleanup may have confirmed its actual witness only
+        // during Models.close. Reconcile that same epoch's Job now, without
+        // repeating uncertain cleanup or requiring another user close attempt.
+        let _ = evaluations.selected_cleanup_retired(epoch);
+    }
     evaluations.cleanup_complete() && models.cleanup_complete()
 }
 

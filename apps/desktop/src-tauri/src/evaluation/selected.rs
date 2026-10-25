@@ -132,6 +132,17 @@ struct Record {
     touched: Instant,
 }
 impl Record {
+    fn cache_execution_status(&mut self, operation: u64, status: &Value) {
+        // Read/resume operations cannot rebind the admitted start receipt or
+        // promote their later private read grant into an execution response.
+        if let Some((_, cached)) = self
+            .consumed
+            .as_mut()
+            .filter(|(_, cached)| cached["operation_id"].as_u64() == Some(operation))
+        {
+            *cached = status.clone();
+        }
+    }
     fn owns(&self, lease: &WindowLease, epoch: u64) -> bool {
         self.epoch == epoch && std::ptr::eq(self.lease.as_ptr(), lease)
     }
@@ -928,7 +939,6 @@ impl EvaluationManager {
                 }
                 r.plan_token = None;
                 r.metadata = None;
-                r.consumed = None;
                 r.lane = None;
                 r.error = None;
                 r.cause = None;
@@ -1665,9 +1675,7 @@ impl EvaluationManager {
                         r.binding = summary["binding"].as_str().map(str::to_owned);
                     }
                     let status = r.status()?;
-                    if let Some((_, cached)) = r.consumed.as_mut() {
-                        *cached = status.clone();
-                    }
+                    r.cache_execution_status(operation, &status);
                     Ok(status)
                 }
                 Ok(Publication::Read(cap, result, idle_phase)) => {
@@ -1691,9 +1699,7 @@ impl EvaluationManager {
                         discard.push(Discard::Plan(plan));
                     }
                     let status = r.status()?;
-                    if let Some((_, cached)) = r.consumed.as_mut() {
-                        *cached = status.clone();
-                    }
+                    r.cache_execution_status(operation, &status);
                     Ok(status)
                 }
             }
@@ -1806,9 +1812,7 @@ impl EvaluationManager {
                     record.phase = "failed";
                 }
                 let value = record.status()?;
-                if let Some((_, cached)) = record.consumed.as_mut() {
-                    *cached = value;
-                }
+                record.cache_execution_status(job.id, &value);
             }
         }
         let error = selected.cleanup_error.clone();
@@ -1899,9 +1903,7 @@ impl EvaluationManager {
                         record.phase = "failed";
                     }
                     if let Ok(value) = record.status() {
-                        if let Some((_, cached)) = record.consumed.as_mut() {
-                            *cached = value;
-                        }
+                        record.cache_execution_status(work.operation, &value);
                     }
                 }
             }

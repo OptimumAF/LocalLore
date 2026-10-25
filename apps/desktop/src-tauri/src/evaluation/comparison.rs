@@ -353,7 +353,17 @@ impl EvaluationManager {
                 .get_mut(client)
                 .filter(|r| r.owns(lease, epoch))
                 .ok_or("UnknownEvaluationRun")?;
-            if token.is_some() && r.token.as_deref() != token {
+            // A transferred/released record has no capability left to close.
+            // Acknowledging that empty owner is idempotent; a replacement ready
+            // capability still requires its exact token and native epoch.
+            let empty_closed = r.phase == "closed"
+                && !r.running
+                && !r.granted
+                && r.token.is_none()
+                && r.cap.is_none()
+                && r.snapshot.is_none()
+                && r.operation.is_none();
+            if token.is_some() && r.token.as_deref() != token && !empty_closed {
                 return Err("UnknownEvaluationRun".into());
             }
             r.close(&mut discard);

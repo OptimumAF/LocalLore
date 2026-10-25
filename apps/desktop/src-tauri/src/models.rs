@@ -12,7 +12,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex, TryLockError,
+        Arc, Mutex, TryLockError, Weak,
     },
 };
 type SharedRuntime = Arc<Mutex<LocalRuntime>>;
@@ -32,9 +32,9 @@ fn owner_failed<T>(owner: &Mutex<T>, failed: impl FnOnce(&T) -> bool) -> bool {
         Err(TryLockError::Poisoned(_)) => true,
     }
 }
-struct CleanupOutcome {
-    confirmed: bool,
-    result: Result<(), String>,
+pub(crate) struct CleanupOutcome {
+    pub(crate) confirmed: bool,
+    pub(crate) result: Result<(), String>,
 }
 fn cleanup_owner<T>(
     owner: &Mutex<T>,
@@ -75,6 +75,7 @@ fn shutdown_owner<T>(
 struct Inner {
     evaluation: Option<u64>,
     evaluation_sequence: u64,
+    retained_evaluations: usize,
     starting: Option<u64>,
     closing: Option<u64>,
     cleanup_uncertain: bool,
@@ -96,17 +97,11 @@ pub struct ModelManager {
 pub struct EvaluationReservation {
     owner: Arc<ModelManager>,
     ticket: u64,
+    retained_owner: Option<Weak<Mutex<LocalRuntime>>>,
     pub resource: PathBuf,
     pub model: PathBuf,
 }
 impl EvaluationReservation {
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "D07 selected-run adapter is a separate integration slice; exact-owner handoff is exercised by native unit tests"
-        )
-    )]
     pub(crate) fn retain_uncertain(&mut self, runtime: SharedRuntime) -> Result<(), SharedRuntime> {
         let mut s = self.owner.inner.lock().unwrap_or_else(|p| p.into_inner());
         if s.evaluation != Some(self.ticket)
@@ -123,6 +118,90 @@ impl EvaluationReservation {
         s.percent = 0;
         s.error = Some("Cleanup".into());
         Ok(())
+    }
+
+    fn mark_selected_owner(&mut self, runtime: &SharedRuntime) -> Result<(), ()> {
+        let identity = Arc::downgrade(runtime);
+        if let Some(bound) = &self.retained_owner {
+            return if Weak::ptr_eq(bound, &identity) {
+                Ok(())
+            } else {
+                Err(())
+            };
+        }
+        let mut s = self.owner.inner.lock().unwrap_or_else(|p| p.into_inner());
+        // Overflow cannot wrap admission open. The existing nonzero count stays
+        // fail-closed and the shared failure still retains the actual R + Arc.
+        s.retained_evaluations = s.retained_evaluations.checked_add(1).ok_or(())?;
+        self.retained_owner = Some(identity);
+        Ok(())
+    }
+
+    fn release_selected_owner(&mut self) -> bool {
+        if self.retained_owner.is_none() {
+            return false;
+        }
+        let mut s = self.owner.inner.lock().unwrap_or_else(|p| p.into_inner());
+        let Some(remaining) = s.retained_evaluations.checked_sub(1) else {
+            // An inconsistent private count is never an acknowledgement.
+            s.retained_evaluations = 1;
+            return false;
+        };
+        s.retained_evaluations = remaining;
+        self.retained_owner = None;
+        true
+    }
+
+    /// Native-only cleanup of this exact external owner. No Host revocation or
+    /// old model-job completion may affect another current slot/supplier.
+    pub(crate) fn cleanup_retained(&mut self, runtime: &SharedRuntime) -> CleanupOutcome {
+        if !self
+            .retained_owner
+            .as_ref()
+            .is_some_and(|bound| Weak::ptr_eq(bound, &Arc::downgrade(runtime)))
+        {
+            return CleanupOutcome {
+                confirmed: false,
+                result: Err("Cleanup".into()),
+            };
+        }
+        // No manager metadata lock is held during actual kill/wait/pipe drain.
+        let mut outcome = cleanup_owner(runtime, |runtime| {
+            runtime.terminate_and_reap().map_err(runtime_error)
+        });
+        if outcome.confirmed && !self.release_selected_owner() {
+            outcome.confirmed = false;
+            outcome.result = Err("Cleanup".into());
+        }
+        outcome
+    }
+}
+
+impl locallore_eval::local_lane::comparison::selected::SelectedNativeReservation
+    for EvaluationReservation
+{
+    fn assets(&self) -> locallore_eval::local_lane::NativeAssets<'_> {
+        locallore_eval::local_lane::NativeAssets {
+            resource_dir: &self.resource,
+            model: &self.model,
+        }
+    }
+
+    fn retain_uncertain(&mut self, runtime: SharedRuntime) -> Result<(), SharedRuntime> {
+        // Only the selected consumer opts into this additional external fence.
+        // Latch before a stale ticket, busy slot or panic can reject transfer.
+        if self.mark_selected_owner(&runtime).is_err() {
+            return Err(runtime);
+        }
+        let original = runtime.clone();
+        EvaluationReservation::retain_uncertain(self, runtime)?;
+        // The exact actual owner is now in the same manager's Cleanup slot.
+        // Either this count or that slot excludes admission throughout handoff.
+        if self.release_selected_owner() {
+            Ok(())
+        } else {
+            Err(original)
+        }
     }
 }
 impl Drop for EvaluationReservation {
@@ -142,6 +221,7 @@ impl ModelManager {
             inner: Mutex::new(Inner {
                 evaluation: None,
                 evaluation_sequence: 0,
+                retained_evaluations: 0,
                 starting: None,
                 closing: None,
                 cleanup_uncertain: false,
@@ -176,13 +256,28 @@ impl ModelManager {
             s.phase = "failed";
             s.error = Some("Runtime".into());
         }
+        let external = s.retained_evaluations > 0;
+        let phase = if external && s.phase != "unloading" {
+            "failed"
+        } else {
+            s.phase
+        };
+        let error = if external {
+            Some("Cleanup".to_owned())
+        } else {
+            s.error.clone()
+        };
         Ok(
-            json!({"operation_id":s.job,"resident":s.runtime.is_some(),"phase":s.phase,"percent":s.percent,"error":s.error,"loaded":s.runtime.is_some()&&s.profile.is_some()&&!failed&&!s.cleanup_uncertain,"imported":imported,"profile":s.profile,"available_profile":{"id":PROFILE,"model_bytes":MODEL_BYTES,"model_sha256":MODEL_SHA256,"runtime_revision":RUNTIME_COMMIT,"device":"CPU: experimental Windows x64","qualification":"Experimental. Narrative quality and offline qualification remain pending."}}),
+            json!({"operation_id":s.job,"resident":s.runtime.is_some(),"phase":phase,"percent":s.percent,"error":error,"loaded":s.runtime.is_some()&&s.profile.is_some()&&!failed&&!s.cleanup_uncertain&&!external,"imported":imported,"profile":s.profile,"available_profile":{"id":PROFILE,"model_bytes":MODEL_BYTES,"model_sha256":MODEL_SHA256,"runtime_revision":RUNTIME_COMMIT,"device":"CPU: experimental Windows x64","qualification":"Experimental. Narrative quality and offline qualification remain pending."}}),
         )
     }
     fn begin(&self, phase: &'static str) -> Result<(u64, Arc<AtomicBool>), String> {
         let mut s = self.inner.lock().map_err(|_| "Internal")?;
-        if s.evaluation.is_some() || s.starting.is_some() || s.closing.is_some() {
+        if s.evaluation.is_some()
+            || s.retained_evaluations > 0
+            || s.starting.is_some()
+            || s.closing.is_some()
+        {
             return Err("Busy".into());
         }
         if matches!(
@@ -214,6 +309,7 @@ impl ModelManager {
     pub fn reserve_evaluation(self: &Arc<Self>) -> Result<EvaluationReservation, String> {
         let mut s = self.inner.lock().map_err(|_| "Internal")?;
         if s.evaluation.is_some()
+            || s.retained_evaluations > 0
             || s.starting.is_some()
             || s.closing.is_some()
             || matches!(
@@ -232,6 +328,7 @@ impl ModelManager {
         Ok(EvaluationReservation {
             owner: self.clone(),
             ticket,
+            retained_owner: None,
             resource: self.resource.clone(),
             model: self.path(),
         })
@@ -833,9 +930,9 @@ pub fn choose_model(owner: isize) -> Result<Option<PathBuf>, String> {
 }
 
 #[cfg(test)]
-mod selected_review_tests;
-#[cfg(test)]
 mod owned_cleanup_tests;
+#[cfg(test)]
+mod selected_review_tests;
 #[cfg(test)]
 mod tests {
     use super::*;

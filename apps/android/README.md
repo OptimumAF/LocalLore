@@ -140,6 +140,13 @@ positive removable-filesystem compatibility remains blocked.
 Real-model copies and SDK execution require their own admission; the flag does
 not discharge existing device/runtime holds.
 
+An independent [receipt transaction host proof](../../docs/native/MODEL_RECEIPT_CONTRACT.md)
+explores exclusive creation plus an empty acceptance marker, with no rename or
+overwrite. It is unwired to both setup routes and the SDK. Its JVM tests cover
+pending recovery, explicit discard, ownership, cancellation and child-process
+death; Android filesystem qualification remains a separate next gate. See the
+proposed [ADR0011](../../docs/adr/0011-model-receipt-transaction.md).
+
 The additional `-PlocalLoreModelPickerVerification=true` flag requires both
 candidate flags above and selects the separate `.modelpickerverify` debug
 fixture. It inherits the real picker/resolver/setup flow with 63 original

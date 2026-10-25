@@ -1,9 +1,13 @@
-//! Isolated scripted selected turns over the existing comparison execution path.
-//! Native execution and renderer-constructed capabilities are not supported.
+//! Isolated selected turns over the existing comparison execution path.
+//! Plans retain native capabilities and are never renderer-constructed authority.
 use super::*;
 
 const LANE: &str = "scripted_selected_case";
+const NATIVE_LANE: &str = "native_selected_case";
 const MANIFEST_CAP: usize = 128 * 1024;
+
+#[cfg(all(test, feature = "protocol-owner-tests"))]
+mod native_owner_review_tests;
 
 #[cfg(test)]
 mod divergent_tests;
@@ -19,8 +23,34 @@ thread_local! {
     static CANCEL_AFTER_ARM: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
+#[derive(Clone, Copy)]
 pub enum SelectedLane {
     ScriptedBaseline,
+    ApprovedNative,
+}
+impl SelectedLane {
+    fn from_manifest(manifest: &SelectedManifest) -> Result<Self> {
+        match manifest.lane.as_str() {
+            LANE => Ok(Self::ScriptedBaseline),
+            NATIVE_LANE => Ok(Self::ApprovedNative),
+            _ => Err("SelectedBinding".into()),
+        }
+    }
+    fn profile(self) -> Result<PlayProfile> {
+        match self {
+            Self::ScriptedBaseline => LaneFactory::ScriptedBaseline.profile(),
+            Self::ApprovedNative => {
+                #[cfg(feature = "local-model")]
+                {
+                    native_profile()
+                }
+                #[cfg(not(feature = "local-model"))]
+                {
+                    Err("NativeFeatureUnavailable".into())
+                }
+            }
+        }
+    }
 }
 pub struct SelectedIntent {
     pub client_id: String,
@@ -95,6 +125,12 @@ fn cancelled(cancel: &Cancellation) -> Result<()> {
     }
 }
 impl SelectedManifest {
+    fn native(&self) -> Result<bool> {
+        Ok(matches!(
+            SelectedLane::from_manifest(self)?,
+            SelectedLane::ApprovedNative
+        ))
+    }
     fn digest(&self) -> Result<String> {
         let mut value = serde_json::to_value(self).map_err(|_| "Encoding")?;
         value
@@ -107,7 +143,7 @@ impl SelectedManifest {
         RunManifest::new(
             self.source_kind,
             self.profile.clone(),
-            false,
+            self.native()?,
             self.source_reference_sha256.clone(),
         )
     }
@@ -133,14 +169,14 @@ impl SelectedManifest {
         .validate()?;
         if self.version != 1
             || self.run_type != "selected_case"
-            || self.lane != LANE
+            || !matches!(self.lane.as_str(), LANE | NATIVE_LANE)
             || !client_valid(&self.client_id)
             || !hex(&self.binding)
             || self.binding != self.digest()?
             || !hex(&self.source_binding)
             || !hex(&self.source_sha256)
             || self.suite_sha256 != expected.binding.suite_sha256
-            || self.profile != LaneFactory::ScriptedBaseline.profile()?
+            || (!self.native()? && self.profile != LaneFactory::ScriptedBaseline.profile()?)
             || self.selection.turn != step.id()
             || !ARM_NAMES.contains(&self.selection.clicked_arm.as_str())
         {
@@ -224,6 +260,7 @@ fn manifest_for(
     selection: Selection,
     client_id: String,
     before: &[Engine; 2],
+    lane: SelectedLane,
 ) -> Result<SelectedManifest> {
     if !snapshot.manifest.source_matches()? {
         return Err("SourceMismatch".into());
@@ -250,8 +287,12 @@ fn manifest_for(
         source_kind: snapshot.manifest.kind,
         source_profile: snapshot.manifest.profile.clone(),
         selection: selection.clone(),
-        lane: LANE.into(),
-        profile: LaneFactory::ScriptedBaseline.profile()?,
+        lane: match lane {
+            SelectedLane::ScriptedBaseline => LANE,
+            SelectedLane::ApprovedNative => NATIVE_LANE,
+        }
+        .into(),
+        profile: lane.profile()?,
         suite_sha256: snapshot.manifest.binding.suite_sha256.clone(),
         source_sha256: snapshot.manifest.source_sha256.clone(),
         source_reference_sha256: snapshot.manifest.reference_sha256.clone(),
@@ -273,7 +314,8 @@ pub fn prepare_selected(
     if !client_valid(&intent.client_id) || !hex(expected_source_binding) {
         return Err("SelectedIdentity".into());
     }
-    let SelectedLane::ScriptedBaseline = intent.lane;
+    // Feature/profile refusal precedes opening the source capability.
+    intent.lane.profile()?;
     let corpus = suite()?;
     let index = corpus
         .steps()
@@ -301,7 +343,7 @@ pub fn prepare_selected(
         return Err("SourceMismatch".into());
     }
     let before = source_inputs(&directory, &snapshot, &selection)?;
-    let manifest = manifest_for(&snapshot, selection, intent.client_id, &before)?;
+    let manifest = manifest_for(&snapshot, selection, intent.client_id, &before, intent.lane)?;
     cancelled(cancel)?;
     Ok(PreparedSelectedPlan {
         _source: source,
@@ -321,6 +363,7 @@ impl PreparedSelectedPlan {
             self.manifest.selection.clone(),
             self.manifest.client_id.clone(),
             &before,
+            SelectedLane::from_manifest(&self.manifest)?,
         )?;
         if manifest != self.manifest {
             return Err("SnapshotMismatch".into());
@@ -468,7 +511,7 @@ fn disjoint(source: &Path, destination: &Path) -> Result<()> {
     }
 }
 
-fn new_destination(plan: &PreparedSelectedPlan, dir: &Path) -> Result<Destination> {
+fn destination_target(plan: &PreparedSelectedPlan, dir: &Path) -> Result<(PathBuf, Vec<File>)> {
     let absolute = std::path::absolute(dir).map_err(|_| "Io")?;
     if absolute
         .components()
@@ -486,6 +529,11 @@ fn new_destination(plan: &PreparedSelectedPlan, dir: &Path) -> Result<Destinatio
     if canonical.exists() {
         return Err("OutputExists".into());
     }
+    Ok((canonical, parent_pins))
+}
+
+fn new_destination(plan: &PreparedSelectedPlan, dir: &Path) -> Result<Destination> {
+    let (canonical, parent_pins) = destination_target(plan, dir)?;
     fs::create_dir(&canonical).map_err(|_| "OutputExists")?;
     let lock = take_lock(&canonical)?;
     saved(
@@ -912,6 +960,9 @@ pub fn run_selected(
     cancel: &Cancellation,
 ) -> Result<SelectedComparisonReportV1> {
     let started = Instant::now();
+    if plan.manifest.native()? {
+        return Err("SelectedLaneMismatch".into());
+    }
     plan.refresh(cancel)?;
     cancelled(cancel)?;
     let destination = new_destination(&plan, new_dir)?;
@@ -942,6 +993,9 @@ pub fn resume_selected(
     }
     let destination = open_destination(dir)?;
     let manifest = &destination.manifest;
+    if manifest.native()? {
+        return Err("SelectedLaneMismatch".into());
+    }
     if manifest.binding != expected_binding {
         return Err("CheckpointMismatch".into());
     }

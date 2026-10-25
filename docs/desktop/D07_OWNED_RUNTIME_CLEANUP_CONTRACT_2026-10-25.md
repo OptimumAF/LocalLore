@@ -1,7 +1,9 @@
 # Owned runtime cleanup contract — 2026-10-25
 
 Refs #29 D07.06, supporting #25 D04.02/.03 and D09.06.
-**FROZEN by Root for independent tests; UNIMPLEMENTED / new tests UNRUN.**
+**FROZEN by Root.** Implementation and source-bound qualification are tracked
+in [PR #166](https://github.com/OptimumAF/LocalLore/pull/166); native selected
+execution remains a separate, unavailable integration.
 Root adopted proposal `78671188` after an accepted-main baseline: fixed fixture
 build exit0; runtime library40 passed/1 existing Windows symlink-privilege ignore.
 Those existing passes are not acceptance of the new failure paths.
@@ -202,7 +204,7 @@ Missing prerequisite fails honestly; privilege-only checks use explicit existing
 ignore reasons, never silently claim execution. No models or assets are needed.
 
 Root alone runs serial runtime/native/frontend compatibility and restores normal
-artifacts. This document records no baseline/RED/GREEN result. No Cargo/Node/
-formatter/runtime/process/model/assets/app/device/CUA/desktop/protected actions
-were executed by this author. Root owns freeze, source/test claims, integration
+artifacts. The original proposal author ran no Cargo/Node/formatter/runtime/
+process/model/assets/app/device/CUA/desktop/protected checks. Root's execution
+results are separate from that authorship. Root owns freeze, source/test claims, integration
 and acceptance; selected native execution and model-quality gates remain open.

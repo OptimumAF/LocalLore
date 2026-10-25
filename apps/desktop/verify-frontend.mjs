@@ -19,6 +19,7 @@ for (const args of [
     ["check-model-controller.mjs"],
     ["check-early-cancel.mjs"],
     ["check-model-refresh.mjs"],
+    ["check-model-cleanup-panel.mjs"],
     ["check-inspection-controller.mjs"],
     ["check-trace-controller.mjs"],
     ["check-capture-controller.mjs"],

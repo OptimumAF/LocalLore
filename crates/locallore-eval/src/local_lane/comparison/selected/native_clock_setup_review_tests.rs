@@ -525,3 +525,49 @@ fn loaded_overrun_refuses_but_failed_cost_remains_unclamped_read_only() {
         "reader accepted impossible Loaded overruns: {wrongly_accepted:?}"
     );
 }
+
+// FIRST source-only producer/reader follow-up at c3bb151f. These are actual
+// Runtime reply-validation token caps, with synthetic Ledger-backed metrics;
+// no model timing, inference, canonical history or execution grant is tested.
+#[test]
+fn retained_load_token_counts_use_runtime_caps_without_narrowing_other_counters() {
+    let mut wrongly_accepted = Vec::new();
+    for status in ["loaded", "failed"] {
+        for (field, rejected) in [("input_tokens", 4097_u64), ("output_tokens", 351)] {
+            let fixture = Fixture::new(&format!("token-cap-{status}-{field}"));
+            let mut metrics = synthetic_metrics();
+            metrics[field] = json!(rejected);
+            fixture.setup(0, 0, status, Some(metrics));
+            let before = inventory(&fixture.root);
+            let result = setup::read_setups(&fixture.root, &fixture.binding, true);
+            assert_eq!(inventory(&fixture.root), before, "token refusal must be read-only");
+            match result {
+                Ok(_) => wrongly_accepted.push(format!("{status}:{field}={rejected}")),
+                Err(error) => assert_eq!(error, "SetupIntegrity"),
+            }
+            for arm in ARM_NAMES {
+                let directory = fixture.root.join(arm);
+                assert_eq!(Ledger::load(&directory, &fixture.binding).unwrap().charged_ms, PREPARATION_MS);
+                assert!(!directory.join("invocation-00-settled.json").exists());
+            }
+        }
+        let fixture = Fixture::new(&format!("token-boundaries-{status}"));
+        let mut metrics = synthetic_metrics();
+        metrics["input_tokens"] = json!(4096);
+        metrics["output_tokens"] = json!(350);
+        // Runtime parse_reply gives these other u32 fields no narrower limit.
+        // Do not invent model-load/context/abort constraints to fix token caps.
+        for field in ["model_loads", "contexts_created", "abort_callbacks"] {
+            metrics[field] = json!(u32::MAX);
+        }
+        fixture.setup(0, 0, status, Some(metrics.clone()));
+        let before = inventory(&fixture.root);
+        let accepted = setup::read_setups(&fixture.root, &fixture.binding, true).unwrap();
+        assert_eq!(accepted.len(), 1);
+        assert_eq!(accepted[0].status, status);
+        assert_eq!(accepted[0].physical_ms, 3);
+        assert_eq!(accepted[0].load.as_ref(), Some(&metrics));
+        assert_eq!(inventory(&fixture.root), before, "valid boundaries must be read-only");
+    }
+    assert!(wrongly_accepted.is_empty(), "reader accepted impossible Runtime token metrics: {wrongly_accepted:?}");
+}

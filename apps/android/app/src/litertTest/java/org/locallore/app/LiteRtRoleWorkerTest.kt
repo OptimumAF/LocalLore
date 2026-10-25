@@ -55,8 +55,10 @@ class LiteRtRoleWorkerTest {
         val engines = CopyOnWriteArrayList<Engine>()
         var next = Engine()
         var paths: LiteRtPaths? = null
+        var createAction: (() -> Unit)? = null
         override fun engine(paths: LiteRtPaths): LiteRtEngineResource {
             this.paths = paths
+            createAction?.invoke()
             return next.also { engines += it; next = Engine() }
         }
     }
@@ -109,6 +111,141 @@ class LiteRtRoleWorkerTest {
     private fun CountDownLatch.boundedAwait() { check(await(2, TimeUnit.SECONDS)) }
     private suspend fun healthyClose(call: LocalRoleCall, engine: LocalRoleEngine) {
         assertTrue(call.drain()); assertTrue(call.close()); assertTrue(engine.close())
+    }
+
+    @Test fun stageTraceDistinguishesBlockedAdmissionConstructionAndInitialization() = runBlocking {
+        for ((enteredEvent, returnedEvent) in listOf(
+            LiteRtWorkerEvent.ADMISSION_ENTERED to LiteRtWorkerEvent.ADMISSION_RETURNED,
+            LiteRtWorkerEvent.ENGINE_CREATE_ENTERED to LiteRtWorkerEvent.ENGINE_CREATE_RETURNED,
+            LiteRtWorkerEvent.INITIALIZE_ENTERED to LiteRtWorkerEvent.INITIALIZE_RETURNED,
+        )) {
+            val entered = CountDownLatch(1); val release = CountDownLatch(1)
+            val block = { entered.countDown(); release.boundedAwait() }
+            val resources = Resources()
+            val original = config()
+            val selected = when (enteredEvent) {
+                LiteRtWorkerEvent.ADMISSION_ENTERED -> original.copy(storageAdmission = block)
+                LiteRtWorkerEvent.ENGINE_CREATE_ENTERED -> original.also { resources.createAction = block }
+                else -> original.also { resources.next.initializeAction = block }
+            }
+            val trace = LiteRtWorkerTrace()
+            val worker = LiteRtRoleWorker(selected, resources, trace)
+            val opening = async { worker.open() }
+            try {
+                eventually { entered.count == 0L }
+                val observed = trace.snapshot()
+                assertEquals(1, observed.counts.getValue(enteredEvent))
+                assertEquals(0, observed.counts.getValue(returnedEvent))
+                assertEquals(0, observed.counts.getValue(LiteRtWorkerEvent.ENGINE_CLOSE_KNOWN))
+                assertFalse(opening.isCompleted)
+            } finally { release.countDown() }
+            val engine = opening.await()
+            assertEquals(1, trace.snapshot().counts.getValue(returnedEvent))
+            assertTrue(engine.close())
+        }
+    }
+
+    @Test fun stageTraceSeparatesSendReturnTerminalAndBodyDrain() = runBlocking {
+        val resources = Resources()
+        val trace = LiteRtWorkerTrace()
+        val engine = LiteRtRoleWorker(config(), resources, trace).open()
+        val sendEntered = CountDownLatch(1); val sendRelease = CountDownLatch(1)
+        val conversation = Conversation().also { it.sendAction = { sendEntered.countDown(); sendRelease.boundedAwait() } }
+        resources.engines.single().conversationAction = { conversation }
+        val starting = async { engine.start(request) }
+        try {
+            eventually { sendEntered.count == 0L }
+            assertEquals(1, trace.snapshot().counts.getValue(LiteRtWorkerEvent.SEND_ENTERED))
+            assertEquals(0, trace.snapshot().counts.getValue(LiteRtWorkerEvent.SEND_RETURNED))
+        } finally { sendRelease.countDown() }
+        val call = starting.await()
+        val bodyEntered = CountDownLatch(1); val bodyRelease = CountDownLatch(1)
+        val callback = async(Dispatchers.IO) { conversation.callbacks.message {
+            bodyEntered.countDown(); bodyRelease.boundedAwait(); LiteRtChunk(text = listOf("{}"))
+        } }
+        val draining = async { call.drain() }
+        try {
+            eventually { bodyEntered.count == 0L }
+            conversation.done()
+            val snapshot = trace.snapshot()
+            assertEquals(1, snapshot.counts.getValue(LiteRtWorkerEvent.DONE_RETURNED))
+            assertEquals(1, snapshot.counts.getValue(LiteRtWorkerEvent.MESSAGE_ENTERED))
+            assertEquals(0, snapshot.counts.getValue(LiteRtWorkerEvent.MESSAGE_RETURNED))
+            assertEquals(0, snapshot.counts.getValue(LiteRtWorkerEvent.DRAIN_SETTLED))
+            assertFalse(draining.isCompleted)
+        } finally { bodyRelease.countDown() }
+        callback.await(); assertTrue(draining.await()); call.await()
+        assertEquals(1, trace.snapshot().counts.getValue(LiteRtWorkerEvent.MESSAGE_RETURNED))
+        assertTrue(call.close()); assertTrue(engine.close())
+        assertEquals(1, trace.snapshot().counts.getValue(LiteRtWorkerEvent.CONVERSATION_CLOSE_KNOWN))
+        assertEquals(1, trace.snapshot().counts.getValue(LiteRtWorkerEvent.ENGINE_CLOSE_KNOWN))
+    }
+
+    @Test fun stageTraceDoesNotPromoteBlockedOrFailedCloseToKnown() = runBlocking {
+        val resources = Resources()
+        val trace = LiteRtWorkerTrace()
+        val engine = LiteRtRoleWorker(config(), resources, trace).open()
+        val call = engine.start(request)
+        val conversation = resources.engines.single().conversations.single()
+        conversation.done(); call.await(); assertTrue(call.drain())
+        val entered = CountDownLatch(1); val release = CountDownLatch(1)
+        conversation.closeAction = { entered.countDown(); release.boundedAwait(); false }
+        val closing = async { call.close() }
+        try {
+            eventually { entered.count == 0L }
+            val observed = trace.snapshot()
+            assertEquals(1, observed.counts.getValue(LiteRtWorkerEvent.CONVERSATION_CLOSE_ENTERED))
+            assertEquals(0, observed.counts.getValue(LiteRtWorkerEvent.CONVERSATION_CLOSE_KNOWN))
+            assertFalse(engine.close())
+        } finally { release.countDown() }
+        assertFalse(closing.await()); assertFalse(engine.close())
+        val failed = trace.snapshot()
+        assertEquals(0, failed.counts.getValue(LiteRtWorkerEvent.CONVERSATION_CLOSE_KNOWN))
+        assertEquals(0, failed.counts.getValue(LiteRtWorkerEvent.ENGINE_CLOSE_ENTERED))
+        assertTrue(failed.counts.getValue(LiteRtWorkerEvent.UNCERTAIN) > 0)
+    }
+
+    @Test fun stageTraceLateInitializeReturnCannotClearOwnerQuarantine() = runBlocking {
+        val resources = Resources()
+        val trace = LiteRtWorkerTrace()
+        val entered = CountDownLatch(1); val release = CountDownLatch(1)
+        resources.next.initializeAction = { entered.countDown(); release.boundedAwait() }
+        val config = config().copy(deadlineMs = 100)
+        val owner = config.createOwner(LocalInferenceLimits(turnMs = 100, cleanupMs = 100, pollMs = 2), resources, trace)
+        val port = Port(request)
+        val preparing = async { uncertain { owner.execute(port, "prepare", "prepare".toByteArray(), "cancel".toByteArray()) } }
+        try {
+            eventually { entered.count == 0L }
+            preparing.await()
+            assertTrue(owner.quarantined)
+            assertEquals(0, trace.snapshot().counts.getValue(LiteRtWorkerEvent.INITIALIZE_RETURNED))
+            assertEquals(0, port.deliveries.get()); assertEquals(0, port.commits.get())
+        } finally { release.countDown() }
+        eventually { trace.snapshot().counts.getValue(LiteRtWorkerEvent.INITIALIZE_RETURNED) == 1 }
+        uncertain { owner.execute(port, "commit", "commit".toByteArray()) }
+        assertTrue(owner.quarantined); assertEquals(0, port.commits.get())
+    }
+
+    @Test fun stageTraceObservesDirectEngineCloseFailureAfterFencing() = runBlocking {
+        val resources = Resources()
+        val trace = LiteRtWorkerTrace()
+        var fenced = false
+        var priorNotifications: Int? = null
+        resources.next.closeAction = { false }
+        val worker = LiteRtRoleWorker(config(), resources, trace) {
+            // Notification retains its original priority over observation.
+            priorNotifications = trace.snapshot().counts.getValue(LiteRtWorkerEvent.UNCERTAIN)
+            fenced = true
+        }
+        val engine = worker.open()
+        assertFalse(engine.close()); assertTrue(fenced)
+        assertEquals(0, priorNotifications)
+        val failed = trace.snapshot()
+        assertEquals(1, failed.counts.getValue(LiteRtWorkerEvent.ENGINE_CLOSE_ENTERED))
+        assertEquals(0, failed.counts.getValue(LiteRtWorkerEvent.ENGINE_CLOSE_KNOWN))
+        assertEquals(1, failed.counts.getValue(LiteRtWorkerEvent.UNCERTAIN))
+        assertFalse(engine.close())
+        try { worker.open(); fail() } catch (_: IllegalStateException) { }
     }
 
     @Test fun pairedFactoryCarriesExactTrustedProfileAndLimits() {
@@ -483,8 +620,9 @@ class LiteRtRoleWorkerTest {
 
     @Test fun nativeTicketCancellationReachesActiveSdkCallAndDropsItsLateOutput() = runBlocking {
         val resources = Resources()
+        val trace = LiteRtWorkerTrace()
         val config = config().copy(deadlineMs = 2000)
-        val owner = config.createOwner(LocalInferenceLimits(turnMs = 2000, cleanupMs = 500, pollMs = 2), resources)
+        val owner = config.createOwner(LocalInferenceLimits(turnMs = 2000, cleanupMs = 500, pollMs = 2), resources, trace)
         val port = Port(request)
         val preparing = async { owner.execute(port, "prepare", "prepare".toByteArray(), "cancel".toByteArray()) }
         eventually { resources.engines.firstOrNull()?.conversations?.firstOrNull()?.sent?.count == 0L }
@@ -498,6 +636,12 @@ class LiteRtRoleWorkerTest {
         assertEquals(1, conversation.cancels.get()); assertEquals(1, conversation.closes.get())
         assertEquals(1, resources.engines.single().closes.get()); assertEquals(0, port.deliveries.get())
         assertEquals(0, port.commits.get()); assertFalse(owner.quarantined)
+        val observed = trace.snapshot()
+        for (event in listOf(LiteRtWorkerEvent.CANCEL_ENTERED, LiteRtWorkerEvent.CANCEL_RETURNED,
+            LiteRtWorkerEvent.ERROR_ENTERED, LiteRtWorkerEvent.ERROR_RETURNED,
+            LiteRtWorkerEvent.CONVERSATION_CLOSE_KNOWN, LiteRtWorkerEvent.ENGINE_CLOSE_KNOWN)) {
+            assertEquals(event.name, 1, observed.counts.getValue(event))
+        }
         owner.close(); eventually { owner.nativeInvalidatedKnown }
     }
 

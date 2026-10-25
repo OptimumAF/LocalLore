@@ -70,6 +70,32 @@ def stream_result(clean=True):
 
 
 class RealCandidateTests(unittest.TestCase):
+    def test_play_worker_observation_is_retained_before_unchanged_failed_runner_gate(self):
+        counts = {event: 0 for event in r.worker_trace.EVENTS}
+        counts["INITIALIZE_ENTERED"] = 1
+        value = {"version": 1, "counts": counts, "saturated": []}
+        wire = ("INSTRUMENTATION_STATUS: locallore_receipt_worker_v1=" + encoded(value).decode("ascii") +
+                "\nINSTRUMENTATION_STATUS_CODE: 1337\nFAILURES!!!\n").encode("ascii")
+        with tempfile.TemporaryDirectory() as directory:
+            owner = SimpleNamespace(directory=Path(directory), shell=lambda *a, **kw: wire)
+            with patch.object(r, "read_proof") as read:
+                with self.assertRaises(AssertionError): r.run_selected(owner, "PLAY")
+                read.assert_not_called()
+            self.assertEqual(value, json.loads((Path(directory) / "play-worker-trace-v1.json").read_bytes()))
+            self.assertFalse((Path(directory) / "play-instrumentation-v1.json").exists())
+
+    def test_play_worker_trace_cannot_qualify_success_or_appear_in_other_phases(self):
+        value = {"version": 1, "counts": {event: 0 for event in r.worker_trace.EVENTS}, "saturated": []}
+        wire = ("INSTRUMENTATION_STATUS: locallore_receipt_worker_v1=" + encoded(value).decode("ascii") +
+                "\nINSTRUMENTATION_STATUS_CODE: 1337\n").encode("ascii")
+        for phase in r.PHASES:
+            with tempfile.TemporaryDirectory() as directory:
+                owner = SimpleNamespace(directory=Path(directory), shell=lambda *a, **kw: wire + transcript(phase))
+                with patch.object(r, "read_proof") as read:
+                    with self.assertRaises(AssertionError): r.run_selected(owner, phase)
+                    read.assert_not_called()
+                self.assertEqual([], list(Path(directory).iterdir()))
+
     def reject_proof(self, value):
         with self.assertRaises((AssertionError, ValueError, KeyError)): r.parse_proof(encoded(value), value["phase"], 10310)
 

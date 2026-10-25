@@ -53,10 +53,11 @@ internal data class LiteRtWorkerConfig(
     fun createOwner(
         limits: LocalInferenceLimits = LocalInferenceLimits(turnMs = deadlineMs),
         resources: LiteRtResources = SdkLiteRtResources,
+        trace: LiteRtWorkerTrace? = null,
     ): LocalInferenceOwner {
         require(limits.turnMs == deadlineMs)
         lateinit var owner: LocalInferenceOwner
-        val worker = LiteRtRoleWorker(this, resources) { owner.close() }
+        val worker = LiteRtRoleWorker(this, resources, trace) { owner.close() }
         owner = LocalInferenceOwner(profileBytes(), worker, limits = limits)
         return owner
     }
@@ -142,6 +143,7 @@ internal data class LiteRtChunk(
 internal class LiteRtRoleWorker(
     private val config: LiteRtWorkerConfig,
     private val resources: LiteRtResources = SdkLiteRtResources,
+    private val trace: LiteRtWorkerTrace? = null,
     private val onUncertain: () -> Unit = {},
 ) : LocalRoleWorker {
     private val lock = Any()
@@ -153,10 +155,19 @@ internal class LiteRtRoleWorker(
     override suspend fun open(): LocalRoleEngine = withContext(Dispatchers.IO) {
         synchronized(lock) { check(!poisoned && !opening && active == null); opening = true }
         try {
-            val resource = resources.engine(config.admit())
+            trace?.record(LiteRtWorkerEvent.ADMISSION_ENTERED)
+            val paths = config.admit()
+            trace?.record(LiteRtWorkerEvent.ADMISSION_RETURNED)
+            trace?.record(LiteRtWorkerEvent.ENGINE_CREATE_ENTERED)
+            val resource = resources.engine(paths)
+            trace?.record(LiteRtWorkerEvent.ENGINE_CREATE_RETURNED)
             synchronized(lock) { retained += resource }
+            trace?.record(LiteRtWorkerEvent.INITIALIZE_ADMISSION_ENTERED)
             config.storageAdmission()
+            trace?.record(LiteRtWorkerEvent.INITIALIZE_ADMISSION_RETURNED)
+            trace?.record(LiteRtWorkerEvent.INITIALIZE_ENTERED)
             resource.initialize() // Blocking initialization is not made interruptible by coroutine cancellation.
+            trace?.record(LiteRtWorkerEvent.INITIALIZE_RETURNED)
             OwnedEngine(resource).also { synchronized(lock) { check(!poisoned); active = it } }
         } catch (_: Throwable) {
             unknown()
@@ -168,7 +179,10 @@ internal class LiteRtRoleWorker(
     private fun notifyUnknown() {
         // Factory hook synchronously fences the SAME owner. Its eventual native close is a separate
         // observation; scheduling close never establishes resource reclamation or rolls back history.
-        if (synchronized(lock) { poisoned }) try { onUncertain() } catch (_: Throwable) { }
+        if (synchronized(lock) { poisoned }) {
+            try { onUncertain() } catch (_: Throwable) { }
+            trace?.record(LiteRtWorkerEvent.UNCERTAIN)
+        }
     }
     private fun unknown() { markUnknown(); notifyUnknown() }
 
@@ -185,13 +199,21 @@ internal class LiteRtRoleWorker(
                     check(!poisoned && !closing && !closed && !starting && roles.all { it.closedKnown })
                     starting = true
                 }
+                trace?.record(LiteRtWorkerEvent.ROLE_ADMISSION_ENTERED)
                 config.storageAdmission()
+                trace?.record(LiteRtWorkerEvent.ROLE_ADMISSION_RETURNED)
+                trace?.record(LiteRtWorkerEvent.CONVERSATION_CREATE_ENTERED)
                 val conversation = resource.conversation(request)
+                trace?.record(LiteRtWorkerEvent.CONVERSATION_CREATE_RETURNED)
                 val call = OwnedCall(conversation)
                 synchronized(lock) { roles += call }
                 try {
+                    trace?.record(LiteRtWorkerEvent.SEND_ADMISSION_ENTERED)
                     config.storageAdmission()
+                    trace?.record(LiteRtWorkerEvent.SEND_ADMISSION_RETURNED)
+                    trace?.record(LiteRtWorkerEvent.SEND_ENTERED)
                     conversation.send(request, call)
+                    trace?.record(LiteRtWorkerEvent.SEND_RETURNED)
                 }
                 catch (_: Throwable) { call.failedStart(); throw LocalInferenceUncertain() }
                 call.started()
@@ -209,12 +231,14 @@ internal class LiteRtRoleWorker(
                 if (poisoned || closing || starting || startUnknown || roles.any { !it.closedKnown }) return@withContext false
                 closing = true
             }
+            trace?.record(LiteRtWorkerEvent.ENGINE_CLOSE_ENTERED)
             val known = try { resource.close() } catch (_: Throwable) { false }
             val result = synchronized(lock) {
                 if (known && !poisoned && roles.all { it.closedKnown }) { closed = true; retained.remove(resource); active = null }
                 else poisoned = true
                 closed && !poisoned
             }
+            if (result) trace?.record(LiteRtWorkerEvent.ENGINE_CLOSE_KNOWN)
             if (!result) notifyUnknown()
             result
         }
@@ -239,14 +263,19 @@ internal class LiteRtRoleWorker(
         fun started() = synchronized(state) { startReturned = true }
         fun failedStart() { synchronized(state) { fail() }; notifyUnknown() }
 
-        private fun callback(body: () -> Unit) {
+        private fun callback(entered: LiteRtWorkerEvent, returned: LiteRtWorkerEvent, body: () -> Unit) {
             synchronized(state) { callbacks++; if (closedKnown || closing) fail() }
+            trace?.record(entered)
             try { body() }
             catch (_: Throwable) { synchronized(state) { fail() } }
-            finally { synchronized(state) { callbacks-- }; notifyUnknown() }
+            finally {
+                synchronized(state) { callbacks-- }; notifyUnknown()
+                // Observed callback body exit, never a claim about hidden JNI epilogues.
+                trace?.record(returned)
+            }
         }
 
-        override fun message(read: () -> LiteRtChunk) = callback {
+        override fun message(read: () -> LiteRtChunk) = callback(LiteRtWorkerEvent.MESSAGE_ENTERED, LiteRtWorkerEvent.MESSAGE_RETURNED) {
             synchronized(state) { if (terminal || failed) { fail(); return@callback } }
             val chunk = read()
             synchronized(state) {
@@ -262,12 +291,12 @@ internal class LiteRtRoleWorker(
             }
         }
 
-        override fun done() = callback { synchronized(state) {
+        override fun done() = callback(LiteRtWorkerEvent.DONE_ENTERED, LiteRtWorkerEvent.DONE_RETURNED) { synchronized(state) {
             if (terminal) fail()
             terminal = true
         } }
 
-        override fun error(cancelled: Boolean) = callback { synchronized(state) {
+        override fun error(cancelled: Boolean) = callback(LiteRtWorkerEvent.ERROR_ENTERED, LiteRtWorkerEvent.ERROR_RETURNED) { synchronized(state) {
             if (terminal) fail()
             terminal = true
             if (cancelled && cancelRequested) this.cancelled = true else fail()
@@ -295,7 +324,11 @@ internal class LiteRtRoleWorker(
                 cancelRunning = true
             }
             cancelScope.launch {
-                try { resource.cancel() }
+                try {
+                    trace?.record(LiteRtWorkerEvent.CANCEL_ENTERED)
+                    resource.cancel()
+                    trace?.record(LiteRtWorkerEvent.CANCEL_RETURNED)
+                }
                 catch (_: Throwable) { synchronized(state) { fail() } }
                 finally { synchronized(state) { cancelRunning = false }; notifyUnknown() }
             }
@@ -305,7 +338,10 @@ internal class LiteRtRoleWorker(
             while (true) {
                 synchronized(state) {
                     if (failed) return@withContext false
-                    if (settled()) return@withContext true
+                    if (settled()) {
+                        trace?.record(LiteRtWorkerEvent.DRAIN_SETTLED)
+                        return@withContext true
+                    }
                 }
                 delay(2)
             }
@@ -319,12 +355,14 @@ internal class LiteRtRoleWorker(
                 if (closing || failed || !settled()) return@withContext false
                 closing = true
             }
+            trace?.record(LiteRtWorkerEvent.CONVERSATION_CLOSE_ENTERED)
             val known = try { resource.close() } catch (_: Throwable) { false }
             val result = synchronized(state) {
                 // A callback concurrent with close remains uncertainty even if SDK close returns.
                 if (known && !failed && callbacks == 0) closedKnown = true else fail()
                 closedKnown
             }
+            if (result) trace?.record(LiteRtWorkerEvent.CONVERSATION_CLOSE_KNOWN)
             if (!result) notifyUnknown()
             result
         }

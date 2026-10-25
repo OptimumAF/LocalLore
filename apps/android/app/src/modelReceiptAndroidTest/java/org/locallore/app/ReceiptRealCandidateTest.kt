@@ -549,6 +549,7 @@ class ReceiptRealImportTest : ReceiptRealUiHarness() {
 @RunWith(AndroidJUnit4::class)
 @SdkSuppress(minSdkVersion = 30)
 class ReceiptRealPlayTest : ReceiptRealHarness() {
+    companion object { private val workerFailureReporter = ReceiptWorkerFailureReporter() }
     @Test fun commitsOneGuardedRealSdkGift() {
         val deadline = select(ReceiptRealPlayTest::class.java, ReceiptRealPhase.PLAY)
         val checks = linkedMapOf<String, Boolean>()
@@ -560,7 +561,8 @@ class ReceiptRealPlayTest : ReceiptRealHarness() {
             checked(checks, "accepted_full_recheck", withTimeout(deadline.remaining(60_000)) { access.installed() != null })
             access.admitRuntime(); checked(checks, "runtime_guard_passed", true)
             ReceiptRealEnvironment.absent(File(env.internal, "workspace-v1"))
-            val actual = withContext(Dispatchers.Main) { CandidateLocalModel.createTransport(context) }
+            val trace = LiteRtWorkerTrace()
+            val actual = withContext(Dispatchers.Main) { CandidateLocalModel.createTransport(context, trace) }
             val observed = ReceiptRealObserved(actual)
             val gateway = DurableGateway(observed)
             var knownPrepared = false
@@ -569,10 +571,17 @@ class ReceiptRealPlayTest : ReceiptRealHarness() {
                 val initial = gateway.initialize()
                 checked(checks, "production_transport_local", initial.textProvider == TextProvider.LOCAL)
                 checked(checks, "initial_revision_zero", initial.revision == 0L && snapshot(actual, initial).getJSONArray("receipts").length() == 0)
-                val prepared = gateway.respondText(PlayInput(PlayInputKind.ACTION, "I give my last potion to Mira."), 0)
-                // Production Prepared follows its existing public SDK terminal/drain/returned-close contract.
-                // This is not an independent hidden-native teardown or reclamation counter.
-                assertTrue("One actual SDK turn must prepare; rejection is not retried", prepared is DemoResult.Prepared)
+                // Passive snapshot before the existing catch/finally cleanup. No retry or SDK probe.
+                val prepared = workerFailureReporter.run(trace, send = { code, key, json ->
+                    InstrumentationRegistry.getInstrumentation().sendStatus(code,
+                        Bundle().apply { putString(key, json) })
+                }) {
+                    gateway.respondText(PlayInput(PlayInputKind.ACTION, "I give my last potion to Mira."), 0).also {
+                        // Production Prepared follows its existing public SDK terminal/drain/returned-close contract.
+                        // This is not an independent hidden-native teardown or reclamation counter.
+                        assertTrue("One actual SDK turn must prepare; rejection is not retried", it is DemoResult.Prepared)
+                    }
+                }
                 knownPrepared = true
                 checked(checks, "prepared_after_known_worker_close", true)
                 val postSdkFiles = withTimeout(deadline.remaining()) { requireNotNull(access.installed()) }

@@ -19,6 +19,7 @@ import time
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import receipt_setup_qualification as q
 import receipt_avd_environment as environment
+import litert_worker_trace as worker_trace
 
 GIB = 1024 ** 3
 SCOPE = "receipt_real_candidate"
@@ -57,6 +58,12 @@ COMMON_KEYS = frozenset(("version", "phase", "pid", "start", "uid", "process", "
     "external_free_before", "external_free_after", "memory_total_bytes", "memory_available_before", "memory_available_after", "checks"))
 EXTRA_KEYS = frozenset(("phase", "source", "preflight", "human_consent"))
 SOURCE_FILES = (*q.SOURCE_FILES, "benchmarks/receipt_real_candidate.py", "scripts/tests/test_receipt_real_candidate.py",
+    "benchmarks/litert_worker_trace.py", "scripts/tests/test_litert_worker_trace.py",
+    "apps/android/app/src/litert/java/org/locallore/app/LiteRtWorkerTrace.kt",
+    "apps/android/app/src/litertTest/java/org/locallore/app/LiteRtWorkerTraceTest.kt",
+    "apps/android/app/src/modelReceipt/java/org/locallore/app/ReceiptWorkerFailureReporter.kt",
+    "apps/android/app/src/modelReceiptTest/java/org/locallore/app/ReceiptWorkerFailureReporterTest.kt",
+    "docs/native/LITERT_WORKER_TRACE_CONTRACT.md",
     "scripts/tests/test_receipt_real_stream_guards.py",
     "apps/android/app/src/modelReceiptAndroidTest/java/org/locallore/app/ReceiptRealCandidateTest.kt",
     "scripts/audit_apk.py", "scripts/tests/test_audit_apk.py", "scripts/tests/test_receipt_avd_environment.py",
@@ -402,7 +409,9 @@ def read_proof(owner, phase):
 def run_selected(owner, phase):
     owner.stage = "instrument-" + phase
     raw = owner.shell(selection(phase), deadline=180 if phase != "SOURCE_PREFLIGHT" else 60, cap=131072)
-    q.observe_failure_trace(owner, raw, "initial" if phase in ("SOURCE_PREFLIGHT", "IMPORT") else "restart")
+    worker_trace.observe_worker_trace(owner, raw, phase)
+    if phase != "PLAY":
+        q.observe_failure_trace(owner, raw, "initial" if phase in ("SOURCE_PREFLIGHT", "IMPORT") else "restart")
     result = parse_runner(raw, phase)
     q.write_json(owner.directory / (PHASES[phase][0] + "-instrumentation-v1.json"), result)
     return read_proof(owner, phase)

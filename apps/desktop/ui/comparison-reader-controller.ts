@@ -322,6 +322,11 @@ export class ComparisonReaderController {
             error: null,
         });
     }
+    clearEvidence(): void {
+        if (this.disposed || this.state.busy) return;
+        this.requestEpoch++;
+        this.patch({ evidence: null, error: null });
+    }
     select(value: RowId | null): void {
         if (this.disposed) return;
         let selected: RowId | null;

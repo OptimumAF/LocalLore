@@ -92,7 +92,9 @@ export function ComparisonReaderPanel({
                     Close report / stop opening
                 </button>
                 <span role="status">
-                    {s.status?.phase ?? "No report open"}
+                    {s.busy && !s.status?.running
+                        ? "Waiting for native reply"
+                        : (s.status?.phase ?? "No report open")}
                     {s.status?.running ? " · native work pending" : ""}
                     {s.uncertain
                         ? " · acknowledgement unavailable; check the same opening request"
@@ -404,12 +406,15 @@ export function ComparisonReaderPanel({
                                     State edge{" "}
                                     <select
                                         value={edge}
-                                        onChange={(event) =>
+                                        disabled={s.busy}
+                                        onChange={(event) => {
+                                            if (c.get().busy) return;
+                                            c.clearEvidence();
                                             setEdge(
                                                 event.target.value as
                                                     "before" | "after",
-                                            )
-                                        }
+                                            );
+                                        }}
                                     >
                                         <option value="before">
                                             Before turn
@@ -423,11 +428,14 @@ export function ComparisonReaderPanel({
                                     State view{" "}
                                     <select
                                         value={view}
-                                        onChange={(event) =>
+                                        disabled={s.busy}
+                                        onChange={(event) => {
+                                            if (c.get().busy) return;
+                                            c.clearEvidence();
                                             setView(
                                                 event.target.value as ViewV2,
-                                            )
-                                        }
+                                            );
+                                        }}
                                     >
                                         {views.map((value) => (
                                             <option key={value} value={value}>

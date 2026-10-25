@@ -77,6 +77,7 @@ pub struct ModelManager {
     root: PathBuf,
     resource: PathBuf,
     inner: Mutex<Inner>,
+    close_worker: Mutex<()>,
 }
 pub struct EvaluationReservation {
     owner: Arc<ModelManager>,
@@ -114,6 +115,7 @@ impl ModelManager {
         Self {
             root,
             resource,
+            close_worker: Mutex::new(()),
             inner: Mutex::new(Inner {
                 evaluation: None,
                 evaluation_sequence: 0,
@@ -489,6 +491,10 @@ impl ModelManager {
         let Some((job, runtime)) = retired else {
             return;
         };
+        // Retirement remains synchronous/nonblocking on this worker gate.
+        // A superseding close cannot release replacement admission before this
+        // worker's already-authorized Host side effects have finished.
+        let _close_worker = self.close_worker.lock().unwrap_or_else(|p| p.into_inner());
         let current = self.inner.lock().map(|s| s.job == job && s.closing == Some(job)).unwrap_or(false);
         if !current { return; }
         #[cfg(test)]

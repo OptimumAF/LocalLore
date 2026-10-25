@@ -829,9 +829,8 @@ fn execute_selected(
             && protocol::reference_proposal(&plan.before[arm], step).is_err()
     };
     for arm in 0..2 {
-        let requires_admission = turns[arm].is_none()
-            && recoverable[arm].is_none()
-            && !dependency_blocked(arm);
+        let requires_admission =
+            turns[arm].is_none() && recoverable[arm].is_none() && !dependency_blocked(arm);
         ledgers[arm].preflight_invocation(requires_admission)?;
     }
     // BOTH arms can reserve preparation plus their actual required admission.

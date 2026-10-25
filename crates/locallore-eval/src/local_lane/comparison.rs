@@ -1,8 +1,8 @@
 //! Current-policy comparison over the existing Host, Store, provider and ledger.
 pub mod desktop_api;
-pub mod selected;
 #[cfg(test)]
 mod outcome_review_tests;
+pub mod selected;
 use super::*;
 pub use crate::memory_comparison_v2::{ComparisonKind, ComparisonReportV2};
 use crate::{
@@ -1080,7 +1080,9 @@ fn load_turn(
         ),
     };
     if !phase_agrees
-        || actual.as_ref().is_some_and(|record| record.request != stored.request)
+        || actual
+            .as_ref()
+            .is_some_and(|record| record.request != stored.request)
         || (stored.row.phase != "committed" && stored.before_head != stored.after_head)
     {
         return Err("CheckpointOutcomeMismatch".into());

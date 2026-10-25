@@ -5,7 +5,13 @@
 //! checkpoint resealing or runtime/model/desktop execution by the author.
 //! Root: cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --lib local_lane::comparison::selected::preflight_review_tests -- --nocapture --test-threads=1
 use super::*;
-use std::{collections::{BTreeMap, BTreeSet}, sync::{atomic::{AtomicU64, Ordering}, OnceLock}};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        OnceLock,
+    },
+};
 
 const INDEX: usize = 4; // Existing even original corpus index: left is attempted first.
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -15,7 +21,10 @@ fn root(label: &str) -> PathBuf {
     let path = std::env::temp_dir().join(format!(
         "locallore-selected-preflight-{label}-{}-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
         NEXT.fetch_add(1, Ordering::Relaxed)
     ));
     fs::create_dir(&path).unwrap();
@@ -51,9 +60,17 @@ fn inventory(root: &Path) -> Inventory {
 
 fn unchanged(actual: &Inventory, expected: &Inventory, label: &str, retained_root: &Path) {
     let paths: BTreeSet<_> = actual.keys().chain(expected.keys()).collect();
-    let changed: Vec<_> = paths.into_iter().filter(|path| actual.get(*path) != expected.get(*path)).collect();
-    assert!(changed.is_empty(), "{label}; {} changed paths (first24 {:?}); retained synthetic fixture {}",
-        changed.len(), changed.iter().take(24).collect::<Vec<_>>(), retained_root.display());
+    let changed: Vec<_> = paths
+        .into_iter()
+        .filter(|path| actual.get(*path) != expected.get(*path))
+        .collect();
+    assert!(
+        changed.is_empty(),
+        "{label}; {} changed paths (first24 {:?}); retained synthetic fixture {}",
+        changed.len(),
+        changed.iter().take(24).collect::<Vec<_>>(),
+        retained_root.display()
+    );
 }
 
 fn copy_inventory(snapshot: &Inventory, destination: &Path) {
@@ -65,7 +82,12 @@ fn copy_inventory(snapshot: &Inventory, destination: &Path) {
             Some(bytes) => fs::write(destination.join(relative), bytes).unwrap(),
         }
     }
-    unchanged(&inventory(destination), snapshot, "copy original synthetic bytes, never relabel metadata", destination);
+    unchanged(
+        &inventory(destination),
+        snapshot,
+        "copy original synthetic bytes, never relabel metadata",
+        destination,
+    );
 }
 
 fn original_source() -> &'static PathBuf {
@@ -74,18 +96,32 @@ fn original_source() -> &'static PathBuf {
         let root = root("producers");
         let reference_dir = root.join("reference");
         let actual = prepare_reference(&reference_dir, &Cancellation::default()).unwrap();
-        assert_eq!((actual.accepted, actual.guard_only, actual.roles), (21, 3, 42));
+        assert_eq!(
+            (actual.accepted, actual.guard_only, actual.roles),
+            (21, 3, 42)
+        );
         let reference = open_reference(&reference_dir).unwrap();
         let source = root.join("paired");
-        let report = run_comparison(&source, false, ComparisonKind::PairedSnapshots,
-            &Cancellation::default(), 1, LaneFactory::ScriptedBaseline, Some(&reference)).unwrap();
+        let report = run_comparison(
+            &source,
+            false,
+            ComparisonKind::PairedSnapshots,
+            &Cancellation::default(),
+            1,
+            LaneFactory::ScriptedBaseline,
+            Some(&reference),
+        )
+        .unwrap();
         assert_eq!((report.completed_scenes, report.turns.len()), (1, 12));
         assert!(report.turns.iter().all(|turn| turn.passed));
         source
     })
 }
 
-struct Fixture { root: PathBuf, source: PathBuf }
+struct Fixture {
+    root: PathBuf,
+    source: PathBuf,
+}
 impl Fixture {
     fn new(label: &str) -> Self {
         let snapshot = inventory(original_source());
@@ -100,17 +136,29 @@ impl Fixture {
         let binding = summary["binding"].as_str().unwrap().to_owned();
         drop(reader);
         let corpus = suite().unwrap();
-        prepare_selected(&self.source, &binding, &desktop_api::RowId {
-            turn: corpus.steps()[INDEX].id().into(), arm: desktop_api::Arm::Left,
-        }, SelectedIntent { client_id: client.into(), lane: SelectedLane::ScriptedBaseline },
-            &Cancellation::default()).unwrap()
+        prepare_selected(
+            &self.source,
+            &binding,
+            &desktop_api::RowId {
+                turn: corpus.steps()[INDEX].id().into(),
+                arm: desktop_api::Arm::Left,
+            },
+            SelectedIntent {
+                client_id: client.into(),
+                lane: SelectedLane::ScriptedBaseline,
+            },
+            &Cancellation::default(),
+        )
+        .unwrap()
     }
 }
 
 fn refusal<T>(result: Result<T>) -> Option<String> {
     result.err().map(|error| {
         assert!(!error.is_empty() && error.len() <= 96);
-        assert!(error.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_'));
+        assert!(error
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_'));
         error
     })
 }
@@ -130,8 +178,15 @@ fn missing_right_turn_capacity_refuses_before_either_invocation_or_missing_left_
     let mut ledger = Ledger::load(&right, &binding).unwrap();
     ledger.begin_invocation().unwrap();
     for admission in 0..27 {
-        assert_eq!(ledger.admit(&format!("scene-{}", step.scene()), step.id()).unwrap(), admission);
-        assert!(!right.join(format!("admission-{admission:02}-settled.json")).exists());
+        assert_eq!(
+            ledger
+                .admit(&format!("scene-{}", step.scene()), step.id())
+                .unwrap(),
+            admission
+        );
+        assert!(!right
+            .join(format!("admission-{admission:02}-settled.json"))
+            .exists());
     }
     // Finish records ACTUAL measured invocation overhead; no invented zero cost
     // or provider-role count. All27 turn reservations deliberately remain unknown.
@@ -141,14 +196,31 @@ fn missing_right_turn_capacity_refuses_before_either_invocation_or_missing_left_
     assert_eq!(known.binding, binding);
     drop(ledger);
     let persisted = Ledger::load(&right, &binding).unwrap();
-    assert_eq!((persisted.invocations, persisted.admissions, persisted.charged_roles), (1, 27, 81));
+    assert_eq!(
+        (
+            persisted.invocations,
+            persisted.admissions,
+            persisted.charged_roles
+        ),
+        (1, 27, 81)
+    );
     assert_eq!(persisted.charged_ms, 27 * TURN_MS + known.ms);
     let remaining = persisted.remaining();
-    assert!(remaining >= PREPARATION_MS, "fixture can reserve preparation, actual remaining {remaining}");
-    assert!(remaining.saturating_sub(PREPARATION_MS) < TURN_MS + CLEANUP_RESERVE_MS,
-        "fixture cannot reserve the required turn+cleanup after preparation: {remaining}");
+    assert!(
+        remaining >= PREPARATION_MS,
+        "fixture can reserve preparation, actual remaining {remaining}"
+    );
+    assert!(
+        remaining.saturating_sub(PREPARATION_MS) < TURN_MS + CLEANUP_RESERVE_MS,
+        "fixture cannot reserve the required turn+cleanup after preparation: {remaining}"
+    );
     for arm in ARM_NAMES {
-        assert!(!database(&destination_path.join(arm), INDEX, destination.manifest.source_kind).exists());
+        assert!(!database(
+            &destination_path.join(arm),
+            INDEX,
+            destination.manifest.source_kind
+        )
+        .exists());
         assert!(!checkpoint_path(&destination_path.join(arm), INDEX).exists());
     }
     drop(persisted);
@@ -161,8 +233,16 @@ fn missing_right_turn_capacity_refuses_before_either_invocation_or_missing_left_
     drop(reopened);
     drop(plan);
     let error = refusal(outcome);
-    eprintln!("both-arm budget outcome {error:?}; retained {}", fixture.root.display());
-    unchanged(&inventory(&fixture.source), &source_before, "source immutable", &fixture.root);
+    eprintln!(
+        "both-arm budget outcome {error:?}; retained {}",
+        fixture.root.display()
+    );
+    unchanged(
+        &inventory(&fixture.source),
+        &source_before,
+        "source immutable",
+        &fixture.root,
+    );
     unchanged(&inventory(&destination_path), &destination_before,
         "known insufficient missing-right capacity must precede BOTH invocation/Store/provider writes", &fixture.root);
     assert_eq!(error.as_deref(), Some("RunBudget"));
@@ -185,11 +265,21 @@ fn actual_failed_checkpoint_cannot_hide_an_actual_committed_store_during_inspect
     ensure_database(&path, corpus.seed(), plan.before[0].receipts()).unwrap();
     let mut ledger = Ledger::load(&left, &binding).unwrap();
     ledger.begin_invocation().unwrap();
-    let failed = execute_turn(TurnJob {
-        dir: &left, path: &path, index: INDEX, arm: ARM_NAMES[0], policy: POLICIES[0],
-        binding: &binding, step, factory: &LaneFactory::TestFault(TestFault::WrongCommand),
-        cancel: &Cancellation::default(),
-    }, &mut ledger).unwrap();
+    let failed = execute_turn(
+        TurnJob {
+            dir: &left,
+            path: &path,
+            index: INDEX,
+            arm: ARM_NAMES[0],
+            policy: POLICIES[0],
+            binding: &binding,
+            step,
+            factory: &LaneFactory::TestFault(TestFault::WrongCommand),
+            cancel: &Cancellation::default(),
+        },
+        &mut ledger,
+    )
+    .unwrap();
     assert_eq!(failed.row.phase, "failed");
     assert!(!failed.row.passed);
     assert_eq!(failed.before_head, failed.after_head);
@@ -198,18 +288,36 @@ fn actual_failed_checkpoint_cannot_hide_an_actual_committed_store_during_inspect
     let checkpoint = checkpoint_path(&left, INDEX);
     let original_checkpoint = fs::read(&checkpoint).unwrap();
     let actual_checkpoint: StoredTurn = decode(&checkpoint, 256 * 1024).unwrap();
-    assert_eq!(encode(&actual_checkpoint).unwrap(), encode(&failed).unwrap());
+    assert_eq!(
+        encode(&actual_checkpoint).unwrap(),
+        encode(&failed).unwrap()
+    );
     let before_basis = plan.before[0].accepted_history_basis().unwrap();
-    assert_eq!(engine(&path, plan.before[0].scope()).unwrap().accepted_history_basis().unwrap(), before_basis);
+    assert_eq!(
+        engine(&path, plan.before[0].scope())
+            .unwrap()
+            .accepted_history_basis()
+            .unwrap(),
+        before_basis
+    );
     ledger.finish().unwrap(); // execute_turn already settled its real admission.
     drop(ledger);
     let committed_source = database(&fixture.source.join("left"), INDEX, kind);
     let committed_engine = engine(&committed_source, &corpus.seed().scope).unwrap();
-    assert_eq!(committed_engine.at_revision(failed.before_head).unwrap().accepted_history_basis().unwrap(), before_basis);
+    assert_eq!(
+        committed_engine
+            .at_revision(failed.before_head)
+            .unwrap()
+            .accepted_history_basis()
+            .unwrap(),
+        before_basis
+    );
     assert!(committed_engine.revision() > failed.after_head);
     {
         let mut store = Store::open_read_only(&committed_source).unwrap();
-        let actual = store.lookup_turn(&failed.request.scope, &failed.request.turn).unwrap();
+        let actual = store
+            .lookup_turn(&failed.request.scope, &failed.request.turn)
+            .unwrap();
         assert_eq!(actual.phase, locallore_storage::TurnPhase::Committed);
         assert_eq!(actual.request, failed.request);
         assert!(actual.receipt.is_some());
@@ -230,12 +338,19 @@ fn actual_failed_checkpoint_cannot_hide_an_actual_committed_store_during_inspect
     assert_eq!(retained.before_head, retained.after_head);
     {
         let mut store = Store::open_read_only(&path).unwrap();
-        let actual = store.lookup_turn(&failed.request.scope, &failed.request.turn).unwrap();
+        let actual = store
+            .lookup_turn(&failed.request.scope, &failed.request.turn)
+            .unwrap();
         assert_eq!(actual.phase, locallore_storage::TurnPhase::Committed);
         assert_eq!(actual.request, failed.request);
         assert!(actual.receipt.is_some());
     }
-    unchanged(&inventory(&fixture.source), &source_before, "setup only read actual source", &fixture.root);
+    unchanged(
+        &inventory(&fixture.source),
+        &source_before,
+        "setup only read actual source",
+        &fixture.root,
+    );
     let after_setup = inventory(&destination_path);
     // Independent byte-exact copies let BOTH public calls be observed even if
     // the first has an unexpected mutation; no failure is silently repaired.
@@ -247,13 +362,47 @@ fn actual_failed_checkpoint_cannot_hide_an_actual_committed_store_during_inspect
     let resume_before = inventory(&resume_path);
     let inspect_result = refusal(inspect_selected(&inspect_path));
     let inspect_after = inventory(&inspect_path);
-    let resume_result = refusal(resume_selected(&resume_path, &fixture.source, &binding, &Cancellation::default()));
+    let resume_result = refusal(resume_selected(
+        &resume_path,
+        &fixture.source,
+        &binding,
+        &Cancellation::default(),
+    ));
     let resume_after = inventory(&resume_path);
-    eprintln!("outcome contradiction inspect={inspect_result:?} resume={resume_result:?}; retained {}", fixture.root.display());
-    unchanged(&inventory(&fixture.source), &source_before, "source immutable", &fixture.root);
-    unchanged(&inventory(&destination_path), &after_setup, "original contradictory fixture retained", &fixture.root);
-    unchanged(&inspect_after, &inspect_before, "inspect is read-only even on refusal", &fixture.root);
-    unchanged(&resume_after, &resume_before, "contradictory Store/checkpoint must precede either ledger or output", &fixture.root);
-    assert!(inspect_result.is_some(), "inspect must refuse an actual committed Store hidden by a failed checkpoint");
-    assert!(resume_result.is_some(), "resume must refuse actual outcome disagreement before missing-arm generation");
+    eprintln!(
+        "outcome contradiction inspect={inspect_result:?} resume={resume_result:?}; retained {}",
+        fixture.root.display()
+    );
+    unchanged(
+        &inventory(&fixture.source),
+        &source_before,
+        "source immutable",
+        &fixture.root,
+    );
+    unchanged(
+        &inventory(&destination_path),
+        &after_setup,
+        "original contradictory fixture retained",
+        &fixture.root,
+    );
+    unchanged(
+        &inspect_after,
+        &inspect_before,
+        "inspect is read-only even on refusal",
+        &fixture.root,
+    );
+    unchanged(
+        &resume_after,
+        &resume_before,
+        "contradictory Store/checkpoint must precede either ledger or output",
+        &fixture.root,
+    );
+    assert!(
+        inspect_result.is_some(),
+        "inspect must refuse an actual committed Store hidden by a failed checkpoint"
+    );
+    assert!(
+        resume_result.is_some(),
+        "resume must refuse actual outcome disagreement before missing-arm generation"
+    );
 }

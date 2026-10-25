@@ -8,6 +8,9 @@
 //! locally for inspection; never read default saves or alter Android open support.
 #![cfg(windows)]
 
+#[path = "archive_continuation_tests.rs"]
+mod continuation_tests;
+
 use super::*;
 use locallore::{
     author_correction::{AuthorCorrectionInputV1, AuthorCorrectionOperationV1, CanonicalRecord},

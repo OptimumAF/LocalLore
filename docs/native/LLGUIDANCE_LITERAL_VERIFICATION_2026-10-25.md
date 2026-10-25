@@ -143,3 +143,65 @@ no-inference replay still require a separately observed run. Existing
 quarantined targets are not reusable evidence. Physical-phone M01.01, ARM64
 execution, model quality, latency tiers and the complete M05 exit gate remain
 unqualified. No merge, release or access change is performed by this packet.
+
+## First fresh D-root attempt: import runner passed, controller stopped
+
+The later sampled D: free space rose to83.46GB while the rejected cleanup
+remained unexecuted. A separately reviewed plain D-root admission retained
+40GiB on **both** drives, with an additive sampled2-second monitor. Its
+private outer grant bound the unchanged inner environment proposal, grant
+and guard source. Independent review corrected sticky stop/final-status
+issues before boot. This was observed reserve protection, not a disk quota
+or an all-times guarantee. No compression was used for the new VM.
+
+PREPARE's owned SDK child completed12390ms/0/known cleanup. Boot metadata
+showed the8GiB raw SD **and** a growing SD overlay, userdata base/overlay,
+and an8.59GB RAM backing despite the no-snapshot flags. The conservative
+full12GiB userdata+8GiB raw SD+8GiB SD overlay+8GiB RAM budget is36GiB,
+plus filesystem/cache/other overhead; model copies are inside those guest
+backings. No RAM-image/snapshot-content or guest-flush claim follows.
+
+The exact audited receipt pair was installed on fresh API35/x86_64, four
+guest CPUs. SOURCE_PREFLIGHT passed1method/12checks. All44 command records
+had known cleanup; outer82157ms/worker0/output complete/0stderr. Independent
+review verified raw runner, proof, source/UID/package/descriptor links and
+stronger postguards. Full weights and SDK were absent during preflight.
+
+A separate ordinary grant bound those successful raw records, unchanged
+source/APKs, consent and the same healthy live lease. The once-only held-FD
+local stream verified2,588,147,712 source bytes and the expected SHA256, then
+reported client0 with destination/remote-completion explicitly unverified.
+The app's IMPORT runner subsequently reported **OK1 in134.086seconds**.
+Raw802bytes SHA256
+`f740c18399a14de4a78a1a331eb8c32bd028a4db9eac9da5908f501b03d0eab6`.
+Its client completed0 with known cleanup. However, the controller rejected
+that result before reading the app-domain proof: the inherited synthetic
+runner parser hard-capped summaries at120seconds, while the already defined
+IMPORT phase permits150000ms. Ordinary START/DIALOGUE similarly define170000ms
+but used the same inherited parser. This is a demonstrated harness mismatch,
+not evidence of a failed app import or a slow inference call.
+
+The outer ordinary driver stopped at `instrument-IMPORT`,310047ms/worker2,
+known cleanup/output complete/0stderr,15commands/one instrumentation method.
+**No import proof was read; no SDK, gift, Dialogue or reopen was dispatched
+or qualified.** The target was stopped through its exact proposal-bound
+owner:600328ms/known cleanup/output complete/preservation closure verified.
+The guard ended healthy with no monitor failure. The target, source, model
+copies and raw failure remain preserved; there was no target retry or proof
+salvage. Host closure does not establish graceful guest flush.
+
+The selected first-device evidence index covers177files/581977bytes, SHA256
+`488a433dde912c0254878d6471d930dce81d4213f815d2d3520f0897e29531b9`.
+It explicitly excludes images, weights, caches and keys. A separate host
+selection covers204files/308644390bytes, indexSHA256
+`759c7c8a1df06ebe0088e3bc2c64fa0bd694497efe33ede88bb833e453c4a1be`.
+All93 executed controller/source dependencies were captured before correction;
+six Android compilation source crossbindings remain exact. Private evidence
+is retained locally, not uploaded.
+
+The next correction binds each runner parser to its **existing fixed phase
+budget**, preserves synthetic120000ms, tests exact/beyond limits and original
+framing, and replays this original raw result offline. It raises no worker,
+generation, client, profile or acceptance deadline. A newly frozen source
+and fresh target/preflight are required before repeating the ordinary cohort;
+the old target remains retained. Checkboxes and physical/quality gates stay open.

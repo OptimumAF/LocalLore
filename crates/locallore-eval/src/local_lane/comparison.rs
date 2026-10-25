@@ -618,19 +618,28 @@ fn turn_deadline(started: Instant, now: Instant, active_remaining_ms: u64) -> In
         .min(now + Duration::from_millis(active_remaining_ms.saturating_sub(CLEANUP_RESERVE_MS)))
 }
 
-fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
-    let TurnJob {
-        dir,
+struct RecoveryJob<'a> {
+    path: &'a Path,
+    full: &'a Engine,
+    index: usize,
+    arm: &'a str,
+    policy: ContextPolicy,
+    binding: &'a str,
+    step: &'a protocol::Step,
+    profile: &'a PlayProfile,
+}
+
+fn recover_committed_turn(job: RecoveryJob<'_>) -> Result<Option<StoredTurn>> {
+    let RecoveryJob {
         path,
+        full,
         index,
         arm,
         policy,
         binding,
         step,
-        factory,
-        cancel,
+        profile,
     } = job;
-    let full = engine(path, &suite()?.seed().scope)?;
     if full.domain_version() != 1 {
         return Err("UnsupportedDomain".into());
     }
@@ -668,11 +677,11 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
             elapsed_ms: 0,
             first_final_response_ms: None,
             commit_elapsed_ms: None,
-            profile: &factory.profile()?,
+            profile,
             recovered: true,
             forwarded_budget_version: Some(1),
         })?;
-        return Ok(StoredTurn {
+        return Ok(Some(StoredTurn {
             version: 2,
             binding: binding.into(),
             index,
@@ -683,7 +692,46 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
             row,
             capture_file: None,
             recording_file: None,
-        });
+        }));
+    }
+    Ok(None)
+}
+
+fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
+    let TurnJob {
+        dir,
+        path,
+        index,
+        arm,
+        policy,
+        binding,
+        step,
+        factory,
+        cancel,
+    } = job;
+    let full = engine(path, &suite()?.seed().scope)?;
+    if full.domain_version() != 1 {
+        return Err("UnsupportedDomain".into());
+    }
+    if full
+        .receipts()
+        .iter()
+        .any(|r| r.request().turn == step.id())
+    {
+        // Keep profile validation on the committed branch, before read-only
+        // lookup/cuts. Native selected recovery can supply its validated profile
+        // directly without first constructing a factory or loading a runtime.
+        return recover_committed_turn(RecoveryJob {
+            path,
+            full: &full,
+            index,
+            arm,
+            policy,
+            binding,
+            step,
+            profile: &factory.profile()?,
+        })?
+        .ok_or_else(|| "Lookup".into());
     }
     let before = full;
     let request = step.request(&before);

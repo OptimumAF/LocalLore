@@ -89,14 +89,19 @@ pub enum Error {
 /// Post-spawn failure retains the exact cleanup owner; this is never wire data.
 pub enum OwnedStartFailure {
     BeforeChild(Error),
-    AfterChild { cause: Error, owner: Box<LocalRuntime> },
+    AfterChild {
+        cause: Error,
+        owner: Box<LocalRuntime>,
+    },
 }
 impl std::fmt::Debug for OwnedStartFailure {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::BeforeChild(cause) => f.debug_tuple("BeforeChild").field(cause).finish(),
-            Self::AfterChild { cause, .. } => f.debug_struct("AfterChild")
-                .field("cause", cause).finish_non_exhaustive(),
+            Self::AfterChild { cause, .. } => f
+                .debug_struct("AfterChild")
+                .field("cause", cause)
+                .finish_non_exhaustive(),
         }
     }
 }
@@ -313,7 +318,9 @@ struct StartupPipes {
     stderr: Mutex<Option<ChildStderr>>,
 }
 fn take_startup_pipe<T>(pipe: &Mutex<Option<T>>) -> Option<T> {
-    pipe.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).take()
+    pipe.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .take()
 }
 
 /// One trusted packaged executable and one verified, locked artifact. Calls block and must run
@@ -358,9 +365,8 @@ impl LocalRuntime {
         expected_sha256: &str,
         cancel: impl Fn() -> bool,
     ) -> Result<Self, Error> {
-        Self::spawn_packaged_owned_expected_cancelled(
-            resource_dir, model, expected_sha256, cancel,
-        ).map_err(OwnedStartFailure::legacy)
+        Self::spawn_packaged_owned_expected_cancelled(resource_dir, model, expected_sha256, cancel)
+            .map_err(OwnedStartFailure::legacy)
     }
     /// Exact packaged startup with ownership returned on every post-spawn error.
     pub fn spawn_packaged_owned_expected_cancelled(
@@ -390,32 +396,43 @@ impl LocalRuntime {
     /// Fixed synthetic protocol owner for cross-crate ownership tests only.
     /// No caller path, executable, mode, arguments or model artifact is accepted.
     #[cfg(feature = "development-worker")]
-    pub fn development_protocol_fixture()
-        -> Result<(Self, std::path::PathBuf), OwnedStartFailure>
-    {
+    pub fn development_protocol_fixture() -> Result<(Self, std::path::PathBuf), OwnedStartFailure> {
         let current = std::env::current_exe()
             .map_err(|_| OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?;
-        let parent = current.parent()
+        let parent = current
+            .parent()
             .ok_or(OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?;
         let target = if parent.file_name() == Some(std::ffi::OsStr::new("deps")) {
-            parent.parent().ok_or(OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?
-        } else { parent };
+            parent
+                .parent()
+                .ok_or(OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?
+        } else {
+            parent
+        };
         let executable = target.join(if cfg!(windows) {
             "protocol-fixture.exe"
-        } else { "protocol-fixture" });
+        } else {
+            "protocol-fixture"
+        });
         if !executable.is_file() {
             return Err(OwnedStartFailure::BeforeChild(Error::WorkerUnavailable));
         }
-        let time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
-            .map_err(|_| OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?.as_nanos();
+        let time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?
+            .as_nanos();
         let directory = std::env::temp_dir().join(format!(
-            "locallore-protocol-fixture-{}-{time}-{}", std::process::id(),
+            "locallore-protocol-fixture-{}-{time}-{}",
+            std::process::id(),
             DEVELOPMENT_FIXTURE_SEQUENCE.fetch_add(1, Ordering::Relaxed),
         ));
         std::fs::create_dir(&directory)
             .map_err(|_| OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?;
         let model = directory.join("valid");
-        let file = OpenOptions::new().write(true).create_new(true).open(&model)
+        let file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&model)
             .map_err(|_| OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?;
         // Artifacts remain local on every failure; caller removes its returned
         // directory only after explicit owner cleanup on success.
@@ -526,25 +543,29 @@ impl LocalRuntime {
         // Allocate the error owner's storage before creating any child. Safe
         // Box::write initializes that same allocation without an error-path allocation.
         let storage = Box::<Self>::new_uninit();
-        let child = command.spawn()
+        let child = command
+            .spawn()
             .map_err(|_| OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?;
-        let mut owner = Box::write(storage, Self {
-            child,
-            writer: Some(writer),
-            replies,
-            fault: fault.clone(),
-            threads,
-            startup_pipes,
-            _model: file,
-            _ancestors: vec![],
-            _worker: None,
-            _worker_ancestors: vec![],
-            worker_sha256: String::new(),
-            next_id: 0,
-            status: Status::Unloaded,
-            deadline: Duration::from_secs(60),
-            last_metrics: None,
-        });
+        let mut owner = Box::write(
+            storage,
+            Self {
+                child,
+                writer: Some(writer),
+                replies,
+                fault: fault.clone(),
+                threads,
+                startup_pipes,
+                _model: file,
+                _ancestors: vec![],
+                _worker: None,
+                _worker_ancestors: vec![],
+                worker_sha256: String::new(),
+                next_id: 0,
+                status: Status::Unloaded,
+                deadline: Duration::from_secs(60),
+                last_metrics: None,
+            },
+        );
         #[cfg(all(test, windows, feature = "development-worker"))]
         if FAIL_PIPE_STAGE.with(|fail| fail.get().is_some()) {
             use std::os::windows::io::AsHandle;
@@ -553,85 +574,97 @@ impl LocalRuntime {
             });
         }
         let started = {
-        let owner = owner.as_mut();
-        (|| -> Result<(), Error> {
-        *owner.startup_pipes.stdin.lock().map_err(|_| Error::WorkerUnavailable)? =
-            Some(owner.child.stdin.take().ok_or(Error::WorkerUnavailable)?);
-        *owner.startup_pipes.stdout.lock().map_err(|_| Error::WorkerUnavailable)? =
-            Some(owner.child.stdout.take().ok_or(Error::WorkerUnavailable)?);
-        *owner.startup_pipes.stderr.lock().map_err(|_| Error::WorkerUnavailable)? =
-            Some(owner.child.stderr.take().ok_or(Error::WorkerUnavailable)?);
-        let write_fault = fault.clone();
-        let pipes = owner.startup_pipes.clone();
-        let write_thread = spawn_pipe(1, move || {
-            let Some(mut stdin) = take_startup_pipe(&pipes.stdin) else {
-                write_fault.store(true, Ordering::SeqCst);
-                return;
-            };
-            while let Ok(frame) = writes.recv() {
-                if stdin.write_all(&frame).and_then(|_| stdin.flush()).is_err() {
-                    write_fault.store(true, Ordering::SeqCst);
-                    break;
-                }
-            }
-        })
-        .map_err(|_| Error::WorkerUnavailable)?;
-        owner.threads.push(write_thread);
-        let read_fault = fault.clone();
-        let pipes = owner.startup_pipes.clone();
-        let read_thread = spawn_pipe(2, move || {
-            let Some(mut stdout) = take_startup_pipe(&pipes.stdout) else {
-                read_fault.store(true, Ordering::SeqCst);
-                return;
-            };
-            loop {
-            let mut frame = vec![];
-            loop {
-                let mut byte = [0];
-                match stdout.read(&mut byte) {
-                    Ok(1) if byte[0] == b'\n' => break,
-                    Ok(1) if frame.len() < MAX_FRAME => frame.push(byte[0]),
-                    _ => {
-                        read_fault.store(true, Ordering::SeqCst);
-                        let _ = results.try_send(Err(Error::Protocol));
+            let owner = owner.as_mut();
+            (|| -> Result<(), Error> {
+                *owner
+                    .startup_pipes
+                    .stdin
+                    .lock()
+                    .map_err(|_| Error::WorkerUnavailable)? =
+                    Some(owner.child.stdin.take().ok_or(Error::WorkerUnavailable)?);
+                *owner
+                    .startup_pipes
+                    .stdout
+                    .lock()
+                    .map_err(|_| Error::WorkerUnavailable)? =
+                    Some(owner.child.stdout.take().ok_or(Error::WorkerUnavailable)?);
+                *owner
+                    .startup_pipes
+                    .stderr
+                    .lock()
+                    .map_err(|_| Error::WorkerUnavailable)? =
+                    Some(owner.child.stderr.take().ok_or(Error::WorkerUnavailable)?);
+                let write_fault = fault.clone();
+                let pipes = owner.startup_pipes.clone();
+                let write_thread = spawn_pipe(1, move || {
+                    let Some(mut stdin) = take_startup_pipe(&pipes.stdin) else {
+                        write_fault.store(true, Ordering::SeqCst);
                         return;
+                    };
+                    while let Ok(frame) = writes.recv() {
+                        if stdin.write_all(&frame).and_then(|_| stdin.flush()).is_err() {
+                            write_fault.store(true, Ordering::SeqCst);
+                            break;
+                        }
                     }
-                }
-            }
-            if results.try_send(Ok(frame)).is_err() {
-                read_fault.store(true, Ordering::SeqCst);
-                return;
-            }
-            }
-        })
-        .map_err(|_| Error::WorkerUnavailable)?;
-        owner.threads.push(read_thread);
-        let error_fault = fault.clone();
-        let pipes = owner.startup_pipes.clone();
-        let error_thread = spawn_pipe(3, move || {
-            let Some(mut stderr) = take_startup_pipe(&pipes.stderr) else {
-                error_fault.store(true, Ordering::SeqCst);
-                return;
-            };
-            let mut count = 0;
-            let mut block = [0; 4096];
-            loop {
-                match stderr.read(&mut block) {
-                    Ok(0) | Err(_) => return,
-                    Ok(n) => {
-                        count += n;
-                        if count > MAX_PIPE {
-                            error_fault.store(true, Ordering::SeqCst);
+                })
+                .map_err(|_| Error::WorkerUnavailable)?;
+                owner.threads.push(write_thread);
+                let read_fault = fault.clone();
+                let pipes = owner.startup_pipes.clone();
+                let read_thread = spawn_pipe(2, move || {
+                    let Some(mut stdout) = take_startup_pipe(&pipes.stdout) else {
+                        read_fault.store(true, Ordering::SeqCst);
+                        return;
+                    };
+                    loop {
+                        let mut frame = vec![];
+                        loop {
+                            let mut byte = [0];
+                            match stdout.read(&mut byte) {
+                                Ok(1) if byte[0] == b'\n' => break,
+                                Ok(1) if frame.len() < MAX_FRAME => frame.push(byte[0]),
+                                _ => {
+                                    read_fault.store(true, Ordering::SeqCst);
+                                    let _ = results.try_send(Err(Error::Protocol));
+                                    return;
+                                }
+                            }
+                        }
+                        if results.try_send(Ok(frame)).is_err() {
+                            read_fault.store(true, Ordering::SeqCst);
                             return;
                         }
                     }
-                }
-            }
-        })
-        .map_err(|_| Error::WorkerUnavailable)?;
-        owner.threads.push(error_thread);
-        Ok(())
-        })()
+                })
+                .map_err(|_| Error::WorkerUnavailable)?;
+                owner.threads.push(read_thread);
+                let error_fault = fault.clone();
+                let pipes = owner.startup_pipes.clone();
+                let error_thread = spawn_pipe(3, move || {
+                    let Some(mut stderr) = take_startup_pipe(&pipes.stderr) else {
+                        error_fault.store(true, Ordering::SeqCst);
+                        return;
+                    };
+                    let mut count = 0;
+                    let mut block = [0; 4096];
+                    loop {
+                        match stderr.read(&mut block) {
+                            Ok(0) | Err(_) => return,
+                            Ok(n) => {
+                                count += n;
+                                if count > MAX_PIPE {
+                                    error_fault.store(true, Ordering::SeqCst);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                })
+                .map_err(|_| Error::WorkerUnavailable)?;
+                owner.threads.push(error_thread);
+                Ok(())
+            })()
         };
         match started {
             Ok(()) => Ok(*owner),

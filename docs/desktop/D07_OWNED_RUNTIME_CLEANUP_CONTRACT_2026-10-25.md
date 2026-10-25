@@ -20,6 +20,10 @@ Keep one existing LocalRuntime and one existing ModelManager, retaining ownershi
 until cleanup is observed. No new Core authority, Store/schema, provider/backend,
 manager, process registry, IPC command/keyset, UI or model/worker asset identity.
 The future selected-reservation interface remains under review, not implemented.
+The tested reservation handoff has a non-test `expect(dead_code)` while that
+adapter is unwired. This is the only intentional lint expectation; no runtime
+lint is disabled. Remove it when the production consumer is added (an unused
+expectation itself fails strict lint). It grants no UI execution capability.
 
 Current runtime `load` can return the original error after discarding `fail`'s
 cleanup result; Drop ignores kill/wait/join results. `shutdown` calls the protocol

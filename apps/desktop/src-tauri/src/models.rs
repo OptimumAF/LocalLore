@@ -1,7 +1,9 @@
 //! Native-owned verified model lifecycle. No renderer-supplied file or executable paths.
 use crate::{exports, lease::WindowLease};
 use locallore::{host::Host, play::PlayProfile};
-use locallore_local_runtime::{LocalRuntime, OwnedStartFailure, MODEL_BYTES, MODEL_SHA256, PROFILE, RUNTIME_COMMIT};
+use locallore_local_runtime::{
+    LocalRuntime, OwnedStartFailure, MODEL_BYTES, MODEL_SHA256, PROFILE, RUNTIME_COMMIT,
+};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
@@ -40,22 +42,34 @@ fn cleanup_owner<T>(
 ) -> CleanupOutcome {
     #[cfg(test)]
     if FAIL_CLEANUP_ONCE.with(|fault| fault.replace(false)) {
-        return CleanupOutcome { confirmed: false, result: Err("Cleanup".into()) };
+        return CleanupOutcome {
+            confirmed: false,
+            result: Err("Cleanup".into()),
+        };
     }
     match owner.lock() {
         Ok(mut runtime) => {
             let result = shutdown(&mut runtime);
-            CleanupOutcome { confirmed: result.is_ok(), result }
+            CleanupOutcome {
+                confirmed: result.is_ok(),
+                result,
+            }
         }
         Err(poisoned) => {
             // Recover only to drain/reap the failed owner, never to resume inference.
             let result = shutdown(&mut poisoned.into_inner());
-            CleanupOutcome { confirmed: result.is_ok(), result: Err("Cleanup".into()) }
+            CleanupOutcome {
+                confirmed: result.is_ok(),
+                result: Err("Cleanup".into()),
+            }
         }
     }
 }
 #[cfg(test)]
-fn shutdown_owner<T>(owner: &Mutex<T>, shutdown: impl FnOnce(&mut T) -> Result<(), String>) -> Result<(), String> {
+fn shutdown_owner<T>(
+    owner: &Mutex<T>,
+    shutdown: impl FnOnce(&mut T) -> Result<(), String>,
+) -> Result<(), String> {
     cleanup_owner(owner, shutdown).result
 }
 struct Inner {
@@ -86,10 +100,19 @@ pub struct EvaluationReservation {
     pub model: PathBuf,
 }
 impl EvaluationReservation {
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "D07 selected-run adapter is a separate integration slice; exact-owner handoff is exercised by native unit tests"
+        )
+    )]
     pub(crate) fn retain_uncertain(&mut self, runtime: SharedRuntime) -> Result<(), SharedRuntime> {
         let mut s = self.owner.inner.lock().unwrap_or_else(|p| p.into_inner());
         if s.evaluation != Some(self.ticket)
-            || s.runtime.as_ref().is_some_and(|current| !Arc::ptr_eq(current, &runtime))
+            || s.runtime
+                .as_ref()
+                .is_some_and(|current| !Arc::ptr_eq(current, &runtime))
         {
             return Err(runtime);
         }
@@ -145,7 +168,9 @@ impl ModelManager {
             })
         });
         if s.cleanup_uncertain {
-            if s.phase != "unloading" { s.phase = "failed"; }
+            if s.phase != "unloading" {
+                s.phase = "failed";
+            }
             s.error = Some("Cleanup".into());
         } else if failed && s.phase != "unloading" {
             s.phase = "failed";
@@ -225,7 +250,9 @@ impl ModelManager {
             if finished_startup {
                 s.starting = None;
             }
-            if s.closing == Some(job) { s.closing = None; }
+            if s.closing == Some(job) {
+                s.closing = None;
+            }
             if s.job == job {
                 if s.cleanup_uncertain {
                     s.phase = "failed";
@@ -250,7 +277,11 @@ impl ModelManager {
                     .filter(|e| *e != "Cancelled" && *e != "Closed")
                     .cloned();
                 s.percent = if result.is_ok() { 100 } else { 0 };
-            } else if finished_startup && s.phase == "unloading" && s.runtime.is_none() && s.closing.is_none() {
+            } else if finished_startup
+                && s.phase == "unloading"
+                && s.runtime.is_none()
+                && s.closing.is_none()
+            {
                 // Retirement cannot acknowledge cleanup for the still-running
                 // loader. Only its matching completion releases this exclusion.
                 s.phase = "unloaded";
@@ -328,16 +359,19 @@ impl ModelManager {
                 return Err("Closed".into());
             }
             reap_imports(&self.root)?;
-            let (runtime, startup_error) = match LocalRuntime::spawn_packaged_owned_expected_cancelled(
-                &self.resource,
-                &self.path(),
-                APPROVED_WORKER_SHA256,
-                || cancel.load(Ordering::SeqCst) || !lease.valid(epoch),
-            ) {
-                Ok(runtime) => (runtime, None),
-                Err(OwnedStartFailure::BeforeChild(cause)) => return Err(runtime_error(cause)),
-                Err(OwnedStartFailure::AfterChild { cause, owner }) => (*owner, Some(runtime_error(cause))),
-            };
+            let (runtime, startup_error) =
+                match LocalRuntime::spawn_packaged_owned_expected_cancelled(
+                    &self.resource,
+                    &self.path(),
+                    APPROVED_WORKER_SHA256,
+                    || cancel.load(Ordering::SeqCst) || !lease.valid(epoch),
+                ) {
+                    Ok(runtime) => (runtime, None),
+                    Err(OwnedStartFailure::BeforeChild(cause)) => return Err(runtime_error(cause)),
+                    Err(OwnedStartFailure::AfterChild { cause, owner }) => {
+                        (*owner, Some(runtime_error(cause)))
+                    }
+                };
             let shared = Arc::new(Mutex::new(runtime));
             {
                 let mut s = self.inner.lock().unwrap_or_else(|p| p.into_inner());
@@ -348,23 +382,27 @@ impl ModelManager {
                 s.runtime = Some(shared.clone());
             }
             owned = Some(shared.clone());
-            if let Some(error) = startup_error { return Err(error); }
+            if let Some(error) = startup_error {
+                return Err(error);
+            }
             let profile = {
                 let mut runtime = shared.lock().map_err(|_| "Cleanup")?;
-                runtime.load(|| cancel.load(Ordering::SeqCst) || !lease.valid(epoch)).map_err(runtime_error)?;
+                runtime
+                    .load(|| cancel.load(Ordering::SeqCst) || !lease.valid(epoch))
+                    .map_err(runtime_error)?;
                 PlayProfile {
-                id: PROFILE.into(),
-                model_sha256: MODEL_SHA256.into(),
-                runtime_revision: RUNTIME_COMMIT.into(),
-                template_sha256: "57f1fd00f0013a2be96aa79b857391f27e23df5b5f847072b524c897e24d0361"
-                    .into(),
-                worker_sha256: runtime.worker_sha256().into(),
-                profile_manifest_sha256: locallore_local_runtime::profile_manifest_sha256(),
-                context_tokens: 4096,
-                director_tokens: 350,
-                narrator_tokens: 350,
-                deadline_ms: 120000,
-                repair_limit: 1,
+                    id: PROFILE.into(),
+                    model_sha256: MODEL_SHA256.into(),
+                    runtime_revision: RUNTIME_COMMIT.into(),
+                    template_sha256:
+                        "57f1fd00f0013a2be96aa79b857391f27e23df5b5f847072b524c897e24d0361".into(),
+                    worker_sha256: runtime.worker_sha256().into(),
+                    profile_manifest_sha256: locallore_local_runtime::profile_manifest_sha256(),
+                    context_tokens: 4096,
+                    director_tokens: 350,
+                    narrator_tokens: 350,
+                    deadline_ms: 120000,
+                    repair_limit: 1,
                 }
             };
             profile.validate().map_err(|e| e.to_string())?;
@@ -399,11 +437,19 @@ impl ModelManager {
         })();
         if let (Err(cause), Some(owner)) = (&result, owned.as_ref()) {
             let initial_cause = cause.clone();
-            if configured { host.disable_local_provider(); }
-            let outcome = cleanup_owner(owner, |runtime| runtime.terminate_and_reap().map_err(runtime_error));
+            if configured {
+                host.disable_local_provider();
+            }
+            let outcome = cleanup_owner(owner, |runtime| {
+                runtime.terminate_and_reap().map_err(runtime_error)
+            });
             {
                 let mut s = self.inner.lock().unwrap_or_else(|p| p.into_inner());
-                if s.starting == Some(job) && s.runtime.as_ref().is_some_and(|current| Arc::ptr_eq(current, owner)) {
+                if s.starting == Some(job)
+                    && s.runtime
+                        .as_ref()
+                        .is_some_and(|current| Arc::ptr_eq(current, owner))
+                {
                     s.profile = None;
                     if outcome.confirmed {
                         s.runtime = None;
@@ -417,7 +463,9 @@ impl ModelManager {
                     }
                 }
             }
-            if outcome.result.is_err() { result = Err("Cleanup".into()); }
+            if outcome.result.is_err() {
+                result = Err("Cleanup".into());
+            }
         }
         self.finish(job, &result);
         result?;
@@ -432,17 +480,29 @@ impl ModelManager {
             Ok((job, s.runtime.clone()))
         })?;
         let outcome = if let Some(owner) = &runtime {
-            cleanup_owner(owner, |runtime| runtime.terminate_and_reap().map_err(runtime_error))
+            cleanup_owner(owner, |runtime| {
+                runtime.terminate_and_reap().map_err(runtime_error)
+            })
         } else {
-            CleanupOutcome { confirmed: true, result: Ok(()) }
+            CleanupOutcome {
+                confirmed: true,
+                result: Ok(()),
+            }
         };
         self.finish_cleanup(job, runtime.as_ref(), outcome)
     }
-    fn finish_cleanup(&self, job: u64, owner: Option<&SharedRuntime>, outcome: CleanupOutcome) -> Result<Value, String> {
+    fn finish_cleanup(
+        &self,
+        job: u64,
+        owner: Option<&SharedRuntime>,
+        outcome: CleanupOutcome,
+    ) -> Result<Value, String> {
         {
             let mut s = self.inner.lock().unwrap_or_else(|p| p.into_inner());
             if s.job == job {
-                if s.closing == Some(job) { s.closing = None; }
+                if s.closing == Some(job) {
+                    s.closing = None;
+                }
                 let same = match (owner, s.runtime.as_ref()) {
                     (Some(expected), Some(current)) => Arc::ptr_eq(expected, current),
                     (None, None) => true,
@@ -454,7 +514,11 @@ impl ModelManager {
                     s.cleanup_uncertain = false;
                     s.cleanup_cause = None;
                     if s.starting.is_none() {
-                        s.phase = if outcome.result.is_ok() { "unloaded" } else { "failed" };
+                        s.phase = if outcome.result.is_ok() {
+                            "unloaded"
+                        } else {
+                            "failed"
+                        };
                         s.error = outcome.result.as_ref().err().cloned();
                         s.percent = if outcome.result.is_ok() { 100 } else { 0 };
                     }
@@ -495,8 +559,14 @@ impl ModelManager {
         // A superseding close cannot release replacement admission before this
         // worker's already-authorized Host side effects have finished.
         let _close_worker = self.close_worker.lock().unwrap_or_else(|p| p.into_inner());
-        let current = self.inner.lock().map(|s| s.job == job && s.closing == Some(job)).unwrap_or(false);
-        if !current { return; }
+        let current = self
+            .inner
+            .lock()
+            .map(|s| s.job == job && s.closing == Some(job))
+            .unwrap_or(false);
+        if !current {
+            return;
+        }
         #[cfg(test)]
         CLOSE_REVOKE_PAUSE.with(|hook| {
             if let Some((entered, release)) = hook.borrow_mut().take() {
@@ -510,8 +580,15 @@ impl ModelManager {
             host.disable_local_provider();
         }
         let outcome = if let Some(owner) = &runtime {
-            cleanup_owner(owner, |runtime| runtime.terminate_and_reap().map_err(runtime_error))
-        } else { CleanupOutcome { confirmed: true, result: Ok(()) } };
+            cleanup_owner(owner, |runtime| {
+                runtime.terminate_and_reap().map_err(runtime_error)
+            })
+        } else {
+            CleanupOutcome {
+                confirmed: true,
+                result: Ok(()),
+            }
+        };
         let _ = self.finish_cleanup(job, runtime.as_ref(), outcome);
     }
 }

@@ -194,7 +194,11 @@ fn one_shot_cleanup_failure_retains_live_child_pipes_threads_for_explicit_retry(
     assert!(owner.child.try_wait().unwrap().is_none());
     assert!(owner.writer.is_some());
     assert_eq!(owner.threads.len(), 3);
-    let thread_ids: Vec<_> = owner.threads.iter().map(|thread| thread.thread().id()).collect();
+    let thread_ids: Vec<_> = owner
+        .threads
+        .iter()
+        .map(|thread| thread.thread().id())
+        .collect();
     FAIL_CLEANUP_ONCE.with(|fault| fault.set(true));
     assert_eq!(owner.terminate_and_reap(), Err(Error::Cleanup));
     assert!(!FAIL_CLEANUP_ONCE.with(|fault| fault.get()));
@@ -204,7 +208,11 @@ fn one_shot_cleanup_failure_retains_live_child_pipes_threads_for_explicit_retry(
     assert!(owner.writer.is_some());
     assert_eq!(owner.threads.len(), 3);
     assert_eq!(
-        owner.threads.iter().map(|thread| thread.thread().id()).collect::<Vec<_>>(),
+        owner
+            .threads
+            .iter()
+            .map(|thread| thread.thread().id())
+            .collect::<Vec<_>>(),
         thread_ids
     );
     assert_eq!(owner.load(|| false), Err(Error::WorkerUnavailable));
@@ -220,7 +228,10 @@ fn one_shot_cleanup_failure_retains_live_child_pipes_threads_for_explicit_retry(
 
 #[test]
 fn owned_start_failure_debug_reveals_fixed_variant_and_cause_without_owner_internals() {
-    let before = format!("{:?}", OwnedStartFailure::BeforeChild(Error::InvalidRequest));
+    let before = format!(
+        "{:?}",
+        OwnedStartFailure::BeforeChild(Error::InvalidRequest)
+    );
     assert!(before.contains("BeforeChild"));
     assert!(before.contains("InvalidRequest"));
     #[cfg(windows)]
@@ -305,15 +316,20 @@ fn owned_parent_thread_panic_reports_cleanup_then_explicit_retry_drains_and_stay
     }
     assert_eq!(owner.terminate_and_reap(), Ok(()));
     assert_cleanup_confirmed(&mut owner);
-    assert_eq!(owner.generate(
-        Generation {
-            role: Role::Director,
-            prompt: "fixed synthetic request after cleanup".into(),
-            schema: None,
-            max_tokens: 1,
-        },
-        || false,
-    ).err(), Some(Error::WorkerUnavailable));
+    assert_eq!(
+        owner
+            .generate(
+                Generation {
+                    role: Role::Director,
+                    prompt: "fixed synthetic request after cleanup".into(),
+                    schema: None,
+                    max_tokens: 1,
+                },
+                || false,
+            )
+            .err(),
+        Some(Error::WorkerUnavailable)
+    );
     #[cfg(windows)]
     drop(exact_child);
     drop(owner);

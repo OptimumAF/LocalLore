@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-harness-selected-case"
+description = "Enables the harness_selected_case command without any pre-configured scope."
+commands.allow = ["harness_selected_case"]
+
+[[permission]]
+identifier = "deny-harness-selected-case"
+description = "Denies the harness_selected_case command without any pre-configured scope."
+commands.deny = ["harness_selected_case"]

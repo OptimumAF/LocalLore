@@ -51,6 +51,7 @@ SOURCE_FILES = (*r.SOURCE_FILES, "benchmarks/receipt_real_cancellation.py", "scr
     "apps/android/app/src/litert/java/org/locallore/app/LiteRtSendTrace.kt",
     "apps/android/app/src/litertTest/java/org/locallore/app/LiteRtSendTraceTest.kt",
     "docs/native/LITERT_SEND_TRACE_CONTRACT.md",
+    "docs/native/LITERT_SEND_TRACE_V2_CONTRACT.md",
     "benchmarks/litert_callback_trace.py", "scripts/tests/test_litert_callback_trace.py",
     "apps/android/app/src/litert/java/org/locallore/app/LiteRtCallbackTrace.kt",
     "apps/android/app/src/litertTest/java/org/locallore/app/LiteRtCallbackTraceTest.kt",

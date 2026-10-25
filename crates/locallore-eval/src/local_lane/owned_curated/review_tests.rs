@@ -4,6 +4,8 @@
 //! never an approved inference profile. Two ignored cases require real approved
 //! installed assets and Root approval. No fabricated receipt/source fingerprint.
 use super::*;
+#[path = "budget_review_tests.rs"]
+mod budget_review_tests;
 use std::{
     collections::BTreeMap,
     sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},

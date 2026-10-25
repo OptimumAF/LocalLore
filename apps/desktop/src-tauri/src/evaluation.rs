@@ -1012,6 +1012,8 @@ impl EvaluationManager {
 }
 mod comparison;
 mod curated;
+#[cfg(test)]
+mod fresh_budget_review;
 mod selected;
 
 pub use comparison::ComparisonEvidenceRequest;

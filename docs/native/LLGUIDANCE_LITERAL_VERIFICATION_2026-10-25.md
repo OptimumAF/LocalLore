@@ -280,7 +280,7 @@ canonical/model state was queried or inferred. Fixture/runner timings are
 not a physical-phone performance tier or isolated generation benchmark.
 
 The failing Dialogue raw runner is6565bytes, SHA256
-`9b64efd6` (full hash is retained in its command record and selected index).
+`9b64efd67d57d1d9efd8358b82f1584d4872c12e4d4035ab2138a7429fc5a8f1`.
 Its trace observes only DIRECTOR creation, SEND returned,15callbacks then
 one wrapper status13. DONE and settled drain remain0, conversation/engine
 known close remain0, uncertainty2. These are chunks/bytes, **not token counts**.

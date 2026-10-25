@@ -211,7 +211,10 @@ uses exact public regex constraints for supported finite schemas. Actual Kotlin
 output passed215 native byte-mask cases, and both Android variants passed host
 tests and package audits. This addresses a reproduced escaped-literal compiler
 tail omission; it does not establish the cause of earlier SDK errors or qualify
-real-model play. Fresh Android inference and restart remain separate checks.
+the full real-model scene. The [fresh Android follow-up](docs/native/LLGUIDANCE_LITERAL_VERIFICATION_2026-10-25.md#second-fresh-attempt-import-and-real-gift-pass-dialogue-still-fails)
+passes full receipt import and one ordinary Rust-committed SDK gift. Dialogue
+still reports INTERNAL13, so its restart check remains unrun. The actual SDK
+format selection and model-tokenizer failure need further investigation.
 
 The [isolated LLGuidance development oracle](docs/native/LLGUIDANCE_ORACLE_PROTOCOL.md)
 exports actual engine Dialogue schemas and checks their exact bytes with a

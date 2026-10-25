@@ -99,7 +99,7 @@ passes import and observes42.175s from director send to DONE; narration starts
 59.580s after trace creation near the60s turn deadline and PLAY fails its ownership fence. This does
 not establish a long second-creation hang. A separately admitted
 [fresh four-core run](docs/native/RECEIPT_FOUR_CORE_VERIFICATION_2026-10-25.md)
-now passes56 protocol checks: full local model import, one actual SDK gift
+now passes 56 protocol checks: full local model import, one actual SDK gift
 validated/committed by Rust, and a new-process reopen of the unchanged receipt
 without inference. This is a synthetic emulator proof; phone, sustained-use,
 DocumentsUI and performance qualification remain open. Earlier failures are retained.

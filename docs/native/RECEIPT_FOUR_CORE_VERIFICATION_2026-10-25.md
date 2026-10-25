@@ -9,8 +9,8 @@ documentation only. No merge, release, dependency/model download or model upload
 
 The fresh isolated four-vCPU emulator passes all four selected instrumentation
 methods and **56 protocol checks**: preflight12, import16, play15, reopen13.
-Production receipt setup imports the verified local Gemma file. One actual
-local SDK free-text request prepares through the existing close gates; Rust
+Production receipt setup imports the verified local Gemma file. One production
+free-text player turn through the actual local SDK prepares through the existing close gates; Rust
 validates and commits one potion gift to Mira. A distinct app process reopens
 revision1 and the same receipt without opening the source or calling inference.
 Repairs0, fallbackfalse. No schema drop, context reuse, scripted response,

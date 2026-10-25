@@ -1,7 +1,10 @@
-# Proposed owned runtime cleanup contract — 2026-10-25
+# Owned runtime cleanup contract — 2026-10-25
 
 Refs #29 D07.06, supporting #25 D04.02/.03 and D09.06.
-**PROPOSED until Root review/freeze; UNIMPLEMENTED / UNRUN by this author.**
+**FROZEN by Root for independent tests; UNIMPLEMENTED / new tests UNRUN.**
+Root adopted proposal `78671188` after an accepted-main baseline: fixed fixture
+build exit0; runtime library40 passed/1 existing Windows symlink-privilege ignore.
+Those existing passes are not acceptance of the new failure paths.
 This prerequisite does not implement native selected execution or qualify a model.
 Sole owned new document: this file, `docs/d07-owned-runtime-cleanup-contract`
 in reused `source-d07-selected-case-execution`, accepted main base
@@ -57,7 +60,8 @@ Result<LocalRuntime, Error> mapping retains original cause and existing best-eff
 Drop cleanup semantics; do not claim that this old API gains cleanup proof.
 The new packaged method uses the same fixed worker basename, reviewed expected
 hash and trusted native resource/model arguments. No raw executable, shell,
-arbitrary command, renderer path or extra development API is introduced.
+arbitrary command or renderer path is introduced. The single fixed development
+fixture below exists solely to test ownership without approved model assets.
 
 ## Direct cleanup proof and retention
 
@@ -130,6 +134,14 @@ Err preserves it and blocks replacement; a stale cleanup cannot clear a newer
 owner. Retirement is not a successful cleanup acknowledgement. Existing unload
 is the explicit retry path, not an automatic inference restart or hidden worker.
 
+Track the existing loading job until its owner cleanup/publication completes.
+`begin("loading")`, retirement and `finish(original_job, result)` must share
+that identity: closing a window while startup is pending keeps replacement
+blocked; only the matching old loading completion can acknowledge its cleanup.
+It cannot clear another job/owner. A cleanup-uncertain latch keeps status truthful
+even while the runtime mutex is held or poisoned. Private field names may vary;
+no new serialized lifecycle or second owner registry is introduced.
+
 ## Frozen tests before implementation
 
 Root registers separately claimed NEW modules:
@@ -146,6 +158,15 @@ must retain unresolved ownership and be default-off with no app/dev wire access.
 Test original cause versus Cleanup independently, including load failure and
 pipe panic. Known development-worker timing assertions are not universal bounds.
 
+The common private constructor is `start_owned_cancelled(executable: &Path,
+model: &Path, file: File, cancel: &impl Fn() -> bool)
+-> Result<LocalRuntime, OwnedStartFailure>`; existing raw-path construction stays
+private/test-scoped as before. New tests may use it with the already fixed worker.
+A private `cfg(test)` thread-local `FAIL_CLEANUP_ONCE: Cell<bool>`, default false,
+can refuse once before termination and auto-reset, preserving actual ownership.
+Use the same narrowly scoped fault in the model manager's cleanup wrapper;
+neither is a production/development IPC hook or a general supplied callback.
+
 Model cases: use a REAL LocalRuntime from the existing fixed protocol fixture;
 uncertain handoff before ticket Drop blocks load/reserve; matching same-Arc
 transfer is idempotent and another owner/ticket is not overwritten; returned Err
@@ -160,6 +181,16 @@ No new package/version/third-party/lock upgrade/download. Test-only feature
 unification enables the existing public development-worker fixture API; verify
 normal build feature/artifact restoration separately. Build existing fixed
 protocol-fixture binary into SourceNative's owned target before these tests.
+The existing public development constructor still verifies real model bytes, so
+feature unification alone cannot create a synthetic owner in cross-crate tests.
+Add exactly one zero-argument, development-worker-feature-only inherent helper:
+`LocalRuntime::development_protocol_fixture()
+-> Result<(LocalRuntime, PathBuf), OwnedStartFailure>`. It locates only the fixed
+protocol-fixture executable relative to the current test executable, creates its
+own unique synthetic temporary directory and fixed `valid` mode file, then uses
+the same owned private startup. No caller executable/path/mode/arguments or
+arbitrary execution API. Return its owned directory for cleanup after the owner;
+retain local artifacts on failure. The normal build excludes this helper.
 Missing prerequisite fails honestly; privilege-only checks use explicit existing
 ignore reasons, never silently claim execution. No models or assets are needed.
 

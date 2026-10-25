@@ -123,6 +123,32 @@ class RealCandidateTests(unittest.TestCase):
             self.assertEqual(list(owner.commands.iterdir()), [])
             self.assertFalse((owner.directory/"guest-cpu-profile-v1.json").exists())
 
+    def test_guest_cpu_retention_failure_or_late_owner_loss_stops_and_keeps_raw_client(self):
+        for mode in ("retention", "late-owner-loss"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                owner, lease = self.cpu_fixture(Path(directory))
+                value = SimpleNamespace(status="completed", returncode=0, cleanup_complete=True,
+                                        stdout=b"0-3\n", stderr_bytes=0, elapsed_ms=1)
+                original_write = q.write_json
+                def write(path, data):
+                    if mode == "retention" and Path(path).name == "guest-cpu-profile-v1.json":
+                        raise OSError("private evidence failure")
+                    return original_write(path, data)
+                def dispatch(*args, **kwargs):
+                    if mode == "late-owner-loss": lease.live = False
+                    return value
+                with patch.object(q.host, "run_process", side_effect=dispatch) as run, \
+                     patch.object(q, "write_json", side_effect=write), patch.object(owner, "wait_boot"), \
+                     patch.object(owner, "facts") as facts, patch.object(owner, "transfer") as transfer, \
+                     patch.object(r, "run_selected") as selected:
+                    with self.assertRaises((AssertionError, OSError, RuntimeError)): r.run_cohort(owner)
+                    facts.assert_not_called(); transfer.assert_not_called(); selected.assert_not_called()
+                    with self.assertRaises(AssertionError): owner.check_guest_cpu_profile()
+                    self.assertEqual(run.call_count, 1)
+                self.assertEqual((owner.commands/"command-0001.stdout.bin").read_bytes(), b"0-3\n")
+                self.assertTrue((owner.commands/"command-0001.json").is_file())
+                self.assertFalse((owner.directory/"guest-cpu-profile-v1.json").exists())
+
     def test_guest_cpu_guard_cannot_run_after_work_or_unknown_owner(self):
         for mode in ("stage", "methods", "owner", "boolean"):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:

@@ -1,4 +1,8 @@
 //! Native-only full-private playable archive authority. No renderer paths or bytes.
+#[cfg(test)]
+#[path = "archive_v3_tests.rs"]
+mod archive_v3_tests;
+
 use crate::{exports, lease::WindowLease};
 use locallore_storage::{
     playable_archive::ARCHIVE_VERSION, validate_archive, ArchivePreview, Store, ValidatedArchive,

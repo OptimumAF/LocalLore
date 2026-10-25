@@ -14,6 +14,7 @@ import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import receipt_real_cancellation as n
+import litert_send_trace as send_trace
 
 r, q, worker_trace, environment = n.r, n.q, n.worker_trace, n.environment
 SCOPE = "receipt_ordinary_scene"
@@ -44,6 +45,10 @@ PRIOR_KEY = {"ORDINARY_START": "import", "ORDINARY_DIALOGUE": "start", "ORDINARY
 TRACES = {"ORDINARY_START": ("start-worker-v2.json",),
     "ORDINARY_DIALOGUE": ("guards-worker-v2.json", "dialogue-worker-v2.json"), "ORDINARY_REOPEN": ("reopen-worker-v2.json",)}
 SOURCE_FILES = (*r.SOURCE_FILES, "benchmarks/receipt_real_cancellation.py", "scripts/tests/test_receipt_real_cancellation.py",
+    "benchmarks/litert_send_trace.py", "scripts/tests/test_litert_send_trace.py",
+    "apps/android/app/src/litert/java/org/locallore/app/LiteRtSendTrace.kt",
+    "apps/android/app/src/litertTest/java/org/locallore/app/LiteRtSendTraceTest.kt",
+    "docs/native/LITERT_SEND_TRACE_CONTRACT.md",
     "apps/android/app/src/modelReceipt/java/org/locallore/app/CancellationProof.kt",
     "apps/android/app/src/modelReceiptTest/java/org/locallore/app/CancellationProofTest.kt",
     "benchmarks/receipt_ordinary_scene.py", "scripts/tests/test_receipt_ordinary_scene.py",
@@ -62,7 +67,9 @@ SOURCE_FILES = (*r.SOURCE_FILES, "benchmarks/receipt_real_cancellation.py", "scr
     "apps/android/app/src/main/java/org/locallore/app/ui/StoryRecordDialog.kt",
     "apps/android/app/src/main/java/org/locallore/app/ui/LocalLoreScreen.kt",
     "apps/android/app/src/main/java/org/locallore/app/ui/PlayInputComposer.kt",
-    "fixtures/lantern_quay.json", "crates/locallore/src/intent_guard.rs", "crates/locallore/src/play.rs")
+    "fixtures/lantern_quay.json", "crates/locallore/src/intent_guard.rs", "crates/locallore/src/play.rs",
+    "crates/locallore/src/play/director_budget.rs", "crates/locallore/tests/portable_dialogue_schema.rs",
+    "docs/native/PORTABLE_DIALOGUE_SCHEMA.md")
 
 
 def selection(phase):
@@ -245,6 +252,8 @@ def run_selected(owner, phase):
     assert phase in PHASES
     owner.stage = "instrument-" + phase
     raw = owner.shell(selection(phase), deadline=180, cap=131072)
+    send = send_trace.extract_send_trace(raw)
+    if send is not None: q.write_json(owner.directory / (PHASES[phase][0] + "-failure-send-v1.json"), send)
     if phase != "ORDINARY_REOPEN":
         trace = worker_trace.extract_worker_trace(raw)
         if trace is not None: q.write_json(owner.directory / (PHASES[phase][0] + "-failure-worker-v" + str(trace["version"]) + ".json"), trace)

@@ -11,13 +11,14 @@ internal object CandidateLocalModel {
     private val admission = CandidateOwnerAdmission()
     @Volatile private var preparedStore: CandidateModelAccess? = null
     @Volatile private var receiptTrace: LiteRtWorkerTrace? = null
+    @Volatile private var receiptSendTrace: LiteRtSendTrace? = null
     const val MODEL_SHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
-    const val WORKER_SHA256 = "271d6af5ac1f946b0cd245ac35f7ba5910a097ec49bebe1776448ff4b7885eec"
+    const val WORKER_SHA256 = "aa004c6b32782f1f29606942427ace0494e1c29c78fda44c1c2c431b37b8bdb4"
     val identity = LocalModelIdentity("gemma-4-e2b-it-litertlm-a790a852", 2_588_147_712L, MODEL_SHA256)
 
     // Exact UTF-8 profile description, hashed separately from the model and worker source.
     // Template identity denotes the bundled container, not an extracted independent template.
-    internal const val MANIFEST = """{"version":1,"scope":"debug_candidate_not_phone_qualified","model_repository":"litert-community/gemma-4-E2B-it-litert-lm","model_revision":"a790a852d433991c0c0a41c1154cf9b3850300fa","model_path":"gemma-4-E2B-it.litertlm","model_bytes":2588147712,"model_sha256":"181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c","runtime_revision":"bda624851d74be34d4e1f7fac1fc4155939539c7","worker_source_sha256":"271d6af5ac1f946b0cd245ac35f7ba5910a097ec49bebe1776448ff4b7885eec","template_identity":"bundled_model_container","context_tokens":4096,"director_tokens":350,"narrator_tokens":220,"deadline_ms":60000,"repair_limit":1,"threads":4}"""
+    internal const val MANIFEST = """{"version":1,"scope":"debug_candidate_not_phone_qualified","model_repository":"litert-community/gemma-4-E2B-it-litert-lm","model_revision":"a790a852d433991c0c0a41c1154cf9b3850300fa","model_path":"gemma-4-E2B-it.litertlm","model_bytes":2588147712,"model_sha256":"181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c","runtime_revision":"bda624851d74be34d4e1f7fac1fc4155939539c7","worker_source_sha256":"aa004c6b32782f1f29606942427ace0494e1c29c78fda44c1c2c431b37b8bdb4","template_identity":"bundled_model_container","context_tokens":4096,"director_tokens":350,"narrator_tokens":220,"deadline_ms":60000,"repair_limit":1,"threads":4}"""
 
     fun store(context: Context): CandidateModelAccess = preparedStore ?: synchronized(this) {
         preparedStore ?: run {
@@ -52,17 +53,23 @@ internal object CandidateLocalModel {
     internal fun receiptWorkerSnapshot(): LiteRtWorkerSnapshot? =
         if (BuildConfig.MODEL_RECEIPT_VERIFICATION) receiptTrace?.snapshot() else null
 
+    /** Independent call-site observations; absence never means zero or a reusable owner. */
+    internal fun receiptSendSnapshot(): LiteRtSendSnapshot? =
+        if (BuildConfig.MODEL_RECEIPT_VERIFICATION) receiptSendTrace?.snapshot() else null
+
     fun createTransport(context: Context, trace: LiteRtWorkerTrace? = null): NativeWorkspaceTransport = admission.attach {
         // Setup establishes this on IO. ViewModel construction must not query/create directories.
         val store = preparedStore ?: throw WorkspaceConstructionUnavailable()
         val files = store.plannedFiles()
         val observedTrace = trace ?: if (BuildConfig.MODEL_RECEIPT_VERIFICATION) LiteRtWorkerTrace() else null
+        val observedSend = if (BuildConfig.MODEL_RECEIPT_VERIFICATION) LiteRtSendTrace() else null
         if (BuildConfig.MODEL_RECEIPT_VERIFICATION) receiptTrace = observedTrace
+        if (BuildConfig.MODEL_RECEIPT_VERIFICATION) receiptSendTrace = observedSend
         val owner = config(files) {
             // Capture-only on Main; the unchanged worker invokes this on IO before SDK boundaries.
             check(Looper.myLooper() != Looper.getMainLooper())
             store.admitRuntime()
-        }.createOwner(trace = observedTrace)
+        }.createOwner(trace = observedTrace, sendTrace = observedSend)
         try { NativeWorkspaceTransport(context, owner) }
         catch (failure: Exception) { owner.close(); throw failure }
     }

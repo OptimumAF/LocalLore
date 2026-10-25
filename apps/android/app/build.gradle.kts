@@ -39,7 +39,7 @@ if (liteRt == "true") {
         .replace("\r\n", "\n").toByteArray(Charsets.UTF_8)
     val workerHash = MessageDigest.getInstance("SHA-256").digest(workerBytes)
         .joinToString("") { "%02x".format(it) }
-    require(workerHash == "271d6af5ac1f946b0cd245ac35f7ba5910a097ec49bebe1776448ff4b7885eec") {
+    require(workerHash == "aa004c6b32782f1f29606942427ace0494e1c29c78fda44c1c2c431b37b8bdb4") {
         "Update and review the trusted candidate worker provenance before building changed worker source."
     }
 }

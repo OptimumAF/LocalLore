@@ -52,12 +52,13 @@ internal data class LiteRtWorkerConfig(
     /** Pair provenance and worker budgets; callers cannot supply a different native profile. */
     fun createOwner(
         limits: LocalInferenceLimits = LocalInferenceLimits(turnMs = deadlineMs),
-        resources: LiteRtResources = SdkLiteRtResources,
+        resources: LiteRtResources? = null,
         trace: LiteRtWorkerTrace? = null,
+        sendTrace: LiteRtSendTrace? = null,
     ): LocalInferenceOwner {
         require(limits.turnMs == deadlineMs)
         lateinit var owner: LocalInferenceOwner
-        val worker = LiteRtRoleWorker(this, resources, trace) { owner.close() }
+        val worker = LiteRtRoleWorker(this, resources ?: SdkLiteRtResources(sendTrace), trace) { owner.close() }
         owner = LocalInferenceOwner(profileBytes(), worker, limits = limits)
         return owner
     }
@@ -142,7 +143,7 @@ internal data class LiteRtChunk(
  */
 internal class LiteRtRoleWorker(
     private val config: LiteRtWorkerConfig,
-    private val resources: LiteRtResources = SdkLiteRtResources,
+    private val resources: LiteRtResources = SdkLiteRtResources(),
     private val trace: LiteRtWorkerTrace? = null,
     private val onUncertain: () -> Unit = {},
 ) : LocalRoleWorker {
@@ -382,8 +383,17 @@ internal class LiteRtRoleWorker(
     }
 }
 
-/** The default path calls the pinned SDK directly; no native library is touched by seam-only tests. */
-private object SdkLiteRtResources : LiteRtResources {
+/** All application arguments are constructed before the observed public SDK call site. */
+private data class SdkSendArguments(
+    val prompt: String,
+    val callback: MessageCallback,
+    val maxOutputToken: Int,
+    val thinkingConfig: ThinkingConfig,
+    val responseFormat: ResponseFormat,
+)
+
+/** The default path calls the pinned SDK; resource tests need no native library or model. */
+private class SdkLiteRtResources(private val sendTrace: LiteRtSendTrace? = null) : LiteRtResources {
     override fun engine(paths: LiteRtPaths): LiteRtEngineResource {
         val engine = Engine(EngineConfig(
             modelPath = paths.model, backend = Backend.CPU(threadCount = 4),
@@ -401,9 +411,8 @@ private object SdkLiteRtResources : LiteRtResources {
                 ))
                 return object : LiteRtConversationResource {
                     override fun send(request: LocalInferenceRequest, callbacks: LiteRtCallbacks) {
-                        conversation.sendMessageAsync(
-                            request.prompt,
-                            object : MessageCallback {
+                        observedLiteRtSend(sendTrace, prepare = {
+                            SdkSendArguments(request.prompt, object : MessageCallback {
                                 override fun onMessage(message: Message) = callbacks.message {
                                     // SDK-private jsonToMessage normalizes raw roles and drops unknown raw
                                     // content kinds. Only SDK-exposed fields can be checked here.
@@ -416,10 +425,15 @@ private object SdkLiteRtResources : LiteRtResources {
                                 }
                                 override fun onDone() = callbacks.done()
                                 override fun onError(throwable: Throwable) = callbacks.error(throwable is CancellationException)
-                            },
-                            maxOutputToken = request.maxTokens, thinkingConfig = ThinkingConfig(false, 0),
-                            responseFormat = ResponseFormat.json(request.schemaJson),
-                        )
+                            }, request.maxTokens, ThinkingConfig(false, 0), ResponseFormat.json(request.schemaJson))
+                        }, dispatch = { arguments ->
+                            // This is the public Kotlin call site, not an SDK body/JNI/native-entry
+                            // observation. All application argument construction is complete above.
+                            conversation.sendMessageAsync(
+                                arguments.prompt, arguments.callback, maxOutputToken = arguments.maxOutputToken,
+                                thinkingConfig = arguments.thinkingConfig, responseFormat = arguments.responseFormat,
+                            )
+                        })
                     }
                     override fun cancel() = conversation.cancelProcess()
                     override fun close(): Boolean { conversation.close(); return true }

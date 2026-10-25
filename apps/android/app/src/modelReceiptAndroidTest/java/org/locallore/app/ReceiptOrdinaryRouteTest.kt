@@ -279,13 +279,18 @@ abstract class ReceiptOrdinaryHarness : ReceiptRealHarness() {
     internal fun observeFailure(block: () -> Unit) {
         try { block() } catch (original: Throwable) {
             // Use the production snapshot only, never a replacement trace or observer callback.
-            try {
-                if (OrdinaryDiagnostics.emitted.compareAndSet(false, true)) {
+            if (OrdinaryDiagnostics.emitted.compareAndSet(false, true)) {
+                try {
                     val latest = requireNotNull(CandidateLocalModel.receiptWorkerSnapshot())
                     InstrumentationRegistry.getInstrumentation().sendStatus(LiteRtWorkerTrace.STATUS_CODE,
                         Bundle().apply { putString(LiteRtWorkerTrace.STATUS_KEY, latest.json()) })
-                }
-            } catch (_: Throwable) { }
+                } catch (_: Throwable) { }
+                try {
+                    val send = requireNotNull(CandidateLocalModel.receiptSendSnapshot())
+                    InstrumentationRegistry.getInstrumentation().sendStatus(LiteRtSendTrace.STATUS_CODE,
+                        Bundle().apply { putString(LiteRtSendTrace.STATUS_KEY, send.json()) })
+                } catch (_: Throwable) { }
+            }
             throw original
         }
     }

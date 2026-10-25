@@ -24,6 +24,9 @@ fn original_execution_retry_after_explicit_read_open_returns_same_inert_receipt(
     let executed = f.done(&client);
     join(&f);
     let run = executed["run_id"].as_str().unwrap();
+    let (path, pins) = f.manager.selected_work_path(run).unwrap();
+    drop(pins);
+    let before = inventory(&path);
     f.manager
         .selected_open(&f.lease, &f.models, f.epoch, true, (&client, run), |_| {
             Ok(true)
@@ -31,17 +34,14 @@ fn original_execution_retry_after_explicit_read_open_returns_same_inert_receipt(
         .unwrap();
     let opened = f.done(&client);
     join(&f);
-    let (path, pins) = f.manager.selected_work_path(run).unwrap();
-    drop(pins);
-    let before = inventory(&path);
     let duplicate = f
         .manager
         .selected_start(&f.lease, &f.models, f.epoch, true, &client, token);
-    let after = inventory(&path);
     let current = f.status(&client);
     f.manager
         .selected_close(&f.lease, f.epoch, &client)
         .unwrap();
+    let after = inventory(&path);
     let revoked = f
         .manager
         .selected_start(&f.lease, &f.models, f.epoch, true, &client, token);

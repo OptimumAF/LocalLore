@@ -58,7 +58,9 @@ function fixture() {
         if (hooks.has(args.action)) return hooks.get(args.action)(body);
         if (args.action === "catalog") return { version: 1, kind: "selected_catalog", runs: [{ run_id: runId, created: 1, lane: "scripted_baseline", selection: clone(selection) }] };
         if (args.action === "prepare") return current = status(body.clientId, "prepared");
-        if (["start", "open", "resume"].includes(args.action)) return current = status(body.clientId);
+        // Execution consent never implicitly grants private read access.
+        if (args.action === "start") return current = status(body.clientId, "completed", { run_token: null, binding: null });
+        if (["open", "resume"].includes(args.action)) return current = status(body.clientId);
         if (args.action === "status") return current ?? status(body.clientId);
         if (args.action === "cancel") return current = status(body.clientId);
         if (args.action === "close") return status(body.clientId, "closed");
@@ -71,7 +73,7 @@ function fixture() {
     controllers.add(c); c.setContext("synthetic-session-a", true); c.setObserver(omni);
     return { c, calls, hooks };
 }
-async function ready(f) { await f.c.prepare(source, row, "scripted_baseline"); await f.c.start(); await f.c.loadSummary(); }
+async function ready(f) { await f.c.prepare(source, row, "scripted_baseline"); await f.c.start(); await f.c.open(runId); await f.c.loadSummary(); }
 const cases = [];
 async function test(name, run) {
     let timer;
@@ -156,6 +158,14 @@ await test("exact wire actions and same identity through prepare/start/catalog/o
     assert.equal(resume.readerClientId, source.readerClientId); assert.equal(resume.sourceToken, token);
     assert.equal(resume.sourceBinding, hash); f.c.dispose();
 });
+await test("completed execution does not grant reads; explicit native open reuses its client", async () => {
+    const f = fixture(); await f.c.prepare(source, row, "scripted_baseline"); await f.c.start(); const client = f.c.get().clientId;
+    assert.equal(f.c.get().status.run_id, runId); assert.equal(f.c.get().status.run_token, null); assert.equal(f.c.get().status.binding, null);
+    await f.c.loadSummary(); assert.equal(f.calls.filter((v) => v.action === "summary").length, 0);
+    await f.c.open(runId); assert.equal(f.c.get().clientId, client);
+    assert.deepEqual(f.calls.find((v) => v.action === "open").body, { clientId: client, runId });
+    await f.c.loadSummary(); assert.equal(f.c.get().summary.kind, "selected_read"); f.c.dispose();
+});
 await test("notification context retirement prevents original prepare dispatch", async () => {
     const f = fixture(); let changed = false;
     f.c.subscribe(() => { if (!changed && f.c.get().clientId) { changed = true; f.c.setContext("new-session", true); } });
@@ -165,9 +175,11 @@ await test("notification context retirement prevents original prepare dispatch",
 await test("observer switch retains held start identity and never cancels or rekeys generation", async () => {
     const f = fixture(); await f.c.prepare(source, row, "scripted_baseline"); const client = f.c.get().clientId;
     const held = deferred(); f.hooks.set("start", () => held.promise); const work = f.c.start(); await tick();
+    assert.deepEqual(f.c.get().pending, { action: "start", clientId: client, operationId: null });
     f.c.setObserver(player); assert.equal(f.c.get().clientId, client);
     assert.equal(f.calls.filter((v) => ["cancel", "close"].includes(v.action)).length, 0);
-    held.resolve(status(client)); await work; assert.equal(f.c.get().status.phase, "completed"); f.c.dispose();
+    held.resolve(status(client, "completed", { run_token: null, binding: null })); await work; assert.equal(f.c.get().status.phase, "completed");
+    assert.equal(f.c.get().pending, null); f.c.dispose();
 });
 await test("lost start ACK retains client; only explicit same-client status recovers", async () => {
     const f = fixture(); await f.c.prepare(source, row, "scripted_baseline"); const client = f.c.get().clientId;

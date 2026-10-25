@@ -167,6 +167,42 @@ fn ensure_database(path: &Path, seed: &Seed, prefix: &[Receipt]) -> Result<()> {
     }
     Ok(())
 }
+/// Existing paired files may be interrupted while copying the reference prefix,
+/// or after committing this exact step but before writing its checkpoint. Any
+/// other accepted input must fail before invocation/provider work, on either arm.
+fn validate_pair_source(
+    path: &Path,
+    seed: &Seed,
+    prefix: &[Receipt],
+    step: &protocol::Step,
+) -> Result<()> {
+    ordinary(path)?;
+    if !path.exists() {
+        return Ok(());
+    }
+    let mut store = Store::open_read_only(path).map_err(|_| "Workspace")?;
+    if store.stories().map_err(|_| "Workspace")?.is_empty() {
+        return Ok(());
+    }
+    let current = store.resume(&seed.scope).map_err(|_| "Replay")?.engine;
+    if current.domain_version() != 1 || current.seed() != seed {
+        return Err("ReferencePrefix".into());
+    }
+    let receipts = current.receipts();
+    let common = receipts.len().min(prefix.len());
+    if receipts[..common] != prefix[..common] || receipts.len() > prefix.len() + 1 {
+        return Err("ReferencePrefix".into());
+    }
+    if let Some(committed) = receipts.get(prefix.len()) {
+        let before = current
+            .at_revision(committed.request().expected_revision)
+            .map_err(|_| "ReferencePrefix")?;
+        if before.receipts() != prefix || committed.request() != &step.request(&before) {
+            return Err("ReferencePrefix".into());
+        }
+    }
+    Ok(())
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RecordingFile {
@@ -1468,6 +1504,21 @@ impl ComparisonSession {
         let key = expected.stable_key()?;
         let turns = load_turns(dir, &expected, &key)?;
         sealed_scenes(dir, &key)?;
+        if let Some(reference) = &reference {
+            let corpus = suite()?;
+            // Validate BOTH arms and every existing uncheckpointed pair before
+            // either ledger reserves an invocation or native assets are opened.
+            for arm in 0..2 {
+                for index in turns[arm].len()..corpus.steps().len() {
+                    validate_pair_source(
+                        &database(&dir.join(ARM_NAMES[arm]), index, expected.kind),
+                        corpus.seed(),
+                        reference.prefix(index)?,
+                        &corpus.steps()[index],
+                    )?;
+                }
+            }
+        }
         let mut ledgers = [
             Ledger::load(&dir.join("left"), &key)?,
             Ledger::load(&dir.join("right"), &key)?,
@@ -1549,10 +1600,7 @@ impl ComparisonSession {
                     };
                     ensure_database(&path, corpus.seed(), prefix)?;
                     if self.manifest.kind == ComparisonKind::PairedSnapshots {
-                        let current = engine(&path, &corpus.seed().scope)?;
-                        if current.receipts().len() > prefix.len() + 1 {
-                            return Err("ReferencePrefix".into());
-                        }
+                        validate_pair_source(&path, corpus.seed(), prefix, &corpus.steps()[index])?;
                     }
                     let t = execute_turn(
                         TurnJob {

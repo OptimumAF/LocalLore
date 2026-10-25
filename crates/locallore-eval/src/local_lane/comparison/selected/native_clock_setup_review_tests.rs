@@ -437,3 +437,73 @@ fn raw_metric_names_are_unique_and_failed_nullable_load_key_stays_required() {
         "invalid raw setup fields accepted: {wrongly_accepted:?}"
     );
 }
+
+// FIRST source-only follow-up at8218548f. Derived diagnostics and synthetic
+// clocks only: this is not measured native latency or an actual cleanup proof.
+#[test]
+fn loaded_overrun_refuses_but_failed_cost_remains_unclamped_read_only() {
+    let mut wrongly_accepted = Vec::new();
+    for physical in [120_001_u64, 240_001] {
+        for status in ["loaded", "failed"] {
+            let fixture = Fixture::new(&format!("overrun-{status}-{physical}"));
+            let mut prior_bytes = Vec::new();
+            let mut charges = Vec::new();
+            let mut settled_sum = 0_u64;
+            let synthetic_started = Instant::now()
+                .checked_sub(Duration::from_millis(physical + 20))
+                .unwrap();
+            for (arm, name) in ARM_NAMES.iter().enumerate() {
+                let dir = fixture.root.join(name);
+                prior_bytes.push(fs::read(dir.join("invocation-00.json")).unwrap());
+                let mut ledger = Ledger::load(&dir, &fixture.binding).unwrap();
+                assert_eq!(ledger.charged_ms, PREPARATION_MS);
+                ledger.begin_invocation().unwrap();
+                assert_eq!(ledger.invocation, 1);
+                // Synthetic private accounting adjustment, not a new terminal
+                // grant: actual finish emits each known settlement itself.
+                let share = [physical / 2 + physical % 2, physical / 2][arm];
+                ledger.shared_setup = Some((physical, share));
+                ledger.started = synthetic_started;
+                ledger.finish().unwrap();
+                let settled: Settlement = serde_json::from_slice(
+                    &fs::read(dir.join("invocation-01-settled.json")).unwrap(),
+                ).unwrap();
+                assert!(settled.ms >= share);
+                settled_sum = settled_sum.checked_add(settled.ms).unwrap();
+                let reloaded = Ledger::load(&dir, &fixture.binding).unwrap();
+                assert_eq!(reloaded.charged_ms, PREPARATION_MS + settled.ms);
+                assert_eq!(reloaded.charged_roles, 0);
+                assert!(!dir.join("invocation-00-settled.json").exists());
+                charges.push(reloaded.charged_ms);
+            }
+            assert!(settled_sum >= physical, "real settlements cover the unclamped synthetic overrun");
+            fixture.setup(1, 1, status, Some(synthetic_metrics()));
+            let path = fixture.root.join("setup-01.json");
+            let mut diagnostic = read_json(&path);
+            diagnostic["physical_ms"] = json!(physical);
+            replace_json(&path, &diagnostic);
+            let before = inventory(&fixture.root);
+            let result = setup::read_setups(&fixture.root, &fixture.binding, true);
+            assert_eq!(inventory(&fixture.root), before, "reader cannot repair or settle evidence");
+            if status == "loaded" {
+                match result {
+                    Err(error) => assert_eq!(error, "SetupIntegrity"),
+                    Ok(_) => wrongly_accepted.push(physical),
+                }
+            } else {
+                let setups = result.expect("known failed overrun remains valid retained diagnostics");
+                assert_eq!(setups.len(), 1);
+                assert_eq!(setups[0].physical_ms, physical);
+                assert_eq!(setups[0].status, "failed");
+                assert_eq!(setups[0].load, Some(synthetic_metrics()));
+            }
+            for (arm, name) in ARM_NAMES.iter().enumerate() {
+                let dir = fixture.root.join(name);
+                assert_eq!(fs::read(dir.join("invocation-00.json")).unwrap(), prior_bytes[arm]);
+                assert!(!dir.join("invocation-00-settled.json").exists());
+                assert_eq!(Ledger::load(&dir, &fixture.binding).unwrap().charged_ms, charges[arm]);
+            }
+        }
+    }
+    assert!(wrongly_accepted.is_empty(), "reader accepted impossible Loaded overruns: {wrongly_accepted:?}");
+}

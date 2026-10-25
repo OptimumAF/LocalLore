@@ -162,14 +162,148 @@ class EnvironmentTests(unittest.TestCase):
         self.token.write_bytes(b"test-only-not-an-emulator-credential")
         self.token_patch = mock.patch.object(env, "token_path", return_value=str(self.token))
         self.token_patch.start()
+        # Old disk/physical-memory/CPU tests must never depend on live commit headroom.
+        self.commit_snapshot = {"version": 1, "commit_total_bytes": 16 * env.GIB,
+                                "commit_limit_bytes": 64 * env.GIB, "available_commit_bytes": 48 * env.GIB}
+        self.commit_patch = mock.patch.object(env.commit_capacity, "read_commit", return_value=self.commit_snapshot)
+        self.commit_reader = self.commit_patch.start()
+        self.addCleanup(self.commit_patch.stop)
 
     def tearDown(self):
         self.token_patch.stop()
         self.tmp.cleanup()
 
+    def expected_commit_record(self, memory_mib, snapshot=None):
+        snapshot = self.commit_snapshot if snapshot is None else snapshot
+        # The two admitted guest profiles have fixed6GiB/18GiB commit gates.
+        return dict(snapshot, guest_memory_bytes=memory_mib * 1024 * 1024,
+                    required_commit_bytes={2048: 6 * env.GIB, 8192: 18 * env.GIB}[memory_mib],
+                    reserve_bytes=2 * env.GIB)
+
+    def healthy_resources(self, *, physical=32 * 1024 ** 3, free=100 * 1024 ** 3, cpus=16):
+        from contextlib import ExitStack
+        stack = ExitStack()
+        def memory(pointer):
+            pointer._obj.available = physical
+            return 1
+        stack.enter_context(mock.patch.object(env.ctypes.windll.kernel32, "GlobalMemoryStatusEx", side_effect=memory))
+        stack.enter_context(mock.patch.object(env.shutil, "disk_usage", return_value=type("Disk", (), {"free": free})()))
+        stack.enter_context(mock.patch.object(env.os, "cpu_count", return_value=cpus))
+        return stack
+
+    def test_commit_gate_accepts_exact_fixed_margin_and_refuses_one_byte_short(self):
+        for guest_mib, required in ((2048, 6 * env.GIB), (8192, 18 * env.GIB)):
+            value = dict(self.proposal(), memory_mib=guest_mib,
+                         host_available_memory_min=(4 if guest_mib == 2048 else 12) * env.GIB)
+            for available in (required, required - 1):
+                snapshot = {"version": 1, "commit_total_bytes": 64 * env.GIB - available,
+                            "commit_limit_bytes": 64 * env.GIB, "available_commit_bytes": available}
+                with self.subTest(guest_mib=guest_mib, available=available), self.healthy_resources(), \
+                     mock.patch.object(env.commit_capacity, "read_commit", return_value=snapshot) as read:
+                    if available < required:
+                        with self.assertRaisesRegex(env.EnvironmentRefused, "^host_commit_capacity$"):
+                            env.resource_facts(value)
+                    else:
+                        facts = env.resource_facts(value)
+                        self.assertEqual(facts["commit_capacity"], self.expected_commit_record(guest_mib, snapshot))
+                        self.assertEqual(facts["available_memory"], 32 * env.GIB)
+                    read.assert_called_once_with()
+
+    def test_commit_shortfall_is_independent_of_abundant_physical_ram_disk_and_cpu(self):
+        value = dict(self.proposal(), memory_mib=8192, host_available_memory_min=12 * env.GIB, cores=4)
+        # Synthetic round values reproduce the causal admission distinction,
+        # without asserting the earlier emulator's exact allocation requirement.
+        snapshot = {"version": 1, "commit_total_bytes": 58 * env.GIB,
+                    "commit_limit_bytes": 72 * env.GIB, "available_commit_bytes": 14 * env.GIB}
+        with self.healthy_resources(physical=31 * env.GIB), \
+             mock.patch.object(env.commit_capacity, "read_commit", return_value=snapshot):
+            with self.assertRaisesRegex(env.EnvironmentRefused, "^host_commit_capacity$"):
+                env.resource_facts(value)
+
+    def test_bad_commit_snapshot_maps_to_unavailable_without_raw_values(self):
+        original = dict(self.commit_snapshot)
+        malformed = [None, {}, dict(original, version=True), dict(original, available_commit_bytes=True),
+                     dict(original, commit_total_bytes=-1), dict(original, commit_limit_bytes=16 * env.GIB - 1),
+                     dict(original, available_commit_bytes=48 * env.GIB - 1), dict(original, private="not-public")]
+        for snapshot in malformed:
+            with self.subTest(snapshot=snapshot), self.healthy_resources(), \
+                 mock.patch.object(env.commit_capacity, "read_commit", return_value=snapshot):
+                with self.assertRaisesRegex(env.EnvironmentRefused, "^host_commit_unavailable$"):
+                    env.resource_facts(self.proposal())
+
+    def test_commit_observer_refusals_keep_fixed_environment_categories(self):
+        for reason, expected in (("commit_unavailable", "host_commit_unavailable"),
+                                 ("commit_invalid", "host_commit_unavailable"),
+                                 ("commit_capacity", "host_commit_capacity")):
+            with self.subTest(reason=reason), self.healthy_resources(), mock.patch.object(
+                    env.commit_capacity, "read_commit", side_effect=env.commit_capacity.HostCommitRefused(reason)):
+                with self.assertRaisesRegex(env.EnvironmentRefused, "^" + expected + "$"):
+                    env.resource_facts(self.proposal())
+
+    def test_earlier_cpu_disk_and_physical_memory_refusals_do_not_query_commit(self):
+        value = dict(self.proposal(), memory_mib=8192, host_available_memory_min=12 * env.GIB, cores=4)
+        for changes, code in (({"cpus": 7}, "host_cpu_capacity"),
+                              ({"physical": 12 * env.GIB - 1}, "host_capacity"),
+                              ({"free": 16 * env.GIB - 1}, "host_capacity")):
+            with self.subTest(code=code, changes=changes), self.healthy_resources(**changes), \
+                 mock.patch.object(env.commit_capacity, "read_commit", side_effect=AssertionError("Earlier gate queried commit")) as read:
+                with self.assertRaisesRegex(env.EnvironmentRefused, "^" + code + "$"):
+                    env.resource_facts(value)
+                read.assert_not_called()
+
+    def test_commit_refusal_prevents_parent_prepare_root_and_child(self):
+        value = dict(self.proposal(), memory_mib=8192, host_available_memory_min=12 * env.GIB, cores=4)
+        proposal, authorization = self.files(value)
+        snapshot = {"version": 1, "commit_total_bytes": 64 * env.GIB - 1,
+                    "commit_limit_bytes": 64 * env.GIB, "available_commit_bytes": 1}
+        with self.healthy_resources(), mock.patch.object(env.commit_capacity, "read_commit", return_value=snapshot), \
+             mock.patch.object(env.host, "run_process") as child:
+            with self.assertRaisesRegex(env.EnvironmentRefused, "^host_commit_capacity$"):
+                env.prepare(proposal, authorization)
+            child.assert_not_called()
+        self.assertFalse(self.root.exists())
+
+    def test_commit_refusal_prevents_parent_run_start_ports_and_worker(self):
+        _, proposal, authorization = self.prepared_run(four_core_candidate=True)
+        snapshot = {"version": 1, "commit_total_bytes": 64 * env.GIB - 1,
+                    "commit_limit_bytes": 64 * env.GIB, "available_commit_bytes": 1}
+        with self.healthy_resources(), mock.patch.object(env.commit_capacity, "read_commit", return_value=snapshot), \
+             mock.patch.object(env, "ports_free") as ports, mock.patch.object(env, "supervise") as child:
+            with self.assertRaisesRegex(env.EnvironmentRefused, "^host_commit_capacity$"):
+                env.run(proposal, authorization)
+            ports.assert_not_called(); child.assert_not_called()
+        self.assertFalse((self.root / "run-start-v1.json").exists())
+
+    def test_commit_loss_after_parent_admission_stops_both_worker_profiles_before_claim(self):
+        for mode, phase in (("_prepare-worker", "prepare"), ("_run-worker", "run")):
+            for guest_mib, cores in ((2048, 2), (8192, 4)):
+                with self.subTest(mode=mode, guest_mib=guest_mib):
+                    value = dict(self.proposal(phase), memory_mib=guest_mib, cores=cores,
+                                 host_available_memory_min=(4 if guest_mib == 2048 else 12) * env.GIB)
+                    if phase == "run":
+                        value.update(prepare_proposal={}, prepared={}, prepare_result={}, max_seconds=1200 if guest_mib == 2048 else 1800)
+                    proposal, authorization = self.files(value, phase + "-commit-" + str(guest_mib) + ".json")
+                    with self.healthy_resources():
+                        self.assertEqual(env.resource_facts(value)["commit_capacity"], self.expected_commit_record(guest_mib))
+                    self.root.mkdir(exist_ok=True)
+                    identity = {"pid": 123, "creation_filetime": 456, "executable": sys.executable}
+                    start = self.root / (phase + "-start-v1.json")
+                    start.write_bytes(env.encoded({"proposal_sha256": env.digest(proposal), "owner": identity}))
+                    request = env.encoded({"proposal": str(proposal), "proposal_sha256": env.digest(proposal), "authorization": str(authorization)})
+                    short = {"version": 1, "commit_total_bytes": 64 * env.GIB - 1,
+                             "commit_limit_bytes": 64 * env.GIB, "available_commit_bytes": 1}
+                    with self.healthy_resources(), mock.patch.object(env.commit_capacity, "read_commit", return_value=short), \
+                         mock.patch.object(env.sys, "stdin", mock.Mock(buffer=io.BytesIO(request))), \
+                         mock.patch.object(env, "process_identity", return_value=identity), \
+                         mock.patch.object(env.subprocess, "run") as prepare, mock.patch.object(env.subprocess, "Popen") as launch:
+                        with self.assertRaisesRegex(env.EnvironmentRefused, "^host_commit_capacity$"):
+                            env.worker(mode)
+                        prepare.assert_not_called(); launch.assert_not_called()
+                    self.assertFalse((self.root / (phase + "-worker-claimed-v1.json")).exists())
+
     def proposal(self, phase="prepare"):
         # No dependency on actual installed SDK or credentials in any host test.
-        files = [Path(env.__file__).resolve(), Path(env.host.__file__).resolve()]
+        files = [Path(env.__file__).resolve(), Path(env.host.__file__).resolve(), Path(env.commit_capacity.__file__).resolve()]
         self.java.mkdir(exist_ok=True)
         (self.sdk / "licenses").mkdir(parents=True, exist_ok=True)
         for relative in ("platform-tools/adb.exe", "emulator/emulator.exe",
@@ -641,12 +775,13 @@ class EnvironmentTests(unittest.TestCase):
                     env.shutil, "disk_usage", return_value=type("Disk", (), {"free": 40 * env.GIB})()):
                 if type(count) is int and count >= 8:
                     self.assertEqual(env.resource_facts(four), {"free_bytes": {"C:": 40 * env.GIB, "D:": 40 * env.GIB},
-                        "available_memory": 12 * env.GIB, "logical_cpus": count})
+                        "available_memory": 12 * env.GIB, "logical_cpus": count,
+                        "commit_capacity": self.expected_commit_record(8192)})
                 else:
                     with self.assertRaisesRegex(env.EnvironmentRefused, "host_cpu_capacity"):
                         env.resource_facts(four)
 
-    def test_two_core_profiles_do_not_query_host_cpu_or_change_resource_facts_shape(self):
+    def test_two_core_profiles_do_not_query_host_cpu_and_add_only_commit_metadata(self):
         value = self.proposal()
         for memory_mib, floor in ((2048, 4 * env.GIB), (8192, 12 * env.GIB)):
             value.update(memory_mib=memory_mib, host_available_memory_min=floor)
@@ -657,7 +792,8 @@ class EnvironmentTests(unittest.TestCase):
                     env.ctypes.windll.kernel32, "GlobalMemoryStatusEx", side_effect=memory), mock.patch.object(
                     env.shutil, "disk_usage", return_value=type("Disk", (), {"free": 40 * env.GIB})()):
                 self.assertEqual(env.resource_facts(value), {"free_bytes": {"C:": 40 * env.GIB, "D:": 40 * env.GIB},
-                                                            "available_memory": floor})
+                                                            "available_memory": floor,
+                                                            "commit_capacity": self.expected_commit_record(memory_mib)})
                 query.assert_not_called()
 
     def test_four_core_low_cpu_refuses_parent_prepare_before_root_or_child(self):

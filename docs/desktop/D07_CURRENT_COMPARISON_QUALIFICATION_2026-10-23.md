@@ -628,8 +628,17 @@ reference-prefix copying remains recoverable. The only extra accepted receipt
 allowed for lost-ack recovery must follow the exact reference prefix and have
 the exact full current-step request, including intent/text/scope/revision.
 The same check repeats immediately before `execute_turn`. No corpus, policy,
-profile, quota, provider or Core authority is changed. The first corrected
-five-case run compiled6.60s and is active at this addendum; no green result or
-PR readiness is claimed yet. All model measurements above retain their original
+profile, quota, provider or Core authority is changed. At exact producer
+`75093c8`, the first corrected five-case run compiled6.60s and completed
+**five passed, zero failed/ignored/filtered in522.74s**, exit0. Both negative
+cases on both arms preserve every retained entry/byte and canonical state;
+the exact committed lost-checkpoint positive still recovers without new turn
+admissions/raw/capture/recording. This is shared runner/Core/Store scripted
+evidence, not native model, WebView or device execution. Bounded independent
+source rereview found no additional concrete issue; see
+[#29 comment6391834257](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6391834257).
+It is not human approval or an exhaustive proof. Broader regression, lint and
+latest-main compatibility gates remain pending before PR readiness.
+All model measurements above retain their original
 source/fingerprint; this new source is not retroactively attributed to them.
 Whole D07, human quality, current comparison UI and platform gates stay open.

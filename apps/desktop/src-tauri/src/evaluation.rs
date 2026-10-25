@@ -469,6 +469,7 @@ enum JobKind {
     Builtin,
     Curated,
     ComparisonRead,
+    Selected,
 }
 struct Job {
     kind: JobKind,
@@ -476,6 +477,7 @@ struct Job {
     id: u64,
     run: String,
     cancel: Cancellation,
+    selected: Option<selected::SelectedOwnership>,
 }
 struct JobCancellation {
     epoch: u64,
@@ -492,6 +494,7 @@ struct State {
 pub struct EvaluationManager {
     comparison: Mutex<comparison::ComparisonState>,
     curated: Mutex<curated::CuratedState>,
+    selected: Mutex<selected::SelectedState>,
     root: PathBuf,
     state: Mutex<State>,
     // Only clone/cancel/replace under this lock; never IO, joins, or another
@@ -517,6 +520,7 @@ impl EvaluationManager {
         Self {
             comparison: Mutex::new(comparison::ComparisonState::default()),
             curated: Mutex::new(curated::CuratedState::default()),
+            selected: Mutex::new(selected::SelectedState::default()),
             root,
             state: Mutex::new(State::default()),
             cancellation: Mutex::new(None),
@@ -576,8 +580,10 @@ impl EvaluationManager {
         } else {
             0
         };
+        let selected = self.selected_root();
+        let selected_bytes = if selected.exists() { bytes(&selected, &mut 0)? } else { 0 };
         if free_space(&self.root)? < 64 * 1024 * 1024
-            || bytes(&self.root, &mut 0)?.saturating_add(extra) > ROOT_BYTES
+            || bytes(&self.root, &mut 0)?.saturating_add(extra).saturating_add(selected_bytes) > ROOT_BYTES
         {
             return Err("EvaluationBudget".into());
         }
@@ -756,7 +762,7 @@ impl EvaluationManager {
                     j.epoch == epoch
                         && j.id == operation
                         && j.run == run
-                        && j.kind != JobKind::ComparisonRead
+                        && matches!(j.kind, JobKind::Builtin | JobKind::Curated)
                 })
                 .ok_or("StaleEvaluationOperation")?;
             j.cancel.cancel();
@@ -869,7 +875,7 @@ impl EvaluationManager {
                     if id>9_007_199_254_740_991{return Err("EvaluationBudget".into())}
                     let cancel=Cancellation::default();if recover{cancel.cancel()}
                     let r=s.runs.get_mut(&run).ok_or("EvaluationInternal")?;r.phase=if recover{"validating_checkpoints"}else{"running"}.into();r.error=None;let selected=r.selection.clone();
-                    s.job=Some(Job{kind:JobKind::Builtin,epoch,id,run:run.clone(),cancel:cancel.clone()});
+                    s.job=Some(Job{kind:JobKind::Builtin,epoch,id,run:run.clone(),cancel:cancel.clone(),selected:None});
                     self.register_cancellation(lease,epoch,id,&cancel);
                     (run,token,id,cancel,resume,selected)
                 };
@@ -923,6 +929,7 @@ impl EvaluationManager {
         }
     }
     pub fn retire(&self, epoch: u64) {
+        self.selected_retire(epoch);
         self.comparison_retire(epoch);
         // No IO/state/lease/worker locks are acquired while holding this slot.
         // Cleanup recovers poison; ordinary presentation calls still fail closed.
@@ -954,6 +961,7 @@ impl EvaluationManager {
             let _ = handle.join();
         }
         self.comparison_drain(epoch);
+        self.selected_drain(epoch);
         let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
         state.tokens.retain(|_, t| t.epoch != epoch);
     }
@@ -976,6 +984,7 @@ impl EvaluationManager {
 }
 mod comparison;
 mod curated;
+mod selected;
 
 pub use comparison::ComparisonEvidenceRequest;
 #[cfg(test)]

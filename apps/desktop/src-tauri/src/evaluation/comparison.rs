@@ -19,7 +19,25 @@ pub struct ComparisonEvidenceRequest {
 struct ReaderGrant;
 struct Capability {
     opened: shared::OpenedComparison,
+    origin: PathBuf,
     _grant: ReaderGrant,
+}
+
+/// Only the same admitted native selected worker can consume this source.
+/// The old read grant is revoked before transfer; it grants no execution.
+pub(super) struct SelectedSource {
+    opened: shared::OpenedComparison,
+    origin: PathBuf,
+    binding: String,
+}
+impl SelectedSource {
+    pub(super) fn into_origin(self) -> (PathBuf, String) {
+        let Self { opened, origin, binding } = self;
+        // The caller executes this in its registered worker, outside metadata,
+        // window-lease and admission gates. Releasing the File lock can do IO.
+        drop(opened);
+        (origin, binding)
+    }
 }
 struct Record {
     window: Weak<WindowLease>,
@@ -171,6 +189,36 @@ fn valid_evidence(input: &ComparisonEvidenceRequest) -> bool {
         }
 }
 impl EvaluationManager {
+    /// Caller holds the existing lease/parent-job admission gates. No IO or
+    /// source-lock Drop occurs here; the opaque payload moves into that worker.
+    pub(super) fn comparison_take_source_in_gate(
+        &self,
+        lease: &WindowLease,
+        epoch: u64,
+        client: &str,
+        token: &str,
+        binding: &str,
+    ) -> Result<SelectedSource> {
+        let mut state = self.comparison_lock()?;
+        let record = state.records.get_mut(client).filter(|record| {
+            record.owns(lease, epoch) && record.granted && !record.expired
+                && !record.running && record.phase == "ready"
+                && record.touched.elapsed() <= TTL
+                && record.token.as_deref() == Some(token)
+        }).ok_or("UnknownEvaluationRun")?;
+        if record.snapshot.as_ref().and_then(|value| value["binding"].as_str()) != Some(binding) {
+            return Err("EvaluationSourceMismatch".into());
+        }
+        let Capability { opened, origin, _grant } = record.cap.take().ok_or("UnknownEvaluationRun")?;
+        record.cancel.cancel();
+        record.granted = false;
+        record.token = None;
+        record.snapshot = None;
+        record.phase = "closed";
+        record.operation = None;
+        record.error = None;
+        Ok(SelectedSource { opened, origin, binding: binding.into() })
+    }
     fn comparison_lock(&self) -> Result<std::sync::MutexGuard<'_, ComparisonState>> {
         self.comparison
             .lock()
@@ -425,6 +473,7 @@ impl EvaluationManager {
                 Ok(WorkResult::Picked(Some((
                     Capability {
                         opened,
+                        origin: path,
                         _grant: ReaderGrant,
                     },
                     snapshot,
@@ -539,6 +588,7 @@ impl EvaluationManager {
                     run: client.clone(),
                     cancel: cancel.clone(),
                     kind: JobKind::ComparisonRead,
+                    selected: None,
                 });
                 let initial = state
                     .records

@@ -186,3 +186,14 @@ fn picker_failure_spawn_refusal_and_worker_panic_leave_no_busy_job_or_private_lo
     f.manager.panic_worker.store(true,Ordering::SeqCst);let panics=uuid().unwrap();f.manager.comparison_pick(&f.lease,f.epoch,true,&panics,||Ok(None)).unwrap();let failure=f.done(&panics);assert_eq!(failure["phase"],"failed");assert_eq!(failure["error"],"EvaluationInternal");assert!(f.manager.state().unwrap().job.is_none());f.close(&panics,None);
     let path=copy_run("rollout");let good=uuid().unwrap();let ready=f.pick(&good,&path);f.close(&good,ready["run_token"].as_str());reacquire(&path);
 }
+
+#[test]
+fn evidence_worker_panic_returns_error_not_a_successful_status_wrapper_and_releases_capability(){
+    let f=Fixture::new();let path=copy_run("rollout");let before=inventory(&path);let client=uuid().unwrap();let ready=f.pick(&client,&path);
+    let token=ready["run_token"].as_str().unwrap();let binding=ready["binding"].as_str().unwrap();
+    f.manager.panic_worker.store(true,Ordering::SeqCst);
+    assert_eq!(err(f.manager.comparison_evidence(&f.lease,f.epoch,true,request(token,binding,Observer::Player))),"EvaluationInternal");
+    let failed=f.done(&client);assert_eq!(failed["phase"],"failed");assert_eq!(failed["error"],"EvaluationInternal");assert!(failed["run_token"].is_null());
+    assert_eq!(err(f.manager.comparison_summary(&f.lease,f.epoch,true,token)),"UnknownEvaluationRun");
+    f.close(&client,Some(token));reacquire(&path);assert!(inventory(&path)==before);
+}

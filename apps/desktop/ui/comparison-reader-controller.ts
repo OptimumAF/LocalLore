@@ -243,9 +243,8 @@ export class ComparisonReaderController {
         this.emitError(safe);
         if (!this.live(ticket)) return;
         const ended =
-            recovery &&
-            (safe === "UnknownEvaluationRun" ||
-                (this.state.status === null && !uncertain(safe)));
+            ["UnknownEvaluationRun", "Forbidden", "Closed"].includes(safe) ||
+            (recovery && this.state.status === null && !uncertain(safe));
         if (ended)
             this.rememberRetired(
                 ticket.client,
@@ -519,7 +518,7 @@ export class ComparisonReaderController {
             return null;
         const ticket = this.ticket(clientId),
             token = status.run_token;
-        this.patch({ busy: true, error: null });
+        this.patch({ busy: true, error: null, evidence: null });
         return this.live(ticket) ? { ticket, token, source } : null;
     }
     async loadSummary(): Promise<void> {

@@ -26,6 +26,7 @@ for (const args of [
     ["check-evaluation-controller.mjs"],
     ["check-comparison-reader.mjs"],
     ["check-comparison-main-review.mjs"],
+    ["check-comparison-capability-review.mjs"],
     ["check-archive-controller.mjs"],
     ["check-archive-v3.mjs"],
     ["check-archive-v3-ack.mjs"],

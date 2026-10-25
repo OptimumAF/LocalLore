@@ -93,9 +93,9 @@ export function ComparisonReaderPanel({
                 </button>
                 <span role="status">
                     {s.busy && !s.status?.running
-                        ? "Waiting for native reply"
+                        ? "Waiting for report data"
                         : (s.status?.phase ?? "No report open")}
-                    {s.status?.running ? " · native work pending" : ""}
+                    {s.status?.running ? " · work pending" : ""}
                     {s.uncertain
                         ? " · acknowledgement unavailable; check the same opening request"
                         : ""}
@@ -103,9 +103,9 @@ export function ComparisonReaderPanel({
             </div>
             {s.status?.phase === "closing" && (
                 <p>
-                    Closing was requested. A pending native dialog or read may
-                    finish before its handles are released; no late result will
-                    be displayed.
+                    Closing was requested. A pending folder picker or disk read
+                    may finish before its handles are released; no late result
+                    will be displayed.
                 </p>
             )}
             {s.error && (
@@ -162,8 +162,9 @@ export function ComparisonReaderPanel({
                         <p>
                             Full report, receipt, captures and model outputs are
                             hidden in this lens. The state query below is
-                            filtered by Rust for this observer. Inspection does
-                            not change anyone's knowledge or generation context.
+                            filtered by the engine for this observer. Inspection
+                            does not change anyone's knowledge or generation
+                            context.
                         </p>
                     )}
                     {omni && !s.summary && (
@@ -486,8 +487,7 @@ export function ComparisonReaderPanel({
                                         {s.evidence.row.turn} ·{" "}
                                         {s.evidence.row.arm} ·{" "}
                                         {s.evidence.edge ?? "recorded artifact"}{" "}
-                                        · Rust observer{" "}
-                                        {s.evidence.observer.kind}
+                                        · Observer {s.evidence.observer.kind}
                                     </p>
                                     {s.evidence.body.kind === "missing" ? (
                                         <p>

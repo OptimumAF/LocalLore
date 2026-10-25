@@ -595,6 +595,13 @@ impl EvaluationManager {
         }
     }
     fn budget(&self, run: Option<&Path>) -> Result<()> {
+        let parent = self.root.parent().ok_or("EvaluationIo")?;
+        let _pins = pin(parent)?;
+        let builtin_bytes = if self.root.exists() {
+            bytes(&self.root, &mut 0)?
+        } else {
+            0
+        };
         let curated = self.curated_root();
         let extra = if curated.exists() {
             bytes(&curated, &mut 0)?
@@ -607,8 +614,8 @@ impl EvaluationManager {
         } else {
             0
         };
-        if free_space(&self.root)? < 64 * 1024 * 1024
-            || bytes(&self.root, &mut 0)?
+        if free_space(parent)? < 64 * 1024 * 1024
+            || builtin_bytes
                 .saturating_add(extra)
                 .saturating_add(selected_bytes)
                 > ROOT_BYTES

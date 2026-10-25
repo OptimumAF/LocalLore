@@ -261,8 +261,13 @@ for (const stage of ["initial", "restart"]) {
     );
     assert.deepEqual(
         actual,
-        finalSnapshot.fixtureInventory,
+        finalSnapshot.finalSourceInventory,
         `CompleteSourceFixtureBytesUnchanged:${stage}`,
+    );
+    assert.deepEqual(
+        actual,
+        finalSnapshot.sourceInventory,
+        `OriginalSourceFixtureBytesUnchanged:${stage}`,
     );
     if (expectedFixtures)
         assert.deepEqual(

@@ -530,13 +530,17 @@ impl Ledger {
         }
         Ok(())
     }
-    fn admit(&mut self, story: &str, turn: &str) -> Result<usize> {
+    fn preflight_admission(&self) -> Result<()> {
         if self.admissions >= MAX_ADMISSIONS
             || self.charged_roles + 3 > MAX_ROLES
             || self.remaining() < TURN_MS + CLEANUP_RESERVE_MS
         {
             return Err("RunBudget".into());
         }
+        Ok(())
+    }
+    fn admit(&mut self, story: &str, turn: &str) -> Result<usize> {
+        self.preflight_admission()?;
         let index = self.admissions;
         self.reserve_file("admission", index, story, turn, TURN_MS, 3)?;
         self.admissions += 1;
@@ -1267,6 +1271,17 @@ impl Session {
         profile: PlayProfile,
         preowned: bool,
     ) -> Result<Self> {
+        Self::open_with_entry(directory, resume, selected, native, profile, preowned, None)
+    }
+    fn open_with_entry(
+        directory: &Path,
+        resume: bool,
+        selected: Option<&str>,
+        native: bool,
+        profile: PlayProfile,
+        preowned: bool,
+        entry_started: Option<Instant>,
+    ) -> Result<Self> {
         let corpus = corpus()?;
         if selected.is_some_and(|id| !corpus.stories.iter().any(|s| s.id == id)) {
             return Err("UnknownCase".into());
@@ -1300,6 +1315,9 @@ impl Session {
             return Err("CheckpointMismatch".into());
         }
         let mut ledger = Ledger::load(directory, &binding)?;
+        if let Some(started) = entry_started {
+            ledger.started = started;
+        }
         ledger.begin_invocation()?;
         let report = Report {
             version: VERSION,

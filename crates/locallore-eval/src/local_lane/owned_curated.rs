@@ -70,11 +70,19 @@ pub fn run_native_curated_owned<R: NativeReservation>(
     }
     let profile = native_profile().map_err(failure)?;
     profile.validate().map_err(|_| failure("Profile".into()))?;
-    let mut session = Session::open(directory, resume, selected, true, profile.clone(), false)
-        .map_err(failure)?;
+    let session = Session::open_with_entry(
+        directory,
+        resume,
+        selected,
+        true,
+        profile.clone(),
+        false,
+        Some(entry_started),
+    )
+    .map_err(failure)?;
     // Opening, replay/restore validation and all later cleanup are this same
     // invocation's real overhead; preparation does not get a fresh entry clock.
-    session.ledger.started = entry_started;
+    let mut session = session;
     match session.all_saved() {
         Ok(true) => {
             // No assets/child; preserve existing curated cached-restore semantics,
@@ -83,6 +91,12 @@ pub fn run_native_curated_owned<R: NativeReservation>(
         }
         Ok(false) => {}
         Err(error) => return known_failure(session, failure(error)),
+    }
+    // Preparation has already been reserved once by Session::open_with_entry.
+    // Reuse the actual turn admission predicate without reserving it or adding
+    // another preparation budget. Cached completed runs above touch no assets.
+    if let Err(error) = session.ledger.preflight_admission() {
+        return known_failure(session, failure(error));
     }
     let deadline =
         match preparation_deadline(entry_started, session.ledger.remaining(), Instant::now()) {

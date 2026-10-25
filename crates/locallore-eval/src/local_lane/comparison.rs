@@ -618,19 +618,28 @@ fn turn_deadline(started: Instant, now: Instant, active_remaining_ms: u64) -> In
         .min(now + Duration::from_millis(active_remaining_ms.saturating_sub(CLEANUP_RESERVE_MS)))
 }
 
-fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
-    let TurnJob {
-        dir,
+struct RecoveryJob<'a> {
+    path: &'a Path,
+    full: &'a Engine,
+    index: usize,
+    arm: &'a str,
+    policy: ContextPolicy,
+    binding: &'a str,
+    step: &'a protocol::Step,
+    profile: &'a PlayProfile,
+}
+
+fn recover_committed_turn(job: RecoveryJob<'_>) -> Result<Option<StoredTurn>> {
+    let RecoveryJob {
         path,
+        full,
         index,
         arm,
         policy,
         binding,
         step,
-        factory,
-        cancel,
+        profile,
     } = job;
-    let full = engine(path, &suite()?.seed().scope)?;
     if full.domain_version() != 1 {
         return Err("UnsupportedDomain".into());
     }
@@ -668,11 +677,11 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
             elapsed_ms: 0,
             first_final_response_ms: None,
             commit_elapsed_ms: None,
-            profile: &factory.profile()?,
+            profile,
             recovered: true,
             forwarded_budget_version: Some(1),
         })?;
-        return Ok(StoredTurn {
+        return Ok(Some(StoredTurn {
             version: 2,
             binding: binding.into(),
             index,
@@ -683,7 +692,46 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
             row,
             capture_file: None,
             recording_file: None,
-        });
+        }));
+    }
+    Ok(None)
+}
+
+fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
+    let TurnJob {
+        dir,
+        path,
+        index,
+        arm,
+        policy,
+        binding,
+        step,
+        factory,
+        cancel,
+    } = job;
+    let full = engine(path, &suite()?.seed().scope)?;
+    if full.domain_version() != 1 {
+        return Err("UnsupportedDomain".into());
+    }
+    if full
+        .receipts()
+        .iter()
+        .any(|r| r.request().turn == step.id())
+    {
+        // Keep profile validation on the committed branch, before read-only
+        // lookup/cuts. Native selected recovery can supply its validated profile
+        // directly without first constructing a factory or loading a runtime.
+        return recover_committed_turn(RecoveryJob {
+            path,
+            full: &full,
+            index,
+            arm,
+            policy,
+            binding,
+            step,
+            profile: &factory.profile()?,
+        })?
+        .ok_or_else(|| "Lookup".into());
     }
     let before = full;
     let request = step.request(&before);
@@ -2056,6 +2104,233 @@ pub fn cli(args: &[String]) -> Result<Value> {
 
 #[cfg(test)]
 mod clock_review_tests;
+
+#[cfg(test)]
+mod selected_recovery_tests {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    struct Fixture {
+        directory: PathBuf,
+        path: PathBuf,
+        binding: String,
+        profile: PlayProfile,
+        produced: Vec<StoredTurn>,
+    }
+
+    impl Fixture {
+        fn new(turns: usize) -> Self {
+            let directory = std::env::temp_dir().join(format!(
+                "locallore-selected-recovery-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            fs::create_dir(&directory).unwrap();
+            let corpus = suite().unwrap();
+            let factory = LaneFactory::ScriptedBaseline;
+            let profile = factory.profile().unwrap();
+            let manifest = RunManifest::new(
+                ComparisonKind::ContinuousRollout,
+                profile.clone(),
+                false,
+                None,
+            )
+            .unwrap();
+            let binding = manifest.stable_key().unwrap();
+            let path = directory.join("synthetic.sqlite");
+            ensure_database(&path, corpus.seed(), &[]).unwrap();
+            let mut produced = Vec::new();
+            if turns > 0 {
+                let mut ledger = Ledger::load(&directory, &binding).unwrap();
+                ledger.begin_invocation().unwrap();
+                for (index, step) in corpus.steps().iter().take(turns).enumerate() {
+                    let turn = execute_turn(
+                        TurnJob {
+                            dir: &directory,
+                            path: &path,
+                            index,
+                            arm: "left",
+                            policy: POLICIES[0],
+                            binding: &binding,
+                            step,
+                            factory: &factory,
+                            cancel: &Cancellation::default(),
+                        },
+                        &mut ledger,
+                    )
+                    .unwrap();
+                    assert_eq!(turn.row.phase, "committed");
+                    assert!(turn.row.passed);
+                    // The producer writes a real checkpoint before settlement.
+                    // Remove only that actual workflow file to model its loss;
+                    // the canonical Store receipt and evidence stay untouched.
+                    let checkpoint = checkpoint_path(&directory, index);
+                    assert!(checkpoint.is_file());
+                    fs::remove_file(checkpoint).unwrap();
+                    assert!(!checkpoint_path(&directory, index).exists());
+                    produced.push(turn);
+                }
+                ledger.finish().unwrap();
+            }
+            Self {
+                directory,
+                path,
+                binding,
+                profile,
+                produced,
+            }
+        }
+
+        fn recover(&self, full: &Engine, index: usize) -> Result<Option<StoredTurn>> {
+            let corpus = suite()?;
+            // No LaneFactory, provider, runtime, cancellation or ledger is an
+            // input to this model-free read-only recovery seam.
+            recover_committed_turn(RecoveryJob {
+                path: &self.path,
+                full,
+                index,
+                arm: "left",
+                policy: POLICIES[0],
+                binding: &self.binding,
+                step: &corpus.steps()[index],
+                profile: &self.profile,
+            })
+        }
+    }
+
+    fn inventory(directory: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
+        fn visit(root: &Path, path: &Path, files: &mut BTreeMap<PathBuf, Vec<u8>>) {
+            for entry in fs::read_dir(path).unwrap() {
+                let entry = entry.unwrap();
+                if entry.file_type().unwrap().is_dir() {
+                    visit(root, &entry.path(), files);
+                } else {
+                    assert!(entry.file_type().unwrap().is_file());
+                    files.insert(
+                        entry.path().strip_prefix(root).unwrap().to_owned(),
+                        fs::read(entry.path()).unwrap(),
+                    );
+                }
+            }
+        }
+        let mut files = BTreeMap::new();
+        visit(directory, directory, &mut files);
+        files
+    }
+
+    #[test]
+    fn committed_lost_checkpoint_recovers_actual_receipt_without_generation_or_mutation() {
+        let fixture = Fixture::new(1);
+        let full = engine(&fixture.path, &suite().unwrap().seed().scope).unwrap();
+        let actual = full.receipts()[0].clone();
+        let before_files = inventory(&fixture.directory);
+        let recovered = fixture.recover(&full, 0).unwrap().unwrap();
+        assert_eq!(recovered.request, *actual.request());
+        assert_eq!(recovered.row.phase, "committed");
+        assert_eq!(
+            recovered.row.actual_receipt_sha256,
+            Some(digest(&encode(&actual).unwrap()))
+        );
+        assert_eq!(
+            recovered.row.actual_receipt_sha256,
+            fixture.produced[0].row.actual_receipt_sha256
+        );
+        assert_eq!(
+            recovered.row.input_semantic_sha256,
+            fixture.produced[0].row.input_semantic_sha256
+        );
+        assert_eq!(
+            recovered.row.output_semantic_sha256,
+            fixture.produced[0].row.output_semantic_sha256
+        );
+        assert_eq!(
+            recovered.row.mechanical_sha256,
+            fixture.produced[0].row.mechanical_sha256
+        );
+        assert!(recovered.row.recovered_without_checkpoint);
+        assert!(!recovered.row.roles_known);
+        assert!(!recovered.row.context_evidence_available);
+        assert!(recovered.row.admission.is_none());
+        assert!(recovered.capture_file.is_none());
+        assert!(recovered.recording_file.is_none());
+        assert!(recovered.row.capture_sha256.is_none());
+        assert!(recovered.row.recording_sha256.is_none());
+        assert!(recovered.row.role_metrics.is_none());
+        assert!(recovered.row.first_final_response_ms.is_none());
+        assert!(recovered.row.commit_elapsed_ms.is_none());
+        assert_eq!(
+            encode(&fixture.recover(&full, 0).unwrap().unwrap()).unwrap(),
+            encode(&recovered).unwrap()
+        );
+        let reopened = engine(&fixture.path, full.scope()).unwrap();
+        assert_eq!(reopened.receipts(), full.receipts());
+        assert_eq!(reopened.state(), full.state());
+        assert_eq!(inventory(&fixture.directory), before_files);
+    }
+
+    #[test]
+    fn uncommitted_actual_store_returns_none_without_opening_a_missing_database() {
+        let fixture = Fixture::new(0);
+        let corpus = suite().unwrap();
+        let full = engine(&fixture.path, &corpus.seed().scope).unwrap();
+        assert!(full.receipts().is_empty());
+        let before_files = inventory(&fixture.directory);
+        assert!(fixture.recover(&full, 0).unwrap().is_none());
+        let absent = fixture.directory.join("must-not-be-created.sqlite");
+        assert!(recover_committed_turn(RecoveryJob {
+            path: &absent,
+            full: &full,
+            index: 0,
+            arm: "left",
+            policy: POLICIES[0],
+            binding: &fixture.binding,
+            step: &corpus.steps()[0],
+            profile: &fixture.profile,
+        })
+        .unwrap()
+        .is_none());
+        assert!(!absent.exists());
+        assert_eq!(inventory(&fixture.directory), before_files);
+    }
+
+    #[test]
+    fn recovery_cuts_the_actual_earlier_turn_even_after_later_commits() {
+        let fixture = Fixture::new(2);
+        let full = engine(&fixture.path, &suite().unwrap().seed().scope).unwrap();
+        assert_eq!(full.receipts().len(), 2);
+        let before_files = inventory(&fixture.directory);
+        let earlier = fixture.recover(&full, 0).unwrap().unwrap();
+        let original = &fixture.produced[0];
+        assert_eq!(earlier.before_head, original.before_head);
+        assert_eq!(earlier.after_head, original.after_head);
+        assert!(earlier.after_head < full.revision());
+        assert_eq!(earlier.request, original.request);
+        assert_eq!(
+            earlier.row.actual_receipt_sha256,
+            original.row.actual_receipt_sha256
+        );
+        assert_eq!(
+            earlier.row.input_semantic_sha256,
+            original.row.input_semantic_sha256
+        );
+        assert_eq!(
+            earlier.row.output_semantic_sha256,
+            original.row.output_semantic_sha256
+        );
+        assert_eq!(
+            earlier.row.mechanical_sha256,
+            original.row.mechanical_sha256
+        );
+        assert_eq!(
+            engine(&fixture.path, full.scope()).unwrap().receipts(),
+            full.receipts()
+        );
+        assert_eq!(inventory(&fixture.directory), before_files);
+    }
+}
 
 #[cfg(test)]
 mod clock_tests {

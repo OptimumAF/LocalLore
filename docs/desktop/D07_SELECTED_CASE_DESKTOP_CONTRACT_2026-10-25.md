@@ -202,8 +202,10 @@ scalar/own-key/total-byte checks. Keep the existing reader unchanged. There is
 no native experiment-player ID in the current public reader DTO: do not infer
 Character-own-player message eligibility from a live game, query ID or literal
 `player`; offer the Player lens separately and keep the closed fallback.
-Local actor changes immediately clear full summary/raw evidence. Context switch
-clears private UI and cancels only the captured original operation. Install
+Local actor changes immediately clear full summary/raw evidence. Inspection-lens changes clear/filter private pending reads under their own
+epoch, but never cancel, rekey or alter generation. Execution identity keeps the
+original player Request/profile. Explicit cancel or defined source/window-lease
+retirement cancels only the captured original operation. Install
 epochs before notifications and recheck after every synchronous listener and
 await before dispatch, publication or cleanup affecting a current capability.
 Lost acknowledgement preserves the same client/operation for explicit status;
@@ -249,3 +251,47 @@ freeze and model-free gates. Record actual setup/ledgers/receipts, unknown role
 reservations, restart and cleanup separately from synthetic fixtures; no score,
 human quality acceptance, Android parity or selected WebView evidence follows
 from this proposal. Root chooses the smallest allocation and runs qualification.
+
+
+## Frozen first allocation: selected read-only capability
+
+Root claim6401286275, accepted base PR172 merge
+`5f1a49f1e18c954f2fc6b85ed875736dd4c414ea`. The remainder above stays proposed.
+The additive shared `selected::desktop_read` interface uses a separate name to
+avoid shadowing the existing full-comparison `desktop_api` source capability:
+
+```rust
+pub struct OpenedSelected; // opaque retained selected lock/pins; never JSON
+pub fn open_read_only(dir: &Path) -> Result<OpenedSelected>;
+pub fn summary(run: &OpenedSelected, native_inspection_granted: bool) -> Result<Value>;
+pub fn evidence(run: &OpenedSelected, expected_binding: &str, arm: Arm,
+    request: EvidenceRequest, native_inspection_granted: bool) -> Result<Value>;
+```
+
+`Arm` and `EvidenceRequest` are the existing full-comparison enums. The caller
+owns the native inspection grant; none of these APIs grants execution. Summary
+keys are exactly version1, kind selected_read, opaque snapshot binding, selection
+(turn/clicked_arm/index), lane, arms (arm/scope/before_head/nullable after_head/
+available), read_only true, execution_available false. This metadata has no full
+Request, source binding, profile, diagnostic prose, outcome, capture or metrics.
+Private contents are obtainable only through the checked evidence request.
+
+Every permitted read freshly validates the entire selected destination and
+compares the retained snapshot, including both checkpoints, report, manifest
+and exact bounded ledger/setup file seals. Aggregate charges alone cannot seal
+offsetting settlement changes. Refuse drift rather than mix an old summary with
+new evidence. This is stricter than the existing full-comparison selective-read
+contract; that contract remains unchanged. Raw actor denial precedes binding and
+filesystem probes. Query evidence uses the same actual Store edges and Core
+Query2 as the existing reader; raw receipt/capture/outputs use its common checked
+renderer. No serialization of the whole selected report is returned.
+
+A missing checkpoint remains `checkpoint_unavailable`, including a genuine
+committed Store with lost workflow evidence. Do not recover/write a checkpoint
+or infer its after-head. Validate the requested observer on the actual before
+Engine when present; an absent database has no actor-context authority and
+returns missing without inventing a seed Engine. Corrupt retained evidence is
+an error, not missing. No source, model assets, runtime, native app or execution
+is needed to inspect supported historical evidence, including feature-off native
+records. Initial implementation and frozen tests remain unverified until the
+separate qualification record reports their actual terminal checks.

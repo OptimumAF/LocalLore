@@ -219,7 +219,9 @@ pub fn prepare_selected(
         clicked_arm: ARM_NAMES[match row.arm { desktop_api::Arm::Left => 0, desktop_api::Arm::Right => 1 }].into() };
     let source = desktop_api::open_read_only(source_dir)?;
     let directory = fs::canonicalize(source_dir).map_err(|_| "Io")?;
-    let snapshot = desktop_api::snapshot(&directory)?;
+    // This call just opened and fully validated this cap under a new lock; it
+    // cannot be supplied by the renderer or borrowed from a cached reader.
+    let snapshot = desktop_api::fresh_open_snapshot(&source);
     if snapshot.value["binding"].as_str() != Some(expected_source_binding) {
         return Err("SnapshotMismatch".into());
     }

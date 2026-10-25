@@ -65,6 +65,16 @@ pub(super) struct Snapshot {
     pub(super) manifest: RunManifest,
 }
 
+// Selected preparation uses this only on the cap it has just opened itself.
+// The consuming run separately revalidates the entire source before mutations.
+pub(super) fn fresh_open_snapshot(run: &OpenedComparison) -> Snapshot {
+    Snapshot {
+        value: run.snapshot.clone(),
+        turns: run.turns.clone(),
+        manifest: run.manifest.clone(),
+    }
+}
+
 pub(super) fn snapshot(directory: &Path) -> Result<Snapshot> {
     let manifest: RunManifest = decode(&directory.join("run.json"), 128 * 1024)?;
     manifest.validate()?;

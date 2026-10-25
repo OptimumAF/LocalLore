@@ -589,6 +589,7 @@ impl EvaluationManager {
                     cancel: cancel.clone(),
                     kind: JobKind::ComparisonRead,
                     selected: None,
+                    worker_active: true,
                 });
                 let initial = state
                     .records

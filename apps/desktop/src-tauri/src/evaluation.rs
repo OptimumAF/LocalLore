@@ -478,6 +478,9 @@ struct Job {
     run: String,
     cancel: Cancellation,
     selected: Option<selected::SelectedOwnership>,
+    // Remains true while drain temporarily owns the JoinHandle. It is cleared
+    // only by actual worker completion, never by presentation retirement.
+    worker_active: bool,
 }
 struct JobCancellation {
     epoch: u64,
@@ -875,7 +878,7 @@ impl EvaluationManager {
                     if id>9_007_199_254_740_991{return Err("EvaluationBudget".into())}
                     let cancel=Cancellation::default();if recover{cancel.cancel()}
                     let r=s.runs.get_mut(&run).ok_or("EvaluationInternal")?;r.phase=if recover{"validating_checkpoints"}else{"running"}.into();r.error=None;let selected=r.selection.clone();
-                    s.job=Some(Job{kind:JobKind::Builtin,epoch,id,run:run.clone(),cancel:cancel.clone(),selected:None});
+                    s.job=Some(Job{kind:JobKind::Builtin,epoch,id,run:run.clone(),cancel:cancel.clone(),selected:None,worker_active:true});
                     self.register_cancellation(lease,epoch,id,&cancel);
                     (run,token,id,cancel,resume,selected)
                 };

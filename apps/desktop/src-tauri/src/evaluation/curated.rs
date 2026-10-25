@@ -400,6 +400,7 @@ impl EvaluationManager {
                 state.job = Some(Job {
                     kind: JobKind::Curated,
                     selected: None,
+                    worker_active: true,
                     epoch,
                     id: operation,
                     run: id.clone(),

@@ -15,6 +15,7 @@ import time
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import receipt_real_cancellation as n
 import litert_send_trace as send_trace
+import litert_callback_trace as callback_trace
 
 r, q, worker_trace, environment = n.r, n.q, n.worker_trace, n.environment
 SCOPE = "receipt_ordinary_scene"
@@ -49,6 +50,11 @@ SOURCE_FILES = (*r.SOURCE_FILES, "benchmarks/receipt_real_cancellation.py", "scr
     "apps/android/app/src/litert/java/org/locallore/app/LiteRtSendTrace.kt",
     "apps/android/app/src/litertTest/java/org/locallore/app/LiteRtSendTraceTest.kt",
     "docs/native/LITERT_SEND_TRACE_CONTRACT.md",
+    "benchmarks/litert_callback_trace.py", "scripts/tests/test_litert_callback_trace.py",
+    "apps/android/app/src/litert/java/org/locallore/app/LiteRtCallbackTrace.kt",
+    "apps/android/app/src/litertTest/java/org/locallore/app/LiteRtCallbackTraceTest.kt",
+    "apps/android/app/src/litertTest/java/org/locallore/app/LiteRtCallbackIntegrationTest.kt",
+    "docs/native/LITERT_CALLBACK_TRACE_CONTRACT.md",
     "apps/android/app/src/modelReceipt/java/org/locallore/app/CancellationProof.kt",
     "apps/android/app/src/modelReceiptTest/java/org/locallore/app/CancellationProofTest.kt",
     "benchmarks/receipt_ordinary_scene.py", "scripts/tests/test_receipt_ordinary_scene.py",
@@ -252,6 +258,8 @@ def run_selected(owner, phase):
     assert phase in PHASES
     owner.stage = "instrument-" + phase
     raw = owner.shell(selection(phase), deadline=180, cap=131072)
+    callback = callback_trace.extract_callback_trace(raw)
+    if callback is not None: q.write_json(owner.directory / (PHASES[phase][0] + "-failure-callback-v1.json"), callback)
     send = send_trace.extract_send_trace(raw)
     if send is not None: q.write_json(owner.directory / (PHASES[phase][0] + "-failure-send-v1.json"), send)
     if phase != "ORDINARY_REOPEN":

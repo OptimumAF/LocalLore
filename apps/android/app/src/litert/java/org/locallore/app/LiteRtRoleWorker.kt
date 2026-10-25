@@ -8,6 +8,7 @@ import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.MessageCallback
+import com.google.ai.edge.litertlm.LiteRtLmJniException
 import com.google.ai.edge.litertlm.ResponseFormat
 import com.google.ai.edge.litertlm.Role
 import com.google.ai.edge.litertlm.SamplerConfig
@@ -55,10 +56,11 @@ internal data class LiteRtWorkerConfig(
         resources: LiteRtResources? = null,
         trace: LiteRtWorkerTrace? = null,
         sendTrace: LiteRtSendTrace? = null,
+        callbackTrace: LiteRtCallbackTrace? = null,
     ): LocalInferenceOwner {
         require(limits.turnMs == deadlineMs)
         lateinit var owner: LocalInferenceOwner
-        val worker = LiteRtRoleWorker(this, resources ?: SdkLiteRtResources(sendTrace), trace) { owner.close() }
+        val worker = LiteRtRoleWorker(this, resources ?: SdkLiteRtResources(sendTrace), trace, callbackTrace) { owner.close() }
         owner = LocalInferenceOwner(profileBytes(), worker, limits = limits)
         return owner
     }
@@ -126,6 +128,8 @@ internal interface LiteRtCallbacks {
     fun message(read: () -> LiteRtChunk)
     fun done()
     fun error(cancelled: Boolean)
+    /** Passive closed provenance only, after the original error path has fenced the owner. */
+    fun errorCategory(category: LiteRtCallbackError) {}
 }
 internal data class LiteRtChunk(
     val modelRole: Boolean = true,
@@ -145,6 +149,7 @@ internal class LiteRtRoleWorker(
     private val config: LiteRtWorkerConfig,
     private val resources: LiteRtResources = SdkLiteRtResources(),
     private val trace: LiteRtWorkerTrace? = null,
+    private val callbackTrace: LiteRtCallbackTrace? = null,
     private val onUncertain: () -> Unit = {},
 ) : LocalRoleWorker {
     private val lock = Any()
@@ -206,6 +211,11 @@ internal class LiteRtRoleWorker(
                 config.storageAdmission()
                 trace?.record(LiteRtWorkerEvent.ROLE_ADMISSION_RETURNED)
                 trace?.record(LiteRtWorkerEvent.CONVERSATION_CREATE_ENTERED)
+                // Configured byte lengths are not tokenizer usage. Diagnostics cannot change admission.
+                val observation = try { callbackTrace?.begin(
+                    if (request.role == "director") LiteRtCallbackRole.DIRECTOR else LiteRtCallbackRole.NARRATOR,
+                    request.contextTokens, request.maxTokens, localUtf8(request.prompt).size, localUtf8(request.schemaJson).size,
+                ) } catch (_: Throwable) { null }
                 // Request validation above admits only these two closed roles. No prompt/schema
                 // or exception string enters the passive observation.
                 creationOrdinal = trace?.creationEntered(when (request.role) {
@@ -213,7 +223,7 @@ internal class LiteRtRoleWorker(
                     else -> LiteRtTraceRole.NARRATOR
                 }) ?: 0
                 val conversation = resource.conversation(request)
-                val call = OwnedCall(conversation)
+                val call = OwnedCall(conversation, observation)
                 synchronized(lock) { roles += call }
                 // Retain the returned resource before doing diagnostic work.
                 creationReturned = true
@@ -258,7 +268,10 @@ internal class LiteRtRoleWorker(
         }
     }
 
-    private inner class OwnedCall(private val resource: LiteRtConversationResource) : LocalRoleCall, LiteRtCallbacks {
+    private inner class OwnedCall(
+        private val resource: LiteRtConversationResource,
+        private val observation: LiteRtCallbackCall?,
+    ) : LocalRoleCall, LiteRtCallbacks {
         private val state = Any()
         private val cancelScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         private val bytes = ByteArrayOutputStream()
@@ -293,6 +306,7 @@ internal class LiteRtRoleWorker(
             synchronized(state) { if (terminal || failed) { fail(); return@callback } }
             val chunk = read()
             synchronized(state) {
+                val before = bytes.size()
                 check(chunk.modelRole && !chunk.nonText && !chunk.channels && !chunk.tools)
                 chunk.text.forEach {
                     check(it.length <= 16_384)
@@ -302,19 +316,28 @@ internal class LiteRtRoleWorker(
                 }
                 val text = localText(bytes.toByteArray(), 16_384)
                 check(!text.contains("<think>", ignoreCase = true) && !text.contains("</think>", ignoreCase = true))
+                // Only bytes that passed the original chunk/buffer checks, not SDK tokens or all callbacks.
+                try { observation?.output(bytes.size() - before) } catch (_: Throwable) { }
             }
         }
 
-        override fun done() = callback(LiteRtWorkerEvent.DONE_ENTERED, LiteRtWorkerEvent.DONE_RETURNED) { synchronized(state) {
-            if (terminal) fail()
-            terminal = true
-        } }
+        override fun done() {
+            callback(LiteRtWorkerEvent.DONE_ENTERED, LiteRtWorkerEvent.DONE_RETURNED) { synchronized(state) {
+                if (terminal) fail()
+                terminal = true
+            } }
+            try { observation?.done() } catch (_: Throwable) { }
+        }
 
         override fun error(cancelled: Boolean) = callback(LiteRtWorkerEvent.ERROR_ENTERED, LiteRtWorkerEvent.ERROR_RETURNED) { synchronized(state) {
             if (terminal) fail()
             terminal = true
             if (cancelled && cancelRequested) this.cancelled = true else fail()
         } }
+
+        override fun errorCategory(category: LiteRtCallbackError) {
+            try { observation?.error(category) } catch (_: Throwable) { }
+        }
 
         private fun settled(): Boolean = terminal && callbacks == 0 && startReturned && !cancelRunning
 
@@ -424,7 +447,7 @@ private class SdkLiteRtResources(private val sendTrace: LiteRtSendTrace? = null)
                                     )
                                 }
                                 override fun onDone() = callbacks.done()
-                                override fun onError(throwable: Throwable) = callbacks.error(throwable is CancellationException)
+                                override fun onError(throwable: Throwable) = observedLiteRtError(throwable, callbacks)
                             }, request.maxTokens, ThinkingConfig(false, 0), ResponseFormat.json(request.schemaJson))
                         }, dispatch = { arguments ->
                             // This is the public Kotlin call site, not an SDK body/JNI/native-entry
@@ -440,5 +463,20 @@ private class SdkLiteRtResources(private val sendTrace: LiteRtSendTrace? = null)
                 }
             }
         }
+    }
+}
+
+/** Type identity only; no message, class name, stack, cause or hidden numeric status is read. */
+internal fun liteRtCallbackError(throwable: Throwable): LiteRtCallbackError = when (throwable) {
+    is CancellationException -> LiteRtCallbackError.CANCELLED
+    is LiteRtLmJniException -> LiteRtCallbackError.SDK_JNI
+    else -> LiteRtCallbackError.OTHER
+}
+
+/** Keep fencing first and preserve any original callback failure over diagnostic failures. */
+internal fun observedLiteRtError(throwable: Throwable, callbacks: LiteRtCallbacks) {
+    try { callbacks.error(throwable is CancellationException) }
+    finally {
+        try { callbacks.errorCategory(liteRtCallbackError(throwable)) } catch (_: Throwable) { }
     }
 }

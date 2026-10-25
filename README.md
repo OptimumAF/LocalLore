@@ -130,6 +130,13 @@ returns from the public SDK call and receives 21 message callbacks before an
 asynchronous error; no accepted Dialogue or ordinary-route reopen is qualified.
 The new privacy-safe send record works on the actual failure path. The async
 error's cause remains unknown; all owned processes stopped and evidence is sealed.
+The [closed callback follow-up](docs/native/LITERT_CALLBACK_VERIFICATION_2026-10-25.md)
+again passes import and the ordinary Start/gift. Its actual failure record shows
+one SDK JNI-category error after 21 accepted chunks/61 UTF-8 bytes; configured
+request sizes are recorded without text. These are not token counts or an error
+diagnosis. Dialogue and ordinary-route reopen remain unqualified; all owned
+processes stopped and evidence is sealed. Safe native-status retention is the
+next investigation, with the existing privacy and ownership fences preserved.
 
 An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects
 the isolated SDK to guarded free-text preparation and durable commit. Its

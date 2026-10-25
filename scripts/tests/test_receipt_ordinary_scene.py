@@ -54,6 +54,15 @@ def transcript(phase, passed=True):
         n.PHASES["RECOVER"][2].encode(), s.PHASES[phase][2].encode())
 
 
+def callback_record():
+    value = {"version": 1, "requests": 1, "requests_saturated": False, "calls": [{
+        "ordinal": 1, "role": "DIRECTOR", "context_tokens": 4096, "max_output_tokens": 350,
+        "prompt_bytes": 240, "schema_bytes": 320, "counts": {
+            "OUTPUT_CHUNKS": 21, "OUTPUT_BYTES": 120, "DONE": 0, "CANCELLED": 0, "SDK_JNI": 1, "OTHER": 0},
+        "saturated": []}]}
+    return s.callback_trace.PREFIX.encode()+encoded(value)+b"\n"+s.callback_trace.STATUS.encode()+b"\n"
+
+
 def candidate(root):
     value=api.candidate(root); value["scope"]=s.SCOPE
     for name in s.SOURCE_FILES:
@@ -193,8 +202,9 @@ class OrdinaryControllerTests(unittest.TestCase):
     def test_failed_runner_diagnostics_never_authorize_later_proof(self):
         wire=s.worker_trace.PREFIX.encode()+encoded(trace("ORDINARY_START"))+b"\n"+s.worker_trace.STATUS.encode()+b"\n"
         send=send_wire.record()
+        callback=callback_record()
         for phase in s.PHASES:
-            for diagnostic in (b"",wire,send,wire+send):
+            for diagnostic in (b"",wire,send,callback,wire+send,wire+callback,send+callback,wire+send+callback):
                 with tempfile.TemporaryDirectory() as directory:
                     root=Path(directory);owner=SimpleNamespace(directory=root,shell=lambda *a,**kw:diagnostic+transcript(phase,False))
                     with patch.object(s,"read_proof") as read:
@@ -202,17 +212,18 @@ class OrdinaryControllerTests(unittest.TestCase):
                         read.assert_not_called()
                     self.assertEqual((root/(s.PHASES[phase][0]+"-failure-worker-v2.json")).exists(),wire in diagnostic and phase!="ORDINARY_REOPEN")
                     self.assertEqual((root/(s.PHASES[phase][0]+"-failure-send-v1.json")).exists(),send in diagnostic)
+                    self.assertEqual((root/(s.PHASES[phase][0]+"-failure-callback-v1.json")).exists(),callback in diagnostic)
                     if diagnostic:
                         owner.shell=lambda *a,**kw:diagnostic+transcript(phase)
                         with self.assertRaises(AssertionError):s.run_selected(owner,phase)
 
-    def test_both_failure_channels_keep_actual_client_raw_and_stop_cohort(self):
+    def test_three_failure_channels_keep_actual_client_raw_and_stop_cohort(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);owner,_=owner_fixture(root)
             imported=api.old.proof("IMPORT")
             imported["prior_preflight_sha256"]=q.sha(Path(owner.proposal["preflight"]["proof"]["path"]).read_bytes())
             wire=s.worker_trace.PREFIX.encode()+encoded(trace("ORDINARY_START"))+b"\n"+s.worker_trace.STATUS.encode()+b"\n"
-            raw=wire+send_wire.record()+transcript("ORDINARY_START",False)
+            raw=wire+send_wire.record()+callback_record()+transcript("ORDINARY_START",False)
             def boot(): owner.stage="before"
             def imported_result(actual,phase):
                 self.assertEqual(phase,"IMPORT");owner.methods=1
@@ -227,6 +238,7 @@ class OrdinaryControllerTests(unittest.TestCase):
             self.assertEqual((owner.commands/"command-0002.stdout.bin").read_bytes(),raw)
             self.assertEqual(json.loads((owner.directory/"start-failure-send-v1.json").read_bytes()),send_wire.value())
             self.assertTrue((owner.directory/"start-failure-worker-v2.json").exists())
+            self.assertEqual(json.loads((owner.directory/"start-failure-callback-v1.json").read_bytes())["calls"][0]["counts"]["SDK_JNI"],1)
             self.assertFalse((owner.directory/"start-proof.raw.json").exists())
             self.assertFalse((owner.directory/"dialogue-instrumentation-v1.json").exists())
 
@@ -238,6 +250,26 @@ class OrdinaryControllerTests(unittest.TestCase):
                 with self.assertRaises(OSError):s.run_selected(owner,"ORDINARY_START")
                 self.assertEqual(write.call_args.args[0].name,"start-failure-send-v1.json")
                 runner.assert_not_called();read.assert_not_called()
+
+    def test_callback_persistence_failure_stops_before_other_channels_runner_and_proof(self):
+        with tempfile.TemporaryDirectory() as directory:
+            owner=SimpleNamespace(directory=Path(directory),shell=lambda *a,**kw:callback_record()+send_wire.record()+transcript("ORDINARY_START",False))
+            with patch.object(q,"write_json",side_effect=OSError("synthetic_persistence")) as write, \
+                 patch.object(s,"parse_runner") as runner,patch.object(s,"read_proof") as read:
+                with self.assertRaises(OSError):s.run_selected(owner,"ORDINARY_START")
+                self.assertEqual(write.call_args.args[0].name,"start-failure-callback-v1.json")
+                self.assertEqual(write.call_count,1);runner.assert_not_called();read.assert_not_called()
+
+    def test_malformed_callback_keeps_client_raw_and_cannot_become_positive_proof(self):
+        raw=callback_record().replace(b'"OUTPUT_BYTES":120',b'"OUTPUT_BYTES":true')+transcript("ORDINARY_START",False)
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);owner,_=owner_fixture(root)
+            owner.methods=1  # The selected START follows the already completed IMPORT.
+            with patch.object(q.host,"run_process",return_value=api.client(raw)),patch.object(s,"read_proof") as read:
+                with self.assertRaises(AssertionError):s.run_selected(owner,"ORDINARY_START")
+                read.assert_not_called()
+            self.assertEqual((owner.commands/"command-0001.stdout.bin").read_bytes(),raw)
+            self.assertFalse((owner.directory/"start-failure-callback-v1.json").exists())
 
     def test_candidate_authority_exact_bindings_and_actual_old_preflight_lineage(self):
         with tempfile.TemporaryDirectory() as directory:

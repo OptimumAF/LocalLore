@@ -727,7 +727,7 @@ fn dependency_turn(job: DependencyJob<'_>) -> Result<Option<StoredTurn>> {
     profile.validate().map_err(|_| "Profile")?;
     let request = step.request(before);
     if matches!(step.expected(), protocol::Expected::Accepted(_))
-        && protocol::reference_proposal(&before, step).is_err()
+        && protocol::reference_proposal(before, step).is_err()
     {
         let row = make_row(Observation {
             step,

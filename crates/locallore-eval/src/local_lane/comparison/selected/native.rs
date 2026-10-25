@@ -242,6 +242,15 @@ fn save_setup_at(
     // Only this native-private workflow reaches here: either actual load is
     // observed, or startup has ended with confirmed cleanup/BeforeChild.
     // Unknown cleanup never calls it as a failed/settled terminal measurement.
+    if !matches!(status, "loaded" | "failed") || (status == "loaded" && load.is_none()) {
+        return Err("SetupIntegrity".into());
+    }
+    if status == "loaded" && physical_ms > PREPARATION_MS {
+        return Err("PreparationDeadline".into());
+    }
+    if ledgers.iter().any(|ledger| ledger.shared_setup.is_some()) {
+        return Err("ClockIntegrity".into());
+    }
     let record = SetupRecord {
         version: 2,
         binding: binding.into(),

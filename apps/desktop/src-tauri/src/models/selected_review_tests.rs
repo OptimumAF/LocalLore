@@ -394,3 +394,121 @@ fn external_old_cleanup_preserves_newer_actual_slot_ticket_profile_job_and_host_
             .expect("only current actual slot cleanup releases it"),
     );
 }
+
+// Separately frozen witness extension, coordinator6401959193. The original six
+// groups above are unchanged. APIs below are absent at e2a154f7: SOURCE ONLY /
+// UNCOMPILED / UNRUN, not behavior RED. Root owns actual execution/producer.
+
+#[test]
+fn selected_witness_survives_guard_drop_and_confirms_only_actual_cleanup_even_with_poison() {
+    let _reset = FaultReset;
+    let fixture = FixedOwner::new();
+    let manager = manager();
+    let mut reservation = manager.reserve_evaluation().unwrap();
+    let witness = reservation.cleanup_witness();
+    let copied_witness = witness.clone();
+    assert!(!witness.confirmed() && !copied_witness.confirmed());
+    assert!(SelectedNativeReservation::retain_uncertain(&mut reservation, fixture.owner().clone()).is_ok());
+    drop(reservation);
+    assert!(!witness.confirmed(), "handoff/guard Drop is not cleanup proof");
+    let retired = manager.retire().unwrap();
+    assert!(Arc::ptr_eq(retired.1.as_ref().unwrap(), fixture.owner()));
+    FAIL_CLEANUP_ONCE.with(|fault| fault.set(true));
+    manager.close(None, Some(retired));
+    assert!(!FAIL_CLEANUP_ONCE.with(|fault| fault.get()));
+    assert!(!witness.confirmed() && !copied_witness.confirmed());
+    assert!(matches!(manager.reserve_evaluation(), Err(error) if error == "ModelLoaded" || error == "Busy"));
+    responding(fixture.owner());
+
+    // Poison is a diagnostic, not a claim that the child has disappeared.
+    assert!(std::panic::catch_unwind(|| {
+        let _held = fixture.owner().lock().unwrap();
+        panic!("synthetic selected witness owner poison");
+    }).is_err());
+    assert!(!witness.confirmed());
+    let outcome = manager.cleanup_selected(&witness);
+    assert!(outcome.confirmed, "actual cleanup proof may coexist with poison diagnostic");
+    assert_eq!(outcome.result.err().as_deref(), Some("Cleanup"));
+    assert!(witness.confirmed() && copied_witness.confirmed());
+    assert_eq!(manager.status().unwrap()["resident"], false);
+    assert_eq!(fixture.owner().lock().unwrap_or_else(|p| p.into_inner()).status(), Status::Failed);
+    drop(manager.reserve_evaluation().expect("actual terminal proof releases normal model slot"));
+}
+
+#[test]
+fn already_confirmed_old_witness_cannot_touch_newer_slot_job_profile_or_host() {
+    let _reset = FaultReset;
+    let old_fixture = FixedOwner::new();
+    let next_fixture = FixedOwner::new();
+    let manager = manager();
+    let mut old = manager.reserve_evaluation().unwrap();
+    let old_witness = old.cleanup_witness();
+    assert!(SelectedNativeReservation::retain_uncertain(&mut old, old_fixture.owner().clone()).is_ok());
+    drop(old);
+    assert!(!old_witness.confirmed());
+    let cleaned = manager.cleanup_selected(&old_witness);
+    assert!(cleaned.confirmed && cleaned.result.is_ok());
+    assert!(old_witness.confirmed());
+
+    let mut current = manager.reserve_evaluation().unwrap();
+    let current_witness = current.cleanup_witness();
+    assert!(SelectedNativeReservation::retain_uncertain(&mut current, next_fixture.owner().clone()).is_ok());
+    let host = Host::new(true);
+    let constructed = Arc::new(AtomicBool::new(false));
+    let observed = constructed.clone();
+    let factory: locallore::host::ProviderFactory = Arc::new(move || {
+        observed.store(true, Ordering::SeqCst);
+        Box::new(locallore::inference::FakeProvider::new(locallore::inference::FakeMode::Accepted))
+    });
+    host.configure_fixture_provider(PlayProfile {
+        id: "selected-witness-current".into(), model_sha256: "a".repeat(64),
+        runtime_revision: "b".repeat(40), template_sha256: "c".repeat(64),
+        worker_sha256: "d".repeat(64), profile_manifest_sha256: "e".repeat(64),
+        context_tokens: 4096, director_tokens: 350, narrator_tokens: 350,
+        deadline_ms: 5000, repair_limit: 1,
+    }, factory).unwrap();
+    let before_status = manager.status().unwrap();
+    let before_host = host.call(br#"{"version":1,"command":{"op":"capabilities"}}"#);
+    assert_eq!(before_host["data"]["free_text"], true);
+    let before_ticket = manager.inner.lock().unwrap().evaluation;
+    let result = manager.cleanup_selected(&old_witness);
+    assert!(result.confirmed && result.result.is_ok());
+    assert_eq!(manager.status().unwrap(), before_status);
+    assert_eq!(manager.inner.lock().unwrap().evaluation, before_ticket);
+    assert!(Arc::ptr_eq(manager.inner.lock().unwrap().runtime.as_ref().unwrap(), next_fixture.owner()));
+    assert_eq!(host.call(br#"{"version":1,"command":{"op":"capabilities"}}"#), before_host);
+    assert!(!current_witness.confirmed());
+    assert!(!constructed.load(Ordering::SeqCst));
+    responding(next_fixture.owner());
+    drop(current);
+    let retired = manager.retire().unwrap();
+    manager.close(Some(&host), Some(retired));
+    assert!(current_witness.confirmed());
+    drop(manager.reserve_evaluation().expect("only actual current owner cleanup releases slot"));
+}
+
+#[test]
+fn genuine_late_selected_handoff_after_empty_retire_is_cleaned_by_matching_close() {
+    let _reset = FaultReset;
+    let fixture = FixedOwner::new();
+    let manager = manager();
+    let mut reservation = manager.reserve_evaluation().unwrap();
+    let witness = reservation.cleanup_witness();
+    // No metadata fault: the real reservation ticket survives actual retire.
+    let retired = manager.retire().unwrap();
+    assert!(retired.1.is_none(), "retirement occurs before runtime handoff");
+    assert_eq!(manager.inner.lock().unwrap().evaluation, Some(reservation.ticket));
+    assert!(SelectedNativeReservation::retain_uncertain(&mut reservation, fixture.owner().clone()).is_ok());
+    drop(reservation);
+    assert!(!witness.confirmed());
+    assert!(Arc::ptr_eq(manager.inner.lock().unwrap().runtime.as_ref().unwrap(), fixture.owner()));
+    responding(fixture.owner());
+    // The captured None is not a cleanup proof. Matching close must inspect
+    // the actual late-installed owner, reap it, and acknowledge that witness.
+    manager.close(None, Some(retired));
+    assert!(witness.confirmed(), "matching close omitted genuine late current owner");
+    assert_eq!(fixture.owner().lock().unwrap().status(), Status::Failed);
+    assert_eq!(manager.status().unwrap()["resident"], false);
+    assert_eq!(manager.inner.lock().unwrap().retained_evaluations, 0);
+    drop(manager.reserve_evaluation().expect("late owner is actually terminal"));
+}

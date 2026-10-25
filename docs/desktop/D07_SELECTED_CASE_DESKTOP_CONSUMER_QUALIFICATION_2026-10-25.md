@@ -1,8 +1,8 @@
 # Selected desktop consumer — qualification, 2026-10-25
 
-Refs #29 D07.06 and #25 D04.02/.03. **Partial developer guide and evidence
-record; UI5 passed, approved-asset repeat and final compatibility gates remain
-pending at this source checkpoint.** GitHub owns task status and owner acceptance. This document does not
+Refs #29 D07.06 and #25 D04.02/.03. **Partial developer integration: UI5,
+current-source compatibility and the approved-asset lifecycle repeat passed.**
+GitHub owns task status and owner acceptance. This document does not
 close D07/D04, approve story quality, or establish phone/runtime parity.
 
 ## Source and evidence boundary
@@ -113,8 +113,8 @@ status cannot force window destruction or certify child/thread termination.
 
 At guide source518, retired frontend clients close-poll only their captured
 native identity while actual `running` remains true. Malformed, transport,
-nonclosed or cleanup-uncertain replies retain the barrier. This corrected source
-has not yet completed its native UI5 run in this draft.
+nonclosed or cleanup-uncertain replies retain the barrier. The corrected source
+completed native UI5 as recorded below.
 
 ## Terminal focused evidence — coordinator executed
 
@@ -209,6 +209,87 @@ The retirement controller regression at `e9df2377` failed22pass/1fail, then
 registered/formatted at `904c26b1` passed29/29 using the actual bundled
 controller with mock transport. This adds no native/model/rendering claim.
 
+## Final compatibility and installed-asset cohort
+
+All following commands executed at clean source
+`85669fed40c732a98218d516c2ad112025bf9cac`, with terminal source unchanged.
+Production code is unchanged from the successful UI5 source; later changes
+register/format independent mock regressions and update documentation.
+Logs use the local prefix `d07-selected-consumer-final-first`.
+
+| Gate | Exact result | Test / command wall seconds |
+|---|---|---:|
+| `node verify-frontend.mjs` | Exit0; includes29 selected-controller mock cases,18 close-controller cases, strict checks and normal hook exclusion |16.467 first;24.724 restoration gate|
+| Native `cargo test --all-features` |171 passed,0 failed,1 ignored Windows symlink-privilege test; separate2 harness-contract tests passed|401.02 native test;448.834 whole command|
+| Eval owned-curated, `--features protocol-owner-tests --lib local_lane::owned_curated` |6 passed,0 failed,2 explicit asset opt-ins ignored|0.43 test;2.703 command|
+| Eval selected, `--features local-model --lib local_lane::comparison::selected::` |32 passed,0 failed,4 explicit asset opt-ins ignored|1399.47 test;1416.126 command|
+| Eval all-feature/all-target strict Clippy | Exit0, warnings denied|11.217|
+| Android Rust-host `--lib` tests |20 passed,0 failed|2.36 test;24.225 command|
+| Android normal/build/dev dependency graph | Exit0; no Tauri, eval or local-runtime edge|0.572|
+| Frontend Prettier / Rust workspace format | Both exit0|11.802 /11.319|
+| Native all-feature/all-target strict Clippy | Exit0, warnings denied|49.666|
+| Normal native build, no extra features | Exit0; normal frontend/executable restored|59.335|
+
+These are separate suite entries, not one aggregate count of independent
+invariants. The long shared test includes fresh reference/comparison producers,
+indexed post-commit cancellation, missing-arm resume, source corruption and
+complete file inventories; its duration is not a gameplay latency measurement.
+No JVM/Gradle, Android ABI build, emulator or physical device was run here.
+
+The separately admitted installed-asset command was:
+
+```powershell
+# Existing approved resources/model only; set the two variables to those assets.
+$env:LOCALLORE_SELECTED_NATIVE_TEST_RESOURCES='<approved-resource-directory>'
+$env:LOCALLORE_SELECTED_NATIVE_TEST_MODEL='<approved-existing-model-file>'
+cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --target-dir <eval-target> --lib local_lane::owned_curated::review_tests::approved_ -- --ignored --nocapture --test-threads=1
+```
+
+Both actual native lifecycle tests passed,0 failures,160.10 test seconds /
+161.574 command seconds. Each retained synthetic `gift-agency` case passed69
+finite checks and recorded6 actual role requests: gift/thanks/power-claim
+committed; the attempted second potion spend failed with Inventory. Cached
+curated resume kept its case checkpoint and accessed no assets. Forced cleanup
+uncertainty kept the actual R/runtime pair and full unknown invocation charge,
+without publishing a successful final report; explicit owned cleanup followed.
+This is actual Rust/runtime execution, not native IPC/WebView/model UI.
+
+**Quality defect retained:** Root inspected a power-claim narration that wandered
+into an unrelated library scene. The69 finite checks did not detect that prose
+failure. Canonical effects remained bounded by Rust; these passes do not
+establish grounded narration, enjoyment or quality acceptance. D07.04 and its
+human-review gate remain open. Raw synthetic output stays local.
+
+Assets were rehashed before this cohort; nothing was downloaded or upgraded:
+
+- Qwen3-0.6B-Q8_0,639446688 bytes,
+  SHA256 `9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031`.
+- Existing worker,6014464 bytes,
+  SHA256 `b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434`;
+  llama.cpp `620d2225cc436ab0b001e3200e590e3b286ef9ab`.
+- Profile manifest `01ad542001b04a96f4a8ed6c841be1866eb025350836e0c5d0a4969fdb361d38`;
+  CPU4/GPU0, context4096,350 tokens per role, one repair,120000ms turn deadline.
+
+Fresh version query: Windows NT10.0.26300.0 x64, PowerShell7.6.5,
+rustc1.93.1 (`01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf`), LLVM21.1.8,
+Cargo1.93.1 (`083ac5135`), Node24.22.1. Actual UI5 WebView UA reports
+Chrome155.0.0.0 / Edge155.0.0.0, DPR1. No other platform is qualified.
+
+Normal outputs at856: `app.js`565555 bytes,
+SHA256 `04ac7c52a84fe0506d92f29b7f4690aa84dbd5f291679bfeb3882e55ded1a495`;
+native executable34142720 bytes,
+SHA256 `221facdfb3a4f1bb9007efaa8c11ac7325e8e8e9575ac7bc1ba0d5c64db0e256`.
+These are source/build identifiers, not a claim of byte reproducibility or an installer.
+
+| Additional local evidence | SHA256 |
+|---|---|
+| Final production-results.json |6d4739ecba3883e1bd00236c5ca735d64ad987dfaa1a554d69bb569938f1f37f|
+| Final production-build-artifacts.json |487437d7336a9e503373f039a5c6d17a2c854b02be55790618d86a61edb9203e|
+| Current versions.txt |b7c56388c097d04bbdd102c3cc913ca0d5a7c3b78b4ff162ee0aa5013cf018f7|
+| Current installed-model test log |532c4dee2ef0af30e7321ff11be2ed764010e111753ae61732fff9013eccd176|
+| Current installed-model process record |78338ce6fd4987dfc3541a87cf6b28198f95f1f80146d7e7371d4b991ce5d419|
+| Current installed-asset hash record |f3cf35d8ad38a5488435e038b86d73f26dc1c82ecf43dac973d5246fbdc24e8d|
+
 ## Reproducing the bounded checks
 
 Use the existing locked dependencies and already approved installed environment:
@@ -221,16 +302,29 @@ recorded invocations with private target paths replaced; they are not new runs.
 
 ```powershell
 # From repository root; exact historical sources are in the table.
+cargo test --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --jobs 1 --target-dir <native-target> -- --nocapture --test-threads=1
+cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features protocol-owner-tests --jobs 1 --target-dir <eval-target> --lib local_lane::owned_curated -- --nocapture --test-threads=1
+cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --target-dir <eval-target> --lib local_lane::comparison::selected:: -- --nocapture --test-threads=1
+cargo clippy --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --all-features --all-targets --jobs 1 --target-dir <eval-target> -- -D warnings
+cargo test --locked --offline --manifest-path crates/locallore-android/Cargo.toml --jobs 1 --target-dir <native-target> --lib -- --nocapture --test-threads=1
+cargo tree --locked --offline --manifest-path crates/locallore-android/Cargo.toml --edges normal,build,dev --prefix none
+cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all -- --check
+cargo clippy --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --jobs 1 --target-dir <native-target> --all-targets --all-features -- -D warnings
+# Focused historical groups:
 cargo test --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --jobs 1 --target-dir <native-target> --bin locallore-desktop-spike evaluation::selected::tests -- --nocapture --test-threads=1
 cargo test --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --jobs 1 --target-dir <native-target> --bin locallore-desktop-spike resume_completed_review_tests -- --nocapture --test-threads=1
 cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features protocol-owner-tests --jobs 1 --target-dir <eval-target> --lib owned_curated::review_tests::budget_review_tests -- --nocapture --test-threads=1
 # From apps/desktop; cached dependencies, no install.
 node check-selected-evaluation-controller.mjs
 node verify-frontend.mjs
+node node_modules/prettier/bin/prettier.cjs --check 'ui/*.{ts,tsx,html,css}' '*.{json,mjs}'
 $env:LOCALLORE_D07_SELECTED_ARTIFACT_ROOT='<artifact-root>'
 $env:LOCALLORE_D07_SELECTED_TARGET_DIR='<native-target>'
 $env:TEMP='<task-temp>'; $env:TMP='<task-temp>'
 node selected-evaluation-harness.mjs
+# Restore normal application assets and executable after any dev harness.
+node build.mjs
+cargo build --manifest-path src-tauri/Cargo.toml --locked --offline --jobs 1 --target-dir $env:LOCALLORE_D07_SELECTED_TARGET_DIR
 ```
 
 The launcher requires clean source and an absolute artifact root; it creates
@@ -248,8 +342,8 @@ and lost-start-ack scenarios. Consents are explicitly synthetic dev doubles;
 the normal Windows native Yes/No dialog was not automated or qualified here.
 CapturePreview captures the application's WebView, not the desktop. Semantic
 snapshots are bounded selected/observer/revision/pending/receipt/error metadata.
-Normal-build exclusion and restoration must be verified again after the final
-cohort; a dev binary is not the production artifact.
+Normal-build exclusion and restoration passed in the final cohort above;
+repeat restoration after another harness run. A dev binary is not the normal artifact.
 
 ## Local evidence SHA256 anchors
 
@@ -282,14 +376,16 @@ not identical runs; per-cohort report/execution hashes distinguish them.
 
 ## Handoff and remaining gates
 
-UI5 at518 passed as recorded above; earlier failures remain retained. Root must
-repeat approved-asset/current-source and final compatibility checks and restore
-normal artifacts. Current-source full native/Rust/frontend,
-format/Clippy, normal-hook exclusion and build qualification are pending.
+UI5 at518 and final compatibility/installed-asset cohorts at856 passed as
+recorded above; earlier failures remain retained and normal artifacts restored.
 
 Actual direct UI resume, native-model service resume, native model UI, real
 normal-build OS consent/picker interaction, performance claims, human quality
 review, physical phone execution and desktop/Android semantic parity remain
 unavailable. The retired-client correction has source review,29 passing mock
 cases and the actual UI5 native rerun; these are separate evidence cohorts.
-No acceptance checkbox or whole-milestone/readiness claim follows from this draft.
+The next runnable D07.04 allocation is a model-free literal-control input
+contract/oracle through the existing compiler and Director. Both current
+policies retain mandatory state; Director frame/schema channels also require
+review. `ScriptedBaseline` is a provider lane, not a transcript-only policy.
+No acceptance checkbox or whole-milestone/readiness claim follows from this record.

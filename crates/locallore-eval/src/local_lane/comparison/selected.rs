@@ -6,11 +6,11 @@ const LANE: &str = "scripted_selected_case";
 const MANIFEST_CAP: usize = 128 * 1024;
 
 #[cfg(test)]
-mod review_tests;
-#[cfg(test)]
 mod divergent_tests;
 #[cfg(test)]
 mod lifecycle_tests;
+#[cfg(test)]
+mod review_tests;
 #[cfg(test)]
 thread_local! {
     // Fixed unit-test cancellation boundary; no app/IPC/runtime hook.
@@ -79,25 +79,42 @@ fn required_reference<'de, D: serde::Deserializer<'de>>(
 }
 
 fn client_valid(client: &str) -> bool {
-    !client.is_empty() && client.len() <= 128
-        && client.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+    !client.is_empty()
+        && client.len() <= 128
+        && client
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-')
 }
 fn cancelled(cancel: &Cancellation) -> Result<()> {
-    if cancel.is_cancelled() { Err("Interrupted".into()) } else { Ok(()) }
+    if cancel.is_cancelled() {
+        Err("Interrupted".into())
+    } else {
+        Ok(())
+    }
 }
 impl SelectedManifest {
     fn digest(&self) -> Result<String> {
         let mut value = serde_json::to_value(self).map_err(|_| "Encoding")?;
-        value.as_object_mut().ok_or("SelectedBinding")?.remove("binding");
+        value
+            .as_object_mut()
+            .ok_or("SelectedBinding")?
+            .remove("binding");
         Ok(digest(&encode(&value)?))
     }
     fn run_manifest(&self) -> Result<RunManifest> {
-        RunManifest::new(self.source_kind, self.profile.clone(), false,
-            self.source_reference_sha256.clone())
+        RunManifest::new(
+            self.source_kind,
+            self.profile.clone(),
+            false,
+            self.source_reference_sha256.clone(),
+        )
     }
     fn validate(&self) -> Result<()> {
         let corpus = suite()?;
-        let step = corpus.steps().get(self.selection.index).ok_or("UnknownRow")?;
+        let step = corpus
+            .steps()
+            .get(self.selection.index)
+            .ok_or("UnknownRow")?;
         let seed_engine = Engine::new(corpus.seed().clone()).map_err(|_| "Seed")?;
         let template = step.request(&seed_engine);
         let expected = self.run_manifest()?;
@@ -105,12 +122,22 @@ impl SelectedManifest {
         self.source_profile.validate().map_err(|_| "Profile")?;
         // Validate source profile shape without pretending its target lane is
         // scripted. Its exact producer/profile identity is checked on execution.
-        RunManifest::new(self.source_kind, self.source_profile.clone(), false,
-            self.source_reference_sha256.clone())?.validate()?;
-        if self.version != 1 || self.run_type != "selected_case" || self.lane != LANE
-            || !client_valid(&self.client_id) || !hex(&self.binding)
-            || self.binding != self.digest()? || !hex(&self.source_binding)
-            || !hex(&self.source_sha256) || self.suite_sha256 != expected.binding.suite_sha256
+        RunManifest::new(
+            self.source_kind,
+            self.source_profile.clone(),
+            false,
+            self.source_reference_sha256.clone(),
+        )?
+        .validate()?;
+        if self.version != 1
+            || self.run_type != "selected_case"
+            || self.lane != LANE
+            || !client_valid(&self.client_id)
+            || !hex(&self.binding)
+            || self.binding != self.digest()?
+            || !hex(&self.source_binding)
+            || !hex(&self.source_sha256)
+            || self.suite_sha256 != expected.binding.suite_sha256
             || self.profile != LaneFactory::ScriptedBaseline.profile()?
             || self.selection.turn != step.id()
             || !ARM_NAMES.contains(&self.selection.clicked_arm.as_str())
@@ -123,12 +150,15 @@ impl SelectedManifest {
             _ => return Err("ReferenceBinding".into()),
         }
         for (arm, input) in self.source_inputs.iter().enumerate() {
-            if input.arm != ARM_NAMES[arm] || input.scope != corpus.seed().scope
-                || input.request.scope != input.scope || input.request.version != template.version
+            if input.arm != ARM_NAMES[arm]
+                || input.scope != corpus.seed().scope
+                || input.request.scope != input.scope
+                || input.request.version != template.version
                 || input.request.turn != self.selection.turn
                 || input.request.expected_revision != input.before_head
                 || input.request.intent != template.intent
-                || !hex(&input.prefix_sha256) || !hex(&input.input_semantic_sha256)
+                || !hex(&input.prefix_sha256)
+                || !hex(&input.input_semantic_sha256)
             {
                 return Err("SelectedInput".into());
             }
@@ -138,7 +168,9 @@ impl SelectedManifest {
 }
 
 fn source_inputs(
-    dir: &Path, snapshot: &desktop_api::Snapshot, selection: &Selection,
+    dir: &Path,
+    snapshot: &desktop_api::Snapshot,
+    selection: &Selection,
 ) -> Result<[Engine; 2]> {
     let corpus = suite()?;
     let reference = if snapshot.manifest.kind == ComparisonKind::PairedSnapshots {
@@ -149,19 +181,26 @@ fn source_inputs(
             return Err("ReferenceSourceMismatch".into());
         }
         Some(reference)
-    } else { None };
+    } else {
+        None
+    };
     let mut before = Vec::with_capacity(2);
     for (arm, arm_name) in ARM_NAMES.iter().enumerate() {
-        let stored = snapshot.turns[arm].get(selection.index).ok_or("UnknownRow")?;
-        let full = engine(&database(&dir.join(arm_name), selection.index,
-            snapshot.manifest.kind), &corpus.seed().scope)?;
+        let stored = snapshot.turns[arm]
+            .get(selection.index)
+            .ok_or("UnknownRow")?;
+        let full = engine(
+            &database(&dir.join(arm_name), selection.index, snapshot.manifest.kind),
+            &corpus.seed().scope,
+        )?;
         if full.domain_version() != 1 || full.seed() != corpus.seed() {
             return Err("SelectedInput".into());
         }
         let cut = full.at_revision(stored.before_head).map_err(|_| "Replay")?;
         let after = full.at_revision(stored.after_head).map_err(|_| "Replay")?;
         let request = corpus.steps()[selection.index].request(&cut);
-        if request != stored.request || stored.row.turn != selection.turn
+        if request != stored.request
+            || stored.row.turn != selection.turn
             || v2::semantic_input(&cut, &request)? != stored.row.input_semantic_sha256
             || v2::semantic_output(&after)? != stored.row.output_semantic_sha256
             || v2::mechanical_output(&after)? != stored.row.mechanical_sha256
@@ -179,27 +218,37 @@ fn source_inputs(
 }
 
 fn manifest_for(
-    snapshot: &desktop_api::Snapshot, selection: Selection, client_id: String,
+    snapshot: &desktop_api::Snapshot,
+    selection: Selection,
+    client_id: String,
     before: &[Engine; 2],
 ) -> Result<SelectedManifest> {
-    if !snapshot.manifest.source_matches()? { return Err("SourceMismatch".into()); }
+    if !snapshot.manifest.source_matches()? {
+        return Err("SourceMismatch".into());
+    }
     let corpus = suite()?;
     let make_input = |arm: usize| -> Result<SourceInput> {
         let engine = &before[arm];
         let request = corpus.steps()[selection.index].request(engine);
         Ok(SourceInput {
-            arm: ARM_NAMES[arm].into(), scope: engine.scope().clone(),
+            arm: ARM_NAMES[arm].into(),
+            scope: engine.scope().clone(),
             before_head: engine.revision(),
             prefix_sha256: digest(&encode(engine.receipts())?),
-            input_semantic_sha256: v2::semantic_input(engine, &request)?, request,
+            input_semantic_sha256: v2::semantic_input(engine, &request)?,
+            request,
         })
     };
     let mut manifest = SelectedManifest {
-        version: 1, run_type: "selected_case".into(), client_id,
+        version: 1,
+        run_type: "selected_case".into(),
+        client_id,
         binding: String::new(),
         source_binding: snapshot.value["binding"].as_str().ok_or("Source")?.into(),
-        source_kind: snapshot.manifest.kind, source_profile: snapshot.manifest.profile.clone(),
-        selection: selection.clone(), lane: LANE.into(),
+        source_kind: snapshot.manifest.kind,
+        source_profile: snapshot.manifest.profile.clone(),
+        selection: selection.clone(),
+        lane: LANE.into(),
         profile: LaneFactory::ScriptedBaseline.profile()?,
         suite_sha256: snapshot.manifest.binding.suite_sha256.clone(),
         source_sha256: snapshot.manifest.source_sha256.clone(),
@@ -212,8 +261,11 @@ fn manifest_for(
 }
 
 pub fn prepare_selected(
-    source_dir: &Path, expected_source_binding: &str, row: &desktop_api::RowId,
-    intent: SelectedIntent, cancel: &Cancellation,
+    source_dir: &Path,
+    expected_source_binding: &str,
+    row: &desktop_api::RowId,
+    intent: SelectedIntent,
+    cancel: &Cancellation,
 ) -> Result<PreparedSelectedPlan> {
     cancelled(cancel)?;
     if !client_valid(&intent.client_id) || !hex(expected_source_binding) {
@@ -221,9 +273,20 @@ pub fn prepare_selected(
     }
     let SelectedLane::ScriptedBaseline = intent.lane;
     let corpus = suite()?;
-    let index = corpus.steps().iter().position(|s| s.id() == row.turn).ok_or("UnknownRow")?;
-    let selection = Selection { turn: row.turn.clone(), index,
-        clicked_arm: ARM_NAMES[match row.arm { desktop_api::Arm::Left => 0, desktop_api::Arm::Right => 1 }].into() };
+    let index = corpus
+        .steps()
+        .iter()
+        .position(|s| s.id() == row.turn)
+        .ok_or("UnknownRow")?;
+    let selection = Selection {
+        turn: row.turn.clone(),
+        index,
+        clicked_arm: ARM_NAMES[match row.arm {
+            desktop_api::Arm::Left => 0,
+            desktop_api::Arm::Right => 1,
+        }]
+        .into(),
+    };
     let source = desktop_api::open_read_only(source_dir)?;
     let directory = fs::canonicalize(source_dir).map_err(|_| "Io")?;
     // This call just opened and fully validated this cap under a new lock; it
@@ -232,11 +295,18 @@ pub fn prepare_selected(
     if snapshot.value["binding"].as_str() != Some(expected_source_binding) {
         return Err("SnapshotMismatch".into());
     }
-    if !snapshot.manifest.source_matches()? { return Err("SourceMismatch".into()); }
+    if !snapshot.manifest.source_matches()? {
+        return Err("SourceMismatch".into());
+    }
     let before = source_inputs(&directory, &snapshot, &selection)?;
     let manifest = manifest_for(&snapshot, selection, intent.client_id, &before)?;
     cancelled(cancel)?;
-    Ok(PreparedSelectedPlan { _source: source, source_dir: directory, manifest, before })
+    Ok(PreparedSelectedPlan {
+        _source: source,
+        source_dir: directory,
+        manifest,
+        before,
+    })
 }
 
 impl PreparedSelectedPlan {
@@ -244,13 +314,21 @@ impl PreparedSelectedPlan {
         cancelled(cancel)?;
         let snapshot = desktop_api::snapshot(&self.source_dir)?;
         let before = source_inputs(&self.source_dir, &snapshot, &self.manifest.selection)?;
-        let manifest = manifest_for(&snapshot, self.manifest.selection.clone(),
-            self.manifest.client_id.clone(), &before)?;
-        if manifest != self.manifest { return Err("SnapshotMismatch".into()); }
+        let manifest = manifest_for(
+            &snapshot,
+            self.manifest.selection.clone(),
+            self.manifest.client_id.clone(),
+            &before,
+        )?;
+        if manifest != self.manifest {
+            return Err("SnapshotMismatch".into());
+        }
         for (actual, expected) in before.iter().zip(&self.before) {
             if actual.accepted_history_basis().map_err(|_| "Source")?
                 != expected.accepted_history_basis().map_err(|_| "Source")?
-            { return Err("SnapshotMismatch".into()); }
+            {
+                return Err("SnapshotMismatch".into());
+            }
         }
         cancelled(cancel)
     }
@@ -326,7 +404,9 @@ fn pin_selected(dir: &Path) -> Result<Vec<File>> {
     let mut count = 0usize;
     for entry in fs::read_dir(dir).map_err(|_| "Io")? {
         count += 1;
-        if count > 512 { return Err("ReportBudget".into()); }
+        if count > 512 {
+            return Err("ReportBudget".into());
+        }
         let entry = entry.map_err(|_| "Io")?;
         ordinary(&entry.path())?;
         let name = entry.file_name();
@@ -334,9 +414,13 @@ fn pin_selected(dir: &Path) -> Result<Vec<File>> {
             if !ARM_NAMES.iter().any(|arm| name == *arm) {
                 return Err("SelectedDirectory".into());
             }
-            pins.extend(crate::local_lane::desktop_api::pin_directory(&entry.path())?);
+            pins.extend(crate::local_lane::desktop_api::pin_directory(
+                &entry.path(),
+            )?);
             for (n, child) in fs::read_dir(entry.path()).map_err(|_| "Io")?.enumerate() {
-                if n >= 512 { return Err("ReportBudget".into()); }
+                if n >= 512 {
+                    return Err("ReportBudget".into());
+                }
                 let child = child.map_err(|_| "Io")?;
                 ordinary(&child.path())?;
                 if !child.file_type().map_err(|_| "Io")?.is_file() {
@@ -345,7 +429,8 @@ fn pin_selected(dir: &Path) -> Result<Vec<File>> {
                 single_link_file(&child.path())?;
             }
         } else if !["selected.json", "run.lock", "report.json", "report.html"]
-            .iter().any(|known| name == *known)
+            .iter()
+            .any(|known| name == *known)
         {
             return Err("SelectedDirectory".into());
         } else {
@@ -358,49 +443,73 @@ fn pin_selected(dir: &Path) -> Result<Vec<File>> {
 fn open_destination(dir: &Path) -> Result<Destination> {
     let pins = pin_selected(dir)?;
     ordinary(&dir.join("run.lock"))?;
-    let lock = OpenOptions::new().read(true).open(dir.join("run.lock"))
+    let lock = OpenOptions::new()
+        .read(true)
+        .open(dir.join("run.lock"))
         .map_err(|_| "Io")?;
     lock.try_lock().map_err(|_| "RunBusy")?;
     let manifest: SelectedManifest = decode(&dir.join("selected.json"), MANIFEST_CAP)?;
     manifest.validate()?;
-    Ok(Destination { dir: fs::canonicalize(dir).map_err(|_| "Io")?,
-        manifest, _pins: pins, _lock: lock })
+    Ok(Destination {
+        dir: fs::canonicalize(dir).map_err(|_| "Io")?,
+        manifest,
+        _pins: pins,
+        _lock: lock,
+    })
 }
 
 fn disjoint(source: &Path, destination: &Path) -> Result<()> {
     if destination.starts_with(source) || source.starts_with(destination) {
         Err("SourceDestinationOverlap".into())
-    } else { Ok(()) }
+    } else {
+        Ok(())
+    }
 }
 
 fn new_destination(plan: &PreparedSelectedPlan, dir: &Path) -> Result<Destination> {
     let absolute = std::path::absolute(dir).map_err(|_| "Io")?;
-    if absolute.components().any(|part| matches!(part, std::path::Component::ParentDir)) {
+    if absolute
+        .components()
+        .any(|part| matches!(part, std::path::Component::ParentDir))
+    {
         return Err("SelectedDirectory".into());
     }
     let parent = absolute.parent().ok_or("SelectedDirectory")?;
     let parent_pins = crate::local_lane::desktop_api::pin_directory(parent)?;
-    let canonical = fs::canonicalize(parent).map_err(|_| "Io")?
+    let canonical = fs::canonicalize(parent)
+        .map_err(|_| "Io")?
         .join(absolute.file_name().ok_or("SelectedDirectory")?);
     disjoint(&plan.source_dir, &canonical)?;
     ordinary(&canonical)?;
-    if canonical.exists() { return Err("OutputExists".into()); }
+    if canonical.exists() {
+        return Err("OutputExists".into());
+    }
     fs::create_dir(&canonical).map_err(|_| "OutputExists")?;
     let lock = take_lock(&canonical)?;
-    saved(&canonical.join("selected.json"), &plan.manifest, MANIFEST_CAP)?;
+    saved(
+        &canonical.join("selected.json"),
+        &plan.manifest,
+        MANIFEST_CAP,
+    )?;
     for arm in ARM_NAMES {
         fs::create_dir(canonical.join(arm)).map_err(|_| "Io")?;
     }
     let mut pins = parent_pins;
     pins.extend(pin_selected(&canonical)?);
-    Ok(Destination { dir: canonical, manifest: plan.manifest.clone(),
-        _pins: pins, _lock: lock })
+    Ok(Destination {
+        dir: canonical,
+        manifest: plan.manifest.clone(),
+        _pins: pins,
+        _lock: lock,
+    })
 }
 
 /// Reconstruct a before engine from actual canonical records, never a JSON
 /// engine. A source-owned prefix additionally proves interrupted bootstraps.
 fn validate_destination(
-    dir: &Path, manifest: &SelectedManifest, source: Option<&[Engine; 2]>,
+    dir: &Path,
+    manifest: &SelectedManifest,
+    source: Option<&[Engine; 2]>,
 ) -> Result<[Option<StoredTurn>; 2]> {
     let corpus = suite()?;
     let index = manifest.selection.index;
@@ -410,7 +519,9 @@ fn validate_destination(
     for arm in 0..2 {
         let d = dir.join(ARM_NAMES[arm]);
         ordinary(&d)?;
-        if !d.is_dir() { return Err("SelectedDirectory".into()); }
+        if !d.is_dir() {
+            return Err("SelectedDirectory".into());
+        }
         let path = database(&d, index, manifest.source_kind);
         let checkpoint = checkpoint_path(&d, index);
         ordinary(&path)?;
@@ -419,11 +530,14 @@ fn validate_destination(
             let entry = entry.map_err(|_| "Io")?;
             let name = entry.file_name();
             let name = name.to_str().ok_or("SelectedDirectory")?;
-            if let Some(number) = name.strip_prefix("attempt-")
+            if let Some(number) = name
+                .strip_prefix("attempt-")
                 .and_then(|s| s.strip_suffix(".json"))
                 .filter(|s| s.bytes().all(|b| b.is_ascii_digit()))
             {
-                if number != format!("{index:02}") { return Err("CheckpointMismatch".into()); }
+                if number != format!("{index:02}") {
+                    return Err("CheckpointMismatch".into());
+                }
             }
             if name.ends_with(".sqlite") && entry.path() != path {
                 return Err("SelectedDirectory".into());
@@ -433,7 +547,9 @@ fn validate_destination(
             validate_pair_source(&path, corpus.seed(), before[arm].receipts(), step)?;
         }
         if !path.exists() {
-            if checkpoint.exists() { return Err("CheckpointMismatch".into()); }
+            if checkpoint.exists() {
+                return Err("CheckpointMismatch".into());
+            }
             continue;
         }
         let input = &manifest.source_inputs[arm];
@@ -447,10 +563,16 @@ fn validate_destination(
         let full = store.resume(&input.scope).map_err(|_| "Replay")?.engine;
         match store.lookup_turn(&input.scope, &input.request.turn) {
             Ok(record) => {
-                if record.request != input.request { return Err("ReferencePrefix".into()); }
-                if !checkpoint.exists() && matches!(record.phase,
-                    locallore_storage::TurnPhase::Cancelled | locallore_storage::TurnPhase::Failed
-                        | locallore_storage::TurnPhase::Stale)
+                if record.request != input.request {
+                    return Err("ReferencePrefix".into());
+                }
+                if !checkpoint.exists()
+                    && matches!(
+                        record.phase,
+                        locallore_storage::TurnPhase::Cancelled
+                            | locallore_storage::TurnPhase::Failed
+                            | locallore_storage::TurnPhase::Stale
+                    )
                 {
                     // No recorded failure cause can be invented from canonical
                     // history. Do not clear a terminal key and regenerate it.
@@ -470,12 +592,17 @@ fn validate_destination(
             }
             continue;
         }
-        let before = full.at_revision(input.before_head).map_err(|_| "ReferencePrefix")?;
+        let before = full
+            .at_revision(input.before_head)
+            .map_err(|_| "ReferencePrefix")?;
         validate_rollout_source(&before, &corpus)?;
-        if before.receipts().iter().any(|receipt|
-            corpus.steps().iter().position(|s| s.id() == receipt.request().turn)
-                .is_none_or(|n| n >= index))
-            || digest(&encode(before.receipts())?) != input.prefix_sha256
+        if before.receipts().iter().any(|receipt| {
+            corpus
+                .steps()
+                .iter()
+                .position(|s| s.id() == receipt.request().turn)
+                .is_none_or(|n| n >= index)
+        }) || digest(&encode(before.receipts())?) != input.prefix_sha256
             || step.request(&before) != input.request
             || v2::semantic_input(&before, &input.request)? != input.input_semantic_sha256
         {
@@ -483,16 +610,30 @@ fn validate_destination(
         }
         if let Some(expected) = source {
             if before.accepted_history_basis().map_err(|_| "Source")?
-                != expected[arm].accepted_history_basis().map_err(|_| "Source")?
-            { return Err("ReferencePrefix".into()); }
+                != expected[arm]
+                    .accepted_history_basis()
+                    .map_err(|_| "Source")?
+            {
+                return Err("ReferencePrefix".into());
+            }
         }
         validate_pair_source(&path, corpus.seed(), before.receipts(), step)?;
         if checkpoint.exists() {
-            let turn = load_turn(&d, &path, index, ARM_NAMES[arm], POLICIES[arm],
-                &manifest.binding, &run)?;
-            if turn.request != input.request || turn.before_head != input.before_head
+            let turn = load_turn(
+                &d,
+                &path,
+                index,
+                ARM_NAMES[arm],
+                POLICIES[arm],
+                &manifest.binding,
+                &run,
+            )?;
+            if turn.request != input.request
+                || turn.before_head != input.before_head
                 || turn.row.input_semantic_sha256 != input.input_semantic_sha256
-            { return Err("CheckpointMismatch".into()); }
+            {
+                return Err("CheckpointMismatch".into());
+            }
             turns[arm] = Some(turn);
         }
     }
@@ -504,7 +645,10 @@ fn validate_destination(
 }
 
 #[derive(Serialize)]
-struct Progress { arm: String, state: String }
+struct Progress {
+    arm: String,
+    state: String,
+}
 
 /// Bounded data-only diagnostics. No deserialization or public authority fields.
 #[derive(Serialize)]
@@ -541,16 +685,23 @@ pub struct SelectedComparisonReportV1 {
 }
 
 fn ledgers(dir: &Path, binding: &str) -> Result<[Ledger; 2]> {
-    Ok([Ledger::load(&dir.join("left"), binding)?,
-        Ledger::load(&dir.join("right"), binding)?])
+    Ok([
+        Ledger::load(&dir.join("left"), binding)?,
+        Ledger::load(&dir.join("right"), binding)?,
+    ])
 }
 
 fn report(
-    dir: &Path, manifest: &SelectedManifest, turns: &[Option<StoredTurn>; 2],
+    dir: &Path,
+    manifest: &SelectedManifest,
+    turns: &[Option<StoredTurn>; 2],
     ledgers: &[Ledger; 2],
 ) -> Result<SelectedComparisonReportV1> {
-    let mut unavailable = vec!["scripted_lane_no_native_setup_measurement".into(),
-        "selected_native_execution_unavailable".into(), "human_quality_not_reviewed".into()];
+    let mut unavailable = vec![
+        "scripted_lane_no_native_setup_measurement".into(),
+        "selected_native_execution_unavailable".into(),
+        "human_quality_not_reviewed".into(),
+    ];
     for arm in 0..2 {
         if let Some(turn) = &turns[arm] {
             if !turn.row.roles_known {
@@ -564,9 +715,20 @@ fn report(
     append_ledger_notes(dir, ledgers, &mut unavailable);
     let progress = |arm: usize| Progress {
         arm: ARM_NAMES[arm].into(),
-        state: if turns[arm].is_some() { "finished" }
-            else if database(&dir.join(ARM_NAMES[arm]), manifest.selection.index,
-                manifest.source_kind).exists() { "interrupted" } else { "not_started" }.into(),
+        state: if turns[arm].is_some() {
+            "finished"
+        } else if database(
+            &dir.join(ARM_NAMES[arm]),
+            manifest.selection.index,
+            manifest.source_kind,
+        )
+        .exists()
+        {
+            "interrupted"
+        } else {
+            "not_started"
+        }
+        .into(),
     };
     let result = SelectedComparisonReportV1 {
         version: 1, run_type: "selected_case".into(), source_protocol_version: 2,
@@ -591,7 +753,9 @@ fn report(
             "Missing workflow evidence does not prove zero historical provider work.".into(),
         ],
     };
-    if encode(&result)?.len() > crate::MAX_REPORT { return Err("ReportBudget".into()); }
+    if encode(&result)?.len() > crate::MAX_REPORT {
+        return Err("ReportBudget".into());
+    }
     Ok(result)
 }
 
@@ -602,7 +766,10 @@ fn publish_selected(dir: &Path, report: &SelectedComparisonReportV1) -> Result<(
     if data.len() > crate::MAX_REPORT || html.len() > crate::MAX_REPORT {
         return Err("ReportBudget".into());
     }
-    for (name, bytes) in [("report.json", data.as_slice()), ("report.html", html.as_bytes())] {
+    for (name, bytes) in [
+        ("report.json", data.as_slice()),
+        ("report.html", html.as_bytes()),
+    ] {
         let path = dir.join(name);
         ordinary(&path)?;
         fs::write(path, bytes).map_err(|_| "Io")?;
@@ -611,7 +778,9 @@ fn publish_selected(dir: &Path, report: &SelectedComparisonReportV1) -> Result<(
 }
 
 fn execute_selected(
-    plan: &PreparedSelectedPlan, destination: &Destination, cancel: &Cancellation,
+    plan: &PreparedSelectedPlan,
+    destination: &Destination,
+    cancel: &Cancellation,
     started: Instant,
 ) -> Result<SelectedComparisonReportV1> {
     let dir = &destination.dir;
@@ -641,36 +810,62 @@ fn execute_selected(
         ComparisonKind::ContinuousRollout => (index / 6) % 2,
     };
     for arm in [first_arm, 1 - first_arm] {
-        if turns[arm].is_some() { continue; }
+        if turns[arm].is_some() {
+            continue;
+        }
         let began = Instant::now();
         let d = dir.join(ARM_NAMES[arm]);
         let path = database(&d, index, manifest.source_kind);
         let recovered = if path.exists()
-            && !Store::open_read_only(&path).map_err(|_| "Workspace")?
-                .stories().map_err(|_| "Workspace")?.is_empty()
+            && !Store::open_read_only(&path)
+                .map_err(|_| "Workspace")?
+                .stories()
+                .map_err(|_| "Workspace")?
+                .is_empty()
         {
             let full = engine(&path, &corpus.seed().scope)?;
             recover_committed_turn(RecoveryJob {
-                path: &path, full: &full, index, arm: ARM_NAMES[arm],
-                policy: POLICIES[arm], binding: &manifest.binding, step,
+                path: &path,
+                full: &full,
+                index,
+                arm: ARM_NAMES[arm],
+                policy: POLICIES[arm],
+                binding: &manifest.binding,
+                step,
                 profile: &manifest.profile,
             })?
-        } else { None };
+        } else {
+            None
+        };
         let turn = if let Some(turn) = recovered {
             // A known actual commit wins over a late cancel. This branch has
             // no factory/provider/admission and does not replay a second commit.
             turn
         } else {
-            if cancel.is_cancelled() { break; }
+            if cancel.is_cancelled() {
+                break;
+            }
             ensure_database(&path, corpus.seed(), plan.before[arm].receipts())?;
             validate_pair_source(&path, corpus.seed(), plan.before[arm].receipts(), step)?;
-            if cancel.is_cancelled() { break; }
+            if cancel.is_cancelled() {
+                break;
+            }
             // Only this genuine missing attempt constructs the existing script.
             let factory = LaneFactory::ScriptedBaseline;
-            execute_turn(TurnJob {
-                dir: &d, path: &path, index, arm: ARM_NAMES[arm], policy: POLICIES[arm],
-                binding: &manifest.binding, step, factory: &factory, cancel,
-            }, &mut ledgers[arm])?
+            execute_turn(
+                TurnJob {
+                    dir: &d,
+                    path: &path,
+                    index,
+                    arm: ARM_NAMES[arm],
+                    policy: POLICIES[arm],
+                    binding: &manifest.binding,
+                    step,
+                    factory: &factory,
+                    cancel,
+                },
+                &mut ledgers[arm],
+            )?
         };
         if !checkpoint_path(&d, index).exists() {
             // Normal execute_turn already wrote its checkpoint before settling.
@@ -682,8 +877,8 @@ fn execute_selected(
         if CANCEL_AFTER_ARM.with(std::cell::Cell::get) {
             cancel.cancel();
         }
-        ledgers[1 - arm].exclude_measured_interval(
-            began.elapsed().as_millis().min(u64::MAX as u128) as u64)?;
+        ledgers[1 - arm]
+            .exclude_measured_interval(began.elapsed().as_millis().min(u64::MAX as u128) as u64)?;
     }
     // Actual replay/checkpoint/capture validation is preparation overhead, not
     // a cached row assertion. Finish only after this real work succeeds.
@@ -692,8 +887,8 @@ fn execute_selected(
     for arm in 0..2 {
         let began = Instant::now();
         ledgers[arm].finish()?;
-        ledgers[1 - arm].exclude_measured_interval(
-            began.elapsed().as_millis().min(u64::MAX as u128) as u64)?;
+        ledgers[1 - arm]
+            .exclude_measured_interval(began.elapsed().as_millis().min(u64::MAX as u128) as u64)?;
     }
     let result = report(dir, manifest, &turns, &ledgers)?;
     publish_selected(dir, &result)?;
@@ -701,7 +896,9 @@ fn execute_selected(
 }
 
 pub fn run_selected(
-    plan: PreparedSelectedPlan, new_dir: &Path, cancel: &Cancellation,
+    plan: PreparedSelectedPlan,
+    new_dir: &Path,
+    cancel: &Cancellation,
 ) -> Result<SelectedComparisonReportV1> {
     let started = Instant::now();
     plan.refresh(cancel)?;
@@ -713,30 +910,52 @@ pub fn run_selected(
 pub fn inspect_selected(dir: &Path) -> Result<SelectedComparisonReportV1> {
     let opened = open_destination(dir)?;
     let turns = validate_destination(&opened.dir, &opened.manifest, None)?;
-    report(&opened.dir, &opened.manifest, &turns,
-        &ledgers(&opened.dir, &opened.manifest.binding)?)
+    report(
+        &opened.dir,
+        &opened.manifest,
+        &turns,
+        &ledgers(&opened.dir, &opened.manifest.binding)?,
+    )
 }
 
 pub fn resume_selected(
-    dir: &Path, source_dir: &Path, expected_binding: &str, cancel: &Cancellation,
+    dir: &Path,
+    source_dir: &Path,
+    expected_binding: &str,
+    cancel: &Cancellation,
 ) -> Result<SelectedComparisonReportV1> {
     let started = Instant::now();
     cancelled(cancel)?;
-    if !hex(expected_binding) { return Err("SelectedIdentity".into()); }
+    if !hex(expected_binding) {
+        return Err("SelectedIdentity".into());
+    }
     let destination = open_destination(dir)?;
     let manifest = &destination.manifest;
-    if manifest.binding != expected_binding { return Err("CheckpointMismatch".into()); }
+    if manifest.binding != expected_binding {
+        return Err("CheckpointMismatch".into());
+    }
     let row = desktop_api::RowId {
         turn: manifest.selection.turn.clone(),
         arm: if manifest.selection.clicked_arm == "left" {
             desktop_api::Arm::Left
-        } else { desktop_api::Arm::Right },
+        } else {
+            desktop_api::Arm::Right
+        },
     };
-    let plan = prepare_selected(source_dir, &manifest.source_binding, &row,
-        SelectedIntent { client_id: manifest.client_id.clone(), lane: SelectedLane::ScriptedBaseline },
-        cancel)?;
+    let plan = prepare_selected(
+        source_dir,
+        &manifest.source_binding,
+        &row,
+        SelectedIntent {
+            client_id: manifest.client_id.clone(),
+            lane: SelectedLane::ScriptedBaseline,
+        },
+        cancel,
+    )?;
     disjoint(&plan.source_dir, &destination.dir)?;
-    if plan.manifest != *manifest { return Err("CheckpointMismatch".into()); }
+    if plan.manifest != *manifest {
+        return Err("CheckpointMismatch".into());
+    }
     plan.refresh(cancel)?;
     execute_selected(&plan, &destination, cancel, started)
 }

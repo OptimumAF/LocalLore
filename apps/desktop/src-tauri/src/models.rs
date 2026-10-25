@@ -41,6 +41,7 @@ fn shutdown_owner<T>(
 struct Inner {
     evaluation: Option<u64>,
     evaluation_sequence: u64,
+    starting: Option<u64>,
     phase: &'static str,
     percent: u64,
     error: Option<String>,
@@ -76,6 +77,7 @@ impl ModelManager {
             inner: Mutex::new(Inner {
                 evaluation: None,
                 evaluation_sequence: 0,
+                starting: None,
                 phase: "unloaded",
                 percent: 0,
                 error: None,
@@ -107,7 +109,7 @@ impl ModelManager {
     }
     fn begin(&self, phase: &'static str) -> Result<(u64, Arc<AtomicBool>), String> {
         let mut s = self.inner.lock().map_err(|_| "Internal")?;
-        if s.evaluation.is_some() {
+        if s.evaluation.is_some() || s.starting.is_some() {
             return Err("Busy".into());
         }
         if matches!(
@@ -127,6 +129,9 @@ impl ModelManager {
         s.phase = phase;
         s.percent = 0;
         s.error = None;
+        if phase == "loading" {
+            s.starting = Some(s.job);
+        }
         Ok((s.job, s.cancel.clone()))
     }
     /// Atomic exclusion with ordinary model ownership. Trusted paths stay native-only;
@@ -134,6 +139,7 @@ impl ModelManager {
     pub fn reserve_evaluation(self: &Arc<Self>) -> Result<EvaluationReservation, String> {
         let mut s = self.inner.lock().map_err(|_| "Internal")?;
         if s.evaluation.is_some()
+            || s.starting.is_some()
             || matches!(
                 s.phase,
                 "choosing" | "checking" | "copying" | "loading" | "unloading"
@@ -164,6 +170,10 @@ impl ModelManager {
     }
     fn finish(&self, job: u64, result: &Result<(), String>) {
         if let Ok(mut s) = self.inner.lock() {
+            let finished_startup = s.starting == Some(job);
+            if finished_startup {
+                s.starting = None;
+            }
             if s.job == job {
                 s.phase = if s.runtime.is_some() {
                     "loaded"
@@ -182,6 +192,11 @@ impl ModelManager {
                     .filter(|e| *e != "Cancelled" && *e != "Closed")
                     .cloned();
                 s.percent = if result.is_ok() { 100 } else { 0 };
+            } else if finished_startup && s.phase == "unloading" && s.runtime.is_none() {
+                // Retirement cannot acknowledge cleanup for the still-running
+                // loader. Only its matching completion releases this exclusion.
+                s.phase = "unloaded";
+                s.error = None;
             }
         }
     }
@@ -352,7 +367,7 @@ impl ModelManager {
             let _ = shutdown_owner(&owner, |runtime| runtime.shutdown().map_err(runtime_error));
         }
         if let Ok(mut s) = self.inner.lock() {
-            if s.job == job {
+            if s.job == job && s.starting.is_none() {
                 s.phase = "unloaded";
                 s.error = None;
             }

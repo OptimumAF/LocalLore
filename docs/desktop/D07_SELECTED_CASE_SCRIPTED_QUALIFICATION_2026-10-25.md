@@ -123,6 +123,8 @@ The first `e0d2899b` final matrix was deliberately held before public/native
 stages after independent findings. Its parent orchestrator exit1 is a
 candidate-held decision, not a failing library test. Those results do not
 qualify the later production fix. Historical source/fixture/logs remain intact.
+Root observed the parent exit in turn-local tool output; it has no independent
+file hash in the log inventory below. The completed per-stage logs are hashed.
 
 The four private groups use actual producer/Store history to test unselected
 required-capture corruption before destination creation, exhausted entry clock

@@ -150,6 +150,14 @@ Remaining includes original-entry elapsed time; subsequent checks may shorten,
 never restart/extend this deadline. Turn timing still begins before Host prelude.
 Only actual measured other-arm/setup shares are excluded, never nominal refunds.
 
+Native execution must retain both live Ledgers through Host/provider drain and
+physical worker cleanup. It must not wrap the current scripted
+`execute_selected`, which settles and publishes before returning. Native
+invocation settlement and final publication occur only after terminal cleanup
+is confirmed, including its actual elapsed time. On uncertain cleanup, preserve
+already written rows and admission settlements but write neither invocation
+settlement, even if both rows finished successfully.
+
 File reads, process creation and kill/wait/join have no universal OS bound.
 Recheck after load: a late load must be cleaned up and failed before any turn.
 Measure actual physical startup through terminal failure cleanup, even above

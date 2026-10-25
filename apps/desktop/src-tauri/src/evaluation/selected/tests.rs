@@ -84,9 +84,14 @@ impl Fixture {
             std::thread::sleep(Duration::from_millis(5));
         };
         assert_eq!(ready["phase"], "ready");
+        // Source-only pre-execution correction: the evaluator's suite helper
+        // is private. Obtain the actual row through the public native reader.
+        let metadata = self.manager.comparison_source(&self.lease, self.epoch, true,
+            ready["run_token"].as_str().unwrap()).unwrap();
+        let turn = metadata["source"]["rows"][0]["row"]["turn"].as_str().unwrap().to_owned();
         SelectedPrepareInput { client_id: client.into(), reader_client_id: reader,
             run_token: ready["run_token"].as_str().unwrap().into(), binding: ready["binding"].as_str().unwrap().into(),
-            turn_id: producer::suite().unwrap().steps()[0].id().into(), arm: Arm::Left,
+            turn_id: turn, arm: Arm::Left,
             lane: SelectedInputLane::ScriptedBaseline }
     }
     fn prepare(&self, client: &str) -> Value {

@@ -54,6 +54,7 @@ declare global {
             evaluating?: boolean;
             curated?: boolean;
             comparisonReading?: boolean;
+            selectedEvaluating?: boolean;
             archiving?: boolean;
             timelining?: boolean;
             forking?: boolean;
@@ -703,6 +704,21 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
             invoke,
             dispose,
             config: window.__LOCALLORE_TEST__,
+        });
+    } else if (
+        __DEV_HARNESS__ &&
+        window.__LOCALLORE_TEST__?.selectedEvaluating
+    ) {
+        const { selectedEvaluationJourneys } =
+            await import("./selected-evaluation-journeys");
+        await selectedEvaluationJourneys({
+            controller,
+            comparison,
+            selected: selectedEvaluation,
+            errors,
+            invoke,
+            dispose,
+            config: { stage: window.__LOCALLORE_TEST__.stage },
         });
     } else if (
         __DEV_HARNESS__ &&

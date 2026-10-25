@@ -28,6 +28,8 @@ mod memory_maintenance_commands;
 mod model_commands;
 mod models;
 mod selected_commands;
+#[cfg(feature = "dev-harness")]
+mod selected_harness;
 mod shutdown;
 use lease::WindowLease;
 #[cfg(feature = "dev-harness")]
@@ -158,7 +160,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},comparisonReading:{},archiving:{},timelining:{},forking:{},maintaining:{},authoring:{},archiveStage:'{}',stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},comparisonReading:{},selectedEvaluating:{},archiving:{},timelining:{},forking:{},maintaining:{},authoring:{},archiveStage:'{}',stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
@@ -170,6 +172,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
             std::env::var("LOCALLORE_D07_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D07_CURATED_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D07_COMPARISON_READER_HARNESS").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_TIMELINE_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_FORK_HARNESS").as_deref() == Ok("1"),
@@ -335,6 +338,7 @@ fn main() {
             evaluation_commands::evaluation_curated,
             comparison_commands::evaluation_comparison,
             selected_commands::evaluation_selected,
+            selected_harness::harness_selected_case,
             comparison_reader_harness::harness_comparison_reader_case,
             evaluation_commands::evaluation_start,
             evaluation_commands::evaluation_open,
@@ -418,6 +422,8 @@ fn main() {
             app.manage(Arc::new(
                 comparison_reader_harness::ComparisonReaderHarness::default(),
             ));
+            #[cfg(feature = "dev-harness")]
+            app.manage(Arc::new(selected_harness::SelectedHarness::default()));
             let path = app.path().app_local_data_dir()?.join("stories-v1.sqlite");
             #[cfg(feature = "dev-harness")]
             let path = if harness::active() {

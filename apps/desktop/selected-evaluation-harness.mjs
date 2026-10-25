@@ -213,6 +213,11 @@ for (const stage of ["initial", "restart"]) {
         true,
         `Journeys:${stage}:${report.failedCheck}`,
     );
+    assert(
+        Array.isArray(report.checks) &&
+            report.checks.length >= (stage === "restart" ? 158 : 152),
+        `FrozenCheckCount:${stage}`,
+    );
     const expectedLabels =
         stage === "restart" ? [...labels, "selected-restarted"] : labels;
     const captures = (await readdir(directory))

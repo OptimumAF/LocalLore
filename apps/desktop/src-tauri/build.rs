@@ -41,6 +41,7 @@ fn main() {
                 "evaluation_curated",
                 "evaluation_comparison",
                 "evaluation_selected",
+                "harness_selected_case",
                 "harness_comparison_reader_case",
                 "evaluation_start",
                 "evaluation_open",

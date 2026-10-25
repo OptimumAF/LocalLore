@@ -31,6 +31,29 @@ pub(crate) const AUTHOR_LABELS: &[&str] = &[
 ];
 
 const MAX_JSON: usize = 256 * 1024;
+const SELECTED_LABELS: &[&str] = &[
+    "selected-prepared",
+    "selected-completed",
+    "selected-summary",
+    "selected-left-after",
+    "selected-right-after",
+    "selected-receipt",
+    "selected-capture",
+    "selected-outputs",
+    "selected-narrow",
+    "selected-mira",
+    "selected-sable",
+    "selected-guard",
+    "selected-unknown",
+    "selected-recovered",
+    "selected-consent-pending",
+    "selected-consent-actor",
+    "selected-consent-cancelled",
+    "selected-consent-denied",
+    "selected-context-retired",
+    "selected-finished",
+    "selected-restarted",
+];
 const COMPARISON_READER_LABELS: &[&str] = &[
     "comparison-open",
     "comparison-receipt",
@@ -257,6 +280,9 @@ impl HarnessState {
     fn reserve(&self, label: &str) -> Result<(), &'static str> {
         if !(LABELS.contains(&label)
             || (author_active() && AUTHOR_LABELS.contains(&label))
+            || (active()
+                && std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref() == Ok("1")
+                && SELECTED_LABELS.contains(&label))
             || (comparison_reader_active() && COMPARISON_READER_LABELS.contains(&label)))
         {
             return Err("CheckpointInvalid");

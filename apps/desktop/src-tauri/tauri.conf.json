@@ -69,6 +69,7 @@
                         "allow-evaluation-curated",
                         "allow-evaluation-comparison",
                         "allow-evaluation-selected",
+                        "allow-harness-selected-case",
                         "allow-harness-comparison-reader-case",
                         "allow-evaluation-start",
                         "allow-evaluation-open",

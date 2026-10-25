@@ -361,12 +361,34 @@ pub async fn evaluation_selected(
     let owner = window.hwnd().map_err(|_| "Closed")?.0 as isize;
     #[cfg(not(windows))]
     let owner = 0;
-    tauri::async_runtime::spawn_blocking(move || match action {
+    #[cfg(feature = "dev-harness")]
+    let test = {
+        use tauri::Manager;
+        crate::selected_harness::active().then(|| {
+            (
+                workspace.path.clone(),
+                window
+                    .state::<Arc<crate::selected_harness::SelectedHarness>>()
+                    .inner()
+                    .clone(),
+            )
+        })
+    };
+    #[cfg(feature = "dev-harness")]
+    let lose_ack = test.as_ref().map(|(_, state)| state.clone());
+    #[cfg(feature = "dev-harness")]
+    let is_start = matches!(&action, Action::Start(_, _));
+    let consent = move |metadata: &Value| {
+        #[cfg(feature = "dev-harness")]
+        if let Some((path, state)) = &test {
+            return crate::selected_harness::consent(path, state, metadata);
+        }
+        crate::exports::confirm_selected(owner, metadata)
+    };
+    let result = tauri::async_runtime::spawn_blocking(move || match action {
         Action::Catalog => manager.selected_catalog(&lease, epoch, granted),
         Action::Prepare(input) => {
-            manager.selected_prepare(&lease, &models, epoch, granted, input, move |metadata| {
-                crate::exports::confirm_selected(owner, metadata)
-            })
+            manager.selected_prepare(&lease, &models, epoch, granted, input, consent)
         }
         Action::Start(client, token) => {
             manager.selected_start(&lease, &models, epoch, granted, &client, &token)
@@ -375,18 +397,11 @@ pub async fn evaluation_selected(
         Action::Cancel(client, operation) => {
             manager.selected_cancel(&lease, epoch, granted, &client, operation)
         }
-        Action::Open(client, run) => manager.selected_open(
-            &lease,
-            &models,
-            epoch,
-            granted,
-            (&client, &run),
-            move |metadata| crate::exports::confirm_selected(owner, metadata),
-        ),
+        Action::Open(client, run) => {
+            manager.selected_open(&lease, &models, epoch, granted, (&client, &run), consent)
+        }
         Action::Resume(input) => {
-            manager.selected_resume(&lease, &models, epoch, granted, input, move |metadata| {
-                crate::exports::confirm_selected(owner, metadata)
-            })
+            manager.selected_resume(&lease, &models, epoch, granted, input, consent)
         }
         Action::Summary(input) => manager.selected_summary(&lease, &models, epoch, granted, input),
         Action::Evidence(input) => {
@@ -401,7 +416,17 @@ pub async fn evaluation_selected(
     })
     .await
     .map_err(|_| "EvaluationInternal".to_owned())?
-    .map_err(closed_error)
+    .map_err(closed_error);
+    #[cfg(feature = "dev-harness")]
+    if is_start
+        && result.is_ok()
+        && lose_ack
+            .as_ref()
+            .is_some_and(|state| crate::selected_harness::take_lost_ack(state))
+    {
+        return Err("EvaluationIo".into());
+    }
+    result
 }
 
 #[cfg(test)]

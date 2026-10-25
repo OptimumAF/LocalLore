@@ -356,7 +356,7 @@ enum Work {
     Open {
         run_id: String,
         consent: Consent,
-        discard: Option<Box<ReadCap>>,
+        discard: Vec<Discard>,
     },
     Resume {
         source: Box<super::comparison::SelectedSource>,
@@ -646,7 +646,6 @@ impl EvaluationManager {
         })().map_err(|error:String|failure(&error))
     }
     fn selected_new_record(
-        &self,
         state: &mut SelectedState,
         lease: &Arc<WindowLease>,
         models: &Arc<ModelManager>,
@@ -727,7 +726,7 @@ impl EvaluationManager {
             epoch,
             client.clone(),
             move |state, operation, cancel| {
-                self.selected_new_record(
+                Self::selected_new_record(
                     state,
                     &owned_lease,
                     &owned_models,
@@ -809,8 +808,10 @@ impl EvaluationManager {
         }
         let client = client.to_owned();
         let token = token.to_owned();
+        let lookup_client = client.clone();
+        let lookup_token = token.clone();
         let new_run = uuid()?;
-        self.selected_launch(
+        let result = self.selected_launch(
             lease,
             models,
             epoch,
@@ -841,7 +842,32 @@ impl EvaluationManager {
                 })
             },
             None,
-        )
+        );
+        // Another exact caller can consume and finish between the optimistic
+        // cache read and registration. Recover only the actual bound receipt;
+        // never retry execution, override an IO failure, or relax lease/model
+        // identity. This also returns the original pending identity if busy.
+        if matches!(&result, Err(error) if matches!(error.as_str(), "EvaluationBusy" | "UnknownEvaluationRun"))
+        {
+            let cached = lease.dispatch(epoch, || {
+                let state = self.selected_lock()?;
+                Ok(state
+                    .records
+                    .get(&lookup_client)
+                    .filter(|r| {
+                        r.owns(lease, epoch)
+                            && Weak::ptr_eq(&r.models, &Arc::downgrade(models))
+                            && !r.revoked
+                    })
+                    .and_then(|r| r.consumed.as_ref())
+                    .filter(|(used, _)| used == &lookup_token)
+                    .map(|(_, value)| value.clone()))
+            });
+            if let Ok(Some(value)) = cached {
+                return Ok(value);
+            }
+        }
+        result
     }
     pub fn selected_open(
         self: &Arc<Self>,
@@ -849,8 +875,7 @@ impl EvaluationManager {
         models: &Arc<ModelManager>,
         epoch: u64,
         granted: bool,
-        client: &str,
-        run: &str,
+        (client, run): (&str, &str),
         consent: impl FnOnce(&Value) -> Result<bool> + Send + 'static,
     ) -> Result<Value> {
         if !granted {
@@ -871,7 +896,7 @@ impl EvaluationManager {
             client.clone(),
             move |state, operation, cancel| {
                 if !state.records.contains_key(&client) {
-                    self.selected_new_record(
+                    Self::selected_new_record(
                         state, &owner, &model, epoch, &client, operation, cancel,
                     )?;
                 }
@@ -889,7 +914,19 @@ impl EvaluationManager {
                 r.phase = "preparing";
                 r.operation = Some(operation);
                 r.cancel = cancel.clone();
-                let discard = r.cap.take();
+                let mut discard = Vec::new();
+                if let Some(cap) = r.cap.take() {
+                    discard.push(Discard::Cap(cap));
+                }
+                if let Some(plan) = r.plan.take() {
+                    discard.push(Discard::Plan(plan));
+                }
+                r.plan_token = None;
+                r.metadata = None;
+                r.consumed = None;
+                r.lane = None;
+                r.error = None;
+                r.cause = None;
                 r.run_token = None;
                 r.binding = None;
                 Ok(Work::Open {
@@ -1172,9 +1209,8 @@ impl EvaluationManager {
                         Some(payload) => manager.selected_work(
                             &owner,
                             &model,
-                            epoch,
+                            (epoch, operation),
                             &worker_client,
-                            operation,
                             &worker_cancel,
                             payload,
                         ),
@@ -1272,9 +1308,8 @@ impl EvaluationManager {
         self: &Arc<Self>,
         lease: &Arc<WindowLease>,
         models: &Arc<ModelManager>,
-        epoch: u64,
+        (epoch, operation): (u64, u64),
         client: &str,
-        operation: u64,
         cancel: &Cancellation,
         work: Work,
     ) -> Outcome {
@@ -1325,7 +1360,7 @@ impl EvaluationManager {
                 consent,
                 discard,
             } => Outcome::plain((|| {
-                drop(discard);
+                dispose(discard);
                 let index = self.selected_index(&run_id)?;
                 let (path, _pins) = self.selected_work_path(&run_id)?;
                 self.budget(Some(path.parent().ok_or("EvaluationIo")?))?;

@@ -380,8 +380,7 @@ pub async fn evaluation_selected(
             &models,
             epoch,
             granted,
-            &client,
-            &run,
+            (&client, &run),
             move |metadata| crate::exports::confirm_selected(owner, metadata),
         ),
         Action::Resume(input) => {

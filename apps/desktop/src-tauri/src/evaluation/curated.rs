@@ -540,10 +540,9 @@ impl EvaluationManager {
                     .job
                     .as_ref()
                     .is_some_and(|j| j.id == operation && j.epoch == epoch)
+                    && !uncertain
                 {
-                    if !uncertain {
-                        state.job = None;
-                    }
+                    state.job = None;
                 }
                 if !owner.valid(epoch) {
                     if let Some(run) = manager

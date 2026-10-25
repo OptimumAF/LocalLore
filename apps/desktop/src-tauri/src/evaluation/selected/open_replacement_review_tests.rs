@@ -91,8 +91,7 @@ fn replacement_case(outcome: u8) {
             &f.models,
             f.epoch,
             true,
-            &client,
-            &run,
+            (&client, &run),
             move |_| {
                 entered_tx
                     .send(())

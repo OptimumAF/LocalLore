@@ -279,8 +279,7 @@ fn scripted_start_duplicate_and_lost_ack_keep_one_identity_then_explicit_read_gr
             &fixture.models,
             fixture.epoch,
             true,
-            &client,
-            run,
+            (&client, run),
             |_| Ok(true),
         )
         .unwrap();

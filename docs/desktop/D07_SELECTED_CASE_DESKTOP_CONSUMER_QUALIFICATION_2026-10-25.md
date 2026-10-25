@@ -290,6 +290,35 @@ These are source/build identifiers, not a claim of byte reproducibility or an in
 | Current installed-model process record |78338ce6fd4987dfc3541a87cf6b28198f95f1f80146d7e7371d4b991ce5d419|
 | Current installed-asset hash record |f3cf35d8ad38a5488435e038b86d73f26dc1c82ecf43dac973d5246fbdc24e8d|
 
+### Accepted-main reconciliation
+
+Accepted PRs176–179 advanced main from `a7feb420` to
+`dbcc40f6fedc1cb6539611b21a772570e6fb162f` during qualification. Normal merge
+`453606afaffdb1f12e2d47043e8f9910fdd6c5cd` preserved their Android diagnostics,
+tooling, docs and new Core integration test without conflict. No other working
+directory or running application was touched.
+
+Git object comparisons confirm byte-identical qualified inputs at856 and453:
+the entire desktop directory, Core source, evaluation/runtime/Android Rust/
+storage/workspace crates, root Cargo manifest/lock and Rust toolchain. These
+prior runs retain their original source IDs; they are not relabeled as fresh
+executions after the merge. The newly accepted integration test and format were
+checked on453:
+
+```powershell
+cargo test --locked --offline -p locallore --features host --test dialogue_json_spelling --jobs 1 --target-dir <native-target> -- --nocapture --test-threads=1
+cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all -- --check
+```
+
+Four integration tests passed,0 failures,0.09 test seconds /12.61 compilation
+seconds; formatting exit0. This includes equivalent Unicode JSON spellings,
+malformed surrogate/authority refusal and observer isolation. No Kotlin/JVM,
+SDK, Android device or benchmark execution is inferred from accepted files.
+Local input-identity record SHA256
+`dd3540b98094a51f0228333134473bce97f6ae70d9dedd0bd8ed718e0cf0eaf2`;
+integration process record
+`9e22005c05e15a34944600b5b11e3914ec779328b9493c65ebaedfe6f24705c1`.
+
 ## Reproducing the bounded checks
 
 Use the existing locked dependencies and already approved installed environment:

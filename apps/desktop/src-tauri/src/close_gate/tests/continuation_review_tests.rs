@@ -1,4 +1,4 @@
-// SOURCE ONLY / UNCOMPILED / UNRUN. Child of close_gate::tests.
+// Frozen continuation oracles. Child of close_gate::tests.
 // Owner-free native coordination only: confirm() below is synthetic and does
 // not attest to child cleanup, actual Tauri scheduling, destroy or process exit.
 use super::*;

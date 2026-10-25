@@ -284,6 +284,11 @@ export class SelectedEvaluationController {
     private async existing(action: "start" | "status" | "cancel" | "open" | "resume" | "close", body: Record<string, unknown>, interrupt = false): Promise<void> {
         const client = this.state.clientId;
         if (this.disposed || !this.state.allowed || !client || (!interrupt && (this.lifecycleBusy || this.readBusy))) return;
+        if (action === "open" || action === "resume") {
+            // These explicit native confirmations may return a newly prepared
+            // token. It is not a replay of the old consumed start grant.
+            const expected = this.expected.get(client); if (expected) delete expected.planToken;
+        }
         ++this.readEpoch; this.readBusy = false; this.lifecycleBusy = true;
         const t = { context: this.contextEpoch, serial: ++this.lifecycleEpoch, client };
         this.patch({ evidence: null, diagnostics: null, pending: { action, clientId: client,

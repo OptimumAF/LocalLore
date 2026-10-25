@@ -124,6 +124,13 @@ is870s/outer900s through the already tested durable-output supervisor; each
 client remains at most180s. Production context4096, director350/narrator220,
 one repair, turn60s and cleanup5s remain unchanged. File guards are unmeasured
 observation bounds and can fail safely; they do not promise model feasibility.
+The explicit8 GiB profile now defaults to a bounded1,800s emulator owner;
+the default2 GiB profile retains1,200s. Full input verification, boot, preflight
+and admissions consumed296.4s in an actual authorized attempt, leaving too
+little of the old envelope for the unchanged900s candidate plus20s margin.
+This scheduling correction changes no inference/phase budget or entry gate.
+It applies only through a new source admission and fresh target; an existing
+owner's deadline cannot be extended. See the authorized execution report.
 The exact owned emulator stop/terminal/cleanup/capture/preservation closure is
 required separately. Retain all targets/attempts, without guest-flush or
 power-loss integrity claims. Full physical-phone, ARM64/16 KiB, sustained,

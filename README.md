@@ -84,8 +84,10 @@ diagnose the earlier timeout.
 Real inference and physical-phone qualification remain pending. The
 [real-candidate probe](docs/native/RECEIPT_REAL_CANDIDATE_VERIFICATION_2026-10-24.md)
 is compiled and host-tested; its fresh8 GiB emulator preflight verified tiny
-local staging and capacity. Real weights, receipt import and SDK play await
-separate consent for this new test-app destination. The
+local staging and capacity. The owner has now authorized the new test-app
+destination. The [authorized execution](docs/native/RECEIPT_REAL_EXECUTION_VERIFICATION_2026-10-24.md)
+records another passing preflight and a scheduling prerequisite before model
+copy; real receipt import and SDK play are still unverified. The
 [earlier partial result](docs/native/MODEL_RECEIPT_ANDROID_VERIFICATION_2026-10-24.md)
 is preserved.
 

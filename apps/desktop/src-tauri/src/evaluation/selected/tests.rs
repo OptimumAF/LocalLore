@@ -222,3 +222,69 @@ fn spawn_failure_releases_source_cap_outside_gates_without_creating_work_or_fals
     drop(cap);
     assert_eq!(inventory(source()), before);
 }
+
+#[test]
+fn retired_private_job_keeps_genuine_rejected_owner_pair_until_actual_generic_cleanup() {
+    // Unit-level ownership payload fixture, NOT shared native generation. The
+    // cfg(test)-only Models helper performs the approved exact-ticket fault and
+    // actual selected trait rejection; no fields/SQL/receipt are fabricated.
+    let fixture = Fixture::new();
+    let (mut runtime, directory) = match locallore_local_runtime::LocalRuntime::development_protocol_fixture() {
+        Ok(value) => value,
+        Err(locallore_local_runtime::OwnedStartFailure::BeforeChild(error)) => panic!("fixed worker: {error:?}"),
+        Err(locallore_local_runtime::OwnedStartFailure::AfterChild { cause, mut owner }) => {
+            let cleanup = owner.terminate_and_reap(); panic!("fixed worker: {cause:?}; cleanup {cleanup:?}");
+        }
+    };
+    runtime.load(|| false).unwrap();
+    struct Fixed {
+        owner: Option<Arc<Mutex<locallore_local_runtime::LocalRuntime>>>, directory: PathBuf,
+    }
+    impl Drop for Fixed {
+        fn drop(&mut self) {
+            let owner = self.owner.take().unwrap();
+            let confirmed = match owner.lock() {
+                Ok(mut owner) => owner.terminate_and_reap().is_ok(),
+                Err(poisoned) => poisoned.into_inner().terminate_and_reap().is_ok(),
+            };
+            drop(owner);
+            if confirmed { let _ = fs::remove_dir_all(&self.directory); }
+        }
+    }
+    let fixed = Fixed { owner: Some(Arc::new(Mutex::new(runtime))), directory };
+    let owner = fixed.owner.as_ref().unwrap().clone();
+    let (reservation, returned) = fixture.models.selected_rejected_for_test(owner.clone());
+    assert!(Arc::ptr_eq(&returned, &owner));
+    let witness = reservation.cleanup_witness();
+    let client = uuid().unwrap();
+    {
+        let mut parent = fixture.manager.state().unwrap();
+        parent.next += 1;
+        parent.job = Some(Job { kind: JobKind::Selected, epoch: fixture.epoch, id: parent.next,
+            run: client, cancel: Cancellation::default(), selected: Some(SelectedOwnership {
+                models: fixture.models.clone(), witness: Some(witness.clone()),
+                retained: Some((reservation, returned)), cleanup_running: false,
+            }) });
+    }
+    fixture.manager.selected_retire(fixture.epoch);
+    fixture.manager.selected_drain(fixture.epoch);
+    assert!(fixture.manager.state().unwrap().job.as_ref().unwrap().selected.as_ref().unwrap().retained.is_some());
+    assert!(!witness.confirmed());
+    assert!(matches!(fixture.models.reserve_evaluation(), Err(error) if error == "Busy"));
+    let status = fixture.manager.selected_cleanup_status(&fixture.lease, fixture.epoch).unwrap();
+    assert_eq!(status["cleanup_required"], true);
+    assert!(status.get("run_id").is_none() && status.get("client_id").is_none());
+    fixture.manager.selected_retry_cleanup(&fixture.lease, &fixture.models, fixture.epoch).unwrap();
+    let until = Instant::now() + Duration::from_secs(15);
+    loop {
+        let status = fixture.manager.selected_cleanup_status(&fixture.lease, fixture.epoch).unwrap();
+        if status["running"] == false {
+            assert_eq!(status["cleanup_required"], false); break;
+        }
+        assert!(Instant::now() < until); std::thread::sleep(Duration::from_millis(5));
+    }
+    assert!(witness.confirmed());
+    assert!(fixture.manager.state().unwrap().job.is_none());
+    assert_eq!(owner.lock().unwrap().status(), locallore_local_runtime::Status::Failed);
+    drop(fixture.models.reserve_evaluation().expect("only actual proof releases Models fence"));
+}

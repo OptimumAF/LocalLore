@@ -32,6 +32,8 @@ mod lifecycle_tests;
 #[cfg(test)]
 mod preflight_review_tests;
 #[cfg(test)]
+mod prepared_metadata_review_tests;
+#[cfg(test)]
 mod review_tests;
 #[cfg(test)]
 thread_local! {

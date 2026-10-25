@@ -311,10 +311,21 @@ fn reader_lock_excludes_open_and_resume_and_other_arm_valid_drift_invalidates_en
     drop(opened); assert!(inventory(&fixture.root) == files);
     let opened = desktop_read::open_read_only(&fixture.target).unwrap();
     let mut cp = json_file(&fixture.cp("right"));
-    let elapsed = cp["row"]["elapsed_ms"].as_u64().unwrap(); cp["row"]["elapsed_ms"] = json!(elapsed.checked_add(1).unwrap());
+    let elapsed = cp["row"]["elapsed_ms"].as_u64().unwrap();
+    let admission = cp["row"]["admission"].as_u64().unwrap();
+    let settlement_path = fixture.target.join("right").join(format!("admission-{admission:02}-settled.json"));
+    let mut settlement = json_file(&settlement_path);
+    assert_eq!(settlement["ms"].as_u64(), Some(elapsed));
+    // Coordinated synthetic diagnostic drift remains valid under load_turn's
+    // actual checkpoint/settlement agreement; this is not measured new work.
+    cp["row"]["elapsed_ms"] = json!(elapsed.checked_add(1).unwrap());
+    settlement["ms"] = cp["row"]["elapsed_ms"].clone();
     let bytes = encode(&cp).unwrap(); fs::write(fixture.cp("right"), &bytes).unwrap();
+    let settlement_bytes = encode(&settlement).unwrap();
+    fs::write(&settlement_path, &settlement_bytes).unwrap();
     let mut expected = files;
     expected.insert(fixture.cp("right").strip_prefix(&fixture.root).unwrap().to_owned(), Some(bytes));
+    expected.insert(settlement_path.strip_prefix(&fixture.root).unwrap().to_owned(), Some(settlement_bytes));
     assert_eq!(refused(desktop_read::summary(&opened, true)), "SnapshotMismatch");
     assert_eq!(refused(desktop_read::evidence(&opened, &binding, Arm::Left,
         query(Edge::Before, Observer::Character { id: "mira".into() }, View::History), true)), "SnapshotMismatch");

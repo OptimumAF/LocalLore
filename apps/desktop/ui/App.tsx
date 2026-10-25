@@ -465,7 +465,7 @@ export function App({
                             allowed={s.view === "lab"}
                         />
                     )}
-                    {!s.playV2 && archive && (
+                    {archive && (
                         <ArchivePanel
                             archive={archive}
                             controller={c}
@@ -487,10 +487,10 @@ export function App({
                             />
                             <p className="muted">
                                 This timeline uses scoped native views. Legacy
-                                debugger, inspection exports, archive transfer,
-                                timeline navigation and derived-memory
-                                maintenance remain unavailable for this domain
-                                version until their shared adapters support it.
+                                debugger, inspection exports, timeline
+                                navigation and derived-memory maintenance remain
+                                unavailable for this domain version until their
+                                shared adapters support it.
                             </p>
                             <button
                                 disabled={!selected}

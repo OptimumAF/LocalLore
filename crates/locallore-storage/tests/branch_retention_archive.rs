@@ -201,7 +201,7 @@ fn v2_round_trip_preserves_children_original_scopes_and_retired_admission() {
         .store
         .export_archive(&source.root.story, &|| false)
         .unwrap();
-    assert_eq!(ARCHIVE_VERSION, 2);
+    assert_eq!(ARCHIVE_VERSION, 3);
     assert_eq!(archive.preview().version, 2);
     assert_eq!(
         archive.preview().retired_branch_ids,

@@ -68,6 +68,29 @@ pub(crate) fn request_index(record: &CanonicalRecord) -> Result<serde_json::Valu
         "record_sha256":format!("{:x}",Sha256::digest(bytes))}),
     )
 }
+/// Normalize one actual native author record inside the caller's transaction.
+/// Shared by author application and accepted-history import; no witness grant.
+pub(crate) fn insert_author_record(
+    connection: &Connection,
+    record: &CanonicalRecord,
+) -> Result<()> {
+    let CanonicalRecord::AuthorV1(author) = record else {
+        return Err(TurnError::Integrity);
+    };
+    let scope = author.scope();
+    let response = serde_json::to_string(record).map_err(|_| TurnError::Integrity)?;
+    let index = serde_json::to_string(&request_index(record)?).map_err(|_| TurnError::Integrity)?;
+    if response.len() > MAX_RECEIPT_BYTES {
+        return Err(TurnError::TooLarge);
+    }
+    let fork = i64::try_from(author.input().fork_revision).map_err(|_| TurnError::TooLarge)?;
+    let sequence = i64::try_from(author.sequence()).map_err(|_| TurnError::TooLarge)?;
+    connection.execute("INSERT INTO turns(story_id,branch_id,turn_id,expected_revision,status,request_json,response_json,canonical_kind) VALUES(?1,?2,?3,?4,'committed',?5,?6,'author_v1')",
+        params![scope.story,scope.branch,AUTHOR_TURN_KEY,fork,index,response])?;
+    connection.execute("INSERT INTO accepted_events(story_id,branch_id,sequence,turn_id,event_version,envelope_json,record_kind) VALUES(?1,?2,?3,?4,1,?5,'author_correction')",
+        params![scope.story,scope.branch,sequence,AUTHOR_TURN_KEY,serde_json::to_string(author).map_err(|_|TurnError::Integrity)?])?;
+    Ok(())
+}
 fn lookup(
     connection: &Connection,
     input: &AuthorCorrectionInputV1,
@@ -202,19 +225,7 @@ impl Store {
             .canonical_records()
             .last()
             .ok_or(TurnError::Integrity)?;
-        let response = serde_json::to_string(record).map_err(|_| TurnError::Integrity)?;
-        let index =
-            serde_json::to_string(&request_index(record)?).map_err(|_| TurnError::Integrity)?;
-        if response.len() > MAX_RECEIPT_BYTES {
-            return Err(TurnError::TooLarge);
-        }
-        let fork = i64::try_from(input.fork_revision).map_err(|_| TurnError::TooLarge)?;
-        let sequence =
-            i64::try_from(applied.receipt.sequence()).map_err(|_| TurnError::TooLarge)?;
-        tx.execute("INSERT INTO turns(story_id,branch_id,turn_id,expected_revision,status,request_json,response_json,canonical_kind) VALUES(?1,?2,?3,?4,'committed',?5,?6,'author_v1')",
-            params![scope.story,scope.branch,AUTHOR_TURN_KEY,fork,index,response])?;
-        tx.execute("INSERT INTO accepted_events(story_id,branch_id,sequence,turn_id,event_version,envelope_json,record_kind) VALUES(?1,?2,?3,?4,1,?5,'author_correction')",
-            params![scope.story,scope.branch,sequence,AUTHOR_TURN_KEY,serde_json::to_string(&applied.receipt).map_err(|_|TurnError::Integrity)?])?;
+        insert_author_record(&tx, record)?;
         // Revalidate actual transaction bytes and accounting before publication.
         let verified = turns::read_engine(&tx, &scope)?.engine;
         if verified

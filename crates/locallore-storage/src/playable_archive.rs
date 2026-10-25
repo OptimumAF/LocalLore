@@ -2,11 +2,12 @@
 //! Full-private, accepted-history-only portable JSON. No file/model/network API.
 use crate::{turns, StorageError, Store, TurnError, SCHEMA_VERSION};
 use locallore::{
+    author_correction::CanonicalRecord,
     contracts::{
         Error, Receipt, Scope, Seed, MAX_HISTORY_BYTES, MAX_HISTORY_RECEIPTS, MAX_RECEIPT_BYTES,
         VERSION,
     },
-    engine::{parse_unique_json, Engine},
+    engine::{parse_unique_json, AcceptedHistoryBasis, Engine},
     play::PlayProfile,
 };
 use rusqlite::{params, OptionalExtension, TransactionBehavior};
@@ -15,9 +16,13 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// Latest accepted format. Stories without retirement metadata still export v1.
-pub const ARCHIVE_VERSION: u16 = 2;
+/// Latest supported transfer format. Legacy histories still export as V1/V2;
+/// accepting a format does not imply every host can open corrected timelines.
+pub const ARCHIVE_VERSION: u16 = 3;
+pub const SUPPORTED_ARCHIVE_VERSIONS: [u16; 3] = [1, 2, 3];
 const ARCHIVE_VERSION_V1: u16 = 1;
+const ARCHIVE_VERSION_V2: u16 = 2;
+const ARCHIVE_VERSION_V3: u16 = 3;
 pub const MAX_ARCHIVE_BYTES: usize = 32 * 1024 * 1024;
 pub const MAX_ARCHIVE_BRANCHES: usize = 32;
 pub const MAX_MODEL_REFERENCES: usize = 64;
@@ -26,7 +31,9 @@ const MAX_PROJECTION_BYTES: usize = 262_144;
 const FORMAT: &str = "locallore-playable-archive";
 const CANONICALIZATION: &str = "locallore-json-v1";
 const TRANSCRIPT: &str = "accepted_request_intent_and_narration_v1";
+const TRANSCRIPT_V3: &str = "accepted_canonical_records_v2";
 const WARNING: &str = "Full private story: all timelines, hidden seed facts, accepted input/narration and model/timing/provenance metadata. No weights, separate traces/raw prompt logs, caches or noncommitted workflow keys/status. Imported sessions must not resume old pending operations.";
+const WARNING_V3: &str = "Full private story: all timelines, hidden seed facts, author corrections/reasons/prior truth, private discovery source bindings, accepted input/narration and model/timing/provenance metadata. Accepted records include play and author corrections. No weights, separate traces/raw prompts, caches or noncommitted workflow keys/status. Imported sessions must not resume old pending operations.";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ArchiveError {
@@ -177,7 +184,19 @@ struct Branch {
     parent: Option<String>,
     fork_revision: Option<u64>,
     head_revision: u64,
-    local_receipts: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    local_receipts: Option<Vec<Value>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    local_records: Option<Vec<Value>>,
+}
+impl Branch {
+    fn records(&self) -> &[Value] {
+        // Version-specific field presence is checked before deserialization.
+        self.local_records
+            .as_deref()
+            .or(self.local_receipts.as_deref())
+            .unwrap_or_default()
+    }
 }
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -202,8 +221,18 @@ struct Integrity {
 #[serde(deny_unknown_fields)]
 struct BranchIntegrity {
     id: String,
-    receipts_sha256: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    receipts_sha256: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    records_sha256: Option<String>,
     canonical_state_sha256: String,
+}
+impl BranchIntegrity {
+    fn records_hash(&self) -> Option<&str> {
+        self.records_sha256
+            .as_deref()
+            .or(self.receipts_sha256.as_deref())
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -216,6 +245,7 @@ pub struct ArchivePreview {
     /// Retired physical rows are ancestry only; absent IDs remain deletion tombstones.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub retired_branch_ids: Vec<String>,
+    /// Committed canonical records; v1/v2 contain only ordinary accepted turns.
     pub committed_turns: usize,
     pub bytes: usize,
     pub payload_sha256: String,
@@ -236,11 +266,12 @@ impl PlayableArchive {
 }
 struct ValidatedBranch {
     branch: Branch,
-    receipts: Vec<Receipt>,
+    records: Vec<CanonicalRecord>,
     projection: Vec<u8>,
+    basis: Option<AcceptedHistoryBasis>,
 }
 /// Opaque native capability: no public construction, mutation or Deserialize.
-/// Carries validated original local receipts, not untrusted projections as canon.
+/// Carries validated original native canonical records, not supplied projections.
 pub struct ValidatedArchive {
     story: Story,
     branches: Vec<ValidatedBranch>,
@@ -256,7 +287,96 @@ impl ValidatedArchive {
 pub struct ImportOutcome {
     pub root: Scope,
     pub branches: usize,
+    /// Committed canonical records, including author rows for Archive3.
     pub committed_turns: usize,
+}
+
+/// Keep v1/v2 field sets closed even though their native plan shares v3 types.
+/// Explicit null or a second alternative is never a downgrade mechanism.
+fn validate_version_fields(raw: &Value, version: u16) -> Result<()> {
+    let payload = raw["payload"].as_object().ok_or(ArchiveError::Malformed)?;
+    match version {
+        ARCHIVE_VERSION_V1 if payload.contains_key("retired_branch_ids") => {
+            return Err(ArchiveError::Malformed);
+        }
+        ARCHIVE_VERSION_V2
+            if payload
+                .get("retired_branch_ids")
+                .and_then(Value::as_array)
+                .is_none_or(Vec::is_empty) =>
+        {
+            return Err(ArchiveError::Malformed);
+        }
+        ARCHIVE_VERSION_V3
+            if payload
+                .get("retired_branch_ids")
+                .and_then(Value::as_array)
+                .is_none() =>
+        {
+            return Err(ArchiveError::Malformed);
+        }
+        _ => {}
+    }
+    let mixed = version == ARCHIVE_VERSION_V3;
+    let (records, forbidden, checksum, forbidden_checksum) = if mixed {
+        (
+            "local_records",
+            "local_receipts",
+            "records_sha256",
+            "receipts_sha256",
+        )
+    } else {
+        (
+            "local_receipts",
+            "local_records",
+            "receipts_sha256",
+            "records_sha256",
+        )
+    };
+    for branch in raw["payload"]["branches"]
+        .as_array()
+        .ok_or(ArchiveError::Malformed)?
+    {
+        let fields = branch.as_object().ok_or(ArchiveError::Malformed)?;
+        if fields.contains_key(forbidden) || fields.get(records).and_then(Value::as_array).is_none()
+        {
+            return Err(ArchiveError::Malformed);
+        }
+    }
+    for branch in raw["integrity"]["branches"]
+        .as_array()
+        .ok_or(ArchiveError::Malformed)?
+    {
+        let fields = branch.as_object().ok_or(ArchiveError::Malformed)?;
+        if fields.contains_key(forbidden_checksum)
+            || fields.get(checksum).and_then(Value::as_str).is_none()
+        {
+            return Err(ArchiveError::Malformed);
+        }
+    }
+    Ok(())
+}
+
+fn request_bytes(record: &CanonicalRecord) -> Result<Vec<u8>> {
+    if let Some(receipt) = record.receipt() {
+        encode(receipt.request())
+    } else {
+        encode(&crate::author_correction::request_index(record)?)
+    }
+}
+
+// Untrusted prefix selection only. Each complete physical branch is separately
+// regenerated and raw-compared; this field cannot establish canonical authority.
+fn expected_revision(raw: &Value, mixed: bool) -> Option<u64> {
+    if mixed && raw.get("record_version").is_some() {
+        if raw["kind"] == "author_correction" {
+            raw["receipt"]["input"]["fork_revision"].as_u64()
+        } else {
+            raw["receipt"]["request"]["expected_revision"].as_u64()
+        }
+    } else {
+        raw["request"]["expected_revision"].as_u64()
+    }
 }
 
 fn path(branches: &[Branch], index: usize, root: &str) -> Result<Vec<usize>> {
@@ -309,17 +429,22 @@ fn replay(payload: &Payload, index: usize, cancel: &dyn Fn() -> bool) -> Result<
             )
         };
         let mut history = Vec::new();
-        for receipt in &branch.local_receipts {
+        for receipt in branch.records() {
             check(cancel)?;
             if leaf
-                || receipt["request"]["expected_revision"]
-                    .as_u64()
-                    .is_some_and(|r| r < cap)
+                || expected_revision(receipt, payload.domain_version == 2).is_some_and(|r| r < cap)
             {
                 let encoded = encode(receipt)?;
                 owner_bytes = owner_bytes
-                    .checked_add(encoded.len() + encode(&receipt["request"])?.len())
+                    .checked_add(encoded.len())
                     .ok_or(ArchiveError::TooLarge)?;
+                if payload.domain_version == VERSION {
+                    // Preserve legacy accounting exactly. V3 counts its actual
+                    // native request indexes after replay, never a null request.
+                    owner_bytes = owner_bytes
+                        .checked_add(encode(&receipt["request"])?.len())
+                        .ok_or(ArchiveError::TooLarge)?;
+                }
                 owner_count += 1;
                 if owner_bytes > MAX_HISTORY_BYTES || owner_count > MAX_HISTORY_RECEIPTS {
                     return Err(ArchiveError::TooLarge);
@@ -344,6 +469,21 @@ fn replay(payload: &Payload, index: usize, cancel: &dyn Fn() -> bool) -> Result<
                 ArchiveError::Integrity
             }
         })?;
+        if payload.domain_version == 2 {
+            for record in restored
+                .canonical_records()
+                .iter()
+                .filter(|record| record.original_scope().branch == branch.id)
+            {
+                check(cancel)?;
+                owner_bytes = owner_bytes
+                    .checked_add(request_bytes(record)?.len())
+                    .ok_or(ArchiveError::TooLarge)?;
+                if owner_bytes > MAX_HISTORY_BYTES {
+                    return Err(ArchiveError::TooLarge);
+                }
+            }
+        }
         if restored.revision() != cap {
             return Err(ArchiveError::Integrity);
         }
@@ -447,33 +587,33 @@ pub fn validate_archive(bytes: &[u8], cancel: &dyn Fn() -> bool) -> Result<Valid
     })?;
     let version = raw["version"].as_u64().ok_or(ArchiveError::Unsupported)?;
     if raw["format"] != FORMAT
-        || !matches!(version, 1 | 2)
+        || !matches!(version, 1..=3)
         || raw["canonicalization"] != CANONICALIZATION
     {
         return Err(ArchiveError::Unsupported);
     }
-    let payload_fields = raw["payload"].as_object().ok_or(ArchiveError::Malformed)?;
-    if version == u64::from(ARCHIVE_VERSION_V1) {
-        // Even explicit null is an unknown v1 field; never silently downgrade it.
-        if payload_fields.contains_key("retired_branch_ids") {
-            return Err(ArchiveError::Malformed);
-        }
-    } else if payload_fields
-        .get("retired_branch_ids")
-        .and_then(Value::as_array)
-        .is_none_or(Vec::is_empty)
+    if version == u64::from(ARCHIVE_VERSION_V3)
+        && (raw["payload"]["domain_version"] != 2
+            || raw["payload"]["source_database_schema_version"] != 5
+            || raw["payload"]["transcript"] != TRANSCRIPT_V3)
     {
-        return Err(ArchiveError::Malformed);
+        return Err(ArchiveError::Unsupported);
     }
+    validate_version_fields(&raw, version as u16)?;
     let envelope: Envelope = serde_json::from_value(raw).map_err(|_| ArchiveError::Malformed)?;
     let payload = &envelope.payload;
+    let mixed = envelope.version == ARCHIVE_VERSION_V3;
     if envelope.privacy != "full_private"
-        || payload.domain_version != VERSION
-        || !(1..=SCHEMA_VERSION).contains(&payload.source_database_schema_version)
-        || envelope.version == ARCHIVE_VERSION
-            && !(3..=5).contains(&payload.source_database_schema_version)
+        || if mixed {
+            payload.domain_version != 2 || payload.source_database_schema_version != 5
+        } else {
+            payload.domain_version != VERSION
+                || !(1..=SCHEMA_VERSION).contains(&payload.source_database_schema_version)
+                || envelope.version == ARCHIVE_VERSION_V2
+                    && !(3..=5).contains(&payload.source_database_schema_version)
+        }
         || payload.story.seed.version != VERSION
-        || payload.transcript != TRANSCRIPT
+        || payload.transcript != if mixed { TRANSCRIPT_V3 } else { TRANSCRIPT }
     {
         return Err(ArchiveError::Unsupported);
     }
@@ -525,7 +665,7 @@ pub fn validate_archive(bytes: &[u8], cancel: &dyn Fn() -> bool) -> Result<Valid
             return Err(ArchiveError::TooLarge);
         }
         path(&payload.branches, index, &payload.story.seed.scope.branch)?;
-        for receipt in &branch.local_receipts {
+        for receipt in branch.records() {
             check(cancel)?;
             let size = encode(receipt)?.len();
             if size > MAX_RECEIPT_BYTES {
@@ -540,29 +680,49 @@ pub fn validate_archive(bytes: &[u8], cancel: &dyn Fn() -> bool) -> Result<Valid
             }
         }
         let integrity = &envelope.integrity.branches[index];
-        if integrity.id != branch.id || integrity.receipts_sha256 != digest(&branch.local_receipts)?
+        if integrity.id != branch.id
+            || integrity.records_hash() != Some(digest(&branch.records())?.as_str())
         {
             return Err(ArchiveError::Integrity);
         }
     }
     validate_retirement(payload, cancel)?;
     let mut validated = Vec::new();
+    let mut has_domain_two = false;
+    let mut persisted_bytes = 0usize;
     for (index, branch) in payload.branches.iter().enumerate() {
         check(cancel)?;
         let engine = replay(payload, index, cancel)?;
+        if !mixed && engine.domain_version() != VERSION {
+            return Err(ArchiveError::Unsupported);
+        }
+        has_domain_two |= engine.domain_version() == 2;
         let local: Vec<_> = engine
-            .receipts()
+            .canonical_records()
             .iter()
-            .filter(|r| r.request().scope.branch == branch.id)
+            .filter(|r| r.original_scope().branch == branch.id)
             .cloned()
             .collect();
-        if local.len() != branch.local_receipts.len()
+        if local.len() != branch.records().len()
             || local
                 .iter()
-                .zip(&branch.local_receipts)
+                .zip(branch.records())
                 .any(|(r, v)| serde_json::to_value(r).ok().as_ref() != Some(v))
         {
             return Err(ArchiveError::Integrity);
+        }
+        if mixed {
+            for record in &local {
+                check(cancel)?;
+                let input_size = request_bytes(record)?.len();
+                persisted_bytes = persisted_bytes
+                    .checked_add(encode(record)?.len())
+                    .and_then(|total| total.checked_add(input_size))
+                    .ok_or(ArchiveError::TooLarge)?;
+                if persisted_bytes > MAX_HISTORY_BYTES {
+                    return Err(ArchiveError::TooLarge);
+                }
+            }
         }
         let projection = engine.canonical_bytes();
         if projection.len() > MAX_PROJECTION_BYTES {
@@ -573,11 +733,30 @@ pub fn validate_archive(bytes: &[u8], cancel: &dyn Fn() -> bool) -> Result<Valid
         }
         validated.push(ValidatedBranch {
             branch: branch.clone(),
-            receipts: local,
+            records: local,
             projection,
+            // Do not add a new native-basis byte bound to historical v1/v2
+            // admission. V3 explicitly requires complete source identity.
+            basis: if mixed {
+                Some(
+                    engine
+                        .accepted_history_basis()
+                        .map_err(|error| ArchiveError::from(TurnError::Engine(error)))?,
+                )
+            } else {
+                None
+            },
         });
     }
-    let (policies, models) = references(validated.iter().flat_map(|b| b.receipts.iter()))?;
+    if mixed && !has_domain_two {
+        return Err(ArchiveError::Unsupported);
+    }
+    let (policies, models) = references(
+        validated
+            .iter()
+            .flat_map(|b| b.records.iter())
+            .filter_map(CanonicalRecord::receipt),
+    )?;
     if policies != payload.required_policies || models != payload.model_references {
         return Err(ArchiveError::Integrity);
     }
@@ -596,7 +775,7 @@ pub fn validate_archive(bytes: &[u8], cancel: &dyn Fn() -> bool) -> Result<Valid
         committed_turns: count,
         bytes: bytes.len(),
         payload_sha256: envelope.integrity.payload_sha256,
-        privacy_warning: WARNING.into(),
+        privacy_warning: if mixed { WARNING_V3 } else { WARNING }.into(),
         noncommitted_workflow_transferred: false,
     };
     Ok(ValidatedArchive {
@@ -653,8 +832,10 @@ impl Store {
         };
         let mut branches = Vec::new();
         let mut integrity = Vec::new();
-        let mut receipts = Vec::new();
+        let mut records = Vec::new();
         let mut receipt_bytes = 0usize;
+        let mut persisted_bytes = 0usize;
+        let mut mixed = false;
         {
             let mut query=tx.prepare("SELECT branch_id,parent_branch,fork_revision,head_revision FROM branches WHERE story_id=?1 ORDER BY branch_id LIMIT ?2")?;
             let mut rows = query.query(params![story, (MAX_ARCHIVE_BRANCHES + 1) as i64])?;
@@ -672,36 +853,38 @@ impl Store {
                     branch: id.clone(),
                 };
                 let engine = turns::read_engine_retained(&tx, &scope)?.engine;
-                // V1/V2 exports cannot silently omit private author records.
-                // The mixed-ledger archive3 adapter is a separate required gate.
-                if engine.domain_version() != 1 {
-                    return Err(ArchiveError::Unsupported);
-                }
-                for receipt in engine
-                    .receipts()
+                mixed |= engine.domain_version() == 2;
+                for record in engine
+                    .canonical_records()
                     .iter()
-                    .filter(|r| r.request().scope == scope)
+                    .filter(|r| r.original_scope() == &scope)
                 {
                     check(cancel)?;
+                    let response_size = encode(record)?.len();
+                    let input_size = request_bytes(record)?.len();
                     receipt_bytes = receipt_bytes
-                        .checked_add(encode(receipt)?.len())
+                        .checked_add(response_size)
+                        .ok_or(ArchiveError::TooLarge)?;
+                    persisted_bytes = persisted_bytes
+                        .checked_add(response_size)
+                        .and_then(|bytes| bytes.checked_add(input_size))
                         .ok_or(ArchiveError::TooLarge)?;
                     if receipt_bytes > MAX_HISTORY_BYTES {
                         return Err(ArchiveError::TooLarge);
                     }
                 }
                 let local_count = engine
-                    .receipts()
+                    .canonical_records()
                     .iter()
-                    .filter(|r| r.request().scope == scope)
+                    .filter(|r| r.original_scope() == &scope)
                     .count();
-                if receipts.len().saturating_add(local_count) > MAX_HISTORY_RECEIPTS {
+                if records.len().saturating_add(local_count) > MAX_HISTORY_RECEIPTS {
                     return Err(ArchiveError::TooLarge);
                 }
                 let local: Vec<_> = engine
-                    .receipts()
+                    .canonical_records()
                     .iter()
-                    .filter(|r| r.request().scope == scope)
+                    .filter(|r| r.original_scope() == &scope)
                     .cloned()
                     .collect();
                 let values = local
@@ -711,10 +894,11 @@ impl Store {
                     .map_err(|_| ArchiveError::Integrity)?;
                 integrity.push(BranchIntegrity {
                     id: id.clone(),
-                    receipts_sha256: digest(&values)?,
+                    receipts_sha256: None,
+                    records_sha256: Some(digest(&values)?),
                     canonical_state_sha256: sha256(&engine.canonical_bytes()),
                 });
-                receipts.extend(local);
+                records.extend(local);
                 branches.push(Branch {
                     id,
                     parent,
@@ -723,29 +907,46 @@ impl Store {
                         .transpose()
                         .map_err(|_| ArchiveError::Integrity)?,
                     head_revision: u64::try_from(head).map_err(|_| ArchiveError::Integrity)?,
-                    local_receipts: values,
+                    local_receipts: None,
+                    local_records: Some(values),
                 });
             }
         }
-        let (policies, models) = references(receipts.iter())?;
+        if mixed && source_database_schema_version != 5 {
+            return Err(ArchiveError::Unsupported);
+        }
+        if mixed && persisted_bytes > MAX_HISTORY_BYTES {
+            return Err(ArchiveError::TooLarge);
+        }
+        let (policies, models) = references(records.iter().filter_map(CanonicalRecord::receipt))?;
         check(cancel)?;
         tx.commit()?;
-        let version = if retired_branch_ids.is_empty() {
+        let version = if mixed {
+            ARCHIVE_VERSION_V3
+        } else if retired_branch_ids.is_empty() {
             ARCHIVE_VERSION_V1
         } else {
-            ARCHIVE_VERSION
+            ARCHIVE_VERSION_V2
         };
+        if !mixed {
+            for branch in &mut branches {
+                branch.local_receipts = branch.local_records.take();
+            }
+            for branch in &mut integrity {
+                branch.receipts_sha256 = branch.records_sha256.take();
+            }
+        }
         let payload = Payload {
-            domain_version: VERSION,
+            domain_version: if mixed { 2 } else { VERSION },
             source_database_schema_version,
             story: Story {
                 id: story.into(),
                 title,
                 seed,
             },
-            transcript: TRANSCRIPT.into(),
+            transcript: if mixed { TRANSCRIPT_V3 } else { TRANSCRIPT }.into(),
             branches,
-            retired_branch_ids: if retired_branch_ids.is_empty() {
+            retired_branch_ids: if retired_branch_ids.is_empty() && !mixed {
                 None
             } else {
                 Some(retired_branch_ids)
@@ -853,26 +1054,21 @@ impl Store {
         }
         for branch in &validated.branches {
             check(cancel)?;
-            for receipt in &branch.receipts {
+            for record in &branch.records {
                 check(cancel)?;
-                let request = receipt.request();
-                tx.execute("INSERT INTO turns(story_id,branch_id,turn_id,expected_revision,status,request_json,response_json) VALUES(?1,?2,?3,?4,'committed',?5,?6)",params![story.id,branch.branch.id,request.turn,integer(request.expected_revision)?,String::from_utf8(encode(request)?).map_err(|_|ArchiveError::Malformed)?,String::from_utf8(encode(receipt)?).map_err(|_|ArchiveError::Malformed)?])?;
-                for event in receipt.events() {
-                    check(cancel)?;
-                    tx.execute("INSERT INTO accepted_events(story_id,branch_id,sequence,turn_id,event_version,envelope_json) VALUES(?1,?2,?3,?4,1,?5)",params![story.id,branch.branch.id,integer(event.sequence())?,request.turn,String::from_utf8(encode(event)?).map_err(|_|ArchiveError::Malformed)?])?;
-                    for witness in event.witnesses() {
-                        tx.execute("INSERT INTO event_witnesses(story_id,branch_id,sequence,observer_id) VALUES(?1,?2,?3,?4)",params![story.id,branch.branch.id,integer(event.sequence())?,witness])?;
-                    }
+                if matches!(record, CanonicalRecord::AuthorV1(_)) {
+                    crate::author_correction::insert_author_record(&tx, record)?;
+                    continue;
                 }
-            }
-            // Retired prefixes are immutable replay sources, not playable cached
-            // targets. Keep the same cache-free normal form as real deletion.
-            if validated
-                .retired_branch_ids
-                .binary_search(&branch.branch.id)
-                .is_err()
-            {
-                tx.execute("INSERT INTO branch_projections(story_id,branch_id,revision,projection_version,projection_json) VALUES(?1,?2,?3,1,?4)",params![story.id,branch.branch.id,integer(branch.branch.head_revision)?,std::str::from_utf8(&branch.projection).map_err(|_|ArchiveError::Integrity)?])?;
+                let receipt = record.receipt().ok_or(ArchiveError::Integrity)?;
+                let request = receipt.request();
+                tx.execute("INSERT INTO turns(story_id,branch_id,turn_id,expected_revision,status,request_json,response_json,canonical_kind) VALUES(?1,?2,?3,?4,'committed',?5,?6,?7)",params![story.id,branch.branch.id,request.turn,integer(request.expected_revision)?,String::from_utf8(encode(request)?).map_err(|_|ArchiveError::Malformed)?,String::from_utf8(encode(record)?).map_err(|_|ArchiveError::Malformed)?,turns::canonical_kind(record)])?;
+                turns::insert_play_events(
+                    &tx,
+                    receipt,
+                    &|| check(cancel).map_err(|_| TurnError::Engine(Error::Cancelled)),
+                    &|| Ok(()),
+                )?;
             }
         }
         for branch in &validated.branches {
@@ -887,9 +1083,41 @@ impl Store {
                 .binary_search(&scope.branch)
                 .is_ok();
             if restored.engine.canonical_bytes() != branch.projection
-                || (!retired && restored.projection_needs_rebuild)
+                || restored.engine.revision() != branch.branch.head_revision
+                || !restored
+                    .engine
+                    .canonical_records()
+                    .iter()
+                    .filter(|record| record.original_scope() == &scope)
+                    .eq(branch.records.iter())
             {
                 return Err(ArchiveError::Integrity);
+            }
+            if let Some(basis) = &branch.basis {
+                if restored
+                    .engine
+                    .accepted_history_basis()
+                    .map_err(|error| ArchiveError::from(TurnError::Engine(error)))?
+                    != *basis
+                {
+                    return Err(ArchiveError::Integrity);
+                }
+            }
+            // Rebuild only active caches from the just-verified actual Store
+            // engine. Retired ancestry stays cache-free, as with real deletion.
+            if !retired {
+                turns::write_projection(&tx, &restored.engine)?;
+                let cached: (i64, u16, String) = tx.query_row(
+                    "SELECT revision,projection_version,projection_json FROM branch_projections WHERE story_id=?1 AND branch_id=?2",
+                    params![scope.story, scope.branch],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )?;
+                if cached.0 != integer(branch.branch.head_revision)?
+                    || cached.1 != restored.engine.domain_version()
+                    || cached.2.as_bytes() != branch.projection
+                {
+                    return Err(ArchiveError::Integrity);
+                }
             }
         }
         check(cancel)?;

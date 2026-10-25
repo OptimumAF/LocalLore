@@ -3,9 +3,41 @@ use crate::{
     archive::{self, ArchiveBroker},
     WorkspaceState,
 };
-use locallore::{contracts::Scope, inspection::ExportMode};
+use locallore::{
+    contracts::Scope,
+    host::Host,
+    inspection_query::{Observer, Query, View},
+};
 use serde_json::Value;
 use std::sync::Arc;
+#[cfg(test)]
+#[path = "archive_authorization_tests.rs"]
+mod archive_authorization_tests;
+
+// Reuse Host's native grant and exact durable session/scope/head checks without
+// constructing the legacy readable-inspection bundle to authorize a transfer.
+fn authorize_export(
+    host: &Host,
+    session: &str,
+    scope: &Scope,
+    expected_revision: u64,
+) -> Result<(), String> {
+    host.inspection_query(
+        session,
+        &Query {
+            version: 2,
+            scope: scope.clone(),
+            expected_head: expected_revision,
+            at_revision: None,
+            observer: Observer::Omniscient,
+            view: View::Profiles,
+            cursor: None,
+            limit: 1,
+            search: String::new(),
+        },
+    )
+    .map(|_| ())
+}
 fn epoch(window: &tauri::WebviewWindow, workspace: &WorkspaceState) -> Result<u64, String> {
     workspace
         .lease
@@ -55,9 +87,9 @@ pub async fn archive_export_preview(
     let path = workspace.path.clone();
     tauri::async_runtime::spawn_blocking(move || {
         broker.start(lease, e, move |work| {
-            // Existing trusted Host Full authorization and exact live session scope.
+            // Existing trusted Host private authorization and exact live session scope.
             // The archive subsequently checks its own coherent captured branch head.
-            host.inspection_snapshot(&session, &scope, expected_revision, ExportMode::Full)?;
+            authorize_export(&host, &session, &scope, expected_revision)?;
             archive::capture(work, &path, &scope.story, &scope.branch, expected_revision)
         })
     })

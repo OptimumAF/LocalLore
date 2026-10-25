@@ -275,10 +275,11 @@ internal object ArchiveNativeWire {
         data.keysExactly("token", "preview")
         val token = data.integer("token").also { require(it > 0) }
         val preview = data.getJSONObject("preview")
-        val version = preview.integer("version").also { require(it in 1..2) }
+        val version = preview.integer("version").also { require(it in 1..3) }
+        val hasRetired = preview.has("retired_branch_ids")
         val fields = listOf("version", "story_id", "title", "root_branch", "branch_heads", "committed_turns", "bytes",
             "payload_sha256", "privacy_warning", "noncommitted_workflow_transferred") +
-            if (version == 2L) listOf("retired_branch_ids") else emptyList()
+            if (version == 2L || (version == 3L && hasRetired)) listOf("retired_branch_ids") else emptyList()
         preview.keysExactly(*fields.toTypedArray())
         val story = preview.identifier("story_id")
         val root = preview.identifier("root_branch")
@@ -288,9 +289,11 @@ internal object ArchiveNativeWire {
             require(validArchiveId(branch)); headsObject.integer(branch)
         }
         require(root in heads)
-        val retired = if (version == 2L) {
+        // V1 omits retirement metadata, V2 requires a nonempty list, and V3
+        // accepts producer omission or an explicit array (including empty).
+        val retired = if (hasRetired) {
             val ids = preview.getJSONArray("retired_branch_ids")
-            require(ids.length() in 1..256)
+            require(ids.length() in (if (version == 2L) 1 else 0)..256)
             (0 until ids.length()).map { (ids.get(it) as String).also { id -> require(validArchiveId(id)) } }
                 .also { idsList ->
                     require(idsList.zipWithNext().all { (a,b) -> a < b } && root !in idsList)

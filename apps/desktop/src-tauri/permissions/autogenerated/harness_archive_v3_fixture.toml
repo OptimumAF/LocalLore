@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-harness-archive-v3-fixture"
+description = "Enables the harness_archive_v3_fixture command without any pre-configured scope."
+commands.allow = ["harness_archive_v3_fixture"]
+
+[[permission]]
+identifier = "deny-harness-archive-v3-fixture"
+description = "Denies the harness_archive_v3_fixture command without any pre-configured scope."
+commands.deny = ["harness_archive_v3_fixture"]

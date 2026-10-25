@@ -5,6 +5,8 @@ use std::sync::Arc;
 use tauri::Manager;
 mod archive;
 mod archive_commands;
+#[cfg(feature = "dev-harness")]
+mod archive_v3_harness;
 mod author_commands;
 #[cfg(feature = "dev-harness")]
 mod author_harness;
@@ -159,7 +161,10 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
             std::env::var("LOCALLORE_D08_FORK_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_M07_MEMORY_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_M08_AUTHOR_HARNESS").as_deref() == Ok("1"),
-            match std::env::var("LOCALLORE_D08_STAGE").as_deref(){Ok("import")=>"import",Ok("uncertain")=>"uncertain",Ok("retire")=>"retire",Ok("restarted")=>"restarted",_=>"source"},
+            match std::env::var("LOCALLORE_D08_STAGE").as_deref(){
+                Ok("import")=>"import",Ok("uncertain")=>"uncertain",Ok("retire")=>"retire",Ok("restarted")=>"restarted",
+                Ok("v3-source")=>"v3-source",Ok("v3-import")=>"v3-import",Ok("v3-restarted")=>"v3-restarted",Ok("v3-uncertain")=>"v3-uncertain",Ok("v3-continued")=>"v3-continued",Ok("v3-continued-restarted")=>"v3-continued-restarted",_=>"source"
+            },
             if reopened {
                 "reopened"
             } else if std::env::var("LOCALLORE_TEST_RESTART").as_deref() == Ok("1") {
@@ -310,6 +315,7 @@ fn main() {
             archive_commands::archive_cancel,
             archive_commands::archive_discard,
             archive_commands::harness_archive_case,
+            archive_v3_harness::harness_archive_v3_fixture,
             evaluation_commands::evaluation_catalog,
             evaluation_commands::evaluation_curated,
             evaluation_commands::evaluation_start,

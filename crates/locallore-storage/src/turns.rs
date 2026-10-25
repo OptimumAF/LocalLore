@@ -410,6 +410,36 @@ pub(crate) fn write_projection(connection: &Connection, engine: &Engine) -> Resu
     Ok(())
 }
 
+/// Normalize actual play events within the caller's transaction. Callback
+/// positions preserve ordinary commit fault checkpoints and archive cancellation.
+pub(crate) fn insert_play_events(
+    connection: &Connection,
+    receipt: &Receipt,
+    before_event: &dyn Fn() -> Result<()>,
+    after_event: &dyn Fn() -> Result<()>,
+) -> Result<()> {
+    let request = receipt.request();
+    for event in receipt.events() {
+        before_event()?;
+        connection.execute(
+            "INSERT INTO accepted_events(story_id,branch_id,sequence,turn_id,event_version,envelope_json) VALUES (?1,?2,?3,?4,1,?5)",
+            (
+                &request.scope.story,
+                &request.scope.branch,
+                sql_revision(event.sequence())?,
+                &request.turn,
+                serde_json::to_string(event).map_err(|_| TurnError::Integrity)?,
+            ),
+        )?;
+        after_event()?;
+        for observer in event.witnesses() {
+            connection.execute("INSERT INTO event_witnesses(story_id,branch_id,sequence,observer_id) VALUES (?1,?2,?3,?4)",
+                (&request.scope.story,&request.scope.branch,sql_revision(event.sequence())?,observer))?;
+        }
+    }
+    Ok(())
+}
+
 impl Store {
     /// A coherent read transaction; ignores the derived projection and returns validated replay.
     pub fn resume(&mut self, scope: &Scope) -> Result<ResumedStory> {
@@ -737,23 +767,7 @@ impl Store {
             return Err(TurnError::TooLarge);
         }
         checkpoint(0)?;
-        for event in receipt.events() {
-            tx.execute(
-                "INSERT INTO accepted_events(story_id,branch_id,sequence,turn_id,event_version,envelope_json) VALUES (?1,?2,?3,?4,1,?5)",
-                (
-                    &request.scope.story,
-                    &request.scope.branch,
-                    sql_revision(event.sequence())?,
-                    &request.turn,
-                    serde_json::to_string(event).map_err(|_| TurnError::Integrity)?,
-                ),
-            )?;
-            checkpoint(1)?;
-            for observer in event.witnesses() {
-                tx.execute("INSERT INTO event_witnesses(story_id,branch_id,sequence,observer_id) VALUES (?1,?2,?3,?4)",
-                    (&request.scope.story,&request.scope.branch,sql_revision(event.sequence())?,observer))?;
-            }
-        }
+        insert_play_events(&tx, &receipt, &|| Ok(()), &|| checkpoint(1))?;
         checkpoint(2)?;
         write_projection(&tx, &resumed.engine)?;
         checkpoint(3)?;

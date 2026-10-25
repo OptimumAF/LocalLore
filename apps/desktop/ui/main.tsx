@@ -50,7 +50,17 @@ declare global {
             maintaining?: boolean;
             authoring?: boolean;
             archiveStage?:
-                "source" | "import" | "restarted" | "uncertain" | "retire";
+                | "source"
+                | "import"
+                | "restarted"
+                | "uncertain"
+                | "retire"
+                | "v3-source"
+                | "v3-import"
+                | "v3-restarted"
+                | "v3-continued"
+                | "v3-continued-restarted"
+                | "v3-uncertain";
         };
     }
 }
@@ -653,15 +663,29 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
             config: window.__LOCALLORE_TEST__,
         });
     } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.archiving) {
-        const { archiveJourneys } = await import("./archive-journeys");
-        await archiveJourneys({
-            controller,
-            archive,
-            errors,
-            invoke,
-            dispose,
-            config: window.__LOCALLORE_TEST__,
-        });
+        if (window.__LOCALLORE_TEST__.archiveStage?.startsWith("v3-")) {
+            const { archiveV3Journeys } = await import("./archive-v3-journeys");
+            await archiveV3Journeys({
+                controller,
+                archive,
+                v2,
+                retention: brokerRetention,
+                errors,
+                invoke,
+                dispose,
+                config: window.__LOCALLORE_TEST__,
+            });
+        } else {
+            const { archiveJourneys } = await import("./archive-journeys");
+            await archiveJourneys({
+                controller,
+                archive,
+                errors,
+                invoke,
+                dispose,
+                config: window.__LOCALLORE_TEST__,
+            });
+        }
     } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.evaluating) {
         const { evaluationJourneys } = await import("./evaluation-journeys");
         await evaluationJourneys({

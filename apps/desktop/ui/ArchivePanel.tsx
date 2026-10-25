@@ -13,7 +13,7 @@ export function ArchivePanel({
     allowed: boolean;
 }) {
     const s = useSyncExternalStore(a.subscribe, a.get, a.get),
-        play = c.get().play,
+        play = c.get().play ?? c.get().playV2,
         session = c.selected();
     if (!allowed || !a.matchesContext(context)) return null;
     if (!s.shown)
@@ -38,9 +38,9 @@ export function ArchivePanel({
                 inspection snapshot.
             </p>
             <p>
-                Versions 1 and 2 · maximum 32 MiB · 32 physical branches ·
-                accepted history only. Branch switching and author corrections
-                are unavailable in this panel.
+                Maximum 32 MiB · 32 physical branches · accepted history only.
+                Branch switching and author corrections are unavailable in this
+                panel.
             </p>
             <div className="archive-actions">
                 <button disabled={s.busy} onClick={() => void c.library()}>
@@ -48,15 +48,39 @@ export function ArchivePanel({
                 </button>
                 <button
                     disabled={s.busy || !session || !play}
-                    onClick={() =>
-                        session &&
-                        play &&
+                    onClick={() => {
+                        if (
+                            !allowed ||
+                            !a.matchesContext(context) ||
+                            !session ||
+                            !play
+                        )
+                            return;
+                        const currentSession = c.selected(),
+                            currentPlay = c.get().play ?? c.get().playV2;
+                        // A retained callback cannot export a different selection
+                        // or use an obsolete head after a newer render is available.
+                        if (
+                            !currentSession ||
+                            !currentPlay ||
+                            currentSession.id !== session.id ||
+                            currentSession.scope.story !==
+                                session.scope.story ||
+                            currentSession.scope.branch !==
+                                session.scope.branch ||
+                            currentPlay.revision !== play.revision ||
+                            currentPlay.scope.story !== play.scope.story ||
+                            currentPlay.scope.branch !== play.scope.branch ||
+                            play.scope.story !== session.scope.story ||
+                            play.scope.branch !== session.scope.branch
+                        )
+                            return;
                         void a.previewExport(
                             session.id,
                             session.scope,
                             play.revision,
-                        )
-                    }
+                        );
+                    }}
                 >
                     Preview private export
                 </button>
@@ -94,13 +118,25 @@ export function ArchivePanel({
                         <dd>{p.root_branch}</dd>
                         <dt>Archive version</dt>
                         <dd>{p.version}</dd>
-                        <dt>Accepted turns</dt>
+                        <dt>
+                            {p.version === 3
+                                ? "Accepted records"
+                                : "Accepted turns"}
+                        </dt>
                         <dd>{p.committed_turns}</dd>
                         <dt>Bytes</dt>
                         <dd>{p.bytes}</dd>
                         <dt>Payload SHA256</dt>
                         <dd>{p.payload_sha256}</dd>
                     </dl>
+                    {p.version === 3 && (
+                        <p>
+                            Accepted records include play and author
+                            corrections. This private archive includes
+                            correction reasons, prior truth and private
+                            discovery source bindings.
+                        </p>
+                    )}
                     <table>
                         <caption>Captured physical branch heads</caption>
                         <thead>

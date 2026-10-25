@@ -799,9 +799,13 @@ impl EvaluationManager {
             return Ok(value);
         }
         #[cfg(test)]
-        if let Some((entered, release)) = SELECTED_START_PRECHECK_PAUSE.with(|hook| hook.borrow_mut().take()) {
+        if let Some((entered, release)) =
+            SELECTED_START_PRECHECK_PAUSE.with(|hook| hook.borrow_mut().take())
+        {
             entered.send(()).map_err(|_| "EvaluationInternal")?;
-            release.recv_timeout(Duration::from_secs(5)).map_err(|_| "EvaluationInternal")?;
+            release
+                .recv_timeout(Duration::from_secs(60))
+                .map_err(|_| "EvaluationInternal")?;
         }
         let client = client.to_owned();
         let token = token.to_owned();

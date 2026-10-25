@@ -7,6 +7,9 @@ use locallore::inspection_query::{Observer, View};
 use locallore_eval::local_lane::{comparison as producer, LaneFactory};
 use std::sync::{atomic::Ordering, OnceLock};
 
+#[path = "open_replacement_review_tests.rs"]
+mod open_replacement_review_tests;
+
 type Inventory = BTreeMap<PathBuf, Option<Vec<u8>>>;
 fn inventory(root: &Path) -> Inventory {
     fn walk(root: &Path, dir: &Path, depth: usize, bytes: &mut usize, out: &mut Inventory) {

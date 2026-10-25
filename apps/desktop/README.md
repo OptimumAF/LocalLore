@@ -93,7 +93,7 @@ control and device security still apply.
 If local worker cleanup cannot be confirmed, the app keeps that worker reserved
 and blocks import/load. Choose **Unload model** to retry cleanup; a failed or
 retired window does not grant permission to start a replacement. This uses the
-same runtime and model manager, with no automatic retry or fake-provider fallback.
+same runtime and model manager, with no automatic inference retry or fake-provider fallback.
 The [cleanup qualification](../../docs/desktop/D07_OWNED_RUNTIME_CLEANUP_QUALIFICATION_2026-10-25.md)
 separates fixed-worker Rust tests, synthetic frontend checks and unrun native/model gates.
 

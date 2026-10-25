@@ -1,10 +1,10 @@
 # Owned runtime cleanup qualification — 2026-10-25
 
 Refs #29 D07.06, supporting #25 D04.02/.03 and D09.06.
-**Measured focused prerequisite; Root review/acceptance remains separate.**
+**Measured focused prerequisite; GitHub owns review and acceptance status.**
 This is a focused ownership prerequisite, not native selected-case execution,
 model-quality acceptance, or completion of D07/D04/D09.
-Draft PR: [#166](https://github.com/OptimumAF/LocalLore/pull/166).
+PR: [#166](https://github.com/OptimumAF/LocalLore/pull/166).
 
 ## Source and evidence boundary
 
@@ -16,8 +16,8 @@ Final compatibility/build source is `e31e4908c0f66604d54826de7bd990952637b0c2`.
 Its difference from3bafb is the new panel checker, verifier registration,
 ModelPanel/checker formatting and contract documentation; no Rust source changed.
 The [frozen contract](D07_OWNED_RUNTIME_CLEANUP_CONTRACT_2026-10-25.md) defines the
-owner-retention behavior. Its historical UNIMPLEMENTED banner records its freeze
-time; the measurements in this report describe the subsequent implementation.
+owner-retention behavior. Implementation and new tests were absent at its
+initial freeze; these measurements describe the subsequent implementation.
 
 Root ran all commands serially. This document's author read source, terminal
 logs/process records and review comments, and edited this report only. No command
@@ -271,7 +271,7 @@ separate from IPC, actual native WebView rendering and app-owned render images.
 
 No model weights were loaded or inferred, no physical device check ran, and no
 new offline/licensing/model-quality/hardware qualification is claimed. Android
-Rust-host compatibility, if appended, is distinct from JNI/Gradle/device testing.
+Rust-host compatibility is distinct from JNI/Gradle/device testing.
 No protected chat/resources, desktop control, unrelated application automation,
 release or repository-setting change was part of this work.
 
@@ -280,4 +280,5 @@ remain unavailable. The next runnable task is Root's separately frozen native
 selected-driver allocation using this retained-owner prerequisite, with actual
 generation and cleanup/recovery evidence before consumer exposure. Existing
 canonical history, old recorded Play validators and retry bytes remain authoritative.
-Task status is a focused prerequisite under review, not whole-milestone done.
+The issues own acceptance status for this prerequisite and the remaining gates;
+these measurements do not establish whole-milestone completion.

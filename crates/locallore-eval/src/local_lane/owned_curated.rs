@@ -58,7 +58,9 @@ pub fn run_native_curated_owned<R: NativeReservation>(
 ) -> std::result::Result<Report, NativeFailure<R>> {
     let entry_started = Instant::now();
     #[cfg(test)]
-    let entry_started = ENTRY_STARTED_OVERRIDE.with(|clock| clock.take()).unwrap_or(entry_started);
+    let entry_started = ENTRY_STARTED_OVERRIDE
+        .with(|clock| clock.take())
+        .unwrap_or(entry_started);
     let failure = NativeFailure::<R>::from_error;
     if !(1..=6).contains(&max_new_stories) {
         return Err(failure("CaseBudget".into()));

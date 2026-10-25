@@ -1,6 +1,8 @@
 # Proposed comparison GUI and shared facade contract — 2026-10-24
 
-Refs #29 D07.01/.02/.05/.06, partial. **PROPOSED / UNIMPLEMENTED.**
+Refs #29 D07.01/.02/.05/.06, partial. **UNIMPLEMENTED.** The coordinator's
+Gate1 reader contract at the end is now frozen for tests; other interfaces
+in this original proposal remain proposed.
 This document requests coordinator review; it is not implementation approval,
 an executed comparison, a frozen test implementation, or milestone acceptance.
 Root owns decisions, source allocation, integration and all actual execution.
@@ -376,3 +378,106 @@ Next runnable task is Root review of this proposal and signature/path allocation
 then the first frozen shared facade/selected-plan tests. This document reports no
 implementation, runtime versions newly queried, measurements, approval score,
 merge/release or completed D07 gate.
+
+## Coordinator Gate1 decision — 2026-10-24
+
+Root reviewed the proposal and actual producer/reader sources, then integrated
+accepted main `a06109893d678bc8b3b28c5d5ca9d1a4529fdf54` into the reused
+worktree on `impl/d07-comparison-view` (integration `7861454d`). Only this
+proposal differs from that accepted tree. Claim:
+[#29 6393104388](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6393104388).
+The following reader API and tests are frozen first. Selected execution,
+native/GUI write commands and all migration proposals remain unapproved.
+
+Root owns `comparison.rs`, new `comparison/desktop_api.rs`, this document and
+only a minimal reusable directory-pin/read-lock helper extraction in the
+existing curated `local_lane/desktop_api.rs`. The independent test writer will
+own only new `tests/comparison_desktop_review.rs` on a separate worktree.
+No provider, model assets, invocation, ledger settlement, report publication,
+database migration, canonical write or new dependency is allowed in the reader.
+
+Public API under `local_lane::comparison::desktop_api`:
+
+```rust
+use locallore::inspection_query::{Observer, View};
+use serde_json::Value;
+use std::path::Path;
+
+pub enum Arm { Left, Right } // Clone + Copy + Debug + Eq + PartialEq
+pub struct RowId { pub turn: String, pub arm: Arm } // ordinary typed identity
+pub enum Edge { Before, After } // Clone + Copy + Debug + Eq + PartialEq
+pub enum EvidenceRequest {
+    Query { edge: Edge, observer: Observer, view: View },
+    Receipt { observer: Observer },
+    Capture { observer: Observer },
+    Outputs { observer: Observer },
+}
+pub struct OpenedComparison { /* private fields, no Debug/serde/Clone */ }
+pub fn open_read_only(dir: &Path) -> Result<OpenedComparison, String>;
+pub fn summary(run: &OpenedComparison, native_inspection_granted: bool)
+    -> Result<Value, String>;
+pub fn evidence(run: &OpenedComparison, expected_binding: &str,
+    row: &RowId, request: EvidenceRequest, native_inspection_granted: bool)
+    -> Result<Value, String>;
+```
+
+The returned JSON is data, never an accepted-history or permission capability.
+Private Core objects remain opaque and unchanged. Gate1 summary has exactly:
+`version:1`, `protocol_version:2`, a64-character native-computed `binding`,
+the actual reconstructed `report`, `rows`, `read_only:true`,
+`execution_available:false`, and `unavailable` listing
+`selected_rerun_not_implemented` / `full_comparison_gui_not_implemented`.
+This supersedes the proposed `resume_allowed`/`selected_rerun_allowed` booleans:
+a matching source alone must not imply execution/resource permission.
+The binding hashes the validated snapshot/report/row-source identity, including
+its original source and actual hashes; it is a drift fence, not authentication.
+
+Each row contains `row:{turn,arm}`, `source:{status:"available",scope,
+before_head,after_head,input_semantic_sha256}`, `capture_available`,
+`receipt_available`, `recording_available`, and `unavailable`. Values come from
+actual validated StoredTurn/Core data. A required missing/corrupt database or
+checkpoint is an integrity failure; do not disguise it as missing optional data.
+All current valid producer rows require reconstructable source. Existing report
+values, absent estimates, unknown roles, null timings and limitations remain
+unchanged; no scope/head is guessed from row ordinal or admission index.
+
+Every evidence reply contains `version:1`, `binding`, `row`, `scope`,
+`before_head`, `after_head`, `observer`, `edge`, `read_only:true`,
+`generation_grant:false`, and one `body`:
+
+- `kind:"query", page:<actual Query2 page>` for the requested actual edge.
+- `kind:"receipt", receipt:<actual accepted receipt>` at edge `after`.
+- `kind:"capture", capture:<validated recorded capture>` with edge null.
+- `kind:"outputs", outputs:[{role,bytes,sha256,text}]` with edge null.
+- `kind:"missing", reason:<closed missing reason>` for an optional absence.
+
+Capture/output evidence spans actual recorded stages; a null edge does not
+pretend they all came from one before/after context. Closed missing reasons are
+`capture_unavailable`, `recording_unavailable`, `no_accepted_receipt`.
+Present required evidence that fails its producer hash/semantic checks is an
+error, not a missing capture. A guard-only row has no invented accepted receipt.
+Query2 uses no search/cursor, its existing bounded page and explicit head/scope;
+this gate supplies one bounded page, not an invented full-history view.
+
+Missing native inspection grant returns `Forbidden` for summary and evidence.
+Receipt/capture/output additionally require `Observer::Omniscient`; a granted
+actor query still uses Rust's actual Query2 filtering. Wrong snapshot binding
+returns `SnapshotMismatch`; unknown row returns `UnknownRow`. Existing source
+integrity failures retain fixed errors without paths/story content. Readonly
+opening requires an existing ordinary `run.lock`, rejects a held writer lock,
+pins owned ancestors/known child directories and creates nothing. The snapshot
+must remain coherent; evidence may revalidate source under that retained lock.
+Summary is capped at2 MiB/48 rows; Query2 keeps its64 KiB page cap, capture keeps
+196608 bytes and the complete evidence envelope is capped at256 KiB. Refuse
+oversized evidence explicitly rather than truncating it as complete.
+
+First frozen tests use actual scripted paired and rollout producers. They check
+report equality/derived scope and heads, exact before/after Query2 actor views,
+private raw-evidence denial, wrong row/binding/grant, honest guard/missing data,
+actual corrupt evidence refusal, existing/held/missing lock behavior and complete
+inventory/ledger nonmutation. A genuine retained historical opt-in fixture must
+preserve its original bytes and source mismatch; never synthesize a historical
+report by editing source labels. No provider/execution inputs exist in this API;
+no inference/model/runtime result is inferred from reader compilation or metadata.
+Root will retain the first compile/behavior results separately, then proceed
+through native/UI and the independently frozen selected-run prerequisite.

@@ -13,7 +13,11 @@ use locallore_eval::local_lane::comparison::{
 use locallore_storage::Store;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::{collections::BTreeMap, fs, path::{Path, PathBuf}};
+use std::{
+    collections::BTreeMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
 const HISTORY_ENV: &str = "LOCALLORE_SELECTED_NATIVE_HISTORY";
 type Inventory = BTreeMap<PathBuf, Option<Vec<u8>>>;
@@ -26,7 +30,11 @@ fn inventory(root: &Path) -> Inventory {
         #[cfg(windows)]
         {
             use std::os::windows::fs::MetadataExt;
-            assert_eq!(metadata.file_attributes() & 0x400, 0, "no retained reparse entries");
+            assert_eq!(
+                metadata.file_attributes() & 0x400,
+                0,
+                "no retained reparse entries"
+            );
         }
         let relative = path.strip_prefix(root).unwrap().to_owned();
         if metadata.is_dir() {
@@ -56,25 +64,43 @@ fn database(directory: &Path) -> PathBuf {
     for (count, entry) in fs::read_dir(directory).unwrap().enumerate() {
         assert!(count < 512);
         let path = entry.unwrap().path();
-        if path.extension().is_some_and(|extension| extension == "sqlite") {
+        if path
+            .extension()
+            .is_some_and(|extension| extension == "sqlite")
+        {
             databases.push(path);
         }
     }
-    assert_eq!(databases.len(), 1, "actual isolated selected arm has one canonical Store");
+    assert_eq!(
+        databases.len(),
+        1,
+        "actual isolated selected arm has one canonical Store"
+    );
     databases.pop().unwrap()
 }
 fn keys(value: &Value) -> Vec<&str> {
-    value.as_object().unwrap().keys().map(String::as_str).collect()
+    value
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect()
 }
 fn digest(value: &Value) -> String {
-    Sha256::digest(serde_json::to_vec(value).unwrap()).iter().map(|byte| format!("{byte:02x}")).collect()
+    Sha256::digest(serde_json::to_vec(value).unwrap())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 #[test]
 #[ignore = "requires explicit LOCALLORE_SELECTED_NATIVE_HISTORY naming genuine prior approved-native completed Move4 target; no assets/execution"]
 fn genuine_native_selected_read_cap_matches_store_query2_and_raw_evidence_twice_without_writes() {
     let directory = PathBuf::from(std::env::var_os(HISTORY_ENV).expect(HISTORY_ENV));
-    assert!(directory.is_absolute(), "explicit genuine retained target only");
+    assert!(
+        directory.is_absolute(),
+        "explicit genuine retained target only"
+    );
     let original = inventory(&directory);
     let manifest = bounded_json(&directory.join("selected.json"), 128 * 1024);
     assert_eq!(manifest["version"], 1);
@@ -90,36 +116,77 @@ fn genuine_native_selected_read_cap_matches_store_query2_and_raw_evidence_twice_
         let mut evidence = Vec::new();
         let mut saw_actual_capture = false;
         {
-            let opened = desktop_read::open_read_only(&directory).expect("genuine completed selected read capability");
-            assert_eq!(desktop_read::summary(&opened, false).unwrap_err(), "Forbidden");
+            let opened = desktop_read::open_read_only(&directory)
+                .expect("genuine completed selected read capability");
+            assert_eq!(
+                desktop_read::summary(&opened, false).unwrap_err(),
+                "Forbidden"
+            );
             let summary = desktop_read::summary(&opened, true).unwrap();
-            assert_eq!(keys(&summary), ["arms", "binding", "execution_available", "kind", "lane", "read_only", "selection", "version"]);
+            assert_eq!(
+                keys(&summary),
+                [
+                    "arms",
+                    "binding",
+                    "execution_available",
+                    "kind",
+                    "lane",
+                    "read_only",
+                    "selection",
+                    "version"
+                ]
+            );
             assert_eq!(summary["version"], 1);
             assert_eq!(summary["kind"], "selected_read");
             assert_eq!(summary["lane"], "native_selected_case");
             assert_eq!(summary["read_only"], true);
             assert_eq!(summary["execution_available"], false);
             assert!(summary["selection"] == manifest["selection"]);
-            assert_eq!(keys(&summary["selection"]), ["clicked_arm", "index", "turn"]);
+            assert_eq!(
+                keys(&summary["selection"]),
+                ["clicked_arm", "index", "turn"]
+            );
             let binding = summary["binding"].as_str().unwrap();
-            assert!(binding.len() == 64 && binding.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()));
+            assert!(
+                binding.len() == 64
+                    && binding
+                        .bytes()
+                        .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+            );
             assert_eq!(summary["arms"].as_array().unwrap().len(), 2);
 
-            for (index, (name, arm)) in [("left", Arm::Left), ("right", Arm::Right)].into_iter().enumerate() {
-                let request: Request = serde_json::from_value(manifest["source_inputs"][index]["request"].clone()).unwrap();
+            for (index, (name, arm)) in [("left", Arm::Left), ("right", Arm::Right)]
+                .into_iter()
+                .enumerate()
+            {
+                let request: Request =
+                    serde_json::from_value(manifest["source_inputs"][index]["request"].clone())
+                        .unwrap();
                 let path = database(&directory.join(name));
                 let mut store = Store::open_read_only(&path).unwrap();
                 let full = store.resume(&request.scope).unwrap().engine;
-                let receipt = store.lookup_turn(&request.scope, &request.turn).unwrap().receipt.expect("actual native committed receipt");
-                assert!(receipt.request() == &request, "actual full Request, not reported row identity alone");
+                let receipt = store
+                    .lookup_turn(&request.scope, &request.turn)
+                    .unwrap()
+                    .receipt
+                    .expect("actual native committed receipt");
+                assert!(
+                    receipt.request() == &request,
+                    "actual full Request, not reported row identity alone"
+                );
                 assert!(receipt.play().is_some(), "genuine accepted Play metadata");
                 assert_eq!(full.domain_version(), 1);
                 assert!(full.state().actors.contains_key("sable"));
-                let before_head = manifest["source_inputs"][index]["before_head"].as_u64().unwrap();
+                let before_head = manifest["source_inputs"][index]["before_head"]
+                    .as_u64()
+                    .unwrap();
                 let after_head = full.revision();
                 assert!(after_head > before_head);
                 let metadata = &summary["arms"][index];
-                assert_eq!(keys(metadata), ["after_head", "arm", "available", "before_head", "scope"]);
+                assert_eq!(
+                    keys(metadata),
+                    ["after_head", "arm", "available", "before_head", "scope"]
+                );
                 assert_eq!(metadata["arm"], name);
                 assert_eq!(metadata["available"], true);
                 assert_eq!(metadata["before_head"], before_head);
@@ -129,19 +196,50 @@ fn genuine_native_selected_read_cap_matches_store_query2_and_raw_evidence_twice_
                 let after = full.at_revision(after_head).unwrap();
 
                 for observer in [Observer::Player, Observer::Character { id: "sable".into() }] {
-                    for (edge, edge_name, cut) in [(Edge::Before, "before", &before), (Edge::After, "after", &after)] {
+                    for (edge, edge_name, cut) in [
+                        (Edge::Before, "before", &before),
+                        (Edge::After, "after", &after),
+                    ] {
                         for view in [View::History, View::Knowledge] {
-                            let expected = inspection_query::query(cut, &Query {
-                                version: 2, scope: cut.scope().clone(), expected_head: cut.revision(),
-                                at_revision: None, observer: observer.clone(), view,
-                                cursor: None, limit: MAX_ROWS, search: String::new(),
-                            }, true).unwrap();
+                            let expected = inspection_query::query(
+                                cut,
+                                &Query {
+                                    version: 2,
+                                    scope: cut.scope().clone(),
+                                    expected_head: cut.revision(),
+                                    at_revision: None,
+                                    observer: observer.clone(),
+                                    view,
+                                    cursor: None,
+                                    limit: MAX_ROWS,
+                                    search: String::new(),
+                                },
+                                true,
+                            )
+                            .unwrap();
                             assert_eq!(expected.head, cut.revision());
                             assert_eq!(expected.revision, cut.revision());
                             if matches!(observer, Observer::Character { .. }) {
-                                assert!(expected.rows.iter().all(|row| !matches!(row, Row::Message { .. } | Row::ScopedMessage { .. })), "NPC history excludes player input and whole narration");
+                                assert!(
+                                    expected.rows.iter().all(|row| !matches!(
+                                        row,
+                                        Row::Message { .. } | Row::ScopedMessage { .. }
+                                    )),
+                                    "NPC history excludes player input and whole narration"
+                                );
                             }
-                            let actual = desktop_read::evidence(&opened, binding, arm, EvidenceRequest::Query { edge, observer: observer.clone(), view }, true).unwrap();
+                            let actual = desktop_read::evidence(
+                                &opened,
+                                binding,
+                                arm,
+                                EvidenceRequest::Query {
+                                    edge,
+                                    observer: observer.clone(),
+                                    view,
+                                },
+                                true,
+                            )
+                            .unwrap();
                             assert_eq!(actual["binding"], binding);
                             assert_eq!(actual["row"]["turn"], request.turn);
                             assert_eq!(actual["row"]["arm"], name);
@@ -154,25 +252,59 @@ fn genuine_native_selected_read_cap_matches_store_query2_and_raw_evidence_twice_
                         }
                     }
                     // Actor raw denial also precedes even a deliberately stale binding.
-                    for raw in [EvidenceRequest::Receipt { observer: observer.clone() }, EvidenceRequest::Capture { observer }] {
-                        assert_eq!(desktop_read::evidence(&opened, "stale-binding", arm, raw, true).unwrap_err(), "Forbidden");
+                    for raw in [
+                        EvidenceRequest::Receipt {
+                            observer: observer.clone(),
+                        },
+                        EvidenceRequest::Capture { observer },
+                    ] {
+                        assert_eq!(
+                            desktop_read::evidence(&opened, "stale-binding", arm, raw, true)
+                                .unwrap_err(),
+                            "Forbidden"
+                        );
                     }
                 }
 
-                let raw = desktop_read::evidence(&opened, binding, arm, EvidenceRequest::Receipt { observer: Observer::Omniscient }, true).unwrap();
+                let raw = desktop_read::evidence(
+                    &opened,
+                    binding,
+                    arm,
+                    EvidenceRequest::Receipt {
+                        observer: Observer::Omniscient,
+                    },
+                    true,
+                )
+                .unwrap();
                 assert_eq!(raw["body"]["kind"], "receipt");
-                assert!(raw["body"]["receipt"] == serde_json::to_value(&receipt).unwrap(), "raw receipt is the actual validated Store result");
+                assert!(
+                    raw["body"]["receipt"] == serde_json::to_value(&receipt).unwrap(),
+                    "raw receipt is the actual validated Store result"
+                );
                 assert_eq!(raw["generation_grant"], false);
                 evidence.push(raw);
 
-                let checkpoint = bounded_json(&directory.join(name).join("attempt-04.json"), 256 * 1024);
-                let capture = desktop_read::evidence(&opened, binding, arm, EvidenceRequest::Capture { observer: Observer::Omniscient }, true).unwrap();
+                let checkpoint =
+                    bounded_json(&directory.join(name).join("attempt-04.json"), 256 * 1024);
+                let capture = desktop_read::evidence(
+                    &opened,
+                    binding,
+                    arm,
+                    EvidenceRequest::Capture {
+                        observer: Observer::Omniscient,
+                    },
+                    true,
+                )
+                .unwrap();
                 if checkpoint["capture_file"].is_null() {
                     assert_eq!(capture["body"]["kind"], "missing");
                     assert_eq!(capture["body"]["reason"], "capture_unavailable");
                 } else {
                     assert_eq!(capture["body"]["kind"], "capture");
-                    assert_eq!(digest(&capture["body"]["capture"]), checkpoint["row"]["capture_sha256"].as_str().unwrap());
+                    assert_eq!(
+                        digest(&capture["body"]["capture"]),
+                        checkpoint["row"]["capture_sha256"].as_str().unwrap()
+                    );
                     saw_actual_capture = true;
                 }
                 assert_eq!(capture["generation_grant"], false);
@@ -180,14 +312,23 @@ fn genuine_native_selected_read_cap_matches_store_query2_and_raw_evidence_twice_
             }
             assert!(saw_actual_capture, "genuine retained Move target preserves at least one original native capture; recovered missing captures stay honest");
             if let Some(previous) = &first_summary {
-                assert!(*previous == summary, "identical reopened source metadata/binding");
+                assert!(
+                    *previous == summary,
+                    "identical reopened source metadata/binding"
+                );
             } else {
                 first_summary = Some(summary);
             }
         } // Drop the opaque run.lock capability and every Store before inventory.
-        assert!(inventory(&directory) == original, "read capability changed retained source bytes/directories");
+        assert!(
+            inventory(&directory) == original,
+            "read capability changed retained source bytes/directories"
+        );
         if let Some(previous) = &first_evidence {
-            assert!(*previous == evidence, "repeat evidence is stable under the same validated source");
+            assert!(
+                *previous == evidence,
+                "repeat evidence is stable under the same validated source"
+            );
         } else {
             first_evidence = Some(evidence);
         }

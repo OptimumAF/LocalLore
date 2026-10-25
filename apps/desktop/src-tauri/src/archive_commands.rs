@@ -3,9 +3,24 @@ use crate::{
     archive::{self, ArchiveBroker},
     WorkspaceState,
 };
-use locallore::{contracts::Scope, inspection::ExportMode};
+use locallore::{contracts::Scope, host::Host, inspection::ExportMode};
 use serde_json::Value;
 use std::sync::Arc;
+#[cfg(test)]
+#[path = "archive_authorization_tests.rs"]
+mod archive_authorization_tests;
+
+// Preserve the existing native authorization path while exposing its private
+// seam to the frozen Store/Host regressions. Domain2 support is still pending.
+fn authorize_export(
+    host: &Host,
+    session: &str,
+    scope: &Scope,
+    expected_revision: u64,
+) -> Result<(), String> {
+    host.inspection_snapshot(session, scope, expected_revision, ExportMode::Full)
+        .map(|_| ())
+}
 fn epoch(window: &tauri::WebviewWindow, workspace: &WorkspaceState) -> Result<u64, String> {
     workspace
         .lease
@@ -57,7 +72,7 @@ pub async fn archive_export_preview(
         broker.start(lease, e, move |work| {
             // Existing trusted Host Full authorization and exact live session scope.
             // The archive subsequently checks its own coherent captured branch head.
-            host.inspection_snapshot(&session, &scope, expected_revision, ExportMode::Full)?;
+            authorize_export(&host, &session, &scope, expected_revision)?;
             archive::capture(work, &path, &scope.story, &scope.branch, expected_revision)
         })
     })

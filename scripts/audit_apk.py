@@ -108,6 +108,8 @@ def audit_zip(path, *, litert=False, model_picker=False, model_volume=False, mod
             require(b"LiteRtSendTraceTest" not in contents, "LiteRT send test packaged in app")
             require(b"LiteRtCallbackTraceTest" not in contents, "LiteRT callback test packaged in app")
             require(b"LiteRtCallbackIntegrationTest" not in contents, "LiteRT callback integration test packaged in app")
+            require(b"LiteRtStatusTraceTest" not in contents, "LiteRT status test packaged in app")
+            require(b"LiteRtStatusIntegrationTest" not in contents, "LiteRT status integration test packaged in app")
             for name in RECEIPT_SETUP_CLASSES:
                 if name.encode("ascii") in contents:
                     receipt_setup_present.add(name)

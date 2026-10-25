@@ -57,10 +57,11 @@ internal data class LiteRtWorkerConfig(
         trace: LiteRtWorkerTrace? = null,
         sendTrace: LiteRtSendTrace? = null,
         callbackTrace: LiteRtCallbackTrace? = null,
+        statusTrace: LiteRtStatusTrace? = null,
     ): LocalInferenceOwner {
         require(limits.turnMs == deadlineMs)
         lateinit var owner: LocalInferenceOwner
-        val worker = LiteRtRoleWorker(this, resources ?: SdkLiteRtResources(sendTrace), trace, callbackTrace) { owner.close() }
+        val worker = LiteRtRoleWorker(this, resources ?: SdkLiteRtResources(sendTrace, statusTrace), trace, callbackTrace) { owner.close() }
         owner = LocalInferenceOwner(profileBytes(), worker, limits = limits)
         return owner
     }
@@ -416,7 +417,10 @@ private data class SdkSendArguments(
 )
 
 /** The default path calls the pinned SDK; resource tests need no native library or model. */
-private class SdkLiteRtResources(private val sendTrace: LiteRtSendTrace? = null) : LiteRtResources {
+private class SdkLiteRtResources(
+    private val sendTrace: LiteRtSendTrace? = null,
+    private val statusTrace: LiteRtStatusTrace? = null,
+) : LiteRtResources {
     override fun engine(paths: LiteRtPaths): LiteRtEngineResource {
         val engine = Engine(EngineConfig(
             modelPath = paths.model, backend = Backend.CPU(threadCount = 4),
@@ -447,7 +451,7 @@ private class SdkLiteRtResources(private val sendTrace: LiteRtSendTrace? = null)
                                     )
                                 }
                                 override fun onDone() = callbacks.done()
-                                override fun onError(throwable: Throwable) = observedLiteRtError(throwable, callbacks)
+                                override fun onError(throwable: Throwable) = observedLiteRtError(throwable, callbacks, statusTrace)
                             }, request.maxTokens, ThinkingConfig(false, 0), ResponseFormat.json(request.schemaJson))
                         }, dispatch = { arguments ->
                             // This is the public Kotlin call site, not an SDK body/JNI/native-entry
@@ -474,9 +478,14 @@ internal fun liteRtCallbackError(throwable: Throwable): LiteRtCallbackError = wh
 }
 
 /** Keep fencing first and preserve any original callback failure over diagnostic failures. */
-internal fun observedLiteRtError(throwable: Throwable, callbacks: LiteRtCallbacks) {
+internal fun observedLiteRtError(throwable: Throwable, callbacks: LiteRtCallbacks, statusTrace: LiteRtStatusTrace? = null) {
     try { callbacks.error(throwable is CancellationException) }
     finally {
         try { callbacks.errorCategory(liteRtCallbackError(throwable)) } catch (_: Throwable) { }
+        // Default/regular owners do not retrieve exception text. The optional receipt trace
+        // sees only a closed pinned-wrapper prefix result after the original fence.
+        if (statusTrace != null) {
+            try { statusTrace.record(liteRtDeclaredStatus(throwable)) } catch (_: Throwable) { }
+        }
     }
 }

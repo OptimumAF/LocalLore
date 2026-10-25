@@ -1,7 +1,7 @@
 # Selected-run read capability qualification — 2026-10-25
 
-Refs #29 D07.06 / #25 D04.02, partial. **Qualification in progress; final
-compatibility checks pending.** Accepted base PR172 merge
+Refs #29 D07.06 / #25 D04.02, partial. **The shared read-capability checks below
+passed; desktop consumer integration remains unavailable.** Accepted base PR172 merge
 `5f1a49f1e18c954f2fc6b85ed875736dd4c414ea`. Claim6401286275 owns this slice.
 The [contract](D07_SELECTED_CASE_DESKTOP_CONTRACT_2026-10-25.md) separates this
 implemented shared prerequisite from the unimplemented desktop consumer.
@@ -48,6 +48,22 @@ Logs and process records remain local and gitignored.
 | `90f836b0` | Desktop native all-features tests | 123 PASS/1 existing Windows privilege skip 159.39s; harness contracts 2 PASS 0.01s |
 | `cf33d3a1` | Offsetting genuine invocation settlements, equal whole report/charges | 1 PASS 20.67s |
 | `cf33d3a1` | Evaluator all-target/all-feature Clippy, warnings denied | PASS 9.76s |
+| `d8be05de` | Same accounting regression, feature-off | 1 PASS 20.47s |
+| `d8be05de` | Same genuine native-history read test, local-model | 1 PASS 22.90s |
+| `d8be05de` | Android Rust-host tests / normal-build-dev graph | 20 PASS 1.65s; graph excludes evaluator/local runtime |
+| `d8be05de` | Full frontend verification / frontend format / native workspace format | exit0; 10.14s / 2.33s / 2.12s command elapsed |
+| `d8be05de` | Native all-target/all-feature Clippy / normal build | exit0; 10.50s / 15.48s command elapsed |
+| `d8be05de` | Separate evaluator workspace format check | exit0 |
+
+The six-group runs and later single accounting case cover seven distinct new
+groups through complementary executions, not one seven-test run. Existing-reader
+14-case preservation was not repeated after the small shared cap-helper
+extraction; later checked-edge, selected-reader, native-host and lint/build checks
+are separately attributed above. All production Rust bytes after `c5944faf` are
+unchanged; later differences are tests, cfg(test) registrations and Markdown.
+Frontend verification runs existing controllers with mocked IPC/headless DOM,
+strict TypeScript, build and normal-bundle hook exclusion. It does not exercise
+the new selected capability through IPC or render a new selected UI.
 
 The first drift fixture changed a checkpoint elapsed time without changing its
 bound admission settlement, so the existing validator correctly returned
@@ -76,10 +92,21 @@ From the repository root, with an owned target directory and dependencies
 already provisioned:
 
 ```powershell
+# Use one owned CARGO_TARGET_DIR consistently across these separate manifests.
 cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --jobs 1 --lib local_lane::comparison::selected::desktop_read -- --nocapture --test-threads=1
 # Repeat with --features local-model for the alternate compilation path.
 cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --test comparison_desktop_review --test comparison_reader_authorization_review --test comparison_reader_snapshot_review -- --nocapture --test-threads=1
 cargo clippy --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --all-features --all-targets --jobs 1 -- -D warnings
+cargo fmt --manifest-path crates/locallore-eval/Cargo.toml -- --check
+# Existing native ownership tests require the fixed development fixture first.
+cargo build --locked --offline --manifest-path crates/locallore-local-runtime/Cargo.toml --features development-worker --bin protocol-fixture --jobs 1
+cargo test --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --jobs 1 -- --nocapture --test-threads=1
+cargo test --locked --offline --manifest-path crates/locallore-android/Cargo.toml --jobs 1 --lib -- --nocapture --test-threads=1
+# From apps/desktop, with the already provisioned frontend dependencies:
+node verify-frontend.mjs
+# Restore/build the normal native binary after development-feature tests.
+# From the repository root:
+cargo build --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --jobs 1
 ```
 
 One historical test is explicitly ignored by default. Set
@@ -88,6 +115,18 @@ completed native Move4 target, then run `--test
 comparison_selected_desktop_native_historical_review -- --ignored --nocapture
 --test-threads=1`, once feature-off and once with local-model. This reads retained
 synthetic evidence; it does not provision or load any model/worker.
+
+The historical target is required only for that explicit opt-in. Default
+synthetic producer/read tests create their own isolated fixtures. Protocol
+fixtures are tiny local test workers; they do not qualify model weights.
+
+Normal artifacts built at `d8be05de438f8637833b48eb4ec43653bafbf716` after native
+development tests: frontend525661 bytes, SHA256
+`5c7f13bc24d244396dd535002cb12beb4523aa2868f63e55584669798829d489`;
+EXE32682496 bytes, SHA256
+`ee06c51cd45d955b60dedf0320a8814dffa7dfaae67089f38e5a0661d6e79915`.
+The build artifact record identifies native features as empty. These are local
+unsigned build fingerprints, not byte-reproducibility or package qualification.
 
 Environment: Windows x64 build26300, Rust/Cargo1.93.1, rustc01f6ddf75,
 cargo083ac5135, LLVM21.1.8, Node24.22.1 and PowerShell7.6.5. No new dependency,

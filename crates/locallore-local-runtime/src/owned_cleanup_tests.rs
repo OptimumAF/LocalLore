@@ -264,3 +264,58 @@ fn owned_start_failure_debug_reveals_fixed_variant_and_cause_without_owner_inter
         std::fs::remove_dir_all(directory).unwrap();
     }
 }
+
+#[test]
+fn owned_parent_thread_panic_reports_cleanup_then_explicit_retry_drains_and_stays_failed() {
+    let _reset = FaultReset;
+    let (mut owner, directory) = tests::fixture("valid");
+    owner.load(|| false).unwrap();
+    assert_eq!(owner.status(), Status::Loaded);
+    #[cfg(windows)]
+    let exact_child = duplicate_child(&owner);
+    let original_threads: Vec<_> = owner
+        .threads
+        .iter()
+        .map(|thread| thread.thread().id())
+        .collect();
+    assert_eq!(original_threads.len(), 3);
+    // This is an actual parent-owned join failure, not a native worker crash.
+    // No supplied production callback, additional process or test fault hook.
+    let panicking_thread = std::thread::spawn(|| {
+        panic!("fixed synthetic owned parent thread panic");
+    });
+    let panicking_id = panicking_thread.thread().id();
+    owner.threads.push(panicking_thread);
+    assert_eq!(owner.threads.len(), 4);
+
+    assert_eq!(owner.terminate_and_reap(), Err(Error::Cleanup));
+    assert_eq!(owner.status(), Status::Failed);
+    assert!(owner.child.try_wait().unwrap().is_some());
+    assert!(owner.writer.is_none());
+    #[cfg(windows)]
+    assert_exact_child_terminal(&exact_child);
+    // A consumed panicked join is terminal. The implementation may already have
+    // joined other threads, or may retain them for retry; neither front nor pop
+    // processing order is part of this oracle. Remaining handles must still be
+    // actual originally owned threads, and the explicit retry must drain them.
+    assert!(owner.threads.len() <= original_threads.len());
+    for retained in &owner.threads {
+        assert_ne!(retained.thread().id(), panicking_id);
+        assert!(original_threads.contains(&retained.thread().id()));
+    }
+    assert_eq!(owner.terminate_and_reap(), Ok(()));
+    assert_cleanup_confirmed(&mut owner);
+    assert_eq!(owner.generate(
+        Generation {
+            role: Role::Director,
+            prompt: "fixed synthetic request after cleanup".into(),
+            schema: None,
+            max_tokens: 1,
+        },
+        || false,
+    ).err(), Some(Error::WorkerUnavailable));
+    #[cfg(windows)]
+    drop(exact_child);
+    drop(owner);
+    std::fs::remove_dir_all(directory).unwrap();
+}

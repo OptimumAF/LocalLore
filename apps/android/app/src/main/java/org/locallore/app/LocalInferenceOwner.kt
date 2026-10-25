@@ -7,6 +7,7 @@ import java.nio.charset.CodingErrorAction
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -124,6 +125,8 @@ internal class LocalInferenceOwner(
         var await: Deferred<LocalRoleResult>? = null
     }
     private inner class Run(val native: Deferred<ByteArray>, val cancelInput: ByteArray) {
+        // Native cancellation acknowledgement alone does not release an active SDK owner.
+        val finished = CompletableDeferred<Boolean>()
         var opening: Deferred<Engine>? = null
         var starting: Deferred<Role>? = null
         var engine: Engine? = null
@@ -179,13 +182,21 @@ internal class LocalInferenceOwner(
         val command = input.copyOf()
         try { localText(command, 24_576) } catch (_: Throwable) { throw IllegalArgumentException("Invalid local input") }
         if (operation != "prepare") {
-            synchronized(lock) {
+            val cancelling = synchronized(lock) {
                 admit()
                 if (operation !in setOf("cancel", "turn_status", "close", "workspace", "play_snapshot", "model_status", "capabilities") && active != null)
                     throw LocalInferenceBusy()
+                if (operation == "cancel") active else null
             }
             return try {
-                bounded(task { value.call(command).copyOf() }).also { localText(it, 262_144) }
+                // One unchanged deadline covers both native ACK and the captured run's cleanup.
+                // Refreshing open/branches remains forbidden until that SDK ownership is settled.
+                withTimeout(limits.cleanupMs) {
+                    val reply = task { value.call(command).copyOf() }.await().also { localText(it, 262_144) }
+                    if (cancelling != null) check(cancelling.finished.await())
+                    if (operation == "cancel") synchronized(lock) { admit() }
+                    reply
+                }
             } catch (_: Throwable) {
                 withContext(NonCancellable) { quarantine(value) }
                 throw LocalInferenceUncertain()
@@ -225,6 +236,7 @@ internal class LocalInferenceOwner(
             }
         }
         synchronized(lock) { if (active === run) active = null }
+        run.finished.complete(cleaned && !poisoned.get())
         if (poisoned.get() || !cleaned) throw LocalInferenceUncertain()
         if (failure is CancellationException || closed.get()) throw CancellationException("Local operation cancelled")
         if (failure != null) throw LocalInferenceUncertain()

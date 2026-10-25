@@ -47,8 +47,8 @@ becomes execution permission. Scripted and native target lanes remain distinct
 from the source lane/profile, including divergent rollout inputs.
 
 Completed resume, exact committed-checkpoint recovery and pure existing
-dependency work do not reserve/access assets or construct a native factory.
-Dependency extraction reuses the actual existing eligibility branch and trace;
+dependency work do not call the native reservation callback, access assets or construct a native factory.
+Dependency extraction reuses the actual existing eligibility branch and row construction;
 it does not reinterpret Expected as a new guard validator. Provider-eligible
 work includes finite guards, which keep the actual Host/Core rejection path.
 Startup and zero generation-role calls are measured separately.
@@ -186,7 +186,7 @@ empty LIBSQLITE3_FLAGS and task-owned TEMP/TMP. It required clean source and
 preserved original logs rather than replacing failed evidence.
 
 ```powershell
-cargo build --locked --offline --manifest-path crates/locallore-local-runtime/Cargo.toml --all-features --jobs 1 --target-dir <selected-native-target> --bin protocol-fixture
+cargo build --locked --offline --manifest-path crates/locallore-local-runtime/Cargo.toml --features development-worker --jobs 1 --target-dir <selected-native-target> --bin protocol-fixture
 cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features protocol-owner-tests --jobs 1 --target-dir <selected-native-target> --lib local_lane::comparison::selected::native_owner_review_tests -- --nocapture --test-threads=1
 cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --target-dir <selected-native-target> --lib local_lane::comparison::dependency_review_tests -- --nocapture --test-threads=1
 cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --target-dir <selected-native-target> --lib local_lane::comparison::selected::native_path_review_tests -- --nocapture --test-threads=1
@@ -207,7 +207,7 @@ Recipes normalize the feature-off helper's empty `--features` argument by
 omitting it. Actual source/arguments/exit attribution comes from each process
 record; reproducing a command is separate from claiming it already ran here.
 
-Terminal subset manifest: 52 files / 67901 bytes, the 26 log/process pairs named
+Terminal subset manifest: 52 files / 67901 bytes, the 24 log/process pairs named
 in the table plus the two retained zero-match pairs. This excludes active/future
 final-library/compatibility records and generated story/model artifacts.
 Ordinal filename order, UTF8 `filename<TAB>bytes<TAB>lowercaseSHA256<LF>` gives
@@ -228,7 +228,7 @@ No approved-asset rerun at33c17 is implied. Raw private evidence stays local.
 
 | Gate at final candidate | Status at this draft handoff |
 | --- | --- |
-| Complete evaluator library, all features | Root running/pending; no total inferred |
+| Complete evaluator library with protocol-owner-tests (enables all evaluator features), source `33c17d88` | 86 passed / 5 explicitly ignored / 0 failed, 932.97s; all 91 selected, no filter |
 | Remaining integrations and final strict/format compatibility | Pending Root terminal evidence |
 | Frontend and normal native build/artifact restoration | Pending Root terminal evidence |
 | Android Rust-host compatibility | Pending Root terminal evidence; no JNI/JVM/ABI/APK/device claim |

@@ -194,7 +194,7 @@ fn closed_code(error: &str) -> &'static str {
 
 #[cfg(test)]
 thread_local! {
-    pub(super) static FAIL_CLEANUP_ONCE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    pub(crate) static FAIL_CLEANUP_ONCE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 enum Cleanup {

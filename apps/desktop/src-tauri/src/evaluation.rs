@@ -546,6 +546,15 @@ impl EvaluationManager {
     fn state(&self) -> Result<std::sync::MutexGuard<'_, State>> {
         self.state.lock().map_err(|_| "EvaluationInternal".into())
     }
+    /// Registry readiness only. Whole-app acknowledgement also requires the
+    /// actual model/Host owners' confirmation; finished presentation is no proof.
+    pub(crate) fn cleanup_complete(&self) -> bool {
+        self.state.try_lock().map(|s| s.job.is_none()).unwrap_or(false)
+            && self.worker.try_lock().map(|slot| {
+                slot.as_ref().is_none_or(|(_, worker)| worker.is_finished())
+            }).unwrap_or(false)
+            && self.cancellation.try_lock().map(|slot| slot.is_none()).unwrap_or(false)
+    }
     fn register_cancellation(
         &self,
         lease: &WindowLease,

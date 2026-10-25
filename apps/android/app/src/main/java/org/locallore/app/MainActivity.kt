@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.lang.ref.WeakReference
 import org.locallore.app.ui.LocalLoreScreen
 import org.locallore.app.ui.DiagnosticsDialog
 import org.locallore.app.ui.ArchiveDialog
@@ -28,6 +29,12 @@ import org.locallore.app.ui.StoryRecordDialog
 internal class WorkspaceConstructionUnavailable : IllegalStateException("Workspace unavailable")
 
 open class MainActivity : ComponentActivity() {
+    private var transportObservation: WeakReference<NativeWorkspaceTransport>? = null
+    /** Observe this Activity's construction only; never allocate or replace an owner.
+     * A recreation using an already retained ViewModel may legitimately return null.
+     */
+    internal val constructedWorkspaceTransport: NativeWorkspaceTransport?
+        get() = transportObservation?.get()
     // Selected by application construction, never by story text or a model response.
     internal open fun createWorkspaceTransport(): NativeWorkspaceTransport =
         NativeWorkspaceTransport(applicationContext)
@@ -68,6 +75,7 @@ open class MainActivity : ComponentActivity() {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 require(modelClass == ShellViewModel::class.java)
                 val transport = createWorkspaceTransport()
+                transportObservation = WeakReference(transport)
                 val durable = DurableGateway(transport, autoCreateIfEmpty = false)
                 return ShellViewModel(durable,
                     archiveGateway = NativeArchiveGateway(applicationContext),

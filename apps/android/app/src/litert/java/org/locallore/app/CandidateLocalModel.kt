@@ -10,6 +10,7 @@ import java.security.MessageDigest
 internal object CandidateLocalModel {
     private val admission = CandidateOwnerAdmission()
     @Volatile private var preparedStore: CandidateModelAccess? = null
+    @Volatile private var receiptTrace: LiteRtWorkerTrace? = null
     const val MODEL_SHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
     const val WORKER_SHA256 = "271d6af5ac1f946b0cd245ac35f7ba5910a097ec49bebe1776448ff4b7885eec"
     val identity = LocalModelIdentity("gemma-4-e2b-it-litertlm-a790a852", 2_588_147_712L, MODEL_SHA256)
@@ -47,15 +48,21 @@ internal object CandidateLocalModel {
 
     fun canStart(): Boolean = admission.available
 
+    /** Bounded metadata only in the explicit receipt build; no creation, reset or callback. */
+    internal fun receiptWorkerSnapshot(): LiteRtWorkerSnapshot? =
+        if (BuildConfig.MODEL_RECEIPT_VERIFICATION) receiptTrace?.snapshot() else null
+
     fun createTransport(context: Context, trace: LiteRtWorkerTrace? = null): NativeWorkspaceTransport = admission.attach {
         // Setup establishes this on IO. ViewModel construction must not query/create directories.
         val store = preparedStore ?: throw WorkspaceConstructionUnavailable()
         val files = store.plannedFiles()
+        val observedTrace = trace ?: if (BuildConfig.MODEL_RECEIPT_VERIFICATION) LiteRtWorkerTrace() else null
+        if (BuildConfig.MODEL_RECEIPT_VERIFICATION) receiptTrace = observedTrace
         val owner = config(files) {
             // Capture-only on Main; the unchanged worker invokes this on IO before SDK boundaries.
             check(Looper.myLooper() != Looper.getMainLooper())
             store.admitRuntime()
-        }.createOwner(trace = trace)
+        }.createOwner(trace = observedTrace)
         try { NativeWorkspaceTransport(context, owner) }
         catch (failure: Exception) { owner.close(); throw failure }
     }

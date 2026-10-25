@@ -206,6 +206,11 @@ the separate preview described above. See
 
 ## Initial technical direction
 
+The [isolated LLGuidance development oracle](docs/native/LLGUIDANCE_ORACLE_PROTOCOL.md)
+exports actual engine Dialogue schemas and checks their exact bytes with a
+pinned host compiler. It uses original synthetic fixtures and no model or SDK;
+its result does not qualify real inference or a phone.
+
 The [shared SQLite owner](docs/storage/README.md) provides scoped seed storage,
 atomic root-branch turns and validated save/resume with exact durable retries.
 Run `cargo run -p locallore-storage --example durable_smoke --locked --offline -- --directory target/my-fresh-durability-proof`

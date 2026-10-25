@@ -1,0 +1,295 @@
+{
+  "version": 1,
+  "scope": "locallore_llguidance_oracle_v1",
+  "cases": [
+    {
+      "id": "plain",
+      "schema_json": "{\"const\":\"abc\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "literal",
+          "json": "\"abc\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "malformed",
+          "json": "!"
+        }
+      ]
+    },
+    {
+      "id": "quote-only",
+      "schema_json": "{\"const\":\"\\\"\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "literal",
+          "json": "\"\\\"\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "malformed",
+          "json": "!"
+        }
+      ]
+    },
+    {
+      "id": "one-quote",
+      "schema_json": "{\"const\":\"a\\\"b\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "literal",
+          "json": "\"a\\\"b\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "malformed",
+          "json": "!"
+        }
+      ]
+    },
+    {
+      "id": "two-quotes",
+      "schema_json": "{\"const\":\"a\\\"b\\\"c\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "literal",
+          "json": "\"a\\\"b\\\"c\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "malformed",
+          "json": "!"
+        }
+      ]
+    },
+    {
+      "id": "backslash-only",
+      "schema_json": "{\"const\":\"\\\\\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "literal",
+          "json": "\"\\\\\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "malformed",
+          "json": "!"
+        }
+      ]
+    },
+    {
+      "id": "two-backslashes",
+      "schema_json": "{\"const\":\"a\\\\b\\\\c\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "literal",
+          "json": "\"a\\\\b\\\\c\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "malformed",
+          "json": "!"
+        }
+      ]
+    },
+    {
+      "id": "newline-only",
+      "schema_json": "{\"const\":\"\\n\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "literal",
+          "json": "\"\\n\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "malformed",
+          "json": "!"
+        }
+      ]
+    },
+    {
+      "id": "unicode-only",
+      "schema_json": "{\"const\":\"\u96ea\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "literal",
+          "json": "\"\u96ea\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "malformed",
+          "json": "!"
+        }
+      ]
+    },
+    {
+      "id": "quote-pair-with-prefix",
+      "schema_json": "{\"const\":\"Hello \\\"Mira\\\"\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "literal",
+          "json": "\"Hello \\\"Mira\\\"\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "malformed",
+          "json": "!"
+        }
+      ]
+    },
+    {
+      "id": "full-escaped",
+      "schema_json": "{\"const\":\"Hello \\\"Mira\\\" \\\\ \u96ea.\\nIs the tideglass here?\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "literal",
+          "json": "\"Hello \\\"Mira\\\" \\\\ \u96ea.\\nIs the tideglass here?\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "malformed",
+          "json": "!"
+        }
+      ]
+    },
+    {
+      "id": "quote-pair-backslash",
+      "schema_json": "{\"const\":\"a\\\"b\\\"\\\\\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "literal",
+          "json": "\"a\\\"b\\\"\\\\\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "malformed",
+          "json": "!"
+        }
+      ]
+    },
+    {
+      "id": "quote-pair-unicode",
+      "schema_json": "{\"const\":\"a\\\"b\\\"\u96ea\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "literal",
+          "json": "\"a\\\"b\\\"\u96ea\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "malformed",
+          "json": "!"
+        }
+      ]
+    },
+    {
+      "id": "quote-pair-newline",
+      "schema_json": "{\"const\":\"a\\\"b\\\"\\n\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "literal",
+          "json": "\"a\\\"b\\\"\\n\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "malformed",
+          "json": "!"
+        }
+      ]
+    },
+    {
+      "id": "quote-pair-double-slash",
+      "schema_json": "{\"const\":\"a\\\"b\\\"\\\\\\\\\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "literal",
+          "json": "\"a\\\"b\\\"\\\\\\\\\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "malformed",
+          "json": "!"
+        }
+      ]
+    },
+    {
+      "id": "quote-pair-slash-newline",
+      "schema_json": "{\"const\":\"a\\\"b\\\"\\\\\\n\",\"type\":\"string\"}",
+      "positives": [
+        {
+          "id": "literal",
+          "json": "\"a\\\"b\\\"\\\\\\n\""
+        }
+      ],
+      "negatives": [
+        {
+          "id": "malformed",
+          "json": "!"
+        }
+      ]
+    },
+    {
+      "id": "nested-original",
+      "schema_json": "{\"additionalProperties\":false,\"properties\":{\"commands\":{\"items\":{\"oneOf\":[{\"additionalProperties\":false,\"properties\":{\"audience\":{\"enum\":[[\"mira\"]],\"items\":{\"enum\":[\"mira\"]},\"maxItems\":4,\"minItems\":1,\"type\":\"array\"},\"op\":{\"const\":\"say\"},\"text\":{\"const\":\"Hello \\\"Mira\\\" \\\\ \u96ea.\\nIs the tideglass here?\"}},\"required\":[\"audience\",\"op\",\"text\"],\"type\":\"object\"}]},\"maxItems\":1,\"minItems\":1,\"type\":\"array\"}},\"required\":[\"commands\"],\"type\":\"object\"}",
+      "positives": [
+        {
+          "id": "set-1",
+          "json": "{\"commands\":[{\"audience\":[\"mira\"],\"op\":\"say\",\"text\":\"Hello \\\"Mira\\\" \\\\ \u96ea.\\nIs the tideglass here?\"}]}"
+        }
+      ],
+      "negatives": [
+        {
+          "id": "empty-audience",
+          "json": "{\"commands\":[{\"audience\":[],\"op\":\"say\",\"text\":\"Hello \\\"Mira\\\" \\\\ \u96ea.\\nIs the tideglass here?\"}]}"
+        },
+        {
+          "id": "duplicate-audience",
+          "json": "{\"commands\":[{\"audience\":[\"mira\",\"mira\"],\"op\":\"say\",\"text\":\"Hello \\\"Mira\\\" \\\\ \u96ea.\\nIs the tideglass here?\"}]}"
+        },
+        {
+          "id": "self-audience",
+          "json": "{\"commands\":[{\"audience\":[\"player\"],\"op\":\"say\",\"text\":\"Hello \\\"Mira\\\" \\\\ \u96ea.\\nIs the tideglass here?\"}]}"
+        },
+        {
+          "id": "remote-audience",
+          "json": "{\"commands\":[{\"audience\":[\"sable\"],\"op\":\"say\",\"text\":\"Hello \\\"Mira\\\" \\\\ \u96ea.\\nIs the tideglass here?\"}]}"
+        },
+        {
+          "id": "foreign-audience",
+          "json": "{\"commands\":[{\"audience\":[\"unknown-listener\"],\"op\":\"say\",\"text\":\"Hello \\\"Mira\\\" \\\\ \u96ea.\\nIs the tideglass here?\"}]}"
+        },
+        {
+          "id": "wrong-op",
+          "json": "{\"commands\":[{\"op\":\"wait\",\"ticks\":1}]}"
+        },
+        {
+          "id": "wrong-text",
+          "json": "{\"commands\":[{\"audience\":[\"mira\"],\"op\":\"say\",\"text\":\"Different literal.\"}]}"
+        },
+        {
+          "id": "malformed",
+          "json": "{!"
+        },
+        {
+          "id": "incomplete",
+          "json": "{\"commands\":[{\"audience\":[\"mira\"],\"op\":\"say\",\"text\":\"Hello \\\"Mira\\\" \\\\ \u96ea.\\nIs the tideglass here?\"}]"
+        }
+      ]
+    }
+  ],
+  "refusals": []
+}

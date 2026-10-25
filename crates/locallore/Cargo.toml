@@ -10,6 +10,11 @@ description = "LocalLore authoritative domain contract and offline host proof"
 name = "runtime_spike"
 test = true
 
+[[example]]
+name = "llguidance_cases"
+test = true
+required-features = ["host"]
+
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true

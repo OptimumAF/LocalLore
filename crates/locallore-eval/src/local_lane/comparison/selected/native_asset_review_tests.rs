@@ -454,12 +454,11 @@ fn approved_move_commits_then_actual_lost_checkpoint_recovers_without_assets_or_
     );
     assert!(row.role_metrics.is_none() && row.first_final_response_ms.is_none());
     assert!(row.actual_receipt_sha256.is_some());
-    for arm in 0..2 {
-        let after = engine(&fixture.database(arm, 4), before[arm].scope()).unwrap();
-        assert!(after.receipts() == before[arm].receipts());
+    for (arm, original) in before.iter().enumerate() {
+        let after = engine(&fixture.database(arm, 4), original.scope()).unwrap();
+        assert!(after.receipts() == original.receipts());
         assert!(
-            after.accepted_history_basis().unwrap()
-                == before[arm].accepted_history_basis().unwrap()
+            after.accepted_history_basis().unwrap() == original.accepted_history_basis().unwrap()
         );
     }
     assert_eq!(recovered.physical_setups, 1);
@@ -571,8 +570,8 @@ fn approved_guard_cleanup_uncertainty_retains_owner_and_both_unknown_preparation
     let report = inspect_selected(&fixture.destination).unwrap();
     assert_setup(&report, &fixture.destination, 1);
     assert_guard_rows(&fixture, &report, index);
-    for arm in 0..2 {
-        let directory = fixture.destination.join(ARM_NAMES[arm]);
+    for arm in ARM_NAMES {
+        let directory = fixture.destination.join(arm);
         assert!(!directory.join("invocation-00-settled.json").exists());
         let known: Settlement = decode(&directory.join("admission-00-settled.json"), 4096).unwrap();
         assert_eq!(known.roles, 0);

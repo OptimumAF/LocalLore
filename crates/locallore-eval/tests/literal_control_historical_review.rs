@@ -58,6 +58,16 @@ fn genuine_old_comparison_and_selected_history_remain_readable_without_rewrites(
     );
     let before_source = inventory(&source);
     let before_target = inventory(&target);
+    // Independent immutable sentinels from the actual accepted UI5 cohort.
+    // Arbitrary old courier-05 data cannot supply its historical attribution.
+    assert_eq!(
+        before_source[Path::new("run.json")].as_deref(),
+        Some("38a27208bf361fbb70450d87a0431435b0e335f08bd43362088c0dc584f85018")
+    );
+    assert_eq!(
+        before_target[Path::new("selected.json")].as_deref(),
+        Some("56caa018f2a0ffab78aa1110eb3293fc501c79edcfbf29db6fe452c275e8f0a3")
+    );
 
     {
         let run = full::open_read_only(&source).unwrap();
@@ -83,6 +93,8 @@ fn genuine_old_comparison_and_selected_history_remain_readable_without_rewrites(
         )
         .unwrap();
         assert_eq!(receipt["body"]["kind"], "receipt");
+        assert_eq!(receipt["before_head"], 4);
+        assert_eq!(receipt["after_head"], 5);
         assert_eq!(
             receipt["body"]["receipt"]["events"][0]["outcome"]["effect"],
             "moved"

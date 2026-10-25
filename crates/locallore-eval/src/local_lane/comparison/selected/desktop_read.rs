@@ -1,6 +1,8 @@
 //! Read-only selected-run capability. No execution, assets, or renderer paths.
 #[cfg(test)]
 mod budget_review_tests;
+#[cfg(test)]
+mod review_tests;
 use super::super::desktop_api::{
     bounded_evidence, check_access, render_evidence, Arm, EvidenceRequest,
 };

@@ -435,7 +435,9 @@ impl EvaluationManager {
                     else{(!active||ownership.cleanup_running,active||ownership.cleanup_running)}
                 }
             }
-        };let error=self.selected_lock()?.cleanup_error.clone();Ok((cleanup_envelope(required,running,error),removed))
+        };let mut selected=self.selected_lock()?;
+        if let Some(job)=&removed{for record in selected.records.values_mut().filter(|r|r.epoch==job.epoch&&r.operation==Some(job.id)){record.cleanup_required=false;if record.phase=="cleanup_required"{record.phase="failed";}let value=record.status()?;if let Some((_,cached))=record.consumed.as_mut(){*cached=value;}}}
+        let error=selected.cleanup_error.clone();drop(selected);Ok((cleanup_envelope(required,running,error),removed))
     }
     pub fn selected_cleanup_status(&self, lease:&WindowLease, epoch:u64)->Result<Value> {
         let registration=self.registration.lock().map_err(|_|"EvaluationInternal")?;
@@ -462,7 +464,7 @@ impl EvaluationManager {
                 }
             }
         }
-        {let mut state=self.selected.lock().unwrap_or_else(|p|p.into_inner());state.cleanup_error=diagnostic.clone();for record in state.records.values_mut().filter(|r|r.epoch==work.epoch&&r.operation==Some(work.operation)){record.cleanup_required=!outcome.confirmed;}}
+        {let mut state=self.selected.lock().unwrap_or_else(|p|p.into_inner());state.cleanup_error=diagnostic.clone();for record in state.records.values_mut().filter(|r|r.epoch==work.epoch&&r.operation==Some(work.operation)){record.cleanup_required=!outcome.confirmed;if outcome.confirmed&&record.phase=="cleanup_required"{record.phase="failed";}if let Ok(value)=record.status(){if let Some((_,cached))=record.consumed.as_mut(){*cached=value;}}}}
         // Actual R Drop/model ownership drops happen only after metadata gates.
         drop(removed);drop(work);cleanup_envelope(!outcome.confirmed,false,diagnostic)
     }

@@ -7,9 +7,11 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import java.security.MessageDigest
-import org.json.JSONArray
-import org.json.JSONObject
-import org.json.JSONTokener
+import com.google.gson.JsonArray
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
+import com.google.gson.JsonPrimitive
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -18,12 +20,18 @@ class FiniteSchemaRegexTest {
     private val original = """{"additionalProperties":false,"properties":{"commands":{"items":{"oneOf":[{"additionalProperties":false,"properties":{"audience":{"enum":[["mira"]],"items":{"enum":["mira"]},"maxItems":4,"minItems":1,"type":"array"},"op":{"const":"say"},"text":{"const":"Where is the tideglass relic?"}},"required":["audience","op","text"],"type":"object"}]},"maxItems":1,"minItems":1,"type":"array"}},"required":["commands"],"type":"object"}"""
     private val escapedOriginal = """{"additionalProperties":false,"properties":{"commands":{"items":{"oneOf":[{"additionalProperties":false,"properties":{"audience":{"enum":[["mira"]],"items":{"enum":["mira"]},"maxItems":4,"minItems":1,"type":"array"},"op":{"const":"say"},"text":{"const":"Hello \"Mira\" \\ 雪.\nIs the tideglass here?"}},"required":["audience","op","text"],"type":"object"}]},"maxItems":1,"minItems":1,"type":"array"}},"required":["commands"],"type":"object"}"""
     private val question = "Where is the tideglass relic?"
+    private fun quote(value: String): String = JsonPrimitive(value).toString()
+    private fun strings(values: List<String>): JsonArray = JsonArray().apply { values.forEach { add(it) } }
     private fun body(audience: List<String>, text: String = question, op: String = "say"): String =
-        "{\"commands\":[{\"audience\":" + JSONArray(audience).toString() + ",\"op\":" + JSONObject.quote(op) + ",\"text\":" + JSONObject.quote(text) + "}]}"
+        "{\"commands\":[{\"audience\":" + strings(audience).toString() + ",\"op\":" + quote(op) + ",\"text\":" + quote(text) + "}]}"
     private fun matches(schema: String, candidate: String): Boolean =
         Pattern.compile(requireNotNull(finiteSchemaRegex(schema))).matcher(candidate).matches()
-    private fun properties(schema: JSONObject): JSONObject = schema.getJSONObject("properties").getJSONObject("commands")
-        .getJSONObject("items").getJSONArray("oneOf").getJSONObject(0).getJSONObject("properties")
+    private fun properties(schema: JsonObject): JsonObject {
+        val commands = jsonObject(jsonObject(schema.get("properties")).get("commands"))
+        val items = jsonObject(commands.get("items"))
+        val only = jsonObject(jsonArray(items.get("oneOf")).get(0))
+        return jsonObject(only.get("properties"))
+    }
     private fun choices(names: List<String>): List<List<String>> = (1 until (1 shl names.size)).filter { Integer.bitCount(it) <= 4 }
         .map { mask -> names.filterIndexed { index, _ -> mask and (1 shl index) != 0 } }
 
@@ -42,9 +50,10 @@ class FiniteSchemaRegexTest {
             val names = (0 until count).map { "listener-$it" }
             val sets = choices(names)
             assertEquals(counts[count - 1], sets.size)
-            val schema = JSONObject(original)
-            properties(schema).getJSONObject("audience").put("enum", JSONArray(sets.map { JSONArray(it) }))
-                .put("items", JSONObject().put("enum", JSONArray(names)))
+            val schema = JsonParser.parseString(original).asJsonObject
+            val audience = jsonObject(properties(schema).get("audience"))
+            audience.add("enum", JsonArray().apply { sets.forEach { add(strings(it)) } })
+            audience.add("items", JsonObject().apply { add("enum", strings(names)) })
             val encoded = schema.toString()
             for (set in sets) assertTrue("Missing finite choice", matches(encoded, body(set)))
             assertFalse(matches(encoded, body(listOf("foreign"))))
@@ -70,21 +79,22 @@ class FiniteSchemaRegexTest {
         assertFalse(matches(original, body(listOf("mira"), op = "give")))
         assertFalse(matches(original, good.replace("\"op\":\"say\",", "")))
         assertFalse(matches(original, good.replace("\"op\":\"say\",", "\"op\":\"say\",\"extra\":true,")))
-        assertFalse(matches(original, "{\"commands\":[{\"text\":" + JSONObject.quote(question) + ",\"op\":\"say\",\"audience\":[\"mira\"]}]}"))
+        assertFalse(matches(original, "{\"commands\":[{\"text\":" + quote(question) + ",\"op\":\"say\",\"audience\":[\"mira\"]}]}"))
         for (candidate in listOf(" " + good, good + " ", good + "\n", good + "x", good.dropLast(1))) assertFalse(matches(original, candidate))
     }
 
     @Test fun everyRustRegexMetacharacterRemainsLiteralJsonData() {
-        val literal = "\\.+*?()|[]{}^$ / \" \n\t雪🦉"
-        val schema = JSONObject().put("const", literal).toString()
-        assertTrue(matches(schema, JSONObject.quote(literal)))
-        assertFalse(matches(schema, JSONObject.quote(literal.replace("*", "anything"))))
+        val literal = "\\.+*?()|[]{}^$ / \" \n\t雪🦉 <>&='"
+        val schema = JsonObject().apply { addProperty("const", literal) }.toString()
+        assertEquals("\"<>&='\"", quote("<>&='"))
+        assertTrue(matches(schema, quote(literal)))
+        assertFalse(matches(schema, quote(literal.replace("*", "anything"))))
         assertFalse(matches(schema, "\"prefix\""))
     }
 
     @Test fun integerBooleanAndBudgetedNestedLiteralsUseCanonicalJson() {
         for (number in listOf(Long.MIN_VALUE, -1L, 0L, 1L, Long.MAX_VALUE)) {
-            val schema = JSONObject().put("type", "integer").put("const", number).toString()
+            val schema = JsonObject().apply { addProperty("type", "integer"); addProperty("const", number) }.toString()
             assertTrue(matches(schema, number.toString()))
             assertFalse(matches(schema, "\"$number\""))
         }
@@ -118,14 +128,14 @@ class FiniteSchemaRegexTest {
     }
 
     @Test fun allRedundantEnumArrayConstraintsAreValidatedNotFiltered() {
-        val schema = JSONObject(original)
-        val audience = properties(schema).getJSONObject("audience")
-        audience.put("maxItems", 0); assertNull(finiteSchemaRegex(schema.toString()))
-        audience.put("maxItems", 4).put("minItems", 2); assertNull(finiteSchemaRegex(schema.toString()))
-        audience.put("minItems", 1).put("items", JSONObject().put("enum", JSONArray(listOf("foreign"))))
+        val schema = JsonParser.parseString(original).asJsonObject
+        val audience = jsonObject(properties(schema).get("audience"))
+        audience.addProperty("maxItems", 0); assertNull(finiteSchemaRegex(schema.toString()))
+        audience.addProperty("maxItems", 4); audience.addProperty("minItems", 2); assertNull(finiteSchemaRegex(schema.toString()))
+        audience.addProperty("minItems", 1); audience.add("items", JsonObject().apply { add("enum", strings(listOf("foreign"))) })
         assertNull(finiteSchemaRegex(schema.toString()))
-        audience.put("items", JSONObject().put("type", "string")); assertNotNull(finiteSchemaRegex(schema.toString()))
-        audience.put("items", JSONObject().put("type", "integer")); assertNull(finiteSchemaRegex(schema.toString()))
+        audience.add("items", JsonObject().apply { addProperty("type", "string") }); assertNotNull(finiteSchemaRegex(schema.toString()))
+        audience.add("items", JsonObject().apply { addProperty("type", "integer") }); assertNull(finiteSchemaRegex(schema.toString()))
         assertNull(finiteSchemaRegex("""{"type":"array","enum":[[]],"items":{"unknown":true}}"""))
         assertNull(finiteSchemaRegex("""{"type":"array","enum":[["a"]],"items":{"enum":["a"],"pattern":"a"}}"""))
         assertNull(finiteSchemaRegex("""{"enum":[]}"""))
@@ -138,7 +148,7 @@ class FiniteSchemaRegexTest {
     @Test fun unknownNonfiniteNullNarratorAndLenientJsonReturnNull() {
         for (schema in listOf("""{"type":"string"}""", """{"type":"string","maxLength":20}""",
             """{"const":"a","description":"ignored"}""", """{"enum":["a"],"pattern":"a"}""",
-            """{"const":null}""", """{"const":1.5}""", """{"const":1e2}""", """{"const":NaN}""",
+            """{"const":null}""", """{"const":1.0}""", """{"const":1.5}""", """{"const":1e2}""", """{"const":NaN}""",
             """{"const":9223372036854775808}""", """{'const':'a'}""", """{const:"a"}""",
             """{"const":"a",}""", """{"const":[1,]}""", """{"const":"a"} // comment""",
             """{"const":"a"} {}""", """{"const":01}""", "null", "[]", "", "{")) assertNull(finiteSchemaRegex(schema))
@@ -148,29 +158,29 @@ class FiniteSchemaRegexTest {
         for (schema in listOf("""{"const":"a","const":"b"}""", """{"const":"a","con\u0073t":"b"}""",
             """{"const":{"a":1,"\u0061":2}}""", """{"const":"\uD800"}""", """{"const":"\uDC00"}""")) assertNull(finiteSchemaRegex(schema))
         assertNull(finiteSchemaRegex("{\"const\":\"" + '\uD800' + "\"}"))
-        assertTrue(matches("""{"const":"\uD83E\uDD89"}""", JSONObject.quote("🦉")))
+        assertTrue(matches("""{"const":"\uD83E\uDD89"}""", quote("🦉")))
     }
 
     @Test fun depthTwelveNode512InputAndRegexUtf8BudgetsRefuseBeforeOverflow() {
         fun nested(depth: Int) = "{\"const\":" + "[".repeat(depth) + "0" + "]".repeat(depth) + "}"
         assertNotNull(finiteSchemaRegex(nested(11)))
         assertNull(finiteSchemaRegex(nested(12)))
-        fun many(count: Int) = JSONObject().put("enum", JSONArray((0 until count).map { it.toString() })).toString()
+        fun many(count: Int) = JsonObject().apply { add("enum", strings((0 until count).map { it.toString() })) }.toString()
         assertNotNull(finiteSchemaRegex(many(510)))
         assertNull(finiteSchemaRegex(many(511)))
-        assertNull(finiteSchemaRegex(JSONObject().put("const", "x".repeat(32768)).toString()))
-        assertNull(finiteSchemaRegex(JSONObject().put("const", "雪".repeat(11000)).toString()))
-        assertNotNull(finiteSchemaRegex(JSONObject().put("const", ".".repeat(16000)).toString()))
-        assertNull(finiteSchemaRegex(JSONObject().put("const", ".".repeat(16380)).toString()))
+        assertNull(finiteSchemaRegex(JsonObject().apply { addProperty("const", "x".repeat(32768)) }.toString()))
+        assertNull(finiteSchemaRegex(JsonObject().apply { addProperty("const", "雪".repeat(11000)) }.toString()))
+        assertNotNull(finiteSchemaRegex(JsonObject().apply { addProperty("const", ".".repeat(16000)) }.toString()))
+        assertNull(finiteSchemaRegex(JsonObject().apply { addProperty("const", ".".repeat(16380)) }.toString()))
     }
 
     @Test fun inputSchemaIsImmutableAndNoDomainNamesSelectRepresentation() {
-        val source = JSONObject(original)
+        val source = JsonParser.parseString(original).asJsonObject
         val before = source.toString()
         val result = finiteSchemaRegex(before)
         assertEquals(before, source.toString())
         assertEquals(result, finiteSchemaRegex(before))
-        assertTrue(matches("""{"const":"an arbitrary literal unrelated to actors or actions"}""", JSONObject.quote("an arbitrary literal unrelated to actors or actions")))
+        assertTrue(matches("""{"const":"an arbitrary literal unrelated to actors or actions"}""", quote("an arbitrary literal unrelated to actors or actions")))
         assertNull(finiteSchemaRegex("""{"op":"say","text":"a model claim","grant":true}"""))
     }
 
@@ -186,57 +196,69 @@ class FiniteSchemaRegexTest {
         require(Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS))
         val bytes = Files.newInputStream(source).use { it.readNBytes(1_048_577) }
         require(bytes.size in 1..1_048_576)
-        val parser = JSONTokener(localText(bytes, 1_048_576))
-        val corpus = parser.nextValue() as? JSONObject ?: error("Finite corpus required")
-        require(parser.nextClean() == '\u0000')
-        require(corpus.keys().asSequence().toSet() == setOf("version", "scope", "cases", "refusals"))
-        require(corpus.get("version") is Int && corpus.get("version") == 1)
-        require(corpus.get("scope") == "locallore_llguidance_oracle_v1")
-        val cases = corpus.get("cases") as? JSONArray ?: error("Finite cases required")
-        val refusals = corpus.get("refusals") as? JSONArray ?: error("Finite refusals required")
-        require(cases.length() in 1..16 && refusals.length() in 0..16)
-        val result = JSONArray()
+        val corpus = jsonObject(JsonParser.parseString(localText(bytes, 1_048_576)))
+        require(corpus.keySet() == setOf("version", "scope", "cases", "refusals"))
+        require(jsonInteger(corpus.get("version")) == 1L)
+        require(jsonString(corpus.get("scope")) == "locallore_llguidance_oracle_v1")
+        val cases = jsonArray(corpus.get("cases"))
+        val refusals = jsonArray(corpus.get("refusals"))
+        require(cases.size() in 1..16 && refusals.size() in 0..16)
+        val result = JsonArray()
         val caseIds = mutableSetOf<String>()
         var sampleCount = 0
-        for (index in 0 until cases.length()) {
-            val case = cases.get(index) as? JSONObject ?: error("Finite case required")
-            require(case.keys().asSequence().toSet() == setOf("id", "schema_json", "positives", "negatives"))
-            val id = case.get("id") as? String ?: error("Finite ID required")
+        for (index in 0 until cases.size()) {
+            val case = jsonObject(cases.get(index))
+            require(case.keySet() == setOf("id", "schema_json", "positives", "negatives"))
+            val id = jsonString(case.get("id"))
             require(id.matches(Regex("[a-z][a-z0-9-]{0,47}")) && caseIds.add(id))
-            val schema = case.get("schema_json") as? String ?: error("Finite schema required")
+            val schema = jsonString(case.get("schema_json"))
             require(localUtf8(schema).size in 1..16_384)
             val sampleIds = mutableSetOf<String>()
             for (section in listOf("positives", "negatives")) {
-                val samples = case.get(section) as? JSONArray ?: error("Finite samples required")
-                require(samples.length() in 1..256)
-                sampleCount += samples.length(); require(sampleCount <= 256)
-                for (sampleIndex in 0 until samples.length()) {
-                    val sample = samples.get(sampleIndex) as? JSONObject ?: error("Finite sample required")
-                    require(sample.keys().asSequence().toSet() == setOf("id", "json"))
-                    val sampleId = sample.get("id") as? String ?: error("Finite sample ID required")
+                val samples = jsonArray(case.get(section))
+                require(samples.size() in 1..256)
+                sampleCount += samples.size(); require(sampleCount <= 256)
+                for (sampleIndex in 0 until samples.size()) {
+                    val sample = jsonObject(samples.get(sampleIndex))
+                    require(sample.keySet() == setOf("id", "json"))
+                    val sampleId = jsonString(sample.get("id"))
                     require(sampleId.matches(Regex("[a-z][a-z0-9-]{0,47}")) && sampleIds.add(sampleId))
-                    require(localUtf8(sample.get("json") as? String ?: error("Finite sample text required")).size in 1..16_384)
+                    require(localUtf8(jsonString(sample.get("json"))).size in 1..16_384)
                 }
             }
             val regex = finiteSchemaRegex(schema) ?: error("Unsupported finite case")
-            result.put(JSONObject().put("index", index).put("schema_sha256", sha(localUtf8(schema))).put("regex", regex))
+            result.add(JsonObject().apply {
+                addProperty("index", index); addProperty("schema_sha256", sha(localUtf8(schema))); addProperty("regex", regex)
+            })
         }
         val refusalIds = mutableSetOf<String>()
-        for (index in 0 until refusals.length()) {
-            val refusal = refusals.get(index) as? JSONObject ?: error("Finite refusal required")
-            require(refusal.keys().asSequence().toSet() == setOf("id", "error", "provider_calls", "canon_unchanged"))
-            val id = refusal.get("id") as? String ?: error("Finite refusal ID required")
+        for (index in 0 until refusals.size()) {
+            val refusal = jsonObject(refusals.get(index))
+            require(refusal.keySet() == setOf("id", "error", "provider_calls", "canon_unchanged"))
+            val id = jsonString(refusal.get("id"))
             require(id.matches(Regex("[a-z][a-z0-9-]{0,47}")) && refusalIds.add(id))
-            require((refusal.get("error") as? String) in setOf("ClarificationRequired", "TooLarge"))
-            require(refusal.get("provider_calls") is Int && refusal.get("provider_calls") == 0)
-            require(refusal.get("canon_unchanged") is Boolean && refusal.get("canon_unchanged") == true)
+            require(jsonString(refusal.get("error")) in setOf("ClarificationRequired", "TooLarge"))
+            require(jsonInteger(refusal.get("provider_calls")) == 0L)
+            val unchanged = requireNotNull(refusal.get("canon_unchanged"))
+            require(unchanged.isJsonPrimitive && unchanged.asJsonPrimitive.isBoolean && unchanged.asBoolean)
         }
         // All semantic/size failures above occur before opening the create-only output.
-        // Root also strictly validates the exact source corpus and the resulting artifact.
-        val encoded = localUtf8(JSONObject().put("version", 1).put("scope", "locallore_finite_regex_corpus_v1")
-            .put("source_corpus_sha256", sha(bytes)).put("cases", result).toString())
+        // Root also strictly validates raw duplicate keys, the exact source corpus and artifact.
+        val encoded = localUtf8(JsonObject().apply {
+            addProperty("version", 1); addProperty("scope", "locallore_finite_regex_corpus_v1")
+            addProperty("source_corpus_sha256", sha(bytes)); add("cases", result)
+        }.toString())
         require(encoded.size <= 2_097_152)
         Files.write(target, encoded, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)
+    }
+
+    private fun jsonObject(element: JsonElement?): JsonObject { val value = requireNotNull(element); require(value.isJsonObject); return value.asJsonObject }
+    private fun jsonArray(element: JsonElement?): JsonArray { val value = requireNotNull(element); require(value.isJsonArray); return value.asJsonArray }
+    private fun jsonString(element: JsonElement?): String { val value = requireNotNull(element); require(value.isJsonPrimitive && value.asJsonPrimitive.isString); return value.asString }
+    private fun jsonInteger(element: JsonElement?): Long {
+        val value = requireNotNull(element)
+        require(value.isJsonPrimitive && value.asJsonPrimitive.isNumber && value.asString.matches(Regex("-?(?:0|[1-9][0-9]*)")))
+        return requireNotNull(value.asString.toLongOrNull())
     }
 
     private fun sha(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes)

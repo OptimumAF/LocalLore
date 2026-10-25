@@ -1,16 +1,18 @@
 /* Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0 */
 package org.locallore.app
 
-import org.json.JSONArray
-import org.json.JSONObject
-import org.json.JSONTokener
+import com.google.gson.JsonArray
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
+import com.google.gson.JsonPrimitive
 
 /** A canonical finite representation only. The original schema/engine still validates outcomes. */
 internal fun finiteSchemaRegex(schemaJson: String): String? = try {
     require(schemaJson.length in 1..FINITE_BYTES)
     require(localUtf8(schemaJson).size in 1..FINITE_BYTES)
     FiniteJsonSyntax(schemaJson).check()
-    val parsed = JSONObject(schemaJson)
+    val parsed = JsonParser.parseString(schemaJson).objectValue()
     FiniteText().apply { append("\\A(?:"); schema(parsed); append(")\\z") }.text()
 } catch (_: Exception) { null }
 
@@ -39,7 +41,7 @@ private class FiniteText {
         }
         append(value.substring(start))
     }
-    fun schema(value: JSONObject) {
+    fun schema(value: JsonObject) {
         val keys = value.namesSet()
         when {
             value.has("const") || value.has("enum") -> {
@@ -50,62 +52,82 @@ private class FiniteText {
             }
             value.has("oneOf") -> {
                 require(keys == setOf("oneOf"))
-                val choices = value.get("oneOf") as? JSONArray ?: error("Shape")
-                require(choices.length() == 1)
-                schema(choices.get(0) as? JSONObject ?: error("Shape"))
+                val choices = value.get("oneOf").arrayValue()
+                require(choices.size() == 1)
+                schema(choices.get(0).objectValue())
             }
-            value.opt("type") == "object" -> {
+            value.get("type")?.stringValue() == "object" -> {
                 require(keys == setOf("type", "properties", "required", "additionalProperties"))
-                require(value.get("additionalProperties") is Boolean && value.get("additionalProperties") == false)
-                val properties = value.get("properties") as? JSONObject ?: error("Shape")
-                val required = value.get("required") as? JSONArray ?: error("Shape")
-                val names = (0 until required.length()).map { required.get(it) as? String ?: error("Shape") }
+                val additional = requireNotNull(value.get("additionalProperties"))
+                require(additional.isJsonPrimitive && additional.asJsonPrimitive.isBoolean && !additional.asBoolean)
+                val properties = value.get("properties").objectValue()
+                val required = value.get("required").arrayValue()
+                val names = (0 until required.size()).map { required.get(it).stringValue() }
                 require(names.toSet().size == names.size && names.toSet() == properties.namesSet())
                 escaped("{")
                 properties.namesSet().sorted().forEachIndexed { index, name ->
                     if (index > 0) escaped(",")
-                    escaped(JSONObject.quote(name) + ":")
-                    schema(properties.get(name) as? JSONObject ?: error("Shape"))
+                    escaped(quoted(name) + ":")
+                    schema(properties.get(name).objectValue())
                 }
                 escaped("}")
             }
-            value.opt("type") == "array" -> {
+            value.get("type")?.stringValue() == "array" -> {
                 require(keys == setOf("type", "items", "minItems", "maxItems"))
                 require(value.get("minItems").finiteInteger() == 1L && value.get("maxItems").finiteInteger() == 1L)
-                escaped("["); schema(value.get("items") as? JSONObject ?: error("Shape")); escaped("]")
+                escaped("["); schema(value.get("items").objectValue()); escaped("]")
             }
             else -> error("Unsupported")
         }
     }
 }
 
-private fun JSONObject.namesSet(): Set<String> = keys().asSequence().toSet()
-private fun Any.finiteInteger(): Long = when (this) { is Int -> toLong(); is Long -> this; else -> error("Integer") }
-private fun literalType(value: Any, type: String): Boolean = when (type) {
-    "string" -> value is String
-    "integer" -> value is Int || value is Long
-    "boolean" -> value is Boolean
-    "array" -> value is JSONArray
-    "object" -> value is JSONObject
+private fun JsonObject.namesSet(): Set<String> = keySet().toSet()
+private fun JsonElement?.objectValue(): JsonObject { val value = requireNotNull(this); require(value.isJsonObject); return value.asJsonObject }
+private fun JsonElement?.arrayValue(): JsonArray { val value = requireNotNull(this); require(value.isJsonArray); return value.asJsonArray }
+private fun JsonElement?.stringValue(): String { val value = requireNotNull(this); require(value.isJsonPrimitive && value.asJsonPrimitive.isString); return value.asString }
+private fun JsonElement?.integerOrNull(): Long? {
+    val value = this ?: return null
+    return if (value.isJsonPrimitive && value.asJsonPrimitive.isNumber && value.asString.matches(Regex("-?(?:0|[1-9][0-9]*)")))
+        value.asString.toLongOrNull() else null
+}
+private fun JsonElement?.finiteInteger(): Long = integerOrNull() ?: error("Integer")
+private fun quoted(value: String): String = JsonPrimitive(value).toString()
+private fun literalType(value: JsonElement?, type: String): Boolean = value != null && when (type) {
+    "string" -> value.isJsonPrimitive && value.asJsonPrimitive.isString
+    "integer" -> value.integerOrNull() != null
+    "boolean" -> value.isJsonPrimitive && value.asJsonPrimitive.isBoolean
+    "array" -> value.isJsonArray
+    "object" -> value.isJsonObject
     else -> false
 }
 
-private fun literalJson(value: Any): String = FiniteText().apply { literal(value) }.text()
-private fun FiniteText.literal(value: Any) {
-    require(value !== JSONObject.NULL)
-    when (value) {
-        is String -> { localUtf8(value); append(JSONObject.quote(value)) }
-        is Int, is Long, is Boolean -> append(value.toString())
-        is JSONArray -> {
+private fun literalJson(value: JsonElement?): String = FiniteText().apply { literal(value) }.text()
+private fun FiniteText.literal(element: JsonElement?) {
+    val value = requireNotNull(element)
+    require(!value.isJsonNull)
+    when {
+        value.isJsonPrimitive -> {
+            val primitive = value.asJsonPrimitive
+            when {
+                primitive.isString -> { localUtf8(primitive.asString); append(quoted(primitive.asString)) }
+                primitive.isBoolean -> append(primitive.asBoolean.toString())
+                primitive.isNumber -> append(value.finiteInteger().toString())
+                else -> error("Literal")
+            }
+        }
+        value.isJsonArray -> {
+            val array = value.asJsonArray
             append("[")
-            for (index in 0 until value.length()) { if (index > 0) append(","); literal(value.get(index)) }
+            for (index in 0 until array.size()) { if (index > 0) append(","); literal(array.get(index)) }
             append("]")
         }
-        is JSONObject -> {
+        value.isJsonObject -> {
+            val objectValue = value.asJsonObject
             append("{")
-            value.namesSet().sorted().forEachIndexed { index, key ->
+            objectValue.namesSet().sorted().forEachIndexed { index, key ->
                 if (index > 0) append(",")
-                append(JSONObject.quote(key)); append(":"); literal(value.get(key))
+                append(quoted(key)); append(":"); literal(objectValue.get(key))
             }
             append("}")
         }
@@ -114,32 +136,32 @@ private fun FiniteText.literal(value: Any) {
 }
 
 /** Validate every enum member against every supported sibling constraint; never filter it. */
-private fun finiteChoices(schema: JSONObject): List<String> {
+private fun finiteChoices(schema: JsonObject): List<String> {
     val keys = schema.namesSet()
     if (schema.has("const")) {
         require(keys == setOf("const") || keys == setOf("const", "type"))
         val value = schema.get("const")
-        if (schema.has("type")) require(literalType(value, schema.get("type") as? String ?: error("Type")))
+        if (schema.has("type")) require(literalType(value, schema.get("type").stringValue()))
         return listOf(literalJson(value))
     }
     require(schema.has("enum") && keys.all { it in setOf("enum", "type", "items", "minItems", "maxItems") })
-    val values = schema.get("enum") as? JSONArray ?: error("Shape")
-    require(values.length() in 1..FINITE_NODES)
-    val type = if (schema.has("type")) schema.get("type") as? String ?: error("Type") else null
+    val values = schema.get("enum").arrayValue()
+    require(values.size() in 1..FINITE_NODES)
+    val type = if (schema.has("type")) schema.get("type").stringValue() else null
     require(type == null || type in setOf("string", "array"))
     val array = type == "array" || schema.has("items") || schema.has("minItems") || schema.has("maxItems")
     val min = if (schema.has("minItems")) schema.get("minItems").finiteInteger() else 0L
     val max = if (schema.has("maxItems")) schema.get("maxItems").finiteInteger() else FINITE_NODES.toLong()
     require(min in 0..FINITE_NODES.toLong() && max in min..FINITE_NODES.toLong())
-    val items = if (schema.has("items")) schema.get("items") as? JSONObject ?: error("Items") else null
+    val items = if (schema.has("items")) schema.get("items").objectValue() else null
     if (items != null) validateFiniteItem(items)
-    val result = (0 until values.length()).map { index ->
-        val value = values.get(index)
-        require(value is String || value is JSONArray)
+    val result = (0 until values.size()).map { index ->
+        val value = requireNotNull(values.get(index))
+        require((value.isJsonPrimitive && value.asJsonPrimitive.isString) || value.isJsonArray)
         if (type != null) require(literalType(value, type))
         if (array) {
-            require(value is JSONArray && value.length().toLong() in min..max)
-            if (items != null) for (item in 0 until value.length()) require(matchesFiniteItem(value.get(item), items))
+            require(value.isJsonArray && value.asJsonArray.size().toLong() in min..max)
+            if (items != null) for (item in value.asJsonArray) require(matchesFiniteItem(item, items))
         }
         literalJson(value)
     }
@@ -147,34 +169,34 @@ private fun finiteChoices(schema: JSONObject): List<String> {
     return result
 }
 
-private fun validateFiniteItem(schema: JSONObject) {
+private fun validateFiniteItem(schema: JsonObject) {
     when {
         schema.namesSet() == setOf("type") -> {
-            val type = schema.get("type") as? String ?: error("Type")
+            val type = schema.get("type").stringValue()
             require(type in setOf("string", "integer", "boolean", "array", "object"))
         }
         schema.has("const") || schema.has("enum") -> finiteChoices(schema)
         schema.namesSet() == setOf("oneOf") -> {
-            val choices = schema.get("oneOf") as? JSONArray ?: error("Shape")
-            require(choices.length() == 1)
-            validateFiniteItem(choices.get(0) as? JSONObject ?: error("Shape"))
+            val choices = schema.get("oneOf").arrayValue()
+            require(choices.size() == 1)
+            validateFiniteItem(choices.get(0).objectValue())
         }
         else -> error("Items")
     }
 }
 
-private fun matchesFiniteItem(value: Any, schema: JSONObject): Boolean = when {
-    schema.namesSet() == setOf("type") -> literalType(value, schema.get("type") as? String ?: error("Type"))
+private fun matchesFiniteItem(value: JsonElement, schema: JsonObject): Boolean = when {
+    schema.namesSet() == setOf("type") -> literalType(value, schema.get("type").stringValue())
     schema.has("const") || schema.has("enum") -> literalJson(value) in finiteChoices(schema)
     schema.namesSet() == setOf("oneOf") -> {
-        val alternatives = schema.get("oneOf") as? JSONArray ?: error("Shape")
-        require(alternatives.length() == 1)
-        matchesFiniteItem(value, alternatives.get(0) as? JSONObject ?: error("Shape"))
+        val alternatives = schema.get("oneOf").arrayValue()
+        require(alternatives.size() == 1)
+        matchesFiniteItem(value, alternatives.get(0).objectValue())
     }
     else -> error("Items")
 }
 
-/** Syntax/duplicate guard around org.json, not an alternative schema or gameplay interpreter. */
+/** Strict guard before Gson parsing, not an alternative schema or gameplay interpreter. */
 private class FiniteJsonSyntax(private val input: String) {
     private var at = 0
     private var nodes = 0
@@ -218,7 +240,7 @@ private class FiniteJsonSyntax(private val input: String) {
         val start = at; require(take('"'))
         while (at < input.length) {
             val char = input[at++]
-            if (char == '"') return (JSONTokener(input.substring(start, at)).nextValue() as String).also { localUtf8(it) }
+            if (char == '"') return JsonParser.parseString(input.substring(start, at)).stringValue().also { localUtf8(it) }
             require(char.code >= 32)
             if (char == '\\') {
                 require(at < input.length)

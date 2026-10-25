@@ -294,6 +294,39 @@ impl Drop for EvaluationReservation {
     }
 }
 impl ModelManager {
+    #[cfg(test)]
+    pub(crate) fn selected_rejected_for_test(
+        self: &Arc<Self>,
+        owner: SharedRuntime,
+    ) -> (EvaluationReservation, SharedRuntime) {
+        let mut reservation = self.reserve_evaluation().expect("isolated selected fixture");
+        {
+            let mut s = self.inner.lock().unwrap();
+            assert_eq!(s.evaluation, Some(reservation.ticket));
+            // Fixed native-unit fault only. No child, file/path, IPC or
+            // development-app endpoint can be selected through this helper.
+            s.evaluation = None;
+        }
+        let returned = match locallore_eval::local_lane::comparison::selected::SelectedNativeReservation::retain_uncertain(
+            &mut reservation, owner.clone(),
+        ) {
+            Err(returned) => returned,
+            Ok(()) => panic!("isolated stale selected ticket accepted a handoff"),
+        };
+        assert!(Arc::ptr_eq(&returned, &owner));
+        (reservation, returned)
+    }
+
+    /// This manager's tracked ownership only; callers must independently drain
+    /// evaluation/Host owners before acknowledging a whole-app close.
+    pub(crate) fn cleanup_complete(&self) -> bool {
+        self.inner.try_lock().map(|s| {
+            s.runtime.is_none() && s.runtime_cleanup_witness.is_none()
+                && s.evaluation.is_none() && s.retained_evaluations == 0
+                && s.starting.is_none() && s.closing.is_none() && !s.cleanup_uncertain
+        }).unwrap_or(false)
+    }
+
     pub fn new(root: PathBuf, resource: PathBuf) -> Self {
         Self {
             root,

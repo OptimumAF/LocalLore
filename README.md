@@ -90,7 +90,9 @@ records successful full-model receipt import after a tested bounded I/O
 correction. The real-backend PLAY attempt stops at its inference-ownership
 fence; an accepted real-model gift and restart remain unverified. The
 [earlier partial result](docs/native/MODEL_RECEIPT_ANDROID_VERIFICATION_2026-10-24.md)
-is preserved.
+is preserved. [Closed worker-stage observations](docs/native/LITERT_WORKER_TRACE_CONTRACT.md)
+locate future failed attempts without exposing prompts or private errors;
+their host checks do not establish a new successful SDK turn.
 
 An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects
 the isolated SDK to guarded free-text preparation and durable commit. Its

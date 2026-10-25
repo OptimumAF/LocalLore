@@ -52,6 +52,17 @@ this is not an exact count of transitions. Callback accounting/fencing remains
 ahead of the diagnostic entered point. `UNCERTAIN` being zero never means the
 owner is healthy or every unsafe path has been observed.
 
+For admission, construction, initialization, conversation, send, cancel and
+close, `ENTERED` denotes reaching the source point immediately before the
+SDK-neutral resource/admission call. It is an attempted call, not an
+acknowledgment from inside the SDK or JNI callee. Its matching `RETURNED`
+denotes reaching the point after that call returns. For example,
+`INITIALIZE_ENTERED=1` / `INITIALIZE_RETURNED=0` locates the last observed
+pre-call point; it does not establish native initialization entry, a native
+hang or its cause. Callback entered counts instead follow the original
+callback accounting/fence. The fixed observations do not inspect clocks,
+thread stacks or hidden SDK state to fill such gaps.
+
 ## Fixed memory, concurrency and snapshots
 
 The trace retains exactly thirty integer counters and thirty saturation flags;

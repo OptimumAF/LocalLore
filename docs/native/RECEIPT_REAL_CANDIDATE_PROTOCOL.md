@@ -135,3 +135,24 @@ The exact owned emulator stop/terminal/cleanup/capture/preservation closure is
 required separately. Retain all targets/attempts, without guest-flush or
 power-loss integrity claims. Full physical-phone, ARM64/16 KiB, sustained,
 quality, cache/privacy, DocumentsUI and milestone acceptance remain open.
+
+## Passive worker failure observations
+
+The exact PLAY fixture may attach the final, in-memory
+[closed worker trace](LITERT_WORKER_TRACE_CONTRACT.md) to the same production
+candidate owner. It does not replace resources, supply generated output or alter
+any limit. If `respondText` throws or its existing Prepared assertion fails,
+before the existing catch/finally cleanup it
+attempts one bounded `locallore_receipt_worker_v1` status1337 record per process.
+Successful calls emit none. Snapshot or delivery failure cannot replace the
+identical original throwable. No extra SDK, model-file or transport call is made
+to obtain the snapshot; no path, prompt, response or exception text is serialized.
+
+The controller demultiplexes this worker channel only for PLAY. Other phases
+retain the separate setup-failure channel and forbid worker records. A worker
+record is retained before the unchanged strict runner gate; it cannot explain
+away a failed, skipped or malformed runner, replace a proof, qualify resource
+reclamation or permit REOPEN. Returned/settled/known counts are historical
+observations at the specified Kotlin points, not independent JNI completion,
+caller-delivery or current-ownership evidence. Missing counters never authorize
+retry; the existing owner quarantine remains authoritative.

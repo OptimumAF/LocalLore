@@ -392,11 +392,18 @@ class EnvironmentTests(unittest.TestCase):
         self.assertEqual(sentinel.read_bytes(), b"Original refusal fixture, no AVD")
         fresh = self.c_root()
         original_lstat = Path.lstat
+        original_is_symlink = Path.is_symlink
         def lstat(path, *args, **kwargs):
             if path == fresh:
                 return type("LinkMetadata", (), {"st_mode": 0o120777, "st_file_attributes": 0})()
             return original_lstat(path, *args, **kwargs)
-        with mock.patch.object(Path, "lstat", new=lstat), mock.patch.object(env, "installation_files") as inputs:
+        def is_symlink(path):
+            # Newer pathlib can use os.path.islink without calling Path.lstat.
+            # Model both observations of this synthetic link without creating one.
+            return path == fresh or original_is_symlink(path)
+        with mock.patch.object(Path, "lstat", new=lstat), \
+                mock.patch.object(Path, "is_symlink", new=is_symlink), \
+                mock.patch.object(env, "installation_files") as inputs:
             with self.assertRaisesRegex(env.EnvironmentRefused, "unsafe_path"):
                 env.plan_prepare(fresh, self.sdk, self.java, self.base / "linked-c.json")
         inputs.assert_not_called()

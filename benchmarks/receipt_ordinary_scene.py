@@ -92,8 +92,9 @@ def selection(phase):
 
 def parse_runner(raw, phase):
     assert phase in PHASES
-    # Keep the conservative runner Time<=120s gate separate from proof/client caps.
-    return q._parse_selected_instrumentation(raw, "org.locallore.app." + PHASES[phase][1], frozenset((PHASES[phase][2],)))
+    # Bind runner time to this fixed existing phase; no client/SDK deadline changes.
+    return q._parse_selected_instrumentation(raw, "org.locallore.app." + PHASES[phase][1], frozenset((PHASES[phase][2],)),
+        phase_budget_ms=PHASES[phase][3])
 
 
 def parse_proof(raw, phase, uid):

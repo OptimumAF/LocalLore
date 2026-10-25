@@ -7,6 +7,16 @@ and Compose proof families retain their exact contracts and data.
 
 ## Real route
 
+The runner parser uses each existing fixed app-phase budget: START170000ms,
+DIALOGUE170000ms and REOPEN120000ms. IMPORT retains its existing150000ms
+budget from the real-candidate family. These constants are supplied only by
+the trusted phase selector; no input or CLI selects a larger duration. The
+shared synthetic default remains120000ms. This corrects an inherited parser
+cap that rejected a passing134.086-second IMPORT before proof collection;
+it raises no app, SDK, client, aggregate or lease deadline. Malformed/failing
+runners and summaries beyond their phase limit still stop before proof or
+the next phase. The original failed controller attempt remains preserved.
+
 Each selected method manually launches the exact `LocalModelSetupActivity` with
 an empty Compose rule. No test calls Candidate.store/installed before its real
 READY observation. The ordinary controller performs its full accepted-model

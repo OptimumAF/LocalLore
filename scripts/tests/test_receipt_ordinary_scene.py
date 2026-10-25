@@ -89,10 +89,24 @@ class OrdinaryControllerTests(unittest.TestCase):
         for phase in s.PHASES:
             self.assertEqual(s.parse_proof(encoded(proof(phase)),phase,UIDS[q.APP]),proof(phase))
             self.assertEqual(s.parse_runner(transcript(phase),phase)["passed"],1)
-            self.assertEqual(s.parse_runner(transcript(phase).replace(b"Time: 0.1",b"Time: 120"),phase)["passed"],1)
-            with self.assertRaises(AssertionError):s.parse_runner(transcript(phase).replace(b"Time: 0.1",b"Time: 120.001"),phase)
+            seconds=str(s.PHASES[phase][3]//1000).encode()
+            self.assertEqual(s.parse_runner(transcript(phase).replace(b"Time: 0.1",b"Time: "+seconds),phase)["passed"],1)
+            with self.assertRaises(AssertionError):s.parse_runner(transcript(phase).replace(b"Time: 0.1",b"Time: "+seconds+b".000000001"),phase)
             for old in (api.transcript("RECOVER"),api.old.transcript("PLAY")):
                 with self.assertRaises(AssertionError):s.parse_runner(old,phase)
+
+    def test_runner_duration_is_bound_to_existing_phase_and_default_stays120(self):
+        for phase in s.PHASES:
+            raw=transcript(phase)
+            with patch.object(q,"_parse_selected_instrumentation",wraps=q._parse_selected_instrumentation) as parse:
+                self.assertEqual(s.parse_runner(raw,phase)["passed"],1)
+                self.assertEqual(parse.call_args.kwargs,{"phase_budget_ms":s.PHASES[phase][3]})
+            extended=raw.replace(b"Time: 0.1",b"Time: 134.086")
+            if phase=="ORDINARY_REOPEN":
+                with self.assertRaises(AssertionError):s.parse_runner(extended,phase)
+            else:self.assertEqual(s.parse_runner(extended,phase)["passed"],1)
+            cls="org.locallore.app."+s.PHASES[phase][1];methods=frozenset((s.PHASES[phase][2],))
+            with self.assertRaises(AssertionError):q._parse_selected_instrumentation(extended,cls,methods)
 
     def test_missing_checks_private_fields_types_and_limits_refuse(self):
         for phase in s.PHASES:

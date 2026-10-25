@@ -204,8 +204,9 @@ def parse_instrumentation(raw, expected_class, expected_methods):
     return _parse_selected_instrumentation(raw, expected_class, expected_methods)
 
 
-def _parse_selected_instrumentation(raw, expected_class, expected_methods):
-    """Trusted fixed experiments share framing, never caller-selected dispatch authority."""
+def _parse_selected_instrumentation(raw, expected_class, expected_methods, *, phase_budget_ms=120_000):
+    """Fixed phase budgets share framing; synthetic and older callers keep 120s."""
+    assert type(phase_budget_ms) is int and phase_budget_ms in (30_000, 120_000, 150_000, 170_000)
     count = len(expected_methods)
     text = normalized(raw, 131072)
     records, fields, extra, result = [], {}, [], None
@@ -255,7 +256,7 @@ def _parse_selected_instrumentation(raw, expected_class, expected_methods):
             assert body in ("", "\n" + expected_class + ":", expected_class + ":") if code == 1 else body == "."
     summary = "\n".join(result)
     match = re.fullmatch(r"\n\nTime: ((?:0|[1-9][0-9]{0,5})(?:\.[0-9]{1,9})?)\n\nOK \(" + str(count) + (" test" if count == 1 else " tests") + r"\)\n{1,3}", summary)
-    assert match and 0 <= float(match[1]) <= 120
+    assert match and 0 <= float(match[1]) <= phase_budget_ms / 1000
     return {"passed": count, "failed": 0, "methods": methods}
 
 

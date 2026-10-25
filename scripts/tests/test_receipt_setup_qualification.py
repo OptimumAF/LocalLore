@@ -244,6 +244,36 @@ class ReceiptSetupControllerTests(unittest.TestCase):
                 with self.subTest(restart=restart, bad=bad[-100:]), self.assertRaises((AssertionError, ValueError)):
                     q.parse_instrumentation(bad, cls, methods)
 
+    def test_fixed_keyword_phase_budget_boundaries_and_synthetic_default(self):
+        for restart in (False, True):
+            cls, methods = (q.RESTART_CLASS, q.RESTART_METHODS) if restart else (q.INITIAL_CLASS, q.INITIAL_METHODS)
+            raw = transcript(restart)
+            for budget in (30_000, 120_000, 150_000, 170_000):
+                seconds = str(budget // 1000).encode()
+                exact = raw.replace(b"Time: 0.03", b"Time: " + seconds)
+                self.assertEqual(q._parse_selected_instrumentation(exact, cls, methods, phase_budget_ms=budget)["passed"], len(methods))
+                self.assertEqual(q._parse_selected_instrumentation(exact.replace(b"\n", b"\r\n"), cls, methods, phase_budget_ms=budget)["failed"], 0)
+                beyond = raw.replace(b"Time: 0.03", b"Time: " + seconds + b".000000001")
+                with self.assertRaises(AssertionError): q._parse_selected_instrumentation(beyond, cls, methods, phase_budget_ms=budget)
+            self.assertEqual(q.parse_instrumentation(raw.replace(b"Time: 0.03", b"Time: 120"), cls, methods)["passed"], len(methods))
+            with self.assertRaises(AssertionError): q.parse_instrumentation(raw.replace(b"Time: 0.03", b"Time: 120.000000001"), cls, methods)
+            for budget in (True, False, None, 0, -1, "150000", 150000.0, 30001, 120001, 180000, 999999):
+                with self.subTest(budget=budget), self.assertRaises(AssertionError):
+                    q._parse_selected_instrumentation(raw, cls, methods, phase_budget_ms=budget)
+            with self.assertRaises(TypeError): q._parse_selected_instrumentation(raw, cls, methods, 170000)
+
+    def test_larger_fixed_phase_budget_does_not_relax_machine_framing(self):
+        raw = transcript(True).replace(b"Time: 0.03", b"Time: 150")
+        cls, methods = q.RESTART_CLASS, q.RESTART_METHODS
+        bads = [raw.replace(b"STATUS_CODE: 0", b"STATUS_CODE: -2"), raw + raw,
+            raw.replace(b"current=1", b"current=2"), raw.replace(b"numtests=1", b"numtests=2"),
+            raw.replace(b"INSTRUMENTATION_CODE: -1", b"INSTRUMENTATION_CODE: 0"),
+            raw.replace(b"Time: 150", b"Time: NaN"), raw.replace(b"Time: 150", b"Time: 1.5e2"),
+            raw.replace(b"Time: 150", b"Time: -1"), raw + b"unexpected prose\n"]
+        for bad in bads:
+            with self.assertRaises((AssertionError, ValueError)):
+                q._parse_selected_instrumentation(bad, cls, methods, phase_budget_ms=170_000)
+
     def test_foreign_packages_processes_and_surviving_initial_owner_stop_restart(self):
         for flag in ("foreign_package", "foreign_process", "active_after_initial"):
             with self.subTest(flag=flag), tempfile.TemporaryDirectory() as directory:

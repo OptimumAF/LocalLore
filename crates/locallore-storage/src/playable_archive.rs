@@ -16,9 +16,10 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// Latest advertised portable interop surface. V3 shared source support is
-/// separate; native/application advertisement awaits qualified consumers.
-pub const ARCHIVE_VERSION: u16 = 2;
+/// Latest supported transfer format. Legacy histories still export as V1/V2;
+/// accepting a format does not imply every host can open corrected timelines.
+pub const ARCHIVE_VERSION: u16 = 3;
+pub const SUPPORTED_ARCHIVE_VERSIONS: [u16; 3] = [1, 2, 3];
 const ARCHIVE_VERSION_V1: u16 = 1;
 const ARCHIVE_VERSION_V2: u16 = 2;
 const ARCHIVE_VERSION_V3: u16 = 3;

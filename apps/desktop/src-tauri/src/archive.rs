@@ -5,7 +5,8 @@ mod archive_v3_tests;
 
 use crate::{exports, lease::WindowLease};
 use locallore_storage::{
-    playable_archive::ARCHIVE_VERSION, validate_archive, ArchivePreview, Store, ValidatedArchive,
+    playable_archive::{ARCHIVE_VERSION, SUPPORTED_ARCHIVE_VERSIONS},
+    validate_archive, ArchivePreview, Store, ValidatedArchive,
 };
 use serde_json::{json, Value};
 use std::{
@@ -264,7 +265,7 @@ impl Work {
 }
 impl ArchiveBroker {
     pub fn catalog(&self) -> Value {
-        json!({"version":1,"format":"locallore-playable-archive","archive_version":ARCHIVE_VERSION,"supported_archive_versions":[1,ARCHIVE_VERSION],"privacy":"full_private","warning":PRIVATE,"caps":{"bytes":MAX_BYTES,"tokens":2,"preview_ttl_seconds":600,"workers":1},"branch_ui":false,"corrections":false})
+        json!({"version":1,"format":"locallore-playable-archive","archive_version":ARCHIVE_VERSION,"supported_archive_versions":SUPPORTED_ARCHIVE_VERSIONS,"privacy":"full_private","warning":PRIVATE,"caps":{"bytes":MAX_BYTES,"tokens":2,"preview_ttl_seconds":600,"workers":1},"branch_ui":false,"corrections":false})
     }
     fn snapshot(s: &State, epoch: u64, operation: u64) -> Result<Value> {
         let j = s
@@ -860,8 +861,8 @@ mod tests {
             .bytes()
             .to_vec();
         drop(store);
-        assert_eq!(b.catalog()["archive_version"], 2);
-        assert_eq!(b.catalog()["supported_archive_versions"], json!([1, 2]));
+        assert_eq!(b.catalog()["archive_version"], 3);
+        assert_eq!(b.catalog()["supported_archive_versions"], json!([1, 2, 3]));
         let capture_path = source_path.clone();
         let captured = run(&b, &l, e, move |w| {
             capture(w, &capture_path, "quay", "main", 1)

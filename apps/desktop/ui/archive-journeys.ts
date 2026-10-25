@@ -99,9 +99,9 @@ export async function archiveJourneys({
         };
         check(
             catalog.version === 1 &&
-                catalog.archive_version === 2 &&
+                catalog.archive_version === 3 &&
                 JSON.stringify(catalog.supported_archive_versions) ===
-                    "[1,2]" &&
+                    "[1,2,3]" &&
                 catalog.privacy === "full_private" &&
                 catalog.caps.bytes === 32 * 1024 * 1024 &&
                 catalog.caps.tokens === 2 &&

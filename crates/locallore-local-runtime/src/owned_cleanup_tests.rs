@@ -63,7 +63,7 @@ fn require_before_child(result: Result<LocalRuntime, OwnedStartFailure>, expecte
 #[cfg(windows)]
 fn require_after_child(result: Result<LocalRuntime, OwnedStartFailure>) -> (Error, LocalRuntime) {
     match result {
-        Err(OwnedStartFailure::AfterChild { cause, owner }) => (cause, owner),
+        Err(OwnedStartFailure::AfterChild { cause, owner }) => (cause, *owner),
         Err(OwnedStartFailure::BeforeChild(_)) => panic!("lost partial-start child ownership"),
         Ok(mut owner) => {
             owner.terminate_and_reap().unwrap();

@@ -334,7 +334,7 @@ impl ModelManager {
             ) {
                 Ok(runtime) => (runtime, None),
                 Err(OwnedStartFailure::BeforeChild(cause)) => return Err(runtime_error(cause)),
-                Err(OwnedStartFailure::AfterChild { cause, owner }) => (owner, Some(runtime_error(cause))),
+                Err(OwnedStartFailure::AfterChild { cause, owner }) => (*owner, Some(runtime_error(cause))),
             };
             let shared = Arc::new(Mutex::new(runtime));
             {

@@ -1717,6 +1717,7 @@ dependencies = [
  "locallore-local-runtime",
  "locallore-storage",
  "locallore-workspace",
+ "serde",
  "serde_json",
  "sha2",
  "tauri",

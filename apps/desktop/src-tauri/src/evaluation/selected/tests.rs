@@ -6,7 +6,7 @@ use super::*;
 use locallore::inspection_query::{Observer, View};
 use locallore_eval::local_lane::{comparison as producer, LaneFactory};
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
+    atomic::Ordering,
     OnceLock,
 };
 

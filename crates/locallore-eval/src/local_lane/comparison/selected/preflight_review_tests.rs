@@ -154,12 +154,11 @@ impl Fixture {
 }
 
 fn refusal<T>(result: Result<T>) -> Option<String> {
-    result.err().map(|error| {
+    result.err().inspect(|error| {
         assert!(!error.is_empty() && error.len() <= 96);
         assert!(error
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b == b'_'));
-        error
     })
 }
 

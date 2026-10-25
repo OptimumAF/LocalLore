@@ -540,14 +540,23 @@ fn retained_load_token_counts_use_runtime_caps_without_narrowing_other_counters(
             fixture.setup(0, 0, status, Some(metrics));
             let before = inventory(&fixture.root);
             let result = setup::read_setups(&fixture.root, &fixture.binding, true);
-            assert_eq!(inventory(&fixture.root), before, "token refusal must be read-only");
+            assert_eq!(
+                inventory(&fixture.root),
+                before,
+                "token refusal must be read-only"
+            );
             match result {
                 Ok(_) => wrongly_accepted.push(format!("{status}:{field}={rejected}")),
                 Err(error) => assert_eq!(error, "SetupIntegrity"),
             }
             for arm in ARM_NAMES {
                 let directory = fixture.root.join(arm);
-                assert_eq!(Ledger::load(&directory, &fixture.binding).unwrap().charged_ms, PREPARATION_MS);
+                assert_eq!(
+                    Ledger::load(&directory, &fixture.binding)
+                        .unwrap()
+                        .charged_ms,
+                    PREPARATION_MS
+                );
                 assert!(!directory.join("invocation-00-settled.json").exists());
             }
         }
@@ -567,7 +576,14 @@ fn retained_load_token_counts_use_runtime_caps_without_narrowing_other_counters(
         assert_eq!(accepted[0].status, status);
         assert_eq!(accepted[0].physical_ms, 3);
         assert_eq!(accepted[0].load.as_ref(), Some(&metrics));
-        assert_eq!(inventory(&fixture.root), before, "valid boundaries must be read-only");
+        assert_eq!(
+            inventory(&fixture.root),
+            before,
+            "valid boundaries must be read-only"
+        );
     }
-    assert!(wrongly_accepted.is_empty(), "reader accepted impossible Runtime token metrics: {wrongly_accepted:?}");
+    assert!(
+        wrongly_accepted.is_empty(),
+        "reader accepted impossible Runtime token metrics: {wrongly_accepted:?}"
+    );
 }

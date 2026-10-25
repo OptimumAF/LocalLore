@@ -97,7 +97,7 @@ passes full import and records a first SDK terminal/close observation before a
 second conversation attempt lacks a return. The subsequent
 [role-aware timed run](docs/native/LITERT_WORKER_TIMING_VERIFICATION_2026-10-25.md)
 passes import and observes42.175s from director send to DONE; narration starts
-at59.580s of the60s turn budget and PLAY fails its ownership fence. This does
+59.580s after trace creation near the60s turn deadline and PLAY fails its ownership fence. This does
 not establish a long second-creation hang. An accepted gift/restart remains unverified.
 
 An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects

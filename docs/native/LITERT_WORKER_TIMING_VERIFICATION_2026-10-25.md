@@ -27,9 +27,11 @@ failed runner. It cannot turn failure into admission for another phase.
 | Narrator creation entered |59580ms|
 | Snapshot; narrator return absent |60098ms|
 
-Director creation spans1867ms, while send-to-DONE spans42175ms. Narrator starts
-with about420ms left in the60s turn budget; only518ms pending is observed at
-the snapshot. This run does **not** establish a long second-factory hang or a
+Director creation spans1867ms, while send-to-DONE spans42175ms. Narrator enters
+59580ms after trace construction, near the unchanged60s turn deadline; only518ms
+pending is observed at the snapshot. Trace and turn timers have different origins,
+so these offsets do not establish an exact remaining turn budget. This run does
+**not** establish a long second-factory hang or a
 tokenizer-cache stall as the dominant cause. Admission spans10025ms and
 initialization3592ms. These are historical recording points, not precise native
 durations, jointly atomic SDK state, callback delivery or resource reclamation.
@@ -96,8 +98,9 @@ using the new exact proposals/authorizations, never old target adoption.
 | Candidate |`c15582461a34f9c8bc3c71915f241cdc6105d646fb932c19133e9e4889256b54`|
 
 Root verifies909 stock/source bindings; reviewer rehashes905nonimage entries
-and metadata-checks4 installed images. No reviewer token/model/AVD disk content
-access. Prepare16583 terminal0; SDK client0/known5344ms. Run admission verifies
+and metadata-checks4 installed images. Token contents are privately hash-compared,
+never output or copied; reviewer reads no model/AVD disk bytes.
+Prepare16583 terminal0; SDK client0/known5344ms. Run admission verifies
 C282497691648B/D47162138624B/available RAM35815112704B, unchanged40GiB C/D
 floors and12GiB RAM floor. Owner78972 confirmed live before calls.
 
@@ -119,7 +122,7 @@ Candidate15475 terminal1; owned2/known294875ms, stdout453/stderr0B;
 owner78972; retained stop_requested983531ms, closure/cleanup/capturetrue,
 worker1, stdout13948/stderr1075B. Recorded owner/worker/launcher identities are
 absent and ports free. No guest-flush or SDK-reclamation claim. No post-failure
-model/VM-disk reads, forced retry, proof hash or reopen was attempted.
+model/VM-disk reads, forced retry, accepted-model full recheck or reopen was attempted.
 
 ## Sealed evidence and next task
 

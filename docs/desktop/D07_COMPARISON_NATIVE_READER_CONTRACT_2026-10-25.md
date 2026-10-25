@@ -1,6 +1,6 @@
 # Proposed native comparison reader — 2026-10-25
 
-Refs #29 D07.06, partial prerequisite. **PROPOSED / UNIMPLEMENTED.**
+Refs #29 D07.06, partial prerequisite. **FROZEN FOR IMPLEMENTATION / UNVERIFIED.**
 Root must review/freeze this adapter contract before assigning tests or production.
 This document does not claim GUI acceptance, selected rerun, model execution or
 approval of the shared reader. The sole owned new file is this document, on
@@ -343,3 +343,35 @@ normal-hook exclusion and Android compatibility as warranted. No compilation,
 native UI/IPC, rendering, model/device or milestone acceptance is claimed here.
 Next runnable task is Root contract freeze and first native/controller oracle
 allocation; D07.06's selected rerun remains a separate unmet gate.
+
+## Root freeze and allocation — 2026-10-25
+
+Root adopts proposal `19bdb499` with these narrow clarifications before editing:
+
+- Add `reading` to the status phase enum for admitted evidence I/O. `ready`
+  means idle and usable; `choosing`, `opening`, `reading`, and `closing` may
+  have outstanding I/O. Every running status has its actual operation ID.
+- Changing the comparison panel's own observer clears its full private summary
+  and evidence immediately, preserving only source row metadata and its native
+  read capability. A subsequent explicit Query2 action may use that capability.
+  Changing the surrounding gameplay session/scope/head/Lab/native context closes
+  the source. These are distinct controller events; neither alters actor knowledge.
+- Opening and evidence use the existing manager Job/worker/registration. New
+  `JobKind::{Builtin,Curated,ComparisonRead}` tags prevent implicit fallback.
+  Passive status/source/summary clone bounded cached metadata without I/O.
+- Root owns existing manager/module registration, picker-purpose integration,
+  IPC/main, existing frontend mounting/verification, and the application harness.
+  The native contributor owns only new `evaluation/comparison.rs` and its new
+  `evaluation/comparison/tests.rs`. The frontend contributor owns only new
+  `comparison-reader-model.ts`, `comparison-reader-controller.ts`, and
+  `check-comparison-reader.mjs`. Root owns the new panel and CSS integration.
+- Native public adapter methods receive the actual `Arc<WindowLease>`, epoch
+  and actual Host eligibility; a JSON value never supplies native authority.
+  The only picker injection is a Rust closure returning a native-selected path,
+  captured by the IPC from the fixed production picker or test-only fixed double.
+  No path/closure/code/consent field is added to renderer IPC.
+
+Implementation worktree: `source-d07-comparison-native-ui`, branch
+`impl/d07-comparison-native-ui`, from unchanged reader `ddcecbbc`. The earlier
+reader checkout remains immutable during preserved-regression execution.
+All native/frontend/harness acceptance cases above remain required and UNRUN.

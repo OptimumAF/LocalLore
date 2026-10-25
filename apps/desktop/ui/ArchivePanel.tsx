@@ -13,7 +13,7 @@ export function ArchivePanel({
     allowed: boolean;
 }) {
     const s = useSyncExternalStore(a.subscribe, a.get, a.get),
-        play = c.get().play,
+        play = c.get().play ?? c.get().playV2,
         session = c.selected();
     if (!allowed || !a.matchesContext(context)) return null;
     if (!s.shown)
@@ -48,15 +48,39 @@ export function ArchivePanel({
                 </button>
                 <button
                     disabled={s.busy || !session || !play}
-                    onClick={() =>
-                        session &&
-                        play &&
+                    onClick={() => {
+                        if (
+                            !allowed ||
+                            !a.matchesContext(context) ||
+                            !session ||
+                            !play
+                        )
+                            return;
+                        const currentSession = c.selected(),
+                            currentPlay = c.get().play ?? c.get().playV2;
+                        // A retained callback cannot export a different selection
+                        // or use an obsolete head after a newer render is available.
+                        if (
+                            !currentSession ||
+                            !currentPlay ||
+                            currentSession.id !== session.id ||
+                            currentSession.scope.story !==
+                                session.scope.story ||
+                            currentSession.scope.branch !==
+                                session.scope.branch ||
+                            currentPlay.revision !== play.revision ||
+                            currentPlay.scope.story !== play.scope.story ||
+                            currentPlay.scope.branch !== play.scope.branch ||
+                            play.scope.story !== session.scope.story ||
+                            play.scope.branch !== session.scope.branch
+                        )
+                            return;
                         void a.previewExport(
                             session.id,
                             session.scope,
                             play.revision,
-                        )
-                    }
+                        );
+                    }}
                 >
                     Preview private export
                 </button>
@@ -107,9 +131,10 @@ export function ArchivePanel({
                     </dl>
                     {p.version === 3 && (
                         <p>
-                            Accepted records include play and author corrections.
-                            This private archive includes correction reasons,
-                            prior truth and private discovery source bindings.
+                            Accepted records include play and author
+                            corrections. This private archive includes
+                            correction reasons, prior truth and private
+                            discovery source bindings.
                         </p>
                     )}
                     <table>

@@ -64,22 +64,17 @@ abstract class ReceiptSetupUiHarness {
     }
     internal fun main(action: () -> Unit) = instrumentation.runOnMainSync { action() }
     internal fun await(phase: LocalModelSetupPhase) {
-        try {
-            compose.waitUntil(10_000) { model.state.value.phase == phase }
-        } catch (failure: Throwable) {
-            if (ReceiptSetupFixture.claimFailureEmission()) {
-                try {
-                    val progress = selectedSource?.progress() ?: ReceiptSetupSourceProgress()
-                    val snapshot = failureTrace.snapshot(phase, model.state.value.phase, progress)
-                    instrumentation.sendStatus(ReceiptSetupFailureTrace.STATUS_CODE, Bundle().apply {
-                        putString(ReceiptSetupFailureTrace.STATUS_KEY, snapshot.json())
-                    })
-                } catch (_: Throwable) {
-                    // Diagnostics never replace, wrap, suppress or convert the original failure.
-                }
-            }
-            throw failure
-        }
+        ReceiptSetupFailureReporter.run(
+            claim = { ReceiptSetupFixture.claimFailureEmission() },
+            snapshot = {
+                val progress = selectedSource?.progress() ?: ReceiptSetupSourceProgress()
+                failureTrace.snapshot(phase, model.state.value.phase, progress)
+            },
+            send = { code, key, json ->
+                instrumentation.sendStatus(code, Bundle().apply { putString(key, json) })
+            },
+            block = { compose.waitUntil(10_000) { model.state.value.phase == phase } },
+        )
     }
     internal fun select(source: ReceiptSetupFixture.Source) = main {
         selectedSource = source

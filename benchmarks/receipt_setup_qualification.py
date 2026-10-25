@@ -24,8 +24,8 @@ _spec.loader.exec_module(contract)
 
 APP, TEST = contract.APP, contract.TEST
 APK_HASHES = {
-    APP: "dca8db5ef1244e29318f3b5da1044e8468bc82a6b995ac591f0516eae7dd76f7",
-    TEST: "bc74a8c89c447999a83cee019e37c78186d7e071e03165e8014517e89fefe4ef",
+    APP: "f261d301d0cf97f06170fe94b868ffb313063d8b363928826f12809e32436aa0",
+    TEST: "399c959651852338ab96f7af3d59e1899fe0c8e6654dabfb7c54f22320715d63",
 }
 SOURCE_FILES = ("benchmarks/receipt_setup_qualification.py", "benchmarks/receipt_avd_environment.py",
     "benchmarks/receipt_fresh_target.py", "scripts/tests/test_receipt_setup_qualification.py",
@@ -404,6 +404,10 @@ class ProcessBoundary:
 
 
 class Owner:
+    # Trusted subclasses may define a separate fixed experiment. No proposal,
+    # class name or command argument can alter this ordinary cohort's choices.
+    instrumentation_steps = ((INITIAL_INSTRUMENT, "instrumentation", 0), (RESTART_INSTRUMENT, "restart", 1))
+
     def __init__(self, proposal, lease):
         self.proposal, self.lease = proposal, lease
         # Capture the admitted identity once; never accept a later replacement.
@@ -455,9 +459,8 @@ class Owner:
                 assert self.stage in ("before", "installed", "after", "final")
             elif op in (PROOF_ABSENT, contract.INTERNAL_CANDIDATE_ABSENT):
                 assert self.stage == "installed"
-            elif op in (INITIAL_INSTRUMENT, RESTART_INSTRUMENT):
-                assert (op == INITIAL_INSTRUMENT and self.stage == "instrumentation" and self.methods == 0 or
-                        op == RESTART_INSTRUMENT and self.stage == "restart" and self.methods == 1)
+            elif op in tuple(step[0] for step in self.instrumentation_steps):
+                assert (op, self.stage, self.methods) in self.instrumentation_steps
                 self.methods += 1
             elif op == PROOF_MANIFEST:
                 assert self.stage == "proofs" and self.pending_read is None

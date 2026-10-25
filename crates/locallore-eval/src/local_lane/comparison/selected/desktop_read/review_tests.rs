@@ -731,3 +731,64 @@ fn reader_lock_excludes_open_and_resume_and_other_arm_valid_drift_invalidates_en
     drop(fresh);
     assert!(inventory(&fixture.root) == expected);
 }
+
+#[test]
+fn offsetting_genuine_invocation_settlements_change_snapshot_even_when_report_and_charges_match() {
+    let fixture = Fixture::new("accounting-seal");
+    let source_files = inventory(&fixture.source);
+    let canonical = [fixture.full("left"), fixture.full("right")];
+    // Produce a second real invocation through the existing model-free recovery.
+    fs::remove_file(fixture.cp("left")).unwrap();
+    selected::resume_selected(&fixture.target, &fixture.source, &fixture.execution,
+        &Cancellation::default()).unwrap();
+    let manifest: selected::SelectedManifest = comparison::decode(
+        &fixture.target.join("selected.json"), 128 * 1024).unwrap();
+    let private_report = || {
+        // Unit-test-only access avoids trying to acquire a second run lock.
+        let turns = selected::validate_destination(&fixture.target, &manifest, None).unwrap();
+        let ledgers = selected::ledgers(&fixture.target, &manifest.binding).unwrap();
+        serde_json::to_value(selected::report(&fixture.target, &manifest, &turns, &ledgers).unwrap()).unwrap()
+    };
+    let before_report = private_report();
+    let mut expected = inventory(&fixture.root);
+    let paths = [fixture.target.join("left/invocation-00-settled.json"),
+        fixture.target.join("left/invocation-01-settled.json")];
+    assert!(paths.iter().all(|path| path.is_file()), "two actual completed invocation settlements required");
+    let mut settlements = [json_file(&paths[0]), json_file(&paths[1])];
+    for (index, settlement) in settlements.iter().enumerate() {
+        assert_eq!(settlement["index"], index);
+        assert_eq!(settlement["binding"], fixture.execution);
+        assert_eq!(settlement["roles"], 0);
+    }
+    let original = [settlements[0]["ms"].as_u64().unwrap(), settlements[1]["ms"].as_u64().unwrap()];
+    let debit = original.iter().position(|ms| *ms > 0)
+        .expect("actual measured invocation overhead supplies a positive debit");
+    let credit = 1 - debit;
+    settlements[debit]["ms"] = json!(original[debit] - 1);
+    settlements[credit]["ms"] = json!(original[credit].checked_add(1).unwrap());
+    assert_eq!(settlements[0]["ms"].as_u64().unwrap() + settlements[1]["ms"].as_u64().unwrap(),
+        original[0] + original[1]);
+    let opened = desktop_read::open_read_only(&fixture.target).unwrap();
+    let old_binding = snapshot_binding(&desktop_read::summary(&opened, true).unwrap());
+    for (path, settlement) in paths.iter().zip(&settlements) {
+        // Synthetic offset of existing diagnostics only; no invented reservations,
+        // measured-work claim, checkpoint change or canonical rewrite.
+        let bytes = encode(settlement).unwrap(); fs::write(path, &bytes).unwrap();
+        assert!(expected.insert(path.strip_prefix(&fixture.root).unwrap().to_owned(), Some(bytes)).is_some());
+    }
+    assert_eq!(private_report(), before_report, "aggregate/report equality must not bypass exact accounting seal");
+    assert_eq!(refused(desktop_read::summary(&opened, true)), "SnapshotMismatch");
+    assert_eq!(refused(desktop_read::evidence(&opened, &old_binding, Arm::Right,
+        query(Edge::After, Observer::Character { id: "mira".into() }, View::History), true)), "SnapshotMismatch");
+    drop(opened);
+    assert!(inventory(&fixture.root) == expected);
+    let fresh = desktop_read::open_read_only(&fixture.target).unwrap();
+    assert_ne!(desktop_read::summary(&fresh, true).unwrap()["binding"], old_binding);
+    drop(fresh);
+    assert!(inventory(&fixture.root) == expected && inventory(&fixture.source) == source_files);
+    for (index, arm) in ["left", "right"].into_iter().enumerate() {
+        let after = fixture.full(arm);
+        assert!(after.receipts() == canonical[index].receipts());
+        assert!(after.accepted_history_basis().unwrap() == canonical[index].accepted_history_basis().unwrap());
+    }
+}

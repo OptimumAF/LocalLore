@@ -15,7 +15,7 @@ import com.google.gson.JsonPrimitive
 import org.junit.Assert.*
 import org.junit.Test
 
-/** Canonical-language seam only; Pattern is not the pinned native compiler or an engine. */
+/** Finite JSON-spelling seam only; Pattern is not the pinned native compiler or an engine. */
 class FiniteSchemaRegexTest {
     private val original = """{"additionalProperties":false,"properties":{"commands":{"items":{"oneOf":[{"additionalProperties":false,"properties":{"audience":{"enum":[["mira"]],"items":{"enum":["mira"]},"maxItems":4,"minItems":1,"type":"array"},"op":{"const":"say"},"text":{"const":"Where is the tideglass relic?"}},"required":["audience","op","text"],"type":"object"}]},"maxItems":1,"minItems":1,"type":"array"}},"required":["commands"],"type":"object"}"""
     private val escapedOriginal = """{"additionalProperties":false,"properties":{"commands":{"items":{"oneOf":[{"additionalProperties":false,"properties":{"audience":{"enum":[["mira"]],"items":{"enum":["mira"]},"maxItems":4,"minItems":1,"type":"array"},"op":{"const":"say"},"text":{"const":"Hello \"Mira\" \\ 雪.\nIs the tideglass here?"}},"required":["audience","op","text"],"type":"object"}]},"maxItems":1,"minItems":1,"type":"array"}},"required":["commands"],"type":"object"}"""
@@ -71,6 +71,94 @@ class FiniteSchemaRegexTest {
             assertFalse("A quote-prefix is not the original literal", matches(escapedOriginal, body(listOf("mira"), prefix)))
         }
         assertFalse(matches(escapedOriginal, body(listOf("mira"), text + "x")))
+    }
+
+    private fun equivalent(schema: String, canonical: String, alternate: String) {
+        assertEquals(JsonParser.parseString(canonical), JsonParser.parseString(alternate))
+        assertTrue(matches(schema, canonical)); assertTrue(matches(schema, alternate))
+    }
+
+    @Test fun originalSpeechKeepsEveryCanonicalSpaceAndAddsOnlyEquivalentEscapedSpaces() {
+        val canonical = body(listOf("mira"))
+        equivalent(original, canonical, canonical.replace(" ", "\\u0020"))
+        for (index in canonical.indices.filter { canonical[it] == ' ' }) {
+            equivalent(original, canonical, canonical.substring(0, index) + "\\u0020" + canonical.substring(index + 1))
+        }
+        for (wrong in listOf("\\u0021", "\\u002f", "\\u002", "\\U0020", "\\u 020", "\\u000a")) {
+            assertFalse(matches(original, canonical.replaceFirst(" ", wrong)))
+        }
+        assertFalse(matches(original, canonical.replace(" ", "")))
+    }
+
+    @Test fun literalBackslashUIsDataAndNeverDecodedAsAnActualSpaceByThePattern() {
+        for (literal in listOf("\\u0020", "\\\\u0020", "a\\u0020 b", "\\u96ea 雪")) {
+            val schema = JsonObject().apply { addProperty("const", literal) }.toString()
+            val canonical = quote(literal)
+            equivalent(schema, canonical, canonical.replace(" ", "\\u0020"))
+            assertFalse(matches(schema, quote(literal.replace("\\u0020", " ").replace("\\u96ea", "雪"))))
+        }
+        assertFalse(matches("""{"const":" "}""", quote("\\u0020")))
+        assertFalse(matches("""{"const":"\\u0020"}""", quote(" ")))
+    }
+
+    @Test fun nonAsciiScalarsHaveCompleteCaseFlexibleEscapesAndAstralPairs() {
+        val literal = "雪 café 🦉\u007f\u0080"
+        val schema = JsonObject().apply { addProperty("const", literal) }.toString()
+        val canonical = quote(literal)
+        val alternate = "\"\\u96Ea\\u0020caf\\u00E9\\u0020\\uD83e\\uDD89\u007f\\u0080\""
+        equivalent(schema, canonical, alternate)
+        equivalent("""{"const":"\u2028\u2029"}""", quote("\u2028\u2029"), "\"\\u2028\\u2029\"")
+        for (wrong in listOf("\\uD83e", "\\uDD89", "\\uDD89\\uD83e", "\\uD83e\\uDD88", "\\uD83eX\\uDD89")) {
+            assertFalse(matches("""{"const":"🦉"}""", "\"$wrong\""))
+        }
+        assertFalse(matches(schema, alternate.replace("\\u00E9", "\\u0065")))
+        assertFalse(matches(schema, alternate.replace("\\u96Ea", "\\u96EZ")))
+    }
+
+    @Test fun stringKeysAndNestedLiteralValuesReceiveTheSameSpellingPolicy() {
+        val schema = """{"const":{"a b":{"雪 key":["x y",{"🦉":"\\u0020 z"}]}}}"""
+        val canonical = """{"a b":{"雪 key":["x y",{"🦉":"\\u0020 z"}]}}"""
+        val alternate = canonical.replace(" ", "\\u0020").replace("雪", "\\u96eA").replace("🦉", "\\ud83e\\udd89")
+        equivalent(schema, canonical, alternate)
+        val objectSchema = """{"type":"object","additionalProperties":false,"required":["a b"],"properties":{"a b":{"const":"x y"}}}"""
+        equivalent(objectSchema, """{"a b":"x y"}""", """{"a\u0020b":"x\u0020y"}""")
+        assertFalse(matches(schema, alternate.replace("\\u0020", " ") + " "))
+    }
+
+    @Test fun asciiPunctuationControlsAndStructuralWhitespaceRemainExact() {
+        val literal = "quote\" backslash\\ newline\n tab\t / {} [] .+*?()|^$"
+        val schema = JsonObject().apply { addProperty("const", literal) }.toString()
+        val canonical = quote(literal)
+        equivalent(schema, canonical, canonical.replace(" ", "\\u0020"))
+        for (candidate in listOf(canonical.replace("\\n", "\\u000a"), canonical.replace("\\t", "\\u0009"),
+            canonical.replace("/", "\\/"), canonical.replace("\\\"", "\\u0022"))) assertFalse(matches(schema, candidate))
+        val value = body(listOf("mira"))
+        for (candidate in listOf(" " + value, value + " ", value.replaceFirst(":", ": "),
+            value.replaceFirst(":", ":\\u0020"), value.replaceFirst(",", ",\t"))) assertFalse(matches(original, candidate))
+        assertFalse(matches(original, value.replace("say", "\\u0073ay")))
+        assertFalse(matches(original, value.replace("commands", "\\u0063ommands")))
+    }
+
+    @Test fun escapedSpaceEnumChoicesRetainTheirDecodedIdentityAndEveryCombination() {
+        val schema = """{"enum":[["a b","c d"],["e f"]],"type":"array","items":{"enum":["a b","c d","e f"]},"minItems":1,"maxItems":2}"""
+        for (canonical in listOf("""["a b","c d"]""", """["e f"]""")) {
+            equivalent(schema, canonical, canonical.replace(" ", "\\u0020"))
+        }
+        assertFalse(matches(schema, """["c\u0020d","a\u0020b"]"""))
+        assertNull(finiteSchemaRegex("""{"enum":["a b","a\u0020b"]}"""))
+        assertNull(finiteSchemaRegex("""{"enum":["🦉","\uD83E\uDD89"]}"""))
+    }
+
+    @Test fun wholeScalarAlternativesAndTheirGroupsAreChargedToTheExistingOutputLimit() {
+        fun schema(count: Int) = JsonObject().apply { addProperty("const", " ".repeat(count)) }.toString()
+        // Per-space (?: |\\u0020) is13 bytes, plus14 bytes for existing outer/choice/quote framing.
+        val allowed = (32768 - 14) / 13
+        val regex = requireNotNull(finiteSchemaRegex(schema(allowed)))
+        assertEquals(14 + allowed * 13, localUtf8(regex).size)
+        assertTrue(matches(schema(allowed), quote(" ".repeat(allowed))))
+        assertTrue(matches(schema(allowed), "\"" + "\\u0020".repeat(allowed) + "\""))
+        assertNull(finiteSchemaRegex(schema(allowed + 1)))
+        assertNull(finiteSchemaRegex(JsonObject().apply { addProperty("const", "🦉".repeat(1500)) }.toString()))
     }
 
     @Test fun wrongTextOperationExtraMissingReorderedAndOuterWhitespaceRefuse() {
@@ -213,6 +301,8 @@ class FiniteSchemaRegexTest {
             require(id.matches(Regex("[a-z][a-z0-9-]{0,47}")) && caseIds.add(id))
             val schema = jsonString(case.get("schema_json"))
             require(localUtf8(schema).size in 1..16_384)
+            val regex = finiteSchemaRegex(schema) ?: error("Unsupported finite case")
+            val compiled = Pattern.compile(regex)
             val sampleIds = mutableSetOf<String>()
             for (section in listOf("positives", "negatives")) {
                 val samples = jsonArray(case.get(section))
@@ -223,10 +313,11 @@ class FiniteSchemaRegexTest {
                     require(sample.keySet() == setOf("id", "json"))
                     val sampleId = jsonString(sample.get("id"))
                     require(sampleId.matches(Regex("[a-z][a-z0-9-]{0,47}")) && sampleIds.add(sampleId))
-                    require(localUtf8(jsonString(sample.get("json"))).size in 1..16_384)
+                    val candidate = jsonString(sample.get("json"))
+                    require(localUtf8(candidate).size in 1..16_384)
+                    require(compiled.matcher(candidate).matches() == (section == "positives")) { "Original finite sample changed" }
                 }
             }
-            val regex = finiteSchemaRegex(schema) ?: error("Unsupported finite case")
             result.add(JsonObject().apply {
                 addProperty("index", index); addProperty("schema_sha256", sha(localUtf8(schema))); addProperty("regex", regex)
             })

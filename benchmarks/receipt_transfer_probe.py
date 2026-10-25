@@ -37,6 +37,11 @@ def mode_value(mode):
     return mode
 
 
+def stream_mode_value(mode):
+    assert type(mode) is str and mode in (*c.MODES, "SHELL_BINARY")
+    return mode
+
+
 def source_path(source):
     assert type(source) is dict and set(source) == {"path", "bytes", "sha256"}
     assert type(source["path"]) is str
@@ -119,12 +124,13 @@ def authorize(proposal_path, authorization_path, evidence):
 
 
 def parse_summary(raw, mode):
-    mode_value(mode)
+    stream_mode_value(mode)
     assert type(raw) is bytes and 0 < len(raw) <= 4096
     value = q.contract.strict_json(raw)
     assert type(value) is dict and set(value) == SUMMARY_KEYS
     assert type(value["version"]) is int and value["version"] == 1 and value["mode"] == mode
-    assert type(value["source_bytes"]) is int and value["source_bytes"] == c.SOURCE_BYTES
+    expected = len(c.BINARY_PAYLOAD) if mode == "SHELL_BINARY" else c.SOURCE_BYTES
+    assert type(value["source_bytes"]) is int and value["source_bytes"] == expected
     assert value["source_verified"] is True
     assert type(value["client_returncode"]) is int and value["client_returncode"] == 0
     assert value["remote_exit_status_known"] is False and value["destination_verified"] is False
@@ -137,7 +143,7 @@ def stream_worker(proposal_path, authorization_path, evidence):
     assert raw.startswith(STREAM_REQUEST)
     match = re.fullmatch(rb"([A-Z][A-Z_0-9]{0,15})\n([1-9][0-9]{4,9})\n", raw[len(STREAM_REQUEST):])
     assert match
-    mode, uid = mode_value(match[1].decode("ascii")), int(match[2])
+    mode, uid = stream_mode_value(match[1].decode("ascii")), int(match[2])
     value = authorize(proposal_path, authorization_path, evidence)
     return stream_authorized(value, mode, uid, proposal_path, authorization_path, evidence)
 
@@ -145,7 +151,8 @@ def stream_worker(proposal_path, authorization_path, evidence):
 def stream_authorized(value, mode, uid, proposal_path, authorization_path, evidence):
     trace = None
     try:
-        trace = r.source_trace.SourceStreamTrace(value["source"]["bytes"])
+        expected = len(c.BINARY_PAYLOAD) if mode == "SHELL_BINARY" else value["source"]["bytes"]
+        trace = r.source_trace.SourceStreamTrace(expected)
     except BaseException:
         pass
     try:
@@ -159,7 +166,7 @@ def stream_authorized(value, mode, uid, proposal_path, authorization_path, evide
 
 
 def _stream_authorized(value, mode, uid, proposal_path, authorization_path, evidence, trace):
-    mode_value(mode); r.integer(uid, 10000, 2 ** 31 - 1)
+    stream_mode_value(mode); r.integer(uid, 10000, 2 ** 31 - 1)
     lease = q.open_lease(value); lease.check()
     cohort = Path(evidence) / "cohort"; stem = "stream-" + mode.lower()
     parent_path = cohort / (stem + "-parent-v1.json")
@@ -173,7 +180,8 @@ def _stream_authorized(value, mode, uid, proposal_path, authorization_path, evid
     assert parent["authorization_sha256"] == q.sha(Path(authorization_path).read_bytes())
     assert parent["mode"] == mode and type(parent["uid"]) is int and parent["uid"] == uid
     assert type(parent["deadline_epoch"]) in (int, float) and 0 < parent["deadline_epoch"] - time.time() <= 180
-    prior = "continued-before" if mode == c.MODES[0] else "after-" + c.MODES[c.MODES.index(mode) - 1].lower().replace("_", "-")
+    prior = "continued-before" if mode == c.MODES[0] else "after-" + (
+        "dd-1m" if mode == "SHELL_BINARY" else c.MODES[c.MODES.index(mode) - 1].lower().replace("_", "-"))
     fact_path = cohort / (prior + "-facts.json")
     assert q.sha(fact_path.read_bytes()) == parent["facts_sha256"]
     facts = q.contract.strict_json(fact_path.read_bytes())
@@ -187,15 +195,26 @@ def _stream_authorized(value, mode, uid, proposal_path, authorization_path, evid
         "worker": e.process_identity(os.getpid())})
     observe = r._stream_trace_observe
     observe(trace, "phase", r.source_trace.StreamPhase.SOURCE_OPEN)
-    source = source_path(value["source"])
-    operation = ["shell", "-T", "-e", "none"] if mode == "SHELL_CAT" else ["exec-in"]
-    argv = [value["adb_path"], "-H", "127.0.0.1", "-P", "5037", "-s", lease.descriptor["serial"], *operation, shlex.join(c.write_command(uid, mode))]
+    metadata = value["source"]
+    if mode == "SHELL_BINARY":
+        source = cohort / "shell-binary-source-v1.bin"
+        # Fixed original bytes in a create-only regular file, inside the same
+        # owned worker as the large copies. No pipe-vs-file qualification gap.
+        with source.open("xb", buffering=0) as generated:
+            assert generated.write(c.BINARY_PAYLOAD) == len(c.BINARY_PAYLOAD)
+            generated.flush(); os.fsync(generated.fileno())
+        metadata = {"bytes": len(c.BINARY_PAYLOAD), "sha256": c.BINARY_SHA256}
+    else:
+        source = source_path(metadata)
+    operation = ["shell", "-T", "-e", "none"] if mode in ("SHELL_CAT", "SHELL_BINARY") else ["exec-in"]
+    command = c.binary_write_command(uid) if mode == "SHELL_BINARY" else c.write_command(uid, mode)
+    argv = [value["adb_path"], "-H", "127.0.0.1", "-P", "5037", "-s", lease.descriptor["serial"], *operation, shlex.join(command)]
     with source.open("rb", buffering=0) as stream:
         before = os.fstat(stream.fileno())
         observe(trace, "phase", r.source_trace.StreamPhase.SOURCE_HASH)
         digest = hashlib.sha256()
         for block in iter(lambda: stream.read(1024 * 1024), b""): digest.update(block)
-        assert before.st_size == value["source"]["bytes"] and digest.hexdigest() == value["source"]["sha256"]
+        assert before.st_size == metadata["bytes"] and digest.hexdigest() == metadata["sha256"]
         observe(trace, "source_verified")
         stream.seek(0); lease.check()
         assert os.getppid() == parent["parent"]["pid"]
@@ -260,6 +279,7 @@ class Owner(q.Owner):
         self.created = False
         self.binary_verified = False
         self.shell_gate_attempted = False
+        self.binary_stream_attempted = False
 
     def dispatch(self, args, deadline=15, cap=65536):
         if self.stage == "probe-root":
@@ -279,15 +299,21 @@ class Owner(q.Owner):
         return self._dispatch_checked(args, deadline, cap)
 
     def transfer(self, mode):
-        mode_value(mode)
-        assert self.created and self.clean and self.methods == 0 and self.stage == "source-stream"
-        assert self.attempted == self.verified and mode == c.MODES[len(self.attempted)]
-        assert mode != "SHELL_CAT" or self.binary_verified
-        self.attempted.append(mode)  # Consumed even if a subsequent gate refuses.
+        stream_mode_value(mode)
+        assert self.created and self.clean and self.methods == 0
+        if mode == "SHELL_BINARY":
+            assert self.stage == "shell-gate-binary" and self.shell_gate_attempted and not self.binary_stream_attempted
+            assert self.attempted == self.verified == ["CAT", "DD_1M"] and not self.binary_verified
+            self.binary_stream_attempted = True
+        else:
+            assert self.stage == "source-stream"
+            assert self.attempted == self.verified and mode == c.MODES[len(self.attempted)]
+            assert mode != "SHELL_CAT" or self.binary_verified
+            self.attempted.append(mode)  # Consumed even if a subsequent gate refuses.
         self.check_owner(); self.count += 1
         stem = self.commands / ("command-%04d" % self.count)
         remaining = self.until - time.monotonic(); assert remaining > 0
-        prior = "continued-before" if len(self.attempted) == 1 else "after-" + self.verified[-1].lower().replace("_", "-")
+        prior = "continued-before" if mode == c.MODES[0] else "after-" + self.verified[-1].lower().replace("_", "-")
         facts = self.directory / (prior + "-facts.json")
         try:
             q.write_json(self.directory / ("stream-" + mode.lower() + "-parent-v1.json"), {"version": 1,
@@ -348,8 +374,9 @@ class Owner(q.Owner):
         for code in (42, 0):
             op = ("run-as", q.APP, "sh", "-c", "test $(id -u) -eq " + str(self.uid_map[q.APP]) + " && exit " + str(code))
             assert control(["shell", "-T", "-e", "none", shlex.join(op)], code) == b""
-        assert control(["shell", "-T", "-e", "none", shlex.join(c.binary_write_command(self.uid_map[q.APP]))],
-                       0, c.BINARY_PAYLOAD) == b""
+        self.stage = "shell-gate-binary"
+        binary_transfer = self.transfer("SHELL_BINARY")
+        q.write_json(self.directory / "shell-binary-transfer-v1.json", binary_transfer)
         self.stage = "binary-proof"
         raw = self.shell(c.binary_proof_command(self.uid_map[q.APP]), deadline=10, cap=1024)
         with (self.directory / "shell-binary-proof.raw.txt").open("xb") as stream:

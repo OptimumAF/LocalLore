@@ -52,6 +52,9 @@ client results, and an original 768-byte binary copy/readback. Its bytes are
 `bytes(range(256))` repeated three times, including NUL, CR/LF, 0x1A, tilde and
 high bytes. Full SHA256 is
 `f3a25aa93aa2fbba28d79260535bbd6a5eb0fc1c24a8b0f04e12b484c1dfe363`.
+Those bytes are created in a fixed exclusive regular file in the owned stream
+worker, authenticated and passed through the same held-FD client path as the
+large source. A pipe-only input test does not qualify regular-file stdin.
 The probe child omits TERM; production environment policy is untouched. No
 large shell copy follows a failed gate. Earlier qualified CAT/DD controls remain
 evidence if this later candidate fails. Even after qualification, summaries

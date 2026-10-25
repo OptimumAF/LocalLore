@@ -849,6 +849,38 @@ await test("summary token mismatch and capability loss clear private results wit
     assert.equal(f.c.get().evidence, null);
     f.c.dispose();
 });
+await test("retired preparing client waits for actual native drain", async () => {
+    const f = fixture();
+    const admitted = deferred();
+    f.hooks.set("prepare", (body) => {
+        admitted.resolve(body.clientId);
+        return status(body.clientId, "preparing", {
+            run_id: null,
+            run_token: null,
+            binding: null,
+            plan_token: null,
+            prepared: null,
+        });
+    });
+    const work = f.c.prepare(source, row, "scripted_baseline");
+    const old = await admitted.promise;
+    let closes = 0;
+    f.hooks.set("close", (body) => {
+        assert.equal(body.clientId, old);
+        return status(old, "closed", { running: ++closes < 2 });
+    });
+    await tick();
+    f.c.setContext("new-session-after-native-admission", true);
+    await work;
+    for (let n = 0; n < 15 && f.c.get().uncertain; n++)
+        await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(f.c.get().uncertain, false);
+    assert.equal(f.c.get().status, null);
+    assert.equal(f.c.get().clientId, null);
+    assert.ok(closes >= 2);
+    assert.equal(f.calls.filter((v) => v.action === "prepare").length, 1);
+    f.c.dispose();
+});
 const result = {
     version: 1,
     cases,

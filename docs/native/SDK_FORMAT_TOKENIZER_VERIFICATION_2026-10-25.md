@@ -307,6 +307,11 @@ client-stderr claim is made. The closed device evidence index selects240 host
 metadata/raw files /648,408 bytes, excluding weights, tokenizer derivatives,
 AVD disks/RAM/cache/keys. Index SHA256 is
 `c06f5953c86d467004ace2c70a71c5892b9796412c04e8e8dc45a76e0fc03e48`.
+The separate host source/check/APK/control selection contains286 files /
+156,850,969 bytes, index SHA256
+`c1e2b1875a8b9ade4355695c42b5d794e0bf11da53d1ceee66debbf1bdb7bce1`.
+It excludes actual model/tokenizer/PB payloads and emulator backings; hashes and
+selected metadata are preserved locally, not uploaded as public raw diagnostics.
 
 M05.01/M05.05 and supporting M01.05 are partial implementation/verification for
 review. Complete Dialogue/reopen, phone/ARM64 execution,16KiB-page qualification,

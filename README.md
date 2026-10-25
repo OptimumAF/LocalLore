@@ -152,6 +152,13 @@ Native controls retain every original sample and expose representation/callback
 limits; they do not establish the SDK failure's cause. All owned emulator
 processes are stopped, and earlier failures remain preserved.
 
+The [JSON spelling controls](docs/native/JSON_SPELLING_VERIFICATION_2026-10-25.md)
+preserve decoded speech while allowing bounded equivalent space/Unicode escapes.
+Rust, JVM and native controls pass their stated scopes; both fresh attempts
+stop during model copy before SDK execution. A bounded host trace identifies a
+client timeout with a partial host read on the second attempt. Import, corrected
+Dialogue and restart remain unqualified.
+
 An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects
 the isolated SDK to guarded free-text preparation and durable commit. Its
 [verification](docs/runtime/android/PLAY_VERIFICATION_2026-10-23.md) establishes

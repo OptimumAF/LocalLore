@@ -7,7 +7,7 @@ use super::super::desktop_api::{
     bounded_evidence, check_access, render_evidence, Arm, EvidenceRequest,
 };
 use super::*;
-use locallore::inspection_query::{self, Query, MAX_ROWS};
+use locallore::inspection_query::{self, Observer, Query, MAX_ROWS};
 
 /// Retains the actual selected lock/pins and a validated immutable snapshot.
 /// It is deliberately neither serializable nor constructible from JSON.
@@ -44,7 +44,14 @@ fn accounting_seal(dir: &Path) -> Result<Value> {
     Ok(json!(records))
 }
 
-fn snapshot(destination: &Destination) -> Result<(String, Value, [Option<StoredTurn>; 2])> {
+struct ReadSnapshot {
+    binding: String,
+    metadata: Value,
+    turns: [Option<StoredTurn>; 2],
+    report: SelectedComparisonReportV1,
+}
+
+fn snapshot(destination: &Destination) -> Result<ReadSnapshot> {
     let dir = &destination.dir;
     // Revalidate names/link constraints too; cooperative locks do not prove that
     // an unrelated filesystem writer left the originally opened files intact.
@@ -76,25 +83,30 @@ fn snapshot(destination: &Destination) -> Result<(String, Value, [Option<StoredT
     if encode(&metadata)?.len() > 16 * 1024 {
         return Err("ReportBudget".into());
     }
-    Ok((binding, metadata, turns))
+    Ok(ReadSnapshot {
+        binding,
+        metadata,
+        turns,
+        report,
+    })
 }
 
 pub fn open_read_only(dir: &Path) -> Result<OpenedSelected> {
     let destination = open_destination(dir)?;
-    let (binding, metadata, _) = snapshot(&destination)?;
+    let snapshot = snapshot(&destination)?;
     Ok(OpenedSelected {
         destination,
-        binding,
-        metadata,
+        binding: snapshot.binding,
+        metadata: snapshot.metadata,
     })
 }
 
-fn fresh(run: &OpenedSelected) -> Result<[Option<StoredTurn>; 2]> {
-    let (binding, metadata, turns) = snapshot(&run.destination)?;
-    if binding != run.binding || metadata != run.metadata {
+fn fresh(run: &OpenedSelected) -> Result<ReadSnapshot> {
+    let snapshot = snapshot(&run.destination)?;
+    if snapshot.binding != run.binding || snapshot.metadata != run.metadata {
         return Err("SnapshotMismatch".into());
     }
-    Ok(turns)
+    Ok(snapshot)
 }
 
 /// Small source/edge metadata, identical for all inspection lenses. Outcomes,
@@ -119,7 +131,7 @@ pub fn evidence(
     if expected_binding != run.binding {
         return Err("SnapshotMismatch".into());
     }
-    let turns = fresh(run)?;
+    let turns = fresh(run)?.turns;
     let index = match arm {
         Arm::Left => 0,
         Arm::Right => 1,
@@ -169,4 +181,38 @@ pub fn evidence(
         "before_head":manifest.source_inputs[index].before_head,"after_head":null,
         "observer":observer,"edge":null,"read_only":true,"generation_grant":false,
         "body":{"kind":"missing","reason":"checkpoint_unavailable"}}))
+}
+
+/// Explicit spoiler diagnostics, separate from actor-safe metadata and Query2.
+/// Even omniscient callers receive a manual bounded view, never the full report.
+pub fn diagnostics(
+    run: &OpenedSelected,
+    expected_binding: &str,
+    observer: Observer,
+    native_inspection_granted: bool,
+) -> Result<Value> {
+    check_access(
+        &EvidenceRequest::Receipt { observer },
+        native_inspection_granted,
+    )?;
+    if expected_binding != run.binding {
+        return Err("SnapshotMismatch".into());
+    }
+    let report = fresh(run)?.report;
+    let rows: Vec<Value> = report.rows.iter().map(|row| {
+        json!({"turn":row.turn,"arm":row.arm,"phase":row.phase,"error":row.error,
+            "expected":row.expected,"passed":row.passed,"failures":row.failures,
+            "quality_flags":row.quality_flags,"roles":row.roles,"roles_known":row.roles_known,
+            "elapsed_ms":row.elapsed_ms,"actual_receipt_sha256":row.actual_receipt_sha256,
+            "privacy_passed":row.privacy_passed,"context_evidence_available":row.context_evidence_available})
+    }).collect();
+    bounded_evidence(
+        json!({"version":1,"kind":"selected_diagnostics","binding":expected_binding,
+        "lane":report.lane,"completed":report.completed,"rows":rows,
+        "physical_setups":report.physical_setups,"physical_setup_ms":report.physical_setup_ms,
+        "left_charged_ms":report.left_charged_ms,"right_charged_ms":report.right_charged_ms,
+        "left_reserved_roles":report.left_reserved_roles,"right_reserved_roles":report.right_reserved_roles,
+        "human_reviewed":report.human_reviewed,"quality_accepted":report.quality_accepted,
+        "unavailable":report.unavailable}),
+    )
 }

@@ -1,7 +1,9 @@
 //! Read-only selected-run capability. No execution, assets, or renderer paths.
 #[cfg(test)]
 mod budget_review_tests;
-use super::super::desktop_api::{check_access, render_evidence, Arm, EvidenceRequest};
+use super::super::desktop_api::{
+    bounded_evidence, check_access, render_evidence, Arm, EvidenceRequest,
+};
 use super::*;
 use locallore::inspection_query::{self, Query, MAX_ROWS};
 
@@ -159,7 +161,7 @@ pub fn evidence(
         | EvidenceRequest::Capture { observer }
         | EvidenceRequest::Outputs { observer } => observer,
     };
-    Ok(json!({"version":1,"binding":expected_binding,
+    bounded_evidence(json!({"version":1,"binding":expected_binding,
         "row":{"turn":manifest.selection.turn,"arm":ARM_NAMES[index]},
         "scope":manifest.source_inputs[index].scope,
         "before_head":manifest.source_inputs[index].before_head,"after_head":null,

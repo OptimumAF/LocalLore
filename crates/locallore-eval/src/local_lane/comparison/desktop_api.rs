@@ -389,6 +389,10 @@ pub(super) fn render_evidence(
         "row":{"turn":turn.row.turn,"arm":turn.row.arm},"scope":turn.request.scope,
         "before_head":turn.before_head,"after_head":turn.after_head,"observer":observer,
         "edge":edge,"read_only":true,"generation_grant":false,"body":body});
+    bounded_evidence(result)
+}
+
+pub(super) fn bounded_evidence(result: Value) -> Result<Value> {
     if encode(&result)?.len() > MAX_EVIDENCE {
         return Err("EvidenceBudget".into());
     }

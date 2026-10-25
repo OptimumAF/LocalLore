@@ -131,7 +131,11 @@ fn absent_database_missing_envelope_obeys_same_evidence_cap_without_writes() {
     // Drop pins/lock and inventory even on the predicted pre-fix successful
     // oversized response; preserve the generated fixture for Root diagnosis.
     drop(opened);
-    assert_eq!(inventory(&root), before, "both reads must be strictly read-only");
+    assert_eq!(
+        inventory(&root),
+        before,
+        "both reads must be strictly read-only"
+    );
     match result {
         Err(error) => assert_eq!(error, "EvidenceBudget"),
         Ok(value) => panic!(

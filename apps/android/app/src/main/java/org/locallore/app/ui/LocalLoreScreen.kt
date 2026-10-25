@@ -47,6 +47,7 @@ import org.locallore.app.PlayInputKind
 import org.locallore.app.ShellState
 import org.locallore.app.SavedStory
 import org.locallore.app.SavedTimeline
+import org.locallore.app.TextProvider
 
 private val Paper = Color(0xFFF8F5EC)
 private val Ink = Color(0xFF202D2A)
@@ -128,9 +129,14 @@ fun LocalLoreScreen(
                                 ) { Text(if (state.persistent) "New story" else "Reset demo") }
                             }
                             Text(
-                                "Local Rust engine · fake inference",
+                                when (state.textProvider) {
+                                    TextProvider.LOCAL -> "Local Rust engine · local inference configured"
+                                    TextProvider.SCRIPTED -> "Local Rust engine · fake inference"
+                                    TextProvider.UNAVAILABLE -> "Local Rust engine · text inference unavailable"
+                                },
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MutedInk,
+                                modifier = Modifier.testTag("inference-provider"),
                             )
                             Text(
                                 if (state.persistent) "Local saved progress · database schema ${state.databaseSchemaVersion ?: "opening"}"
@@ -257,7 +263,10 @@ fun LocalLoreScreen(
                         }
                     }
                     items(state.messages, key = { "message-${it.id}" }) { message ->
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Column(
+                            modifier = Modifier.testTag("message-row-${message.id}"),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
                             Text(
                                 if (message.isPlayer) "You" else "Narrator",
                                 style = MaterialTheme.typography.labelMedium,
@@ -265,6 +274,7 @@ fun LocalLoreScreen(
                             )
                             Text(
                                 message.text,
+                                modifier = Modifier.testTag("message-body-${message.id}"),
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontFamily = if (message.isPlayer) {
                                     FontFamily.SansSerif

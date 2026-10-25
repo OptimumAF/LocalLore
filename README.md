@@ -106,8 +106,15 @@ DocumentsUI and performance qualification remain open. Earlier failures are reta
 The subsequent [real cancellation/recovery control](docs/native/RECEIPT_REAL_CANCELLATION_VERIFICATION_2026-10-25.md)
 passes 82 checks across five emulator methods. It verifies the Main-thread
 gateway API's actual SDK cancellation with unchanged canon, then a new-process
-gift and no-inference reopen. Compose Cancel-button timing and broader phone
+gift and no-inference reopen. Cancellation latency and broader phone
 qualification remain open.
+The [real Compose control](docs/native/RECEIPT_COMPOSE_CANCELLATION_VERIFICATION_2026-10-25.md)
+passes 95 checks across five fresh-emulator methods: actual New story/Send/Cancel,
+unchanged cancelled canon, a real recovery gift and another-process visible
+reopen of the same receipt without inference. Stable accepted-message IDs keep
+transcript checks distinct from retained draft text. The initial visibility
+failure is preserved; its discarded cause remains unproven. Whole-test timings
+do not measure cancellation latency or qualify physical-phone performance.
 
 An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects
 the isolated SDK to guarded free-text preparation and durable commit. Its

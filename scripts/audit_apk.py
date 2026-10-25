@@ -17,12 +17,14 @@ ABIS = {"x86_64": 62, "arm64-v8a": 183}
 RECEIPT_SETUP_ACTIVITIES = (
     "ReceiptSetupAcceptActivity", "ReceiptSetupCancelBeforeActivity",
     "ReceiptSetupCancelAfterActivity", "ReceiptSetupDrainActivity",
+    "ReceiptComposeCancellationActivity",
 )
 RECEIPT_SETUP_CLASSES = (
     "ReceiptSetupFixtureActivity", *RECEIPT_SETUP_ACTIVITIES,
     "ReceiptSetupFailureTrace", "ReceiptSetupFailureSnapshot", "ReceiptSetupSourceProgress",
     "ReceiptSetupFailureCase", "ReceiptSetupFailureEvent", "ReceiptSetupFailureCode",
     "ReceiptSetupFailureReporter",
+    "ComposeCancellationProof", "ComposeCancellationPhase",
 )
 # Exact candidate SDK; ordinary APKs must never contain these entries.
 LITERT_NATIVE_HASHES = {
@@ -107,7 +109,9 @@ def audit_zip(path, *, litert=False, model_picker=False, model_volume=False, mod
                     receipt_setup_present.add(name)
             require(all(name not in contents for name in
                         (b"ReceiptSetupQualificationTest", b"ReceiptSetupRestartTest", b"ReceiptSetupFailureTraceTest",
-                         b"ReceiptSetupFailureTransportTest")),
+                         b"ReceiptSetupFailureTransportTest", b"ReceiptComposeCancellationTest",
+                         b"ReceiptComposeCancelTest", b"ReceiptComposeRecoverTest", b"ReceiptComposeReopenTest",
+                         b"ComposeCancellationProofTest")),
                     "Receipt setup test packaged in app")
             recovery_present |= b"ModelSetupRecovery" in contents
             recovery_activity_present |= b"ModelSetupRecoveryFixtureActivity" in contents

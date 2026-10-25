@@ -94,7 +94,7 @@ pub async fn harness_selected_case(
     scenario: String,
 ) -> Result<Value, String> {
     if !active() { return Err("Forbidden".into()); }
-    let scenario=scenario(&scenario)?;
+    let scenario=self::scenario(&scenario)?;
     let epoch=workspace.lease.capture(window.label()).map_err(str::to_owned)?;
     let lease=workspace.lease.clone();let path=workspace.path.clone();let state=state.inner().clone();
     tauri::async_runtime::spawn_blocking(move||{

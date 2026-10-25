@@ -485,3 +485,33 @@ report by editing source labels. No provider/execution inputs exist in this API;
 no inference/model/runtime result is inferred from reader compilation or metadata.
 Root will retain the first compile/behavior results separately, then proceed
 through native/UI and the independently frozen selected-run prerequisite.
+
+### Selective evidence validation decision
+
+The first implementation revalidated the entire cohort twice on every evidence
+request; its eight-case command took1097.48s and exposed two test-fixture errors.
+Root retains that result. Whole-cohort/reference verification remains required
+when opening/reopening a source. Under its retained cooperative writer lock,
+the opaque native capability may retain the validated manifest/key/checkpoints
+with its immutable last-validated summary. It does not claim a global OS snapshot
+or current whole-run health after a noncooperating file mutation.
+
+For each evidence request, deny native/raw-observer access first, then bind the
+snapshot and known row. Reread/validate the entire manifest and require full
+equality. Revalidate only that selected checkpoint with the existing exact
+`load_turn` index/arm/policy/key/path and compare its complete encoded StoredTurn
+to the retained value. Preserve all fresh receipt/capture/recording/raw hashes
+and caps. Query2's separate Store read must recompute before semantic-input,
+after semantic-output and mechanical fingerprints against the retained row;
+return pages from those same immutable checked edge engines.
+
+A changed selected source fails closed. Unselected diagnostic corruption may
+leave the old summary and independently valid selected evidence viewable;
+reopening still validates/rejects the complete cohort. Prefix Play diagnostics
+are intentionally excluded from semantic input: do not claim global private
+history freshness. The selected full receipt still has its complete hash.
+Nothing here permits execution or refunds/settles budget. Future selected-run
+plans must independently perform fresh full preflight of both arm prefixes.
+Independent source review supports these explicit limits, not measured speed
+or human approval. Separate frozen snapshot tests precede this implementation,
+including a producer-valid changed diagnostic versus the old opened binding.

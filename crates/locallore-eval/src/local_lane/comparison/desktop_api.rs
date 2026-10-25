@@ -1,9 +1,10 @@
 //! Data-only inspection of actual comparison checkpoints. Never starts execution.
 use super::{
-    database, decode, inspect_comparison, load_turns, validate_recording, ComparisonKind,
-    RecordingFile, RunManifest, StoredTurn, ARM_NAMES,
+    database, decode, inspect_comparison, load_turn, load_turns, validate_recording, RecordingFile,
+    RunManifest, StoredTurn, ARM_NAMES, POLICIES,
 };
 use crate::{digest, encode, engine, ordinary, read, Result};
+use locallore::engine::Engine;
 use locallore::inspection_query::{self, Observer, Query, View, MAX_ROWS};
 use serde_json::{json, Value};
 use std::{
@@ -49,13 +50,16 @@ pub enum EvidenceRequest {
 pub struct OpenedComparison {
     directory: PathBuf,
     snapshot: Value,
+    manifest: RunManifest,
+    key: String,
+    turns: [Vec<StoredTurn>; 2],
     _pins: Vec<File>,
     _lock: File,
 }
 struct Snapshot {
     value: Value,
     turns: [Vec<StoredTurn>; 2],
-    kind: ComparisonKind,
+    manifest: RunManifest,
 }
 
 fn snapshot(directory: &Path) -> Result<Snapshot> {
@@ -108,7 +112,7 @@ fn snapshot(directory: &Path) -> Result<Snapshot> {
     Ok(Snapshot {
         value,
         turns,
-        kind: manifest.kind,
+        manifest,
     })
 }
 
@@ -145,9 +149,13 @@ pub fn open_read_only(dir: &Path) -> Result<OpenedComparison> {
         .map_err(|_| "Io")?;
     lock.try_lock().map_err(|_| "RunBusy")?;
     let data = snapshot(&directory)?;
+    let key = data.manifest.stable_key()?;
     Ok(OpenedComparison {
         directory,
         snapshot: data.value,
+        manifest: data.manifest,
+        key,
+        turns: data.turns,
         _pins: pins,
         _lock: lock,
     })
@@ -162,6 +170,22 @@ pub fn summary(run: &OpenedComparison, native_inspection_granted: bool) -> Resul
 
 fn missing(reason: &str) -> Value {
     json!({"kind":"missing","reason":reason})
+}
+
+/// Bind the actual immutable engines used by Query2, including its separate
+/// Store read after checkpoint validation. Play diagnostics intentionally are
+/// not actor context authority; selected full receipts have their own hash.
+fn checked_edges(full: &Engine, turn: &StoredTurn) -> Result<(Engine, Engine)> {
+    let before = full.at_revision(turn.before_head).map_err(|_| "Replay")?;
+    let after = full.at_revision(turn.after_head).map_err(|_| "Replay")?;
+    if crate::memory_comparison_v2::semantic_input(&before, &turn.request)?
+        != turn.row.input_semantic_sha256
+        || crate::memory_comparison_v2::semantic_output(&after)? != turn.row.output_semantic_sha256
+        || crate::memory_comparison_v2::mechanical_output(&after)? != turn.row.mechanical_sha256
+    {
+        return Err("SnapshotMismatch".into());
+    }
+    Ok((before, after))
 }
 pub fn evidence(
     run: &OpenedComparison,
@@ -191,30 +215,48 @@ pub fn evidence(
         Arm::Left => 0,
         Arm::Right => 1,
     };
-    // Revalidate under the retained lock; stale or corrupted files cannot be
-    // combined with the earlier report or silently repaired by this reader.
-    let data = snapshot(&run.directory)?;
-    if data.value["binding"] != run.snapshot["binding"] {
-        return Err("SnapshotMismatch".into());
-    }
-    let turn = data.turns[arm]
+    let retained = run.turns[arm]
         .iter()
         .find(|t| t.row.turn == row.turn)
         .ok_or("UnknownRow")?;
+    // The entire cohort was validated at open under the retained cooperative
+    // writer lock. This is selected evidence for that immutable summary, not
+    // a live whole-report health check or permission to resume execution.
+    let manifest: RunManifest = decode(&run.directory.join("run.json"), 128 * 1024)?;
+    manifest.validate()?;
+    if manifest != run.manifest {
+        return Err("SnapshotMismatch".into());
+    }
     let arm_dir = run.directory.join(ARM_NAMES[arm]);
-    let path = database(&arm_dir, turn.index, data.kind);
+    let path = database(&arm_dir, retained.index, manifest.kind);
+    let current = load_turn(
+        &arm_dir,
+        &path,
+        retained.index,
+        ARM_NAMES[arm],
+        POLICIES[arm],
+        &run.key,
+        &manifest,
+    )?;
+    // A currently valid but changed checkpoint must not be paired with the old
+    // binding. Compare every checkpoint field, including diagnostics/timings.
+    if encode(&current)? != encode(retained)? {
+        return Err("SnapshotMismatch".into());
+    }
+    let turn = &current;
     let (observer, edge, body) = match request {
         EvidenceRequest::Query {
             edge,
             observer,
             view,
         } => {
-            let head = match edge {
-                Edge::Before => turn.before_head,
-                Edge::After => turn.after_head,
-            };
             let full = engine(&path, &turn.request.scope)?;
-            let cut = full.at_revision(head).map_err(|_| "Replay")?;
+            let (before, after) = checked_edges(&full, turn)?;
+            let cut = match edge {
+                Edge::Before => before,
+                Edge::After => after,
+            };
+            let head = cut.revision();
             let page = inspection_query::query(
                 &cut,
                 &Query {

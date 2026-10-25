@@ -7,6 +7,11 @@ The [current device attempt](MODEL_VOLUME_VERIFICATION_2026-10-23.md) reaches
 native publication and fails with a fixed storage category. This contract's
 positive publication gate remains unverified; no fallback is enabled.
 
+The [publication diagnostic](MODEL_PUBLICATION_DIAGNOSTIC_CONTRACT.md) observes
+the existing native result through a closed enum. It leaves publication and
+UI failure behavior unchanged. A fresh diagnostic refusal does not establish
+the category or cause of either earlier failed attempt.
+
 `localLoreModelVolumeVerification=true` requires both existing LiteRT and model
 setup flags, refuses picker mixing and release tasks, and creates only
 `org.locallore.app.modelvolumeverify` in `build-model-volume`. False/invalid flags

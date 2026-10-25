@@ -30,6 +30,13 @@ const built = await build({
     jsx: "transform",
     jsxFactory: "__selectionElement",
     jsxFragment: "__selectionFragment",
+    tsconfigRaw: {
+        compilerOptions: {
+            jsx: "react",
+            jsxFactory: "__selectionElement",
+            jsxFragmentFactory: "__selectionFragment",
+        },
+    },
     plugins: [{
         name: "capture-real-panel-elements",
         setup(plugin) {

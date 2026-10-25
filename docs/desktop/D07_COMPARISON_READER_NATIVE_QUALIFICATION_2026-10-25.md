@@ -572,3 +572,43 @@ This final supplement changes only documentation. Reader UI evidence is ready
 for the focused PR review gate; selected-case execution, whole comparison
 execution in the GUI, human quality assessment and the remaining D07/desktop
 milestone gates remain open. No owner acceptance or merge is fabricated here.
+
+## Owner merge and combined-source verification
+
+OptimumAF subsequently merged PR157 at `0c12413ed0d236e5b74e8626e434b0f074c3cdfc`
+on 2026-10-25 at 07:29:18 UTC, with exact reader head
+`56650ebe64d496080252f7b5b4db956989ef2e11`. Its first parent was
+`12f19b920e388d520fb4700d352d1c4c73a2c596`, the concurrent PR153 merge.
+Root observed this completed owner merge; Root did not perform it or fabricate
+a GitHub approval. The final qualification document and format-only checker
+change above were still on the branch, so they are submitted separately.
+
+Root safely merged accepted main into that branch, retaining PR153 unchanged.
+At clean `83b12e5cd213590d262e0a9775dc95b53430fdae`, the same five-command
+normal-build pipeline above was actually repeated in order. Every command
+exited 0 with `terminalSourceUnchanged:true`:
+
+| Combined-source stage | UTC start → end |
+| --- | --- |
+| Full frontend verifier and normal bundle | 07:30:44.2218911 → 07:31:07.1588245 |
+| Frontend format | 07:31:08.0821426 → 07:31:14.3574195 |
+| Rust format | 07:31:14.5502256 → 07:31:17.5186310 |
+| Strict all-target/all-feature native Clippy | 07:31:17.6563654 → 07:31:28.3123335 |
+| Normal native build, default features | 07:31:28.4543874 → 07:31:49.6374500 |
+
+Local logs and immutable results use prefix `d07-reader-post-owner-merge`.
+The normal JS remains 525441 bytes with SHA256
+`f387418355885ecb025326284ea767a03c008215ff2e66d01795e220a634d0a2`.
+The newly built normal debug executable is 32004608 bytes with SHA256
+`c2caeab7a8b72449eae10b07f235a7be76e9bfe605ae32eeb0269702b0186b13`.
+The earlier executable/hash remains evidence for its earlier source; no general
+binary reproducibility claim follows from this build. The normal app was not
+launched, and no new native render cohort is claimed.
+
+There is no production desktop or shared Rust delta from qualified reader566
+to this integrated source. The only `apps/desktop` difference is formatting in
+the frozen frontend checker. PR153 changes Android receipt execution and its
+Python evidence tooling. The Android/JNI results above are expressly bound to
+566, before PR153; they do not qualify those later Android changes. This
+combined-source pipeline qualifies desktop frontend/native compatibility only.
+It does not relabel earlier APKs or claim Android device execution.

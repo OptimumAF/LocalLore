@@ -547,7 +547,74 @@ This is distinct from the selected32 corrected-native phase-record aggregate.
 
 No task checkbox, model-quality acceptance, historical report rewrite,
 PR acceptance, merge, release, repository setting or protected resource is
-changed by this document. Next: coordinator review/adoption of this bounded
-packet into its focused PR, followed by current-comparison desktop report/source
+changed by this document. Next: finish the integration/regression gate and
+focused PR, followed by current-comparison desktop report/source
 inspection and isolated selected-case reruns. Human-rubric review remains
 unaccepted; structural success does not close those D07 requirements.
+
+## Accepted-main integration and source-owned build qualification
+
+On 2026-10-24 local date (2026-10-25 UTC), Root reconciled accepted main
+`1a9a3142c24644aa3bffc929d200c8f4b40b7cd5` as merge
+`f908abb726602fa27a4770d73210bc22d7f3558b`. The accepted Android changes
+were preserved. All evaluator `SOURCE_INPUTS`, desktop sources, dependency
+manifests and locks were unchanged from corrected-clock `febc326`; this
+integration did not relabel historical model runs or perform new inference.
+
+The first shared-host attempt in the formerly reused multi-checkout target
+failed E0599 compilation, with zero tests executed. Compiler diagnostics
+referenced the older Archive3 Core checkout even though the required policy
+method exists in this source. Root retained the failure and used a fresh
+source-owned `<task-root>/d07-main-integration-target`; no production API
+workaround, global cache deletion or claim of a universal Cargo defect was made.
+
+At exact `f908abb`, using the same pinned tools/offline environment:
+
+```text
+cargo test --locked --offline --jobs 1 --target-dir <source-owned-target> -p locallore -p locallore-storage -p locallore-workspace -p locallore-android --features locallore/host -- --test-threads=1
+cargo clippy --workspace --all-targets --all-features --offline --locked --exclude locallore-desktop-spike --target-dir <source-owned-target> -- -D warnings
+cargo test --manifest-path crates/locallore-eval/Cargo.toml --all-features --offline --locked --jobs 1 --target-dir <source-owned-target> -- --test-threads=1
+cargo clippy --manifest-path crates/locallore-eval/Cargo.toml --all-targets --all-features --offline --locked --target-dir <source-owned-target> -- -D warnings
+```
+
+Actual shared result: **759 passed, zero failed, ten ignored**, all four
+doc-test suites terminal. Fresh shared compile took1m45s. Strict shared
+Clippy passed42.62s. Full evaluator: **73 passed, zero failed, three ignored**;
+strict evaluator Clippy passed. These remain finite, source-bound results,
+not proof of all resume states or a replacement for the later new regressions.
+
+Default Android compatibility from `apps/android` used Java17.0.6,
+Gradle8.11.1, SDK36/NDK29.0.14206865 and the existing offline cache:
+
+```text
+<java17> -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain --offline --no-daemon --max-workers=1 --console=plain -Pandroid.builder.sdkDownload=false --init-script <owned-output-init> :app:testDebugUnitTest --rerun :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
+```
+
+Actual exit0, **BUILD SUCCESSFUL in7m3s**,78 tasks (29 executed/49 up-to-date).
+All24 JUnit XML files total **206 tests, zero failures/errors/skips**. Both
+x86_64 and arm64 JNI release libraries, app APK, instrumented-test APK and
+lint completed. This does not execute those instrumented tests or a device,
+enable an opt-in inference/profile build, or establish Android Archive3 parity.
+The existing AtomicReference/Boolean instrumented-source warning is retained.
+Later accepted-main Android changes require their own affected compatibility
+check; these results are not silently attributed to newer source.
+
+| Additional completed local log | Bytes | SHA256 |
+| --- | ---: | --- |
+| `d07-accepted-main-shared-host-first.log` | 1264 | `0c2be289eb45dedfb422d94840538af129c0f4a6932e65f0c5b50f6df63b5a3b` |
+| `d07-accepted-main-shared-host-isolated.log` | 102962 | `abbcf050f3066a7fd532880911ad4ce12421bc4c9dee4a17c92905a363240744` |
+| `d07-main-isolated-shared-clippy.log` | 1382 | `25b758987c18875c2fca1806317084a1eb9c286020567c3514fdd9e9db4f356f` |
+| `d07-main-isolated-eval-full.log` | 11247 | `a217ce5edb1d1c7dbc75a734288172430e50adee318e869169f70a5de684df28` |
+| `d07-main-isolated-eval-clippy.log` | 791 | `eba4d36b119b8e77acc18e88914254e69a80542a5cd55f6faf6f3861b7799e19` |
+| `d07-main-isolated-android.log` | 5793 | `9b46b19217a3ec581729df876980a6be40740bc4d3772bbd70edea5256fb6de9` |
+
+These six logs supplement, rather than change, the earlier forty-one-log
+aggregate. Root subsequently received a concrete independent source finding:
+pending paired databases could contain an off-reference accepted turn or a
+same-ID wrong full input before invocation/provider work, with rejection too
+late in final inspection. Five frozen actual Core/Store regressions were
+adopted as `26919dd`; first compilation succeeded2.55s. At this addendum their
+first process is still running, so no complete red/green result or producer
+fix is claimed. Exact committed lost-checkpoint recovery already passed in
+that live process; the four negative cases and correction remain pending.
+Whole D07, human quality, current comparison UI and platform gates stay open.

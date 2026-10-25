@@ -8,6 +8,7 @@ use crate::{
 
 mod policy;
 mod verified;
+pub(crate) use policy::compile_for_director_cancelled;
 pub use policy::{
     compile_policy_cancelled, ConstructionDiagnostics, ContextPolicy, PolicyCompilation,
     TranscriptUnit, POLICY_COMPILER_VERSION,
@@ -435,14 +436,32 @@ fn measure(package: &mut ContextPackage) -> Result<(), CompileError> {
     }
     Err(CompileError::Source)
 }
-fn fits(package: &mut ContextPackage, budget: Budget) -> Result<bool, CompileError> {
+#[derive(Clone, Copy)]
+enum FitBasis<'a> {
+    DiagnosticWire,
+    Director(&'a crate::play::director_budget::DirectorEnvelopeV25),
+}
+fn fits(
+    package: &mut ContextPackage,
+    budget: Budget,
+    basis: FitBasis<'_>,
+) -> Result<bool, CompileError> {
     measure(package)?;
-    Ok(package.serialized_bytes <= budget.max_bytes
-        && package
+    if package.serialized_bytes > budget.max_bytes || package.records.len() > MAX_SELECTED {
+        return Ok(false);
+    }
+    match basis {
+        FitBasis::DiagnosticWire => Ok(package
             .estimated_tokens
             .saturating_add(budget.reserved_tokens)
-            <= budget.estimated_tokens
-        && package.records.len() <= MAX_SELECTED)
+            <= budget.estimated_tokens),
+        FitBasis::Director(frame) => match frame.estimate_max_pass(package) {
+            Ok(_) => Ok(true),
+            Err(crate::contracts::Error::TooLarge) => Ok(false),
+            Err(crate::contracts::Error::Stale) => Err(CompileError::Stale),
+            Err(_) => Err(CompileError::Source),
+        },
+    }
 }
 
 pub fn compile(engine: &Engine, request: &CompileRequest) -> Result<ContextPackage, CompileError> {
@@ -566,10 +585,30 @@ fn compile_inner(
     construction: policy::Construction,
     cancel: &dyn Fn() -> bool,
 ) -> Result<CompilationResult, CompileError> {
+    compile_inner_with_fit(
+        engine,
+        request,
+        input,
+        construction,
+        FitBasis::DiagnosticWire,
+        cancel,
+    )
+}
+fn compile_inner_with_fit(
+    engine: &Engine,
+    request: &CompileRequest,
+    input: verified::Input<'_>,
+    construction: policy::Construction,
+    fit_basis: FitBasis<'_>,
+    cancel: &dyn Fn() -> bool,
+) -> Result<CompilationResult, CompileError> {
     check(cancel)?;
     // Explicit legacy refusal before snapshot/replay, proof inspection or hashing.
     if !construction.is_current() && engine.domain_version() != 1 {
         return Err(CompileError::Version);
+    }
+    if let FitBasis::Director(frame) = fit_basis {
+        frame.validate_basis(request)?;
     }
     let b = request.budget;
     if !(1024..=MAX_CONTEXT_BYTES).contains(&b.max_bytes)
@@ -836,7 +875,7 @@ fn compile_inner(
             });
         }
     }
-    if !fits(&mut package, b)? {
+    if !fits(&mut package, b, fit_basis)? {
         return Err(CompileError::MandatoryBudget);
     }
     let (unit_candidates, mut construction_diagnostics) = if construction.is_recent() {
@@ -909,7 +948,7 @@ fn compile_inner(
             Some(Reason::OptionalLimit)
         } else {
             package.records.push(selected(c, reason, score, false));
-            if fits(&mut package, b)? {
+            if fits(&mut package, b, fit_basis)? {
                 accepted += 1;
                 None
             } else {
@@ -930,7 +969,7 @@ fn compile_inner(
         }
     }
     // Diagnostics themselves consume budget. Drop their optional detail first, never mandatory facts.
-    while !fits(&mut package, b)? {
+    while !fits(&mut package, b, fit_basis)? {
         check(cancel)?;
         if package.diagnostics.omissions.pop().is_some() {
             package.diagnostics.omissions_truncated = true;
@@ -954,7 +993,7 @@ fn compile_inner(
                 .cmp(&b.source_revision)
                 .then_with(|| a.id.cmp(&b.id))
         });
-        if !fits(&mut package, b)? {
+        if !fits(&mut package, b, fit_basis)? {
             return Err(CompileError::MandatoryBudget);
         }
         construction_diagnostics.selected_transcript_units = package

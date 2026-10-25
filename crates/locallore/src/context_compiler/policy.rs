@@ -25,6 +25,41 @@ pub struct PolicyCompilation {
     pub compilation: MemoryCompilation,
     pub construction: ConstructionDiagnostics,
 }
+/// Native ephemeral admission result. No changes to generic compiler DTO bytes.
+pub(crate) struct DirectorCompilationV25 {
+    pub(crate) policy: PolicyCompilation,
+    pub(crate) forwarded: crate::play::ForwardedEstimateV1,
+}
+
+pub(crate) fn compile_for_director_cancelled(
+    engine: &Engine,
+    request: &CompileRequest,
+    policy: ContextPolicy,
+    proof: Option<&VerifiedCoverage>,
+    frame: &crate::play::director_budget::DirectorEnvelopeV25,
+    cancel: &dyn Fn() -> bool,
+) -> Result<DirectorCompilationV25, CompileError> {
+    let result = compile_inner_with_fit(
+        engine,
+        request,
+        verified::Input::Verified(proof),
+        Construction::Policy(policy),
+        FitBasis::Director(frame),
+        cancel,
+    )?;
+    check(cancel)?;
+    let forwarded = frame
+        .estimate_max_pass(&result.compilation.package)
+        .map_err(|_| CompileError::MandatoryBudget)?;
+    Ok(DirectorCompilationV25 {
+        policy: PolicyCompilation {
+            policy,
+            compilation: result.compilation,
+            construction: result.construction,
+        },
+        forwarded,
+    })
+}
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct TranscriptUnit {
     pub original_scope: Scope,

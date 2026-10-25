@@ -72,6 +72,8 @@ def audit_zip(path, *, litert=False, model_picker=False):
         interruption_activity_present = False
         pending_present = False
         pending_activity_present = False
+        recovery_present = False
+        recovery_activity_present = False
         for entry in dex:
             require(0 < entry.file_size <= 32 * 1024 * 1024, "Invalid DEX size")
             contents = archive.read(entry)
@@ -81,15 +83,20 @@ def audit_zip(path, *, litert=False, model_picker=False):
             interruption_activity_present |= b"ModelPickerInterruptionFixtureActivity" in contents
             pending_present |= b"ModelPickerPending" in contents
             pending_activity_present |= b"ModelPickerPendingFixtureActivity" in contents
+            recovery_present |= b"ModelSetupRecovery" in contents
+            recovery_activity_present |= b"ModelSetupRecoveryFixtureActivity" in contents
             require(b"ModelPickerDocumentsProvider" not in contents, "Test provider packaged in app")
             require(b"ModelPickerInterruptionTest" not in contents, "Interruption test packaged in app")
             require(b"ModelPickerPendingTest" not in contents, "Pending-picker test packaged in app")
+            require(b"ModelSetupRecoveryTest" not in contents, "Setup recovery test packaged in app")
         require(fixture_present == model_picker, "Model picker fixture leaked or missing")
         require(interruption_present == model_picker, "Interruption fixture leaked or missing")
         require(pending_present == model_picker, "Pending-picker fixture leaked or missing")
+        require(recovery_present == model_picker, "Setup recovery fixture leaked or missing")
         require(not model_picker or fixture_activity_present, "Missing fixture Activity implementation")
         require(not model_picker or interruption_activity_present, "Missing interruption Activity implementation")
         require(not model_picker or pending_activity_present, "Missing pending-picker Activity implementation")
+        require(not model_picker or recovery_activity_present, "Missing setup recovery Activity implementation")
         for entry in entries:
             if not entry.filename.endswith(".so"):
                 continue
@@ -176,6 +183,7 @@ def audit_model_launcher(badging, tree, *, model_picker=False):
     fixture = "org.locallore.app.ModelPickerFixtureActivity"
     interruption = "org.locallore.app.ModelPickerInterruptionFixtureActivity"
     pending = "org.locallore.app.ModelPickerPendingFixtureActivity"
+    recovery = "org.locallore.app.ModelSetupRecoveryFixtureActivity"
     require(re.findall(r"^launchable-activity: name='([^']+)'", badging, re.M) == [setup],
             "Model setup must be the sole launcher")
     require(":sharedUserId(" not in tree and "E: activity-alias " not in tree,
@@ -202,7 +210,7 @@ def audit_model_launcher(badging, tree, *, model_picker=False):
         names = re.findall(r':name\([^)]*\)="([^"\n]+)"', attributes)
         require(len(names) == 1 and names[0] not in activities, "Ambiguous activity identity")
         activities[names[0]] = (attributes, "\n".join(block))
-    expected = {setup, play, main_activity} | ({fixture, interruption, pending} if model_picker else set())
+    expected = {setup, play, main_activity} | ({fixture, interruption, pending, recovery} if model_picker else set())
     require({name for name in activities if name.startswith("org.locallore.app.")} ==
             expected, "Unexpected application activity")
     exports = [(setup, "true"), (play, "false"), (main_activity, "false")]
@@ -210,6 +218,7 @@ def audit_model_launcher(badging, tree, *, model_picker=False):
         exports.append((fixture, "false"))
         exports.append((interruption, "false"))
         exports.append((pending, "false"))
+        exports.append((recovery, "false"))
     for name, exported in exports:
         attributes, block = activities[name]
         require(re.findall(r':exported\([^)]*\)=([^\s]+)', attributes) == [exported],

@@ -1,6 +1,191 @@
 //! Owner-free native close/exit coordination. A ticket is not cleanup proof.
 //! Root owns actual manager proofs, event wiring and test execution separately.
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Intent {
+    Window,
+    Exit(Option<i32>),
+}
+
+/// Single-app-gate coordinates only, not an owner identity or cleanup grant.
+/// The caller binds epochs to its actual WindowLease; JSON cannot mint tickets.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct CloseTicket {
+    epoch: u64,
+    sequence: u64,
+}
+impl CloseTicket {
+    pub(crate) fn epoch(self) -> u64 {
+        self.epoch
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Decision {
+    Start(CloseTicket),
+    Pending,
+    Continue(CloseTicket),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Continuation {
+    DestroyWindow { epoch: u64 },
+    Exit { code: Option<i32> },
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Phase {
+    Unopened,
+    Open,
+    InFlight(CloseTicket),
+    Uncertain(CloseTicket),
+    Confirmed(CloseTicket),
+    WindowContinued,
+    ExitContinued,
+}
+
+/// Mutable owner-free FSM. Root wraps this in existing app-state coordination;
+/// no manager, worker, resource, path, serialization or execution lives here.
+pub(crate) struct CloseGate {
+    epoch: u64,
+    sequence: u64,
+    phase: Phase,
+    intent: Intent,
+    exit_permit: Option<i32>,
+}
+impl Default for CloseGate {
+    fn default() -> Self {
+        Self {
+            epoch: 0,
+            sequence: 0,
+            phase: Phase::Unopened,
+            intent: Intent::Window,
+            exit_permit: None,
+        }
+    }
+}
+
+impl CloseGate {
+    pub(crate) fn opened(&mut self, epoch: u64) -> Result<(), &'static str> {
+        if epoch == 0
+            || epoch.is_multiple_of(2)
+            || epoch <= self.epoch
+            || matches!(self.intent, Intent::Exit(_))
+            || self.exit_permit.is_some()
+            || !matches!(self.phase, Phase::Unopened | Phase::WindowContinued)
+        {
+            return Err("Closed");
+        }
+        self.epoch = epoch;
+        self.phase = Phase::Open;
+        self.intent = Intent::Window;
+        Ok(())
+    }
+
+    fn next_ticket(&mut self) -> Result<CloseTicket, &'static str> {
+        let sequence = self.sequence.checked_add(1).ok_or("Closed")?;
+        self.sequence = sequence;
+        Ok(CloseTicket { epoch: self.epoch, sequence })
+    }
+
+    fn upgrade_intent(&mut self, requested: Intent) {
+        if let Intent::Exit(code) = requested {
+            match self.intent {
+                Intent::Window => self.intent = requested,
+                Intent::Exit(None) if code.is_some() => self.intent = requested,
+                Intent::Exit(_) => {}
+            }
+        }
+    }
+
+    pub(crate) fn request(&mut self, epoch: u64, intent: Intent) -> Result<Decision, &'static str> {
+        if epoch == 0 || epoch.is_multiple_of(2) || epoch != self.epoch {
+            return Err("Closed");
+        }
+        match self.phase {
+            Phase::Unopened => Err("Closed"),
+            Phase::Open | Phase::Uncertain(_) => {
+                // Counter refusal must not upgrade intent or erase uncertainty.
+                let ticket = self.next_ticket()?;
+                self.upgrade_intent(intent);
+                self.phase = Phase::InFlight(ticket);
+                Ok(Decision::Start(ticket))
+            }
+            Phase::InFlight(_) => {
+                self.upgrade_intent(intent);
+                Ok(Decision::Pending)
+            }
+            Phase::Confirmed(ticket) => {
+                self.upgrade_intent(intent);
+                Ok(Decision::Continue(ticket))
+            }
+            Phase::WindowContinued if matches!(intent, Intent::Exit(_)) => {
+                // No new window/work was admitted since this epoch's proof.
+                // A fresh continuation ticket prevents reuse of the destroy ack.
+                let ticket = self.next_ticket()?;
+                self.upgrade_intent(intent);
+                self.phase = Phase::Confirmed(ticket);
+                Ok(Decision::Continue(ticket))
+            }
+            Phase::WindowContinued | Phase::ExitContinued => {
+                // An already issued exit/permit cannot be changed retroactively.
+                Ok(Decision::Pending)
+            }
+        }
+    }
+
+    pub(crate) fn pause(&mut self, ticket: CloseTicket) -> bool {
+        if self.phase != Phase::InFlight(ticket) || ticket.epoch != self.epoch {
+            return false;
+        }
+        self.phase = Phase::Uncertain(ticket);
+        true
+    }
+
+    /// Only the trusted native callsite may acknowledge both manager proofs.
+    /// This transition performs no cleanup and does not validate that proof.
+    pub(crate) fn confirm(&mut self, ticket: CloseTicket) -> bool {
+        if self.phase != Phase::InFlight(ticket) || ticket.epoch != self.epoch {
+            return false;
+        }
+        self.phase = Phase::Confirmed(ticket);
+        true
+    }
+
+    pub(crate) fn take_continuation(&mut self, ticket: CloseTicket) -> Option<Continuation> {
+        if self.phase != Phase::Confirmed(ticket)
+            || ticket.epoch != self.epoch
+            || self.exit_permit.is_some()
+        {
+            return None;
+        }
+        match self.intent {
+            Intent::Window => {
+                self.phase = Phase::WindowContinued;
+                Some(Continuation::DestroyWindow { epoch: ticket.epoch })
+            }
+            Intent::Exit(code) => {
+                self.exit_permit = Some(code.unwrap_or(0));
+                self.phase = Phase::ExitContinued;
+                Some(Continuation::Exit { code })
+            }
+        }
+    }
+
+    pub(crate) fn consume_exit(&mut self, code: Option<i32>) -> bool {
+        if self.exit_permit != Some(code.unwrap_or(0)) {
+            return false;
+        }
+        self.exit_permit = None;
+        true
+    }
+
+    /// Coordination status only: false never proves that a child is terminal.
+    pub(crate) fn pending(&self) -> bool {
+        matches!(self.phase, Phase::InFlight(_) | Phase::Uncertain(_))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

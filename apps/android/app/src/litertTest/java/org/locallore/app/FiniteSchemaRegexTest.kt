@@ -155,8 +155,12 @@ class FiniteSchemaRegexTest {
         val allowed = (32768 - 14) / 13
         val regex = requireNotNull(finiteSchemaRegex(schema(allowed)))
         assertEquals(14 + allowed * 13, localUtf8(regex).size)
-        assertTrue(matches(schema(allowed), quote(" ".repeat(allowed))))
-        assertTrue(matches(schema(allowed), "\"" + "\\u0020".repeat(allowed) + "\""))
+        assertEquals("\\A(?:(?:\"" + "(?: |\\\\u0020)".repeat(allowed) + "\"))\\z", regex)
+        Pattern.compile(regex)
+        // Java Pattern's recursive matcher is not the native compiler's stack model.
+        // Check the complete maximum pattern above and representative combinations here.
+        assertTrue(matches(schema(64), quote(" ".repeat(64))))
+        assertTrue(matches(schema(64), "\"" + "\\u0020".repeat(64) + "\""))
         assertNull(finiteSchemaRegex(schema(allowed + 1)))
         assertNull(finiteSchemaRegex(JsonObject().apply { addProperty("const", "🦉".repeat(1500)) }.toString()))
     }

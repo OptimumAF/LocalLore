@@ -26,6 +26,18 @@ profiles issue no additional guest command. No such probe runs after SDK uncerta
 
 ## Separate preflight and candidate authority
 
+Runner summaries are checked against the existing fixed app-phase budget:
+SOURCE_PREFLIGHT30000ms, IMPORT150000ms, PLAY170000ms and REOPEN120000ms.
+The trusted selector supplies that phase's constant to the shared framing
+parser; there is no caller-selected deadline or CLI override. The shared
+synthetic parser retains its120000ms default. A134.086-second passing IMPORT
+runner exposed the old inherited120-second cap; the original stopped attempt
+remains documented in [finite SDK verification](LLGUIDANCE_LITERAL_VERIFICATION_2026-10-25.md).
+Corrected parsing does not retroactively fetch or qualify its unread proof.
+App-phase,180-second client, aggregate and live-lease limits remain distinct
+and unchanged. Passing runner framing never substitutes for the app proof,
+exact source/artifact links, ownership or known cleanup.
+
 `benchmarks/receipt_real_candidate.py` requires a closed disabled proposal and
 exact separate grant. The preflight grants device calls only, explicitly false
 for weight copy and SDK calls. It admits two fresh installs, a fixed private

@@ -613,8 +613,23 @@ aggregate. Root subsequently received a concrete independent source finding:
 pending paired databases could contain an off-reference accepted turn or a
 same-ID wrong full input before invocation/provider work, with rejection too
 late in final inspection. Five frozen actual Core/Store regressions were
-adopted as `26919dd`; first compilation succeeded2.55s. At this addendum their
-first process is still running, so no complete red/green result or producer
-fix is claimed. Exact committed lost-checkpoint recovery already passed in
-that live process; the four negative cases and correction remain pending.
+adopted as `26919dd`; first compilation succeeded2.55s. Actual first result
+was **one pass / four failures in644.87s**, exit101. Both-arm exact committed
+lost-checkpoint recovery passed without new turn admissions/raw/capture/recording
+or invented historical role/privacy success. Both same-ID wrong-FreeText
+cases reached and failed the unchanged-full-inventory assertion; both distinct
+accepted-turn cases reached and failed the unchanged-canonical assertion.
+These are observed producer failures, not test-fixture construction failures.
+
+Root correction `75093c8e41811703653284a90b87644f2ebfe022` adds read-only
+validation of all existing uncheckpointed paired files on both arms before
+either invocation reservation or native asset setup. Matching incomplete
+reference-prefix copying remains recoverable. The only extra accepted receipt
+allowed for lost-ack recovery must follow the exact reference prefix and have
+the exact full current-step request, including intent/text/scope/revision.
+The same check repeats immediately before `execute_turn`. No corpus, policy,
+profile, quota, provider or Core authority is changed. The first corrected
+five-case run compiled6.60s and is active at this addendum; no green result or
+PR readiness is claimed yet. All model measurements above retain their original
+source/fingerprint; this new source is not retroactively attributed to them.
 Whole D07, human quality, current comparison UI and platform gates stay open.

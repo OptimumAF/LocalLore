@@ -1,5 +1,6 @@
 import { EvaluationController } from "./evaluation-controller";
 import { ComparisonReaderController } from "./comparison-reader-controller";
+import { SelectedEvaluationController } from "./selected-evaluation-controller";
 import { ArchiveController } from "./archive-controller";
 import { archiveBinding } from "./archive-model";
 import { ForkController } from "./fork-controller";
@@ -321,6 +322,9 @@ const evaluation = new EvaluationController(invoke, (code) =>
 const comparison = new ComparisonReaderController(invoke, (code) =>
     errors.add("native", code),
 );
+const selectedEvaluation = new SelectedEvaluationController(invoke, (code) =>
+    errors.add("native", code),
+);
 const base = new IpcGateway(invoke, errors),
     gateway = driver ? new driver.FaultGateway(base) : base;
 const controller = new Controller(gateway, errors, undefined, (work) =>
@@ -469,6 +473,20 @@ const syncEvaluationContext = () => {
         ]),
         !!authorNativeContext?.granted && s.view === "lab" && !s.disposed,
     );
+    // The observer is a read lens. It never changes an experiment's execution
+    // identity, admission, cancellation or generation permissions.
+    selectedEvaluation.setContext(
+        JSON.stringify([
+            authorNativeContext?.root ?? null,
+            authorNativeContext?.granted ?? false,
+            s.selectedId,
+            play?.scope ?? null,
+            play?.revision ?? null,
+            s.view,
+            s.disposed,
+        ]),
+        !!authorNativeContext?.granted && s.view === "lab" && !s.disposed,
+    );
     archive.contextChanged(
         `${s.selectedId}|${s.view}|${s.observer}`,
         s.view === "lab",
@@ -543,6 +561,7 @@ root.render(
         controller={controller}
         evaluation={evaluation}
         comparison={comparison}
+        selectedEvaluation={selectedEvaluation}
         archive={archive}
         capture={capture}
         timeline={timeline}
@@ -567,6 +586,7 @@ const dispose = async () => {
     await v2.dispose();
     evaluation.dispose();
     comparison.dispose();
+    selectedEvaluation.dispose();
     archive.dispose();
     timeline.dispose();
     fork.dispose();

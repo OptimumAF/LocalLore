@@ -1,5 +1,7 @@
 import { EvaluationPanel } from "./EvaluationPanel";
 import { ComparisonReaderPanel } from "./ComparisonReaderPanel";
+import { SelectedEvaluationView } from "./selected-evaluation-view";
+import type { SelectedEvaluationController } from "./selected-evaluation-controller";
 import type { ComparisonReaderController } from "./comparison-reader-controller";
 import { ArchivePanel } from "./ArchivePanel";
 import type { ArchiveController } from "./archive-controller";
@@ -81,11 +83,41 @@ function LabAcknowledgement({ controller: c }: { controller: Controller }) {
         </dialog>
     );
 }
+function SelectedExperiment({
+    comparison,
+    selected,
+}: {
+    comparison: ComparisonReaderController;
+    selected: SelectedEvaluationController;
+}) {
+    const snapshot = useSyncExternalStore(
+        (listener) => comparison.subscribe(listener),
+        () => comparison.get(),
+        () => comparison.get(),
+    );
+    const source =
+        snapshot.clientId && snapshot.status?.run_token && snapshot.source
+            ? {
+                  readerClientId: snapshot.clientId,
+                  runToken: snapshot.status.run_token,
+                  binding: snapshot.source.binding,
+              }
+            : null;
+    return (
+        <SelectedEvaluationView
+            controller={selected}
+            source={source}
+            row={snapshot.selected}
+            observer={snapshot.observer}
+        />
+    );
+}
 export function App({
     controller: c,
     capture,
     evaluation,
     comparison,
+    selectedEvaluation,
     archive,
     timeline,
     fork,
@@ -100,6 +132,7 @@ export function App({
     capture?: CaptureController;
     evaluation?: EvaluationController;
     comparison?: ComparisonReaderController;
+    selectedEvaluation?: SelectedEvaluationController;
     archive?: ArchiveController;
     timeline?: TimelineController;
     fork?: ForkController;
@@ -471,6 +504,12 @@ export function App({
                     )}
                     {comparison && (
                         <ComparisonReaderPanel controller={comparison} />
+                    )}
+                    {comparison && selectedEvaluation && (
+                        <SelectedExperiment
+                            comparison={comparison}
+                            selected={selectedEvaluation}
+                        />
                     )}
                     {archive && (
                         <ArchivePanel

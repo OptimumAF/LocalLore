@@ -1,11 +1,14 @@
 # Archive3 coordinator qualification — 2026-10-23
 
 This is a partial qualification record for #12 M08.03/.04/.06 and #30
-D08.01/.02/.07. Archive3 remains unmerged at this checkpoint. Shared Store
+D08.01/.02/.05/.07. Archive3 remains unmerged at this checkpoint. Shared Store
 tests, the scripted Host transfer and the explicit combined-budget case have
 passed. Desktop synthetic consumer and acknowledgement failures were retained
-and corrected; the frontend gate passed at `230b4ba`. Actual native transfer,
-Android runtime and the remaining compatibility gates below are pending.
+and corrected. Subsequent native broker/authorization tests, integrated frontend
+checks and the four-process app-owned IPC/WebView transfer cohort have passed
+at their exact sources below. Native unit continuation also passed. The first
+app cohort does not exercise post-import continued play; visual copy/knowledge
+capture corrections, that UI continuation and Android runtime remain pending.
 No milestone acceptance, device support,
 release approval or human review is inferred.
 
@@ -198,6 +201,10 @@ physical storage exhaustion, or app/native transfer.
 
 ## Consumer packet: retained desktop failures and corrected synthetic gates
 
+This subsection retains the earlier consumer-only source checkpoints. Native
+advertisement, authorization and actual App exposure were still pending then;
+the later source-bound native/app results below record their subsequent work.
+
 Original producer `145086afe93f92cc8c2b4aef97e67d98ef37af38` is imported as
 `8df48905cc12b2816234f684883bebb241a1bd0f`:
 
@@ -285,23 +292,18 @@ consent/token/recovery and supported-version advertisement before accepting
 Domain2 app transfer. Counts include author records; calling all of them
 gameplay turns would misdescribe the archive.
 
-## Pending gates and next runnable work
+## Current remaining gates and next runnable work
 
-Items below remain pending at this checkpoint; commands are reproduction
-instructions, not results. Use Root's serialized target/TEMP environment.
+The later native/app results below supersede the earlier source-only status
+of the frozen broker/authorization/harness packets. This does not relabel any
+earlier failed or unexecuted source as passing. Existing archive compatibility,
+Full/checkpoint/interruption and broader Rust/Workspace/native qualification,
+formatting and strict lint checks still need final source-bound disposition.
+This reproduction command is pending here, not a reported result:
 
 ```text
 cargo test --locked --offline --jobs 1 --target-dir <shared-target> -p locallore-storage --test playable_archive --test branch_retention_archive --test archive_interruption -- --test-threads=1
 ```
-
-New native broker transfer oracles are frozen at
-`ab43563c3097966c295e761fca2779b80fd2ed82`, sole new source
-`apps/desktop/src-tauri/src/archive_v3_tests.rs`. Root adopted them as
-`d1f65d3` and registered them as `53928c9`; they remain uncompiled and unrun
-at this addendum. No native success is inferred from
-their source. Existing Full/checkpoint/interruption and broader Rust,
-Workspace/native compatibility, formatting and strict lint checks remain
-Root-owned and pending on the final integrated source.
 
 Root separately observed shared Cargo target contamination in another Core
 source cohort. Future final checks will use source-owned target directories.
@@ -312,21 +314,24 @@ their exact sources/logs and record final target/source ownership explicitly.
 From `apps/android`, compilation-only is
 `./gradlew.bat --offline :app:compileDebugAndroidTestKotlin`. Preserve the first
 actual fixture/compile/behavior failures before any narrow correction, and
-record exact source and results for each rerun. Actual Android instrumented
-runtime, native picker/IPC transfer, desktop↔Android roundtrip, app-owned render
-inspection, physical-phone qualification and owner acceptance are not supplied
-by this report. D07 model/timing cohorts are separate evidence and are not
-relabeled as Archive3 qualification.
+record exact source and results for each rerun. The nine Android instrumented
+methods remain uncompiled/unrun in this packet. Real OS-picker interaction,
+Android instrumented runtime, desktop↔Android roundtrip, physical-phone
+qualification and owner acceptance remain unavailable. The native cohort uses
+fixed picker doubles, not automation of system dialogs or the desktop. D07
+model/timing cohorts are separate evidence and are not relabeled here.
 
-Documentation ownership remains open under
-[#12 claim6381144573](https://github.com/OptimumAF/LocalLore/issues/12#issuecomment-6381144573)
-and [#30 claim6381144716](https://github.com/OptimumAF/LocalLore/issues/30#issuecomment-6381144716)
-for later coordinator results. Next runnable task is Root's native broker
-oracle adoption/execution and source-owned compatibility qualification,
-followed by authorized consumer/platform closure; no milestone checkbox changes
-at this checkpoint.
+Next runnable work is Root's corrected snapshot notice, visible knowledge-row
+capture and six-stage actual-UI continuation/cold-reopen cohort, followed by
+final source-owned compatibility and authorized platform checks. This is
+qualified native transport evidence within the synthetic fixture, not Android
+Domain2 opening support or whole M08/D08/publication readiness.
 
 ## Selected Domain2 panel action addendum — 2026-10-24
+
+This subsection preserves the earlier source-preparation checkpoints. Its
+pending assertions describe those sources; the later results below explicitly
+record their execution and integration without changing this history.
 
 Root adopted the independent frozen eleven-case checker `801adfc` as
 `a5f45c7`, after preserving accepted main `beb1587` in merge `88fbab7`.
@@ -382,3 +387,198 @@ so the first actual tests can measure the old authorization path. Query2
 authorization is still unimplemented. All nine new native broker/authorization
 groups remain uncompiled/unrun; Domain2 App exposure/catalog3 and the actual
 hidden application-owned IPC/render/visual review gates remain pending.
+
+## Native authorization, transport and integrated frontend — 2026-10-24
+
+The five frozen broker groups (`ab43563c`, adopted `d1f65d3`, registered
+`53928c9`) first ran at clean
+`5262d3be8e4db007b13696fc79eba9e272b02bd7`. Actual result: **4 passed /1
+failed**,93 filtered,1.19s after3m43s compilation. The failing catalog case
+observed archive2 instead of3; the other four groups exercised real mixed
+capture/publish/staging/cold reopen, stale-head refusal, committed lost-ack
+recovery/conflict and preapply cancellation. The retained process record has
+exit101 and that exact source, not an app/render execution.
+
+The four authorization groups first ran at the same source: **2 passed /2
+failed**,94 filtered,0.72s (build1.07s). Both failing Domain2 paths returned
+`Version` through the old legacy `inspection_snapshot(Full)` authorization.
+False native grants and unknown/closed/cross-scope sessions were rejected as
+expected. Root's narrow correction uses the actual Host Query2 Omniscient
+Profiles request, limit1, with exact session/scope/head and the existing native
+grant; it does not materialize legacy Full or grant actor generation knowledge.
+
+The corrected four authorization groups passed in0.89s, compile20.60s. Source
+is coordinator commit `2a7c274a50d05d14e9953f1ae33d57409d6e11c2` plus its
+module-order formatting working patch, later committed as
+`9444a0bbad11be13a6795fbb6f174fc31b565b51`; do not label that execution a
+clean `2a7c274` tree. Root advertised exact native catalog3/[1,2,3] at
+`abaa67eb2a836e192e30db92bb2e1782e3d2d62a`; all five unchanged broker groups
+then passed in1.15s, compile16.08s,93 filtered. Actual legacy archive1/2
+selection remains separate from this native advertisement.
+
+Root's integrated frontend command passed with the working integration patch
+immediately before `1b14449b51dc9a98d7167f6eaa03781f297759c0`. It includes
+82 consumer,29 acknowledgement and11 selected-panel cases, strict TypeScript,
+normal frontend build, current schema checks and normal-hook exclusion. These
+overlap prior focused cohorts; no aggregate of independent tests is invented.
+The dev-harness native `--no-run` check subsequently compiled both the main
+unit-test executable and `harness_contract` in22.43s. That compile is not a
+test run, app launch, render or device result.
+
+From the repository root, native group reproduction uses the owned target and
+the already documented one-job/offline/debug0/incremental0 environment:
+
+```text
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --jobs 1 --target-dir <archive3-native-target> --bin locallore-desktop-spike archive::archive_v3_tests:: -- --nocapture --test-threads=1
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --jobs 1 --target-dir <archive3-native-target> --bin locallore-desktop-spike archive_commands::archive_authorization_tests:: -- --nocapture --test-threads=1
+```
+
+The integrated frontend command is the approved Node executable directly
+running `verify-frontend.mjs` from `apps/desktop`, not npm installation.
+
+| Local artifact | Bytes | SHA256 | Result |
+| --- | ---: | --- | --- |
+| `archive3-native-frozen-first.log` | 11115 | `4ecbe493cfd5d3ef301f9ba4a19e918a36bf0770d1a4fe5ae926330cc6757ad4` | 4 pass /1 catalog failure |
+| `archive3-native-frozen-first-process.json` | 253 | `37936a74851f7cf66f4eb724c9975a0e6dfb92da56ea26745e3b01e3031c11c9` | Exact5262 source, exit101 |
+| `archive3-authorization-first-red.log` | 1955 | `29a0e759b6588811eaad4a2f665825f9381ce2abcb1d94357e586776c2fe3628` | 2 pass /2 Version failures |
+| `archive3-authorization-first-corrected.log` | 1540 | `cd4ffb3c72b9c2631377968a31e6ed875d5265f17dd4db1446f561af7ee4ec4f` | 4 pass /0 fail |
+| `archive3-native-first-corrected.log` | 2630 | `35ea12aa0953ac0d9eb414ef250fac60dc21929e5be24851f7832480e1983e0f` | 5 pass /0 fail |
+| `archive3-integrated-frontend-first.log` | 20558 | `c10ff273d48b3f1504aa088bfda2dfa158f53b58c440a7368eae12829987bded` | Full frontend PASS, working integration patch |
+| `archive3-harness-native-first-compile.log` | 560 | `b559dc85b65f350eef407092c6a35adba568263604eb723e7edcf0625eda2126` | Compile-only PASS |
+
+## First actual four-process app-owned transfer cohort
+
+The first launcher attempt stopped at clean-source preflight, **before any app
+launch**. Root attributes the dirty source to launch working-directory context
+and an uncommitted generated fixture-command permission. The retained failure
+is `archive3-app-first.log`,575 bytes, SHA256
+`f434afbb80502ec657cee9c869cb4fde5c87b662256dd0f5ced733740373683b`.
+It is a harness/source-preflight failure, not an app behavior failure. Root
+committed the exact generated development permission and reran at clean
+`fcbacd8b038d35302da283e3ea11cea3919ee742`.
+
+The actual cohort is
+`archive-v3-native-227bab1d-94e2-48a5-95f6-f38b6c22a671`. Root launched from
+`apps/desktop` with trusted absolute local placeholders:
+
+```text
+LOCALLORE_D08_ARTIFACT_ROOT=<ignored-local-artifacts>
+LOCALLORE_D08_TARGET_DIR=<archive3-native-target>
+<node24-executable> archive-v3-harness.mjs
+```
+
+The launcher builds `build.mjs --harness`, then the existing native app with
+`cargo build --manifest-path src-tauri/Cargo.toml --locked --offline --features dev-harness --target-dir <archive3-native-target> --jobs 1`.
+Four actual app processes run sequentially in hidden, unfocused app-owned
+windows, using fixed native picker doubles and real mounted controllers/IPC.
+Source, destination and uncertain workspaces are separate; only destination is
+reused for the real restarted process. All four exit0 without timeout or
+output overflow. No desktop input/window activation/OS screenshot, real
+system-picker automation, model generation or Android execution is involved.
+
+| Stage | Recorded check entries | Distinct labels within stage | Native PNG captures | App ErrorBuffer |
+| --- | ---: | ---: | ---: | ---: |
+| `v3-source` | 45 | 41 | 5 | 0 |
+| `v3-import` | 60 | 54 | 6 | 0 |
+| `v3-restarted` | 44 | 42 | 5 | 0 |
+| `v3-uncertain` | 44 | 39 | 4 | 0 |
+
+The summary contains **193 recorded check entries /72 distinct label strings
+across the cohort**, not193 independent tests. Repeated checks include fixed
+oracle and snapshot validations. There are20 actual application-owned
+WebView2 `CapturePreview` PNG files,1427457 PNG bytes; the recorded artifact
+set totals1990538 bytes. These are native render captures, not headless React
+or OS desktop screenshots. The documentation agent parsed the manifests but
+did not execute the cohort or inspect images itself.
+
+Actual assertions establish selected Domain2 private export, explicit review
+and second consent, staged cancellation before target application followed by
+fresh-preview success, committed import with lost acknowledgement and read-only
+recovery, same-ID Conflict without overwrite, cold process resume/re-export,
+foreign canonical-story preservation and empty owned staging directories.
+All three published archive files and the unchanged input share SHA256
+`64cc6e34b6d471eeffaf41939c91f2ed866cc572a240378aeb02b0bd4c18fe4e`.
+Full canonical records, opaque native accepted-history basis equality and all
+actor contexts/views agree across all four native fixture oracles. Their
+canonical-record digest is
+`817d49df34347750dd8bd0213bf1d6df8e8a676658ae410f192d5a48d6866d83`.
+Query2 evidence keeps Mira's prior A, the player's current B and Sable unaware;
+no private author reason appears in these actor queries. Inspection does not
+grant generation knowledge.
+
+The recorded environment is Node24.22.1/win32/x64,
+`rustc 1.93.1 (01f6ddf75 2026-02-11)` and
+`cargo 1.93.1 (083ac5135 2025-12-15)`. Start and terminal source are identical
+and clean; the listed source inputs, native executable and frontend hashes
+remain stable. Native executable SHA256 is
+`5c1ed5c4412e8d7eac7b1182fd68a58b298b65fe8de0cdb9a95772fa01ac0eed`;
+frontend SHA256 is
+`88f0fa07f7cdeaf68f78ca44958a83a6f0d47640c2cb5be1afbb74321e2744db`.
+
+**App ErrorBuffer0 does not mean zero native stderr.** Every exited app retains
+one115-byte Chromium diagnostic: `Failed to unregister class Chrome_WidgetWin_0.
+Error = 1412`. No log is cleared, ignored or relabeled empty. `executions.json`
+pins each stdout/stderr hash and exit status. These teardown diagnostics remain
+visible evidence rather than an inferred semantic failure or a blanket
+zero-native-error claim.
+
+| Local artifact, under the cohort unless specified | Bytes | SHA256 |
+| --- | ---: | --- |
+| `archive3-app-source-corrected-first.log` (outside cohort) | 235 | `7e9299d207f4230f49dbd4da97b2e3276e84e51e74161977306ca8561745e7f6` |
+| `summary.json` | 35948 | `6049fe982a2ea28481355eade86776d9aadc358a6d56777e4568c93f93c31a96` |
+| `source.json` | 4350 | `6382ea6cbcba3e10ce27cc133b8328dd961a2f492da36c6de7939f4c9af7ca5a` |
+| `binary.json` | 239 | `f4b16112b6a1074b235051b32c9474ec3f617a4714c98e5dfb938b4ee29ff0bd` |
+| `executions.json` | 2470 | `0c5a49953f5a330249cac1c25b01dba80ceb4da5a52cdfa319ce99983c744536` |
+
+## Attributed visual review and remaining actual-UI gap
+
+The immutable cohort summary intentionally still says visual review pending.
+Root subsequently inspected **all20 images** and wrote the separate
+`archive3-app-first-visual-review.json`,4629 bytes, SHA256
+`dc122d2921337a5ef43666c7f63e1384003c72e5a4b69a6cd06d6b7c3a6d18e7`.
+It pins every image hash. Root reports readable layouts without observed
+clipping, overlap or horizontal overflow at1280×900 and680×900; vertical
+scrolling remains necessary. This is Root's inspection, not the doc agent's.
+
+Two findings remain open: the export receipt incorrectly says the original
+story is unchanged by later play, although the exported snapshot is the frozen
+object; and the observer images show lens/scope/head while the knowledge values
+are below their viewport. Semantic Query2 assertions passed, but those images
+do not yet visibly demonstrate A/B isolation. Root will correct the notice and
+capture/verify the actual visible knowledge rows in a new source-bound cohort.
+The first cohort remains immutable; it is not overwritten as the corrected run.
+
+No post-import continued turn is executed through the mounted UI in this first
+cohort: all four final native oracles retain3 canonical records. Root's planned
+six-stage continuation/cold-reopen journey is pending. The next native unit
+check below covers the shared commit boundary, not that missing UI journey.
+
+## Executed native post-transfer continuation prerequisite
+
+Independent source `154b5b7b47386881ff6fa8dd7e3972c4730be093` is adopted as
+`662041bb3f84071829eb428e35fe0866eff0c53d`; Root registers it at exact
+`20c75c42c7e71ccfcd7d3bb76b1341e219b81484`. Root's actual test passes:
+**1 passed,0 failed,0 ignored,98 filtered**,1.05s after13.51s compilation.
+It executes two fixture loops: the corrected child and a live descendant with
+a retained retired author parent. Actual native broker import is followed by
+Host/Repository scripted Play2.5 Wait, canonical3→4 once, cold reopen and exact
+retry with0 new provider factories/polls; changed same-key input is
+`RetryMismatch`. Both loops total4 scripted Structured roles, not model calls.
+Original history/observation provenance, Player B/Mira A/Sable unaware,
+source/archive/foreign story and cold continued-export bytes are checked.
+
+```text
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --jobs 1 --target-dir <archive3-native-target> --bin locallore-desktop-spike archive::archive_v3_tests::continuation_tests:: -- --nocapture --test-threads=1
+```
+
+`archive3-continuation-native-first.log`:1010 bytes, SHA256
+`d1a25985495962317eb122e99eee99950fb019ee084623bbaa1d5a2897e685ea`.
+This is an actual Rust native-broker/shared-port test, not WebView/JNI/Android,
+post-import UI execution or model-quality evidence.
+
+Documentation claim ownership is handed back after this packet under
+[#12 claim6392496259](https://github.com/OptimumAF/LocalLore/issues/12#issuecomment-6392496259)
+and [#30 claim6392496411](https://github.com/OptimumAF/LocalLore/issues/30#issuecomment-6392496411).
+Root retains all implementation, final compatibility, native/Android consumer
+acceptance and publication decisions. No whole milestone or readiness claim
+is made by this documentation update.

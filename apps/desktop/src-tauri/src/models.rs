@@ -1,7 +1,7 @@
 //! Native-owned verified model lifecycle. No renderer-supplied file or executable paths.
 use crate::{exports, lease::WindowLease};
 use locallore::{host::Host, play::PlayProfile};
-use locallore_local_runtime::{LocalRuntime, MODEL_BYTES, MODEL_SHA256, PROFILE, RUNTIME_COMMIT};
+use locallore_local_runtime::{LocalRuntime, OwnedStartFailure, MODEL_BYTES, MODEL_SHA256, PROFILE, RUNTIME_COMMIT};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
@@ -14,6 +14,10 @@ use std::{
     },
 };
 type SharedRuntime = Arc<Mutex<LocalRuntime>>;
+#[cfg(test)]
+thread_local! {
+    static FAIL_CLEANUP_ONCE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
 // The worker staged with this application, verified on the held file before
 // process creation. A renderer or editable profile cannot select this identity.
 const APPROVED_WORKER_SHA256: &str =
@@ -25,23 +29,41 @@ fn owner_failed<T>(owner: &Mutex<T>, failed: impl FnOnce(&T) -> bool) -> bool {
         Err(TryLockError::Poisoned(_)) => true,
     }
 }
-fn shutdown_owner<T>(
+struct CleanupOutcome {
+    confirmed: bool,
+    result: Result<(), String>,
+}
+fn cleanup_owner<T>(
     owner: &Mutex<T>,
     shutdown: impl FnOnce(&mut T) -> Result<(), String>,
-) -> Result<(), String> {
+) -> CleanupOutcome {
+    #[cfg(test)]
+    if FAIL_CLEANUP_ONCE.with(|fault| fault.replace(false)) {
+        return CleanupOutcome { confirmed: false, result: Err("Cleanup".into()) };
+    }
     match owner.lock() {
-        Ok(mut runtime) => shutdown(&mut runtime),
+        Ok(mut runtime) => {
+            let result = shutdown(&mut runtime);
+            CleanupOutcome { confirmed: result.is_ok(), result }
+        }
         Err(poisoned) => {
             // Recover only to drain/reap the failed owner, never to resume inference.
-            let _ = shutdown(&mut poisoned.into_inner());
-            Err("Cleanup".into())
+            let result = shutdown(&mut poisoned.into_inner());
+            CleanupOutcome { confirmed: result.is_ok(), result: Err("Cleanup".into()) }
         }
     }
+}
+#[cfg(test)]
+fn shutdown_owner<T>(owner: &Mutex<T>, shutdown: impl FnOnce(&mut T) -> Result<(), String>) -> Result<(), String> {
+    cleanup_owner(owner, shutdown).result
 }
 struct Inner {
     evaluation: Option<u64>,
     evaluation_sequence: u64,
     starting: Option<u64>,
+    closing: Option<u64>,
+    cleanup_uncertain: bool,
+    cleanup_cause: Option<String>,
     phase: &'static str,
     percent: u64,
     error: Option<String>,
@@ -61,6 +83,23 @@ pub struct EvaluationReservation {
     pub resource: PathBuf,
     pub model: PathBuf,
 }
+impl EvaluationReservation {
+    pub(crate) fn retain_uncertain(&mut self, runtime: SharedRuntime) -> Result<(), SharedRuntime> {
+        let mut s = self.owner.inner.lock().unwrap_or_else(|p| p.into_inner());
+        if s.evaluation != Some(self.ticket)
+            || s.runtime.as_ref().is_some_and(|current| !Arc::ptr_eq(current, &runtime))
+        {
+            return Err(runtime);
+        }
+        s.runtime = Some(runtime);
+        s.profile = None;
+        s.cleanup_uncertain = true;
+        s.phase = "failed";
+        s.percent = 0;
+        s.error = Some("Cleanup".into());
+        Ok(())
+    }
+}
 impl Drop for EvaluationReservation {
     fn drop(&mut self) {
         let mut s = self.owner.inner.lock().unwrap_or_else(|p| p.into_inner());
@@ -78,6 +117,9 @@ impl ModelManager {
                 evaluation: None,
                 evaluation_sequence: 0,
                 starting: None,
+                closing: None,
+                cleanup_uncertain: false,
+                cleanup_cause: None,
                 phase: "unloaded",
                 percent: 0,
                 error: None,
@@ -99,17 +141,20 @@ impl ModelManager {
                 matches!(runtime.status(), locallore_local_runtime::Status::Failed)
             })
         });
-        if failed {
+        if s.cleanup_uncertain {
+            if s.phase != "unloading" { s.phase = "failed"; }
+            s.error = Some("Cleanup".into());
+        } else if failed && s.phase != "unloading" {
             s.phase = "failed";
             s.error = Some("Runtime".into());
         }
         Ok(
-            json!({"operation_id":s.job,"resident":s.runtime.is_some(),"phase":s.phase,"percent":s.percent,"error":s.error,"loaded":s.runtime.is_some()&&!failed,"imported":imported,"profile":s.profile,"available_profile":{"id":PROFILE,"model_bytes":MODEL_BYTES,"model_sha256":MODEL_SHA256,"runtime_revision":RUNTIME_COMMIT,"device":"CPU: experimental Windows x64","qualification":"Experimental. Narrative quality and offline qualification remain pending."}}),
+            json!({"operation_id":s.job,"resident":s.runtime.is_some(),"phase":s.phase,"percent":s.percent,"error":s.error,"loaded":s.runtime.is_some()&&s.profile.is_some()&&!failed&&!s.cleanup_uncertain,"imported":imported,"profile":s.profile,"available_profile":{"id":PROFILE,"model_bytes":MODEL_BYTES,"model_sha256":MODEL_SHA256,"runtime_revision":RUNTIME_COMMIT,"device":"CPU: experimental Windows x64","qualification":"Experimental. Narrative quality and offline qualification remain pending."}}),
         )
     }
     fn begin(&self, phase: &'static str) -> Result<(u64, Arc<AtomicBool>), String> {
         let mut s = self.inner.lock().map_err(|_| "Internal")?;
-        if s.evaluation.is_some() || s.starting.is_some() {
+        if s.evaluation.is_some() || s.starting.is_some() || s.closing.is_some() {
             return Err("Busy".into());
         }
         if matches!(
@@ -131,6 +176,8 @@ impl ModelManager {
         s.error = None;
         if phase == "loading" {
             s.starting = Some(s.job);
+        } else if phase == "unloading" {
+            s.closing = Some(s.job);
         }
         Ok((s.job, s.cancel.clone()))
     }
@@ -140,6 +187,7 @@ impl ModelManager {
         let mut s = self.inner.lock().map_err(|_| "Internal")?;
         if s.evaluation.is_some()
             || s.starting.is_some()
+            || s.closing.is_some()
             || matches!(
                 s.phase,
                 "choosing" | "checking" | "copying" | "loading" | "unloading"
@@ -174,7 +222,14 @@ impl ModelManager {
             if finished_startup {
                 s.starting = None;
             }
+            if s.closing == Some(job) { s.closing = None; }
             if s.job == job {
+                if s.cleanup_uncertain {
+                    s.phase = "failed";
+                    s.error = Some("Cleanup".into());
+                    s.percent = 0;
+                    return;
+                }
                 s.phase = if s.runtime.is_some() {
                     "loaded"
                 } else if result
@@ -192,7 +247,7 @@ impl ModelManager {
                     .filter(|e| *e != "Cancelled" && *e != "Closed")
                     .cloned();
                 s.percent = if result.is_ok() { 100 } else { 0 };
-            } else if finished_startup && s.phase == "unloading" && s.runtime.is_none() {
+            } else if finished_startup && s.phase == "unloading" && s.runtime.is_none() && s.closing.is_none() {
                 // Retirement cannot acknowledge cleanup for the still-running
                 // loader. Only its matching completion releases this exclusion.
                 s.phase = "unloaded";
@@ -263,22 +318,38 @@ impl ModelManager {
     }
     pub fn load(&self, host: &Host, lease: &WindowLease, epoch: u64) -> Result<Value, String> {
         let (job, cancel) = lease.dispatch(epoch, || self.begin("loading"))?;
-        let result = (|| {
+        let mut owned = None;
+        let mut configured = false;
+        let mut result = (|| {
             if !lease.valid(epoch) {
                 return Err("Closed".into());
             }
             reap_imports(&self.root)?;
-            let mut runtime = LocalRuntime::spawn_packaged_expected_cancelled(
+            let (runtime, startup_error) = match LocalRuntime::spawn_packaged_owned_expected_cancelled(
                 &self.resource,
                 &self.path(),
                 APPROVED_WORKER_SHA256,
                 || cancel.load(Ordering::SeqCst) || !lease.valid(epoch),
-            )
-            .map_err(runtime_error)?;
-            runtime
-                .load(|| cancel.load(Ordering::SeqCst) || !lease.valid(epoch))
-                .map_err(runtime_error)?;
-            let profile = PlayProfile {
+            ) {
+                Ok(runtime) => (runtime, None),
+                Err(OwnedStartFailure::BeforeChild(cause)) => return Err(runtime_error(cause)),
+                Err(OwnedStartFailure::AfterChild { cause, owner }) => (owner, Some(runtime_error(cause))),
+            };
+            let shared = Arc::new(Mutex::new(runtime));
+            {
+                let mut s = self.inner.lock().unwrap_or_else(|p| p.into_inner());
+                // Starting remains reserved through retirement until this exact
+                // callback finishes. No other loader/evaluation can own the slot.
+                assert_eq!(s.starting, Some(job));
+                assert!(s.runtime.is_none());
+                s.runtime = Some(shared.clone());
+            }
+            owned = Some(shared.clone());
+            if let Some(error) = startup_error { return Err(error); }
+            let profile = {
+                let mut runtime = shared.lock().map_err(|_| "Cleanup")?;
+                runtime.load(|| cancel.load(Ordering::SeqCst) || !lease.valid(epoch)).map_err(runtime_error)?;
+                PlayProfile {
                 id: PROFILE.into(),
                 model_sha256: MODEL_SHA256.into(),
                 runtime_revision: RUNTIME_COMMIT.into(),
@@ -291,9 +362,9 @@ impl ModelManager {
                 narrator_tokens: 350,
                 deadline_ms: 120000,
                 repair_limit: 1,
+                }
             };
             profile.validate().map_err(|e| e.to_string())?;
-            let shared = Arc::new(Mutex::new(runtime));
             lease.dispatch(epoch, || {
                 {
                     let s = self.inner.lock().map_err(|_| "Internal")?;
@@ -312,17 +383,39 @@ impl ModelManager {
                         ))
                     }),
                 )?;
+                configured = true;
                 let mut s = self.inner.lock().map_err(|_| "Internal")?;
                 if s.job != job || cancel.load(Ordering::SeqCst) {
                     drop(s);
                     host.disable_local_provider();
                     return Err("Cancelled".into());
                 }
-                s.runtime = Some(shared.clone());
                 s.profile = Some(profile);
                 Ok(())
             })
         })();
+        if let (Err(cause), Some(owner)) = (&result, owned.as_ref()) {
+            let initial_cause = cause.clone();
+            if configured { host.disable_local_provider(); }
+            let outcome = cleanup_owner(owner, |runtime| runtime.terminate_and_reap().map_err(runtime_error));
+            {
+                let mut s = self.inner.lock().unwrap_or_else(|p| p.into_inner());
+                if s.starting == Some(job) && s.runtime.as_ref().is_some_and(|current| Arc::ptr_eq(current, owner)) {
+                    s.profile = None;
+                    if outcome.confirmed {
+                        s.runtime = None;
+                        s.cleanup_uncertain = false;
+                        s.cleanup_cause = None;
+                    } else {
+                        s.cleanup_uncertain = true;
+                        s.cleanup_cause = Some(initial_cause);
+                        s.phase = "failed";
+                        s.error = Some("Cleanup".into());
+                    }
+                }
+            }
+            if outcome.result.is_err() { result = Err("Cleanup".into()); }
+        }
         self.finish(job, &result);
         result?;
         self.status()
@@ -333,15 +426,49 @@ impl ModelManager {
             host.disable_local_provider();
             let mut s = self.inner.lock().map_err(|_| "Internal")?;
             s.profile = None;
-            Ok((job, s.runtime.take()))
+            Ok((job, s.runtime.clone()))
         })?;
-        let result = if let Some(owner) = runtime {
-            shutdown_owner(&owner, |runtime| runtime.shutdown().map_err(runtime_error))
+        let outcome = if let Some(owner) = &runtime {
+            cleanup_owner(owner, |runtime| runtime.terminate_and_reap().map_err(runtime_error))
         } else {
-            Ok(())
+            CleanupOutcome { confirmed: true, result: Ok(()) }
         };
-        self.finish_unload(job, result)
+        self.finish_cleanup(job, runtime.as_ref(), outcome)
     }
+    fn finish_cleanup(&self, job: u64, owner: Option<&SharedRuntime>, outcome: CleanupOutcome) -> Result<Value, String> {
+        {
+            let mut s = self.inner.lock().unwrap_or_else(|p| p.into_inner());
+            if s.job == job {
+                if s.closing == Some(job) { s.closing = None; }
+                let same = match (owner, s.runtime.as_ref()) {
+                    (Some(expected), Some(current)) => Arc::ptr_eq(expected, current),
+                    (None, None) => true,
+                    _ => false,
+                };
+                if same && outcome.confirmed {
+                    s.runtime = None;
+                    s.profile = None;
+                    s.cleanup_uncertain = false;
+                    s.cleanup_cause = None;
+                    if s.starting.is_none() {
+                        s.phase = if outcome.result.is_ok() { "unloaded" } else { "failed" };
+                        s.error = outcome.result.as_ref().err().cloned();
+                        s.percent = if outcome.result.is_ok() { 100 } else { 0 };
+                    }
+                } else if same || s.cleanup_uncertain {
+                    // Preserve the actual slot on uncertainty, including an owner
+                    // arriving after retirement took its cleanup snapshot.
+                    s.cleanup_uncertain = s.runtime.is_some();
+                    s.phase = "failed";
+                    s.error = Some("Cleanup".into());
+                    s.percent = 0;
+                }
+            }
+        }
+        outcome.result?;
+        self.status()
+    }
+    #[cfg(test)]
     fn finish_unload(&self, job: u64, result: Result<(), String>) -> Result<Value, String> {
         self.finish(job, &result);
         result?;
@@ -352,26 +479,26 @@ impl ModelManager {
         let mut s = self.inner.lock().ok()?;
         s.cancel.store(true, Ordering::SeqCst);
         s.job += 1;
+        s.closing = Some(s.job);
         s.phase = "unloading";
         s.profile = None;
-        Some((s.job, s.runtime.take()))
+        Some((s.job, s.runtime.clone()))
     }
     pub fn close(&self, host: Option<&Host>, retired: Option<(u64, Option<SharedRuntime>)>) {
-        if let Some(host) = host {
-            host.disable_local_provider();
-        }
         let Some((job, runtime)) = retired else {
             return;
         };
-        if let Some(owner) = runtime {
-            let _ = shutdown_owner(&owner, |runtime| runtime.shutdown().map_err(runtime_error));
+        let current = self.inner.lock().map(|s| s.job == job && s.closing == Some(job)).unwrap_or(false);
+        if !current { return; }
+        // The closing ticket excludes a replacement while supplier revocation
+        // waits outside the metadata lock. A duplicate stale close cannot revoke it.
+        if let Some(host) = host {
+            host.disable_local_provider();
         }
-        if let Ok(mut s) = self.inner.lock() {
-            if s.job == job && s.starting.is_none() {
-                s.phase = "unloaded";
-                s.error = None;
-            }
-        }
+        let outcome = if let Some(owner) = &runtime {
+            cleanup_owner(owner, |runtime| runtime.terminate_and_reap().map_err(runtime_error))
+        } else { CleanupOutcome { confirmed: true, result: Ok(()) } };
+        let _ = self.finish_cleanup(job, runtime.as_ref(), outcome);
     }
 }
 fn runtime_error(error: locallore_local_runtime::Error) -> String {

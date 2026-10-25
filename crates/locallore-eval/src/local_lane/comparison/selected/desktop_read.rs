@@ -1,4 +1,6 @@
 //! Read-only selected-run capability. No execution, assets, or renderer paths.
+#[cfg(test)]
+mod budget_review_tests;
 use super::super::desktop_api::{check_access, render_evidence, Arm, EvidenceRequest};
 use super::*;
 use locallore::inspection_query::{self, Query, MAX_ROWS};

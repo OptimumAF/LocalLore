@@ -794,19 +794,50 @@ fn execute_selected(
         return report(dir, manifest, &turns, &ledgers);
     }
     cancelled(cancel)?;
-    for ledger in &mut ledgers {
-        ledger.started = started;
-        if ledger.invocations >= 32 || ledger.remaining() < PREPARATION_MS {
-            return Err("RunBudget".into());
-        }
-    }
-    // Both source/destination arms and both resource capacities have passed
-    // preflight. Unknown reservations on any later error remain durable.
-    ledgers[0].begin_invocation()?;
-    ledgers[1].begin_invocation()?;
     let corpus = suite()?;
     let index = manifest.selection.index;
     let step = &corpus.steps()[index];
+    let mut recoverable = [None, None];
+    for arm in 0..2 {
+        ledgers[arm].started = started;
+        if turns[arm].is_some() {
+            continue;
+        }
+        let path = database(&dir.join(ARM_NAMES[arm]), index, manifest.source_kind);
+        if path.exists()
+            && !Store::open_read_only(&path)
+                .map_err(|_| "Workspace")?
+                .stories()
+                .map_err(|_| "Workspace")?
+                .is_empty()
+        {
+            let full = engine(&path, &corpus.seed().scope)?;
+            recoverable[arm] = recover_committed_turn(RecoveryJob {
+                path: &path,
+                full: &full,
+                index,
+                arm: ARM_NAMES[arm],
+                policy: POLICIES[arm],
+                binding: &manifest.binding,
+                step,
+                profile: &manifest.profile,
+            })?;
+        }
+    }
+    let dependency_blocked = |arm: usize| {
+        matches!(step.expected(), protocol::Expected::Accepted(_))
+            && protocol::reference_proposal(&plan.before[arm], step).is_err()
+    };
+    for arm in 0..2 {
+        let requires_admission = turns[arm].is_none()
+            && recoverable[arm].is_none()
+            && !dependency_blocked(arm);
+        ledgers[arm].preflight_invocation(requires_admission)?;
+    }
+    // BOTH arms can reserve preparation plus their actual required admission.
+    // No invocation, Store bootstrap or provider work precedes these checks.
+    ledgers[0].begin_invocation()?;
+    ledgers[1].begin_invocation()?;
     let first_arm = match manifest.source_kind {
         ComparisonKind::PairedSnapshots => index % 2,
         ComparisonKind::ContinuousRollout => (index / 6) % 2,
@@ -818,28 +849,7 @@ fn execute_selected(
         let began = Instant::now();
         let d = dir.join(ARM_NAMES[arm]);
         let path = database(&d, index, manifest.source_kind);
-        let recovered = if path.exists()
-            && !Store::open_read_only(&path)
-                .map_err(|_| "Workspace")?
-                .stories()
-                .map_err(|_| "Workspace")?
-                .is_empty()
-        {
-            let full = engine(&path, &corpus.seed().scope)?;
-            recover_committed_turn(RecoveryJob {
-                path: &path,
-                full: &full,
-                index,
-                arm: ARM_NAMES[arm],
-                policy: POLICIES[arm],
-                binding: &manifest.binding,
-                step,
-                profile: &manifest.profile,
-            })?
-        } else {
-            None
-        };
-        let turn = if let Some(turn) = recovered {
+        let turn = if let Some(turn) = recoverable[arm].take() {
             // A known actual commit wins over a late cancel. This branch has
             // no factory/provider/admission and does not replay a second commit.
             turn

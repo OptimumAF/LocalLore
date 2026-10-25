@@ -449,9 +449,7 @@ impl Ledger {
         Ok(ledger)
     }
     fn begin_invocation(&mut self) -> Result<()> {
-        if self.invocations >= 32 || self.remaining() < PREPARATION_MS {
-            return Err("RunBudget".into());
-        }
+        self.preflight_invocation(false)?;
         self.invocation = self.invocations;
         self.invocations += 1;
         self.reserve_file(
@@ -509,10 +507,28 @@ impl Ledger {
         self.active_elapsed(self.started.elapsed().as_millis().min(u64::MAX as u128) as u64)
     }
     fn remaining(&self) -> u64 {
+        self.remaining_after_reservation(0)
+    }
+    fn remaining_after_reservation(&self, additional_ms: u64) -> u64 {
         MAX_ACTIVE_MS.saturating_sub(
             self.charged_ms
+                .saturating_add(additional_ms)
                 .max(self.prior_ms.saturating_add(self.elapsed())),
         )
+    }
+    /// Read-only capacity check; never writes a reservation or refunds unknown work.
+    fn preflight_invocation(&self, requires_admission: bool) -> Result<()> {
+        if self.invocations >= 32
+            || self.remaining() < PREPARATION_MS
+            || (requires_admission
+                && (self.admissions >= MAX_ADMISSIONS
+                    || self.charged_roles + 3 > MAX_ROLES
+                    || self.remaining_after_reservation(PREPARATION_MS)
+                        < TURN_MS + CLEANUP_RESERVE_MS))
+        {
+            return Err("RunBudget".into());
+        }
+        Ok(())
     }
     fn admit(&mut self, story: &str, turn: &str) -> Result<usize> {
         if self.admissions >= MAX_ADMISSIONS

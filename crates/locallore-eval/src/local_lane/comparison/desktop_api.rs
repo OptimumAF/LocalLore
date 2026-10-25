@@ -59,13 +59,13 @@ pub struct OpenedComparison {
     _pins: Vec<File>,
     _lock: File,
 }
-struct Snapshot {
-    value: Value,
-    turns: [Vec<StoredTurn>; 2],
-    manifest: RunManifest,
+pub(super) struct Snapshot {
+    pub(super) value: Value,
+    pub(super) turns: [Vec<StoredTurn>; 2],
+    pub(super) manifest: RunManifest,
 }
 
-fn snapshot(directory: &Path) -> Result<Snapshot> {
+pub(super) fn snapshot(directory: &Path) -> Result<Snapshot> {
     let manifest: RunManifest = decode(&directory.join("run.json"), 128 * 1024)?;
     manifest.validate()?;
     let report = inspect_comparison(directory)?;

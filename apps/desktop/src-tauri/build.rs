@@ -35,6 +35,7 @@ fn main() {
                 "archive_cancel",
                 "archive_discard",
                 "harness_archive_case",
+                "harness_archive_v3_fixture",
                 "evaluation_catalog",
                 "evaluation_curated",
                 "evaluation_start",

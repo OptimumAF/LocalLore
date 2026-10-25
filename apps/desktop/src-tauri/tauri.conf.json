@@ -41,6 +41,7 @@
                         "allow-archive-cancel",
                         "allow-archive-discard",
                         "allow-harness-archive-case",
+                        "allow-harness-archive-v3-fixture",
                         "allow-model-status",
                         "allow-model-import",
                         "allow-model-load",

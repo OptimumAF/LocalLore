@@ -413,7 +413,12 @@ fn raw_metric_names_are_unique_and_failed_nullable_load_key_stays_required() {
 
     let path = fixture.root.join("setup-00.json");
     let mut missing = read_json(&path);
-    assert!(missing.as_object_mut().unwrap().remove("load").unwrap().is_null());
+    assert!(missing
+        .as_object_mut()
+        .unwrap()
+        .remove("load")
+        .unwrap()
+        .is_null());
     replace_json(&path, &missing);
     let before = inventory(&fixture.root);
     let result = setup::read_setups(&fixture.root, &fixture.binding, true);

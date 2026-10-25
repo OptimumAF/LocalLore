@@ -11,12 +11,13 @@ The reviewed design proposal is commit
 its scripted shared API. It does not introduce a second provider, ledger, Store,
 canonical database format, context compiler or validator.
 
-## Implementation status, pending qualification
+## Implementation and qualification status
 
 At source `2838cef87b4bfb6d916f76461caba79df8536ebc`, the shared scripted Rust API
-below is implemented; final qualification/owner acceptance are pending in the
-[separate incoming evidence record](D07_SELECTED_CASE_SCRIPTED_QUALIFICATION_2026-10-25.md),
-not yet an accepted `main` result. This status note is not measured verification.
+below is implemented and its source-bound checks passed. The
+[qualification record](D07_SELECTED_CASE_SCRIPTED_QUALIFICATION_2026-10-25.md)
+contains exact results and limitations; [D07 #29](https://github.com/OptimumAF/LocalLore/issues/29)
+owns acceptance status.
 Both arms' admission capacity and preparation budgets are checked before reservation;
 common `load_turn` validates actual Store phase/full request/receipt against checkpoints.
 Existing destination files with hardlink aliases refuse before writable Store access;

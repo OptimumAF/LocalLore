@@ -3,8 +3,49 @@ use super::{
     decode, ordinary, read, shared_setup_shares, Ledger, Reservation, Result, Settlement,
     SetupRecord, PREPARATION_MS,
 };
+use serde::{de, Deserialize, Deserializer};
 use serde_json::Value;
 use std::{collections::BTreeMap, collections::BTreeSet, fs, io::ErrorKind, path::Path};
+
+// Preserve raw member uniqueness before Value can collapse duplicate metrics.
+// This decoder only reads retained diagnostics; it grants no runtime authority.
+struct UniqueLoad(Value);
+impl<'de> Deserialize<'de> for UniqueLoad {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        struct Visitor;
+        impl<'de> de::Visitor<'de> for Visitor {
+            type Value = UniqueLoad;
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("unique load metric members")
+            }
+            fn visit_map<M: de::MapAccess<'de>>(
+                self,
+                mut map: M,
+            ) -> std::result::Result<Self::Value, M::Error> {
+                let mut fields = serde_json::Map::new();
+                while let Some(key) = map.next_key::<String>()? {
+                    if fields.len() >= 9 || fields.contains_key(&key) {
+                        return Err(de::Error::custom("SetupIntegrity"));
+                    }
+                    fields.insert(key, map.next_value::<Value>()?);
+                }
+                Ok(UniqueLoad(Value::Object(fields)))
+            }
+        }
+        deserializer.deserialize_map(Visitor)
+    }
+}
+
+#[derive(Deserialize)]
+struct LoadField {
+    #[serde(deserialize_with = "required_load")]
+    load: Option<UniqueLoad>,
+}
+fn required_load<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Option<UniqueLoad>, D::Error> {
+    Option::<UniqueLoad>::deserialize(deserializer)
+}
 
 fn valid_load(load: &Value) -> bool {
     let Some(fields) = load.as_object() else {
@@ -110,17 +151,11 @@ pub(super) fn read_setups(dir: &Path, binding: &str, native: bool) -> Result<Vec
             return Err("SetupIntegrity".into());
         }
         let bytes = read(&entry.path(), 64 * 1024).map_err(|_| "SetupIntegrity")?;
-        // Typed decoding rejects unknown/duplicate top-level fields. Option<Value> would
-        // default a missing load key to None, so separately require its presence
-        // in the SAME bounded bytes; explicit failed/null remains supported.
+        // The first typed decoder rejects unknown/duplicate root fields. The
+        // second requires the nullable load field and raw metric uniqueness
+        // from the SAME bounded bytes, before any Value interpretation.
         let setup: SetupRecord = serde_json::from_slice(&bytes).map_err(|_| "SetupIntegrity")?;
-        let value: Value = serde_json::from_slice(&bytes).map_err(|_| "SetupIntegrity")?;
-        if value
-            .as_object()
-            .is_none_or(|fields| fields.len() != 8 || !fields.contains_key("load"))
-        {
-            return Err("SetupIntegrity".into());
-        }
+        let strict: LoadField = serde_json::from_slice(&bytes).map_err(|_| "SetupIntegrity")?;
         if setup.version != 2
             || setup.binding != binding
             || setup.left_invocation != index
@@ -128,7 +163,10 @@ pub(super) fn read_setups(dir: &Path, binding: &str, native: bool) -> Result<Vec
             || !setup.native
             || !matches!(setup.status.as_str(), "loaded" | "failed")
             || (setup.status == "loaded" && setup.load.is_none())
-            || setup.load.as_ref().is_some_and(|load| !valid_load(load))
+            || strict
+                .load
+                .as_ref()
+                .is_some_and(|load| !valid_load(&load.0))
             || !right_ids.insert(setup.right_invocation)
         {
             return Err("SetupIntegrity".into());

@@ -47,6 +47,7 @@ import org.locallore.app.PlayInputKind
 import org.locallore.app.ShellState
 import org.locallore.app.SavedStory
 import org.locallore.app.SavedTimeline
+import org.locallore.app.TextProvider
 
 private val Paper = Color(0xFFF8F5EC)
 private val Ink = Color(0xFF202D2A)
@@ -128,9 +129,14 @@ fun LocalLoreScreen(
                                 ) { Text(if (state.persistent) "New story" else "Reset demo") }
                             }
                             Text(
-                                "Local Rust engine · fake inference",
+                                when (state.textProvider) {
+                                    TextProvider.LOCAL -> "Local Rust engine · local inference configured"
+                                    TextProvider.SCRIPTED -> "Local Rust engine · fake inference"
+                                    TextProvider.UNAVAILABLE -> "Local Rust engine · text inference unavailable"
+                                },
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MutedInk,
+                                modifier = Modifier.testTag("inference-provider"),
                             )
                             Text(
                                 if (state.persistent) "Local saved progress · database schema ${state.databaseSchemaVersion ?: "opening"}"

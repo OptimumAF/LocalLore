@@ -4,7 +4,10 @@
 //! Only the fixed protocol worker is used when Root runs these tests. Ticket
 //! invalidation below is explicit private metadata fault injection, not evidence
 //! that ordinary retirement loses its ticket. No model/asset/profile-load bypass.
+//! Pre-execution contract correction: the selected trait entry owns the fence;
+//! the legacy inherent retain_uncertain and its existing tests stay unchanged.
 use super::*;
+use locallore_eval::local_lane::comparison::selected::SelectedNativeReservation;
 use locallore_local_runtime::{Generation, Role, Status};
 
 struct FaultReset;
@@ -24,7 +27,7 @@ fn manager() -> Arc<ModelManager> {
 }
 
 struct FixedOwner {
-    owner: SharedRuntime,
+    runtime: Option<SharedRuntime>,
     directory: PathBuf,
 }
 impl FixedOwner {
@@ -39,20 +42,26 @@ impl FixedOwner {
                 panic!("fixed protocol startup after child: {cause:?}; cleanup {cleanup:?}");
             }
         };
-        let fixture = Self { owner: Arc::new(Mutex::new(runtime)), directory };
-        fixture.owner.lock().unwrap().load(|| false).unwrap();
-        responding(&fixture.owner);
+        let fixture = Self { runtime: Some(Arc::new(Mutex::new(runtime))), directory };
+        fixture.owner().lock().unwrap().load(|| false).unwrap();
+        responding(fixture.owner());
         fixture
+    }
+    fn owner(&self) -> &SharedRuntime {
+        self.runtime.as_ref().unwrap()
     }
 }
 impl Drop for FixedOwner {
     fn drop(&mut self) {
         // Cleanup-only recovery; remove only this fixture's owned paths after
         // its actual cleanup API confirms terminal state, including on panic.
-        let confirmed = match self.owner.lock() {
+        let owner = self.runtime.take().unwrap();
+        let confirmed = match owner.lock() {
             Ok(mut runtime) => runtime.terminate_and_reap().is_ok(),
             Err(poisoned) => poisoned.into_inner().terminate_and_reap().is_ok(),
         };
+        // Drop held model/worker file handles before removing the fixture root.
+        drop(owner);
         if confirmed {
             let _ = fs::remove_dir_all(&self.directory);
         }
@@ -80,7 +89,7 @@ fn stale(manager: &Arc<ModelManager>) -> EvaluationReservation {
 }
 
 fn rejected(reservation: &mut EvaluationReservation, owner: &SharedRuntime) {
-    let returned = match reservation.retain_uncertain(owner.clone()) {
+    let returned = match SelectedNativeReservation::retain_uncertain(reservation, owner.clone()) {
         Err(returned) => returned,
         Ok(()) => panic!("faulted stale ticket unexpectedly accepted owner"),
     };
@@ -127,13 +136,13 @@ fn rejected_owner_stays_excluded_and_truthful_through_retirement_and_empty_close
     let fixture = FixedOwner::new();
     let manager = manager();
     let mut reservation = stale(&manager);
-    rejected(&mut reservation, &fixture.owner);
-    marked(&reservation, &fixture.owner);
+    rejected(&mut reservation, fixture.owner());
+    marked(&reservation, fixture.owner());
     assert_eq!(manager.inner.lock().unwrap().retained_evaluations, 1);
     assert!(manager.inner.lock().unwrap().runtime.is_none());
     busy(&manager);
     {
-        let _held = fixture.owner.lock().unwrap();
+        let _held = fixture.owner().lock().unwrap();
         cleanup_status(&manager);
     }
     let retired = manager.retire().unwrap();
@@ -141,8 +150,8 @@ fn rejected_owner_stays_excluded_and_truthful_through_retirement_and_empty_close
     manager.close(None, Some(retired));
     cleanup_status(&manager);
     busy(&manager);
-    responding(&fixture.owner);
-    let outcome = reservation.cleanup_retained(&fixture.owner);
+    responding(fixture.owner());
+    let outcome = reservation.cleanup_retained(fixture.owner());
     assert!(outcome.confirmed);
     assert!(outcome.result.is_ok());
     assert_eq!(manager.inner.lock().unwrap().retained_evaluations, 0);
@@ -158,27 +167,27 @@ fn same_arc_is_one_fence_wrong_arc_cannot_clear_or_rebind_and_slot_transfer_is_s
     let other = FixedOwner::new();
     let manager = manager();
     let mut reservation = stale(&manager);
-    rejected(&mut reservation, &first.owner);
-    rejected(&mut reservation, &first.owner);
+    rejected(&mut reservation, first.owner());
+    rejected(&mut reservation, first.owner());
     assert_eq!(manager.inner.lock().unwrap().retained_evaluations, 1);
-    rejected(&mut reservation, &other.owner);
-    marked(&reservation, &first.owner);
-    let wrong = reservation.cleanup_retained(&other.owner);
+    rejected(&mut reservation, other.owner());
+    marked(&reservation, first.owner());
+    let wrong = reservation.cleanup_retained(other.owner());
     assert!(!wrong.confirmed && wrong.result.is_err());
     assert_eq!(manager.inner.lock().unwrap().retained_evaluations, 1);
-    responding(&first.owner);
-    responding(&other.owner);
+    responding(first.owner());
+    responding(other.owner());
     busy(&manager);
-    assert!(reservation.cleanup_retained(&first.owner).confirmed);
+    assert!(reservation.cleanup_retained(first.owner()).confirmed);
     drop(reservation);
 
     let mut current = manager.reserve_evaluation().unwrap();
-    assert!(current.retain_uncertain(other.owner.clone()).is_ok());
-    assert!(current.retain_uncertain(other.owner.clone()).is_ok());
+    assert!(SelectedNativeReservation::retain_uncertain(&mut current, other.owner().clone()).is_ok());
+    assert!(SelectedNativeReservation::retain_uncertain(&mut current, other.owner().clone()).is_ok());
     assert!(current.retained_owner.is_none());
     let inner = manager.inner.lock().unwrap();
     assert_eq!(inner.retained_evaluations, 0);
-    assert!(Arc::ptr_eq(inner.runtime.as_ref().unwrap(), &other.owner));
+    assert!(Arc::ptr_eq(inner.runtime.as_ref().unwrap(), other.owner()));
     drop(inner);
     drop(current);
     assert!(matches!(manager.reserve_evaluation(), Err(error) if error == "ModelLoaded"));
@@ -197,19 +206,19 @@ fn two_induced_stale_owners_release_only_their_own_count_after_actual_cleanup() 
     let mut left = stale(&manager);
     let mut right = stale(&manager);
     assert_ne!(left.ticket, right.ticket);
-    rejected(&mut left, &first.owner);
-    rejected(&mut right, &second.owner);
+    rejected(&mut left, first.owner());
+    rejected(&mut right, second.owner());
     assert_eq!(manager.inner.lock().unwrap().retained_evaluations, 2);
     let retired = manager.retire().unwrap();
     manager.close(None, Some(retired));
-    assert!(left.cleanup_retained(&first.owner).confirmed);
+    assert!(left.cleanup_retained(first.owner()).confirmed);
     assert_eq!(manager.inner.lock().unwrap().retained_evaluations, 1);
     drop(left);
-    marked(&right, &second.owner);
+    marked(&right, second.owner());
     cleanup_status(&manager);
     busy(&manager);
-    responding(&second.owner);
-    assert!(right.cleanup_retained(&second.owner).confirmed);
+    responding(second.owner());
+    assert!(right.cleanup_retained(second.owner()).confirmed);
     assert_eq!(manager.inner.lock().unwrap().retained_evaluations, 0);
     drop(right);
     drop(manager.reserve_evaluation().expect("both actual owners acknowledged terminal"));
@@ -222,33 +231,33 @@ fn precleanup_fault_poison_confirmation_and_unacknowledged_drop_are_distinct() {
     let drop_fixture = FixedOwner::new();
     let manager = manager();
     let mut reservation = stale(&manager);
-    rejected(&mut reservation, &fixture.owner);
+    rejected(&mut reservation, fixture.owner());
     FAIL_CLEANUP_ONCE.with(|fault| fault.set(true));
-    let first = reservation.cleanup_retained(&fixture.owner);
+    let first = reservation.cleanup_retained(fixture.owner());
     assert!(!first.confirmed && first.result.is_err());
     assert!(!FAIL_CLEANUP_ONCE.with(|fault| fault.get()));
     assert_eq!(manager.inner.lock().unwrap().retained_evaluations, 1);
-    responding(&fixture.owner);
+    responding(fixture.owner());
     assert!(std::panic::catch_unwind(|| {
-        let _held = fixture.owner.lock().unwrap();
+        let _held = fixture.owner().lock().unwrap();
         panic!("synthetic fixed-owner mutex poison");
     }).is_err());
     FAIL_CLEANUP_ONCE.with(|fault| fault.set(true));
-    let uncertain = reservation.cleanup_retained(&fixture.owner);
+    let uncertain = reservation.cleanup_retained(fixture.owner());
     assert!(!uncertain.confirmed && uncertain.result.is_err());
     busy(&manager);
     cleanup_status(&manager);
-    let confirmed = reservation.cleanup_retained(&fixture.owner);
+    let confirmed = reservation.cleanup_retained(fixture.owner());
     assert!(confirmed.confirmed, "actual reap proof survives poison diagnostic");
     assert_eq!(confirmed.result.err().as_deref(), Some("Cleanup"));
     assert_eq!(manager.inner.lock().unwrap().retained_evaluations, 0);
     drop(reservation);
 
     let mut unacknowledged = stale(&manager);
-    rejected(&mut unacknowledged, &drop_fixture.owner);
+    rejected(&mut unacknowledged, drop_fixture.owner());
     // Fixture hygiene: actually clean this child FIRST, but intentionally do
     // not submit R's proof. Dropping R must not manufacture acknowledgement.
-    drop_fixture.owner.lock().unwrap().terminate_and_reap().unwrap();
+    drop_fixture.owner().lock().unwrap().terminate_and_reap().unwrap();
     drop(unacknowledged);
     assert_eq!(manager.inner.lock().unwrap().retained_evaluations, 1);
     busy(&manager);
@@ -263,10 +272,10 @@ fn external_old_cleanup_preserves_newer_actual_slot_ticket_profile_job_and_host_
     let manager = manager();
     let mut old = stale(&manager);
     let mut current = manager.reserve_evaluation().unwrap();
-    rejected(&mut old, &old_fixture.owner);
+    rejected(&mut old, old_fixture.owner());
     let retired = manager.retire().unwrap();
     manager.close(None, Some(retired));
-    assert!(current.retain_uncertain(current_fixture.owner.clone()).is_ok());
+    assert!(SelectedNativeReservation::retain_uncertain(&mut current, current_fixture.owner().clone()).is_ok());
     assert_eq!(manager.inner.lock().unwrap().retained_evaluations, 1);
 
     let host = Host::new(true);
@@ -290,7 +299,7 @@ fn external_old_cleanup_preserves_newer_actual_slot_ticket_profile_job_and_host_
         let inner = manager.inner.lock().unwrap();
         (inner.job, inner.evaluation, serde_json::to_value(&inner.profile).unwrap())
     };
-    let outcome = old.cleanup_retained(&old_fixture.owner);
+    let outcome = old.cleanup_retained(old_fixture.owner());
     assert!(outcome.confirmed && outcome.result.is_ok());
     drop(old);
     let inner = manager.inner.lock().unwrap();
@@ -298,11 +307,11 @@ fn external_old_cleanup_preserves_newer_actual_slot_ticket_profile_job_and_host_
     assert_eq!(inner.job, job);
     assert_eq!(inner.evaluation, ticket);
     assert_eq!(serde_json::to_value(&inner.profile).unwrap(), profile);
-    assert!(Arc::ptr_eq(inner.runtime.as_ref().unwrap(), &current_fixture.owner));
+    assert!(Arc::ptr_eq(inner.runtime.as_ref().unwrap(), current_fixture.owner()));
     drop(inner);
     assert_eq!(host.call(br#"{"version":1,"command":{"op":"capabilities"}}"#), before_host);
     assert!(!constructed.load(Ordering::SeqCst), "capability checks never generate");
-    responding(&current_fixture.owner);
+    responding(current_fixture.owner());
     drop(current);
     let retired = manager.retire().unwrap();
     manager.close(Some(&host), Some(retired));

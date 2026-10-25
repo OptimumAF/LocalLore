@@ -207,20 +207,7 @@ pub fn evidence(
     request: EvidenceRequest,
     native_inspection_granted: bool,
 ) -> Result<Value> {
-    if !native_inspection_granted {
-        return Err("Forbidden".into());
-    }
-    // Deny an actor's raw-artifact request before even probing identities or
-    // source integrity. Those errors must not expose private artifact state.
-    let raw_forbidden = match &request {
-        EvidenceRequest::Query { .. } => false,
-        EvidenceRequest::Receipt { observer }
-        | EvidenceRequest::Capture { observer }
-        | EvidenceRequest::Outputs { observer } => !matches!(observer, Observer::Omniscient),
-    };
-    if raw_forbidden {
-        return Err("Forbidden".into());
-    }
+    check_access(&request, native_inspection_granted)?;
     if run.snapshot["binding"].as_str() != Some(expected_binding) {
         return Err("SnapshotMismatch".into());
     }
@@ -256,14 +243,46 @@ pub fn evidence(
     if encode(&current)? != encode(retained)? {
         return Err("SnapshotMismatch".into());
     }
-    let turn = &current;
+    render_evidence(&arm_dir, &path, &current, expected_binding, request)
+}
+
+pub(super) fn check_access(
+    request: &EvidenceRequest,
+    native_inspection_granted: bool,
+) -> Result<()> {
+    if !native_inspection_granted {
+        return Err("Forbidden".into());
+    }
+    // Deny an actor's raw-artifact request before even probing identities or
+    // source integrity. Those errors must not expose private artifact state.
+    let raw_forbidden = match request {
+        EvidenceRequest::Query { .. } => false,
+        EvidenceRequest::Receipt { observer }
+        | EvidenceRequest::Capture { observer }
+        | EvidenceRequest::Outputs { observer } => !matches!(observer, Observer::Omniscient),
+    };
+    if raw_forbidden {
+        return Err("Forbidden".into());
+    }
+    Ok(())
+}
+
+/// Both data-only comparison readers use the same actual Store/Query2 and raw
+/// artifact checks after their own capability, access and snapshot validation.
+pub(super) fn render_evidence(
+    arm_dir: &Path,
+    path: &Path,
+    turn: &StoredTurn,
+    binding: &str,
+    request: EvidenceRequest,
+) -> Result<Value> {
     let (observer, edge, body) = match request {
         EvidenceRequest::Query {
             edge,
             observer,
             view,
         } => {
-            let full = engine(&path, &turn.request.scope)?;
+            let full = engine(path, &turn.request.scope)?;
             let (before, after) = checked_edges(&full, turn)?;
             let cut = match edge {
                 Edge::Before => before,
@@ -299,9 +318,9 @@ pub fn evidence(
             let body = if turn.row.phase != "committed" {
                 missing("no_accepted_receipt")
             } else {
-                let receipt = locallore_storage::Store::open_read_only(&path)
+                let receipt = locallore_storage::Store::open_read_only(path)
                     .map_err(|_| "Workspace")?
-                    .lookup_turn(&turn.request.scope, &row.turn)
+                    .lookup_turn(&turn.request.scope, &turn.row.turn)
                     .map_err(|_| "Lookup")?
                     .receipt
                     .ok_or("Lookup")?;
@@ -340,7 +359,7 @@ pub fn evidence(
                 Some(name) => {
                     let recording: RecordingFile = decode(&arm_dir.join(name), 64 * 1024)?;
                     validate_recording(
-                        &arm_dir,
+                        arm_dir,
                         turn.row.admission.ok_or("RecordingIntegrity")?,
                         &recording,
                     )?;
@@ -366,10 +385,14 @@ pub fn evidence(
             (observer, Value::Null, body)
         }
     };
-    let result = json!({"version":1,"binding":expected_binding,
-        "row":{"turn":row.turn,"arm":ARM_NAMES[arm]},"scope":turn.request.scope,
+    let result = json!({"version":1,"binding":binding,
+        "row":{"turn":turn.row.turn,"arm":turn.row.arm},"scope":turn.request.scope,
         "before_head":turn.before_head,"after_head":turn.after_head,"observer":observer,
         "edge":edge,"read_only":true,"generation_grant":false,"body":body});
+    bounded_evidence(result)
+}
+
+pub(super) fn bounded_evidence(result: Value) -> Result<Value> {
     if encode(&result)?.len() > MAX_EVIDENCE {
         return Err("EvidenceBudget".into());
     }

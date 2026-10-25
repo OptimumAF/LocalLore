@@ -5,6 +5,7 @@ use super::*;
 const LANE: &str = "scripted_selected_case";
 const NATIVE_LANE: &str = "native_selected_case";
 const MANIFEST_CAP: usize = 128 * 1024;
+pub mod desktop_read;
 #[cfg(feature = "local-model")]
 mod native;
 #[cfg(feature = "local-model")]

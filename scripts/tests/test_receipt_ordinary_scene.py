@@ -15,6 +15,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 from scripts.tests import test_receipt_real_cancellation as api
+from scripts.tests import test_litert_send_trace as send_wire
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "benchmarks"))
 import receipt_ordinary_scene as s
@@ -191,17 +192,52 @@ class OrdinaryControllerTests(unittest.TestCase):
 
     def test_failed_runner_diagnostics_never_authorize_later_proof(self):
         wire=s.worker_trace.PREFIX.encode()+encoded(trace("ORDINARY_START"))+b"\n"+s.worker_trace.STATUS.encode()+b"\n"
+        send=send_wire.record()
         for phase in s.PHASES:
-            for diagnostic in (b"",wire):
+            for diagnostic in (b"",wire,send,wire+send):
                 with tempfile.TemporaryDirectory() as directory:
                     root=Path(directory);owner=SimpleNamespace(directory=root,shell=lambda *a,**kw:diagnostic+transcript(phase,False))
                     with patch.object(s,"read_proof") as read:
                         with self.assertRaises(AssertionError):s.run_selected(owner,phase)
                         read.assert_not_called()
-                    self.assertEqual((root/(s.PHASES[phase][0]+"-failure-worker-v2.json")).exists(),bool(diagnostic) and phase!="ORDINARY_REOPEN")
+                    self.assertEqual((root/(s.PHASES[phase][0]+"-failure-worker-v2.json")).exists(),wire in diagnostic and phase!="ORDINARY_REOPEN")
+                    self.assertEqual((root/(s.PHASES[phase][0]+"-failure-send-v1.json")).exists(),send in diagnostic)
                     if diagnostic:
-                        owner.shell=lambda *a,**kw:wire+transcript(phase)
+                        owner.shell=lambda *a,**kw:diagnostic+transcript(phase)
                         with self.assertRaises(AssertionError):s.run_selected(owner,phase)
+
+    def test_both_failure_channels_keep_actual_client_raw_and_stop_cohort(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);owner,_=owner_fixture(root)
+            imported=api.old.proof("IMPORT")
+            imported["prior_preflight_sha256"]=q.sha(Path(owner.proposal["preflight"]["proof"]["path"]).read_bytes())
+            wire=s.worker_trace.PREFIX.encode()+encoded(trace("ORDINARY_START"))+b"\n"+s.worker_trace.STATUS.encode()+b"\n"
+            raw=wire+send_wire.record()+transcript("ORDINARY_START",False)
+            def boot(): owner.stage="before"
+            def imported_result(actual,phase):
+                self.assertEqual(phase,"IMPORT");owner.methods=1
+                return imported,encoded(imported)
+            with patch.object(owner,"wait_boot",side_effect=boot),patch.object(owner,"check_guest_cpu_profile"), \
+                 patch.object(owner,"facts",return_value={"userdata":{"available_bytes":q.contract.USERDATA_FLOOR+r.MODEL_BYTES}}), \
+                 patch.object(owner,"transfer",return_value={}),patch.object(r,"run_selected",side_effect=imported_result), \
+                 patch.object(q.host,"run_process",side_effect=[api.client(),api.client(raw)]) as client, \
+                 patch.object(s,"read_proof") as read:
+                with self.assertRaises(AssertionError):s.run_cohort(owner)
+                self.assertEqual(client.call_count,2);read.assert_not_called()
+            self.assertEqual((owner.commands/"command-0002.stdout.bin").read_bytes(),raw)
+            self.assertEqual(json.loads((owner.directory/"start-failure-send-v1.json").read_bytes()),send_wire.value())
+            self.assertTrue((owner.directory/"start-failure-worker-v2.json").exists())
+            self.assertFalse((owner.directory/"start-proof.raw.json").exists())
+            self.assertFalse((owner.directory/"dialogue-instrumentation-v1.json").exists())
+
+    def test_send_persistence_uncertainty_never_reaches_runner_or_proof(self):
+        with tempfile.TemporaryDirectory() as directory:
+            owner=SimpleNamespace(directory=Path(directory),shell=lambda *a,**kw:send_wire.record()+transcript("ORDINARY_START",False))
+            with patch.object(q,"write_json",side_effect=OSError("synthetic_persistence")) as write, \
+                 patch.object(s,"parse_runner") as runner,patch.object(s,"read_proof") as read:
+                with self.assertRaises(OSError):s.run_selected(owner,"ORDINARY_START")
+                self.assertEqual(write.call_args.args[0].name,"start-failure-send-v1.json")
+                runner.assert_not_called();read.assert_not_called()
 
     def test_candidate_authority_exact_bindings_and_actual_old_preflight_lineage(self):
         with tempfile.TemporaryDirectory() as directory:

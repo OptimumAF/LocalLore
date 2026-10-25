@@ -587,7 +587,7 @@ pub fn validate_archive(bytes: &[u8], cancel: &dyn Fn() -> bool) -> Result<Valid
     })?;
     let version = raw["version"].as_u64().ok_or(ArchiveError::Unsupported)?;
     if raw["format"] != FORMAT
-        || !matches!(version, 1 | 2 | 3)
+        || !matches!(version, 1..=3)
         || raw["canonicalization"] != CANONICALIZATION
     {
         return Err(ArchiveError::Unsupported);

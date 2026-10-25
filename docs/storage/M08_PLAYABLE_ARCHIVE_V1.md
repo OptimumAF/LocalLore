@@ -1,8 +1,39 @@
 # M08 playable archive v1: shared prerequisite
 
-Status: implemented for independent review; M08.04/.06 and D08 remain partial.
-This is the Store-owned portable data boundary, with no native picker, Host
-command, Android import, archive browser, or model loading integration.
+This document preserves the original version1 representation and common
+Store-owned API. Current export selection is version1 for ordinary history,
+version2 when retirement metadata is needed, and version3 for Domain2 canonical
+history. M08.04/.06 and D08 remain partial. Native adapters and their evidence
+have evolved separately; the original remaining-gate section below is historical.
+See [current Archive3 qualification](M08_ARCHIVE3_COORDINATOR_QUALIFICATION_2026-10-23.md)
+and the desktop application's [current transfer instructions](../../apps/desktop/README.md).
+
+## Archive3 extension
+
+The existing API, opaque validation token, JSON canonicalizer and atomic import
+remain the only transfer path. Version3 requires Domain2, source database
+schema 5 and transcript convention `accepted_canonical_records_v2`. Each branch
+contains `local_records` from its actual original canonical history, including
+author corrections. Its record checksum covers those complete records. Required
+`retired_branch_ids` may be empty; this payload field differs from optional
+empty retirement metadata in the native preview. Versions1/2 retain their original
+receipt representation and are not relabeled as version3.
+
+Validation replays every physical branch through Core, compares complete native
+records and reconstructed state, and validates lineage and retired identities.
+Import regenerates the existing native request index, preserves original event
+scopes and observation sources, and verifies the inserted history before commit.
+No supplied projection or checksum can grant canonical or observer authority.
+Author reasons, prior truth and private discovery bindings are included in this
+full-private file; actor-filtered inspection and generation remain separate.
+
+The 32 MiB document, 32 branch/depth and 4096 record limits remain. Archive3 also
+bounds the combined canonical-response and regenerated native-request-index
+bytes to 16 MiB, plus the existing per-history owner budgets. Each encoded
+canonical response is bounded to 64 KiB. Larger stories are refused explicitly.
+The [frozen extension contract](M08_ARCHIVE3_IMPLEMENTATION_CONTRACT_2026-10-23.md)
+specifies the exact closed fields and limits; qualification records implementation,
+actual tests, retained failures and platform limitations separately.
 
 ## Privacy and transferred history
 

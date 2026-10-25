@@ -21,8 +21,8 @@ Storage/replay errors appear explicitly with no temporary-memory fallback.
 boundary. Review the original parent/head, fork point and stable child identity,
 then confirm. The original and later choices remain intact; opening the child is
 a separate explicit action. Replacing a committed turn means choosing the
-boundary before it, then writing a new turn on the child. Author corrections
-remain unavailable. A small application-local recovery record saves the exact
+boundary before it, then writing a new turn on the child. A small
+application-local recovery record saves the exact
 fork identity before dispatch. Lost acknowledgements retain that identity;
 same-session retry is explicit, and restart recovery only checks existing saved
 children. Cancellation never claims an earlier commit was rolled back.
@@ -50,8 +50,7 @@ completed historical heads and before/after replay without changing the live
 player. Statement, belief and truth labels remain distinct; NPC lenses exclude
 private player display messages. Story Lab requires a spoiler acknowledgement.
 Summaries and semantic retrieval remain unavailable in this inspector. Saved
-timeline selection and prefix replay use the shared ancestry rules; author
-corrections remain unavailable. See [D05 native inspection](../../docs/desktop/D05_NATIVE_INSPECTION.md)
+timeline selection and prefix replay use the shared ancestry rules. See [D05 native inspection](../../docs/desktop/D05_NATIVE_INSPECTION.md)
 and [verification](../../docs/desktop/D05_NATIVE_VERIFICATION_2026-10-22.md).
 
 **Derived memory** reads the selected saved story's shared maintenance status.
@@ -85,11 +84,48 @@ the shared director, engine validation and narrator; accepted v2 receipts record
 provenance, timing and any safe narration fallback. Supported actions are limited
 to single English scene commands; unclear text asks for clarification. Quality
 and network-blocked qualification remain pending. Arbitrary model choice, story
-generation and author edits remain unavailable. See
+generation remains unavailable. See
 [D04 native integration](../../docs/desktop/D04_NATIVE_INTEGRATION.md) and
 [verification](../../docs/desktop/D04_NATIVE_VERIFICATION_2026-10-22.md).
 Save files and the imported model are local app data; OS-level backup, access
 control and device security still apply.
+
+Story Lab also provides an explicit author correction preview and confirmation
+for replacing a fact's proposition on a new saved timeline. The original history
+and private correction reason are retained; later choices are not replayed
+automatically. Corrected timelines use scoped native Play and inspection views.
+Legacy debugging, readable inspection exports, timeline navigation and derived
+memory maintenance remain unavailable for that domain version. See the
+[author/scoped-Play verification](../../docs/desktop/M08_AUTHOR_NATIVE_UI_QUALIFICATION_2026-10-23.md).
+
+**Playable story archive** in Story Lab transfers a full private snapshot of a
+saved story. Review and consent precede native file selection. Archive3 preserves
+corrected canonical history, author provenance and private discovery bindings;
+ordinary stories keep Archive1/2 selection. These files include hidden facts and
+all retained timelines. They exclude weights, caches, private traces and pending
+work. Import validates and stages the file before one atomic application. An
+existing story identity conflicts without overwrite or merge. Later play changes
+the saved story, while a published file retains its captured history. Manual
+transfer provides no live synchronization.
+
+The fixed synthetic Archive3 harness runs six actual native processes for
+export/import, cancellation, lost acknowledgement, conflict, cold reopen,
+observer isolation, one typed fixture Wait and a further process restart:
+
+```powershell
+$env:LOCALLORE_D08_ARTIFACT_ROOT='<absolute-task-owned-local-output>'
+$env:LOCALLORE_D08_TARGET_DIR='<absolute-task-owned-Rust-target>'
+node apps/desktop/archive-v3-harness.mjs
+```
+
+It exercises the mounted controllers and native IPC with fixed picker doubles,
+hidden/unfocused application-owned WebViews and bounded semantic/PNG evidence.
+It does not operate system dialogs or the desktop. The continued turn uses the
+synthetic provider, with no model execution. Inspect the generated images and
+restore the normal frontend/native build afterward. See the
+[Archive3 qualification and exact limits](../../docs/storage/M08_ARCHIVE3_COORDINATOR_QUALIFICATION_2026-10-23.md).
+Android's Archive3 decoder/labels are implemented. Corrected-timeline Android
+opening remains unavailable; bidirectional runtime parity is not demonstrated.
 
 See [ADR-0006](../../docs/adr/0006-desktop-host.md),
 [host-v1](../../docs/desktop/HOST_V1.md),
@@ -102,6 +138,8 @@ See [ADR-0006](../../docs/adr/0006-desktop-host.md),
 Tested on Windows 11 x64 with Rust 1.93.1, MSVC/Windows SDK, installed WebView2,
 Node 23.10.0 / npm 11.2.0. Development dependency provisioning uses network;
 subsequent locked builds use the cache. Fake fixtures need no model or API key.
+The later Archive3 native cohort used the already available Node24.22.1 and
+Rust/Cargo1.93.1; it installed or upgraded no dependencies.
 Real local play additionally requires the verified worker resource and an explicit
 approved-model import, as described in D04 integration.
 Other OS targets and installers remain unqualified.

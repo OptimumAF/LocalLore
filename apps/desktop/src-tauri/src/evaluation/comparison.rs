@@ -265,6 +265,7 @@ impl EvaluationManager {
             if !parent.job.as_ref().is_some_and(|j|j.kind==JobKind::ComparisonRead&&j.epoch==epoch&&j.id==operation&&j.run==client){return Err("Closed".into())}
             let mut state=self.comparison_lock()?;
             let r=state.records.get_mut(client).filter(|r|r.owns(lease,epoch)&&r.operation==Some(operation)).ok_or("Closed")?;
+            let reading=r.phase=="reading";
             let closed=cancel.is_cancelled()||r.phase=="closing";r.running=false;
             let result=if closed {
                 r.close(&mut discard);Err("Closed".into())
@@ -273,7 +274,7 @@ impl EvaluationManager {
                 Ok(WorkResult::Picked(Some((cap,snapshot,token))))=>{
                     r.token=Some(token);r.snapshot=Some(snapshot);r.cap=Some(cap);r.granted=true;r.phase="ready";r.error=None;r.touched=Instant::now();r.status()},
                 Ok(WorkResult::Read(cap,result))=>{r.cap=Some(cap);r.phase="ready";r.error=None;r.touched=Instant::now();result},
-                Err(error)=>{r.close(&mut discard);r.phase="failed";r.operation=Some(operation);r.error=Some(failure(error));r.status()},
+                Err(error)=>{r.close(&mut discard);r.phase="failed";r.operation=Some(operation);let error=failure(error);r.error=Some(error.clone());if reading{Err(error)}else{r.status()}},
             }};
             parent.job=None;result
         });

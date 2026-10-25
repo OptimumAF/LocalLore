@@ -16,10 +16,16 @@ retry, native getter or quarantine/commit/close authority.
 `liteRtDeclaredStatus` checks the pinned final SDK exception type before one
 message-reference retrieval. Other/hostile/cancelled/wrapped exceptions return
 UNRECOGNIZED without accessor/cause traversal. Seventeen complete fixed literal
-prefixes distinguish codes 0–16; no payload scan, substring, regex, trimming,
+prefixes distinguish codes 0–16; no suffix traversal, substring, regex, trimming,
 numeric parsing, logging, copy or reference retention occurs. Malformed/padded/
-signed/unknown/shifted prefixes fail closed; private suffixes remain opaque even
-when empty, huge, control-containing or Unicode. Default null status tracing
+signed/unknown/shifted prefixes fail closed. Comparison is confined to the
+expected public-header window:25 UTF-16 units for one-digit codes,26 for two.
+For a well-formed pinned header, no suffix character is compared. A malformed,
+future or locally constructed message may put private characters inside that
+window; those may be compared, but none are retained/exported. There is no
+claim of zero private-character access for malformed inputs. After a complete
+valid prefix, the suffix remains opaque even when empty, huge, control-containing
+or Unicode. Default null status tracing
 skips the classifier and getter entirely.
 
 The original error Boolean and callback fence run first, then the previous

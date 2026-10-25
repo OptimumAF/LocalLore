@@ -137,6 +137,12 @@ request sizes are recorded without text. These are not token counts or an error
 diagnosis. Dialogue and ordinary-route reopen remain unqualified; all owned
 processes stopped and evidence is sealed. Safe native-status retention is the
 next investigation, with the existing privacy and ownership fences preserved.
+The [wrapper-declared status follow-up](docs/native/LITERT_STATUS_VERIFICATION_2026-10-25.md)
+tests a receipt-only bounded prefix bridge: the wrapper declares code13/INTERNAL on
+the actual Dialogue failure, after 15 validated chunks/58 UTF-8 bytes. It retains
+no private error payload and grants no resource or gameplay authority. Import
+and the real ordinary gift pass again; Dialogue and ordinary restart remain
+unqualified. A host grammar oracle is the next experiment; the cause is unproven.
 
 An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects
 the isolated SDK to guarded free-text preparation and durable commit. Its

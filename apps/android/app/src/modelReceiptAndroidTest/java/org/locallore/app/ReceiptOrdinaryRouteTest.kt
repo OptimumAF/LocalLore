@@ -295,6 +295,11 @@ abstract class ReceiptOrdinaryHarness : ReceiptRealHarness() {
                     InstrumentationRegistry.getInstrumentation().sendStatus(LiteRtCallbackTrace.STATUS_CODE,
                         Bundle().apply { putString(LiteRtCallbackTrace.STATUS_KEY, callback.json()) })
                 } catch (_: Throwable) { }
+                try {
+                    val status = requireNotNull(CandidateLocalModel.receiptStatusSnapshot())
+                    InstrumentationRegistry.getInstrumentation().sendStatus(LiteRtStatusTrace.STATUS_CODE,
+                        Bundle().apply { putString(LiteRtStatusTrace.STATUS_KEY, status.json()) })
+                } catch (_: Throwable) { }
             }
             throw original
         }

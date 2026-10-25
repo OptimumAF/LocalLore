@@ -12,7 +12,7 @@ UI continuation and two visual findings are addressed by the later immutable
 cohort, not relabeled as original success. The first broad shared test run and
 the corrected ten-stage compatibility/build pipeline have now completed at
 their separately recorded sources. Extra final focused tests and explicit
-budget qualification have passed; the fresh Android build is still running.
+budget qualification, fresh Android build and fresh APK audit have passed.
 Android runtime/platform gates remain open.
 No milestone acceptance, device support,
 release approval or human review is inferred.
@@ -299,12 +299,12 @@ gameplay turns would misdescribe the archive.
 
 ## Current remaining gates and next runnable work
 
-The later native/app results below supersede the earlier source-only status
-of the frozen broker/authorization/harness packets. This does not relabel any
-earlier failed or unexecuted source as passing. Existing archive compatibility,
-Full/checkpoint/interruption and broader Rust/Workspace/native qualification,
-formatting and strict lint checks still need final source-bound disposition.
-This reproduction command is pending here, not a reported result:
+The later native/app and final compatibility results below supersede the earlier
+source-only status of the frozen packets. This does not relabel any earlier
+failed or unexecuted source as passing. Archive compatibility, Full/checkpoint/
+interruption, broader Rust/native qualification, formatting and lint results
+are recorded below. A reproduction subset is shown here; the exact executed
+commands and their source revisions are retained in the final sections:
 
 ```text
 cargo test --locked --offline --jobs 1 --target-dir <shared-target> -p locallore-storage --test playable_archive --test branch_retention_archive --test archive_interruption -- --test-threads=1
@@ -328,11 +328,9 @@ model/timing cohorts are separate evidence and are not relabeled here.
 
 The corrected snapshot notice, visible knowledge-row capture and six-stage
 actual-UI continuation/cold-reopen cohort now have the later evidence below.
-The first final serialized source-owned Rust/native/Android pipeline completed
-as recorded below. A separate extra pipeline is still running; its completed
-focused/budget tests are distinguished from the pending fresh Android stages.
-Next runnable work is its terminal attribution, followed by authorized platform
-checks. This is
+Both final serialized source-owned Rust/native/Android pipelines completed as
+recorded below. Next runnable work is review/acceptance of the focused PR and
+the separately versioned shared-memory and comparison-UI prerequisites. This is
 qualified native transport evidence within the synthetic fixture, not Android
 Domain2 opening support or whole M08/D08/publication readiness.
 
@@ -906,10 +904,9 @@ branches, wire12867586. The next accepted record crosses to16805991 bytes
 same exact export/import/refusal/destination-preservation oracle as the earlier
 explicit run; neither source's result is relabeled as the other.
 
-The fresh task-owned `archive3-android-build` build is now running from a
-previously absent output directory; its audit is pending. Earlier Android
-results do not substitute for those new stages, and no fresh terminal output
-is inferred. Final owner acceptance,
+At this documentation handoff the fresh task-owned Android build was running
+from a previously absent output directory and its audit was pending. Their
+subsequent terminal results are recorded below. Final owner acceptance,
 Android runtime/physical phone/model quality/bidirectional parity, unavailable
 symlink qualifiers and whole-milestone/publication readiness remain open.
 
@@ -919,3 +916,59 @@ and [#30 claim6392876207](https://github.com/OptimumAF/LocalLore/issues/30#issue
 Root will adopt only after its active clean-source pipeline ends. No other
 source/test path, acceptance checkbox, build or runtime is changed by the
 documentation agent.
+
+## Fresh Android terminal result and reviewable gate — 2026-10-24
+
+Root's extra pipeline completed all five stages with exit0 at the same clean
+`65b1ee4d5ca25cf596016d03fed0f797d2fd89e6`: focused archive tests, Workspace
+Play2.5, explicit combined budget, fresh Android build and fresh APK audit.
+The fresh output directory did not exist before this build. Both JNI targets,
+the app APK and instrumented APK were rebuilt offline: **7m36s,67 actionable
+tasks /67 executed**. The existing nullable-Boolean test compiler warning is
+retained. The nine platform tests were compiled again, not executed. JVM tests
+and lint were not repeated in this extra build; their separate206-test/lint
+result above remains bound to its original command.
+
+From `apps/android`, with the same existing Java/SDK/cache and a separate init
+script mapping project build directories under `<task-root>/archive3-android-build`:
+
+```text
+<java-executable> -classpath <repository>/apps/android/gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain --offline --no-daemon --max-workers=1 --console=plain -Pandroid.builder.sdkDownload=false --init-script <local-evidence>/archive3-android-output.gradle :app:assembleDebug :app:assembleDebugAndroidTest
+```
+
+From repository root, `python scripts/audit_apk.py <fresh-output>/_app/outputs/apk/debug/app-debug.apk`
+passed the same one-permission/four-library/16KiB-alignment checks. The fresh
+app and test APKs match the earlier65 artifacts byte for byte, with SHA256
+`210d6a42ad2c4150e841b9e4760878d903e5eea563a2b6ce3f85cf3f867de942`
+and `6782e0466bc6137a3df3e401fdfe6b14c6fc1f0dfaf95147d93346cadf516d6e`
+respectively. This is a measured pair of local builds, not general D09
+reproducibility or release qualification. Fresh generated JNI files are:
+
+| ABI | Bytes | SHA256 |
+| --- | ---: | --- |
+| arm64-v8a | 9018928 | `a83acb3aa51754c0ee13a96c7d846445e0f80d745a85f3548af9a4c5e68b79ae` |
+| x86_64 | 9296648 | `9ad4271fcb8b8ce2d2335ee4631ab694ab8cdf43770c330f8a9339c0b9d7636f` |
+
+| Local artifact | Bytes | SHA256 |
+| --- | ---: | --- |
+| `archive3-extra-corrected-fresh-android-build.log` | 7984 | `ce1a0fef883d9e98f91aa6ad14aedde2f0c69200db9fdb43300eacb724848211` |
+| `archive3-extra-corrected-fresh-apk-audit.log` | 783 | `a2220741ab7d3170dc6f144e8b0c0d97b3b85457ef46d7bf0d6e0c76a8cef49f` |
+| `archive3-extra-corrected-results.json` | 3325 | `8024c25d3faafbdf9dffd98328f77124d361adc36903146bc29ce2911c5a1c2f` |
+| `archive3-fresh-build-artifacts.json` | 908 | `9b919ff7bf75134e0a7f79a7c7f7d1999f63889884573f52cbadc919143cf6f6` |
+
+Freshly observed supporting environment: PowerShell7.6.5, Python3.9.12,
+OpenJDK17.0.6 (`17.0.6+0-b2043.56-10027231`), with the recorded Node24.22.1,
+Rust/Cargo1.93.1 and pinned Gradle8.11.1/Android build configuration. The actual
+native-render snapshot's user agent reports Chrome155.0.0.0/Edg155.0.0.0 on
+Windows x64; a full WebView2 patch version was not recorded. No dependency,
+SDK, model or tool upgrade/download occurred during this qualification.
+
+PR[#155](https://github.com/OptimumAF/LocalLore/pull/155) contains this focused
+archive transport slice. The final evidence-only commits change documentation;
+the qualified implementation remains exactly65, and the actual UI render
+cohort remains96. Raw artifacts stay local and gitignored. Owner-authorized
+merge requires the final exact head/check review; no fabricated review or
+repository-settings change is involved. M08/D08 remain open for their missing
+shared maintenance, Android Domain2 opening and bidirectional runtime gates.
+The next runnable desktop prerequisite is the comparison read/evidence and
+isolated selected-rerun contract; proposed designs are separate from this PR.

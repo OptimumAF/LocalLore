@@ -90,6 +90,13 @@ generation remains unavailable. See
 Save files and the imported model are local app data; OS-level backup, access
 control and device security still apply.
 
+If local worker cleanup cannot be confirmed, the app keeps that worker reserved
+and blocks import/load. Choose **Unload model** to retry cleanup; a failed or
+retired window does not grant permission to start a replacement. This uses the
+same runtime and model manager, with no automatic inference retry or fake-provider fallback.
+The [cleanup qualification](../../docs/desktop/D07_OWNED_RUNTIME_CLEANUP_QUALIFICATION_2026-10-25.md)
+separates fixed-worker Rust tests, synthetic frontend checks and unrun native/model gates.
+
 Story Lab also provides an explicit author correction preview and confirmation
 for replacing a fact's proposition on a new saved timeline. The original history
 and private correction reason are retained; later choices are not replayed
@@ -174,6 +181,12 @@ finalized receipt after an explicit button press. Untrusted dialogue renders as
 text; it cannot execute HTML, load external images or grant debug privileges.
 
 ## Verify without desktop control
+
+From `apps/desktop`, `node check-model-cleanup-panel.mjs` exercises the actual
+controller and renders four synthetic model states to local, ignored HTML/JSON.
+It checks resident-worker controls, explicit cleanup retry and pending unload.
+This is headless React markup, not native IPC, WebView pixels or a model run;
+`verify-frontend.mjs` includes this check in the normal frontend verification.
 
 Story Lab also provides a dedicated [memory comparison reader](../../docs/desktop/D07_COMPARISON_READER.md)
 for actual version2 paired/rollout cohorts. The app's native picker explicitly

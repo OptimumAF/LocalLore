@@ -22,10 +22,10 @@ use std::{
     fs::{File, OpenOptions},
     io::{Read, Write},
     path::Path,
-    process::{Child, Command, Stdio},
+    process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio},
     sync::{
         atomic::{AtomicBool, Ordering},
-        mpsc, Arc,
+        mpsc, Arc, Mutex,
     },
     thread::{self, JoinHandle},
     time::{Duration, Instant},
@@ -37,6 +37,15 @@ pub const MODEL_SHA256: &str = "9465e63a22add5354d9bb4b99e90117043c7124007664907
 pub const RUNTIME_COMMIT: &str = "620d2225cc436ab0b001e3200e590e3b286ef9ab";
 const MAX_FRAME: usize = 32_768;
 const MAX_PIPE: usize = 65_536;
+
+#[cfg(test)]
+thread_local! {
+    static FAIL_CLEANUP_ONCE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+#[cfg(feature = "development-worker")]
+static DEVELOPMENT_FIXTURE_SEQUENCE: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0);
 
 #[cfg(all(test, feature = "development-worker"))]
 thread_local! {
@@ -75,6 +84,39 @@ pub enum Error {
     Timeout,
     Cleanup,
     Runtime,
+}
+
+/// Post-spawn failure retains the exact cleanup owner; this is never wire data.
+pub enum OwnedStartFailure {
+    BeforeChild(Error),
+    AfterChild {
+        cause: Error,
+        owner: Box<LocalRuntime>,
+    },
+}
+impl std::fmt::Debug for OwnedStartFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::BeforeChild(cause) => f.debug_tuple("BeforeChild").field(cause).finish(),
+            Self::AfterChild { cause, .. } => f
+                .debug_struct("AfterChild")
+                .field("cause", cause)
+                .finish_non_exhaustive(),
+        }
+    }
+}
+impl OwnedStartFailure {
+    fn legacy(self) -> Error {
+        match self {
+            Self::BeforeChild(cause) => cause,
+            Self::AfterChild { cause, owner } => {
+                // Legacy callers keep their original best-effort Drop behavior.
+                // They cannot claim positive cleanup proof from this mapping.
+                drop(owner);
+                cause
+            }
+        }
+    }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub enum Status {
@@ -269,6 +311,18 @@ pub fn profile_manifest_sha256() -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
+#[derive(Default)]
+struct StartupPipes {
+    stdin: Mutex<Option<ChildStdin>>,
+    stdout: Mutex<Option<ChildStdout>>,
+    stderr: Mutex<Option<ChildStderr>>,
+}
+fn take_startup_pipe<T>(pipe: &Mutex<Option<T>>) -> Option<T> {
+    pipe.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .take()
+}
+
 /// One trusted packaged executable and one verified, locked artifact. Calls block and must run
 /// on the application's bounded worker. The cancellation closure never grants model authority.
 pub struct LocalRuntime {
@@ -277,6 +331,7 @@ pub struct LocalRuntime {
     replies: mpsc::Receiver<Result<Vec<u8>, Error>>,
     fault: Arc<AtomicBool>,
     threads: Vec<JoinHandle<()>>,
+    startup_pipes: Arc<StartupPipes>,
     _model: File,
     _ancestors: Vec<File>,
     _worker: Option<File>,
@@ -310,14 +365,24 @@ impl LocalRuntime {
         expected_sha256: &str,
         cancel: impl Fn() -> bool,
     ) -> Result<Self, Error> {
+        Self::spawn_packaged_owned_expected_cancelled(resource_dir, model, expected_sha256, cancel)
+            .map_err(OwnedStartFailure::legacy)
+    }
+    /// Exact packaged startup with ownership returned on every post-spawn error.
+    pub fn spawn_packaged_owned_expected_cancelled(
+        resource_dir: &Path,
+        model: &Path,
+        expected_sha256: &str,
+        cancel: impl Fn() -> bool,
+    ) -> Result<Self, OwnedStartFailure> {
         if expected_sha256.len() != 64
             || !expected_sha256
                 .bytes()
                 .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
         {
-            return Err(Error::InvalidRequest);
+            return Err(OwnedStartFailure::BeforeChild(Error::InvalidRequest));
         }
-        Self::spawn_checked_cancelled(
+        Self::spawn_checked_owned_cancelled(
             &resource_dir.join("locallore-llama-worker.exe"),
             model,
             Some(expected_sha256),
@@ -327,6 +392,52 @@ impl LocalRuntime {
     #[cfg(feature = "development-worker")]
     pub fn spawn_development(executable: &Path, model: &Path) -> Result<Self, Error> {
         Self::spawn_cancelled(executable, model, &|| false)
+    }
+    /// Fixed synthetic protocol owner for cross-crate ownership tests only.
+    /// No caller path, executable, mode, arguments or model artifact is accepted.
+    #[cfg(feature = "development-worker")]
+    pub fn development_protocol_fixture() -> Result<(Self, std::path::PathBuf), OwnedStartFailure> {
+        let current = std::env::current_exe()
+            .map_err(|_| OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?;
+        let parent = current
+            .parent()
+            .ok_or(OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?;
+        let target = if parent.file_name() == Some(std::ffi::OsStr::new("deps")) {
+            parent
+                .parent()
+                .ok_or(OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?
+        } else {
+            parent
+        };
+        let executable = target.join(if cfg!(windows) {
+            "protocol-fixture.exe"
+        } else {
+            "protocol-fixture"
+        });
+        if !executable.is_file() {
+            return Err(OwnedStartFailure::BeforeChild(Error::WorkerUnavailable));
+        }
+        let time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?
+            .as_nanos();
+        let directory = std::env::temp_dir().join(format!(
+            "locallore-protocol-fixture-{}-{time}-{}",
+            std::process::id(),
+            DEVELOPMENT_FIXTURE_SEQUENCE.fetch_add(1, Ordering::Relaxed),
+        ));
+        std::fs::create_dir(&directory)
+            .map_err(|_| OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?;
+        let model = directory.join("valid");
+        let file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&model)
+            .map_err(|_| OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?;
+        // Artifacts remain local on every failure; caller removes its returned
+        // directory only after explicit owner cleanup on success.
+        Self::start_owned_cancelled(&executable, &model, file, &|| false)
+            .map(|owner| (owner, directory))
     }
     fn spawn_cancelled(
         executable: &Path,
@@ -341,28 +452,62 @@ impl LocalRuntime {
         expected_sha256: Option<&str>,
         cancel: &impl Fn() -> bool,
     ) -> Result<Self, Error> {
-        let model = verified_model(model, cancel)?;
+        Self::spawn_checked_owned_cancelled(executable, model, expected_sha256, cancel)
+            .map_err(OwnedStartFailure::legacy)
+    }
+    fn spawn_checked_owned_cancelled(
+        executable: &Path,
+        model: &Path,
+        expected_sha256: Option<&str>,
+        cancel: &impl Fn() -> bool,
+    ) -> Result<Self, OwnedStartFailure> {
+        let model = verified_model(model, cancel).map_err(OwnedStartFailure::BeforeChild)?;
         if cancel() {
-            return Err(Error::Cancelled);
+            return Err(OwnedStartFailure::BeforeChild(Error::Cancelled));
         }
-        let (worker, digest) = verified_worker(executable, expected_sha256, cancel)?;
-        let mut owner = Self::start_cancelled(&worker.path, &model.path, model.file, cancel)?;
-        owner._ancestors = model.ancestors;
-        owner._worker = Some(worker.file);
-        owner._worker_ancestors = worker.ancestors;
-        owner.worker_sha256 = digest;
-        Ok(owner)
+        let (worker, digest) = verified_worker(executable, expected_sha256, cancel)
+            .map_err(OwnedStartFailure::BeforeChild)?;
+        let result = Self::start_owned_cancelled(&worker.path, &model.path, model.file, cancel);
+        // Retain all verified model/worker/ancestor pins on BOTH result paths.
+        // Borrow the error's existing box; never unbox/rebox after spawning.
+        let retain_pins = move |owner: &mut Self| {
+            owner._ancestors = model.ancestors;
+            owner._worker = Some(worker.file);
+            owner._worker_ancestors = worker.ancestors;
+            owner.worker_sha256 = digest;
+        };
+        match result {
+            Ok(mut owner) => {
+                retain_pins(&mut owner);
+                Ok(owner)
+            }
+            Err(OwnedStartFailure::AfterChild { cause, mut owner }) => {
+                retain_pins(owner.as_mut());
+                Err(OwnedStartFailure::AfterChild { cause, owner })
+            }
+            Err(failure) => Err(failure),
+        }
     }
     #[cfg(all(test, feature = "development-worker"))]
     fn start(executable: &Path, model: &Path, file: File) -> Result<Self, Error> {
         Self::start_cancelled(executable, model, file, &|| false)
     }
+    #[cfg(all(test, feature = "development-worker"))]
     fn start_cancelled(
         executable: &Path,
         model: &Path,
         file: File,
         cancel: &impl Fn() -> bool,
     ) -> Result<Self, Error> {
+        Self::start_owned_cancelled(executable, model, file, cancel)
+            .map_err(OwnedStartFailure::legacy)
+    }
+    fn start_owned_cancelled(
+        executable: &Path,
+        model: &Path,
+        file: File,
+        cancel: &impl Fn() -> bool,
+    ) -> Result<Self, OwnedStartFailure> {
         let mut command = Command::new(executable);
         command
             .arg("--model")
@@ -385,31 +530,42 @@ impl LocalRuntime {
             command.creation_flags(0x0800_0000);
         }
         if cancel() {
-            return Err(Error::Cancelled);
+            return Err(OwnedStartFailure::BeforeChild(Error::Cancelled));
         }
         let fault = Arc::new(AtomicBool::new(false));
         let (writer, writes) = mpsc::sync_channel::<Vec<u8>>(2);
         let (results, replies) = mpsc::sync_channel(2);
         // Allocate before process creation, then establish the cleanup owner before
-        // taking pipes or starting any fallible thread. Every partial path runs Drop.
+        // taking pipes or starting any fallible thread. Every post-spawn error
+        // returns this owner, including its still-pending pipe endpoints.
         let threads = Vec::with_capacity(3);
-        let child = command.spawn().map_err(|_| Error::WorkerUnavailable)?;
-        let mut owner = Self {
-            child,
-            writer: Some(writer),
-            replies,
-            fault: fault.clone(),
-            threads,
-            _model: file,
-            _ancestors: vec![],
-            _worker: None,
-            _worker_ancestors: vec![],
-            worker_sha256: String::new(),
-            next_id: 0,
-            status: Status::Unloaded,
-            deadline: Duration::from_secs(60),
-            last_metrics: None,
-        };
+        let startup_pipes = Arc::new(StartupPipes::default());
+        // Allocate the error owner's storage before creating any child. Safe
+        // Box::write initializes that same allocation without an error-path allocation.
+        let storage = Box::<Self>::new_uninit();
+        let child = command
+            .spawn()
+            .map_err(|_| OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?;
+        let mut owner = Box::write(
+            storage,
+            Self {
+                child,
+                writer: Some(writer),
+                replies,
+                fault: fault.clone(),
+                threads,
+                startup_pipes,
+                _model: file,
+                _ancestors: vec![],
+                _worker: None,
+                _worker_ancestors: vec![],
+                worker_sha256: String::new(),
+                next_id: 0,
+                status: Status::Unloaded,
+                deadline: Duration::from_secs(60),
+                last_metrics: None,
+            },
+        );
         #[cfg(all(test, windows, feature = "development-worker"))]
         if FAIL_PIPE_STAGE.with(|fail| fail.get().is_some()) {
             use std::os::windows::io::AsHandle;
@@ -417,62 +573,106 @@ impl LocalRuntime {
                 *handle.borrow_mut() = Some(owner.child.as_handle().try_clone_to_owned().unwrap())
             });
         }
-        let mut stdin = owner.child.stdin.take().ok_or(Error::WorkerUnavailable)?;
-        let mut stdout = owner.child.stdout.take().ok_or(Error::WorkerUnavailable)?;
-        let mut stderr = owner.child.stderr.take().ok_or(Error::WorkerUnavailable)?;
-        let write_fault = fault.clone();
-        let write_thread = spawn_pipe(1, move || {
-            while let Ok(frame) = writes.recv() {
-                if stdin.write_all(&frame).and_then(|_| stdin.flush()).is_err() {
-                    write_fault.store(true, Ordering::SeqCst);
-                    break;
-                }
-            }
-        })
-        .map_err(|_| Error::WorkerUnavailable)?;
-        owner.threads.push(write_thread);
-        let read_fault = fault.clone();
-        let read_thread = spawn_pipe(2, move || loop {
-            let mut frame = vec![];
-            loop {
-                let mut byte = [0];
-                match stdout.read(&mut byte) {
-                    Ok(1) if byte[0] == b'\n' => break,
-                    Ok(1) if frame.len() < MAX_FRAME => frame.push(byte[0]),
-                    _ => {
-                        read_fault.store(true, Ordering::SeqCst);
-                        let _ = results.try_send(Err(Error::Protocol));
+        let started = {
+            let owner = owner.as_mut();
+            (|| -> Result<(), Error> {
+                *owner
+                    .startup_pipes
+                    .stdin
+                    .lock()
+                    .map_err(|_| Error::WorkerUnavailable)? =
+                    Some(owner.child.stdin.take().ok_or(Error::WorkerUnavailable)?);
+                *owner
+                    .startup_pipes
+                    .stdout
+                    .lock()
+                    .map_err(|_| Error::WorkerUnavailable)? =
+                    Some(owner.child.stdout.take().ok_or(Error::WorkerUnavailable)?);
+                *owner
+                    .startup_pipes
+                    .stderr
+                    .lock()
+                    .map_err(|_| Error::WorkerUnavailable)? =
+                    Some(owner.child.stderr.take().ok_or(Error::WorkerUnavailable)?);
+                let write_fault = fault.clone();
+                let pipes = owner.startup_pipes.clone();
+                let write_thread = spawn_pipe(1, move || {
+                    let Some(mut stdin) = take_startup_pipe(&pipes.stdin) else {
+                        write_fault.store(true, Ordering::SeqCst);
                         return;
+                    };
+                    while let Ok(frame) = writes.recv() {
+                        if stdin.write_all(&frame).and_then(|_| stdin.flush()).is_err() {
+                            write_fault.store(true, Ordering::SeqCst);
+                            break;
+                        }
                     }
-                }
-            }
-            if results.try_send(Ok(frame)).is_err() {
-                read_fault.store(true, Ordering::SeqCst);
-                return;
-            }
-        })
-        .map_err(|_| Error::WorkerUnavailable)?;
-        owner.threads.push(read_thread);
-        let error_fault = fault.clone();
-        let error_thread = spawn_pipe(3, move || {
-            let mut count = 0;
-            let mut block = [0; 4096];
-            loop {
-                match stderr.read(&mut block) {
-                    Ok(0) | Err(_) => return,
-                    Ok(n) => {
-                        count += n;
-                        if count > MAX_PIPE {
-                            error_fault.store(true, Ordering::SeqCst);
+                })
+                .map_err(|_| Error::WorkerUnavailable)?;
+                owner.threads.push(write_thread);
+                let read_fault = fault.clone();
+                let pipes = owner.startup_pipes.clone();
+                let read_thread = spawn_pipe(2, move || {
+                    let Some(mut stdout) = take_startup_pipe(&pipes.stdout) else {
+                        read_fault.store(true, Ordering::SeqCst);
+                        return;
+                    };
+                    loop {
+                        let mut frame = vec![];
+                        loop {
+                            let mut byte = [0];
+                            match stdout.read(&mut byte) {
+                                Ok(1) if byte[0] == b'\n' => break,
+                                Ok(1) if frame.len() < MAX_FRAME => frame.push(byte[0]),
+                                _ => {
+                                    read_fault.store(true, Ordering::SeqCst);
+                                    let _ = results.try_send(Err(Error::Protocol));
+                                    return;
+                                }
+                            }
+                        }
+                        if results.try_send(Ok(frame)).is_err() {
+                            read_fault.store(true, Ordering::SeqCst);
                             return;
                         }
                     }
-                }
+                })
+                .map_err(|_| Error::WorkerUnavailable)?;
+                owner.threads.push(read_thread);
+                let error_fault = fault.clone();
+                let pipes = owner.startup_pipes.clone();
+                let error_thread = spawn_pipe(3, move || {
+                    let Some(mut stderr) = take_startup_pipe(&pipes.stderr) else {
+                        error_fault.store(true, Ordering::SeqCst);
+                        return;
+                    };
+                    let mut count = 0;
+                    let mut block = [0; 4096];
+                    loop {
+                        match stderr.read(&mut block) {
+                            Ok(0) | Err(_) => return,
+                            Ok(n) => {
+                                count += n;
+                                if count > MAX_PIPE {
+                                    error_fault.store(true, Ordering::SeqCst);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                })
+                .map_err(|_| Error::WorkerUnavailable)?;
+                owner.threads.push(error_thread);
+                Ok(())
+            })()
+        };
+        match started {
+            Ok(()) => Ok(*owner),
+            Err(cause) => {
+                owner.status = Status::Failed;
+                Err(OwnedStartFailure::AfterChild { cause, owner })
             }
-        })
-        .map_err(|_| Error::WorkerUnavailable)?;
-        owner.threads.push(error_thread);
-        Ok(owner)
+        }
     }
     /// Identity of the exact read-only executable handle retained across process creation.
     pub fn worker_sha256(&self) -> &str {
@@ -636,6 +836,42 @@ impl LocalRuntime {
         self.status = Status::Unloaded;
         Ok(())
     }
+    /// Positive cleanup for this exact child, including an already Failed owner.
+    /// Err retains unresolved resources for retry; Drop alone is not this proof.
+    pub fn terminate_and_reap(&mut self) -> Result<(), Error> {
+        self.status = Status::Failed;
+        #[cfg(test)]
+        if FAIL_CLEANUP_ONCE.with(|fault| fault.replace(false)) {
+            return Err(Error::Cleanup);
+        }
+        self.writer.take();
+        if self.child.try_wait().map_err(|_| Error::Cleanup)?.is_none() {
+            if self.child.kill().is_err() {
+                // The child may have exited between observation and kill. Only
+                // an actual terminal observation resolves that race as cleaned.
+                if self.child.try_wait().map_err(|_| Error::Cleanup)?.is_none() {
+                    return Err(Error::Cleanup);
+                }
+            } else {
+                self.child.wait().map_err(|_| Error::Cleanup)?;
+            }
+        }
+        // The child is positively terminal/reaped before any pipe-thread join.
+        self.child.stdin.take();
+        self.child.stdout.take();
+        self.child.stderr.take();
+        take_startup_pipe(&self.startup_pipes.stdin);
+        take_startup_pipe(&self.startup_pipes.stdout);
+        take_startup_pipe(&self.startup_pipes.stderr);
+        while let Some(thread) = self.threads.pop() {
+            if thread.join().is_err() {
+                // This join was consumed/terminal; every still-unresolved join
+                // remains owned in the vector rather than detached by drain.
+                return Err(Error::Cleanup);
+            }
+        }
+        Ok(())
+    }
     pub fn shutdown(&mut self) -> Result<(), Error> {
         self.call("shutdown", None, || false)?;
         let started = Instant::now();
@@ -688,6 +924,8 @@ fn parse_reply(frame: &[u8], id: u64) -> Result<Reply, Error> {
     Ok(reply)
 }
 
+#[cfg(all(test, feature = "development-worker"))]
+mod owned_cleanup_tests;
 #[cfg(all(test, feature = "development-worker"))]
 mod tests {
     use super::*;

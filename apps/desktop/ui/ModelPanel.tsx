@@ -25,13 +25,13 @@ export function ModelPanel({
             </p>
             <div className="export-actions">
                 <button
-                    disabled={s.modelBusy || model?.loaded}
+                    disabled={s.modelBusy || model?.resident}
                     onClick={() => void c.modelAction("model_import")}
                 >
                     Choose GGUF & import local copy
                 </button>
                 <button
-                    disabled={s.modelBusy || !model?.imported || model.loaded}
+                    disabled={s.modelBusy || !model?.imported || model.resident}
                     onClick={() => void c.modelAction("model_load")}
                 >
                     Load CPU model
@@ -75,9 +75,19 @@ export function ModelPanel({
             )}
             {model?.error && (
                 <p role="alert">
-                    {model.error}. Choose the approved artifact, free disk space
-                    or retry loading. Real-model failure never selects a fake
-                    provider.
+                    {model.resident && model.error === "Cleanup" ? (
+                        <>
+                            Local worker cleanup could not be confirmed. Choose
+                            Unload model to retry cleanup before loading another
+                            model.
+                        </>
+                    ) : (
+                        <>
+                            {model.error}. Choose the approved artifact, free
+                            disk space or retry loading. Real-model failure
+                            never selects a fake provider.
+                        </>
+                    )}
                 </p>
             )}
             <details>

@@ -184,6 +184,12 @@ separate required evidence.
 
 ## Verification boundary
 
+After cancellation's model recheck, the fixture repeats the existing borrowable
+owner guard. Both CANCEL and RECOVER resnapshot and validate their positive
+trace after native-handle close, and publish that fresh snapshot. This rejects
+observed late quarantine through the final observation point; it does not prove
+immunity to later unseen native callbacks or physical resource reclamation.
+
 Pure JVM cases cover closed phase/check cardinalities, immutable copies,
 phase-specific keys/flags, exact hashes/privacy, invalid identity/timing/capacity,
 PID reuse versus unchanged identity, bounded deterministic ASCII output, and no

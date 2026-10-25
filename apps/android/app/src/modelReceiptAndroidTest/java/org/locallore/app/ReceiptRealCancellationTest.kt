@@ -260,8 +260,8 @@ class ReceiptRealCancelTest : ReceiptRealHarness() {
                     checked(checks, "original_response_joined", true)
                     checked(checks, "response_rejected_cancelled", result is DemoResult.Rejected && result.category == "Cancelled")
                     checked(checks, "no_prepared_or_commit", result !is DemoResult.Prepared && observed.commits == 0)
-                    val finalTrace = trace.snapshot()
-                    cancelledTrace(finalTrace, sampled)
+                    val joinedTrace = trace.snapshot()
+                    cancelledTrace(joinedTrace, sampled)
                     checked(checks, "sdk_cancel_entered_returned", true)
                     // This post-join production guard also refuses active/poisoned owners without an SDK probe.
                     check(actual.forkHandle() == handle)
@@ -272,10 +272,15 @@ class ReceiptRealCancelTest : ReceiptRealHarness() {
                     checked(checks, "gateway_main_confined", observed.mainConfined)
                     withTimeout(deadline.remaining()) { requireNotNull(access.installed()) }
                     checked(checks, "accepted_post_sdk_full_recheck", true)
+                    // Storage verification is not an owner-health observation. Refuse any
+                    // quarantine observed during that read before closing or publishing.
+                    check(actual.forkHandle() == handle)
                     checked(checks, "source_unopened", ReceiptRealCounts().unopened()) // No source object is resolved in this class.
                     withContext(Dispatchers.Main.immediate) { gateway.close() }
                     checked(checks, "candidate_owner_retained", !CandidateLocalModel.canStart())
                     checked(checks, "native_handle_closed", nativeClosed(handle, deadline))
+                    val finalTrace = trace.snapshot()
+                    cancelledTrace(finalTrace, sampled)
                     deadline.remaining()
                     val proof = CancellationProof(phase, identity(), prior.first.getInt("pid"), prior.first.getLong("start"),
                         prior.second, deadline.elapsed(), capacity(env), checks,
@@ -323,8 +328,8 @@ class ReceiptRealRecoverTest : ReceiptRealHarness() {
                     zero(snapshot(actual, initial)); checked(checks, "initial_canonical_zero", true)
                     val prepared = withContext(Dispatchers.Main.immediate) { gateway.respondText(cancelAction, 0) }
                     check(prepared is DemoResult.Prepared) { "One real recovery turn must prepare; no retry" }
-                    val finalTrace = trace.snapshot()
-                    recoveredTrace(finalTrace)
+                    val preparedTrace = trace.snapshot()
+                    recoveredTrace(preparedTrace)
                     checked(checks, "prepared_after_known_worker_close", true)
                     // Actual production transport/worker guards enforced off-Main native work; this is not a wrapper thread measurement.
                     checked(checks, "native_worker_off_main", true)
@@ -348,6 +353,8 @@ class ReceiptRealRecoverTest : ReceiptRealHarness() {
                     withContext(Dispatchers.Main.immediate) { gateway.close() }
                     checked(checks, "candidate_owner_retained", !CandidateLocalModel.canStart())
                     checked(checks, "native_handle_closed", nativeClosed(handle, deadline))
+                    val finalTrace = trace.snapshot()
+                    recoveredTrace(finalTrace)
                     deadline.remaining()
                     files.write(CancellationProof(phase, identity(), prior.first.identity.pid, prior.first.identity.start,
                         prior.second, deadline.elapsed(), capacity(env), checks,

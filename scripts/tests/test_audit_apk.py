@@ -288,6 +288,67 @@ class ApkAuditTests(unittest.TestCase):
             with self.assertRaises(audit.AuditError):
                 audit.audit_zip(self.archive(directory), litert=True, model_volume=True, model_picker=True)
 
+    def test_receipt_setup_classes_require_explicit_profile_and_cannot_include_tests(self):
+        volume = b"ReceiptProofService ReceiptAndroidFixture "
+        names = ("ReceiptSetupFixtureActivity", *audit.RECEIPT_SETUP_ACTIVITIES)
+        complete = " ".join(names).encode("ascii")
+        variants = [complete, b"", *(complete.replace(name.encode("ascii"), b"") for name in names),
+                    complete + b" ReceiptSetupQualificationTest", complete + b" ReceiptSetupRestartTest"]
+        for marker in variants:
+            with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
+                path, hashes, notices = self.candidate_archive(directory)
+                with zipfile.ZipFile(path, "a") as apk:
+                    apk.writestr("classes.dex", volume + marker)
+                with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
+                    if marker == complete:
+                        self.assertEqual(len(audit.audit_zip(path, litert=True, model_volume=True, model_receipt=True)), 6)
+                    else:
+                        with self.assertRaises(audit.AuditError):
+                            audit.audit_zip(path, litert=True, model_volume=True, model_receipt=True)
+                    if marker:
+                        with self.assertRaises(audit.AuditError):
+                            audit.audit_zip(path, litert=True, model_volume=True)
+                    with self.assertRaises(audit.AuditError):
+                        audit.audit_zip(path, litert=True, model_receipt=True)
+
+    def test_receipt_setup_cli_refuses_incomplete_profiles_before_any_tool_call(self):
+        for flags in (["--model-receipt-verification"],
+                      ["--litert-verification", "--model-provisioning", "--model-receipt-verification"],
+                      ["--litert-verification", "--model-provisioning", "--model-receipt-verification",
+                       "--model-volume-verification", "--model-picker-fixture"]):
+            with self.subTest(flags=flags), patch.object(audit, "aapt2_path") as tool, patch.object(audit, "audit_zip") as archive:
+                self.assertEqual(audit.main(["absent.apk", *flags]), 1)
+                tool.assert_not_called()
+                archive.assert_not_called()
+
+    def test_receipt_setup_activities_are_complete_private_and_have_no_extra_authority(self):
+        setup = "org.locallore.app.LocalModelSetupActivity"
+        def activity(name, exported="false", extra="", children=""):
+            return (f'    E: activity (line=1)\n'
+                    f'      A: android:name(1)="{name}"\n'
+                    f'      A: android:exported(2)={exported}\n' + extra + children)
+        launcher = activity(setup, "true", '      A: android:launchMode(3)=0x2\n',
+                            '      E: intent-filter (line=2)\n'
+                            '        E: category (line=3)\n'
+                            '          A: android:name(1)="android.intent.category.LAUNCHER"\n')
+        ordinary = launcher + activity("org.locallore.app.LiteRtPlayActivity", extra='      A: android:launchMode(3)=0x2\n') + activity("org.locallore.app.MainActivity")
+        names = ["org.locallore.app." + name for name in audit.RECEIPT_SETUP_ACTIVITIES]
+        fixtures = "".join(activity(name) for name in names)
+        badging = f"launchable-activity: name='{setup}' label='LocalLore'\n"
+        self.assertEqual(audit.audit_model_launcher(badging, ordinary + fixtures, model_receipt=True)["launcher"], setup)
+        with self.assertRaises(audit.AuditError):
+            audit.audit_model_launcher(badging, ordinary + fixtures)
+        with self.assertRaises(audit.AuditError):
+            audit.audit_model_launcher(badging, ordinary + fixtures, model_receipt=True, model_picker=True)
+        for name in names:
+            replacements = ["", activity(name, "true"), activity(name, children='      E: intent-filter (line=2)\n'),
+                            activity(name, extra='      A: android:process(3)=":other"\n'),
+                            activity(name, extra='      A: android:permission(3)="foreign"\n'),
+                            activity(name, extra='      A: android:taskAffinity(3)="other"\n'),
+                            activity(name, extra='      A: android:launchMode(3)=0x2\n')]
+            for replacement in replacements:
+                with self.subTest(name=name, replacement=replacement), self.assertRaises(audit.AuditError):
+                    audit.audit_model_launcher(badging, ordinary + fixtures.replace(activity(name), replacement), model_receipt=True)
 
     def test_model_picker_document_provider_retains_platform_grants_and_exact_control_boundary(self):
         document = "org.locallore.app.ModelPickerDocumentsProvider"

@@ -16,6 +16,7 @@ import java.nio.file.StandardOpenOption.CREATE_NEW
 import java.nio.file.StandardOpenOption.READ
 import java.nio.file.StandardOpenOption.WRITE
 import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.attribute.FileTime
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.coroutineContext
@@ -27,7 +28,7 @@ import kotlinx.coroutines.withContext
 internal enum class ReceiptCheckpoint { RECEIPT_FORCED, DATA_FORCED, BEFORE_COMMIT, AFTER_COMMIT }
 
 /**
- * Unwired host proof: exclusive receipt, owned data and an exclusive acceptance marker.
+ * Exclusive receipt, owned data and an exclusive acceptance marker.
  * Marker creation is the logical visibility point, even if its subsequent force/close fails.
  * File force is not a promise of directory durability after power loss or a hostile OS.
  */
@@ -47,6 +48,30 @@ internal class ReceiptModelTransaction(
     private val owner = File(data, "model.owner")
     private val model = File(data, "model.litertlm")
     private val cache = File(data, "cache")
+    @Volatile private var verifiedAcceptance: AcceptanceStamp? = null
+
+    /** Pure planning only. These paths grant no acceptance or runtime authority. */
+    fun plannedFiles(): LocalModelFiles = files()
+
+    /** IO-only current acceptance check; the worker still full-hashes before SDK construction. */
+    fun admitRuntime() {
+        try {
+            reserved {
+                val operation = Operation()
+                operation.guard()
+                if (!exists(control)) invalid()
+                operation.lockedNow(create = false) {
+                    val stamp = verifiedAcceptance ?: invalid()
+                    operation.validateAcceptedStructure()
+                    operation.checkStamp(stamp)
+                    operation.guard()
+                }
+            }
+        } catch (failure: Exception) {
+            verifiedAcceptance = null
+            throw failure
+        }
+    }
 
     suspend fun installed(): LocalModelFiles? = guarded {
         guard()
@@ -107,6 +132,8 @@ internal class ReceiptModelTransaction(
             forcedNew(accepted, byteArrayOf())
             checkpoint(ReceiptCheckpoint.AFTER_COMMIT)
             coroutineContext.ensureActive()
+            validateAcceptedStructure()
+            captureStamp()
             files()
         }
     }
@@ -150,27 +177,47 @@ internal class ReceiptModelTransaction(
 
     private fun files() = LocalModelFiles(data, model, cache)
 
-    private suspend fun <T> guarded(action: suspend Operation.() -> T): T =
-        withContext(Dispatchers.IO) {
-            coroutineContext.ensureActive()
-            // Never open another same-process channel that could disturb an OS lock.
-            if (!processSlot.compareAndSet(false, true)) fail(LocalModelFailure.BUSY)
-            try {
-                Operation().action()
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (failure: LocalModelException) {
-                throw failure
-            } catch (_: Exception) {
-                fail(LocalModelFailure.STORAGE)
-            } finally {
-                processSlot.set(false)
+    private suspend fun <T> guarded(action: suspend Operation.() -> T): T {
+        verifiedAcceptance = null
+        try {
+            return withContext(Dispatchers.IO) {
+                coroutineContext.ensureActive()
+                reserved {
+                    val operation = Operation()
+                    val result = operation.action()
+                    // action returned only after source, channel and OS-lock closes returned.
+                    coroutineContext.ensureActive()
+                    verifiedAcceptance = operation.completedStamp
+                    result
+                }
             }
+        } catch (failure: Exception) {
+            // Includes prompt cancellation while returning from the IO dispatcher.
+            verifiedAcceptance = null
+            throw failure
         }
+    }
+
+    private inline fun <T> reserved(action: () -> T): T {
+        // Never open another same-process channel that could disturb an OS lock.
+        if (!processSlot.compareAndSet(false, true)) fail(LocalModelFailure.BUSY)
+        try { return action() }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (failure: LocalModelException) { throw failure }
+        catch (_: Exception) { fail(LocalModelFailure.STORAGE) }
+        finally { processSlot.set(false) }
+    }
+
+    private data class FileStamp(val key: Any?, val size: Long, val modified: FileTime)
+    private data class AcceptanceStamp(val directories: Map<Path, Any?>, val files: Map<Path, FileStamp>)
+    private fun BasicFileAttributes.stamp() = FileStamp(fileKey(), size(), lastModifiedTime())
 
     private inner class Operation {
         val pins = mutableMapOf<Path, Any?>()
         private var lockPin: BasicFileAttributes? = null
+        private var verifiedModel: FileStamp? = null
+        var completedStamp: AcceptanceStamp? = null
+            private set
         val receiptBytes: ByteArray by lazy {
             ("locallore-model-receipt-v1\n${identity.id}\n${identity.bytes}\n" +
                 "${identity.sha256}\n${sha(data.canonicalPath.toByteArray(Charsets.UTF_8))}\n")
@@ -212,6 +259,14 @@ internal class ReceiptModelTransaction(
         }
 
         suspend fun <T> locked(create: Boolean, action: suspend () -> T): T {
+            val context = coroutineContext
+            return lockedNow(create) {
+                context.ensureActive()
+                action()
+            }
+        }
+
+        inline fun <T> lockedNow(create: Boolean, action: () -> T): T {
             guard()
             controlEntries()
             val before = if (exists(lock)) regular(lock) else null
@@ -227,7 +282,6 @@ internal class ReceiptModelTransaction(
                     if (before != null && !same(before, now)) unsafe()
                     lockPin = now
                     guard()
-                    coroutineContext.ensureActive()
                     return action()
                 }
             }
@@ -263,19 +317,46 @@ internal class ReceiptModelTransaction(
             checkCache(empty)
         }
 
-        suspend fun validateAccepted(): LocalModelFiles {
+        fun validateAcceptedStructure() {
             controlEntries()
             if (!exists(accepted) || regular(accepted).size() != 0L) unsafe()
             exact(receipt, receiptBytes)
             dataEntries(pending = false)
             if (!exists(cache)) unsafe()
-            validateModel()
+            if (regular(model).size() != identity.bytes) invalid()
             checkCache(empty = false)
             guard()
             exact(receipt, receiptBytes)
             exact(owner, ownerBytes)
             if (regular(accepted).size() != 0L) unsafe()
+        }
+
+        suspend fun validateAccepted(): LocalModelFiles {
+            validateAcceptedStructure()
+            validateModel()
+            validateAcceptedStructure()
+            captureStamp()
             return files()
+        }
+
+        fun captureStamp() {
+            guard()
+            val current = regular(model).stamp()
+            if (verifiedModel == null || verifiedModel != current) unsafe()
+            completedStamp = AcceptanceStamp(
+                pins.toMap() + (cache.toPath() to attributes(cache.toPath()).fileKey()),
+                listOf(lock, receipt, accepted, owner, model).associate { it.toPath() to regular(it).stamp() },
+            )
+        }
+
+        fun checkStamp(stamp: AcceptanceStamp) {
+            for ((path, key) in stamp.directories) {
+                val now = attributes(path)
+                if (!now.isDirectory || now.fileKey() != key) unsafe()
+            }
+            for ((path, expected) in stamp.files) {
+                if (regular(path.toFile()).stamp() != expected) unsafe()
+            }
         }
 
         suspend fun validatePending() {
@@ -358,6 +439,7 @@ internal class ReceiptModelTransaction(
                 before.lastModifiedTime() != after.lastModifiedTime()) unsafe()
             if (count != identity.bytes || digest.hex() != identity.sha256) invalid()
             exact(owner, ownerBytes)
+            verifiedModel = after.stamp()
         }
 
         fun discardCheck(ownerRemoved: Boolean) {

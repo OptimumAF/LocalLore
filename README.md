@@ -72,8 +72,10 @@ open, with failures retained in the dated results.
 Separate [Android model-storage receipt checks](docs/native/RECEIPT_FRESH_TARGET_VERIFICATION_2026-10-24.md)
 passed four methods on a fresh isolated emulator, including cancellation and
 owned process-death recovery, using a tiny synthetic file. Existing-target
-staging headroom remains held; active setup integration and real inference
-remain pending. The [earlier partial result](docs/native/MODEL_RECEIPT_ANDROID_VERIFICATION_2026-10-24.md)
+staging headroom remains held. An explicit debug-only
+[receipt-backed setup route](docs/native/RECEIPT_SETUP_VERIFICATION_2026-10-24.md)
+is under separate qualification; real inference remains pending. The
+[earlier partial result](docs/native/MODEL_RECEIPT_ANDROID_VERIFICATION_2026-10-24.md)
 is preserved.
 
 An opt-in [current Rust play probe](docs/runtime/android/PLAY_PROTOCOL.md) connects

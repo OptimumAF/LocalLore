@@ -230,6 +230,65 @@ class ApkAuditTests(unittest.TestCase):
                     with self.assertRaises(audit.AuditError):
                         audit.audit_zip(path, litert=True, model_picker=True)
 
+    def test_receipt_service_requires_private_same_uid_process_in_volume_only(self):
+        service = ('    E: service (line=1)\n'
+                   '      A: android:name(1)="org.locallore.app.ReceiptProofService"\n'
+                   '      A: android:exported(2)=false\n'
+                   '      A: android:process(3)=":receiptproof"\n'
+                   '      A: android:isolatedProcess(4)=false\n')
+        self.assertEqual(audit.audit_receipt_service(service, model_volume=True),
+                         {"receipt_service": True, "exported": False})
+        self.assertFalse(audit.audit_receipt_service("")["receipt_service"])
+        for malformed in ("", service.replace("exported(2)=false", "exported(2)=true"),
+                          service.replace(":receiptproof", ":other"),
+                          service.replace("isolatedProcess(4)=false", "isolatedProcess(4)=true"),
+                          service.replace('      A: android:isolatedProcess(4)=false\n', ""),
+                          service + '      E: intent-filter (line=2)\n',
+                          service + '      A: android:permission(5)="custom.permission"\n',
+                          service + service,
+                          service.replace("ReceiptProofService", "UnexpectedService")):
+            with self.subTest(malformed=malformed), self.assertRaises(audit.AuditError):
+                audit.audit_receipt_service(malformed, model_volume=True)
+        with self.assertRaises(audit.AuditError):
+            audit.audit_receipt_service(service)
+
+    def test_receipt_implementation_cannot_leak_into_ordinary_or_regular_sdk_apk(self):
+        for marker in (b"ReceiptProofService", b"ReceiptAndroidFixture", b"ReceiptVolumeQualificationTest"):
+            with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
+                path = self.archive(directory)
+                with zipfile.ZipFile(path, "a") as apk:
+                    apk.writestr("classes.dex", marker)
+                with self.assertRaises(audit.AuditError):
+                    audit.audit_zip(path)
+            with self.subTest(sdk=marker), tempfile.TemporaryDirectory() as directory:
+                path, hashes, notices = self.candidate_archive(directory)
+                with zipfile.ZipFile(path, "a") as apk:
+                    apk.writestr("classes.dex", marker)
+                with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
+                    with self.assertRaises(audit.AuditError):
+                        audit.audit_zip(path, litert=True)
+
+    def test_volume_receipt_apk_requires_both_implementations_and_excludes_test_class(self):
+        both = b"ReceiptProofService ReceiptAndroidFixture"
+        for marker in (b"", b"ReceiptProofService", b"ReceiptAndroidFixture",
+                       both + b" ReceiptVolumeQualificationTest", both):
+            with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
+                path, hashes, notices = self.candidate_archive(directory)
+                with zipfile.ZipFile(path, "a") as apk:
+                    apk.writestr("classes.dex", marker)
+                with patch.dict(audit.LITERT_NATIVE_HASHES, hashes, clear=True), patch.dict(audit.LITERT_NOTICES, notices, clear=True):
+                    if marker == both:
+                        self.assertEqual(len(audit.audit_zip(path, litert=True, model_volume=True)), 6)
+                    else:
+                        with self.assertRaises(audit.AuditError):
+                            audit.audit_zip(path, litert=True, model_volume=True)
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(audit.AuditError):
+                audit.audit_zip(self.archive(directory), model_volume=True)
+            with self.assertRaises(audit.AuditError):
+                audit.audit_zip(self.archive(directory), litert=True, model_volume=True, model_picker=True)
+
+
     def test_model_picker_document_provider_retains_platform_grants_and_exact_control_boundary(self):
         document = "org.locallore.app.ModelPickerDocumentsProvider"
         authority = "org.locallore.app.modelpickerverify.test.modelpicker"

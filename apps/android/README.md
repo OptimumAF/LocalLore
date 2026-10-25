@@ -144,8 +144,13 @@ An independent [receipt transaction host proof](../../docs/native/MODEL_RECEIPT_
 explores exclusive creation plus an empty acceptance marker, with no rename or
 overwrite. It is unwired to both setup routes and the SDK. Its JVM tests cover
 pending recovery, explicit discard, ownership, cancellation and child-process
-death; Android filesystem qualification remains a separate next gate. See the
-proposed [ADR0011](../../docs/adr/0011-model-receipt-transaction.md).
+death. The explicit volume debug profile now includes an isolated Android
+receipt fixture and private child service; ordinary and regular SDK builds
+exclude them. Its first emulator cohort passed three methods and failed the
+process-death method. The corrected service passes host checks, while a fresh
+v2 run is blocked by staging headroom above unchanged floors. It remains
+unwired to setup and the SDK. See [actual checks and limits](../../docs/native/MODEL_RECEIPT_ANDROID_VERIFICATION_2026-10-24.md)
+and proposed [ADR0011](../../docs/adr/0011-model-receipt-transaction.md).
 
 The additional `-PlocalLoreModelPickerVerification=true` flag requires both
 candidate flags above and selects the separate `.modelpickerverify` debug

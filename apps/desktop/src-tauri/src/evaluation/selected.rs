@@ -16,8 +16,13 @@ const CLIENTS: usize = 4;
 const SAFE: u64 = 9_007_199_254_740_991;
 const INDEX_CAP: usize = 32 * 1024;
 #[cfg(test)]
+type StartPrecheckPause = (
+    std::sync::mpsc::SyncSender<()>,
+    std::sync::mpsc::Receiver<()>,
+);
+#[cfg(test)]
 thread_local! {
-    static SELECTED_START_PRECHECK_PAUSE: std::cell::RefCell<Option<(std::sync::mpsc::SyncSender<()>, std::sync::mpsc::Receiver<()>)>> = const { std::cell::RefCell::new(None) };
+    static SELECTED_START_PRECHECK_PAUSE: std::cell::RefCell<Option<StartPrecheckPause>> = const { std::cell::RefCell::new(None) };
 }
 type Runtime = Arc<Mutex<locallore_local_runtime::LocalRuntime>>;
 type Consent = Box<dyn FnOnce(&Value) -> Result<bool> + Send>;

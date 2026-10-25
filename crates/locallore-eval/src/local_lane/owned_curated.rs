@@ -9,6 +9,11 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 #[cfg(test)]
 mod review_tests;
 
+#[cfg(test)]
+thread_local! {
+    static ENTRY_STARTED_OVERRIDE: std::cell::Cell<Option<Instant>> = const { std::cell::Cell::new(None) };
+}
+
 fn preparation_deadline(started: Instant, remaining: u64, now: Instant) -> Result<Instant> {
     let deadline = (started + Duration::from_millis(PREPARATION_MS))
         .min(now + Duration::from_millis(remaining.saturating_sub(CLEANUP_RESERVE_MS)));
@@ -52,6 +57,8 @@ pub fn run_native_curated_owned<R: NativeReservation>(
     reservation: R,
 ) -> std::result::Result<Report, NativeFailure<R>> {
     let entry_started = Instant::now();
+    #[cfg(test)]
+    let entry_started = ENTRY_STARTED_OVERRIDE.with(|clock| clock.take()).unwrap_or(entry_started);
     let failure = NativeFailure::<R>::from_error;
     if !(1..=6).contains(&max_new_stories) {
         return Err(failure("CaseBudget".into()));

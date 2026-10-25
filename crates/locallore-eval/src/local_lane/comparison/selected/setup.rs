@@ -113,7 +113,7 @@ pub(super) fn read_setups(dir: &Path, binding: &str, native: bool) -> Result<Vec
             return Err("SetupIntegrity".into());
         }
         let bytes = read(&entry.path(), 64 * 1024).map_err(|_| "SetupIntegrity")?;
-        // Typed decoding rejects unknown/duplicate fields. Option<Value> would
+        // Typed decoding rejects unknown/duplicate top-level fields. Option<Value> would
         // default a missing load key to None, so separately require its presence
         // in the SAME bounded bytes; explicit failed/null remains supported.
         let setup: SetupRecord =

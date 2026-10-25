@@ -122,8 +122,19 @@ job; no breakaway or detached successful return is allowed. The installed
 Windows emulator launcher waits for its QEMU child; launcher exit is treated as
 loss, never a reason to discover or adopt another process by name.
 
-The supervisor retains its original live execution handle for at most 1200
-seconds. `running-v1.json` is forced and created once after the owned launcher
+The supervisor retains its original live execution handle for the admitted
+`max_seconds`: the default 2048 MiB profile keeps its 1200-second ceiling and
+default; the explicit 8192 MiB real-candidate profile has an 1800-second ceiling
+and default. `plan_run(..., max_seconds=None)` selects that profile default.
+Explicit positive integer shorter windows remain valid, including earlier
+1200-second real-profile proposals; booleans, non-integers and values above the
+profile ceiling refuse. The supervisor's absolute ceiling is 1800 seconds, while
+proposal validation still rejects a 2048 MiB profile above 1200. The CLI remains
+unchanged and uses the profile default. This additional scheduling window does
+not change candidate entry or per-phase budgets, resource floors or cleanup
+deadlines, and does not authorize execution or retries.
+
+`running-v1.json` is forced and created once after the owned launcher
 exists. It explicitly says `guest_boot_verified: false`. It records exact owner,
 worker and launcher PID/OS-creation-time/executable identities, proposal/prepared
 digests, paths, serial, AVD name, pinned `adb_path`, and finite epoch deadline.

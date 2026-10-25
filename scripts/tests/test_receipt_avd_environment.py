@@ -550,6 +550,85 @@ class EnvironmentTests(unittest.TestCase):
             with self.assertRaisesRegex(env.EnvironmentRefused, "invalid_budget"):
                 env.validate_proposal(run, "run")
 
+    def test_synthetic_default_owner_window_remains_1200_with_disabled_shape(self):
+        original, _, _ = self.prepared_run()
+        result = env.plan_run(original["prepare_proposal"]["path"], original["prepared"]["path"],
+                              self.base / "synthetic-window.json")
+        self.assertEqual(result, original)
+        self.assertEqual(env.MAX_SECONDS, 1200)
+        self.assertFalse(result["allow_environment_calls"])
+        self.assertTrue(result["root_go_pending"])
+
+    def test_real_default_owner_window_is_1800_without_new_proposal_fields(self):
+        original, _, _ = self.prepared_run(real_candidate=True)
+        result = env.plan_run(original["prepare_proposal"]["path"], original["prepared"]["path"],
+                              self.base / "real-window.json")
+        self.assertEqual(result, dict(original, max_seconds=1800))
+        self.assertEqual(set(result), set(original))
+        self.assertFalse(result["allow_environment_calls"])
+        self.assertTrue(result["root_go_pending"])
+        env.validate_proposal(result, "run")
+
+    def check_explicit_windows(self, real_candidate):
+        original, _, _ = self.prepared_run(real_candidate=real_candidate)
+        ceiling = 1800 if real_candidate else 1200
+        for index, budget in enumerate((1, 12, 1200, ceiling)):
+            output = self.base / ("explicit-window-%d-%d.json" % (index, budget))
+            result = env.plan_run(original["prepare_proposal"]["path"], original["prepared"]["path"], output,
+                                  max_seconds=budget)
+            self.assertEqual(result, dict(original, max_seconds=budget))
+            env.validate_proposal(result, "run")
+
+    def test_synthetic_explicit_shorter_windows_and_ceiling_remain_available(self):
+        self.check_explicit_windows(False)
+
+    def test_real_explicit_shorter_windows_and_ceiling_remain_available(self):
+        self.check_explicit_windows(True)
+
+    def test_owner_window_validator_is_typed_and_profile_specific(self):
+        real, _, _ = self.prepared_run(real_candidate=True)
+        synthetic = dict(real, memory_mib=2048, host_available_memory_min=4 * env.GIB)
+        for value, ceiling in ((synthetic, 1200), (real, 1800)):
+            for budget in (0, -1, ceiling + 1, True, 12.0, "12", None):
+                with self.subTest(memory=value["memory_mib"], budget=budget):
+                    with self.assertRaisesRegex(env.EnvironmentRefused, "invalid_budget"):
+                        env.validate_proposal(dict(value, max_seconds=budget), "run")
+        with self.assertRaisesRegex(env.EnvironmentRefused, "invalid_budget"):
+            env.validate_proposal(dict(synthetic, max_seconds=1800), "run")
+        env.validate_proposal(dict(real, max_seconds=1800), "run")
+
+    def test_plan_run_refuses_invalid_explicit_real_windows_without_output(self):
+        original, _, _ = self.prepared_run(real_candidate=True)
+        for index, budget in enumerate((0, -1, 1801, True, 12.0, "12")):
+            output = self.base / ("refused-window-%d.json" % index)
+            with self.subTest(budget=budget), self.assertRaisesRegex(env.EnvironmentRefused, "invalid_budget"):
+                env.plan_run(original["prepare_proposal"]["path"], original["prepared"]["path"], output,
+                             max_seconds=budget)
+            self.assertFalse(output.exists())
+
+    def test_plan_run_cannot_give_synthetic_profile_real_owner_window(self):
+        original, _, _ = self.prepared_run()
+        output = self.base / "refused-cross-profile-window.json"
+        with self.assertRaisesRegex(env.EnvironmentRefused, "invalid_budget"):
+            env.plan_run(original["prepare_proposal"]["path"], original["prepared"]["path"], output,
+                         max_seconds=1800)
+        self.assertFalse(output.exists())
+
+    def test_supervisor_absolute_ceiling_is_1800_and_refuses_before_child_or_evidence(self):
+        for budget in (0, -1, 1801, True, 1800.0, "1800"):
+            with self.subTest(budget=budget), mock.patch.object(env.subprocess, "Popen") as child:
+                with self.assertRaisesRegex(env.EnvironmentRefused, "invalid_budget"):
+                    env.supervise(["must-not-spawn"], b"barrier", self.root, budget, lambda _: True)
+                child.assert_not_called()
+                self.assertFalse(self.root.exists())
+        self.root.mkdir()
+        with mock.patch.object(env.subprocess, "Popen", side_effect=OSError("Synthetic spawn refusal")) as child:
+            result = env.supervise(["synthetic-child-only"], b"barrier", self.root, 1800, lambda _: True)
+        child.assert_called_once()
+        self.assertEqual(result["status"], "owner_failed")
+        self.assertFalse(result["cleanup_complete"])
+        self.assertEqual(set(p.name for p in self.root.iterdir()), set(env.LiveOutput.names))
+
     def test_initial_disks_verified_before_launch(self):
         run, p, a = self.prepared_run()
         (Path(run["paths"]["content"]) / "sdcard.img").write_bytes(b"guest changed too soon")

@@ -166,7 +166,7 @@ export async function archiveV3Journeys({
                 ? root!.querySelector(
                       'section[aria-label="Read-only V2 inspector"]',
                   )
-                : label === "continued"
+                : label === "play-accepted"
                   ? root!.querySelector(
                         'section[aria-label="Actual native receipt"]',
                     )
@@ -232,6 +232,7 @@ export async function archiveV3Journeys({
                     })),
             },
         };
+        failedCheck = `${label}-native-checkpoint`;
         const rendered = (await invoke("harness_checkpoint", {
             label,
             snapshot,
@@ -445,7 +446,7 @@ export async function archiveV3Journeys({
                     structural(fixture.foreign) === structural(before.foreign),
                 "v3-native-core-proves-exact-wait-and-foreign-unchanged",
             );
-            await capture("continued");
+            await capture("play-accepted");
             await v2.retryExact();
             check(
                 revision() === 4 &&

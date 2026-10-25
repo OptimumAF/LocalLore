@@ -209,11 +209,20 @@ def verify_installation(proposal):
         check_binding(item)
 
 
+def root_free_min(root):
+    """Explicit root selection only; this never probes or chooses another drive."""
+    require(isinstance(root, (str, Path)), "unsafe_path")
+    drive = Path(root).drive.upper()
+    require(drive in ("C:", "D:"), "invalid_proposal")
+    return {"C:": (40 if drive == "C:" else 16) * GIB, "D:": 40 * GIB}
+
+
 def plan_prepare(root, sdk, java_home, output, real_candidate=False):
     require(type(real_candidate) is bool, "invalid_profile")
     require(os.name == "nt", "windows_required")
+    floors = root_free_min(root)
     p = paths(root)
-    require(Path(root).drive.upper() == "D:" and not Path(root).exists(), "target_exists")
+    require(not Path(root).exists(), "target_exists")
     sdk = safe_path(sdk, directory=True)
     java = safe_path(java_home, directory=True)
     image = sdk / "system-images/android-35/google_apis/x86_64"
@@ -228,7 +237,7 @@ def plan_prepare(root, sdk, java_home, output, real_candidate=False):
                 "bindings": [binding(x) for x in sorted(set(files))],
                 "userdata_mib": 12288, "sdcard_mib": 8192,
                 "memory_mib": 8192 if real_candidate else 2048, "cores": 2,
-                "host_free_min": {"C:": 16 * GIB, "D:": 40 * GIB},
+                "host_free_min": floors,
                 "host_available_memory_min": (12 if real_candidate else 4) * GIB,
                 "allow_environment_calls": False, "root_go_pending": True}
     create_json(output, proposal)
@@ -248,12 +257,15 @@ def validate_proposal(proposal, phase):
             proposal["cores"] == 2 and
             proposal["allow_environment_calls"] is False and proposal["root_go_pending"] is True,
             "invalid_proposal")
-    require(proposal["paths"] == paths(proposal["paths"]["root"]) and
-            Path(proposal["paths"]["root"]).drive.upper() == "D:", "invalid_proposal")
+    require(type(proposal["paths"]) is dict and type(proposal["paths"].get("root")) is str, "invalid_proposal")
+    floors = root_free_min(proposal["paths"]["root"])
+    require(proposal["paths"] == paths(proposal["paths"]["root"]), "invalid_proposal")
     require(proposal["adb_path"] == str(Path(proposal["sdk"]) / "platform-tools/adb.exe"),
             "invalid_proposal")
     require(proposal["token"]["path"] == token_path(), "console_token_unavailable")
-    require(proposal["host_free_min"] == {"C:": 16 * GIB, "D:": 40 * GIB} and
+    require(type(proposal["host_free_min"]) is dict and
+            all(type(value) is int for value in proposal["host_free_min"].values()) and
+            proposal["host_free_min"] == floors and
             type(proposal["memory_mib"]) is int and type(proposal["host_available_memory_min"]) is int and
             (proposal["memory_mib"], proposal["host_available_memory_min"]) in
             ((2048, 4 * GIB), (8192, 12 * GIB)), "invalid_proposal")

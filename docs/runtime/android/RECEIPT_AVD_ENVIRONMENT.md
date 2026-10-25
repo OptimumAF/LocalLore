@@ -16,6 +16,15 @@ directories all belong beneath that new root. It issues no SDK list, start,
 stop, wipe, delete or adoption command for an existing AVD. The bounded read-only
 default-registry metadata enumeration is described below. There is no ADB invocation.
 
+The caller may instead explicitly select an absent root on C:, for example
+`--root C:/LocalLore-receipt-avd-next`. The path argument selects the drive;
+there is no automatic drive probing, fallback, migration, disk movement, cleanup,
+old-root adoption or permission change. Only absolute normalized nonlinked C:
+or D: roots are accepted. The same selected root binds prepare and run and owns
+all content, registry, preferences and temporary paths. Explicit C: selection
+does not authorize creating or running an environment and does not select a RAM
+profile automatically.
+
 ## Two distinct admissions
 
 `benchmarks/receipt_avd_environment.py` has these interfaces:
@@ -66,7 +75,19 @@ prevent a second execution. A failure preserves newly created files for review;
 the helper has no repair, retry, overwrite-existing-target, or deletion command.
 
 Prepare freshly measures available host memory and C/D free bytes. Its fixed
-floors are the profile's 4 or 12 GiB available memory, 16 GiB C free, and 40 GiB D free; these are
+floors are the profile's 4 or 12 GiB available memory and the exact pair bound to
+the explicit root drive:
+
+| Explicit root drive | C: free minimum | D: free minimum |
+| --- | --- | --- |
+| D: | 16 GiB | 40 GiB |
+| C: | 40 GiB | 40 GiB |
+
+The D-root proposal shape and floor pair are unchanged. C-root proposals retain
+the existing D reserve; they cannot lower either 40 GiB floor. Both prepare and
+run reject any other drive, swapped/lowered/extra or mistyped floors, or paths
+that escape the selected root. Memory, userdata, SD, CPU, owner lifetime,
+authorization and cleanup policies are otherwise unchanged. These floors are
 boundary observations, not reservations against other host processes. It uses
 the pinned JDK directly to call the installed `AvdManagerCli`, avoiding shell
 interpolation, inherited Java options and default registries. It supplies `no`

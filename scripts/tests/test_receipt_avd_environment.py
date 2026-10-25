@@ -186,7 +186,7 @@ class EnvironmentTests(unittest.TestCase):
                  "token": env.token_binding(self.token), "old_avd": env.old_registry_snapshot(),
                  "bindings": [env.binding(x) for x in files],
                  "userdata_mib": 12288, "sdcard_mib": 8192, "memory_mib": 2048, "cores": 2,
-                 "host_free_min": {"C:": 16 * env.GIB, "D:": 40 * env.GIB},
+                 "host_free_min": {"C:": (40 if self.root.drive.upper() == "C:" else 16) * env.GIB, "D:": 40 * env.GIB},
                  "host_available_memory_min": 4 * env.GIB,
                  "allow_environment_calls": False, "root_go_pending": True}
         return value
@@ -317,6 +317,140 @@ class EnvironmentTests(unittest.TestCase):
             self.assertFalse(value["allow_environment_calls"])
             self.assertTrue(value["root_go_pending"])
         self.assertFalse(self.root.exists())
+
+    def c_root(self):
+        scratch = tempfile.TemporaryDirectory(prefix="receipt-c-root-test-", dir=Path(os.environ["LOCALAPPDATA"]) / "Temp")
+        self.addCleanup(scratch.cleanup)
+        parent = Path(scratch.name).resolve()
+        self.assertEqual(parent.drive.upper(), "C:")
+        return parent / "new-avd"
+
+    def test_explicit_c_plan_binds_stronger_floors_without_changing_d_plan(self):
+        fixture = self.proposal()
+        files = [Path(item["path"]) for item in fixture["bindings"]]
+        c_root = self.c_root()
+        with mock.patch.object(env, "installation_files", return_value=files), mock.patch.object(
+                env, "old_registry_snapshot", return_value=fixture["old_avd"]):
+            d_plan = env.plan_prepare(self.root, self.sdk, self.java, self.base / "d-drive-plan.json")
+            c_plan = env.plan_prepare(c_root, self.sdk, self.java, self.base / "c-drive-plan.json", real_candidate=True)
+        expected_d = dict(fixture, bindings=sorted(fixture["bindings"], key=lambda item: Path(item["path"])))
+        self.assertEqual(d_plan, expected_d)
+        self.assertEqual(env.encoded(d_plan), env.encoded(expected_d))
+        self.assertEqual(c_plan, dict(d_plan, paths=env.paths(c_root),
+            host_free_min={"C:": 40 * env.GIB, "D:": 40 * env.GIB},
+            memory_mib=8192, host_available_memory_min=12 * env.GIB))
+        env.validate_proposal(c_plan, "prepare")
+        self.assertFalse(c_root.exists())
+        self.assertFalse(self.root.exists())
+        self.assertFalse(c_plan["allow_environment_calls"])
+        self.assertTrue(c_plan["root_go_pending"])
+
+    def test_root_drive_and_floor_pair_are_closed_in_prepare_and_run(self):
+        c_root = self.c_root()
+        for phase in ("prepare", "run"):
+            original = self.proposal(phase)
+            if phase == "run":
+                original.update(prepare_proposal={}, prepared={}, prepare_result={}, max_seconds=1200)
+            for root, expected in ((self.root, {"C:": 16 * env.GIB, "D:": 40 * env.GIB}),
+                                   (c_root, {"C:": 40 * env.GIB, "D:": 40 * env.GIB})):
+                valid = dict(original, paths=env.paths(root), host_free_min=expected)
+                env.validate_proposal(valid, phase)
+                wrong = ({"C:": 16 * env.GIB, "D:": 40 * env.GIB} if root.drive.upper() == "C:" else
+                         {"C:": 40 * env.GIB, "D:": 40 * env.GIB})
+                for floors in (wrong, dict(expected, **{"C:": expected["C:"] - 1}),
+                               dict(expected, **{"D:": 40 * env.GIB - 1}),
+                               dict(expected, **{"D:": True}), dict(expected, **{"C:": float(expected["C:"])}),
+                               dict(expected, **{"E:": 40 * env.GIB})):
+                    with self.subTest(phase=phase, root=root.drive, floors=floors), self.assertRaises(env.EnvironmentRefused):
+                        env.validate_proposal(dict(valid, host_free_min=floors), phase)
+
+    def test_other_drives_relative_and_boolean_roots_refuse_before_sdk_inputs(self):
+        for root in ("E:/receipt-c-root-refusal", "C:relative", "relative", True, False, None):
+            with self.subTest(root=root), mock.patch.object(env, "installation_files") as inputs:
+                with self.assertRaises(env.EnvironmentRefused):
+                    env.plan_prepare(root, self.sdk, self.java, self.base / "never-drive-plan.json")
+                inputs.assert_not_called()
+                self.assertFalse((self.base / "never-drive-plan.json").exists())
+        value = self.proposal()
+        for root in (True, None, "E:/receipt-c-root-refusal", "relative", "C:relative"):
+            invalid = dict(value["paths"], root=root)
+            with self.subTest(proposal_root=root), self.assertRaises(env.EnvironmentRefused):
+                env.validate_proposal(dict(value, paths=invalid), "prepare")
+
+    def test_c_root_preexisting_and_symlink_metadata_refuse_without_adoption(self):
+        root = self.c_root()
+        root.mkdir()
+        sentinel = root / "preserve-original.txt"
+        sentinel.write_bytes(b"Original refusal fixture, no AVD")
+        with mock.patch.object(env, "installation_files") as inputs:
+            with self.assertRaisesRegex(env.EnvironmentRefused, "target_exists"):
+                env.plan_prepare(root, self.sdk, self.java, self.base / "preexisting-c.json")
+        inputs.assert_not_called()
+        self.assertEqual(list(root.iterdir()), [sentinel])
+        self.assertEqual(sentinel.read_bytes(), b"Original refusal fixture, no AVD")
+        fresh = self.c_root()
+        original_lstat = Path.lstat
+        def lstat(path, *args, **kwargs):
+            if path == fresh:
+                return type("LinkMetadata", (), {"st_mode": 0o120777, "st_file_attributes": 0})()
+            return original_lstat(path, *args, **kwargs)
+        with mock.patch.object(Path, "lstat", new=lstat), mock.patch.object(env, "installation_files") as inputs:
+            with self.assertRaisesRegex(env.EnvironmentRefused, "unsafe_path"):
+                env.plan_prepare(fresh, self.sdk, self.java, self.base / "linked-c.json")
+        inputs.assert_not_called()
+        self.assertFalse(fresh.exists())
+        self.assertFalse((self.base / "linked-c.json").exists())
+
+    def test_c_root_path_shape_cannot_escape_its_explicit_root(self):
+        value = self.proposal()
+        root = self.c_root()
+        value.update(paths=env.paths(root), host_free_min={"C:": 40 * env.GIB, "D:": 40 * env.GIB})
+        for key in ("content", "registry", "android", "emulator_home", "tmp"):
+            wrong = dict(value["paths"], **{key: str(self.base / "foreign-owned-test-path")})
+            with self.subTest(key=key), self.assertRaisesRegex(env.EnvironmentRefused, "invalid_proposal"):
+                env.validate_proposal(dict(value, paths=wrong), "prepare")
+        with self.assertRaises(env.EnvironmentRefused):
+            env.validate_proposal(dict(value, paths=dict(value["paths"], extra=str(root / "extra"))), "prepare")
+
+    def test_c_root_capacity_keeps_both_40gib_reserves(self):
+        value = self.proposal()
+        value.update(paths=env.paths(self.c_root()), host_free_min={"C:": 40 * env.GIB, "D:": 40 * env.GIB},
+                     memory_mib=8192, host_available_memory_min=12 * env.GIB)
+        def memory(pointer):
+            pointer._obj.available = 12 * env.GIB
+            return 1
+        for c_free, d_free in ((40 * env.GIB, 40 * env.GIB), (40 * env.GIB - 1, 100 * env.GIB),
+                               (100 * env.GIB, 40 * env.GIB - 1)):
+            available = {"C:": c_free, "D:": d_free}
+            with self.subTest(c_free=c_free, d_free=d_free), mock.patch.object(
+                    env.ctypes.windll.kernel32, "GlobalMemoryStatusEx", side_effect=memory), mock.patch.object(
+                    env.shutil, "disk_usage", side_effect=lambda drive: type("Disk", (), {"free": available[drive[:2]]})()):
+                if min(c_free, d_free) < 40 * env.GIB:
+                    with self.assertRaisesRegex(env.EnvironmentRefused, "host_capacity"):
+                        env.resource_facts(value)
+                else:
+                    self.assertEqual(env.resource_facts(value)["free_bytes"], available)
+
+    def test_c_run_preserves_floor_binding_owner_window_and_refuses_replay(self):
+        self.root = self.c_root()
+        run, _, _ = self.prepared_run(real_candidate=True)
+        planned = env.plan_run(run["prepare_proposal"]["path"], run["prepared"]["path"], self.base / "c-run-plan.json")
+        self.assertEqual(planned, dict(run, max_seconds=1800))
+        env.validate_proposal(planned, "run")
+        env.verify_prepared(planned)
+        wrong = dict(planned, paths=env.paths(self.base / "different-d-root"),
+                     host_free_min={"C:": 16 * env.GIB, "D:": 40 * env.GIB})
+        env.validate_proposal(wrong, "run")
+        with self.assertRaisesRegex(env.EnvironmentRefused, "prepared_changed"):
+            env.verify_prepared(wrong)
+        proposal, authorization = self.files(planned, "c-run-used.json")
+        sentinel = self.root / "run-start-v1.json"
+        sentinel.write_bytes(b"Original consumed run, preserve")
+        with mock.patch.object(env, "resource_facts", return_value={}), mock.patch.object(env, "ports_free"), mock.patch.object(env, "supervise") as child:
+            with self.assertRaisesRegex(env.EnvironmentRefused, "target_used"):
+                env.run(proposal, authorization)
+        child.assert_not_called()
+        self.assertEqual(sentinel.read_bytes(), b"Original consumed run, preserve")
 
     def test_plan_profile_argument_refuses_non_boolean_before_inputs_or_mutation(self):
         for argument in (None, 0, 1, "real", 8192):

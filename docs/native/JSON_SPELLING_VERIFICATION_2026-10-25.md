@@ -260,6 +260,12 @@ diagnostic filename. That partial device directory remains. A corrected helper
 admits only additional stdout/stderr-v1 suffixes and creates a separate device-v2
 group; it does not overwrite the failed selection.
 
+Independent sealed-evidence review rehashes all 767 indexed files with zero
+mismatches and checks all 116 command metadata/stdout pairs, eight preflight
+bindings and both final owner/guard links. Both ordinary attempts stop at
+command 14 with zero candidate instrumentation and no dependent dispatch. The
+unsealed partial first device group is retained but is outside that final audit.
+
 M05.01/M05.05 partial implementation is in review; full acceptance stays unchecked.
 Next runnable work is a source-bound original synthetic transfer probe on a
 separately admitted fresh target, measuring the fixed local transport before

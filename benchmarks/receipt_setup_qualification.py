@@ -24,7 +24,7 @@ _spec.loader.exec_module(contract)
 
 APP, TEST = contract.APP, contract.TEST
 APK_HASHES = {
-    APP: "ca9692fcd700e0307d9269827f6b4906c28d2c411069d8a4200ab55e85989709",
+    APP: "83797af66672e5bab89e17d53339478eb7c57bee66773c9c72edd13466911a8a",
     TEST: "e5d09b0f436237b51c647b4cc43a74e8f76b08bfdfe045907aa89ee6724f359d",
 }
 SOURCE_FILES = ("benchmarks/receipt_setup_qualification.py", "benchmarks/receipt_avd_environment.py",

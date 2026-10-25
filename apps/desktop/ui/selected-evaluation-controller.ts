@@ -273,40 +273,53 @@ export class SelectedEvaluationController {
         if (!this.retired.has(client)) return;
         const existing = this.releasing.get(client);
         if (existing) return existing;
-        const reply = this.replies.get(client) ?? 0;
         const work = (async () => {
-            try {
-                const value = checkedSelectedStatus(
-                    await this.call("close", { clientId: client }),
-                    client,
+            for (let count = 0; count < MAX_STATUS_POLLS; count++) {
+                const reply = this.replies.get(client) ?? 0;
+                try {
+                    const value = checkedSelectedStatus(
+                        await this.call("close", { clientId: client }),
+                        client,
+                    );
+                    if (
+                        value.phase === "closed" &&
+                        !value.running &&
+                        !value.cleanup_required &&
+                        !this.inFlight.get(client) &&
+                        (this.replies.get(client) ?? 0) === reply
+                    ) {
+                        this.retired.delete(client);
+                        this.sent.delete(client);
+                        this.replies.delete(client);
+                        this.expected.delete(client);
+                        if (!this.disposed) this.patch({});
+                        return;
+                    }
+                    // Revoking presentation does not finish a worker. Recheck only
+                    // this captured owner until Rust acknowledges its actual drain.
+                    // A cleanup failure remains retained for explicit recovery.
+                    if (value.phase !== "closed" || value.cleanup_required)
+                        return;
+                } catch (error) {
+                    // Unknown means this exact client has no native presentation owner;
+                    // cleanup_status remains a separate native worker-retention check.
+                    if (
+                        category(error) === "UnknownEvaluationRun" &&
+                        !this.inFlight.get(client) &&
+                        (this.replies.get(client) ?? 0) === reply
+                    ) {
+                        this.retired.delete(client);
+                        this.sent.delete(client);
+                        this.replies.delete(client);
+                        this.expected.delete(client);
+                        if (!this.disposed) this.patch({});
+                    }
+                    return;
+                }
+                if (this.disposed) return;
+                await new Promise<void>((resolve) =>
+                    setTimeout(resolve, POLL_MS),
                 );
-                if (
-                    value.phase === "closed" &&
-                    !value.running &&
-                    !value.cleanup_required &&
-                    !this.inFlight.get(client) &&
-                    (this.replies.get(client) ?? 0) === reply
-                ) {
-                    this.retired.delete(client);
-                    this.sent.delete(client);
-                    this.replies.delete(client);
-                    this.expected.delete(client);
-                    if (!this.disposed) this.patch({});
-                }
-            } catch (error) {
-                // Unknown means this exact client has no native presentation owner;
-                // cleanup_status remains a separate native worker-retention check.
-                if (
-                    category(error) === "UnknownEvaluationRun" &&
-                    !this.inFlight.get(client) &&
-                    (this.replies.get(client) ?? 0) === reply
-                ) {
-                    this.retired.delete(client);
-                    this.sent.delete(client);
-                    this.replies.delete(client);
-                    this.expected.delete(client);
-                    if (!this.disposed) this.patch({});
-                }
             }
         })();
         this.releasing.set(client, work);

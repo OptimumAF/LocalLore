@@ -737,33 +737,61 @@ fn guard_only_rows_have_real_equal_edges_and_honest_optional_missing_evidence() 
                 .find(|r| r["row"] == json!({"turn":id.turn,"arm":arm_name(arm)}))
                 .unwrap();
             assert_eq!(found["receipt_available"], false);
-            for (request, reason, edge) in [
-                (
-                    desktop_api::EvidenceRequest::Receipt {
-                        observer: Observer::Omniscient,
-                    },
-                    "no_accepted_receipt",
-                    json!("after"),
+            let receipt = desktop_api::evidence(
+                &opened,
+                binding(&summary),
+                &id,
+                desktop_api::EvidenceRequest::Receipt {
+                    observer: Observer::Omniscient,
+                },
+                true,
+            )
+            .unwrap();
+            envelope(
+                &receipt,
+                binding(&summary),
+                &id,
+                &cp,
+                Observer::Omniscient,
+                json!("after"),
+            );
+            assert_eq!(
+                receipt["body"],
+                json!({"kind":"missing","reason":"no_accepted_receipt"})
+            );
+            let capture = desktop_api::evidence(
+                &opened,
+                binding(&summary),
+                &id,
+                desktop_api::EvidenceRequest::Capture {
+                    observer: Observer::Omniscient,
+                },
+                true,
+            )
+            .unwrap();
+            envelope(
+                &capture,
+                binding(&summary),
+                &id,
+                &cp,
+                Observer::Omniscient,
+                Value::Null,
+            );
+            match cp["capture_file"].as_str() {
+                Some(name) => {
+                    // A guard can retain an actual attempt record with no
+                    // context artifacts. Do not relabel existing bytes missing.
+                    let recorded = read_json(&directory.join(arm_name(arm)).join(name));
+                    assert_eq!(recorded["data"]["details"]["artifacts"], json!([]));
+                    assert_eq!(
+                        capture["body"],
+                        json!({"kind":"capture","capture":recorded})
+                    );
+                }
+                None => assert_eq!(
+                    capture["body"],
+                    json!({"kind":"missing","reason":"capture_unavailable"})
                 ),
-                (
-                    desktop_api::EvidenceRequest::Capture {
-                        observer: Observer::Omniscient,
-                    },
-                    "capture_unavailable",
-                    Value::Null,
-                ),
-            ] {
-                let reply =
-                    desktop_api::evidence(&opened, binding(&summary), &id, request, true).unwrap();
-                envelope(
-                    &reply,
-                    binding(&summary),
-                    &id,
-                    &cp,
-                    Observer::Omniscient,
-                    edge,
-                );
-                assert_eq!(reply["body"], json!({"kind":"missing","reason":reason}));
             }
             let reply = desktop_api::evidence(
                 &opened,
@@ -917,8 +945,10 @@ fn opening_requires_existing_unheld_lock_and_never_creates_a_missing_run_or_lock
         ordinary_error(desktop_api::open_read_only(&directory)),
         "RunBusy"
     );
-    assert!(inventory(&directory) == before);
     drop(lock);
+    // Windows byte-range locks prevent even this test's other handle from
+    // reading run.lock. Compare every byte after releasing, not while locked.
+    assert!(inventory(&directory) == before);
     let opened = desktop_api::open_read_only(&directory).unwrap();
     assert_eq!(
         ordinary_error(desktop_api::open_read_only(&directory)),

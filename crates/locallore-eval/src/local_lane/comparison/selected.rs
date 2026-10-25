@@ -139,9 +139,9 @@ fn source_inputs(
         Some(reference)
     } else { None };
     let mut before = Vec::with_capacity(2);
-    for arm in 0..2 {
+    for (arm, arm_name) in ARM_NAMES.iter().enumerate() {
         let stored = snapshot.turns[arm].get(selection.index).ok_or("UnknownRow")?;
-        let full = engine(&database(&dir.join(ARM_NAMES[arm]), selection.index,
+        let full = engine(&database(&dir.join(arm_name), selection.index,
             snapshot.manifest.kind), &corpus.seed().scope)?;
         if full.domain_version() != 1 || full.seed() != corpus.seed() {
             return Err("SelectedInput".into());
@@ -249,6 +249,64 @@ struct Destination {
     _lock: File,
 }
 
+#[cfg(windows)]
+fn link_count(file: &File) -> Result<u64> {
+    use std::os::windows::io::AsRawHandle;
+    // Stable Win32 ABI, without the nightly-only MetadataExt::number_of_links.
+    // https://learn.microsoft.com/en-us/windows/win32/api/fileapi/ns-fileapi-by_handle_file_information
+    #[repr(C)]
+    #[derive(Default)]
+    struct Information {
+        attributes: u32,
+        creation: [u32; 2],
+        access: [u32; 2],
+        write: [u32; 2],
+        volume: u32,
+        size_high: u32,
+        size_low: u32,
+        links: u32,
+        index_high: u32,
+        index_low: u32,
+    }
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        #[link_name = "GetFileInformationByHandle"]
+        fn information(handle: std::os::windows::io::RawHandle, output: *mut Information) -> i32;
+    }
+    let mut output = Information::default();
+    // SAFETY: the live File owns this handle; output has the documented C layout
+    // and writable size for BY_HANDLE_FILE_INFORMATION throughout the call.
+    if unsafe { information(file.as_raw_handle(), &mut output) } == 0 {
+        return Err("Io".into());
+    }
+    Ok(u64::from(output.links))
+}
+#[cfg(unix)]
+fn link_count(file: &File) -> Result<u64> {
+    use std::os::unix::fs::MetadataExt;
+    Ok(file.metadata().map_err(|_| "Io")?.nlink())
+}
+#[cfg(not(any(windows, unix)))]
+fn link_count(_file: &File) -> Result<u64> {
+    Err("UnsupportedPlatform".into())
+}
+
+fn single_link_file(path: &Path) -> Result<()> {
+    ordinary(path)?;
+    let mut options = OpenOptions::new();
+    options.read(true);
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        options.share_mode(3).custom_flags(0x0020_0000);
+    }
+    let file = options.open(path).map_err(|_| "Io")?;
+    if !file.metadata().map_err(|_| "Io")?.is_file() || link_count(&file)? != 1 {
+        return Err("AliasedDestination".into());
+    }
+    Ok(())
+}
+
 fn pin_selected(dir: &Path) -> Result<Vec<File>> {
     let mut pins = crate::local_lane::desktop_api::pin_directory(dir)?;
     let mut count = 0usize;
@@ -270,11 +328,14 @@ fn pin_selected(dir: &Path) -> Result<Vec<File>> {
                 if !child.file_type().map_err(|_| "Io")?.is_file() {
                     return Err("SelectedDirectory".into());
                 }
+                single_link_file(&child.path())?;
             }
         } else if !["selected.json", "run.lock", "report.json", "report.html"]
             .iter().any(|known| name == *known)
         {
             return Err("SelectedDirectory".into());
+        } else {
+            single_link_file(&entry.path())?;
         }
     }
     Ok(pins)

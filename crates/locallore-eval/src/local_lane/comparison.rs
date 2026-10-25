@@ -2175,7 +2175,13 @@ mod selected_recovery_tests {
                 }
                 ledger.finish().unwrap();
             }
-            Self { directory, path, binding, profile, produced }
+            Self {
+                directory,
+                path,
+                binding,
+                profile,
+                produced,
+            }
         }
 
         fn recover(&self, full: &Engine, index: usize) -> Result<Option<StoredTurn>> {
@@ -2224,16 +2230,26 @@ mod selected_recovery_tests {
         let recovered = fixture.recover(&full, 0).unwrap().unwrap();
         assert_eq!(recovered.request, *actual.request());
         assert_eq!(recovered.row.phase, "committed");
-        assert_eq!(recovered.row.actual_receipt_sha256,
-            Some(digest(&encode(&actual).unwrap())));
-        assert_eq!(recovered.row.actual_receipt_sha256,
-            fixture.produced[0].row.actual_receipt_sha256);
-        assert_eq!(recovered.row.input_semantic_sha256,
-            fixture.produced[0].row.input_semantic_sha256);
-        assert_eq!(recovered.row.output_semantic_sha256,
-            fixture.produced[0].row.output_semantic_sha256);
-        assert_eq!(recovered.row.mechanical_sha256,
-            fixture.produced[0].row.mechanical_sha256);
+        assert_eq!(
+            recovered.row.actual_receipt_sha256,
+            Some(digest(&encode(&actual).unwrap()))
+        );
+        assert_eq!(
+            recovered.row.actual_receipt_sha256,
+            fixture.produced[0].row.actual_receipt_sha256
+        );
+        assert_eq!(
+            recovered.row.input_semantic_sha256,
+            fixture.produced[0].row.input_semantic_sha256
+        );
+        assert_eq!(
+            recovered.row.output_semantic_sha256,
+            fixture.produced[0].row.output_semantic_sha256
+        );
+        assert_eq!(
+            recovered.row.mechanical_sha256,
+            fixture.produced[0].row.mechanical_sha256
+        );
         assert!(recovered.row.recovered_without_checkpoint);
         assert!(!recovered.row.roles_known);
         assert!(!recovered.row.context_evidence_available);
@@ -2245,8 +2261,10 @@ mod selected_recovery_tests {
         assert!(recovered.row.role_metrics.is_none());
         assert!(recovered.row.first_final_response_ms.is_none());
         assert!(recovered.row.commit_elapsed_ms.is_none());
-        assert_eq!(encode(&fixture.recover(&full, 0).unwrap().unwrap()).unwrap(),
-            encode(&recovered).unwrap());
+        assert_eq!(
+            encode(&fixture.recover(&full, 0).unwrap().unwrap()).unwrap(),
+            encode(&recovered).unwrap()
+        );
         let reopened = engine(&fixture.path, full.scope()).unwrap();
         assert_eq!(reopened.receipts(), full.receipts());
         assert_eq!(reopened.state(), full.state());
@@ -2271,7 +2289,9 @@ mod selected_recovery_tests {
             binding: &fixture.binding,
             step: &corpus.steps()[0],
             profile: &fixture.profile,
-        }).unwrap().is_none());
+        })
+        .unwrap()
+        .is_none());
         assert!(!absent.exists());
         assert_eq!(inventory(&fixture.directory), before_files);
     }
@@ -2288,11 +2308,26 @@ mod selected_recovery_tests {
         assert_eq!(earlier.after_head, original.after_head);
         assert!(earlier.after_head < full.revision());
         assert_eq!(earlier.request, original.request);
-        assert_eq!(earlier.row.actual_receipt_sha256, original.row.actual_receipt_sha256);
-        assert_eq!(earlier.row.input_semantic_sha256, original.row.input_semantic_sha256);
-        assert_eq!(earlier.row.output_semantic_sha256, original.row.output_semantic_sha256);
-        assert_eq!(earlier.row.mechanical_sha256, original.row.mechanical_sha256);
-        assert_eq!(engine(&fixture.path, full.scope()).unwrap().receipts(), full.receipts());
+        assert_eq!(
+            earlier.row.actual_receipt_sha256,
+            original.row.actual_receipt_sha256
+        );
+        assert_eq!(
+            earlier.row.input_semantic_sha256,
+            original.row.input_semantic_sha256
+        );
+        assert_eq!(
+            earlier.row.output_semantic_sha256,
+            original.row.output_semantic_sha256
+        );
+        assert_eq!(
+            earlier.row.mechanical_sha256,
+            original.row.mechanical_sha256
+        );
+        assert_eq!(
+            engine(&fixture.path, full.scope()).unwrap().receipts(),
+            full.receipts()
+        );
         assert_eq!(inventory(&fixture.directory), before_files);
     }
 }

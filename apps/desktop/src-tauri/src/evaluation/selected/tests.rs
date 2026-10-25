@@ -11,6 +11,8 @@ use std::sync::{atomic::Ordering, OnceLock};
 mod execution_receipt_review_tests;
 #[path = "open_replacement_review_tests.rs"]
 mod open_replacement_review_tests;
+#[path = "resume_completed_review_tests.rs"]
+mod resume_completed_review_tests;
 #[path = "shutdown_handoff_review_tests.rs"]
 mod shutdown_handoff_review_tests;
 #[path = "transfer_close_review_tests.rs"]

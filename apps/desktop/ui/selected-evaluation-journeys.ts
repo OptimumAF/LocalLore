@@ -59,8 +59,36 @@ export async function selectedEvaluationJourneys({
             | "hold-consent"
             | "release-consent"
             | "deny-consent"
-            | "lose-start-ack",
+            | "lose-start-ack"
+            | "consent-status",
     ) => invoke("harness_selected_case", { scenario });
+    const heldConsent = async (name: string) => {
+        failedCheck = name;
+        const deadline = Date.now() + 60_000;
+        while (Date.now() < deadline) {
+            const state = (await fault("consent-status")) as {
+                version?: number;
+                kind?: string;
+                synthetic?: boolean;
+                active?: boolean;
+                held?: boolean;
+            };
+            if (
+                state.version !== 1 ||
+                state.kind !== "selected_fixture" ||
+                state.synthetic !== true ||
+                typeof state.active !== "boolean" ||
+                typeof state.held !== "boolean"
+            )
+                throw Error("SelectedConsentObservationInvalid");
+            if (state.active && state.held) {
+                check(true, name);
+                return;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        throw Error("SelectedConsentEntryTimeout");
+    };
     const lens = async (observer: ObserverV2) => {
         r.setObserver(observer); // same normal panel prop route, not a fake controller context
         await until(
@@ -159,7 +187,11 @@ export async function selectedEvaluationJourneys({
             document.querySelector(selector) ??
             panel
         )?.scrollIntoView({ block: "start" });
+        const timerStarted = performance.now();
         await new Promise((resolve) => setTimeout(resolve, 150));
+        const testTimerObservedMs = Math.round(
+            performance.now() - timerStarted,
+        );
         const state = s.get(),
             evidence = state.evidence;
         const inspectedArm = evidence
@@ -245,6 +277,8 @@ export async function selectedEvaluationJourneys({
                 width: innerWidth,
                 userAgent: navigator.userAgent,
                 devicePixelRatio,
+                testTimerRequestedMs: 150,
+                testTimerObservedMs,
                 horizontalOverflow: overflow,
                 nestedOverflow: nested,
             },
@@ -635,6 +669,7 @@ export async function selectedEvaluationJourneys({
         );
         const consentClient = s.get().clientId,
             consentOp = s.get().status?.operation_id;
+        await heldConsent("native-consent-callback-actually-entered-and-held");
         await capture("selected-consent-pending");
         await lens({ kind: "character", id: "mira" });
         check(
@@ -696,6 +731,9 @@ export async function selectedEvaluationJourneys({
         await until(
             () => s.get().status?.running === true,
             "context-retirement-consent-pending",
+        );
+        await heldConsent(
+            "native-context-retirement-consent-actually-entered-and-held",
         );
         c.returnToPlay();
         check(

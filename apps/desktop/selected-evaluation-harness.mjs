@@ -207,6 +207,10 @@ for (const stage of ["initial", "restart"]) {
             LOCALLORE_D02_ARTIFACT_DIR: directory,
             LOCALLORE_TEST_WORKSPACE: path.join(folder, "stories-v1.sqlite"),
             LOCALLORE_TEST_RESTART: stage === "restart" ? "1" : "0",
+            // Fixed development-only scheduling control for this hidden app.
+            // No registry, debugger endpoint or production browser flag.
+            WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:
+                "--disable-background-timer-throttling",
         },
         660000,
     );
@@ -221,7 +225,7 @@ for (const stage of ["initial", "restart"]) {
     );
     assert(
         Array.isArray(report.checks) &&
-            report.checks.length >= (stage === "restart" ? 158 : 152),
+            report.checks.length >= (stage === "restart" ? 160 : 154),
         `FrozenCheckCount:${stage}`,
     );
     const expectedLabels =
@@ -301,6 +305,7 @@ const qualification = {
     desktopInput: false,
     nativeDialogsAutomated: false,
     modelExecution: false,
+    requestedTestBrowserArguments: ["--disable-background-timer-throttling"],
     executions,
     reports,
     fixtureInventory: expectedFixtures,

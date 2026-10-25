@@ -17,6 +17,13 @@ pub struct SelectedHarness {
     hold: AtomicBool,
     deny: AtomicBool,
     lost_ack: AtomicBool,
+    consent_active: AtomicBool,
+}
+struct ActiveConsent<'a>(&'a AtomicBool);
+impl Drop for ActiveConsent<'_> {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::SeqCst);
+    }
 }
 pub fn active() -> bool {
     crate::comparison_reader_harness::active()
@@ -82,6 +89,8 @@ pub fn consent(
     let parent = checked_workspace(workspace)?;
     let _pins = crate::archive::pin(parent)?;
     metadata_kind(metadata)?;
+    state.consent_active.store(true, Ordering::SeqCst);
+    let _active = ActiveConsent(&state.consent_active);
     let started = Instant::now();
     while state.hold.load(Ordering::SeqCst) {
         if !active() {
@@ -112,6 +121,7 @@ enum Scenario {
     ReleaseConsent,
     DenyConsent,
     LoseStartAck,
+    ConsentStatus,
 }
 fn scenario(value: &str) -> Result<Scenario, String> {
     match value {
@@ -119,6 +129,7 @@ fn scenario(value: &str) -> Result<Scenario, String> {
         "release-consent" => Ok(Scenario::ReleaseConsent),
         "deny-consent" => Ok(Scenario::DenyConsent),
         "lose-start-ack" => Ok(Scenario::LoseStartAck),
+        "consent-status" => Ok(Scenario::ConsentStatus),
         _ => Err("InvalidEvaluationInput".into()),
     }
 }
@@ -139,6 +150,10 @@ fn apply(state: &SelectedHarness, scenario: Scenario) -> Value {
         Scenario::LoseStartAck => {
             state.lost_ack.store(true, Ordering::SeqCst);
             "lose-start-ack"
+        }
+        Scenario::ConsentStatus => {
+            return json!({"version":1,"kind":"selected_fixture","synthetic":true,
+            "scenario":"consent-status","active":state.consent_active.load(Ordering::SeqCst),"held":state.hold.load(Ordering::SeqCst)})
         }
     };
     // This acknowledges only that a fixed flag was armed/released, not that a

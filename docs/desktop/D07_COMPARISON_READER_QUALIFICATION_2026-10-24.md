@@ -311,3 +311,95 @@ The follow-up sole-document claim
 [#29 comment6393755038](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6393755038)
 returns to Root. The commit chain stays on the isolated documentation branch
 above `f1117632`; the documentation agent does not cherry-pick into Root.
+
+## Root follow-up qualification — 2026-10-25
+
+The historical test is no longer merely ignored: Root explicitly opts into the
+genuine retained original33356 rollout, without generating, repairing, relabeling
+or executing it. At clean `a9c95e6bccecd2087d95f5a65fc774f9bf367611`:
+
+- `comparison_desktop_review --ignored`: **1 passed**, 8 filtered, 11.16s.
+  The new capability's summary preserves the original report and every original
+  file byte, reports historical source mismatch, and grants no execution.
+- `comparison_historical_readonly --ignored`: **1 passed**, 0 filtered, 3.19s.
+  The older pre-forwarded-budget report remains viewable and cannot resume.
+- Whole command compilation7.60s; actual process05:26:57.4527322Z→05:27:20.5902598Z.
+  This is historical read validation, not new historical-model generation.
+
+Preserved regressions at unchanged clean `ddcecbbc` also pass:
+
+| Target | Passed | Ignored | Test time |
+| --- | ---: | ---: | ---: |
+| `comparison_resume_basis_review` | 5 | 0 | 592.00s |
+| `comparison_runner` | 9 | 0 | 253.41s |
+| `memory_comparison` | 12 | 0 | 11.64s |
+| `memory_comparison_v2` | 3 | 0 | 0.03s |
+| `comparison_historical_readonly` default | 0 | 1 | 0.00s |
+| `curated_integration_review` default | 0 | 1 | 0.00s |
+
+Thus29 actual passes and2 explicit opt-in ignores, across6 targets. Build4.04s;
+process05:08:57.8135867Z→05:23:21.7882664Z. The first default historical ignore
+is subsequently exercised above. The separate historical curated-v2.2/schema2
+test remains unrun by this cohort; its old fixture is not synthesized here.
+
+Independent frozen private edge guards `6d0cb83f` are adopted as `8dbed0f0`,
+registered at `a9c95e6b`, then actually pass **4/4**, 47 other library tests
+filtered, 4.22s/build5.72s. The positive obtains actual producer Store engines,
+cuts actual before/after revisions and queries those immutable engines. Three
+negative cases use genuinely Core-accepted alternative histories to isolate
+the input-prefix, semantic-output and mechanical fingerprints independently.
+They do not deserialize an accepted receipt or plant canonical SQL.
+
+The first formatter check at clean `a9c95e6b` exits1 for this newly frozen
+unformatted test file. Formatting-only `23c769b7` preserves its assertions.
+First strict Clippy then exits101 on its `.err().expect()` helper. Root fixes
+that helper with an explicit result match at
+`b582f501bf0b4d89975ecfc915a1f88c3596cbe2`, preserving the same failure oracle
+and avoiding any new Debug requirement or lint allowance. Corrected formatter
+and all-target/local-model strict Clippy both exit0; Clippy finishes5.71s.
+
+At the same cleanb582, the **entire evaluator library** runs **50 passed,
+0 failed,1 ignored,0 filtered**,52.12s. This includes all4 private edge tests,
+clock/admission/unknown-reservation/forwarded-budget checks, curated reader,
+actual deterministic regression injection and restoration. The expected caught
+synthetic poison panic and injected retrieval/forwarding failures appear in the
+retained log and their tests pass. They are not unhandled product failures.
+The one ignored test needs explicitly approved pre-owned native assets; no new
+model assets, provider execution or ownership qualification is inferred here.
+
+All commands below are actual, locked/offline, one-job, serial-test commands
+using the same owned target/environment described earlier:
+
+```text
+cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --target-dir <owned-target> --test comparison_runner --test memory_comparison_v2 --test comparison_resume_basis_review --test comparison_historical_readonly --test curated_integration_review --test memory_comparison -- --nocapture --test-threads=1
+cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --target-dir <owned-target> --lib local_lane::comparison::desktop_api::tests:: -- --nocapture --test-threads=1
+# Explicit LOCALLORE_D07_HISTORICAL_COHORT points at the genuine retained original.
+cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --target-dir <owned-target> --test comparison_desktop_review --test comparison_historical_readonly -- --ignored --nocapture --test-threads=1
+cargo fmt --manifest-path crates/locallore-eval/Cargo.toml -- --check
+cargo clippy --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --target-dir <owned-target> --all-targets -- -D warnings
+cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --target-dir <owned-target> --lib -- --nocapture --test-threads=1
+```
+
+Every following completed process record reports clean start, terminal status,
+unchanged source and the exact command/source/timestamps/exit. Logs and records
+remain local and immutable:
+
+| Log stem | Exit | Log bytes | Log SHA256 | Process-record SHA256 |
+| --- | ---: | ---: | --- | --- |
+| `d07-reader-preserved-regressions` | 0 | 4843 | `9bf904c75368532b82995ccf66e045d813b52010a6516a9d7f59a7bcca923d38` | `0e491cd19d42fa2c3d62c2782113571852a8d0d89b18beeb01403dc7d0bd55b9` |
+| `d07-reader-edges-first` | 0 | 1042 | `0034fefc759de590cac1323578d2398a1b4ff89df37abd7805ca865c15db57b0` | `a5dc8525d7cfb101726af5b339ce8b8e333b71238bf2df12f20bc2164be10557` |
+| `d07-reader-historical-first` | 0 | 1035 | `444c30ed3332026353ff4e4b7b0cd8d3625c2a4691edd7f4a11a885af72d86c4` | `aeef03dcad881aca3dc1ae35078f0dc2e2c82885ef0c96a7e2250c2a22a64d9a` |
+| `d07-reader-format-first` | 1 | 15988 | `f9ee3592367fc862508ac063d48933a3c240062d799ae9022f8c4487fb535f5c` | `0e6bc040ff6eb28ae8e8a60bf203cc0b5e2c6f8d1462fceb44925ac0d886c407` |
+| `d07-reader-clippy-first` | 101 | 2141 | `91a37ae3fe7ea2b6b480d2fdf4896a0c3d9e1b9ef5acaff14469addf5aff9531` | `91ad7b2de7854794104c50f4ae9fc0c6fe6b1c945e2826432b70d47a2aa2db1c` |
+| `d07-reader-clippy-corrected` | 0 | 211 | `3756fea9b302b3b850d71f89678b459bbe2376246a7329abedaec77f94697ed3` | `9f2b718126bf10ae8a4ca48e4676714c5fd7bf0edf53035400c1f8c2f489c9f2` |
+| `d07-reader-format-corrected` | 0 | 0 | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` | `445b135acf4987a1d02de4a35784f1e1811ffefbccbf4091db1d3db677947c6a` |
+| `d07-reader-library-final` | 0 | 7352 | `ea457f6ef5139bdb27c501bb6c3eb28507fb425ef42de4e1b36714a3e824270c` | `801bc1ec0a5c2eb1bb8fdf004302ef879ad5b046d92446582208f6765c5c2ad8` |
+
+Root subsequently integrates the separately frozen native/frontend contract on
+`impl/d07-comparison-native-ui`. Its frontend checker first reports67 checks,
+normal build and TypeScript pass; the full frontend verifier subsequently passes
+at clean `034905ca81b698d9429af4d691f5c06177de231c`. These synthetic transport,
+decoder/controller and existing headless checks are not native IPC/render proof.
+The first native reader compilation is currently pending there. Native ownership,
+IPC, images, Android compatibility, final review and selected execution remain
+separate gates; this reader qualification closes no D07 checklist item.

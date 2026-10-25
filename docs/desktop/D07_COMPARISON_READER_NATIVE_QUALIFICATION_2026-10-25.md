@@ -11,7 +11,8 @@ commands use `<task-root>`, `<artifact-root>`, `<source>` and `<node24>` placeho
 IPC, per-capture semantic assertions and delegated visible-area review:**
 108 recorded check entries, 30 actual WebView2 PNGs and unchanged original
 fixture bytes across both stages. Final production frontend/build/format/Clippy
-checks at that source remain pending. The earlier `6c2caf2a` cohort is preserved
+checks subsequently passed at exact `f2b148a0`, recorded below; these are not
+relabeled as checks executed at566. The earlier `6c2caf2a` cohort is preserved
 with its top-level semantic defect and distinct 100 entries / 26 PNGs; its
 evidence is not relabelled as the newer cohort. Neither cohort establishes model
 quality, selected-case execution, Android runtime behavior, human approval or
@@ -494,14 +495,13 @@ earlier mutable progress file is not used as immutable qualification evidence.
 ## Remaining gates and next runnable work
 
 No phone/emulator, Android device/JNI runtime or desktop/Android semantic parity
-result is inferred from the completed compatibility work. Final full frontend,
-format, strict Clippy and normal production frontend/executable restoration at
-source566 have not yet been run in the evidence supplied to this followup. They
-need their own exact source and logs; earlier verifier/lint results are not
-silently relabelled as final566 checks or as a claim about the dev executable.
+result is inferred from the completed compatibility work. At the `6c8cd316`
+documentation handoff, final production checks/restoration had not yet run.
+Their later exact source and logs are recorded in the following supplement;
+earlier results are not relabeled as those checks or a claim about the dev binary.
 
-Next: Root runs those remaining final production checks/restoration, records
-their source-bound results, and updates PR #157's reviewable evidence. The native
+At that handoff, the next step was final production restoration and PR evidence.
+Those checks are now recorded below. The native
 semantic2/30-image cohort and delegated visual review are now completed as
 recorded above; the first failed cohorts and old6c metadata defect stay retained.
 Selected-case rerun and comparison execution remain explicitly unavailable;
@@ -511,3 +511,64 @@ Source matching permits inspection, not execution or model-quality approval.
 No real model, hosted judge, downloads, user-private story or protected chat was
 used in these checks. D07 and its human-review/quality/selected-execution gates
 remain open.
+
+## Final normal-build restoration — executed at f2b148a0
+
+At clean `f2b148a024f3c510c3f0c51372afca73a710d012`, Root runs the full frontend
+verifier, frontend format check, Rust format check, all-target/all-feature strict
+native Clippy, and a normal native build **without** `dev-harness`. All five
+commands exit0 with `terminalSourceUnchanged:true`. Source remains unchanged
+through the entire sequential pipeline; no app, model, device or desktop is
+launched by these commands. The normal frontend verifier includes67 synthetic
+reader checks,5 actual panel/controller callback cases and5 capability cases;
+these remain separate from actual native IPC and render evidence.
+
+The first frontend format attempt at566 reported only the appended frozen
+`check-comparison-main-review.mjs` style. Root applies Prettier to that checker
+without changing its assertions. Together with documentation attribution, this
+is the only `apps/` delta from566 to the final checkedf2 source; production UI,
+controller, native reader and shared Rust behavior are unchanged. The earlier
+format failure remains in `d07-comparison-format-first.log`.
+
+| Final stage | UTC start → end | Exit |
+| --- | --- | ---: |
+| Full frontend verifier + normal bundle/hook exclusion | 07:18:01.5157785 → 07:18:09.4731525 | 0 |
+| Frontend Prettier check | 07:18:09.5828967 → 07:18:11.8578938 | 0 |
+| Workspace Rust format check | 07:18:12.0015075 → 07:18:13.9590401 | 0 |
+| All-target/all-feature strict native Clippy | 07:18:14.0932265 → 07:18:25.6050183 | 0 |
+| Normal native build, default feature set | 07:18:25.7056123 → 07:18:44.3237286 | 0 |
+
+Exact reproductions use the same installed dependencies and source-owned target:
+
+```text
+# From apps/desktop:
+<node24> verify-frontend.mjs
+<node24> node_modules/prettier/bin/prettier.cjs --check "ui/*.{ts,tsx,html,css}" "*.{json,mjs}"
+# From repository root:
+cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all -- --check
+cargo clippy --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --jobs 1 --target-dir <owned-native-target> --all-targets --all-features -- -D warnings
+cargo build --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --jobs 1 --target-dir <owned-native-target>
+```
+
+The normal build prints18.41s. Its output is a compiled Windows debug executable,
+not a released package or a claim that a normal visible window was launched:
+
+| Restored normal artifact | Bytes | SHA256 |
+| --- | ---: | --- |
+| `dist/app.js` | 525441 | `f387418355885ecb025326284ea767a03c008215ff2e66d01795e220a634d0a2` |
+| `locallore-desktop-spike.exe` | 32004608 | `edd5b41593dcda3c5e15bbea048df1b0ff2163bb88454ccb09a6e71433ffbe79` |
+
+| Final local evidence | Bytes | SHA256 |
+| --- | ---: | --- |
+| `d07-final-production-frontend.log` | 22978 | `32a1137ae707f7d06eedf39e686a5a34a4948152b5e4248cedc350ce4e1348ed` |
+| `d07-final-production-frontend-format.log` | 68 | `f20510a9da4717c51c4cffee6d0dd88d6c9a723d0a83711d01216f5b48961283` |
+| `d07-final-production-rust-format.log` | 0 | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| `d07-final-production-native-clippy.log` | 744 | `5be8da39d80948ef4cfe19f2c224b9b1e801353c0dd8355679e14bd46567a3c7` |
+| `d07-final-production-native-normal-build.log` | 744 | `0bc03baf5bffc4e807a6766ad6ed64559ad8f0ac3262079cdfa9bfb6305fd29d` |
+| `d07-final-production-results.json` | 2769 | `18f18a4344978134fb111b3ab16bc2be2aab1f405631a1389841c3ee04fe97e2` |
+| `d07-final-production-build-artifacts.json` | 456 | `2eb4a80cff2fac47ae0ceab6b1a1b85acb14ee376153c643d82feb9621c3f1fb` |
+
+This final supplement changes only documentation. Reader UI evidence is ready
+for the focused PR review gate; selected-case execution, whole comparison
+execution in the GUI, human quality assessment and the remaining D07/desktop
+milestone gates remain open. No owner acceptance or merge is fabricated here.

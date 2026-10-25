@@ -119,6 +119,24 @@ class TokenizerLauncherTests(unittest.TestCase):
         self.assertEqual(code, 2); extract.assert_not_called()
         self.assertEqual(json.loads(output.getvalue())["reason"], "owner_barrier")
 
+    def test_publication_rechecks_private_ancestry_after_source_passes(self):
+        original = s.full_hash
+        def changed(source, size):
+            result = original(source, size)
+            (self.root / ".git").mkdir(exist_ok=True)
+            return result
+        with mock.patch.object(s, "full_hash", side_effect=changed), \
+                self.assertRaisesRegex(s.SelectedTokenizerRefused, "private_output_required"):
+            s.extract(self.proposal, self.auth)
+        self.assertFalse(self.output.exists())
+
+    def test_nonregular_and_oversized_grants_refuse_before_open(self):
+        for path in (self.root, self.root / "oversized.json"):
+            if path != self.root: path.write_bytes(b" " * 65537)
+            with mock.patch.object(Path, "open", side_effect=AssertionError("must not open")), \
+                    self.assertRaisesRegex(s.SelectedTokenizerRefused, "invalid_json"):
+                s.read_json(path)
+
     def test_report_is_closed_bound_and_rehashed_not_accepted_by_a_status_word(self):
         valid = s.extract(self.proposal, self.auth)
         for key, wrong in (("version", True), ("source_verified_twice", 1), ("native_loaded", 0),

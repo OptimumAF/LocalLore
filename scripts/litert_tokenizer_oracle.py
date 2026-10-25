@@ -44,6 +44,9 @@ def pairs(rows):
 
 
 def read_json(path):
+    no_links(path)
+    info = path.lstat()
+    require(stat.S_ISREG(info.st_mode) and 0 < info.st_size <= 65536, "invalid_json")
     with path.open("rb") as source:
         raw = source.read(65537)
     require(len(raw) <= 65536, "invalid_json")
@@ -73,6 +76,13 @@ def private_output(value):
     return path
 
 
+def private_entry(path):
+    no_links(path)
+    require(path.is_absolute() and path == path.resolve() and path.parent.is_dir(), "unsafe_path")
+    require(not any((part / ".git").exists() for part in (path, *path.parents)), "private_output_required")
+    return path
+
+
 def module(name, relative):
     spec = importlib.util.spec_from_file_location(name, ROOT / relative)
     value = importlib.util.module_from_spec(spec)
@@ -86,6 +96,7 @@ def encoded(value):
 
 
 def create(path, raw):
+    private_entry(path)
     with path.open("xb") as output:
         output.write(raw); output.flush(); os.fsync(output.fileno())
 
@@ -134,6 +145,7 @@ def full_hash(source, size):
 
 
 def validate_report(value, proposal, output):
+    private_entry(output / "selection.json")
     keys = {"version", "scope", "status", "source_commit", "source_bytes", "source_sha256",
             "source_verified_twice", "container_version", "header_end", "section_count", "kind", "selection",
             "artifacts", "tokenizer_range", "metadata_range", "weight_payloads_published", "native_loaded"}
@@ -160,12 +172,13 @@ def validate_report(value, proposal, output):
     artifacts = value["artifacts"]
     names = {"selected-tokenizer.bin", "llm-metadata.pb"} | ({"tokenizer.json"} if value["kind"] == "HF_JSON" else set())
     require(type(artifacts) is dict and set(artifacts) == names, "worker_report_invalid")
+    require({p.name for p in output.iterdir()} == names | {"selection.json"}, "worker_report_invalid")
     for name, item in artifacts.items():
         cap = (128 if name == "tokenizer.json" else 32 if name == "selected-tokenizer.bin" else 1) * 1024 * 1024
         require(type(item) is dict and set(item) == {"bytes", "sha256"}
                 and type(item["bytes"]) is int and 0 < item["bytes"] <= cap
                 and type(item["sha256"]) is str and re.fullmatch(r"[a-f0-9]{64}", item["sha256"]), "worker_report_invalid")
-        path = output / name; no_links(path)
+        path = private_entry(output / name)
         require(path.is_file() and path.stat().st_size == item["bytes"], "worker_report_invalid")
         with path.open("rb") as source:
             require(full_hash(source, item["bytes"]) == item["sha256"], "worker_report_invalid")
@@ -192,6 +205,8 @@ def extract(proposal_path, authorization_path):
         require(full_hash(source, MODEL_BYTES) == MODEL_SHA256, "source_changed")
         require(integrity.fingerprint(opened) == integrity.fingerprint(os.fstat(source.fileno())), "source_changed")
     require(integrity.fingerprint(initial) == integrity.fingerprint(source_path.lstat()), "source_changed")
+    require(bool(selected.llm_metadata), "metadata_empty_eos")
+    private_output(str(output))
     output.mkdir()
     artifacts = {"selected-tokenizer.bin": selected.original_payload, "llm-metadata.pb": selected.llm_metadata}
     if selected.decoded_json is not None:
@@ -199,6 +214,7 @@ def extract(proposal_path, authorization_path):
     entries = {}
     for name, data in artifacts.items():
         create(output / name, data)
+        private_entry(output / name)
         require(sha((output / name).read_bytes()) == sha(data), "publication_failed")
         entries[name] = {"bytes": len(data), "sha256": sha(data)}
     report = {"version": 1, "scope": SCOPE, "status": "extracted", "source_commit": value["source_commit"],

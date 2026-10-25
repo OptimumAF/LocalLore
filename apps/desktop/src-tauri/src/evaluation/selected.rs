@@ -15,6 +15,10 @@ const TTL: Duration = Duration::from_secs(300);
 const CLIENTS: usize = 4;
 const SAFE: u64 = 9_007_199_254_740_991;
 const INDEX_CAP: usize = 32 * 1024;
+#[cfg(test)]
+thread_local! {
+    static SELECTED_START_PRECHECK_PAUSE: std::cell::RefCell<Option<(std::sync::mpsc::SyncSender<()>, std::sync::mpsc::Receiver<()>)>> = const { std::cell::RefCell::new(None) };
+}
 type Runtime = Arc<Mutex<locallore_local_runtime::LocalRuntime>>;
 type Consent = Box<dyn FnOnce(&Value) -> Result<bool> + Send>;
 
@@ -793,6 +797,11 @@ impl EvaluationManager {
         })?;
         if let Some(value) = duplicate {
             return Ok(value);
+        }
+        #[cfg(test)]
+        if let Some((entered, release)) = SELECTED_START_PRECHECK_PAUSE.with(|hook| hook.borrow_mut().take()) {
+            entered.send(()).map_err(|_| "EvaluationInternal")?;
+            release.recv_timeout(Duration::from_secs(5)).map_err(|_| "EvaluationInternal")?;
         }
         let client = client.to_owned();
         let token = token.to_owned();

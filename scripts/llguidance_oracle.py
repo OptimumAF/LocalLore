@@ -6,6 +6,7 @@ import argparse
 from email.parser import BytesParser
 import hashlib
 import io
+import importlib.util
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -227,6 +228,15 @@ def worker(mode, output, runtime):
         library = verify_runtime(runtime)
         command = [sys.executable, "-I", "-S", "-B", str(ROOT / "benchmarks/llguidance_oracle.py"),
                    "--corpus", str(output / "corpus.json"), "--module-root", str(library)]
+    elif mode == "literal":
+        library = verify_runtime(runtime)
+        command = [sys.executable, "-I", "-S", "-B", str(ROOT / "benchmarks/llguidance_literal_probe.py"),
+                   "--module-root", str(library)]
+    elif mode == "finite":
+        library = verify_runtime(runtime)
+        command = [sys.executable, "-I", "-S", "-B", str(ROOT / "benchmarks/llguidance_literal_probe.py"),
+                   "--corpus", str(output / "corpus.json"), "--regex-corpus", str(output / "regex-corpus.json"),
+                   "--module-root", str(library)]
     else:
         return 2
     return subprocess.call(command, cwd=str(ROOT), env=env)
@@ -289,31 +299,98 @@ def run(runtime, output, process_runner=None, reductions=False):
     return report
 
 
+def literal_probe(runtime, output, process_runner=None, finite_inputs=None):
+    verify_runtime(runtime)
+    output = private_path(output)
+    output.mkdir()
+    spec = importlib.util.spec_from_file_location("locallore_literal_validator", ROOT / "benchmarks/llguidance_literal_probe.py")
+    validator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(validator)  # Standard library only; native loading is explicit in child main.
+    if finite_inputs is not None:
+        contents = []
+        for path in finite_inputs:
+            no_links(Path(path).absolute())
+            with Path(path).open("rb") as stream:
+                contents.append(stream.read(1024 * 1024 + 1))
+        corpus, patterns = contents
+        validator.validate_pattern_corpus(patterns, corpus)
+        (output / "corpus.json").write_bytes(corpus)
+        (output / "regex-corpus.json").write_bytes(patterns)
+    mode = "literal" if finite_inputs is None else "finite"
+    if process_runner is None:
+        sys.path.insert(0, str(ROOT / "benchmarks"))
+        from runtime_spike import run_process
+        process_runner = run_process
+    result = process_runner([sys.executable, "-I", "-S", "-B", str(Path(__file__).resolve()),
+                             "_worker", mode, str(output), str(Path(runtime).absolute())],
+                            request=BARRIER, deadline=60, max_output=131072)
+    report = {"version": 1, "status": "failed", "wheel_sha256": WHEEL_SHA256,
+              "process_status": result.status, "elapsed_ms": result.elapsed_ms,
+              "returncode": result.returncode, "cleanup_complete": result.cleanup_complete,
+              "stdout_bytes": len(result.stdout), "stderr_bytes": result.stderr_bytes}
+    try:
+        checked = json.loads(result.stdout, object_pairs_hook=closed_pairs)
+    except (ValueError, UnicodeError):
+        checked = None
+    if finite_inputs is None:
+        valid = validator.validate_report(checked)
+    else:
+        valid = (type(checked) is dict and set(checked) == {"version", "scope", "pattern_corpus_sha256", "oracle"}
+                 and type(checked["version"]) is int and checked["version"] == 1
+                 and checked["scope"] == "locallore_finite_regex_oracle_v1"
+                 and checked["pattern_corpus_sha256"] == digest(patterns) and validate_report(checked["oracle"], corpus))
+    if result.status == "completed" and result.returncode in (0, 1) and result.cleanup_complete and valid:
+        if finite_inputs is None and result.returncode == 0:
+            (output / "probe.json").write_bytes(result.stdout)
+            report.update(status="observed", probe_sha256=digest(result.stdout))
+        elif finite_inputs is not None:
+            expected_code = 0 if checked["oracle"]["status"] == "passed" else 1
+            if result.returncode == expected_code:
+                (output / "oracle.json").write_bytes(result.stdout)
+                report.update(status=checked["oracle"]["status"], oracle_sha256=digest(result.stdout),
+                              corpus_sha256=digest(corpus), pattern_corpus_sha256=digest(patterns))
+    else:
+        (output / "rejected-probe.json").write_bytes(result.stdout)
+    report["source_sha256"] = {name: digest((ROOT / name).read_bytes()) for name in (
+        "benchmarks/llguidance_literal_probe.py", "scripts/llguidance_oracle.py", "benchmarks/llguidance_oracle.py")}
+    (output / "run.json").write_text(json.dumps(report, sort_keys=True) + "\n", encoding="utf-8")
+    return report
+
+
 def main(argv=None):
     parser = ClosedArguments(description=__doc__, allow_abbrev=False)
     commands = parser.add_subparsers(dest="command", required=True)
     setup = commands.add_parser("provision", allow_abbrev=False)
     setup.add_argument("--wheel", required=True)
     setup.add_argument("--runtime", required=True)
-    for name in ("run", "reduce"):
+    for name in ("run", "reduce", "literal"):
         check = commands.add_parser(name, allow_abbrev=False)
         check.add_argument("--runtime", required=True)
         check.add_argument("--output", required=True)
+    finite = commands.add_parser("finite", allow_abbrev=False)
+    for name in ("runtime", "output", "corpus", "patterns"):
+        finite.add_argument("--" + name, required=True)
     internal = commands.add_parser("_worker", help=argparse.SUPPRESS, allow_abbrev=False)
-    internal.add_argument("mode", choices=("build", "export", "check", "test", "clippy"))
+    internal.add_argument("mode", choices=("build", "export", "check", "literal", "finite", "test", "clippy"))
     internal.add_argument("output")
     internal.add_argument("runtime")
     try:
         args = parser.parse_args(argv)
         if args.command == "_worker":
             return worker(args.mode, args.output, args.runtime)
-        result = provision(args.wheel, args.runtime) if args.command == "provision" else run(
-            args.runtime, args.output, reductions=args.command == "reduce")
+        if args.command == "provision":
+            result = provision(args.wheel, args.runtime)
+        elif args.command == "literal":
+            result = literal_probe(args.runtime, args.output)
+        elif args.command == "finite":
+            result = literal_probe(args.runtime, args.output, finite_inputs=(args.corpus, args.patterns))
+        else:
+            result = run(args.runtime, args.output, reductions=args.command == "reduce")
         print(json.dumps(result, sort_keys=True))
-        return 0 if result["status"] in ("provisioned", "passed") else 1
+        return 0 if result["status"] in ("provisioned", "passed", "observed") else 1
     except OracleError as error:
         print(json.dumps({"version": 1, "status": "failed", "reason": str(error)}))
-    except (OSError, ValueError, KeyError, zipfile.BadZipFile):
+    except Exception:
         print(json.dumps({"version": 1, "status": "failed", "reason": "local_tool_failure"}))
     return 2
 

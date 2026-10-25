@@ -1,4 +1,5 @@
 /* Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0 */
+// Finite-schema codec source SHA-256: b89ba9aa332529a629e0f532f5d8e55997eef8f68229665f898eae53010af96f
 package org.locallore.app
 
 import com.google.ai.edge.litertlm.Backend
@@ -452,7 +453,7 @@ private class SdkLiteRtResources(
                                 }
                                 override fun onDone() = callbacks.done()
                                 override fun onError(throwable: Throwable) = observedLiteRtError(throwable, callbacks, statusTrace)
-                            }, request.maxTokens, ThinkingConfig(false, 0), ResponseFormat.json(request.schemaJson))
+                            }, request.maxTokens, ThinkingConfig(false, 0), liteRtResponseFormat(request.schemaJson))
                         }, dispatch = { arguments ->
                             // This is the public Kotlin call site, not an SDK body/JNI/native-entry
                             // observation. All application argument construction is complete above.
@@ -469,6 +470,10 @@ private class SdkLiteRtResources(
         }
     }
 }
+
+/** Encoding only: the original Rust schema/intent and commit validation remain authoritative. */
+internal fun liteRtResponseFormat(schemaJson: String): ResponseFormat =
+    finiteSchemaRegex(schemaJson)?.let { ResponseFormat.regex(it) } ?: ResponseFormat.json(schemaJson)
 
 /** Type identity only; no message, class name, stack, cause or hidden numeric status is read. */
 internal fun liteRtCallbackError(throwable: Throwable): LiteRtCallbackError = when (throwable) {

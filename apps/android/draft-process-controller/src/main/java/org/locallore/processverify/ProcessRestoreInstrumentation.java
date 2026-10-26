@@ -459,8 +459,8 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         StringBuilder invocation = new StringBuilder("export CLASSPATH=").append(quote(fixtureTestApk + ":" + productApk))
                 .append("; exec /system/bin/app_process / --nice-name=").append(PRODUCT).append(":retirement-fixture ").append(HELPER);
         for (String arg : args) invocation.append(' ').append(quote(arg));
-        String command = "run-as " + PRODUCT + " --user 0 sh -c " + quote(invocation.toString())
-                + " 2>&1; helper_rc=$?; printf '\\n" + HELPER_EXIT + "%d\\n' \"$helper_rc\"; exit 0";
+        String command = "( run-as " + PRODUCT + " --user 0 sh -c " + quote(invocation.toString())
+                + " 2>&1; helper_rc=$?; printf '\\n" + HELPER_EXIT + "%d\\n' \"$helper_rc\"; exit 0 )";
         long began = SystemClock.uptimeMillis();
         String raw = shell(command, PROBE_CAP + 64, transportOutput);
         String marker = "\n" + HELPER_EXIT;

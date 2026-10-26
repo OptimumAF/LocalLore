@@ -8,7 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -38,8 +38,8 @@ class BranchForkPanelTest {
         }
         compose.onNodeWithTag("fork-dialog").assertDoesNotExist()
         compose.runOnIdle { assertEquals(0, count); visible = true }
-        compose.onNodeWithTag("fork-parent").performScrollTo().assertTextContains("synthetic / main")
-        compose.onNodeWithTag("fork-child").performScrollTo().assertTextContains("fixed-child")
+        compose.onNodeWithTag("fork-parent").performScrollTo().assertTextEquals("Requested parent: synthetic / main")
+        compose.onNodeWithTag("fork-child").performScrollTo().assertTextEquals("Fixed child ID: fixed-child")
         compose.onNodeWithText("Author corrections are unavailable. This does not grant abilities, knowledge or edit existing facts.")
             .performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("fork-confirm").performScrollTo().assertIsNotEnabled().performClick()
@@ -58,7 +58,7 @@ class BranchForkPanelTest {
                     { consent -> assertTrue(consent); forgotten++ }, {}, {}, { forbidden++ })
             }
         }
-        compose.onNodeWithTag("fork-parent").performScrollTo().assertTextContains("synthetic / main")
+        compose.onNodeWithTag("fork-parent").performScrollTo().assertTextEquals("Requested parent: synthetic / main")
         compose.onNodeWithText("Current selection: other / root · head 4").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("fork-lookup-only").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("fork-confirm").assertDoesNotExist()
@@ -89,7 +89,7 @@ class BranchForkPanelTest {
             assertEquals(1, cancelled); assertEquals(0, closed); assertNull(resumed)
             state = state.copy(busy = false, outcome = outcome)
         }
-        compose.onNodeWithTag("fork-outcome").performScrollTo().assertTextContains("current head 3")
+        compose.onNodeWithTag("fork-outcome").performScrollTo().assertTextEquals("Existing fork found: synthetic / fixed-child · fork 2 · current head 3")
         compose.onNodeWithTag("fork-resume").performScrollTo().assertIsEnabled().performClick()
         compose.runOnIdle { assertSame(outcome, resumed) }
     }

@@ -19,6 +19,7 @@ ANDROID = "http://schemas.android.com/apk/res/android:"
 MAX_APK_BYTES = 32 * 1024 * 1024
 MAX_DUMP_BYTES = 256 * 1024
 MAX_ENTRIES = 256
+MAX_DEX_FILES = 4
 
 
 class AuditError(ValueError):
@@ -85,7 +86,7 @@ def _tree(text):
     for line in _lines(text):
         if not line:
             continue
-        if re.fullmatch(r' *N: android=http://schemas.android.com/apk/res/android', line):
+        if re.fullmatch(r' *N: android=http://schemas.android.com/apk/res/android(?: \(line=[0-9]{1,9}\))?', line):
             continue
         element = re.fullmatch(r'( *)E: ([A-Za-z0-9_-]+) \(line=[0-9]+\)', line)
         if element:
@@ -136,7 +137,7 @@ def _badging(text):
 
 def _archive(entries):
     require(type(entries) in (list, tuple) and 0 < len(entries) <= MAX_ENTRIES, "zip_bounds")
-    seen, total, compressed, dex = set(), 0, 0, 0
+    seen, total, compressed, dex = set(), 0, 0, set()
     for entry in entries:
         require(type(entry) is zipfile.ZipInfo, "zip_metadata")
         name = entry.filename
@@ -160,8 +161,9 @@ def _archive(entries):
             require(name.startswith("META-INF/") and entry.file_size == 0 and kind != stat.S_IFREG, "zip_entry")
         else:
             require(kind != stat.S_IFDIR and entry.file_size > 0, "zip_entry")
-            if name == "classes.dex":
-                dex += 1
+            dex_name = re.fullmatch(r'classes([2-4])?\.dex', name)
+            if dex_name:
+                dex.add(int(dex_name[1]) if dex_name[1] else 1)
             else:
                 signature = re.fullmatch(r'META-INF/[A-Za-z0-9_-]+\.(?:SF|RSA|DSA|EC)', name)
                 require(name in ("AndroidManifest.xml", "resources.arsc", "META-INF/MANIFEST.MF",
@@ -169,7 +171,8 @@ def _archive(entries):
                         "zip_entry")
         total += entry.file_size
         compressed += entry.compress_size
-    require(dex == 1 and "androidmanifest.xml" in seen and total <= MAX_APK_BYTES and
+    require(1 <= len(dex) <= MAX_DEX_FILES and dex == set(range(1, len(dex) + 1)) and
+            "androidmanifest.xml" in seen and total <= MAX_APK_BYTES and
             compressed <= MAX_APK_BYTES, "zip_bounds")
     return len(entries)
 

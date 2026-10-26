@@ -87,6 +87,35 @@ class ProcessControllerAuditTests(unittest.TestCase):
         tree = tree.replace("=false\n", "=0x00000000\n")
         self.assertEqual(self.check(tree=tree)["status"], "passed")
 
+    def test_actual_aapt_namespace_annotation_and_two_dex_metadata_are_accepted(self):
+        tree = TREE.replace("N: android=http://schemas.android.com/apk/res/android\n",
+                            "N: android=http://schemas.android.com/apk/res/android (line=2)\n")
+        actual_shape = [entry("AndroidManifest.xml", 2268), entry("classes.dex", 588),
+                        entry("classes2.dex", 55352), entry("resources.arsc", 40),
+                        entry("META-INF/com/android/build/gradle/app-metadata.properties", 57)]
+        for newline in ("\n", "\r\n"):
+            self.assertEqual(self.check(tree=tree.replace("\n", newline), archive=actual_shape)["status"], "passed")
+
+    def test_namespace_annotation_is_optional_but_closed_and_bounded(self):
+        namespace = "N: android=http://schemas.android.com/apk/res/android"
+        for suffix in (" (line=-1)", " (line=0x2)", " (line=unknown)", " (line=1000000000)",
+                       " (line=2) trailing", " (line=2-3)"):
+            self.refused(tree=TREE.replace(namespace + "\n", namespace + suffix + "\n"))
+
+    def test_dex_set_is_bounded_contiguous_and_has_no_numeric_aliases(self):
+        for count in range(1, audit.MAX_DEX_FILES + 1):
+            extras = [entry(f"classes{index}.dex") for index in range(2, count + 1)]
+            # ZIP central-directory ordering is not an additional DEX naming rule.
+            self.assertEqual(self.check(archive=entries() + list(reversed(extras)))["status"], "passed")
+        for names in (("classes3.dex",), ("classes2.dex", "classes4.dex"),
+                      ("classes0.dex",), ("classes1.dex",), ("classes02.dex",),
+                      ("classes2.dex", "classes3.dex", "classes4.dex", "classes5.dex"),
+                      ("CLASSES2.DEX",), ("other/classes2.dex",)):
+            self.refused(archive=entries() + [entry(name) for name in names])
+        self.refused(archive=[entry("AndroidManifest.xml"), entry("classes2.dex")])
+        oversized = entries() + [entry("classes2.dex", 8 * 1024 * 1024 + 1)]
+        self.refused(archive=oversized)
+
     def test_badging_instrumentation_if_present_must_agree_with_tree(self):
         line = f"instrumentation: name='{audit.INSTRUMENTATION}' targetPackage='{audit.PACKAGE}'\n"
         self.assertEqual(self.check(badging=BADGING + line)["status"], "passed")
@@ -163,7 +192,7 @@ class ProcessControllerAuditTests(unittest.TestCase):
 
     def test_native_assets_model_and_unknown_archive_payloads_are_refused(self):
         for name in ("lib/arm64-v8a/liblocallore_android.so", "assets/fixture.json", "model.litertlm",
-                     "weights.bin", "res/raw/model.pb", "classes2.dex", "unknown.txt"):
+                     "weights.bin", "res/raw/model.pb", "classes5.dex", "unknown.txt"):
             self.refused(archive=entries() + [entry(name)])
         self.refused(badging=BADGING + "native-code: 'arm64-v8a'\n")
 

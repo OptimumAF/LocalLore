@@ -147,7 +147,9 @@ external-cache confidentiality or physical-phone model performance.
 
 The ordinary Setup→Play Gift method then passes all28 app checks,112504ms,
 actual SDK invocation, no repair/fallback, one canonical receipt/revision1.
-Full model postcheck and known worker close precede the Rust commit. The
+The test verifies known worker-close metadata and a full model postcheck after
+observing the accepted Gift; it does not independently establish precommit
+model-recheck ordering. The
 following literal Dialogue method passes all43 checks,81372ms, actual SDK and
 no repair/fallback. Rust records a second receipt/revision2. The literal statement
 does not become world truth; known truth and the Gift receipt remain unchanged.

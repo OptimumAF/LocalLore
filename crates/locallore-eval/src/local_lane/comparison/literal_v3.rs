@@ -36,6 +36,21 @@ struct Manifest {
     reference_sha256: Option<String>,
     order: String,
 }
+// V3 closes all eight writer keys, including an explicit null load. Keep the
+// historical V2 setup decoder unchanged. This is diagnostic metadata only.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ScriptedSetup3 {
+    version: u16,
+    binding: String,
+    left_invocation: usize,
+    right_invocation: usize,
+    native: bool,
+    physical_ms: u64,
+    status: String,
+    #[serde(deserialize_with = "v3::required_nullable")]
+    load: Option<Value>,
+}
 impl Manifest {
     fn new(
         kind: ComparisonKind,
@@ -997,13 +1012,14 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV3> {
             ordinary(&entry.path())?;
         }
     }
+    let mut prior_right: Option<usize> = None;
     for index in 0..32 {
         let path = dir.join(format!("setup-{index:02}.json"));
         ordinary(&path)?;
         if !path.exists() {
             continue;
         }
-        let setup: SetupRecord = decode(&path, 64 * 1024)?;
+        let setup: ScriptedSetup3 = decode(&path, 64 * 1024)?;
         if setup.version != 3
             || setup.binding != key
             || setup.left_invocation != index
@@ -1012,9 +1028,13 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV3> {
             || setup.physical_ms != 0
             || setup.status != "scripted"
             || setup.load.is_some()
+            || prior_right.is_some_and(|prior| setup.right_invocation <= prior)
         {
             return Err("SetupIntegrity".into());
         }
+        // Each actual invocation advances the right ledger. Gaps can retain
+        // unknown work; reuse or reordered pair references cannot be actual.
+        prior_right = Some(setup.right_invocation);
         for (arm, invocation) in [setup.left_invocation, setup.right_invocation]
             .into_iter()
             .enumerate()

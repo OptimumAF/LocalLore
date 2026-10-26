@@ -43,11 +43,18 @@ for (const [name, mutate] of [
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
 async function until(predicate) { for (let n = 0; n < 100; n++) { if (predicate()) return; await new Promise(resolve => setTimeout(resolve, 10)); } throw new Error("mock observation timeout"); }
 function held() { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; }
+// Match comparison_run_commands' Value/object boundary. JSON text is not an
+// interchangeable native argument. Encoding below measures bytes only.
+function nativeQuery(value) {
+    assert.ok(value !== null && typeof value === "object" && !Array.isArray(value), "native query must be a nonnull nonarray object");
+    assert.ok(Buffer.byteLength(JSON.stringify(value), "utf8") <= 4096);
+    return clone(value);
+}
 function fixture() {
     const calls = [], hooks = new Map(); let current;
     const c = new m.ComparisonRunController(async (command, args) => {
-        assert.equal(command, "evaluation_comparison_run"); assert.deepEqual(Object.keys(args).sort(), ["action", "query"]); assert.ok(Buffer.byteLength(args.query) <= 4096);
-        const query = JSON.parse(args.query), action = args.action; calls.push({ action, query });
+        assert.equal(command, "evaluation_comparison_run"); assert.deepEqual(Object.keys(args).sort(), ["action", "query"]);
+        const query = nativeQuery(args.query), action = args.action; calls.push({ action, query });
         if (hooks.has(action)) return hooks.get(action)(query);
         const expected = { catalog: [], start: ["clientId", "comparisonKind", "batch"], lookup: ["clientId"], open: ["runId"], status: ["runToken"], resume: ["runToken", "batch"], cancel: ["runToken", "operationId"], close: ["runToken"] }[action];
         assert.deepEqual(Object.keys(query).sort(), [...expected].sort());
@@ -63,6 +70,19 @@ function fixture() {
     }); controllers.add(c); c.setContext("synthetic-session", true);
     return { c, calls, hooks, setCurrent: v => { current = v; } };
 }
+await check("native object boundary accepts actual controller start without string coercion", async () => {
+    const f = fixture(); await f.c.start("paired", 1);
+    const starts = f.calls.filter(call => call.action === "start");
+    assert.equal(starts.length, 1, "one actual object-valued start reaches the strict mock native boundary");
+    assert.equal(f.c.get().error, null);
+    assert.equal(f.c.get().status?.run_id, run);
+    assert.deepEqual(Object.keys(starts[0].query).sort(), ["batch", "clientId", "comparisonKind"]);
+});
+await check("native object boundary rejects JSON text/null/array instead of parsing them", () => {
+    const body = { clientId: client, comparisonKind: "paired", batch: 1 };
+    for (const malformed of [JSON.stringify(body), null, [body]])
+        assert.throws(() => nativeQuery(malformed), /native query must be a nonnull nonarray object/);
+});
 await check("start retains one UUID before notification and exact repeated request", async () => { const f = fixture(); let captured; const stop = f.c.subscribe(() => { if (f.c.get().pending?.action === "start") captured ??= f.c.get().clientId; }); await f.c.start("paired", 1); await f.c.start("paired", 1); stop(); const starts = f.calls.filter(x => x.action === "start"); assert.equal(starts.length, 2); assert.equal(starts[0].query.clientId, captured); assert.deepEqual(starts[0].query, starts[1].query); assert.equal(f.c.get().status.run_id, run); });
 await check("conflicting start cannot replace retained client/input", async () => { const f = fixture(); await f.c.start("paired", 1); const original = f.c.get().clientId; await f.c.start("rollout", 2); assert.equal(f.c.get().clientId, original); assert.equal(f.calls.filter(x => x.action === "start").length, 1); assert.equal(f.c.get().error, "InvalidEvaluationInput"); });
 await check("unknown start ACK explicit lookup uses original client and never autostarts", async () => { const f = fixture(); f.hooks.set("start", q => { f.setCurrent(status({ client_id: q.clientId })); throw Error("EvaluationIo"); }); await f.c.start("paired", 1); const id = f.c.get().clientId; assert.equal(f.c.get().uncertain, true); await f.c.lookup(); assert.equal(f.c.get().clientId, id); assert.equal(f.c.get().uncertain, false); assert.equal(f.calls.filter(x => x.action === "start").length, 1); assert.equal(f.calls.find(x => x.action === "lookup").query.clientId, id); });

@@ -1,6 +1,10 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 use crate::{Result, StorageError, Store};
-use locallore::contracts::{Scope, Seed};
+use locallore::{
+    contracts::{Scope, Seed},
+    engine::Engine,
+};
+use rusqlite::{OptionalExtension, TransactionBehavior};
 
 #[derive(Clone, Debug)]
 pub struct StorySummary {
@@ -10,6 +14,51 @@ pub struct StorySummary {
     pub drafts: usize,
 }
 impl Store {
+    /// Trusted caller supplies the fixed scope. An exact retry preserves all
+    /// accepted history; it does not recreate or rewind an existing story.
+    /// Identity is forgotten by explicit whole-story deletion, not tombstoned.
+    pub fn create_workspace_exact(&mut self, title: &str, seed: Seed) -> Result<(Scope, bool)> {
+        let (engine, seed_json) = Self::validated_story_input(title, seed)?;
+        let seed = engine.seed();
+        let scope = seed.scope.clone();
+        let transaction = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let existing: Option<(String, String, i64, String)> = transaction
+            .query_row(
+                "SELECT root_branch,title,seed_version,seed_json FROM stories WHERE story_id=?1",
+                [&scope.story],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .optional()?;
+        if let Some((root, original_title, version, original_json)) = existing {
+            let original: Seed =
+                serde_json::from_str(&original_json).map_err(|_| StorageError::Integrity)?;
+            if original.scope.story != scope.story
+                || original.scope.branch != root
+                || i64::from(original.version) != version
+                || Engine::new(original.clone()).is_err()
+            {
+                return Err(StorageError::Integrity);
+            }
+            if original_title != title || &original != seed {
+                return Err(StorageError::DuplicateStory);
+            }
+            transaction.commit()?;
+            return Ok((scope, false));
+        }
+        // A matching retry remains available at capacity. Count and insert
+        // share this write transaction, including across separate Store owners.
+        if transaction.query_row("SELECT count(*) FROM stories", [], |row| {
+            row.get::<_, i64>(0)
+        })? >= 256
+        {
+            return Err(StorageError::InvalidInput);
+        }
+        Self::insert_story(&transaction, title, &engine, &seed_json)?;
+        transaction.commit()?;
+        Ok((scope, true))
+    }
     /// Bounded metadata only. No mutable projection, private prompt or raw connection escapes.
     pub fn stories(&mut self) -> Result<Vec<StorySummary>> {
         let tx = self.connection.transaction()?;

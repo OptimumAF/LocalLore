@@ -643,16 +643,21 @@ impl Store {
     pub fn create_story(&mut self, title: &str, seed: Seed) -> Result<()> {
         self.create_story_bounded(title, seed, false)
     }
-    fn create_story_bounded(&mut self, title: &str, seed: Seed, bounded: bool) -> Result<()> {
+    fn validated_story_input(title: &str, seed: Seed) -> Result<(Engine, String)> {
         if title.is_empty() || title.chars().count() > 256 || title.contains('\0') {
             return Err(StorageError::InvalidInput);
         }
         let engine = Engine::new(seed).map_err(|_| StorageError::InvalidSeed)?;
-        let seed = engine.seed();
-        let seed_json = serde_json::to_string(seed).map_err(|_| StorageError::InvalidSeed)?;
+        let seed_json =
+            serde_json::to_string(engine.seed()).map_err(|_| StorageError::InvalidSeed)?;
         if seed_json.len() > 131072 {
             return Err(StorageError::InvalidSeed);
         }
+        Ok((engine, seed_json))
+    }
+    fn create_story_bounded(&mut self, title: &str, seed: Seed, bounded: bool) -> Result<()> {
+        let (engine, seed_json) = Self::validated_story_input(title, seed)?;
+        let seed = engine.seed();
         let transaction = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -673,6 +678,17 @@ impl Store {
         {
             return Err(StorageError::DuplicateStory);
         }
+        Self::insert_story(&transaction, title, &engine, &seed_json)?;
+        transaction.commit()?;
+        Ok(())
+    }
+    fn insert_story(
+        transaction: &rusqlite::Transaction<'_>,
+        title: &str,
+        engine: &Engine,
+        seed_json: &str,
+    ) -> Result<()> {
+        let seed = engine.seed();
         transaction.execute(
             "INSERT INTO stories VALUES (?1,?2,?3,1,?4)",
             (&seed.scope.story, &seed.scope.branch, title, seed_json),
@@ -709,7 +725,6 @@ impl Store {
                     .map_err(|_| StorageError::InvalidSeed)?,
             ),
         )?;
-        transaction.commit()?;
         Ok(())
     }
     /// Loads only the requested root seed. It never trusts a cached projection as canon.

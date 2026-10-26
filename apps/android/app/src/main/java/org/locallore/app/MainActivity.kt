@@ -87,7 +87,8 @@ open class MainActivity : ComponentActivity() {
                 val transport = createWorkspaceTransport()
                 ProcessVerificationProbe.factoryCreated()
                 transportObservation = WeakReference(transport)
-                val durable = DurableGateway(transport, autoCreateIfEmpty = false)
+                val durable = DurableGateway(transport, autoCreateIfEmpty = false,
+                    initialScopeHint = pendingNavigationHint)
                 return ShellViewModel(durable,
                     archiveGateway = NativeArchiveGateway(applicationContext),
                     deletionGateway = NativeArchiveGateway(applicationContext),

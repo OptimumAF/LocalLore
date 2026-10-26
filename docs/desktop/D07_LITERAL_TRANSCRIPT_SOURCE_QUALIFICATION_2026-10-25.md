@@ -110,6 +110,8 @@ No dependencies, assets or tools were installed/downloaded.
 | Core all-target/all-feature strict Clippy169feb90 |PASS;15.865s command |
 | Android Rust host169feb90 |20PASS;1.77s test; no Android ABI/device execution |
 | Desktop all-target/all-feature strict Clippy169feb90 |PASS;26.10s Cargo |
+| Normal desktop build c18912c2 (documentation-only delta) |PASS;41.79s Cargo/41.952s command; executable built, not launched |
+| Workspace Rust format c18912c2 |PASS;2.545s command |
 
 Final eight source tests cover exact Unicode/prose/null budget keys; empty history
 and excluded seed/private prose; real root replay and continuation; original
@@ -146,12 +148,34 @@ cargo test --locked --offline -p locallore --jobs 1 --target-dir <target> --doc 
 cargo clippy --locked --offline -p locallore --all-targets --all-features --jobs 1 --target-dir <target> -- -D warnings
 cargo test --locked --offline --manifest-path crates/locallore-android/Cargo.toml --jobs 1 --target-dir <target> --lib -- --test-threads=1
 cargo clippy --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --all-features --jobs 1 --target-dir <target> -- -D warnings
+cargo build --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --jobs 1 --target-dir <target>
 cargo fmt --all -- --check
 ```
 
 Raw logs/process records remain local under `d07-literal-source-*`. All executed
 commands recorded clean and unchanged source at exit. Public documentation uses
 synthetic metadata; no raw private prompt/story, trace or personal path is added.
+
+Local evidence integrity, SHA256 (prefix `d07-literal-source-`, suffix `.log`):
+
+| Log | SHA256 |
+|---|---|
+| legacy-capture-first |6ba24693a1794a25f8306d2cd99f85bfc241ddb7b245faf3a5549032a76fa2b3|
+| legacy-baseline-first |5e4d6a3cddf1a8d16200ca8d731e870cd73c6fc460625e17618d861cb5d87e1d|
+| legacy-after-first |70234f793d7e334b8f6b0cbda1eb4d1601add126017e788b014565bf9de25278|
+| api-before-first |f6391cfeac1b641c339c9838153b2b17f995097ede4b073f3b255346168311ee|
+| api-first |516c6dfd58f3dcbb3e1ef1659186d436393f53b66b6d76def63a651fdc64a638|
+| api-second |aaa5f436a4290cd067a4460ae29d2ba6a8617e63f9cbf2ebc6f3375ba1312847|
+| api-third |746c2c76d9b989cb7744e23a665c1884c67699b90c8e54105b69b4a8ca4b1325|
+| api-final |e327d0e61e6414faa163d249c82a130eb2f78513b7f2009408d4e6ed28786417|
+| related-first |a9ed463ba15ad832f10807ed09cc03f0568998b58186e9d55e351abccf33fae5|
+| related-host-final |6044dc1c1142e4508ea0d114006dae710e05d7b28fed13c57b36cc49106a0867|
+| docs-final |6de5803115f1c5a9cb70984c630268580c498068ca27480ac8a9ea2df9c68e08|
+| clippy-final |742b8c91895c9fb8216369227e6a98d1d8f55a6e2d456c1483c1fa31d45d6cc0|
+| android-host-final |0ae5eb802e6b0606f85f11a8486a3e386a36cc3cfa8e31bc0fabf1daf56976c0|
+| native-clippy-final |63314d9fbfbf4c0390c6284873cdae631f608436b7ed5abcdb14029bc02fda86|
+| normal-build-final |9adc8ab352aff0bd67f52d18a8eaf6d0ca2301a3a6af86655baa72c00fe6bc81|
+| format-final |e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855|
 
 ## Remaining boundaries
 

@@ -285,9 +285,9 @@ come from the actual controller/native acknowledgement, or remain explicitly
 unknown; a receipt from an isolated experiment cannot supply the live header's
 revision. No whole canonical history is reconstructed in JavaScript.
 
-## Proposed frozen oracle and qualification slice
+## Frozen oracle and qualification slice
 
-Proposed production paths are the existing comparison-run model/controller/view,
+Scoped production paths are the existing comparison-run model/controller/view,
 reader controller managed-entry seam and Root App/Main wiring. Freeze these
 **NEW** checkers before any production consumer edits:
 
@@ -297,6 +297,9 @@ reader controller managed-entry seam and Root App/Main wiring. Freeze these
   mode/Inspect/context callbacks with bounded test-only module substitutions,
   using existing esbuild/React patterns; no source-string predicate checks or
   production debugging/execution hook.
+- `apps/desktop/check-comparison-reader-native.mjs`: actual existing reader
+  controller with mocked transport, native managed-entry routing, unchanged
+  readerV1 subsequent calls, held reply/epoch and actor raw-refusal boundaries.
 
 Root still owns path allocation. Existing
 `apps/desktop/check-comparison-run.mjs` and its56 cases remain unchanged. API

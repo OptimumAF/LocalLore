@@ -141,6 +141,13 @@ def _game(value, wanted):
         _int(value[name], number, number)
 
 
+def _creation(value, named):
+    _keys(value, ("create", "create_named"))
+    for count in value.values():
+        _int(count, 0, 4096)
+    _need(value == {"create": 0, "create_named": named})
+
+
 def _helper_summary(value, expected, with_mode=False):
     names = {"pid", "uid", "started_uptime_ms", "proof_sha256"}
     _keys(value, names | {"mode"} if with_mode else names)
@@ -182,8 +189,8 @@ def _proof(proof, expected):
     if case in CASES[2:]:
         names |= {"load_gate", "last_helper_exit", "retirement_helpers" if case == CASES[2] else "retained_helpers"}
     _keys(proof, names)
-    _int(proof["version"], 1, 1)
-    _need(proof["scope"] == "locallore_process_controller_v1" and proof["case"] == case
+    version = _int(proof["version"], 1, 2)
+    _need(proof["scope"] == "locallore_process_controller_v" + str(version) and proof["case"] == case
           and proof["run_id"] == expected["run_id"] and proof["status"] == "passed"
           and proof["stage"] == "DONE" and proof["reason"] == "NONE")
     if case in _COUNTS:
@@ -214,8 +221,11 @@ def _proof(proof, expected):
           and proof["controller"]["pid"] not in {o["pid"] for o in observations})
     terminals = proof["terminal_observations"]
     _need(type(terminals) is list and len(terminals) == 2)
-    for terminal, observation, vector in zip(terminals, observations, _vectors(case)):
-        _keys(terminal, ("pid", "start", "task", "saved_sequence", "commands_sequence", "saved_game", "commands_game"))
+    for index, (terminal, observation, vector) in enumerate(zip(terminals, observations, _vectors(case))):
+        names = {"pid", "start", "task", "saved_sequence", "commands_sequence", "saved_game", "commands_game"}
+        if version == 2:
+            names.update(("saved_creation", "commands_creation"))
+        _keys(terminal, names)
         for key in ("pid", "start", "task"):
             _int(terminal[key], observation[key], observation[key])
         _int(terminal["commands_sequence"], 1, 65536)
@@ -226,6 +236,9 @@ def _proof(proof, expected):
         _need(terminal["commands_sequence"] != terminal["saved_sequence"])
         _game(terminal["saved_game"], vector)
         _game(terminal["commands_game"], vector)
+        if version == 2:
+            _creation(terminal["saved_creation"], 2 if index == 0 else 0)
+            _creation(terminal["commands_creation"], 2 if index == 0 else 0)
     if case in CASES[2:]:
         _int(proof["last_helper_exit"], 0, 0)
         _helper_summary(proof["load_gate"], expected)
@@ -269,6 +282,8 @@ def validate_product_records(proof: dict, records: dict[str, bytes], expected: d
             _keys(record, _RECORD)
             version = _int(record["version"], 1, 2)
             versions.add(version)
+            if proof["version"] == 2:
+                _int(version, 2, 2)
             _need(record["scope"] == "locallore_process_verify_v" + str(version) and record["run_id"] == expected["run_id"]
                   and record["event"] == event and record["restored_state"] is True
                   and record["hint_present"] is True and record["hint_sha256"] == hint)
@@ -289,6 +304,9 @@ def validate_product_records(proof: dict, records: dict[str, bytes], expected: d
             if name == "saved":
                 _int(record["sequence"], proof["terminal_observations"][1]["saved_sequence"],
                      proof["terminal_observations"][1]["saved_sequence"])
+                if proof["version"] == 2:
+                    _need(all(record["operations"][key] == proof["terminal_observations"][1]["saved_creation"][key]
+                              for key in ("create", "create_named")))
             parsed[name] = record
         _need(len(versions) == 1)
         _need(parsed["commands"]["sequence"] > parsed["created"]["sequence"])

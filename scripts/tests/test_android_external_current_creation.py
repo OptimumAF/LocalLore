@@ -229,7 +229,7 @@ class CurrentCreationExecutionTests(unittest.TestCase):
         self.assertEqual((len(decoded), len(guarded)), (1, 1))
         proof_writes = [node for node in calls(worker, "create_json")
                         if any(isinstance(part, ast.Constant) and part.value == "proof-v1.json"
-                               for part in ast.walk(node))]
+                               for part in ast.walk(node.args[0]))]
         self.assertEqual(len(proof_writes), 1)
         self.assertLess(decoded[0].lineno, guarded[0].lineno)
         self.assertLess(guarded[0].lineno, proof_writes[0].lineno)

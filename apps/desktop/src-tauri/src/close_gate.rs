@@ -40,7 +40,7 @@ enum Phase {
     InFlight(CloseTicket),
     Uncertain(CloseTicket),
     Confirmed(CloseTicket),
-    WindowContinued,
+    WindowContinued(CloseTicket),
     ExitContinued,
 }
 
@@ -52,6 +52,7 @@ pub(crate) struct CloseGate {
     phase: Phase,
     intent: Intent,
     exit_permit: Option<i32>,
+    destroyed: bool,
 }
 impl Default for CloseGate {
     fn default() -> Self {
@@ -61,6 +62,7 @@ impl Default for CloseGate {
             phase: Phase::Unopened,
             intent: Intent::Window,
             exit_permit: None,
+            destroyed: false,
         }
     }
 }
@@ -75,13 +77,15 @@ impl CloseGate {
             || epoch <= self.epoch
             || matches!(self.intent, Intent::Exit(_))
             || self.exit_permit.is_some()
-            || !matches!(self.phase, Phase::Unopened | Phase::WindowContinued)
+            || !matches!(self.phase, Phase::Unopened | Phase::WindowContinued(_))
+            || (self.phase != Phase::Unopened && !self.destroyed)
         {
             return Err("Closed");
         }
         self.epoch = epoch;
         self.phase = Phase::Open;
         self.intent = Intent::Window;
+        self.destroyed = false;
         Ok(())
     }
 
@@ -125,7 +129,11 @@ impl CloseGate {
                 self.upgrade_intent(intent);
                 Ok(Decision::Continue(ticket))
             }
-            Phase::WindowContinued if matches!(intent, Intent::Exit(_)) => {
+            Phase::WindowContinued(_) if !self.destroyed => {
+                self.upgrade_intent(intent);
+                Ok(Decision::Pending)
+            }
+            Phase::WindowContinued(_) if matches!(intent, Intent::Exit(_)) => {
                 // No new window/work was admitted since this epoch's proof.
                 // A fresh continuation ticket prevents reuse of the destroy ack.
                 let ticket = self.next_ticket()?;
@@ -133,11 +141,43 @@ impl CloseGate {
                 self.phase = Phase::Confirmed(ticket);
                 Ok(Decision::Continue(ticket))
             }
-            Phase::WindowContinued | Phase::ExitContinued => {
+            Phase::WindowContinued(_) | Phase::ExitContinued => {
                 // An already issued exit/permit cannot be changed retroactively.
                 Ok(Decision::Pending)
             }
         }
+    }
+
+    /// Only an actual native WindowEvent::Destroyed callsite can latch this.
+    /// A successful destroy request or missing window lookup is not this event.
+    pub(crate) fn destroyed(&mut self, epoch: u64) -> Result<Decision, &'static str> {
+        if epoch == 0 || epoch.is_multiple_of(2) || epoch != self.epoch {
+            return Err("Closed");
+        }
+        if self.destroyed {
+            return Ok(Decision::Pending);
+        }
+        self.destroyed = true;
+        match self.phase {
+            Phase::Open => self.request(epoch, Intent::Window),
+            Phase::Confirmed(ticket) => Ok(Decision::Continue(ticket)),
+            Phase::WindowContinued(ticket) if matches!(self.intent, Intent::Exit(_)) => {
+                self.phase = Phase::Confirmed(ticket);
+                Ok(Decision::Continue(ticket))
+            }
+            // Destruction cannot retry uncertain cleanup, confirm a worker, or
+            // mint a second operation. The original worker/fresh retry owns it.
+            _ => Ok(Decision::Pending),
+        }
+    }
+
+    pub(crate) fn can_finish_close(&self, epoch: u64) -> bool {
+        epoch == self.epoch
+            && self.destroyed
+            && matches!(
+                self.phase,
+                Phase::Confirmed(_) | Phase::WindowContinued(_) | Phase::ExitContinued
+            )
     }
 
     pub(crate) fn pause(&mut self, ticket: CloseTicket) -> bool {
@@ -165,12 +205,16 @@ impl CloseGate {
         {
             return None;
         }
+        if !self.destroyed {
+            self.phase = Phase::WindowContinued(ticket);
+            return Some(Continuation::DestroyWindow {
+                epoch: ticket.epoch,
+            });
+        }
         match self.intent {
             Intent::Window => {
-                self.phase = Phase::WindowContinued;
-                Some(Continuation::DestroyWindow {
-                    epoch: ticket.epoch,
-                })
+                self.phase = Phase::WindowContinued(ticket);
+                None
             }
             Intent::Exit(code) => {
                 self.exit_permit = Some(code.unwrap_or(0));
@@ -196,7 +240,7 @@ impl CloseGate {
             return false;
         }
         let issued = match self.phase {
-            Phase::WindowContinued => true,
+            Phase::WindowContinued(_) => !self.destroyed,
             Phase::ExitContinued => self.exit_permit.is_some(),
             _ => false,
         };
@@ -219,6 +263,8 @@ mod tests {
     use super::*;
     #[path = "continuation_review_tests.rs"]
     mod continuation_review_tests;
+    #[path = "../destroyed_ack_review_tests.rs"]
+    mod destroyed_ack_review_tests;
     #[path = "../destroyed_exit_review_tests.rs"]
     mod destroyed_exit_review_tests;
 
@@ -227,6 +273,20 @@ mod tests {
             Decision::Start(ticket) => ticket,
             other => panic!("expected single cleanup admission, got {other:?}"),
         }
+    }
+
+    // Synthetic native-event acknowledgement, never actual SDK evidence.
+    fn destroy_before_exit(gate: &mut CloseGate, ticket: CloseTicket) {
+        assert_eq!(
+            gate.take_continuation(ticket),
+            Some(Continuation::DestroyWindow {
+                epoch: ticket.epoch()
+            })
+        );
+        assert_eq!(
+            gate.destroyed(ticket.epoch()),
+            Ok(Decision::Continue(ticket))
+        );
     }
 
     #[test]
@@ -247,6 +307,7 @@ mod tests {
         assert!(gate.confirm(ticket)); // Synthetic trusted-callsite acknowledgment only.
         assert!(!gate.pending());
         assert!(!gate.confirm(ticket));
+        destroy_before_exit(&mut gate, ticket);
         assert_eq!(
             gate.take_continuation(ticket),
             Some(Continuation::Exit { code: Some(7) })
@@ -272,6 +333,7 @@ mod tests {
             gate.request(1, Intent::Window),
             Ok(Decision::Continue(ticket))
         );
+        destroy_before_exit(&mut gate, ticket);
         assert_eq!(
             gate.take_continuation(ticket),
             Some(Continuation::Exit { code: Some(17) })
@@ -303,6 +365,7 @@ mod tests {
         assert!(!gate.confirm(old));
         assert_eq!(gate.take_continuation(old), None);
         assert!(gate.confirm(retry));
+        destroy_before_exit(&mut gate, retry);
         assert_eq!(
             gate.take_continuation(retry),
             Some(Continuation::Exit { code: Some(4) })
@@ -353,6 +416,8 @@ mod tests {
         for invalid in [0, 1, 2] {
             assert_eq!(gate.opened(invalid), Err("Closed"));
         }
+        assert_eq!(gate.opened(3), Err("Closed"));
+        assert_eq!(gate.destroyed(1), Ok(Decision::Pending));
         gate.opened(3).unwrap();
         assert_eq!(gate.opened(3), Err("Closed"));
         assert_eq!(gate.request(1, Intent::Exit(Some(9))), Err("Closed"));
@@ -375,6 +440,7 @@ mod tests {
             Some(Continuation::DestroyWindow { epoch: 1 })
         );
         assert_eq!(gate.request(1, Intent::Window), Ok(Decision::Pending));
+        assert_eq!(gate.destroyed(1), Ok(Decision::Pending));
         let exit = match gate.request(1, Intent::Exit(None)).unwrap() {
             Decision::Continue(ticket) => ticket,
             other => panic!("already clean window needs no second cleanup: {other:?}"),
@@ -411,6 +477,7 @@ mod tests {
             );
             assert!(gate.confirm(ticket));
             assert!(!gate.consume_exit(matching));
+            destroy_before_exit(&mut gate, ticket);
             assert_eq!(
                 gate.take_continuation(ticket),
                 Some(Continuation::Exit { code: requested })
@@ -447,6 +514,7 @@ mod tests {
             Some(Continuation::DestroyWindow { epoch: 1 })
         );
         closed.sequence = u64::MAX;
+        assert_eq!(closed.destroyed(1), Ok(Decision::Pending));
         assert_eq!(closed.request(1, Intent::Exit(Some(8))), Err("Closed"));
         // Refusing a new exit ticket must not silently latch Exit and wedge reopen.
         closed.opened(3).unwrap();

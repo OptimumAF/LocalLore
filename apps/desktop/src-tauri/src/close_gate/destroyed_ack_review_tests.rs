@@ -11,8 +11,10 @@ fn continued(result: Result<Decision, &'static str>) -> CloseTicket {
     }
 }
 fn no_authority(result: Result<Decision, &'static str>) {
-    assert!(matches!(result, Err(_) | Ok(Decision::Pending)),
-        "invalid/duplicate event acquired authority: {result:?}");
+    assert!(
+        matches!(result, Err(_) | Ok(Decision::Pending)),
+        "invalid/duplicate event acquired authority: {result:?}"
+    );
 }
 
 #[test]
@@ -22,12 +24,18 @@ fn confirmed_exit_waits_for_observed_destruction_then_issues_exact_exit_once() {
         gate.opened(1).unwrap();
         let ticket = start(&mut gate, 1, Intent::Exit(code));
         assert!(gate.confirm(ticket)); // Manager proof is not a Destroyed event.
-        assert_eq!(gate.take_continuation(ticket), Some(Continuation::DestroyWindow { epoch: 1 }));
+        assert_eq!(
+            gate.take_continuation(ticket),
+            Some(Continuation::DestroyWindow { epoch: 1 })
+        );
         assert!(!gate.consume_exit(code));
         assert_eq!(gate.opened(3), Err("Closed"));
         let exit = continued(gate.destroyed(1));
         assert_eq!(exit.epoch(), 1);
-        assert_eq!(gate.take_continuation(exit), Some(Continuation::Exit { code }));
+        assert_eq!(
+            gate.take_continuation(exit),
+            Some(Continuation::Exit { code })
+        );
         assert_eq!(gate.take_continuation(exit), None);
         assert!(gate.consume_exit(code));
         assert!(!gate.consume_exit(code));
@@ -67,7 +75,10 @@ fn early_destroyed_event_does_not_substitute_for_inflight_manager_confirmation()
     assert_eq!(gate.opened(3), Err("Closed"));
     assert!(gate.confirm(ticket));
     // The window is already observed gone; do not issue another destroy.
-    assert_eq!(gate.take_continuation(ticket), Some(Continuation::Exit { code: Some(7) }));
+    assert_eq!(
+        gate.take_continuation(ticket),
+        Some(Continuation::Exit { code: Some(7) })
+    );
     assert!(gate.consume_exit(Some(7)));
     assert!(!gate.consume_exit(Some(7)));
 }
@@ -79,7 +90,10 @@ fn destruction_during_uncertain_cleanup_requires_a_fresh_confirmed_retry() {
     let old = start(&mut gate, 1, Intent::Exit(Some(7)));
     assert!(gate.pause(old));
     assert_eq!(gate.destroyed(1), Ok(Decision::Pending));
-    assert!(gate.pending(), "observed destruction cannot erase uncertain ownership");
+    assert!(
+        gate.pending(),
+        "observed destruction cannot erase uncertain ownership"
+    );
     assert!(!gate.confirm(old));
     assert_eq!(gate.take_continuation(old), None);
     assert!(!gate.consume_exit(Some(7)));
@@ -88,7 +102,10 @@ fn destruction_during_uncertain_cleanup_requires_a_fresh_confirmed_retry() {
     assert_ne!(retry, old);
     assert!(!gate.confirm(old));
     assert!(gate.confirm(retry));
-    assert_eq!(gate.take_continuation(retry), Some(Continuation::Exit { code: Some(7) }));
+    assert_eq!(
+        gate.take_continuation(retry),
+        Some(Continuation::Exit { code: Some(7) })
+    );
     assert!(gate.consume_exit(Some(7)));
     assert!(!gate.consume_exit(Some(7)));
 }
@@ -100,14 +117,27 @@ fn waiting_destroy_preserves_the_first_explicit_exit_code_across_duplicate_reque
         gate.opened(1).unwrap();
         let ticket = start(&mut gate, 1, Intent::Window);
         assert!(gate.confirm(ticket));
-        assert_eq!(gate.take_continuation(ticket), Some(Continuation::DestroyWindow { epoch: 1 }));
-        for intent in [Intent::Exit(None), Intent::Exit(Some(first_explicit)), Intent::Exit(Some(9)), Intent::Window] {
+        assert_eq!(
+            gate.take_continuation(ticket),
+            Some(Continuation::DestroyWindow { epoch: 1 })
+        );
+        for intent in [
+            Intent::Exit(None),
+            Intent::Exit(Some(first_explicit)),
+            Intent::Exit(Some(9)),
+            Intent::Window,
+        ] {
             assert_eq!(gate.request(1, intent), Ok(Decision::Pending));
         }
         assert_eq!(gate.take_continuation(ticket), None);
         assert!(!gate.consume_exit(Some(first_explicit)));
         let exit = continued(gate.destroyed(1));
-        assert_eq!(gate.take_continuation(exit), Some(Continuation::Exit { code: Some(first_explicit) }));
+        assert_eq!(
+            gate.take_continuation(exit),
+            Some(Continuation::Exit {
+                code: Some(first_explicit)
+            })
+        );
         assert!(!gate.consume_exit(Some(9)));
         assert!(gate.consume_exit(Some(first_explicit)));
     }
@@ -119,7 +149,10 @@ fn observed_window_destruction_allows_reopen_but_old_ack_or_failure_cannot_touch
     gate.opened(1).unwrap();
     let old = start(&mut gate, 1, Intent::Window);
     assert!(gate.confirm(old));
-    assert_eq!(gate.take_continuation(old), Some(Continuation::DestroyWindow { epoch: 1 }));
+    assert_eq!(
+        gate.take_continuation(old),
+        Some(Continuation::DestroyWindow { epoch: 1 })
+    );
     assert_eq!(gate.destroyed(1), Ok(Decision::Pending));
     gate.opened(3).unwrap();
     no_authority(gate.destroyed(1));

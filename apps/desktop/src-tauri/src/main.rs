@@ -540,11 +540,7 @@ fn main() {
                     shutdown_harness::phase("native_destroyed", epoch);
                 }
                 // Also fence direct destruction in the app-owned dev harness.
-                let _ = shutdown::request(
-                    window.app_handle(),
-                    window.label(),
-                    close_gate::Intent::Window,
-                );
+                let _ = shutdown::destroyed(window.app_handle(), window.label());
             }
         })
         .build(tauri::generate_context!())

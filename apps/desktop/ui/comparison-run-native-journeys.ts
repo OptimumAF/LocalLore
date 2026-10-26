@@ -551,4 +551,3 @@ export async function comparisonRunNativeJourneys({ controller: c, comparison: r
         await invoke("harness_finish", { report: report(false, failureCategory) });
     }
 }
-

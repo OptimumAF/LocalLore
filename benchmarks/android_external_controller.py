@@ -421,6 +421,12 @@ def worker(request, out):
         require(sum(map(len, sidecars.values())) <= 1048576, "sidecar_total")
         validate_retirement(proof, helpers, sidecars, expected)
     validate_postflight(postflight, proof, uids)
+    copies = {"controller": raw, "read-fixture": fixture, "postflight-processes": postflight,
+              **{"read-" + k: v for k, v in records.items()}, **{"read-helper-" + k: v for k, v in helpers.items()},
+              **{"read-transport-" + k: v for k, v in transports.items()},
+              **{"read-sidecar-" + k[:-5]: v for k, v in sidecars.items()}}
+    validate_clients(out, session.capture.count, copies)
+    driver.require_current_clients(out, session.capture.count)
     session.check()
     environment.create_json(out / "external-v1.json", {"version": 1, "case": request["case"], "run_id": request["run_id"],
         "expected": expected, "uids": uids, "clients": session.capture.count, "clients_clean": True, "reused_installation": reuse,
@@ -515,6 +521,7 @@ def validate_current_execution(request, out):
     record = validate_execution(request, out)
     proof = driver.bound_json(record["proof"], Path(out) / "proof-v1.json")
     _require_current_proof(proof)
+    driver.require_current_clients(out, record["clients"])
     return record
 
 

@@ -323,6 +323,17 @@ class CurrentTimingCoverageTests(unittest.TestCase):
                 function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == name)
                 calls = [n for n in ast.walk(function) if isinstance(n, ast.Call)]
                 self.assertTrue(any(ast.unparse(n.func) == call for n in calls))
+                current = next(n for n in calls if ast.unparse(n.func) == call)
+                generic_name = {"_instrumentation_worker": "validator", "supervise": "validator",
+                                "worker": "validate_clients", "validate_current_execution": "validate_execution"}[name]
+                generic = next(n for n in calls if ast.unparse(n.func) == generic_name)
+                self.assertLess(generic.lineno, current.lineno)
+                if name in ("worker", "_instrumentation_worker"):
+                    writes = [n for n in calls if isinstance(n.func, ast.Attribute) and n.func.attr == "create_json"]
+                    # The instrumentation phase has only its result publication;
+                    # external proof JSON is deliberately retained before this.
+                    publication = max(writes, key=lambda n: n.lineno)
+                    self.assertLess(current.lineno, publication.lineno)
         for module, names in ((driver, ("validate_component_record", "_validate_fixed_roster_record")),
                               (external, ("validate_clients", "validate_execution"))):
             tree = ast.parse(Path(module.__file__).read_bytes())
@@ -330,6 +341,25 @@ class CurrentTimingCoverageTests(unittest.TestCase):
                 function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == name)
                 self.assertFalse(any(isinstance(n, ast.Call) and "require_current_clients" in ast.unparse(n.func)
                                      for n in ast.walk(function)))
+
+    def test_current_client_helper_checks_every_numbered_row_and_strict_count(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            out = Path(temporary)
+            (out / "clients").mkdir()
+            row = timed(RecordTimingValidationTests().row())
+            paths = [out / "clients" / ("command-%04d.json" % i) for i in (1, 2)]
+            for index, path in enumerate(paths, 1):
+                path.write_text(json.dumps(dict(row, index=index)))
+            driver.require_current_clients(out, 2)
+            for bad in (True, 0, -1, 10001, 2.0, "2", None):
+                with self.subTest(count=bad), self.assertRaises(driver.VerificationRefused):
+                    driver.require_current_clients(out, bad)
+            original = dict(row, index=2)
+            for replacement in malformed_rows(original) + [dict(original, index=True), dict(original, index=1)]:
+                with self.subTest(row=replacement):
+                    paths[1].write_text(json.dumps(replacement))
+                    with self.assertRaises(driver.VerificationRefused):
+                        driver.require_current_clients(out, 2)
 
 
 if __name__ == "__main__":

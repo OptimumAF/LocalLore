@@ -215,7 +215,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             Workspace chosen = select(fixture.b.story);
             checked(chosen.same(fixture.b, 0), Reason.CANONICAL);
             stage = Stage.EDIT;
-            click("play-kind-dialogue");
+            selectDialogue();
             setDraft();
             verifyDraft();
             Probe unsubmitted = latest(initial);
@@ -599,7 +599,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         checked(fixture != null && fixture.a.story.compareTo(fixture.b.story) < 0, Reason.FIXTURE);
         checked(select(fixture.b.story).same(fixture.b, 0), Reason.CANONICAL);
         stage = Stage.PARENT_SEND;
-        click("play-kind-dialogue");
+        selectDialogue();
         setDraft(DIALOGUE);
         checked(workspace().same(fixture.b, 0), Reason.CANONICAL);
         noGameplay(latest(initial));
@@ -646,7 +646,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         awaitScopeHead(childScope, 1);
         readyProduct();
         stage = Stage.EDIT;
-        click("play-kind-dialogue");
+        selectDialogue();
         setDraft();
         verifyDraft();
         acceptedText("message-body-1", DIALOGUE);
@@ -1085,6 +1085,19 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         try { decodeWorkspace(prefix + (limit + 1)); }
         catch (Refused failure) { refused = failure.reason == Reason.CANONICAL; }
         return accepted.head == limit && refused;
+    }
+
+    private void selectDialogue() throws Exception {
+        click("play-kind-dialogue"); // Exactly one action; observe the new frame before editing text.
+        waitUntil(() -> {
+            AccessibilityNodeInfo dialogue = null, action = null;
+            try {
+                dialogue = find("play-kind-dialogue"); action = find("play-kind-action");
+                return dialogue != null && action != null && dialogue.isVisibleToUser() && action.isVisibleToUser()
+                        && dialogue.isEnabled() && action.isEnabled() && selected(dialogue) && !selected(action);
+            }
+            finally { if (dialogue != null) dialogue.recycle(); if (action != null) action.recycle(); }
+        }, 5_000, Reason.DRAFT);
     }
 
     private void setDraft() throws Exception {

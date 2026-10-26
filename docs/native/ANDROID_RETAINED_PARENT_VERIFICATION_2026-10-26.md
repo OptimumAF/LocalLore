@@ -4,6 +4,13 @@ Date: 2026-10-26. Supporting M10.02/M08.05/M08.01, M05.05 and M09.03.
 Base: open, unmerged PR #200 at `65c07ba2`. Implementation: `8049ce3d`.
 This is an incomplete verification packet, not a passed lifecycle gate.
 
+**Later verification update, 2026-10-26:** the
+[versioned host-driver report](ANDROID_PROCESS_HOST_DRIVER_VERIFICATION_2026-10-26.md)
+records fresh build, loader and two native-component results. The missing
+original records below remain missing, and the external retained-parent
+two-death case remains unrun. This report's unrun statements describe its
+earlier interrupted packet, not those subsequently executed component checks.
+
 ## Implemented contract
 
 The [frozen protocol](ANDROID_RETAINED_PARENT_PROTOCOL.md) adds

@@ -39,6 +39,10 @@ The [retained-parent implementation and preservation handoff](docs/native/ANDROI
 records interrupted verification and missing private evidence, including the
 earlier retired-child index. Source is preserved; the new lifecycle case
 requires a fresh owned run.
+The [versioned host driver](docs/native/ANDROID_PROCESS_HOST_DRIVER.md) and its
+[component verification](docs/native/ANDROID_PROCESS_HOST_DRIVER_VERIFICATION_2026-10-26.md)
+retain fresh build, host and ten-method native component evidence. The external
+retained-parent process-death case remains a separate pending gate.
 
 | Document | Purpose |
 |---|---|

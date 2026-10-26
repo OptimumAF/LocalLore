@@ -87,15 +87,17 @@ versions remain1; database schema is3.
 
 ## Portable state
 
-Unretired stories export archivev1 with source database schema3. Existing v1
-schema1/2 fixtures remain readable; their original bytes are preserved. New
-exports can differ only in source-schema metadata and its payload checksum when
-compared with those historical goldens; tests validate both full archives before
-normalizing that single metadata field.
+Ordinary Domain1 play history exports archivev1 without retirement state and
+archivev2 with retirement state. Both record the actual source database schema,
+currently schema5; a current-schema database alone does not select archivev3.
+Historical v1 schema1/2 fixtures remain readable and retain their original bytes.
+Their current-schema re-exports differ only in source-schema metadata and its
+dependent payload checksum in the compatibility tests, which validate both full
+archives before normalizing that single metadata field.
 
-Any retirement state requires archivev2 and a nonempty sorted unique
+For ordinary Domain1 play history, retirement requires archivev2 and a nonempty sorted unique
 `retired_branch_ids` field. It includes physically collected IDs. V1 rejects that
-field, even null; v2 requires source schema3. Physical archive branches stay
+field, even null; v2 accepts source schemas3 through5. Physical archive branches stay
 bounded at32 and physical/reserved union at256. A retired root, orphan/retired
 leaf, excess retained tail, reused ID or invalid fork/completed-event boundary
 is refused. Required retired prefixes replay internally with original scopes;
@@ -106,6 +108,20 @@ not publicly resume a retired target.
 An unchanged v2 roundtrip preserves canonical hashes, knowledge and retirement
 state. Checksums do not authenticate an author: a deliberately rewritten,
 otherwise valid archive may recompute them. V2 adds no signatures or model data.
+
+Mixed play and author-correction history selects archivev3: exactly Domain2,
+source schema5 and transcript `accepted_canonical_records_v2`, using
+`local_records` and `records_sha256` instead of the v1/v2 receipt fields. V3
+requires the sorted unique `retired_branch_ids` array but permits it to be empty.
+These distinct field sets remain closed; relabelling v1/v2 content as v3 does not
+grant import. Canonical replay invokes no inference.
+
+The current rules are implemented in
+[`playable_archive.rs`](../../crates/locallore-storage/src/playable_archive.rs).
+Store/Core coverage includes
+[`branch_retention_archive`](../../crates/locallore-storage/tests/branch_retention_archive.rs),
+[`m08_archive3`](../../crates/locallore-storage/tests/m08_archive3.rs) and
+[`m08_archive3_hostile`](../../crates/locallore-storage/tests/m08_archive3_hostile.rs).
 
 ## Privacy and qualification
 

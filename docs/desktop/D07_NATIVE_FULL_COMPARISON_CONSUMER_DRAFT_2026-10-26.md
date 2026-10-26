@@ -22,9 +22,20 @@ public signatures below are absent at the inspected source:
 ```ts
 type ComparisonRunMode = "scripted_baseline" | "approved_native";
 type NativeComparisonRunOptions = Readonly<{ mode: "approved_native" }>;
+type NativeComparisonRunState = Omit<ComparisonRunState,
+    "status" | "catalog" | "error"> & {
+    mode: "approved_native";
+    status: NativeComparisonRunStatus | null;
+    catalog: NativeComparisonRunCatalog | null;
+    error: NativeComparisonRunError | null;
+    cleanup: SelectedCleanup | null;
+    cleanupPending: "status" | "retry" | null;
+    cleanupUncertain: boolean;
+    cleanupError: NativeComparisonRunError | null;
+};
 type ComparisonRunConsumerState =
     | (ComparisonRunState & { mode: "scripted_baseline" })
-    | (NativeComparisonRunState & { mode: "approved_native" });
+    | NativeComparisonRunState;
 
 class ComparisonRunController {
     constructor(invoke: ComparisonRunInvoke,
@@ -104,14 +115,21 @@ and before dispatch/publication/cleanup, as the existing controller does.
 
 ## Cleanup is separate from presentation recovery
 
-Native state adds an actual decoded `cleanup: SelectedCleanup | null`, plus
-bounded local auxiliary pending/uncertainty bookkeeping. These are observations
-of Rust's existing owner, not another runtime registry. Keep the existing
-acknowledgement/retired-owner uncertainty separate from global cleanup state.
+Native state has exactly the local fields proposed above; inherited lifecycle
+`pending` retains the V1 action shape. Cleanup actions use only `cleanupPending`,
+not a forged lifecycle operation/client. Initial `cleanup=null` means **not
+checked**, not idle. Initial `cleanupUncertain=false` means no cleanup request
+acknowledgement has been lost; it does not turn null into proof of cleanliness.
+These are observations of Rust's existing owner, not another runtime registry.
+Keep acknowledgement/retired-owner uncertainty separate from global cleanup.
 
 - `cleanupStatus()` and `retryCleanup()` use native actions with empty queries,
   including when `allowed=false`. A valid native window remains mandatory.
-  Neither action grants inspection or starts/resumes comparison work.
+  On a scripted instance both methods are no-ops with no IPC or state change.
+  Neither action grants inspection or starts/resumes comparison work. Native
+  `cleanupPending` is `"status"` or `"retry"` only while that auxiliary request
+  is pending; `cleanupError` records only its bounded error and does not replace
+  a lifecycle error with a guessed outcome.
 - Use a separate `globalAuxEpoch`, distinct from execution serial/context and
   reader-lens epochs. A later auxiliary request supersedes an older reply.
   New admission invalidates older auxiliary presentation replies; it cannot
@@ -127,16 +145,73 @@ acknowledgement/retired-owner uncertainty separate from global cleanup state.
   Native V2 exposes `cleanup_running`; the generic envelope's `running` is a
   separate actual cleanup observation. Retired close must not rewrite a newer
   owner's cleanup flags or present private counts from the retired run.
-- Extend the completed/cancel/status latch carefully: retain actual completed
-  evidence while retaining newly reported cleanup uncertainty/running/cause.
-  The current V1 spread of the old status must not erase V2 fields. Inspection
-  and new native admission stay unavailable while cleanup is required, running
-  or its acknowledgement is unknown. Never manufacture report publication after
-  successful cleanup; explicit same-run status/lookup observes reconciliation.
+- Extend the completed/cancel/status latch only for the same actual owner and
+  operation: retain prior verified completion/counters, but copy the new
+  `cleanup_required`, `cleanup_running`, `cause`, `running` and error. A new
+  `cleanup_required` phase and `report_ready:false` cannot be replaced with the
+  old completed phase/readiness. Proposed exact V2 merge: phase, error,
+  readiness and source matching are the new observation; only prior verified
+  completion/counters are latched. Keep source matching as the new observation;
+  retained counters are labelled **last verified**, not fresh source proof.
+  The V1 latch stays unchanged. Inspection and native generation stay blocked
+  by cleanup required/running/unknown. Successful cleanup cannot invent report
+  publication; explicit same-run status/lookup observes reconciliation.
 - Retry is explicit and bounded by the existing controller/native behavior.
   No automatic cleanup retry, inferred rollback, resume or model reload follows
   a lost acknowledgement. Native Rust still owns all cross-evaluation/model
   exclusion, exact Arc/witness checks and positive cleanup proof.
+
+### Explicit native generation preflight
+
+Every explicit native `start` or `resume` must obtain a fresh read-only generic
+`cleanup_status` response before dispatching its generation command, even if the
+last observation was clear. This is not `retry_cleanup`, asset access, native
+confirmation or inference. There is no timer-based automatic reconciliation.
+
+1. Check actual current context eligibility, current/retired owner uncertainty,
+   lifecycle pending work and known cleanup blockers. Known required/running or
+   `cleanupUncertain` keeps generation blocked until an explicit reconciliation.
+   Metadata lookup/status/recovery remain available under their normal grants.
+2. Capture the immutable descriptor, execution epoch, original owner and request
+   inputs. For a new start allocate its one UUID before the first lifecycle
+   pending notification. For resume retain the actual existing client/token.
+   Install the guard before notifying subscribers. Cleanup has its own auxiliary
+   pending/epoch state and must not pretend a native generation ACK exists.
+3. Read generic cleanup with its own `globalAuxEpoch`. Recheck execution context,
+   owner, pending action, auxiliary epoch and disposal after every notification
+   and await, and immediately before generation dispatch. A stale reply cannot
+   admit a run or overwrite newer cleanup data. Ordinary execution-context
+   changes cannot forge a clean observation. Manual cleanup reads remain usable
+   without Lab permission under their separate valid-window fence.
+4. Require a decoded fresh response with no cleanup required/running or error,
+   and no local cleanup uncertainty. Otherwise retain truthful cleanup state and
+   dispatch no generation. If a new provisional client never reached `start`,
+   it is known unsent, not an unknown admitted run; no automatic replacement
+   start follows. A failed resume preflight retains its existing run identity.
+5. Dispatch the captured start/resume only if all guards still hold. Rust repeats
+   actual owner, window, source, quota, confirmation and model-reservation fences.
+   A clear preflight is a last native observation, not an enduring global grant.
+
+Read-only preflight itself may publish a pending observation; its native RPC
+must not mark the comparison Owner as having sent a generation request. An
+unknown cleanup acknowledgement blocks generation through `cleanupUncertain`,
+without inventing a comparison operation or rekeying an already sent start.
+Do not implement preflight by calling a public helper that returns early merely
+because this same admission already installed lifecycle pending/busy. It must
+perform its captured read, then recheck that admission. Keep inherited `busy`
+about lifecycle/execution; cleanup pending/running/uncertainty are separate
+admission guards. They do not disable permitted metadata lookup/status/recovery.
+
+One procedure choice still needs Root acknowledgement before freeze: this draft
+recommends that a start/resume already blocked by a known required/running/unknown
+cleanup observation returns until the user explicitly calls `cleanupStatus()`
+or `retryCleanup()`. With initial null or last-known-clear state, the explicit
+start/resume proceeds to its required fresh read-only preflight. If Root instead
+allows a blocked start to refresh status itself, freeze that exact call order
+in the new oracles; neither policy may dispatch generation while blocked or
+automatically retry cleanup. The exact V2 phase merge above also needs explicit
+acceptance, particularly a late non-cleanup failed/paused observation following
+verified completion; the preserved completion/counters are not fresh readiness.
 
 ## Stable instances, App routing and independent inspection
 
@@ -205,16 +280,30 @@ revision. No whole canonical history is reconstructed in JavaScript.
 
 ## Proposed frozen oracle and qualification slice
 
-Future code allocation is limited to the comparison-run model/controller/view,
-the reader's managed-entry seam, Root App/Main wiring and focused new checkers.
-Existing test oracles remain intact. Before production consumer edits, freeze:
+Proposed production paths are the existing comparison-run model/controller/view,
+reader controller managed-entry seam and Root App/Main wiring. Freeze these
+**NEW** checkers before any production consumer edits:
+
+- `apps/desktop/check-comparison-run-native.mjs`: strict V2 DTO, actual shared
+  controller/mock transport, native preflight/cleanup and View headless cases.
+- `apps/desktop/check-main-comparison-run-native.mjs`: actual application
+  mode/Inspect/context callbacks with bounded test-only module substitutions,
+  using existing esbuild/React patterns; no source-string predicate checks or
+  production debugging/execution hook.
+
+Root still owns path allocation. Existing
+`apps/desktop/check-comparison-run.mjs` and its56 cases remain unchanged. API
+absence/compile refusal must remain distinct from actual behavior RED. Freeze:
 
 1. Original56 scripted mock/SSR checks unchanged; separate V2 exact shape,
    required-nullable, category, bounds and mixed-lane negatives.
 2. Actual controller start/status/retired-close endpoint logs, including held
    replies after mode/context switches and synchronous subscriber reentrancy.
    Unknown ACK keeps one original client; no automatic start/resume/fallback.
-3. Retired close unknown versus actual cleanup-required/running/unknown;
+3. Initial null cleanup cannot assume idle; explicit native start/resume sends
+   fresh read-only cleanup preflight before generation and rechecks reentrant
+   guards. A failed/held/stale preflight sends no generation. Known blockers,
+   retired close unknown versus actual cleanup-required/running/unknown;
    cleanup with `allowed=false`; late auxiliary replies and completion/cancel
    latches cannot clear a newer owner or discard V2 cleanup cause.
 4. Native managed initial routing with unchanged readerV1 subsequent calls;

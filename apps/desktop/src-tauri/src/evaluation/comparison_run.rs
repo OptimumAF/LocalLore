@@ -194,6 +194,75 @@ enum Work {
     Open,
 }
 impl EvaluationManager {
+    #[cfg(feature = "dev-harness")]
+    pub fn full_comparison_fixture_inventory(&self) -> Result<Value> {
+        use sha2::{Digest, Sha256};
+        fn visit(
+            root: &Path,
+            path: &Path,
+            depth: usize,
+            total: &mut u64,
+            entries: &mut usize,
+            files: &mut BTreeMap<String, String>,
+        ) -> Result<()> {
+            if depth > 12 || files.len() > 8192 {
+                return Err("EvaluationBudget".into());
+            }
+            let _pins = pin(path)?;
+            for entry in fs::read_dir(path).map_err(|_| "EvaluationIo")? {
+                *entries = entries.checked_add(1).ok_or("EvaluationBudget")?;
+                if *entries > 8192 {
+                    return Err("EvaluationBudget".into());
+                }
+                let entry = entry.map_err(|_| "EvaluationIo")?;
+                let path = entry.path();
+                let pins = pin(&path)?;
+                let file = pins.last().ok_or("EvaluationIo")?;
+                let meta = file.metadata().map_err(|_| "EvaluationIo")?;
+                if meta.is_dir() {
+                    visit(root, &path, depth + 1, total, entries, files)?;
+                } else {
+                    if !meta.is_file() || meta.len() > 8 * 1024 * 1024 || files.len() >= 8192 {
+                        return Err("EvaluationBudget".into());
+                    }
+                    *total = total.checked_add(meta.len()).ok_or("EvaluationBudget")?;
+                    if *total > 128 * 1024 * 1024 {
+                        return Err("EvaluationBudget".into());
+                    }
+                    let mut bytes = vec![];
+                    file.take(8 * 1024 * 1024 + 1)
+                        .read_to_end(&mut bytes)
+                        .map_err(|_| "EvaluationIo")?;
+                    if bytes.len() > 8 * 1024 * 1024 {
+                        return Err("EvaluationBudget".into());
+                    }
+                    let relative = path
+                        .strip_prefix(root)
+                        .map_err(|_| "UnsafeEvaluationPath")?
+                        .to_str()
+                        .ok_or("UnsafeEvaluationPath")?
+                        .replace('\\', "/");
+                    files.insert(relative, format!("{:x}", Sha256::digest(&bytes)));
+                }
+            }
+            Ok(())
+        }
+        if !crate::harness::active()
+            || std::env::var("LOCALLORE_D07_FULL_COMPARISON_HARNESS").as_deref() != Ok("1")
+        {
+            return Err("Forbidden".into());
+        }
+        let root = self.full_comparison_root();
+        let mut files = BTreeMap::new();
+        if root.exists() {
+            visit(&root, &root, 0, &mut 0, &mut 0, &mut files)?;
+        }
+        let encoded = serde_json::to_vec(&files).map_err(|_| "EvaluationInternal")?;
+        bounded(
+            json!({"version":1,"kind":"full_comparison_fixture","synthetic":true,"digest":format!("{:x}",Sha256::digest(&encoded)),"file_count":files.len(),"inventory":files}),
+            2 * 1024 * 1024,
+        )
+    }
     pub(super) fn full_comparison_root(&self) -> PathBuf {
         self.root.with_file_name("comparison-evaluations")
     }

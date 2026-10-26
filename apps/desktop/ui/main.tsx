@@ -56,6 +56,7 @@ declare global {
             curated?: boolean;
             comparisonReading?: boolean;
             selectedEvaluating?: boolean;
+            fullComparing?: boolean;
             archiving?: boolean;
             timelining?: boolean;
             forking?: boolean;

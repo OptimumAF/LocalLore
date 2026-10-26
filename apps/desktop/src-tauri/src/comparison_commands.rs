@@ -227,12 +227,14 @@ pub async fn evaluation_comparison(
     let is_pick = matches!(&action, Action::Pick(_));
     let result = tauri::async_runtime::spawn_blocking(move || match action {
         Action::Managed(client, run) => {
+            #[cfg(feature = "dev-harness")]
+            let consent_manager = manager.clone();
             manager.full_comparison_pick(&lease, epoch, granted, &client, &run, move || {
                 #[cfg(feature = "dev-harness")]
                 if crate::harness::active()
                     && std::env::var("LOCALLORE_D07_FULL_COMPARISON_HARNESS").as_deref() == Ok("1")
                 {
-                    return Ok(true);
+                    return Ok(!consent_manager.take_full_read_denial());
                 }
                 crate::exports::confirm_comparison_read(owner)
             })

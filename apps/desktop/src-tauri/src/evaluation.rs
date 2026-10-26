@@ -519,6 +519,10 @@ pub struct EvaluationManager {
     hold: std::sync::atomic::AtomicBool,
     #[cfg(any(test, feature = "dev-harness"))]
     curated_lost_ack: std::sync::atomic::AtomicBool,
+    #[cfg(any(test, feature = "dev-harness"))]
+    full_lost_ack: std::sync::atomic::AtomicBool,
+    #[cfg(any(test, feature = "dev-harness"))]
+    full_read_denied: std::sync::atomic::AtomicBool,
 }
 impl EvaluationManager {
     pub fn new(root: PathBuf) -> Self {
@@ -544,6 +548,10 @@ impl EvaluationManager {
             hold: std::sync::atomic::AtomicBool::new(false),
             #[cfg(any(test, feature = "dev-harness"))]
             curated_lost_ack: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(any(test, feature = "dev-harness"))]
+            full_lost_ack: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(any(test, feature = "dev-harness"))]
+            full_read_denied: std::sync::atomic::AtomicBool::new(false),
         }
     }
     fn state(&self) -> Result<std::sync::MutexGuard<'_, State>> {
@@ -1018,6 +1026,8 @@ impl EvaluationManager {
             "hold-boundary" => self.hold.store(true, Ordering::SeqCst),
             "release-boundary" => self.hold.store(false, Ordering::SeqCst),
             "lose-curated-start-ack" => self.curated_lost_ack.store(true, Ordering::SeqCst),
+            "lose-comparison-start-ack" => self.full_lost_ack.store(true, Ordering::SeqCst),
+            "deny-comparison-read" => self.full_read_denied.store(true, Ordering::SeqCst),
             _ => return Err("InvalidEvaluationInput".into()),
         }
         Ok(json!({"synthetic":true}))
@@ -1025,6 +1035,16 @@ impl EvaluationManager {
     #[cfg(feature = "dev-harness")]
     pub fn take_curated_lost_ack(&self) -> bool {
         self.curated_lost_ack
+            .swap(false, std::sync::atomic::Ordering::SeqCst)
+    }
+    #[cfg(feature = "dev-harness")]
+    pub fn take_full_lost_ack(&self) -> bool {
+        self.full_lost_ack
+            .swap(false, std::sync::atomic::Ordering::SeqCst)
+    }
+    #[cfg(feature = "dev-harness")]
+    pub fn take_full_read_denial(&self) -> bool {
+        self.full_read_denied
             .swap(false, std::sync::atomic::Ordering::SeqCst)
     }
 }

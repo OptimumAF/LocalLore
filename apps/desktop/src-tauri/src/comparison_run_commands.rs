@@ -152,7 +152,11 @@ pub async fn evaluation_comparison_run(
     if !granted {
         return Err("Forbidden".into());
     }
-    tauri::async_runtime::spawn_blocking(move || match action {
+    #[cfg(feature = "dev-harness")]
+    let ack_manager = manager.clone();
+    #[cfg(feature = "dev-harness")]
+    let is_start = matches!(&action, Action::Start(_));
+    let result = tauri::async_runtime::spawn_blocking(move || match action {
         Action::Catalog => manager.full_comparison_catalog(&lease, epoch, granted),
         Action::Start(input) => manager.full_comparison_start(&lease, epoch, granted, input),
         Action::Lookup(client) => manager.full_comparison_lookup(&lease, epoch, granted, &client),
@@ -167,7 +171,17 @@ pub async fn evaluation_comparison_run(
         Action::Close(_) => Err("EvaluationInternal".into()),
     })
     .await
-    .map_err(|_| "EvaluationInternal".to_owned())?
+    .map_err(|_| "EvaluationInternal".to_owned())?;
+    #[cfg(feature = "dev-harness")]
+    if is_start
+        && result.is_ok()
+        && crate::harness::active()
+        && std::env::var("LOCALLORE_D07_FULL_COMPARISON_HARNESS").as_deref() == Ok("1")
+        && ack_manager.take_full_lost_ack()
+    {
+        return Err("EvaluationIo".into());
+    }
+    result
 }
 
 #[cfg(test)]

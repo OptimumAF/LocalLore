@@ -55,8 +55,11 @@ The native10 gate is now running against this new build. The two real UI cases
 remain pending in their separate fresh guest; host/build passes do not qualify
 the dialog or native outcome. The completed build/host/server recovery copy
 contains85 files/28,106,972B, ZIP17,824,554B SHA-256
-`efc6909acad292e9a86ac9f2937ca946cb357cf77ed2dc8e380ad99f5c6c3885`;
-independent original/ZIP/index readback is pending at this checkpoint. No live
+`efc6909acad292e9a86ac9f2937ca946cb357cf77ed2dc8e380ad99f5c6c3885`.
+Independent original/ZIP/index readback verifies every selected file and entry
+without mismatch/extra/duplicate/unsafe paths. Both24,883B indexes match SHA-256
+`8d9d26cbb290cc35f6ce43a5b38d8f08291e85c50eb4b69b7f9ede97434e0489`.
+Independent original host/build/XML/audit checks also pass. No live
 native/UI cohort, guest images/databases/models/caches or unrelated data was selected.
 
 ## Phone gate kept separate

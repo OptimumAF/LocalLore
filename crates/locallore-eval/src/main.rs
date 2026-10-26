@@ -2,8 +2,16 @@ use locallore::inference::Cancellation;
 use std::path::PathBuf;
 fn main() {
     let args: Vec<_> = std::env::args().collect();
-    if args.get(1).is_some_and(|s| s == "comparison") {
-        match locallore_eval::local_lane::comparison::cli(&args[2..]) {
+    if args
+        .get(1)
+        .is_some_and(|s| matches!(s.as_str(), "comparison" | "literal-comparison"))
+    {
+        let outcome = if args[1] == "literal-comparison" {
+            locallore_eval::local_lane::comparison::literal_v3::cli(&args[2..])
+        } else {
+            locallore_eval::local_lane::comparison::cli(&args[2..])
+        };
+        match outcome {
             Ok(report) => {
                 let failed = report["turns"]
                     .as_array()

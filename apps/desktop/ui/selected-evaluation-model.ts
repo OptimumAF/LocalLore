@@ -2,10 +2,11 @@
 // history and worker cleanup. Parsed JSON cannot prove absence of raw duplicates.
 import {
     checkedReaderObserver,
+    checkedReaderConstruction,
     checkedReaderRequest,
     sameReaderObserver,
 } from "./comparison-reader-model";
-import type { EvidenceRequest, Json, RowId } from "./comparison-reader-model";
+import type { ComparisonArmDescriptorV3, ConstructionEvidenceStatusV3, EvidenceRequest, Json, RowId } from "./comparison-reader-model";
 import { checkedPageV2 } from "./v2-view-model";
 import type { ObserverV2, ScopeV2, InspectionPageV2 } from "./v2-view-model";
 export type { EvidenceRequest, RowId, ObserverV2, ScopeV2 };
@@ -44,7 +45,7 @@ export type SelectedSourceIdentity = {
     runToken: string;
     binding: string;
 };
-export type SelectedPrepared = {
+type SelectedPreparedV1 = {
     version: 1;
     kind: "selected_prepared";
     binding: string;
@@ -58,7 +59,13 @@ export type SelectedPrepared = {
         input_semantic_sha256: string;
     }[];
 };
-export type SelectedSummary = {
+type SelectedPreparedV2 = Omit<SelectedPreparedV1, "version"> & {
+    version: 2;
+    source_protocol_version: 3;
+    constructions: ComparisonArmDescriptorV3[];
+};
+export type SelectedPrepared = SelectedPreparedV1 | SelectedPreparedV2;
+type SelectedSummaryV1 = {
     version: 1;
     kind: "selected_read";
     binding: string;
@@ -74,6 +81,12 @@ export type SelectedSummary = {
     read_only: true;
     execution_available: false;
 };
+type SelectedSummaryV2 = Omit<SelectedSummaryV1, "version"> & {
+    version: 2;
+    source_protocol_version: 3;
+    constructions: ComparisonArmDescriptorV3[];
+};
+export type SelectedSummary = SelectedSummaryV1 | SelectedSummaryV2;
 export type SelectedStatus = {
     version: 1;
     kind: "selected_evaluation";
@@ -117,7 +130,7 @@ export type SelectedCleanup = {
     running: boolean;
     error: (typeof selectedErrors)[number] | null;
 };
-export type SelectedDiagnosticRow = {
+type SelectedDiagnosticRowV1 = {
     turn: string;
     arm: SelectedArm;
     phase:
@@ -139,13 +152,23 @@ export type SelectedDiagnosticRow = {
     privacy_passed: boolean;
     context_evidence_available: boolean;
 };
-export type SelectedDiagnostics = {
+type SelectedDiagnosticRowV2 = SelectedDiagnosticRowV1 & {
+    construction: ComparisonArmDescriptorV3;
+    construction_evidence_status: ConstructionEvidenceStatusV3;
+    construction_matches: boolean;
+    literal_source_units: number | null;
+    literal_selected_start: number | null;
+    literal_selected_units: number | null;
+    fallback: boolean | null;
+};
+export type SelectedDiagnosticRow = SelectedDiagnosticRowV1 | SelectedDiagnosticRowV2;
+type SelectedDiagnosticsV1 = {
     version: 1;
     kind: "selected_diagnostics";
     binding: string;
     lane: StoredSelectedLane;
     completed: boolean;
-    rows: SelectedDiagnosticRow[];
+    rows: SelectedDiagnosticRowV1[];
     physical_setups: number;
     physical_setup_ms: number | null;
     left_charged_ms: number;
@@ -156,6 +179,13 @@ export type SelectedDiagnostics = {
     quality_accepted: false;
     unavailable: string[];
 };
+type SelectedDiagnosticsV2 = Omit<SelectedDiagnosticsV1, "version" | "rows"> & {
+    version: 2;
+    source_protocol_version: 3;
+    constructions: ComparisonArmDescriptorV3[];
+    rows: SelectedDiagnosticRowV2[];
+};
+export type SelectedDiagnostics = SelectedDiagnosticsV1 | SelectedDiagnosticsV2;
 export type SelectedEvidence = {
     version: 1;
     binding: string;
@@ -332,8 +362,28 @@ function arms(v: unknown, fields: string[], visit: (o: Obj) => void): void {
             object(values[1]).arm === "right",
     );
 }
+function selectedConstruction(v: unknown, arm?: unknown): ComparisonArmDescriptorV3 {
+    try {
+        return checkedReaderConstruction(v, arm);
+    } catch {
+        throw new Error("SelectedEvaluationWire");
+    }
+}
+function versioned(v: unknown, fields: string[]): Obj {
+    const version = object(v).version;
+    requireWire(version === 1 || version === 2);
+    const o = exact(v, [...fields, ...(version === 2 ? ["source_protocol_version", "constructions"] : [])]);
+    if (version === 2) {
+        requireWire(o.source_protocol_version === 3);
+        const values = array(o.constructions, (v) => selectedConstruction(v), 2);
+        requireWire(values.length === 2);
+        selectedConstruction(values[0], "left");
+        selectedConstruction(values[1], "right");
+    }
+    return o;
+}
 export function checkedSelectedPrepared(v: unknown): SelectedPrepared {
-    const o = exact(detached(v, 16 * 1024), [
+    const o = versioned(detached(v, 16 * 1024), [
         "version",
         "kind",
         "binding",
@@ -341,7 +391,7 @@ export function checkedSelectedPrepared(v: unknown): SelectedPrepared {
         "selection",
         "arms",
     ]);
-    requireWire(o.version === 1 && o.kind === "selected_prepared");
+    requireWire(o.kind === "selected_prepared");
     selectedHash(o.binding);
     storedLane(o.lane);
     selection(o.selection);
@@ -481,7 +531,7 @@ export function checkedSelectedSummary(
     token: string,
     binding?: string,
 ): SelectedSummary {
-    const o = exact(
+    const o = versioned(
         detached(wrapper(v, "selected_summary", "summary", token), 16 * 1024),
         [
             "version",
@@ -495,8 +545,7 @@ export function checkedSelectedSummary(
         ],
     );
     requireWire(
-        o.version === 1 &&
-            o.kind === "selected_read" &&
+        o.kind === "selected_read" &&
             o.read_only === true &&
             o.execution_available === false,
     );
@@ -522,7 +571,7 @@ export function checkedSelectedDiagnostics(
     token: string,
     summary: SelectedSummary,
 ): SelectedDiagnostics {
-    const o = exact(
+    const o = versioned(
         detached(
             wrapper(v, "selected_diagnostics_result", "diagnostics", token),
             256 * 1024,
@@ -546,7 +595,7 @@ export function checkedSelectedDiagnostics(
         ],
     );
     requireWire(
-        o.version === 1 &&
+        o.version === summary.version &&
             o.kind === "selected_diagnostics" &&
             selectedHash(o.binding) === summary.binding &&
             o.lane === summary.lane,
@@ -571,6 +620,8 @@ export function checkedSelectedDiagnostics(
                 "actual_receipt_sha256",
                 "privacy_passed",
                 "context_evidence_available",
+                ...(o.version === 2 ? ["construction", "construction_evidence_status", "construction_matches",
+                    "literal_source_units", "literal_selected_start", "literal_selected_units", "fallback"] : []),
             ]);
             requireWire(id(r.turn) === summary.selection.turn);
             const arm = selectedArm(r.arm);
@@ -595,6 +646,23 @@ export function checkedSelectedDiagnostics(
             nullable(r.actual_receipt_sha256, selectedHash);
             bool(r.privacy_passed);
             bool(r.context_evidence_available);
+            if (o.version === 2) {
+                const descriptor = selectedConstruction(r.construction, arm);
+                bool(r.construction_matches);
+                const status = one(r.construction_evidence_status, ["validated_literal", "validated_relevant",
+                    "not_applicable_guard", "not_applicable_dependency", "unavailable"]);
+                nullable(r.fallback, bool);
+                [r.literal_source_units, r.literal_selected_start, r.literal_selected_units]
+                    .forEach((v) => nullable(v, integer));
+                const literal = descriptor.arm === "literal_player_v1";
+                requireWire(status !== (literal ? "validated_relevant" : "validated_literal"));
+                if (status === "validated_literal") {
+                    const total = integer(r.literal_source_units), start = integer(r.literal_selected_start),
+                        count = integer(r.literal_selected_units);
+                    requireWire(start <= total && count <= total - start);
+                } else requireWire(r.literal_source_units === null && r.literal_selected_start === null &&
+                    r.literal_selected_units === null);
+            }
         },
         2,
     );

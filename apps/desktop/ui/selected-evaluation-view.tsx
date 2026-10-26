@@ -8,6 +8,7 @@ import type {
     SelectedArm,
     SelectedLane,
     SelectedSourceIdentity,
+    SelectedDiagnosticRow,
 } from "./selected-evaluation-model";
 import type { ViewV2 } from "./v2-view-model";
 import { sameReaderObserver } from "./comparison-reader-model";
@@ -24,6 +25,25 @@ const views: ViewV2[] = [
     "retrieval_indexes",
 ];
 const label = (value: string) => value.replaceAll("_", " ");
+const armLabel = (arm: SelectedArm, version: number | undefined) =>
+    version === undefined
+        ? arm === "left" ? "Left arm" : "Right arm"
+        : version === 2
+        ? arm === "left" ? "Literal player conversation" : "Relevant memory"
+        : arm === "left" ? "Recent transcript baseline" : "Relevant memory";
+const privateCheckLabel = (item: SelectedDiagnosticRow, context = false) => {
+    if ("construction_evidence_status" in item) {
+        if (item.construction_evidence_status === "not_applicable_guard")
+            return "Not applicable · engine guard";
+        if (item.construction_evidence_status === "not_applicable_dependency")
+            return "Not applicable · dependency not attempted";
+        if (item.construction_evidence_status === "unavailable")
+            return "Unavailable · context evidence was not recovered";
+    }
+    return context
+        ? item.context_evidence_available ? "Available" : "Unavailable"
+        : item.privacy_passed ? "Passed" : "Not established";
+};
 const laneLabel = (value: string | null | undefined) =>
     value === "approved_native" || value === "native_selected_case"
         ? "Installed native model"
@@ -161,7 +181,7 @@ export function SelectedEvaluationView({
         >
             <h2 id="selected-evaluation-title">Selected-case experiment</h2>
             <p>
-                Attempt one original turn in both isolated policy arms. Source
+                Attempt one original turn in both isolated arms. Source
                 stories remain unchanged; each arm has its own copied history.
             </p>
             {!s.allowed && (
@@ -226,7 +246,7 @@ export function SelectedEvaluationView({
                 {source && row
                     ? `Reader selection for a new experiment: ${row.turn} · clicked ${row.arm} arm.`
                     : sourceUnavailable
-                      ? "Selected-case reruns are unavailable for this literal/relevant report. Read-only inspection remains available above."
+                      ? "The selected-case source is unavailable. Read-only inspection remains available above."
                       : "Choose a comparison report and a source turn in the reader before preparing an experiment."}
             </p>
             <p>
@@ -325,7 +345,7 @@ export function SelectedEvaluationView({
                     </p>
                     {prepared.arms.map((item) => (
                         <p key={item.arm}>
-                            {item.arm}: story {item.scope.story} · branch{" "}
+                            {item.arm} · {armLabel(item.arm, prepared.version)}: story {item.scope.story} · branch{" "}
                             {item.scope.branch} · before head {item.before_head}
                             .
                         </p>
@@ -459,7 +479,7 @@ export function SelectedEvaluationView({
                             <tbody>
                                 {summary.arms.map((item) => (
                                     <tr key={item.arm}>
-                                        <td>{item.arm}</td>
+                                        <td>{item.arm} · {armLabel(item.arm, summary.version)}</td>
                                         <td>
                                             {item.scope.story} /{" "}
                                             {item.scope.branch}
@@ -523,8 +543,8 @@ export function SelectedEvaluationView({
                                 setArm(value);
                         }}
                     >
-                        <option value="left">Left policy arm</option>
-                        <option value="right">Right policy arm</option>
+                        <option value="left">Left · {armLabel("left", summary?.version ?? prepared?.version)}</option>
+                        <option value="right">Right · {armLabel("right", summary?.version ?? prepared?.version)}</option>
                     </select>
                 </label>
                 <label>
@@ -683,7 +703,7 @@ export function SelectedEvaluationView({
                             className="comparison-selected"
                         >
                             <h4>
-                                {item.turn} · {item.arm}
+                                {item.turn} · {item.arm} · {armLabel(item.arm, diagnostics.version)}
                             </h4>
                             <dl>
                                 <dt>Expected</dt>
@@ -711,17 +731,30 @@ export function SelectedEvaluationView({
                                         : "Unavailable after recovery"}
                                 </dd>
                                 <dt>Privacy check</dt>
-                                <dd>
-                                    {item.privacy_passed
-                                        ? "Passed"
-                                        : "Not established"}
-                                </dd>
+                                <dd>{privateCheckLabel(item)}</dd>
                                 <dt>Context check flag</dt>
-                                <dd>
-                                    {item.context_evidence_available
-                                        ? "Available"
-                                        : "Unavailable"}
-                                </dd>
+                                <dd>{privateCheckLabel(item, true)}</dd>
+                                {"construction" in item && (
+                                    <>
+                                        <dt>Construction evidence</dt>
+                                        <dd>{label(item.construction_evidence_status)}</dd>
+                                        <dt>Construction tuple agreement</dt>
+                                        <dd>{item.construction_matches ? "Matches recorded construction" : "Not established"}</dd>
+                                        {item.construction.arm === "literal_player_v1" && (
+                                            <>
+                                                <dt>Literal source units</dt>
+                                                <dd>{item.literal_source_units ??
+                                                    (item.construction_evidence_status.startsWith("not_applicable_") ? "Not applicable" : "Unavailable")}</dd>
+                                                <dt>Selected conversation suffix</dt>
+                                                <dd>{item.literal_selected_start === null || item.literal_selected_units === null
+                                                    ? item.construction_evidence_status.startsWith("not_applicable_") ? "Not applicable" : "Unavailable"
+                                                    : `Start ${item.literal_selected_start} · ${item.literal_selected_units} units`}</dd>
+                                            </>
+                                        )}
+                                        <dt>Narration fallback</dt>
+                                        <dd>{item.fallback === null ? "Unavailable" : item.fallback ? "Recorded fallback" : "No recorded fallback"}</dd>
+                                    </>
+                                )}
                             </dl>
                             {item.actual_receipt_sha256 && (
                                 <p className="hash-value">

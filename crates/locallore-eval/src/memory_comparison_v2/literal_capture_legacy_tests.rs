@@ -9,10 +9,10 @@ use std::{collections::VecDeque, sync::{atomic::Ordering, Arc}, task::Poll};
 
 const BASE: &str = "4511d67dac8376fa90cc56a71a408d88d4fae05b";
 const EXPECTED: [(&str, &str); 4] = [
-    ("recent-action-repair", "cf83fcef668f11f1c81fa1bcc3c839a5f67e4e077672ac274a2c8e8de84ed157D"),
-    ("recent-dialogue-repair", "05a66e4cdab9fe760266f74a2597e90c8b1721f84e5cdb4e08d68e4e3926c1f7D"),
-    ("relevant-action-repair", "fe571feb3982a193ee247994c82d942b0f72aa90f0f5f78ccac28064262c779cD"),
-    ("relevant-dialogue-repair", "d22505d9ec3b4890218c8dc1f85a0b02f844cc27c969f668b1fdbdf5bdb6dd81D"),
+    ("recent-action-repair", "cf83fcef668f11f1c81fa1bcc3c839a5f67e4e077672ac274a2c8e8de84ed157"),
+    ("recent-dialogue-repair", "05a66e4cdab9fe760266f74a2597e90c8b1721f84e5cdb4e08d68e4e3926c1f7"),
+    ("relevant-action-repair", "fe571feb3982a193ee247994c82d942b0f72aa90f0f5f78ccac28064262c779c"),
+    ("relevant-dialogue-repair", "d22505d9ec3b4890218c8dc1f85a0b02f844cc27c969f668b1fdbdf5bdb6dd81"),
 ];
 fn call(h: &Host, command: Value) -> Value {
     h.call(&encode(&json!({"version":1,"command":command})).unwrap())

@@ -1416,6 +1416,115 @@ await check(
         );
     },
 );
+// TWO additional independent V2 wire-field boundary cases. These synthetic
+// tuples are not claimed as observations of an actual native owner/process.
+for (const flag of ["cleanup_required", "cleanup_running"])
+    await check(
+        `retired stopped-worker close ${flag} observes actual global payload once`,
+        async () => {
+            const f = fixture(),
+                gate = deferred();
+            let reads = 0;
+            const observed =
+                flag === "cleanup_required"
+                    ? cleanup({ cleanup_required: false, running: true })
+                    : cleanup({
+                          cleanup_required: true,
+                          running: false,
+                          error: "Cleanup",
+                      });
+            f.hooks.set("cleanup_status", () =>
+                ++reads === 1 ? cleanup() : gate.promise,
+            );
+            f.hooks.set("start", (q) => {
+                const v = status({
+                    client_id: q.clientId,
+                    phase: "running",
+                    running: true,
+                    report_ready: false,
+                });
+                f.setCurrent(v);
+                return v;
+            });
+            f.hooks.set("close", (q) =>
+                status({
+                    client_id: f.calls.find((x) => x.action === "start").query
+                        .clientId,
+                    run_token: q.runToken,
+                    phase: "closed",
+                    running: false,
+                    report_ready: false,
+                    cleanup_required: flag === "cleanup_required",
+                    cleanup_running: flag === "cleanup_running",
+                }),
+            );
+            const work = f.c.start("paired", 1);
+            await until(() => f.c.get().status?.running === true);
+            const captured = f.c.get().clientId;
+            f.c.setContext("retired-session-still-valid-window", false);
+            let during;
+            try {
+                await until(
+                    () =>
+                        f.calls.filter((x) => x.action === "cleanup_status")
+                            .length === 2,
+                );
+                during = clone(f.c.get());
+            } finally {
+                gate.resolve(observed);
+                await work;
+            }
+            await until(
+                () => f.c.get().cleanupPending === null && !f.c.get().uncertain,
+            );
+            assert.equal(during.status, null);
+            assert.equal(during.clientId, null);
+            assert.equal(during.allowed, false);
+            assert.equal(during.cleanupPending, "status");
+            assert.equal(during.uncertain, true);
+            if (during.cleanup !== null)
+                assert.deepEqual(
+                    during.cleanup,
+                    cleanup(),
+                    "pending read cannot invent a generic observation from the close flags",
+                );
+            assert.deepEqual(
+                f.c.get().cleanup,
+                observed,
+                "only the actual fresh generic reply supplies its flags/error",
+            );
+            assert.equal(f.c.get().cleanupUncertain, false);
+            assert.equal(f.c.get().status, null);
+            assert.equal(f.c.get().clientId, null);
+            assert.deepEqual(actions(f), [
+                "cleanup_status",
+                "start",
+                "close",
+                "cleanup_status",
+            ]);
+            assert.deepEqual(f.calls.at(-1), {
+                command: NATIVE,
+                action: "cleanup_status",
+                query: {},
+            });
+            const markup = render(f, true);
+            assert.match(markup, /cleanup/i);
+            assert.ok(!markup.includes(RUN) && !markup.includes(captured));
+            const count = f.calls.length;
+            f.c.setContext("retired-session-still-valid-window", true);
+            await f.c.start("paired", 1);
+            assert.equal(
+                f.calls.length,
+                count,
+                "actual observed cleanup blocker remains across eligibility change",
+            );
+            assert.equal(generated(f).length, 1);
+            assert.equal(
+                f.calls.some((x) => x.action === "retry_cleanup"),
+                false,
+            );
+        },
+    );
 for (const c of controllers) c.dispose();
 await tick();
 const sourceHashes = Object.fromEntries(

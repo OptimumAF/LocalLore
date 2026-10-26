@@ -265,14 +265,18 @@ now has model-free ownership/cancellation/cleanup qualification using the
 existing resource port. [Approved-model paired and rollout qualification](../../docs/desktop/D07_LITERAL_NATIVE_MODEL_QUALIFICATION_2026-10-25.md)
 now records 96 outcomes, 153 actual role calls, cold reads and zero-reservation
 completed-native resume using the desktop manager. Failures and 28 narration
-fallbacks remain visible; no human quality acceptance. Native3 CLI, selected-case protocol3 and
-desktop UI exposure remain unavailable.
-The existing app reader and selected-case controls retain their v2/selected1
-formats. The linked qualification gives exact commands, results and limitations.
+fallbacks remain visible; no human quality acceptance. Native3 CLI and
+selected-case protocol3 execution remain unavailable.
+The app reader accepts protocols2/3; selected-case controls retain selected1
+execution for protocol2 sources. The linked qualification gives exact commands,
+results and limitations.
 The [protocol3 Rust read capability](../../docs/desktop/D07_LITERAL_DESKTOP_READ_QUALIFICATION_2026-10-25.md)
 now validates cold report/receipt/capture/state reads with observer restrictions,
-including retained real-model data without the optional runtime. Desktop UI/IPC
-consumption remains pending; the capability grants no execution.
+including retained real-model data without the optional runtime. The
+[desktop protocol3 reader qualification](../../docs/desktop/D07_LITERAL_DESKTOP_UI_QUALIFICATION_2026-10-26.md)
+adds actual controller/native IPC,30 inspected app-owned WebView images and
+restart/observer/refusal/recovery checks using synthetic inference. This reader
+grants no execution; protocol3 reruns and human quality remain unqualified.
 
 Run these developer checks from the repository root; the qualification record
 identifies the executed source, target directories and results:

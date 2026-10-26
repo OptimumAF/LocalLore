@@ -68,12 +68,14 @@ export type SelectedEvaluationViewProps = {
     source: SelectedSourceIdentity | null;
     row: RowId | null;
     observer: ObserverV2;
+    sourceUnavailable?: boolean;
 };
 export function SelectedEvaluationView({
     controller: c,
     source,
     row,
     observer,
+    sourceUnavailable = false,
 }: SelectedEvaluationViewProps) {
     const subscribe = useCallback(
         (listener: () => void) => c.subscribe(listener),
@@ -223,7 +225,9 @@ export function SelectedEvaluationView({
             <p>
                 {source && row
                     ? `Reader selection for a new experiment: ${row.turn} · clicked ${row.arm} arm.`
-                    : "Choose a comparison report and a source turn in the reader before preparing an experiment."}
+                    : sourceUnavailable
+                      ? "Selected-case reruns are unavailable for this literal/relevant report. Read-only inspection remains available above."
+                      : "Choose a comparison report and a source turn in the reader before preparing an experiment."}
             </p>
             <p>
                 {lane === "scripted_baseline"

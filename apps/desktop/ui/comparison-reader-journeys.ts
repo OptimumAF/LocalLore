@@ -124,6 +124,19 @@ export async function comparisonReaderJourneys({
                               input_semantic_sha256: row.input_semantic_sha256,
                               output_semantic_sha256:
                                   row.output_semantic_sha256,
+                              ...("construction" in row
+                                  ? {
+                                        construction: row.construction,
+                                        construction_evidence_status:
+                                            row.construction_evidence_status,
+                                        literal_source_units:
+                                            row.literal_source_units,
+                                        literal_selected_start:
+                                            row.literal_selected_start,
+                                        literal_selected_units:
+                                            row.literal_selected_units,
+                                    }
+                                  : { policy: row.policy }),
                           })),
                       },
                   }
@@ -220,11 +233,16 @@ export async function comparisonReaderJourneys({
         c.acknowledgeLab(true);
         await until(() => r.get().allowed);
         const prepared = (await scenario("prepare")) as {
+            protocol_version: 2 | 3;
             paired_rows: number;
             rollout_rows: number;
             fixture_inventory: Record<string, string>;
         };
         fixtureInventory = prepared.fixture_inventory;
+        check(
+            prepared.protocol_version === 2 || prepared.protocol_version === 3,
+            "closed-comparison-protocol",
+        );
         check(
             prepared.paired_rows === 24 && prepared.rollout_rows === 12,
             "actual-scripted-paired-and-rollout-fixtures",
@@ -235,12 +253,15 @@ export async function comparisonReaderJourneys({
         await r.loadSummary();
         check(
             r.get().status?.phase === "ready" &&
-                r.get().source?.rows.length === 24,
+                r.get().source?.rows.length === 24 &&
+                r.get().source?.protocol_version ===
+                    prepared.protocol_version &&
+                r.get().summary?.report.version === prepared.protocol_version,
             "actual-comparison-reader-native-open",
         );
         check(
-            r.get().summary?.report.version === 2,
-            "actual-report2-decoded-through-controller",
+            r.get().summary?.report.version === prepared.protocol_version,
+            "actual-versioned-report-decoded-through-controller",
         );
         check(
             r.get().summary?.report.source_matches === true,
@@ -257,6 +278,56 @@ export async function comparisonReaderJourneys({
             .get()
             .source!.rows.find((row) => row.receipt_available)!;
         check(first, "real-accepted-turn-source-present");
+        if (prepared.protocol_version === 3) {
+            const text =
+                document.querySelector<HTMLElement>("#comparison-reader")
+                    ?.innerText ?? "";
+            check(
+                text.includes("Literal player conversation") &&
+                    text.includes("Relevant memory"),
+                "actual-native-construction-labels",
+            );
+            check(
+                text.includes("Protocol 3 selected-case rerun unavailable"),
+                "actual-native-protocol3-rerun-unavailable",
+            );
+            check(
+                document
+                    .querySelector("#selected-evaluation")
+                    ?.textContent?.includes(
+                        "Selected-case reruns are unavailable for this literal/relevant report",
+                    ),
+                "actual-native-selected-pane-explains-unavailable-source",
+            );
+            const before = r.get().status!;
+            let refusal = "";
+            try {
+                await invoke("evaluation_selected", {
+                    action: "prepare",
+                    request: JSON.stringify({
+                        clientId: "33333333-3333-4333-8333-333333333333",
+                        readerClientId: r.get().clientId,
+                        runToken: before.run_token,
+                        binding: before.binding,
+                        turnId: first.row.turn,
+                        arm: first.row.arm,
+                        lane: "scripted_baseline",
+                    }),
+                });
+            } catch (error) {
+                refusal = String(error);
+            }
+            check(
+                refusal === "NativeUnavailable",
+                "actual-native-protocol3-selected-refusal",
+            );
+            await r.loadSummary();
+            check(
+                r.get().status?.run_token === before.run_token &&
+                    r.get().summary?.report.version === 3,
+                "rejected-rerun-preserves-native-reader",
+            );
+        }
         r.select(first.row);
         await inspect("receipt");
         check(
@@ -340,6 +411,16 @@ export async function comparisonReaderJourneys({
             r.get().evidence?.body.kind === "missing",
             "guard-does-not-invent-receipt",
         );
+        if (prepared.protocol_version === 3) {
+            const text =
+                document.querySelector<HTMLElement>(".comparison-selected")
+                    ?.innerText ?? "";
+            check(
+                text.includes("Not applicable") &&
+                    !text.includes("Privacy pass"),
+                "native-guard-has-no-generation-privacy-proof",
+            );
+        }
         await capture("comparison-guard", ".comparison-selected");
         await r.close();
         check(r.get().source === null, "explicit-close-clears-private-source");

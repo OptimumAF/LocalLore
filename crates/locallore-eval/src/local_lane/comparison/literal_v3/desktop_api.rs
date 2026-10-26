@@ -65,7 +65,7 @@ fn snapshot(directory: &Path) -> Result<(Value, Manifest, [Vec<StoredTurn3>; 2])
     )?);
     let value = json!({"version":1,"protocol_version":3,"binding":binding,
         "report":report,"rows":rows,"read_only":true,"execution_available":false,
-        "unavailable":["selected_protocol3_rerun_not_implemented","protocol3_gui_not_implemented"]});
+        "unavailable":["selected_protocol3_rerun_not_implemented"]});
     if encode(&value)?.len() > MAX_SUMMARY {
         return Err("ReportBudget".into());
     }

@@ -35,6 +35,7 @@ internal fun PlayInputComposer(
     recoveryRequired: Boolean,
     onInput: (PlayInput) -> Unit,
     onSend: (PlayInput) -> Unit,
+    draftNotRestored: Boolean = false,
 ) {
     val enabled = !busy && !recoveryRequired && provider != TextProvider.UNAVAILABLE
     val valid = validPlayInput(input)
@@ -99,6 +100,13 @@ internal fun PlayInputComposer(
             "$byteCount / $MAX_PLAY_INPUT_BYTES UTF-8 bytes · new lines and tabs allowed",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (draftNotRestored) Text(
+            "This draft could not be restored. Enter it again before sending.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag("play-draft-not-restored")
+                .semantics { liveRegion = LiveRegionMode.Polite },
         )
         if (problem != null) Text(
             problem,

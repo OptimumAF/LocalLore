@@ -385,6 +385,13 @@ class ShellViewModel internal constructor(
         gateway.respond(action, before.revision, before.mode)
     }
 
+    /** A retained UI callback cannot retarget its text after selecting another timeline. */
+    fun submitText(input: PlayInput, expectedStory: SavedStory?) {
+        val selected = mutable.value.selectedStory
+        if (expectedStory?.story != selected?.story || expectedStory?.branch != selected?.branch) return
+        submitText(input)
+    }
+
     fun submitText(input: PlayInput) {
         if (disposed || forkBlocksActions() || mutable.value.busy || mutable.value.archiveActive || mutable.value.deletionActive || mutable.value.recoveryRequired ||
             (gateway.durable && mutable.value.selectedStory == null)) return

@@ -107,7 +107,7 @@ expected while the caught cancellation test passes.
 | Desktop all-target/all-feature strict Clippy |PASS;14.06s Cargo/14.307s command |
 | Normal desktop build |PASS;28.34s Cargo/28.464s command; executable not launched |
 
-The full workspace includes Core, storage, workspace and Android Rust host
+The default-member workspace suite includes Core, storage, workspace and Android Rust host
 tests, including the new nine groups, eight renderer groups, source/cap tests,
 old Play2.1–2.5 compatibility, SQLite recovery/transactions/archives, long-history
 retrieval, job interruption/cancellation, Host traces and eight no-serde doctests.

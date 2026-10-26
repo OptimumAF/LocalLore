@@ -1054,6 +1054,74 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV3> {
             "Missing recovered calls/captures remain unknown. Hashes detect consistency, not authenticated evidence origin.".into(),
             "Native protocol3, selected/UI integration, human quality review and physical-phone qualification are unavailable.".into()] })
 }
+/// Fixed scripted grammar; no native provider, arbitrary corpus or expected
+/// outcome input. The existing reference owner remains the only reference writer.
+pub fn cli(args: &[String]) -> Result<Value> {
+    if args.len() < 2 {
+        return Err("Usage".into());
+    }
+    let dir = Path::new(&args[1]);
+    match args[0].as_str() {
+        "reference" if args.len() == 2 => {
+            return serde_json::to_value(prepare_reference(dir, &Cancellation::default())?)
+                .map_err(|_| "Encoding".into())
+        }
+        "inspect" if args.len() == 2 => {
+            return serde_json::to_value(inspect_comparison(dir)?).map_err(|_| "Encoding".into())
+        }
+        "run" | "resume" => {}
+        _ => return Err("Usage".into()),
+    }
+    let mut kind = None;
+    let mut lane = None;
+    let mut scenes = 4;
+    let mut reference = None;
+    let mut seen = BTreeSet::new();
+    let mut index = 2;
+    while index < args.len() {
+        if index + 1 >= args.len() || !seen.insert(args[index].as_str()) {
+            return Err("Usage".into());
+        }
+        let value = &args[index + 1];
+        match args[index].as_str() {
+            "--kind" => {
+                kind = Some(match value.as_str() {
+                    "paired" => ComparisonKind::PairedSnapshots,
+                    "rollout" => ComparisonKind::ContinuousRollout,
+                    _ => return Err("Usage".into()),
+                })
+            }
+            "--lane" => lane = Some(value.as_str()),
+            "--max-scenes" => {
+                scenes = value.parse::<usize>().map_err(|_| "Usage")?;
+                if !(1..=4).contains(&scenes) {
+                    return Err("SceneBudget".into());
+                }
+            }
+            "--reference" => reference = Some(Path::new(value)),
+            _ => return Err("Usage".into()),
+        }
+        index += 2;
+    }
+    match lane {
+        Some("scripted") => {}
+        Some("native") => return Err("NativeComparisonV3Unavailable".into()),
+        _ => return Err("Usage".into()),
+    }
+    let kind = kind.ok_or("Usage")?;
+    let reference = reference.map(open_reference).transpose()?;
+    serde_json::to_value(run_comparison(
+        dir,
+        args[0] == "resume",
+        kind,
+        &Cancellation::default(),
+        scenes,
+        LaneFactory::ScriptedBaseline,
+        reference.as_ref(),
+    )?)
+    .map_err(|_| "Encoding".into())
+}
+
 #[cfg(test)]
 mod lifecycle_tests {
     use super::*;
@@ -1156,72 +1224,4 @@ mod lifecycle_tests {
             before
         );
     }
-}
-
-/// Fixed scripted grammar; no native provider, arbitrary corpus or expected
-/// outcome input. The existing reference owner remains the only reference writer.
-pub fn cli(args: &[String]) -> Result<Value> {
-    if args.len() < 2 {
-        return Err("Usage".into());
-    }
-    let dir = Path::new(&args[1]);
-    match args[0].as_str() {
-        "reference" if args.len() == 2 => {
-            return serde_json::to_value(prepare_reference(dir, &Cancellation::default())?)
-                .map_err(|_| "Encoding".into())
-        }
-        "inspect" if args.len() == 2 => {
-            return serde_json::to_value(inspect_comparison(dir)?).map_err(|_| "Encoding".into())
-        }
-        "run" | "resume" => {}
-        _ => return Err("Usage".into()),
-    }
-    let mut kind = None;
-    let mut lane = None;
-    let mut scenes = 4;
-    let mut reference = None;
-    let mut seen = BTreeSet::new();
-    let mut index = 2;
-    while index < args.len() {
-        if index + 1 >= args.len() || !seen.insert(args[index].as_str()) {
-            return Err("Usage".into());
-        }
-        let value = &args[index + 1];
-        match args[index].as_str() {
-            "--kind" => {
-                kind = Some(match value.as_str() {
-                    "paired" => ComparisonKind::PairedSnapshots,
-                    "rollout" => ComparisonKind::ContinuousRollout,
-                    _ => return Err("Usage".into()),
-                })
-            }
-            "--lane" => lane = Some(value.as_str()),
-            "--max-scenes" => {
-                scenes = value.parse::<usize>().map_err(|_| "Usage")?;
-                if !(1..=4).contains(&scenes) {
-                    return Err("SceneBudget".into());
-                }
-            }
-            "--reference" => reference = Some(Path::new(value)),
-            _ => return Err("Usage".into()),
-        }
-        index += 2;
-    }
-    match lane {
-        Some("scripted") => {}
-        Some("native") => return Err("NativeComparisonV3Unavailable".into()),
-        _ => return Err("Usage".into()),
-    }
-    let kind = kind.ok_or("Usage")?;
-    let reference = reference.map(open_reference).transpose()?;
-    serde_json::to_value(run_comparison(
-        dir,
-        args[0] == "resume",
-        kind,
-        &Cancellation::default(),
-        scenes,
-        LaneFactory::ScriptedBaseline,
-        reference.as_ref(),
-    )?)
-    .map_err(|_| "Encoding".into())
 }

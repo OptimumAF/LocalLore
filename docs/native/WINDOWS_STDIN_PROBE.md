@@ -23,7 +23,8 @@ which CRT the installed ADB binary uses.
 The original input is exactly `bytes(range(256)) * 3`:768 bytes, SHA256
 `f3a25aa93aa2fbba28d79260535bbd6a5eb0fc1c24a8b0f04e12b484c1dfe363`.
 One exclusive regular file holds this unchanged input. The parent retains its
-open descriptor and checks visible/held descriptor identity and full contents
+open descriptor and checks visible/held descriptor identity (including size and
+nanosecond modification time) and full contents
 after both controls. No bytes are escaped, encoded, filtered, or replaced.
 
 Each child waits for the existing `runtime_spike.run_process` stdin barrier.
@@ -47,8 +48,15 @@ pipe cleanup, zero stderr, a strictly validated worker result, verified source,
 known EOF and closed descriptor. It retains mismatches without crediting them.
 A wrong/short binary result, malformed JSON, duplicate fields, nonfinite
 numbers, unknown cleanup or mutated source cannot produce overall success.
+Dispatch stops after a noncompleted, unparsed or unclean client. Overall
+`observed` requires both modes, intact source and completed fixture cleanup.
+Unknown child closure closes the parent's own descriptor but preserves the
+private fixture directory, reports `fixture_retained=true`, and refuses further
+dispatch. That flag also remains true when exact file/directory removal cannot
+be proved; it discloses no path. Cleanup uses only exact owned file unlink and
+directory removal, with no recursive operation.
 
-## Actual observation — 2026-10-25
+## Historical observation at930d5ab0 — 2026-10-25
 
 The API `run_probe(runner=traced_existing_run_process)` ran against the actual
 Windows CRT. The trace wrapper saved the existing runner's raw stdout without
@@ -81,11 +89,62 @@ The result includes identical before/after source SHA256 bindings:
 | `benchmarks/runtime_spike.py` | `237ae7a2fcc2469b27f79c4266e2e45f653d4e5b09af7009a4299dee31e73816` |
 | `scripts/tests/test_windows_stdin_probe.py` | `1b2980cb6e63816acfa5d7ac3be4dbed9a039464dde3f407844568f2531a2552` |
 
-The14 mocked tests pass. They cover original hashes, same-CRT ownership,
+At930d5ab0,14 mocked tests passed. They covered original hashes, same-CRT ownership,
 corrupt sources, descriptor/read/mode/seek failures, bounded endless short
 reads, cleanup failure, private exceptions, invalid requests, bad client
 metadata, malformed/duplicate/nonfinite output, short binary mismatches,
 fixture mutation, spawn failure and explicit unsupported hosts.
+
+## Ownership correction and fresh observation — 2026-10-25
+
+Root review found that the original parent could dispatch BINARY after an
+unclean TEXT client. Three new regressions failed on that implementation:
+unknown cleanup and spawn failure each dispatched two children instead of one;
+identical contents with changed modification time were accepted. The corrected
+implementation stops new dispatch, retains partial refusal, requires all two
+modes, preserves the fixture on uncertain closure without leaking the parent's
+descriptor, and checks modification time as well as identity/size/contents.
+The original records above remain historical evidence and were not overwritten.
+
+The corrected17-test suite passes. A fresh actual API control under distinct
+ignored namespace `target/windows-stdin-probe-v2-20261025` again observed TEXT26B
+and BINARY768B with the exact same respective hashes and raw worker stdout
+hashes above. Both source verifications, EOF/read counts, descriptor closures,
+client exits, zero stderr and Job/pipe cleanup passed; source unchanged was true
+and `fixture_retained=false`. Elapsed times were224/185ms. The public CLI was
+also rerun and exited0/observed with the same exact contents, measurements
+of214/195ms, and no retained fixture. Timing is not an acceptance
+threshold.
+
+The new `result.json` is2046 bytes, SHA256
+`1fdf72b167291d72f0f6c8499dc4e8559f6fc547da1a9f8c42c81755d809b9cf`.
+Its before/after bindings are identical:
+
+| Source | SHA256 |
+|---|---|
+| `benchmarks/windows_stdin_probe.py` | `c3c186cd8c9c2152fb2b1cca3e732c1d41a9df4d071512f78bb62369937fde2f` |
+| `benchmarks/runtime_spike.py` | `237ae7a2fcc2469b27f79c4266e2e45f653d4e5b09af7009a4299dee31e73816` |
+| `scripts/tests/test_windows_stdin_probe.py` | `2b7c4f0f056e5627c8a109c8297e92d815836036c85ff79c6667002d75352bc8` |
+
+Final review additionally marked child closure unproved **before** invoking the
+runner, and tested a `RuntimeError` (for example failed reader-thread startup)
+alongside `OSError`. Both produce one retained partial refusal without private
+exception text. All17 tests still pass. The final-source actual API run is
+separately retained under `target/windows-stdin-probe-v3-20261025`:2046-byte
+`result.json`, SHA256
+`9b15ef9bfb68fdf0c4d1a4d491b6622b552f1117176c44cdd3d3549f39e09f54`.
+It again proves the same exact26B/768B hashes and raw stdout hashes, known
+EOF/descriptor/Job/pipe closure, unchanged source and no retained fixture
+(179/193ms). The final public CLI also passes (180/235ms).
+Final before/after source hashes match:
+
+| Source | SHA256 |
+|---|---|
+| `benchmarks/windows_stdin_probe.py` | `3998c53648eabdd8e55a0636881b3ccba793e13aef4c31bd39ce3313586cb23c` |
+| `scripts/tests/test_windows_stdin_probe.py` | `5d188f753a97e052615e46cd8afec79ecabef35d379d7d49d5ea36fbe87c229b` |
+
+The runner source hash is unchanged from the earlier records. These successive
+records are bounded host-mechanism checks, not retries against a failed device.
 
 ## Official source interpretation and limits
 

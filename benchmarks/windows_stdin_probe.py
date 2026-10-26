@@ -209,7 +209,8 @@ def run_probe(*, runner=None):
     report = {"version": 1, "scope": "windows_crt_regular_stdin_control", "status": "unsupported_host",
               "crt": "ucrtbase", "source_bytes": len(FIXTURE), "source_sha256": SOURCE_SHA256,
               "deadline_ms": DEADLINE_SECONDS * 1000, "max_output_bytes": MAX_OUTPUT,
-              "source_unchanged": False, "cases": [], "installed_adb_proven": False}
+              "source_unchanged": False, "fixture_retained": False,
+              "cases": [], "installed_adb_proven": False}
     if os.name != "nt":
         return report
     if runner is None:
@@ -219,29 +220,52 @@ def run_probe(*, runner=None):
         spec.loader.exec_module(module)
         runner = module.run_process
     report["status"] = "refused"
-    with tempfile.TemporaryDirectory(prefix="locallore-crt-") as directory:
-        path = Path(directory) / "original-768.bin"
+    directory = Path(tempfile.mkdtemp(prefix="locallore-crt-"))
+    path = directory / "original-768.bin"
+    children_cleaned = True
+    report["fixture_retained"] = True
+    try:
         with path.open("x+b") as source:
             source.write(FIXTURE)
             source.flush()
-            identity = source.fileno(), os.fstat(source.fileno())
+            identity = os.fstat(source.fileno())
             for mode in MODES:
                 request = json.dumps({"version": 1, "mode": mode, "path": str(path)}, separators=(",", ":")).encode()
+                children_cleaned = False  # Unproved until the runner returns known closure.
                 try:
                     process = runner([sys.executable, "-I", str(Path(__file__).resolve()), "_worker"],
                                      request, deadline=DEADLINE_SECONDS, max_output=MAX_OUTPUT)
-                except (OSError, ValueError):
+                except (OSError, ValueError, RuntimeError):
                     process = None
-                report["cases"].append(_case(process, mode))
+                row = _case(process, mode)
+                report["cases"].append(row)
+                children_cleaned = row["cleanup_complete"] is True
+                if not children_cleaned:
+                    break
+                if row["client_status"] != "completed" or row["client_returncode"] != 0 or row["status"] != "completed":
+                    break
             source.seek(0)
             after = os.fstat(source.fileno())
             visible = path.stat()
             report["source_unchanged"] = (
                 source.read(len(FIXTURE) + 1) == FIXTURE and not path.is_symlink() and
-                (identity[1].st_dev, identity[1].st_ino, identity[1].st_size) ==
-                (after.st_dev, after.st_ino, after.st_size) ==
-                (visible.st_dev, visible.st_ino, visible.st_size))
-    if report["source_unchanged"] and all(row["expected_match"] for row in report["cases"]):
+                (identity.st_dev, identity.st_ino, identity.st_size, identity.st_mtime_ns) ==
+                (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns) ==
+                (visible.st_dev, visible.st_ino, visible.st_size, visible.st_mtime_ns))
+    except (OSError, ValueError):
+        pass  # Closed refusal; no filesystem exception/path reaches the report.
+    finally:
+        # Parent fd closes on every path. Retain only the visible fixture when
+        # child closure is unknown; never delete a potentially live child's input.
+        if children_cleaned:
+            try:
+                path.unlink(missing_ok=True)
+                directory.rmdir()  # Exact owned file/directory only; never recursive.
+                report["fixture_retained"] = False
+            except OSError:
+                pass
+    if (not report["fixture_retained"] and report["source_unchanged"] and len(report["cases"]) == len(MODES) and
+            all(row["expected_match"] for row in report["cases"])):
         report["status"] = "observed"
     return report
 

@@ -201,14 +201,69 @@ class WindowsStdinProbeTests(unittest.TestCase):
         self.assertEqual("refused", report["status"])
         self.assertFalse(report["source_unchanged"])
 
-    def test_spawn_exception_still_retains_two_failed_modes_without_private_text(self):
-        def fail(*args, **kwargs):
-            raise OSError(CANARY)
+    def test_unknown_cleanup_stops_new_dispatch_and_preserves_fixture(self):
+        requests = []
+        handles = []
+        original_open = Path.open
+        def capture(path, *args, **kwargs):
+            handle = original_open(path, *args, **kwargs)
+            if args == ("x+b",):
+                handles.append(handle)
+            return handle
+        def runner(command, request, **limits):
+            requests.append(json.loads(request))
+            return process(cleanup_complete=False)
+        with tempfile.TemporaryDirectory() as root:
+            with (patch.object(p.os, "name", "nt"), patch.object(p.tempfile, "mkdtemp", return_value=root),
+                  patch.object(Path, "open", capture)):
+                report = p.run_probe(runner=runner)
+            self.assertEqual(1, len(requests))
+            self.assertEqual("refused", report["status"])
+            self.assertEqual(1, len(report["cases"]))
+            self.assertTrue(report["fixture_retained"])
+            self.assertTrue((Path(root) / "original-768.bin").is_file())
+            self.assertEqual(1, len(handles))
+            self.assertTrue(handles[0].closed)
+            self.assertNotIn(root, json.dumps(report))
+
+    def test_noncompleted_or_unparsed_client_stops_second_dispatch(self):
+        for changes in [{"status": "spawn_failed"}, {"status": "timeout"},
+                        {"status": "output_limit"}, {"stdout": b"{"}]:
+            requests = []
+            def runner(command, request, **limits):
+                requests.append(json.loads(request))
+                return process(**changes)
+            with patch.object(p.os, "name", "nt"):
+                report = p.run_probe(runner=runner)
+            self.assertEqual(1, len(requests), changes)
+            self.assertEqual("refused", report["status"])
+
+    def test_same_contents_with_changed_mtime_still_refuses(self):
+        requests = []
+        def runner(command, request, **limits):
+            value = json.loads(request)
+            requests.append(value)
+            path = Path(value["path"])
+            before = path.stat()
+            p.os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns + 10_000_000))
+            return process(observation(value["mode"]))
         with patch.object(p.os, "name", "nt"):
-            report = p.run_probe(runner=fail)
+            report = p.run_probe(runner=runner)
+        self.assertEqual(2, len(requests))
         self.assertEqual("refused", report["status"])
-        self.assertEqual(2, len(report["cases"]))
-        self.assertNotIn(CANARY, json.dumps(report))
+        self.assertFalse(report["source_unchanged"])
+
+    def test_spawn_exception_retains_partial_refusal_without_private_text(self):
+        for failure in (OSError, RuntimeError):
+            def fail(*args, **kwargs):
+                raise failure(CANARY)
+            with tempfile.TemporaryDirectory() as root:
+                with patch.object(p.os, "name", "nt"), patch.object(p.tempfile, "mkdtemp", return_value=root):
+                    report = p.run_probe(runner=fail)
+                self.assertTrue(report["fixture_retained"])
+            self.assertEqual("refused", report["status"])
+            self.assertEqual(1, len(report["cases"]))
+            self.assertNotIn(CANARY, json.dumps(report))
 
     def test_nonwindows_is_explicit_unsupported_without_launch(self):
         with patch.object(p.os, "name", "posix"), patch.object(p, "tempfile") as temp:

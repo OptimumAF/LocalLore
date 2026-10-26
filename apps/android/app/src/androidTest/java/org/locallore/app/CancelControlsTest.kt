@@ -66,7 +66,7 @@ class CancelControlsTest {
             calls += copy(command)
             return when (command.getString("op")) {
                 "workspace" -> ok(JSONObject().put("persistent", true).put("schema_version", 1)
-                    .put("database_schema_version", 4).put("location", "/synthetic/controls.sqlite3")
+                    .put("database_schema_version", 5).put("location", "/synthetic/controls.sqlite3")
                     .put("stories", JSONArray().put(JSONObject().put("scope", scope()).put("title", "Source")
                         .put("revision", revision).put("drafts", 0))))
                 "resume" -> ok(JSONObject().put("session", "controls-session").put("scope", scope())

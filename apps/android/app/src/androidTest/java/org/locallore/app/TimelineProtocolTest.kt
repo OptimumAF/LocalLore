@@ -67,7 +67,7 @@ class TimelineProtocolTest {
                 "workspace" -> ok(JSONObject().put("persistent", true).put("schema_version", 1)
                     .put("database_schema_version", databaseSchemaVersion).put("location", "/synthetic/workspace.sqlite3")
                     .put("stories", JSONArray().put(JSONObject().put("scope", scope("main"))
-                        .put("title", "Original title").put("revision", 2).put("drafts", 0).put("retired", false))))
+                        .put("title", "Original title").put("revision", 2).put("drafts", 0))))
                 "branches" -> {
                     assertEquals(storyId, command.getString("story"))
                     ok(catalog().also(changeCatalog))

@@ -42,7 +42,7 @@ class M08Schema5AdmissionTest {
                     .put("database_schema_version", databaseSchema).put("location", "/synthetic/schema-five.sqlite3")
                     .put("stories", JSONArray().also {
                         if (!empty) it.put(JSONObject().put("scope", scope()).put("title", "Synthetic schema five")
-                            .put("revision", head).put("drafts", 0).put("retired", false))
+                            .put("revision", head).put("drafts", 0))
                     })
                 "resume" -> {
                     assertEquals(scope().toString(), command.getJSONObject("scope").toString())

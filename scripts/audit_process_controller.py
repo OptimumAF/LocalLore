@@ -117,7 +117,19 @@ def _attrs(node, required, optional=()):
 
 def _badging(text):
     lines = _lines(text)
-    require(all(not line or not line[0].isspace() for line in lines), "badging_framing")
+    feature_rows = ["  uses-feature: name='android.hardware.faketouch'",
+                    "  uses-implied-feature: name='android.hardware.faketouch' reason='default feature for all apps'"]
+    index, feature_group_seen = 0, False
+    while index < len(lines):
+        line = lines[index]
+        if line.startswith("feature-group:"):
+            require(not feature_group_seen and line == "feature-group: label=''" and
+                    lines[index + 1:index + 3] == feature_rows, "badging_feature_group")
+            feature_group_seen = True
+            index += 3
+        else:
+            require(not line or not line[0].isspace(), "badging_framing")
+            index += 1
     package = [line for line in lines if line.startswith("package:")]
     require(len(package) == 1 and re.match(r"package: name='" + re.escape(PACKAGE) + r"' ", package[0]),
             "badging_package")

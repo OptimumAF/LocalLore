@@ -122,6 +122,30 @@ class ProcessControllerAuditTests(unittest.TestCase):
         self.refused(badging=BADGING + line.replace(audit.PACKAGE, audit.PRODUCT))
         self.refused(badging=BADGING + line + line)
 
+    def test_actual_aapt_empty_label_faketouch_feature_group_is_accepted(self):
+        group = ("feature-group: label=''\n"
+                 "  uses-feature: name='android.hardware.faketouch'\n"
+                 "  uses-implied-feature: name='android.hardware.faketouch' reason='default feature for all apps'\n")
+        for newline in ("\n", "\r\n"):
+            self.assertEqual(self.check(badging=(BADGING + group).replace("\n", newline))["status"], "passed")
+
+    def test_feature_group_never_whitelists_other_indented_capabilities_or_chatter(self):
+        group = ("feature-group: label=''\n"
+                 "  uses-feature: name='android.hardware.faketouch'\n"
+                 "  uses-implied-feature: name='android.hardware.faketouch' reason='default feature for all apps'\n")
+        for line in ("  uses-permission: name='android.permission.INTERNET'\n",
+                     "  native-code: 'arm64-v8a'\n",
+                     f"  instrumentation: name='{audit.INSTRUMENTATION}' targetPackage='{audit.PRODUCT}'\n",
+                     "  unexpected-indented-row\n"):
+            self.refused(badging=BADGING + group + line)
+            self.refused(badging=BADGING + "feature-group: label=''\n" + line)
+        for wrong in (group + group, group.replace("label=''", "label='other'"),
+                      group.replace("  uses-feature:", " uses-feature:"),
+                      group.replace("  uses-implied-feature:", "    uses-implied-feature:"),
+                      group.replace("reason='default feature for all apps'", "reason='other'"),
+                      group.replace("  uses-feature: name='android.hardware.faketouch'\n", "")):
+            self.refused(badging=BADGING + wrong)
+
     def test_package_duplicates_or_product_target_are_refused(self):
         self.refused(badging=BADGING.replace(audit.PACKAGE, audit.PRODUCT))
         self.refused(badging=BADGING + BADGING.splitlines()[0] + "\n")

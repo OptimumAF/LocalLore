@@ -39,7 +39,10 @@ class RetiredSelectionFixtureInstrumentedTest {
         check(instrumentation.targetContext.packageName == product) { "fixture_product_identity" }
         check(instrumentation.targetContext.applicationInfo.uid == Process.myUid()) { "fixture_uid_identity" }
         home = File("/data/user/0/$product")
-        check(home.canonicalFile == home && home.isDirectory) { "fixture_home_identity" }
+        check(home.canonicalFile == home && home.isDirectory) {
+            homeDiagnostic(instrumentation.targetContext.applicationInfo.dataDir,
+                instrumentation.targetContext.applicationInfo.uid)
+        }
         productApk = File(instrumentation.targetContext.applicationInfo.sourceDir)
         testApk = File(instrumentation.context.applicationInfo.sourceDir)
         check(listOf(productApk, testApk).all { it == it.canonicalFile && it.isFile && it.canRead() && !it.canWrite() }) {
@@ -69,6 +72,25 @@ class RetiredSelectionFixtureInstrumentedTest {
             digest.digest().joinToString("") { "%02x".format(java.util.Locale.ROOT, it.toInt() and 255) }
         }
     }
+
+    private fun pathClassification(path: String): String = when (path) {
+        "/data/user/0/$product" -> "USER_ZERO"
+        "/data/data/$product" -> "DATA_DATA"
+        else -> {
+            val bytes = path.toByteArray(Charsets.UTF_8)
+            val hash = java.security.MessageDigest.getInstance("SHA-256").digest(bytes)
+                .joinToString("") { "%02x".format(java.util.Locale.ROOT, it.toInt() and 255) }
+            "OTHER_HASH:$hash:bytes=${bytes.size}"
+        }
+    }
+
+    private fun homeDiagnostic(targetDataDir: String, targetUid: Int): String = try {
+        val target = File(targetDataDir)
+        "fixture_home_identity homeCanonical=${pathClassification(home.canonicalPath)} " +
+            "homeDirectory=${home.isDirectory} targetCanonical=${pathClassification(target.canonicalPath)} " +
+            "targetDirectory=${target.isDirectory} targetRaw=${pathClassification(targetDataDir)} " +
+            "selfEqualsTargetUid=${Process.myUid() == targetUid}"
+    } catch (_: Exception) { "fixture_home_identity diagnostic_unavailable" }
 
     private fun args(): MutableList<String> = mutableListOf("load", UUID.randomUUID().toString().replace("-", "").take(16),
         Process.myUid().toString(), productHash, testHash, productApk.path + "!/lib/x86_64",

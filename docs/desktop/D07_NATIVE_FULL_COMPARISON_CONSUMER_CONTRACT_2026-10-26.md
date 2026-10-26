@@ -268,6 +268,11 @@ pickManaged(source: ManagedComparisonIdentity): Promise<void>;
 ```
 
 Only the initial `managed` dispatch chooses the scripted or native command;
+scripted `pick(runId)` and scripted `pickManaged` retain the existing
+`evaluation_comparison` command with action `managed`. Native `pickManaged`
+uses `evaluation_comparison_native` with action `managed`. The execution
+descriptor's `evaluation_comparison_run` command has no `managed` action and
+must never be used for this reader entry.
 both use the frozen `{clientId,runId}` query. Returned reader wireV1 then uses
 the existing `evaluation_comparison` status/source/summary/evidence/close paths.
 Execution tokens are never reader tokens and completion never auto-opens a

@@ -1000,3 +1000,106 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV3> {
             "Missing recovered calls/captures remain unknown. Hashes detect consistency, not authenticated evidence origin.".into(),
             "Native protocol3, selected/UI integration, human quality review and physical-phone qualification are unavailable.".into()] })
 }
+#[cfg(test)]
+mod lifecycle_tests {
+    use super::*;
+    #[test]
+    fn manifest_kind_and_reference_combination_is_closed_before_any_execution() {
+        let profile = LaneFactory::ScriptedBaseline.profile().unwrap();
+        assert!(Manifest::new(
+            ComparisonKind::ContinuousRollout,
+            profile.clone(),
+            Some("a".repeat(64))
+        )
+        .unwrap()
+        .validate()
+        .is_err());
+        assert!(
+            Manifest::new(ComparisonKind::PairedSnapshots, profile.clone(), None)
+                .unwrap()
+                .validate()
+                .is_err()
+        );
+        assert!(Manifest::new(
+            ComparisonKind::PairedSnapshots,
+            profile.clone(),
+            Some("invalid".into())
+        )
+        .unwrap()
+        .validate()
+        .is_err());
+        Manifest::new(ComparisonKind::ContinuousRollout, profile.clone(), None)
+            .unwrap()
+            .validate()
+            .unwrap();
+        Manifest::new(
+            ComparisonKind::PairedSnapshots,
+            profile,
+            Some("a".repeat(64)),
+        )
+        .unwrap()
+        .validate()
+        .unwrap();
+    }
+    #[test]
+    fn pending_actual_director_cancels_without_canonical_commit_and_cold_read_keeps_the_failed_turn(
+    ) {
+        PENDING_POLLED.store(false, Ordering::Release);
+        let path = std::env::temp_dir().join(format!(
+            "locallore-literal-pending-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let cancel = Cancellation::default();
+        let stop = cancel.clone();
+        let watcher = std::thread::spawn(move || {
+            let began = Instant::now();
+            while !PENDING_POLLED.load(Ordering::Acquire) {
+                if began.elapsed() > Duration::from_secs(15) {
+                    stop.cancel();
+                    panic!("actual fixed pending provider never polled");
+                }
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            stop.cancel();
+        });
+        let outcome = run_comparison(
+            &path,
+            false,
+            ComparisonKind::ContinuousRollout,
+            &cancel,
+            1,
+            LaneFactory::TestFault(TestFault::Pending),
+            None,
+        );
+        watcher.join().unwrap();
+        let report = outcome.unwrap();
+        assert!(!report.completed);
+        assert_eq!(report.completed_scenes, 0);
+        assert_eq!(report.turns.len(), 1);
+        let row = &report.turns[0];
+        assert_eq!(row.phase, "cancelled");
+        assert!(row.roles_known);
+        assert_eq!(row.roles, 1);
+        assert!(!row.passed);
+        assert_eq!(row.construction_evidence_status, Status::ValidatedLiteral); // Actual input was forwarded; no accepted receipt is implied.
+        assert!(row.actual_receipt_sha256.is_none());
+        assert!(row.narration.is_none());
+        let before = read(&path.join("left/synthetic.sqlite"), 8 * 1024 * 1024).unwrap();
+        let actual = engine(
+            &path.join("left/synthetic.sqlite"),
+            &suite().unwrap().seed().scope,
+        )
+        .unwrap();
+        assert_eq!(actual.revision(), 0);
+        assert!(actual.receipts().is_empty());
+        assert_eq!(inspect_comparison(&path).unwrap(), report);
+        assert_eq!(
+            read(&path.join("left/synthetic.sqlite"), 8 * 1024 * 1024).unwrap(),
+            before
+        );
+    }
+}

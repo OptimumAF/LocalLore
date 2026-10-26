@@ -138,6 +138,17 @@ index30,167B SHA256
 Originals, copies and every ZIP member agree; the earlier130-file seal remains
 unchanged. Guest payloads and the then-active second preparation are excluded.
 
+A third metadata-only seal preserves22 files/366,199B from both failed
+preparations, their explicit proposals/authorizations, six generated INIs and
+the final selected-process observation. ZIP98,801B SHA256
+`d159aae801e434d6929b326a2d4652365e934d971a52de7397c909e6319577e0`;
+index10,453B SHA256
+`9b4d09ed8deb48652ee950bf7b8bc61c7f5ac310edbf549e29848080a31505bb`.
+All original/copy/ZIP bytes match; the earlier two seals remain unchanged.
+No images, models, databases or guest payload trees were copied. Initial private
+preservation-script syntax failure is retained separately; it occurred before
+copying and did not change the selected originals. No missing data is rebuilt.
+
 A complete Git-history bundle through `f87e5900` verifies with Git:
 11,426,991B/SHA256
 `701820adf01fddc50ed536bed4d7ad6b732b072ccb472575714e2dd97639daec`.
@@ -148,8 +159,18 @@ Both selected unrelated emulator native identities were observed live and
 unchanged before and after this packet. The existing server pin also matches
 at final postflight, without starting or replacing it. Both failed preparations
 are terminal with known child cleanup/closure and no prepared/running receipt.
+The1,104B postflight record SHA256 is
+`a7b01aa57309535de9755b676eeb451c46b4c7d045664fe54294e264ef43f2d6`.
 No unrelated emulator stop, global ADB lifecycle, settings change, merge or
 release occurred.
+
+Independent evidence reviews are recorded in
+[#12/6425702152](https://github.com/OptimumAF/LocalLore/issues/12#issuecomment-6425702152),
+[#12/6425744186](https://github.com/OptimumAF/LocalLore/issues/12#issuecomment-6425744186)
+and [#12/6425799806](https://github.com/OptimumAF/LocalLore/issues/12#issuecomment-6425799806).
+The corrected preparation boundary is recorded in
+[#12/6425815498](https://github.com/OptimumAF/LocalLore/issues/12#issuecomment-6425815498).
+These reviews do not substitute for owner acceptance or Android execution.
 
 No phone/model/thermal/performance, saved-task OS-death, joined app-adapter drain,
 forensic-erasure or full hidden-world equality claim follows. Eligible native

@@ -800,3 +800,58 @@ fn mutated_diagnostic_unknown_shapes_and_oversize_prompts_never_score_clean() {
         Negative::Unavailable("repair_relation")
     );
 }
+
+fn refuse_review_copy(mutate: impl FnOnce(&mut Value)) {
+    let actual = &fixtures()[0];
+    let validated = actual.gate().unwrap();
+    let mut copied = actual.director(0).clone();
+    mutate(&mut copied);
+    assert!(matches!(
+        observe(&validated, &copied, DirectorPassV25::Initial),
+        Negative::Unavailable(_)
+    ));
+}
+
+#[test]
+fn copied_unknown_initial_prefix_is_unavailable() {
+    refuse_review_copy(|copy| {
+        copy["input"]["prompt"] = json!(format!(
+            "unrecognized prefix {}",
+            copy["input"]["prompt"].as_str().unwrap()
+        ));
+    });
+}
+
+#[test]
+fn copied_bounded_initial_suffix_is_unavailable() {
+    refuse_review_copy(|copy| {
+        copy["input"]["prompt"] = json!(format!(
+            "{} unrecognized suffix",
+            copy["input"]["prompt"].as_str().unwrap()
+        ));
+    });
+}
+
+#[test]
+fn copied_unknown_nested_schema_type_is_unavailable() {
+    refuse_review_copy(|copy| {
+        copy["input"]["schema"]["properties"]["commands"]["items"]["oneOf"][0]["properties"]
+            ["text"]["type"] = json!("nonsense");
+    });
+}
+
+#[test]
+fn copied_duplicate_required_schema_field_is_unavailable() {
+    refuse_review_copy(|copy| {
+        copy["input"]["schema"]["properties"]["commands"]["items"]["oneOf"][0]["required"] =
+            json!(["op", "text", "audience", "op"]);
+    });
+}
+
+#[test]
+fn copied_nonstring_required_schema_field_is_unavailable() {
+    refuse_review_copy(|copy| {
+        copy["input"]["schema"]["properties"]["commands"]["items"]["oneOf"][0]["required"] =
+            json!(["op", "text", "audience", 7]);
+    });
+}

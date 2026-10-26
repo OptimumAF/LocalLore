@@ -5,7 +5,6 @@ use locallore_eval::local_lane::comparison::{
     desktop_api::{Arm, EvidenceRequest, RowId},
     literal_v3::desktop_api,
 };
-use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
@@ -130,7 +129,6 @@ fn genuine_native3_history_is_read_only_and_never_execution_permission() {
     .unwrap();
     assert_eq!(capture["body"]["kind"], "capture");
     assert_eq!(capture["generation_grant"], false);
-    let _: Value = capture;
     drop(cap);
     assert_eq!(inventory(&directory), before);
 }

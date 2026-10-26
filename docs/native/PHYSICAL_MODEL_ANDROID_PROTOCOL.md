@@ -202,5 +202,9 @@ source-review agent. Alignment does not prove16KiB-device operation. A connected
 physical phone, actual model import/inference/cancellation/restart, memory high
 water mark, sustained thermal/latency, prose/semantic quality, DocumentsUI,
 16KiB physical coverage and owner backend/support acceptance remain separate
-pending gates. The current pure policy tests are new source and unrun until
-the coordinator builds the integrated profile.
+pending gates. The coordinator subsequently built the integrated profile and
+ran its policy/proof tests as part of 488 passing JVM tests. The signed app/test
+pair passes the dedicated actual APK audit after removal of the unused generic
+Compose test activity. See the [dated central verification](PHYSICAL_MODEL_HARNESS_VERIFICATION_2026-10-25.md)
+for source/APK identities, retained failures and device limits; these are build
+and packaging results, not a physical model run.

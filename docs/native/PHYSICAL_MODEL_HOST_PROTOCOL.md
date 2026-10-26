@@ -70,9 +70,10 @@ The fixed app-relative roots are `no_backup/physical-model-source-v1` and
 Context roots and proves ownership and same filesystem. No removable volume
 or emulator lease is fabricated.
 
-`APK_HASHES` is intentionally empty until the coordinator integrates real
-audited hashes into the source. Runtime construction and proposal validation
-refuse while it is empty. Tiny synthetic APKs/hashes used by unit mocks do not
+`APK_HASHES` now pins the actual signed pair built from `fbef4195` and audited
+at `df5669a7`; see the [central verification](PHYSICAL_MODEL_HARNESS_VERIFICATION_2026-10-25.md).
+Runtime construction and proposal validation require this exact pair and
+refuse incomplete pins. Tiny synthetic APKs/hashes used by unit mocks do not
 qualify Android artifacts. The source closure explicitly binds the host parser,
 policy, proof codec, Android fixture, shared worker/proof helpers, test sources
 and protocol. A grant cannot supply alternate selectors or a transport script.
@@ -221,8 +222,8 @@ tested source hashes match before/after. The intermediate33-case run also
 passed before bounded stable-hash and inert-import regressions were added.
 No actual SDK, ADB, phone, model or memory API was invoked in these tests.
 
-Root still must build/audit the new physical profile, pin exact APK bytes,
-check actual current phone presence and resources, review/admit the proposal,
+Root has built/audited the new physical profile and pinned exact APK bytes.
+It must still check actual current phone presence and resources, review/admit the proposal,
 run the precheck and separately admit weights/SDK. No phone result, native
 resource reclamation, thermal/memory high-water mark, prose quality, DocumentsUI,
 16KiB-device or production-backend acceptance follows from these host tests.

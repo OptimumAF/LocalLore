@@ -45,9 +45,12 @@ OWNER_SHA = '6e58105a6f97416ed0727594cfaadac7326bece25e03c4305ab70fc964790b5e'
 PROBE_BYTES = 65
 PROBE_SHA = '72e34de83e7311b37f7a17361f3d71555209ffbfe4eb9e861cc11c7903e13422'
 PROBE_PATH = ROOT / 'benchmarks/fixtures/physical_model_probe_v1.txt'
-# Coordinator fills these source constants only after the actual signed audit.
-# An empty map is deliberately incapable of authorizing installation or runtime.
-APK_HASHES = {}
+# Signed pair built from fbef4195 and actually audited at df5669a7.
+# These are experiment artifacts, not a production or physical-runtime acceptance.
+APK_HASHES = {
+    APP: '13f8768e010bf007319748b0b158694ffb6c847d50f87638cf0af42fca60e1a5',
+    TEST: '1c3bba2756b5ae6c46842d483cd07dba433b1b3cfa83ee215ae0e1e47af4298c',
+}
 PRIOR_PAIR = {
     'org.locallore.app.modelverify': '1af7bd97a9c8f40b95387376181a4791d362a9459078036c183695245e39c26e',
     'org.locallore.app.modelverify.test': '8c14c03502faee7661b58a6862c5b35e9fec6e6371e40b9c2718daadd56ad1e5',

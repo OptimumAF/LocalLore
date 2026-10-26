@@ -470,6 +470,7 @@ enum JobKind {
     Curated,
     ComparisonRead,
     Selected,
+    ComparisonRun,
 }
 struct Job {
     kind: JobKind,
@@ -495,6 +496,7 @@ struct State {
     next: u64,
 }
 pub struct EvaluationManager {
+    full_comparison: Mutex<comparison_run::FullComparisonState>,
     comparison: Mutex<comparison::ComparisonState>,
     curated: Mutex<curated::CuratedState>,
     selected: Mutex<selected::SelectedState>,
@@ -521,6 +523,7 @@ pub struct EvaluationManager {
 impl EvaluationManager {
     pub fn new(root: PathBuf) -> Self {
         Self {
+            full_comparison: Mutex::new(comparison_run::FullComparisonState::default()),
             comparison: Mutex::new(comparison::ComparisonState::default()),
             curated: Mutex::new(curated::CuratedState::default()),
             selected: Mutex::new(selected::SelectedState::default()),
@@ -614,10 +617,17 @@ impl EvaluationManager {
         } else {
             0
         };
+        let full = self.full_comparison_root();
+        let full_bytes = if full.exists() {
+            bytes(&full, &mut 0)?
+        } else {
+            0
+        };
         if free_space(parent)? < 64 * 1024 * 1024
             || builtin_bytes
                 .saturating_add(extra)
                 .saturating_add(selected_bytes)
+                .saturating_add(full_bytes)
                 > ROOT_BYTES
         {
             return Err("EvaluationBudget".into());
@@ -964,6 +974,7 @@ impl EvaluationManager {
         }
     }
     pub fn retire(&self, epoch: u64) {
+        self.full_comparison_retire(epoch);
         self.selected_retire(epoch);
         self.comparison_retire(epoch);
         // No IO/state/lease/worker locks are acquired while holding this slot.
@@ -1018,12 +1029,14 @@ impl EvaluationManager {
     }
 }
 mod comparison;
+mod comparison_run;
 mod curated;
 #[cfg(test)]
 mod fresh_budget_review;
 mod selected;
 
 pub use comparison::ComparisonEvidenceRequest;
+pub use comparison_run::FullComparisonStart;
 #[cfg(test)]
 #[path = "evaluation/retirement_review.rs"]
 mod retirement_review;

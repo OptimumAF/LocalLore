@@ -68,6 +68,7 @@
                         "core:event:allow-unlisten",
                         "allow-evaluation-curated",
                         "allow-evaluation-comparison",
+                        "allow-evaluation-comparison-run",
                         "allow-evaluation-selected",
                         "allow-harness-selected-case",
                         "allow-harness-comparison-reader-case",

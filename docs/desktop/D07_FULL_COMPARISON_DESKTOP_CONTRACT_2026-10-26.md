@@ -95,6 +95,8 @@ none, `client:&str`, `run_id:&str`, `token:&str`,
 `full_comparison_start(self:&Arc<Self>,lease:&Arc<WindowLease>,epoch,granted,input)`
 and `full_comparison_resume(self:&Arc<Self>,lease:&Arc<WindowLease>,epoch,granted,
 token:&str,max_new_scenes:usize)` return the status JSON.
+Cold `open` also uses `self:&Arc<Self>,lease:&Arc<WindowLease>`: its shared
+inspection runs on the same registered native worker, returning `opening` first.
 Root owns registrations; independent source tests freeze before implementation.
 Native-owned root helper `full_comparison_root()` resolves
 `self.root.with_file_name("comparison-evaluations")`; each UUID leaf has closed

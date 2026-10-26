@@ -1134,6 +1134,8 @@ mod owned_cleanup_tests;
 #[cfg(test)]
 mod selected_review_tests;
 #[cfg(test)]
+mod literal_native_asset_tests;
+#[cfg(test)]
 mod tests {
     use super::*;
     struct Root(PathBuf);

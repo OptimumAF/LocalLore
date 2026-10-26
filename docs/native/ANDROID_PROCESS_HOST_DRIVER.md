@@ -136,3 +136,12 @@ It does not replace native10, broad89 or an external two-death result.
 See the [fixed protocol and command](ANDROID_RETAINED_PARENT_UI_PROTOCOL.md)
 and [dated verification](ANDROID_RETAINED_PARENT_UI_VERIFICATION_2026-10-26.md)
 for actual execution status and source attribution.
+
+## Separate retained-parent archive chooser phase
+
+The fixed `retained-archive` phase selects only `RetainedArchiveChooserTest`
+and its two original round-trip/refusal methods in a fresh owned guest. Its
+distinct `retained_archive-v1.json` cannot replace native10, broad89 or
+retained-ui2. Admission, source/tool/server pins, output validation and resource
+bounds stay unchanged. See the [archive protocol](ANDROID_RETAINED_ARCHIVE_PROTOCOL.md)
+for the command, original synthetic fixture, exact method names and limits.

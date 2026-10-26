@@ -60,6 +60,11 @@ val cancelAckVerification = providers.gradleProperty("localLoreCancelAckVerifica
 require(cancelAckVerification == null || cancelAckVerification == "true")
 val inputDraftVerification = providers.gradleProperty("localLoreInputDraftVerification").orNull
 require(inputDraftVerification == null || inputDraftVerification == "true")
+val inputProcessVerification = providers.gradleProperty("localLoreInputProcessVerification").orNull
+require(inputProcessVerification == null || inputProcessVerification == "true")
+require(inputProcessVerification != "true" || inputDraftVerification == "true") {
+    "Process verification requires the input draft verification profile."
+}
 require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention, cancelAckVerification, inputDraftVerification, externalInference, liteRt).count { it == "true" } <= 1) {
     "Verification installations must be selected individually."
 }
@@ -68,7 +73,10 @@ require(archiveVerification != "true" || archiveCapacity != "true") {
 }
 val capacityProjectCache = rootProject.file(".gradle-archive-capacity").canonicalFile
 val selectedProjectCache = (gradle.startParameter.projectCacheDir ?: rootProject.file(".gradle")).canonicalFile
-require((inputDraftVerification == "true") == (selectedProjectCache == rootProject.file(".gradle-input-draft").canonicalFile)) {
+require((inputProcessVerification == "true") == (selectedProjectCache == rootProject.file(".gradle-input-process").canonicalFile)) {
+    "Input process verification requires its exclusive .gradle-input-process project cache."
+}
+require((inputDraftVerification == "true" && inputProcessVerification != "true") == (selectedProjectCache == rootProject.file(".gradle-input-draft").canonicalFile)) {
     "Input draft verification requires its exclusive .gradle-input-draft project cache."
 }
 require(inputDraftVerification != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
@@ -143,6 +151,8 @@ if (liteRt == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-parent-retention"))
 } else if (cancelAckVerification == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-cancel-ack"))
+} else if (inputProcessVerification == "true") {
+    layout.buildDirectory.set(layout.projectDirectory.dir("build-input-process"))
 } else if (inputDraftVerification == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-input-draft"))
 }
@@ -153,6 +163,7 @@ val verificationSuffix = when {
     liteRt == "true" -> ".litertverify"
     externalInference == "true" -> ".externalverify"
     cancelAckVerification == "true" -> ".cancelack"
+    inputProcessVerification == "true" -> ".draftprocessverify"
     inputDraftVerification == "true" -> ".draftverify"
     parentRetention == "true" -> ".parentverify"
     timelineVerification == "true" -> ".timelineverify"
@@ -241,6 +252,7 @@ android {
     defaultConfig {
         buildConfigField("boolean", "MODEL_VOLUME_VERIFICATION", (modelVolume == "true").toString())
         buildConfigField("boolean", "MODEL_RECEIPT_VERIFICATION", (modelReceipt == "true").toString())
+        buildConfigField("boolean", "INPUT_PROCESS_VERIFICATION", (inputProcessVerification == "true").toString())
         applicationId = when {
             capacityTest -> "org.locallore.app.capacityv4"
             reliefFaultTest -> "org.locallore.app.capacityfaultsv4"

@@ -37,8 +37,11 @@ open class MainActivity : ComponentActivity() {
         get() = transportObservation?.get()
     // Selected by application construction, never by story text or a model response.
     internal open fun createWorkspaceTransport(): NativeWorkspaceTransport =
-        NativeWorkspaceTransport(applicationContext)
+        NativeWorkspaceTransport(applicationContext, operationObserver =
+            if (BuildConfig.INPUT_PROCESS_VERIFICATION) ProcessVerificationProbe::operation else null)
     private lateinit var model: ShellViewModel
+    private var pendingNavigationHint: PlayDraftScope? = null
+    private var processVerificationRun: String? = null
     private val archiveImportPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (::model.isInitialized) {
             if (uri == null) model.completeArchiveImport(null)
@@ -69,12 +72,20 @@ open class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pendingNavigationHint = readNavigationHint(savedInstanceState)
+        processVerificationRun = if (BuildConfig.INPUT_PROCESS_VERIFICATION) try {
+            (savedInstanceState?.getString(ProcessVerificationProbe.RUN_STATE)
+                ?: intent.getStringExtra(ProcessVerificationProbe.RUN_EXTRA))
+                ?.takeIf { Regex("[0-9a-f]{16}").matches(it) }
+        } catch (_: RuntimeException) { null } else null
+        ProcessVerificationProbe.configure(applicationContext, processVerificationRun, taskId, savedInstanceState != null)
         enableEdgeToEdge()
         val factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 require(modelClass == ShellViewModel::class.java)
                 val transport = createWorkspaceTransport()
+                ProcessVerificationProbe.factoryCreated()
                 transportObservation = WeakReference(transport)
                 val durable = DurableGateway(transport, autoCreateIfEmpty = false)
                 return ShellViewModel(durable,
@@ -122,6 +133,7 @@ open class MainActivity : ComponentActivity() {
                 branchDeletionAvailable = model.branchDeletionController != null,
                 onDeleteTimeline = model::openBranchDeletion,
                 forkAvailable = model.forkAvailable, forkRecoveryAvailable = forkRecoveryPending || forkProblem != null,
+                exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION,
                 onFork = model::openFork) {
                 BranchForkPanel(forkVisible, fork, forkProblem, forkRecoveryPending,
                     onBoundary = model::prepareForkBoundary, onConfirm = model::confirmFork,
@@ -161,7 +173,32 @@ open class MainActivity : ComponentActivity() {
                 }
             }
         }
+        ProcessVerificationProbe.created(pendingNavigationHint)
     }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        if (::model.isInitialized) pendingNavigationHint = navigationHintToSave(pendingNavigationHint, model.state.value)
+        encodeNavigationHint(pendingNavigationHint)?.let { value ->
+            outState.putBundle("locallore.navigation.v1", Bundle().apply {
+                putInt("version", value[0] as Int)
+                putString("story", value[1] as String)
+                putString("branch", value[2] as String)
+            })
+        }
+        processVerificationRun?.let { outState.putString(ProcessVerificationProbe.RUN_STATE, it) }
+        ProcessVerificationProbe.saved(pendingNavigationHint)
+    }
+
+    private fun readNavigationHint(state: Bundle?): PlayDraftScope? = try {
+        state?.getBundle("locallore.navigation.v1")?.let { hint ->
+            if (hint.keySet() != setOf("version", "story", "branch")) null
+            else {
+                @Suppress("DEPRECATION")
+                decodeNavigationHint(listOf(hint.get("version"), hint.get("story"), hint.get("branch")))
+            }
+        }
+    } catch (_: RuntimeException) { null } // Malformed UI saved state is never native storage authority.
 
     override fun onStop() {
         // Conservatively stop sample work when the surface leaves the foreground, including rotation.

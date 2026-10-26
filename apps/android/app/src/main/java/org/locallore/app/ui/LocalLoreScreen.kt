@@ -43,6 +43,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import org.locallore.app.DemoAction
@@ -90,6 +91,7 @@ fun LocalLoreScreen(
     forkAvailable: Boolean = false,
     forkRecoveryAvailable: Boolean = false,
     onFork: () -> Unit = {},
+    exposeTestTags: Boolean = false,
     overlay: @Composable () -> Unit = {},
 ) {
     // Save only the scoped editor payload, never a pending submission or gameplay state.
@@ -128,7 +130,7 @@ fun LocalLoreScreen(
                 // A single scroll surface keeps actions reachable in landscape and at large fonts.
                 LazyColumn(
                     modifier = Modifier.widthIn(max = 760.dp).fillMaxSize()
-                        .testTag("story-list"),
+                        .testTag("story-list").semantics { testTagsAsResourceId = exposeTestTags },
                     contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp),
                 ) {
@@ -187,10 +189,12 @@ fun LocalLoreScreen(
                                         Text("Saved stories · ${state.stories.size} · ${state.selectedStory?.story.orEmpty()}")
                                     }
                                     DropdownMenu(expanded = libraryExpanded && !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.recoveryRequired,
-                                        onDismissRequest = { libraryExpanded = false }) {
+                                        onDismissRequest = { libraryExpanded = false },
+                                        modifier = Modifier.semantics { testTagsAsResourceId = exposeTestTags }) {
                                         state.stories.forEach { story ->
                                             DropdownMenuItem(text = { Text("${story.title} · ${story.story} · revision ${story.revision}") },
-                                                onClick = { libraryExpanded = false; onResume(story) })
+                                                onClick = { libraryExpanded = false; onResume(story) },
+                                                modifier = Modifier.testTag("saved-story-${story.story}"))
                                         }
                                     }
                                 }

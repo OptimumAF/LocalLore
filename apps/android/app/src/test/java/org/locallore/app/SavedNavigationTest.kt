@@ -32,7 +32,7 @@ class SavedNavigationTest {
 
     @Test fun decoderRejectsWrongContainersLengthsTypesAndVersionRepresentations() {
         val bad: List<Any?> = listOf(
-            null, "1,story,main", arrayOf(1, "story", "main"),
+            null, "1,story,main", arrayOf<Any>(1, "story", "main"),
             mapOf("version" to 1, "story" to "story", "branch" to "main"),
             emptyList<Any>(), listOf(1, "story"), listOf(1, "story", "main", 0),
             listOf(null, "story", "main"), listOf(true, "story", "main"),

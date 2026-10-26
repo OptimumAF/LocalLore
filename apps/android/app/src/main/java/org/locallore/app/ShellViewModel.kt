@@ -297,7 +297,9 @@ class ShellViewModel internal constructor(
             databaseSchemaVersion = saved.databaseSchemaVersion,
             timelines = saved.timelines,
             textProvider = saved.textProvider,
-            recoveryRequired = false, checkingCancellation = false, notice = notice,
+            recoveryRequired = false, checkingCancellation = false,
+            notice = if (saved.selectionRestoreUnavailable)
+                "Previously selected timeline is unavailable. Review the library before sending." else notice,
         )
         synchronizeForkContext(next)
         return next

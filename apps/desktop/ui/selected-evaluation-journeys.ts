@@ -125,6 +125,7 @@ export async function selectedEvaluationJourneys({
     };
     const source = async (
         guard = false,
+        forResume = false,
     ): Promise<{ identity: SelectedSourceIdentity; row: RowId }> => {
         await r.close();
         await fixture("choose-paired");
@@ -202,7 +203,9 @@ export async function selectedEvaluationJourneys({
                 ].some(
                     (button) =>
                         button.textContent?.trim() ===
-                            "Prepare selected case" && !button.disabled,
+                            (forResume
+                                ? "Resume / verify with linked source"
+                                : "Prepare selected case") && !button.disabled,
                 ),
             "actual-app-source-prop-enables-selected-control",
         );
@@ -241,11 +244,10 @@ export async function selectedEvaluationJourneys({
             "#selected-evaluation",
         );
         check(panel, `${label}-panel-mounted`);
-        (
-            panel?.querySelector(selector) ??
-            document.querySelector(selector) ??
-            panel
-        )?.scrollIntoView({ block: "start" });
+        const target =
+            panel?.querySelector(selector) ?? document.querySelector(selector);
+        check(target, `${label}-capture-target-present`);
+        target?.scrollIntoView({ block: "start" });
         const timerStarted = performance.now();
         await new Promise((resolve) => setTimeout(resolve, 150));
         const testTimerObservedMs = Math.round(
@@ -340,6 +342,11 @@ export async function selectedEvaluationJourneys({
                 testTimerObservedMs,
                 horizontalOverflow: overflow,
                 nestedOverflow: nested,
+                captureTarget: {
+                    selector,
+                    top: target?.getBoundingClientRect().top,
+                    bottom: target?.getBoundingClientRect().bottom,
+                },
             },
         };
         check(
@@ -549,6 +556,24 @@ export async function selectedEvaluationJourneys({
             "[aria-label='Displayed selected evidence']",
         );
         await invoke("harness_viewport", { preset: "wide" });
+        const beforeResume = structural(s.get().summary),
+            oldReadToken = s.get().status?.run_token,
+            resumeRun = s.get().status?.run_id;
+        const linked = await source(false, true);
+        await s.resume(linked.identity);
+        await s.loadSummary();
+        checkVersion(s.get().summary, "explicit-completed-resume");
+        check(
+            s.get().status?.phase === "completed" &&
+                s.get().status?.run_id === resumeRun &&
+                s.get().status?.run_token !== oldReadToken &&
+                structural(s.get().summary) === beforeResume,
+            "explicit-fresh-source-resume-preserves-heads-and-read-binding",
+        );
+        await capture(
+            "selected-resumed",
+            "[aria-label='Selected experiment summary']",
+        );
         await s.readDiagnostics();
         check(
             s.get().diagnostics?.rows.length === 2 &&
@@ -597,8 +622,17 @@ export async function selectedEvaluationJourneys({
             "selected-constructions-narrow",
             "[aria-label='Selected expected and actual results']",
         );
+        if (selectedVersion === 2)
+            await capture(
+                "selected-literal-proof-narrow",
+                "[aria-label='Selected expected and actual results'] > .comparison-selected:first-of-type dt:nth-of-type(9)",
+            );
         await invoke("harness_viewport", { preset: "wide" });
         if (selectedVersion === 2) {
+            await capture(
+                "selected-relevant-construction",
+                "[aria-label='Selected expected and actual results'] > .comparison-selected:last-of-type",
+            );
             await inspect("left", "capture");
             check(
                 s.get().diagnostics === null &&

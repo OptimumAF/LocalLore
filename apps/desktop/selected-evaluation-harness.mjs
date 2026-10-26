@@ -161,9 +161,17 @@ await run(
 );
 // Frozen mandatory captures. Each must be an actual app-owned WebView image.
 const labels = [
+    "selected-resumed",
     "selected-constructions",
     "selected-constructions-narrow",
-    ...(literal ? ["selected-literal-capture", "selected-guard-results"] : []),
+    ...(literal
+        ? [
+              "selected-literal-capture",
+              "selected-guard-results",
+              "selected-relevant-construction",
+              "selected-literal-proof-narrow",
+          ]
+        : []),
     "selected-prepared",
     "selected-completed",
     "selected-summary",
@@ -221,7 +229,7 @@ for (const stage of ["initial", "restart"]) {
             WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:
                 "--disable-background-timer-throttling",
         },
-        660000,
+        900000,
     );
     const report = JSON.parse(
         await readFile(path.join(directory, "report.json"), "utf8"),

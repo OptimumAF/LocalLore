@@ -32,6 +32,9 @@ pub(crate) const AUTHOR_LABELS: &[&str] = &[
 
 const MAX_JSON: usize = 256 * 1024;
 const SELECTED_LABELS: &[&str] = &[
+    "selected-resumed",
+    "selected-relevant-construction",
+    "selected-literal-proof-narrow",
     "selected-constructions",
     "selected-constructions-narrow",
     "selected-literal-capture",

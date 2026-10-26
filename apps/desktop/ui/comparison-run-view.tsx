@@ -27,9 +27,11 @@ function cleanupBlocks(s: Readonly<ComparisonRunConsumerState>): boolean {
 export function ComparisonRunView({
     controller: c,
     onInspect,
+    admissionAllowed = () => true,
 }: {
     controller: ComparisonRunController;
     onInspect: (runId: string) => void | Promise<void>;
+    admissionAllowed?: () => boolean;
 }) {
     const s = useRunState(c);
     const native = s.mode === "approved_native";
@@ -46,7 +48,7 @@ export function ComparisonRunView({
         !s.uncertain &&
         !cleanupBlocks(s);
     const idle = s.allowed && !s.busy && !s.uncertain;
-    const canGenerate = idle && !cleanupBlocks(s);
+    const canGenerate = idle && !cleanupBlocks(s) && admissionAllowed();
     const canInspect = () => {
         const now = c.get(),
             current = now.status;
@@ -150,7 +152,9 @@ export function ComparisonRunView({
                 </label>
                 <button
                     disabled={!canGenerate || !!s.clientId}
-                    onClick={() => void c.start(kind, batch)}
+                    onClick={() => {
+                        if (admissionAllowed()) void c.start(kind, batch);
+                    }}
                 >
                     {native
                         ? "Start native comparison"
@@ -272,7 +276,9 @@ export function ComparisonRunView({
                         status.phase === "closed" ||
                         status.source_matches === false
                     }
-                    onClick={() => void c.resume(batch)}
+                    onClick={() => {
+                        if (admissionAllowed()) void c.resume(batch);
+                    }}
                 >
                     Resume next chunk explicitly
                 </button>

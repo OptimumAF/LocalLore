@@ -261,6 +261,10 @@ export function App({
     const runBlocked =
         comparisonBlocked(comparisonRun) ||
         comparisonBlocked(nativeComparisonRun);
+    const runAdmissionAllowed = () =>
+        !switchRef.current.active &&
+        !comparisonBlocked(comparisonRun) &&
+        !comparisonBlocked(nativeComparisonRun);
     const switchRunMode = async (requested: string) => {
         if (
             (requested !== "scripted_baseline" &&
@@ -738,6 +742,7 @@ export function App({
                             key={runMode}
                             controller={activeRun}
                             onInspect={(runId) => inspectRun(activeRun, runId)}
+                            admissionAllowed={runAdmissionAllowed}
                         />
                     )}
                     {inactiveRun &&
@@ -750,6 +755,7 @@ export function App({
                                 </summary>
                                 <ComparisonRunView
                                     controller={inactiveRun}
+                                    admissionAllowed={runAdmissionAllowed}
                                     onInspect={(runId) =>
                                         inspectRun(inactiveRun, runId)
                                     }

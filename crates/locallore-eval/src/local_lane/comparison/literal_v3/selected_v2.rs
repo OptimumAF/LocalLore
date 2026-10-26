@@ -9,6 +9,8 @@ const NATIVE_LANE: &str = "native_selected_case";
 mod native;
 #[cfg(feature = "local-model")]
 pub use native::{resume_native_selected, run_native_selected};
+#[cfg(all(test, feature = "local-model"))]
+mod native_review_tests;
 #[cfg(test)]
 mod review_tests;
 #[cfg(test)]

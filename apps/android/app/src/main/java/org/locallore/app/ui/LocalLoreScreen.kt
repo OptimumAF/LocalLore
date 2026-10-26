@@ -58,6 +58,7 @@ import org.locallore.app.ShellState
 import org.locallore.app.SavedStory
 import org.locallore.app.SavedTimeline
 import org.locallore.app.TextProvider
+import org.locallore.app.validPlayInput
 
 private val Paper = Color(0xFFF8F5EC)
 private val Ink = Color(0xFF202D2A)
@@ -334,14 +335,29 @@ fun LocalLoreScreen(
                                 busy = state.busy || state.archiveActive || state.deletionActive || state.forkActive ||
                                     (state.persistent && state.selectedStory == null),
                                 recoveryRequired = state.recoveryRequired,
+                                onKindChange = { kind ->
+                                    if (!currentDraftPending && currentDraftScope == draftScope) {
+                                        val latest = playDraft.resolve(currentDraftScope, pending = false)
+                                        playDraft = latest.edit(draftScope, currentDraftScope, latest.input.copy(kind = kind))
+                                    }
+                                },
+                                onTextChange = { text ->
+                                    if (!currentDraftPending && currentDraftScope == draftScope) {
+                                        val latest = playDraft.resolve(currentDraftScope, pending = false)
+                                        playDraft = latest.edit(draftScope, currentDraftScope, latest.input.copy(text = text))
+                                    }
+                                },
                                 onInput = { input ->
                                     if (!currentDraftPending && currentDraftScope == draftScope) {
                                         playDraft = playDraft.resolve(currentDraftScope, pending = false)
                                             .edit(draftScope, currentDraftScope, input)
                                     }
                                 },
-                                onSend = { input ->
-                                    if (!currentDraftPending && currentDraftScope == draftScope) onText(input, renderedStory)
+                                onSend = { _ ->
+                                    if (!currentDraftPending && currentDraftScope == draftScope) {
+                                        val latest = playDraft.resolve(currentDraftScope, pending = false).input
+                                        if (validPlayInput(latest)) onText(latest, renderedStory)
+                                    }
                                 },
                                 draftNotRestored = !draftPending && resolvedDraft.textNotRestored,
                             )

@@ -202,9 +202,8 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             verifyDraft();
             stage = Stage.SEND;
             click("play-send"); // The sole Send action in the entire two-death case.
-            AccessibilityNodeInfo acceptedDetail = tag("workspace-detail"); acceptedDetail.recycle();
             waitUntil(() -> {
-                Workspace w = maybeWorkspace();
+                Workspace w = maybeRevealedWorkspace();
                 return w != null && w.same(fixture.b, 1);
             }, 10_000, Reason.CANONICAL);
             readyProduct(); // Do not HOME while the legitimate post-commit UI is busy.
@@ -449,7 +448,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         need(ID.matcher(story).matches(), Reason.CATALOG);
         if (!findAndRecycle("saved-story-" + story)) catalog();
         click("saved-story-" + story);
-        waitUntil(() -> { Workspace w = maybeWorkspace(); return w != null && w.story.equals(story); }, 8_000, Reason.CATALOG);
+        waitUntil(() -> { Workspace w = maybeRevealedWorkspace(); return w != null && w.story.equals(story); }, 8_000, Reason.CATALOG);
         readyProduct();
         return workspace();
     }
@@ -461,7 +460,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     }
 
     private Workspace awaitWorkspace(String different, long head) throws Exception {
-        waitUntil(() -> { Workspace w = maybeWorkspace(); return w != null && w.head == head && (different == null || !different.equals(w.story)); }, 8_000, Reason.CANONICAL);
+        waitUntil(() -> { Workspace w = maybeRevealedWorkspace(); return w != null && w.head == head && (different == null || !different.equals(w.story)); }, 8_000, Reason.CANONICAL);
         return workspace();
     }
 
@@ -475,6 +474,22 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         AccessibilityNodeInfo node = find("workspace-detail");
         if (node == null) { lastWorkspaceUtf16Length = 0; lastWorkspaceRead = WorkspaceRead.MISSING; return null; }
         try { return readWorkspace(node); } finally { node.recycle(); }
+    }
+
+    private Workspace maybeRevealedWorkspace() throws Exception {
+        Workspace value = maybeWorkspace();
+        if (value != null || lastWorkspaceRead != WorkspaceRead.MISSING) return value;
+        // LazyColumn can retain a lower anchor after an item disappears or Send
+        // is clicked. Reveal only the fixed product header, once per bounded poll.
+        timeLeft();
+        AccessibilityNodeInfo list = find("story-list");
+        if (list != null) {
+            try {
+                if (list.isScrollable() && list.isEnabled())
+                    list.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
+            } finally { list.recycle(); }
+        }
+        return null; // Reacquire nodes on the next existing deadline-clipped poll.
     }
 
     private Workspace readWorkspace(AccessibilityNodeInfo node) {

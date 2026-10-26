@@ -30,8 +30,8 @@ impl Protocol {
 }
 
 pub(super) enum Plan {
-    V1(producer::PreparedSelectedPlan),
-    V2(literal::PreparedSelectedPlan),
+    V1(Box<producer::PreparedSelectedPlan>),
+    V2(Box<literal::PreparedSelectedPlan>),
 }
 impl Plan {
     pub(super) fn protocol(&self) -> Protocol {
@@ -49,12 +49,10 @@ impl Plan {
         cancel: &Cancellation,
     ) -> Result<Self> {
         match protocol {
-            Protocol::V1 => {
-                producer::prepare_selected(source, binding, row, intent, cancel).map(Self::V1)
-            }
-            Protocol::V2 => {
-                literal::prepare_selected(source, binding, row, intent, cancel).map(Self::V2)
-            }
+            Protocol::V1 => producer::prepare_selected(source, binding, row, intent, cancel)
+                .map(|plan| Self::V1(Box::new(plan))),
+            Protocol::V2 => literal::prepare_selected(source, binding, row, intent, cancel)
+                .map(|plan| Self::V2(Box::new(plan))),
         }
     }
     pub(super) fn metadata(&self) -> Result<Value> {
@@ -65,8 +63,8 @@ impl Plan {
     }
     pub(super) fn run(self, path: &Path, cancel: &Cancellation) -> Result<()> {
         match self {
-            Self::V1(plan) => producer::run_selected(plan, path, cancel).map(|_| ()),
-            Self::V2(plan) => literal::run_selected(plan, path, cancel).map(|_| ()),
+            Self::V1(plan) => producer::run_selected(*plan, path, cancel).map(|_| ()),
+            Self::V2(plan) => literal::run_selected(*plan, path, cancel).map(|_| ()),
         }
     }
     pub(super) fn run_native<R: producer::SelectedNativeReservation>(
@@ -77,9 +75,11 @@ impl Plan {
     ) -> std::result::Result<(), producer::SelectedNativeFailure<R>> {
         match self {
             Self::V1(plan) => {
-                producer::run_native_selected(plan, path, cancel, reserve).map(|_| ())
+                producer::run_native_selected(*plan, path, cancel, reserve).map(|_| ())
             }
-            Self::V2(plan) => literal::run_native_selected(plan, path, cancel, reserve).map(|_| ()),
+            Self::V2(plan) => {
+                literal::run_native_selected(*plan, path, cancel, reserve).map(|_| ())
+            }
         }
     }
     pub(super) fn resume(
@@ -114,14 +114,16 @@ impl Plan {
 }
 
 pub(super) enum Opened {
-    V1(shared::OpenedSelected),
-    V2(literal::desktop_read::OpenedSelected),
+    V1(Box<shared::OpenedSelected>),
+    V2(Box<literal::desktop_read::OpenedSelected>),
 }
 impl Opened {
     pub(super) fn open(protocol: Protocol, path: &Path) -> Result<Self> {
         match protocol {
-            Protocol::V1 => shared::open_read_only(path).map(Self::V1),
-            Protocol::V2 => literal::desktop_read::open_read_only(path).map(Self::V2),
+            Protocol::V1 => shared::open_read_only(path).map(|opened| Self::V1(Box::new(opened))),
+            Protocol::V2 => {
+                literal::desktop_read::open_read_only(path).map(|opened| Self::V2(Box::new(opened)))
+            }
         }
     }
     pub(super) fn summary(&self) -> Result<Value> {

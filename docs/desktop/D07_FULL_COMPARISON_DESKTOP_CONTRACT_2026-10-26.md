@@ -91,6 +91,10 @@ none, `client:&str`, `run_id:&str`, `token:&str`,
 and `full_comparison_resume(self:&Arc<Self>,lease:&Arc<WindowLease>,epoch,granted,
 token:&str,max_new_scenes:usize)` return the status JSON.
 Root owns registrations; independent source tests freeze before implementation.
+Native-owned root helper `full_comparison_root()` resolves
+`self.root.with_file_name("comparison-evaluations")`; each UUID leaf has closed
+`desktop.json` wrapper metadata, shared comparison output in `work/`, and a
+paired-only `reference-source/`. Tests may inspect only their synthetic root.
 
 ## Acceptance boundaries
 

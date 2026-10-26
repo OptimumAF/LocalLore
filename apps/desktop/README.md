@@ -189,7 +189,7 @@ This is headless React markup, not native IPC, WebView pixels or a model run;
 `verify-frontend.mjs` includes this check in the normal frontend verification.
 
 Story Lab also provides a dedicated [memory comparison reader](../../docs/desktop/D07_COMPARISON_READER.md)
-for actual version2 paired/rollout cohorts. The app's native picker explicitly
+for actual protocol2/3 paired/rollout cohorts. The app's native picker explicitly
 asks to inspect private evidence. Rust retains source validation, actual Query2
 observer filtering and read-only locks; valid historical reports stay viewable.
 The reader shows actual source revisions, expected/actual results, accepted
@@ -231,8 +231,8 @@ runs, including supported native history without loading assets. Its
 records source-specific checks. It never exposes the full report as an actor
 summary, repairs missing checkpoints or grants execution.
 
-The [desktop consumer qualification](../../docs/desktop/D07_SELECTED_CASE_DESKTOP_CONSUMER_QUALIFICATION_2026-10-25.md)
-records actual hidden/unfocused WebView2 and native IPC:154 initial checks/20
+The earlier [selected1 desktop consumer qualification](../../docs/desktop/D07_SELECTED_CASE_DESKTOP_CONSUMER_QUALIFICATION_2026-10-25.md)
+records its source-bound hidden/unfocused WebView2 and native IPC:154 initial checks/20
 app-owned images, then160 checks/21 images in a new process reopening the same
 workspace. These runs use scripted fake inference and fixed consent/picker
 doubles. All41 images were inspected. The panel separates execution and private
@@ -245,8 +245,8 @@ From `apps/desktop`, with already provisioned dependencies, an absolute local
 `LOCALLORE_D07_SELECTED_TARGET_DIR`, run `node selected-evaluation-harness.mjs`.
 It uses only app-owned hidden WebViews and fixed development-only hooks; no
 desktop input, activation, screenshot, debugging server or model is needed.
-Explicit UI resume, native-model UI execution, real OS dialogs, human story
-quality, whole-app performance and physical-phone parity remain unqualified.
+Paused/incomplete UI resume, native-model UI execution, real OS dialogs, human
+story quality, whole-app performance and physical-phone parity remain unqualified.
 The guide distinguishes service tests, mock transport and native execution,
 preserves earlier failures and provides commands for restoring normal builds.
 
@@ -266,17 +266,49 @@ existing resource port. [Approved-model paired and rollout qualification](../../
 now records 96 outcomes, 153 actual role calls, cold reads and zero-reservation
 completed-native resume using the desktop manager. Failures and 28 narration
 fallbacks remain visible; no human quality acceptance. Native3 CLI and
-selected-case protocol3 execution remain unavailable.
-The app reader accepts protocols2/3; selected-case controls retain selected1
-execution for protocol2 sources. The linked qualification gives exact commands,
-results and limitations.
+full-comparison desktop execution remain unqualified; the shared full native
+comparison Rust producer is separately qualified.
+Accepted [PR202 scripted selected2](https://github.com/OptimumAF/LocalLore/pull/202),
+[PR204 native selected2](https://github.com/OptimumAF/LocalLore/pull/204) and
+[PR205 selected2 read capability](https://github.com/OptimumAF/LocalLore/pull/205)
+provide the typed shared execution and inspection paths for protocol3 sources.
+Their source-bound records separate actual native-model Rust evidence from
+scripted plumbing and desktop rendering.
 The [protocol3 Rust read capability](../../docs/desktop/D07_LITERAL_DESKTOP_READ_QUALIFICATION_2026-10-25.md)
 now validates cold report/receipt/capture/state reads with observer restrictions,
 including retained real-model data without the optional runtime. The
 [desktop protocol3 reader qualification](../../docs/desktop/D07_LITERAL_DESKTOP_UI_QUALIFICATION_2026-10-26.md)
 adds actual controller/native IPC,30 inspected app-owned WebView images and
-restart/observer/refusal/recovery checks using synthetic inference. This reader
-grants no execution; protocol3 reruns and human quality remain unqualified.
+restart/observer/refusal/recovery checks using synthetic inference. That earlier
+reader-only cohort refused protocol3 source transfer without consuming its
+capability; this is historical evidence, not the current selected-case limit.
+
+The current selected-case panel routes protocol2 sources to selected1 and
+protocol3 sources to the actual typed selected2 Rust plan/read capability. It
+supports explicit prepare/start, separate consent to read results and completed
+verification/resume with a freshly chosen matching source. A locally attempted
+source token stays unavailable in the controls until a fresh reader token is
+supplied, including after an unknown acknowledgement. Rust remains authoritative
+for both source prefixes/requests, observer filtering, plan bindings and worker
+ownership; this presentation fence is not proof of native source consumption.
+
+The [current literal selected desktop qualification draft](../../docs/desktop/D07_LITERAL_SELECTED_DESKTOP_QUALIFICATION_2026-10-26.md)
+tracks final coordinator gates. At clean source `6a195f85`, Root reported the
+scripted protocol3/selected2 UI cohort passing 252 initial and 261 restart check
+entries, with 27 initial and 28 restart actual hidden/unfocused app-owned
+WebView2 CapturePreview images. Root inspected all 55 images with no further
+visible layout findings; all 626 source fixture files remained byte-identical.
+The cohort uses the normal
+controllers/native IPC and fixed picker/consent doubles, with fake inference
+and no desktop input. These counts do not establish independent quality claims.
+From `apps/desktop`, use `node selected-evaluation-harness.mjs --literal` with
+the same task-owned output/target environment above to reproduce that path.
+Final legacy/native/lint/format/Android-host-graph and normal-build restoration
+gates are pending coordinator evidence in the linked draft. SDK shutdown error
+1412 remains observed and tracked separately in [D09 #31](https://github.com/OptimumAF/LocalLore/issues/31);
+this is not a clean-SDK-exit, RAM, performance, human-quality or phone claim.
+Native-model UI execution, real OS dialogs and paused/incomplete UI resume
+remain unqualified.
 
 Run these developer checks from the repository root; the qualification record
 identifies the executed source, target directories and results:

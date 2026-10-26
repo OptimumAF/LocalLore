@@ -1,19 +1,21 @@
 # Native full-comparison service qualification
 
 Supporting D07.03/.06/.04 under #29, coordinator claim6425826959.
-**PARTIAL QUALIFICATION / FINAL COORDINATOR APPENDIX PENDING.** Updated through
-terminal evidence at `9920d48cccde747eb556b58a835b579205bff744`, retaining the
-earlier `a2610a49` cutoff and failures below. All executions belong to Root;
+**SCOPED LOCAL CHECKS COMPLETE / PR ACCEPTANCE TRACKED IN PR214.** The final
+coordinator appendix below supersedes earlier pending check statuses. Updated through
+terminal UI evidence at `84eb739f372be2befe5ddfc1ce82aabcb300287d`, retaining the
+earlier `a2610a49`/`9920d48c` cutoffs and failures below. All executions belong to Root;
 the documentation author read terminal records/tracked source and ran no checks,
-applications, models or devices. The active `native-ui1` artifacts/images were
-not read by that author and their result was not inferred. The coordinator's
-later fixture correction below supersedes that pending observation.
+applications, models or devices. For this followup the author read only terminal
+UI1/UI2/UI3 records/reports and Root's visual-review manifest, not the images or
+the running final native-suite artifacts.
 
 The native Rust service and closed command adapter are implemented. Direct
 service tests and command-parser tests are separate evidence categories.
 Actual approved-model Rust service invocations and completed recovery are now
-measured separately below. **New native IPC/WebView evidence is still pending;
-native-model UI and OS confirmation dialogs are not qualified here.** The
+measured separately below. **The fixed non-generating native IPC checks and
+scripted-inference WebView cohort are now terminal; native-model UI and OS
+confirmation dialogs are not qualified here.** The
 ordinary full-comparison frontend remains scripted. No whole-D07, model-quality,
 phone or release gate is completed by this record.
 
@@ -175,7 +177,8 @@ host, with an existing task-owned external target directory and temporary
 directory. Replace the placeholders locally; do not publish personal paths or
 raw prompts. Root observed Rust/Cargo1.93.1 (LLVM21.1.8), Node24.22.1,
 PowerShell7.6.5, Windows NT10.0.26300 x64 and Intel i7-12700K
-(12 cores/20 logical processors). These observations were supplied by Root,
+(12 cores/20 logical processors), with66796484 KiB visible RAM. Visible host RAM
+is not an app-residency/peak-memory measurement. These observations were supplied by Root,
 not freshly queried by this document author. Existing pinned dependencies were
 used; no upgrade, install or new asset is implied.
 
@@ -224,9 +227,9 @@ Root's terminal focused filters were `unavailable_review_tests::` and
 The frontend command at `9920d48c`, from `apps/desktop`, was the existing approved
 Node executable with `verify-frontend.mjs`; it passed strict frontend checks and
 the current synthetic controller/SSR cases. New
-`comparison-native-port-journeys.ts` is source/typechecked at this cutoff;
-the currently running actual app-owned IPC cohort and its18 capture reviews
-remain excluded until Root supplies terminal evidence.
+`comparison-native-port-journeys.ts` was source/typechecked at that cutoff;
+its later actual app-owned IPC and18-capture evidence is separately attributed
+to `84eb739f` below.
 
 | Gate | Status at source/evidence cutoff |
 |---|---|
@@ -238,7 +241,7 @@ remain excluded until Root supplies terminal evidence.
 | Android Rust host compatibility and host build graph | Pending; no Android runtime/JNI/phone claim. |
 | Current approved-asset service execution and exact actual counts | Paired1, rollout1 and separately admitted paired resume3 terminal; scenario failures retained above. |
 | Fresh completed native service/no-reservation fixture | Terminal1 pass at `9920d48c` with empty Models/zero sequence change/full byte equality. |
-| New native command through actual IPC and18-image review | Active coordinator cohort, pending/excluded; no result inferred or artifact read here. |
+| New native command through actual IPC and18-image review | UI3 terminal at `84eb739f`: fixed non-generating native calls, scripted-inference app workflow,18 images individually reviewed by Root. |
 | Native-model UI and actual OS consent | Not qualified by direct Rust service/consent-double tests. |
 | Broad source closure, independent review, focused PR/acceptance | Pending coordinator reconciliation. |
 
@@ -271,7 +274,7 @@ New terminal log/process SHA256 values independently read by the document author
 Generated synthetic fixtures, stdout/stderr and raw captures stay local and
 ignored. Human quality, latency/RAM acceptance, native-dialog responsiveness,
 phone parity, whole-app performance, whole D07 and release readiness remain
-unqualified. The next coordinator gate is terminal IPC/capture review and final
+unqualified. The next coordinator gate is final
 compatibility/source closure. This document neither authorizes new model/UI
 invocations nor awards milestone or owner acceptance.
 
@@ -306,4 +309,195 @@ The corrected full frontend/strict TypeScript/normal-hook-exclusion check passed
 at clean/unchanged `5eeba4a6` in17.103s, coordinator label
 `d07-native-full-port-frontend-denied1`. Corrected actual IPC/native rendering,
 all-image review, unfiltered native tests, final strict checks, Android Rust
-compatibility and normal-build restoration remain pending at this appendix.
+compatibility and normal-build restoration remained pending at this historical
+appendix. The subsequent terminal IPC/rendering results follow; final source-wide
+checks are still pending.
+
+## Terminal UI2 failure and UI3 correction
+
+UI2, `d07-native-full-port-native-ui2`, ran at clean/unchanged
+`adf1e1b47835f6ec18576d82cd00d05073f8f185` in cohort
+`full-comparison-native-86d13752-db66-4a2f-88fd-a5e0c8626ec0`. The denial app
+recorded9 check entries: actual grantfalse, catalog Forbidden, both empty cleanup
+operations and malformed authority-input checks passed; disposal then recorded
+one unexpected native Forbidden at `native-port-denied-disposed-without-error`.
+It exited1 after1.234s, with zero stderr and no PNG, timeout or overflow. Neither
+ordinary initial nor restart stage ran. This is retained failure evidence, not
+an access-control bypass.
+
+Tracked `CaptureController.dispose()` calls session-scoped revoke, whose request
+is `trace_capture_revoke`; a session created against the denial Host can therefore
+explain the disposal Forbidden. No runtime command trace was retained, so this
+is source-supported attribution, not proof of which command emitted that error.
+At `84eb739f`, the denial branch runs before session creation. The same narrow
+delta finds the ordinary initial report by `stage === "initial"` instead of
+assuming `reports[0]`, now occupied by the denial stage. That restart-index issue
+was found in source, not observed as a runtime RED: UI2 never reached restart.
+
+UI3, `d07-native-full-port-native-ui3`, completed at clean/unchanged
+`84eb739f372be2befe5ddfc1ce82aabcb300287d`, cohort
+`full-comparison-native-4e901ae1-d76a-40fc-97a2-d87a3892d8a0`.
+The process record spans `2026-10-26T21:44:18.5368094Z` through
+`2026-10-26T21:56:12.7723929Z`, exit0. These are bounded fixture/cohort elapsed
+times, not whole-app or model-performance benchmarks.
+
+| Actual UI3 app stage | Recorded check entries | PNGs | App elapsed / exit | Frontend error buffer |
+|---|---:|---:|---|---|
+| Denied |10|0|1.201s /0|0|
+| Initial |239|14|590.045s /0|1 deliberate Transport lost-ack error|
+| Restart |110|4|89.115s /0|0|
+
+The359 entries are repeated recorded assertions across three stages, not359
+distinct tests. All three actual hidden/unfocused WebView apps had zero stderr,
+no timeout, overflow or spawn error. The frontend/native build steps separately
+passed in1.983s/22.716s; the native build retained217 bytes of ordinary Cargo
+stderr. Thus zero **app** stderr does not mean every cohort subprocess had empty
+stderr, and this run is not a general clean-OS-shutdown or leak proof.
+
+The native-port helper makes actual `evaluation_comparison_native` permission,
+empty-catalog, unknown-token and cross-lane refusal calls, plus the single fixed
+scripted status read that proves the original scripted identity/readiness
+survives. It never submits a valid native start/resume or reaches model/OS-dialog
+consent. The ordinary full workflow uses actual controllers, native IPC and
+WebView rendering with scripted fake inference and fixed picker/consent doubles.
+It is not native-model UI evidence.
+
+After initial and restart, the independently hashed owned Core inventory was
+identical:1068 files /15054801 bytes, digest
+`e6f12da771a545aeac2cfae4b02e445d931af8307da8ed2cbff9776068db8308`.
+Node's post-exit digest/count matched the native report and both stages. This
+bounded fixture check does not certify arbitrary Windows link/reparse races:
+Node uses lstat/realpath checks, while the native fixture separately uses its
+existing reparse-rejecting pins. The UI3 executable SHA256 is
+`6f6b6229cb00f59b760e31b4ea3e2508c4b1aab9ca171d67cc84da5f0aab9785`;
+launcher SHA256 is
+`c50a2fe331d599a7824a68e64a02a4e30732216a6aca2506236decb0d1217bd5`.
+
+Root individually viewed all18 UI3 images; UI1/UI2 produced none. The retained
+visual-review manifest reports no visible defect within the captured sections,
+including620-pixel narrow wrapping. Native privacy assertions are API evidence,
+not conclusions drawn from pixels. The documentation author read the manifest
+only. This is not human quality approval or whole-UI/accessibility coverage.
+
+To reproduce the fixed launcher from `apps/desktop`, use existing absolute owned
+directories and the approved Node executable, with no CLI arguments:
+
+```powershell
+$env:LOCALLORE_D07_FULL_COMPARISON_ARTIFACT_ROOT = '<OWNED_EXISTING_ARTIFACT_PARENT>'
+$env:LOCALLORE_D07_FULL_COMPARISON_TARGET_DIR = '<OWNED_EXISTING_EXTERNAL_TARGET>'
+$env:TEMP = '<OWNED_EXISTING_TEMP>'
+$env:TMP = $env:TEMP
+node comparison-run-harness.mjs
+```
+
+The launcher fixes its development build, hidden child processes, test flags and
+fresh UUID fixture. It does not control the desktop, install dependencies or
+download assets. Limits are1 MiB per stdout/stderr stream,900s app watchdog/960s
+launcher watchdog,40 captures,16 MiB per PNG and256 KiB JSON; inventory limits
+are depth12/8192 entries/8 MiB per file/128 MiB total. These are bounds, not measured
+resource use. Real-model UI, OS dialogs, provider-inflight/OS-kill races, quality,
+phone and whole-app performance remain unqualified.
+
+## UI terminal evidence pins and remaining gates
+
+Names below are relative to `<artifact-root>`; no raw stories, prompts or private
+absolute paths are published. Earlier UI1 failure/fixture correction remains
+above. All three process records are terminal; no active final-suite record was
+read or hashed for this update.
+
+| Prefix (append `.log` / `-process.json`) | Log SHA256 | Process SHA256 |
+|---|---|---|
+| `d07-native-full-port-native-ui1` | `f9cd2e6fa3560e66fdf67dc0427d30f03bb32544b890dacc463bd315f061dc60` | `22cd1f7a0824008ca504302b8393b4b8fd15eeba6d48b2b23df67c8e2d96347b` |
+| `d07-native-full-port-native-ui2` | `5071c7edd358478ef27dab3344143fa1d1792f530a336864ebcc7206e81dfa14` | `64c089cb973a8ffed9da236ea9d131363aac6a24ae476a3a31646eff44a33bca` |
+| `d07-native-full-port-native-ui3` | `528049584fcaa28454845054938fc202e45913c6219fd30803001c1cd9287dca` | `9eba565d3d3a76c6f118328508665914c89e6ed61cb277cc9e85b16d35179be6` |
+
+| Cohort-relative file | SHA256 |
+|---|---|
+| UI1 `qualification.json` | `88518b8a8c27f7ed7654a84e9dd2117ea67fcc512580a6459be96ba4d47b9281` |
+| UI1 `initial/report.json` | `3f4d3d38513146ea3e8c77a03bfbdf9361213a82a301c3af5ea7e61fb3782aab` |
+| UI2 `qualification.json` | `34cadbb3efedc2b9f7ce599f62087710db567dc97deef3d4487277af30bb360d` |
+| UI2 `denied/report.json` | `46b2d41069a9d3fee26e514988ed3ffb9c24fe5a1f1864896ece6d1248f31c3b` |
+| UI3 `qualification.json` | `4e698375ebc88b600bda396f5a4f4c794883274bb1543776d18f0594751fd910` |
+| UI3 `denied/report.json` | `41d6f4079bf4ad54d43bd0ec50944018418f65623087fa3a864f78e6616db821` |
+| UI3 `initial/report.json` | `8137f6df9bfb833df8d495621a5308243cb50c12ad812c989fc126a759c8482f` |
+| UI3 `restart/report.json` | `ddd693aa915a98e3a6d5f124d91a0452d341604b38d9f930c7ca4c0c97be45b2` |
+| `<artifact-root>/d07-native-full-port-native-ui3-visual-review.json` | `4d363abbeec492e1cab1fc354cfa93ecf8c97d060b13a9a4201fe833e0b15a84` |
+
+At the UI supplement's cutoff PR214 was draft and the source-wide checks were
+pending. The coordinator's terminal results below supersede those local pending
+gates. PR214 records subsequent security/owner acceptance. No whole-D07 or
+publication readiness is implied by this supporting slice.
+
+## Final coordinator source and compatibility closure
+
+The unfiltered native cohort ran at clean, unchanged
+`84eb739f372be2befe5ddfc1ce82aabcb300287d`. It passed235 unit tests, failed0,
+ignored9, and passed both separate harness-contract tests. Unit execution took
+1302.56s; compilation53.90s; complete command1358.024s. It includes the new
+native service/parser/admission cases and preserved scripted/reader/selected
+regressions; complementary earlier passes are not added again to this count.
+The9 ignored cases are8 explicit installed-asset opt-ins and1 Windows symlink-
+privilege case. The four service asset checks above were separately allocated
+and actually executed; they were not silently included in the default count.
+The other asset/privilege cases were not rerun by this final command.
+
+All remaining checks ran at clean, unchanged
+`1805b0a7a6114ec4974f29cb16aaf62e36527781`, whose only difference from84eb is
+this qualification document. No implementation or assertion changed after the
+235/2 native pass or the18-image UI cohort.
+
+| Coordinator label after `d07-native-full-port-` | Actual terminal result |
+|---|---|
+| `native-final1` |235 passed /0 failed /9 ignored,1302.56s; separate harness2/0,0.01s |
+| `clippy-final1` | All targets/all features, `-D warnings`, passed13.92s |
+| `rust-format-final1` | Native/workspace `cargo fmt --all -- --check` passed |
+| `frontend-format-final1` | All matched frontend/launcher files passed Prettier |
+| `android-host-final1` |20 Rust host adapter tests passed,0 failed,1.84s |
+| `android-graph-final1` | Passed;0 occurrences of runtime/llama/LiteRT/Tauri/WebView/Wry packages in normal/build/dev graph |
+| `frontend-final1` | Full frontend, strict TypeScript, existing56 comparison cases and all other wired checkers passed16.813s; normal development-hook exclusion passed |
+| `normal-build-final1` | Default native build passed22.49s compile /22.681s command; executable was not launched |
+
+Android results are Windows Rust host/adapter compatibility, not JVM, JNI
+execution on Android, emulator, physical-phone or Android app-build evidence.
+No new such cohort was run. Source dependency pins are unchanged. Normal
+frontend SHA256 is
+`8c063930b9e9ac223168df51686fc8fe4270bfcd43c7869db5ebd223546a2c08`,
+identical to the previously qualified normal frontend. Restored normal native
+executable SHA256 is
+`bc8ff37fa7983293a92c7b8c86e4346780c64e36e8dc5e77d1e2837e150c7855`.
+It is an unlaunched developer build, not an installer or public release.
+
+Exact executed arguments/timestamps and original failure logs remain local.
+The local seal `d07-native-full-port-qualified-evidence-seal1.json`, SHA256
+`2dad1dce9cf514b08a29a53e6017e56c1b97c61be67697cc9e50cdb592a72d27`,
+binds12 required successful command records and154 retained files, including
+failure histories, three native cohorts,18 images and their visual-review
+manifest. Each required record is terminal, exit0, sourceclean and unchanged;
+failed historical records are preserved separately as evidence, not passes.
+Generated artifacts remain local/ignored rather than public attachments.
+
+Reproduce the final native checks from the repository root after provisioning
+the pinned tools and existing dependencies. The earlier environment block sets
+the owned target/temp directories and serial build flags:
+
+```powershell
+cargo test --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --jobs 1 -- --nocapture --test-threads=1
+cargo clippy --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --all-targets --jobs 1 -- -D warnings
+cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all -- --check
+cargo test --locked --offline --manifest-path crates/locallore-android/Cargo.toml --jobs 1 --lib -- --nocapture --test-threads=1
+cargo tree --locked --offline --manifest-path crates/locallore-android/Cargo.toml --edges normal,build,dev --prefix none
+# From apps/desktop, before restoring the default native build:
+node verify-frontend.mjs
+node node_modules/prettier/bin/prettier.cjs --check 'ui/*.{ts,tsx,html,css}' '*.{json,mjs}'
+# From the repository root; this builds but does not launch:
+cargo build --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --jobs 1
+```
+
+PR214 is a supporting service/closed-IPC slice. Its exact final-head security
+result and owner-authorized merge are recorded on GitHub after this local
+cutoff; no approval, merge or zero-vulnerability status is invented here.
+Existing moderate Dependabot issue2 remains open. Native-model GUI admission,
+real OS confirmation behavior, human narrative review, quality acceptance,
+whole-app performance, phone qualification and final D07/epic/package gates
+remain incomplete. The next runnable implementation is the separately frozen
+native consumer, reusing these service/reader/cleanup interfaces.

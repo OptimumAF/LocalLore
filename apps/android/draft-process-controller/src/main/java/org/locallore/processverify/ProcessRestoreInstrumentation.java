@@ -14,6 +14,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
 import android.os.Bundle;
+import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.os.Process;
 import android.os.SystemClock;
@@ -822,6 +823,9 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
 
     private List<AccessibilityNodeInfo> productNodes() throws Exception {
         timeLeft(); List<AccessibilityNodeInfo> nodes = new ArrayList<>();
+        // Fresh objects alone can still originate in UiAutomation's cached tree.
+        // This clears this connection's cache, never app data or OS settings.
+        if (Build.VERSION.SDK_INT >= 34) need(automation.clearCache(), Reason.UI);
         List<AccessibilityWindowInfo> windows = automation.getWindows();
         need(windows != null && windows.size() <= WINDOW_CAP, Reason.UI);
         ArrayDeque<AccessibilityNodeInfo> pending = new ArrayDeque<>();

@@ -1,6 +1,9 @@
 import { EvaluationPanel } from "./EvaluationPanel";
 import { ComparisonReaderPanel } from "./ComparisonReaderPanel";
-import { ComparisonRunView, ComparisonRunCleanupView } from "./comparison-run-view";
+import {
+    ComparisonRunView,
+    ComparisonRunCleanupView,
+} from "./comparison-run-view";
 import type { ComparisonRunController } from "./comparison-run-controller";
 import { SelectedEvaluationView } from "./selected-evaluation-view";
 import type { SelectedEvaluationController } from "./selected-evaluation-controller";
@@ -29,7 +32,13 @@ import type { EvaluationController } from "./evaluation-controller";
 import { TurnDebugger } from "./TurnDebugger";
 import { CapturePanel } from "./CapturePanel";
 import type { CaptureController } from "./capture-controller";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+    useSyncExternalStore,
+} from "react";
 import { Controller } from "./controller";
 import { ModelPanel } from "./ModelPanel";
 import { QueryInspector } from "./QueryInspector";
@@ -45,19 +54,29 @@ const actions: Record<Action, string> = {
 const noScopedSubscription = () => () => {};
 const noScopedSnapshot = () => null;
 function useComparisonSnapshot(controller?: ComparisonRunController) {
-    const subscribe = useCallback((listener: () => void) => controller?.subscribe(listener) ?? (() => {}), [controller]);
+    const subscribe = useCallback(
+        (listener: () => void) => controller?.subscribe(listener) ?? (() => {}),
+        [controller],
+    );
     const get = useCallback(() => controller?.get() ?? null, [controller]);
     return useSyncExternalStore(subscribe, get, get);
 }
 function comparisonBlocked(controller?: ComparisonRunController): boolean {
     const state = controller?.get();
-    return !!state && (state.busy || !!state.pending || state.uncertain ||
-        (state.mode === "approved_native" && (
-            state.cleanupPending !== null || state.cleanupUncertain ||
-            state.cleanup?.cleanup_required === true || state.cleanup?.running === true ||
-            state.cleanup?.error != null || state.status?.cleanup_required === true ||
-            state.status?.cleanup_running === true
-        )));
+    return (
+        !!state &&
+        (state.busy ||
+            !!state.pending ||
+            state.uncertain ||
+            (state.mode === "approved_native" &&
+                (state.cleanupPending !== null ||
+                    state.cleanupUncertain ||
+                    state.cleanup?.cleanup_required === true ||
+                    state.cleanup?.running === true ||
+                    state.cleanup?.error != null ||
+                    state.status?.cleanup_required === true ||
+                    state.status?.cleanup_running === true)))
+    );
 }
 function intent(r: Receipt) {
     return r.request.intent.kind === "free_text"
@@ -230,26 +249,50 @@ export function App({
     const modeRef = useRef<RunMode>("scripted_baseline");
     const switchRef = useRef({ epoch: 0, active: false });
     const [switching, setSwitching] = useState(false);
-    const activeRun = runMode === "approved_native" && nativeComparisonRun ? nativeComparisonRun : comparisonRun;
-    const inactiveRun = activeRun === nativeComparisonRun ? comparisonRun : nativeComparisonRun;
+    const activeRun =
+        runMode === "approved_native" && nativeComparisonRun
+            ? nativeComparisonRun
+            : comparisonRun;
+    const inactiveRun =
+        activeRun === nativeComparisonRun ? comparisonRun : nativeComparisonRun;
     // Reading both snapshots subscribes the selector to real operation/cleanup
     // changes. None of these presentation observations rekeys execution.
-    const runBlocked = comparisonBlocked(comparisonRun) || comparisonBlocked(nativeComparisonRun);
+    const runBlocked =
+        comparisonBlocked(comparisonRun) ||
+        comparisonBlocked(nativeComparisonRun);
     const switchRunMode = async (requested: string) => {
-        if ((requested !== "scripted_baseline" && requested !== "approved_native") ||
-            requested === modeRef.current || switchRef.current.active ||
-            !comparisonRun || !nativeComparisonRun ||
-            comparisonBlocked(comparisonRun) || comparisonBlocked(nativeComparisonRun)) return;
-        const old = modeRef.current === "approved_native" ? nativeComparisonRun : comparisonRun;
-        const contexts = [comparisonRun.get().context, nativeComparisonRun.get().context];
+        if (
+            (requested !== "scripted_baseline" &&
+                requested !== "approved_native") ||
+            requested === modeRef.current ||
+            switchRef.current.active ||
+            !comparisonRun ||
+            !nativeComparisonRun ||
+            comparisonBlocked(comparisonRun) ||
+            comparisonBlocked(nativeComparisonRun)
+        )
+            return;
+        const old =
+            modeRef.current === "approved_native"
+                ? nativeComparisonRun
+                : comparisonRun;
+        const contexts = [
+            comparisonRun.get().context,
+            nativeComparisonRun.get().context,
+        ];
         const epoch = ++switchRef.current.epoch;
         switchRef.current.active = true;
         setSwitching(true);
         try {
             await old.close();
-            if (switchRef.current.epoch !== epoch ||
-                comparisonRun.get().context !== contexts[0] || nativeComparisonRun.get().context !== contexts[1] ||
-                comparisonBlocked(comparisonRun) || comparisonBlocked(nativeComparisonRun)) return;
+            if (
+                switchRef.current.epoch !== epoch ||
+                comparisonRun.get().context !== contexts[0] ||
+                nativeComparisonRun.get().context !== contexts[1] ||
+                comparisonBlocked(comparisonRun) ||
+                comparisonBlocked(nativeComparisonRun)
+            )
+                return;
             modeRef.current = requested;
             setRunMode(requested);
         } finally {
@@ -259,21 +302,44 @@ export function App({
             }
         }
     };
-    const inspectRun = async (origin: ComparisonRunController, runId: string) => {
+    const inspectRun = async (
+        origin: ComparisonRunController,
+        runId: string,
+    ) => {
         if (!comparison || switchRef.current.active) return;
-        const mode: RunMode = origin === nativeComparisonRun ? "approved_native" : "scripted_baseline";
+        const mode: RunMode =
+            origin === nativeComparisonRun
+                ? "approved_native"
+                : "scripted_baseline";
         const before = origin.get();
         const epoch = switchRef.current.epoch;
-        if (modeRef.current !== mode || !before.allowed || comparisonBlocked(origin) ||
-            before.status?.run_id !== runId || !before.status.report_ready || before.status.phase === "closed") return;
+        if (
+            modeRef.current !== mode ||
+            !before.allowed ||
+            comparisonBlocked(origin) ||
+            before.status?.run_id !== runId ||
+            !before.status.report_ready ||
+            before.status.phase === "closed"
+        )
+            return;
         await comparison.close();
         const current = origin.get();
-        if (switchRef.current.active || switchRef.current.epoch !== epoch || modeRef.current !== mode ||
-            current.context !== before.context || !current.allowed || comparisonBlocked(origin) ||
-            current.clientId !== before.clientId || current.status?.run_id !== runId ||
+        if (
+            switchRef.current.active ||
+            switchRef.current.epoch !== epoch ||
+            modeRef.current !== mode ||
+            current.context !== before.context ||
+            !current.allowed ||
+            comparisonBlocked(origin) ||
+            current.clientId !== before.clientId ||
+            current.status?.run_id !== runId ||
             current.status.operation_id !== before.status.operation_id ||
-            !current.status.report_ready || current.status.phase === "closed") return;
-        if (mode === "approved_native") await comparison.pickManaged({ runId, mode });
+            !current.status.report_ready ||
+            current.status.phase === "closed"
+        )
+            return;
+        if (mode === "approved_native")
+            await comparison.pickManaged({ runId, mode });
         else await comparison.pick(runId);
     };
     return (
@@ -626,15 +692,40 @@ export function App({
                             allowed={s.view === "lab"}
                         />
                     )}
-                    {comparisonRun && nativeComparisonRun && comparison && s.view === "lab" && <div className="comparison-controls">
-                        <label>Full comparison inference lane <select aria-label="Full comparison inference lane"
-                            value={runMode} disabled={switching || runBlocked}
-                            onChange={(event) => void switchRunMode(event.target.value)}>
-                            <option value="scripted_baseline">Scripted baseline · fake inference</option>
-                            <option value="approved_native">Installed local model · native inference</option>
-                        </select></label>
-                        {(switching || runBlocked) && <p role="status">Reconcile pending comparison access and cleanup before changing lanes.</p>}
-                    </div>}
+                    {comparisonRun &&
+                        nativeComparisonRun &&
+                        comparison &&
+                        s.view === "lab" && (
+                            <div className="comparison-controls">
+                                <label>
+                                    Full comparison inference lane{" "}
+                                    <select
+                                        aria-label="Full comparison inference lane"
+                                        value={runMode}
+                                        disabled={switching || runBlocked}
+                                        onChange={(event) =>
+                                            void switchRunMode(
+                                                event.target.value,
+                                            )
+                                        }
+                                    >
+                                        <option value="scripted_baseline">
+                                            Scripted baseline · fake inference
+                                        </option>
+                                        <option value="approved_native">
+                                            Installed local model · native
+                                            inference
+                                        </option>
+                                    </select>
+                                </label>
+                                {(switching || runBlocked) && (
+                                    <p role="status">
+                                        Reconcile pending comparison access and
+                                        cleanup before changing lanes.
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     {activeRun && comparison && s.view === "lab" && (
                         <ComparisonRunView
                             key={runMode}
@@ -642,11 +733,27 @@ export function App({
                             onInspect={(runId) => inspectRun(activeRun, runId)}
                         />
                     )}
-                    {inactiveRun && comparison && s.view === "lab" && comparisonBlocked(inactiveRun) && <details open>
-                        <summary>Pending comparison in the other lane</summary>
-                        <ComparisonRunView controller={inactiveRun} onInspect={(runId) => inspectRun(inactiveRun, runId)} />
-                    </details>}
-                    {nativeComparisonRun && <ComparisonRunCleanupView controller={nativeComparisonRun} />}
+                    {inactiveRun &&
+                        comparison &&
+                        s.view === "lab" &&
+                        comparisonBlocked(inactiveRun) && (
+                            <details open>
+                                <summary>
+                                    Pending comparison in the other lane
+                                </summary>
+                                <ComparisonRunView
+                                    controller={inactiveRun}
+                                    onInspect={(runId) =>
+                                        inspectRun(inactiveRun, runId)
+                                    }
+                                />
+                            </details>
+                        )}
+                    {nativeComparisonRun && (
+                        <ComparisonRunCleanupView
+                            controller={nativeComparisonRun}
+                        />
+                    )}
                     {comparison && (
                         <ComparisonReaderPanel controller={comparison} />
                     )}

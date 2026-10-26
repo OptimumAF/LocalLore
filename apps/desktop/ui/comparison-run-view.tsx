@@ -5,16 +5,23 @@ import type { ComparisonRunController } from "./comparison-run-controller";
 import type { ComparisonRunKind } from "./comparison-run-model";
 import type { ComparisonRunConsumerState } from "./comparison-run-controller";
 function useRunState(c: ComparisonRunController) {
-    const subscribe = useCallback((listener: () => void) => c.subscribe(listener), [c]);
+    const subscribe = useCallback(
+        (listener: () => void) => c.subscribe(listener),
+        [c],
+    );
     const get = useCallback(() => c.get(), [c]);
     return useSyncExternalStore(subscribe, get, get);
 }
 function cleanupBlocks(s: Readonly<ComparisonRunConsumerState>): boolean {
-    return s.mode === "approved_native" && (
-        s.cleanupPending !== null || s.cleanupUncertain ||
-        s.cleanup?.cleanup_required === true || s.cleanup?.running === true ||
-        s.cleanup?.error != null || s.status?.cleanup_required === true ||
-        s.status?.cleanup_running === true
+    return (
+        s.mode === "approved_native" &&
+        (s.cleanupPending !== null ||
+            s.cleanupUncertain ||
+            s.cleanup?.cleanup_required === true ||
+            s.cleanup?.running === true ||
+            s.cleanup?.error != null ||
+            s.status?.cleanup_required === true ||
+            s.status?.cleanup_running === true)
     );
 }
 export function ComparisonRunView({
@@ -36,7 +43,8 @@ export function ComparisonRunView({
         status.report_ready &&
         !status.running &&
         status.phase !== "closed" &&
-        !s.uncertain && !cleanupBlocks(s);
+        !s.uncertain &&
+        !cleanupBlocks(s);
     const idle = s.allowed && !s.busy && !s.uncertain;
     const canGenerate = idle && !cleanupBlocks(s);
     const canInspect = () => {
@@ -61,15 +69,20 @@ export function ComparisonRunView({
             data-pending-action={s.pending?.action ?? ""}
         >
             <h2 id={`${section}-title`}>Run full comparison</h2>
-            {native ? <p>
-                Requests the approved installed local model. Availability is
-                checked when you start. No fake inference fallback. Human quality
-                is not established. Import a supported model using the existing
-                model controls; this action never downloads one.
-            </p> : <p>
-                Scripted baseline · fake inference. Native execution is
-                unavailable here. Human quality is not established.
-            </p>}
+            {native ? (
+                <p>
+                    Requests the approved installed local model. Availability is
+                    checked when you start. No fake inference fallback. Human
+                    quality is not established. Import a supported model using
+                    the existing model controls; this action never downloads
+                    one.
+                </p>
+            ) : (
+                <p>
+                    Scripted baseline · fake inference. Native execution is
+                    unavailable here. Human quality is not established.
+                </p>
+            )}
             <p>
                 Compare literal player conversation with relevant memory using
                 isolated Rust-owned histories. A completed run does not grant
@@ -84,7 +97,9 @@ export function ComparisonRunView({
             <div
                 className="comparison-controls"
                 role="group"
-                aria-label={native ? "New native comparison" : "New scripted comparison"}
+                aria-label={
+                    native ? "New native comparison" : "New scripted comparison"
+                }
             >
                 <label>
                     Comparison kind{" "}
@@ -137,7 +152,9 @@ export function ComparisonRunView({
                     disabled={!canGenerate || !!s.clientId}
                     onClick={() => void c.start(kind, batch)}
                 >
-                    {native ? "Start native comparison" : "Start scripted comparison"}
+                    {native
+                        ? "Start native comparison"
+                        : "Start scripted comparison"}
                 </button>
             </div>
             <h3>Current run</h3>
@@ -155,10 +172,12 @@ export function ComparisonRunView({
                     Comparison: {s.error}.
                 </p>
             )}
-            {status?.phase === "awaiting_confirmation" && <p role="status">
-                Waiting for native confirmation. A stop request takes effect
-                when native code returns; it cannot dismiss the dialog.
-            </p>}
+            {status?.phase === "awaiting_confirmation" && (
+                <p role="status">
+                    Waiting for native confirmation. A stop request takes effect
+                    when native code returns; it cannot dismiss the dialog.
+                </p>
+            )}
             {status && (
                 <>
                     <dl>
@@ -191,19 +210,25 @@ export function ComparisonRunView({
                         <dt>Worker running</dt>
                         <dd>
                             {status.running
-                                ? native ? "Yes · operation active" : "Yes · native owner still active"
+                                ? native
+                                    ? "Yes · operation active"
+                                    : "Yes · native owner still active"
                                 : "No running work reported"}
                         </dd>
                         <dt>Last admitted operation</dt>
                         <dd>{status.operation_id ?? "Not admitted"}</dd>
-                        {status.version === 2 && <>
-                            <dt>Cleanup required · last reported</dt>
-                            <dd>{status.cleanup_required ? "Yes" : "No"}</dd>
-                            <dt>Cleanup running · last reported</dt>
-                            <dd>{status.cleanup_running ? "Yes" : "No"}</dd>
-                            <dt>Reported cause</dt>
-                            <dd>{status.cause ?? "None reported"}</dd>
-                        </>}
+                        {status.version === 2 && (
+                            <>
+                                <dt>Cleanup required · last reported</dt>
+                                <dd>
+                                    {status.cleanup_required ? "Yes" : "No"}
+                                </dd>
+                                <dt>Cleanup running · last reported</dt>
+                                <dd>{status.cleanup_running ? "Yes" : "No"}</dd>
+                                <dt>Reported cause</dt>
+                                <dd>{status.cause ?? "None reported"}</dd>
+                            </>
+                        )}
                     </dl>
                     <p className="hash-value">
                         Run {status.run_id} · client {status.client_id}
@@ -340,22 +365,54 @@ export function ComparisonRunView({
     );
 }
 
-export function ComparisonRunCleanupView({ controller: c }: { controller: ComparisonRunController }) {
+export function ComparisonRunCleanupView({
+    controller: c,
+}: {
+    controller: ComparisonRunController;
+}) {
     const s = useRunState(c);
     if (s.mode !== "approved_native") return null;
-    return <section className="comparison-run" id="comparison-native-cleanup" aria-labelledby="comparison-native-cleanup-title">
-        <h2 id="comparison-native-cleanup-title">Evaluation cleanup</h2>
-        <p role="status">{s.cleanupPending ? `Pending cleanup ${s.cleanupPending}.` :
-            s.cleanupUncertain ? "Cleanup acknowledgement unknown. Refresh the actual state before starting more work." :
-            s.cleanup ? `Last reported: cleanup ${s.cleanup.cleanup_required ? "required" : "not required"}; ${s.cleanup.running ? "running" : "no running cleanup reported"}.` :
-            "Cleanup state has not been checked."}</p>
-        {(s.cleanupError ?? s.cleanup?.error) && <p role="alert" className="error">Cleanup: {s.cleanupError ?? s.cleanup?.error}.</p>}
-        <div className="comparison-controls">
-            <button disabled={s.cleanupPending !== null} onClick={() => void c.cleanupStatus()}>Refresh cleanup state</button>
-            <button disabled={s.cleanupPending !== null} onClick={() => void c.retryCleanup()}>Retry cleanup</button>
-        </div>
-        <p>These controls check or retry unfinished evaluation cleanup. They do not
-            grant inspection, resume a comparison, or prove that a closed view
-            stopped a worker. A cleanup result is a last reported observation.</p>
-    </section>;
+    return (
+        <section
+            className="comparison-run"
+            id="comparison-native-cleanup"
+            aria-labelledby="comparison-native-cleanup-title"
+        >
+            <h2 id="comparison-native-cleanup-title">Evaluation cleanup</h2>
+            <p role="status">
+                {s.cleanupPending
+                    ? `Pending cleanup ${s.cleanupPending}.`
+                    : s.cleanupUncertain
+                      ? "Cleanup acknowledgement unknown. Refresh the actual state before starting more work."
+                      : s.cleanup
+                        ? `Last reported: cleanup ${s.cleanup.cleanup_required ? "required" : "not required"}; ${s.cleanup.running ? "running" : "no running cleanup reported"}.`
+                        : "Cleanup state has not been checked."}
+            </p>
+            {(s.cleanupError ?? s.cleanup?.error) && (
+                <p role="alert" className="error">
+                    Cleanup: {s.cleanupError ?? s.cleanup?.error}.
+                </p>
+            )}
+            <div className="comparison-controls">
+                <button
+                    disabled={s.cleanupPending !== null}
+                    onClick={() => void c.cleanupStatus()}
+                >
+                    Refresh cleanup state
+                </button>
+                <button
+                    disabled={s.cleanupPending !== null}
+                    onClick={() => void c.retryCleanup()}
+                >
+                    Retry cleanup
+                </button>
+            </div>
+            <p>
+                These controls check or retry unfinished evaluation cleanup.
+                They do not grant inspection, resume a comparison, or prove that
+                a closed view stopped a worker. A cleanup result is a last
+                reported observation.
+            </p>
+        </section>
+    );
 }

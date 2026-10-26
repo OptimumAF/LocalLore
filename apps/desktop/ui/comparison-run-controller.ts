@@ -51,7 +51,10 @@ export type ComparisonRunState = {
 };
 export type ComparisonRunMode = "scripted_baseline" | "approved_native";
 export type NativeComparisonRunOptions = Readonly<{ mode: "approved_native" }>;
-export type NativeComparisonRunState = Omit<ComparisonRunState, "status" | "catalog" | "error"> & {
+export type NativeComparisonRunState = Omit<
+    ComparisonRunState,
+    "status" | "catalog" | "error"
+> & {
     mode: "approved_native";
     status: NativeComparisonRunStatus | null;
     catalog: NativeComparisonRunCatalog | null;
@@ -66,22 +69,44 @@ export type ComparisonRunConsumerState =
     | NativeComparisonRunState;
 type Status = ComparisonRunStatus | NativeComparisonRunStatus;
 type Catalog = ComparisonRunCatalog | NativeComparisonRunCatalog;
-type Update = Partial<Omit<ComparisonRunState, "status" | "catalog" | "error">> & {
-    status?: Status | null; catalog?: Catalog | null; error?: NativeComparisonRunError | null;
+type Update = Partial<
+    Omit<ComparisonRunState, "status" | "catalog" | "error">
+> & {
+    status?: Status | null;
+    catalog?: Catalog | null;
+    error?: NativeComparisonRunError | null;
 };
-type CleanupUpdate = Partial<Pick<NativeComparisonRunState,
-    "cleanup" | "cleanupPending" | "cleanupUncertain" | "cleanupError">>;
-type Transport = Readonly<{
-    mode: "scripted_baseline"; command: "evaluation_comparison_run";
-    status: typeof checkedComparisonRunStatus; catalog: typeof checkedComparisonRunCatalog;
-}> | Readonly<{
-    mode: "approved_native"; command: "evaluation_comparison_native";
-    status: typeof checkedNativeComparisonRunStatus; catalog: typeof checkedNativeComparisonRunCatalog;
-}>;
-const SCRIPTED: Transport = Object.freeze({ mode: "scripted_baseline", command: "evaluation_comparison_run",
-    status: checkedComparisonRunStatus, catalog: checkedComparisonRunCatalog });
-const NATIVE: Transport = Object.freeze({ mode: "approved_native", command: "evaluation_comparison_native",
-    status: checkedNativeComparisonRunStatus, catalog: checkedNativeComparisonRunCatalog });
+type CleanupUpdate = Partial<
+    Pick<
+        NativeComparisonRunState,
+        "cleanup" | "cleanupPending" | "cleanupUncertain" | "cleanupError"
+    >
+>;
+type Transport =
+    | Readonly<{
+          mode: "scripted_baseline";
+          command: "evaluation_comparison_run";
+          status: typeof checkedComparisonRunStatus;
+          catalog: typeof checkedComparisonRunCatalog;
+      }>
+    | Readonly<{
+          mode: "approved_native";
+          command: "evaluation_comparison_native";
+          status: typeof checkedNativeComparisonRunStatus;
+          catalog: typeof checkedNativeComparisonRunCatalog;
+      }>;
+const SCRIPTED: Transport = Object.freeze({
+    mode: "scripted_baseline",
+    command: "evaluation_comparison_run",
+    status: checkedComparisonRunStatus,
+    catalog: checkedComparisonRunCatalog,
+});
+const NATIVE: Transport = Object.freeze({
+    mode: "approved_native",
+    command: "evaluation_comparison_native",
+    status: checkedNativeComparisonRunStatus,
+    catalog: checkedNativeComparisonRunCatalog,
+});
 type Owner = {
     readonly transport: Transport;
     client: string | null;
@@ -123,14 +148,27 @@ function category(error: unknown): ComparisonRunError {
               "EvaluationIo");
 }
 function nativeCategory(error: unknown): NativeComparisonRunError {
-    const value = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+    const value =
+        error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "";
     return value === "ComparisonRunWire" || value === "SelectedEvaluationWire"
-        ? "ComparisonRunWire" : nativeComparisonRunErrors.find(code => code === value) ?? "EvaluationIo";
+        ? "ComparisonRunWire"
+        : (nativeComparisonRunErrors.find((code) => code === value) ??
+              "EvaluationIo");
 }
 type ConstructorArgs =
-    | [invoke: ComparisonRunInvoke, onError?: (error: ComparisonRunError) => void]
-    | [invoke: ComparisonRunInvoke, onError: ((error: NativeComparisonRunError) => void) | undefined,
-       options: NativeComparisonRunOptions];
+    | [
+          invoke: ComparisonRunInvoke,
+          onError?: (error: ComparisonRunError) => void,
+      ]
+    | [
+          invoke: ComparisonRunInvoke,
+          onError: ((error: NativeComparisonRunError) => void) | undefined,
+          options: NativeComparisonRunOptions,
+      ];
 export class ComparisonRunController {
     private state: ComparisonRunConsumerState;
     private readonly invoke: ComparisonRunInvoke;
@@ -148,31 +186,62 @@ export class ComparisonRunController {
     // Admission waits for every retired captured capability. This is a
     // presentation barrier, never a second worker/cleanup authority.
     private retired = new Set<Owner>();
-    constructor(invoke: ComparisonRunInvoke, onError?: (error: ComparisonRunError) => void);
-    constructor(invoke: ComparisonRunInvoke, onError: ((error: NativeComparisonRunError) => void) | undefined,
-        options: NativeComparisonRunOptions);
+    constructor(
+        invoke: ComparisonRunInvoke,
+        onError?: (error: ComparisonRunError) => void,
+    );
+    constructor(
+        invoke: ComparisonRunInvoke,
+        onError: ((error: NativeComparisonRunError) => void) | undefined,
+        options: NativeComparisonRunOptions,
+    );
     constructor(...args: ConstructorArgs) {
-        if (typeof args[0] !== "function" || args.length > 3) throw Error("ComparisonRunWire");
+        if (typeof args[0] !== "function" || args.length > 3)
+            throw Error("ComparisonRunWire");
         this.invoke = args[0];
-        const initial: ComparisonRunState = { context: "", allowed: false, clientId: null, status: null,
-            catalog: null, pending: null, busy: false, uncertain: false, error: null };
+        const initial: ComparisonRunState = {
+            context: "",
+            allowed: false,
+            clientId: null,
+            status: null,
+            catalog: null,
+            pending: null,
+            busy: false,
+            uncertain: false,
+            error: null,
+        };
         if (args.length === 3) {
-            if (!args[2] || args[2].mode !== "approved_native") throw Error("ComparisonRunWire");
+            if (!args[2] || args[2].mode !== "approved_native")
+                throw Error("ComparisonRunWire");
             this.transport = NATIVE;
             const callback = args[1];
-            this.reportError = code => callback?.(nativeCategory(code));
-            const state: NativeComparisonRunState = { ...initial, mode: "approved_native", status: null, catalog: null, error: null,
-                cleanup: null, cleanupPending: null, cleanupUncertain: false, cleanupError: null };
+            this.reportError = (code) => callback?.(nativeCategory(code));
+            const state: NativeComparisonRunState = {
+                ...initial,
+                mode: "approved_native",
+                status: null,
+                catalog: null,
+                error: null,
+                cleanup: null,
+                cleanupPending: null,
+                cleanupUncertain: false,
+                cleanupError: null,
+            };
             this.state = frozen(state);
         } else {
             this.transport = SCRIPTED;
             const callback = args[1];
-            this.reportError = code => callback?.(category(code));
-            const state: ComparisonRunState & { mode: "scripted_baseline" } = { ...initial, mode: "scripted_baseline" };
+            this.reportError = (code) => callback?.(category(code));
+            const state: ComparisonRunState & { mode: "scripted_baseline" } = {
+                ...initial,
+                mode: "scripted_baseline",
+            };
             this.state = frozen(state);
         }
     }
-    get mode(): ComparisonRunMode { return this.transport.mode; }
+    get mode(): ComparisonRunMode {
+        return this.transport.mode;
+    }
     get(): Readonly<ComparisonRunConsumerState> {
         return this.state;
     }
@@ -184,7 +253,10 @@ export class ComparisonRunController {
         next.busy = this.active || next.status?.running === true;
         next.uncertain = this.currentUncertain || this.retired.size > 0;
         const old = new Map(Object.entries(this.state));
-        if (Object.entries(next).every(([key, value]) => value === old.get(key))) return;
+        if (
+            Object.entries(next).every(([key, value]) => value === old.get(key))
+        )
+            return;
         this.state = frozen(next);
         for (const listener of [...this.listeners]) {
             if (this.disposed) break;
@@ -196,35 +268,70 @@ export class ComparisonRunController {
         }
     }
     private patch(update: Update): void {
-        const status = update.status === undefined ? this.state.status : update.status;
-        const catalog = update.catalog === undefined ? this.state.catalog : update.catalog;
-        const error = update.error === undefined ? this.state.error : update.error;
+        const status =
+            update.status === undefined ? this.state.status : update.status;
+        const catalog =
+            update.catalog === undefined ? this.state.catalog : update.catalog;
+        const error =
+            update.error === undefined ? this.state.error : update.error;
         if (this.state.mode === "approved_native") {
-            if (status !== null && status.version !== 2) throw Error("ComparisonRunWire");
-            if (catalog !== null && catalog.version !== 2) throw Error("ComparisonRunWire");
+            if (status !== null && status.version !== 2)
+                throw Error("ComparisonRunWire");
+            if (catalog !== null && catalog.version !== 2)
+                throw Error("ComparisonRunWire");
             this.install({ ...this.state, ...update, status, catalog, error });
         } else {
-            if (status !== null && status.version !== 1) throw Error("ComparisonRunWire");
-            if (catalog !== null && catalog.version !== 1) throw Error("ComparisonRunWire");
-            this.install({ ...this.state, ...update, status, catalog, error: error === null ? null : category(error) });
+            if (status !== null && status.version !== 1)
+                throw Error("ComparisonRunWire");
+            if (catalog !== null && catalog.version !== 1)
+                throw Error("ComparisonRunWire");
+            this.install({
+                ...this.state,
+                ...update,
+                status,
+                catalog,
+                error: error === null ? null : category(error),
+            });
         }
     }
     private patchCleanup(update: CleanupUpdate): void {
         if (this.disposed || this.state.mode !== "approved_native") return;
-        this.install({ ...this.state,
-            cleanup: update.cleanup === undefined ? this.state.cleanup : update.cleanup,
-            cleanupPending: update.cleanupPending === undefined ? this.state.cleanupPending : update.cleanupPending,
-            cleanupUncertain: update.cleanupUncertain === undefined ? this.state.cleanupUncertain : update.cleanupUncertain,
-            cleanupError: update.cleanupError === undefined ? this.state.cleanupError : update.cleanupError });
+        this.install({
+            ...this.state,
+            cleanup:
+                update.cleanup === undefined
+                    ? this.state.cleanup
+                    : update.cleanup,
+            cleanupPending:
+                update.cleanupPending === undefined
+                    ? this.state.cleanupPending
+                    : update.cleanupPending,
+            cleanupUncertain:
+                update.cleanupUncertain === undefined
+                    ? this.state.cleanupUncertain
+                    : update.cleanupUncertain,
+            cleanupError:
+                update.cleanupError === undefined
+                    ? this.state.cleanupError
+                    : update.cleanupError,
+        });
     }
     private report(code: NativeComparisonRunError): void {
         if (this.reporting) return;
         this.reporting = true;
-        try { this.reportError(code); } catch { /* no authority */ }
-        finally { this.reporting = false; }
+        try {
+            this.reportError(code);
+        } catch {
+            /* no authority */
+        } finally {
+            this.reporting = false;
+        }
     }
     private failed(error: unknown, uncertain = true): void {
-        const code = this.mode === "approved_native" ? nativeCategory(error) : category(error);
+        const code =
+            this.mode === "approved_native"
+                ? nativeCategory(error)
+                : category(error);
         if (
             uncertain &&
             [
@@ -290,11 +397,7 @@ export class ComparisonRunController {
             !ticket.owner.retired
         );
     }
-    private bind(
-        owner: Owner,
-        next: Status,
-        rebind = false,
-    ): void {
+    private bind(owner: Owner, next: Status, rebind = false): void {
         if (
             next.input_lane !== owner.transport.mode ||
             (owner.client !== null && next.client_id !== owner.client) ||
@@ -334,11 +437,20 @@ export class ComparisonRunController {
         }
     }
     private async observeRelease(owner: Owner): Promise<void> {
-        if (this.disposed || !owner.sent || owner.transport.mode !== "approved_native" || owner.cleanupObserved) return;
+        if (
+            this.disposed ||
+            !owner.sent ||
+            owner.transport.mode !== "approved_native" ||
+            owner.cleanupObserved
+        )
+            return;
         owner.cleanupObserved = true;
         await this.cleanup("status");
     }
-    private async release(owner: Owner, acknowledgedClose?: Status): Promise<void> {
+    private async release(
+        owner: Owner,
+        acknowledgedClose?: Status,
+    ): Promise<void> {
         if (!owner.retired || owner.inFlight) return;
         if (owner.releasing) return owner.releasing;
         // Install the release guard before any cleanup-state notification can
@@ -367,18 +479,28 @@ export class ComparisonRunController {
                     this.bind(
                         owner,
                         owner.transport.status(
-                            await this.call("lookup", {
-                                clientId: owner.client,
-                            }, owner.transport),
+                            await this.call(
+                                "lookup",
+                                {
+                                    clientId: owner.client,
+                                },
+                                owner.transport,
+                            ),
                         ),
                         true,
                     );
                 }
                 const token = owner.token;
                 if (!token || owner.inFlight) return;
-                const next = acknowledgedClose ?? owner.transport.status(
-                    await this.call("close", { runToken: token }, owner.transport),
-                );
+                const next =
+                    acknowledgedClose ??
+                    owner.transport.status(
+                        await this.call(
+                            "close",
+                            { runToken: token },
+                            owner.transport,
+                        ),
+                    );
                 if (
                     next.client_id !== owner.client ||
                     next.run_id !== owner.runId ||
@@ -392,21 +514,27 @@ export class ComparisonRunController {
                     next.phase === "closed" &&
                     owner.token === token &&
                     !owner.inFlight
-                )
-                {
+                ) {
                     // Presentation closure does not establish global cleanup.
-                    if (next.running || next.version === 2 && (next.cleanup_required || next.cleanup_running))
+                    if (
+                        next.running ||
+                        (next.version === 2 &&
+                            (next.cleanup_required || next.cleanup_running))
+                    )
                         await this.observeRelease(owner);
                     if (!owner.inFlight) this.retired.delete(owner);
                 }
             } catch (error) {
-                const code = owner.transport.mode === "approved_native" ? nativeCategory(error) : category(error);
+                const code =
+                    owner.transport.mode === "approved_native"
+                        ? nativeCategory(error)
+                        : category(error);
                 if (
                     !owner.inFlight &&
                     ["UnknownEvaluationRun", "Closed"].includes(code)
-                )
-                {
-                    if (code === "UnknownEvaluationRun") await this.observeRelease(owner);
+                ) {
+                    if (code === "UnknownEvaluationRun")
+                        await this.observeRelease(owner);
                     if (!owner.inFlight) this.retired.delete(owner);
                 }
             } finally {
@@ -450,32 +578,63 @@ export class ComparisonRunController {
     }
     private generationBlocked(): boolean {
         if (this.state.mode !== "approved_native") return false;
-        return this.state.cleanupPending !== null || this.state.cleanupUncertain ||
-            this.state.cleanupError !== null || this.state.cleanup?.cleanup_required === true ||
-            this.state.cleanup?.running === true || this.state.status?.cleanup_required === true ||
-            this.state.status?.cleanup_running === true;
+        return (
+            this.state.cleanupPending !== null ||
+            this.state.cleanupUncertain ||
+            this.state.cleanupError !== null ||
+            this.state.cleanup?.cleanup_required === true ||
+            this.state.cleanup?.running === true ||
+            this.state.status?.cleanup_required === true ||
+            this.state.status?.cleanup_running === true
+        );
     }
     private invalidateAuxiliary(): void {
         ++this.globalAuxEpoch;
-        if (this.state.mode === "approved_native" && this.state.cleanupPending !== null)
+        if (
+            this.state.mode === "approved_native" &&
+            this.state.cleanupPending !== null
+        )
             this.patchCleanup({ cleanupPending: null, cleanupUncertain: true });
     }
-    private async cleanup(action: "status" | "retry", origin?: () => boolean): Promise<boolean> {
-        if (this.disposed || this.state.mode !== "approved_native") return false;
+    private async cleanup(
+        action: "status" | "retry",
+        origin?: () => boolean,
+    ): Promise<boolean> {
+        if (this.disposed || this.state.mode !== "approved_native")
+            return false;
         const serial = ++this.globalAuxEpoch;
-        const live = () => !this.disposed && serial === this.globalAuxEpoch && (!origin || origin());
+        const live = () =>
+            !this.disposed &&
+            serial === this.globalAuxEpoch &&
+            (!origin || origin());
         this.patchCleanup({ cleanupPending: action, cleanupError: null });
         try {
             if (!live()) return false;
-            const raw = await this.call(action === "status" ? "cleanup_status" : "retry_cleanup", {}, NATIVE);
+            const raw = await this.call(
+                action === "status" ? "cleanup_status" : "retry_cleanup",
+                {},
+                NATIVE,
+            );
             if (!live()) return false;
             const next = checkedSelectedCleanup(raw);
-            this.patchCleanup({ cleanup: next, cleanupUncertain: false, cleanupError: next.error });
-            return live() && !next.cleanup_required && !next.running && next.error === null;
+            this.patchCleanup({
+                cleanup: next,
+                cleanupUncertain: false,
+                cleanupError: next.error,
+            });
+            return (
+                live() &&
+                !next.cleanup_required &&
+                !next.running &&
+                next.error === null
+            );
         } catch (error) {
             if (live()) {
                 const code = nativeCategory(error);
-                this.patchCleanup({ cleanupUncertain: true, cleanupError: code });
+                this.patchCleanup({
+                    cleanupUncertain: true,
+                    cleanupError: code,
+                });
                 if (live()) this.report(code);
             }
             return false;
@@ -486,8 +645,12 @@ export class ComparisonRunController {
                 this.patchCleanup({ cleanupPending: null });
         }
     }
-    async cleanupStatus(): Promise<void> { await this.cleanup("status"); }
-    async retryCleanup(): Promise<void> { await this.cleanup("retry"); }
+    async cleanupStatus(): Promise<void> {
+        await this.cleanup("status");
+    }
+    async retryCleanup(): Promise<void> {
+        await this.cleanup("retry");
+    }
     private async admission(): Promise<boolean> {
         if (
             this.disposed ||
@@ -507,11 +670,7 @@ export class ComparisonRunController {
             !this.currentUncertain
         );
     }
-    private publish(
-        next: Status,
-        ticket: Ticket,
-        action: Action,
-    ): void {
+    private publish(next: Status, ticket: Ticket, action: Action): void {
         if (!this.owns(ticket)) return;
         const old = this.state.status;
         if (
@@ -522,13 +681,27 @@ export class ComparisonRunController {
         ) {
             if (old.version === 2 && next.version === 2) {
                 if (next.phase !== "closed") {
-                    const blocked = next.phase === "cleanup_required" || next.cleanup_required || next.cleanup_running;
-                    next = { ...old, running: next.running, error: next.error ?? old.error,
-                        cleanup_required: next.cleanup_required, cleanup_running: next.cleanup_running, cause: next.cause,
-                        phase: blocked ? next.phase : old.phase, report_ready: blocked ? false : old.report_ready };
+                    const blocked =
+                        next.phase === "cleanup_required" ||
+                        next.cleanup_required ||
+                        next.cleanup_running;
+                    next = {
+                        ...old,
+                        running: next.running,
+                        error: next.error ?? old.error,
+                        cleanup_required: next.cleanup_required,
+                        cleanup_running: next.cleanup_running,
+                        cause: next.cause,
+                        phase: blocked ? next.phase : old.phase,
+                        report_ready: blocked ? false : old.report_ready,
+                    };
                 }
             } else if (old.version === 1 && next.version === 1) {
-                next = { ...old, running: next.running, error: next.error ?? old.error };
+                next = {
+                    ...old,
+                    running: next.running,
+                    error: next.error ?? old.error,
+                };
             } else throw Error("ComparisonRunWire");
         }
         this.currentUncertain = false;
@@ -538,7 +711,10 @@ export class ComparisonRunController {
             this.retired.add(ticket.owner);
             // An actual native close already revoked this exact token. Other
             // closed metadata responses still require explicit token closure.
-            void this.release(ticket.owner, next.version === 2 && action === "close" ? next : undefined);
+            void this.release(
+                ticket.owner,
+                next.version === 2 && action === "close" ? next : undefined,
+            );
         }
         this.patch({
             status: next,
@@ -571,11 +747,21 @@ export class ComparisonRunController {
             owner.retired
         )
             return;
-        const generation = owner.transport.mode === "approved_native" && (action === "start" || action === "resume");
+        const generation =
+            owner.transport.mode === "approved_native" &&
+            (action === "start" || action === "resume");
         if (generation && this.generationBlocked()) return;
         const entered = this.epoch;
-        if (owner.transport.mode === "approved_native" && (generation || fresh)) this.invalidateAuxiliary();
-        if (this.disposed || !this.state.allowed || this.epoch !== entered || this.current !== owner || owner.retired) return;
+        if (owner.transport.mode === "approved_native" && (generation || fresh))
+            this.invalidateAuxiliary();
+        if (
+            this.disposed ||
+            !this.state.allowed ||
+            this.epoch !== entered ||
+            this.current !== owner ||
+            owner.retired
+        )
+            return;
         this.active = true;
         const ticket = { epoch: this.epoch, serial: ++this.serial, owner };
         this.patch({
@@ -595,13 +781,19 @@ export class ComparisonRunController {
         try {
             if (!this.owns(ticket)) return;
             if (generation) {
-                const clear = await this.cleanup("status", () => this.owns(ticket));
+                const clear = await this.cleanup("status", () =>
+                    this.owns(ticket),
+                );
                 if (!this.owns(ticket)) return;
                 if (!clear || this.generationBlocked()) {
                     if (!owner.sent) {
                         this.current = null;
                         owner.retired = true;
-                        this.patch({ clientId: null, status: null, pending: null });
+                        this.patch({
+                            clientId: null,
+                            status: null,
+                            pending: null,
+                        });
                     }
                     return;
                 }
@@ -613,7 +805,11 @@ export class ComparisonRunController {
                 return;
             }
             this.publish(next, ticket, action);
-            if (action === "close" && next.version === 2 && next.phase === "closed") {
+            if (
+                action === "close" &&
+                next.version === 2 &&
+                next.phase === "closed"
+            ) {
                 // One explicit close gesture waits for its known presentation
                 // acknowledgement/observation; no unknown-ACK retry is implied.
                 await this.release(owner, next);
@@ -762,7 +958,8 @@ export class ComparisonRunController {
                 this.epoch !== epoch ||
                 this.current ||
                 this.active ||
-                !this.state.allowed || this.generationBlocked()
+                !this.state.allowed ||
+                this.generationBlocked()
             )
                 return;
             const owner = this.owner(crypto.randomUUID());
@@ -927,5 +1124,7 @@ export function createNativeComparisonRunController(
     invoke: ComparisonRunInvoke,
     onError?: (error: NativeComparisonRunError) => void,
 ): ComparisonRunController {
-    return new ComparisonRunController(invoke, onError, { mode: "approved_native" });
+    return new ComparisonRunController(invoke, onError, {
+        mode: "approved_native",
+    });
 }

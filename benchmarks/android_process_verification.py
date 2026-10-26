@@ -563,6 +563,22 @@ def client_record_shape(row):
             and 1 <= row["effective_deadline_ms"] <= 180000)
 
 
+def require_current_clients(out, count):
+    """Additional current-run coverage, after generic raw/source readback.
+
+    Historical validators deliberately permit exact v1 rows. Current execution
+    must retain measured v2 timing for every observer and SDK client; deleting
+    timing and rebinding a row as v1 cannot qualify this execution. This helper
+    does not replace the generic completion, raw/hash or source validators.
+    """
+    need(type(count) is int and 0 < count <= 10000, "current_client_count")
+    for index in range(1, count + 1):
+        row = env.read_json(Path(out) / "clients" / ("command-%04d.json" % index))
+        need(client_record_shape(row) and row["version"] == 2
+             and row["elapsed_ms"] is not None and type(row["index"]) is int
+             and row["index"] == index, "current_client_timing_required")
+
+
 def validate_component_record(components, out):
     try:
         from benchmarks.android_instrumentation_evidence import validate_instrumentation
@@ -843,6 +859,12 @@ def _instrumentation_worker(request, out, phase):
     filename = {"components": "components-v1.json", "regression": "regression-v1.json",
                 "retained-ui": "retained_ui-v1.json", "retained-archive": "retained_archive-v1.json",
                 "story-creation": "story_creation-v1.json"}[phase]
+    validator = {"components": validate_component_record, "regression": validate_regression_record,
+                 "retained-ui": validate_retained_ui_record, "retained-archive": validate_retained_archive_record,
+                 "story-creation": validate_story_creation_record}[phase]
+    validator(record, out)
+    require_current_clients(out, record["clients"])
+    own()
     env.create_json(out / filename, record)
 
 
@@ -892,6 +914,7 @@ def supervise(request):
                              "retained-archive": validate_retained_archive_record,
                              "story-creation": validate_story_creation_record}[request["phase"]]
                 validator(components, out)
+                require_current_clients(out, components["clients"])
         except (VerificationRefused, env.EnvironmentRefused, OSError, ValueError, KeyError, TypeError, ET.ParseError):
             qualified = False
             record["passed"] = False

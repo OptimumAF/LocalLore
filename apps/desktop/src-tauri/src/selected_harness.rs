@@ -64,7 +64,8 @@ fn metadata_kind(metadata: &Value) -> Result<(), String> {
     // This is a closed fixture discriminator, NOT a second canonical/DTO
     // validator. The actual service supplies already-validated shared metadata.
     if !metadata.is_object()
-        || metadata["version"].as_u64() != Some(1)
+        || !matches!(metadata["version"].as_u64(), Some(1 | 2))
+        || (metadata["version"] == 2 && metadata["source_protocol_version"] != 3)
         || !matches!(
             metadata["kind"].as_str(),
             Some("selected_prepared" | "selected_read")

@@ -100,7 +100,8 @@ function SelectedExperiment({
         snapshot.clientId &&
         snapshot.status?.run_token &&
         snapshot.source &&
-        snapshot.source.protocol_version === 2
+        (snapshot.source.protocol_version === 2 ||
+            snapshot.source.protocol_version === 3)
             ? {
                   readerClientId: snapshot.clientId,
                   runToken: snapshot.status.run_token,
@@ -113,7 +114,6 @@ function SelectedExperiment({
             source={source}
             row={snapshot.selected}
             observer={snapshot.observer}
-            sourceUnavailable={snapshot.source?.protocol_version === 3}
         />
     );
 }

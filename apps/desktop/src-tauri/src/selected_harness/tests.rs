@@ -40,11 +40,16 @@ fn consent_accepts_only_bounded_native_shared_metadata_kinds() {
     // Source-shaped synthetic metadata, not an executed Core/native fixture.
     for kind in ["selected_prepared", "selected_read"] {
         assert!(metadata_kind(&json!({"version":1,"kind":kind})).is_ok());
+        assert!(
+            metadata_kind(&json!({"version":2,"source_protocol_version":3,"kind":kind})).is_ok()
+        );
     }
     for bad in [
         json!(null),
         json!([]),
         json!({"version":2,"kind":"selected_prepared"}),
+        json!({"version":3,"source_protocol_version":3,"kind":"selected_prepared"}),
+        json!({"version":2,"source_protocol_version":2,"kind":"selected_prepared"}),
         json!({"version":1,"kind":"comparison_reader"}),
         json!({"version":1,"kind":"selected_diagnostics"}),
         json!({"version":1,"kind":"selected_prepared","padding":"x".repeat(16*1024)}),

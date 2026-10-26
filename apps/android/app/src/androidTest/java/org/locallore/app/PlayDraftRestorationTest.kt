@@ -200,4 +200,73 @@ class PlayDraftRestorationTest {
             noSend()
         }
     }
+
+    @Test fun sameRenderKindThenTextRetainsBothLatestFields() {
+        render()
+        val kind = checkNotNull(tag("play-kind-dialogue").fetchSemanticsNode().config[SemanticsActions.OnClick].action)
+        val text = checkNotNull(tag("play-input").fetchSemanticsNode().config[SemanticsActions.SetText].action)
+        val words = "SYNTHETIC same-frame kind then text: caf\u00e9."
+        // Both real production actions came from one render. Do not allow an idle/recomposition
+        // between the kind change and the previously retained text-field callback.
+        compose.runOnIdle {
+            assertTrue(kind())
+            assertTrue(text(AnnotatedString(words)))
+        }
+        assertDraft(PlayInputKind.DIALOGUE, words)
+        noSend()
+        tag("play-send").performClick()
+        compose.runOnIdle {
+            assertEquals(listOf(Sent(PlayInput(PlayInputKind.DIALOGUE, words), a.story, a.branch)), sent)
+        }
+    }
+
+    @Test fun sameRenderTextThenKindRetainsBothLatestFields() {
+        render()
+        val text = checkNotNull(tag("play-input").fetchSemanticsNode().config[SemanticsActions.SetText].action)
+        val kind = checkNotNull(tag("play-kind-dialogue").fetchSemanticsNode().config[SemanticsActions.OnClick].action)
+        val words = "SYNTHETIC same-frame text then kind: snow \u96ea."
+        compose.runOnIdle {
+            assertTrue(text(AnnotatedString(words)))
+            assertTrue(kind())
+        }
+        assertDraft(PlayInputKind.DIALOGUE, words)
+        noSend()
+        tag("play-send").performClick()
+        compose.runOnIdle {
+            assertEquals(listOf(Sent(PlayInput(PlayInputKind.DIALOGUE, words), a.story, a.branch)), sent)
+        }
+    }
+
+    @Test fun retainedSendAfterSameRenderEditsSubmitsLatestScopedInputOnce() {
+        render()
+        draft(PlayInputKind.ACTION, "SYNTHETIC previous enabled input")
+        val kind = checkNotNull(tag("play-kind-dialogue").fetchSemanticsNode().config[SemanticsActions.OnClick].action)
+        val text = checkNotNull(tag("play-input").fetchSemanticsNode().config[SemanticsActions.SetText].action)
+        val send = checkNotNull(tag("play-send").assertIsEnabled().fetchSemanticsNode().config[SemanticsActions.OnClick].action)
+        val words = "SYNTHETIC latest input before explicit Send."
+        noSend()
+        compose.runOnIdle {
+            assertTrue(kind())
+            assertTrue(text(AnnotatedString(words)))
+            assertTrue(send())
+        }
+        compose.runOnIdle {
+            assertEquals(listOf(Sent(PlayInput(PlayInputKind.DIALOGUE, words), a.story, a.branch)), sent)
+        }
+        assertDraft(PlayInputKind.DIALOGUE, words)
+    }
+
+    @Test fun retainedEnabledSendAfterSameRenderClearDoesNotSubmit() {
+        render()
+        draft(PlayInputKind.ACTION, "SYNTHETIC enabled input before clearing")
+        val text = checkNotNull(tag("play-input").fetchSemanticsNode().config[SemanticsActions.SetText].action)
+        val send = checkNotNull(tag("play-send").assertIsEnabled().fetchSemanticsNode().config[SemanticsActions.OnClick].action)
+        compose.runOnIdle {
+            assertTrue(text(AnnotatedString("")))
+            send() // Its captured enabled/valid state must not authorize the now-empty draft.
+        }
+        assertDraft(PlayInputKind.ACTION, "")
+        noSend()
+        tag("play-send").assertIsNotEnabled()
+    }
 }

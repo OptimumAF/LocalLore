@@ -59,7 +59,7 @@ fn original_v2_actual_scene_semantics_survive_shared_execution_and_checkpoint_ex
         bytes.len()
     );
     assert_eq!(
-        hash, "EXPECTED_ORIGINAL_PRODUCER_CAPTURE",
+        hash, "9134ccc9609b3f9c5942c04f8c2c9fe1e008e962bcae537b42139e0e4642a065",
         "first run captures original production; anchor before extraction"
     );
 }

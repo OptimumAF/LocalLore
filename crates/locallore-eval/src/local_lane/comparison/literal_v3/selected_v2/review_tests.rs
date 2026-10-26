@@ -333,11 +333,11 @@ fn selected_move_preserves_actual_divergent_per_arm_prefix_request_and_v3_constr
     assert_ne!(before[0].canonical_bytes(), before[1].canonical_bytes());
     let source_before = inventory(&fixture.source);
     let plan = fixture.plan("selected2-private-divergent");
-    for arm in 0..2 {
-        assert!(plan.before[arm].receipts() == before[arm].receipts());
+    for (arm, expected) in before.iter().enumerate() {
+        assert!(plan.before[arm].receipts() == expected.receipts());
         assert!(
             plan.before[arm].accepted_history_basis().unwrap()
-                == before[arm].accepted_history_basis().unwrap()
+                == expected.accepted_history_basis().unwrap()
         );
     }
     let target = fixture.root.join("selected");

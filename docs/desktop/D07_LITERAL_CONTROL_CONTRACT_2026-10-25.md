@@ -7,7 +7,8 @@ scripted providers. The linked slices cover source, renderer, execution/replay a
 native Host selection. Scripted protocol3 evaluation, strict cold report reads
 and resume are qualified in the linked producer record. Approved-model finite
 paired/rollout execution and completed-native resume are qualified separately.
-UI exposure and human story quality remain unqualified.**
+Desktop read-only UI/IPC is qualified with synthetic providers. Human story
+quality and protocol3 UI execution remain unqualified.**
 See [source API and qualification](D07_LITERAL_TRANSCRIPT_SOURCE_QUALIFICATION_2026-10-25.md).
 See [literal renderer and packing qualification](D07_LITERAL_DIRECTOR_RENDER_QUALIFICATION_2026-10-25.md).
 See [guarded native execution and replay qualification](D07_LITERAL_GUARDED_PLAY_QUALIFICATION_2026-10-25.md).
@@ -20,12 +21,17 @@ The [trusted native3 API ownership qualification](D07_LITERAL_NATIVE_OWNER_QUALI
 adds model-free preflight and actual protocol-child cleanup evidence.
 The [approved-model qualification](D07_LITERAL_NATIVE_MODEL_QUALIFICATION_2026-10-25.md)
 records 96 outcomes, 153 real roles and 3 loads, retaining failed expectations,
-dependency and narration fallback. Native3 CLI, selected/UI consumption and
-human quality remain unqualified.
+dependency and narration fallback. Native3 CLI, selected-case protocol3 execution
+and human quality remain unqualified.
 The [protocol3 read capability qualification](D07_LITERAL_DESKTOP_READ_QUALIFICATION_2026-10-25.md)
 adds an opaque Rust reader over actual canonical edges, receipts and retained
 artifacts. It preserves observer restrictions and existing V2/selected readers;
-it does not expose protocol3 in the desktop UI or grant rerun permission.
+that source record does not itself qualify UI or rerun permission.
+The [desktop reader qualification](D07_LITERAL_DESKTOP_UI_QUALIFICATION_2026-10-26.md)
+adds actual frontend/controller/native IPC and inspected app-owned WebView
+renders for protocol3. It preserves existing selected1 sources and explicitly
+refuses protocol3 reruns without consuming the reader. Inference in this UI
+qualification is synthetic; approved-model generation remains separate evidence.
 Design sections below
 preserve the original proposal; linked qualification records define the current
 implemented interfaces and their evidence classes.

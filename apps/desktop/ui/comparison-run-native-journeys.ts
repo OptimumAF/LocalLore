@@ -81,20 +81,36 @@ export async function comparisonRunNativeJourneys({
         await fixture("release-execution-consent");
         held = false;
     };
-    const fixtureStatus = async () => {
+    const fixtureStatus = async (record = true) => {
         const value = (await fixture("consent-status")) as Record<
             string,
             unknown
         >;
-        check(
+        const valid =
             value.version === 1 &&
-                value.kind === "native_full_comparison_fixture" &&
-                value.synthetic === true &&
-                value.active === true &&
-                typeof value.held === "boolean",
-            "native-full-closed-fixture-status",
-        );
+            value.kind === "native_full_comparison_fixture" &&
+            value.synthetic === true &&
+            typeof value.active === "boolean" &&
+            typeof value.held === "boolean";
+        if (!valid) {
+            failedCheck = "native-full-closed-fixture-status";
+            throw Error(failedCheck);
+        }
+        if (record) check(valid, "native-full-closed-fixture-status");
         return value;
+    };
+    const heldConsentEntered = async () => {
+        failedCheck = "native-full-actual-held-consent-entered";
+        const end = Date.now() + 60_000;
+        while (Date.now() < end) {
+            const state = await fixtureStatus(false);
+            if (state.active === true && state.held === true) {
+                check(true, "native-full-actual-held-consent-entered");
+                return;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 25));
+        }
+        throw Error("FullComparisonJourneyTimeout");
     };
     const cleanup = async () => {
         await f.cleanupStatus();
@@ -183,7 +199,7 @@ export async function comparisonRunNativeJourneys({
         operation: number,
     ) => {
         let value = checkedNativeComparisonRunStatus(
-            await invoke("evaluation_comparison_run_native", {
+            await invoke("evaluation_comparison_native", {
                 action: "lookup",
                 query: { clientId: client },
             }),
@@ -192,7 +208,7 @@ export async function comparisonRunNativeJourneys({
         while (value.running && Date.now() < end) {
             await new Promise((resolve) => setTimeout(resolve, 25));
             value = checkedNativeComparisonRunStatus(
-                await invoke("evaluation_comparison_run_native", {
+                await invoke("evaluation_comparison_native", {
                     action: "status",
                     query: { runToken: value.run_token },
                 }),
@@ -207,7 +223,7 @@ export async function comparisonRunNativeJourneys({
             "native-full-retired-exact-owner-drained",
         );
         const revoked = checkedNativeComparisonRunStatus(
-            await invoke("evaluation_comparison_run_native", {
+            await invoke("evaluation_comparison_native", {
                 action: "close",
                 query: { runToken: value.run_token },
             }),
@@ -879,6 +895,7 @@ export async function comparisonRunNativeJourneys({
                     f.get().status?.phase === "awaiting_confirmation",
                 "native-full-held-execution-consent",
             );
+            await heldConsentEntered();
             check(
                 (await fixtureStatus()).held === true &&
                     f.get().status?.running === true,
@@ -942,6 +959,7 @@ export async function comparisonRunNativeJourneys({
                     f.get().status?.phase === "awaiting_confirmation",
                 "native-full-same-client-lookup-recovers-actual-owner",
             );
+            await heldConsentEntered();
             check(
                 f.get().clientId === lostClient,
                 "native-full-no-duplicate-start-on-ACK-recovery",
@@ -973,6 +991,7 @@ export async function comparisonRunNativeJourneys({
                     f.get().status?.phase === "awaiting_confirmation",
                 "native-full-retiring-held-owner",
             );
+            await heldConsentEntered();
             const old = f.get().status!,
                 client = f.get().clientId!;
             check(
@@ -996,7 +1015,7 @@ export async function comparisonRunNativeJourneys({
             const retirementDeadline = Date.now() + 30_000;
             while (Date.now() < retirementDeadline) {
                 const observed = checkedNativeComparisonRunStatus(
-                    await invoke("evaluation_comparison_run_native", {
+                    await invoke("evaluation_comparison_native", {
                         action: "lookup",
                         query: { clientId: client },
                     }),

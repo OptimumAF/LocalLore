@@ -643,7 +643,10 @@ export async function comparisonRunNativeJourneys({
         const row = r
             .get()
             .source!.rows.find(
-                (entry) => entry.receipt_available && entry.capture_available,
+                (entry) =>
+                    entry.receipt_available &&
+                    entry.capture_available &&
+                    entry.recording_available,
             );
         check(row, "native-full-actual-committed-captured-row");
         r.select(row!.row);
@@ -676,12 +679,50 @@ export async function comparisonRunNativeJourneys({
         );
         await capture("full-reader", "#comparison-reader");
         if (extended) {
+            const knowledgeRow = r
+                .get()
+                .source!.rows.find(
+                    (entry) =>
+                        entry.row.turn === "courier-01" &&
+                        entry.row.arm === "left",
+                );
+            check(
+                knowledgeRow,
+                "native-full-original-player-only-knowledge-cut",
+            );
+            r.select(knowledgeRow!.row);
+            await read({
+                kind: "query",
+                edge: "before",
+                observer: { kind: "player" },
+                view: "knowledge",
+            });
+            const playerKnowledge = r.get().evidence;
+            check(
+                playerKnowledge?.body.kind === "query" &&
+                    playerKnowledge.body.page.head ===
+                        knowledgeRow!.source.before_head &&
+                    structural(playerKnowledge.scope) ===
+                        structural(knowledgeRow!.source.scope) &&
+                    JSON.stringify(playerKnowledge.body.page).includes(
+                        "SECRET-TIDE-731",
+                    ),
+                "native-full-player-positive-private-knowledge-canary",
+            );
             for (const id of ["mira", "sable"] as const) {
+                r.select(row!.row);
                 await read({
                     kind: "query",
                     edge: "after",
                     observer: { kind: "character", id },
                     view: "history",
+                });
+                r.select(knowledgeRow!.row);
+                await read({
+                    kind: "query",
+                    edge: "before",
+                    observer: { kind: "character", id },
+                    view: "knowledge",
                 });
                 check(
                     !JSON.stringify(r.get().evidence).includes(
@@ -701,6 +742,7 @@ export async function comparisonRunNativeJourneys({
                     "#comparison-reader",
                 );
             }
+            r.select(row!.row);
             const nativeStatus = r.get().status!;
             for (const kind of ["receipt", "capture", "outputs"] as const) {
                 let denied = "";

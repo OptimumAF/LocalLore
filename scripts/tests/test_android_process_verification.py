@@ -87,6 +87,14 @@ class DriverTests(unittest.TestCase):
                 build.assert_not_called()
 
     @unittest.skipUnless(os.name == "nt", "Windows execution path")
+    def test_actual_isolated_interpreter_can_load_versioned_driver(self):
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root)
+            raw = driver.run_command(out, "isolated-help", [sys.executable, "-I", "-B",
+                str(Path(driver.__file__)), "--help"], out, dict(os.environ))
+            self.assertIn(b"components", raw)
+
+    @unittest.skipUnless(os.name == "nt", "Windows execution path")
     def test_actual_child_bytes_survive_ctrl_z_nul_non_ascii_and_lf(self):
         payload = bytes(range(256)) + b"\x1a\n\x00\xffEND\n"
         with tempfile.TemporaryDirectory() as root:

@@ -18,6 +18,10 @@ import threading
 import time
 import xml.etree.ElementTree as ET
 
+# Isolated child interpreters omit both cwd and script directory from sys.path.
+# Resolve imports only from this versioned checkout before the stdin barrier.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 try:
     from benchmarks import receipt_avd_environment as env
 except ModuleNotFoundError:

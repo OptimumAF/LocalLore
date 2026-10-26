@@ -259,8 +259,12 @@ read checks alone do not enable a literal control or establish quality.
 A separate [scripted protocol3 developer CLI](../../docs/desktop/D07_LITERAL_COMPARISON_PRODUCER_QUALIFICATION_2026-10-25.md)
 now runs the actual literal-player/Relevant pair through the shared Host and
 durable Store, with bounded scenes, cold inspection and resume. Its literal
-metrics remain separate from memory metrics. This is fake inference; native
-protocol3, selected-case protocol3 and desktop UI exposure remain unavailable.
+metrics remain separate from memory metrics. This CLI uses fake inference.
+The [trusted native Rust entry](../../docs/desktop/D07_LITERAL_NATIVE_OWNER_QUALIFICATION_2026-10-25.md)
+now has model-free ownership/cancellation/cleanup qualification using the
+existing resource port. Approved-model protocol3 execution and completed-native
+resume still need their real evidence. Native3 CLI, selected-case protocol3 and
+desktop UI exposure remain unavailable.
 The existing app reader and selected-case controls retain their v2/selected1
 formats. The linked qualification gives exact commands, results and limitations.
 

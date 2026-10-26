@@ -1,8 +1,8 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Native selected workflow over the same turn, Store and resource authorities.
+use super::super::native_startup::{check_preparation, start_runtime};
 use super::{native_owner, *};
-use locallore_local_runtime::{LocalRuntime, OwnedStartFailure};
-use native_owner::{SelectedNativeFailure, SelectedNativeReservation, SharedRuntime};
+use native_owner::{SelectedNativeFailure, SelectedNativeReservation};
 
 type NativeResult<T, R> = std::result::Result<T, SelectedNativeFailure<R>>;
 
@@ -17,13 +17,7 @@ pub(super) fn preparation_deadline(
     remaining: u64,
     now: Instant,
 ) -> Result<Instant> {
-    let deadline = (started + Duration::from_millis(PREPARATION_MS))
-        .min(now + Duration::from_millis(remaining.saturating_sub(CLEANUP_RESERVE_MS)));
-    if now >= deadline {
-        Err("PreparationDeadline".into())
-    } else {
-        Ok(deadline)
-    }
+    super::super::native_startup::preparation_deadline(started, remaining, now)
 }
 
 fn elapsed(started: Instant) -> u64 {
@@ -280,72 +274,6 @@ fn save_setup_at(
         }
     }
     Ok(())
-}
-
-fn check_preparation(cancel: &Cancellation, deadline: Instant) -> Result<()> {
-    cancelled(cancel)?;
-    if Instant::now() >= deadline {
-        Err("PreparationDeadline".into())
-    } else {
-        Ok(())
-    }
-}
-
-struct Startup {
-    runtime: Option<SharedRuntime>,
-    load: Option<Value>,
-    error: Option<String>,
-}
-fn start_runtime<R: SelectedNativeReservation>(
-    reservation: &R,
-    profile: &PlayProfile,
-    cancel: &Cancellation,
-    deadline: Instant,
-) -> Startup {
-    let assets = reservation.assets();
-    let stopped = || cancel.is_cancelled() || Instant::now() >= deadline;
-    let runtime = match LocalRuntime::spawn_packaged_owned_expected_cancelled(
-        assets.resource_dir,
-        assets.model,
-        &profile.worker_sha256,
-        stopped,
-    ) {
-        Ok(runtime) => runtime,
-        Err(OwnedStartFailure::BeforeChild(cause)) => {
-            return Startup {
-                runtime: None,
-                load: None,
-                error: Some(format!("Runtime{cause:?}")),
-            };
-        }
-        Err(OwnedStartFailure::AfterChild { cause, owner }) => {
-            return Startup {
-                runtime: Some(Arc::new(Mutex::new(*owner))),
-                load: None,
-                error: Some(format!("Runtime{cause:?}")),
-            };
-        }
-    };
-    let runtime = Arc::new(Mutex::new(runtime));
-    let mut load = None;
-    let result = (|| {
-        check_preparation(cancel, deadline)?;
-        let mut owner = runtime.try_lock().map_err(|_| "RuntimeBusy")?;
-        if owner.profile_manifest_sha256() != profile.profile_manifest_sha256 {
-            return Err("Profile".into());
-        }
-        let observed = owner
-            .load(stopped)
-            .map_err(|cause| format!("Runtime{cause:?}"))?;
-        load = Some(serde_json::to_value(observed).map_err(|_| "Encoding")?);
-        check_preparation(cancel, deadline)?;
-        Ok::<(), String>(())
-    })();
-    Startup {
-        runtime: Some(runtime),
-        load,
-        error: result.err(),
-    }
 }
 
 fn run_prepared<R: SelectedNativeReservation>(

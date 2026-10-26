@@ -47,6 +47,26 @@ def require(condition, message):
         raise AuditError(message)
 
 
+def aapt_text(value):
+    """Accept observed uniform LF/CRLF tool framing; never erase lone CR/control bytes."""
+    require(type(value) is str and len(value) <= 4 * 1024 * 1024, "Invalid aapt output")
+    if "\r" in value:
+        remainder = value.replace("\r\n", "")
+        require("\r" not in remainder and "\n" not in remainder, "Mixed or malformed aapt framing")
+        value = value.replace("\r\n", "\n")
+    require(not any((ord(c) < 32 and c not in "\t\n") or c in "\x7f\x85\u2028\u2029" for c in value),
+            "Invalid aapt control character")
+    return value
+
+
+def audit_sdk(badging):
+    badging = aapt_text(badging)
+    selected = [line for line in badging.split("\n")
+                if re.match(r"^\s*(?:minSdkVersion|targetSdkVersion|sdkVersion)\b", line)]
+    require(selected == ["minSdkVersion:'26'", "targetSdkVersion:'36'"],
+            "Wrong, missing, duplicate or malformed SDK contract")
+
+
 def elf_alignments(data, machine):
     require(len(data) >= 64 and data[:7] == b"\x7fELF\x02\x01\x01", "Expected little-endian ELF64")
     require(struct.unpack_from("<HH", data, 16) == (3, machine), "Wrong ELF type or ABI")
@@ -182,6 +202,7 @@ def audit_zip(path, *, litert=False, model_picker=False, model_volume=False, mod
 
 
 def audit_manifest(badging, tree, package="org.locallore.app"):
+    badging, tree = aapt_text(badging), aapt_text(tree)
     require(package in ("org.locallore.app", "org.locallore.app.capacity", "org.locallore.app.capacityrelief", "org.locallore.app.capacityv3",
                         "org.locallore.app.capacityreliefv3", "org.locallore.app.capacityfaultsv3",
                         "org.locallore.app.capacityv4", "org.locallore.app.capacityreliefv4", "org.locallore.app.capacityfaultsv4",
@@ -191,8 +212,7 @@ def audit_manifest(badging, tree, package="org.locallore.app"):
             "Unreviewed app package")
     permission = package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
     require(re.search(r"^package: name='" + re.escape(package) + r"' ", badging, re.M), "Wrong app package")
-    require(re.search(r"^minSdkVersion:'26'$", badging, re.M), "Minimum SDK changed")
-    require(re.search(r"^targetSdkVersion:'36'$", badging, re.M), "Target SDK changed")
+    audit_sdk(badging)
     uses = re.findall(r"^uses-permission[^:]*: name='([^']+)'", badging, re.M)
     require(uses == [permission], "Unexpected requested permissions")
     # Verify the one requested permission is defined with signature protection.

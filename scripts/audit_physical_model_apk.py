@@ -228,6 +228,8 @@ def one(header, name, expected):
 
 
 def audit_manifests(app_badging, app_tree, test_badging, test_tree, extraction_tree, *, physical_fixture=False):
+    app_badging, app_tree, test_badging, test_tree, extraction_tree = (
+        base.aapt_text(value) for value in (app_badging, app_tree, test_badging, test_tree, extraction_tree))
     for tree, package in ((app_tree, APP), (test_tree, TEST)):
         manifests = blocks(tree, "manifest")
         require(len(manifests) == 1, "Wrong manifest root count")
@@ -275,10 +277,12 @@ def audit_manifests(app_badging, app_tree, test_badging, test_tree, extraction_t
         require(attr(header, "name")[0].startswith("org.locallore.app."), "Unexpected third-party activity")
         require(not any(attr(header, n) for n in ("process", "permission", "taskAffinity")), "Activity owner override")
     require(re.findall(r"^package: name='([^']+)'", test_badging, re.M) == [TEST], "Wrong test package")
-    require(re.findall(r"^minSdkVersion:'([^']+)'", test_badging, re.M) == ["26"] and
-            re.findall(r"^targetSdkVersion:'([^']+)'", test_badging, re.M) == ["36"], "Wrong test SDK contract")
-    require(re.findall(r"^instrumentation: name='([^']+)' targetPackage='([^']+)'", test_badging, re.M) == [(RUNNER, APP)],
-            "Wrong instrumentation binding")
+    base.audit_sdk(test_badging)
+    # Build Tools35 badging omits instrumentation; the actual xmltree below is
+    # always authoritative. If a tool does emit a badging row, it must agree.
+    instrumentation = [line for line in test_badging.split("\n") if line.lstrip().startswith("instrumentation")]
+    require(instrumentation in ([], ["instrumentation: name='" + RUNNER + "' targetPackage='" + APP + "'"]),
+            "Conflicting/duplicate badging instrumentation")
     uses = re.findall(r"^uses-permission[^:]*: name='([^']+)'", test_badging, re.M)
     require(len(uses) == len(set(uses)) and set(uses) <= {"android.permission.REORDER_TASKS"}, "Unexpected test permission")
     require(not blocks(test_tree, "permission") and not blocks(test_tree, "uses-permission-sdk-23"), "Unexpected test permission declaration")

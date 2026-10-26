@@ -223,6 +223,41 @@ class PhysicalApkAuditTests(unittest.TestCase):
         self.assertEqual(result["test_methods"], 6)
         self.assertEqual(result["permissions"], [p.APP + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"])
 
+    def test_actual_badging_omits_instrumentation_but_tree_still_binds_runner_and_target(self):
+        value = list(manifests())
+        value[2] = value[2].replace("instrumentation: name='" + p.RUNNER + "' targetPackage='" + p.APP + "'\n", "")
+        # Actual BuildTools35 shape: empty test versionCode/name, no instrumentation
+        # badging row, unqualified package attrs and Windows CRLF on both dumps.
+        value[2] = value[2].replace("versionCode='1'", "versionCode='' versionName='' platformBuildVersionCode='36'")
+        crlf = [item.replace("\n", "\r\n") for item in value]
+        self.assertEqual(p.audit_manifests(*crlf)["test_methods"], 6)
+        for old, new in ((p.RUNNER, "other.Runner"), ('targetPackage(1)="' + p.APP + '"', 'targetPackage(1)="wrong.target"')):
+            bad = list(value)
+            bad[3] = bad[3].replace(old, new)
+            with self.subTest(old=old), self.assertRaises(p.AuditError):
+                p.audit_manifests(*bad)
+        bad = list(value)
+        bad[3] += element("instrumentation", {"name": p.RUNNER, "targetPackage": p.APP})
+        with self.assertRaises(p.AuditError):
+            p.audit_manifests(*bad)
+
+    def test_optional_badging_instrumentation_cannot_conflict_duplicate_or_be_malformed(self):
+        original = manifests()
+        line = "instrumentation: name='" + p.RUNNER + "' targetPackage='" + p.APP + "'\n"
+        for badging in (original[2] + line, original[2].replace(p.RUNNER, "other.Runner"),
+                        original[2].replace(line, " " + line), original[2] + "instrumentation: malformed\n",
+                        original[2] + "minSdkVersion:'25'\n", original[2].replace("\n", "\r\n", 1)):
+            value = list(original)
+            value[2] = badging
+            with self.subTest(badging=badging), self.assertRaises(p.AuditError):
+                p.audit_manifests(*value)
+
+    def test_actual_unprotected_exported_component_activity_is_not_whitelisted_by_format_fix(self):
+        value = list(manifests())
+        value[1] += element("activity", {"name": "androidx.activity.ComponentActivity", "exported": "true"})
+        with self.assertRaises(p.AuditError):
+            p.audit_manifests(*value)
+
     def test_app_namespace_permissions_backup_and_launcher_refusals(self):
         original = manifests()
         variants = []

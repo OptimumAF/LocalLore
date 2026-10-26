@@ -292,19 +292,21 @@ supplied, including after an unknown acknowledgement. Rust remains authoritative
 for both source prefixes/requests, observer filtering, plan bindings and worker
 ownership; this presentation fence is not proof of native source consumption.
 
-The [current literal selected desktop qualification draft](../../docs/desktop/D07_LITERAL_SELECTED_DESKTOP_QUALIFICATION_2026-10-26.md)
+The [current literal selected desktop qualification](../../docs/desktop/D07_LITERAL_SELECTED_DESKTOP_QUALIFICATION_2026-10-26.md)
 tracks final coordinator gates. At clean source `6a195f85`, Root reported the
 scripted protocol3/selected2 UI cohort passing 252 initial and 261 restart check
 entries, with 27 initial and 28 restart actual hidden/unfocused app-owned
 WebView2 CapturePreview images. Root inspected all 55 images with no further
-visible layout findings; all 626 source fixture files remained byte-identical.
+visible layout findings; all 626 source fixture files remained byte-identical
+in each stage. Each stage retained exactly one deliberate Transport-buffer error
+from the lost-acknowledgement journey.
 The cohort uses the normal
 controllers/native IPC and fixed picker/consent doubles, with fake inference
 and no desktop input. These counts do not establish independent quality claims.
 From `apps/desktop`, use `node selected-evaluation-harness.mjs --literal` with
 the same task-owned output/target environment above to reproduce that path.
 Final legacy/native/lint/format/Android-host-graph and normal-build restoration
-gates are pending coordinator evidence in the linked draft. SDK shutdown error
+gates are pending coordinator evidence in the linked record. SDK shutdown error
 1412 remains observed and tracked separately in [D09 #31](https://github.com/OptimumAF/LocalLore/issues/31);
 this is not a clean-SDK-exit, RAM, performance, human-quality or phone claim.
 Native-model UI execution, real OS dialogs and paused/incomplete UI resume

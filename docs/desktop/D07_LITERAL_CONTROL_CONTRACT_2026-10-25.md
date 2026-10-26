@@ -49,14 +49,15 @@ inspection over both scripted and retained native selected2 runs, without new
 inference or permission. Those records retain their original source-specific
 scope; later desktop integration does not relabel their tests as UI execution.
 
-The [current selected2 desktop qualification draft](D07_LITERAL_SELECTED_DESKTOP_QUALIFICATION_2026-10-26.md)
+The [current selected2 desktop qualification](D07_LITERAL_SELECTED_DESKTOP_QUALIFICATION_2026-10-26.md)
 covers the normal controller/native IPC path for protocol3 sources: typed Rust
 prepare/start, independent read consent, observer-filtered evidence and completed
 fresh-source UI resume. At clean source `6a195f85`, Root reported 252 initial and
 261 restart check entries, 27 initial and 28 restart actual hidden/unfocused
 app-owned WebView2 CapturePreview images and all 626 source fixture files
-byte-identical. Root inspected all 55 images with no further visible layout
-findings. This cohort uses
+byte-identical in each stage. Root inspected all 55 images with no further
+visible layout findings. Each stage retained exactly one deliberate
+Transport-buffer error from the lost-acknowledgement journey. This cohort uses
 scripted fake inference and fixed picker/consent doubles, not real-model UI or
 automated OS dialogs, and never controls or captures the desktop.
 
@@ -66,7 +67,7 @@ worker ownership. The UI hides a locally attempted source token until a fresh
 reader token is supplied; an unknown acknowledgement does not restore that link.
 That conservative presentation fence does not certify native consumption.
 Final legacy/native/lint/format/Android-host-graph and normal-build restoration
-gates remain pending coordinator evidence in the linked draft. The observed
+gates remain pending coordinator evidence in the linked record. The observed
 WebView2 SDK 1412 shutdown message remains a separate [D09 #31](https://github.com/OptimumAF/LocalLore/issues/31)
 limitation, not a clean-SDK-exit result. Paused/incomplete UI resume, native-model
 UI execution, real OS dialogs, whole-app RAM/performance, human quality and
@@ -321,7 +322,7 @@ The original next task was to freeze the literal source projection and its
 eligibility/whole-unit packing oracles, then allocate the separately versioned
 renderer/execution closure. Those prerequisites now have the linked source-bound
 qualifications above. The current desktop cohort and remaining coordinator gates
-are in the selected2 desktop draft; paused/incomplete UI resume and real-model UI
+are in the selected2 desktop record; paused/incomplete UI resume and real-model UI
 remain separate work. No quality, whole-app performance, Android/device or
 D07/M07 completion is claimed.
 

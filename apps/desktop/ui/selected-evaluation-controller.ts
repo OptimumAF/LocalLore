@@ -912,15 +912,35 @@ export class SelectedEvaluationController {
             };
             const response = await this.call(action, body);
             if (!this.ownsRead(t)) return;
-            if (action === "summary")
-                this.patch({
-                    summary: checkedSelectedSummary(
-                        response,
-                        t.token,
-                        t.binding,
-                    ),
-                });
-            else if (action === "evidence" && summary && request && arm)
+            if (action === "summary") {
+                const next = checkedSelectedSummary(
+                    response,
+                    t.token,
+                    t.binding,
+                );
+                const prepared = this.state.status?.prepared;
+                if (
+                    prepared &&
+                    (next.version !== prepared.version ||
+                        next.lane !== prepared.lane ||
+                        next.selection.turn !== prepared.selection.turn ||
+                        next.selection.clicked_arm !==
+                            prepared.selection.clicked_arm ||
+                        next.selection.index !== prepared.selection.index ||
+                        next.arms.some((arm, index) => {
+                            const before = prepared.arms[index];
+                            return (
+                                !before ||
+                                arm.arm !== before.arm ||
+                                arm.scope.story !== before.scope.story ||
+                                arm.scope.branch !== before.scope.branch ||
+                                arm.before_head !== before.before_head
+                            );
+                        }))
+                )
+                    throw new Error("SelectedEvaluationWire");
+                this.patch({ summary: next });
+            } else if (action === "evidence" && summary && request && arm)
                 this.patch({
                     evidence: checkedSelectedEvidence(
                         response,

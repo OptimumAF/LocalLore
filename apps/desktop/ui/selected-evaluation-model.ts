@@ -6,7 +6,13 @@ import {
     checkedReaderRequest,
     sameReaderObserver,
 } from "./comparison-reader-model";
-import type { ComparisonArmDescriptorV3, ConstructionEvidenceStatusV3, EvidenceRequest, Json, RowId } from "./comparison-reader-model";
+import type {
+    ComparisonArmDescriptorV3,
+    ConstructionEvidenceStatusV3,
+    EvidenceRequest,
+    Json,
+    RowId,
+} from "./comparison-reader-model";
 import { checkedPageV2 } from "./v2-view-model";
 import type { ObserverV2, ScopeV2, InspectionPageV2 } from "./v2-view-model";
 export type { EvidenceRequest, RowId, ObserverV2, ScopeV2 };
@@ -161,7 +167,8 @@ type SelectedDiagnosticRowV2 = SelectedDiagnosticRowV1 & {
     literal_selected_units: number | null;
     fallback: boolean | null;
 };
-export type SelectedDiagnosticRow = SelectedDiagnosticRowV1 | SelectedDiagnosticRowV2;
+export type SelectedDiagnosticRow =
+    SelectedDiagnosticRowV1 | SelectedDiagnosticRowV2;
 type SelectedDiagnosticsV1 = {
     version: 1;
     kind: "selected_diagnostics";
@@ -362,7 +369,10 @@ function arms(v: unknown, fields: string[], visit: (o: Obj) => void): void {
             object(values[1]).arm === "right",
     );
 }
-function selectedConstruction(v: unknown, arm?: unknown): ComparisonArmDescriptorV3 {
+function selectedConstruction(
+    v: unknown,
+    arm?: unknown,
+): ComparisonArmDescriptorV3 {
     try {
         return checkedReaderConstruction(v, arm);
     } catch {
@@ -372,10 +382,17 @@ function selectedConstruction(v: unknown, arm?: unknown): ComparisonArmDescripto
 function versioned(v: unknown, fields: string[]): Obj {
     const version = object(v).version;
     requireWire(version === 1 || version === 2);
-    const o = exact(v, [...fields, ...(version === 2 ? ["source_protocol_version", "constructions"] : [])]);
+    const o = exact(v, [
+        ...fields,
+        ...(version === 2 ? ["source_protocol_version", "constructions"] : []),
+    ]);
     if (version === 2) {
         requireWire(o.source_protocol_version === 3);
-        const values = array(o.constructions, (v) => selectedConstruction(v), 2);
+        const values = array(
+            o.constructions,
+            (v) => selectedConstruction(v),
+            2,
+        );
         requireWire(values.length === 2);
         selectedConstruction(values[0], "left");
         selectedConstruction(values[1], "right");
@@ -620,8 +637,17 @@ export function checkedSelectedDiagnostics(
                 "actual_receipt_sha256",
                 "privacy_passed",
                 "context_evidence_available",
-                ...(o.version === 2 ? ["construction", "construction_evidence_status", "construction_matches",
-                    "literal_source_units", "literal_selected_start", "literal_selected_units", "fallback"] : []),
+                ...(o.version === 2
+                    ? [
+                          "construction",
+                          "construction_evidence_status",
+                          "construction_matches",
+                          "literal_source_units",
+                          "literal_selected_start",
+                          "literal_selected_units",
+                          "fallback",
+                      ]
+                    : []),
             ]);
             requireWire(id(r.turn) === summary.selection.turn);
             const arm = selectedArm(r.arm);
@@ -649,19 +675,35 @@ export function checkedSelectedDiagnostics(
             if (o.version === 2) {
                 const descriptor = selectedConstruction(r.construction, arm);
                 bool(r.construction_matches);
-                const status = one(r.construction_evidence_status, ["validated_literal", "validated_relevant",
-                    "not_applicable_guard", "not_applicable_dependency", "unavailable"]);
+                const status = one(r.construction_evidence_status, [
+                    "validated_literal",
+                    "validated_relevant",
+                    "not_applicable_guard",
+                    "not_applicable_dependency",
+                    "unavailable",
+                ]);
                 nullable(r.fallback, bool);
-                [r.literal_source_units, r.literal_selected_start, r.literal_selected_units]
-                    .forEach((v) => nullable(v, integer));
+                [
+                    r.literal_source_units,
+                    r.literal_selected_start,
+                    r.literal_selected_units,
+                ].forEach((v) => nullable(v, integer));
                 const literal = descriptor.arm === "literal_player_v1";
-                requireWire(status !== (literal ? "validated_relevant" : "validated_literal"));
+                requireWire(
+                    status !==
+                        (literal ? "validated_relevant" : "validated_literal"),
+                );
                 if (status === "validated_literal") {
-                    const total = integer(r.literal_source_units), start = integer(r.literal_selected_start),
+                    const total = integer(r.literal_source_units),
+                        start = integer(r.literal_selected_start),
                         count = integer(r.literal_selected_units);
                     requireWire(start <= total && count <= total - start);
-                } else requireWire(r.literal_source_units === null && r.literal_selected_start === null &&
-                    r.literal_selected_units === null);
+                } else
+                    requireWire(
+                        r.literal_source_units === null &&
+                            r.literal_selected_start === null &&
+                            r.literal_selected_units === null,
+                    );
             }
         },
         2,

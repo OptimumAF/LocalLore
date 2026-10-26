@@ -435,6 +435,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         normalSendGameplay(parent);
         stage = Stage.FORK_SETUP;
         click("fork-timeline");
+        waitUntil(() -> findAndRecycle("fork-dialog") && findAndRecycle("fork-scroll"), 5_000, Reason.UI);
         checked(label("fork-parent").equals("Requested parent: " + fixture.b.story + " / " + fixture.b.branch), Reason.SCOPE);
         AccessibilityNodeInfo boundary = tag("fork-boundary");
         try { checked(nodeText(boundary).equals("1"), Reason.CANONICAL); }
@@ -447,6 +448,11 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         click("fork-review-boundary");
         checked(label("fork-child").equals(childLabel), Reason.SCOPE);
         click("fork-consent");
+        waitUntil(() -> {
+            AccessibilityNodeInfo node = find("fork-consent");
+            if (node == null) return false;
+            try { return node.isCheckable() && node.isChecked(); } finally { node.recycle(); }
+        }, 5_000, Reason.UI);
         AccessibilityNodeInfo consent = tag("fork-consent");
         try { checked(consent.isCheckable() && consent.isChecked(), Reason.UI); }
         finally { consent.recycle(); }

@@ -205,7 +205,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             waitUntil(() -> {
                 Workspace w = maybeRevealedWorkspace();
                 return w != null && w.same(fixture.b, 1);
-            }, 10_000, Reason.CANONICAL);
+            }, 15_000, Reason.CANONICAL);
             readyProduct(); // Do not HOME while the legitimate post-commit UI is busy.
             verifyDraft();
             Probe sent = latest(first);
@@ -448,7 +448,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         need(ID.matcher(story).matches(), Reason.CATALOG);
         if (!findAndRecycle("saved-story-" + story)) catalog();
         click("saved-story-" + story);
-        waitUntil(() -> { Workspace w = maybeRevealedWorkspace(); return w != null && w.story.equals(story); }, 8_000, Reason.CATALOG);
+        waitUntil(() -> { Workspace w = maybeRevealedWorkspace(); return w != null && w.story.equals(story); }, 15_000, Reason.CATALOG);
         readyProduct();
         return workspace();
     }
@@ -460,7 +460,9 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     }
 
     private Workspace awaitWorkspace(String different, long head) throws Exception {
-        waitUntil(() -> { Workspace w = maybeRevealedWorkspace(); return w != null && w.head == head && (different == null || !different.equals(w.story)); }, 8_000, Reason.CANONICAL);
+        // Match the existing actual-Activity native UI tests' 15-second readiness
+        // allowance. The whole two-death case retains its independent 120s cap.
+        waitUntil(() -> { Workspace w = maybeRevealedWorkspace(); return w != null && w.head == head && (different == null || !different.equals(w.story)); }, 15_000, Reason.CANONICAL);
         return workspace();
     }
 

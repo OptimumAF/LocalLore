@@ -784,3 +784,48 @@ fn cancelled_or_foreign_captured_selection_cannot_start_canonical_generation_or_
     // Resume carries no cancellation argument and Host has no public token for
     // this private read. Mid-read latch behavior is not forged via a new hook.
 }
+
+#[test]
+fn actual_domain2_literal_work_refuses_before_constructing_a_provider() {
+    let parent = selected();
+    let input = locallore::author_correction::AuthorCorrectionInputV1 {
+        version: 1,
+        parent: parent.scope().clone(),
+        expected_parent_revision: parent.revision(),
+        fork_revision: parent.revision(),
+        child_branch: "literal-unsupported-domain2".into(),
+        operation:
+            locallore::author_correction::AuthorCorrectionOperationV1::ReplaceFactProposition {
+                fact: "ancestry".into(),
+                expected_proposition: parent.seed().facts["ancestry"].proposition.clone(),
+                replacement: "Actual author-corrected fixture value.".into(),
+            },
+        reason: "Synthetic Domain2 refusal fixture.".into(),
+    };
+    let prepared = parent.prepare_author_correction(&input, &|| false).unwrap();
+    let engine = parent
+        .apply_author_correction(&prepared, &|| false)
+        .unwrap()
+        .engine;
+    assert_eq!(engine.domain_version(), 2);
+    let basis = engine.accepted_history_basis().unwrap();
+    let (host, data) = port(engine, SnapshotFault::Panic);
+    let seen = Arc::new(Seen::default());
+    host.configure_fixture_provider_with_construction(
+        profile(),
+        seen.factory(),
+        HostPlayConstructionV1::PlayerLiteralV1,
+    )
+    .unwrap();
+    let (session, scope, head) = create(&host);
+    let request = request(&scope, head, "domain2-refused", PlayInputKind::Action);
+    assert_eq!(submit(&host, &session, &request)["data"]["phase"], "queued");
+    let refused = op(&host, &session, &request, "prepare");
+    assert_eq!(refused["data"]["phase"], "failed");
+    assert_eq!(refused["data"]["error"], "Version");
+    assert_eq!(seen.count(), 0);
+    assert!(seen.requests.lock().unwrap().is_empty());
+    let state = data.lock().unwrap();
+    assert_eq!(state.snapshots, 0);
+    assert_eq!(state.engine.accepted_history_basis().unwrap(), basis);
+}

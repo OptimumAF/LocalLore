@@ -60,6 +60,12 @@ def upgrade(fixture):
         terminal["saved_creation"] = dict(counts)
         terminal["commands_creation"] = dict(counts)
     rebind_proof(fixture, proof)
+    # Explicit synthetic current-client diagnostics, not measured SDK timings.
+    # Historical fixtures which do not call upgrade() remain exact v1 rows.
+    for path in (fixture.out / "clients").glob("command-*.json"):
+        row = json.loads(path.read_bytes())
+        row.update(version=2, elapsed_ms=7, effective_deadline_ms=15000)
+        path.write_bytes(controller.encoded(row))
     return fixture
 
 

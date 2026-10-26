@@ -250,6 +250,12 @@ quality, whole-app performance and physical-phone parity remain unqualified.
 The guide distinguishes service tests, mock transport and native execution,
 preserves earlier failures and provides commands for restoring normal builds.
 
+The [literal conversation control definition and oracles](../../docs/desktop/D07_LITERAL_CONTROL_CONTRACT_2026-10-25.md)
+make a separate limit explicit: both current comparison policies include state;
+`ScriptedBaseline` names the fake provider lane. It is not a transcript-only
+memory policy. The first model-free input-channel tests and genuine historical
+read checks do not enable a literal control, new execution grant or quality claim.
+
 Run these developer checks from the repository root; the qualification record
 identifies the executed source, target directories and results:
 

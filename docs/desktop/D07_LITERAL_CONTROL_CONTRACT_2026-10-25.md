@@ -2,9 +2,10 @@
 
 Source inspected: accepted PR180 merge `5608b72c34477ee110b771c675bc1d0afd06bd6e`.
 Scope: D07.04 / M07.01, with M06.04/.06 eligibility ownership.
-Status: **PROPOSED, model-free definition and interface proposal only.**
-This document allocates no production or test paths and grants no execution.
-Root must freeze signatures, versions, owned paths and oracles separately.
+Status: **Literal execution remains PROPOSED. The first test-only negative
+oracle is frozen and qualified below; no literal policy or production API exists.**
+The candidate runtime signature remains a proposal. Root's narrower first
+allocation observes original validated diagnostic Values only in cfg(test).
 GitHub #29/#11 retain task status; no criterion is checked by this document.
 
 ## Definition
@@ -165,8 +166,9 @@ manufacture the missing half. The exact unit DTO/packing API is a later freeze.
 
 ## Predeclared model-free oracle packet
 
-All following tests are **proposed and unrun**. Allocate new tests separately;
-do not weaken current assertions or alter immutable fixtures to force a label.
+The following is the original proposed packet; it is not an assertion that every
+item has run. The qualified subset and remaining work are recorded below. Do
+not weaken assertions or alter immutable fixtures to force a label.
 
 1. Produce real current accepted Action and Dialogue requests through existing
    Core/Host/Store plus scripted provider. Observe both current policies' actual
@@ -243,7 +245,133 @@ information-channel differences without demonstrating that a model used memory
 well. Actual model samples, narrative assessment and human review require a
 separate bounded admission. No LLM judge can waive mechanical/privacy failures.
 
-Next runnable task: Root freezes the private actual-forwarded-input auditor and
-its new actual-recording test paths/signatures, then records initial compile and
-behavior evidence. No code/tests/models/builds were run for this document; no
-quality, performance, native/UI, Android/device or D07/M07 completion is claimed.
+Next runnable task: freeze the literal transcript-source projection and its
+eligibility/whole-unit packing oracles through the existing compiler. Then
+allocate the separately versioned renderer and execution closure. No quality,
+performance, native/UI, Android/device or D07/M07 completion is claimed.
+
+## Frozen first allocation and actual qualification
+
+Root freezes #29 comments6405094586/6405120351. Sole new cfg(test) child:
+`crates/locallore-eval/src/local_lane/comparison/literal_control_oracle_tests.rs`;
+the existing comparison module adds only its cfg(test) registration. Private
+helpers consume actual original `generation_request` diagnostic Values after
+`CapturedContext::from_host_capture`; there is no new runtime observer, public
+auditor API, report field, policy enum, provider, compiler or Store writer.
+The only outcomes are `CurrentNonLiteral` and `Unavailable`.
+
+The six original fixtures are produced by existing `execute_turn`/Host/Store/
+Scripted machinery: two policies times Action/Dialogue plus a genuine malformed
+first Director followed by repair for Dialogue under both policies. Original
+capture identity, recording hashes, context forwarding and whole-request budget
+are validated first. Actual schemas are borrowed from those artifacts. Full
+fixture inventories, original capture bytes and in-memory canonical basis stay
+equal during observation. Altered diagnostic copies are explicitly separated
+from actual Host evidence and never reattributed to it.
+
+The oracle identifies structured record categories, inventory/nearby/routes
+frame presence, resolved non-speech action schemas and state-dependent schema
+choices. Empty frame fields still identify the current envelope, not leaked
+facts or a production privacy failure. Static rules, operation discriminants
+and exact player-text constants alone do not establish a state channel. This
+is a finite structural observer, not a general JSON Schema validator or a proof
+that another input is clean.
+
+### Retained review failures and correction
+
+Initial source `6c0945ada60cdf18b800f46b148c76d1ee3ae7b2` passed five groups
+with and without the local-model compile feature. Bounded source review then
+found two test-oracle gaps: Initial JSON-substring parsing ignored unknown
+prefix/trailing bytes, and schema recognition accepted an unsupported nested
+type or duplicate required-field entry. No positive conformity/permission path
+existed, and no production or actual Host input failure was demonstrated.
+
+New frozen regressions at `3a5f2120` produced **1 pass/4 failures**,1.08 test
+seconds /10.37 compilation seconds: the non-string required-field case was
+already refused; bounded suffix, prefix, duplicate required field and unknown
+nested type were not. Original failures remain local and are not relabeled.
+
+Fix and final executable source:
+`d373f7984ccacfac753aa6aac3338212d4f1141d`. The observer now compares both the
+prefix and exact post-JSON tail against the validated recorded Initial/Repair
+pass, using the JSON stream byte offset. Explicit frame-only copy experiments
+still preserve that known framing. Exact repair relation and full forwarded
+budget remain authoritative. Known schema types and required-field string/
+uniqueness/field-set checks close the observed malformed forms. The independent
+follow-up review found no further counterexample within those two seams.
+
+| Executed gate at d373 | Exact result | Test / command wall seconds |
+|---|---|---:|
+| Ten oracle groups, local-model compile feature |10 passed,0 failed,0 ignored; no actual model execution|1.22 test;10.42 compilation|
+| Same ten groups, default features |10 passed,0 failed,0 ignored|1.24 test;11.746 command|
+| Explicit genuine historical read opt-in, matching local-model compile feature |1 passed,0 failed|20.07 test;28.608 command|
+| Eval all-feature/all-target Clippy | Exit0, warnings denied|10.997 command|
+| Eval workspace rustfmt check | Exit0|2.481 command|
+
+The repeated feature runs are the same ten tests, not20 independent invariants.
+Source was clean and unchanged through each command. Default tests are fake
+provider/real Rust Host/Store evidence, not native IPC/WebView/model/device
+execution. No frontend/native application, Android JVM/ABI/emulator or physical
+device check was repeated for this test-only slice; earlier PR180 evidence
+retains its own source IDs. Rust/Cargo1.93.1 on Windows x64, debug information0,
+incremental0 and one build job reuse the existing approved environment.
+
+### Genuine old-data compatibility
+
+`crates/locallore-eval/tests/literal_control_historical_review.rs` is an ignored,
+explicit developer opt-in reading the genuine preserved PR180 UI5 comparison
+and selected run. It does not manufacture old JSON. Fixed SHA256 sentinels pin
+the original `run.json` to
+`38a27208bf361fbb70450d87a0431435b0e335f08bd43362088c0dc584f85018`
+and `selected.json` to
+`56caa018f2a0ffab78aa1110eb3293fc501c79edcfbf29db6fe452c275e8f0a3`.
+Both supplied absolute paths must refer to those preserved synthetic data.
+
+The registered src module advances the evaluator's source fingerprint; the
+integration test file under tests/ alone does not. The command uses the same
+local-model compile feature as UI5, so a feature-set difference cannot stand in
+for this source boundary. The old full comparison correctly reports
+`source_matches=false` while remaining inspectable. Original and both selected
+Move receipts retain4→5; inspection grant denial and selected read-only/no-
+execution metadata pass. After all capabilities/locks drop, complete original
+source and selected file/empty-directory inventories are byte-identical. No
+provider, assets, model, writer or native app is invoked. This is historical
+read compatibility, not a new UI run or permission to resume old source.
+
+### Reproduce with existing cached dependencies
+
+From repository root, substitute task-owned absolute target/data paths. Serialize
+these commands with other heavy work; no install or model is needed.
+
+```powershell
+$env:CARGO_BUILD_JOBS='1'; $env:CARGO_INCREMENTAL='0'
+$env:CARGO_PROFILE_DEV_DEBUG='0'; $env:CARGO_PROFILE_TEST_DEBUG='0'
+$env:LIBSQLITE3_FLAGS=''
+$env:TEMP='<task-temp>'; $env:TMP=$env:TEMP
+cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --target-dir <eval-target> --lib local_lane::comparison::literal_control_oracle_tests -- --nocapture --test-threads=1
+cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --jobs 1 --target-dir <eval-target> --lib local_lane::comparison::literal_control_oracle_tests -- --nocapture --test-threads=1
+$env:LOCALLORE_LITERAL_HISTORICAL_COMPARISON='<preserved-UI5-comparison-directory>'
+$env:LOCALLORE_LITERAL_HISTORICAL_SELECTED='<preserved-UI5-selected-work-directory>'
+cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --target-dir <eval-target> --test literal_control_historical_review -- --ignored --nocapture --test-threads=1
+cargo clippy --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --all-features --all-targets --jobs 1 --target-dir <eval-target> -- -D warnings
+cargo fmt --manifest-path crates/locallore-eval/Cargo.toml --all -- --check
+```
+
+The historical opt-in is unavailable without those genuine local artifacts;
+ordinary default checks exclude it. These commands neither download nor execute
+a model merely because the compile feature is named local-model.
+
+| Local evidence log | SHA256 |
+|---|---|
+| review-red-first |9e665862e8295e781dde2a6e9e0ae36ef8e822d6a90ff26adcea97016882adec|
+| review-green-first |c15460e4c37761f575286278c87a63dbabfd25f161a5813cf5844cd973d8b953|
+| default-final |1e12202c398ed6d54c6c436bf7b581d2e6f6adcf4d417103c0baec2888f4953e|
+| historical-final |6c1af28b26d5cfbd507ad69949f28662c921985fe890e11b0c10678824885027|
+| clippy-final |5e7d35877f0292f8ae2484e71f408787c7c1574844659991f1b0db6ee0d3aa34|
+| format-final |e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855|
+
+Names use the local `d07-literal-control-` prefix. Raw generated databases,
+captured text, paths and diagnostics stay local. Broader Unicode/escaped input,
+transcript-source eligibility/packing (original group6), a real literal renderer,
+new execution/replay versions and consumer closure remain unimplemented or
+unqualified here. No D07.04 completion or human quality gate is awarded.

@@ -11,6 +11,7 @@ use locallore::{
     play::{PlayProfile, LITERAL_PLAY_PROMPT_VERSION_V1},
 };
 use locallore_storage::{
+    derived_memory::MemoryError,
     memory_jobs::{MemoryJobRequest, MemoryJobStatus},
     Store,
 };
@@ -216,6 +217,17 @@ fn both_modes_prepare_without_canon_commit_literal_then_restart_and_exact_retry_
             real_label
         );
         let r = request(&scope, "literal-original", 0, kind);
+        let mut missing_store = temp.store();
+        let selected_before = missing_store.resume(&scope).unwrap().engine;
+        let missing_player = MemoryJobRequest {
+            scope: scope.clone(),
+            observer: selected_before.seed().player.clone(),
+            expected_head: 0,
+        };
+        assert!(missing_store
+            .lookup_memory_job(&missing_player, &selected_before, &|| false)
+            .unwrap()
+            .is_none());
         let before = temp
             .store()
             .resume(&scope)
@@ -231,6 +243,10 @@ fn both_modes_prepare_without_canon_commit_literal_then_restart_and_exact_retry_
             Value::Null,
             "Ready does not export a fabricated receipt"
         );
+        assert!(missing_store
+            .lookup_memory_job(&missing_player, &selected_before, &|| false)
+            .unwrap()
+            .is_none());
         assert_eq!(
             temp.store()
                 .resume(&scope)
@@ -409,7 +425,7 @@ fn another_actual_store_writer_advances_canon_while_literal_work_is_held_and_old
 }
 
 #[test]
-fn completed_memory_job_proof_and_missing_partition_are_unchanged_by_literal_prepare() {
+fn completed_memory_job_proof_and_nonplayer_lookup_refusal_are_unchanged_by_literal_prepare() {
     let temp = Temp::new();
     let h = temp.host();
     let (_, scope) = create(&h);
@@ -456,10 +472,12 @@ fn completed_memory_job_proof_and_missing_partition_are_unchanged_by_literal_pre
         observer: "mira".into(),
         expected_head: 2,
     };
-    assert!(store
-        .lookup_memory_job(&missing, &selected, &|| false)
-        .unwrap()
-        .is_none());
+    assert_eq!(
+        store
+            .lookup_memory_job(&missing, &selected, &|| false)
+            .unwrap_err(),
+        MemoryError::Stale
+    );
     let h = temp.host();
     let session = resume(&h, &scope);
     let counts = Counts::default();
@@ -480,10 +498,12 @@ fn completed_memory_job_proof_and_missing_partition_are_unchanged_by_literal_pre
         store.memory_job_status(&info.handle, &|| false).unwrap(),
         info
     );
-    assert!(store
-        .lookup_memory_job(&missing, &selected, &|| false)
-        .unwrap()
-        .is_none());
+    assert_eq!(
+        store
+            .lookup_memory_job(&missing, &selected, &|| false)
+            .unwrap_err(),
+        MemoryError::Stale
+    );
     assert!(matches!(
         store
             .context_snapshot(&request, &|| false)
@@ -493,6 +513,6 @@ fn completed_memory_job_proof_and_missing_partition_are_unchanged_by_literal_pre
     ));
     assert_eq!(counts.factories.load(Ordering::SeqCst), 1);
     assert_eq!(counts.polls.load(Ordering::SeqCst), 2);
-    // Known job metadata/proof and absent partition checked, not whole-table SQL
-    // inventory or malformed-cache injection (no public raw connection here).
+    // Known player job/proof and a refused nonplayer read checked, not absence
+    // of a Mira partition or whole-table SQL inventory/malformed-cache injection.
 }

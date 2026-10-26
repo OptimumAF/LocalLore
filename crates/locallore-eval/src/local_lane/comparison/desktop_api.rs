@@ -188,13 +188,17 @@ fn missing(reason: &str) -> Value {
 /// Bind the actual immutable engines used by Query2, including its separate
 /// Store read after checkpoint validation. Play diagnostics intentionally are
 /// not actor context authority; selected full receipts have their own hash.
+#[cfg(test)]
 fn checked_edges(full: &Engine, turn: &StoredTurn) -> Result<(Engine, Engine)> {
+    checked_evidence_edges(full, &EvidenceTurn::from_v2(turn))
+}
+fn checked_evidence_edges(full: &Engine, turn: &EvidenceTurn<'_>) -> Result<(Engine, Engine)> {
     let before = full.at_revision(turn.before_head).map_err(|_| "Replay")?;
     let after = full.at_revision(turn.after_head).map_err(|_| "Replay")?;
-    if crate::memory_comparison_v2::semantic_input(&before, &turn.request)?
-        != turn.row.input_semantic_sha256
-        || crate::memory_comparison_v2::semantic_output(&after)? != turn.row.output_semantic_sha256
-        || crate::memory_comparison_v2::mechanical_output(&after)? != turn.row.mechanical_sha256
+    if crate::memory_comparison_v2::semantic_input(&before, turn.request)?
+        != turn.input_semantic_sha256
+        || crate::memory_comparison_v2::semantic_output(&after)? != turn.output_semantic_sha256
+        || crate::memory_comparison_v2::mechanical_output(&after)? != turn.mechanical_sha256
     {
         return Err("SnapshotMismatch".into());
     }
@@ -269,10 +273,59 @@ pub(super) fn check_access(
 
 /// Both data-only comparison readers use the same actual Store/Query2 and raw
 /// artifact checks after their own capability, access and snapshot validation.
+/// This borrowed private view is constructed only from a validated checkpoint;
+/// it is neither a wire format nor an accepted-history/permission constructor.
+pub(super) struct EvidenceTurn<'a> {
+    pub(super) request: &'a locallore::contracts::Request,
+    pub(super) before_head: u64,
+    pub(super) after_head: u64,
+    pub(super) turn: &'a str,
+    pub(super) arm: &'a str,
+    pub(super) phase: &'a str,
+    pub(super) input_semantic_sha256: &'a str,
+    pub(super) output_semantic_sha256: &'a str,
+    pub(super) mechanical_sha256: &'a str,
+    pub(super) actual_receipt_sha256: Option<&'a str>,
+    pub(super) capture_file: Option<&'a str>,
+    pub(super) recording_file: Option<&'a str>,
+    pub(super) capture_sha256: Option<&'a str>,
+    pub(super) recording_sha256: Option<&'a str>,
+    pub(super) admission: Option<usize>,
+}
+impl<'a> EvidenceTurn<'a> {
+    fn from_v2(turn: &'a StoredTurn) -> Self {
+        Self {
+            request: &turn.request,
+            before_head: turn.before_head,
+            after_head: turn.after_head,
+            turn: &turn.row.turn,
+            arm: &turn.row.arm,
+            phase: &turn.row.phase,
+            input_semantic_sha256: &turn.row.input_semantic_sha256,
+            output_semantic_sha256: &turn.row.output_semantic_sha256,
+            mechanical_sha256: &turn.row.mechanical_sha256,
+            actual_receipt_sha256: turn.row.actual_receipt_sha256.as_deref(),
+            capture_file: turn.capture_file.as_deref(),
+            recording_file: turn.recording_file.as_deref(),
+            capture_sha256: turn.row.capture_sha256.as_deref(),
+            recording_sha256: turn.row.recording_sha256.as_deref(),
+            admission: turn.row.admission,
+        }
+    }
+}
 pub(super) fn render_evidence(
     arm_dir: &Path,
     path: &Path,
     turn: &StoredTurn,
+    binding: &str,
+    request: EvidenceRequest,
+) -> Result<Value> {
+    render_evidence_view(arm_dir, path, &EvidenceTurn::from_v2(turn), binding, request)
+}
+pub(super) fn render_evidence_view(
+    arm_dir: &Path,
+    path: &Path,
+    turn: &EvidenceTurn<'_>,
     binding: &str,
     request: EvidenceRequest,
 ) -> Result<Value> {
@@ -283,7 +336,7 @@ pub(super) fn render_evidence(
             view,
         } => {
             let full = engine(path, &turn.request.scope)?;
-            let (before, after) = checked_edges(&full, turn)?;
+            let (before, after) = checked_evidence_edges(&full, turn)?;
             let cut = match edge {
                 Edge::Before => before,
                 Edge::After => after,
@@ -315,16 +368,16 @@ pub(super) fn render_evidence(
             )
         }
         EvidenceRequest::Receipt { observer } => {
-            let body = if turn.row.phase != "committed" {
+            let body = if turn.phase != "committed" {
                 missing("no_accepted_receipt")
             } else {
                 let receipt = locallore_storage::Store::open_read_only(path)
                     .map_err(|_| "Workspace")?
-                    .lookup_turn(&turn.request.scope, &turn.row.turn)
+                    .lookup_turn(&turn.request.scope, turn.turn)
                     .map_err(|_| "Lookup")?
                     .receipt
                     .ok_or("Lookup")?;
-                if turn.row.actual_receipt_sha256.as_deref()
+                if turn.actual_receipt_sha256
                     != Some(digest(&encode(&receipt)?).as_str())
                 {
                     return Err("CheckpointEvidenceMismatch".into());
@@ -334,7 +387,7 @@ pub(super) fn render_evidence(
             (observer, json!("after"), body)
         }
         EvidenceRequest::Capture { observer } => {
-            let body = match &turn.capture_file {
+            let body = match turn.capture_file {
                 None => missing("capture_unavailable"),
                 Some(name) => {
                     let capture: Value = decode(
@@ -342,7 +395,7 @@ pub(super) fn render_evidence(
                         crate::memory_comparison_v2::MAX_PRIVATE_CAPTURE + 4096,
                     )?;
                     let bytes = encode(&capture)?;
-                    if turn.row.capture_sha256.as_deref() != Some(digest(&bytes).as_str()) {
+                    if turn.capture_sha256 != Some(digest(&bytes).as_str()) {
                         return Err("CaptureBinding".into());
                     }
                     if bytes.len() > crate::memory_comparison_v2::MAX_PRIVATE_CAPTURE {
@@ -354,16 +407,16 @@ pub(super) fn render_evidence(
             (observer, Value::Null, body)
         }
         EvidenceRequest::Outputs { observer } => {
-            let body = match &turn.recording_file {
+            let body = match turn.recording_file {
                 None => missing("recording_unavailable"),
                 Some(name) => {
                     let recording: RecordingFile = decode(&arm_dir.join(name), 64 * 1024)?;
                     validate_recording(
                         arm_dir,
-                        turn.row.admission.ok_or("RecordingIntegrity")?,
+                        turn.admission.ok_or("RecordingIntegrity")?,
                         &recording,
                     )?;
-                    if turn.row.recording_sha256.as_deref()
+                    if turn.recording_sha256
                         != Some(digest(&encode(&recording)?).as_str())
                     {
                         return Err("RecordingIntegrity".into());
@@ -386,7 +439,7 @@ pub(super) fn render_evidence(
         }
     };
     let result = json!({"version":1,"binding":binding,
-        "row":{"turn":turn.row.turn,"arm":turn.row.arm},"scope":turn.request.scope,
+        "row":{"turn":turn.turn,"arm":turn.arm},"scope":turn.request.scope,
         "before_head":turn.before_head,"after_head":turn.after_head,"observer":observer,
         "edge":edge,"read_only":true,"generation_grant":false,"body":body});
     bounded_evidence(result)

@@ -1,6 +1,7 @@
 //! Protocol3 literal/Relevant comparison over the existing owners.
 //! Native execution requires its trusted lease entry; selected/UI and CLI
 //! native execution remain unavailable pending their separate integration.
+pub mod desktop_api;
 #[cfg(test)]
 mod resource_review_tests;
 use super::*;

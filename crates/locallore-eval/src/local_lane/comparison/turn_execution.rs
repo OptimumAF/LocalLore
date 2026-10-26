@@ -67,6 +67,7 @@ pub(super) fn execute(job: LiveTurnJob<'_>, ledger: &mut Ledger) -> Result<Actua
         before,
         profile,
     } = job;
+    let request = step.request(&before);
     if cancel.is_cancelled() {
         return Err("Interrupted".into());
     }

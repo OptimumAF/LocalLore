@@ -807,7 +807,6 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
         .ok_or_else(|| "Lookup".into());
     }
     let before = full;
-    let request = step.request(&before);
     let profile = factory.profile()?;
     if let Some(turn) = dependency_turn(DependencyJob {
         full: &before,

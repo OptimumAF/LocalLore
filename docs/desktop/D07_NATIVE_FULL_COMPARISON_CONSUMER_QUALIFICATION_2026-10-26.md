@@ -96,3 +96,68 @@ failures or passes. Installed extracted registry source exists, but this does
 not establish usable Cargo archive availability. No download was attempted.
 The native fixture/journey work remains source-only pending integrated checks;
 the missing journey import is an explicit intermediate integration dependency.
+
+The journey module is now integrated (author packet `fa564141`/`2dfe8bb9`,
+adopted `923bd99c`/`132ed8d7`). TypeScript passed at clean unchanged `29e1d31a`;
+this did not execute the journey. Source review then corrected four nonexistent
+native recovery command spellings to `evaluation_comparison_native` and separated
+the fixture's active-consent flag from harness availability (`514b3794`). The
+harness now waits for actual held callback entry before cancel/retirement.
+These were source findings, not runtime reproductions. A later independent
+review found that a secret canary's absence from History did not test Knowledge
+filtering. Commit `f658c130` adds an actual Player-positive/NPC-negative Knowledge
+check at the original `courier-01/left/before` cut, preserving the History and raw
+evidence-refusal checks. That native assertion remains unexecuted.
+
+Integrated full frontend verification passed at clean unchanged
+`514b37946f15413043223f539de07f8ef8bedcf4` (21.776 seconds) and after the knowledge
+oracle correction at `f658c13006c6d3c84b435bc6562f0d0ddbf3d036` (19.865 seconds).
+The latter includes native-controller88, reader22, Main20, independent admission9
+and lens5, unchanged scripted56, all other wired suites, strict TypeScript and
+normal frontend hook exclusion. Both are actual-source mocked/headless checks;
+the native journey is bundled/typechecked, not run. Rust formatting passed at
+`514b3794`. Frontend formatting initially identified the older scripted journey's
+version-narrowing layout; whitespace-only `edbe96c5` corrected it, and the full
+Prettier check passed at clean unchanged `f658c130` (3.163 seconds).
+
+## Reproduce the pending native cohort
+
+After the exact locked Cargo packages are available locally, set these to
+existing absolute directories/files. The launcher validates the approved model
+and worker hashes and never downloads either asset. It derives a fresh isolated
+workspace and model directory and uses the ordinary model importer; imported
+model bytes are copied locally, not uploaded. Only the four original scenarios
+are genuinely generated, with explicit paired batch1 then resume3.
+
+```powershell
+Set-Location apps/desktop
+$env:LOCALLORE_D07_FULL_COMPARISON_ARTIFACT_ROOT = '<existing local artifact directory>'
+$env:LOCALLORE_D07_FULL_COMPARISON_TARGET_DIR = '<existing external native target directory>'
+$env:LOCALLORE_D07_NATIVE_MODEL_SOURCE = '<approved installed Qwen3-0.6B-Q8_0.gguf>'
+$env:LOCALLORE_D04_WORKER_SOURCE = '<approved installed locallore-llama-worker.exe>'
+node comparison-run-harness.mjs --native
+```
+
+The model SHA256 is `9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031`
+(639446688 bytes); worker SHA256 is
+`b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434`.
+The launcher keeps source/command/exit/output hashes and a bounded report,
+semantic snapshots and up to eighteen application-owned WebView PNGs locally.
+All generated images require separate individual inspection. No new image has
+been generated or visually qualified by this consumer work yet.
+
+The fixed execution/read consent and model-picker doubles are test plumbing,
+not OS dialog acceptance. The 2100-second app / 2160-second launcher limits are
+scheduling caps, not measured performance. Presentation polling can exhaust
+after 300 seconds; only an observed uncertain original client may receive an
+explicit read-only lookup, with each error boundary retained and accounted.
+There is no automatic generation retry. Restart inventories can prove bytes
+unchanged; independent asset-call counter instrumentation is unavailable and is
+not claimed from elapsed time or an unchanged file tree.
+
+Keep this slice unaccepted until native compilation/tests, actual native UI
+execution, individual image review and normal native restoration are recorded.
+The ordinary frontend is restored by `node verify-frontend.mjs`; an ordinary
+native build must be performed afterward without `dev-harness`. The local
+offline-cache blocker is not a reason to weaken a gate or reuse historical
+PR #214 evidence as a pass for this frontend.

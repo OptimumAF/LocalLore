@@ -49,6 +49,9 @@ fn bundled_seed(template: &str) -> Result<Seed, &'static str> {
         return Err("UnsupportedSeed");
     }
     let seed: Seed = serde_json::from_slice(SEED).map_err(|_| "Integrity")?;
+    if seed.id != TEMPLATE || seed.scope.branch != "main" {
+        return Err("Integrity");
+    }
     Engine::new(seed.clone()).map_err(|_| "Integrity")?;
     Ok(seed)
 }
@@ -155,8 +158,11 @@ pub fn template_preview(template: &str) -> Result<StoryTemplatePreviewV1, &'stat
     }
     let preview = StoryTemplatePreviewV1 { version: 1, template: TEMPLATE.into(), seed_sha256: seed_hash(),
         default_title: "Lantern Quay".into(),
-        description: "Explore Lantern Quay as Rowan, a quay keeper. Choose whom to help and how to use your single healing potion.".into(),
-        profile: "fantasy_v1".into(), details };
+        description: "An original local starter set at Lantern Quay. Review your starting facts below, then choose how the story develops.".into(),
+        profile: match seed.profile {
+            crate::contracts::Profile::FantasyV1 => "fantasy_v1",
+            crate::contracts::Profile::NarrativeV1 => "narrative_v1",
+        }.into(), details };
     if preview.details.len() > 64
         || preview.details.iter().any(|line| line.len() > 2048)
         || serde_json::to_vec(&preview).map_err(|_| "Integrity")?.len() > 16384

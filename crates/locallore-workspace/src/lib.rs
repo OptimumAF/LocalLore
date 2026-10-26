@@ -264,6 +264,16 @@ impl Persistence for Repository {
             .map_err(storage)?;
         self.resume(&scope)
     }
+    fn create_named(
+        &mut self,
+        starter: &locallore::story_setup::NamedStarter,
+    ) -> Result<(Engine, bool), String> {
+        let (scope, created) = self
+            .store
+            .create_workspace_exact(starter.title(), starter.seed().clone())
+            .map_err(storage)?;
+        Ok((self.resume(&scope)?, created))
+    }
     fn resume(&mut self, scope: &Scope) -> Result<Engine, String> {
         Ok(self.store.resume(scope).map_err(turn)?.engine)
     }

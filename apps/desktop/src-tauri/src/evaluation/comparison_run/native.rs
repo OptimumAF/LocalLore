@@ -169,11 +169,13 @@ impl EvaluationManager {
             Ok(value) => value,
             Err(error) => return FullOutcome::plain(Err(error)),
         };
-        let PreparedWork::Execute { output, reference } = prepared else {
-            let PreparedWork::Inspected(report) = prepared else {
-                unreachable!()
-            };
-            return FullOutcome::plain(Ok(report));
+        let (output, reference, _pins) = match prepared {
+            PreparedWork::Inspected(report) => return FullOutcome::plain(Ok(*report)),
+            PreparedWork::Execute {
+                output,
+                reference,
+                _pins,
+            } => (output, reference, _pins),
         };
         let resume = matches!(work, Work::Resume);
         let mut outcome = match native {
@@ -185,7 +187,7 @@ impl EvaluationManager {
                     cancel,
                     batch,
                     LaneFactory::ScriptedBaseline,
-                    reference.as_ref(),
+                    reference.as_deref(),
                 )
                 .map_err(failure),
             ),
@@ -209,7 +211,13 @@ impl EvaluationManager {
                         if !lease.valid(epoch) || cancel.is_cancelled() {
                             return Err("Interrupted".into());
                         }
-                        let accepted = consent(&metadata).map_err(|error| {
+                        // This callback precedes any reservation/assets. Catch
+                        // only this safe boundary, never the post-owner body.
+                        let answer = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                            consent(&metadata)
+                        }))
+                        .unwrap_or_else(|_| Err("EvaluationInternal".into()));
+                        let accepted = answer.map_err(|error| {
                             consent_error = Some(super::super::selected::failure(&error));
                             "Interrupted".to_owned()
                         })?;
@@ -218,7 +226,7 @@ impl EvaluationManager {
                         }
                         self.reserve_owned(&models, JobKind::ComparisonRun, epoch, operation)
                     },
-                    reference.as_ref(),
+                    reference.as_deref(),
                 );
                 let mut outcome = match result {
                     Ok(report) => FullOutcome::plain(Ok(report)),

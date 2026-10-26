@@ -247,6 +247,23 @@ fn read_index(directory: &Path, manifest: bool) -> Result<Index> {
     {
         return Err("EvaluationIntegrity".into());
     }
+    let hash = |value: &str| {
+        value.len() == 64
+            && value
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    };
+    if !hash(&index.binding.source_sha256) || !hash(&index.binding.suite_sha256) {
+        return Err("EvaluationIntegrity".into());
+    }
+    // Historical hashes are metadata, not a current-source execution grant.
+    // The known protocol's descriptors/budgets remain closed Rust definitions.
+    let mut shape = wire::current_binding(index.binding.native).map_err(failure)?;
+    shape.source_sha256 = index.binding.source_sha256.clone();
+    shape.suite_sha256 = index.binding.suite_sha256.clone();
+    if shape != index.binding {
+        return Err("EvaluationIntegrity".into());
+    }
     if manifest {
         validate_manifest(directory, &index)?;
     }
@@ -266,10 +283,11 @@ struct Launch {
     native: Option<NativeExecution>,
 }
 enum PreparedWork {
-    Inspected(ComparisonReportV3),
+    Inspected(Box<ComparisonReportV3>),
     Execute {
         output: PathBuf,
-        reference: Option<core::ValidatedReference>,
+        reference: Option<Box<core::ValidatedReference>>,
+        _pins: Vec<File>,
     },
 }
 struct FullOutcome {
@@ -1142,7 +1160,7 @@ impl EvaluationManager {
         let output = directory.join("work");
         if matches!(work, Work::Open) {
             return literal_v3::inspect_comparison(&output)
-                .map(PreparedWork::Inspected)
+                .map(|report| PreparedWork::Inspected(Box::new(report)))
                 .map_err(failure);
         }
         if index.binding != wire::current_binding(index.lane()?.native()).map_err(failure)? {
@@ -1155,7 +1173,7 @@ impl EvaluationManager {
             }
             let report = literal_v3::inspect_comparison(&output).map_err(failure)?;
             if report.completed {
-                return Ok(PreparedWork::Inspected(report));
+                return Ok(PreparedWork::Inspected(Box::new(report)));
             }
         }
         // A boundary quota must refuse before invoking the shared runner or
@@ -1177,7 +1195,11 @@ impl EvaluationManager {
         if cancel.is_cancelled() {
             return Err("Cancelled".into());
         }
-        Ok(PreparedWork::Execute { output, reference })
+        Ok(PreparedWork::Execute {
+            output,
+            reference: reference.map(Box::new),
+            _pins,
+        })
     }
 }
 mod native;

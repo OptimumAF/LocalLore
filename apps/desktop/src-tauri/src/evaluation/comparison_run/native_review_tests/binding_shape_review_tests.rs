@@ -37,13 +37,22 @@ fn coherent_binding_fault_refuses(fault: &str) {
 
     // Exercise the native and opposite scripted catalog independently before
     // asserting, so one early assertion cannot conceal the other's response.
-    let native = f.manager.full_comparison_catalog_native(&f.lease, f.epoch, true);
+    let native = f
+        .manager
+        .full_comparison_catalog_native(&f.lease, f.epoch, true);
     let scripted = f.manager.full_comparison_catalog(&f.lease, f.epoch, true);
     let calls = Arc::new(AtomicUsize::new(0));
     let consent = calls.clone();
     let exact_retry = f.manager.full_comparison_start_native(
-        &f.lease, &f.models, f.epoch, true, Fixture::input(&client),
-        move |_| { consent.fetch_add(1, Ordering::SeqCst); Ok(false) },
+        &f.lease,
+        &f.models,
+        f.epoch,
+        true,
+        Fixture::input(&client),
+        move |_| {
+            consent.fetch_add(1, Ordering::SeqCst);
+            Ok(false)
+        },
     );
     assert!(inventory(&f.root()) == before);
     assert_eq!(calls.load(Ordering::SeqCst), 0);
@@ -90,8 +99,14 @@ fn well_formed_stale_source_and_suite_are_metadata_only_not_execution_or_history
     // These are deliberately synthetic wrapper-metadata fixtures, not genuine
     // historical runs or hashes authenticated by a recorded native execution.
     let before = inventory(&f.root());
-    let scripted_catalog = f.manager.full_comparison_catalog(&f.lease, f.epoch, true).unwrap();
-    let native_catalog = f.manager.full_comparison_catalog_native(&f.lease, f.epoch, true).unwrap();
+    let scripted_catalog = f
+        .manager
+        .full_comparison_catalog(&f.lease, f.epoch, true)
+        .unwrap();
+    let native_catalog = f
+        .manager
+        .full_comparison_catalog_native(&f.lease, f.epoch, true)
+        .unwrap();
     assert_eq!(scripted_catalog["version"], 1);
     assert_eq!(scripted_catalog["runs"].as_array().unwrap().len(), 1);
     assert_eq!(scripted_catalog["runs"][0]["run_id"], scripted);

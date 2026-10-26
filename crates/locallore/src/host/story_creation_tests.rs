@@ -85,3 +85,75 @@ fn title_limits_use_unicode_scalars_and_never_silently_normalize() {
         assert!(!valid_title(&value), "invalid title was accepted");
     }
 }
+
+/// Fault port only: all unrelated operations retain NoCreation's fail-fast
+/// behavior. This proves Host admission, not an executed Store replacement race.
+struct ChangedOriginalSeed(NoCreation);
+impl Persistence for ChangedOriginalSeed {
+    fn location(&self) -> &str {
+        self.0.location()
+    }
+    fn list(&mut self) -> Result<Vec<WorkspaceSummary>, String> {
+        self.0.list()
+    }
+    fn create(&mut self) -> Result<Engine, String> {
+        self.0.create()
+    }
+    fn create_named(
+        &mut self,
+        starter: &crate::story_setup::NamedStarter,
+    ) -> Result<(Engine, bool), String> {
+        let NoCreation(calls) = &self.0;
+        calls.fetch_add(1, Ordering::SeqCst);
+        let original = starter.seed();
+        let mut replacement = original.clone();
+        replacement.actors.get_mut("player").unwrap().name = "Different original player".into();
+        let engine = Engine::new(replacement).unwrap();
+        assert_eq!(engine.scope(), &original.scope);
+        assert_ne!(engine.seed(), original);
+        Ok((engine, true))
+    }
+    fn resume(&mut self, scope: &Scope) -> Result<Engine, String> {
+        self.0.resume(scope)
+    }
+    fn begin(&mut self, request: &Request) -> Result<SavedTurn, String> {
+        self.0.begin(request)
+    }
+    fn commit(
+        &mut self,
+        request: &Request,
+        proposal: &Proposal,
+        narration: &str,
+    ) -> Result<Receipt, String> {
+        self.0.commit(request, proposal, narration)
+    }
+    fn cancel(&mut self, request: &Request) -> Result<SavedTurn, String> {
+        self.0.cancel(request)
+    }
+    fn fail(&mut self, request: &Request) -> Result<SavedTurn, String> {
+        self.0.fail(request)
+    }
+    fn stale(&mut self, request: &Request) -> Result<SavedTurn, String> {
+        self.0.stale(request)
+    }
+    fn status(&mut self, scope: &Scope, turn: &str) -> Result<SavedTurn, String> {
+        self.0.status(scope, turn)
+    }
+}
+
+#[test]
+fn named_creation_refuses_a_valid_returned_engine_with_different_original_seed() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let host = Host::with_persistence(
+        false,
+        Box::new(ChangedOriginalSeed(NoCreation(calls.clone()))),
+    );
+    let preview = crate::story_setup::template_preview("lantern-quay-v1").unwrap();
+    let request = json!({"version":1,"command":{"op":"create_named","template":preview.template,
+        "seed_sha256":preview.seed_sha256,"title":"Original synthetic story","creation_id":"2".repeat(32)}});
+    let reply = host.call(&serde_json::to_vec(&request).unwrap());
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert_eq!(reply["status"], "rejected");
+    assert_eq!(reply["error"], "Stale");
+    assert!(host.state.lock().unwrap().sessions.is_empty());
+}

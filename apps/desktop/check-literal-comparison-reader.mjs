@@ -158,7 +158,8 @@ test("headless guard privacy is not applicable, never a privacy pass or leak cla
     assert.ok(html.includes("Not applicable — guard")); assert.ok(html.includes("Privacy check")); assert.ok(html.includes("Not applicable; no generation"));
 });
 test("headless actor lens hides report/prose and raw controls", () => {
-    const v = decode(snapshot()); v.report.turns[0].narration = "SYNTHETIC-PRIVATE-PROSE";
+    const input = snapshot(); input.report.turns[0].narration = "SYNTHETIC-PRIVATE-PROSE";
+    const v = decode(input);
     const html = panel(v, { kind: "character", id: "mira" }); htmlFiles.push(["actor", html]);
     assert.ok(!html.includes("SYNTHETIC-PRIVATE-PROSE")); assert.ok(!html.includes("Inspect actual context capture"));
     assert.ok(html.includes("filtered state"));

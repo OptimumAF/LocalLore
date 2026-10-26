@@ -57,6 +57,7 @@ declare global {
             comparisonReading?: boolean;
             selectedEvaluating?: boolean;
             fullComparing?: boolean;
+            nativeComparisonDenied?: boolean;
             archiving?: boolean;
             timelining?: boolean;
             forking?: boolean;
@@ -734,7 +735,11 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
             errors,
             invoke,
             dispose,
-            config: { stage: window.__LOCALLORE_TEST__.stage },
+            config: {
+                stage: window.__LOCALLORE_TEST__.stage,
+                nativeGrantDenied:
+                    window.__LOCALLORE_TEST__.nativeComparisonDenied === true,
+            },
         });
     } else if (
         __DEV_HARNESS__ &&

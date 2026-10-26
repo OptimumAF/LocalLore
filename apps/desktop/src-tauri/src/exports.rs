@@ -833,6 +833,20 @@ pub fn confirm_comparison_read(owner: isize) -> Result<bool, String> {
     confirm_fixed(owner,"Inspect this comparison's private evidence?\n\nOmniscient inspection can reveal character secrets and recorded inputs/outputs. Reading does not authorize generation or change character knowledge.","LocalLore comparison inspection")
 }
 #[cfg(windows)]
+pub fn confirm_native_comparison_execution(owner: isize, metadata: &Value) -> Result<bool, String> {
+    if metadata["version"] != 1
+        || metadata["kind"] != "full_comparison_execution"
+        || metadata["input_lane"] != "approved_native"
+    {
+        return Err("InvalidEvaluationInput".into());
+    }
+    confirm_fixed(owner,"Run this isolated native comparison with your installed model?\n\nThis consumes local CPU and memory within the fixed Rust limits. The source story is not changed. Execution does not authorize private inspection or establish story quality. Waiting for this confirmation consumes the shared preparation deadline.","LocalLore native comparison")
+}
+#[cfg(not(windows))]
+pub fn confirm_native_comparison_execution(_: isize, _: &Value) -> Result<bool, String> {
+    Err("PickerUnavailable".into())
+}
+#[cfg(windows)]
 fn confirm_fixed(owner: isize, purpose: &str, caption: &str) -> Result<bool, String> {
     if owner == 0 {
         return Err("Closed".into());

@@ -283,6 +283,32 @@ function checkedReport(report, stage) {
     assert.equal(report.modelExecution, false, "NoModelExecution");
     assert.equal(report.rendering, "native-webview2", "ReportNativeRendering");
     assert.equal(report.stage, stage, "ReportStage");
+    if (stage === "denied") {
+        assert(
+            Array.isArray(report.checks) &&
+                report.checks.length >= 10 &&
+                report.checks.length <= 32,
+            "DeniedGrantBoundedChecks",
+        );
+        for (const required of [
+            "native-port-denied-actual-native-context-grant-false",
+            "native-port-lab_denied-actual-lab-grant-required",
+            "native-port-lab-denied-cleanup_status-actual-empty-cleanup-without-lab",
+            "native-port-lab-denied-retry_cleanup-actual-empty-cleanup-without-lab",
+            "native-port-lab_denied-query-string-rejected-before-host",
+            "native-port-lab_denied-renderer-provider-key-rejected-before-host",
+            "native-port-lab_denied-renderer-consent-key-rejected-before-host",
+            "native-port-denied-no-unexpected-errors",
+            "native-port-denied-disposed-without-error",
+        ])
+            assert(
+                report.checks.includes(required),
+                `RequiredDeniedGrantCheck:${required}`,
+            );
+        assert.deepEqual(report.captureLabels, [], "DeniedGrantNoCaptures");
+        assert.deepEqual(report.errors, [], "DeniedGrantNoUnexpectedErrors");
+        return;
+    }
     assert(
         Array.isArray(report.checks) &&
             report.checks.length >= (stage === "initial" ? 100 : 40) &&
@@ -298,6 +324,26 @@ function checkedReport(report, stage) {
         ),
         "CheckLabels",
     );
+    for (const required of [
+        "native-port-empty_native-catalog-native-version-tags",
+        "native-port-empty_native-catalog-has-no-native-execution",
+        "native-port-empty_native-unknown-client-lookup",
+        "native-port-empty_native-unknown-run-open",
+        "native-port-empty_native-unknown-token-status",
+        "native-port-empty_native-unknown-token-close",
+        "native-port-empty_native-unknown-managed-before-read-consent",
+        "native-port-scripted_open-scripted-client-is-not-native",
+        "native-port-scripted_open-scripted-token-is-not-native",
+        "native-port-scripted_open-native-close-cannot-revoke-scripted-token",
+        "native-port-scripted-status-preserved-run_token",
+        "native-port-scripted-status-preserved-report_ready",
+        "native-port-scripted_open-catalog-has-no-native-execution",
+    ]) {
+        assert(
+            report.checks.includes(required),
+            `RequiredNativePortCheck:${required}`,
+        );
+    }
     assert(
         Array.isArray(report.captureLabels) &&
             report.captureLabels.length <= limits.captures,
@@ -570,7 +616,7 @@ try {
         900000,
     );
     executableSha256 = digest(await readFile(executable));
-    for (const stage of ["initial", "restart"]) {
+    for (const stage of ["denied", "initial", "restart"]) {
         const directory = path.join(folder, stage);
         await run(
             `app-${stage}`,
@@ -579,10 +625,14 @@ try {
             {
                 LOCALLORE_D02_HARNESS: "1",
                 LOCALLORE_D07_FULL_COMPARISON_HARNESS: "1",
+                LOCALLORE_D07_NATIVE_DENIED_GRANT:
+                    stage === "denied" ? "1" : "0",
                 LOCALLORE_TEST_MEMORY: "1",
                 LOCALLORE_TEST_STORAGE_FAILURE: "0",
                 LOCALLORE_TEST_WORKSPACE: path.join(
-                    folder,
+                    stage === "denied"
+                        ? path.join(folder, "denied-workspace")
+                        : folder,
                     "stories-v1.sqlite",
                 ),
                 LOCALLORE_TEST_RESTART: stage === "restart" ? "1" : "0",
@@ -595,6 +645,15 @@ try {
         const report = await json(path.join(directory, "report.json"));
         reports.push({ stage, report });
         checkedReport(report, stage);
+        if (stage === "denied") {
+            assert.deepEqual(
+                (await readdir(directory)).sort(),
+                ["report.json"],
+                "DeniedGrantOnlyBoundedReport",
+            );
+            await sourceUnchanged();
+            continue;
+        }
         const images = await captures(directory, report);
         const actual = await inventory(
             path.join(folder, "comparison-evaluations"),
@@ -615,8 +674,12 @@ try {
                 expectedInventory,
                 "RestartPreservesAllCoreBytes",
             );
+            const initialReport = reports.find(
+                (entry) => entry.stage === "initial",
+            )?.report;
             assert(
-                reports[0].report.savedRuns.includes(report.reopenedRun),
+                Array.isArray(initialReport?.savedRuns) &&
+                    initialReport.savedRuns.includes(report.reopenedRun),
                 "RestartReopensInitialSavedRun",
             );
         }

@@ -4,6 +4,7 @@ import type { Controller } from "./controller";
 import type { ComparisonReaderController } from "./comparison-reader-controller";
 import type { ComparisonRunController } from "./comparison-run-controller";
 import { checkedComparisonRunStatus } from "./comparison-run-model";
+import { nativeComparisonPortChecks } from "./comparison-native-port-journeys";
 import type { EvidenceRequest, ObserverV2 } from "./comparison-reader-model";
 import { sameReaderObserver } from "./comparison-reader-model";
 import { structural, type ErrorBuffer } from "./model";
@@ -23,7 +24,7 @@ export async function comparisonRunJourneys({
     errors: ErrorBuffer;
     invoke: (name: string, args?: Record<string, unknown>) => Promise<unknown>;
     dispose: () => Promise<void>;
-    config: { stage: string };
+    config: { stage: string; nativeGrantDenied?: boolean };
 }) {
     const checks: string[] = [],
         captureLabels: string[] = [],
@@ -495,6 +496,12 @@ export async function comparisonRunJourneys({
         );
     };
     const readerJourney = async (extended: boolean) => {
+        await nativeComparisonPortChecks({
+            invoke,
+            check,
+            phase: "scripted_open",
+            scripted: f.get().status ?? undefined,
+        });
         await managedRead();
         const row = r
             .get()
@@ -667,6 +674,48 @@ export async function comparisonRunJourneys({
             config.stage === "initial" || config.stage === "restart",
             "closed-full-comparison-stage",
         );
+        if (config.nativeGrantDenied === true) {
+            const metadata = (await invoke("author_context")) as Record<
+                string,
+                unknown
+            >;
+            check(
+                metadata.story_lab_granted === false,
+                "native-port-denied-actual-native-context-grant-false",
+            );
+            await nativeComparisonPortChecks({
+                invoke,
+                check,
+                phase: "lab_denied",
+            });
+            check(
+                errors.snapshot().length === 0,
+                "native-port-denied-no-unexpected-errors",
+            );
+            disposalStarted = true;
+            await dispose();
+            check(
+                errors.snapshot().length === 0,
+                "native-port-denied-disposed-without-error",
+            );
+            await invoke("harness_finish", {
+                report: {
+                    version: 1,
+                    synthetic: true,
+                    passed: true,
+                    stage: "denied",
+                    checks,
+                    captureLabels,
+                    errors: errors.snapshot(),
+                    modelExecution: false,
+                    nativeIpc: true,
+                    rendering: "native-webview2",
+                    desktopInput: false,
+                    nativeDialogsAutomated: false,
+                },
+            });
+            return;
+        }
         await c.start();
         const liveBefore = structural(c.get().play ?? c.get().playV2);
         c.requestLab();
@@ -675,6 +724,11 @@ export async function comparisonRunJourneys({
             () => f.get().allowed && r.get().allowed,
             "actual-main-lab-native-eligibility",
         );
+        await nativeComparisonPortChecks({
+            invoke,
+            check,
+            phase: "empty_native",
+        });
         await f.loadCatalog();
         check(
             f.get().catalog?.protocol_version === 3 &&

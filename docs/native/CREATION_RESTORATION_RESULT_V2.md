@@ -17,8 +17,10 @@ No new checked-call count is invented.
 Each of the two `terminal_observations` has its seven existing keys plus exactly:
 
 ```json
+{
 "saved_creation": {"create": 0, "create_named": 2},
 "commands_creation": {"create": 0, "create_named": 2}
+}
 ```
 
 This example is the first old producer. The current four fixed fresh journeys
@@ -77,7 +79,8 @@ saved/commands mismatches, automatic creation after restart, product downgrades,
 raw/copy rebinding and retirement canonical-source violations.
 
 Host tests alone do not establish Android execution. Current qualification needs
-a fresh build and separate owned broad-regression and two-death cases, with the
-fixed native10 gate first. Only exact original runtime records can prove those
+a fresh build and separate owned broad-regression and two-death cases. Each
+two-death case requires the fixed native10 gate first; broad regression is
+independent. Only exact original runtime records can prove those
 checks. Phone, real-model inference, ARM64 execution and joined adapter drain
 remain separate gates.

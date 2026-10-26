@@ -48,6 +48,12 @@ EXPECTED_METHODS = (
 # Versioned, source-frozen broad roster. A separate fresh guest is required;
 # these UI tests may mutate its product workspace. This is not a component gate.
 REGRESSION_VERSION = 1
+RETAINED_UI_VERSION = 1
+RETAINED_UI_CLASSES = ("RetainedParentDeletionUiTest",)
+RETAINED_UI_METHODS = ((
+    "cancelThenConfirmRetainedParentDeletionPreservesChildHistory",
+    "staleParentPreviewCannotDeleteChangedHistory",
+),)
 REGRESSION_CLASSES = (
     'InitialNavigationGatewayTest',
     'ProcessVerificationProbeTest',
@@ -543,6 +549,13 @@ def regression_dispatch(index):
             "instrument-" + str(index), 180, 262144)
 
 
+def retained_ui_dispatch(index):
+    need(type(index) is int and 0 <= index < len(RETAINED_UI_CLASSES), "class_index")
+    return (["exec-out", "am", "instrument", "--user", "0", "-w", "-r", "-e", "class",
+             "org.locallore.app." + RETAINED_UI_CLASSES[index], APP + ".test/androidx.test.runner.AndroidJUnitRunner"],
+            "instrument-" + str(index), 180, 262144)
+
+
 def validate_regression_record(record, out):
     """Revalidate all source-frozen results and their original SDK-client copies."""
     try:
@@ -556,19 +569,36 @@ def validate_regression_record(record, out):
 
 
 def _validate_regression_record(record, out):
+    return _validate_fixed_roster_record(record, out, "regression", REGRESSION_VERSION,
+                                        REGRESSION_CLASSES, REGRESSION_METHODS, 89)
+
+
+def validate_retained_ui_record(record, out):
+    try:
+        from benchmarks.android_instrumentation_evidence import EvidenceRefused
+    except ModuleNotFoundError:
+        from android_instrumentation_evidence import EvidenceRefused
+    try:
+        _validate_fixed_roster_record(record, out, "retained-ui", RETAINED_UI_VERSION,
+                                     RETAINED_UI_CLASSES, RETAINED_UI_METHODS, 2)
+    except EvidenceRefused:
+        raise VerificationRefused("retained_ui_evidence_refused") from None
+
+
+def _validate_fixed_roster_record(record, out, phase, version, classes, rosters, method_count):
     try:
         from benchmarks.android_instrumentation_evidence import test_roster, validate_instrumentation
     except ModuleNotFoundError:
         from android_instrumentation_evidence import test_roster, validate_instrumentation
     need(type(record) is dict and set(record) == {"version", "phase", "results", "clients", "clients_clean",
          "method_count", "external_controller_case_executed"} and type(record["version"]) is int and
-         record["version"] == REGRESSION_VERSION and record["phase"] == "regression" and
-         type(record["method_count"]) is int and record["method_count"] == 89 and
+         record["version"] == version and record["phase"] == phase and
+         type(record["method_count"]) is int and record["method_count"] == method_count and
          record["clients_clean"] is True and record["external_controller_case_executed"] is False and
          type(record["clients"]) is int and 0 < record["clients"] <= 10000 and
-         type(record["results"]) is list and len(record["results"]) == 18, "regression_not_qualified")
+         type(record["results"]) is list and len(record["results"]) == len(classes), "regression_not_qualified")
     copies = {}
-    for index, (result, name, methods) in enumerate(zip(record["results"], REGRESSION_CLASSES, REGRESSION_METHODS)):
+    for index, (result, name, methods) in enumerate(zip(record["results"], classes, rosters)):
         source = ROOT / "apps/android/app/src/androidTest/java/org/locallore/app" / (name + ".kt")
         need(test_roster(source) == list(methods), "regression_roster_changed")
         need(type(result) is dict and result.get("class") == "org.locallore.app." + name and
@@ -605,14 +635,18 @@ def _validate_regression_record(record, out):
 
 
 def component_worker(request, out):
-    return _instrumentation_worker(request, out, False)
+    return _instrumentation_worker(request, out, "components")
 
 
 def regression_worker(request, out):
-    return _instrumentation_worker(request, out, True)
+    return _instrumentation_worker(request, out, "regression")
 
 
-def _instrumentation_worker(request, out, regression):
+def retained_ui_worker(request, out):
+    return _instrumentation_worker(request, out, "retained-ui")
+
+
+def _instrumentation_worker(request, out, phase):
     try:
         from benchmarks.android_process_client import SdkCapture
         from benchmarks.android_instrumentation_evidence import test_roster, validate_instrumentation
@@ -620,13 +654,15 @@ def _instrumentation_worker(request, out, regression):
         from android_process_client import SdkCapture
         from android_instrumentation_evidence import test_roster, validate_instrumentation
     artifact = qualified_build(request["build"])
-    classes, frozen = (REGRESSION_CLASSES, REGRESSION_METHODS) if regression else (CLASSES, EXPECTED_METHODS)
+    classes, frozen = {"components": (CLASSES, EXPECTED_METHODS),
+                       "regression": (REGRESSION_CLASSES, REGRESSION_METHODS),
+                       "retained-ui": (RETAINED_UI_CLASSES, RETAINED_UI_METHODS)}[phase]
     rosters = []
     for name, expected in zip(classes, frozen):
         source = ROOT / "apps/android/app/src/androidTest/java/org/locallore/app" / (name + ".kt")
         methods = test_roster(source)
-        need(methods == list(expected) if regression else sorted(methods) == sorted(expected),
-             "regression_roster_changed" if regression else "component_roster_changed")
+        need(methods == list(expected) if phase != "components" else sorted(methods) == sorted(expected),
+             "regression_roster_changed" if phase != "components" else "component_roster_changed")
         rosters.append(methods)
     lease_path = Path(request["running"])
     live = env.open_live_owner(request["proposal"], lease_path, env.digest(lease_path))
@@ -684,7 +720,9 @@ def _instrumentation_worker(request, out, regression):
     for index, (name, methods) in enumerate(zip(classes, rosters)):
         own()
         need(shell(["am", "get-current-user"], "instrument-user").strip() == b"0", "user_zero")
-        raw = capture.adb(*(regression_dispatch(index) if regression else instrumentation_dispatch(index)))
+        dispatch = {"components": instrumentation_dispatch, "regression": regression_dispatch,
+                    "retained-ui": retained_ui_dispatch}[phase]
+        raw = capture.adb(*dispatch(index))
         own()
         with (out / (name + ".stdout.raw")).open("xb") as stream:
             stream.write(raw)
@@ -696,10 +734,12 @@ def _instrumentation_worker(request, out, regression):
     record = {"version": 1, "results": results, "clients": capture.count,
                     "clients_clean": capture.clean, "method_count": sum(r["method_count"] for r in results),
                     "external_controller_case_executed": False}
-    if regression:
-        record["version"] = REGRESSION_VERSION
-        record["phase"] = "regression"
-    env.create_json(out / ("regression-v1.json" if regression else "components-v1.json"), record)
+    if phase != "components":
+        record["version"] = REGRESSION_VERSION if phase == "regression" else RETAINED_UI_VERSION
+        record["phase"] = phase
+    filename = {"components": "components-v1.json", "regression": "regression-v1.json",
+                "retained-ui": "retained_ui-v1.json"}[phase]
+    env.create_json(out / filename, record)
 
 
 def supervise(request):
@@ -733,7 +773,8 @@ def supervise(request):
               "sources_before": env.binding(out / "sources-before-v1.json"),
               "sources_after": env.binding(out / "sources-after-v1.json")}
     if qualified:
-        key = {"build": "artifacts", "components": "components", "regression": "regression"}[request["phase"]]
+        key = {"build": "artifacts", "components": "components", "regression": "regression",
+               "retained-ui": "retained_ui"}[request["phase"]]
         name = key + "-v1.json"
         record[key] = env.binding(out / name)
         try:
@@ -741,7 +782,9 @@ def supervise(request):
                 validate_build_record(record, out)
             else:
                 components = env.read_json(out / name)
-                (validate_regression_record if request["phase"] == "regression" else validate_component_record)(components, out)
+                validator = {"components": validate_component_record, "regression": validate_regression_record,
+                             "retained-ui": validate_retained_ui_record}[request["phase"]]
+                validator(components, out)
         except (VerificationRefused, env.EnvironmentRefused, OSError, ValueError, KeyError, TypeError, ET.ParseError):
             qualified = False
             record["passed"] = False
@@ -754,7 +797,7 @@ def supervise(request):
 def admit_worker(request):
     need(type(request) is dict and set(request) == {"phase", "out", "sdk", "java", "build",
             "running", "proposal", "server", "powershell", "inputs", "sources", "driver_sha256"}, "request_fields")
-    need(request["phase"] in ("build", "components", "regression"), "worker_phase")
+    need(request["phase"] in ("build", "components", "regression", "retained-ui"), "worker_phase")
     need(request["driver_sha256"] == env.digest(Path(__file__)), "driver_changed")
     env.check_binding(request["sources"])
     need(env.read_json(request["sources"]["path"]) == source_map(), "source_drift")
@@ -772,12 +815,13 @@ def main(argv=None):
         request = env.read_json(path)
         admit_worker(request)
         need(Path(request["out"]) == path.parent and path.name == "request-v1.json", "request_path")
-        {"build": build_worker, "components": component_worker, "regression": regression_worker}[request["phase"]](request, path.parent)
+        {"build": build_worker, "components": component_worker, "regression": regression_worker,
+         "retained-ui": retained_ui_worker}[request["phase"]](request, path.parent)
         need(request["inputs"] == input_bindings(request), "input_changed")
         print("worker_completed", flush=True)
         return 0
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("phase", choices=("build", "components", "regression", "server"))
+    parser.add_argument("phase", choices=("build", "components", "regression", "retained-ui", "server"))
     parser.add_argument("--out", required=True)
     parser.add_argument("--sdk", required=True)
     parser.add_argument("--java")

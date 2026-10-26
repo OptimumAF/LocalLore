@@ -290,12 +290,18 @@ class RetainedParentDeletionUiTest {
                 assertEquals(world.parent.branch, byId.getValue(world.child.branch).getString("parent_branch"))
                 assertEquals(2L, byId.getValue(world.child.branch).getLong("fork_revision"))
                 val refused = owner.reply(JSONObject().put("op", "resume").put("scope", scope(world.parent)))
+                assertEquals("rejected", refused.getString("status"))
                 assertEquals("NotFound", refused.getString("error"))
             }
             select(world.child)
             assertTrue(model.state.value.timelines.none { it.branch == world.parent.branch })
             assertEquals(listOf(ROOT_TEXT, PREFIX), model.state.value.messages.filter { it.isPlayer }.map { it.text })
             assertFalse(model.state.value.messages.any { it.text == TAIL })
+            for (message in model.state.value.messages.filter { it.isPlayer }) {
+                val tag = "message-body-${message.id}"
+                compose.onNodeWithTag("story-list").performScrollToNode(hasTestTag(tag))
+                compose.onNodeWithTag(tag).assertIsDisplayed().assertTextEquals(message.text)
+            }
             storyTag("timeline-library").performClick()
             compose.onNodeWithTag("timeline-${world.parent.branch}").assertDoesNotExist()
             compose.onNodeWithTag("timeline-${world.child.branch}").performClick()

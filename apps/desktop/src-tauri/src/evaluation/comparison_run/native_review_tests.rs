@@ -17,6 +17,15 @@ use std::sync::{
 };
 
 type Inventory = BTreeMap<PathBuf, Option<Vec<u8>>>;
+struct RetainedManagers {
+    _evaluation: Arc<EvaluationManager>,
+    _models: Arc<ModelManager>,
+    _lease: Arc<WindowLease>,
+}
+struct RetainedProtocolOwner {
+    // Preserve the exact Box returned by owned startup on unknown cleanup.
+    _owner: Box<locallore_local_runtime::LocalRuntime>,
+}
 fn inventory(root: &Path) -> Inventory {
     fn walk(root: &Path, path: &Path, depth: usize, total: &mut usize, out: &mut Inventory) {
         assert!(depth <= 12 && out.len() < 8192);
@@ -158,17 +167,15 @@ impl Drop for Fixture {
         } else {
             // Test-only last-resort retention of the SAME actual managers/pair;
             // never drop an unconfirmed owner to make a failed assertion tidy.
-            static HELD: OnceLock<
-                Mutex<Vec<(Arc<EvaluationManager>, Arc<ModelManager>, Arc<WindowLease>)>>,
-            > = OnceLock::new();
+            static HELD: OnceLock<Mutex<Vec<RetainedManagers>>> = OnceLock::new();
             HELD.get_or_init(|| Mutex::new(vec![]))
                 .lock()
                 .unwrap()
-                .push((
-                    self.manager.clone(),
-                    self.models.clone(),
-                    self.lease.clone(),
-                ));
+                .push(RetainedManagers {
+                    _evaluation: self.manager.clone(),
+                    _models: self.models.clone(),
+                    _lease: self.lease.clone(),
+                });
         }
     }
 }
@@ -612,13 +619,11 @@ impl FixedOwner {
                 }) => {
                     let cleanup = owner.terminate_and_reap();
                     if cleanup.is_err() {
-                        static HELD: OnceLock<
-                            Mutex<Vec<Box<locallore_local_runtime::LocalRuntime>>>,
-                        > = OnceLock::new();
+                        static HELD: OnceLock<Mutex<Vec<RetainedProtocolOwner>>> = OnceLock::new();
                         HELD.get_or_init(|| Mutex::new(vec![]))
                             .lock()
                             .unwrap()
-                            .push(owner);
+                            .push(RetainedProtocolOwner { _owner: owner });
                     }
                     panic!("fixed protocol fixture: {cause:?}; {cleanup:?}");
                 }

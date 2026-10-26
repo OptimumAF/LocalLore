@@ -504,8 +504,9 @@ fn main() {
                             == Ok("1")
                         {
                             // Serial real SQLite fixtures, read revalidation and
-                            // 20+ app-owned render checkpoints; not a turn SLA.
-                            600
+                            // 27+ app-owned render checkpoints and an explicit
+                            // fresh-source resume; not a turn latency SLA.
+                            900
                         } else {
                             180
                         },

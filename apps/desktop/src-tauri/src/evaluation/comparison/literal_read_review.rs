@@ -332,7 +332,7 @@ fn affirmative_native_picker_exposes_typed_v3_and_actual_observer_store_evidence
 }
 
 #[test]
-fn v3_execution_refusal_does_not_consume_ready_native_read_capability() {
+fn v3_source_transfer_revokes_read_capability_without_minting_execution() {
     let f = Fixture::new();
     let path = copy_run("v3");
     let before = inventory(&path);
@@ -341,40 +341,40 @@ fn v3_execution_refusal_does_not_consume_ready_native_read_capability() {
     let token = ready["run_token"].as_str().unwrap();
     let binding = ready["binding"].as_str().unwrap();
     let manager_before = inventory(&f.root);
-    let refused = f.lease.dispatch(f.epoch, || {
+    let transferred = f.lease.dispatch(f.epoch, || {
         f.manager
             .comparison_take_source_in_gate(&f.lease, f.epoch, &client, token, binding)
     });
-    assert_eq!(err(refused), "NativeUnavailable");
+    let source = transferred.unwrap();
+    assert_eq!(source.protocol_version(), 3);
     assert_eq!(
         f.manager
             .comparison_status(&f.lease, f.epoch, true, &client)
-            .unwrap(),
-        ready
+            .unwrap()["phase"],
+        "closed"
     );
     assert_eq!(
-        f.manager
-            .comparison_source(&f.lease, f.epoch, true, token)
-            .unwrap()["source"]["protocol_version"],
-        3
+        err(f.manager.comparison_source(&f.lease, f.epoch, true, token)),
+        "UnknownEvaluationRun"
     );
     assert_eq!(
-        f.manager
-            .comparison_evidence(
-                &f.lease,
-                f.epoch,
-                true,
-                query(token, binding, Observer::Player)
-            )
-            .unwrap()["evidence"]["body"]["kind"],
-        "query"
+        err(f.manager.comparison_evidence(
+            &f.lease,
+            f.epoch,
+            true,
+            query(token, binding, Observer::Player)
+        )),
+        "UnknownEvaluationRun"
     );
     assert!(inventory(&f.root) == manager_before);
-    f.close(&client, Some(token));
+    // Release the opaque source outside the lease/metadata gates. Preparing a
+    // fresh validated Core plan and explicit consent still belong to the worker.
+    let (origin, transferred_binding) = source.into_origin();
+    assert_eq!(origin, path);
+    assert_eq!(transferred_binding, binding);
     reacquire(&path, 3);
     assert!(inventory(&path) == before);
-    // No ModelManager exists in this fixture. Unchanged native manager files
-    // measure no output creation; a closed read cap never becomes a run grant.
+    // No ModelManager exists here; source transfer alone creates no output.
 }
 
 #[test]

@@ -61,11 +61,17 @@ struct Capability {
 /// Only the same admitted native selected worker can consume this source.
 /// The old read grant is revoked before transfer; it grants no execution.
 pub(super) struct SelectedSource {
-    opened: shared::OpenedComparison,
+    opened: OpenedRead,
     origin: PathBuf,
     binding: String,
 }
 impl SelectedSource {
+    pub(super) fn protocol_version(&self) -> u16 {
+        match &self.opened {
+            OpenedRead::V2(_) => 2,
+            OpenedRead::V3(_) => 3,
+        }
+    }
     pub(super) fn into_origin(self) -> (PathBuf, String) {
         let Self {
             opened,
@@ -260,33 +266,11 @@ impl EvaluationManager {
         {
             return Err("EvaluationSourceMismatch".into());
         }
-        if record
-            .cap
-            .as_ref()
-            .is_some_and(|cap| matches!(&cap.opened, OpenedRead::V3(_)))
-        {
-            // Selected protocol1 accepts V2 only. Refuse before removing or
-            // revoking the exact ready read capability, including its lock.
-            return Err("NativeUnavailable".into());
-        }
         let Capability {
             opened,
             origin,
             _grant,
         } = record.cap.take().ok_or("UnknownEvaluationRun")?;
-        let opened = match opened {
-            OpenedRead::V2(opened) => opened,
-            OpenedRead::V3(opened) => {
-                // Defensive preservation if this function's admission logic
-                // changes later; never Drop a rejected source under the gate.
-                record.cap = Some(Capability {
-                    opened: OpenedRead::V3(opened),
-                    origin,
-                    _grant,
-                });
-                return Err("NativeUnavailable".into());
-            }
-        };
         record.cancel.cancel();
         record.granted = false;
         record.token = None;

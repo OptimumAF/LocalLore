@@ -10,6 +10,7 @@ use source_reader::Edge;
 use source_reader::{Arm, EvidenceRequest};
 use std::io::Read;
 use std::sync::{mpsc, Weak};
+mod versioned;
 
 const TTL: Duration = Duration::from_secs(300);
 const CLIENTS: usize = 4;
@@ -98,13 +99,13 @@ pub(super) struct SelectedOwnership {
 struct ExecutionGrant;
 struct ReadGrant;
 struct Prepared {
-    plan: producer::PreparedSelectedPlan,
+    plan: versioned::Plan,
     metadata: Value,
     source_binding: String,
     _grant: ExecutionGrant,
 }
 struct ReadCap {
-    opened: shared::OpenedSelected,
+    opened: versioned::Opened,
     _grant: ReadGrant,
 }
 struct Record {
@@ -239,10 +240,30 @@ fn keys(value: &Value, expected: &[&str]) -> bool {
     })
 }
 fn prepared_valid(value: &Value) -> bool {
-    keys(
-        value,
-        &["version", "kind", "binding", "lane", "selection", "arms"],
-    ) && value["version"] == 1
+    let version_valid = match versioned::prepared_protocol(value) {
+        Some(versioned::Protocol::V1) => keys(
+            value,
+            &["version", "kind", "binding", "lane", "selection", "arms"],
+        ),
+        Some(versioned::Protocol::V2) => {
+            keys(
+                value,
+                &[
+                    "version",
+                    "kind",
+                    "binding",
+                    "lane",
+                    "selection",
+                    "arms",
+                    "source_protocol_version",
+                    "constructions",
+                ],
+            ) && serde_json::to_value(locallore_eval::memory_comparison_v3::arm_descriptors())
+                .is_ok_and(|expected| value["constructions"] == expected)
+        }
+        None => false,
+    };
+    version_valid
         && value["kind"] == "selected_prepared"
         && value["binding"].as_str().is_some_and(hex)
         && matches!(
@@ -573,7 +594,8 @@ impl EvaluationManager {
             return Err("EvaluationBudget".into());
         }
         let index: Index = serde_json::from_slice(&bytes).map_err(|_| "EvaluationIntegrity")?;
-        if index.version != 1
+        if versioned::prepared_protocol(&index.prepared)
+            .is_none_or(|protocol| index.version != protocol.selected_version())
             || index.run_id != run
             || !id(&index.client_id)
             || index.created > SAFE
@@ -596,6 +618,11 @@ impl EvaluationManager {
         Ok((path, pins))
     }
     fn selected_make_index(&self, client: &str, run: &str, prepared: &Prepared) -> Result<Index> {
+        if !prepared_valid(&prepared.metadata)
+            || versioned::prepared_protocol(&prepared.metadata) != Some(prepared.plan.protocol())
+        {
+            return Err("EvaluationIntegrity".into());
+        }
         let root = self.selected_root();
         let _parent = pin(root.parent().ok_or("EvaluationIo")?)?;
         fs::create_dir_all(&root).map_err(|_| "EvaluationIo")?;
@@ -617,7 +644,7 @@ impl EvaluationManager {
             SelectedInputLane::ScriptedBaseline
         };
         let index = Index {
-            version: 1,
+            version: prepared.plan.protocol().selected_version(),
             run_id: run.into(),
             created: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -1339,8 +1366,11 @@ impl EvaluationManager {
                 input,
                 consent,
             } => Outcome::plain((|| {
+                let protocol = versioned::Protocol::from_source(source.protocol_version())
+                    .ok_or("NativeUnavailable")?;
                 let (origin, source_binding) = (*source).into_origin();
-                let plan = producer::prepare_selected(
+                let plan = versioned::Plan::prepare(
+                    protocol,
                     &origin,
                     &source_binding,
                     &source_reader::RowId {
@@ -1354,8 +1384,7 @@ impl EvaluationManager {
                     cancel,
                 )
                 .map_err(|error| failure(&error))?;
-                let metadata =
-                    producer::prepared_metadata(&plan).map_err(|error| failure(&error))?;
+                let metadata = plan.metadata().map_err(|error| failure(&error))?;
                 check(cancel, lease, epoch)?;
                 if !consent(&metadata).map_err(|error| failure(&error))? {
                     return Err("Cancelled".into());
@@ -1378,11 +1407,18 @@ impl EvaluationManager {
             } => Outcome::plain((|| {
                 dispose(discard);
                 let index = self.selected_index(&run_id)?;
+                let protocol =
+                    versioned::prepared_protocol(&index.prepared).ok_or("EvaluationIntegrity")?;
                 let (path, _pins) = self.selected_work_path(&run_id)?;
                 self.budget(Some(path.parent().ok_or("EvaluationIo")?))?;
-                let opened = shared::open_read_only(&path).map_err(|error| failure(&error))?;
-                let summary = shared::summary(&opened, true).map_err(|error| failure(&error))?;
-                if summary["selection"] != index.prepared["selection"]
+                let opened =
+                    versioned::Opened::open(protocol, &path).map_err(|error| failure(&error))?;
+                let summary = opened.summary().map_err(|error| failure(&error))?;
+                if summary["version"] != index.prepared["version"]
+                    || summary.get("source_protocol_version")
+                        != index.prepared.get("source_protocol_version")
+                    || summary.get("constructions") != index.prepared.get("constructions")
+                    || summary["selection"] != index.prepared["selection"]
                     || summary["lane"] != SelectedInputLane::parse(&index.lane)?.stored()
                     || summary["arms"].as_array().is_none_or(|arms| {
                         arms.len() != 2
@@ -1418,14 +1454,14 @@ impl EvaluationManager {
             } => {
                 let read = (|| {
                     let (key, body) = match kind {
-                        ReadKind::Summary => ("summary", shared::summary(&cap.opened, true)),
+                        ReadKind::Summary => ("summary", cap.opened.summary()),
                         ReadKind::Evidence(arm, request) => (
                             "evidence",
-                            shared::evidence(&cap.opened, &identity.binding, arm, request, true),
+                            cap.opened.evidence(&identity.binding, arm, request),
                         ),
                         ReadKind::Diagnostics(observer) => (
                             "diagnostics",
-                            shared::diagnostics(&cap.opened, &identity.binding, observer, true),
+                            cap.opened.diagnostics(&identity.binding, observer),
                         ),
                     };
                     let body = body.map_err(|error| failure(&error))?;
@@ -1453,19 +1489,18 @@ impl EvaluationManager {
                     Err(error) => return Outcome::plain(Err(error)),
                 };
                 let metadata = prepared.metadata.clone();
+                let protocol = prepared.plan.protocol();
                 let lane = match SelectedInputLane::parse(&index.lane) {
                     Ok(lane) => lane,
                     Err(error) => return Outcome::plain(Err(error)),
                 };
                 let result = match lane {
-                    SelectedInputLane::ScriptedBaseline => {
-                        match producer::run_selected(prepared.plan, &path, cancel) {
-                            Ok(_) => Ok(()),
-                            Err(error) => return Outcome::plain(Err(failure(&error))),
-                        }
-                    }
+                    SelectedInputLane::ScriptedBaseline => match prepared.plan.run(&path, cancel) {
+                        Ok(_) => Ok(()),
+                        Err(error) => return Outcome::plain(Err(failure(&error))),
+                    },
                     SelectedInputLane::ApprovedNative => {
-                        match producer::run_native_selected(prepared.plan, &path, cancel, || {
+                        match prepared.plan.run_native(&path, cancel, || {
                             self.selected_reserve(models, epoch, operation)
                         }) {
                             Ok(_) => Ok(()),
@@ -1475,8 +1510,9 @@ impl EvaluationManager {
                 };
                 Outcome::plain(result.and_then(|()| {
                     self.budget(Some(path.parent().ok_or("EvaluationIo")?))?;
-                    let cap = shared::open_read_only(&path).map_err(|error| failure(&error))?;
-                    let summary = shared::summary(&cap, true).map_err(|error| failure(&error))?;
+                    let cap = versioned::Opened::open(protocol, &path)
+                        .map_err(|error| failure(&error))?;
+                    let summary = cap.summary().map_err(|error| failure(&error))?;
                     let completed = summary["arms"]
                         .as_array()
                         .is_some_and(|arms| arms.iter().all(|arm| arm["available"] == true));
@@ -1497,11 +1533,16 @@ impl EvaluationManager {
             } => {
                 let ReadCap { opened, _grant } = *cap;
                 drop(opened);
+                let source_version = source.protocol_version();
                 let (origin, source_binding) = (*source).into_origin();
                 let setup = (|| {
                     let index = self.selected_index(&run_id)?;
+                    let protocol = versioned::prepared_protocol(&index.prepared)
+                        .ok_or("EvaluationIntegrity")?;
                     let (path, pins) = self.selected_work_path(&run_id)?;
-                    if index.source_binding != source_binding {
+                    if index.source_binding != source_binding
+                        || source_version != protocol.source_version()
+                    {
                         return Err("EvaluationSourceMismatch".into());
                     }
                     let lane = SelectedInputLane::parse(&index.lane)?;
@@ -1511,7 +1552,8 @@ impl EvaluationManager {
                     } else {
                         Arm::Right
                     };
-                    let plan = producer::prepare_selected(
+                    let plan = versioned::Plan::prepare(
+                        protocol,
                         &origin,
                         &source_binding,
                         &source_reader::RowId {
@@ -1528,8 +1570,7 @@ impl EvaluationManager {
                         cancel,
                     )
                     .map_err(|error| failure(&error))?;
-                    let fresh =
-                        producer::prepared_metadata(&plan).map_err(|error| failure(&error))?;
+                    let fresh = plan.metadata().map_err(|error| failure(&error))?;
                     if fresh != index.prepared {
                         return Err("EvaluationSourceMismatch".into());
                     }
@@ -1539,9 +1580,9 @@ impl EvaluationManager {
                         return Err("Cancelled".into());
                     }
                     check(cancel, lease, epoch)?;
-                    Ok((index, path, pins, lane, ExecutionGrant))
+                    Ok((index, path, pins, lane, protocol, ExecutionGrant))
                 })();
-                let (index, path, _pins, lane, _execution) = match setup {
+                let (index, path, _pins, lane, protocol, _execution) = match setup {
                     Ok(value) => value,
                     Err(error) => return Outcome::plain(Err(error)),
                 };
@@ -1552,13 +1593,14 @@ impl EvaluationManager {
                 match lane {
                     SelectedInputLane::ScriptedBaseline => {
                         if let Err(error) =
-                            producer::resume_selected(&path, &origin, binding, cancel)
+                            versioned::Plan::resume(protocol, &path, &origin, binding, cancel)
                         {
                             return Outcome::plain(Err(failure(&error)));
                         }
                     }
                     SelectedInputLane::ApprovedNative => {
-                        if let Err(error) = producer::resume_native_selected(
+                        if let Err(error) = versioned::Plan::resume_native(
+                            protocol,
                             &path,
                             &origin,
                             binding,
@@ -1571,9 +1613,9 @@ impl EvaluationManager {
                 }
                 Outcome::plain((|| {
                     self.budget(Some(path.parent().ok_or("EvaluationIo")?))?;
-                    let opened = shared::open_read_only(&path).map_err(|error| failure(&error))?;
-                    let summary =
-                        shared::summary(&opened, true).map_err(|error| failure(&error))?;
+                    let opened = versioned::Opened::open(protocol, &path)
+                        .map_err(|error| failure(&error))?;
+                    let summary = opened.summary().map_err(|error| failure(&error))?;
                     let completed = summary["arms"]
                         .as_array()
                         .is_some_and(|arms| arms.iter().all(|arm| arm["available"] == true));

@@ -724,6 +724,13 @@ function construction(
     );
     return o as ComparisonArmDescriptorV3;
 }
+// Shared closed transport tuple only; no policy, execution or inspection grant.
+export function checkedReaderConstruction(
+    v: unknown,
+    physicalArm?: unknown,
+): ComparisonArmDescriptorV3 {
+    return construction(v, physicalArm);
+}
 function turn(v: unknown, protocol: 2 | 3 = 2): void {
     const o = exact(
         v,

@@ -262,8 +262,10 @@ durable Store, with bounded scenes, cold inspection and resume. Its literal
 metrics remain separate from memory metrics. This CLI uses fake inference.
 The [trusted native Rust entry](../../docs/desktop/D07_LITERAL_NATIVE_OWNER_QUALIFICATION_2026-10-25.md)
 now has model-free ownership/cancellation/cleanup qualification using the
-existing resource port. Approved-model protocol3 execution and completed-native
-resume still need their real evidence. Native3 CLI, selected-case protocol3 and
+existing resource port. [Approved-model paired and rollout qualification](../../docs/desktop/D07_LITERAL_NATIVE_MODEL_QUALIFICATION_2026-10-25.md)
+now records 96 outcomes, 153 actual role calls, cold reads and zero-reservation
+completed-native resume using the desktop manager. Failures and 28 narration
+fallbacks remain visible; no human quality acceptance. Native3 CLI, selected-case protocol3 and
 desktop UI exposure remain unavailable.
 The existing app reader and selected-case controls retain their v2/selected1
 formats. The linked qualification gives exact commands, results and limitations.

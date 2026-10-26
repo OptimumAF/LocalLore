@@ -1130,6 +1130,8 @@ pub fn choose_model(owner: isize) -> Result<Option<PathBuf>, String> {
 }
 
 #[cfg(test)]
+mod literal_native_asset_tests;
+#[cfg(test)]
 mod owned_cleanup_tests;
 #[cfg(test)]
 mod selected_review_tests;

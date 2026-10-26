@@ -5,8 +5,9 @@ Scope: D07.04 / M07.01, with M06.04/.06 eligibility ownership.
 Status: **Native literal execution and Host durability are qualified with explicitly
 scripted providers. The linked slices cover source, renderer, execution/replay and
 native Host selection. Scripted protocol3 evaluation, strict cold report reads
-and resume are qualified in the linked producer record. UI exposure and
-real-model literal comparisons remain unqualified.**
+and resume are qualified in the linked producer record. Approved-model finite
+paired/rollout execution and completed-native resume are qualified separately.
+UI exposure and human story quality remain unqualified.**
 See [source API and qualification](D07_LITERAL_TRANSCRIPT_SOURCE_QUALIFICATION_2026-10-25.md).
 See [literal renderer and packing qualification](D07_LITERAL_DIRECTOR_RENDER_QUALIFICATION_2026-10-25.md).
 See [guarded native execution and replay qualification](D07_LITERAL_GUARDED_PLAY_QUALIFICATION_2026-10-25.md).
@@ -16,8 +17,11 @@ The latter adds a data-only contract and private input validator.
 See [scripted protocol3 producer, CLI and cold-read qualification](D07_LITERAL_COMPARISON_PRODUCER_QUALIFICATION_2026-10-25.md).
 It runs the actual literal/Relevant pair through the established owners.
 The [trusted native3 API ownership qualification](D07_LITERAL_NATIVE_OWNER_QUALIFICATION_2026-10-25.md)
-adds model-free preflight and actual protocol-child cleanup evidence; approved
-model execution, native3 CLI and selected/UI consumption remain unqualified.
+adds model-free preflight and actual protocol-child cleanup evidence.
+The [approved-model qualification](D07_LITERAL_NATIVE_MODEL_QUALIFICATION_2026-10-25.md)
+records 96 outcomes, 153 real roles and 3 loads, retaining failed expectations,
+dependency and narration fallback. Native3 CLI, selected/UI consumption and
+human quality remain unqualified.
 Design sections below
 preserve the original proposal; linked qualification records define the current
 implemented interfaces and their evidence classes.

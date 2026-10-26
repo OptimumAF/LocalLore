@@ -86,3 +86,54 @@ pub(super) fn start_runtime<R: SelectedNativeReservation>(
         error: result.err(),
     }
 }
+
+#[cfg(test)]
+mod pre_asset_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    struct Lease(AtomicUsize);
+    impl SelectedNativeReservation for Lease {
+        fn assets(&self) -> NativeAssets<'_> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            NativeAssets {
+                resource_dir: Path::new("MISSING-STARTUP-RESOURCE"),
+                model: Path::new("MISSING-STARTUP-MODEL"),
+            }
+        }
+        fn retain_uncertain(
+            &mut self,
+            owner: SharedRuntime,
+        ) -> std::result::Result<(), SharedRuntime> {
+            Err(owner)
+        }
+    }
+    #[test]
+    fn cancelled_shared_startup_never_inspects_assets() {
+        let lease = Lease(AtomicUsize::new(0));
+        let cancel = Cancellation::default();
+        cancel.cancel();
+        let value = start_runtime(
+            &lease,
+            &native_profile().unwrap(),
+            &cancel,
+            Instant::now() + Duration::from_secs(120),
+        );
+        assert!(value.runtime.is_none());
+        assert_eq!(lease.0.load(Ordering::SeqCst), 0);
+        assert_eq!(value.error.as_deref(), Some("Interrupted"));
+    }
+    #[test]
+    fn expired_shared_startup_never_inspects_assets() {
+        let lease = Lease(AtomicUsize::new(0));
+        let cancel = Cancellation::default();
+        let value = start_runtime(
+            &lease,
+            &native_profile().unwrap(),
+            &cancel,
+            Instant::now() - Duration::from_millis(1),
+        );
+        assert!(value.runtime.is_none());
+        assert_eq!(lease.0.load(Ordering::SeqCst), 0);
+        assert_eq!(value.error.as_deref(), Some("PreparationDeadline"));
+    }
+}

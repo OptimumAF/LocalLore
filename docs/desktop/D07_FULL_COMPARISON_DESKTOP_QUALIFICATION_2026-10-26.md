@@ -1,13 +1,15 @@
 # Full comparison desktop scripted slice: qualification draft
 
 Supporting **D07.06/.02/.04**, under [Root claim6422925411](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6422925411).
-This draft records completed, source-bound checks. **Actual hidden WebView and
-final aggregate qualification remain pending.** It awards no full D07 acceptance,
+This draft records completed, source-bound checks, including the first actual
+hidden WebView cohort. **Corrected-layout rerender and final aggregate
+qualification remain pending.** It awards no full D07 acceptance,
 human quality approval, native-model desktop qualification or release readiness.
 
 The [frozen contract](D07_FULL_COMPARISON_DESKTOP_CONTRACT_2026-10-26.md)
 started at `f77c36e2`, following accepted `1bb152f9`/PR209. Draft integration
-source is `7f7d870c295463b6788315ccadb7127a0d935ad6`; earlier checks below retain
+first-cohort source is `7f7d870c295463b6788315ccadb7127a0d935ad6`; layout correction
+is `381abe50374708e38a169798045343799d01eb47`. Earlier checks below retain
 their actual source attribution. Root executed the checks. This document's
 author read terminal records/logs only and performed no application execution.
 
@@ -58,6 +60,7 @@ No failed attempt above is silently replaced by its later success.
 | Closed native command parser | `7f7d870c295463b6788315ccadb7127a0d935ad6` | **8 passed,0 failed,0 ignored**,0.01s test time;30.62s compile. Process exit0, clean/unchanged source. |
 | Wired full frontend verifier | `7f7d870c295463b6788315ccadb7127a0d935ad6` | Exit0; strict TypeScript, request/schema checks, existing controller/headless suites and normal-frontend development-hook exclusions passed. Process clean/unchanged. No aggregate assertion count inferred. |
 | Earlier full frontend verifier | `c3b31e4af9f3403de18aa9595a393406c05d7c6e` | Exit0; retained separately, not additive evidence. |
+| Frontend after layout correction | `381abe50374708e38a169798045343799d01eb47` | Full verifier exit0,18.79s command wall time, reported by Root. This does not qualify the corrected native rendering. |
 
 The eleven native service cases comprise the original seven, one budget guard
 and three post-implementation managed-reader cases. They cover paired1→resume3,
@@ -73,6 +76,44 @@ Eight parser cases cover closed keys/actions, lowercase UUIDs, safe operations,
 integer1..4 batches,4096-byte encoded Value cap and refusal of renderer-selected
 provider/policy/path/consent. Parsing an already decoded Value does not prove
 duplicate-key rejection in arbitrary raw transport bytes.
+
+## First actual native WebView cohort and visible correction
+
+[Root's first-cohort evidence](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6424791401)
+is bound to clean/unchanged `7f7d870c`. The retained local cohort basename is
+`full-comparison-native-534bbe22-8e27-4acb-b378-b4f8abb667ef`.
+This ran the real app-owned controllers and native IPC in hidden, unfocused
+Windows WebView2 processes, using scripted fake inference and fixed native
+fixture controls. It did not capture or control the desktop.
+
+| Stage | Actual assertions | App-owned PNGs | Native outcome | Frontend error buffer |
+|---|---:|---:|---|---|
+| Initial process |182|14|Exit0; stderr0bytes; no timeout/output overflow|Exactly1 intentional lost-start-ACK `Transport`|
+| Fresh-process restart |63|4|Exit0; stderr0bytes; no timeout/output overflow|0|
+
+These are245 stage assertion entries and18 captures, not a claim of245 distinct
+assertions or18 distinct capture labels. Root individually viewed all18 PNGs.
+Actual journeys passed paired1→resume3, completed read-only resume, rollout4,
+independent managed consent/denial, Store Query2 observer isolation/early raw
+denial, unknown-ACK lookup/cancel, context retirement/drain/close and cold reopen.
+The intentional transport fault is retained; this is not a zero-frontend-error claim.
+
+Independent Node/native comparison-file inventories matched: **1,068 files,
+15,055,053 bytes**, with initial/restart maps unchanged and digest
+`360d6f68210e0b23898363904f1ceb762d01ace5b7f63058c6acc8bc46d37fa8`.
+This digest covers owned shared comparison files, not every process/artifact byte.
+Initial app stage ran18:46:36.191Z–18:56:30.241Z on2026-10-26 (**594.050s**);
+restart18:56:31.644Z–18:57:41.982Z (**70.338s**). These journey wall times include
+scripted work and inspection; they are not whole-turn/model latency qualification.
+
+Visual review found the Saved run placeholder clipped in a produced render
+despite correct empty semantic selection. This draft attributes neither a
+particular capture/catalog state nor an intrinsic cause to that observation.
+`381abe50` adds responsive Saved label/select sizing and a computed-font
+placeholder-fit assertion. It also strengthens launcher acceptance to minimum
+stage counts100/40 and exact required inventory-proof names: two initial and
+one restart. Functional success of the original cohort does not certify this
+correction's pixels. The corrected cohort is active and **PENDING** here.
 
 ## Reproduction
 
@@ -90,10 +131,28 @@ From `apps/desktop`:
 <NODE> verify-frontend.mjs
 ```
 
-`<NATIVE_TARGET>` is a task-owned existing directory, not a shared/protected
-checkout. `<NODE>` in the retained frontend process record is the bundled
-Node24.22.1 executable; no fresh version measurement was performed by this
-document author. Final source-bound environment versions remain pending below.
+For the closed app-owned launcher, from a clean checkout at the intended source:
+
+```powershell
+$env:LOCALLORE_D07_FULL_COMPARISON_ARTIFACT_ROOT = '<EXISTING_ABSOLUTE_TASK_ARTIFACT_ROOT>'
+$env:LOCALLORE_D07_FULL_COMPARISON_TARGET_DIR = '<EXISTING_ABSOLUTE_EXTERNAL_NATIVE_TARGET>'
+$env:TEMP = '<EXISTING_ABSOLUTE_OWNED_TEMP>'
+$env:TMP = $env:TEMP
+& '<NODE>' '.\apps\desktop\comparison-run-harness.mjs'
+```
+
+The launcher accepts **no CLI parameters**, requires Windows and ordinary
+existing absolute artifact/target directories, and refuses a build target
+inside the repository. It builds the frontend and native dev-harness with
+locked/offline, one-job settings, then owns only the hidden initial/restart
+processes and bounded output. Its fixed app watchdog is900,000ms and outer
+launcher watchdog960,000ms. Limits are bounds, not a cleanup/timing guarantee.
+Do not reuse protected or unrelated task directories for these placeholders.
+
+`<NATIVE_TARGET>` is task-owned. `<NODE>` in the retained frontend process record
+is the bundled Node24.22.1 executable. Root observed this turn's environment:
+Rust/cargo1.93.1, Node24.22.1, PowerShell7.6.5, WindowsNT10.0.26300. This author
+did not independently execute version queries or measure hardware/runtime builds.
 Native Rust test process records include exact arguments and timestamps; test
 durations above are not total command wall times or user-facing latency metrics.
 
@@ -101,19 +160,19 @@ durations above are not total command wall times or user-facing latency metrics.
 
 | Gate | Current disposition |
 |---|---|
-| Actual hidden/unfocused app-owned WebView journey, initial and fresh-process restart | **PENDING**; no terminal counts, source/artifact seal or pass inferred from the active launcher. |
-| Actual UI paired/resume/rollout, unknown ACK/recovery, independent reader/privacy and cold reopen | **PENDING** native IPC/controller journey evidence; Rust/mock results above do not replace it. |
-| Application-owned PNG/semantic captures and visual inspection of every produced image | **PENDING**; no image/layout claim in this draft. |
-| Bounded frontend/native error buffers, stderr, process exits/timeouts/truncation | **PENDING** for this actual application cohort; prior lifecycle findings are not current zero-error evidence. |
+| Actual hidden/unfocused app-owned WebView journey, initial and fresh-process restart | First cohort completed as above; corrected-layout cohort **PENDING**, no result inferred from its active launcher. |
+| Actual UI paired/resume/rollout, unknown ACK/recovery, independent reader/privacy and cold reopen | First cohort passed as attributed above; corrected source confirmation **PENDING**. Rust/mock evidence remains separately classified. |
+| Application-owned PNG/semantic captures and all-image visual inspection | Root viewed all18 first-cohort PNGs and found the Saved placeholder defect. Corrected rerender/all-image review **PENDING**. |
+| Bounded frontend/native errors, process exits/timeouts/truncation | First cohort: intentional1/0 frontend errors, native stderr0/0, both exit0/no timeout/overflow. Corrected cohort **PENDING**. |
 | Final native normal/development suites, strict lint and format | **PENDING** final candidate results; filtered11/8 results are not whole native suites. |
 | Final frontend/format and normal frontend/native production restoration | **PENDING** final source/artifact binding; earlier verifier success remains attributed above. |
 | Shared compatibility, Android Rust-host/dependency checks, any unavailable checks | **PENDING** final coordinator packet. No SDK/JVM/ABI/APK/device execution is claimed. |
-| Final source closure, artifact manifest/counts/hashes, environment versions and PR status | **PENDING**. No aggregate evidence seal or PR-ready declaration is made. |
+| Final source closure, artifact manifest/counts/hashes and PR status | **PENDING**. Observed environment is recorded above; no final aggregate evidence seal or PR-ready declaration is made. |
 
-The planned fixed launcher is `apps/desktop/comparison-run-harness.mjs`, using
-the existing development harness and native-only synthetic fixture surface.
-It is listed as a reproducer, **not as a completed run** in this draft. The user
-forbids desktop control: any future evidence must remain application-owned
+The fixed launcher uses the existing development harness and native-only
+synthetic fixture surface. Its first completed run is attributed above; the
+corrected source rerun remains pending. The user forbids desktop control:
+evidence must remain application-owned
 CapturePreview/semantic output, with no desktop screenshots, input injection,
 window activation or unrelated application automation.
 

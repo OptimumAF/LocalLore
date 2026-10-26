@@ -291,6 +291,14 @@ export async function comparisonReaderJourneys({
                 text.includes("Protocol 3 selected-case rerun unavailable"),
                 "actual-native-protocol3-rerun-unavailable",
             );
+            check(
+                document
+                    .querySelector("#selected-evaluation")
+                    ?.textContent?.includes(
+                        "Selected-case reruns are unavailable for this literal/relevant report",
+                    ),
+                "actual-native-selected-pane-explains-unavailable-source",
+            );
             const before = r.get().status!;
             let refusal = "";
             try {

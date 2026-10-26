@@ -29,14 +29,19 @@ fn snapshot(destination: &Destination) -> Result<ReadSnapshot> {
     let dir = &destination.dir;
     // Revalidate names/link constraints too; cooperative locks do not prove that
     // an unrelated filesystem writer left the originally opened files intact.
-    let _pins = pin_selected(dir)?;
+    let _pins = shared::pin_selected(dir)?;
     let manifest: SelectedManifest2 = decode(&dir.join("selected.json"), MANIFEST_CAP)?;
     manifest.validate()?;
     if manifest != destination.manifest {
         return Err("SnapshotMismatch".into());
     }
     let turns = validate_destination(dir, &manifest, None)?;
-    let report = report(dir, &manifest, &turns, &ledgers(dir, &manifest.binding)?)?;
+    let report = report(
+        dir,
+        &manifest,
+        &turns,
+        &shared::ledgers(dir, &manifest.binding)?,
+    )?;
     // Full Requests and diagnostic fields contribute only to a private digest;
     // they must never become an actor-facing summary through Serde.
     let accounting = accounting_seal(dir)?;

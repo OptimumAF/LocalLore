@@ -196,7 +196,7 @@ pub(in crate::local_lane::comparison) fn missing_evidence(
         | EvidenceRequest::Outputs { observer } => observer,
     };
     bounded_evidence(json!({"version":1,"binding":expected_binding,
-        "row":row,
+        "row":{"turn":row.turn,"arm":ARM_NAMES[usize::from(row.arm == Arm::Right)]},
         "scope":input.scope,
         "before_head":input.before_head,"after_head":null,
         "observer":observer,"edge":null,"read_only":true,"generation_grant":false,

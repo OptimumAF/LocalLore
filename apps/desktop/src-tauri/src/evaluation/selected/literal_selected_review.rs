@@ -57,8 +57,8 @@ fn actual_v3_prepare2_start_index2_and_observer_reads_preserve_canon_and_source(
         assert_eq!(f.manager.selected_evidence(&f.lease, &f.models, f.epoch, true, SelectedEvidenceInput { identity: identity.clone(), arm: Arm::Left, request: EvidenceRequest::Receipt { observer } }).unwrap_err(), "Forbidden");
     }
     let accepted = f.manager.selected_evidence(&f.lease, &f.models, f.epoch, true, SelectedEvidenceInput { identity: identity.clone(), arm: Arm::Left, request: EvidenceRequest::Receipt { observer: Observer::Omniscient } }).unwrap(); join(&f); assert_eq!(accepted["evidence"]["body"]["receipt"], serde_json::to_value(receipt).unwrap());
-    let diagnostics = f.manager.selected_diagnostics(&f.lease, &f.models, f.epoch, true, identity, Observer::Omniscient).unwrap(); join(&f); assert_eq!(diagnostics["diagnostics"]["version"], 2); assert_eq!(diagnostics["diagnostics"]["source_protocol_version"], 3); assert_eq!(diagnostics["diagnostics"]["rows"].as_array().unwrap().len(), 2);
-    drop(store); close(&f, &client); assert_eq!(inventory(path.parent().unwrap()), before); reacquire3(&source); assert_eq!(inventory(&source), source_before); assert!(f.models.cleanup_complete());
+    let diagnostics = f.manager.selected_diagnostics(&f.lease, &f.models, f.epoch, true, identity.clone(), Observer::Omniscient).unwrap(); join(&f); assert_eq!(diagnostics["diagnostics"]["version"], 2); assert_eq!(diagnostics["diagnostics"]["source_protocol_version"], 3); assert_eq!(diagnostics["diagnostics"]["rows"].as_array().unwrap().len(), 2);
+    drop(store); close(&f, &client); assert_eq!(f.manager.selected_summary(&f.lease, &f.models, f.epoch, true, identity).unwrap_err(), "UnknownEvaluationRun"); assert_eq!(inventory(path.parent().unwrap()), before); reacquire3(&source); assert_eq!(inventory(&source), source_before); assert!(f.models.cleanup_complete());
 }
 
 #[test]

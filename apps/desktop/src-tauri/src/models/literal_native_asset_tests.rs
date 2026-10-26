@@ -337,3 +337,5 @@ fn approved_literal_first_scene_returns_drained_before_helper() {
     assert!(report.turns.iter().any(|row| row.roles > 0));
     assert!(manager.cleanup_complete());
 }
+
+mod selected_v2_assets;

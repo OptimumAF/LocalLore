@@ -1,7 +1,7 @@
-# Selected2 desktop consumer: qualification draft
+# Selected2 desktop consumer: app cohort evidence
 
-Scope: D07.03/.04/.06 supporting work under #29. **Partial evidence draft at
-`fb0ef042`; corrected app rerun and final regression gates remain pending.**
+Scope: D07.03/.04/.06 supporting work under #29. **Corrected literal and legacy
+app cohorts completed at `6a195f85`; final regression gates remain pending.**
 All execution results below are coordinator-provided Root evidence. The document
 author inspected tracked source only and ran no test, build, application or model,
 and read no generated artifacts, private prompts or images.
@@ -135,8 +135,8 @@ these findings or qualify the later corrections.
 
 `592e865b` adds the conservative attempted-token/fresh-source presentation fence.
 `fda87fc7` adds focused literal/Relevant proof captures, an explicit fresh-source
-completed UI resume journey and the header CSS correction. Their corrected app
-cohort is **PENDING**. The first cohort must not be relabeled as that rerun.
+completed UI resume journey and the header CSS correction. The completed corrected
+cohort at `6a195f85` is recorded below. The first cohort is not that rerun.
 
 The first corrected attempt at `fb0ef042` did execute completed fresh-source
 resume and both focused proof captures, but failed later: the selected harness's
@@ -151,7 +151,53 @@ The launcher had already been extended to900s while the app watchdog remained
 and960s launcher bound to permit bounded shutdown. This applies only to the
 multi-journey development harness. Product turn, consent, cancellation, resource
 ownership and cleanup deadlines are unchanged; these times are not latency
-acceptance criteria. The complete corrected cohort must run again.
+acceptance criteria. The completed corrected rerun below retains this failed
+attempt as its own earlier evidence.
+
+## Corrected literal and legacy app cohorts
+
+Root reports both completed cohorts at immutable source `6a195f85`. They use the
+actual controllers, native IPC and hidden/unfocused app-owned WebView2 captures,
+with scripted fake inference and fixed picker/consent doubles throughout.
+
+| Literal protocol3/selected2 stage | Recorded checks | CapturePreview PNGs | App elapsed |
+|---|---:|---:|---:|
+| Initial process |252|27|733.468s|
+| Restart process |261|28|684.905s|
+
+The corrected literal cohort has513 recorded check entries and55 images, not513
+distinct tests. It covers the added focused proof captures and explicit completed
+UI resume after a fresh source selection. Root inspected all55 images and found
+no further visible defects within the captured areas. The626 source fixture
+files remain identical to this cohort's baseline after each stage. Each stage
+records exactly one deliberately lost acknowledgement as a Transport buffer
+error; no unexpected frontend-buffer error is reported.
+
+The unchanged default protocol2/selected1 route was exercised separately at the
+same source, not inferred from the literal cohort:
+
+| Legacy protocol2/selected1 stage | Recorded checks | CapturePreview PNGs | App elapsed |
+|---|---:|---:|---:|
+| Initial process |207|23|709.229s|
+| Restart process |215|24|621.422s|
+
+This legacy cohort has422 recorded check entries and47 images. Root inspected
+all47; its626 source fixture files remain identical to its own baseline after
+each stage. Each stage records one deliberate Transport buffer error. These
+scripted native UI results do not qualify native-model UI execution or story
+quality. Neither cohort's elapsed time is a product performance threshold.
+
+Each of these four app processes still emits the115-byte SDK1412
+class-unregistration diagnostic. It is separate from the controlled frontend
+error buffer and remains unresolved under D09 #31. Root also reports a late,
+profile-scoped observation of zero matching WebView processes at16:25:10UTC.
+That point-in-time process observation is not proof of controller destruction
+order, clean SDK teardown, absence of transient windows or a universal no-leak
+property. Passing app journeys/exit codes do not resolve the1412 diagnostic.
+
+These corrected and legacy results do not replace the original49-image cohort
+or the failed watchdog attempt. Final source-bound regression/normal-restoration
+results and artifact hashes are still awaiting the coordinator's terminal packet.
 
 ## Reproduce with existing dependencies
 
@@ -181,6 +227,8 @@ node verify-frontend.mjs
 $env:LOCALLORE_D07_SELECTED_ARTIFACT_ROOT='<artifact-root>'
 $env:LOCALLORE_D07_SELECTED_TARGET_DIR=$taskNativeTarget
 node selected-evaluation-harness.mjs --literal
+# Separately, the default protocol2/selected1 route creates its own cohort:
+node selected-evaluation-harness.mjs
 ```
 
 The harness accepts only the closed `--literal` switch, builds the harness
@@ -203,14 +251,12 @@ These are existing dependencies, not downloads or an upgrade performed here.
 
 ## Pending coordinator completion
 
-- Corrected app cohort after the header/proof captures and fresh-source resume
-  change: **PENDING**; append exact source, counts, image review and artifact pins.
 - Final source-bound Rust regressions and native formatting: **PENDING**.
 - Final Android Rust host tests/dependency-graph exclusion: **PENDING**; this is
   not a pending Android device/JNI/ABI qualification claim.
 - Final normal build/frontend/format/artifact restoration: **PENDING**.
-- Exact terminal cohort/log/hash references and any stderr accounting not supplied
-  in the coordinator brief: **PENDING Root evidence append**, not inferred here.
+- Exact terminal cohort/log/hash and final artifact inventory references:
+  **PENDING Root evidence append**, not inferred here.
 
 UI real-model execution, real OS dialogs, mid-provider process death, paused
 incomplete UI resume, human story quality, whole-app RAM/performance and phone
@@ -219,4 +265,4 @@ separate; the shared full-comparison native Rust producer already has its own
 qualification. This packet neither revokes that evidence nor claims its UI gate.
 Raw logs, generated images, workspaces and private diagnostic content remain
 local/ignored. No D07 checkbox, epic closure, publication or human acceptance is
-awarded by this draft. Root owns final evidence reconciliation and integration.
+awarded by this record. Root owns final evidence reconciliation and integration.

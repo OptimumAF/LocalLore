@@ -1,5 +1,6 @@
 //! Versioned isolated reruns of actual protocol3 inputs.
 //! Native execution requires its trusted reservation; no desktop IPC grant.
+pub mod desktop_read;
 use super::*;
 use crate::local_lane::comparison::{desktop_api as shared_read, selected as shared};
 use shared::{SelectedIntent, SelectedLane, Selection, SourceInput, MANIFEST_CAP};

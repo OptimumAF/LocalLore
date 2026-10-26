@@ -4,7 +4,7 @@ mod budget_review_tests;
 #[cfg(test)]
 mod review_tests;
 use super::super::desktop_api::{
-    bounded_evidence, check_access, render_evidence, Arm, EvidenceRequest,
+    bounded_evidence, check_access, render_evidence, Arm, EvidenceRequest, RowId,
 };
 use super::*;
 use locallore::inspection_query::{self, Observer, Query, MAX_ROWS};
@@ -19,7 +19,7 @@ pub struct OpenedSelected {
 
 // A report's aggregate charges cannot detect offsetting settlement changes.
 // Seal the actual bounded ledger/setup files too, without exposing their bytes.
-fn accounting_seal(dir: &Path) -> Result<Value> {
+pub(in crate::local_lane::comparison) fn accounting_seal(dir: &Path) -> Result<Value> {
     let mut records = Vec::new();
     for arm in ARM_NAMES {
         for (prefix, cap) in [("invocation", 32), ("admission", MAX_ADMISSIONS)] {
@@ -143,14 +143,34 @@ pub fn evidence(
     if let Some(turn) = &turns[index] {
         return render_evidence(&arm_dir, &path, turn, expected_binding, request);
     }
+    missing_evidence(
+        &path,
+        &manifest.source_inputs[index],
+        &RowId {
+            turn: manifest.selection.turn.clone(),
+            arm,
+        },
+        expected_binding,
+        request,
+    )
+}
+
+// Shared unchanged missing-checkpoint Query2 transport; caller checks native grant first.
+pub(in crate::local_lane::comparison) fn missing_evidence(
+    path: &Path,
+    input: &SourceInput,
+    row: &RowId,
+    expected_binding: &str,
+    request: EvidenceRequest,
+) -> Result<Value> {
+    check_access(&request, true)?;
     // A committed Store can survive a lost checkpoint. Do not invent workflow
     // success, receipt/capture availability, or unknown historical measurements.
     // Validate an actor lens on the actual before Engine when it is available.
     let observer = match request {
         EvidenceRequest::Query { observer, view, .. } => {
             if path.exists() {
-                let input = &manifest.source_inputs[index];
-                let full = engine(&path, &input.scope)?;
+                let full = engine(path, &input.scope)?;
                 let before = full.at_revision(input.before_head).map_err(|_| "Replay")?;
                 inspection_query::query(
                     &before,
@@ -176,9 +196,9 @@ pub fn evidence(
         | EvidenceRequest::Outputs { observer } => observer,
     };
     bounded_evidence(json!({"version":1,"binding":expected_binding,
-        "row":{"turn":manifest.selection.turn,"arm":ARM_NAMES[index]},
-        "scope":manifest.source_inputs[index].scope,
-        "before_head":manifest.source_inputs[index].before_head,"after_head":null,
+        "row":row,
+        "scope":input.scope,
+        "before_head":input.before_head,"after_head":null,
         "observer":observer,"edge":null,"read_only":true,"generation_grant":false,
         "body":{"kind":"missing","reason":"checkpoint_unavailable"}}))
 }

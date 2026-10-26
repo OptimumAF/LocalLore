@@ -45,6 +45,11 @@ input_lane:"scripted_baseline",runs:[RunMetadata],max_new_scenes:4}`.
 RunMetadata exact keys: `run_id`, `client_id`, `comparison_kind`, `initial_batch`,
 `created_ms` (safe nonnegative integer), `protocol_version:3`,
 `input_lane:"scripted_baseline"`. Catalog lists metadata, not verified report facts.
+Catalog has at most32 rows and64KiB encoded JSON; status is at most32KiB,
+requests4096 bytes. Identity fields `client_id/run_id/run_token` are nonnullable
+UUIDs even in retained/closed status. A close response's old token is revoked,
+not a continuing access grant. No decoder may infer that report readiness,
+completion and current-source matching are equivalent.
 
 Status exact envelope: `version:1`, `kind:"comparison_run"`, `protocol_version:3`,
 `input_lane:"scripted_baseline"`, `client_id`, `run_id`, `run_token`,

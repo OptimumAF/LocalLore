@@ -313,7 +313,7 @@ fn cold_lookup_open_new_epoch_and_catalog_are_read_only_with_old_token_fenced() 
 #[test]
 fn permission_invalid_identifiers_and_scene_limits_refuse_without_files_or_jobs() {
     let f = Fixture::new();
-    let before = inventory(&f.manager.root.parent().unwrap());
+    let before = inventory(f.manager.root.parent().unwrap());
     let client = uuid().unwrap();
     refusal(
         f.manager.full_comparison_catalog(&f.lease, f.epoch, false),
@@ -350,7 +350,7 @@ fn permission_invalid_identifiers_and_scene_limits_refuse_without_files_or_jobs(
             "InvalidEvaluationInput",
         );
     }
-    assert!(inventory(&f.manager.root.parent().unwrap()) == before);
+    assert!(inventory(f.manager.root.parent().unwrap()) == before);
     assert!(f.manager.cleanup_complete());
 }
 

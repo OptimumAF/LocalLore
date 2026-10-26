@@ -322,7 +322,7 @@ Native-model UI execution, real OS dialogs and selected-case paused/incomplete
 UI resume remain unqualified.
 
 Story Lab also provides **Run full comparison** for the fixed scripted fake
-inference lane. Choose paired snapshots or separate-arm rollout, then1..4 new
+inference lane. Choose paired snapshots or separate-arm rollout, then 1–4 new
 scenes per chunk. Resume is explicit; lookup, status and saved-run opening never
 start inference. Saved output is durable; window capabilities and progress
 presentation are in memory. **Inspect report** asks for separate native read

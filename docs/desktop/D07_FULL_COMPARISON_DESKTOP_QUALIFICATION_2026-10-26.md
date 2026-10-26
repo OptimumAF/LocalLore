@@ -1,9 +1,9 @@
-# Full comparison desktop scripted slice: qualification draft
+# Full comparison desktop scripted slice: qualification
 
 Supporting **D07.06/.02/.04**, under [Root claim6422925411](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6422925411).
-This draft records completed, source-bound checks, including both actual
-hidden WebView cohorts. **Final native/compatibility/build qualification remains
-pending.** It awards no full D07 acceptance,
+This record supports [PR211](https://github.com/OptimumAF/LocalLore/pull/211)
+with completed, source-bound checks, including both actual hidden WebView cohorts
+and final native/compatibility/build verification. It awards no full D07 acceptance,
 human quality approval, native-model desktop qualification or release readiness.
 
 The [frozen contract](D07_FULL_COMPARISON_DESKTOP_CONTRACT_2026-10-26.md)
@@ -47,6 +47,7 @@ the existing reader's actual Query2 observer filtering and raw-evidence guards.
 | First frontend checker | `6986a65d`; `d07-full-comparison-fe-first1.log` | **54/54 passed**, but its mock parsed query strings and masked the native object's required wire shape. Not native wire-conformance evidence. |
 | Strengthened frontend boundary | `6fad061b`; `d07-full-comparison-fe-wire-red1.log` | **47/56 passed,9 failed**. Checker now requires a nonnull/nonarray object and includes a positive actual-controller dispatch case. Original54 assertions retained. |
 | Object-forwarding fix | `8bb22d96`, checked at `4a00f5b8`; `d07-full-comparison-fe-wire-green1.log` | **56/56 passed**. Controller sends the object; native parsing was not relaxed to accept strings. |
+| First strict native lint | `6ba283a8`; `d07-full-comparison-native-clippy1.log` | Exit101: two needless-borrow warnings in test-only review fixtures. Removed only those borrows at `7e628ded`; assertions and application behavior unchanged. Rerun passed. |
 
 The frontend cases use synthetic transport, actual controller code and React
 static HTML. They are not native IPC, WebView rendering or model evidence.
@@ -199,7 +200,57 @@ did not independently execute version queries or measure hardware/runtime builds
 Native Rust test process records include exact arguments and timestamps; test
 durations above are not total command wall times or user-facing latency metrics.
 
-## Pending final qualification — coordinator completion required
+## Final local qualification and source closure
+
+All final commands below ran on clean, unchanged
+`7e628deda0f69a182d7c8b97f56de0f8e5e487f9`, tree
+`acc73237dfce1c8e45333b3dae7b59909167160c`, with locked/offline dependencies,
+one Cargo build job and serial Rust tests. Source-bound process records retain
+the exact arguments, timestamps, exit status and clean/unchanged proof.
+
+| Final check | Result |
+|---|---|
+| Unfiltered native all-features suite |209 passed,0 failed,5 ignored;1322.01s test time,33.73s compile. Both standalone harness-contract tests also passed. |
+| Strict native all-features/all-targets Clippy |Pass, warnings denied;6.73s. |
+| Full frontend verifier |Pass;22.325s command wall time. Strict TypeScript, current controller/schema suites, normal frontend build and test-hook exclusion including the new full-comparison markers. No aggregate assertion count inferred. |
+| Whole frontend Prettier / Rust workspace format |Both pass. |
+| Android Rust host library |20 passed,0 failed,0 ignored;1.80s test time. |
+| Android normal/build/dev dependency graph |Pass; no local-runtime, llama, LiteRT, Tauri, WebView or Wry matches. This is graph/host evidence, not an Android build/device run. |
+| Normal native desktop build after normal frontend restoration |Pass;24.04s compile,24.209s command wall time. The restored normal executable was not launched. |
+
+The five ignored tests are four explicit approved-asset native-model experiments
+and one Windows symlink-privilege test. They were not run or counted as passes.
+Earlier separate shared native-model qualification is not reclassified as this
+scripted desktop cohort. No JVM/Gradle/SDK/ABI/APK/emulator/physical-phone cohort
+or new model/asset download was performed.
+
+Normal unlaunched executable SHA256:
+`5926787a8a59120531d3c8bd4c8a18f30ded173fe724ad6ecbd5da833e4ee43f`.
+Restored normal frontend SHA256:
+`8c063930b9e9ac223168df51686fc8fe4270bfcd43c7869db5ebd223546a2c08`.
+These are artifact identities, not reproducible-build or normal-render execution
+claims. Existing pinned dependencies include React/react-dom19.3.1,
+TypeScript7.0.2, esbuild0.28.2, Prettier3.9.10 and Tauri2.12.5.
+
+The local seal `d07-full-comparison-qualified-evidence-seal1.json` binds all eight
+final process records,48 retained local evidence files, both native cohort
+qualification/report hashes and normal artifact hashes. Its SHA256 is
+`f75a8541435f92e40efa8ea6559a49f3b07a7506415693854757fff2321db01a`.
+Visual manifests identify every image and reviewer: first-cohort manifest SHA256
+`4d555db718f9b5a1a33c1c3dbfdcb1385d54e770759958f4441a958a1978581a`;
+corrected manifest SHA256
+`3f90348b3effd9b8303dcc955c4be9c64ebdd6ab899121623936aaef34ee4eda`.
+All artifacts remain local and ignored. Byte-identical review copies add no
+independent rendering evidence.
+
+Since actual UI source381abe50, the checked candidate changes only this evidence
+document, the desktop README, the normal hook-exclusion scanner and two redundant
+test borrows. Production Rust/frontend action and render code are unchanged.
+Subsequent finalization must remain documentation-only and is verified by diff;
+it is not a claim that every command ran at the final documentation commit.
+Merge acceptance and fresh exact-final-head GitGuardian success are tracked in
+PR211 and ticket29. The owner's review override does not substitute for these
+checks, change repository settings or fabricate an approval.
 
 | Gate | Current disposition |
 |---|---|
@@ -207,10 +258,10 @@ durations above are not total command wall times or user-facing latency metrics.
 | Actual UI paired/resume/rollout, unknown ACK/recovery, independent reader/privacy and cold reopen | Both cohorts passed as attributed above. Rust/mock evidence remains separately classified. |
 | Application-owned PNG/semantic captures and all-image visual inspection | All36 images across both cohorts inspected; first defect retained and corrected rerender verified within captured areas. |
 | Bounded frontend/native errors, process exits/timeouts/truncation | Each cohort: intentional1/0 frontend errors, native stderr0/0, both exit0/no timeout/overflow. |
-| Final native normal/development suites, strict lint and format | **PENDING** final candidate results; filtered11/8 results are not whole native suites. |
-| Final frontend/format and normal frontend/native production restoration | **PENDING** final source/artifact binding; earlier verifier success remains attributed above. |
-| Shared compatibility, Android Rust-host/dependency checks, any unavailable checks | **PENDING** final coordinator packet. No SDK/JVM/ABI/APK/device execution is claimed. |
-| Final source closure, artifact manifest/counts/hashes and PR status | **PENDING**. Observed environment is recorded above; no final aggregate evidence seal or PR-ready declaration is made. |
+| Final native suite, strict lint/format and normal build |Passed as attributed above; normal executable compile only, not normal native rendering. |
+| Final frontend/format and normal frontend/native restoration |Passed, with artifact hashes and normal hook exclusion above. |
+| Shared compatibility, Android Rust-host/dependency checks, unavailable checks |20 host tests and graph passed; excluded model/privilege/device checks explicitly listed above. |
+| Final source closure, artifact manifest/counts/hashes and PR status |Local gate passed at7e628ded; subsequent docs-only diff and final-head security/merge remain PR workflow facts. |
 
 The fixed launcher uses the existing development harness and native-only
 synthetic fixture surface. Both completed runs are attributed above. The user forbids desktop control:
@@ -222,8 +273,8 @@ window activation or unrelated application automation.
 
 Logs/process records are private, gitignored under `<TASK_ARTIFACTS>`; no raw
 story, model path or machine-specific absolute directory is published here.
-The following hashes identify the terminal logs read for this draft. They are
-not a final whole-cohort manifest and exclude all active application logs.
+The following hashes identify the earlier terminal logs retained for this record.
+The final seal above also binds the completed application and final-check records.
 
 | Log basename | SHA256 |
 |---|---|
@@ -243,5 +294,7 @@ Scripted reports preserve real outcomes and do not establish prose quality,
 human enjoyment, fair model superiority, offline/whole-RAM/performance behavior
 or phone parity. No downloaded assets, provider selection escape, canonical
 rewrite, competing persistence or automatic inference on inspection is authorized.
-The next gate is the pending final native/compatibility/build packet, followed by
-coordinator review of this document's final source-bound additions.
+The next runnable implementation is the separately scoped ordinary-desktop native
+full-comparison adapter on the accepted shared runner and existing model owner,
+after this focused PR is eligible. Whole D07, human quality and other desktop
+epic gates remain unchecked until their own actual acceptance criteria are met.

@@ -371,7 +371,10 @@ impl EvaluationManager {
     ) -> Result<Value> {
         authorize(lease, epoch, granted)?;
         batch(max_new_scenes)?;
-        let id = lease.dispatch(epoch, || Self::token(&mut self.state()?, epoch, token))?;
+        let id = lease.dispatch(epoch, || {
+            let mut parent = self.state()?;
+            Self::token(&mut parent, epoch, token)
+        })?;
         self.full_comparison_catalog(lease, epoch, granted)?;
         self.full_launch(lease, epoch, Some((id, max_new_scenes)), None, Work::Resume)
     }
@@ -466,7 +469,7 @@ impl EvaluationManager {
                 continue;
             }
             self.budget(None)?;
-            let (id, token, operation, cancel, index, initial) = lease.dispatch(epoch, || {
+            let (id, _token, operation, cancel, index, initial) = lease.dispatch(epoch, || {
                 let mut parent = self.state()?;
                 if parent.job.is_some() {
                     return Err("EvaluationBusy".into());

@@ -1,5 +1,173 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
-// Frozen source-only parser oracles precede command implementation.
+//! Closed scripted full-comparison IPC. Native code owns paths and authority.
+use crate::{
+    evaluation::{EvaluationManager, FullComparisonStart},
+    WorkspaceState,
+};
+use locallore_eval::local_lane::comparison::ComparisonKind as CoreComparisonKind;
+use serde_json::Value;
+use std::sync::Arc;
+
+type Result<T> = std::result::Result<T, String>;
+const MAX_QUERY_BYTES: usize = 4096;
+const MAX_SAFE_OPERATION: u64 = 9_007_199_254_740_991;
+
+enum Action {
+    Catalog,
+    Start(FullComparisonStart),
+    Lookup(String),
+    Open(String),
+    Status(String),
+    Resume(String, usize),
+    Cancel(String, u64),
+    Close(String),
+}
+
+fn invalid<T>() -> Result<T> {
+    Err("InvalidEvaluationInput".into())
+}
+
+fn keys(value: &Value, expected: &[&str]) -> Result<()> {
+    let object = value.as_object().ok_or("InvalidEvaluationInput")?;
+    if object.len() != expected.len()
+        || object.keys().any(|key| !expected.contains(&key.as_str()))
+    {
+        return invalid();
+    }
+    Ok(())
+}
+
+fn guid(value: &Value) -> Result<String> {
+    let id = value.as_str().ok_or("InvalidEvaluationInput")?;
+    if id.len() != 36
+        || !id.bytes().enumerate().all(|(index, byte)| {
+            if [8, 13, 18, 23].contains(&index) {
+                byte == b'-'
+            } else {
+                byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)
+            }
+        })
+    {
+        return invalid();
+    }
+    Ok(id.into())
+}
+
+fn batch(value: &Value) -> Result<usize> {
+    match value.as_u64() {
+        Some(value @ 1..=4) => Ok(value as usize),
+        _ => invalid(),
+    }
+}
+
+fn parse(action: &str, query: &Value) -> Result<Action> {
+    // The transport supplies a parsed Value. This bounds its actual compact
+    // UTF-8 encoding; it cannot detect duplicate raw keys already overwritten.
+    if serde_json::to_vec(query)
+        .map_err(|_| "InvalidEvaluationInput")?
+        .len()
+        > MAX_QUERY_BYTES
+    {
+        return invalid();
+    }
+    match action {
+        "catalog" => {
+            keys(query, &[])?;
+            Ok(Action::Catalog)
+        }
+        "start" => {
+            keys(query, &["clientId", "comparisonKind", "batch"])?;
+            let kind = match query["comparisonKind"].as_str() {
+                Some("paired") => CoreComparisonKind::PairedSnapshots,
+                Some("rollout") => CoreComparisonKind::ContinuousRollout,
+                _ => return invalid(),
+            };
+            Ok(Action::Start(FullComparisonStart {
+                client_id: guid(&query["clientId"])?,
+                kind,
+                max_new_scenes: batch(&query["batch"])?,
+            }))
+        }
+        "lookup" => {
+            keys(query, &["clientId"])?;
+            Ok(Action::Lookup(guid(&query["clientId"])?))
+        }
+        "open" => {
+            keys(query, &["runId"])?;
+            Ok(Action::Open(guid(&query["runId"])?))
+        }
+        "status" | "close" => {
+            keys(query, &["runToken"])?;
+            let token = guid(&query["runToken"])?;
+            Ok(if action == "status" {
+                Action::Status(token)
+            } else {
+                Action::Close(token)
+            })
+        }
+        "resume" => {
+            keys(query, &["runToken", "batch"])?;
+            Ok(Action::Resume(guid(&query["runToken"])?, batch(&query["batch"])?))
+        }
+        "cancel" => {
+            keys(query, &["runToken", "operationId"])?;
+            let operation = query["operationId"]
+                .as_u64()
+                .filter(|value| (1..=MAX_SAFE_OPERATION).contains(value))
+                .ok_or("InvalidEvaluationInput")?;
+            Ok(Action::Cancel(guid(&query["runToken"])?, operation))
+        }
+        _ => invalid(),
+    }
+}
+
+#[tauri::command]
+pub async fn evaluation_comparison_run(
+    window: tauri::WebviewWindow,
+    workspace: tauri::State<'_, WorkspaceState>,
+    manager: tauri::State<'_, Arc<EvaluationManager>>,
+    action: String,
+    query: Value,
+) -> Result<Value> {
+    let action = parse(&action, &query)?;
+    let epoch = workspace
+        .lease
+        .capture(window.label())
+        .map_err(str::to_owned)?;
+    let lease = workspace.lease.clone();
+    let manager = manager.inner().clone();
+    // Capability cleanup cannot read reports and remains possible after the
+    // Host is unavailable or Story Lab permission has been revoked.
+    if let Action::Close(token) = action {
+        return tauri::async_runtime::spawn_blocking(move || {
+            manager.full_comparison_close(&lease, epoch, false, &token)
+        })
+        .await
+        .map_err(|_| "EvaluationInternal".to_owned())?;
+    }
+    let host = workspace.get(epoch).await?;
+    let granted = host.story_lab_granted();
+    if !granted {
+        return Err("Forbidden".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || match action {
+        Action::Catalog => manager.full_comparison_catalog(&lease, epoch, granted),
+        Action::Start(input) => manager.full_comparison_start(&lease, epoch, granted, input),
+        Action::Lookup(client) => manager.full_comparison_lookup(&lease, epoch, granted, &client),
+        Action::Open(run) => manager.full_comparison_open(&lease, epoch, granted, &run),
+        Action::Status(token) => manager.full_comparison_status(&lease, epoch, granted, &token),
+        Action::Resume(token, batch) => {
+            manager.full_comparison_resume(&lease, epoch, granted, &token, batch)
+        }
+        Action::Cancel(token, operation) => {
+            manager.full_comparison_cancel(&lease, epoch, granted, &token, operation)
+        }
+        Action::Close(_) => Err("EvaluationInternal".into()),
+    })
+    .await
+    .map_err(|_| "EvaluationInternal".to_owned())?
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

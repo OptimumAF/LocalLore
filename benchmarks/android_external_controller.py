@@ -54,6 +54,9 @@ def write_bytes(path, raw):
 def bindings(request):
     files = [Path(request[key]) for key in ("build", "gate", "running", "proposal", "server", "powershell")]
     files.append(Path(request["sdk"]) / "platform-tools/adb.exe")
+    for path in files:
+        cap = 64 * 1024 ** 2 if path in (Path(request["powershell"]), files[-1]) else 4 * 1024 ** 2
+        require(0 < environment.safe_path(path).stat().st_size <= cap, "input_bounds")
     return [environment.binding(path) for path in files]
 
 
@@ -89,7 +92,14 @@ def qualified_gate(path, build_path):
     before = driver.bound_json(value["sources_before"], out / "sources-before-v1.json")
     after = driver.bound_json(value["sources_after"], out / "sources-after-v1.json")
     require(before == after == driver.source_map(), "gate_source_drift")
-    driver.validate_component_record(driver.bound_json(value["components"], out / "components-v1.json"), out)
+    components = driver.bound_json(value["components"], out / "components-v1.json")
+    driver.validate_component_record(components, out)
+    copies = {}
+    for index, name in enumerate(driver.CLASSES):
+        path = environment.safe_path(out / (name + ".stdout.raw"))
+        require(0 < path.stat().st_size <= 262144, "gate_raw_bounds")
+        copies["instrument-" + str(index)] = path.read_bytes()
+    validate_clients(out, components["clients"], copies)
     owner_output(out, value["owner"], "worker_completed")
     return request
 
@@ -114,6 +124,7 @@ class Session:
             raw = self.capture.capture([str(sdk / "platform-tools/adb.exe"), "-H", "127.0.0.1", "-P", "5037",
                                         "devices", "-l"], "devices")
             self.capture.check_server()
+            self.check()
             rows = [line for line in raw.decode("utf-8").splitlines() if line.split()[:2] == ["emulator-5592", "device"]]
             require(len(rows) <= 1, "ambiguous_target")
             if rows:
@@ -278,8 +289,10 @@ def known_owner(value):
 
 
 def owner_output(out, owner, line=WORKER_LINE):
-    raw = (out / "owner-stdout-v1.bin").read_bytes()
-    error = (out / "owner-stderr-v1.bin").read_bytes()
+    stdout = environment.safe_path(out / "owner-stdout-v1.bin")
+    stderr = environment.safe_path(out / "owner-stderr-v1.bin")
+    require(stdout.stat().st_size == owner["stdout_bytes"] <= 262144 and stderr.stat().st_size == owner["stderr_bytes"] == 0, "owner_output")
+    raw, error = stdout.read_bytes(), stderr.read_bytes()
     require(len(raw) == owner["stdout_bytes"] and len(error) == owner["stderr_bytes"] == 0
             and raw in ((line + "\n").encode(), (line + "\r\n").encode()), "owner_output")
 
@@ -296,13 +309,33 @@ def same_json(left, right):
 
 def check_processes(session, uids):
     raw = session.shell(["ps", "-A", "-o", "PID,UID,NAME"], "processes")
-    lines = raw.decode("utf-8").splitlines()
+    rows = process_rows(raw)
+    for _pid, uid, name in rows:
+        require(uid not in uids.values() and not any(name == p or name.startswith(p + ":") for p in driver.PACKAGES), "process_present")
+
+
+def process_rows(raw):
+    require(type(raw) is bytes and 0 < len(raw) <= 131072, "process_shape")
+    text = raw.decode("utf-8").replace("\r\n", "\n")
+    require("\r" not in text and text.endswith("\n"), "process_shape")
+    lines = text.split("\n")[:-1]
     require(lines and lines[0].split() == ["PID", "UID", "NAME"], "process_shape")
+    rows = []
     for line in lines[1:]:
         row = line.split(maxsplit=2)
         require(len(row) == 3 and re.fullmatch(r"[1-9][0-9]*", row[0]) and re.fullmatch(r"[0-9]+", row[1]), "process_shape")
         require(0 < int(row[0]) <= 2**31 - 1 and 0 <= int(row[1]) <= 2**31 - 1, "process_shape")
-        require(int(row[1]) not in uids.values() and not any(row[2] == p or row[2].startswith(p + ":") for p in driver.PACKAGES), "process_present")
+        rows.append((int(row[0]), int(row[1]), row[2]))
+    require(len({pid for pid, _uid, _name in rows}) == len(rows), "process_duplicate")
+    return rows
+
+
+def validate_postflight(raw, proof, uids):
+    rows = process_rows(raw)
+    wanted = (proof["observations"][2]["pid"], uids[driver.APP], driver.APP)
+    require([row for row in rows if row[1] == uids[driver.APP]] == [wanted], "product_process_changed")
+    require(not any(row[0] in {o["pid"] for o in proof["observations"][:2]} for row in rows), "old_process_present")
+    require(not any(row != wanted and (row[2] == driver.APP or row[2].startswith(driver.APP + ":")) for row in rows), "product_alias")
 
 
 def reuse_installation(request, gate):
@@ -339,51 +372,55 @@ def worker(request, out):
     session.user_zero()
     raw = session.adb(controller_operation(request, expected), "controller", 180, 4160)
     write_bytes(out / "controller.stdout.raw", raw)
-    proof = validate_controller_result(raw, expected)
-    environment.create_json(out / "proof-v1.json", proof)
+    # All following reads are fixed, authorized diagnostics. A clean capture
+    # with an invalid/failed controller frame must not strand partial evidence
+    # on the guest. Any SDK/lease/source failure still stops immediately.
     record_bindings, records = {}, {}
     for leaf in ("created", "saved", "commands"):
         path = "no_backup/process-verify-v1/" + request["run_id"] + "/" + leaf + ".json"
         records[leaf] = collect_blob(session, out, leaf, driver.APP, uids[driver.APP], path, 4096)
-        require(records[leaf] is not None, "product_missing")
         record_bindings[leaf] = environment.binding(out / (leaf + ".raw"))
-    validate_product_records(proof, records, expected)
     fixture_root = "no_backup/" + FIXTURE_DIRS[request["case"]]
     fixture = collect_blob(session, out, "fixture", driver.CONTROL, uids[driver.CONTROL], fixture_root + "/fixture-v1.json", 4096)
-    require(fixture is not None and same_json(driver.strict_json_bytes(fixture, 4096), proof["fixture"]), "fixture_changed")
     helpers, transports, sidecars = {}, {}, {}
     helper_bindings, transport_bindings, sidecar_bindings = {}, {}, {}
     if request["case"] in RETIRED:
         root = fixture_root + "/helpers-" + request["run_id"]
         for mode in ("load", "probe", "retire"):
             helpers[mode] = collect_blob(session, out, "helper-" + mode, driver.CONTROL, uids[driver.CONTROL], root + "/" + mode + "-v1.json", 4096)
-            require(helpers[mode] is not None, "helper_missing")
             transports[mode] = collect_blob(session, out, "transport-" + mode, driver.CONTROL, uids[driver.CONTROL], root + "/" + mode + "-transport-v1.bin", 4160)
-            require(transports[mode] is not None, "transport_missing")
             helper_bindings[mode] = environment.binding(out / ("helper-" + mode + ".raw"))
             transport_bindings[mode] = environment.binding(out / ("transport-" + mode + ".raw"))
-        helper_transports(helpers, transports)
         if request["case"] == CASES[3]:
             for leaf in SIDECARS:
                 label = "sidecar-" + leaf[:-5]
                 sidecars[leaf] = collect_blob(session, out, label, driver.APP, uids[driver.APP],
                     "no_backup/retained-parent-selection-fixture-v1/" + request["run_id"] + "/" + leaf, 262144)
-                require(sidecars[leaf] is not None, "sidecar_missing")
                 sidecar_bindings[leaf] = environment.binding(out / (label + ".raw"))
-            require(sum(map(len, sidecars.values())) <= 1048576, "sidecar_total")
-        validate_retirement(proof, helpers, sidecars, expected)
-    pid = session.shell(["pidof", driver.APP], "final-product-pid", cap=1024)
-    write_bytes(out / "final-product-pid.raw", pid)
-    require(pid.strip() == str(proof["observations"][2]["pid"]).encode(), "product_pid_changed")
+    postflight = session.shell(["ps", "-A", "-o", "PID,UID,NAME"], "postflight-processes")
+    write_bytes(out / "postflight-processes.raw", postflight)
     session.check()
     session.capture.check_server()
     require(session.capture.clean is True, "clients_unknown")
+    session.check()
+    proof = validate_controller_result(raw, expected)
+    environment.create_json(out / "proof-v1.json", proof)
+    require(all(value is not None for value in records.values()) and fixture is not None
+            and all(value is not None for value in (*helpers.values(), *transports.values(), *sidecars.values())), "evidence_missing")
+    validate_product_records(proof, records, expected)
+    require(same_json(driver.strict_json_bytes(fixture, 4096), proof["fixture"]), "fixture_changed")
+    if request["case"] in RETIRED:
+        helper_transports(helpers, transports)
+        require(sum(map(len, sidecars.values())) <= 1048576, "sidecar_total")
+        validate_retirement(proof, helpers, sidecars, expected)
+    validate_postflight(postflight, proof, uids)
+    session.check()
     environment.create_json(out / "external-v1.json", {"version": 1, "case": request["case"], "run_id": request["run_id"],
         "expected": expected, "uids": uids, "clients": session.capture.count, "clients_clean": True, "reused_installation": reuse,
         "claim": environment.binding(claim), "controller": environment.binding(out / "controller.stdout.raw"),
         "proof": environment.binding(out / "proof-v1.json"), "records": record_bindings,
         "fixture": environment.binding(out / "fixture.raw"), "helpers": helper_bindings, "transports": transport_bindings,
-        "sidecars": sidecar_bindings, "final_product_pid": environment.binding(out / "final-product-pid.raw")})
+        "sidecars": sidecar_bindings, "postflight": environment.binding(out / "postflight-processes.raw")})
 
 
 def bound_bytes(binding, path, cap):
@@ -425,7 +462,7 @@ def validate_execution(request, out):
     gate = qualified_gate(request["gate"], request["build"])
     record = environment.read_json(out / "external-v1.json")
     require(type(record) is dict and set(record) == {"version", "case", "run_id", "expected", "uids", "clients", "clients_clean", "reused_installation",
-            "claim", "controller", "proof", "records", "fixture", "helpers", "transports", "sidecars", "final_product_pid"}, "external_shape")
+            "claim", "controller", "proof", "records", "fixture", "helpers", "transports", "sidecars", "postflight"}, "external_shape")
     require(type(record["version"]) is int and record["version"] == 1 and record["case"] == request["case"]
             and record["run_id"] == request["run_id"] and record["clients_clean"] is True
             and record["reused_installation"] is reuse_installation(request, gate), "external_identity")
@@ -457,9 +494,9 @@ def validate_execution(request, out):
     if modes:
         helper_transports(helpers, transports)
         validate_retirement(proof, helpers, sidecars, expected)
-    pid = bound_bytes(record["final_product_pid"], out / "final-product-pid.raw", 1024)
-    require(pid.strip() == str(proof["observations"][2]["pid"]).encode(), "product_pid_changed")
-    copies = {"controller": raw, "read-fixture": fixture, "final-product-pid": pid,
+    postflight = bound_bytes(record["postflight"], out / "postflight-processes.raw", 131072)
+    validate_postflight(postflight, proof, uids)
+    copies = {"controller": raw, "read-fixture": fixture, "postflight-processes": postflight,
               **{"read-" + k: v for k, v in records.items()}, **{"read-helper-" + k: v for k, v in helpers.items()},
               **{"read-transport-" + k: v for k, v in transports.items()}, **{"read-sidecar-" + k[:-5]: v for k, v in sidecars.items()}}
     validate_clients(out, record["clients"], copies)
@@ -472,6 +509,7 @@ def supervise(request):
             and re.fullmatch(r"[0-9a-f]{16}", request["run_id"]), "case_or_nonce")
     out = driver.output_path(request["out"])
     out.mkdir()
+    request = dict(request, out=str(out))
     before = driver.source_map()
     environment.create_json(out / "sources-before-v1.json", before)
     request = dict(request, inputs=bindings(request), sources=environment.binding(out / "sources-before-v1.json"), driver_sha256=environment.digest(Path(__file__)))
@@ -496,6 +534,8 @@ def supervise(request):
             record["sources_after"] = environment.binding(out / "sources-after-v1.json")
             require(before == after, "source_drift")
             validate_execution(request, out)
+            admit(request)
+            require(driver.source_map() == before, "source_drift")
             record.update(passed=True, external=environment.binding(out / "external-v1.json"))
         except Exception:
             record["validation_refused"] = True
@@ -512,7 +552,7 @@ def main(argv=None):
         require(len(parts) == 3 and parts[2] == "" and "\r" not in parts[0] and re.fullmatch(r"[0-9a-f]{64}", parts[1]), "barrier_shape")
         path = environment.safe_path(parts[0])
         request = environment.read_bound_json(path, parts[1])
-        require(path.name == "request-v1.json" and str(path.parent) == request["out"], "request_path")
+        require(path.name == "request-v1.json" and path.parent == Path(request["out"]), "request_path")
         admit(request)
         worker(request, path.parent)
         admit(request)

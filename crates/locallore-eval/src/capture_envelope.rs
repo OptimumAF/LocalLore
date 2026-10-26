@@ -4,7 +4,7 @@ use crate::{digest, encode, Capture, Result};
 use locallore::{contracts::Request, engine::Engine, play::PlayProfile};
 use serde_json::{json, Value};
 
-pub(crate) const MAX_PRIVATE_CAPTURE: usize = 196_608;
+pub const MAX_PRIVATE_CAPTURE: usize = 196_608;
 
 pub(crate) fn artifacts<'a>(
     before: &Engine,

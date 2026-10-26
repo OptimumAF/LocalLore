@@ -216,8 +216,7 @@ impl CapturedLiteralContext {
             )?;
             let recording = &captures[index];
             // Check ordered multiplicity, not merely membership in the same set.
-            if checked.recording != recording
-                || recording.version != 1
+            if !std::ptr::eq(checked.recording, recording)
                 || recording.compiler_version.is_some()
                 || recording.player_text_sha256.is_some()
             {

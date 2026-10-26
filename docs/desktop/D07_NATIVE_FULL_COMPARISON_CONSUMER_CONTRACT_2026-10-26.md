@@ -290,7 +290,9 @@ both use the frozen `{clientId,runId}` query. Returned reader wireV1 then uses
 the existing `evaluation_comparison` status/source/summary/evidence/close paths.
 Execution tokens are never reader tokens and completion never auto-opens a
 private report. App's Inspect callback captures mode/controller/context/run
-identity before awaiting reader close and rechecks it afterward. It must not
+identity AND the separate reader context, allowed state and observer before
+awaiting reader close and rechecks them afterward. An observer/lens retirement
+must not be bypassed by re-admitting from an older held callback. It must not
 read a new active mode and route an old native run through scripted managed.
 Held reader replies remain fenced by the existing context/lens/request epochs;
 actor raw refusal precedes dispatch, and observer changes clear private bodies
@@ -464,7 +466,12 @@ wire bounds and fields come from the frozen service contract, including the two
 additional phases `awaiting_confirmation` and `cleanup_required`.
 
 Keep `ComparisonRunView({controller, onInspect})` and its `(runId:string)`
-callback intact. Add `ComparisonRunCleanupView({controller})` in the same view
+callback intact. Add optional `admissionAllowed:()=>boolean`, defaulttrue,
+as a presentation guard supplied by App from BOTH stable controllers. Recheck
+it at render and immediately in retained Start/Resume handlers; it neither
+grants native authority nor disables metadata/close/cleanup recovery. Do not
+use execution eligibility/context mutation to implement this guard.
+Add `ComparisonRunCleanupView({controller})` in the same view
 module; it renders only for the native instance and remains usable outside Lab.
 The native run section ID is `comparison-run-native`; the existing scripted
 section keeps `comparison-run`. App retains optional `comparisonRun` and adds

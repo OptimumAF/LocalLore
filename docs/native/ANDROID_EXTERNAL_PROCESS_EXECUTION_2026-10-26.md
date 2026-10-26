@@ -219,10 +219,21 @@ match SHA-256
 `c4d397ed48c4672cb9f3efcc2e10743fa9f675e587849daacfeda3990a80b5db`.
 No active-cohort files, images, databases, models or caches were selected.
 
+The current-source active-child control also passed123 checks/two deaths,
+96 clean clients and independent original-record readback. Host owner458,469ms,
+worker0, cleanup/capture known, stderr0. Its create-only fixture retains the
+historical A0/B0 roots and B1/child1 setup; explicit child Send reaches child2
+without changing B1. Both old terminal saved/command vectors are exact: first
+free_text1/submit0/prepare1/commit1/cancel0/other2, then the same single explicit
+Send with other0. Final child restoration does no automatic gameplay/create.
+All756 inputs remain9cf2b017... . The owned guest closed after clients were
+terminal: stop_requested1,058,118ms/worker1, cleanup/capture/closure true,
+guest flush false, emulator stderr1,079 bytes.
+
 ## Pending execution gates
 
-At this checkpoint the fresh active-child control is running. Retired-leaf
-control and the separate89-method broad Android regression remain pending.
+At this checkpoint the fresh retired-leaf control is running. The separate
+89-method broad Android regression remains pending.
 Earlier50989ca2 results remain historical source-attributed records; the current
 source has separate fresh runtime qualification above. Phone/ARM64 and real-model qualification are
 separate gates; no result follows from fake-provider or emulator checks.

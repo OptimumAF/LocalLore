@@ -400,6 +400,9 @@ pub fn harness_finish(
     }
     state.write("report.json", &bytes)?;
     println!("D02_NATIVE_HARNESS {}", if pass { "PASS" } else { "FAIL" });
+    // The standalone artifact-contract test compiles this module without app
+    // managers. Actual dev applications compile and exercise this fixed hook.
+    #[cfg(not(test))]
     if pass && crate::shutdown_harness::finish(&app, &window) {
         return Ok(());
     }

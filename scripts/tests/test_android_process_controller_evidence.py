@@ -142,6 +142,23 @@ class ControllerEvidenceTests(unittest.TestCase):
         proof, expected = original()
         self.assertEqual(evidence.validate_controller_result(frame(proof), expected), proof)
 
+    def test_read_only_command_after_save_preserves_terminal_gameplay(self):
+        # The synchronized producer has one sequence shared by all three files.
+        # A read-only native call may write commands.json after onSaveInstanceState.
+        for case in CASES:
+            with self.subTest(case=case):
+                proof, expected = original(case)
+                for terminal in proof["terminal_observations"]:
+                    terminal["commands_sequence"] = terminal["saved_sequence"] + 1
+                self.assertEqual(evidence.validate_controller_result(frame(proof), expected), proof)
+                evidence.validate_product_records(proof, product_records(proof), expected)
+                terminal = proof["terminal_observations"][0]
+                terminal["commands_sequence"] = terminal["saved_sequence"]
+                self.refused(frame(proof), expected)
+                terminal["commands_sequence"] += 1
+                terminal["commands_game"]["cancel"] += 1
+                self.refused(frame(proof), expected)
+
     def test_quiet_exact_frame_rejects_duplicate_unknown_error_and_trailing_frames(self):
         proof, expected = original()
         raw = frame(proof)

@@ -219,7 +219,10 @@ def _proof(proof, expected):
             _int(terminal[key], observation[key], observation[key])
         _int(terminal["commands_sequence"], 1, 65536)
         _int(terminal["saved_sequence"], 1, 65536)
-        _need(terminal["commands_sequence"] < terminal["saved_sequence"])
+        # One synchronized counter assigns a distinct sequence to every write.
+        # A read-only command can finish after the after-super save; gameplay
+        # equality below, rather than file write order, rules out automatic work.
+        _need(terminal["commands_sequence"] != terminal["saved_sequence"])
         _game(terminal["saved_game"], vector)
         _game(terminal["commands_game"], vector)
     if case in CASES[2:]:

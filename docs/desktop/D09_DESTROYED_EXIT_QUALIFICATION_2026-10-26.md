@@ -1,10 +1,10 @@
 # Observed window destruction before exit: bounded qualification
 
 Scope: D09.03/.06/.07 supporting work under #31. Source-bound baseline and
-corrected native lifecycle results are recorded below; final regression gates
-remain pending. Corrected-image QA is complete. This is not full D09 acceptance.
-Root supplied all execution facts. The document author read tracked source only,
-ran no checks/application/model and read no generated artifacts or images.
+corrected native lifecycle results and final regression gates are recorded below.
+This is not full D09 acceptance. Root executed checks and reconciled this final
+record; the independent document author read source only. The independent visual
+reviewer inspected generated synthetic images without running an application.
 
 ## Finding and implementation boundary
 
@@ -144,10 +144,10 @@ node shutdown-harness.mjs zero --baseline
 
 Do not use baseline expectations on corrected source, weaken the corrected
 order assertion or relabel the old cohort. After a harness run, restore normal
-frontend/native output without `dev-harness`; Root's final restoration record
-is pending below. The build is not evidence that the normal app was launched.
+frontend/native output without `dev-harness`; the final restoration record is
+below. The build is not evidence that the normal app was launched.
 
-## Pending coordinator evidence and limits
+## Final source-bound checks and retained failures
 
 The first final all-feature native test command at `f1fe1e3c` failed to compile
 with `E0433` before any tests ran. The standalone `tests/harness_contract.rs`
@@ -162,13 +162,83 @@ then rejected the now-unused app-only `finish` function in the binary test build
 The next source adds the matching `cfg(not(test))` to its definition. This removes
 the unused test helper rather than suppressing lint; actual development apps
 retain the same hook. Lifecycle/normal-app behavior and test assertions are
-unchanged. Follow-up focused tests, strict lint and remaining gates are pending.
+unchanged. The follow-up checks below completed at clean
+`dc6c3f3b8d616c2be7a18535a295a350f389fd17`; subsequent changes only documentation.
+The full suite remains attributed to18c, actual native cases to f1, and final
+focused/lint/build results to dc6. These complementary executions are not one
+unfiltered full-suite run on the final documentation commit.
 
-- Final source-bound strict Clippy, focused tests and formatting: **PENDING**.
-- Full frontend checks and normal frontend/native build restoration:
-  **PENDING**.
-- Android Rust host tests/dependency graph and final artifact/source/log hashes:
-  **PENDING**. No Android device, ABI/JVM or emulator check is implied.
+| Gate at dc6c3f3b | Actual result |
+|---|---|
+| All CloseGate tests |20 passed/0 failed; subset of the earlier full suite |
+| Standalone harness contract |2 passed/0 failed in0.01s |
+| Strict native all-feature/all-target Clippy |PASS,11.68s compiler time |
+| Cargo formatting and whole frontend Prettier |PASS |
+| Full `verify-frontend.mjs` |PASS: strict TypeScript, controllers/decoders and normal development-hook exclusion |
+| Android Rust host |20 passed/0 failed/0 ignored in1.89s |
+| Android dependency graph |PASS; no desktop local-runtime/evaluation/Tauri/Wry/llama dependency |
+| Normal frontend/native build restoration |PASS; native compile23.60s, normal executable not launched |
+
+All final commands used locked/offline dependencies, jobs1 and terminal clean,
+unchanged source checks. Local evidence prefixes: `d09-destroyed-frozen-red1`,
+`d09-destroyed-first-green1`, `d09-destroyed-final1`, `...final2`, `...final3`.
+Four model tests and the Windows symlink-privilege test were explicitly ignored
+in the full native suite. No Android JVM, JNI/ABI, emulator or device run occurred.
+
+Exact native commands from repository root, using an external `$taskNativeTarget`:
+
+```powershell
+cargo test --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --jobs 1 --target-dir $taskNativeTarget -- --nocapture --test-threads=1
+# Final focused rerun after the matching test-only guard:
+cargo test --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --jobs 1 --target-dir $taskNativeTarget --bin locallore-desktop-spike close_gate:: -- --nocapture --test-threads=1
+cargo test --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --jobs 1 --target-dir $taskNativeTarget --test harness_contract -- --nocapture --test-threads=1
+cargo clippy --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --all-targets --jobs 1 --target-dir $taskNativeTarget -- -D warnings
+cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all -- --check
+cargo test --locked --offline --manifest-path crates/locallore-android/Cargo.toml --jobs 1 --target-dir $taskNativeTarget --lib -- --nocapture --test-threads=1
+cargo tree --locked --offline --manifest-path crates/locallore-android/Cargo.toml --edges normal,build,dev --prefix none
+```
+
+From `apps/desktop`: `node node_modules/prettier/bin/prettier.cjs --check 'ui/*.{ts,tsx,html,css}' '*.{json,mjs}'`
+and `node verify-frontend.mjs`. Restore with `node build.mjs` and a native
+`cargo build --locked --offline --jobs 1 --manifest-path apps/desktop/src-tauri/Cargo.toml --target-dir $taskNativeTarget`
+from repository root. These are source-controlled entrypoints; external local
+orchestrators captured the terminal command/source records.
+
+Environment: Windows NT10.0.26300 x64, PowerShell7.6.5, Rust/Cargo1.93.1,
+Node24.22.1, React/react-dom19.3.1, TypeScript7.0.2, esbuild0.28.2,
+Prettier3.9.10, Tauri2.12.5, Wry0.57.0 and Tao0.37.1. Lockfiles are authoritative;
+no dependency/model download or upgrade occurred. Installed WebView patch version
+was not separately measured by this packet.
+
+### Local artifact identification
+
+Native cohort suffixes under the local artifact root are baseline
+`shutdown-zero-166d3a61-2d9d-4ea9-ac87-2cbcd29745d2`, corrected zero
+`shutdown-zero-5ad40c6a-875f-445b-b5aa-1913200b4cb6`, seven
+`shutdown-seven-5a77cc94-95b7-4b14-afc1-a8a1d02ad666`, window
+`shutdown-window-e6940902-8692-4126-86c4-92be20d37b94`.
+
+| Local qualification.json | SHA256 |
+|---|---|
+| Baseline |`7cee782ad03fc8c0bc5de26b5029fe02da6a5fb6496af3d236327cde9eee6198`|
+| Corrected zero |`971b22ce0e67af7efdb9b3b3bc7252a86f67c6fe22c17e9122bfe53e78ef12f5`|
+| Corrected seven |`534507ba596d1ee3c89b2c9a515eb7a8eab8c4d22cbc3adef5bf450fbf074238`|
+| Corrected window |`b1c51550e353ab3d7f4ab64ffb682ed26f856e4c9a8a38512b268a44694b1fdc`|
+
+The corrected stderr SHA256 is identical across cases:
+`66c94918ecdee43a9ce5bfcaea6655fba60bb0343d86dbebb32ba202db89db77`.
+Each native build has its own executable hash in its qualification record; no
+byte reproducibility is inferred from an unchanged source revision.
+
+Source-only follow-up located the exact PostMessage text in both Wry0.57's
+WebView dispatcher and Tao0.37.1's event-loop dispatcher. `harness_reopen` destroys
+its window before its IPC response returns, which is a plausible explanation,
+not a measured cause. A future bounded control can compare otherwise equivalent
+runs with and without intermediate reopen, retaining fixed native stage markers.
+No current reverse lock order was found: future callbacks must not acquire the
+CloseGate mutex while holding a WindowLease dispatch lock.
+
+## Remaining limits
 
 The record covers the fixed app-owned window lifecycle and existing cleanup
 coordination. Actual active-model shutdown, arbitrary OS failures, whole-app

@@ -64,7 +64,7 @@ export class ComparisonRunController {
     private call(action: Action, query: Record<string, unknown>): Promise<unknown> {
         const encoded = JSON.stringify(query);
         if (new TextEncoder().encode(encoded).length > 4096) return Promise.reject(Error("ComparisonRunWire"));
-        return this.invoke("evaluation_comparison_run", { action, query: encoded });
+        return this.invoke("evaluation_comparison_run", { action, query });
     }
     private owner(client: string | null, runId: string | null = null): Owner {
         return { client, runId, token: null, kind: null, initialBatch: null, operation: null, sent: false, inFlight: 0, retired: false, releasing: null };

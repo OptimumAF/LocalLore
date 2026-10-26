@@ -21,6 +21,12 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [retained archive chooser packet](docs/native/ANDROID_RETAINED_ARCHIVE_VERIFICATION_2026-10-26.md)
+fixes stale Import/Export/Open consent and adds original retained-parent archive
+round-trip/refusal tests. Integrated host/JVM/lint/build checks pass; actual
+chooser execution is blocked on host commit capacity. It remains distinct from
+earlier emulator results and physical-phone/model qualification.
+
 The [retained-parent deletion UI qualification](docs/native/ANDROID_RETAINED_PARENT_UI_VERIFICATION_2026-10-26.md)
 passes real Compose Cancel, explicit native deletion preserving a child's
 original history, and stale-preview refusal after an independent parent turn.

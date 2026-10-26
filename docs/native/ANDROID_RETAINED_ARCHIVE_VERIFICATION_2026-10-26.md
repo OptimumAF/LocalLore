@@ -139,9 +139,11 @@ An independent stream read confirms its bytes/hash; it did not repeat Git
 verification. Original human build/cache folders remain untouched.
 
 Both selected unrelated emulator native identities were observed live and
-unchanged before this packet; the existing server is pinned without starting
-or replacing it. Final postflight remains required. No unrelated emulator stop,
-global ADB lifecycle, settings change, merge or release occurred.
+unchanged before and after this packet. The existing server pin also matches
+at final postflight, without starting or replacing it. Both failed preparations
+are terminal with known child cleanup/closure and no prepared/running receipt.
+No unrelated emulator stop, global ADB lifecycle, settings change, merge or
+release occurred.
 
 No phone/model/thermal/performance, saved-task OS-death, joined app-adapter drain,
 forensic-erasure or full hidden-world equality claim follows. Eligible native

@@ -33,6 +33,31 @@ not a reservation against external changes. Environment ADB-server overrides
 are refused by the CLI. Private serial, transport, process and UID metadata
 stay in private evidence, not public reports.
 
+There is no hardcoded user home or installed-SDK path. At an explicit entry
+point, the host requires `ANDROID_HOME` or `ANDROID_SDK_ROOT`; if both are set,
+their canonical directories must agree. PowerShell is derived solely from the
+explicit `SystemRoot` directory. Missing, conflicting, relative or nonexistent
+configuration refuses before any tool/device call. Both tool paths and file
+hashes are bound into the proposal and discovery record; a worker with changed
+configuration refuses instead of selecting a replacement. SDK/tool resolution
+does not run at module import. Source/artifact/tool files and their ancestors
+must be regular directories/files without symlink or Windows reparse aliases.
+Hash reads are capped at the observed size plus one byte, with path/held-FD
+identity, size and modification metadata checked before/after; this is detection,
+not a filesystem reservation.
+
+The host requires exact `am get-current-user` output for user zero in fresh
+observations and immediately before target-changing commands. Package paths,
+install, instrumentation, force-stop and run-as explicitly select user zero;
+no user switch is attempted. The fixed syntax follows AOSP
+[run-as](https://raw.githubusercontent.com/aosp-mirror/platform_system_core/master/run-as/run-as.cpp),
+[am instrumentation](https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/master/cmds/am/src/com/android/commands/am/Am.java),
+[activity-manager commands](https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/master/services/core/java/com/android/server/am/ActivityManagerShellCommand.java)
+and [package-manager commands](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/services/core/java/com/android/server/pm/PackageManagerShellCommand.java).
+In particular `run-as PACKAGE --user 0 sh -c ...` keeps the package before the
+user option. A sampled foreground-user check is not a reservation; explicit
+user-zero arguments prevent later default-user ambiguity.
+
 The pinned model remains2,588,147,712 bytes / SHA256
 `181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c`.
 The original precheck fixture is65 bytes / SHA256
@@ -56,7 +81,8 @@ and protocol. A grant cannot supply alternate selectors or a transport script.
 
 The proposal has exactly `version`, `scope`, `phase`, `identity_path`,
 `identity_sha256`, `discovery_path`, `discovery_sha256`, `adb_sha256`,
-`powershell_sha256`, `apk_paths`, `bindings`, `source`, `prior`, `evidence_root`.
+`powershell_sha256`, `adb_path`, `powershell_path`, `apk_paths`, `bindings`,
+`source`, `prior`, `evidence_root`.
 Scope is `physical_model_probe_v1`; phase is `precheck` or `model`.
 Source is exactly a path/bytes/SHA256 record for the fixed fixture or model.
 Bindings associate absolute source/artifact paths with expected SHA256 values;
@@ -102,7 +128,11 @@ The stream worker revalidates the grant and exact parent process creation,
 one-shot parent/facts hashes, current server/transport/fingerprint and pinned
 source metadata. It hashes through a held unbuffered descriptor in at most1MiB
 blocks, bounds the read to expected length, rewinds, and passes that same FD
-directly to fixed binary `exec-in` stdin. Pre/post path and FD identity agree.
+directly to fixed binary `exec-in` stdin. After hashing and before the client,
+it repeats full current phone observations: exact APK/UID/package baseline,
+process absence, user zero, identity, memory total and fresh initial memory,
+shared two-copy capacity, power and thermal gates. Any intervening drift refuses
+before the first source byte is dispatched. Pre/post path and FD identity agree.
 No shell transport fallback is allowed. Client zero and full host cursor are
 never destination/import authority: the six-field summary explicitly says
 remote exit is unknown and destination unverified. The actual IMPORT proof
@@ -158,6 +188,13 @@ before the unchanged strict runner gate and cannot qualify a failed method or
 authorize the next phase. JUnit exit zero alone is insufficient. The new family
 does not rewrite emulator selectors, APK identity or proof grammar.
 
+Child exit zero alone cannot complete the host run. The outer adapter requires
+an exact closed worker summary, matching retained cohort result, correct phase/
+method/install counts and known cleanup. It replays every expected raw runner,
+typed proof, prior/process/story/receipt link and SHA-bound worker sidecar before
+returning zero. An empty object, stopped/wrong-phase result or mismatched
+retained proof refuses using host evidence only, without new device calls.
+
 ## Host verification and remaining gates
 
 Run the sole targeted unit module through an owned bounded Python child:
@@ -167,7 +204,7 @@ OS process identity and all hardware operations are mocked by default. Tests
 use original tiny files and model-size metadata, never actual weights. Retain
 failed test attempts and fix the actual issue before reporting a pass.
 
-The author's final targeted run passed26 methods in0.689s, owned1075ms,
+The initial implementation's targeted run passed26 methods in0.689s, owned1075ms,
 child0/known Job cleanup/zero stderr;5439B retained stdout SHA256
 `fc9b73fd4e68be975cdd9423e4348de3802da36dd94c533cf9617ddd9f9816d9`.
 Source hashes matched before/after. The first21-case run had one test-oracle
@@ -176,6 +213,13 @@ argument); original output is retained. The corrected24-case run passed; the
 25/26-case runs added parent/source closure, legacy-UID aliases and refusal of
 relative APK/evidence paths that might become a command-option surface.
 These are mocked host tests, not Android or physical model results.
+
+The reviewed path/user/pretransfer/completion follow-up passes35 methods
+in1.299s, owned1693ms, child0/known cleanup/zero stderr. Its7286B stdout SHA256 is
+`3fc23ae33bf4bbec9eba0fb1a1621c41ea956547beb5e58f7c3ab971b66b0852`;
+tested source hashes match before/after. The intermediate33-case run also
+passed before bounded stable-hash and inert-import regressions were added.
+No actual SDK, ADB, phone, model or memory API was invoked in these tests.
 
 Root still must build/audit the new physical profile, pin exact APK bytes,
 check actual current phone presence and resources, review/admit the proposal,

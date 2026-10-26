@@ -96,9 +96,13 @@ class PhysicalProbeTests(unittest.TestCase):
         self.host=self.enterContext(patch.object(p.q.host,'run_process',side_effect=AssertionError('UNMOCKED_CLIENT')))
         self.supervisor=self.enterContext(patch.object(p.environment,'supervise',side_effect=AssertionError('UNMOCKED_SUPERVISOR')))
         self.os_identity=self.enterContext(patch.object(p.environment,'process_identity',side_effect=AssertionError('UNMOCKED_OS_IDENTITY')))
-        self.adb=self.root/'adb.exe';self.adb.write_bytes(b'adb')
-        self.ps=self.root/'powershell.exe';self.ps.write_bytes(b'ps')
-        self.enterContext(patch.object(p,'ADB',self.adb));self.enterContext(patch.object(p,'POWERSHELL',self.ps))
+        self.sdk=self.root/'sdk';(self.sdk/'platform-tools').mkdir(parents=True)
+        self.system=self.root/'system';(self.system/'System32/WindowsPowerShell/v1.0').mkdir(parents=True)
+        self.adb=self.sdk/'platform-tools/adb.exe';self.adb.write_bytes(b'adb')
+        self.ps=self.system/'System32/WindowsPowerShell/v1.0/powershell.exe';self.ps.write_bytes(b'ps')
+        self.enterContext(patch.object(p,'ADB',None));self.enterContext(patch.object(p,'POWERSHELL',None))
+        self.enterContext(patch.dict(os.environ,{'ANDROID_HOME':str(self.sdk),'ANDROID_SDK_ROOT':str(self.sdk),'SystemRoot':str(self.system)}))
+        p.configure_tools()
         self.apks={}
         for k,name in ((p.APP,'app.apk'),(p.TEST,'test.apk')):
             f=self.root/name;f.write_bytes(name.encode());self.apks[k]=str(f)
@@ -108,8 +112,8 @@ class PhysicalProbeTests(unittest.TestCase):
     def fixture(self, phase='precheck'):
         identity=self.root/'identity.json';identity.write_bytes(encoded({'state':'device','serial':target()['serial']}))
         baseline={k:dict(uid=10200+i,sha256=h) for i,(k,h) in enumerate(p.PRIOR_PAIR.items())}
-        facts=dict(version=1,target=target(),properties={k:'original' for k in p.IDENTITY},packages=baseline,processes=[],sample=sample())
-        d=dict(version=1,scope=p.SCOPE,status='observed',identity_sha256=p.sha(identity.read_bytes()),server=server(),target=target(),facts=facts,clients_cleaned=True)
+        facts=dict(version=1,target=target(),current_user=0,properties={k:'original' for k in p.IDENTITY},packages=baseline,processes=[],sample=sample())
+        d=dict(version=1,scope=p.SCOPE,status='observed',identity_sha256=p.sha(identity.read_bytes()),adb_path=str(p.ADB),powershell_path=str(p.POWERSHELL),server=server(),target=target(),facts=facts,clients_cleaned=True)
         discovery=self.root/'discovery.json';discovery.write_bytes(encoded(d))
         source=self.root/'probe.txt';source.write_bytes(b'LocalLore physical candidate source probe v1. No model or story.\n')
         self.enterContext(patch.object(p,'PROBE_PATH',source))
@@ -117,7 +121,7 @@ class PhysicalProbeTests(unittest.TestCase):
         self.enterContext(patch.object(p,'ROOT',self.root))
         f=self.root/'source.py';f.write_bytes(b'original source')
         value=dict(version=1,scope=p.SCOPE,phase=phase,identity_path=str(identity),identity_sha256=p.sha(identity.read_bytes()),
-            discovery_path=str(discovery),discovery_sha256=p.sha(discovery.read_bytes()),adb_sha256=p.sha(b'adb'),powershell_sha256=p.sha(b'ps'),
+            discovery_path=str(discovery),discovery_sha256=p.sha(discovery.read_bytes()),adb_path=str(p.ADB),powershell_path=str(p.POWERSHELL),adb_sha256=p.sha(b'adb'),powershell_sha256=p.sha(b'ps'),
             apk_paths=self.apks,bindings={str(f.resolve()):p.sha(f.read_bytes())},source=dict(path=str(source),bytes=p.PROBE_BYTES,sha256=p.PROBE_SHA),prior=None,evidence_root=str(self.root/'evidence'))
         if phase=='model':
             installed=copy.deepcopy(facts);installed['packages'].update({k:dict(uid=UID+i,sha256=self.pins[k]) for i,k in enumerate((p.APP,p.TEST))});installed['sample']=sample(True)
@@ -262,8 +266,8 @@ class PhysicalProbeTests(unittest.TestCase):
 
     def test_commands_are_fixed_internal_no_replace_delete_or_unsafe_selector(self):
         for action in ('create','probe','model'):
-            op=p.source_command(UID,action);self.assertEqual(op[:4],('run-as',p.APP,'sh','-c'))
-            self.assertIn('no_backup',op[4]);self.assertNotIn('mkdir -p',op[4]);self.assertNotIn('chmod',op[4]);self.assertNotIn('rm ',op[4])
+            op=p.source_command(UID,action);self.assertEqual(op[:6],('run-as',p.APP,'--user','0','sh','-c'))
+            self.assertIn('no_backup',op[6]);self.assertNotIn('mkdir -p',op[6]);self.assertNotIn('chmod',op[6]);self.assertNotIn('rm ',op[6])
         with self.assertRaises(AssertionError):p.source_command(True,'model')
         with self.assertRaises(AssertionError):p.source_command(UID,'external')
         with self.assertRaises(AssertionError):p.proof_command(UID,'../old.json')
@@ -298,7 +302,7 @@ class PhysicalProbeTests(unittest.TestCase):
         owner.shell.assert_not_called();owner.last_pass='IMPORT';owner.stage='passed'
         owner.shell.side_effect=[b'',b'',b'PID UID NAME\n']
         owner.stop_between();self.assertEqual(owner.stage,'boundary')
-        self.assertEqual([call.args[0] for call in owner.shell.call_args_list[:2]],[('am','force-stop',p.APP),('am','force-stop',p.TEST)])
+        self.assertEqual([call.args[0] for call in owner.shell.call_args_list[:2]],[('am','force-stop','--user','0',p.APP),('am','force-stop','--user','0',p.TEST)])
         self.assertFalse(any('pidof' in str(c) for c in owner.shell.call_args_list))
 
     def test_process_rows_require_exact_own_uid_and_empty_unknown_not_pidof_errors(self):
@@ -354,7 +358,7 @@ class PhysicalProbeTests(unittest.TestCase):
             for phase in p.ORDER[1:]:
                 if op==p.selection(phase):active[0]=phase;order.append(phase);return transcript(phase)
             phase=active[0]
-            if op[:2]==('am','force-stop'):self.assertIn(op[2],(p.APP,p.TEST));return b''
+            if op[:2]==('am','force-stop'):self.assertEqual(op[2:4],('--user','0'));self.assertIn(op[4],(p.APP,p.TEST));return b''
             if op==p.PS:return b'PID UID NAME\n'
             if op==p.manifest_command(UID):
                 names=set()
@@ -375,7 +379,7 @@ class PhysicalProbeTests(unittest.TestCase):
     def test_stream_tiny_original_held_fd_barrier_and_parent_replay_refusal(self):
         v=self.fixture();root=Path(v['evidence_root']);root.mkdir();cohort=root/'cohort';cohort.mkdir()
         props={k:'original' for k in p.IDENTITY}
-        facts=dict(target=target(),packages={p.APP:dict(uid=UID)},processes=[],properties=props)
+        facts=dict(target=target(),packages={p.APP:dict(uid=UID),p.TEST:dict(uid=UID+1)},processes=[],properties=props,current_user=0,sample=sample(True))
         factpath=cohort/'before-stream-facts.json';factpath.write_bytes(encoded(facts))
         proposal=self.root/'proposal.json';proposal.write_bytes(encoded(v));auth=self.root/'auth.json';auth.write_bytes(b'{}')
         identity=dict(pid=22,creation_filetime=33,executable=sys.executable)
@@ -386,14 +390,16 @@ class PhysicalProbeTests(unittest.TestCase):
             def check_server(self):pass
             def capture(self,*a):return b'List of devices attached\nORIGINAL_PHONE device usb:1-2 product:original model:SM_S918U1 device:original transport_id:7\n'
             def adb(self,*a,**kw):return b'device\n'
-            def shell(self,op,*a,**kw):return b'4096\n' if op==p.PAGE else ''.join(k+'='+props[k]+'\n' for k in p.IDENTITY).encode()
+            def shell(self,op,*a,**kw):
+                if op==p.CURRENT_USER:return b'0\n'
+                return b'4096\n' if op==p.PAGE else ''.join(k+'='+props[k]+'\n' for k in p.IDENTITY).encode()
         self.os_identity.side_effect=None;self.os_identity.return_value=identity
         calls=[]
         def child(argv,**kw):
             calls.append(argv);self.assertEqual(kw['stdin'].read(),Path(v['source']['path']).read_bytes())
             self.assertIn('exec-in',argv);self.assertIn('-t',argv);self.assertNotIn('-s',argv);self.assertLessEqual(kw['timeout'],150)
             return SimpleNamespace(returncode=0)
-        with patch.object(p,'authorize',return_value=v),patch.object(p,'Capture',FakeCapture),patch.object(p.os,'getppid',return_value=22),patch.object(p.subprocess,'run',side_effect=child) as sdk,patch.object(sys,'stdin',SimpleNamespace(buffer=io.BytesIO(p.STREAM_REQUEST))),redirect_stdout(io.StringIO()):
+        with patch.object(p,'authorize',return_value=v),patch.object(p,'Capture',FakeCapture),patch.object(p,'observe',return_value=facts),patch.object(p.os,'getppid',return_value=22),patch.object(p.subprocess,'run',side_effect=child) as sdk,patch.object(sys,'stdin',SimpleNamespace(buffer=io.BytesIO(p.STREAM_REQUEST))),redirect_stdout(io.StringIO()):
             self.assertEqual(p.stream_worker(proposal,auth,root),0)
             with patch.object(sys,'stdin',SimpleNamespace(buffer=io.BytesIO(p.STREAM_REQUEST))),self.assertRaises(FileExistsError):p.stream_worker(proposal,auth,root)
         self.assertEqual(len(calls),1);self.host.assert_not_called();self.supervisor.assert_not_called()
@@ -422,7 +428,8 @@ class PhysicalProbeTests(unittest.TestCase):
             return dict(status='child_exited',worker_returncode=0,cleanup_complete=True,output_capture_complete=True,stdout_bytes=2,stderr_bytes=0)
         self.supervisor.side_effect=supervise
         self.os_identity.side_effect=None;self.os_identity.return_value=dict(pid=22,creation_filetime=33,executable=sys.executable)
-        with patch.object(p,'authorize',return_value=v),redirect_stdout(io.StringIO()):self.assertEqual(p.run_owned(proposal,auth,root),0)
+        with patch.object(p,'authorize',return_value=v),patch.object(p,'validate_completion') as complete,redirect_stdout(io.StringIO()):self.assertEqual(p.run_owned(proposal,auth,root),0)
+        complete.assert_called_once_with(v,root,b'{}') # orchestration only; completion itself is tested separately.
         self.assertEqual(p.main(['run','--evidence',str(root)]),2)
 
     def test_new_package_uids_cannot_alias_legacy_or_bool_even_when_hashes_match(self):
@@ -440,6 +447,139 @@ class PhysicalProbeTests(unittest.TestCase):
             with self.assertRaises(AssertionError):p.validate_proposal(bad)
         bad=copy.deepcopy(v);bad['apk_paths'][p.APP]='--replace'
         with self.assertRaises(AssertionError):p.validate_proposal(bad)
+        self.host.assert_not_called();self.supervisor.assert_not_called()
+
+    def test_config_missing_conflicting_or_rebound_roots_refuse_without_client(self):
+        for env in ({},{'ANDROID_HOME':str(self.sdk)},{'ANDROID_HOME':'relative','SystemRoot':str(self.system)},
+            {'ANDROID_HOME':str(self.sdk),'ANDROID_SDK_ROOT':str(self.system),'SystemRoot':str(self.system)}):
+            with self.subTest(env=tuple(env)),patch.dict(os.environ,env,clear=True),self.assertRaises((AssertionError,OSError)):p.configure_tools()
+        other=self.root/'other';(other/'platform-tools').mkdir(parents=True);(other/'platform-tools/adb.exe').write_bytes(b'adb')
+        with patch.dict(os.environ,{'ANDROID_HOME':str(other),'ANDROID_SDK_ROOT':str(other)}),self.assertRaises(AssertionError):p.configure_tools()
+        self.host.assert_not_called();self.supervisor.assert_not_called()
+
+    def test_individual_explicit_sdk_variables_and_tool_paths_are_bound(self):
+        for key in ('ANDROID_HOME','ANDROID_SDK_ROOT'):
+            with patch.dict(os.environ,{key:str(self.sdk),'SystemRoot':str(self.system)},clear=True):
+                self.assertEqual(p.configure_tools(),(self.adb,self.ps))
+        v=self.fixture();p.validate_proposal(v)
+        for field in ('adb_path','powershell_path'):
+            bad=copy.deepcopy(v);bad[field]=str(self.root/'foreign.exe')
+            with self.assertRaises(AssertionError):p.validate_proposal(bad)
+        self.host.assert_not_called()
+
+    def test_tool_or_source_reparse_ancestor_refuses_before_child(self):
+        original=Path.lstat
+        def metadata(path,*args,**kwargs):
+            value=original(path,*args,**kwargs)
+            if path==self.sdk:return SimpleNamespace(st_mode=value.st_mode,st_file_attributes=0x400)
+            return value
+        with patch.object(Path,'lstat',metadata),self.assertRaises(AssertionError):p.configure_tools()
+        with patch.object(Path,'lstat',metadata),self.assertRaises(AssertionError):p.file_hash(self.adb,65536)
+        self.host.assert_not_called();self.supervisor.assert_not_called()
+
+    def test_secondary_user_stops_each_mutating_operation_before_dispatch(self):
+        for operation in (['install','--no-streaming','--user','0',self.apks[p.APP]],['shell',' '.join(p.selection('IMPORT'))],['shell',' '.join(p.source_command(UID,'create'))]):
+            owner=object.__new__(p.Owner);owner.clean=True
+            with patch.object(p.Capture,'adb',return_value=b'10\n') as base,self.assertRaises(AssertionError):owner.adb(operation,'mutation')
+            self.assertEqual(base.call_count,1);self.assertEqual(base.call_args.args[0],['shell','am get-current-user']);self.assertFalse(owner.clean)
+        for raw in (b'1\n',b'00\n',b'',b'0\nprivate\n'):
+            with self.assertRaises(AssertionError):p.require_user_zero(SimpleNamespace(shell=Mock(return_value=raw)))
+        self.host.assert_not_called()
+
+    def test_user_zero_is_explicit_in_install_instrument_stop_path_and_runas(self):
+        self.assertEqual(p.selection('IMPORT')[:4],('am','instrument','--user','0'))
+        self.assertEqual(p.source_command(UID,'model')[:4],('run-as',p.APP,'--user','0'))
+        owner=SimpleNamespace(shell=Mock(return_value=b'package:/data/app/original/base.apk\n'))
+        with self.assertRaises(AssertionError):p.installed_hash(owner,p.APP)
+        self.assertEqual(owner.shell.call_args_list[0].args[0],('pm','path','--user','0',p.APP))
+
+    def completion(self):
+        v=self.fixture();root=Path(v['evidence_root']);root.mkdir();cohort=root/'cohort';cohort.mkdir()
+        prv=proof('PRECHECK');data=encoded(prv);(cohort/'precheck-proof.raw.json').write_bytes(data)
+        d=json.loads(Path(v['discovery_path']).read_bytes());facts=copy.deepcopy(d['facts'])
+        facts['packages'].update({k:dict(uid=UID+i,sha256=self.pins[k]) for i,k in enumerate((p.APP,p.TEST))});facts['sample']=sample(True)
+        (cohort/'final-facts.json').write_bytes(encoded(facts))
+        raw=transcript('PRECHECK');(cohort/'command-0001.stdout.bin').write_bytes(raw)
+        record=dict(label='instrument-PRECHECK',status='completed',cleanup_complete=True,returncode=0,stdout_bytes=len(raw),stdout_sha256=p.sha(raw),stderr_bytes=0)
+        (cohort/'command-0001.json').write_bytes(encoded(record))
+        result=dict(version=1,scope=p.SCOPE,phase='precheck',status='observed',clients_cleaned=True,stage='boundary',command_count=1,methods=1,installs=2,result=dict(proof=prv,proof_sha256=p.sha(data)))
+        (cohort/'result-v1.json').write_bytes(encoded(result));summary={k:x for k,x in result.items() if k!='result'}
+        return v,root,summary,result
+
+    def test_completion_requires_real_closed_evidence_not_child_zero_or_empty_json(self):
+        v,root,summary,result=self.completion();self.assertEqual(p.validate_completion(v,root,encoded(summary)),summary)
+        for change in ({'phase':'model'},{'status':'stopped'},{'methods':True},{'installs':0},{'clients_cleaned':False},{'private':'CANARY'}):
+            other=dict(summary,**change);new=dict(result,**change);(root/'cohort/result-v1.json').write_bytes(encoded(new))
+            with self.subTest(change=change),self.assertRaises(AssertionError):p.validate_completion(v,root,encoded(other))
+        (root/'cohort/result-v1.json').write_bytes(encoded(result))
+        for raw in (b'{}',encoded(dict(summary,command_count=2))):
+            with self.assertRaises(AssertionError):p.validate_completion(v,root,raw)
+        result['result']['proof']['checks']['same_filesystem']=False;(root/'cohort/result-v1.json').write_bytes(encoded(result))
+        with self.assertRaises(AssertionError):p.validate_completion(v,root,encoded(summary))
+        self.host.assert_not_called();self.supervisor.assert_not_called()
+
+    def test_stream_reobserves_uid_hash_space_power_and_user_after_hash_before_copy(self):
+        v=self.fixture();basefacts=json.loads(Path(v['discovery_path']).read_bytes())['facts'];basefacts['current_user']=0;basefacts['sample']=sample(True)
+        basefacts['packages'].update({k:dict(uid=UID+i,sha256=self.pins[k]) for i,k in enumerate((p.APP,p.TEST))})
+        self.os_identity.side_effect=None;self.os_identity.return_value=dict(pid=22,creation_filetime=33,executable=sys.executable)
+        class FakeCapture:
+            def __init__(self,*a):self.target=None
+            def check_server(self):pass
+            def capture(self,*a):return b'List of devices attached\nORIGINAL_PHONE device usb:1-2 product:original model:SM_S918U1 device:original transport_id:7\n'
+            def adb(self,*a,**kw):return b'device\n'
+            def shell(self,op,*a,**kw):
+                if op==p.CURRENT_USER:return b'0\n'
+                return b'4096\n' if op==p.PAGE else ''.join(k+'='+basefacts['properties'][k]+'\n' for k in p.IDENTITY).encode()
+        for index,kind in enumerate(('uid','hash','space','power','user')):
+            root=self.root/('stream'+str(index));(root/'cohort').mkdir(parents=True)
+            facts=copy.deepcopy(basefacts);fp=root/'cohort/before-stream-facts.json';fp.write_bytes(encoded(facts))
+            proposal=root/'proposal.json';proposal.write_bytes(encoded(v));auth=root/'auth.json';auth.write_bytes(b'{}')
+            parent=dict(version=1,parent=self.os_identity.return_value,proposal_sha256=p.sha(proposal.read_bytes()),authorization_sha256=p.sha(auth.read_bytes()),deadline_epoch=time.time()+60,uid=UID,facts_sha256=p.sha(fp.read_bytes()))
+            (root/'cohort/stream-parent-v1.json').write_bytes(encoded(parent));bad=copy.deepcopy(facts)
+            if kind=='uid':bad['packages'][p.APP]['uid']+=2
+            elif kind=='hash':bad['packages'][p.APP]['sha256']='0'*64
+            elif kind=='space':bad['sample']['internal_free_bytes']=p.contract.REQUIRED_INTERNAL_FREE_BYTES-1
+            elif kind=='power':bad['sample']['usb_powered']=False
+            else:bad['current_user']=10
+            with patch.object(p,'authorize',return_value=v),patch.object(p,'Capture',FakeCapture),patch.object(p,'observe',return_value=bad),patch.object(p.os,'getppid',return_value=22),patch.object(p.subprocess,'run') as child,patch.object(sys,'stdin',SimpleNamespace(buffer=io.BytesIO(p.STREAM_REQUEST))),self.subTest(kind=kind),self.assertRaises(AssertionError):
+                p.stream_worker(proposal,auth,root)
+            child.assert_not_called()
+
+    def test_file_hash_refuses_growth_replacement_and_cap_without_unbounded_reads(self):
+        path=self.root/'original.bin';path.write_bytes(b'original')
+        self.assertEqual(p.file_hash(path,8),p.sha(b'original'))
+        with self.assertRaises(AssertionError):p.file_hash(path,7)
+        original_open=Path.open
+        class Growing:
+            def __init__(self,handle):self.handle=handle;self.once=False;self.read_sizes=[]
+            def __enter__(self):return self
+            def __exit__(self,*args):self.handle.close()
+            def fileno(self):return self.handle.fileno()
+            def read(self,size):
+                self.read_sizes.append(size);value=self.handle.read(size)
+                if not self.once:
+                    self.once=True
+                    with original_open(path,'ab') as writer:writer.write(b'growth')
+                return value
+        proxies=[]
+        def growing(node,*args,**kw):
+            handle=original_open(node,*args,**kw)
+            if node==path and args==('rb',):handle=Growing(handle);proxies.append(handle)
+            return handle
+        with patch.object(Path,'open',growing),self.assertRaises(AssertionError):p.file_hash(path,100)
+        self.assertEqual(proxies[0].read_sizes,[8,1])
+        path.write_bytes(b'original');replacement=self.root/'replacement.bin';replacement.write_bytes(b'original')
+        def replaced(node,*args,**kw):
+            if node==path and args==('rb',):os.replace(replacement,path)
+            return original_open(node,*args,**kw)
+        with patch.object(Path,'open',replaced),self.assertRaises(AssertionError):p.file_hash(path,100)
+        self.host.assert_not_called();self.supervisor.assert_not_called()
+
+    def test_import_does_not_resolve_configuration_or_inspect_tools(self):
+        source=p.SCRIPT.read_bytes();namespace={'__name__':'physical_import_only','__file__':str(p.SCRIPT)}
+        with patch.dict(os.environ,{},clear=True),patch.object(Path,'stat',side_effect=AssertionError('IMPORT_STAT')),patch.object(Path,'lstat',side_effect=AssertionError('IMPORT_LSTAT')):
+            exec(compile(source,'physical_import_only','exec'),namespace)
+        self.assertIsNone(namespace['ADB']);self.assertIsNone(namespace['POWERSHELL'])
         self.host.assert_not_called();self.supervisor.assert_not_called()
 
 

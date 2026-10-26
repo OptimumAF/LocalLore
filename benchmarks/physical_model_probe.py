@@ -18,7 +18,7 @@ import subprocess
 import sys
 import time
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).absolute().parent))
 import physical_model_contract as contract
 import receipt_setup_qualification as q
 import receipt_avd_environment as environment
@@ -28,10 +28,11 @@ import litert_send_trace as send
 import litert_callback_trace as callback
 import litert_status_trace as status_trace
 
-ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = Path(__file__).resolve()
-ADB = Path('C:/Users/Avery/AppData/Local/Android/Sdk/platform-tools/adb.exe')
-POWERSHELL = Path('C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe')
+ROOT = Path(__file__).absolute().parents[1]
+SCRIPT = Path(__file__).absolute()
+# Resolved only at an explicit entry point; never inspect a user's SDK at import.
+ADB = None
+POWERSHELL = None
 APP, TEST = contract.APP, contract.TEST
 SCOPE = 'physical_model_probe_v1'
 PROOF_SCOPE = 'physical_model_v1'
@@ -90,7 +91,7 @@ SOURCE_FILES = tuple(dict.fromkeys((*cancellation.SOURCE_FILES,
     'apps/android/app/src/physicalModelAndroidTest/java/org/locallore/app/PhysicalModelStorageTest.kt',
     'apps/android/app/src/physicalModelAndroidTest/java/org/locallore/app/PhysicalModelCancellationTest.kt',
     'apps/android/app/src/physicalModelAndroidTest/java/org/locallore/app/PhysicalModelPlayTest.kt')))
-PROPOSAL_KEYS = frozenset(('version scope phase identity_path identity_sha256 discovery_path discovery_sha256 adb_sha256 powershell_sha256 apk_paths bindings source prior evidence_root').split())
+PROPOSAL_KEYS = frozenset(('version scope phase identity_path identity_sha256 discovery_path discovery_sha256 adb_path powershell_path adb_sha256 powershell_sha256 apk_paths bindings source prior evidence_root').split())
 IDENTITY = ('ro.build.fingerprint', 'ro.product.model', 'ro.build.version.sdk', 'ro.soc.model', 'ro.board.platform', 'ro.product.cpu.abilist', 'ro.kernel.qemu')
 PROPERTIES = ('sh', '-c', 'for k in ' + ' '.join(IDENTITY) + '; do printf "%s=" "$k"; getprop "$k" || exit 41; done')
 PACKAGES = ('cmd', 'package', 'list', 'packages', '-U', '--user', '0', 'org.locallore')
@@ -100,6 +101,26 @@ SPACE = ('stat', '-f', '-c', '%a|%S', '/data')
 PAGE = ('getconf', 'PAGESIZE')
 POWER = ('dumpsys', 'battery')
 THERMAL = ('dumpsys', 'thermalservice')
+CURRENT_USER = ('am', 'get-current-user')
+
+
+def configure_tools():
+    """Use explicit SDK/Windows roots and pin one immutable process-local choice."""
+    global ADB, POWERSHELL
+    configured = [os.environ[k] for k in ('ANDROID_HOME', 'ANDROID_SDK_ROOT') if k in os.environ]
+    assert configured and all(type(v) is str and v and Path(v).is_absolute() and '..' not in Path(v).parts for v in configured)
+    roots = [plain_path(v, directory=True).resolve(strict=True) for v in configured]
+    assert all(root == roots[0] and root.is_dir() for root in roots)
+    system = os.environ.get('SystemRoot')
+    assert type(system) is str and system and Path(system).is_absolute() and '..' not in Path(system).parts
+    system = plain_path(system, directory=True).resolve(strict=True); assert system.is_dir()
+    adb = roots[0]/'platform-tools/adb.exe'
+    powershell = system/'System32/WindowsPowerShell/v1.0/powershell.exe'
+    plain_path(adb, directory=False); plain_path(powershell, directory=False)
+    assert ADB is None or ADB == adb
+    assert POWERSHELL is None or POWERSHELL == powershell
+    ADB, POWERSHELL = adb, powershell
+    return adb, powershell
 
 
 def sha(raw):
@@ -135,11 +156,33 @@ def raw_write(path, raw):
 
 def file_hash(path, cap):
     p = Path(path)
-    assert p.is_file() and not p.is_symlink() and 0 < p.stat().st_size <= cap
+    plain_path(p, directory=False)
+    before = p.lstat(); assert type(cap) is int and 0 < before.st_size <= cap
+    def identity(value):
+        return value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns
     h = hashlib.sha256()
     with p.open('rb') as source:
-        for block in iter(lambda: source.read(1024*1024), b''): h.update(block)
+        held = os.fstat(source.fileno()); assert stat.S_ISREG(held.st_mode) and identity(held) == identity(before)
+        remaining = before.st_size
+        while remaining:
+            block = source.read(min(1024*1024, remaining)); assert block
+            h.update(block); remaining -= len(block)
+        assert source.read(1) == b''
+        assert identity(os.fstat(source.fileno())) == identity(before)
+    plain_path(p, directory=False)
+    assert identity(p.lstat()) == identity(before)
     return h.hexdigest()
+
+
+def plain_path(path, *, directory):
+    """Reject links/reparse ancestors without resolving them into trusted paths."""
+    p = Path(path)
+    assert p.is_absolute() and '..' not in p.parts
+    for node in (p, *p.parents):
+        value = node.lstat()
+        assert not stat.S_ISLNK(value.st_mode) and not (getattr(value, 'st_file_attributes', 0) & getattr(stat, 'FILE_ATTRIBUTE_REPARSE_POINT', 0x400))
+        assert (stat.S_ISDIR(value.st_mode) if node != p or directory else stat.S_ISREG(value.st_mode))
+    return p
 
 
 def parse_devices(raw, serial):
@@ -246,7 +289,7 @@ def packages(raw):
 
 def installed_hash(owner, package):
     assert re.fullmatch(r'org\.locallore(?:\.[A-Za-z0-9_]+)+', package)
-    line = text(owner.shell(('pm', 'path', package), 'apk-path', cap=4096))
+    line = text(owner.shell(('pm', 'path', '--user', '0', package), 'apk-path', cap=4096))
     m = re.fullmatch(r'package:(/data/app/[A-Za-z0-9_~+=./-]+/base\.apk)\n', line)
     assert m and '..' not in m[1].split('/')
     value = text(owner.shell(('sha256sum', m[1]), 'apk-hash', seconds=30, cap=4096))
@@ -295,6 +338,7 @@ def observe(owner, baseline, installed):
     owner.check_server()
     assert target == owner.target
     assert text(owner.adb(['get-state'], 'state', cap=128)) == 'device\n'
+    require_user_zero(owner)
     props = {}
     for line in text(owner.shell(PROPERTIES, 'properties', cap=8192)).splitlines():
         key, sep, value = line.partition('='); assert sep and key in IDENTITY and key not in props
@@ -327,7 +371,11 @@ def observe(owner, baseline, installed):
         'battery_level': int(battery['level']), 'battery_scale': int(battery['scale']), 'usb_powered': battery['USB powered'] == 'true',
         'temperature_tenths_celsius': int(battery['temperature']), 'thermal_status': int(thermal[0]),
         'new_app_absent': APP not in current, 'new_test_absent': TEST not in current, 'prior_pair_unchanged': True}
-    return {'version': 1, 'target': target, 'properties': props, 'packages': current, 'processes': rows, 'sample': sample}
+    return {'version': 1, 'target': target, 'current_user': 0, 'properties': props, 'packages': current, 'processes': rows, 'sample': sample}
+
+
+def require_user_zero(owner):
+    assert text(owner.shell(CURRENT_USER, 'current-user', cap=128), 128) == '0\n'
 
 
 def resources(facts, *, installed, missing, initial=True):
@@ -344,7 +392,8 @@ def resources(facts, *, installed, missing, initial=True):
 
 
 def discover(identity_path, evidence):
-    root = Path(evidence); root.mkdir(exist_ok=False)
+    configure_tools()
+    root = Path(evidence); plain_path(root.parent, directory=True); root.mkdir(exist_ok=False)
     owner = Capture(root / 'discovery', 165)
     try:
         ident = load(identity_path)
@@ -357,11 +406,12 @@ def discover(identity_path, evidence):
         if owner.target is None:
             value = {'version': 1, 'scope': SCOPE, 'status': 'absent', 'target_calls': 0, 'clients_cleaned': owner.clean}
         else:
+            require_user_zero(owner)
             baseline = package_snapshot(owner)
             assert APP not in baseline and TEST not in baseline
             facts = observe(owner, baseline, False); resources(facts, installed=False, missing=2*contract.MODEL_BYTES)
             value = {'version': 1, 'scope': SCOPE, 'status': 'observed', 'identity_sha256': file_hash(identity_path, 65536),
-                'server': owner.server, 'target': owner.target, 'facts': facts, 'clients_cleaned': owner.clean}
+                'adb_path': str(ADB), 'powershell_path': str(POWERSHELL), 'server': owner.server, 'target': owner.target, 'facts': facts, 'clients_cleaned': owner.clean}
     except BaseException:
         value = {'version': 1, 'scope': SCOPE, 'status': 'refused', 'clients_cleaned': owner.clean}
     write(root / 'discovery-v1.json', value)
@@ -375,21 +425,28 @@ def ready_pins():
 
 
 def validate_proposal(v):
+    configure_tools()
     assert type(v) is dict and set(v) == PROPOSAL_KEYS and type(v['version']) is int and v['version'] == 1
     assert v['scope'] == SCOPE and v['phase'] in ('precheck', 'model')
     ready_pins()
     for name in ('identity_path', 'discovery_path', 'evidence_root'):
         assert type(v[name]) is str and Path(v[name]).is_absolute() and '..' not in Path(v[name]).parts
+    destination = Path(v['evidence_root'])
+    plain_path(destination if destination.exists() else destination.parent, directory=True)
     for field in ('identity', 'discovery'):
         assert file_hash(v[field+'_path'], 1024**2) == digest(v[field+'_sha256'])
     assert file_hash(ADB, 64*1024**2) == digest(v['adb_sha256'])
     assert file_hash(POWERSHELL, 64*1024**2) == digest(v['powershell_sha256'])
+    assert type(v['adb_path']) is str and Path(v['adb_path']).is_absolute() and Path(v['adb_path']).resolve() == ADB
+    assert type(v['powershell_path']) is str and Path(v['powershell_path']).is_absolute() and Path(v['powershell_path']).resolve() == POWERSHELL
     d = load(v['discovery_path'])
-    assert set(d) == {'version', 'scope', 'status', 'identity_sha256', 'server', 'target', 'facts', 'clients_cleaned'}
+    assert set(d) == {'version', 'scope', 'status', 'identity_sha256', 'adb_path', 'powershell_path', 'server', 'target', 'facts', 'clients_cleaned'}
     assert type(d['version']) is int and d['version'] == 1 and d['status'] == 'observed' and d['scope'] == SCOPE and d['clients_cleaned'] is True
     assert d['identity_sha256'] == v['identity_sha256'] and d['server']['adb_sha256'] == v['adb_sha256']
     assert parse_server(json.dumps({k: x for k, x in d['server'].items() if k != 'adb_sha256'}).encode(), v['adb_sha256']) == d['server']
     assert d['facts']['target'] == d['target']
+    assert (d['adb_path'], d['powershell_path']) == (v['adb_path'], v['powershell_path'])
+    assert type(d['facts']['current_user']) is int and d['facts']['current_user'] == 0
     assert d['target']['serial'] == load(v['identity_path'])['serial']
     validate_packages(d['facts']['packages'], d['facts']['packages'], False)
     resources(d['facts'], installed=False, missing=2*contract.MODEL_BYTES)
@@ -405,7 +462,7 @@ def validate_proposal(v):
     expected = (PROBE_BYTES, PROBE_SHA) if v['phase'] == 'precheck' else (contract.MODEL_BYTES, contract.MODEL_SHA256)
     assert type(source['bytes']) is int and (source['bytes'], source['sha256']) == expected
     assert type(source['path']) is str and Path(source['path']).is_absolute() and '..' not in Path(source['path']).parts
-    p = Path(source['path']); assert p.is_file() and not p.is_symlink() and p.stat().st_size == expected[0]
+    p = plain_path(source['path'], directory=False); assert p.stat().st_size == expected[0]
     if v['phase'] == 'precheck':
         assert p.resolve() == PROBE_PATH.resolve() and v['prior'] is None
     else:
@@ -419,6 +476,7 @@ def validate_proposal(v):
         facts = load(prior['facts_path']); proof = parse_proof(Path(prior['proof_path']).read_bytes(), 'PRECHECK', facts['packages'][APP]['uid'])
         validate_packages(facts['packages'], d['facts']['packages'], True)
         assert facts['processes'] == [] and facts['target'] == d['target']
+        assert type(facts['current_user']) is int and facts['current_user'] == 0
         assert facts['properties'] == d['facts']['properties']
         resources(facts, installed=True, missing=2*contract.MODEL_BYTES)
         assert facts['packages'][APP]['sha256'] == APK_HASHES[APP] and facts['packages'][TEST]['sha256'] == APK_HASHES[TEST]
@@ -440,7 +498,7 @@ def authorize(proposal_path, authorization_path, evidence):
 
 def selection(phase):
     assert phase in PHASES
-    return ('am', 'instrument', '-w', '-r', '-e', 'class', 'org.locallore.app.'+PHASES[phase][1], TEST+'/androidx.test.runner.AndroidJUnitRunner')
+    return ('am', 'instrument', '--user', '0', '-w', '-r', '-e', 'class', 'org.locallore.app.'+PHASES[phase][1], TEST+'/androidx.test.runner.AndroidJUnitRunner')
 
 
 def parse_runner(raw, phase):
@@ -531,7 +589,7 @@ def source_command(uid, action):
         prefix += 'test -f '+marker+' && test ! -L '+marker+' && test $(stat -c %u '+marker+') -eq '+str(uid)+' && test $(stat -c %h '+marker+') -eq 1 && test $(wc -c < '+marker+') -eq 29 && test "$(sha256sum '+marker+')" = "'+OWNER_SHA+'  '+marker+'" && '
         path = SOURCE_ROOT+'/'+leaf
         script = prefix+'test ! -e '+path+' && test ! -L '+path+' && set -C && cat > '+path
-    return ('run-as', APP, 'sh', '-c', script)
+    return ('run-as', APP, '--user', '0', 'sh', '-c', script)
 
 
 def manifest_command(uid, absent=False):
@@ -539,7 +597,7 @@ def manifest_command(uid, absent=False):
     script = 'test -d no_backup && test ! -L no_backup && test $(stat -c %u no_backup) -eq '+str(uid)+' && '
     if absent: script += 'test ! -e '+PROOF_ROOT+' && test ! -L '+PROOF_ROOT
     else: script += 'test -d '+PROOF_ROOT+' && test ! -L '+PROOF_ROOT+' && test $(stat -c %u '+PROOF_ROOT+') -eq '+str(uid)+' && find '+PROOF_ROOT+' -mindepth 1 -maxdepth 1 -print'
-    return ('run-as', APP, 'sh', '-c', script)
+    return ('run-as', APP, '--user', '0', 'sh', '-c', script)
 
 
 def proof_command(uid, name):
@@ -548,16 +606,29 @@ def proof_command(uid, name):
     path = PROOF_ROOT+'/'+name
     script = 'test -d no_backup && test ! -L no_backup && test $(stat -c %u no_backup) -eq '+str(uid)+' && test -d '+PROOF_ROOT+' && test ! -L '+PROOF_ROOT+' && test $(stat -c %u '+PROOF_ROOT+') -eq '+str(uid)
     script += ' && test -f '+path+' && test ! -L '+path+' && test $(stat -c %u '+path+') -eq '+str(uid)+' && test $(stat -c %h '+path+') -eq 1 && test $(wc -c < '+path+') '+('-eq 0' if name.endswith('-ready-v1.txt') else '-gt 0')+' && test $(wc -c < '+path+') -le 4096 && cat '+path
-    return ('run-as', APP, 'sh', '-c', script)
+    return ('run-as', APP, '--user', '0', 'sh', '-c', script)
 
 
 class Owner(Capture):
     def __init__(self, proposal, evidence):
+        configure_tools()
         ready_pins(); self.proposal = proposal; self.root = Path(evidence)
         super().__init__(self.root/'cohort', 165 if proposal['phase'] == 'precheck' else 1170)
         d = load(proposal['discovery_path']); self.server = d['server']; self.target = d['target']; self.adb_sha = proposal['adb_sha256']
         self.baseline = d['facts']['packages']; self.fingerprint = d['facts']['properties']['ro.build.fingerprint']
         self.methods = 0; self.stage = 'admission'; self.installs = 0; self.last_pass = None; self.uids = None
+
+    def adb(self, operation, label, seconds=15, cap=131072):
+        assert self.clean
+        try:
+            op = tuple(shlex.split(operation[1])) if len(operation) == 2 and operation[0] == 'shell' else ()
+            if operation[0] == 'install' or op[:2] in (('am', 'instrument'), ('am', 'force-stop')) or op[:1] == ('run-as',):
+                # Never target the active user's namespace by default. This
+                # check is repeated immediately before each such dispatch.
+                raw = super().adb(['shell', shlex.join(CURRENT_USER)], 'mutation-user', cap=128)
+                assert text(raw, 128) == '0\n'
+            return super().adb(operation, label, seconds, cap)
+        except BaseException: self.clean = False; raise
 
     def facts(self, label, missing=0, *, initial=True):
         assert self.clean
@@ -584,7 +655,7 @@ class Owner(Capture):
                 path = self.proposal['apk_paths'][package]
                 assert file_hash(path, 1024**3) == APK_HASHES[package]
                 self.installs += 1
-                output = self.adb(['install', '--no-streaming', path], 'install', seconds=60, cap=4096)
+                output = self.adb(['install', '--no-streaming', '--user', '0', path], 'install', seconds=60, cap=4096)
                 assert text(output, 4096) in ('Success\n', 'Performing Push Install\nSuccess\n')
             self.stage = 'installed'; self.facts('installed', 2*contract.MODEL_BYTES)
         except BaseException: self.clean = False; raise
@@ -592,7 +663,7 @@ class Owner(Capture):
     def stop_between(self):
         assert self.clean and self.last_pass is not None and self.stage == 'passed'
         try:
-            for package in (APP, TEST): assert self.shell(('am', 'force-stop', package), 'owned-phase-stop', cap=4096) == b''
+            for package in (APP, TEST): assert self.shell(('am', 'force-stop', '--user', '0', package), 'owned-phase-stop', cap=4096) == b''
             rows = process_rows(self.shell(PS, 'owned-phase-absence'), self.uids)
             assert rows == []
             self.stage = 'boundary'
@@ -710,10 +781,12 @@ def stream_worker(proposal_path, authorization_path, evidence):
         owner.check_server()
         assert current == owner.target
         assert text(owner.adb(['get-state'], 'stream-state', cap=128)) == 'device\n'
+        require_user_zero(owner)
         assert text(owner.shell(PROPERTIES, 'stream-properties', cap=8192)) == ''.join(k+'='+facts['properties'][k]+'\n' for k in IDENTITY)
         assert text(owner.shell(PAGE, 'stream-page', cap=128)) == '4096\n'
     recheck()
     source = Path(v['source']['path'])
+    plain_path(source, directory=False)
     path_before = source.lstat(); assert stat.S_ISREG(path_before.st_mode) and not source.is_symlink()
     with source.open('rb', buffering=0) as handle:
         before = os.fstat(handle.fileno()); assert stat.S_ISREG(before.st_mode) and before.st_size == v['source']['bytes']
@@ -725,13 +798,22 @@ def stream_worker(proposal_path, authorization_path, evidence):
             h.update(block); remaining_bytes -= len(block)
         assert handle.read(1) == b''
         assert h.hexdigest() == v['source']['sha256']; handle.seek(0)
-        recheck(); assert parent['parent'] == environment.process_identity(os.getppid())
+        recheck()
+        # The held source is verified, but APP/TEST, UID and resources may have
+        # changed during the hash. Reobserve before the first weight byte.
+        fresh = observe(owner, d['facts']['packages'], True)
+        assert type(fresh['current_user']) is int and fresh['current_user'] == 0
+        assert fresh['packages'] == facts['packages'] and fresh['target'] == facts['target'] and fresh['properties'] == facts['properties']
+        assert fresh['processes'] == [] and fresh['sample']['memory_total_bytes'] == facts['sample']['memory_total_bytes']
+        resources(fresh, installed=True, missing=2*contract.MODEL_BYTES)
+        assert parent['parent'] == environment.process_identity(os.getppid())
         timeout = min(150, parent['deadline_epoch']-time.time()-5); assert timeout > 0
         argv = [str(ADB), '-H', '127.0.0.1', '-P', '5037', '-t', str(owner.target['transport_id']), 'exec-in', shlex.join(source_command(uid, 'model' if v['phase']=='model' else 'probe'))]
         result = subprocess.run(argv, stdin=handle, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=timeout, creationflags=subprocess.CREATE_NO_WINDOW)
         assert type(result.returncode) is int and result.returncode == 0
         after = os.fstat(handle.fileno())
     assert (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) == (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+    plain_path(source, directory=False)
     path_after = source.lstat(); assert stat.S_ISREG(path_after.st_mode) and not source.is_symlink()
     assert (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns) == (path_after.st_dev, path_after.st_ino, path_after.st_size, path_after.st_mtime_ns)
     assert type(result.returncode) is int and result.returncode == 0
@@ -774,8 +856,59 @@ def run_owned(proposal_path, authorization_path, evidence):
     good = result['status'] == 'child_exited' and type(result['worker_returncode']) is int and result['worker_returncode'] == 0 and result['cleanup_complete'] is True and result['output_capture_complete'] is True
     if not good: return 2
     integer(result['stdout_bytes'], 1, 4096); assert type(result['stderr_bytes']) is int and result['stderr_bytes'] == 0
-    assert (driver/'owner-stdout-v1.bin').stat().st_size == result['stdout_bytes']
+    raw = (driver/'owner-stdout-v1.bin').read_bytes(); assert len(raw) == result['stdout_bytes']
+    validate_completion(v, root, raw)
     return 0
+
+
+def validate_completion(proposal, root, raw):
+    """Closed retained evidence qualifies completion; child0 alone never does."""
+    assert type(raw) is bytes and 0 < len(raw) <= 4096
+    summary = load_bytes(raw); cohort = Path(root)/'cohort'
+    result_path = cohort/'result-v1.json'; assert 0 < result_path.stat().st_size <= 65536
+    value = load(result_path)
+    keys = {'version', 'scope', 'phase', 'status', 'clients_cleaned', 'stage', 'command_count', 'methods', 'installs'}
+    assert type(summary) is dict and set(summary) == keys and type(value) is dict and set(value) == keys | {'result'}
+    assert json.dumps(summary, sort_keys=True) == json.dumps({k: value[k] for k in keys}, sort_keys=True)
+    assert type(summary['version']) is int and summary['version'] == 1 and summary['scope'] == SCOPE and summary['phase'] == proposal['phase']
+    assert summary['status'] == 'observed' and summary['clients_cleaned'] is True and summary['stage'] == 'boundary'
+    phases = ('PRECHECK',) if proposal['phase'] == 'precheck' else ORDER[1:]
+    assert type(summary['methods']) is int and summary['methods'] == len(phases)
+    assert type(summary['installs']) is int and summary['installs'] == (2 if proposal['phase']=='precheck' else 0)
+    integer(summary['command_count'], len(phases), 4096)
+    records = sorted(cohort.glob('command-*.json')); assert len(records) == summary['command_count']
+    results = {}
+    for path in records:
+        record = load(path); raw_path = path.with_suffix('.stdout.bin'); data = raw_path.read_bytes()
+        assert type(record['stdout_bytes']) is int and len(data) == record['stdout_bytes'] and sha(data) == record['stdout_sha256']
+        assert record['status'] == 'completed' and record['cleanup_complete'] is True and type(record['returncode']) is int and record['returncode'] == 0
+        assert type(record['stderr_bytes']) is int and record['stderr_bytes'] == 0
+        if record['label'].startswith('instrument-'):
+            phase = record['label'][len('instrument-'):]; assert phase in phases and phase not in results
+            results[phase] = parse_runner(data, phase)
+    assert set(results) == set(phases)
+    facts = load(cohort/('final-facts.json' if proposal['phase']=='precheck' else 'after-reopen-facts.json'))
+    d = load(proposal['discovery_path']); validate_packages(facts['packages'], d['facts']['packages'], True)
+    assert facts['processes'] == [] and type(facts['current_user']) is int and facts['current_user'] == 0
+    uid = facts['packages'][APP]['uid']; prior = prior_raw = None; proofs = {}
+    if proposal['phase'] == 'model':
+        prior_raw = Path(proposal['prior']['proof_path']).read_bytes(); prior = parse_proof(prior_raw, 'PRECHECK', uid)
+    for phase in phases:
+        stem = PHASES[phase][0]; proof_raw = (cohort/(stem+'-proof.raw.json')).read_bytes()
+        proof = parse_proof(proof_raw, phase, uid)
+        if prior is not None: link_proofs(prior, prior_raw, proof)
+        trace_prior = None
+        for i, name in enumerate(TRACES[phase]):
+            data = (cohort/(name+'.raw')).read_bytes()
+            key = 'sample_trace_sha256' if phase=='CANCEL' and i==0 else 'guards_trace_sha256' if phase=='DIALOGUE' and i==0 else 'worker_trace_sha256'
+            assert sha(data) == proof[key]
+            trace = worker.parse_worker_trace(data)
+            trace_predicates(trace, 'CANCEL_SAMPLE' if phase=='CANCEL' and i==0 else 'GUARDS' if phase=='DIALOGUE' and i==0 else phase, trace_prior)
+            trace_prior = trace
+        proofs[phase] = proof; prior, prior_raw = proof, proof_raw
+    expected = {'proof': proofs['PRECHECK'], 'proof_sha256': sha(prior_raw)} if proposal['phase']=='precheck' else {'proofs': proofs}
+    assert json.dumps(value['result'], sort_keys=True) == json.dumps(expected, sort_keys=True)
+    return summary
 
 
 def main(argv=None):

@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 pub const VERSION: u16 = 2;
-pub const MAX_PRIVATE_CAPTURE: usize = 196_608;
+pub use crate::capture_envelope::MAX_PRIVATE_CAPTURE;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ComparisonKind {
@@ -233,28 +233,7 @@ impl CapturedContext {
         if !matches!(forwarded_budget_version, None | Some(1)) {
             return Err("CaptureBudgetVersion".into());
         }
-        if before.domain_version() != 1
-            || request.scope != *before.scope()
-            || request.expected_revision != before.revision()
-            || encode(reply)?.len() > MAX_PRIVATE_CAPTURE + 4096
-            || reply["status"] != "ok"
-        {
-            return Err("CaptureBinding".into());
-        }
-        let d = &reply["data"]["details"];
-        if d["version"] != 1 || d["status"] != "recorded" {
-            return Err("CaptureUnavailable".into());
-        }
-        let identity = &d["identity"];
-        if identity
-            != &json!({"scope":request.scope,"base_revision":request.expected_revision,"observer":before.seed().player,"turn":request.turn,"attempt":attempt})
-        {
-            return Err("CaptureBinding".into());
-        }
-        let artifacts = d["artifacts"].as_array().ok_or("CaptureMalformed")?;
-        if artifacts.len() > 16 || encode(artifacts)?.len() > MAX_PRIVATE_CAPTURE {
-            return Err("CaptureBudget".into());
-        }
+        let artifacts = crate::capture_envelope::artifacts(before, request, attempt, reply)?;
         let mut package = None;
         let mut director_prompts: Vec<String> = Vec::new();
         let mut narrator_prompts: Vec<String> = Vec::new();
@@ -262,9 +241,7 @@ impl CapturedContext {
             forwarded_budget_version.map(|_| Vec::new());
         let mut observed = Vec::new();
         for (ordinal, a) in artifacts.iter().enumerate() {
-            if a["ordinal"] != ordinal || encode(a)?.len() > 49_152 + 128 {
-                return Err("CaptureMalformed".into());
-            }
+            crate::capture_envelope::artifact(ordinal, a)?;
             let v = &a["value"];
             match a["kind"].as_str().ok_or("CaptureMalformed")? {
                 "selected_context" => {
@@ -273,37 +250,17 @@ impl CapturedContext {
                     }
                 }
                 "generation_request" => {
-                    let role = v["input"]["role"].as_str().ok_or("CaptureMalformed")?;
-                    let prompt = v["input"]["prompt"].as_str().ok_or("CaptureMalformed")?;
-                    if prompt.len() > 32000
-                        || v["version"] != 1
-                        || v["scope"] != json!(request.scope)
-                        || v["turn"] != request.turn
-                        || v["revision"] != before.revision()
-                        || v["model_profile"] != profile.id
-                        || v["schema_id"] != format!("locallore-{role}-v2")
-                        || v["input"]["kind"] != "structured"
-                        || v["budget"]["max_output_bytes"] != 16384
-                        || v["budget"]["max_output_tokens"] != 350
-                        || v["budget"]["max_pending_polls"] != 30_000
-                        || v["budget"]["deadline_ms"]
-                            .as_u64()
-                            .is_none_or(|n| n == 0 || n > profile.deadline_ms)
-                        || !matches!(role, "director" | "narrator")
-                    {
-                        return Err("CaptureBinding".into());
-                    }
-                    let prompt_hash = digest(prompt.as_bytes());
-                    let schema_hash = digest(&encode(&v["input"]["schema"])?);
-                    let matching = captures
-                        .iter()
-                        .find(|c| {
-                            c.turn == request.turn
-                                && c.role == role
-                                && c.prompt_sha256 == prompt_hash
-                                && c.schema_sha256 == schema_hash
-                        })
-                        .ok_or("CaptureRecordingMismatch")?;
+                    let checked = crate::capture_envelope::generation(
+                        before,
+                        request,
+                        v,
+                        captures,
+                        profile,
+                        "locallore-director-v2",
+                    )?;
+                    let role = checked.role;
+                    let prompt = checked.prompt;
+                    let matching = checked.recording;
                     if role == "director" {
                         let Intent::FreeText { text, .. } = &request.intent else {
                             return Err("CaptureBinding".into());

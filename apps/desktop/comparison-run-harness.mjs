@@ -674,8 +674,12 @@ try {
                 expectedInventory,
                 "RestartPreservesAllCoreBytes",
             );
+            const initialReport = reports.find(
+                (entry) => entry.stage === "initial",
+            )?.report;
             assert(
-                reports[0].report.savedRuns.includes(report.reopenedRun),
+                Array.isArray(initialReport?.savedRuns) &&
+                    initialReport.savedRuns.includes(report.reopenedRun),
                 "RestartReopensInitialSavedRun",
             );
         }

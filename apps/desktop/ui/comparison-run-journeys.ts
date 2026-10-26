@@ -674,7 +674,6 @@ export async function comparisonRunJourneys({
             config.stage === "initial" || config.stage === "restart",
             "closed-full-comparison-stage",
         );
-        await c.start();
         if (config.nativeGrantDenied === true) {
             const metadata = (await invoke("author_context")) as Record<
                 string,
@@ -717,6 +716,7 @@ export async function comparisonRunJourneys({
             });
             return;
         }
+        await c.start();
         const liveBefore = structural(c.get().play ?? c.get().playV2);
         c.requestLab();
         c.acknowledgeLab(true);

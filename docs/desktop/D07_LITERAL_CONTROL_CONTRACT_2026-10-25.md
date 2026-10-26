@@ -38,8 +38,12 @@ That scripted slice alone does not enable native selected2 or desktop controls.
 The [native selected2 qualification](D07_LITERAL_SELECTED_NATIVE_QUALIFICATION_2026-10-26.md)
 adds the trusted shared-owner Rust API, actual fixed-child ownership oracles and
 one approved-model two-arm Move with zero-asset completed/checkpoint-loss resume.
-It still does not enable desktop rerun controls; the reader refuses those
-transfers before consuming its capability. Human quality remains unaccepted.
+The [selected2 read capability qualification](D07_SELECTED2_DESKTOP_READ_QUALIFICATION_2026-10-26.md)
+adds safe metadata, actual observer-filtered edges and explicit omniscient
+inspection over both scripted and retained native selected2 runs, without new
+inference or permission. Desktop rerun controls remain unavailable; the desktop
+reader refuses those transfers before consuming its capability. Human quality
+remains unaccepted.
 Design sections below
 preserve the original proposal; linked qualification records define the current
 implemented interfaces and their evidence classes.

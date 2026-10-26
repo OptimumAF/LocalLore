@@ -244,14 +244,15 @@ def run_probe(*, runner=None):
                     break
                 if row["client_status"] != "completed" or row["client_returncode"] != 0 or row["status"] != "completed":
                     break
-            source.seek(0)
-            after = os.fstat(source.fileno())
-            visible = path.stat()
-            report["source_unchanged"] = (
-                source.read(len(FIXTURE) + 1) == FIXTURE and not path.is_symlink() and
-                (identity.st_dev, identity.st_ino, identity.st_size, identity.st_mtime_ns) ==
-                (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns) ==
-                (visible.st_dev, visible.st_ino, visible.st_size, visible.st_mtime_ns))
+            if children_cleaned:
+                source.seek(0)
+                after = os.fstat(source.fileno())
+                visible = path.stat()
+                report["source_unchanged"] = (
+                    source.read(len(FIXTURE) + 1) == FIXTURE and not path.is_symlink() and
+                    (identity.st_dev, identity.st_ino, identity.st_size, identity.st_mtime_ns) ==
+                    (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns) ==
+                    (visible.st_dev, visible.st_ino, visible.st_size, visible.st_mtime_ns))
     except (OSError, ValueError):
         pass  # Closed refusal; no filesystem exception/path reaches the report.
     finally:

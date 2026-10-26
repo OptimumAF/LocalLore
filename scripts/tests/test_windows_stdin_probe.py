@@ -226,6 +226,60 @@ class WindowsStdinProbeTests(unittest.TestCase):
             self.assertTrue(handles[0].closed)
             self.assertNotIn(root, json.dumps(report))
 
+    def test_unknown_cleanup_never_seeks_reads_or_stats_the_source_after_dispatch(self):
+        unsafe = False
+        dependent = []
+        handles = []
+        original_open, original_stat, original_fstat = Path.open, Path.stat, p.os.fstat
+        def check(operation):
+            if unsafe:
+                dependent.append(operation)
+                raise AssertionError("dependent source access after unknown child cleanup")
+        class GuardedSource:
+            def __init__(self, handle):
+                self.handle = handle
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                self.handle.close()
+            def __getattr__(self, name):
+                return getattr(self.handle, name)
+            def seek(self, *args):
+                check("seek")
+                return self.handle.seek(*args)
+            def read(self, *args):
+                check("read")
+                return self.handle.read(*args)
+        def opened(path, *args, **kwargs):
+            handle = original_open(path, *args, **kwargs)
+            if args == ("x+b",):
+                handles.append(handle)
+                return GuardedSource(handle)
+            return handle
+        def stated(path, *args, **kwargs):
+            check("path.stat")
+            return original_stat(path, *args, **kwargs)
+        def fstated(*args, **kwargs):
+            check("fstat")
+            return original_fstat(*args, **kwargs)
+        def runner(*args, **kwargs):
+            nonlocal unsafe
+            unsafe = True
+            return process(cleanup_complete=False)
+        with tempfile.TemporaryDirectory() as root:
+            with (patch.object(p.os, "name", "nt"), patch.object(p.tempfile, "mkdtemp", return_value=root),
+                  patch.object(Path, "open", opened), patch.object(Path, "stat", stated),
+                  patch.object(p.os, "fstat", fstated)):
+                report = p.run_probe(runner=runner)
+            self.assertEqual([], dependent)
+            self.assertFalse(report["source_unchanged"])
+            self.assertTrue(report["fixture_retained"])
+            self.assertEqual("refused", report["status"])
+            self.assertEqual(1, len(report["cases"]))
+            self.assertEqual(1, len(handles))
+            self.assertTrue(handles[0].closed)
+            self.assertTrue((Path(root) / "original-768.bin").is_file())
+
     def test_noncompleted_or_unparsed_client_stops_second_dispatch(self):
         for changes in [{"status": "spawn_failed"}, {"status": "timeout"},
                         {"status": "output_limit"}, {"stdout": b"{"}]:

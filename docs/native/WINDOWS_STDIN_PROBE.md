@@ -146,6 +146,17 @@ Final before/after source hashes match:
 The runner source hash is unchanged from the earlier records. These successive
 records are bounded host-mechanism checks, not retries against a failed device.
 
+A subsequent review found that uncertainty stopped dispatch/deletion but still
+allowed the parent to seek/read/stat the fixture. The new poisoned-postcheck
+regression failed on3765b185 at `source.seek(0)`; the whole postcheck now requires
+known child closure. Unknown closure leaves `source_unchanged=false`, performs
+no dependent seek/read/stat, closes the parent descriptor and preserves the
+visible fixture. All18 mocked tests pass. The actual CRT records above retain
+their historical source bindings; this later refusal-path correction was not
+part of their source freeze. No additional actual control or runtime/device
+execution is claimed for this follow-up. Root integration follows closure of
+the separately frozen47bb105 owner and requires a later host gate.
+
 ## Official source interpretation and limits
 
 At official ADB commit `1cf2f017d312f73b3dc53bda85ef2610e35a80e9`,

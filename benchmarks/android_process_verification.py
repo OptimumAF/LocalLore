@@ -356,6 +356,13 @@ def validate_component_record(components, out):
         need(len(data) == record["stdout_bytes"] and hashlib.sha256(data).hexdigest() == record["stdout_sha256"], "client_raw_changed")
 
 
+def instrumentation_dispatch(index):
+    need(type(index) is int and 0 <= index < len(CLASSES), "class_index")
+    return (["exec-out", "am", "instrument", "--user", "0", "-w", "-r", "-e", "class",
+             "org.locallore.app." + CLASSES[index], APP + ".test/androidx.test.runner.AndroidJUnitRunner"],
+            "instrument-" + str(index), 180, 262144)
+
+
 def component_worker(request, out):
     try:
         from benchmarks.android_process_client import SdkCapture
@@ -423,11 +430,10 @@ def component_worker(request, out):
         need(raw.startswith("package:/data/app/") and raw.endswith("/base.apk") and "\n" not in raw, "installed_path")
         need(shell(["sha256sum", raw[len("package:"):]], "installed-hash").decode().split()[0] == apk["sha256"], "installed_hash")
     results = []
-    for name, methods in zip(CLASSES, rosters):
+    for index, (name, methods) in enumerate(zip(CLASSES, rosters)):
         own()
         need(shell(["am", "get-current-user"], "instrument-user").strip() == b"0", "user_zero")
-        raw = capture.adb(["exec-out", "am", "instrument", "--user", "0", "-w", "-r", "-e", "class", "org.locallore.app." + name,
-                     APP + ".test/androidx.test.runner.AndroidJUnitRunner"], "instrument-" + name.lower(), 180, 262144)
+        raw = capture.adb(*instrumentation_dispatch(index))
         own()
         with (out / (name + ".stdout.raw")).open("xb") as stream:
             stream.write(raw)

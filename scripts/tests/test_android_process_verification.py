@@ -6,6 +6,7 @@ import hashlib
 import io
 import json
 import os
+import re
 from pathlib import Path
 import sys
 import tempfile
@@ -66,6 +67,21 @@ class DriverTests(unittest.TestCase):
     def test_boolean_returncode_cannot_qualify_an_owner(self):
         self.assertFalse(driver.owner_ok(dict(status="child_exited", worker_returncode=False,
             cleanup_complete=True, output_capture_complete=True)))
+
+    def test_all_component_dispatches_fit_fixed_sdk_contract(self):
+        labels = set()
+        for index, name in enumerate(driver.CLASSES):
+            command, label, seconds, cap = driver.instrumentation_dispatch(index)
+            self.assertRegex(label, re.compile(r"^[a-z][a-z0-9_-]{0,47}$"))
+            self.assertNotIn(label, labels)
+            labels.add(label)
+            self.assertEqual(command[:5], ["exec-out", "am", "instrument", "--user", "0"])
+            self.assertIn("org.locallore.app." + name, command)
+            self.assertEqual(command[-1], driver.APP + ".test/androidx.test.runner.AndroidJUnitRunner")
+            self.assertEqual((seconds, cap), (180, 262144))
+        for bad in (-1, 3, True):
+            with self.assertRaises(driver.VerificationRefused):
+                driver.instrumentation_dispatch(bad)
 
     def test_aapt_namespace_forms_preserve_exact_target_and_runner_guards(self):
         for namespace in ("android", "http://schemas.android.com/apk/res/android"):

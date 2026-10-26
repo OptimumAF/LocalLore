@@ -30,6 +30,15 @@ sinks under `no_backup/receipt-transfer-probe-v1`:
 2. DD_1M: the same path with `dd bs=1048576` and exclusive shell redirection.
 3. SHELL_CAT: `shell -T -e none` and `cat`, only after separate protocol/binary gates.
 
+Windows now refuses SHELL_BINARY/SHELL_CAT before any shell qualification or
+stream dispatch. The actual retained binary control stopped at26B of768B while
+reporting client0; the original host CRT text/binary control reproduces that EOF
+signature. A binary-open parent file alone cannot qualify the child descriptor.
+CAT/DD keep the proven `exec-in` route. The portable shell command descriptions
+and strict binary proof parser remain for adversarial tests, not Windows runtime
+admission. Historical failing outcomes are preserved; no large shell copy is
+silently retried, escaped or treated as equivalent to the source.
+
 No `of=`, truncation, append, rename, deletion, permissive path selector or
 source/sink override is admitted. Parent directories, fixed owner marker, leaf
 type and UID are checked. Full source SHA/size authentication and final held-FD
@@ -59,7 +68,9 @@ The probe child omits TERM; production environment policy is untouched. No
 large shell copy follows a failed gate. Earlier qualified CAT/DD controls remain
 evidence if this later candidate fails. Even after qualification, summaries
 conservatively leave `remote_exit_status_known` false; destination proof is
-separate. The original selected-model controller is unchanged.
+separate. Model staging now explicitly uses the byte-preserving `exec-in`
+selector and its separately documented parent envelope in
+[candidate protocol](RECEIPT_REAL_CANDIDATE_PROTOCOL.md); no shell substitution.
 
 Private evidence retains every client raw output and metadata before parsing,
 source input attribution, timing, proofs, failure-only stream observations and

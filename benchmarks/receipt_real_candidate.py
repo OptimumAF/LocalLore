@@ -16,6 +16,7 @@ import stat
 import subprocess
 import sys
 import time
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import receipt_setup_qualification as q
@@ -27,6 +28,7 @@ GIB = 1024 ** 3
 SCOPE = "receipt_real_candidate"
 REQUEST = b"receipt-real-candidate-v1\n"
 STREAM_REQUEST = b"receipt-real-source-stream-v1\n"
+MODEL_STREAM_SECONDS = 240  # Hash/admission + unchanged150s client + postchecks.
 MODEL_BYTES = 2_588_147_712
 MODEL_SHA = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
 PROBE_BYTES = 61
@@ -90,6 +92,26 @@ def parse_runner(raw, phase):
 def integer(value, low=0, high=2 ** 63 - 1):
     assert type(value) is int and low <= value <= high
     return value
+
+
+def binary_stdin_operation(mode):
+    """Select a byte-preserving route; shell's Windows CRT stdin is unsafe.
+
+    Python opening a file in binary mode does not set the child CRT descriptor's
+    mode. The retained shell control stopped at the first0x1A, despite client0.
+    No automatic shell fallback is permitted for binary model/fixture input.
+    """
+    assert type(mode) is str and mode in ("CAT", "DD_1M", "SHELL_CAT", "SHELL_BINARY")
+    if mode in ("CAT", "DD_1M"):
+        return ("exec-in",)
+    if sys.platform == "win32":
+        raise ValueError("windows_shell_binary_refused")
+    return ("shell", "-T", "-e", "none")
+
+
+def stream_parent_seconds(phase):
+    assert type(phase) is str and phase in ("preflight", "candidate")
+    return MODEL_STREAM_SECONDS if phase == "candidate" else 180
 
 
 def parse_proof(raw, phase, uid):
@@ -196,11 +218,15 @@ def validate_proposal(value):
         owned = q.contract.strict_json(Path(previous["owned_result"]["path"]).read_bytes())
         assert result["scope"] == SCOPE and result["phase"] == "preflight" and result["status"] == "observed"
         assert result["failure"] is None and result["clients_cleaned"] is True and result["owner_live"] is True
-        assert result["running_sha256"] == value["running_sha256"] and result["instrumentation_commands"] == 1
-        assert owned["status"] == "child_exited" and owned["worker_returncode"] == 0
+        assert result["running_sha256"] == value["running_sha256"]
+        assert type(result["instrumentation_commands"]) is int and result["instrumentation_commands"] == 1
+        assert owned["status"] == "child_exited"
+        assert type(owned["worker_returncode"]) is int and owned["worker_returncode"] == 0
         assert owned["cleanup_complete"] is True and owned["output_capture_complete"] is True
         facts = q.contract.strict_json(Path(previous["facts"]["path"]).read_bytes())
         assert facts["packages"] == q.APK_HASHES and set(facts["uid_map"]) == {q.APP, q.TEST}
+        for uid in facts["uid_map"].values(): integer(uid, 10000, 2 ** 31 - 1)
+        assert len(set(facts["uid_map"].values())) == 2
         proof = parse_proof(Path(previous["proof"]["path"]).read_bytes(), "SOURCE_PREFLIGHT", facts["uid_map"][q.APP])
         assert result["result"]["proof"] == proof and result["result"]["after"] == facts
     return True
@@ -313,7 +339,7 @@ def _stream_authorized(value, uid, proposal_path, authorization_path, evidence, 
     assert parent["proposal_sha256"] == q.sha(Path(proposal_path).read_bytes())
     assert parent["authorization_sha256"] == q.sha(Path(authorization_path).read_bytes())
     assert parent["phase"] == value["phase"] and type(parent["uid"]) is int and parent["uid"] == uid
-    assert type(parent["deadline_epoch"]) in (int, float) and 0 < parent["deadline_epoch"] - time.time() <= 180
+    assert type(parent["deadline_epoch"]) in (int, float) and 0 < parent["deadline_epoch"] - time.time() <= stream_parent_seconds(value["phase"])
     fact_path = cohort / ("installed-facts.json" if value["phase"] == "preflight" else "continued-before-facts.json")
     assert q.sha(fact_path.read_bytes()) == parent["facts_sha256"]
     facts = q.contract.strict_json(fact_path.read_bytes())
@@ -325,7 +351,8 @@ def _stream_authorized(value, uid, proposal_path, authorization_path, evidence, 
         "worker": environment.process_identity(os.getpid())})
     _stream_trace_observe(trace, "phase", source_trace.StreamPhase.SOURCE_OPEN)
     source = source_path(value["source"], value["phase"])
-    argv = [value["adb_path"], "-H", "127.0.0.1", "-P", "5037", "-s", lease.descriptor["serial"], "exec-in", shlex.join(source_write(uid, value["phase"]))]
+    argv = [value["adb_path"], "-H", "127.0.0.1", "-P", "5037", "-s", lease.descriptor["serial"],
+            *binary_stdin_operation("CAT"), shlex.join(source_write(uid, value["phase"]))]
     # The parent assigned this barrier worker to its Job before sending REQUEST.
     # The transfer child inherits that Job; model bytes never enter Python memory.
     with source.open("rb", buffering=0) as stream:
@@ -463,16 +490,22 @@ class Owner(q.Owner):
         self.check_owner(); self.count += 1
         stem = self.commands / ("command-%04d" % self.count)
         remaining = self.until - time.monotonic(); assert remaining > 0
+        budget = min(stream_parent_seconds(self.real_phase), math.floor(remaining))
+        assert budget > 5
         facts = self.directory / ("installed-facts.json" if self.real_phase == "preflight" else "continued-before-facts.json")
         try:
             q.write_json(self.directory / "stream-parent-v1.json", {"version": 1,
                 "parent": environment.process_identity(os.getpid()), "proposal_sha256": q.sha(Path(self.proposal_path).read_bytes()),
                 "authorization_sha256": q.sha(Path(self.authorization_path).read_bytes()), "phase": self.real_phase,
-                "uid": self.uid_map[q.APP], "facts_sha256": q.sha(facts.read_bytes()), "deadline_epoch": time.time() + min(180, remaining)})
-            result = q.host.run_process([sys.executable, "-B", "-E", str(self.STREAM_SCRIPT), "_stream",
+                "uid": self.uid_map[q.APP], "facts_sha256": q.sha(facts.read_bytes()), "deadline_epoch": time.time() + budget})
+            command = [sys.executable, "-B", "-E", str(self.STREAM_SCRIPT), "_stream",
                 "--proposal", str(self.proposal_path), "--authorization", str(self.authorization_path),
-                "--evidence", self.proposal["evidence_root"]],
-                request=STREAM_REQUEST + str(self.uid_map[q.APP]).encode("ascii") + b"\n", deadline=min(180, remaining), max_output=4096)
+                "--evidence", self.proposal["evidence_root"]]
+            request = STREAM_REQUEST + str(self.uid_map[q.APP]).encode("ascii") + b"\n"
+            if self.real_phase == "candidate":
+                result = self._model_stream(command, request, budget)
+            else:
+                result = q.host.run_process(command, request=request, deadline=budget, max_output=4096)
             self.clean &= result.cleanup_complete is True
             with stem.with_suffix(".stdout.bin").open("xb") as stream:
                 stream.write(result.stdout); stream.flush(); os.fsync(stream.fileno())
@@ -493,6 +526,37 @@ class Owner(q.Owner):
         assert type(body["client_returncode"]) is int and body["client_returncode"] == 0
         assert body["remote_exit_status_known"] is False and body["destination_verified"] is False
         return body
+
+    def _model_stream(self, command, request, seconds):
+        """Reuse the durable Job supervisor only for this fixed model stream.
+
+        The generic process helper remains capped180s. Its old180s parent also
+        charged model hashing/admission against the150s transfer, causing a
+        measured140.906s cutoff. This separate240s envelope changes no SDK,
+        client, aggregate or live-owner deadline, and grants no destination proof.
+        """
+        assert self.real_phase == "candidate" and type(seconds) is int and 5 < seconds <= MODEL_STREAM_SECONDS
+        source = self.proposal["source"]
+        assert type(source["bytes"]) is int and (source["bytes"], source["sha256"]) == (MODEL_BYTES, MODEL_SHA)
+        driver = self.directory / "model-stream-driver-v2"
+        driver.mkdir(exist_ok=False)
+        q.write_json(driver / "start-v2.json", {"version": 2, "deadline_seconds": seconds,
+            "client_cap_seconds": 150, "summary_cap_bytes": 4096,
+            "source_bytes": MODEL_BYTES, "source_sha256": MODEL_SHA})
+        receipt = environment.supervise(command, request, driver, seconds, lambda child: True)
+        q.write_json(driver / "result-v1.json", receipt)
+        self.clean &= receipt["cleanup_complete"] is True
+        assert self.clean and receipt["output_capture_complete"] is True and receipt["status"] == "child_exited"
+        assert type(receipt["worker_returncode"]) is int and receipt["worker_returncode"] == 0
+        assert type(receipt["stdout_bytes"]) is int and 0 <= receipt["stdout_bytes"] <= 4096
+        assert type(receipt["stderr_bytes"]) is int and receipt["stderr_bytes"] == 0
+        raw = (driver / "owner-stdout-v1.bin").read_bytes()
+        # The durable supervisor retains a bounded private prefix first. Only
+        # the original4096B, stderr-free closed stream result can be consumed.
+        assert len(raw) == receipt["stdout_bytes"] <= 4096 and receipt["stderr_bytes"] == 0
+        return SimpleNamespace(status="completed",
+            returncode=receipt["worker_returncode"], cleanup_complete=receipt["cleanup_complete"],
+            stdout=raw, stderr_bytes=receipt["stderr_bytes"])
 
 
 def read_proof(owner, phase):

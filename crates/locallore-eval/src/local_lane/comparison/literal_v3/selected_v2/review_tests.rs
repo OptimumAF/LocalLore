@@ -53,9 +53,16 @@ fn inventory(root: &Path) -> Inventory {
 
 fn unchanged(path: &Path, expected: &Inventory) {
     let actual = inventory(path);
-    let changed: Vec<_> = actual.keys().chain(expected.keys())
-        .filter(|key| actual.get(*key) != expected.get(*key)).take(24).collect();
-    assert!(changed.is_empty(), "synthetic inventory changed: {changed:?}");
+    let changed: Vec<_> = actual
+        .keys()
+        .chain(expected.keys())
+        .filter(|key| actual.get(*key) != expected.get(*key))
+        .take(24)
+        .collect();
+    assert!(
+        changed.is_empty(),
+        "synthetic inventory changed: {changed:?}"
+    );
 }
 
 fn copy(snapshot: &Inventory, target: &Path) {
@@ -80,15 +87,24 @@ fn original_source() -> &'static PathBuf {
             ComparisonKind::ContinuousRollout,
             LaneFactory::ScriptedBaseline.profile().unwrap(),
             None,
-        ).unwrap();
-        let mut session = source3::Session3::open(
-            &source, false, manifest, None, Instant::now(),
-        ).unwrap();
+        )
+        .unwrap();
+        let mut session =
+            source3::Session3::open(&source, false, manifest, None, Instant::now()).unwrap();
         session.begin_invocations().unwrap();
-        turn_execution::record_setup(&mut session.ledgers, turn_execution::Setup {
-            version: 3, dir: &session.dir, key: &session.key,
-            native: false, physical_ms: 0, status: "scripted", load: None,
-        }).unwrap();
+        turn_execution::record_setup(
+            &mut session.ledgers,
+            turn_execution::Setup {
+                version: 3,
+                dir: &session.dir,
+                key: &session.key,
+                native: false,
+                physical_ms: 0,
+                status: "scripted",
+                load: None,
+            },
+        )
+        .unwrap();
         let corpus = suite().unwrap();
         let cancel = Cancellation::default();
         for index in 0..6 {
@@ -102,31 +118,51 @@ fn original_source() -> &'static PathBuf {
                 } else {
                     LaneFactory::ScriptedBaseline
                 };
-                let turn = source3::execute_turn3(source3::Job3 {
-                    dir: &d, path: &path, index, arm: ARM_NAMES[arm],
-                    construction: source3::CONSTRUCTIONS[arm], binding: &session.key,
-                    step: &corpus.steps()[index], factory: &factory, cancel: &cancel,
-                }, &mut session.ledgers[arm]).unwrap();
+                let turn = source3::execute_turn3(
+                    source3::Job3 {
+                        dir: &d,
+                        path: &path,
+                        index,
+                        arm: ARM_NAMES[arm],
+                        construction: source3::CONSTRUCTIONS[arm],
+                        binding: &session.key,
+                        step: &corpus.steps()[index],
+                        factory: &factory,
+                        cancel: &cancel,
+                    },
+                    &mut session.ledgers[arm],
+                )
+                .unwrap();
                 if index == 0 && arm == 0 {
                     assert_eq!(turn.row.phase, "failed");
                     assert!(!turn.row.passed);
                     assert_eq!(turn.before_head, turn.after_head);
-                    assert!(engine(&path, &corpus.seed().scope).unwrap().receipts().is_empty());
+                    assert!(engine(&path, &corpus.seed().scope)
+                        .unwrap()
+                        .receipts()
+                        .is_empty());
                 } else {
                     assert_eq!(turn.row.phase, "committed");
                     assert!(turn.row.passed);
                 }
                 assert_eq!(turn.row.construction, v3::arm_descriptors()[arm]);
-                let checkpoint: StoredTurn3 = decode(&checkpoint_path(&d, index), 256 * 1024).unwrap();
+                let checkpoint: StoredTurn3 =
+                    decode(&checkpoint_path(&d, index), 256 * 1024).unwrap();
                 assert!(encode(&checkpoint).unwrap() == encode(&turn).unwrap());
                 session.turns[arm].push(turn);
-                session.ledgers[1 - arm].exclude_measured_interval(
-                    began.elapsed().as_millis().min(u64::MAX as u128) as u64,
-                ).unwrap();
+                session.ledgers[1 - arm]
+                    .exclude_measured_interval(
+                        began.elapsed().as_millis().min(u64::MAX as u128) as u64
+                    )
+                    .unwrap();
             }
         }
-        saved(&source.join("scene-00.json"),
-            &source3::scene_data3(&source, &session.key, 0).unwrap(), 4096).unwrap();
+        saved(
+            &source.join("scene-00.json"),
+            &source3::scene_data3(&source, &session.key, 0).unwrap(),
+            4096,
+        )
+        .unwrap();
         let report = session.finish().unwrap();
         assert_eq!((report.completed_scenes, report.turns.len()), (1, 12));
         assert_eq!(report.turns.iter().filter(|row| !row.passed).count(), 1);
@@ -136,7 +172,10 @@ fn original_source() -> &'static PathBuf {
     })
 }
 
-struct Fixture { root: PathBuf, source: PathBuf }
+struct Fixture {
+    root: PathBuf,
+    source: PathBuf,
+}
 impl Fixture {
     fn new(label: &str) -> Self {
         let snapshot = inventory(original_source());
@@ -150,11 +189,20 @@ impl Fixture {
         let summary = source3::desktop_api::summary(&reader, true).unwrap();
         let binding = summary["binding"].as_str().unwrap().to_owned();
         drop(reader);
-        prepare_selected(&self.source, &binding, &shared_read::RowId {
-            turn: suite().unwrap().steps()[INDEX].id().into(), arm: shared_read::Arm::Left,
-        }, SelectedIntent {
-            client_id: client.into(), lane: SelectedLane::ScriptedBaseline,
-        }, &Cancellation::default()).unwrap()
+        prepare_selected(
+            &self.source,
+            &binding,
+            &shared_read::RowId {
+                turn: suite().unwrap().steps()[INDEX].id().into(),
+                arm: shared_read::Arm::Left,
+            },
+            SelectedIntent {
+                client_id: client.into(),
+                lane: SelectedLane::ScriptedBaseline,
+            },
+            &Cancellation::default(),
+        )
+        .unwrap()
     }
 }
 
@@ -172,8 +220,15 @@ fn second_arm_real_unknown_reservations_refuse_before_either_arm_starts_or_boots
     let mut ledger = Ledger::load(&right, &binding).unwrap();
     ledger.begin_invocation().unwrap();
     for admission in 0..27 {
-        assert_eq!(ledger.admit(&format!("scene-{}", step.scene()), step.id()).unwrap(), admission);
-        assert!(!right.join(format!("admission-{admission:02}-settled.json")).exists());
+        assert_eq!(
+            ledger
+                .admit(&format!("scene-{}", step.scene()), step.id())
+                .unwrap(),
+            admission
+        );
+        assert!(!right
+            .join(format!("admission-{admission:02}-settled.json"))
+            .exists());
     }
     ledger.finish().unwrap();
     let known: Settlement = decode(&right.join("invocation-00-settled.json"), 4096).unwrap();
@@ -181,7 +236,14 @@ fn second_arm_real_unknown_reservations_refuse_before_either_arm_starts_or_boots
     assert_eq!(known.binding, binding);
     drop(ledger);
     let persisted = Ledger::load(&right, &binding).unwrap();
-    assert_eq!((persisted.invocations, persisted.admissions, persisted.charged_roles), (1, 27, 81));
+    assert_eq!(
+        (
+            persisted.invocations,
+            persisted.admissions,
+            persisted.charged_roles
+        ),
+        (1, 27, 81)
+    );
     assert_eq!(persisted.charged_ms, 27 * TURN_MS + known.ms);
     assert!(persisted.remaining() >= PREPARATION_MS);
     assert!(persisted.remaining().saturating_sub(PREPARATION_MS) < TURN_MS + CLEANUP_RESERVE_MS);
@@ -203,7 +265,13 @@ fn second_arm_real_unknown_reservations_refuse_before_either_arm_starts_or_boots
     let common_error = execute(&plan, &destination, work, &Cancellation::default()).err();
     drop(destination);
     drop(plan);
-    let resume_error = resume_selected(&resumed, &fixture.source, &binding, &Cancellation::default()).err();
+    let resume_error = resume_selected(
+        &resumed,
+        &fixture.source,
+        &binding,
+        &Cancellation::default(),
+    )
+    .err();
     // Record both paths before asserting error kinds; neither may mutate first.
     unchanged(&fixture.source, &source_before);
     unchanged(&initial, &before);
@@ -234,18 +302,31 @@ fn selected_move_preserves_actual_divergent_per_arm_prefix_request_and_v3_constr
         assert_eq!(cp.version, 3);
         assert_eq!(cp.row.phase, "committed");
         assert!(cp.row.passed && cp.row.roles_known && cp.row.construction_matches);
-        let full = engine(&database(&d, INDEX, ComparisonKind::ContinuousRollout), &corpus.seed().scope).unwrap();
+        let full = engine(
+            &database(&d, INDEX, ComparisonKind::ContinuousRollout),
+            &corpus.seed().scope,
+        )
+        .unwrap();
         let cut = full.at_revision(cp.before_head).unwrap();
         let request = step.request(&cut);
         assert_eq!(request, cp.request);
-        assert_eq!(v2::semantic_input(&cut, &request).unwrap(), cp.row.input_semantic_sha256);
+        assert_eq!(
+            v2::semantic_input(&cut, &request).unwrap(),
+            cp.row.input_semantic_sha256
+        );
         before.push(cut);
         requests.push(request);
         rows.push(cp.row);
     }
     assert_eq!(before[0].receipts().len() + 1, before[1].receipts().len());
-    assert!(before[0].receipts().iter().all(|r| r.request().turn != corpus.steps()[0].id()));
-    assert!(before[1].receipts().iter().any(|r| r.request().turn == corpus.steps()[0].id()));
+    assert!(before[0]
+        .receipts()
+        .iter()
+        .all(|r| r.request().turn != corpus.steps()[0].id()));
+    assert!(before[1]
+        .receipts()
+        .iter()
+        .any(|r| r.request().turn == corpus.steps()[0].id()));
     assert_ne!(before[0].revision(), before[1].revision());
     assert_ne!(requests[0], requests[1]);
     assert_ne!(rows[0].input_semantic_sha256, rows[1].input_semantic_sha256);
@@ -254,16 +335,27 @@ fn selected_move_preserves_actual_divergent_per_arm_prefix_request_and_v3_constr
     let plan = fixture.plan("selected2-private-divergent");
     for arm in 0..2 {
         assert!(plan.before[arm].receipts() == before[arm].receipts());
-        assert!(plan.before[arm].accepted_history_basis().unwrap() == before[arm].accepted_history_basis().unwrap());
+        assert!(
+            plan.before[arm].accepted_history_basis().unwrap()
+                == before[arm].accepted_history_basis().unwrap()
+        );
     }
     let target = fixture.root.join("selected");
-    let report = serde_json::to_value(run_selected(plan, &target, &Cancellation::default()).unwrap()).unwrap();
+    let report =
+        serde_json::to_value(run_selected(plan, &target, &Cancellation::default()).unwrap())
+            .unwrap();
     assert_eq!(report["version"], 2);
     assert_eq!(report["source_protocol_version"], 3);
     assert_eq!(report["source_kind"], "continuous_rollout");
     assert!(report["source_reference_sha256"].is_null());
-    assert_eq!(report["arms"], serde_json::to_value(v3::arm_descriptors()).unwrap());
-    assert_eq!(report["selection"], json!({"turn":step.id(),"clicked_arm":"left","index":INDEX}));
+    assert_eq!(
+        report["arms"],
+        serde_json::to_value(v3::arm_descriptors()).unwrap()
+    );
+    assert_eq!(
+        report["selection"],
+        json!({"turn":step.id(),"clicked_arm":"left","index":INDEX})
+    );
     assert_eq!(report["rows"].as_array().unwrap().len(), 2);
     assert_eq!(report["completed"], true);
     assert_eq!(report["human_reviewed"], 0);
@@ -271,11 +363,23 @@ fn selected_move_preserves_actual_divergent_per_arm_prefix_request_and_v3_constr
     for arm in 0..2 {
         let input = &report["source_inputs"][arm];
         assert_eq!(input["arm"], ARM_NAMES[arm]);
-        assert_eq!(input["scope"], serde_json::to_value(before[arm].scope()).unwrap());
+        assert_eq!(
+            input["scope"],
+            serde_json::to_value(before[arm].scope()).unwrap()
+        );
         assert_eq!(input["before_head"], before[arm].revision());
-        assert_eq!(input["request"], serde_json::to_value(&requests[arm]).unwrap());
-        assert_eq!(input["prefix_sha256"], digest(&encode(before[arm].receipts()).unwrap()));
-        assert_eq!(input["input_semantic_sha256"], rows[arm].input_semantic_sha256);
+        assert_eq!(
+            input["request"],
+            serde_json::to_value(&requests[arm]).unwrap()
+        );
+        assert_eq!(
+            input["prefix_sha256"],
+            digest(&encode(before[arm].receipts()).unwrap())
+        );
+        assert_eq!(
+            input["input_semantic_sha256"],
+            rows[arm].input_semantic_sha256
+        );
         let row: TurnReportV3 = serde_json::from_value(report["rows"][arm].clone()).unwrap();
         assert_eq!(row.construction, v3::arm_descriptors()[arm]);
         assert_eq!(row.turn, step.id());
@@ -283,19 +387,28 @@ fn selected_move_preserves_actual_divergent_per_arm_prefix_request_and_v3_constr
         assert_eq!(row.phase, "committed");
         assert!(row.passed && row.roles_known && !row.recovered_without_checkpoint);
         assert!(row.construction_matches);
-        assert_eq!(row.construction_evidence_status, if arm == 0 {
-            v3::ConstructionEvidenceStatusV3::ValidatedLiteral
-        } else {
-            v3::ConstructionEvidenceStatusV3::ValidatedRelevant
-        });
+        assert_eq!(
+            row.construction_evidence_status,
+            if arm == 0 {
+                v3::ConstructionEvidenceStatusV3::ValidatedLiteral
+            } else {
+                v3::ConstructionEvidenceStatusV3::ValidatedRelevant
+            }
+        );
         assert_eq!(row.roles, 2);
         assert_eq!(row.input_semantic_sha256, rows[arm].input_semantic_sha256);
         let d = target.join(ARM_NAMES[arm]);
-        let full = engine(&database(&d, INDEX, ComparisonKind::ContinuousRollout), &corpus.seed().scope).unwrap();
+        let full = engine(
+            &database(&d, INDEX, ComparisonKind::ContinuousRollout),
+            &corpus.seed().scope,
+        )
+        .unwrap();
         let cut = full.at_revision(before[arm].revision()).unwrap();
         assert_eq!(cut.canonical_bytes(), before[arm].canonical_bytes());
         assert!(cut.receipts() == before[arm].receipts());
-        assert!(cut.accepted_history_basis().unwrap() == before[arm].accepted_history_basis().unwrap());
+        assert!(
+            cut.accepted_history_basis().unwrap() == before[arm].accepted_history_basis().unwrap()
+        );
         assert_eq!(full.receipts().len(), before[arm].receipts().len() + 1);
         assert_eq!(full.receipts().last().unwrap().request(), &requests[arm]);
         let cp: StoredTurn3 = decode(&checkpoint_path(&d, INDEX), 256 * 1024).unwrap();
@@ -304,12 +417,81 @@ fn selected_move_preserves_actual_divergent_per_arm_prefix_request_and_v3_constr
         assert_eq!(cp.before_head, before[arm].revision());
         assert_eq!(cp.request, requests[arm]);
         assert_eq!(cp.row, row);
-        for earlier in 0..INDEX { assert!(!checkpoint_path(&d, earlier).exists()); }
+        for earlier in 0..INDEX {
+            assert!(!checkpoint_path(&d, earlier).exists());
+        }
         let ledger = Ledger::load(&d, report["binding"].as_str().unwrap()).unwrap();
         assert_eq!((ledger.invocations, ledger.admissions), (1, 1));
     }
     let target_before = inventory(&target);
-    assert_eq!(serde_json::to_value(inspect_selected(&target).unwrap()).unwrap(), report);
+    assert_eq!(
+        serde_json::to_value(inspect_selected(&target).unwrap()).unwrap(),
+        report
+    );
     unchanged(&target, &target_before);
+    unchanged(&fixture.source, &source_before);
+}
+
+#[test]
+fn actual_half_progress_cancels_then_resumes_only_the_missing_arm() {
+    struct Reset;
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            CANCEL_AFTER_ARM.with(|flag| flag.set(false));
+        }
+    }
+    let fixture = Fixture::new("cancel-half");
+    let source_before = inventory(&fixture.source);
+    let plan = fixture.plan("selected2-cancel-half");
+    let target = fixture.root.join("selected");
+    let cancel = Cancellation::default();
+    CANCEL_AFTER_ARM.with(|flag| flag.set(true));
+    let reset = Reset;
+    let paused = serde_json::to_value(run_selected(plan, &target, &cancel).unwrap()).unwrap();
+    drop(reset);
+    assert!(cancel.is_cancelled());
+    assert_eq!(paused["completed"], false);
+    assert_eq!(paused["rows"].as_array().unwrap().len(), 1);
+    assert_eq!(paused["rows"][0]["arm"], "left");
+    assert_eq!(paused["rows"][0]["phase"], "committed");
+    let binding = paused["binding"].as_str().unwrap();
+    let left = target.join("left");
+    let right = target.join("right");
+    let left_before = inventory(&left);
+    assert_eq!(Ledger::load(&left, binding).unwrap().admissions, 1);
+    assert_eq!(Ledger::load(&right, binding).unwrap().admissions, 0);
+    assert!(!database(&right, INDEX, ComparisonKind::ContinuousRollout).exists());
+    assert!(!checkpoint_path(&right, INDEX).exists());
+    let completed = serde_json::to_value(
+        resume_selected(&target, &fixture.source, binding, &Cancellation::default()).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(completed["completed"], true);
+    assert_eq!(completed["rows"].as_array().unwrap().len(), 2);
+    assert_eq!(completed["rows"][0], paused["rows"][0]);
+    assert_eq!(Ledger::load(&left, binding).unwrap().admissions, 1);
+    assert_eq!(Ledger::load(&right, binding).unwrap().admissions, 1);
+    let actual_left = inventory(&left);
+    // Another invocation records measured preparation; the completed turn and
+    // actual canonical/raw/admission bytes must never be rewritten or repeated.
+    for (path, bytes) in &left_before {
+        if !path
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .starts_with("invocation-")
+        {
+            assert_eq!(actual_left.get(path), Some(bytes));
+        }
+    }
+    let completed_before = inventory(&target);
+    assert_eq!(
+        serde_json::to_value(
+            resume_selected(&target, &fixture.source, binding, &Cancellation::default()).unwrap()
+        )
+        .unwrap(),
+        completed
+    );
+    unchanged(&target, &completed_before);
     unchanged(&fixture.source, &source_before);
 }

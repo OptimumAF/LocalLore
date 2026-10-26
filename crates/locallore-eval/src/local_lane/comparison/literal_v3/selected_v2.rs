@@ -4,6 +4,13 @@ use crate::local_lane::comparison::{desktop_api as shared_read, selected as shar
 use shared::{SelectedIntent, SelectedLane, Selection, SourceInput, MANIFEST_CAP};
 
 const LANE: &str = "scripted_selected_case";
+#[cfg(test)]
+mod review_tests;
+#[cfg(test)]
+thread_local! {
+    // Fixed unit boundary only; absent from normal builds and IPC.
+    static CANCEL_AFTER_ARM: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -535,6 +542,10 @@ fn execute(
             saved(&checkpoint_path(&d, index), &turn, 256 * 1024)?;
         }
         work.turns[arm] = Some(turn);
+        #[cfg(test)]
+        if CANCEL_AFTER_ARM.with(std::cell::Cell::get) {
+            cancel.cancel();
+        }
         work.ledgers[1 - arm]
             .exclude_measured_interval(began.elapsed().as_millis().min(u64::MAX as u128) as u64)?;
     }

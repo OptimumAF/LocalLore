@@ -6,7 +6,8 @@ terminal evidence at `9920d48cccde747eb556b58a835b579205bff744`, retaining the
 earlier `a2610a49` cutoff and failures below. All executions belong to Root;
 the documentation author read terminal records/tracked source and ran no checks,
 applications, models or devices. The active `native-ui1` artifacts/images were
-not read and their result is not inferred.
+not read by that author and their result was not inferred. The coordinator's
+later fixture correction below supersedes that pending observation.
 
 The native Rust service and closed command adapter are implemented. Direct
 service tests and command-parser tests are separate evidence categories.
@@ -273,3 +274,36 @@ phone parity, whole-app performance, whole D07 and release readiness remain
 unqualified. The next coordinator gate is terminal IPC/capture review and final
 compatibility/source closure. This document neither authorizes new model/UI
 invocations nor awards milestone or owner acceptance.
+
+## Coordinator denial-fixture correction
+
+The first actual hidden WebView/native IPC attempt at clean/unchanged `9920d48c`
+failed before any capture at `native-port-lab_denied-actual-lab-grant-required`.
+The app exited1 after1.353s, with24 stdout bytes (fixed FAIL marker), zero stderr,
+no timeout/overflow, and no restart stage. Both frontend and native builds passed.
+The original report did not retain the differing raw reply, so its alternative
+category is unknown. No PNG was generated. This attempt is retained as
+`d07-native-full-port-native-ui1`; it is not native qualification.
+
+The test had assumed that displaying Play revoked the backend grant. Source
+inspection showed the existing desktop Host is constructed with Story Lab
+capability enabled; the UI mode does not change that construction grant. This
+was an invalid denial-fixture premise, not a demonstrated production permission
+bypass. The original failing assertion was retained in the separate denial case.
+
+Test-only `5eeba4a608e39d33c0f8525381de84cf45efcbd9` adds a fixed denial subcohort.
+Only an active full-comparison development harness using the memory fixture and
+`LOCALLORE_D07_NATIVE_DENIED_GRANT=1` constructs `Host(false)`. There is no grant
+mutation RPC, and normal native construction is unchanged. That fresh app must
+read actual native context with grantfalse, observe catalog Forbidden and real
+cleanup availability, reject malformed authority input, then dispose without
+images, generation or dialogs. The ordinary initial/restart apps keep their
+actual native grant, separately verify the new native command and scripted-token
+isolation, and retain the18 required app-owned captures. Every generated image
+still requires individual inspection.
+
+The corrected full frontend/strict TypeScript/normal-hook-exclusion check passed
+at clean/unchanged `5eeba4a6` in17.103s, coordinator label
+`d07-native-full-port-frontend-denied1`. Corrected actual IPC/native rendering,
+all-image review, unfiltered native tests, final strict checks, Android Rust
+compatibility and normal-build restoration remain pending at this appendix.

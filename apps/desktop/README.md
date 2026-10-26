@@ -274,7 +274,7 @@ existing resource port. [Approved-model paired and rollout qualification](../../
 now records 96 outcomes, 153 actual role calls, cold reads and zero-reservation
 completed-native resume using the desktop manager. Failures and 28 narration
 fallbacks remain visible; no human quality acceptance. Native3 CLI and
-full-comparison native-model desktop execution remain unqualified; the shared full native
+full-comparison native-model GUI execution remain unqualified; the shared full native
 comparison Rust producer is separately qualified.
 Accepted [PR202 scripted selected2](https://github.com/OptimumAF/LocalLore/pull/202),
 [PR204 native selected2](https://github.com/OptimumAF/LocalLore/pull/204) and
@@ -330,14 +330,22 @@ consent and opens the existing observer-filtered reader. Close that reader befor
 resuming its run. These comparisons use isolated shared Rust histories and do not
 modify live stories or establish model quality.
 
+The separate [native full-comparison Rust service](../../docs/desktop/D07_NATIVE_FULL_COMPARISON_SERVICE_QUALIFICATION_2026-10-26.md)
+uses the installed model and existing shared producer/owner. Its measured paired,
+rollout and durable-resume checks retain failed scenarios and narration fallbacks;
+human quality is unreviewed. The ordinary form above remains scripted. The closed
+native command is a prerequisite for a later UI consumer, with no fake fallback.
+
 The [full scripted desktop qualification](../../docs/desktop/D07_FULL_COMPARISON_DESKTOP_QUALIFICATION_2026-10-26.md)
 separates service tests, frontend doubles and actual hidden WebView/native IPC
 execution. From `apps/desktop`, run `node comparison-run-harness.mjs` with existing
 absolute `LOCALLORE_D07_FULL_COMPARISON_ARTIFACT_ROOT` and
 `LOCALLORE_D07_FULL_COMPARISON_TARGET_DIR` directories; the target must be outside
-the checkout. The closed synthetic initial/restart journey uses no CLI arguments,
+the checkout. The closed synthetic denial/initial/restart journey uses no CLI arguments,
 desktop control, model downloads or model execution. Exact commands, versions,
 retained failures and unavailable gates are in the qualification record.
+The denial app uses a fixed development-only Host without a Story Lab grant;
+Play/Lab presentation selection does not mutate that native construction grant.
 
 Run these developer checks from the repository root; the qualification record
 identifies the executed source, target directories and results:

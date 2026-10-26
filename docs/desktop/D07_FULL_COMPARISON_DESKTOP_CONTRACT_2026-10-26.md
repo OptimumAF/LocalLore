@@ -100,6 +100,12 @@ Native-owned root helper `full_comparison_root()` resolves
 `self.root.with_file_name("comparison-evaluations")`; each UUID leaf has closed
 `desktop.json` wrapper metadata, shared comparison output in `work/`, and a
 paired-only `reference-source/`. Tests may inspect only their synthetic root.
+The native index has exactly9 keys: `version:1`, `protocol_version:3`,
+`input_lane:"scripted_baseline"`, `run_id`, `client_id`, `kind` (Core enum spelling),
+`initial_batch`, `created_ms`, `binding` (actual Core CurrentBindingV3). An existing
+`work/run.json` must match its protocol, kind and full binding before admission.
+Checkpoint/raw corruption can instead fail the asynchronous cold-open worker's
+shared inspection; it cannot trigger replay, repair or inference on open.
 
 ## Acceptance boundaries
 

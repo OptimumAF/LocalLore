@@ -1,9 +1,14 @@
 //! Read-only protocol3 capability. No provider, execution grant or source import.
-use super::{database, decode, inspect_comparison, load_turn3, load_turns3, Manifest, StoredTurn3, ARM_NAMES};
-use crate::{digest, encode, ordinary, Result};
+use super::{
+    database, decode, inspect_comparison, load_turn3, load_turns3, Manifest, StoredTurn3, ARM_NAMES,
+};
 use crate::local_lane::comparison::desktop_api::{self as shared, Arm, EvidenceRequest, RowId};
+use crate::{digest, encode, ordinary, Result};
 use serde_json::{json, Value};
-use std::{fs::{self, File, OpenOptions}, path::{Path, PathBuf}};
+use std::{
+    fs::{self, File, OpenOptions},
+    path::{Path, PathBuf},
+};
 
 const MAX_SUMMARY: usize = 2 * 1024 * 1024;
 
@@ -27,14 +32,22 @@ fn snapshot(directory: &Path) -> Result<(Value, Manifest, [Vec<StoredTurn3>; 2])
     let mut reported = report.turns.iter();
     for index in 0..24 {
         for arm in 0..2 {
-            let Some(turn) = turns[arm].get(index) else { continue; };
+            let Some(turn) = turns[arm].get(index) else {
+                continue;
+            };
             if reported.next() != Some(&turn.row) {
                 return Err("SnapshotMismatch".into());
             }
             let mut unavailable = Vec::new();
-            if turn.capture_file.is_none() { unavailable.push("capture_unavailable"); }
-            if turn.recording_file.is_none() { unavailable.push("recording_unavailable"); }
-            if turn.row.phase != "committed" { unavailable.push("no_accepted_receipt"); }
+            if turn.capture_file.is_none() {
+                unavailable.push("capture_unavailable");
+            }
+            if turn.recording_file.is_none() {
+                unavailable.push("recording_unavailable");
+            }
+            if turn.row.phase != "committed" {
+                unavailable.push("no_accepted_receipt");
+            }
             rows.push(json!({"row":{"turn":turn.row.turn,"arm":ARM_NAMES[arm]},
                 "source":{"status":"available","scope":turn.request.scope,
                 "before_head":turn.before_head,"after_head":turn.after_head,
@@ -47,7 +60,9 @@ fn snapshot(directory: &Path) -> Result<(Value, Manifest, [Vec<StoredTurn3>; 2])
     if reported.next().is_some() || rows.len() > 48 {
         return Err("SnapshotMismatch".into());
     }
-    let binding = digest(&encode(&json!({"manifest":&manifest,"report":&report,"rows":&rows}))?);
+    let binding = digest(&encode(
+        &json!({"manifest":&manifest,"report":&report,"rows":&rows}),
+    )?);
     let value = json!({"version":1,"protocol_version":3,"binding":binding,
         "report":report,"rows":rows,"read_only":true,"execution_available":false,
         "unavailable":["selected_protocol3_rerun_not_implemented","protocol3_gui_not_implemented"]});
@@ -63,29 +78,49 @@ pub fn open_read_only(dir: &Path) -> Result<OpenedComparison> {
     let mut count = 0usize;
     for entry in fs::read_dir(&directory).map_err(|_| "Io")? {
         count += 1;
-        if count > 512 { return Err("ReportBudget".into()); }
+        if count > 512 {
+            return Err("ReportBudget".into());
+        }
         let entry = entry.map_err(|_| "Io")?;
         ordinary(&entry.path())?;
         if entry.file_type().map_err(|_| "Io")?.is_dir() {
             let name = entry.file_name();
-            if !["left", "right", "reference"].iter().any(|known| name == *known) {
+            if !["left", "right", "reference"]
+                .iter()
+                .any(|known| name == *known)
+            {
                 return Err("ComparisonDirectory".into());
             }
-            pins.extend(crate::local_lane::desktop_api::pin_directory(&entry.path())?);
+            pins.extend(crate::local_lane::desktop_api::pin_directory(
+                &entry.path(),
+            )?);
         }
     }
     let lock_path = directory.join("run.lock");
     ordinary(&lock_path)?;
     // Viewing never creates, writes or truncates a lock/run/checkpoint.
-    let lock = OpenOptions::new().read(true).open(lock_path).map_err(|_| "Io")?;
+    let lock = OpenOptions::new()
+        .read(true)
+        .open(lock_path)
+        .map_err(|_| "Io")?;
     lock.try_lock().map_err(|_| "RunBusy")?;
     let (snapshot, manifest, turns) = snapshot(&directory)?;
     let key = manifest.key()?;
-    Ok(OpenedComparison { directory, snapshot, manifest, key, turns, _pins: pins, _lock: lock })
+    Ok(OpenedComparison {
+        directory,
+        snapshot,
+        manifest,
+        key,
+        turns,
+        _pins: pins,
+        _lock: lock,
+    })
 }
 
 pub fn summary(run: &OpenedComparison, native_inspection_granted: bool) -> Result<Value> {
-    if !native_inspection_granted { return Err("Forbidden".into()); }
+    if !native_inspection_granted {
+        return Err("Forbidden".into());
+    }
     // Last validated immutable snapshot, not live status or execution permission.
     Ok(run.snapshot.clone())
 }
@@ -102,15 +137,25 @@ pub fn evidence(
     if run.snapshot["binding"].as_str() != Some(expected_binding) {
         return Err("SnapshotMismatch".into());
     }
-    let arm = match row.arm { Arm::Left => 0, Arm::Right => 1 };
-    let retained = run.turns[arm].iter().find(|turn| turn.row.turn == row.turn).ok_or("UnknownRow")?;
+    let arm = match row.arm {
+        Arm::Left => 0,
+        Arm::Right => 1,
+    };
+    let retained = run.turns[arm]
+        .iter()
+        .find(|turn| turn.row.turn == row.turn)
+        .ok_or("UnknownRow")?;
     let manifest: Manifest = decode(&run.directory.join("run.json"), 128 * 1024)?;
     manifest.validate()?;
-    if manifest != run.manifest { return Err("SnapshotMismatch".into()); }
+    if manifest != run.manifest {
+        return Err("SnapshotMismatch".into());
+    }
     let arm_dir = run.directory.join(ARM_NAMES[arm]);
     let path = database(&arm_dir, retained.index, manifest.kind);
     let current = load_turn3(&arm_dir, &path, retained.index, arm, &run.key, &manifest)?;
-    if encode(&current)? != encode(retained)? { return Err("SnapshotMismatch".into()); }
+    if encode(&current)? != encode(retained)? {
+        return Err("SnapshotMismatch".into());
+    }
     let view = shared::EvidenceTurn {
         request: &current.request,
         before_head: current.before_head,

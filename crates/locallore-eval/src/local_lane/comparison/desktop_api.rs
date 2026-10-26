@@ -320,7 +320,13 @@ pub(super) fn render_evidence(
     binding: &str,
     request: EvidenceRequest,
 ) -> Result<Value> {
-    render_evidence_view(arm_dir, path, &EvidenceTurn::from_v2(turn), binding, request)
+    render_evidence_view(
+        arm_dir,
+        path,
+        &EvidenceTurn::from_v2(turn),
+        binding,
+        request,
+    )
 }
 pub(super) fn render_evidence_view(
     arm_dir: &Path,
@@ -377,9 +383,7 @@ pub(super) fn render_evidence_view(
                     .map_err(|_| "Lookup")?
                     .receipt
                     .ok_or("Lookup")?;
-                if turn.actual_receipt_sha256
-                    != Some(digest(&encode(&receipt)?).as_str())
-                {
+                if turn.actual_receipt_sha256 != Some(digest(&encode(&receipt)?).as_str()) {
                     return Err("CheckpointEvidenceMismatch".into());
                 }
                 json!({"kind":"receipt","receipt":receipt})
@@ -416,9 +420,7 @@ pub(super) fn render_evidence_view(
                         turn.admission.ok_or("RecordingIntegrity")?,
                         &recording,
                     )?;
-                    if turn.recording_sha256
-                        != Some(digest(&encode(&recording)?).as_str())
-                    {
+                    if turn.recording_sha256 != Some(digest(&encode(&recording)?).as_str()) {
                         return Err("RecordingIntegrity".into());
                     }
                     let mut outputs = Vec::new();

@@ -74,6 +74,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     private static final String CASE = "restore_non_default";
     private static final String CHILD_CASE = "restore_child_branch";
     private static final String RETIRED_CASE = "restore_retired_child";
+    private static final String RETAINED_CASE = "restore_retained_parent";
     private static final String FIXTURE_TEST = PRODUCT + ".test";
     private static final String HELPER = "org.locallore.app.RetiredSelectionFixtureMain";
     private static final String HELPER_EXIT = "LL_RETIRED_HELPER_EXIT_V1=";
@@ -86,6 +87,11 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             + "Still unsent until my explicit Send.";
     private static final String CHILD_DIALOGUE = "SYNTHETIC child-timeline draft: Mira, snow 雪 and café 🌊.\n"
             + "Unsent until one explicit child Send.";
+    private static final String RETAINED_PREFIX = "SYNTHETIC retained-parent prefix: Mira, snow \u96ea and caf\u00e9 \ud83c\udf0a.\n"
+            + "Keep this accepted statement in the retained child.";
+    private static final String UNREACHABLE_TAIL = "SYNTHETIC unreachable-parent tail: Mira, this belongs only to the parent after the child fork.";
+    private static final String PARENT_DRAFT = "SYNTHETIC retired-parent unsent draft: Mira, lanterns \ud83c\udf0a and snow \u96ea.\n"
+            + "Never send or restore this after retirement.";
     private static final String TRANSPORT_CONTROL = "LocalLore transport: \"double\" and 'single', café 🌊.\n"
             + "Second original line; literal $value and backslash \\.";
     private static final long CASE_MS = 120_000;
@@ -126,8 +132,11 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     private boolean reuse;
     private boolean childCase;
     private boolean retiredCase;
+    private boolean retainedCase;
     private String caseName = CASE;
     private Workspace childScope;
+    private Workspace retainedParent, retainedChild;
+    private String retainedPreservedSha;
     private JSONObject childFixture;
     private String fixtureTestSha, productApk, fixtureTestApk, librarySha;
     private int fixtureTestUid;
@@ -136,6 +145,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     private Workspace retiredRestoreHint;
     private JSONObject loadGate;
     private final JSONArray retirementHelpers = new JSONArray();
+    private final JSONArray retainedHelpers = new JSONArray();
     private final Set<String> helperDispatches = new HashSet<>();
     private int productUid;
     private int controllerUid;
@@ -184,7 +194,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
                     && parserControl.head == 0, Reason.CANONICAL);
             checked(workspaceHeadControl(), Reason.CANONICAL);
             checked(stoppedTaskControls(), Reason.TASK_NOT_STOPPED);
-            if (retiredCase) {
+            if (retiredCase || retainedCase) {
                 stage = Stage.HELPER_LOAD;
                 JSONObject loaded = runHelper("load", 0);
                 loadGate = new JSONObject().put("proof_sha256", lastHelperSha).put("pid", loaded.get("pid"))
@@ -204,7 +214,10 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             // failed pre-Send attempt may already have created this exact pair.
             long initialCreates = latest(initial).op("create");
             checked(initialCreates == 0 || (reuse && initialCreates == 2), Reason.CATALOG);
-            if (childCase) {
+            if (retainedCase) {
+                runRetained(stored, initial);
+                passed = true;
+            } else if (childCase) {
                 runChild(stored, initial);
                 passed = true;
             } else {
@@ -313,22 +326,31 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     private void parseArguments() throws Exception {
         Object c = arguments.get("case"), r = arguments.get("run_id"), h = arguments.get("product_sha256"), group = arguments.get("cohort");
         Set<String> keys = new HashSet<>(Arrays.asList("case", "run_id", "product_sha256", "cohort"));
-        if (RETIRED_CASE.equals(c)) keys.add("fixture_test_sha256");
+        if (RETIRED_CASE.equals(c) || RETAINED_CASE.equals(c)) keys.add("fixture_test_sha256");
         need(arguments.keySet().equals(keys), Reason.ARGUMENTS);
-        need((CASE.equals(c) || CHILD_CASE.equals(c) || RETIRED_CASE.equals(c)) && r instanceof String && HEX16.matcher((String) r).matches()
+        need((CASE.equals(c) || CHILD_CASE.equals(c) || RETIRED_CASE.equals(c) || RETAINED_CASE.equals(c)) && r instanceof String && HEX16.matcher((String) r).matches()
                 && h instanceof String && HEX64.matcher((String) h).matches()
                 && ("create".equals(group) || "reuse".equals(group)), Reason.ARGUMENTS);
         runId = (String) r; productSha = (String) h; reuse = "reuse".equals(group);
-        retiredCase = RETIRED_CASE.equals(c); childCase = CHILD_CASE.equals(c) || retiredCase;
-        caseName = retiredCase ? RETIRED_CASE : childCase ? CHILD_CASE : CASE;
+        retiredCase = RETIRED_CASE.equals(c); retainedCase = RETAINED_CASE.equals(c);
+        childCase = CHILD_CASE.equals(c) || retiredCase || retainedCase;
+        caseName = retainedCase ? RETAINED_CASE : retiredCase ? RETIRED_CASE : childCase ? CHILD_CASE : CASE;
         need(!childCase || !reuse, Reason.ARGUMENTS);
-        if (retiredCase) {
+        if (retiredCase || retainedCase) {
             Object pin = arguments.get("fixture_test_sha256");
             need(pin instanceof String && HEX64.matcher((String) pin).matches(), Reason.ARGUMENTS);
             fixtureTestSha = (String) pin;
         }
         checked(DIALOGUE.getBytes(StandardCharsets.UTF_8).length < 2048, Reason.ARGUMENTS);
         need(CHILD_DIALOGUE.getBytes(StandardCharsets.UTF_8).length < 2048, Reason.ARGUMENTS);
+        if (retainedCase) {
+            need(digest(DIALOGUE.getBytes(StandardCharsets.UTF_8)).equals("a8cb95c8145359ad7fadad52d0df311551fab161e1e386a66c87d29fa50a3a55")
+                    && digest(RETAINED_PREFIX.getBytes(StandardCharsets.UTF_8)).equals("d0e88260d20e867ca12440419d4c32fed67d07d9ef45da74251c0ab38869cc5a")
+                    && digest(UNREACHABLE_TAIL.getBytes(StandardCharsets.UTF_8)).equals("d07a57c72b9f4a81eedf539fbfdc184ba40fa416dc92f67261c9e54e1a55f9e4")
+                    && digest(PARENT_DRAFT.getBytes(StandardCharsets.UTF_8)).equals("4bbd7fc7d2efea6368acc0fd343b01d8fcb5e38a6af3ae4eb847a197e64b54cb"), Reason.ARGUMENTS);
+            need(RETAINED_PREFIX.getBytes(StandardCharsets.UTF_8).length < 2048 && UNREACHABLE_TAIL.length() < 2048
+                    && PARENT_DRAFT.getBytes(StandardCharsets.UTF_8).length < 2048, Reason.ARGUMENTS);
+        }
     }
 
     @SuppressWarnings("deprecation")
@@ -371,7 +393,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             need(input.read() == -1, Reason.APK);
         }
         checked(size == apk.length() && modified == apk.lastModified() && hex(sha.digest()).equals(productSha), Reason.APK);
-        if (retiredCase) guardFixtureTest(pm, product, apk, ownSignatures[0]);
+        if (retiredCase || retainedCase) guardFixtureTest(pm, product, apk, ownSignatures[0]);
     }
 
     private void launch() {
@@ -439,16 +461,18 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     }
 
     private JSONObject runHelper(String mode, int savedPid) throws Exception {
-        need(retiredCase && Arrays.asList("load", "probe", "retire").contains(mode)
+        need((retiredCase || retainedCase) && Arrays.asList("load", "probe", "retire").contains(mode)
                 && helperDispatches.add(mode), Reason.HELPER);
         lastHelperExit = null; // This attempt has no observed exit until its exact footer is parsed.
         need(!anyProductProcess() && (savedPid == 0 || !pidExists(savedPid)), Reason.PROCESS);
         String a = mode.equals("load") ? "load_a" : fixture.a.story;
         String b = mode.equals("load") ? "load_b" : fixture.b.story;
         String parent = mode.equals("load") ? "main" : fixture.b.branch;
-        String child = mode.equals("load") ? "load_child" : childScope.branch;
+        String child = mode.equals("load") ? "load_child" : retainedCase ? retainedParent.branch : childScope.branch;
+        String retained = mode.equals("load") ? "load_retained" : retainedCase ? retainedChild.branch : null;
         need(mode.equals("load") ? savedPid == 0 : savedPid > 0, Reason.HELPER);
-        String scopeSha = digest(("1\n" + a + "\n" + b + "\n" + parent + "\n" + child + "\n").getBytes(StandardCharsets.UTF_8));
+        String scopeSha = digest(((retainedCase ? "2\n" : "1\n") + a + "\n" + b + "\n" + parent + "\n" + child + "\n"
+                + (retainedCase ? retained + "\n3\n2\n" : "")).getBytes(StandardCharsets.UTF_8));
         String nativePath = productApk + "!/lib/x86_64";
         File output = helperEvidence(mode);
         need(!output.exists() && !Files.isSymbolicLink(output.toPath()), Reason.FIXTURE);
@@ -457,8 +481,10 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         String[] args = {mode, runId, Integer.toString(productUid), productSha, fixtureTestSha, nativePath,
                 a, b, parent, child, Integer.toString(savedPid)};
         StringBuilder invocation = new StringBuilder("export CLASSPATH=").append(quote(fixtureTestApk + ":" + productApk))
-                .append("; exec /system/bin/app_process / --nice-name=").append(PRODUCT).append(":retirement-fixture ").append(HELPER);
+                .append("; exec /system/bin/app_process / --nice-name=").append(PRODUCT)
+                .append(retainedCase ? ":retained-parent-fixture " : ":retirement-fixture ").append(HELPER);
         for (String arg : args) invocation.append(' ').append(quote(arg));
+        if (retainedCase) invocation.append(' ').append(quote(retained)).append(" '3' '2'");
         String command = "( run-as " + PRODUCT + " --user 0 sh -c " + quote(invocation.toString())
                 + " 2>&1; helper_rc=$?; printf '\\n" + HELPER_EXIT + "%d\\n' \"$helper_rc\"; exit 0 )";
         long began = SystemClock.uptimeMillis();
@@ -480,7 +506,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         exact(proof, "version", "scope", "mode", "run_id", "status", "stage", "pid", "uid", "started_uptime_ms",
                 "product_sha256", "test_sha256", "library_sha256", "scope_sha256", "commit_attempts", "archive_closed", "workspace_closed", "before", "after");
         String expectedStage = mode.equals("load") ? "LOAD_COMPLETE" : mode.equals("probe") ? "PROBE_CLOSED" : "RETIRED_CLOSED";
-        need(number(proof, "version", 1, 1) == 1 && "locallore_retired_fixture_v1".equals(proof.get("scope"))
+        need(number(proof, "version", 1, 1) == 1 && (retainedCase ? "locallore_retained_parent_fixture_v1" : "locallore_retired_fixture_v1").equals(proof.get("scope"))
                 && mode.equals(proof.get("mode")) && runId.equals(proof.get("run_id")) && "passed".equals(proof.get("status"))
                 && expectedStage.equals(proof.get("stage")) && productSha.equals(proof.get("product_sha256"))
                 && fixtureTestSha.equals(proof.get("test_sha256")) && librarySha.equals(proof.get("library_sha256"))
@@ -493,11 +519,20 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         number(proof, "commit_attempts", mode.equals("retire") ? 1 : 0, mode.equals("retire") ? 1 : 0);
         if (mode.equals("load")) need(proof.get("before") == JSONObject.NULL && proof.get("after") == JSONObject.NULL, Reason.HELPER);
         else {
-            helperState(proof.getJSONObject("before"), false);
-            helperState(proof.getJSONObject("after"), mode.equals("retire"));
+            if (retainedCase) {
+                retainedHelperState(proof.getJSONObject("before"), false);
+                retainedHelperState(proof.getJSONObject("after"), mode.equals("retire"));
+            } else {
+                helperState(proof.getJSONObject("before"), false);
+                helperState(proof.getJSONObject("after"), mode.equals("retire"));
+            }
         }
         checked(!pidExists(pid) && !anyProductProcess() && (savedPid == 0 || !pidExists(savedPid)), Reason.PROCESS);
-        if (!mode.equals("load")) retirementHelpers.put(proof);
+        if (!mode.equals("load")) {
+            if (retainedCase) retainedHelpers.put(new JSONObject().put("mode", mode).put("pid", pid).put("uid", productUid)
+                    .put("started_uptime_ms", proof.get("started_uptime_ms")).put("proof_sha256", lastHelperSha));
+            else retirementHelpers.put(proof);
+        }
         return proof;
     }
 
@@ -525,6 +560,20 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         need(bool(state, "target_active") == !retired, Reason.HELPER);
         if (retired) need(state.get("target_head") == JSONObject.NULL, Reason.HELPER);
         else number(state, "target_head", 1, 1);
+    }
+
+    private void retainedHelperState(JSONObject state, boolean retired) throws Exception {
+        exact(state, "other_head", "root_head", "target_head", "target_physical_head", "target_active",
+                "retained_head", "retained_active", "preserved_sha256");
+        number(state, "other_head", 0, 0); number(state, "root_head", 1, 1);
+        number(state, "target_physical_head", retired ? 2 : 3, retired ? 2 : 3);
+        number(state, "retained_head", 2, 2);
+        need(bool(state, "target_active") == !retired && bool(state, "retained_active"), Reason.HELPER);
+        if (retired) need(state.get("target_head") == JSONObject.NULL, Reason.HELPER);
+        else number(state, "target_head", 3, 3);
+        String preserved = string(state, "preserved_sha256"); need(HEX64.matcher(preserved).matches(), Reason.HELPER);
+        if (retainedPreservedSha == null) retainedPreservedSha = preserved;
+        else need(retainedPreservedSha.equals(preserved), Reason.HELPER);
     }
 
     private void readyProduct() throws Exception {
@@ -610,41 +659,8 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         Probe parent = latest(initial);
         checked(parent.op("create") == 2, Reason.CATALOG);
         normalSendGameplay(parent);
-        stage = Stage.FORK_SETUP;
-        click("fork-timeline");
-        waitUntil(() -> findAndRecycle("fork-dialog") && findAndRecycle("fork-scroll"), 5_000, Reason.UI);
-        checked(label("fork-parent").equals("Requested parent: " + fixture.b.story + " / " + fixture.b.branch), Reason.SCOPE);
-        AccessibilityNodeInfo boundary = tag("fork-boundary");
-        try { checked(nodeText(boundary).equals("1"), Reason.CANONICAL); }
-        finally { boundary.recycle(); }
-        String childLabel = label("fork-child");
-        String prefix = "Fixed child ID: ";
-        checked(childLabel.startsWith(prefix), Reason.CANONICAL);
-        String child = childLabel.substring(prefix.length());
-        checked(ID.matcher(child).matches() && !child.equals(fixture.b.branch), Reason.CANONICAL);
-        click("fork-review-boundary");
-        checked(label("fork-child").equals(childLabel), Reason.SCOPE);
-        click("fork-consent");
-        waitUntil(() -> {
-            AccessibilityNodeInfo node = find("fork-consent");
-            if (node == null) return false;
-            try { return node.isCheckable() && node.isChecked(); } finally { node.recycle(); }
-        }, 5_000, Reason.UI);
-        AccessibilityNodeInfo consent = tag("fork-consent");
-        try { checked(consent.isCheckable() && consent.isChecked(), Reason.UI); }
-        finally { consent.recycle(); }
-        click("fork-confirm");
-        final String outcome = "Fork confirmed: " + fixture.b.story + " / " + child + " · fork 1 · current head 1";
-        waitUntil(() -> {
-            AccessibilityNodeInfo node = find("fork-outcome");
-            if (node == null) { scrollOnce("fork-scroll", AccessibilityNodeInfo.ACTION_SCROLL_FORWARD); return false; }
-            try { return menuItemLabel(node).equals(outcome); } finally { node.recycle(); }
-        }, 15_000, Reason.CANONICAL);
-        checked(label("fork-outcome").equals(outcome), Reason.CANONICAL);
-        click("fork-resume");
-        childScope = new Workspace(fixture.b.story, child, 1);
-        awaitScopeHead(childScope, 1);
-        readyProduct();
+        childScope = forkThroughUi(fixture.b, 1);
+        String child = childScope.branch;
         stage = Stage.EDIT;
         selectDialogue();
         setDraft();
@@ -730,16 +746,120 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         stage = Stage.DONE;
     }
 
+    private void runRetained(File stored, Probe initial) throws Exception {
+        stage = Stage.CATALOG;
+        checked(!reuse && latest(initial).op("create") == 0, Reason.FIXTURE);
+        createFixture(null);
+        checked(fixture != null && fixture.a.story.compareTo(fixture.b.story) < 0, Reason.FIXTURE);
+        checked(select(fixture.b.story).same(fixture.b, 0), Reason.CANONICAL);
+        stage = Stage.PARENT_SEND;
+        selectDialogue(); setDraft(DIALOGUE);
+        checked(workspace().same(fixture.b, 0), Reason.CANONICAL);
+        noGameplay(latest(initial));
+        click("play-send");
+        awaitScopeHead(fixture.b, 1); readyProduct();
+        acceptedText("message-body-1", DIALOGUE);
+        normalSendGameplay(latest(initial));
+        retainedParent = forkThroughUi(fixture.b, 1);
+        stage = Stage.SEND;
+        selectDialogue(); setDraft(RETAINED_PREFIX);
+        click("play-send");
+        awaitScopeHead(retainedParent, 2); readyProduct();
+        acceptedText("message-body-1", DIALOGUE); acceptedText("message-body-3", RETAINED_PREFIX);
+        retainedChild = forkThroughUi(retainedParent, 2);
+        checked(!retainedChild.branch.equals(fixture.b.branch) && !retainedChild.branch.equals(retainedParent.branch), Reason.SCOPE);
+        Probe beforeParent = latest(initial);
+        checked(selectTimeline(retainedParent.branch).same(retainedParent, 2), Reason.CANONICAL);
+        awaitReadIncrease(initial, beforeParent); readyProduct();
+        stage = Stage.SEND;
+        selectDialogue(); setDraft(UNREACHABLE_TAIL);
+        click("play-send");
+        awaitScopeHead(retainedParent, 3); readyProduct();
+        retainedParent = new Workspace(fixture.b.story, retainedParent.branch, 3);
+        acceptedText("message-body-1", DIALOGUE); acceptedText("message-body-3", RETAINED_PREFIX);
+        acceptedText("message-body-5", UNREACHABLE_TAIL);
+        openTimelines();
+        List<String> active = new ArrayList<>(Arrays.asList(fixture.b.branch, retainedParent.branch, retainedChild.branch));
+        Collections.sort(active); checked(timelineIds().equals(active), Reason.CATALOG);
+        checked(label("timeline-" + fixture.b.branch).equals(fixture.b.branch + " · original · revision 1 · 0 uncommitted"), Reason.CANONICAL);
+        checked(label("timeline-" + retainedParent.branch).equals(retainedParent.branch + " · from " + fixture.b.branch + " at 1 · revision 3 · 0 uncommitted"), Reason.CANONICAL);
+        checked(label("timeline-" + retainedChild.branch).equals(retainedChild.branch + " · from " + retainedParent.branch + " at 2 · revision 2 · 0 uncommitted"), Reason.CANONICAL);
+        Probe beforeDraft = latest(initial);
+        checked(selectTimeline(retainedParent.branch).same(retainedParent, 3), Reason.SCOPE);
+        awaitReadIncrease(initial, beforeDraft); readyProduct();
+        stage = Stage.EDIT;
+        selectDialogue(); setDraft(); verifyDraft();
+        checked(workspace().same(retainedParent, 3), Reason.CANONICAL);
+        Probe setup = latest(initial);
+        checked(setup.op("create") == 2, Reason.CATALOG); retainedSetupGameplay(setup);
+        JSONObject value = fixture.json(); Object roots = value.remove("stories");
+        value.put("scope", "locallore_retained_parent_process_fixture_v1").put("case", RETAINED_CASE)
+                .put("fixture_test_sha256", fixtureTestSha).put("roots_at_creation", roots)
+                .put("root", new Workspace(fixture.b.story, fixture.b.branch, 1).json())
+                .put("parent", retainedParent.json()).put("retained_child", retainedChild.json())
+                .put("root_text_sha256", digest(DIALOGUE.getBytes(StandardCharsets.UTF_8)))
+                .put("retained_prefix_sha256", digest(RETAINED_PREFIX.getBytes(StandardCharsets.UTF_8)))
+                .put("unreachable_tail_sha256", digest(UNREACHABLE_TAIL.getBytes(StandardCharsets.UTF_8)))
+                .put("parent_draft_sha256", digest(PARENT_DRAFT.getBytes(StandardCharsets.UTF_8)));
+        writeFixture(stored, value); childFixture = value;
+        runUnavailableFallback(initial, retainedParent);
+    }
+
     private void awaitScopeHead(Workspace expected, long head) throws Exception {
         waitUntil(() -> { Workspace w = maybeRevealedWorkspace(); return w != null && w.same(expected, head); },
                 15_000, Reason.CANONICAL);
         checked(workspace().same(expected, head), Reason.CANONICAL);
     }
 
+    /** Only the two source-fixed fixture boundaries are permitted; no boundary edit. */
+    private Workspace forkThroughUi(Workspace parent, int head) throws Exception {
+        need(head == 1 || head == 2, Reason.ARGUMENTS);
+        stage = Stage.FORK_SETUP;
+        click("fork-timeline");
+        waitUntil(() -> findAndRecycle("fork-dialog") && findAndRecycle("fork-scroll"), 5_000, Reason.UI);
+        checked(label("fork-parent").equals("Requested parent: " + parent.story + " / " + parent.branch), Reason.SCOPE);
+        AccessibilityNodeInfo boundary = tag("fork-boundary");
+        try { checked(nodeText(boundary).equals(Integer.toString(head)), Reason.CANONICAL); }
+        finally { boundary.recycle(); }
+        String childLabel = label("fork-child");
+        String prefix = "Fixed child ID: ";
+        checked(childLabel.startsWith(prefix), Reason.CANONICAL);
+        String child = childLabel.substring(prefix.length());
+        checked(ID.matcher(child).matches() && !child.equals(parent.branch), Reason.CANONICAL);
+        click("fork-review-boundary");
+        checked(label("fork-child").equals(childLabel), Reason.SCOPE);
+        click("fork-consent");
+        waitUntil(() -> {
+            AccessibilityNodeInfo node = find("fork-consent");
+            if (node == null) return false;
+            try { return node.isCheckable() && node.isChecked(); } finally { node.recycle(); }
+        }, 5_000, Reason.UI);
+        AccessibilityNodeInfo consent = tag("fork-consent");
+        try { checked(consent.isCheckable() && consent.isChecked(), Reason.UI); }
+        finally { consent.recycle(); }
+        click("fork-confirm");
+        final String outcome = "Fork confirmed: " + parent.story + " / " + child + " · fork " + head + " · current head " + head;
+        waitUntil(() -> {
+            AccessibilityNodeInfo node = find("fork-outcome");
+            if (node == null) { scrollOnce("fork-scroll", AccessibilityNodeInfo.ACTION_SCROLL_FORWARD); return false; }
+            try { return menuItemLabel(node).equals(outcome); } finally { node.recycle(); }
+        }, 15_000, Reason.CANONICAL);
+        checked(label("fork-outcome").equals(outcome), Reason.CANONICAL);
+        click("fork-resume");
+        Workspace childScope = new Workspace(parent.story, child, head);
+        awaitScopeHead(childScope, head);
+        readyProduct();
+        return childScope;
+    }
+
     private void runRetired(Probe initial) throws Exception {
-        retiredRestoreHint = childScope;
+        runUnavailableFallback(initial, childScope);
+    }
+
+    private void runUnavailableFallback(Probe initial, Workspace unavailable) throws Exception {
+        retiredRestoreHint = unavailable;
         stage = Stage.FIRST_SAVE;
-        Probe saved = backgroundAndSave(initial, childScope);
+        Probe saved = backgroundAndSave(initial, unavailable);
         stage = Stage.FIRST_KILL;
         killSaved(saved);
         stage = Stage.HELPER_PROBE;
@@ -789,13 +909,26 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         checked(select(fixture.b.story).same(fixture.b, 1), Reason.CANONICAL);
         acceptedText("message-body-1", DIALOGUE);
         openTimelines();
-        checked(timelineIds().equals(Collections.singletonList(fixture.b.branch)), Reason.CATALOG);
-        checked(label("timeline-" + fixture.b.branch).equals(fixture.b.branch + " · original · revision 1 · 0 uncommitted"), Reason.CANONICAL);
-        Probe beforeParent = latest(second);
-        checked(selectTimeline(fixture.b.branch).same(fixture.b, 1), Reason.CANONICAL);
-        noGameplay(awaitReadIncrease(second, beforeParent));
-        readyProduct();
-        acceptedText("message-body-1", DIALOGUE);
+        if (retainedCase) {
+            List<String> active = new ArrayList<>(Arrays.asList(fixture.b.branch, retainedChild.branch)); Collections.sort(active);
+            checked(timelineIds().equals(active), Reason.CATALOG);
+            checked(label("timeline-" + fixture.b.branch).equals(fixture.b.branch + " · original · revision 1 · 0 uncommitted"), Reason.CANONICAL);
+            checked(label("timeline-" + retainedChild.branch).equals(retainedChild.branch + " · from " + retainedParent.branch + " at 2 · revision 2 · 0 uncommitted"), Reason.CANONICAL);
+            Probe beforeRetained = latest(second);
+            checked(selectTimeline(retainedChild.branch).same(retainedChild, 2), Reason.CANONICAL);
+            noGameplay(awaitReadIncrease(second, beforeRetained)); readyProduct();
+            acceptedText("message-body-1", DIALOGUE); acceptedText("message-body-3", RETAINED_PREFIX);
+            scanMessageBodies(new HashSet<>(Arrays.asList("message-body-1", "message-body-2", "message-body-3", "message-body-4")));
+            acceptedText("message-body-1", DIALOGUE); acceptedText("message-body-3", RETAINED_PREFIX);
+        } else {
+            checked(timelineIds().equals(Collections.singletonList(fixture.b.branch)), Reason.CATALOG);
+            checked(label("timeline-" + fixture.b.branch).equals(fixture.b.branch + " · original · revision 1 · 0 uncommitted"), Reason.CANONICAL);
+            Probe beforeParent = latest(second);
+            checked(selectTimeline(fixture.b.branch).same(fixture.b, 1), Reason.CANONICAL);
+            noGameplay(awaitReadIncrease(second, beforeParent));
+            readyProduct();
+            acceptedText("message-body-1", DIALOGUE);
+        }
         Probe beforeReturn = latest(second);
         checked(select(fixture.a.story).same(fixture.a, 0), Reason.CANONICAL);
         noGameplay(awaitReadIncrease(second, beforeReturn));
@@ -803,7 +936,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         checked(!label("notice").equals(UNAVAILABLE_NOTICE), Reason.SCOPE);
         noGameplay(latest(second));
         guardInstallation();
-        checked(deaths == 2 && retirementHelpers.length() == 2 && loadGate != null, Reason.PROCESS);
+        checked(deaths == 2 && (retainedCase ? retainedHelpers.length() : retirementHelpers.length()) == 2 && loadGate != null, Reason.PROCESS);
         stage = Stage.DONE;
     }
 
@@ -819,17 +952,21 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     }
 
     private void noAcceptedMessages() throws Exception {
+        scanMessageBodies(Collections.emptySet());
+    }
+
+    private void scanMessageBodies(Set<String> allowed) throws Exception {
         // Prove both bounded scroll edges rather than equating a virtualized,
         // off-screen row with an absent row. Canonical head0 is checked separately.
         for (int direction : new int[]{AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD, AccessibilityNodeInfo.ACTION_SCROLL_FORWARD}) {
             boolean edge = false;
             for (int i = 0; i < 12; i++) {
-                timeLeft(); need(!visibleAcceptedMessage(), Reason.CANONICAL);
+                timeLeft(); need(!visibleUnexpectedMessage(allowed), Reason.CANONICAL);
                 AccessibilityNodeInfo list = find("story-list"); need(list != null, Reason.UI);
                 boolean moved;
                 try { moved = list.isScrollable() && list.performAction(direction); } finally { list.recycle(); }
                 SystemClock.sleep(Math.min(100, timeLeft()));
-                need(!visibleAcceptedMessage(), Reason.CANONICAL);
+                need(!visibleUnexpectedMessage(allowed), Reason.CANONICAL);
                 if (!moved) { edge = true; break; }
             }
             need(edge, Reason.UI);
@@ -837,12 +974,12 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         checked(true, Reason.CANONICAL);
     }
 
-    private boolean visibleAcceptedMessage() throws Exception {
+    private boolean visibleUnexpectedMessage(Set<String> allowed) throws Exception {
         List<AccessibilityNodeInfo> nodes = productNodes();
         try {
             for (AccessibilityNodeInfo node : nodes) {
                 String id = node.getViewIdResourceName();
-                if (id != null && id.startsWith("message-body-") && node.isVisibleToUser()) return true;
+                if (id != null && id.startsWith("message-body-") && node.isVisibleToUser() && !allowed.contains(id)) return true;
             }
             return false;
         } finally { recycle(nodes); }
@@ -857,6 +994,12 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     private void setupGameplay(Probe probe) {
         checked(probe.op("free_text") == 1 && probe.op("submit") == 0 && probe.op("prepare") == 1
                 && probe.op("commit") == 1 && probe.op("cancel") == 0 && probe.op("other") == 2,
+                Reason.AUTOMATIC_OPERATION);
+    }
+
+    private void retainedSetupGameplay(Probe probe) {
+        checked(probe.op("free_text") == 3 && probe.op("submit") == 0 && probe.op("prepare") == 3
+                && probe.op("commit") == 3 && probe.op("cancel") == 0 && probe.op("other") == 4,
                 Reason.AUTOMATIC_OPERATION);
     }
 
@@ -887,7 +1030,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
                 }
             }
         } finally { recycle(nodes); }
-        need(ids.size() <= 2 && new HashSet<>(ids).size() == ids.size(), Reason.CATALOG);
+        need(ids.size() <= (retainedCase ? 3 : 2) && new HashSet<>(ids).size() == ids.size(), Reason.CATALOG);
         Collections.sort(ids); return ids;
     }
 
@@ -920,7 +1063,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
 
     private File fixtureFile() throws Exception {
         File anchor = getContext().getNoBackupFilesDir().getCanonicalFile();
-        File directory = new File(anchor, retiredCase ? "process-controller-retired-v1"
+        File directory = new File(anchor, retainedCase ? "process-controller-retained-parent-v1" : retiredCase ? "process-controller-retired-v1"
                 : childCase ? "process-controller-child-v1" : "process-controller-v1");
         if (!directory.exists()) Files.createDirectory(directory.toPath());
         need(!Files.isSymbolicLink(directory.toPath()) && Files.isDirectory(directory.toPath(), LinkOption.NOFOLLOW_LINKS)
@@ -1073,12 +1216,12 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         need(match.matches(), Reason.CANONICAL);
         long head;
         try { head = Long.parseLong(match.group(3)); } catch (NumberFormatException failure) { throw new Refused(Reason.CANONICAL); }
-        need(head <= (childCase && !retiredCase ? 2 : 1), Reason.CANONICAL);
+        need(head <= (retainedCase ? 3 : childCase && !retiredCase ? 2 : 1), Reason.CANONICAL);
         return new Workspace(match.group(1), match.group(2), head);
     }
 
     private boolean workspaceHeadControl() {
-        int limit = childCase && !retiredCase ? 2 : 1;
+        int limit = retainedCase ? 3 : childCase && !retiredCase ? 2 : 1;
         String prefix = "Rules · fantasy_v1 · synthetic_story / main · head ";
         Workspace accepted = decodeWorkspace(prefix + limit);
         boolean refused = false;
@@ -1101,7 +1244,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     }
 
     private void setDraft() throws Exception {
-        setDraft(childCase ? CHILD_DIALOGUE : DIALOGUE);
+        setDraft(retainedCase ? PARENT_DRAFT : childCase ? CHILD_DIALOGUE : DIALOGUE);
     }
 
     private void setDraft(String expected) throws Exception {
@@ -1115,7 +1258,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     }
 
     private boolean draftMatches() throws Exception {
-        return draftMatches(childCase ? CHILD_DIALOGUE : DIALOGUE);
+        return draftMatches(retainedCase ? PARENT_DRAFT : childCase ? CHILD_DIALOGUE : DIALOGUE);
     }
 
     private boolean draftMatches(String expected) throws Exception {
@@ -1142,7 +1285,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             Probe probe = readProbe("created.json");
             if (probe == null || probe.factory != 1 || !productAlive(probe.pid)) return false;
             if (old != null && (probe.sameProcess(old) || probe.task != old.task)) return false;
-            if (restored && (!probe.restored || !probe.hintPresent || !probe.hint.equals(hint(retiredCase ? retiredRestoreHint : childCase ? childScope : fixture.b)))) return false;
+            if (restored && (!probe.restored || !probe.hintPresent || !probe.hint.equals(hint(retiredCase || retainedCase ? retiredRestoreHint : childCase ? childScope : fixture.b)))) return false;
             if (!restored && !reuse && probe.restored) return false;
             found[0] = probe; return true;
         }, 10_000, Reason.PROCESS);
@@ -1175,7 +1318,8 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
 
     private Probe backgroundAndSave(Probe identity, Workspace expected) throws Exception {
         Probe before = latest(identity);
-        if (retiredCase && deaths == 1) noGameplay(before);
+        if ((retiredCase || retainedCase) && deaths == 1) noGameplay(before);
+        else if (retainedCase && deaths == 0) retainedSetupGameplay(before);
         else if (childCase && deaths == 0) setupGameplay(before);
         else if (deaths == 0) noGameplay(before);
         else {
@@ -1333,7 +1477,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
 
     private String shell(String command, int cap, File helperCapture) throws Exception {
         timeLeft(); need(cap > 0 && cap <= SHELL_CAP, Reason.SHELL_IO);
-        need(helperCapture == null || (retiredCase && cap == PROBE_CAP + 64), Reason.HELPER);
+        need(helperCapture == null || ((retiredCase || retainedCase) && cap == PROBE_CAP + 64), Reason.HELPER);
         final int wireCap = helperCapture == null ? cap + 64 : PROBE_CAP + 64;
         String script = command + "; rc=$?; printf '\\n" + EXIT + "%d\\n' \"$rc\"";
         final String transport = shellTransport(script);
@@ -1597,6 +1741,8 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
                 : (fixture == null ? JSONObject.NULL : fixture.json()));
         if (retiredCase) result.put("load_gate", loadGate == null ? JSONObject.NULL : loadGate)
                 .put("retirement_helpers", retirementHelpers).put("last_helper_exit", lastHelperExit == null ? JSONObject.NULL : lastHelperExit);
+        if (retainedCase) result.put("load_gate", loadGate == null ? JSONObject.NULL : loadGate)
+                .put("retained_helpers", retainedHelpers).put("last_helper_exit", lastHelperExit == null ? JSONObject.NULL : lastHelperExit);
         return result;
     }
 

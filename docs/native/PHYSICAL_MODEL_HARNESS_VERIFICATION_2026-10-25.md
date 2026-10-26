@@ -45,7 +45,12 @@ the offline locked SDK graph, run from `apps/android`:
 Result: **488 JVM tests, 45 classes, zero failures/errors/skips**; lint zero
 errors and ten warnings. The owned process completed in 60,429 ms, child 0,
 known descendant cleanup and complete output capture. Both dependency and
-analyzer audits completed. Warnings retain the existing target/dependency
+analyzer audits completed. The 488 tests actually executed in the preceding
+`085d9244` build (owned 109,796 ms, child 0, known cleanup/capture). The subsequent
+manifest-only `fbef4195` rebuild reports Kotlin/test compilation and JVM test
+tasks **UP-TO-DATE**, retaining those exact test results; it executes app assembly
+and lint again. This is not a second execution of all 488 tests.
+Warnings retain the existing target/dependency
 advisories and conservative `usableSpace` observations; no cache reclamation,
 SDK upgrade, system setting or suppression was used to make the build pass.
 
@@ -95,13 +100,54 @@ was added to make that audit pass.
 Independent host review also found missing current-user binding, missing fresh
 APK/UID/resource admission after model-source hashing, weak path/hash checks,
 and child-exit-only completion validation. Their corrections and final host
-gate are recorded in the host protocol and ticket evidence; no device grant
-may precede their integrated verification.
+gate are recorded in the host protocol and ticket evidence. The controller
+now pins configured SDK/system tool paths, refuses links/reparse ancestors,
+hashes bounded stable descriptors, checks primary user 0 with explicit user
+selection, refreshes the app pair/UID/resources immediately before transfer,
+and validates retained runner/proof/sidecar chains before crediting completion.
+Official [run-as source](https://raw.githubusercontent.com/aosp-mirror/platform_system_core/master/run-as/run-as.cpp)
+and [instrument command source](https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/master/cmds/am/src/com/android/commands/am/Am.java)
+support the explicit user argument ordering. No system user is switched.
+
+## Final host checks and discovery
+
+At integrated `1f26982d`, Python 3.14.7 ran the full scripts test discovery
+inside an owned, isolated `python -I -S -B` child, with repository imports
+explicitly inserted. Its test procedure is:
+
+```python
+suite = unittest.defaultTestLoader.discover(str(repo / "scripts/tests"), pattern="test_*.py")
+result = unittest.TextTestRunner(stream=sys.stdout, verbosity=1).run(suite)
+```
+
+**1,180 tests pass in 86.541 s**; owned 87,807 ms, child 0, known cleanup,
+complete capture and zero stderr. All 166 Python source hashes match before
+and after. Expected negative-fixture messages are retained in the 2,553-byte
+stdout. The initial invocation used an explicit top-level directory that
+Python rejected because the test directory is not a regular package; it
+exited before test loading. That driver failure is preserved separately.
+
+The same integrated controller then ran its actual `discover --identity
+<retained-private-identity> --evidence <new-private-directory>` entry point,
+using an explicitly configured existing SDK. It found the selected phone
+**absent**: three bounded host clients completed 0 with known cleanup, unchanged
+ADB-server identity and zero target calls. Outer owner 6,288 ms, worker 2 is
+the expected refused/absent outcome, with complete capture and zero stderr.
+Both controller/contract source hashes remained unchanged. No alternate
+emulator or phone was selected, and no further device action followed.
+
+The private central evidence index seals 228 files / 1,005,554 bytes across
+eleven retained attempt directories. Its 56,351-byte index has SHA256
+`05742e6af315795b4a230b1498a684e0403e6a3139252322f8ca59bbaec27e1c`.
+APK files are retained separately and bound by their full hashes above;
+model weights are excluded. Public reports contain only aggregate results and
+artifact hashes. Independent source/build reviews and claim releases are
+linked from #5; they do not grant owner acceptance or substitute for execution.
 
 ## Limits and next gate
 
-The initial device refresh found only emulator entries; the previously selected
-USB phone was absent, so it made zero target calls. No phone model copy,
+Both device refreshes found the previously selected USB phone absent, with
+zero target calls. No phone model copy,
 installation, import, cancellation, inference or restart result is inferred
 from the build. A fresh admitted phone discovery and source/APK-bound precheck
 must precede local weight staging and the five subsequent phases.

@@ -49,6 +49,24 @@ Operating-system app sandboxing and device encryption do not automatically mean 
 
 Deleting records is not a guarantee of forensic erasure on flash storage or deletion of copies the user exported elsewhere. Deletion must still remove every app-maintained canonical/derived representation and prevent retrieval of the removed story.
 
+## Unsent Android editor state
+
+For saved stories, the composer saves one transient UI draft through Android's
+saved-instance mechanism: exact story/branch IDs, Action/Dialogue kind, and at most
+8192 UTF-8 text bytes. Each identity is bounded to 128 UTF-8 bytes; enum/version
+and platform serialization add overhead. This is not a bound on the entire
+Activity Bundle. Unscoped demo text is not saved by this record. Oversized or
+Unicode-invalid editor text is omitted whole with a re-entry marker; live text
+is never silently truncated. Sending retains its separate 2048-byte validation.
+
+Android can retain saved-instance data outside the app process. This is UI
+restoration, not a separate encrypted store or a canonical/submitted turn.
+Restored text is hidden until the actual saved-story snapshot resolves to the
+same story and branch. A different settled scope clears it, and no restoration
+or navigation automatically sends it. It is not added to diagnostics or exported
+by this feature. Force-stop, task dismissal and ordinary cold-launch retention
+are not promised. Existing OS, keyboard, screenshot and backup limitations remain.
+
 ## Model and story import
 
 A SHA-256 hash verifies correspondence to an expected artifact, not that the publisher or parser is trustworthy. Record artifact source/revision/license and use compatible supported formats. Do not execute remote code or import arbitrary serialized objects/scripts from a story pack. Do not automatically follow URLs embedded in story content.

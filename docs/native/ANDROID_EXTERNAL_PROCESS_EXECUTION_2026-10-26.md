@@ -276,6 +276,22 @@ true, flush false, emulator stderr1,083B. A correction must preserve all client
 integrity checks, distinguish the exact ordinary user-check label, and add a
 realistic interleaved-client regression. Fresh host/build qualification and a
 fresh guest run are planned after that fix; no used fixture is adopted.
+The original refused case/closed guest has a separately verified399-file/
+761,956B recovery copy, explicitly retaining passedfalse/validation_refusedtrue.
+ZIP286,705B SHA-256
+`4b9f2799bf0a51fbd619a30f0a850e964988afba67c4739e2c1870209e9c9cbf`;
+both115,608B indexes match SHA-256
+`d4a66b020039a4b927c8b4e7da7c65cf97e02ea1b725a72c571fcce2613e5278`.
+
+`31c0f700` integrates only the host validator's exact `instrument-user`
+exception and realistic interleaved-client regressions. Ordinary user-check
+rows still require strict shape, clean exit, original bytes and hashes;
+unknown/duplicate/extra numeric class labels still refuse. The new positive
+test actually failed on the original validator, then all34 targeted host tests
+passed after correction. App/controller/native sources are unchanged. New
+mapped qualification is separate from the85ff9a69 Android executions above;
+an equal APK hash would establish artifact equality, not equal source maps.
+Fresh full-host/build checks are running before a new create-only89-method run.
 Earlier50989ca2 results remain historical source-attributed records; the current
 source has separate fresh runtime qualification above. Phone/ARM64 and real-model qualification are
 separate gates; no result follows from fake-provider or emulator checks.

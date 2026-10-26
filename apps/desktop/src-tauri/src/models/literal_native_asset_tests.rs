@@ -173,8 +173,12 @@ fn run(
     );
     match result {
         Ok(report) => {
+            let drained_on_return = manager.cleanup_complete();
             close_manager(manager);
-            assert!(manager.cleanup_complete());
+            assert!(
+                drained_on_return,
+                "successful producer must return with tracked ownership drained"
+            );
             report
         }
         Err(error) => {
@@ -280,7 +284,9 @@ fn approved_literal_paired_resumes_and_completed_read_is_zero_asset() {
             panic!("completed native resume refused with {code}");
         }
     };
+    let drained_on_return = manager.cleanup_complete();
     close_manager(&manager);
+    assert!(drained_on_return);
     assert_eq!(callbacks.load(Ordering::SeqCst), 0);
     assert_eq!(resumed, completed);
     assert_eq!(inventory(&root), before);
@@ -308,4 +314,26 @@ fn approved_literal_rollout_records_all_outcomes() {
     let before = inventory(&root);
     assert_eq!(literal_v3::inspect_comparison(&dir).unwrap(), report);
     assert_eq!(inventory(&root), before);
+}
+
+#[test]
+#[ignore = "requires explicitly approved installed model/resources; observes ownership before helper cleanup"]
+fn approved_literal_first_scene_returns_drained_before_helper() {
+    let _serial = SERIAL.lock().unwrap_or_else(|p| p.into_inner());
+    let manager = manager();
+    let root = root();
+    let dir = root.join("owner-smoke");
+    let report = run(
+        &manager,
+        &dir,
+        false,
+        ComparisonKind::ContinuousRollout,
+        1,
+        None,
+    );
+    summary("owner-return-first-scene", &report);
+    assert_eq!((report.completed_scenes, report.turns.len()), (1, 12));
+    assert_eq!(report.physical_setups, 1);
+    assert!(report.turns.iter().any(|row| row.roles > 0));
+    assert!(manager.cleanup_complete());
 }

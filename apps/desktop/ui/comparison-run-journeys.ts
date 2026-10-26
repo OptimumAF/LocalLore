@@ -497,12 +497,16 @@ export async function comparisonRunJourneys({
     };
     const readerJourney = async (extended: boolean) => {
         const scriptedStatus = f.get().status;
-        check(scriptedStatus?.version === 1, "scripted-journey-retains-v1-status");
+        check(
+            scriptedStatus?.version === 1,
+            "scripted-journey-retains-v1-status",
+        );
         await nativeComparisonPortChecks({
             invoke,
             check,
             phase: "scripted_open",
-            scripted: scriptedStatus?.version === 1 ? scriptedStatus : undefined,
+            scripted:
+                scriptedStatus?.version === 1 ? scriptedStatus : undefined,
         });
         await managedRead();
         const row = r

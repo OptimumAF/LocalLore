@@ -122,7 +122,9 @@ class TimelineProtocolTest {
             val gateway = DurableGateway(transport, autoCreateIfEmpty = false)
             try {
                 try { gateway.initialize(); fail("Incompatible live schema was accepted") }
-                catch (_: IllegalStateException) { /* Strict current owner check, no adoption. */ }
+                catch (failure: WorkspaceFailure) {
+                    assertEquals("Malformed", failure.category) // Strict current owner wire, no adoption.
+                }
                 assertEquals(listOf("workspace"), transport.calls)
             } finally { gateway.close() }
         }

@@ -26,6 +26,10 @@ export type ComparisonReaderInvoke = (
     name: string,
     args: Record<string, unknown>,
 ) => Promise<unknown>;
+export type ManagedComparisonIdentity = Readonly<{
+    runId: string;
+    mode: "scripted_baseline" | "approved_native";
+}>;
 type QuerySelection = Pick<
     Extract<EvidenceRequest, { kind: "query" }>,
     "edge" | "view"
@@ -83,6 +87,36 @@ function uncertain(error: ReaderError): boolean {
         error === "EvaluationInternal" ||
         error === "ComparisonReaderWire"
     );
+}
+
+function checkedManagedIdentity(
+    value: ManagedComparisonIdentity,
+): ManagedComparisonIdentity {
+    if (
+        value === null ||
+        typeof value !== "object" ||
+        ![Object.prototype, null].includes(Object.getPrototypeOf(value))
+    )
+        throw new Error("ComparisonReaderWire");
+    const keys = Reflect.ownKeys(value);
+    if (keys.length !== 2 || !keys.includes("runId") || !keys.includes("mode"))
+        throw new Error("ComparisonReaderWire");
+    const run = Object.getOwnPropertyDescriptor(value, "runId"),
+        mode = Object.getOwnPropertyDescriptor(value, "mode");
+    if (
+        !run ||
+        !("value" in run) ||
+        !mode ||
+        !("value" in mode) ||
+        typeof run.value !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
+            run.value,
+        ) ||
+        (mode.value !== "scripted_baseline" && mode.value !== "approved_native")
+    )
+        throw new Error("ComparisonReaderWire");
+    // Copy scalars before the first pending notification can run a subscriber.
+    return { runId: run.value, mode: mode.value };
 }
 
 export class ComparisonReaderController {
@@ -394,14 +428,16 @@ export class ComparisonReaderController {
         });
     }
 
+    private canPick(): boolean {
+        return (
+            !this.disposed &&
+            this.state.allowed &&
+            !this.state.busy &&
+            this.state.clientId === null
+        );
+    }
     async pick(runId?: string): Promise<void> {
-        if (
-            this.disposed ||
-            !this.state.allowed ||
-            this.state.busy ||
-            this.state.clientId !== null
-        )
-            return;
+        if (!this.canPick()) return;
         if (
             runId !== undefined &&
             !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
@@ -412,6 +448,27 @@ export class ComparisonReaderController {
             this.emitError("ComparisonReaderWire");
             return;
         }
+        await this.beginPick(
+            runId === undefined ? null : { runId, mode: "scripted_baseline" },
+        );
+    }
+    async pickManaged(source: ManagedComparisonIdentity): Promise<void> {
+        if (!this.canPick()) return;
+        let identity: ManagedComparisonIdentity;
+        try {
+            identity = checkedManagedIdentity(source);
+        } catch {
+            this.patch({ error: "ComparisonReaderWire" });
+            this.emitError("ComparisonReaderWire");
+            return;
+        }
+        await this.beginPick(identity);
+    }
+    private async beginPick(
+        source: ManagedComparisonIdentity | null,
+    ): Promise<void> {
+        if (!this.canPick()) return;
+        const runId = source?.runId;
         const client = crypto.randomUUID(),
             ticket = this.ticket(client, true);
         this.closing = false;
@@ -429,12 +486,20 @@ export class ComparisonReaderController {
             await this.flushRetired();
             if (!this.live(ticket)) return;
             this.nativeClients.add(client);
-            const raw = await this.call(
-                runId === undefined ? "pick" : "managed",
-                runId === undefined
-                    ? { clientId: client }
-                    : { clientId: client, runId },
-            );
+            // Only managed admission selects the native managed service.
+            // Its returned capability is still the same ReaderV1 lifecycle.
+            const raw =
+                source?.mode === "approved_native"
+                    ? await this.invoke("evaluation_comparison_native", {
+                          action: "managed",
+                          query: { clientId: client, runId },
+                      })
+                    : await this.call(
+                          runId === undefined ? "pick" : "managed",
+                          runId === undefined
+                              ? { clientId: client }
+                              : { clientId: client, runId },
+                      );
             const status = checkedReaderStatus(raw, client);
             if (!this.live(ticket)) {
                 if (!this.ownsClient(ticket))

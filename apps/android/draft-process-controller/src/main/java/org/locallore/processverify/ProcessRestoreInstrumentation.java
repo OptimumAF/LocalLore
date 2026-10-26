@@ -80,7 +80,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     private static final String HELPER_EXIT = "LL_RETIRED_HELPER_EXIT_V1=";
     private static final String UNAVAILABLE_NOTICE = "Previously selected timeline is unavailable. Review the library before sending.";
     private static final String RUN_EXTRA = "locallore.process.run_id";
-    private static final String PROBE_SCOPE = "locallore_process_verify_v1";
+    private static final String PROBE_SCOPE = "locallore_process_verify_v2";
     private static final String FIXTURE_SCOPE = "locallore_process_fixture_v1";
     private static final String RESULT_SCOPE = "locallore_process_controller_v1";
     private static final String DIALOGUE = "SYNTHETIC process-restoration dialogue: Mira, café and lanterns 🌊.\n"
@@ -105,7 +105,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     private static final Pattern HEX16 = Pattern.compile("[0-9a-f]{16}");
     private static final Pattern HEX64 = Pattern.compile("[0-9a-f]{64}");
     private static final String[] OPS = {"workspace", "branches", "resume", "create", "open", "play_snapshot",
-            "free_text", "submit", "prepare", "commit", "cancel", "other"};
+            "free_text", "submit", "prepare", "commit", "cancel", "other", "story_template", "create_named"};
     // The producer explicitly ignores ONLY these known non-gameplay wire ops:
     // close, capabilities, model_status. Every arbitrary unknown op is "other".
     private static final String[] GAME = {"free_text", "submit", "prepare", "commit", "cancel", "other"};
@@ -212,7 +212,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             else readyEmptyProduct(initial);
             // Receipts are cumulative in a live product process. An owned
             // failed pre-Send attempt may already have created this exact pair.
-            long initialCreates = latest(initial).op("create");
+            long initialCreates = creationAttempts(latest(initial));
             checked(initialCreates == 0 || (reuse && initialCreates == 2), Reason.CATALOG);
             if (retainedCase) {
                 runRetained(stored, initial);
@@ -223,7 +223,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             } else {
             stage = Stage.CATALOG;
             if (reuse) verifyFixtureCatalog();
-            else createFixture(stored);
+            else createFixture(stored, initial);
             checked(fixture != null && fixture.a.story.compareTo(fixture.b.story) < 0, Reason.FIXTURE);
             Workspace chosen = select(fixture.b.story);
             checked(chosen.same(fixture.b, 0), Reason.CANONICAL);
@@ -232,7 +232,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             setDraft();
             verifyDraft();
             Probe unsubmitted = latest(initial);
-            checked(unsubmitted.op("create") == initialCreates + (reuse ? 0 : 2), Reason.CATALOG);
+            checked(creationAttempts(unsubmitted) == initialCreates + (reuse ? 0 : 2), Reason.CATALOG);
             noGameplay(unsubmitted);
             stage = Stage.FIRST_SAVE;
             Probe saved = backgroundAndSave(initial, fixture.b);
@@ -246,7 +246,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             checked(workspace().same(fixture.b, 0), Reason.SCOPE);
             verifyDraft();
             Probe firstUnsubmitted = latest(first);
-            checked(firstUnsubmitted.op("create") == 0, Reason.AUTOMATIC_OPERATION);
+            checked(creationAttempts(firstUnsubmitted) == 0, Reason.AUTOMATIC_OPERATION);
             noGameplay(firstUnsubmitted);
             stage = Stage.NATIVE_REREAD;
             Probe beforeReselect = latest(first);
@@ -279,7 +279,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             checked(workspace().same(fixture.b, 1), Reason.SCOPE);
             verifyDraft();
             Probe secondUnsubmitted = latest(second);
-            checked(secondUnsubmitted.op("create") == 0, Reason.AUTOMATIC_OPERATION);
+            checked(creationAttempts(secondUnsubmitted) == 0, Reason.AUTOMATIC_OPERATION);
             noGameplay(secondUnsubmitted);
             stage = Stage.CANONICAL_REREAD;
             List<String> ids = catalog();
@@ -603,18 +603,18 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         try { checked(nodeText(empty).equals("No saved stories. Choose New story to begin."), Reason.FIXTURE); }
         finally { empty.recycle(); }
         Probe initial = latest(identity);
-        checked(initial.op("create") == 0, Reason.AUTOMATIC_OPERATION);
+        checked(creationAttempts(initial) == 0, Reason.AUTOMATIC_OPERATION);
         noGameplay(initial);
     }
 
-    private void createFixture(File file) throws Exception {
+    private void createFixture(File file, Probe identity) throws Exception {
         need(findAndRecycle("saved-library") == false && maybeWorkspace() == null, Reason.FIXTURE);
-        click("reset-demo");
+        createThroughReview(identity);
         Workspace first = awaitWorkspace(null, 0);
         readyProduct();
         checked(catalog().equals(Collections.singletonList(first.story)), Reason.CATALOG);
         checked(select(first.story).same(first, 0), Reason.CANONICAL);
-        click("reset-demo");
+        createThroughReview(identity);
         Workspace second = awaitWorkspace(first.story, 0);
         List<String> ids = catalog();
         checked(ids.size() == 2 && ids.contains(first.story) && ids.contains(second.story), Reason.CATALOG);
@@ -622,6 +622,34 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         checked(a.head == 0 && b.head == 0 && !a.story.equals(b.story), Reason.CANONICAL);
         fixture = new Fixture(a, b, runId, productSha, controllerUid, productUid, signatureSha);
         if (file != null) writeFixture(file, fixture.json());
+    }
+
+    /** New UI consent only; the original diagnostic check count is unchanged. */
+    private void createThroughReview(Probe identity) throws Exception {
+        Probe before = latest(identity);
+        click("reset-demo"); // Existing counted action, exactly once.
+        waitUntil(() -> {
+            if (!findAndRecycle("story-creation-dialog")) return false;
+            if (findAndRecycle("story-creation-preview")) return true;
+            AccessibilityNodeInfo content = find("story-creation-content");
+            if (content == null) return false;
+            try { if (content.isScrollable()) content.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD); }
+            finally { content.recycle(); }
+            return false;
+        }, 5_000, Reason.UI);
+        AccessibilityNodeInfo revealed = tag("story-creation-confirm"); revealed.recycle();
+        waitUntil(() -> {
+            AccessibilityNodeInfo node = find("story-creation-confirm");
+            if (node == null) return false;
+            try { return node.isEnabled() && productNode(node); } finally { node.recycle(); }
+        }, 5_000, Reason.UI);
+        need(sameCreations(before, latest(identity)), Reason.AUTOMATIC_OPERATION);
+        AccessibilityNodeInfo confirm = tag("story-creation-confirm");
+        try {
+            need(confirm.isEnabled() && confirm.isVisibleToUser() && productNode(confirm), Reason.UI);
+            need(confirm.performAction(AccessibilityNodeInfo.ACTION_CLICK), Reason.UI);
+        } finally { confirm.recycle(); }
+        waitUntil(() -> !findAndRecycle("story-creation-dialog"), 5_000, Reason.UI);
     }
 
     private void writeFixture(File file, JSONObject value) throws Exception {
@@ -643,8 +671,8 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     /** Child setup is create-only. Any partial mutation requires a new owned cohort. */
     private void runChild(File stored, Probe initial) throws Exception {
         stage = Stage.CATALOG;
-        checked(!reuse && latest(initial).op("create") == 0, Reason.FIXTURE);
-        createFixture(null);
+        checked(!reuse && creationAttempts(latest(initial)) == 0, Reason.FIXTURE);
+        createFixture(null, initial);
         checked(fixture != null && fixture.a.story.compareTo(fixture.b.story) < 0, Reason.FIXTURE);
         checked(select(fixture.b.story).same(fixture.b, 0), Reason.CANONICAL);
         stage = Stage.PARENT_SEND;
@@ -657,7 +685,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         readyProduct();
         acceptedText("message-body-1", DIALOGUE);
         Probe parent = latest(initial);
-        checked(parent.op("create") == 2, Reason.CATALOG);
+        checked(creationAttempts(parent) == 2, Reason.CATALOG);
         normalSendGameplay(parent);
         childScope = forkThroughUi(fixture.b, 1);
         String child = childScope.branch;
@@ -667,7 +695,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         verifyDraft();
         acceptedText("message-body-1", DIALOGUE);
         Probe setup = latest(initial);
-        checked(setup.op("create") == 2, Reason.CATALOG);
+        checked(creationAttempts(setup) == 2, Reason.CATALOG);
         setupGameplay(setup);
         // roots_at_creation records historical observations, not current B's head.
         JSONObject value = fixture.json();
@@ -696,7 +724,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         verifyDraft();
         acceptedText("message-body-1", DIALOGUE);
         Probe restored = latest(first);
-        checked(restored.op("create") == 0, Reason.AUTOMATIC_OPERATION);
+        checked(creationAttempts(restored) == 0, Reason.AUTOMATIC_OPERATION);
         noGameplay(restored);
         stage = Stage.NATIVE_REREAD;
         Probe beforeReselect = latest(first);
@@ -725,7 +753,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         acceptedText("message-body-1", DIALOGUE);
         acceptedText("message-body-3", CHILD_DIALOGUE);
         Probe finalState = latest(second);
-        checked(finalState.op("create") == 0, Reason.AUTOMATIC_OPERATION);
+        checked(creationAttempts(finalState) == 0, Reason.AUTOMATIC_OPERATION);
         noGameplay(finalState);
         stage = Stage.CANONICAL_REREAD;
         checked(catalog().equals(fixture.ids()), Reason.CATALOG);
@@ -748,8 +776,8 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
 
     private void runRetained(File stored, Probe initial) throws Exception {
         stage = Stage.CATALOG;
-        checked(!reuse && latest(initial).op("create") == 0, Reason.FIXTURE);
-        createFixture(null);
+        checked(!reuse && creationAttempts(latest(initial)) == 0, Reason.FIXTURE);
+        createFixture(null, initial);
         checked(fixture != null && fixture.a.story.compareTo(fixture.b.story) < 0, Reason.FIXTURE);
         checked(select(fixture.b.story).same(fixture.b, 0), Reason.CANONICAL);
         stage = Stage.PARENT_SEND;
@@ -792,7 +820,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         selectDialogue(); setDraft(); verifyDraft();
         checked(workspace().same(retainedParent, 3), Reason.CANONICAL);
         Probe setup = latest(initial);
-        checked(setup.op("create") == 2, Reason.CATALOG); retainedSetupGameplay(setup);
+        checked(creationAttempts(setup) == 2, Reason.CATALOG); retainedSetupGameplay(setup);
         JSONObject value = fixture.json(); Object roots = value.remove("stories");
         value.put("scope", "locallore_retained_parent_process_fixture_v1").put("case", RETAINED_CASE)
                 .put("fixture_test_sha256", fixtureTestSha).put("roots_at_creation", roots)
@@ -836,7 +864,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         checked(workspace().same(child, 1), Reason.CANONICAL);
         acceptedText("message-body-1", DIALOGUE);
         Probe after = latest(initial);
-        checked(sameGame(before, after) && after.op("create") == before.op("create"), Reason.AUTOMATIC_OPERATION);
+        checked(sameGame(before, after) && sameCreations(before, after), Reason.AUTOMATIC_OPERATION);
         setupGameplay(after);
     }
 
@@ -905,7 +933,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         verifyBlank();
         noAcceptedMessages();
         Probe fallback = latest(first);
-        checked(fallback.op("create") == 0, Reason.AUTOMATIC_OPERATION);
+        checked(creationAttempts(fallback) == 0, Reason.AUTOMATIC_OPERATION);
         noGameplay(fallback);
         stage = Stage.NATIVE_REREAD;
         Probe beforeRead = latest(first);
@@ -930,7 +958,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         verifyBlank();
         noAcceptedMessages();
         Probe reopened = latest(second);
-        checked(reopened.op("create") == 0, Reason.AUTOMATIC_OPERATION);
+        checked(creationAttempts(reopened) == 0, Reason.AUTOMATIC_OPERATION);
         noGameplay(reopened);
         stage = Stage.CANONICAL_REREAD;
         checked(catalog().equals(fixture.ids()), Reason.CATALOG);
@@ -1364,7 +1392,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         waitUntil(() -> {
             Probe p = readProbe("saved.json");
             if (p == null || !p.sameIdentity(identity) || p.sequence <= sequence || !p.hintPresent || !p.hint.equals(hint(expected)) || p.factory != 1) return false;
-            need(sameGame(p, before), Reason.AUTOMATIC_OPERATION);
+            need(sameGame(p, before) && sameCreations(p, before), Reason.AUTOMATIC_OPERATION);
             if (!taskStopped(identity.task)) return false;
             saved[0] = p; return true;
         }, 10_000, Reason.SAVED_ACK);
@@ -1386,7 +1414,8 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         terminalObservations.put(new JSONObject().put("pid", saved.pid).put("start", saved.start).put("task", saved.task)
                 .put("saved_sequence", finalSaved.sequence).put("commands_sequence", finalCommands.sequence)
                 .put("saved_game", gameJson(finalSaved)).put("commands_game", gameJson(finalCommands)));
-        checked(sameGame(finalSaved, saved) && sameGame(finalCommands, saved), Reason.AUTOMATIC_OPERATION);
+        checked(sameGame(finalSaved, saved) && sameGame(finalCommands, saved)
+                && sameCreations(finalSaved, saved) && sameCreations(finalCommands, saved), Reason.AUTOMATIC_OPERATION);
         checked(true, Reason.PROCESS);
     }
 
@@ -1431,6 +1460,14 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     private static boolean sameGame(Probe left, Probe right) {
         for (String op : GAME) if (left.op(op) != right.op(op)) return false;
         return true;
+    }
+
+    private static long creationAttempts(Probe probe) {
+        return probe.op("create") + probe.op("create_named");
+    }
+
+    private static boolean sameCreations(Probe left, Probe right) {
+        return left.op("create") == right.op("create") && left.op("create_named") == right.op("create_named");
     }
 
     private static JSONObject gameJson(Probe probe) throws JSONException {
@@ -1483,7 +1520,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         JSONObject json = strictObject(value.getBytes(StandardCharsets.UTF_8));
         exact(json, "version", "scope", "run_id", "pid", "uid", "task_id", "sequence", "process_start_uptime_ms", "event",
                 "restored_state", "factory_creations", "hint_present", "hint_sha256", "operations");
-        need(number(json, "version", 1, 1) == 1 && PROBE_SCOPE.equals(json.get("scope")) && runId.equals(json.get("run_id")), Reason.PROBE);
+        need(number(json, "version", 2, 2) == 2 && PROBE_SCOPE.equals(json.get("scope")) && runId.equals(json.get("run_id")), Reason.PROBE);
         String event = leaf.equals("created.json") ? "created" : leaf.equals("saved.json") ? "saved_after_super" : "command";
         need(event.equals(json.get("event")), Reason.PROBE);
         int pid = (int) number(json, "pid", 1, Integer.MAX_VALUE);
@@ -1588,7 +1625,8 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         AccessibilityNodeInfo node = find(id); if (node != null) return node;
         for (int direction : new int[]{AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD, AccessibilityNodeInfo.ACTION_SCROLL_FORWARD}) {
             for (int i = 0; i < 12; i++) {
-                timeLeft(); AccessibilityNodeInfo list = find(id.startsWith("fork-") && !id.equals("fork-timeline") ? "fork-scroll" : "story-list");
+                timeLeft(); AccessibilityNodeInfo list = find(id.startsWith("story-creation-") ? "story-creation-content"
+                        : id.startsWith("fork-") && !id.equals("fork-timeline") ? "fork-scroll" : "story-list");
                 if (list == null) break;
                 boolean moved;
                 try { moved = list.isScrollable() && list.performAction(direction); }

@@ -29,7 +29,7 @@ public final class RetainedParentFixtureWorker {
     private static final String[] SIDECARS = {"probe-before-v1.json", "probe-after-v1.json",
         "retire-before-v1.json", "retire-after-v1.json"};
     private static final String[] OPERATIONS = {"workspace", "branches", "resume", "create", "open", "play_snapshot",
-        "free_text", "submit", "prepare", "commit", "cancel", "other"};
+        "free_text", "submit", "prepare", "commit", "cancel", "other", "story_template", "create_named"};
     private RetainedParentFixtureWorker() { }
     private static void need(boolean condition) { RetiredSelectionFixtureMain.require(condition); }
 
@@ -200,8 +200,8 @@ public final class RetainedParentFixtureWorker {
         JSONObject o = RetiredSelectionFixtureMain.json(read(file, 4096), 4096);
         RetiredSelectionFixtureMain.keys(o, "version", "scope", "run_id", "pid", "uid", "task_id", "sequence", "process_start_uptime_ms",
             "event", "restored_state", "factory_creations", "hint_present", "hint_sha256", "operations");
-        need(RetiredSelectionFixtureMain.number(o, "version") == 1
-            && RetiredSelectionFixtureMain.text(o, "scope").equals("locallore_process_verify_v1")
+        need(RetiredSelectionFixtureMain.number(o, "version") == 2
+            && RetiredSelectionFixtureMain.text(o, "scope").equals("locallore_process_verify_v2")
             && RetiredSelectionFixtureMain.text(o, "run_id").equals(args[1])
             && RetiredSelectionFixtureMain.number(o, "pid") == Integer.parseInt(args[10])
             && RetiredSelectionFixtureMain.number(o, "uid") == Process.myUid()

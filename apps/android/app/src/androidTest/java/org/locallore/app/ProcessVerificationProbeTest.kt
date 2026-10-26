@@ -18,11 +18,21 @@ class ProcessVerificationProbeTest {
         ProcessVerificationProbe.factoryCreated()
         ProcessVerificationProbe.created(PlayDraftScope("synthetic_story", "root"))
         ProcessVerificationProbe.operation("workspace")
+        ProcessVerificationProbe.operation("story_template")
+        ProcessVerificationProbe.operation("create_named")
         ProcessVerificationProbe.operation("SYNTHETIC secret unknown operation")
         ProcessVerificationProbe.saved(PlayDraftScope("synthetic_story", "root"))
         val files = listOf("created.json", "commands.json", "saved.json").map { File(directory, it) }
         val original = files.map { it.readBytes() }
         val commands = JSONObject(original[1].toString(Charsets.UTF_8))
+        assertEquals(2, commands.getInt("version"))
+        assertEquals("locallore_process_verify_v2", commands.getString("scope"))
+        assertEquals(setOf("workspace", "branches", "resume", "create", "open", "play_snapshot", "free_text",
+            "submit", "prepare", "commit", "cancel", "other", "story_template", "create_named"),
+            commands.getJSONObject("operations").keys().asSequence().toSet())
+        assertEquals(1, commands.getJSONObject("operations").getInt("story_template"))
+        assertEquals(1, commands.getJSONObject("operations").getInt("create_named"))
+        assertEquals(0, commands.getJSONObject("operations").getInt("create"))
         assertEquals(1, commands.getJSONObject("operations").getInt("other"))
         assertEquals(1, commands.getJSONObject("operations").getInt("workspace"))
         assertFalse(original[1].toString(Charsets.UTF_8).contains("secret"))
@@ -40,6 +50,8 @@ class ProcessVerificationProbeTest {
         assertEquals(1, restored.getInt("factory_creations"))
         assertTrue(restored.getBoolean("restored_state"))
         assertEquals(1, restored.getJSONObject("operations").getInt("other"))
+        assertEquals(1, restored.getJSONObject("operations").getInt("story_template"))
+        assertEquals(1, restored.getJSONObject("operations").getInt("create_named"))
         ProcessVerificationProbe.configure(context, null, 21, true)
     }
 }

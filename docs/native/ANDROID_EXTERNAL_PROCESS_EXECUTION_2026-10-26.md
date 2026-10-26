@@ -308,6 +308,16 @@ byte-for-byte against build-v2: product/test/controller are identical to the
 85ff9a69 artifacts. The native10 and four external cases above retain their
 85ff9a69 execution attribution; they are not relabeled as new-map runs.
 The new89-method suite is running in a separate fresh guest against build-v3.
+
+Independent host/build recovery verification covers85 original files/ZIP
+entries,28,088,511B, with no mismatch/extra/duplicate/unsafe entry. ZIP17,807,874B
+SHA-256 `78b9dbec1fdceca06c8f0ed9a099e2f3f0da4c984fda7d8b756f8bab3381ea86`;
+both24,877B indexes match SHA-256
+`d878b6a9cf96de77459c7fd21d25ecf8d6dd38b3b3c55b874afa4374985c29ec`.
+Only terminal build-v3/full-host-v3/server-v1 files were selected; no live
+cohort, image, database, model or cache was selected. A verified complete-history
+Git bundle through05ebbe31 is9,851,812B, SHA-256
+`18a094b1910396047eb9c502608629bd32672d2428dc70224685a89ecd9bd151`.
 Earlier50989ca2 results remain historical source-attributed records; the current
 source has separate fresh runtime qualification above. Phone/ARM64 and real-model qualification are
 separate gates; no result follows from fake-provider or emulator checks.

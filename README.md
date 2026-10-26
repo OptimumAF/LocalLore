@@ -22,11 +22,11 @@ These are planned capabilities, not claims about implemented software. Free-form
 ## Start here
 
 The [current external restoration execution](docs/native/ANDROID_EXTERNAL_PROCESS_EXECUTION_2026-10-26.md)
-passes the real scripted Compose/JNI/Rust root control and selected-parent
-retirement across two saved-task process deaths per case. Four original
+passes the real scripted Compose/JNI/Rust root, active-child, retired-leaf and
+selected-parent controls across two saved-task process deaths per case. Four original
 snapshots preserve the retained child's inherited receipts and exclude the
 parent's later tail. The report retains the failed setup attempt, the explicit
-fork-recovery consent correction, current verification and remaining controls.
+fork-recovery consent correction, host-validator correction and current verification.
 This is API35/x86_64 evidence; phone and real-model qualification remain separate.
 
 The [Android saved-task restoration check](docs/native/ANDROID_PROCESS_RESTORATION_VERIFICATION_2026-10-26.md)

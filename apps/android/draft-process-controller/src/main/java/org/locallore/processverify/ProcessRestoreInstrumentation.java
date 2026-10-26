@@ -461,8 +461,41 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
 
     private void verifyMenuHead(String story, long head) throws Exception {
         AccessibilityNodeInfo node = tag("saved-story-" + story);
-        try { checked(nodeText(node).endsWith(" · " + story + " · revision " + head), Reason.CANONICAL); }
+        try { checked(menuItemLabel(node).endsWith(" · " + story + " · revision " + head), Reason.CANONICAL); }
         finally { node.recycle(); }
+    }
+
+    private String menuItemLabel(AccessibilityNodeInfo root) throws Exception {
+        ArrayDeque<AccessibilityNodeInfo> pending = new ArrayDeque<>();
+        ArrayDeque<Integer> depths = new ArrayDeque<>();
+        pending.add(AccessibilityNodeInfo.obtain(root)); depths.add(0);
+        String label = null;
+        int seen = 0;
+        try {
+            while (!pending.isEmpty()) {
+                timeLeft();
+                AccessibilityNodeInfo node = pending.removeFirst();
+                int depth = depths.removeFirst();
+                try {
+                    need(++seen <= 32 && depth <= 8 && productNode(node) && node.isVisibleToUser(), Reason.CANONICAL);
+                    String text = nodeText(node);
+                    need(text.length() <= 4096, Reason.CANONICAL);
+                    if (!text.isEmpty()) {
+                        need(label == null || label.equals(text), Reason.CANONICAL);
+                        label = text; // Identical merged parent/child copies are unambiguous.
+                    }
+                    int children = node.getChildCount();
+                    need(children <= 32 - seen - pending.size() && (children == 0 || depth < 8), Reason.CANONICAL);
+                    for (int i = 0; i < children; i++) {
+                        AccessibilityNodeInfo child = node.getChild(i);
+                        need(child != null, Reason.CANONICAL);
+                        pending.addLast(child); depths.addLast(depth + 1);
+                    }
+                } finally { node.recycle(); }
+            }
+            need(label != null, Reason.CANONICAL);
+            return label;
+        } finally { while (!pending.isEmpty()) pending.removeFirst().recycle(); }
     }
 
     private Workspace awaitWorkspace(String different, long head) throws Exception {

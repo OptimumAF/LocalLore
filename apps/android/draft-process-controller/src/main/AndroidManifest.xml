@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <queries><package android:name="org.locallore.app.draftprocessverify" /></queries>
+    <queries>
+        <package android:name="org.locallore.app.draftprocessverify" />
+        <package android:name="org.locallore.app.draftprocessverify.test" />
+    </queries>
     <application android:allowBackup="false" android:fullBackupContent="false"
         android:testOnly="true" android:label="LocalLore process verification" />
     <instrumentation android:name="org.locallore.processverify.ProcessRestoreInstrumentation"

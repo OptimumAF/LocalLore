@@ -34,6 +34,8 @@ E: manifest (line=2)
   E: queries (line=4)
     E: package (line=4)
       A: android:name(0x01010003)="org.locallore.app.draftprocessverify"
+    E: package (line=4)
+      A: android:name(0x01010003)="org.locallore.app.draftprocessverify.test"
   E: application (line=5)
     A: android:allowBackup(0x01010280)=false
     A: android:fullBackupContent(0x010104eb)=false
@@ -184,10 +186,35 @@ class ProcessControllerAuditTests(unittest.TestCase):
         self.refused(badging=BADGING + "launchable-activity: name='unexpected.Class'\n")
 
     def test_queries_must_be_only_the_one_fixed_product(self):
+        # Keep the existing method roster; visibility now includes this product's fixed test APK only.
         self.refused(tree=TREE.replace(audit.PRODUCT, "*"))
         self.refused(tree=TREE.replace("  E: application", '    E: package (line=4)\n      A: android:name(0x01010003)="other.package"\n  E: application'))
         self.refused(tree=TREE.replace("    E: package (line=4)", "    E: intent (line=4)"))
         self.refused(tree=TREE.replace("  E: queries (line=4)\n", ""))
+
+    def test_queries_require_both_fixed_distinct_packages_in_either_order(self):
+        product_query = ('    E: package (line=4)\n'
+                         f'      A: android:name(0x01010003)="{audit.PRODUCT}"\n')
+        test_query = ('    E: package (line=4)\n'
+                      f'      A: android:name(0x01010003)="{audit.PRODUCT}.test"\n')
+        self.assertEqual(self.check(tree=TREE.replace(product_query + test_query,
+                                                      test_query + product_query))["status"], "passed")
+        for query in (product_query, test_query, product_query + test_query):
+            with self.subTest(missing=query):
+                self.refused(tree=TREE.replace(query, ""))
+        for name in (audit.PRODUCT, "*", "other.package", audit.PRODUCT + ".tests"):
+            with self.subTest(test_package=name):
+                self.refused(tree=TREE.replace(f'="{audit.PRODUCT}.test"', f'="{name}"'))
+        self.refused(tree=TREE.replace("  E: application", product_query + "  E: application"))
+
+    def test_query_packages_have_only_name_and_no_children_or_parent_attributes(self):
+        line = f'      A: android:name(0x01010003)="{audit.PRODUCT}.test"\n'
+        self.refused(tree=TREE.replace(line, line + '      A: android:enabled(0x0101000e)=true\n'))
+        self.refused(tree=TREE.replace(line, line + '      E: intent (line=4)\n'))
+        self.refused(tree=TREE.replace(line, '      A: android:missingName="fixed"\n'))
+        self.refused(tree=TREE.replace(line, line + line))
+        self.refused(tree=TREE.replace("  E: queries (line=4)\n",
+                                      '  E: queries (line=4)\n    A: android:name="unexpected"\n'))
 
     def test_instrumentation_is_single_fixed_and_not_profiling(self):
         self.refused(tree=TREE.replace(audit.INSTRUMENTATION, "other.Instrumentation"))

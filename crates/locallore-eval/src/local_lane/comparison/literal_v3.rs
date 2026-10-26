@@ -1,5 +1,7 @@
 //! Scripted protocol3 literal/Relevant comparison over the existing owners.
 //! Native entry and selected/UI execution remain explicitly unavailable.
+#[cfg(test)]
+mod resource_review_tests;
 use super::*;
 use crate::memory_comparison_v3::{
     self as v3, ArmDescriptorV3, CapturedLiteralContext, ComparisonArmV3, ComparisonReportV3,

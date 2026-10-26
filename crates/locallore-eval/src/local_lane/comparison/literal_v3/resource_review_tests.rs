@@ -105,7 +105,10 @@ fn exhausted_right_invocations_refuse_before_new_left_reservation() {
     assert!(unknown > 0);
     assert_eq!(right.invocations, original_invocations + unknown);
     assert_eq!(right.admissions, original_admissions);
-    assert_eq!(right.preflight_invocation(false).err().as_deref(), Some("RunBudget"));
+    assert_eq!(
+        right.preflight_invocation(false).err().as_deref(),
+        Some("RunBudget")
+    );
     drop(right); // Unknown reservations are deliberately never settled/refunded.
     let before = inventory(&dir);
     let result = run_comparison(
@@ -119,9 +122,16 @@ fn exhausted_right_invocations_refuse_before_new_left_reservation() {
     );
     let after = inventory(&dir); // Session/Store/lock owners have returned.
     assert_eq!(result.err().as_deref(), Some("RunBudget"));
-    let changed: Vec<_> = before.keys().chain(after.keys())
-        .filter(|path| before.get(*path) != after.get(*path)).take(24).collect();
-    assert!(after == before, "known right refusal changed paths: {changed:?}");
+    let changed: Vec<_> = before
+        .keys()
+        .chain(after.keys())
+        .filter(|path| before.get(*path) != after.get(*path))
+        .take(24)
+        .collect();
+    assert!(
+        after == before,
+        "known right refusal changed paths: {changed:?}"
+    );
 }
 
 #[test]
@@ -139,7 +149,10 @@ fn setup_must_reference_an_actual_right_invocation() {
     let result = inspect_comparison(&dir);
     let after = inventory(&dir);
     assert_eq!(after, before);
-    assert!(result.is_err(), "reader accepted an absent referenced invocation");
+    assert!(
+        result.is_err(),
+        "reader accepted an absent referenced invocation"
+    );
 }
 
 #[test]
@@ -153,5 +166,8 @@ fn setup_filename_outside_bounded_namespace_is_not_silently_ignored() {
     let result = inspect_comparison(&dir);
     let after = inventory(&dir);
     assert_eq!(after, before);
-    assert!(result.is_err(), "reader ignored a setup outside indices 00..31");
+    assert!(
+        result.is_err(),
+        "reader ignored a setup outside indices 00..31"
+    );
 }

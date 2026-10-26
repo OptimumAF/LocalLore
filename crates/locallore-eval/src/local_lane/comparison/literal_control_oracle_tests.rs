@@ -162,14 +162,21 @@ fn observe(validated: &Validated<'_>, value: &Value, pass: DirectorPassV25) -> N
     if director_forwarded_budget_v25(&s.profile, pass, prompt, &value["input"]["schema"]).is_err() {
         return Negative::Unavailable("forwarded_budget");
     }
-    let Some((_, suffix)) = prompt.split_once("Context data: ") else {
+    let Some((prefix, frame, suffix)) = framed_prompt(prompt) else {
         return Negative::Unavailable("prompt_shape");
     };
-    let frame: Value =
-        match Deserialize::deserialize(&mut serde_json::Deserializer::from_str(suffix)) {
-            Ok(value) => value,
-            Err(_) => return Negative::Unavailable("prompt_shape"),
-        };
+    let pass_index = usize::from(pass == DirectorPassV25::Repair);
+    let Some(recorded_prompt) = validated.checked.director_prompts.get(pass_index) else {
+        return Negative::Unavailable("missing_recorded_pass");
+    };
+    let Some((recorded_prefix, _, recorded_suffix)) = framed_prompt(recorded_prompt) else {
+        return Negative::Unavailable("recorded_prompt_shape");
+    };
+    // Isolated diagnostic copies may change only the JSON frame/schema. They
+    // cannot introduce unknown instructions around the frame and remain known.
+    if prefix != recorded_prefix || suffix != recorded_suffix {
+        return Negative::Unavailable("prompt_framing");
+    }
     let Intent::FreeText { kind, text } = &s.request.intent else {
         return Negative::Unavailable("request_kind");
     };
@@ -296,7 +303,10 @@ fn schema_channels(
                     }
                 }
             }
-            "type" if child.is_string() => {}
+            "type"
+                if child.as_str().is_some_and(|kind| {
+                    matches!(kind, "object" | "array" | "string" | "integer")
+                }) => {}
             "required"
                 if child
                     .as_array()
@@ -389,8 +399,12 @@ fn known_schema(schema: &Value) -> bool {
         let Some(required) = variant["required"].as_array() else {
             return false;
         };
-        let required: BTreeSet<_> = required.iter().filter_map(Value::as_str).collect();
-        if required.len() != allowed.len() || !allowed.iter().all(|k| required.contains(k)) {
+        let required_set: BTreeSet<_> = required.iter().filter_map(Value::as_str).collect();
+        if !required.iter().all(Value::is_string)
+            || required_set.len() != required.len()
+            || required_set.len() != allowed.len()
+            || !allowed.iter().all(|k| required_set.contains(k))
+        {
             return false;
         }
     }
@@ -547,6 +561,13 @@ fn inventory(dir: &Path) -> std::collections::BTreeMap<PathBuf, Option<Vec<u8>>>
     walk(dir, dir, 0, &mut 0, &mut out);
     out
 }
+fn framed_prompt(prompt: &str) -> Option<(&str, Value, &str)> {
+    let (prefix, suffix) = prompt.split_once("Context data: ")?;
+    let mut stream = serde_json::Deserializer::from_str(suffix).into_iter::<Value>();
+    let frame = stream.next()?.ok()?;
+    Some((prefix, frame, &suffix[stream.byte_offset()..]))
+}
+
 fn frame(value: &Value) -> Value {
     let text = value["input"]["prompt"]
         .as_str()

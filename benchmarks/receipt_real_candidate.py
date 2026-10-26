@@ -74,7 +74,9 @@ SOURCE_FILES = (*q.SOURCE_FILES, "benchmarks/receipt_real_candidate.py", "script
     "scripts/tests/test_receipt_real_stream_guards.py",
     "apps/android/app/src/modelReceiptAndroidTest/java/org/locallore/app/ReceiptRealCandidateTest.kt",
     "scripts/audit_apk.py", "scripts/tests/test_audit_apk.py", "scripts/tests/test_receipt_avd_environment.py",
-    "benchmarks/fixtures/receipt_real_source_probe_v1.txt", "docs/native/RECEIPT_REAL_CANDIDATE_PROTOCOL.md")
+    "benchmarks/fixtures/receipt_real_source_probe_v1.txt", "docs/native/RECEIPT_REAL_CANDIDATE_PROTOCOL.md",
+    "scripts/tests/test_receipt_binary_transfer.py", "benchmarks/windows_stdin_probe.py",
+    "scripts/tests/test_windows_stdin_probe.py", "docs/native/WINDOWS_STDIN_PROBE.md")
 
 
 def selection(phase):

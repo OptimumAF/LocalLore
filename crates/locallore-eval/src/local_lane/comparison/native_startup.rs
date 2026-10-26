@@ -41,6 +41,13 @@ pub(super) fn start_runtime<R: SelectedNativeReservation>(
     cancel: &Cancellation,
     deadline: Instant,
 ) -> Startup {
+    if let Err(error) = check_preparation(cancel, deadline) {
+        return Startup {
+            runtime: None,
+            load: None,
+            error: Some(error),
+        };
+    }
     let assets = reservation.assets();
     let stopped = || cancel.is_cancelled() || Instant::now() >= deadline;
     let runtime = match LocalRuntime::spawn_packaged_owned_expected_cancelled(

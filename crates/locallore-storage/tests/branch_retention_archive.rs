@@ -661,3 +661,208 @@ fn cancelled_import_rolls_back_retirement_rows_and_conflict_preserves_existing_s
     );
     absent(&mut target, &source.parent);
 }
+
+#[test]
+fn legacy_v2_schema3_and4_import_replay_and_reexport_preserve_retired_history() {
+    let temp = Temp::new();
+    let mut source = retired_source(&temp);
+    let archive = source
+        .store
+        .export_archive(&source.root.story, &|| false)
+        .unwrap();
+    let original: Value = serde_json::from_slice(archive.bytes()).unwrap();
+    assert_eq!(original["version"], 2);
+    assert_eq!(original["payload"]["domain_version"], 1);
+    assert_eq!(original["payload"]["source_database_schema_version"], 5);
+    validate_archive(archive.bytes(), &|| false).unwrap();
+
+    for schema in [3, 4] {
+        // Only untrusted transfer metadata and its dependent checksum change.
+        // All receipts, projections and ancestry came from the typed Store/Core.
+        let mut legacy = original.clone();
+        legacy["payload"]["source_database_schema_version"] = json!(schema);
+        rehash(&mut legacy);
+        let legacy_bytes = bytes(&legacy);
+        assert_ne!(legacy_bytes, archive.bytes());
+        assert!(!std::str::from_utf8(&legacy_bytes)
+            .unwrap()
+            .contains("REMOVED_PARENT_FUTURE_CANARY"));
+        let validated = validate_archive(&legacy_bytes, &|| false).unwrap();
+        assert_eq!(validated.preview().version, 2);
+        assert_eq!(
+            validated.preview().retired_branch_ids,
+            ["discarded", "parent"]
+        );
+        assert_eq!(validated.preview().branch_heads.get("parent"), Some(&2));
+        assert!(!validated.preview().branch_heads.contains_key("discarded"));
+
+        let path = temp.path(&format!("legacy-schema{schema}.sqlite3"));
+        let mut target = Store::open(&path, None).unwrap();
+        let outcome = target.import_archive(validated, &|| false).unwrap();
+        assert_eq!(outcome.root, source.root);
+        assert_eq!(outcome.branches, 4);
+        drop(target);
+        let mut target = Store::open(&path, None).unwrap();
+        for scope in [&source.root, &source.child, &source.rewind] {
+            let expected = source.store.resume(scope).unwrap().engine;
+            let restored = target.resume(scope).unwrap().engine;
+            assert_eq!(restored.canonical_bytes(), expected.canonical_bytes());
+            assert_eq!(restored.receipts(), expected.receipts());
+            assert_eq!(restored.state(), expected.state());
+            assert_eq!(
+                restored.accepted_history_basis().unwrap(),
+                expected.accepted_history_basis().unwrap()
+            );
+            for actor in ["player", "mira", "sable"] {
+                assert_eq!(
+                    restored
+                        .character_context(actor, scope, restored.revision())
+                        .unwrap(),
+                    expected
+                        .character_context(actor, scope, expected.revision())
+                        .unwrap()
+                );
+            }
+        }
+        let child = target.resume(&source.child).unwrap().engine;
+        assert_eq!(child.receipts()[0].request().scope, source.root);
+        assert_eq!(child.receipts()[1].request().scope, source.parent);
+        assert_eq!(child.receipts()[2].request().scope, source.child);
+        for scope in [&source.parent, &source.discarded] {
+            absent(&mut target, scope);
+            let request = ForkRequest {
+                parent: source.root.clone(),
+                child_branch: scope.branch.clone(),
+                expected_parent_revision: 1,
+                at_revision: 1,
+            };
+            assert!(matches!(
+                target.fork_branch(&request, &|| false),
+                Err(TurnError::Storage(StorageError::NotFound))
+            ));
+        }
+        assert!(matches!(
+            target.fork_branch(&source.discarded_fork, &|| false),
+            Err(TurnError::Storage(StorageError::NotFound))
+        ));
+        let exported = target
+            .export_archive(&source.root.story, &|| false)
+            .unwrap();
+        validate_archive(exported.bytes(), &|| false).unwrap();
+        assert_eq!(exported.bytes(), archive.bytes());
+        let mut only_metadata_changed: Value = serde_json::from_slice(exported.bytes()).unwrap();
+        assert_eq!(
+            only_metadata_changed["payload"]["source_database_schema_version"],
+            5
+        );
+        // Restore exactly these two fields to compare the complete historical
+        // envelope; never normalize receipts, lineage or projection digests.
+        only_metadata_changed["payload"]["source_database_schema_version"] =
+            legacy["payload"]["source_database_schema_version"].clone();
+        only_metadata_changed["integrity"]["payload_sha256"] =
+            legacy["integrity"]["payload_sha256"].clone();
+        assert_eq!(only_metadata_changed, legacy);
+    }
+}
+
+#[test]
+fn future_v2_source_schema_refuses_before_import_without_partial_or_existing_story_changes() {
+    let temp = Temp::new();
+    let mut source = retired_source(&temp);
+    let archive = source
+        .store
+        .export_archive(&source.root.story, &|| false)
+        .unwrap();
+    validate_archive(archive.bytes(), &|| false).unwrap();
+    let mut future: Value = serde_json::from_slice(archive.bytes()).unwrap();
+    assert_eq!(future["version"], 2);
+    future["payload"]["source_database_schema_version"] = json!(6);
+    rehash(&mut future);
+    let future_bytes = bytes(&future);
+
+    for collision in [false, true] {
+        let path = temp.path(&format!("future-collision-{collision}.sqlite3"));
+        let mut target = Store::open(&path, None).unwrap();
+        let mut kept_seed = seed();
+        if !collision {
+            kept_seed.scope.story = "untouched-destination".into();
+        }
+        let kept = kept_seed.scope.clone();
+        target
+            .create_story("Keep actual destination history", kept_seed)
+            .unwrap();
+        for key in ["kept-first", "kept-second"] {
+            apply(&mut target, &kept, key, Command::Wait { ticks: 1 });
+        }
+        let before = target.resume(&kept).unwrap().engine;
+        let before_export = target.export_archive(&kept.story, &|| false).unwrap();
+        let catalog = |store: &mut Store| {
+            store
+                .stories()
+                .unwrap()
+                .into_iter()
+                .map(|row| (row.scope, row.title, row.revision, row.drafts))
+                .collect::<Vec<_>>()
+        };
+        let before_catalog = catalog(&mut target);
+        // The opaque validated token is required by Store::import_archive.
+        // Unsupported metadata must win even when the destination ID exists.
+        let result = validate_archive(&future_bytes, &|| false)
+            .and_then(|validated| target.import_archive(validated, &|| false));
+        assert_eq!(result.err(), Some(ArchiveError::Unsupported));
+        assert_eq!(catalog(&mut target), before_catalog);
+        for scope in [
+            &source.parent,
+            &source.child,
+            &source.rewind,
+            &source.discarded,
+        ] {
+            absent(&mut target, scope);
+        }
+        if !collision {
+            absent(&mut target, &source.root);
+            // A subsequent genuine import of the same IDs proves the refused
+            // input left neither a partial story nor orphan reserved IDs.
+            target
+                .import_archive(
+                    validate_archive(archive.bytes(), &|| false).unwrap(),
+                    &|| false,
+                )
+                .unwrap();
+            assert_eq!(
+                target
+                    .export_archive(&source.root.story, &|| false)
+                    .unwrap()
+                    .bytes(),
+                archive.bytes()
+            );
+        } else {
+            assert_eq!(
+                target
+                    .import_archive(
+                        validate_archive(archive.bytes(), &|| false).unwrap(),
+                        &|| false
+                    )
+                    .err(),
+                Some(ArchiveError::Conflict)
+            );
+        }
+        drop(target);
+        let mut target = Store::open(&path, None).unwrap();
+        let after = target.resume(&kept).unwrap().engine;
+        assert_eq!(after.canonical_bytes(), before.canonical_bytes());
+        assert_eq!(after.receipts(), before.receipts());
+        assert_eq!(after.state(), before.state());
+        assert_eq!(
+            after.accepted_history_basis().unwrap(),
+            before.accepted_history_basis().unwrap()
+        );
+        assert_eq!(
+            target
+                .export_archive(&kept.story, &|| false)
+                .unwrap()
+                .bytes(),
+            before_export.bytes()
+        );
+    }
+}

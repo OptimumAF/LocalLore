@@ -146,16 +146,22 @@ Keep acknowledgement/retired-owner uncertainty separate from global cleanup.
   separate actual cleanup observation. Retired close must not rewrite a newer
   owner's cleanup flags or present private counts from the retired run.
 - Extend the completed/cancel/status latch only for the same actual owner and
-  operation: retain prior verified completion/counters, but copy the new
-  `cleanup_required`, `cleanup_running`, `cause`, `running` and error. A new
-  `cleanup_required` phase and `report_ready:false` cannot be replaced with the
-  old completed phase/readiness. Proposed exact V2 merge: phase, error,
-  readiness and source matching are the new observation; only prior verified
-  completion/counters are latched. Keep source matching as the new observation;
-  retained counters are labelled **last verified**, not fresh source proof.
-  The V1 latch stays unchanged. Inspection and native generation stay blocked
-  by cleanup required/running/unknown. Successful cleanup cannot invent report
-  publication; explicit same-run status/lookup observes reconciliation.
+  operation. Root's draft decision preserves the existing V1 completed latch
+  for late non-cleanup cancel/status, including the old completed phase,
+  verified source/completion/counters/readiness and latest non-null error.
+  V2 must additionally copy the latest `cleanup_required`, `cleanup_running`,
+  `cause` and `running`, including a null latest cause; never lose them by
+  spreading only the old status. If the latest phase is `cleanup_required` or
+  either latest cleanup flag is true, retain the prior verified completion and
+  counters but honor the latest phase and force local `report_ready:false`.
+  The unchanged V1 behavior is not generalized to erase a V2 cleanup condition.
+  Inspection/generation also remain blocked by local cleanup uncertainty.
+  Successful cleanup cannot invent report publication or restore readiness;
+  explicit same-run status/lookup observes reconciliation. Ordinary native
+  readiness must originate in an actual verified report, never an index/count.
+  Retained values are labelled **last verified**. This latch is local
+  presentation history, not a canonical rewrite or an untouched wire response.
+  Strict wire decoders never manufacture these correlations or merge replies.
 - Retry is explicit and bounded by the existing controller/native behavior.
   No automatic cleanup retry, inferred rollback, resume or model reload follows
   a lost acknowledgement. Native Rust still owns all cross-evaluation/model
@@ -170,8 +176,10 @@ confirmation or inference. There is no timer-based automatic reconciliation.
 
 1. Check actual current context eligibility, current/retired owner uncertainty,
    lifecycle pending work and known cleanup blockers. Known required/running or
-   `cleanupUncertain` keeps generation blocked until an explicit reconciliation.
-   Metadata lookup/status/recovery remain available under their normal grants.
+   `cleanupUncertain` returns blocked, with no implicit status refresh or cleanup
+   retry, until the user explicitly calls `cleanupStatus()` or `retryCleanup()`.
+   Metadata lookup/status/recovery do not use this generation guard and remain
+   available under their normal grants.
 2. Capture the immutable descriptor, execution epoch, original owner and request
    inputs. For a new start allocate its one UUID before the first lifecycle
    pending notification. For resume retain the actual existing client/token.
@@ -202,16 +210,13 @@ perform its captured read, then recheck that admission. Keep inherited `busy`
 about lifecycle/execution; cleanup pending/running/uncertainty are separate
 admission guards. They do not disable permitted metadata lookup/status/recovery.
 
-One procedure choice still needs Root acknowledgement before freeze: this draft
-recommends that a start/resume already blocked by a known required/running/unknown
-cleanup observation returns until the user explicitly calls `cleanupStatus()`
-or `retryCleanup()`. With initial null or last-known-clear state, the explicit
-start/resume proceeds to its required fresh read-only preflight. If Root instead
-allows a blocked start to refresh status itself, freeze that exact call order
-in the new oracles; neither policy may dispatch generation while blocked or
-automatically retry cleanup. The exact V2 phase merge above also needs explicit
-acceptance, particularly a late non-cleanup failed/paused observation following
-verified completion; the preserved completion/counters are not fresh readiness.
+Root resolved the procedure choice for this draft: initial null or last-known-
+clear state allows explicit start/resume to perform its required fresh read-only
+preflight; known required/running/`cleanupUncertain` returns blocked until
+explicit cleanup reconciliation. After that reconciliation, a later explicit
+generation action still performs another fresh read-only preflight. Neither
+this decision nor the completed-latch decision freezes the consumer contract;
+Root adoption and independent source-oracle allocation remain pending.
 
 ## Stable instances, App routing and independent inspection
 
@@ -313,6 +318,32 @@ absence/compile refusal must remain distinct from actual behavior RED. Freeze:
    availability, awaiting confirmation, cleanup required, unavailable model,
    saved native metadata and last verified report counts. Headless/mock evidence
    is explicitly labelled and is not native IPC/render/model evidence.
+
+The first new checker must log exact action/object-query sequences for both
+`start` and `resume`: initial-null and last-known-clear state perform
+`cleanup_status` before generation; known required/running/cleanup-unknown state
+performs neither generation nor implicit auxiliary IPC. Explicit reconciliation
+then a new explicit generation action produces a second fresh status preflight,
+never `retry_cleanup` automatically. A held preflight retired by synchronous
+notification/context change must issue zero generation calls. Unsent provisional
+UUIDs and actual admitted unknown-ACK clients must remain distinguishable.
+
+Freeze auxiliary cases for older false replies held across newer required/running
+observations, admission and disposal. Check exact `cleanupPending`,
+`cleanupUncertain`, `cleanupError`, unchanged inherited lifecycle pending, and
+empty native cleanup query objects. Metadata status/lookup under a cleanup block
+still use the captured native endpoint. A generic cleanup success issues no
+generation/open/read and cannot restore report readiness or clear an unresolved
+comparison acknowledgement.
+
+Freeze separate latch cases: same-operation completed followed by non-cleanup
+paused/failed cancel/status retains the V1 completed/source-verified counts and
+latest non-null error; V2 always copies latest cleanup flags/cause/running.
+A latest cleanup-required phase, required flag or running flag retains verified
+completion/counters but honors latest phase with local readiness false. DTO
+decoding itself remains strict and unmerged; these assertions concern the actual
+controller's local presentation history. No new source counts, source-matching
+proof or readiness may come from catalog metadata or auxiliary cleanup success.
 
 After service eligibility and consumer source freeze, Root separately allocates
 strict frontend/type checks, scripted compatibility, actual application-owned

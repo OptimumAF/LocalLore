@@ -26,6 +26,7 @@ pub(crate) fn phase(phase: &'static str, epoch: u64) {
     }
 }
 
+#[cfg(not(test))]
 pub(crate) fn finish(app: &tauri::AppHandle, window: &tauri::WebviewWindow) -> bool {
     let Some(mode) = mode() else { return false };
     FINISHING.store(true, Ordering::SeqCst);

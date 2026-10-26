@@ -2,7 +2,7 @@
 
 Scope: D09.03/.06/.07 supporting work under #31. Source-bound baseline and
 corrected native lifecycle results are recorded below; final regression gates
-and corrected-image QA remain pending. This is not full D09 acceptance.
+remain pending. Corrected-image QA is complete. This is not full D09 acceptance.
 Root supplied all execution facts. The document author read tracked source only,
 ran no checks/application/model and read no generated artifacts or images.
 
@@ -93,8 +93,11 @@ the fixed launcher, not an application-test failure.
 Each case has163 distinct UI assertion labels across its snapshots. The final
 reopened report contains18 assertions; it is not a163-assertion final report.
 Do not add repeated labels across the three cases into an independent-test count.
-There are63 corrected app-owned PNGs in total. Their per-image QA is **PENDING**
-with the delegated reviewer; baseline21-image review is separate and complete.
+There are63 corrected app-owned PNGs in total. The independent visual reviewer
+viewed every image (21 per case) and found no new visible defect within the
+captured regions. All63 snapshots report no horizontal overflow. Baseline21-image
+review is separate and complete. The local63-file visual-review manifest SHA256
+is `e0816656f7b52c65d6fc8bdb98786ef778674dd5d1256f7b556391bc406a6343`.
 
 All three corrected app processes still emit the same96-byte PostMessage
 invalid-HWND diagnostic. The1412 diagnostic was not observed in these three runs.
@@ -153,11 +156,15 @@ Root's `18c062cd` adds only three lines: a `cfg(not(test))` guard/comment around
 the app-only finish hook. The standalone contract still compiles the actual
 harness module; development applications retain the actual hook. This is not a
 lifecycle-behavior correction and does not relabel the native cases as18c results.
-The second final cohort is running at clean `18c062cd`; its results are pending.
+At clean `18c062cd`, the second full native cohort passed189 tests/0 failures/
+5 explicit ignored in561.28s, plus2 harness-contract tests in0.01s. Strict Clippy
+then rejected the now-unused app-only `finish` function in the binary test build.
+The next source adds the matching `cfg(not(test))` to its definition. This removes
+the unused test helper rather than suppressing lint; actual development apps
+retain the same hook. Lifecycle/normal-app behavior and test assertions are
+unchanged. Follow-up focused tests, strict lint and remaining gates are pending.
 
-- Corrected63-image per-image visual review: **PENDING**.
-- Final source-bound full Rust regressions, strict Clippy and formatting:
-  **PENDING**.
+- Final source-bound strict Clippy, focused tests and formatting: **PENDING**.
 - Full frontend checks and normal frontend/native build restoration:
   **PENDING**.
 - Android Rust host tests/dependency graph and final artifact/source/log hashes:

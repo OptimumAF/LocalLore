@@ -18,6 +18,7 @@ mod close_gate;
 mod comparison_commands;
 #[cfg(feature = "dev-harness")]
 mod comparison_reader_harness;
+mod comparison_run_commands;
 mod evaluation;
 mod evaluation_commands;
 mod export_commands;
@@ -162,7 +163,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},comparisonReading:{},selectedEvaluating:{},archiving:{},timelining:{},forking:{},maintaining:{},authoring:{},archiveStage:'{}',stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},comparisonReading:{},selectedEvaluating:{},fullComparing:{},archiving:{},timelining:{},forking:{},maintaining:{},authoring:{},archiveStage:'{}',stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
@@ -175,6 +176,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
             std::env::var("LOCALLORE_D07_CURATED_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D07_COMPARISON_READER_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_D07_FULL_COMPARISON_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_TIMELINE_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_FORK_HARNESS").as_deref() == Ok("1"),
@@ -341,6 +343,7 @@ fn main() {
             evaluation_commands::evaluation_catalog,
             evaluation_commands::evaluation_curated,
             comparison_commands::evaluation_comparison,
+            comparison_run_commands::evaluation_comparison_run,
             selected_commands::evaluation_selected,
             selected_harness::harness_selected_case,
             comparison_reader_harness::harness_comparison_reader_case,
@@ -399,6 +402,7 @@ fn main() {
         evaluation_commands::evaluation_catalog,
         evaluation_commands::evaluation_curated,
         comparison_commands::evaluation_comparison,
+        comparison_run_commands::evaluation_comparison_run,
         selected_commands::evaluation_selected,
         evaluation_commands::evaluation_start,
         evaluation_commands::evaluation_open,
@@ -506,6 +510,8 @@ fn main() {
                             900
                         } else if std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref()
                             == Ok("1")
+                            || std::env::var("LOCALLORE_D07_FULL_COMPARISON_HARNESS").as_deref()
+                                == Ok("1")
                         {
                             // Serial real SQLite fixtures, read revalidation and
                             // 27+ app-owned render checkpoints and an explicit

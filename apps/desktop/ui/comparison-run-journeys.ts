@@ -4,7 +4,7 @@ import type { Controller } from "./controller";
 import type { ComparisonReaderController } from "./comparison-reader-controller";
 import type { ComparisonRunController } from "./comparison-run-controller";
 import { checkedComparisonRunStatus } from "./comparison-run-model";
-import type { EvidenceRequest } from "./comparison-reader-model";
+import type { EvidenceRequest, ObserverV2 } from "./comparison-reader-model";
 import { sameReaderObserver } from "./comparison-reader-model";
 import { structural, type ErrorBuffer } from "./model";
 
@@ -119,13 +119,17 @@ export async function comparisonRunJourneys({ controller: c, comparison: r,
         panel = document.querySelector<HTMLElement>(selector);
         check(panel, `${label}-panel-still-mounted`);
         const state = f.get(), reader = r.get(), play = c.get().play ?? c.get().playV2;
+        const current = c.get();
+        const observer: ObserverV2 = current.view === "play" || current.observer === "player"
+            ? { kind: "player" } : current.observer === "omniscient"
+                ? { kind: "omniscient" } : { kind: "character", id: current.observer };
         const pageOverflow = document.documentElement.scrollWidth > innerWidth + 2;
         const panelOverflow = panel!.scrollWidth > panel!.clientWidth + 2;
         const evidence = reader.evidence;
         const snapshot = {
             synthetic: true, semanticVersion: 2, uiRevision: play?.revision ?? 0,
             selectedStory: c.selected()?.scope ?? null, revision: play?.revision ?? null,
-            observer: selector === "#comparison-reader" ? reader.observer : c.get().observer,
+            observer,
             pendingOperation: state.pending ? { id: state.pending.operationId, client: state.pending.clientId,
                 phase: state.pending.action } : state.uncertain ? { id: null, client: state.clientId,
                 phase: "acknowledgement_unknown" } : reader.status?.running ? {
@@ -135,6 +139,7 @@ export async function comparisonRunJourneys({ controller: c, comparison: r,
             liveGameplayContext: { scope: c.selected()?.scope ?? null, revision: play?.revision ?? null,
                 observer: c.get().observer },
             inspectedStory: evidence?.scope ?? null,
+            inspectedObserver: reader.observer,
             inspectedRevision: evidence?.body.kind === "query" ? evidence.body.page.revision
                 : evidence?.edge === "before" ? evidence.before_head
                 : evidence?.edge === "after" ? evidence.after_head : null,
@@ -150,7 +155,7 @@ export async function comparisonRunJourneys({ controller: c, comparison: r,
                     quality_accepted: reader.summary.report.quality_accepted,
                     constructions: reader.summary.report.version === 3 ? reader.summary.report.arms : null } : null },
             inventoryProofs, checks: [...checks], errors: errors.snapshot(),
-            dom: { text: panel!.innerText.slice(0, 16384), targetText: target!.innerText.slice(0, 12288),
+            semantic: { text: panel!.innerText.slice(0, 16384), targetText: target!.innerText.slice(0, 12288),
                 controls: [...panel!.querySelectorAll("button,select,summary")]
                 .slice(0, 128).map(node => ({ tag: node.tagName, text: node.textContent?.slice(0, 256),
                     disabled: (node as HTMLButtonElement).disabled ?? false,

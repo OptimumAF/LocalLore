@@ -45,7 +45,7 @@ system setting changes.
 The CLI tests produce genuine comparison files through the production
 Host/Engine/Store path with an explicitly scripted provider. They check exact
 facade evidence, sampling, partial/rationale-only declarations, strict tamper
-and duplicate refusal, create-only output outside the run, permission refusal,
+and duplicate refusal, create-only output outside the run, Author-consent refusal,
 actual corrupted recording refusal and complete source file inventories.
 Windows DOS-device/alternate-stream cases execute here; the conditional Unix
 symlink test does not. Test declarations are not human reviews or native model

@@ -51,8 +51,8 @@ assessment; they are not silently removed or credited. Empty runs are refused.
 The destination must be a new file outside the comparison root, with an
 existing ordinary parent. Existing files are never replaced. Parent traversal,
 symbolic links and Windows reparse ancestors are refused. Windows device/UNC
-prefixes, alternate streams and reserved DOS device names are refused. File
-reads/writes are bounded to 4 MiB. Failed or interrupted exports remain retained
+prefixes, alternate streams and reserved DOS device names are refused. Review
+JSON reads/writes are bounded to 4 MiB. Failed or interrupted exports remain retained
 and cannot be reused as successful packets. These guards do not authenticate
 host evidence against an adversary who controls the machine or all source data.
 

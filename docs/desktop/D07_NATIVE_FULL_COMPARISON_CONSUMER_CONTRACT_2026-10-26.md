@@ -1,22 +1,24 @@
-# Native full-comparison consumer draft
+# Native full-comparison consumer contract
 
 Supporting D07.03/.06/.04 under #29, coordinator claim6425826959.
-**PROPOSED / NOT FROZEN / NOT IMPLEMENTED / UNRUN.** Source inspected:
-`d9fd9443e86a290dc41a725e2e0aaf61e7a508b1`, with accepted scripted base
-`6099135e`. Root owns interface decisions, future allocation and integration.
-This document allocates no UI/test code and authorizes no execution.
+**FROZEN INTERFACE BEFORE IMPLEMENTATION / IMPLEMENTATION AND CHECKS UNRUN.**
+Root reviewed drafts `c6bf05ed`, `d996d641`, `9d0280fd` and `bf316d9b`, resolved
+their choices, and promotes them on service implementation base
+`84eb739f372be2befe5ddfc1ce82aabcb300287d` (PR214, not yet accepted), with accepted
+scripted base `6099135e`. Root owns integration. This freeze itself allocates
+neither production/test edits nor execution; those require path-specific claims.
 
 The [service/IPC contract](D07_NATIVE_FULL_COMPARISON_SERVICE_CONTRACT_2026-10-26.md)
 owns the native wireV2 and unchanged reader wireV1. Its
 [qualification record](D07_NATIVE_FULL_COMPARISON_SERVICE_QUALIFICATION_2026-10-26.md)
-owns measured results and pending gates. The service port is not native UI,
-actual IPC, OS-dialog or render qualification. The ordinary frontend remains
-scripted until a separately frozen consumer passes its own gates.
+owns measured results and pending gates. Service and non-generating IPC/scripted
+render evidence do not qualify this new native-model UI or real OS dialogs.
+The ordinary frontend remains scripted until this consumer passes its own gates.
 
 ## One implementation, immutable transport
 
 Preserve the existing two-argument constructor and its scripted behavior. Add
-only a closed constructor option plus a native convenience factory. Proposed
+only a closed constructor option plus a native convenience factory. Frozen
 public signatures below are absent at the inspected source:
 
 ```ts
@@ -64,7 +66,7 @@ function createNativeComparisonRunController(invoke: ComparisonRunInvoke,
     ComparisonRunController;
 ```
 
-These proposed local state unions use the actual V1/V2 discriminated DTOs, not
+These local state unions use the actual V1/V2 discriminated DTOs, not
 new wire fields. Existing V1 type names remain available; the default constructor
 signature is unchanged. The native factory selects the required native option.
 There is no optional generic type argument that can claim native behavior while
@@ -115,7 +117,7 @@ and before dispatch/publication/cleanup, as the existing controller does.
 
 ## Cleanup is separate from presentation recovery
 
-Native state has exactly the local fields proposed above; inherited lifecycle
+Native state has exactly the local fields frozen above; inherited lifecycle
 `pending` retains the V1 action shape. Cleanup actions use only `cleanupPending`,
 not a forged lifecycle operation/client. Initial `cleanup=null` means **not
 checked**, not idle. Initial `cleanupUncertain=false` means no cleanup request
@@ -146,7 +148,7 @@ Keep acknowledgement/retired-owner uncertainty separate from global cleanup.
   separate actual cleanup observation. Retired close must not rewrite a newer
   owner's cleanup flags or present private counts from the retired run.
 - Extend the completed/cancel/status latch only for the same actual owner and
-  operation. Root's draft decision preserves the existing V1 completed latch
+  operation. Root's frozen decision preserves the existing V1 completed latch
   for late non-cleanup cancel/status, including the old completed phase,
   verified source/completion/counters/readiness and latest non-null error.
   V2 must additionally copy the latest `cleanup_required`, `cleanup_running`,
@@ -210,13 +212,13 @@ perform its captured read, then recheck that admission. Keep inherited `busy`
 about lifecycle/execution; cleanup pending/running/uncertainty are separate
 admission guards. They do not disable permitted metadata lookup/status/recovery.
 
-Root resolved the procedure choice for this draft: initial null or last-known-
+Root resolved the procedure choice: initial null or last-known-
 clear state allows explicit start/resume to perform its required fresh read-only
 preflight; known required/running/`cleanupUncertain` returns blocked until
 explicit cleanup reconciliation. After that reconciliation, a later explicit
 generation action still performs another fresh read-only preflight. Neither
-this decision nor the completed-latch decision freezes the consumer contract;
-Root adoption and independent source-oracle allocation remain pending.
+decision authorizes execution or implementation by itself; independent frozen
+source-oracle packets and explicit path ownership precede production edits.
 
 ## Stable instances, App routing and independent inspection
 
@@ -350,11 +352,11 @@ strict frontend/type checks, scripted compatibility, actual application-owned
 native action/IPC/WebView captures and all-image inspection. Fixed consent/ACK
 doubles establish plumbing only. Approved installed-model UI/service invocations,
 real OS-dialog behavior and quality need their own bounded admission/provenance;
-no extra invocation is authorized by this draft. Keep source matching,
+no extra invocation is authorized by this contract. Keep source matching,
 current/historical runs and retained failures explicit. No desktop control,
 OS screenshots, provider replacement, model download or phone gate is proposed.
 
-## Type and reentrancy viability addendum (still proposed)
+## Type and reentrancy source audit and frozen constraints
 
 A source-only caller audit at `d9fd9443` found `ComparisonRunState` references
 only within its controller. App, View and the scripted journey accept the class
@@ -428,3 +430,30 @@ reply cannot clear a newer native status's cleanup requirement; actual owner
 status and generic cleanup observations remain separately labelled until fresh
 Rust status reconciles them. No callback, mode change or cleanup action grants
 inspection, automatically resumes inference or supplies a model-ready promise.
+
+## Closed export and integration names
+
+The model exports `NativeComparisonRunMetadata`, `NativeComparisonRunCatalog`,
+`NativeComparisonRunStatus`, `NativeComparisonRunError`, and the two native
+checkers named above. `nativeComparisonRunErrors` extends the unchanged V1
+`comparisonRunErrors` with exactly `EvaluationModelBusy` and `Cleanup`. Native
+status `error` and nullable `cause` use that closed native set; local
+`ComparisonRunWire` remains a consumer error, not a native wire cause. Strict
+wire bounds and fields come from the frozen service contract, including the two
+additional phases `awaiting_confirmation` and `cleanup_required`.
+
+Keep `ComparisonRunView({controller, onInspect})` and its `(runId:string)`
+callback intact. Add `ComparisonRunCleanupView({controller})` in the same view
+module; it renders only for the native instance and remains usable outside Lab.
+The native run section ID is `comparison-run-native`; the existing scripted
+section keeps `comparison-run`. App retains optional `comparisonRun` and adds
+optional `nativeComparisonRun`, both stable controller instances supplied by
+Main. The mode selector's accessible name is `Full comparison inference lane`.
+The selected mode changes only presentation. Root owns App/Main wiring, mode
+reentrancy and independent reader routing; no agent may infer a new grant from
+these props or mutate the execution context from its own busy/cleanup state.
+
+The frozen API is a small extension to the existing implementation. There is no
+second controller implementation, provider, engine, SQL writer or model-owner
+registry. New native methods on the existing class do not grant cleanup or
+inspection authority; Rust validates every call again.

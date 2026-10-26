@@ -56,8 +56,14 @@ pub async fn model_import(
     let owner = 0;
     #[cfg(feature = "dev-harness")]
     let scenario = window.state::<TestModelState>().take();
+    #[cfg(feature = "dev-harness")]
+    let native_workspace = workspace.path.clone();
     tauri::async_runtime::spawn_blocking(move || {
         manager.import(&lease, epoch, || {
+            #[cfg(feature = "dev-harness")]
+            if crate::comparison_run_native_harness::active() {
+                return crate::comparison_run_native_harness::approved_model_source(&native_workspace);
+            }
             #[cfg(feature = "dev-harness")]
             if crate::harness::active()
                 && std::env::var("LOCALLORE_D04_HARNESS").as_deref() == Ok("1")

@@ -73,7 +73,7 @@ source-match status, total/selected turn counts and `first_n_report_rows`
 sampling label. Each entry retains its turn, arm, selection flag, original
 source row, selected capture/output envelopes and ordered assessments.
 
-Only these declarations may change:
+For a fixed selection recipe, only these declarations may change:
 
 - `reviewer`: initially null; an anonymous 1–48 character ASCII token using
   letters, digits, underscore, hyphen or period. It is self-reported metadata,
@@ -105,7 +105,13 @@ native lanes keep their original separate labels.
 
 `summarize` rebuilds the selected packet from the current retained source and
 compares every immutable field. Changing source bindings, rows, hashes, prose,
-attempt order, selection metadata or provenance is refused. JSON duplicate
+attempt order or provenance is refused. The packet declares its bounded first-N
+selection recipe; that count and all selected/unselected entries must agree
+with the freshly rebuilt packet. The tool stores no export registry: it cannot
+prove which earlier export somebody edited or distinguish a coherently rebuilt
+packet from a new export with another valid N. All original rows and the chosen
+N remain visible, and summaries from overlapping packets must not be summed as
+new model attempts. JSON duplicate
 keys are rejected recursively, including escaped duplicate names. Unknown
 fields, incorrect types, Boolean counters, invalid judgments and oversized or
 control-bearing declarations are refused. No model call repairs invalid review
@@ -133,8 +139,15 @@ The contract's original adversarial tests and the separate Store-backed CLI
 tests are part of:
 
 ```text
-cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --all-features --all-targets -- --test-threads=1
+cargo build --locked --offline --manifest-path crates/locallore-local-runtime/Cargo.toml --target-dir target/role-review-checks --features development-worker --bin protocol-fixture
+cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --target-dir target/role-review-checks --all-features --all-targets -- --test-threads=1
 ```
+
+The all-feature suite enables existing opt-in protocol-owner tests. Their tiny
+Rust child fixture must be built in the same target directory first; it loads
+no model weights. Missing that prerequisite is a failed test setup, not evidence
+of an inference or ownership regression. A task may choose a bounded parallel
+test thread count separately from model/turn budgets and must record it.
 
 Default tests use scripted providers and synthetic data. They cover the reader
 boundary, real comparison files, unchanged source inventories, pending/partial
@@ -142,3 +155,6 @@ reviews, strict tamper/duplicate/type/role-order checks, create-only output,
 inspection refusal and corrupt recording refusal. Platform-specific tests
 must be reported for the platform actually executed. Test declarations do not
 constitute a quality review.
+
+See the [dated verification record](ROLE_REVIEW_VERIFICATION_2026-10-25.md)
+for executed commands, platform counts, retained failures and evidence limits.

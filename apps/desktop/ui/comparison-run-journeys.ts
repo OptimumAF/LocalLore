@@ -24,7 +24,7 @@ export async function comparisonRunJourneys({
     errors: ErrorBuffer;
     invoke: (name: string, args?: Record<string, unknown>) => Promise<unknown>;
     dispose: () => Promise<void>;
-    config: { stage: string };
+    config: { stage: string; nativeGrantDenied?: boolean };
 }) {
     const checks: string[] = [],
         captureLabels: string[] = [],
@@ -675,12 +675,49 @@ export async function comparisonRunJourneys({
             "closed-full-comparison-stage",
         );
         await c.start();
+        if (config.nativeGrantDenied === true) {
+            const metadata = (await invoke("author_context")) as Record<
+                string,
+                unknown
+            >;
+            check(
+                metadata.story_lab_granted === false,
+                "native-port-denied-actual-native-context-grant-false",
+            );
+            await nativeComparisonPortChecks({
+                invoke,
+                check,
+                phase: "lab_denied",
+            });
+            check(
+                errors.snapshot().length === 0,
+                "native-port-denied-no-unexpected-errors",
+            );
+            disposalStarted = true;
+            await dispose();
+            check(
+                errors.snapshot().length === 0,
+                "native-port-denied-disposed-without-error",
+            );
+            await invoke("harness_finish", {
+                report: {
+                    version: 1,
+                    synthetic: true,
+                    passed: true,
+                    stage: "denied",
+                    checks,
+                    captureLabels,
+                    errors: errors.snapshot(),
+                    modelExecution: false,
+                    nativeIpc: true,
+                    rendering: "native-webview2",
+                    desktopInput: false,
+                    nativeDialogsAutomated: false,
+                },
+            });
+            return;
+        }
         const liveBefore = structural(c.get().play ?? c.get().playV2);
-        await nativeComparisonPortChecks({
-            invoke,
-            check,
-            phase: "lab_denied",
-        });
         c.requestLab();
         c.acknowledgeLab(true);
         await until(

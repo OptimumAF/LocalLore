@@ -248,6 +248,14 @@ pub fn active() -> bool {
     std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1")
 }
 
+/// Fixed denial-only fixture. It cannot grant production or renderer authority.
+pub(crate) fn native_comparison_denied() -> bool {
+    active()
+        && std::env::var("LOCALLORE_TEST_MEMORY").as_deref() == Ok("1")
+        && std::env::var("LOCALLORE_D07_FULL_COMPARISON_HARNESS").as_deref() == Ok("1")
+        && std::env::var("LOCALLORE_D07_NATIVE_DENIED_GRANT").as_deref() == Ok("1")
+}
+
 pub(crate) fn author_active() -> bool {
     active() && std::env::var("LOCALLORE_M08_AUTHOR_HARNESS").as_deref() == Ok("1")
 }

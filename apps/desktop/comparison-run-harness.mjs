@@ -283,6 +283,32 @@ function checkedReport(report, stage) {
     assert.equal(report.modelExecution, false, "NoModelExecution");
     assert.equal(report.rendering, "native-webview2", "ReportNativeRendering");
     assert.equal(report.stage, stage, "ReportStage");
+    if (stage === "denied") {
+        assert(
+            Array.isArray(report.checks) &&
+                report.checks.length >= 10 &&
+                report.checks.length <= 32,
+            "DeniedGrantBoundedChecks",
+        );
+        for (const required of [
+            "native-port-denied-actual-native-context-grant-false",
+            "native-port-lab_denied-actual-lab-grant-required",
+            "native-port-lab-denied-cleanup_status-actual-empty-cleanup-without-lab",
+            "native-port-lab-denied-retry_cleanup-actual-empty-cleanup-without-lab",
+            "native-port-lab_denied-query-string-rejected-before-host",
+            "native-port-lab_denied-renderer-provider-key-rejected-before-host",
+            "native-port-lab_denied-renderer-consent-key-rejected-before-host",
+            "native-port-denied-no-unexpected-errors",
+            "native-port-denied-disposed-without-error",
+        ])
+            assert(
+                report.checks.includes(required),
+                `RequiredDeniedGrantCheck:${required}`,
+            );
+        assert.deepEqual(report.captureLabels, [], "DeniedGrantNoCaptures");
+        assert.deepEqual(report.errors, [], "DeniedGrantNoUnexpectedErrors");
+        return;
+    }
     assert(
         Array.isArray(report.checks) &&
             report.checks.length >= (stage === "initial" ? 100 : 40) &&
@@ -299,12 +325,6 @@ function checkedReport(report, stage) {
         "CheckLabels",
     );
     for (const required of [
-        "native-port-lab_denied-actual-lab-grant-required",
-        "native-port-lab-denied-cleanup_status-actual-empty-cleanup-without-lab",
-        "native-port-lab-denied-retry_cleanup-actual-empty-cleanup-without-lab",
-        "native-port-lab_denied-query-string-rejected-before-host",
-        "native-port-lab_denied-renderer-provider-key-rejected-before-host",
-        "native-port-lab_denied-renderer-consent-key-rejected-before-host",
         "native-port-empty_native-catalog-native-version-tags",
         "native-port-empty_native-catalog-has-no-native-execution",
         "native-port-empty_native-unknown-client-lookup",
@@ -596,7 +616,7 @@ try {
         900000,
     );
     executableSha256 = digest(await readFile(executable));
-    for (const stage of ["initial", "restart"]) {
+    for (const stage of ["denied", "initial", "restart"]) {
         const directory = path.join(folder, stage);
         await run(
             `app-${stage}`,
@@ -605,10 +625,14 @@ try {
             {
                 LOCALLORE_D02_HARNESS: "1",
                 LOCALLORE_D07_FULL_COMPARISON_HARNESS: "1",
+                LOCALLORE_D07_NATIVE_DENIED_GRANT:
+                    stage === "denied" ? "1" : "0",
                 LOCALLORE_TEST_MEMORY: "1",
                 LOCALLORE_TEST_STORAGE_FAILURE: "0",
                 LOCALLORE_TEST_WORKSPACE: path.join(
-                    folder,
+                    stage === "denied"
+                        ? path.join(folder, "denied-workspace")
+                        : folder,
                     "stories-v1.sqlite",
                 ),
                 LOCALLORE_TEST_RESTART: stage === "restart" ? "1" : "0",
@@ -621,6 +645,15 @@ try {
         const report = await json(path.join(directory, "report.json"));
         reports.push({ stage, report });
         checkedReport(report, stage);
+        if (stage === "denied") {
+            assert.deepEqual(
+                (await readdir(directory)).sort(),
+                ["report.json"],
+                "DeniedGrantOnlyBoundedReport",
+            );
+            await sourceUnchanged();
+            continue;
+        }
         const images = await captures(directory, report);
         const actual = await inventory(
             path.join(folder, "comparison-evaluations"),

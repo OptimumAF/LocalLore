@@ -73,6 +73,7 @@ for (const marker of [
     "harness_reopen",
     "harness_finish",
     "NativeComparisonPortPhaseInvalid",
+    "native-port-denied-actual-native-context-grant-false",
     "uncertain-commit-retry-original-id-once",
     "heldPrepare",
     "harness:durable",

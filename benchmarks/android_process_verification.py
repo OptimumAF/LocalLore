@@ -4,6 +4,8 @@ Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 
 Create-only private evidence; no phone, model, server lifecycle or task adoption.
 The component phase does not qualify the external two-death controller case.
+The separate fixed regression phase requires a fresh guest, never a completed
+external-controller fixture, and cannot replace the ten-method component gate.
 """
 import argparse
 import hashlib
@@ -43,6 +45,156 @@ EXPECTED_METHODS = (
      "alternateNativeDirectoryCannotReplaceRetainedParentApkPath"),
     ("parentRetirementFallsBackOnceAndPreservesOriginalGrandchildReceipts",
      "cachedParentReadyIsClosedWhileRetainedChildReadyCommitsExactlyOnce"))
+# Versioned, source-frozen broad roster. A separate fresh guest is required;
+# these UI tests may mutate its product workspace. This is not a component gate.
+REGRESSION_VERSION = 1
+REGRESSION_CLASSES = (
+    'InitialNavigationGatewayTest',
+    'ProcessVerificationProbeTest',
+    'PlayDraftRestorationTest',
+    'PlayDraftActivityTest',
+    'PlayInputScreenTest',
+    'ShellInstrumentedTest',
+    'TimelineProtocolTest',
+    'M08Schema5AdmissionTest',
+    'CancelAcknowledgementTest',
+    'CancelControlsTest',
+    'CancelPresentationTest',
+    'DurableNativeTest',
+    'DurableTransportOwnershipTest',
+    'NativeForkMutationObservationTest',
+    'BranchForkPanelTest',
+    'BranchForkNativeIntegrationTest',
+    'ForkAppWiringInstrumentedTest',
+    'SavedSelectionFallbackNativeTest',
+)
+REGRESSION_METHODS = (
+    (
+        'nondefaultRootIsValidatedBeforeTheOnlyInitialResume',
+        'activeChildUsesNativeHeadAndRetiredRowsAreNeverSelectable',
+        'missingStoryMissingBranchAndRetiredBranchUseActualDefaultWithOneShotNotice',
+        'missingHintInEmptyLibrarySettlesEmptyWithoutCreatingAndConsumesNotice',
+        'corruptStoryCatalogCannotMasqueradeAsMissingHintOrAuthorizeResume',
+        'malformedBranchCatalogFailsBeforeResumeRatherThanFallingBack',
+        'storageTransportAndResumeRaceFailuresRetainHintUntilSuccessfulRetry',
+        'failuresAfterAttachCannotConsumeTheHintOrPublishDefaultDuringRecovery',
+        'reconcileAfterAnAttachedFailureMustStillResolveTheOriginalUnconsumedHint',
+        'fallbackNoticeSurvivesAttachedFailureAndAppearsOnlyOnFirstCoherentSnapshot',
+        'successfulInitialSelectionCannotReapplyAfterExplicitUserNavigation',
+        'headRaceDuringSnapshotIsStaleNotMissingAndRetryUsesTheHintedBranch',
+    ),
+    (
+        'missingOrInvalidConfigurationDisablesPreviousProofRouting',
+    ),
+    (
+        'exactKindAndTextRestoreAcrossSameScopeHeadsAndOnlyExplicitSendDispatches',
+        'unresolvedAsyncAndRecoveryHideSavedPayloadUntilOnlyItsExactScopeReturns',
+        'settledBranchAndStorySwitchesDiscardTheSingleDraftWithoutPerStoryResurrection',
+        'retainedEditAndSendActionsCannotChangeOrSubmitTheNewScopeDraft',
+        'saveBoundUsesUtf8BytesAndDoesNotRelaxTheSmallerSendBound',
+        'unsafeSavedPayloadIsOmittedWholeWithPersistentReentryNoticeAndOriginalKind',
+        'sameRenderKindThenTextRetainsBothLatestFields',
+        'sameRenderTextThenKindRetainsBothLatestFields',
+        'retainedSendAfterSameRenderEditsSubmitsLatestScopedInputOnce',
+        'retainedEnabledSendAfterSameRenderClearDoesNotSubmit',
+    ),
+    (
+        'actualRecreationKeepsScopedEditorAndOwnerButNeverSubmitsIt',
+    ),
+    (
+        'exampleOnlyEditsAndAcceptedOriginalDraftsSurviveHeadsButNotStorySwitches',
+        'validationRejectionDuplicatePendingCancelAndDisposalKeepDraftsAndCanonSafe',
+    ),
+    (
+        'launchShowsHonestFixtureLabelAndNoPlatformCapabilities',
+        'giftUsesRustAcceptedResultAndReuseCannotDuplicateIt',
+        'unlearnedAbilityAndBadProviderModesLeaveStateUnchanged',
+        'cancelAndResetDuringDelayCannotPublishOldResult',
+        'recreationRetainsAcceptedStateAndAnAlreadyCancelledDraft',
+        'activityDisposalRetainsDurableSavedStoryAndTranscript',
+    ),
+    (
+        'retainedParentMetadataIsValidatedBeforeFiltering',
+        'currentSchemaFourKeepsWorkspaceProtocolOne',
+        'incompatibleLiveSchemaRefusesBeforeResumeOrAnyGameplay',
+        'refreshCannotPublishLaterIncompatibleLiveSchema',
+        'childResumePreservesAncestorTextAndUsesCatalogMetadataWithoutGameplay',
+        'malformedCatalogCannotSelectOrGrantAuthority',
+        'oversizedStructurallyValidCatalogFailsSerializedBodyBudget',
+        'racedChildHeadAndForeignReceiptFailClosedThenFreshRecoveryWorks',
+    ),
+    (
+        'schemaFiveKeepsProtocolOneAcrossInitializeAndRefresh',
+        'emptySchemaFiveLibraryNeverBootstrapsDuringAdmission',
+        'futureSchemaSixRefusesBeforeResumeAndGameplay',
+        'incompatibleEnvelopeOrWorkspaceProtocolRefusesBeforeResume',
+        'incompatibleRefreshAndStatusNeverReplaceThePendingRecoveryKey',
+    ),
+    (
+        'cancelSavedRejectsForeignIncompleteAndNonterminalAcknowledgements',
+        'createReleaseRejectsForeignIncompleteAndNonterminalAcknowledgements',
+        'resumeReleaseRejectsForeignIncompleteAndNonterminalAcknowledgements',
+        'cancelledRecoveryRejectsForeignIncompleteAndNonterminalAcknowledgements',
+        'malformedCommittedReceiptsCannotClearTheCancelledKey',
+        'matchingCancelledFailedAndStaleAcknowledgementsCompleteAcrossAllPaths',
+        'matchingCommittedRaceUsesOriginalReceiptWithoutAnotherCommit',
+        'explicitUnknownTurnDisposesCancelledWorkWithoutResubmit',
+        'closedIsReleaseDispositionButNotGenericCancellationSuccess',
+    ),
+    (
+        'checkingCancellationIsVisibleBeforeAcknowledgementAndBlocksCompetingControls',
+        'checkingCancellationRemainsVisibleUntilAcceptedSnapshotArrives',
+        'foreignAcknowledgementShowsRecoveryAndRecoveryClickUsesOriginalKey',
+        'unfinishedAcknowledgementShowsRecoveryAndRecoveryClickUsesOriginalKey',
+        'incompleteCommittedAcknowledgementShowsRecoveryAndRecoveryClickUsesOriginalKey',
+        'committedRaceShowsAcceptedHistoryAndNeverClaimsRollback',
+        'lateNoncooperativePreparationCannotReplaceCancelledVisibleHistory',
+        'disposalWhileCheckingCannotPublishLateAcknowledgementOrPreparation',
+    ),
+    (
+        'cancellationDoesNotCompleteBeforeAcknowledgement',
+        'cancellationDoesNotCompleteBeforeAcceptedSnapshotReconciliation',
+        'invalidAcknowledgementsRetainHistoryBlockSubmissionAndRecoverOriginalKey',
+        'explicitTransportFailureRecordsUnknownWithoutRawPayload',
+        'committedCancellationRaceDisplaysAcceptedHistoryWithoutStoppedClaim',
+        'lateNoncooperativePreparationCannotPublishOrCommitAfterCancellation',
+        'disposalDuringDelayedAcknowledgementCannotPublishOrRecordCompletion',
+    ),
+    (
+        'actualJniProcessOwnerReopenRestoresCommittedTranscriptAndIndependentStories',
+        'lostCommitAcknowledgementRecoversSameTurnAndNeverDuplicatesActualSqliteReceipt',
+        'actualJniCancellationReleasesLiveOwnerWithoutDeletingSavedStory',
+        'failedCancellationTransportCannotTurnRecoveryIntoACommit',
+        'lateCancelledPrepareCannotClearTheReplacementOperationKey',
+    ),
+    (
+        'productionTransportCancelsActiveRustWorkAndRepeatedMainCloseReleasesEverySlot',
+        'productionTransportDisposalReleasesItsOwnerAndCannotCommitALatePreparedResult',
+    ),
+    (
+        'localGuardsAndReadOnlyOperationsNeverObserveMutation',
+        'successfulRegisterAndRunCountTwoWhileReadsAndCancellationDoNotCount',
+        'nativeConsentAndCancelledRunRejectionsStillObserveAttemptsWithoutCreatingChild',
+    ),
+    (
+        'hiddenThenExplicitConsentForwardsOnlyTheRenderedFixedIdentity',
+        'restoredLookupOnlyCannotCreateAndForgettingRequiresSeparateConsent',
+        'pendingAllowsCancelAndConfirmedOutcomeRequiresExplicitResume',
+    ),
+    (
+        'sameOwnerNativeForkThenReopenLookupPreservesOriginalAndNeverCreatesMissing',
+        'registrationCancellationConsentAndClosedOwnerAreActualNativeFences',
+    ),
+    (
+        'sharedTransportForkAndExplicitResumeLeaveOriginalAcceptedSuffixUntouched',
+        'newOwnerRestoresOnlyIdentityAndLookupCannotCreateAMissingChild',
+    ),
+    (
+        'missingStoryHintFallsBackOnceWithoutChangingTheRealParentOrChild',
+        'missingChildHintFallsBackOnceWithoutCreatingOrSelectingThatChild',
+        'retiredLeafHintFallsBackOnceAndNativeResumeStillRefusesIt',
+    ),
+)
 PACKAGES = (APP, APP + ".test", CONTROL)
 APK_PATHS = ("app/build-input-process/outputs/apk/debug/app-debug.apk",
              "app/build-input-process/outputs/apk/androidTest/debug/app-debug-androidTest.apk",
@@ -384,7 +536,82 @@ def instrumentation_dispatch(index):
             "instrument-" + str(index), 180, 262144)
 
 
+def regression_dispatch(index):
+    need(type(index) is int and 0 <= index < len(REGRESSION_CLASSES), "class_index")
+    return (["exec-out", "am", "instrument", "--user", "0", "-w", "-r", "-e", "class",
+             "org.locallore.app." + REGRESSION_CLASSES[index], APP + ".test/androidx.test.runner.AndroidJUnitRunner"],
+            "instrument-" + str(index), 180, 262144)
+
+
+def validate_regression_record(record, out):
+    """Revalidate all source-frozen results and their original SDK-client copies."""
+    try:
+        from benchmarks.android_instrumentation_evidence import EvidenceRefused
+    except ModuleNotFoundError:
+        from android_instrumentation_evidence import EvidenceRefused
+    try:
+        _validate_regression_record(record, out)
+    except EvidenceRefused:
+        raise VerificationRefused("regression_evidence_refused") from None
+
+
+def _validate_regression_record(record, out):
+    try:
+        from benchmarks.android_instrumentation_evidence import test_roster, validate_instrumentation
+    except ModuleNotFoundError:
+        from android_instrumentation_evidence import test_roster, validate_instrumentation
+    need(type(record) is dict and set(record) == {"version", "phase", "results", "clients", "clients_clean",
+         "method_count", "external_controller_case_executed"} and type(record["version"]) is int and
+         record["version"] == REGRESSION_VERSION and record["phase"] == "regression" and
+         type(record["method_count"]) is int and record["method_count"] == 89 and
+         record["clients_clean"] is True and record["external_controller_case_executed"] is False and
+         type(record["clients"]) is int and 0 < record["clients"] <= 10000 and
+         type(record["results"]) is list and len(record["results"]) == 18, "regression_not_qualified")
+    copies = {}
+    for index, (result, name, methods) in enumerate(zip(record["results"], REGRESSION_CLASSES, REGRESSION_METHODS)):
+        source = ROOT / "apps/android/app/src/androidTest/java/org/locallore/app" / (name + ".kt")
+        need(test_roster(source) == list(methods), "regression_roster_changed")
+        need(type(result) is dict and result.get("class") == "org.locallore.app." + name and
+             result.get("methods") == list(methods) and type(result.get("method_count")) is int and
+             result["method_count"] == len(methods), "regression_roster_changed")
+        path = env.safe_path(out / (name + ".stdout.raw"))
+        need(0 < path.stat().st_size <= 262144, "regression_raw_bounds")
+        raw = path.read_bytes()
+        need(validate_instrumentation(raw, result["class"], list(methods)) == result, "regression_raw_mismatch")
+        copies["instrument-" + str(index)] = (len(raw), hashlib.sha256(raw).hexdigest())
+    expected_files, labels = set(), []
+    for index in range(1, record["clients"] + 1):
+        stem = out / "clients" / ("command-%04d" % index)
+        expected_files.update((stem.with_suffix(".json").name, stem.with_suffix(".stdout.bin").name))
+        row = env.read_json(stem.with_suffix(".json"))
+        need(type(row) is dict and set(row) == {"version", "index", "label", "status", "returncode",
+             "cleanup_complete", "stdout_bytes", "stdout_sha256", "stderr_bytes"}, "regression_client_shape")
+        need(type(row["version"]) is int and row["version"] == 1 and type(row["index"]) is int and
+             row["index"] == index and type(row["label"]) is str and
+             re.fullmatch(r"[a-z][a-z0-9_-]{0,47}", row["label"]) and row["status"] == "completed" and
+             type(row["returncode"]) is int and row["returncode"] == 0 and row["cleanup_complete"] is True and
+             type(row["stderr_bytes"]) is int and row["stderr_bytes"] == 0 and
+             type(row["stdout_bytes"]) is int and 0 <= row["stdout_bytes"] <= 262144, "regression_client_failed")
+        path = env.safe_path(stem.with_suffix(".stdout.bin"))
+        need(path.stat().st_size == row["stdout_bytes"], "regression_client_raw")
+        raw = path.read_bytes()
+        need(hashlib.sha256(raw).hexdigest() == row["stdout_sha256"], "regression_client_raw")
+        if row["label"].startswith("instrument-"):
+            labels.append(row["label"])
+            need(copies.get(row["label"]) == (len(raw), row["stdout_sha256"]), "regression_client_copy")
+    need(labels == list(copies), "regression_client_order")
+    need({p.name for p in (out / "clients").iterdir()} == expected_files, "regression_client_extra")
+
+
 def component_worker(request, out):
+    return _instrumentation_worker(request, out, False)
+
+
+def regression_worker(request, out):
+    return _instrumentation_worker(request, out, True)
+
+
+def _instrumentation_worker(request, out, regression):
     try:
         from benchmarks.android_process_client import SdkCapture
         from benchmarks.android_instrumentation_evidence import test_roster, validate_instrumentation
@@ -392,11 +619,13 @@ def component_worker(request, out):
         from android_process_client import SdkCapture
         from android_instrumentation_evidence import test_roster, validate_instrumentation
     artifact = qualified_build(request["build"])
+    classes, frozen = (REGRESSION_CLASSES, REGRESSION_METHODS) if regression else (CLASSES, EXPECTED_METHODS)
     rosters = []
-    for name, expected in zip(CLASSES, EXPECTED_METHODS):
+    for name, expected in zip(classes, frozen):
         source = ROOT / "apps/android/app/src/androidTest/java/org/locallore/app" / (name + ".kt")
         methods = test_roster(source)
-        need(sorted(methods) == sorted(expected), "component_roster_changed")
+        need(methods == list(expected) if regression else sorted(methods) == sorted(expected),
+             "regression_roster_changed" if regression else "component_roster_changed")
         rosters.append(methods)
     lease_path = Path(request["running"])
     live = env.open_live_owner(request["proposal"], lease_path, env.digest(lease_path))
@@ -451,10 +680,10 @@ def component_worker(request, out):
         need(raw.startswith("package:/data/app/") and raw.endswith("/base.apk") and "\n" not in raw, "installed_path")
         need(shell(["sha256sum", raw[len("package:"):]], "installed-hash").decode().split()[0] == apk["sha256"], "installed_hash")
     results = []
-    for index, (name, methods) in enumerate(zip(CLASSES, rosters)):
+    for index, (name, methods) in enumerate(zip(classes, rosters)):
         own()
         need(shell(["am", "get-current-user"], "instrument-user").strip() == b"0", "user_zero")
-        raw = capture.adb(*instrumentation_dispatch(index))
+        raw = capture.adb(*(regression_dispatch(index) if regression else instrumentation_dispatch(index)))
         own()
         with (out / (name + ".stdout.raw")).open("xb") as stream:
             stream.write(raw)
@@ -463,9 +692,13 @@ def component_worker(request, out):
         results.append(validate_instrumentation(raw, "org.locallore.app." + name, methods))
     own()
     capture.check_server()
-    env.create_json(out / "components-v1.json", {"version": 1, "results": results, "clients": capture.count,
+    record = {"version": 1, "results": results, "clients": capture.count,
                     "clients_clean": capture.clean, "method_count": sum(r["method_count"] for r in results),
-                    "external_controller_case_executed": False})
+                    "external_controller_case_executed": False}
+    if regression:
+        record["version"] = REGRESSION_VERSION
+        record["phase"] = "regression"
+    env.create_json(out / ("regression-v1.json" if regression else "components-v1.json"), record)
 
 
 def supervise(request):
@@ -499,14 +732,15 @@ def supervise(request):
               "sources_before": env.binding(out / "sources-before-v1.json"),
               "sources_after": env.binding(out / "sources-after-v1.json")}
     if qualified:
-        name = "artifacts-v1.json" if request["phase"] == "build" else "components-v1.json"
-        record["artifacts" if request["phase"] == "build" else "components"] = env.binding(out / name)
+        key = {"build": "artifacts", "components": "components", "regression": "regression"}[request["phase"]]
+        name = key + "-v1.json"
+        record[key] = env.binding(out / name)
         try:
             if request["phase"] == "build":
                 validate_build_record(record, out)
             else:
                 components = env.read_json(out / name)
-                validate_component_record(components, out)
+                (validate_regression_record if request["phase"] == "regression" else validate_component_record)(components, out)
         except (VerificationRefused, env.EnvironmentRefused, OSError, ValueError, KeyError, TypeError, ET.ParseError):
             qualified = False
             record["passed"] = False
@@ -519,7 +753,7 @@ def supervise(request):
 def admit_worker(request):
     need(type(request) is dict and set(request) == {"phase", "out", "sdk", "java", "build",
             "running", "proposal", "server", "powershell", "inputs", "sources", "driver_sha256"}, "request_fields")
-    need(request["phase"] in ("build", "components"), "worker_phase")
+    need(request["phase"] in ("build", "components", "regression"), "worker_phase")
     need(request["driver_sha256"] == env.digest(Path(__file__)), "driver_changed")
     env.check_binding(request["sources"])
     need(env.read_json(request["sources"]["path"]) == source_map(), "source_drift")
@@ -537,12 +771,12 @@ def main(argv=None):
         request = env.read_json(path)
         admit_worker(request)
         need(Path(request["out"]) == path.parent and path.name == "request-v1.json", "request_path")
-        (build_worker if request["phase"] == "build" else component_worker)(request, path.parent)
+        {"build": build_worker, "components": component_worker, "regression": regression_worker}[request["phase"]](request, path.parent)
         need(request["inputs"] == input_bindings(request), "input_changed")
         print("worker_completed", flush=True)
         return 0
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("phase", choices=("build", "components", "server"))
+    parser.add_argument("phase", choices=("build", "components", "regression", "server"))
     parser.add_argument("--out", required=True)
     parser.add_argument("--sdk", required=True)
     parser.add_argument("--java")

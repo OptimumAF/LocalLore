@@ -21,7 +21,7 @@ and repeats completed resume with a callback that counts and refuses any lease.
 The completed report and full artifact inventory must stay identical and the
 callback count must be zero. Rollout runs all four scenes independently.
 
-Both tests retain all 48 outcomes, including rejections, unavailable or dependency
+Both full-comparison tests retain all 48 outcomes, including rejections, unavailable or dependency
 evidence and narration fallback. They require observed load metrics and actual
 role/raw-output evidence. They do not require a flattering all-passed result or
 claim human quality acceptance. Synthetic raw outputs and diagnostics remain
@@ -48,6 +48,7 @@ one worker/build at a time, and preserve the printed
 cargo test --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --jobs 1 --bin locallore-desktop-spike models::literal_native_asset_tests:: --no-run
 cargo test --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --jobs 1 --bin locallore-desktop-spike models::literal_native_asset_tests::approved_literal_paired_resumes_and_completed_read_is_zero_asset -- --ignored --exact --nocapture --test-threads=1
 cargo test --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --jobs 1 --bin locallore-desktop-spike models::literal_native_asset_tests::approved_literal_rollout_records_all_outcomes -- --ignored --exact --nocapture --test-threads=1
+cargo test --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --jobs 1 --bin locallore-desktop-spike models::literal_native_asset_tests::approved_literal_first_scene_returns_drained_before_helper -- --ignored --exact --nocapture --test-threads=1
 ```
 
 Coordinator also used explicit external target directory, jobs1, incremental0,
@@ -58,7 +59,7 @@ source guards. Commands, logs, output and terminal records stay local.
 
 Windows NT 10.0.26300 x64; PowerShell 7.6.5; Rust/Cargo 1.93.1
 (rustc01f6ddf75, cargo083ac5135, LLVM21.1.8). Intel i7-12700K, 12 cores/20 logical processors,
-68,399,599,616 bytes installed RAM. This is a desktop measurement, not a phone
+68,399,599,616 bytes reported physical RAM. This is a desktop measurement, not a phone
 simulator or whole-app memory measurement.
 
 Approved profile `qwen3-0.6b-q8-cpu-v1`: Qwen3-0.6B Q8_0 with F32 tensors,
@@ -144,13 +145,26 @@ fixed message and is contained by its passing test; no production panic is
 claimed. Both command terminal records assert clean/unchanged source.
 
 Independent review found the model helper checked ownership only after helper
-cleanup. Thus the00da comparison runs prove cleanup after the safe helper, not
+cleanup. Thus the `00da6f6c` comparison runs prove cleanup after the safe helper, not
 a separate observation of unassisted producer return. The accepted owner-unit
-evidence remains separate. Test correctionf452b8ae captures cleanup_complete
+evidence remains separate. Test correction `f452b8ae` captures cleanup_complete
 before safe cleanup and asserts that captured state, including completed resume.
-A third ignored first-scene ownership smoke exercises the stronger observation;
-its execution result is pending at this documentation source. It is separate
-from the96-outcome comparison totals and adds no quality acceptance.
+A third ignored first-scene ownership smoke exercises the stronger observation:
+PASS 1 in 111.43s at clean/unchanged `74aa3acc`, with manager ownership drained
+on successful producer return before helper cleanup. It records 12 rows,
+19 real role calls, 1 actual load, 8 matched expectations, 3 safe failures,
+1 dependency and 2 narration fallbacks. This repeats the first rollout scene
+for ownership observation; it is separate from the 96-outcome comparison
+totals and adds no quality acceptance. The two full comparisons were not rerun
+with the stronger test assertion; their actual outputs and completed zero-lease
+resume evidence above remain attributed to `00da6f6c`.
+
+Final `74aa3acc`: strict native all-feature/all-target Clippy PASS in 5.10s;
+model-manager cohort 27 PASS, 4 ignored, in 1.71s; formatting PASS. Three ignored
+methods are the real-model tests executed separately at the sources listed
+above; the existing Windows symlink privilege test stays unrun. All process
+records are terminal and source clean/unchanged. Subsequent qualification edits
+change documentation only.
 
 ```powershell
 cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all -- --check

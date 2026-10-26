@@ -47,7 +47,9 @@ isolated C: target. Its1,781-entry tracked map stayed unchanged; this broader
 Rust map is distinct from the Android759-entry map. Initial22 and follow-up24
 Rust results retain their separate original source attribution. New Rust cases
 exercise legacy source schema3/4 import/reopen/current5 re-export and future6
-refusal in empty and colliding-ID stores, preserving original accepted histories.
+refusal in absent-source-ID and colliding-ID destinations, preserving each
+destination's existing accepted history. The absent-source-ID target already
+contains a separate story; it is not an empty database.
 
 Commands, with private paths replaced by local variables:
 
@@ -106,7 +108,11 @@ physical-memory floor. No requirement was lowered. After the build owner exited,
 one fresh isolated preparation reached the same final commit refusal. That
 distinct attempt is preserved, with no favorable polling or third attempt.
 No failed/used fixture is adopted. SDK child stderr was counted by the existing
-prepare helper but not retained raw; no reconstruction is claimed.
+prepare helper but not retained raw; no reconstruction is claimed. The specific
+`host_commit_capacity` reason was observed in each terminal CLI response.
+The five preparation metadata/stdout files independently establish completed
+SDK creation followed by refusal, but omit the refusal reason and final memory
+snapshot; an independent audit cannot recover those omitted values from them.
 
 ## Private preservation and limits
 

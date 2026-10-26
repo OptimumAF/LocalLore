@@ -375,28 +375,51 @@ fn detached_source_remains_bound_to_exact_prefix_after_engine_advances() {
 }
 
 #[test]
-fn actual_accepted_escaped_text_exceeds_two_mib_budget_and_fails_without_truncation() {
-    let mut e = engine();
-    let text = "\\\"".repeat(MAX_TEXT_BYTES / 2);
-    assert_eq!(text.len(), MAX_TEXT_BYTES);
-    // 600 real <=2048-byte Dialogue receipts, below Core's 4096-receipt and
-    // 16MiB history limits. Escaped original text alone proves the source's
-    // compact private JSON >2MiB before any metadata/narration is counted.
-    for n in 0..600 {
-        dialogue(&mut e, &format!("large-{n}"), &text);
+fn actual_accepted_whole_units_cross_two_mib_and_fail_without_truncation() {
+    // Dialogue accumulates state claims and reaches the existing 256KiB state
+    // cap first. Use actual typed Wait receipts instead: constant projection,
+    // long valid scope/turn IDs and actual 20-digit story-time narration.
+    let mut seed = seed();
+    seed.scope.story = "s".repeat(64);
+    seed.scope.branch = "b".repeat(64);
+    seed.story_time = u64::MAX - 4_000_000;
+    let mut e = Engine::new(seed).unwrap();
+    let mut budget = source(&e).budget_bytes();
+    let mut previous_budget = budget;
+    let mut previous_head = 0;
+    let mut count = 0;
+    for n in 0..3000 {
+        previous_budget = budget;
+        previous_head = e.revision();
+        let receipt = commit(
+            &mut e,
+            &format!("large-{n:058}"),
+            Intent::Actions(vec![Command::Wait { ticks: 1 }; MAX_COMMANDS]),
+        );
+        let encoded = json!({
+            "original_scope":receipt.request().scope,"turn":receipt.request().turn,
+            "through_revision":receipt.events().last().unwrap().sequence(),
+            "original_input":null,"narration":receipt.narration(),
+        });
+        budget += serde_json::to_vec(&encoded).unwrap().len() + usize::from(n != 0);
+        count += 1;
+        if budget > 2 * 1024 * 1024 {
+            break;
+        }
     }
-    let minimum: usize = e
-        .receipts()
-        .iter()
-        .map(|r| {
-            let Intent::Dialogue { text, .. } = &r.request().intent else {
-                panic!("actual fixture intent");
-            };
-            serde_json::to_vec(text).unwrap().len()
-        })
-        .sum();
-    assert!(minimum > 2 * 1024 * 1024);
+    assert!(
+        budget > 2 * 1024 * 1024,
+        "genuine accepted fixture must reach source cap"
+    );
+    let prefix = e.at_revision(previous_head).unwrap();
+    let before_limit = source(&prefix);
+    assert_eq!(before_limit.units().len(), count - 1);
+    assert_eq!(before_limit.budget_bytes(), previous_budget);
+    assert!(previous_budget <= 2 * 1024 * 1024);
+    assert_header(&prefix, &before_limit);
     let bytes = e.canonical_bytes();
+    assert!(bytes.len() <= MAX_HISTORY_BYTES);
+    eprintln!("LITERAL_SOURCE_CAP actual_units={count} previous_bytes={previous_budget} rejected_bytes={budget} canonical_bytes={}", bytes.len());
     let basis = e.accepted_history_basis().unwrap();
     assert_eq!(
         player_literal_transcript_v1_cancelled(&e, e.scope(), e.revision(), "player", &|| false)

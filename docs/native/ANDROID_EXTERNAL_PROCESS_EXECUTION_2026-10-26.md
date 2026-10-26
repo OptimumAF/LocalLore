@@ -230,6 +230,15 @@ All756 inputs remain9cf2b017... . The owned guest closed after clients were
 terminal: stop_requested1,058,118ms/worker1, cleanup/capture/closure true,
 guest flush false, emulator stderr1,079 bytes.
 
+The terminal active-child case and closed-guest metadata now have a separate
+private recovery copy:233 files/657,204 original bytes. Independent readback
+verified every original and all233 ZIP entries, with no extra, duplicate,
+unsafe or mismatched entries. ZIP240,284 bytes, SHA-256
+`d6ecfcb4ef80723389bf008f61bfe85fda337957485e09d2c9230ec670299b11`.
+Both67,487-byte indexes match SHA-256
+`dbf162594e7df0a39bf10a1e0dfb2316150ade400153fe912e5416356d44d2b5`.
+No live leaf/regression cohort, guest image, database, model or cache was selected.
+
 ## Pending execution gates
 
 At this checkpoint the fresh retired-leaf control is running. The separate

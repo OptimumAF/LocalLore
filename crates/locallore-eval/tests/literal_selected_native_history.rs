@@ -3,12 +3,15 @@
 //! the genuine retained fixture explicitly; no fixture copy/relabel/generation.
 //! Keep this test available WITHOUT local-model as well as WITH local-model.
 use locallore_eval::{
-    local_lane::comparison::literal_v3::selected_v2,
-    memory_comparison_v3::arm_descriptors,
+    local_lane::comparison::literal_v3::selected_v2, memory_comparison_v3::arm_descriptors,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::{collections::BTreeMap, fs, path::{Path, PathBuf}};
+use std::{
+    collections::BTreeMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
 type Inventory = BTreeMap<PathBuf, Option<(u64, String)>>;
 const MANIFEST_SHA: &str = "96e0c6e860650e247fa667f5b838bd96c84f9a899bbf16f4ace29351ee971eca";
@@ -25,7 +28,11 @@ fn inventory(root: &Path) -> Inventory {
         #[cfg(windows)]
         {
             use std::os::windows::fs::MetadataExt;
-            assert_eq!(metadata.file_attributes() & 0x400, 0, "no reparse fixture entries");
+            assert_eq!(
+                metadata.file_attributes() & 0x400,
+                0,
+                "no reparse fixture entries"
+            );
         }
         let relative = path.strip_prefix(root).unwrap().to_owned();
         if metadata.is_dir() {
@@ -38,7 +45,10 @@ fn inventory(root: &Path) -> Inventory {
             let bytes = fs::read(path).unwrap();
             *total = total.checked_add(bytes.len()).unwrap();
             assert!(*total <= 128 * 1024 * 1024);
-            out.insert(relative, Some((metadata.len(), format!("{:x}", Sha256::digest(&bytes)))));
+            out.insert(
+                relative,
+                Some((metadata.len(), format!("{:x}", Sha256::digest(&bytes)))),
+            );
         }
     }
     let mut result = Inventory::new();
@@ -52,11 +62,17 @@ fn assert_identity(report: &Value) {
     assert_eq!(report["version"], 2);
     assert_eq!(report["source_protocol_version"], 3);
     assert_eq!(report["lane"], "native_selected_case");
-    assert_eq!(report["source_native"], false, "genuine source was scripted V3, not native");
+    assert_eq!(
+        report["source_native"], false,
+        "genuine source was scripted V3, not native"
+    );
     assert_eq!(report["binding"], BINDING);
     assert_eq!(report["source_binding"], SOURCE_BINDING);
     assert_eq!(report["source_sha256"], SOURCE_SHA);
-    assert_eq!(report["arms"], serde_json::to_value(arm_descriptors()).unwrap());
+    assert_eq!(
+        report["arms"],
+        serde_json::to_value(arm_descriptors()).unwrap()
+    );
     assert_eq!(report["completed"], true);
     assert_eq!(report["human_reviewed"], 0);
     assert_eq!(report["quality_accepted"], false);
@@ -79,36 +95,54 @@ fn assert_identity(report: &Value) {
     assert_eq!(left["passed"], false);
     assert_eq!(left["construction_evidence_status"], "unavailable");
     assert_eq!(left["context_evidence_available"], false);
-    assert_eq!(left["actual_receipt_sha256"], "51d5adae2dc67d653d2d9509094b5528caa8484955594a028c184fe48061a324");
+    assert_eq!(
+        left["actual_receipt_sha256"],
+        "51d5adae2dc67d653d2d9509094b5528caa8484955594a028c184fe48061a324"
+    );
     assert_eq!(right["recovered_without_checkpoint"], false);
     assert_eq!(right["roles"], 2);
     assert_eq!(right["roles_known"], true);
     assert_eq!(right["passed"], true);
     assert_eq!(right["construction_evidence_status"], "validated_relevant");
-    assert_eq!(right["actual_receipt_sha256"], "1822994b79651b1648eb8b1257c6f6daf004e39323031174b7ce52516ae252ce");
+    assert_eq!(
+        right["actual_receipt_sha256"],
+        "1822994b79651b1648eb8b1257c6f6daf004e39323031174b7ce52516ae252ce"
+    );
     // These are retained row diagnostics, not two new calls or zero historical
     // work on the recovered side. Original four-role measurement is elsewhere.
-    assert_eq!(rows.iter().map(|row| row["roles"].as_u64().unwrap()).sum::<u64>(), 2);
+    assert_eq!(
+        rows.iter()
+            .map(|row| row["roles"].as_u64().unwrap())
+            .sum::<u64>(),
+        2
+    );
 }
 
 #[test]
 #[ignore = "requires explicit genuine retained LOCALLORE_LITERAL_SELECTED_NATIVE_HISTORY; read-only Root opt-in"]
 fn genuine_native_selected2_cold_inspection_is_feature_independent_and_byte_preserving() {
-    let root = PathBuf::from(std::env::var_os("LOCALLORE_LITERAL_SELECTED_NATIVE_HISTORY")
-        .expect("explicit genuine native selected2 history path required"));
+    let root = PathBuf::from(
+        std::env::var_os("LOCALLORE_LITERAL_SELECTED_NATIVE_HISTORY")
+            .expect("explicit genuine native selected2 history path required"),
+    );
     assert!(root.is_absolute() && root.is_dir());
     let before = inventory(&root);
     // Wrong-fixture pins detect accidental substitution, not authenticated origin.
     assert_eq!(file_sha(&before, "selected.json"), MANIFEST_SHA);
     assert_eq!(file_sha(&before, "report.json"), REPORT_SHA);
-    let stored: Value = serde_json::from_slice(&fs::read(root.join("report.json")).unwrap()).unwrap();
+    let stored: Value =
+        serde_json::from_slice(&fs::read(root.join("report.json")).unwrap()).unwrap();
     assert_identity(&stored);
     for _ in 0..2 {
         // Public inspection fully returns/drops locks before inventory reads.
         // No source directory, asset callback, runtime or execution API is used.
-        let inspected = serde_json::to_value(selected_v2::inspect_selected(&root).unwrap()).unwrap();
+        let inspected =
+            serde_json::to_value(selected_v2::inspect_selected(&root).unwrap()).unwrap();
         assert_eq!(inspected, stored);
         assert_identity(&inspected);
-        assert!(inventory(&root) == before, "read changed the genuine retained target inventory");
+        assert!(
+            inventory(&root) == before,
+            "read changed the genuine retained target inventory"
+        );
     }
 }

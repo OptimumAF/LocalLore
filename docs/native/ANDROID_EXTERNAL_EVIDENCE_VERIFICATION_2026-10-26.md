@@ -78,13 +78,49 @@ The second Git bundle verifies complete history through `d24fa55d`; its
 `ffcc15be797ea4a33ef1ddc9a39b48eca63509b2ea5c65277030f4bfe20eff0b`.
 The snapshots overlap and their counts must not be added as unique evidence.
 
+## Completed runner host follow-up
+
+Author `b1d4397d`/`27840ea4` is integrated as `ae861065`/`63f8e5a8`.
+The two owned files provide the supervisor, worker barrier, create-only guest
+claim, fixed binary readback, full parent revalidation and CLI. The author ran
+26 mocked orchestration methods: all four cases use the real pure validators;
+negative controls cover changed copies/sidecars/claims, actual second-worker
+claim refusal, incomplete capture stopping further calls, failed-frame
+diagnostic preservation and parent refusal after a clean worker exit.
+Read-only review caught and corrected Windows forward-slash output admission;
+positive/wrong-parent worker-barrier tests cover it. Review found no remaining
+execution-blocking defect in its bounded final pass, not a device result.
+
+The final integrated Windows/Python 3.14.7 run at `63f8e5a8` passed **1,229 tests
+in 94.417s**, zero failures/errors/skips. Its owned worker completed exit0 in
+95,768ms with known cleanup, stderr0 and **756 unchanged tracked inputs**, all
+five SQL files included. Original stdout is 223,084 bytes, SHA-256
+`d51bbc96528d3462ba0f3f02e69ae82c7c01d98802dc1e715893a4744adb34ba`.
+This includes the 26 new methods and earlier 118 focused methods; neither
+subset nor the earlier 1,203-test run is additive to this final count.
+The integrated runner/test bytes match the author's retained final files.
+
+A final private snapshot includes all 58 current-controller files, their prior
+index, the nine runner-author files and index, and seven final integrated-run
+files: **76 files/2,134,602 original bytes**. The verified 653,350-byte archive
+has SHA-256 `29ff1a73f634856262db47e87a04932f691f80630a95adea547883df1f696055`.
+Its two identical 23,977-byte index copies have SHA-256
+`6d5192d5b71494ed3d6cfb9de581dbb46f6b227bb4872b36d195232c052bea4c`.
+A separate 9,822,115-byte Git bundle verifies complete history through
+`63f8e5a8`, SHA-256
+`909db9fb914ca29c796d5e5242a7cf101bdf0899645dc889132eb5c7e3ee25e8`.
+Independent read-only review verified all76 originals and ZIP entries, both
+indexes and the complete-history bundle, with no missing/mismatched/extra or
+unsafe entries.
+Earlier snapshot counts overlap; no new device/model data was copied.
+
 ## Remaining gates
 
 This packet's host checks make no new Android saved-task, broad Android,
 phone/ARM64 or real-model qualification claim. Earlier component/JVM/APK results
 remain attributed to [the prior packet](ANDROID_PROCESS_HOST_DRIVER_VERIFICATION_2026-10-26.md).
-The next runnable task is to complete and review the external-controller runner,
-bind a fresh build and ten-method native component gate, then execute the root
+The next runnable task is to bind a fresh build and ten-method native component
+gate to the completed runner's current inputs, then execute the root
 control and retained-parent two-death protocol with original readback records.
 No SDK/device actions, settings changes or unrelated-emulator stops occurred
 during these host checks and preservation.

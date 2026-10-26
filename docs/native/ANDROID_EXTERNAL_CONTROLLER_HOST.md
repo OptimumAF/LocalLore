@@ -38,6 +38,40 @@ and receipts, including the original root and prefix. The fixed postfork tail
 must not appear in any preserved view. These checks do not reconstruct hidden
 world state or replace Rust's authority.
 
+## Create-only runner
+
+`benchmarks/android_external_controller.py` provides the isolated worker and
+parent supervisor. It deeply revalidates the build and ten-method component
+gate, current tracked inputs, original client records and copied raw outputs.
+Before any SDK call, it burns one case-independent claim in the owned guest's
+private host directory. A failed attempt cannot be retried with another output
+directory or nonce on that guest. It has no reset, clear-data, force-stop,
+partial-fixture adoption or global ADB-server lifecycle operation.
+
+After the [build/server/component protocol](ANDROID_PROCESS_HOST_DRIVER.md)
+has actually passed for the current source and the owned guest remains live:
+
+```powershell
+python -I -B benchmarks/android_external_controller.py --case restore_non_default --out "$evidence/root" --sdk "$sdk" --powershell "$powershell" --build "$evidence/build/result-v1.json" --gate "$evidence/components/result-v1.json" --proposal "$runProposal" --running "$runningReceipt" --server "$evidence/server/server-v1.json"
+```
+
+The other exact case names are `restore_child_branch`, `restore_retired_child`
+and `restore_retained_parent`. An optional `--run-id` is exactly16 lowercase hex
+characters; otherwise a new nonce is generated. Installation continuation is
+allowed only when the completed component gate names the same owned live run,
+proposal, build, tools and server pin. Other cases require fresh owned guests
+with all three packages absent. Earlier-source gates refuse admission.
+
+A cleanly captured failed controller frame still causes bounded readback of
+all fixed diagnostic leaves before semantic validation. Missing leaves retain
+their explicit marker. SDK, source, deadline or ownership uncertainty stops
+further dispatch. The final process observation binds the third PID, UID and
+product name and requires both old PIDs absent. Parent validation rereads every
+bound original record; a passed label or clean worker exit alone cannot pass.
+
+This runner's host tests mock SDK/device observations. Actual saved-task
+qualification remains a separate execution gate.
+
 The caller must validate both transport footers, not treat an ADB stream's exit
 code as a remote helper success. The host runner also owns build/source/client
 and live-emulator admission; neither pure validator grants mutation, fixture
@@ -46,7 +80,7 @@ reuse or retry authority. Original raw bytes remain private and unchanged.
 ## Host regression command
 
 ```powershell
-python -B -m unittest scripts.tests.test_android_process_verification scripts.tests.test_android_process_client scripts.tests.test_android_instrumentation_evidence scripts.tests.test_android_process_controller_evidence scripts.tests.test_android_retirement_evidence
+python -B -m unittest scripts.tests.test_android_process_verification scripts.tests.test_android_process_client scripts.tests.test_android_instrumentation_evidence scripts.tests.test_android_process_controller_evidence scripts.tests.test_android_retirement_evidence scripts.tests.test_android_external_controller
 ```
 
 The original synthetic fixtures cover all four cases. Negative controls include

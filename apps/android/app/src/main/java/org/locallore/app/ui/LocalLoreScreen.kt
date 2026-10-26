@@ -28,6 +28,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -318,23 +319,28 @@ fun LocalLoreScreen(
                         }
                     }
                     if (onText != null) item(key = "play-composer") {
-                        PlayInputComposer(
-                            input = playInput,
-                            provider = state.textProvider,
-                            busy = state.busy || state.archiveActive || state.deletionActive || state.forkActive ||
-                                (state.persistent && state.selectedStory == null),
-                            recoveryRequired = state.recoveryRequired,
-                            onInput = { input ->
-                                if (!currentDraftPending && currentDraftScope == draftScope) {
-                                    playDraft = playDraft.resolve(currentDraftScope, pending = false)
-                                        .edit(draftScope, currentDraftScope, input)
-                                }
-                            },
-                            onSend = { input ->
-                                if (!currentDraftPending && currentDraftScope == draftScope) onText(input, renderedStory)
-                            },
-                            draftNotRestored = !draftPending && resolvedDraft.textNotRestored,
-                        )
+                        // Text-field/button managers retain callbacks internally. Recreate
+                        // those controllers on a scope change, rather than retargeting an
+                        // old semantics/IME action to the new story's latest callback.
+                        key(draftScope) {
+                            PlayInputComposer(
+                                input = playInput,
+                                provider = state.textProvider,
+                                busy = state.busy || state.archiveActive || state.deletionActive || state.forkActive ||
+                                    (state.persistent && state.selectedStory == null),
+                                recoveryRequired = state.recoveryRequired,
+                                onInput = { input ->
+                                    if (!currentDraftPending && currentDraftScope == draftScope) {
+                                        playDraft = playDraft.resolve(currentDraftScope, pending = false)
+                                            .edit(draftScope, currentDraftScope, input)
+                                    }
+                                },
+                                onSend = { input ->
+                                    if (!currentDraftPending && currentDraftScope == draftScope) onText(input, renderedStory)
+                                },
+                                draftNotRestored = !draftPending && resolvedDraft.textNotRestored,
+                            )
+                        }
                     }
                     item(key = "actions") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

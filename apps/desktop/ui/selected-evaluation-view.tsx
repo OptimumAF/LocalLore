@@ -102,7 +102,7 @@ export type SelectedEvaluationViewProps = {
 };
 export function SelectedEvaluationView({
     controller: c,
-    source,
+    source: linkedSource,
     row,
     observer,
     sourceUnavailable = false,
@@ -113,6 +113,10 @@ export function SelectedEvaluationView({
     );
     const get = useCallback(() => c.get(), [c]);
     const s = useSyncExternalStore(subscribe, get, get);
+    const source =
+        linkedSource && !c.sourceNeedsRefresh(linkedSource)
+            ? linkedSource
+            : null;
     const [lane, setLane] = useState<SelectedLane>("scripted_baseline");
     const [savedId, setSavedId] = useState("");
     const [arm, setArm] = useState<SelectedArm>("left");

@@ -148,6 +148,10 @@ export class SelectedEvaluationController {
     private currentUncertain = false;
     private disposed = false;
     private reporting = false;
+    // Presentation-only freshness hint. An admitted request may consume this
+    // native source even when its acknowledgement is lost. This is not proof
+    // of native consumption or permission; a fresh reader token is required.
+    private lastAttemptedSourceToken: string | null = null;
     private sent = new Set<string>();
     private inFlight = new Map<string, number>();
     private replies = new Map<string, number>();
@@ -160,6 +164,9 @@ export class SelectedEvaluationController {
     ) {}
     get(): Readonly<SelectedEvaluationState> {
         return this.state;
+    }
+    sourceNeedsRefresh(source: SelectedSourceIdentity): boolean {
+        return source.runToken === this.lastAttemptedSourceToken;
     }
     subscribe(listener: () => void): () => void {
         if (!this.disposed) this.listeners.add(listener);
@@ -516,6 +523,8 @@ export class SelectedEvaluationController {
             client,
         };
         ++this.readEpoch;
+        if (action === "prepare")
+            this.lastAttemptedSourceToken = selectedUuid(body.runToken);
         this.patch({
             clientId: client,
             status: null,
@@ -735,6 +744,8 @@ export class SelectedEvaluationController {
             serial: ++this.lifecycleEpoch,
             client,
         };
+        if (action === "resume")
+            this.lastAttemptedSourceToken = selectedUuid(body.sourceToken);
         this.patch({
             evidence: null,
             diagnostics: null,

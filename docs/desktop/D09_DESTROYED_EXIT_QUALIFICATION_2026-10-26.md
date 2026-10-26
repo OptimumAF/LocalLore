@@ -146,6 +146,15 @@ is pending below. The build is not evidence that the normal app was launched.
 
 ## Pending coordinator evidence and limits
 
+The first final all-feature native test command at `f1fe1e3c` failed to compile
+with `E0433` before any tests ran. The standalone `tests/harness_contract.rs`
+imports the actual `src/harness.rs` without the app's `shutdown_harness` module.
+Root's `18c062cd` adds only three lines: a `cfg(not(test))` guard/comment around
+the app-only finish hook. The standalone contract still compiles the actual
+harness module; development applications retain the actual hook. This is not a
+lifecycle-behavior correction and does not relabel the native cases as18c results.
+The second final cohort is running at clean `18c062cd`; its results are pending.
+
 - Corrected63-image per-image visual review: **PENDING**.
 - Final source-bound full Rust regressions, strict Clippy and formatting:
   **PENDING**.

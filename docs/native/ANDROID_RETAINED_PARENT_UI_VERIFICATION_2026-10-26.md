@@ -6,6 +6,12 @@ deletion path; its [protocol](ANDROID_RETAINED_PARENT_UI_PROTOCOL.md) keeps the
 two new UI cases separate from the earlier native10 and broad89 rosters.
 Full milestone tasks remain unchecked pending broader criteria and owner acceptance.
 
+Current result at mapped7a686ee2: both real deletion UI methods and native10
+passed on the new test APK, alongside1,251 host tests/235 JVM tests/lint/11audits.
+All757 inputs remain unchanged. Both owned guests closed and their selected
+terminal evidence recovery copies independently verify. Earlier checkpoints
+below retain their original scope; this is locally verified/in_review work.
+
 ## Implemented and host-checked
 
 The two original Android cases seed a new typed Rust root/P/G fixture before
@@ -79,6 +85,55 @@ both57,329B indexes match SHA-256
 `ac97b4efb2cd2a19a4caa7c4477eefcae41970745407224c47b188cd5ffc8593`.
 Only the terminal native case, closed-guest metadata/configs and exact plans/
 helpers/preflight were selected; no live UI cohort or images/databases/models/caches.
+
+## Actual Compose/native deletion result
+
+Both fixed methods passed in one actual AndroidJUnit class,19.765s runner,
+69 clean captured clients. Parent validation passed; owner293,098ms/worker0,
+known cleanup/capture, stderr0, exact completion marker. All757 source rows
+still matchbb821d1a... and the installed product/test/controller hashes match
+the qualified build. Original1,485B class output SHA-256:
+`667fa82952f04f144132aaddeaf1f410aabc2c07f4b9df65dee4f8f2ee88f479`.
+Closed436B UI record SHA-256:
+`131ff9bd1710b3f1dbeb87c66cf421a92a0f982d434d7321655b89c143d0370c`;
+aggregate1,350B SHA-256:
+`88a90dc671dfe437a538ea17e60e2e3b9990990efed5bee959bb8a4fed62712f`.
+
+The source-pinned assertions actually exercise real MainActivity/dialog/native
+Cancel, explicit fresh confirmation and retained root/G2 views/original ROOT/
+PREFIX receipt scopes. P3 becomes publicly rejected/NotFound and physically
+retained through2; G2 remains selectable, with ROOT/PREFIX displayed verbatim
+and no TAIL. The stale case compares the complete post-writer root/P4/G2
+baseline before/after one old confirmation, requires the fixed Stale notice,
+no prepared/deleted result, then a fresh head4 preview followed only by Cancel.
+There is no automatic retry, turn or deletion. Independent reviews verify both
+original runner frames, exact methods, raw/client copies, source, APK/build,
+admission and terminal owner bindings without discrepancy.
+
+The complete eligible native views/catalogs/receipts are compared in executed
+JUnit assertions, not separately exported raw canonical sidecars. Do not turn
+this into an independent raw view transcript, hidden-world equality, joined
+app-adapter drain, OS-death, power-loss or forensic-erasure claim.
+The12 selected Android methods/four classes are native10 plus UI2; the earlier
+broad89/external restoration records retain their earlier APK/source attribution.
+
+The UI guest closed via its bound stop only after terminal clients:434,047ms/
+worker1, cleanup/capture/closure true, guest flush false, emulator stderr1,075B
+separate from the test worker's stderr0. Recorded read-only postflight matches
+both exact selected unrelated-emulator identities and the original server pin;
+it does not observe all OS state. No settings/global ADB lifecycle change or
+unrelated-emulator stop was dispatched.
+
+The independent final recovery seal verifies174/174 originals and ZIP entries,
+607,738B, without mismatch/extra/duplicate/unsafe entries. ZIP208,823B SHA-256
+`c688d30a19b1cbb8ac5e0105bc1d4c124a547e2bff515655ee4601f45465b00c`;
+both47,573B indexes match SHA-256
+`041a16f3ee5515e213428c7ac0582960a2b149b87586fce6a90d2d5ba15d99df`.
+The selected postflight record SHA-256 is
+`6191a3850279dd30d159566b192afc938905aa8299b54ab6b59bd4f5991f5f7f`.
+Only this terminal case/closed-guest metadata/configs/plans/grants/private
+helpers/pre-postflight were selected. Images/databases/models/caches and other
+projects are excluded; raw diagnostics remain private.
 
 ## Phone gate kept separate
 

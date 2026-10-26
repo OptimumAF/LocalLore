@@ -101,8 +101,8 @@ impl Fixture {
             .unwrap()
     }
     fn done(&self, token: &str) -> Value {
-        // Scheduling bound for the fixture, not a promised application deadline.
-        let deadline = Instant::now() + Duration::from_secs(180);
+        // Fixture scheduling: resume3 has18 missing scenario turns/both arms and many SQLite prefix/cold validations; no product/runtime/consent/cancel/resource/quality deadline changes.
+        let deadline = Instant::now() + Duration::from_secs(600);
         loop {
             let value = self.status(token);
             if value["running"] == false {

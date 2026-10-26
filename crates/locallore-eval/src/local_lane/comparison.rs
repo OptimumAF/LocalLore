@@ -3,6 +3,8 @@
 mod dependency_review_tests;
 pub mod desktop_api;
 #[cfg(test)]
+mod literal_control_oracle_tests;
+#[cfg(test)]
 mod outcome_review_tests;
 pub mod selected;
 use super::*;

@@ -52,7 +52,8 @@ class ShellInstrumentedTest {
         assertInitial()
         @Suppress("DEPRECATION")
         val info = compose.activity.packageManager.getPackageInfo(compose.activity.packageName, PackageManager.GET_PERMISSIONS)
-        assertEquals(listOf("org.locallore.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"), info.requestedPermissions?.toList().orEmpty())
+        assertEquals(listOf(compose.activity.packageName + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"),
+            info.requestedPermissions?.toList().orEmpty())
         @Suppress("DEPRECATION")
         val permission = compose.activity.packageManager.getPermissionInfo(info.requestedPermissions!!.single(), 0)
         assertEquals(android.content.pm.PermissionInfo.PROTECTION_SIGNATURE, permission.protectionLevel)

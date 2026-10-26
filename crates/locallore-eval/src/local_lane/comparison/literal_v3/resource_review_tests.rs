@@ -171,3 +171,56 @@ fn setup_filename_outside_bounded_namespace_is_not_silently_ignored() {
         "reader ignored a setup outside indices 00..31"
     );
 }
+
+#[test]
+fn distinct_setups_cannot_reuse_the_same_actual_right_invocation() {
+    let dir = copy_fixture("repeated-right-reference");
+    let resumed = run_comparison(
+        &dir,
+        true,
+        ComparisonKind::ContinuousRollout,
+        &Cancellation::default(),
+        1,
+        LaneFactory::ScriptedBaseline,
+        None,
+    )
+    .unwrap();
+    assert!(!resumed.completed);
+    assert_eq!(resumed.turns.len(), 24);
+    let first: serde_json::Value =
+        serde_json::from_slice(&fs::read(dir.join("setup-00.json")).unwrap()).unwrap();
+    let path = dir.join("setup-01.json");
+    let mut second: serde_json::Value =
+        serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    assert_eq!(first["left_invocation"], 0);
+    assert_eq!(second["left_invocation"], 1);
+    assert_ne!(first["right_invocation"], second["right_invocation"]);
+    let actual_right = first["right_invocation"].as_u64().unwrap();
+    assert!(dir.join("right").join(format!("invocation-{actual_right:02}.json")).is_file());
+    // Both original reservations genuinely exist. Only the second derived
+    // setup's reference changes; this does not manufacture work or settlements.
+    second["right_invocation"] = first["right_invocation"].clone();
+    fs::write(&path, serde_json::to_vec(&second).unwrap()).unwrap();
+    let before = inventory(&dir);
+    let result = inspect_comparison(&dir);
+    let after = inventory(&dir);
+    assert_eq!(after, before);
+    assert!(result.is_err(), "reader accepted two setups referencing the same right invocation");
+}
+
+#[test]
+fn scripted_setup_requires_explicit_nullable_load_key() {
+    let dir = copy_fixture("missing-load-key");
+    let path = dir.join("setup-00.json");
+    let mut actual: serde_json::Value =
+        serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    assert_eq!(actual.as_object().unwrap().len(), 8);
+    assert_eq!(actual.as_object_mut().unwrap().remove("load"), Some(serde_json::Value::Null));
+    assert_eq!(actual.as_object().unwrap().len(), 7);
+    fs::write(&path, serde_json::to_vec(&actual).unwrap()).unwrap();
+    let before = inventory(&dir);
+    let result = inspect_comparison(&dir);
+    let after = inventory(&dir);
+    assert_eq!(after, before);
+    assert!(result.is_err(), "reader defaulted an omitted load key to null");
+}

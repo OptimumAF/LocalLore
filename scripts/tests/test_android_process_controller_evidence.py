@@ -95,7 +95,8 @@ def original(case=CASES[0]):
     return proof, e
 
 
-def product_records(proof):
+def product_records(proof, version=1):
+    assert type(version) is int and version in (1, 2)
     case, f = proof["case"], proof["fixture"]
     target = f["stories"][1] if case == CASES[0] else f["child"] if case == CASES[1] else f["roots_at_creation"][0]
     hint = digest("1\n" + target["story"] + "\n" + target["branch"] + "\n")
@@ -107,7 +108,9 @@ def product_records(proof):
             ops.update(workspace=4, branches=4, resume=2, open=3, play_snapshot=3)
         if name == "saved":
             ops.update(game(vectors(case)[1]))
-        records[name] = encoded(dict(version=1, scope="locallore_process_verify_v1", run_id=proof["run_id"],
+        if version == 2:
+            ops.update(story_template=0, create_named=0)
+        records[name] = encoded(dict(version=version, scope="locallore_process_verify_v" + str(version), run_id=proof["run_id"],
             pid=observation["pid"], uid=observation["uid"], task_id=observation["task"], sequence=sequence,
             process_start_uptime_ms=observation["start"], event=event, restored_state=True, factory_creations=1,
             hint_present=True, hint_sha256=hint, operations=ops))
@@ -358,6 +361,79 @@ class ProductRecordTests(unittest.TestCase):
     def test_product_validator_revalidates_proof_instead_of_trusting_prior_call(self):
         proof, expected = original()
         self.refused(dict(proof, process_deaths=1), product_records(proof), expected)
+
+    def test_v2_four_case_records_preserve_closed_v1_result_and_product_bindings(self):
+        for case in CASES:
+            proof, expected = original(case)
+            records = product_records(proof, version=2)
+            before = copy.deepcopy(proof)
+            parsed = evidence.validate_product_records(proof, records, expected)
+            self.assertEqual(parsed, {key: json.loads(raw) for key, raw in records.items()})
+            self.assertEqual(proof, before)
+            self.assertEqual(proof["version"], 1)
+            for value in parsed.values():
+                self.assertEqual(value["version"], 2)
+                self.assertEqual(set(value["operations"]), set(json.loads(product_records(proof)["created"])["operations"]) |
+                                 {"story_template", "create_named"})
+
+    def test_probe_versions_scopes_and_three_record_stream_must_agree(self):
+        proof, expected = original()
+        historical, current = product_records(proof), product_records(proof, version=2)
+        for records in (historical, current):
+            for name in records:
+                value = json.loads(records[name])
+                for version in (True, "2", 2.0, 0, 3):
+                    self.refused(proof, dict(records, **{name: encoded(dict(value, version=version))}), expected)
+                wrong_scope = "locallore_process_verify_v2" if value["version"] == 1 else "locallore_process_verify_v1"
+                self.refused(proof, dict(records, **{name: encoded(dict(value, scope=wrong_scope))}), expected)
+        for name in current:
+            self.refused(proof, dict(current, **{name: historical[name]}), expected)
+            self.refused(proof, dict(historical, **{name: current[name]}), expected)
+
+    def test_v1_rejects_new_keys_and_v2_requires_all_fourteen_exact_counter_keys(self):
+        proof, expected = original()
+        for version in (1, 2):
+            records = product_records(proof, version=version)
+            for name in records:
+                value = json.loads(records[name])
+                if version == 1:
+                    for key in ("story_template", "create_named"):
+                        operations = dict(value["operations"], **{key: 0})
+                        self.refused(proof, dict(records, **{name: encoded(dict(value, operations=operations))}), expected)
+                else:
+                    for key in value["operations"]:
+                        operations = dict(value["operations"])
+                        del operations[key]
+                        self.refused(proof, dict(records, **{name: encoded(dict(value, operations=operations))}), expected)
+                operations = dict(value["operations"], private=CANARY)
+                self.refused(proof, dict(records, **{name: encoded(dict(value, operations=operations))}), expected)
+
+    def test_v2_refuses_automatic_named_creation_and_strict_new_counter_types(self):
+        for case in CASES:
+            proof, expected = original(case)
+            records = product_records(proof, version=2)
+            for name in records:
+                value = json.loads(records[name])
+                for op in ("create", "create_named"):
+                    self.refused(proof, dict(records, **{name: encoded(changed(value, ["operations", op], 1))}), expected)
+                for op in ("story_template", "create_named"):
+                    for bad in (True, -1, 4097, 1.0, "1", None):
+                        self.refused(proof, dict(records, **{name: encoded(changed(value, ["operations", op], bad))}), expected)
+
+    def test_v2_preview_is_distinct_read_metadata_not_creation_or_gameplay_authority(self):
+        proof, expected = original()
+        records = product_records(proof, version=2)
+        for name, count in (("created", 1), ("saved", 3), ("commands", 2)):
+            records[name] = encoded(changed(json.loads(records[name]), ["operations", "story_template"], count))
+        parsed = evidence.validate_product_records(proof, records, expected)
+        for value in parsed.values():
+            self.assertEqual(value["operations"]["create"], 0)
+            self.assertEqual(value["operations"]["create_named"], 0)
+        self.assertEqual({key: parsed["commands"]["operations"][key] for key in GAME}, game(ZERO))
+        # Only counter history is checked here. Native reread still requires the controller's
+        # unchanged resume AND play_snapshot increase, never this preview observation.
+        bad = encoded(changed(parsed["commands"], ["operations", "story_template"], 0))
+        self.refused(proof, dict(records, commands=bad), expected)
 
 
 if __name__ == "__main__":

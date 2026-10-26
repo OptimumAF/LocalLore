@@ -150,9 +150,23 @@ emulator, physical phone, new WebView/IPC or whole-app RAM check was run here.
 ## Reproduce
 
 Use pinned Rust and already available dependencies. The recorded commands add
---jobs1 and a task-owned external --target-dir; omit personal machine paths from
+--jobs 1 and a task-owned external --target-dir; omit personal machine paths from
 public evidence. Builds use debug information0, incremental disabled and locked/
 offline resolution. No ignored model test runs in default checks.
+
+Fixed-owner tests require the fixed protocol-fixture binary beside the test
+binary's deps directory. Build it into the SAME external Cargo target first;
+otherwise development_protocol_fixture returns WorkerUnavailable. One fresh
+shared target for all commands below can be selected as follows:
+
+```powershell
+$env:CARGO_TARGET_DIR = Join-Path ([IO.Path]::GetTempPath()) ('locallore-verify-' + [guid]::NewGuid().ToString())
+cargo build --locked --offline --jobs 1 --manifest-path crates/locallore-local-runtime/Cargo.toml --features development-worker --bin protocol-fixture
+```
+
+The final documentation review identified this previously omitted prerequisite.
+The recorded qualification already used an existing fixed binary in the same
+owned target; this documentation correction does not imply a fresh execution.
 
 ```powershell
 cargo test --locked --offline --jobs 1 --manifest-path crates/locallore-eval/Cargo.toml --test literal_selected_v2 -- --nocapture --test-threads=1

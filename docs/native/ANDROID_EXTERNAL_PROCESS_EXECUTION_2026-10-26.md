@@ -82,10 +82,82 @@ the requested stop. The emulator had 1,077 stderr bytes; these private emulator
 logs are distinct from the test workers' stderr0. No guest flush, graceful app
 shutdown, power-loss or forensic-erasure claim follows from job closure.
 
+## Retained setup failure and explicit recovery correction
+
+The first actual retained-parent case at `50989ca2` failed at
+`FORK_SETUP/SCOPE`, 69 checks and zero deaths. All126 captured clients were
+clean, but the controller correctly finished failed. Its owned host worker
+completed exit2 in 540,274ms with known cleanup/capture and stderr0. Four of the
+fourteen fixed diagnostic leaves existed: created, commands, load helper and
+load transport. Ten contain the exact27-byte missing marker: saved, fixture,
+probe/retire bodies and transports, and all four preserved sidecars. Load
+committed zero; the retirement/death path was not reached. No success proof or
+external artifact was produced, and this cohort was never retried or adopted.
+
+After those clients were terminal, a guarded read-only UI dump used20 clean
+clients. Its original7,957 bytes and standard dump footer independently confirm
+lookup-only recovery, one current selection and a different requested parent.
+The first confirmed fork's original recovery identity remained, as required by
+the [existing explicit-recovery contract](M08_ANDROID_FORK_APP_2026-10-23.md).
+The test journey had omitted separately consented Forget before requesting a
+second child. The failed guest then closed by its bound stop: owner903,795ms,
+worker1, cleanup/capture/closure true, guest flush false; emulator stderr1,081
+bytes remains distinct from the test worker's stderr0.
+
+`5537afbb` adds a retained-case-only UI step after the first confirmed fork and
+explicit resume. It verifies the exact prior root/child identity and lookup-only
+state, selects the separate Forget consent, requires recovery controls gone,
+closes the panel and verifies P1/accepted ROOT and gameplay/create counters
+unchanged. The original second-fork scope check, native nine-row oracle,
+gameplay vectors, caps and deadlines remain. Production recovery behavior is
+unchanged. [Protocol correction](ANDROID_RETAINED_PARENT_PROTOCOL.md).
+
+`87be4110` integrates the independent fixed broad89-method/18-class regression
+phase, keeping the original component10 gate separate. `85ff9a69` adds one
+real-ShellViewModel JVM journey: known-outcome resume retains the original
+hint; second open cannot reroll or confirm it; false consent/failed clear keep
+it; successful explicit Forget permits only a later explicitly confirmed fork
+from the current child. Exactly two register/run pairs occur, with no automatic
+turn/create/second resume. Fake saved-snapshot/draft metadata assertions are
+not Compose-editor or native-world proofs.
+
+## Revised-source host/build qualification
+
+At `85ff9a69`, all **1,242 Python tests passed in 114.306s**, zero
+failures/errors/skips. The owned worker completed exit0 in116,159ms, cleanup
+known and stderr0. Original stdout225,756 bytes has SHA-256
+`666408644965852506928aadf16cf1f963b4e622e07df76bb6b7adee0926d938`.
+These supersede the earlier full-host count for revised-source attribution;
+overlapping tests/runs must not be added as unique coverage.
+
+The fresh revised build actually reran **235 JVM tests/27 XML suites**, including
+the exact new sequential-fork method once in `BranchForkShellTest`14, with zero
+failures/errors/skips. Both lints and eleven audits passed. Owner188,201ms,
+worker0, cleanup/capture known, stderr0. All756 inputs, including five SQL
+migrations, match before/after; source-map SHA-256:
+`9cf2b017f32b6e3eb70caee7b85b908a73ba6ff770833fe3b55f11fb040b89b2`.
+Independent review verified the original XML method, APK/audit bindings and
+terminal records. Product/test artifacts retain the earlier table's exact
+bytes/hashes; the revised controller is54,201 bytes, SHA-256
+`805187cb0f28a48bfd304fdd507f5b8c8ef8bddd2fffa901ef6a9e69eae5cd96`.
+
+The original failure/UI/closed-lease records have an independently verified
+private341-file recovery copy:578,130 original bytes; ZIP234,550 bytes,
+SHA-256 `3cb9c245183a077c51d990b88b434e7048d1bc0ca84b7edbe321200b12940fda`.
+Both100,651-byte indexes match SHA-256
+`efe6bd7c6cfcdf317fd606c8db05c7a2b90448c9f7d798da05b4b1e4399f7d27`.
+The manifest retains source-at-execution50989ca2 and passedfalse. Complete-history
+bundle through85ff9a69:9,840,403 bytes, SHA-256
+`346ddd8d16d3e35bd90026706f0acdadcf0c44ae57a8796f4c76adb9578a0394`.
+No images, databases, weights or caches were selected, and no original failure
+was overwritten by its correction.
+
 ## Pending execution gates
 
-At this checkpoint the separate fresh retained-parent guest is starting; no
-retained-parent external result is credited yet. Active-child/retired-leaf
-controls and broad Android regression also
-remain pending for this source. Phone/ARM64 and real-model qualification are
+At this checkpoint the corrected-source native/component, root and retained-parent
+cases still require fresh execution. The unused prepared active-directory guest
+will be launched once for the revised native/root cohort; no used fixture is
+adopted. Active-child/retired-leaf controls and broad Android regression also
+remain pending. Earlier50989ca2 root/native results are historical evidence,
+not revised-source qualification. Phone/ARM64 and real-model qualification are
 separate gates; no result follows from fake-provider or emulator checks.

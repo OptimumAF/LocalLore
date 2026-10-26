@@ -18,8 +18,9 @@ class ArchiveControllerTest {
         val gateway = Gateway()
         val closed = mutableListOf<ArchiveImported?>()
         val controller = ArchiveController(gateway, this, closed::add)
-        assertNull(controller.beginExportPicker())
-        controller.prepareExport(); controller.confirmImport()
+        val foreign = ArchivePrepared(11, preview())
+        assertNull(controller.beginExportPicker(foreign))
+        controller.prepareExport(); controller.confirmImport(foreign)
         controller.completeExport(1) { fail("Unconsented writer ran") }
         controller.open(Story)
         controller.prepareExport(); controller.prepareExport()
@@ -28,8 +29,8 @@ class ArchiveControllerTest {
         val frozen = controller.state.value.prepared!!
         gateway.heads["sibling"] = 99
         assertEquals(mapOf("main" to 4L), frozen.preview.branchHeads)
-        val ticket = controller.beginExportPicker()!!
-        assertNull(controller.beginExportPicker())
+        val ticket = controller.beginExportPicker(frozen)!!
+        assertNull(controller.beginExportPicker(frozen))
         var written: ByteArray? = null
         controller.completeExport(ticket) { written = it.copyOf() }
         controller.completeExport(ticket) { fail("Duplicate writer ran") }
@@ -54,12 +55,13 @@ class ArchiveControllerTest {
         assertArrayEquals(ByteArray(3), original)
         assertEquals(0, gateway.commits.size)
         assertEquals(22L, controller.state.value.prepared!!.token)
-        controller.confirmImport(); controller.confirmImport()
+        val prepared = controller.state.value.prepared!!
+        controller.confirmImport(prepared); controller.confirmImport(prepared)
         advanceUntilIdle()
         assertEquals(listOf(22L), gateway.commits)
         assertEquals(Imported, controller.state.value.imported)
         assertTrue(closed.isEmpty())
-        controller.openImported(); advanceUntilIdle()
+        controller.openImported(controller.state.value.imported!!); advanceUntilIdle()
         assertEquals(listOf(Imported), closed)
         assertFalse(controller.state.value.visible)
     }
@@ -69,7 +71,7 @@ class ArchiveControllerTest {
         val controller = ArchiveController(Gateway(), this, closed::add)
         controller.open(Story)
         controller.completeImport(controller.beginImportPicker()!!) { byteArrayOf(1) }
-        advanceUntilIdle(); controller.confirmImport(); advanceUntilIdle()
+        advanceUntilIdle(); controller.confirmImport(controller.state.value.prepared!!); advanceUntilIdle()
         controller.dismiss(); controller.dismiss(); advanceUntilIdle()
         assertEquals(listOf<ArchiveImported?>(null), closed)
     }
@@ -103,7 +105,7 @@ class ArchiveControllerTest {
     @Test fun cancellationRevokesPickerConsentUntilTheOriginalCallbackDrains() = runTest {
         val controller = ArchiveController(Gateway(), this) { fail("Cancel released the shell guard") }
         controller.open(Story); controller.prepareExport(); advanceUntilIdle()
-        val old = controller.beginExportPicker()!!
+        val old = controller.beginExportPicker(controller.state.value.prepared!!)!!
         controller.cancel(); advanceUntilIdle()
         controller.prepareExport()
         assertNull(controller.state.value.prepared)
@@ -112,12 +114,13 @@ class ArchiveControllerTest {
         assertFalse(controller.state.value.awaitingPicker)
         controller.prepareExport(); advanceUntilIdle()
         assertNotNull(controller.state.value.prepared)
-        val fresh = controller.beginExportPicker()!!
+        val prepared = controller.state.value.prepared!!
+        val fresh = controller.beginExportPicker(prepared)!!
         controller.pickerFailed(old)
         assertTrue(controller.state.value.awaitingPicker)
         controller.pickerFailed(fresh)
         assertFalse(controller.state.value.awaitingPicker)
-        assertNotNull(controller.beginExportPicker())
+        assertNotNull(controller.beginExportPicker(prepared))
     }
 
     @Test fun cancelledNonCooperativeReaderCannotStartNativeValidationOrPublishAPreview() = runTest {
@@ -140,7 +143,7 @@ class ArchiveControllerTest {
         gateway.bytes = { withContext(NonCancellable) { ready.await(); bytes } }
         val controller = ArchiveController(gateway, this) { fail("Disposed callback published") }
         controller.open(Story); controller.prepareExport(); advanceUntilIdle()
-        val ticket = controller.beginExportPicker()!!
+        val ticket = controller.beginExportPicker(controller.state.value.prepared!!)!!
         var writes = 0
         controller.completeExport(ticket) { writes++ }
         runCurrent(); controller.dispose()
@@ -158,7 +161,7 @@ class ArchiveControllerTest {
         val controller = ArchiveController(gateway, this, closed::add)
         controller.open(Story)
         controller.completeImport(controller.beginImportPicker()!!) { byteArrayOf(1) }
-        advanceUntilIdle(); controller.confirmImport(); runCurrent()
+        advanceUntilIdle(); controller.confirmImport(controller.state.value.prepared!!); runCurrent()
         controller.dismiss(); runCurrent()
         assertTrue(closed.isEmpty())
         assertTrue(controller.state.value.closing)
@@ -177,7 +180,7 @@ class ArchiveControllerTest {
         advanceUntilIdle()
         assertTrue(controller.state.value.notice!!.contains("cannot be overwritten"))
         controller.prepareExport(); advanceUntilIdle()
-        controller.completeExport(controller.beginExportPicker()!!) { error("SECRET C:/private/archive.json") }
+        controller.completeExport(controller.beginExportPicker(controller.state.value.prepared!!)!!) { error("SECRET C:/private/archive.json") }
         advanceUntilIdle()
         assertTrue(controller.state.value.notice!!.contains("partial"))
         assertFalse(controller.state.value.notice!!.contains("SECRET"))
@@ -193,17 +196,18 @@ class ArchiveControllerTest {
         controller.open(Story)
         controller.completeImport(controller.beginImportPicker()!!) { byteArrayOf(1) }
         advanceUntilIdle()
-        controller.confirmImport(); advanceUntilIdle()
+        val prepared = controller.state.value.prepared!!
+        controller.confirmImport(prepared); advanceUntilIdle()
         assertEquals(listOf(41L), gateway.commits)
         assertNull(controller.state.value.prepared)
         assertNull(controller.state.value.imported)
         assertEquals("Local storage is full. Close to refresh the library. Free storage and validate the archive again before retrying.",
             controller.state.value.notice)
-        controller.confirmImport(); advanceUntilIdle()
+        controller.confirmImport(prepared); advanceUntilIdle()
         assertEquals(listOf(41L), gateway.commits)
         gateway.commit = { Imported }
         controller.completeImport(controller.beginImportPicker()!!) { byteArrayOf(1) }
-        advanceUntilIdle(); controller.confirmImport(); advanceUntilIdle()
+        advanceUntilIdle(); controller.confirmImport(controller.state.value.prepared!!); advanceUntilIdle()
         assertEquals(listOf(41L, 42L), gateway.commits)
         assertEquals(Imported, controller.state.value.imported)
         controller.dispose()
@@ -215,9 +219,10 @@ class ArchiveControllerTest {
         val picker = controller.beginImportPicker()!!
         controller.dispose(); controller.dispose()
         repeat(2) {
-            controller.open(Story); controller.prepareExport(); controller.confirmImport(); controller.openImported()
+            val foreign = ArchivePrepared(22, preview())
+            controller.open(Story); controller.prepareExport(); controller.confirmImport(foreign); controller.openImported(Imported)
             controller.cancel(); controller.dismiss()
-            assertNull(controller.beginImportPicker()); assertNull(controller.beginExportPicker())
+            assertNull(controller.beginImportPicker()); assertNull(controller.beginExportPicker(foreign))
             controller.completeImport(picker) { error("Disposed reader ran") }
             controller.completeExport(picker) { fail("Disposed writer ran") }
             controller.pickerFailed(picker)

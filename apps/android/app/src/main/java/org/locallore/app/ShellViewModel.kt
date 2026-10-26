@@ -242,8 +242,8 @@ class ShellViewModel internal constructor(
         archiveImportPicker = null
         archiveController?.pickerFailed(ticket)
     }
-    internal fun beginArchiveExportPicker(): Boolean {
-        val ticket = archiveController?.beginExportPicker() ?: return false
+    internal fun beginArchiveExportPicker(expected: ArchivePrepared): Boolean {
+        val ticket = archiveController?.beginExportPicker(expected) ?: return false
         archiveExportPicker = ticket
         return true
     }

@@ -67,10 +67,13 @@ def elf_alignments(data, machine):
     return alignments
 
 
-def audit_zip(path, *, litert=False, model_picker=False, model_volume=False, model_receipt=False):
+def audit_zip(path, *, litert=False, model_picker=False, model_volume=False, model_receipt=False,
+              physical_model=False):
     require(not model_picker or litert, "Model picker fixtures require the explicit SDK profile")
     require(not model_volume or (litert and not model_picker), "Receipt volume fixture requires its separate SDK profile")
     require(not model_receipt or model_volume, "Receipt setup fixtures require the explicit volume profile")
+    require(not physical_model or (litert and not any((model_picker, model_volume, model_receipt))),
+            "Physical model fixtures require their separate SDK profile")
     libraries = []
     with zipfile.ZipFile(path) as archive, open(path, "rb") as raw:
         entries = archive.infolist()
@@ -92,9 +95,15 @@ def audit_zip(path, *, litert=False, model_picker=False, model_volume=False, mod
         receipt_setup_present = set()
         recovery_present = False
         recovery_activity_present = False
+        physical_present = set()
         for entry in dex:
             require(0 < entry.file_size <= 32 * 1024 * 1024, "Invalid DEX size")
             contents = archive.read(entry)
+            for name in (b"PhysicalModelPolicy", b"AndroidPhysicalModelAccess", b"PhysicalModelSetupFixtureActivity"):
+                if name in contents:
+                    physical_present.add(name)
+            require(not re.search(rb"PhysicalModel(?:Preflight|Import|Cancellation|Gift|Dialogue|Reopen)Test", contents),
+                    "Physical instrumentation packaged in app")
             fixture_present |= b"ModelPickerFixture" in contents
             fixture_activity_present |= b"ModelPickerFixtureActivity" in contents
             interruption_present |= b"ModelPickerInterruption" in contents
@@ -139,6 +148,10 @@ def audit_zip(path, *, litert=False, model_picker=False, model_volume=False, mod
         expected_setup = set(RECEIPT_SETUP_CLASSES) if model_receipt else set()
         require(receipt_setup_present == expected_setup, "Receipt setup fixture leaked or missing")
         require(not model_picker or recovery_activity_present, "Missing setup recovery Activity implementation")
+        require(b"PhysicalModelSetupFixtureActivity" not in physical_present or physical_model,
+                "Physical setup fixture leaked")
+        require(not physical_model or {b"PhysicalModelPolicy", b"AndroidPhysicalModelAccess"} <= physical_present,
+                "Missing physical model implementation")
         for entry in entries:
             if not entry.filename.endswith(".so"):
                 continue
@@ -174,7 +187,7 @@ def audit_manifest(badging, tree, package="org.locallore.app"):
                         "org.locallore.app.capacityv4", "org.locallore.app.capacityreliefv4", "org.locallore.app.capacityfaultsv4",
                         "org.locallore.app.externalverify", "org.locallore.app.litertverify",
                         "org.locallore.app.modelverify", "org.locallore.app.modelpickerverify",
-                        "org.locallore.app.modelvolumeverify", "org.locallore.app.cancelack"),
+                        "org.locallore.app.modelvolumeverify", "org.locallore.app.phoneverify", "org.locallore.app.cancelack"),
             "Unreviewed app package")
     permission = package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
     require(re.search(r"^package: name='" + re.escape(package) + r"' ", badging, re.M), "Wrong app package")
@@ -218,7 +231,7 @@ def audit_fixed_metadata(tree, namespace, expected):
         require(len(re.findall(pattern, tree, re.M)) == 1, "Wrong fixed capacity metadata value")
 
 
-def audit_model_launcher(badging, tree, *, model_picker=False, model_receipt=False):
+def audit_model_launcher(badging, tree, *, model_picker=False, model_receipt=False, physical_fixture=False):
     """The setup profile must not retain an exported scripted entry point."""
     setup = "org.locallore.app.LocalModelSetupActivity"
     play = "org.locallore.app.LiteRtPlayActivity"
@@ -227,6 +240,7 @@ def audit_model_launcher(badging, tree, *, model_picker=False, model_receipt=Fal
     interruption = "org.locallore.app.ModelPickerInterruptionFixtureActivity"
     pending = "org.locallore.app.ModelPickerPendingFixtureActivity"
     require(not (model_picker and model_receipt), "Picker and receipt setup fixtures are separate profiles")
+    require(not physical_fixture or not (model_picker or model_receipt), "Physical setup fixture is a separate profile")
     receipt_activities = {"org.locallore.app." + name for name in RECEIPT_SETUP_ACTIVITIES}
     recovery = "org.locallore.app.ModelSetupRecoveryFixtureActivity"
     require(re.findall(r"^launchable-activity: name='([^']+)'", badging, re.M) == [setup],
@@ -258,6 +272,9 @@ def audit_model_launcher(badging, tree, *, model_picker=False, model_receipt=Fal
     expected = {setup, play, main_activity} | ({fixture, interruption, pending, recovery} if model_picker else set())
     if model_receipt:
         expected |= receipt_activities
+    physical_activity = "org.locallore.app.PhysicalModelSetupFixtureActivity"
+    if physical_fixture:
+        expected.add(physical_activity)
     require({name for name in activities if name.startswith("org.locallore.app.")} ==
             expected, "Unexpected application activity")
     exports = [(setup, "true"), (play, "false"), (main_activity, "false")]
@@ -268,6 +285,8 @@ def audit_model_launcher(badging, tree, *, model_picker=False, model_receipt=Fal
         exports.append((recovery, "false"))
     if model_receipt:
         exports.extend((name, "false") for name in sorted(receipt_activities))
+    if physical_fixture:
+        exports.append((physical_activity, "false"))
     for name, exported in exports:
         attributes, block = activities[name]
         require(re.findall(r':exported\([^)]*\)=([^\s]+)', attributes) == [exported],
@@ -278,7 +297,7 @@ def audit_model_launcher(badging, tree, *, model_picker=False, model_receipt=Fal
                     "Model activities require singleTask")
         if name != setup:
             require("E: intent-filter " not in block, "Unexpected scripted or play intent filter")
-        if name in receipt_activities:
+        if name in receipt_activities or name == physical_activity:
             require(not re.search(r"^\s*E:", block, re.M), "Receipt setup activity has child declarations")
             require(not re.search(r':(?:permission|process|taskAffinity|launchMode)\(', attributes),
                     "Receipt setup activity overrides its fixed process/lifecycle boundary")

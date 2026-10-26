@@ -2,12 +2,14 @@
 
 Source inspected: accepted PR180 merge `5608b72c34477ee110b771c675bc1d0afd06bd6e`.
 Scope: D07.04 / M07.01, with M06.04/.06 eligibility ownership.
-Status: **Native literal execution is qualified with explicitly scripted providers.
-The source, renderer and execution/replay slices are linked below. Host/evaluator/UI
-exposure and real-model literal comparisons remain unqualified.**
+Status: **Native literal execution and Host durability are qualified with explicitly
+scripted providers. The linked slices cover source, renderer, execution/replay and
+native Host selection. Evaluator/UI exposure and real-model literal comparisons
+remain unqualified.**
 See [source API and qualification](D07_LITERAL_TRANSCRIPT_SOURCE_QUALIFICATION_2026-10-25.md).
 See [literal renderer and packing qualification](D07_LITERAL_DIRECTOR_RENDER_QUALIFICATION_2026-10-25.md).
 See [guarded native execution and replay qualification](D07_LITERAL_GUARDED_PLAY_QUALIFICATION_2026-10-25.md).
+See [native Host and durability qualification](D07_LITERAL_HOST_QUALIFICATION_2026-10-25.md).
 The candidate runtime signature remains a proposal. Root's narrower first
 allocation observes original validated diagnostic Values only in cfg(test).
 GitHub #29/#11 retain task status; no criterion is checked by this document.

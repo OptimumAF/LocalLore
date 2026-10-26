@@ -5,6 +5,8 @@ Supporting M10.02 and M08.01/M08.05 work, stacked on the
 host validation; the actual Android lifecycle gates require separate retained
 execution records. The deterministic inference provider establishes plumbing,
 not model quality or physical-phone performance.
+The [dated host verification](ANDROID_EXTERNAL_EVIDENCE_VERIFICATION_2026-10-26.md)
+records actual runs, retained failing regressions and the recovery-copy scope.
 
 ## Separate evidence boundaries
 

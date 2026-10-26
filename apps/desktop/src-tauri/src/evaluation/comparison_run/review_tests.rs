@@ -4,6 +4,7 @@
 //! native inference, quality or desktop-control evidence. Synthetic files stay local.
 //! Root: cargo test --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml evaluation::comparison_run::review_tests:: -- --nocapture --test-threads=1
 use super::*;
+mod budget_review_tests;
 use crate::{evaluation::EvaluationManager, lease::WindowLease, models::ModelManager};
 use locallore_eval::local_lane::comparison::{self as producer, literal_v3};
 use serde_json::{json, Value};

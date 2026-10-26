@@ -21,10 +21,17 @@ fn oversized_existing_run_refuses_resume_before_any_shared_write() {
         file.sync_all().unwrap();
     }
     let before = inventory(&leaf);
-    let total: usize = before.values().filter_map(Option::as_ref).map(Vec::len).sum();
+    let total: usize = before
+        .values()
+        .filter_map(Option::as_ref)
+        .map(Vec::len)
+        .sum();
     assert!(total > 32 * 1024 * 1024 && total < 128 * 1024 * 1024);
 
-    match f.manager.full_comparison_resume(&f.lease, f.epoch, true, &cap, 1) {
+    match f
+        .manager
+        .full_comparison_resume(&f.lease, f.epoch, true, &cap, 1)
+    {
         Err(error) => {
             assert_eq!(error, "EvaluationBudget");
             // A direct pre-admission refusal may retain the already inspected

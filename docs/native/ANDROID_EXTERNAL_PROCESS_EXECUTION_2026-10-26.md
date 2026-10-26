@@ -5,8 +5,9 @@ Supporting M10.02 and M08.01/M08.05. Source starts at draft/unmerged
 The current packet uses the versioned [component driver](ANDROID_PROCESS_HOST_DRIVER.md)
 and [external runner](ANDROID_EXTERNAL_CONTROLLER_HOST.md). Full milestone
 tasks remain unchecked; no owner acceptance, merge or release is implied.
-Revised mapped source is `85ff9a69`: its current native10 gate, root82 control
-and corrected retained-parent two-death case have now passed. The earlier
+Revised mapped source is `85ff9a69`: its current native10 gate, root82,
+active-child123, retired-leaf139 and corrected retained-parent two-death cases
+have now passed. The earlier
 failed retained cohort remains separately attributed and preserved below.
 
 ## Fresh build and native gate
@@ -239,10 +240,30 @@ Both67,487-byte indexes match SHA-256
 `dbf162594e7df0a39bf10a1e0dfb2316150ade400153fe912e5416356d44d2b5`.
 No live leaf/regression cohort, guest image, database, model or cache was selected.
 
-## Pending execution gates
+## Retired-leaf control and remaining gates
 
-At this checkpoint the fresh retired-leaf control is running. The separate
-89-method broad Android regression remains pending.
+The current-source retired-leaf case passed139 checks/two deaths,114 clean
+clients, owner601,344ms/worker0 with known cleanup/capture and stderr0.
+Its exact original helpers and merged zero-exit footers validate: load611B,
+probe741B, retire748B; commit attempts0/0/1, native owners closed. The retired
+target becomes inactive/public-unavailable while A0 and parent1 remain.
+Both old saved/command vectors match: setup free_text1/prepare1/commit1/other2,
+then all zero after fallback. Real UI recovery clears the invalid draft,
+shows the one-shot unavailable notice and does no automatic gameplay/create.
+Independent original controller/producer/fixture/client/postflight readback
+passes; all756 inputs still match9cf2b017... . Original controller3,816B SHA-256:
+`a22021c8deff3d733aa350e5f9bfbc096a607577d389a822dce3a8e7d33a5681`.
+
+The owned leaf guest then closed through its bound stop:709,243ms/worker1,
+cleanup/capture/closure true, guest flush false, emulator stderr1,077B.
+Its independent recovery seal verifies275 originals/ZIP entries,676,986B,
+without mismatch or unsafe entries. ZIP256,390B SHA-256
+`11bc49fe2d181cf8f6d5a3b484f1e87a70136c340e64a0edd3450ab278c13eb9`;
+both78,464B indexes match SHA-256
+`e51e427b509f167c8996df13dce33e04daa348acb840deb43211de0355189c17`.
+No live regression cohort, images, databases, models or caches were selected.
+
+The separate89-method broad Android regression remains pending.
 Earlier50989ca2 results remain historical source-attributed records; the current
 source has separate fresh runtime qualification above. Phone/ARM64 and real-model qualification are
 separate gates; no result follows from fake-provider or emulator checks.

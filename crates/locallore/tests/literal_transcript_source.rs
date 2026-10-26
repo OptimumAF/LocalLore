@@ -421,8 +421,13 @@ fn actual_accepted_whole_units_cross_two_mib_and_fail_without_truncation() {
     assert!(previous_budget <= 2 * 1024 * 1024);
     assert_header(&prefix, &before_limit);
     let bytes = e.canonical_bytes();
-    assert!(bytes.len() <= MAX_HISTORY_BYTES);
-    eprintln!("LITERAL_SOURCE_CAP actual_units={count} previous_bytes={previous_budget} rejected_bytes={budget} canonical_bytes={}", bytes.len());
+    let history_bytes: usize = e
+        .canonical_records()
+        .iter()
+        .map(|r| serde_json::to_vec(r).unwrap().len())
+        .sum();
+    assert!(history_bytes <= MAX_HISTORY_BYTES);
+    eprintln!("LITERAL_SOURCE_CAP actual_units={count} previous_bytes={previous_budget} rejected_bytes={budget} history_bytes={history_bytes} projection_bytes={}", bytes.len());
     let basis = e.accepted_history_basis().unwrap();
     assert_eq!(
         player_literal_transcript_v1_cancelled(&e, e.scope(), e.revision(), "player", &|| false)

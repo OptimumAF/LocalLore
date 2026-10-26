@@ -23,7 +23,7 @@ pub struct OpenedComparison {
     _lock: File,
 }
 
-fn snapshot(directory: &Path) -> Result<(Value, Manifest, [Vec<StoredTurn3>; 2])> {
+pub(super) fn snapshot(directory: &Path) -> Result<(Value, Manifest, [Vec<StoredTurn3>; 2])> {
     let manifest: Manifest = decode(&directory.join("run.json"), 128 * 1024)?;
     manifest.validate()?;
     let report = inspect_comparison(directory)?;
@@ -115,6 +115,17 @@ pub fn open_read_only(dir: &Path) -> Result<OpenedComparison> {
         _pins: pins,
         _lock: lock,
     })
+}
+
+// Only preparation that just acquired its own validated source lock may use this.
+pub(super) fn fresh_open_snapshot(
+    run: &OpenedComparison,
+) -> (Value, Manifest, [Vec<StoredTurn3>; 2]) {
+    (
+        run.snapshot.clone(),
+        run.manifest.clone(),
+        run.turns.clone(),
+    )
 }
 
 pub fn summary(run: &OpenedComparison, native_inspection_granted: bool) -> Result<Value> {

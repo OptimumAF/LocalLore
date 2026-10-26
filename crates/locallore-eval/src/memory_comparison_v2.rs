@@ -1,4 +1,6 @@
 //! Current construction-policy experiment data, not a second compiler or authority.
+#[cfg(test)]
+mod literal_capture_legacy_tests;
 use crate::{digest, encode, local_lane, memory_comparison as old, Capture, Result, SOURCE_INPUTS};
 use locallore::{
     context_compiler::ContextPolicy,

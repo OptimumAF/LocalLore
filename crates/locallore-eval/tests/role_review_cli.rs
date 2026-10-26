@@ -142,10 +142,56 @@ fn success(output: Output) -> Output {
 }
 
 fn refused(output: Output) {
-    assert!(!output.status.success(), "Unexpected CLI acceptance");
+    assert_eq!(output.status.code(), Some(2), "Refusal must be controlled");
+    assert!(
+        output.stderr.is_empty(),
+        "Refusal must not panic or diagnose paths"
+    );
+    let value: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(value["version"], 1);
+    assert_eq!(value["scope"], "locallore_role_review_cli");
+    assert_eq!(value["status"], "refused");
+    assert_eq!(value["quality_accepted"], false);
     for bytes in [&output.stdout, &output.stderr] {
         assert!(!String::from_utf8_lossy(bytes).contains("PRIVATE_PATH_CANARY"));
     }
+}
+
+#[test]
+fn malformed_entries_and_unicode_line_notes_refuse_without_panicking() {
+    let (parent, run) = fixture("controlled-shapes");
+    let before = inventory(&run);
+    let path = parent.join("pending.json");
+    success(cli("template", &run, &path, &[], true));
+    let original = read_json(&path);
+    let review = parent.join("invalid.json");
+    for primitive in [
+        json!(false),
+        json!(42),
+        json!("PRIVATE_PATH_CANARY"),
+        json!([]),
+        Value::Null,
+    ] {
+        let mut changed = original.clone();
+        changed["entries"][0] = primitive;
+        write_json(&review, &changed);
+        refused(cli("summarize", &run, &review, &[], true));
+    }
+    for separator in ['\u{2028}', '\u{2029}'] {
+        let mut changed = original.clone();
+        changed["reviewer"] = json!("synthetic-regression");
+        let assessment = changed["entries"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .flat_map(|entry| entry["assessments"].as_array_mut().unwrap())
+            .next()
+            .unwrap();
+        assessment["rationale"] = json!(format!("PRIVATE_PATH_CANARY{separator}second line"));
+        write_json(&review, &changed);
+        refused(cli("summarize", &run, &review, &[], true));
+    }
+    assert_eq!(inventory(&run), before);
 }
 
 fn read_json(path: &Path) -> Value {

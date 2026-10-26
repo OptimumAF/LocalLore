@@ -282,7 +282,7 @@ android {
             sourceSets["androidTest"].java.srcDir("src/physicalModelAndroidTest/java")
         }
         sourceSets["test"].java.srcDir("src/litertTest/java")
-        sourceSets["androidTest"].java.srcDir("src/litertAndroidTest/java")
+        if (physicalModel != "true") sourceSets["androidTest"].java.srcDir("src/litertAndroidTest/java")
         if (modelVolume == "true") {
             sourceSets["debug"].java.srcDir("src/modelVolume/java")
             sourceSets["debug"].manifest.srcFile("src/modelVolume/AndroidManifest.xml")

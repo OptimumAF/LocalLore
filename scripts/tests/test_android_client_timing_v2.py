@@ -2,6 +2,7 @@
 
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
+import ast
 import copy
 import hashlib
 import json
@@ -16,6 +17,8 @@ from benchmarks import android_process_verification as driver
 from benchmarks.android_instrumentation_evidence import validate_instrumentation
 from scripts.tests import test_android_process_client as client_fixture
 from scripts.tests import test_android_process_verification as phase_fixture
+from scripts.tests import test_android_external_controller as external_fixture
+from scripts.tests import test_android_external_current_creation as current_fixture
 
 
 def timed(row, **changes):
@@ -232,6 +235,101 @@ class RecordTimingValidationTests(unittest.TestCase):
                     with self.assertRaises(driver.VerificationRefused):
                         driver.validate_regression_record(record, out)
             self.assertEqual(before, record)
+
+
+class CurrentTimingCoverageTests(unittest.TestCase):
+    def fixture(self, root, case):
+        fixture = current_fixture.upgrade(external_fixture.deep_fixture(root, case, record_version=2))
+        for path in (fixture.out / "clients").glob("command-*.json"):
+            path.write_text(json.dumps(timed(json.loads(path.read_bytes()))))
+        # An additional synthetic observer row retains its original raw bytes
+        # and index, just like SDK rows; it cannot lose timing independently.
+        fixture.record["clients"] += 1
+        index = fixture.record["clients"]
+        raw = b'{"pid":41,"listeners":[{"address":"127.0.0.1","port":5037,"pid":41}]}\r\n'
+        stem = fixture.out / "clients" / ("command-%04d" % index)
+        stem.with_suffix(".stdout.bin").write_bytes(raw)
+        row = dict(version=1, index=index, label="adb-server", status="completed", returncode=0,
+                   cleanup_complete=True, stdout_bytes=len(raw), stdout_sha256=hashlib.sha256(raw).hexdigest(),
+                   stderr_bytes=0)
+        stem.with_suffix(".json").write_text(json.dumps(timed(row)))
+        current_fixture.publish_record(fixture)
+        return fixture
+
+    def validate(self, fixture, current=True):
+        # Reuse the original boundary mocks; all raw/hash/domain/client
+        # validators inside the generic and current entrypoints remain real.
+        return current_fixture.CurrentCreationExecutionTests().validate(fixture, current=current)
+
+    def test_all_four_fully_bound_proof2_with_all_client2_rows_pass_current(self):
+        for case in external.CASES:
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as temporary:
+                fixture = self.fixture(Path(temporary), case)
+                self.assertEqual(self.validate(fixture, current=False), fixture.record)
+                self.assertEqual(self.validate(fixture), fixture.record)
+
+    def downgrade(self, fixture, labels):
+        changed = 0
+        for path in (fixture.out / "clients").glob("command-*.json"):
+            row = json.loads(path.read_bytes())
+            if labels is None or row["label"] in labels:
+                original = dict(row)
+                raw_before = path.with_suffix(".stdout.bin").read_bytes()
+                row["version"] = 1
+                del row["elapsed_ms"]
+                del row["effective_deadline_ms"]
+                path.write_text(json.dumps(row))
+                self.assertEqual(raw_before, path.with_suffix(".stdout.bin").read_bytes())
+                self.assertEqual({k: v for k, v in original.items()
+                                  if k not in ("version", "elapsed_ms", "effective_deadline_ms")},
+                                 {k: v for k, v in row.items() if k != "version"})
+                changed += 1
+        self.assertGreater(changed, 0)
+
+    def test_fully_bound_observer_row_downgrade_stays_historical_but_refuses_current(self):
+        for case in external.CASES:
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as temporary:
+                fixture = self.fixture(Path(temporary), case)
+                self.downgrade(fixture, {"adb-server"})
+                self.assertEqual(self.validate(fixture, current=False), fixture.record)
+                with self.assertRaises(RuntimeError):
+                    self.validate(fixture)
+
+    def test_fully_bound_sdk_row_downgrade_stays_historical_but_refuses_current(self):
+        for case in external.CASES:
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as temporary:
+                fixture = self.fixture(Path(temporary), case)
+                self.downgrade(fixture, {"controller"})
+                self.assertEqual(self.validate(fixture, current=False), fixture.record)
+                with self.assertRaises(RuntimeError):
+                    self.validate(fixture)
+
+    def test_all_timing_rows_can_be_historical_but_cannot_qualify_current(self):
+        for case in external.CASES:
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as temporary:
+                fixture = self.fixture(Path(temporary), case)
+                self.downgrade(fixture, None)
+                self.assertEqual(self.validate(fixture, current=False), fixture.record)
+                with self.assertRaises(RuntimeError):
+                    self.validate(fixture)
+
+    def test_current_worker_and_parent_sources_require_client2_without_changing_historical_readers(self):
+        for module, name, call in ((driver, "_instrumentation_worker", "require_current_clients"),
+                                   (driver, "supervise", "require_current_clients"),
+                                   (external, "worker", "driver.require_current_clients"),
+                                   (external, "validate_current_execution", "driver.require_current_clients")):
+            with self.subTest(function=name):
+                tree = ast.parse(Path(module.__file__).read_bytes())
+                function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == name)
+                calls = [n for n in ast.walk(function) if isinstance(n, ast.Call)]
+                self.assertTrue(any(ast.unparse(n.func) == call for n in calls))
+        for module, names in ((driver, ("validate_component_record", "_validate_fixed_roster_record")),
+                              (external, ("validate_clients", "validate_execution"))):
+            tree = ast.parse(Path(module.__file__).read_bytes())
+            for name in names:
+                function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == name)
+                self.assertFalse(any(isinstance(n, ast.Call) and "require_current_clients" in ast.unparse(n.func)
+                                     for n in ast.walk(function)))
 
 
 if __name__ == "__main__":

@@ -540,6 +540,29 @@ def input_bindings(request):
     return [env.binding(path) for path in paths]
 
 
+def client_record_shape(row):
+    """Closed historical v1 or diagnostic v2 metadata; no timing implies success."""
+    keys = {"version", "index", "label", "status", "returncode", "cleanup_complete",
+            "stdout_bytes", "stdout_sha256", "stderr_bytes"}
+    if type(row) is not dict or type(row.get("version")) is not int:
+        return False
+    if row["version"] == 1:
+        return set(row) == keys
+    if row["version"] != 2 or set(row) != keys | {"elapsed_ms", "effective_deadline_ms"}:
+        return False
+    # Only the existing synthetic unavailable-result failure has no measured
+    # duration. It must never look like a measured zero or completed capture.
+    unavailable = (row["elapsed_ms"] is None and row["status"] == "spawn_failed"
+                   and row["cleanup_complete"] is False and row["returncode"] is None
+                   and type(row["stdout_bytes"]) is int and row["stdout_bytes"] == 0
+                   and type(row["stderr_bytes"]) is int and row["stderr_bytes"] == 0
+                   and row["stdout_sha256"] == hashlib.sha256(b"").hexdigest())
+    # Cleanup is measured too, so elapsed is not limited to the dispatch budget.
+    measured = type(row["elapsed_ms"]) is int and 0 <= row["elapsed_ms"] <= 2**63 - 1
+    return ((measured or unavailable) and type(row["effective_deadline_ms"]) is int
+            and 1 <= row["effective_deadline_ms"] <= 180000)
+
+
 def validate_component_record(components, out):
     try:
         from benchmarks.android_instrumentation_evidence import validate_instrumentation
@@ -558,6 +581,7 @@ def validate_component_record(components, out):
     for index in range(1, components["clients"] + 1):
         stem = out / "clients" / ("command-%04d" % index)
         record = env.read_json(stem.with_suffix(".json"))
+        need(client_record_shape(record), "client_shape")
         need(record["index"] == index and record["status"] == "completed" and
              type(record["returncode"]) is int and record["returncode"] == 0 and
              record["stderr_bytes"] == 0 and record["cleanup_complete"] is True, "client_not_qualified")
@@ -682,9 +706,8 @@ def _validate_fixed_roster_record(record, out, phase, version, classes, rosters,
         stem = out / "clients" / ("command-%04d" % index)
         expected_files.update((stem.with_suffix(".json").name, stem.with_suffix(".stdout.bin").name))
         row = env.read_json(stem.with_suffix(".json"))
-        need(type(row) is dict and set(row) == {"version", "index", "label", "status", "returncode",
-             "cleanup_complete", "stdout_bytes", "stdout_sha256", "stderr_bytes"}, "regression_client_shape")
-        need(type(row["version"]) is int and row["version"] == 1 and type(row["index"]) is int and
+        need(client_record_shape(row), "regression_client_shape")
+        need(type(row["index"]) is int and
              row["index"] == index and type(row["label"]) is str and
              re.fullmatch(r"[a-z][a-z0-9_-]{0,47}", row["label"]) and row["status"] == "completed" and
              type(row["returncode"]) is int and row["returncode"] == 0 and row["cleanup_complete"] is True and

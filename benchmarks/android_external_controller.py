@@ -445,8 +445,8 @@ def validate_clients(out, count, copies):
         stem = out / "clients" / ("command-%04d" % index)
         expected_files.update((stem.with_suffix(".json").name, stem.with_suffix(".stdout.bin").name))
         row = environment.read_json(stem.with_suffix(".json"))
-        require(type(row) is dict and set(row) == {"version", "index", "label", "status", "returncode", "cleanup_complete", "stdout_bytes", "stdout_sha256", "stderr_bytes"}, "client_shape")
-        require(type(row["version"]) is int and row["version"] == 1 and type(row["index"]) is int and row["index"] == index
+        require(driver.client_record_shape(row), "client_shape")
+        require(type(row["index"]) is int and row["index"] == index
                 and type(row["label"]) is str and re.fullmatch(r"[a-z][a-z0-9_-]{0,47}", row["label"])
                 and row["status"] == "completed" and type(row["returncode"]) is int and row["returncode"] == 0
                 and row["cleanup_complete"] is True and type(row["stderr_bytes"]) is int and row["stderr_bytes"] == 0

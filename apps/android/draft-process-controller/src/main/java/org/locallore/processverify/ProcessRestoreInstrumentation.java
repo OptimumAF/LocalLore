@@ -169,6 +169,10 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             observe(initial);
             if (reuse) readyProduct();
             else readyEmptyProduct(initial);
+            // Receipts are cumulative in a live product process. An owned
+            // failed pre-Send attempt may already have created this exact pair.
+            long initialCreates = latest(initial).op("create");
+            checked(initialCreates == 0 || (reuse && initialCreates == 2), Reason.CATALOG);
             stage = Stage.CATALOG;
             if (reuse) verifyFixtureCatalog();
             else createFixture(stored);
@@ -180,7 +184,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             setDraft();
             verifyDraft();
             Probe unsubmitted = latest(initial);
-            checked(unsubmitted.op("create") == (reuse ? 0 : 2), Reason.CATALOG);
+            checked(unsubmitted.op("create") == initialCreates + (reuse ? 0 : 2), Reason.CATALOG);
             noGameplay(unsubmitted);
             stage = Stage.FIRST_SAVE;
             Probe saved = backgroundAndSave(initial, fixture.b);

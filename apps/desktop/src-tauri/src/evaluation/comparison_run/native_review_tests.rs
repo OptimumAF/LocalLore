@@ -6,6 +6,7 @@
 use super::*;
 mod binding_shape_review_tests;
 mod consent_boundary_review_tests;
+mod unavailable_review_tests;
 use crate::{
     evaluation::{selected::SelectedOwnership, FullComparisonNativeResume},
     models::ModelManager,

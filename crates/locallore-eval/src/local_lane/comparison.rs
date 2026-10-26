@@ -7,6 +7,8 @@ mod literal_control_oracle_tests;
 #[cfg(test)]
 mod literal_producer_legacy_tests;
 pub mod literal_v3;
+#[cfg(feature = "local-model")]
+mod native_startup;
 #[cfg(test)]
 mod outcome_review_tests;
 pub mod selected;

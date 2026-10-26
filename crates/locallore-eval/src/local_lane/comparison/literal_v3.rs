@@ -1,13 +1,18 @@
-//! Scripted protocol3 literal/Relevant comparison over the existing owners.
-//! Native entry and selected/UI execution remain explicitly unavailable.
+//! Protocol3 literal/Relevant comparison over the existing owners.
+//! Native execution requires its trusted lease entry; selected/UI and CLI
+//! native execution remain unavailable pending their separate integration.
 #[cfg(test)]
 mod resource_review_tests;
 use super::*;
+#[cfg(feature = "local-model")]
+mod native;
 use crate::memory_comparison_v3::{
     self as v3, ArmDescriptorV3, CapturedLiteralContext, ComparisonArmV3, ComparisonReportV3,
     ConstructionEvidenceStatusV3 as Status, CurrentBindingV3, TurnReportV3,
 };
 use locallore::host::HostPlayConstructionV1;
+#[cfg(feature = "local-model")]
+pub use native::run_native_comparison;
 
 const CONSTRUCTIONS: [ComparisonArmV3; 2] = [
     ComparisonArmV3::LiteralPlayerV1,
@@ -40,7 +45,7 @@ struct Manifest {
 // historical V2 setup decoder unchanged. This is diagnostic metadata only.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct ScriptedSetup3 {
+struct Setup3 {
     version: u16,
     binding: String,
     left_invocation: usize,
@@ -57,7 +62,15 @@ impl Manifest {
         profile: PlayProfile,
         reference_sha256: Option<String>,
     ) -> Result<Self> {
-        let binding = v3::current_binding(false)?;
+        Self::new_with_lane(kind, profile, false, reference_sha256)
+    }
+    fn new_with_lane(
+        kind: ComparisonKind,
+        profile: PlayProfile,
+        native: bool,
+        reference_sha256: Option<String>,
+    ) -> Result<Self> {
+        let binding = v3::current_binding(native)?;
         Ok(Self {
             version: 3,
             source_sha256: binding.source_sha256.clone(),
@@ -81,7 +94,7 @@ impl Manifest {
         Ok(digest(&encode(&value)?))
     }
     fn source_matches(&self) -> Result<bool> {
-        let current = v3::current_binding(false)?;
+        let current = v3::current_binding(self.binding.native)?;
         Ok(self.source_sha256 == current.source_sha256 && self.binding == current)
     }
     fn validate(&self) -> Result<()> {
@@ -93,9 +106,10 @@ impl Manifest {
         for arm in &self.binding.arms {
             arm.validate()?;
         }
-        let current = Self::new(
+        let current = Self::new_with_lane(
             self.kind,
             self.profile.clone(),
+            self.binding.native,
             self.reference_sha256.clone(),
         )?;
         if self.version != 3
@@ -763,7 +777,7 @@ impl Session3 {
                 }
             }
         }
-        let ledgers = turn_execution::begin_pair(dir, &key, started)?;
+        let ledgers = turn_execution::load_pair(dir, &key, started)?;
         Ok(Self {
             dir: dir.into(),
             manifest: expected,
@@ -773,6 +787,9 @@ impl Session3 {
             turns,
             reference,
         })
+    }
+    fn begin_invocations(&mut self) -> Result<()> {
+        turn_execution::begin_loaded_pair(&mut self.ledgers)
     }
     fn finish(mut self) -> Result<ComparisonReportV3> {
         let mut report = inspect_comparison(&self.dir)?;
@@ -797,6 +814,7 @@ impl Session3 {
         max_new_scenes: usize,
         factory: LaneFactory,
     ) -> Result<ComparisonReportV3> {
+        self.begin_invocations()?;
         turn_execution::record_setup(
             &mut self.ledgers,
             turn_execution::Setup {
@@ -809,6 +827,16 @@ impl Session3 {
                 load: None,
             },
         )?;
+        self.execute_body(cancel, max_new_scenes, &factory)?;
+        drop(factory);
+        self.finish()
+    }
+    fn execute_body(
+        &mut self,
+        cancel: &Cancellation,
+        max_new_scenes: usize,
+        factory: &LaneFactory,
+    ) -> Result<()> {
         let corpus = suite()?;
         let first = sealed_scenes3(&self.dir, &self.key)?;
         'scenes: for scene in first..(first + max_new_scenes).min(4) {
@@ -844,7 +872,7 @@ impl Session3 {
                             construction: CONSTRUCTIONS[arm],
                             binding: &self.key,
                             step: &corpus.steps()[index],
-                            factory: &factory,
+                            factory,
                             cancel,
                         },
                         &mut self.ledgers[arm],
@@ -864,12 +892,17 @@ impl Session3 {
                 4096,
             )?;
         }
-        self.finish()
+        Ok(())
     }
 }
 fn publish3(dir: &Path, report: &ComparisonReportV3) -> Result<()> {
     let data = serde_json::to_vec_pretty(report).map_err(|_| "Encoding")?;
-    let html = format!("<!doctype html><meta charset=utf-8><meta http-equiv=Content-Security-Policy content=\"default-src 'none'; style-src 'none'\"><title>Literal and Relevant comparison</title><h1>Literal and Relevant comparison</h1><p>Scripted synthetic evaluation. Native comparison unavailable. No human quality acceptance.</p><pre>{}</pre>", escape(std::str::from_utf8(&data).map_err(|_| "Encoding")?));
+    let label = if report.lane == "native_literal_relevant_comparison" {
+        "Native configured lane; inspect actual load and availability evidence. No human quality acceptance."
+    } else {
+        "Scripted synthetic evaluation. No human quality acceptance."
+    };
+    let html = format!("<!doctype html><meta charset=utf-8><meta http-equiv=Content-Security-Policy content=\"default-src 'none'; style-src 'none'\"><title>Literal and Relevant comparison</title><h1>Literal and Relevant comparison</h1><p>{label}</p><pre>{}</pre>", escape(std::str::from_utf8(&data).map_err(|_| "Encoding")?));
     if data.len() > crate::MAX_REPORT || html.len() > crate::MAX_REPORT {
         return Err("ReportBudget".into());
     }
@@ -1013,23 +1046,48 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV3> {
         }
     }
     let mut prior_right: Option<usize> = None;
+    let mut native_preparation_ms: Option<u64> = None;
+    let mut native_loads = Vec::new();
     for index in 0..32 {
         let path = dir.join(format!("setup-{index:02}.json"));
         ordinary(&path)?;
         if !path.exists() {
             continue;
         }
-        let setup: ScriptedSetup3 = decode(&path, 64 * 1024)?;
+        let setup: Setup3 = decode(&path, 64 * 1024)?;
         if setup.version != 3
             || setup.binding != key
             || setup.left_invocation != index
             || setup.right_invocation >= 32
-            || setup.native
-            || setup.physical_ms != 0
-            || setup.status != "scripted"
-            || setup.load.is_some()
+            || setup.native != manifest.binding.native
             || prior_right.is_some_and(|prior| setup.right_invocation <= prior)
         {
+            return Err("SetupIntegrity".into());
+        }
+        if setup.native {
+            if !matches!(setup.status.as_str(), "loaded" | "failed")
+                || (setup.status == "loaded"
+                    && (setup.load.is_none() || setup.physical_ms > PREPARATION_MS))
+                || setup
+                    .load
+                    .as_ref()
+                    .is_some_and(|load| !valid_load_metrics(load))
+            {
+                return Err("SetupIntegrity".into());
+            }
+            native_preparation_ms = Some(
+                native_preparation_ms
+                    .unwrap_or(0)
+                    .checked_add(setup.physical_ms)
+                    .ok_or("SetupIntegrity")?,
+            );
+            if let Some(load) = &setup.load {
+                native_loads.push(load.clone());
+            }
+            if setup.status == "failed" {
+                unavailable.push(format!("native_setup_failed_invocation:{index}"));
+            }
+        } else if setup.physical_ms != 0 || setup.status != "scripted" || setup.load.is_some() {
             return Err("SetupIntegrity".into());
         }
         // Each actual invocation advances the right ledger. Gaps can retain
@@ -1062,17 +1120,49 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV3> {
         }
     }
     append_ledger_notes(dir, &ledgers, &mut unavailable);
-    Ok(ComparisonReportV3 { version:3, arms:v3::arm_descriptors(), kind:manifest.kind, lane:"scripted_literal_relevant_comparison".into(),
+    let lane = if manifest.binding.native {
+        "native_literal_relevant_comparison"
+    } else {
+        "scripted_literal_relevant_comparison"
+    };
+    Ok(ComparisonReportV3 { version:3, arms:v3::arm_descriptors(), kind:manifest.kind, lane:lane.into(),
         source_matches:manifest.source_matches()?,completed:completed_scenes==4,completed_scenes,turns:rows,
-        human_reviewed:0,human_rubric:"not_reviewed".into(),quality_accepted:false,physical_setups:0,physical_setup_ms:None,native_load:None,
+        human_reviewed:0,human_rubric:"not_reviewed".into(),quality_accepted:false,physical_setups:native_loads.len(),physical_setup_ms:native_preparation_ms,native_load:if native_loads.is_empty() {None} else {Some(json!(native_loads))},
         left_charged_ms:ledgers[0].charged_ms,right_charged_ms:ledgers[1].charged_ms,left_reserved_roles:ledgers[0].charged_roles,right_reserved_roles:ledgers[1].charged_roles,
         first_semantic_divergence:semantic,first_mechanical_divergence:mechanical,same_input_pairs,unavailable,
         profile:manifest.profile,suite_sha256:manifest.binding.suite_sha256,source_sha256:manifest.source_sha256,reference_sha256:manifest.reference_sha256,
-        limitations:vec!["Scripted 24-attempt/21-accepted/3-guard synthetic suite; no model or prose-quality measurement.".into(),
+        limitations:vec![if manifest.binding.native {"Native configured 24-attempt/21-accepted/3-guard suite; load/turn evidence may be failed or unavailable. No human quality acceptance.".into()} else {"Scripted 24-attempt/21-accepted/3-guard synthetic suite; no model or prose-quality measurement.".into()},
             "Literal player history has no invented opening or memory projection; the information channels differ.".into(),
             "Narrator remains Core-grounded; finite sentinel checks are not universal semantic privacy proof.".into(),
             "Missing recovered calls/captures remain unknown. Hashes detect consistency, not authenticated evidence origin.".into(),
-            "Native protocol3, selected/UI integration, human quality review and physical-phone qualification are unavailable.".into()] })
+            "Selected/UI and native CLI integration, human quality review and physical-phone qualification remain separate gates.".into()] })
+}
+// The shared worker's closed Metrics wire shape; this also permits historical
+// read-only inspection when the optional runtime dependency is not compiled.
+fn valid_load_metrics(value: &Value) -> bool {
+    let Some(object) = value.as_object() else {
+        return false;
+    };
+    let times = ["load_ms", "prefill_ms", "decode_ms", "total_ms"];
+    let counts = [
+        "input_tokens",
+        "output_tokens",
+        "model_loads",
+        "contexts_created",
+        "abort_callbacks",
+    ];
+    object.len() == 9
+        && times.iter().all(|key| {
+            value[*key]
+                .as_f64()
+                .is_some_and(|v| v.is_finite() && v >= 0.0)
+        })
+        && counts.iter().all(|key| {
+            value[*key]
+                .as_u64()
+                .is_some_and(|v| v <= u64::from(u32::MAX))
+        })
+        && value["model_loads"].as_u64().is_some_and(|v| v > 0)
 }
 /// Fixed scripted grammar; no native provider, arbitrary corpus or expected
 /// outcome input. The existing reference owner remains the only reference writer.

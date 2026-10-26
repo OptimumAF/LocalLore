@@ -1,20 +1,23 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Frozen SOURCE ONLY / UNCOMPILED / UNRUN. Root registers this module only
 //! under protocol-owner-tests. Fixed protocol child, no model weights/inference.
-use super::finish_prepared;
 use super::super::{Manifest, Session3};
-use crate::local_lane::{native_profile, NativeAssets};
+use super::finish_prepared;
 use crate::local_lane::comparison::{
     native_startup::Startup,
     selected::{native_owner, SelectedNativeFailure, SelectedNativeReservation},
     ComparisonKind,
 };
+use crate::local_lane::{native_profile, NativeAssets};
 use locallore::inference::Cancellation;
 use locallore_local_runtime::{Error, LocalRuntime, OwnedStartFailure, Status};
 use std::{
     fs,
     path::{Path, PathBuf},
-    sync::{atomic::{AtomicUsize, Ordering}, Arc, Mutex, Weak},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, Mutex, Weak,
+    },
     time::{Duration, Instant},
 };
 
@@ -34,14 +37,24 @@ impl FixedOwner {
                 panic!("fixture startup {cause:?}; actual cleanup {cleanup:?}");
             }
         };
-        let fixture = Self { runtime: Arc::new(Mutex::new(runtime)), _diagnostics: directory };
-        fixture.runtime.lock().unwrap().load(|| false).expect("fixed protocol load only");
+        let fixture = Self {
+            runtime: Arc::new(Mutex::new(runtime)),
+            _diagnostics: directory,
+        };
+        fixture
+            .runtime
+            .lock()
+            .unwrap()
+            .load(|| false)
+            .expect("fixed protocol load only");
         assert_eq!(fixture.runtime.lock().unwrap().status(), Status::Loaded);
         fixture
     }
     fn cleanup(&self) {
         let mut runtime = self.runtime.lock().unwrap_or_else(|p| p.into_inner());
-        runtime.terminate_and_reap().expect("same actual fixture cleanup");
+        runtime
+            .terminate_and_reap()
+            .expect("same actual fixture cleanup");
         assert_eq!(runtime.status(), Status::Failed);
         assert_eq!(runtime.load(|| false), Err(Error::WorkerUnavailable));
     }
@@ -50,7 +63,11 @@ impl Drop for FixedOwner {
     fn drop(&mut self) {
         // Exact helper-owned child is reaped even on assertion failure. Preserve
         // all TEMP diagnostics; no recursive filesystem deletion or other owner.
-        let _ = self.runtime.lock().unwrap_or_else(|p| p.into_inner()).terminate_and_reap();
+        let _ = self
+            .runtime
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .terminate_and_reap();
     }
 }
 struct FaultReset;
@@ -79,11 +96,16 @@ struct Reservation(Arc<Spy>);
 impl SelectedNativeReservation for Reservation {
     fn assets(&self) -> NativeAssets<'_> {
         self.0.assets.fetch_add(1, Ordering::SeqCst);
-        NativeAssets { resource_dir: Path::new("UNUSED-FIXED-RESOURCE"), model: Path::new("UNUSED-FIXED-MODEL") }
+        NativeAssets {
+            resource_dir: Path::new("UNUSED-FIXED-RESOURCE"),
+            model: Path::new("UNUSED-FIXED-MODEL"),
+        }
     }
     fn retain_uncertain(&mut self, owner: Runtime) -> Result<(), Runtime> {
         assert!(Arc::ptr_eq(&owner, &self.0.owner.upgrade().unwrap()));
-        if !self.0.accept { return Err(owner); }
+        if !self.0.accept {
+            return Err(owner);
+        }
         let mut retained = self.0.retained.lock().unwrap();
         assert!(retained.is_none(), "no owner overwrite");
         *retained = Some(owner);
@@ -94,12 +116,24 @@ impl Drop for Reservation {
     fn drop(&mut self) {
         let owner = self.0.owner.upgrade().unwrap();
         let status = owner.lock().unwrap_or_else(|p| p.into_inner()).status();
-        let same_retained = self.0.retained.lock().unwrap().as_ref()
+        let same_retained = self
+            .0
+            .retained
+            .lock()
+            .unwrap()
+            .as_ref()
             .is_some_and(|retained| Arc::ptr_eq(retained, &owner));
         self.0.observed.lock().unwrap().push(Observation {
             status,
-            settled: ["left", "right"].iter().any(|arm| self.0.directory.join(arm).join("invocation-00-settled.json").exists()),
-            report: self.0.directory.join("report.json").exists() || self.0.directory.join("report.html").exists(),
+            settled: ["left", "right"].iter().any(|arm| {
+                self.0
+                    .directory
+                    .join(arm)
+                    .join("invocation-00-settled.json")
+                    .exists()
+            }),
+            report: self.0.directory.join("report.json").exists()
+                || self.0.directory.join("report.html").exists(),
             same_retained,
         });
         self.0.drops.fetch_add(1, Ordering::SeqCst);
@@ -107,34 +141,75 @@ impl Drop for Reservation {
 }
 
 fn prepared(fixture: &FixedOwner, accept: bool) -> (Session3, Arc<Spy>) {
-    let root = std::env::temp_dir().join(format!("literal-v3-owner-review-{}-{}",
-        std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+    let root = std::env::temp_dir().join(format!(
+        "literal-v3-owner-review-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
     fs::create_dir(&root).unwrap();
     let directory = root.join("run");
     let started = Instant::now();
-    let manifest = Manifest::new_with_lane(ComparisonKind::ContinuousRollout, native_profile().unwrap(), true, None).unwrap();
+    let manifest = Manifest::new_with_lane(
+        ComparisonKind::ContinuousRollout,
+        native_profile().unwrap(),
+        true,
+        None,
+    )
+    .unwrap();
     let mut session = Session3::open(&directory, false, manifest, None, started).unwrap();
     session.begin_invocations().unwrap();
     for arm in ["left", "right"] {
         assert!(directory.join(arm).join("invocation-00.json").is_file());
-        assert!(!directory.join(arm).join("invocation-00-settled.json").exists());
+        assert!(!directory
+            .join(arm)
+            .join("invocation-00-settled.json")
+            .exists());
     }
-    let spy = Arc::new(Spy { accept, directory, owner: Arc::downgrade(&fixture.runtime),
-        retained: Mutex::new(None), assets: AtomicUsize::new(0), drops: AtomicUsize::new(0), observed: Mutex::new(Vec::new()) });
+    let spy = Arc::new(Spy {
+        accept,
+        directory,
+        owner: Arc::downgrade(&fixture.runtime),
+        retained: Mutex::new(None),
+        assets: AtomicUsize::new(0),
+        drops: AtomicUsize::new(0),
+        observed: Mutex::new(Vec::new()),
+    });
     (session, spy)
 }
-fn finish(session: Session3, spy: &Arc<Spy>, fixture: &FixedOwner) -> SelectedNativeFailure<Reservation> {
+fn finish(
+    session: Session3,
+    spy: &Arc<Spy>,
+    fixture: &FixedOwner,
+) -> SelectedNativeFailure<Reservation> {
     let began = Instant::now();
-    let startup = Startup { runtime: Some(fixture.runtime.clone()), load: None, error: Some("RuntimeProtocol".into()) };
-    match finish_prepared(session, Reservation(spy.clone()), startup, &Cancellation::default(), began,
-        began + Duration::from_secs(120), 1) {
+    let startup = Startup {
+        runtime: Some(fixture.runtime.clone()),
+        load: None,
+        error: Some("RuntimeProtocol".into()),
+    };
+    match finish_prepared(
+        session,
+        Reservation(spy.clone()),
+        startup,
+        &Cancellation::default(),
+        began,
+        began + Duration::from_secs(120),
+        1,
+    ) {
         Err(failure) => failure,
         Ok(_) => panic!("synthetic startup failure must not become successful model execution"),
     }
 }
 fn assert_unsettled(spy: &Spy) {
     for arm in ["left", "right"] {
-        assert!(!spy.directory.join(arm).join("invocation-00-settled.json").exists());
+        assert!(!spy
+            .directory
+            .join(arm)
+            .join("invocation-00-settled.json")
+            .exists());
     }
     assert!(!spy.directory.join("report.json").exists());
     assert!(!spy.directory.join("report.html").exists());
@@ -155,7 +230,11 @@ fn confirmed_owner_cleanup_precedes_reservation_drop_then_accounting_and_publica
     assert!(!observations[0].settled && !observations[0].report);
     drop(observations);
     for arm in ["left", "right"] {
-        assert!(spy.directory.join(arm).join("invocation-00-settled.json").is_file());
+        assert!(spy
+            .directory
+            .join(arm)
+            .join("invocation-00-settled.json")
+            .is_file());
     }
     assert!(spy.directory.join("report.json").is_file());
     assert!(spy.directory.join("report.html").is_file());

@@ -509,6 +509,11 @@ pub(super) fn load_evidence(
     })
 }
 pub(super) fn begin_pair(dir: &Path, key: &str, started: Instant) -> Result<[Ledger; 2]> {
+    let mut ledgers = load_pair(dir, key, started)?;
+    begin_loaded_pair(&mut ledgers)?;
+    Ok(ledgers)
+}
+pub(super) fn load_pair(dir: &Path, key: &str, started: Instant) -> Result<[Ledger; 2]> {
     let mut ledgers = [
         Ledger::load(&dir.join("left"), key)?,
         Ledger::load(&dir.join("right"), key)?,
@@ -520,9 +525,14 @@ pub(super) fn begin_pair(dir: &Path, key: &str, started: Instant) -> Result<[Led
     // the other. A later IO failure/process death still retains existing work.
     ledgers[0].preflight_invocation(false)?;
     ledgers[1].preflight_invocation(false)?;
+    Ok(ledgers)
+}
+pub(super) fn begin_loaded_pair(ledgers: &mut [Ledger; 2]) -> Result<()> {
+    ledgers[0].preflight_invocation(false)?;
+    ledgers[1].preflight_invocation(false)?;
     ledgers[0].begin_invocation()?;
     ledgers[1].begin_invocation()?;
-    Ok(ledgers)
+    Ok(())
 }
 pub(super) fn finish_pair(ledgers: &mut [Ledger; 2]) -> Result<()> {
     for arm in 0..2 {
@@ -571,7 +581,17 @@ pub(super) fn record_setup(ledgers: &mut [Ledger; 2], setup: Setup<'_>) -> Resul
         64 * 1024,
     )?;
     let (left, right) = shared_setup_shares(physical_ms);
-    ledgers[0].record_shared_setup(physical_ms, left)?;
-    ledgers[1].record_shared_setup(physical_ms, right)?;
+    for (ledger, share) in ledgers.iter_mut().zip([left, right]) {
+        if native && status == "failed" && physical_ms > PREPARATION_MS {
+            // Confirmed terminal OS overruns are actual measured cost, never
+            // clamped/refunded. Successful loads retain their preparation cap.
+            if ledger.shared_setup.is_some() || share > physical_ms {
+                return Err("ClockIntegrity".into());
+            }
+            ledger.shared_setup = Some((physical_ms, share));
+        } else {
+            ledger.record_shared_setup(physical_ms, share)?;
+        }
+    }
     Ok(())
 }

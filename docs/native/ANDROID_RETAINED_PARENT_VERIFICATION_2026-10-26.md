@@ -117,6 +117,33 @@ python -B -m unittest scripts.tests.test_audit_apk scripts.tests.test_audit_proc
 Result: **53 passed**, 0 failures/errors, 2.408s test time (2,786ms host elapsed).
 These synthetic host audit regressions do not execute Android or qualify the
 new lifecycle case. `git diff --check` and private bundle verification also pass.
+
+A fresh canonical host rerun also completed:
+
+```powershell
+cargo test --locked --offline -p locallore-storage --test branch_retention -- --test-threads=2
+```
+
+Result: **7 passed**, 0 failed/ignored/filtered, 13.90s test time; supervised owner
+14,497ms, worker exit0, cleanup and capture complete. The exact seven-method
+source roster matches the seven passing result lines. All 285 selected tracked
+Rust/fixture/manifest/owner-helper inputs match before/after, and the driver hash
+is unchanged. This is fresh retained host evidence, not recovered Android proof.
+
+The first replacement driver completed its worker with exit0 but retained no
+Cargo output and then failed its own result check with `KeyError: returncode`.
+It does not qualify a test roster. Its source/result and empty captures remain
+preserved. A new version explicitly binds Cargo's binary stdout/stderr files,
+checks the supervisor's actual `worker_returncode`/`output_capture_complete`
+fields, and validates the exact roster. Only the first run's private compilation
+cache was reused; the seven tests actually ran again with a new temporary root.
+
+The extended private index covers 70 files / 27,636,471 bytes, SHA-256
+`8353067e98cf941164f35c60108ac5fdd80fa9eefb542bb00a186a1d53cb18e0`.
+It includes the fresh host records and earlier failures; all initial 51 files
+were independently rehashed unchanged. Compiled targets and temporary roots
+are excluded. This index also does not replace missing original Android proof.
+
 Read-only ADB enumeration against the existing unchanged server returned only
 SDK emulator models, including TCP aliases. A non-emulator serial name does not
 establish a physical phone; none was established by this observation.

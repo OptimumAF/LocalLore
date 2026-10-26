@@ -400,6 +400,9 @@ pub fn harness_finish(
     }
     state.write("report.json", &bytes)?;
     println!("D02_NATIVE_HARNESS {}", if pass { "PASS" } else { "FAIL" });
+    if pass && crate::shutdown_harness::finish(&app, &window) {
+        return Ok(());
+    }
     app.exit(if pass { 0 } else { 1 });
     Ok(())
 }

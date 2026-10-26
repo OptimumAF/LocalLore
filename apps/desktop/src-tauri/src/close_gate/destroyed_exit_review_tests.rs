@@ -18,10 +18,15 @@ fn confirmed_coded_exit_first_requires_destroy_and_cannot_yet_consume_exit() {
         observed.push((code, continuation, premature_exit));
     }
     for (code, continuation, premature_exit) in observed {
-        assert_eq!(continuation, Some(Continuation::DestroyWindow { epoch: 1 }),
-            "manager confirmation for {code:?} must first request native destruction");
-        assert!(!premature_exit,
-            "no native Destroyed acknowledgement exists for {code:?}");
+        assert_eq!(
+            continuation,
+            Some(Continuation::DestroyWindow { epoch: 1 }),
+            "manager confirmation for {code:?} must first request native destruction"
+        );
+        assert!(
+            !premature_exit,
+            "no native Destroyed acknowledgement exists for {code:?}"
+        );
     }
 }
 
@@ -31,9 +36,17 @@ fn duplicate_coded_events_cannot_upgrade_destroy_issuance_into_exit_permission()
     gate.opened(1).unwrap();
     let ticket = start(&mut gate, 1, Intent::Window);
     assert!(gate.confirm(ticket)); // Actual native destruction has NOT occurred.
-    assert_eq!(gate.take_continuation(ticket), Some(Continuation::DestroyWindow { epoch: 1 }));
+    assert_eq!(
+        gate.take_continuation(ticket),
+        Some(Continuation::DestroyWindow { epoch: 1 })
+    );
     let mut issued_exits = Vec::new();
-    for intent in [Intent::Exit(None), Intent::Exit(Some(0)), Intent::Exit(Some(7)), Intent::Window] {
+    for intent in [
+        Intent::Exit(None),
+        Intent::Exit(Some(0)),
+        Intent::Exit(Some(7)),
+        Intent::Window,
+    ] {
         let decision = gate.request(1, intent).unwrap();
         if let Decision::Continue(next) = decision {
             if let Some(continuation @ Continuation::Exit { .. }) = gate.take_continuation(next) {
@@ -42,10 +55,14 @@ fn duplicate_coded_events_cannot_upgrade_destroy_issuance_into_exit_permission()
         }
     }
     let permits = [None, Some(0), Some(7)].map(|code| (code, gate.consume_exit(code)));
-    assert!(issued_exits.is_empty(),
-        "duplicates minted exit before native Destroyed: {issued_exits:?}");
-    assert!(permits.iter().all(|(_, accepted)| !accepted),
-        "duplicates minted a consumable pre-destruction permit: {permits:?}");
+    assert!(
+        issued_exits.is_empty(),
+        "duplicates minted exit before native Destroyed: {issued_exits:?}"
+    );
+    assert!(
+        permits.iter().all(|(_, accepted)| !accepted),
+        "duplicates minted a consumable pre-destruction permit: {permits:?}"
+    );
 }
 
 #[test]
@@ -54,7 +71,10 @@ fn window_destroy_issuance_alone_does_not_allow_a_new_live_epoch() {
     gate.opened(1).unwrap();
     let ticket = start(&mut gate, 1, Intent::Window);
     assert!(gate.confirm(ticket)); // Synthetic manager cleanup, no native event.
-    assert_eq!(gate.take_continuation(ticket), Some(Continuation::DestroyWindow { epoch: 1 }));
+    assert_eq!(
+        gate.take_continuation(ticket),
+        Some(Continuation::DestroyWindow { epoch: 1 })
+    );
     // Issuing destroy can be queued or fail; it is not an observation that the
     // old native window/WebView is gone. Do not admit another window yet.
     assert_eq!(gate.opened(3), Err("Closed"));

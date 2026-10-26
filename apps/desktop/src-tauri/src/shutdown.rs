@@ -61,13 +61,19 @@ fn continue_close(app: &tauri::AppHandle, ticket: CloseTicket) {
         let handle = app.clone();
         let scheduled = app.run_on_main_thread(move || match continuation {
             Continuation::DestroyWindow { epoch } => {
+                #[cfg(feature = "dev-harness")]
+                crate::shutdown_harness::phase("destroy_issued", epoch);
                 if let Some(window) = handle.get_webview_window(&format!("main-{epoch}")) {
                     if window.destroy().is_err() {
                         continuation_failed(&handle, ticket);
                     }
                 }
             }
-            Continuation::Exit { code } => handle.exit(code.unwrap_or(0)),
+            Continuation::Exit { code } => {
+                #[cfg(feature = "dev-harness")]
+                crate::shutdown_harness::phase("exit_issued", ticket.epoch());
+                handle.exit(code.unwrap_or(0));
+            }
         });
         if scheduled.is_err() {
             continuation_failed(app, ticket);
@@ -98,6 +104,8 @@ pub(crate) fn request(app: &tauri::AppHandle, label: &str, intent: Intent) -> Re
     // This is synchronous before scheduling a drain. A retry targets only this
     // gate's captured epoch after its original lease has already been revoked.
     let epoch = ticket.epoch();
+    #[cfg(feature = "dev-harness")]
+    crate::shutdown_harness::phase("cleanup_started", epoch);
     let closed = state.lease.invalidate(label).unwrap_or(epoch + 1);
     state.retire_author(epoch);
     app.state::<Arc<crate::capture_exports::CaptureBroker>>()
@@ -146,6 +154,8 @@ pub(crate) fn request(app: &tauri::AppHandle, label: &str, intent: Intent) -> Re
             .map(|mut gate| gate.confirm(ticket))
             .unwrap_or(false);
         if confirmed {
+            #[cfg(feature = "dev-harness")]
+            crate::shutdown_harness::phase("cleanup_confirmed", epoch);
             status(&handle, "closed");
             continue_close(&handle, ticket);
         }
@@ -170,6 +180,8 @@ pub(crate) fn exit_requested(app: &tauri::AppHandle, code: Option<i32>) -> bool 
     let epoch = match state.close_gate.lock() {
         Ok(mut gate) => {
             if gate.consume_exit(code) {
+                #[cfg(feature = "dev-harness")]
+                crate::shutdown_harness::phase("exit_permitted", gate.current_epoch());
                 return true;
             }
             gate.current_epoch()

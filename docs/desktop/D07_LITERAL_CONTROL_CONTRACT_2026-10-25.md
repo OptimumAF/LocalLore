@@ -1,20 +1,23 @@
-# Proposed literal conversation control and first read-only oracle
+# Literal conversation control and comparison status
 
-Source inspected: accepted PR180 merge `5608b72c34477ee110b771c675bc1d0afd06bd6e`.
+Original design baseline: accepted PR180 merge `5608b72c34477ee110b771c675bc1d0afd06bd6e`.
 Scope: D07.04 / M07.01, with M06.04/.06 eligibility ownership.
 Status: **Native literal execution and Host durability are qualified with explicitly
 scripted providers. The linked slices cover source, renderer, execution/replay and
-native Host selection. Evaluator/UI exposure and real-model literal comparisons
-remain unqualified.**
+native Host selection. Scripted protocol3 evaluation, strict cold report reads
+and resume are qualified in the linked producer record. UI exposure and
+real-model literal comparisons remain unqualified.**
 See [source API and qualification](D07_LITERAL_TRANSCRIPT_SOURCE_QUALIFICATION_2026-10-25.md).
 See [literal renderer and packing qualification](D07_LITERAL_DIRECTOR_RENDER_QUALIFICATION_2026-10-25.md).
 See [guarded native execution and replay qualification](D07_LITERAL_GUARDED_PLAY_QUALIFICATION_2026-10-25.md).
 See [native Host and durability qualification](D07_LITERAL_HOST_QUALIFICATION_2026-10-25.md).
 See [comparison metadata and literal capture qualification](D07_LITERAL_CAPTURE_CONTRACT_QUALIFICATION_2026-10-25.md).
-The latter adds a data-only contract and private input validator; a protocol3
-producer, persisted report and UI exposure remain unimplemented.
-The candidate runtime signature remains a proposal. Root's narrower first
-allocation observes original validated diagnostic Values only in cfg(test).
+The latter adds a data-only contract and private input validator.
+See [scripted protocol3 producer, CLI and cold-read qualification](D07_LITERAL_COMPARISON_PRODUCER_QUALIFICATION_2026-10-25.md).
+It runs the actual literal/Relevant pair through the established owners; native
+protocol3 and selected/UI consumption remain unavailable. Design sections below
+preserve the original proposal; linked qualification records define the current
+implemented interfaces and their evidence classes.
 GitHub #29/#11 retain task status; no criterion is checked by this document.
 
 ## Definition

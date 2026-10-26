@@ -26,6 +26,7 @@ import org.json.JSONObject;
 public final class RetiredSelectionFixtureMain {
     static final String PRODUCT = "org.locallore.app.draftprocessverify";
     static final String SCOPE = "locallore_retired_fixture_v1";
+    static final String RETAINED_SCOPE = "locallore_retained_parent_fixture_v1";
     static final String LIBRARY = "lib/x86_64/liblocallore_android.so";
     private static final long APK_CAP = 128L * 1024 * 1024;
     private RetiredSelectionFixtureMain() { }
@@ -42,18 +43,23 @@ public final class RetiredSelectionFixtureMain {
         String stage = "ARGUMENTS";
         String result;
         try {
-            require(args.length == 11);
+            require(args.length == 11 || args.length == 14);
             require(args[0].matches("load|probe|retire") && args[1].matches("[0-9a-f]{16}"));
             require(args[2].matches("[1-9][0-9]{0,8}") && Integer.parseInt(args[2]) == Process.myUid());
             require(args[3].matches("[0-9a-f]{64}") && args[4].matches("[0-9a-f]{64}"));
             for (int i = 6; i <= 9; i++) require(args[i].matches("[A-Za-z0-9_-]{1,64}"));
             require(args[10].matches("0|[1-9][0-9]{0,8}"));
+            if (args.length == 14) {
+                require(args[11].matches("[A-Za-z0-9_-]{1,64}") && args[12].equals("3") && args[13].equals("2"));
+            }
             if (args[0].equals("load")) {
                 require(Arrays.equals(Arrays.copyOfRange(args, 6, 11),
                     new String[] {"load_a", "load_b", "main", "load_child", "0"}));
+                if (args.length == 14) require(args[11].equals("load_retained"));
             } else {
                 require(args[6].compareTo(args[7]) < 0 && !args[8].equals(args[9]));
                 require(Integer.parseInt(args[10]) > 0);
+                if (args.length == 14) require(!args[11].equals(args[8]) && !args[11].equals(args[9]));
             }
             stage = "PLATFORM";
             require(Build.VERSION.SDK_INT == 35 && Build.SUPPORTED_ABIS.length > 0
@@ -88,7 +94,8 @@ public final class RetiredSelectionFixtureMain {
             ClassLoader boot = ClassLoader.getSystemClassLoader().getParent();
             require(boot != null);
             PathClassLoader loader = new PathClassLoader(value, args[5], boot);
-            Class<?> worker = Class.forName("org.locallore.app.RetiredSelectionFixtureWorker", true, loader);
+            Class<?> worker = Class.forName(args.length == 14 ? "org.locallore.app.RetainedParentFixtureWorker"
+                : "org.locallore.app.RetiredSelectionFixtureWorker", true, loader);
             require(worker.getClassLoader() == loader);
             Object returned = worker.getMethod("run", String[].class, String.class, long.class)
                 .invoke(null, args, libraryHash, entered);
@@ -108,7 +115,7 @@ public final class RetiredSelectionFixtureMain {
         try {
             String mode = args.length > 0 && args[0].matches("load|probe|retire") ? args[0] : "invalid";
             String run = args.length > 1 && args[1].matches("[0-9a-f]{16}") ? args[1] : "0000000000000000";
-            return new JSONObject().put("version", 1).put("scope", SCOPE).put("mode", mode)
+            return new JSONObject().put("version", 1).put("scope", args.length == 14 ? RETAINED_SCOPE : SCOPE).put("mode", mode)
                 .put("run_id", run).put("status", "failed").put("stage", stage).toString();
         } catch (Exception impossible) { return "{\"status\":\"failed\",\"stage\":\"ENCODING\"}"; }
     }

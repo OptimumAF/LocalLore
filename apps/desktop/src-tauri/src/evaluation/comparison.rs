@@ -3,6 +3,7 @@
 use super::*;
 use locallore::inspection_query::Observer;
 use locallore_eval::local_lane::comparison::desktop_api as shared;
+use locallore_eval::local_lane::comparison::literal_v3::desktop_api as literal;
 use std::sync::{mpsc, Weak};
 
 const TTL: Duration = Duration::from_secs(900);
@@ -17,8 +18,42 @@ pub struct ComparisonEvidenceRequest {
 }
 // Constructed only after affirmative native picker selection and shared open.
 struct ReaderGrant;
+// One existing reader lifecycle; the variant cannot become execution permission.
+enum OpenedRead {
+    V2(shared::OpenedComparison),
+    V3(literal::OpenedComparison),
+}
+impl OpenedRead {
+    fn open(path: &Path) -> Result<Self> {
+        match shared::open_read_only(path) {
+            Ok(opened) => Ok(Self::V2(opened)),
+            Err(original) => match literal::open_read_only(path) {
+                Ok(opened) => Ok(Self::V3(opened)),
+                // Preserve the existing V2 failure category on invalid sources.
+                Err(_) => Err(original),
+            },
+        }
+    }
+    fn summary(&self) -> Result<Value> {
+        match self {
+            Self::V2(opened) => shared::summary(opened, true),
+            Self::V3(opened) => literal::summary(opened, true),
+        }
+    }
+    fn evidence(
+        &self,
+        binding: &str,
+        row: &shared::RowId,
+        request: shared::EvidenceRequest,
+    ) -> Result<Value> {
+        match self {
+            Self::V2(opened) => shared::evidence(opened, binding, row, request, true),
+            Self::V3(opened) => literal::evidence(opened, binding, row, request, true),
+        }
+    }
+}
 struct Capability {
-    opened: shared::OpenedComparison,
+    opened: OpenedRead,
     origin: PathBuf,
     _grant: ReaderGrant,
 }
@@ -225,11 +260,33 @@ impl EvaluationManager {
         {
             return Err("EvaluationSourceMismatch".into());
         }
+        if record
+            .cap
+            .as_ref()
+            .is_some_and(|cap| matches!(&cap.opened, OpenedRead::V3(_)))
+        {
+            // Selected protocol1 accepts V2 only. Refuse before removing or
+            // revoking the exact ready read capability, including its lock.
+            return Err("NativeUnavailable".into());
+        }
         let Capability {
             opened,
             origin,
             _grant,
         } = record.cap.take().ok_or("UnknownEvaluationRun")?;
+        let opened = match opened {
+            OpenedRead::V2(opened) => opened,
+            OpenedRead::V3(opened) => {
+                // Defensive preservation if this function's admission logic
+                // changes later; never Drop a rejected source under the gate.
+                record.cap = Some(Capability {
+                    opened: OpenedRead::V3(opened),
+                    origin,
+                    _grant,
+                });
+                return Err("NativeUnavailable".into());
+            }
+        };
         record.cancel.cancel();
         record.granted = false;
         record.token = None;
@@ -312,7 +369,7 @@ impl EvaluationManager {
             let r=state.records.values_mut().find(|r|r.owns(lease,epoch)&&!r.expired&&r.granted&&r.token.as_deref()==Some(token)).ok_or("UnknownEvaluationRun")?;
             r.touched=Instant::now();let snapshot=r.snapshot.as_ref().ok_or("UnknownEvaluationRun")?;
             if source {bounded(json!({"version":1,"kind":"comparison_reader","run_token":token,
-                "source":{"binding":snapshot["binding"],"protocol_version":2,"rows":snapshot["rows"],"read_only":true,"execution_available":false}}),65536)}
+                "source":{"binding":snapshot["binding"],"protocol_version":snapshot["protocol_version"],"rows":snapshot["rows"],"read_only":true,"execution_available":false}}),65536)}
             else {bounded(json!({"version":1,"kind":"comparison_reader","run_token":token,"snapshot":snapshot}),2*1024*1024+4096)}
         })
     }
@@ -501,8 +558,8 @@ impl EvaluationManager {
                     Ok(())
                 })?;
                 let token = uuid()?;
-                let opened = shared::open_read_only(&path).map_err(failure)?;
-                let snapshot = shared::summary(&opened, true).map_err(failure)?;
+                let opened = OpenedRead::open(&path).map_err(failure)?;
+                let snapshot = opened.summary().map_err(failure)?;
                 // Permission originated in the native affirmative picker, not JSON.
                 Ok(WorkResult::Picked(Some((
                     Capability {
@@ -554,7 +611,7 @@ impl EvaluationManager {
             let cap=r.cap.take().ok_or("UnknownEvaluationRun")?;
             r.running=true;r.phase="reading";r.operation=Some(operation);r.cancel=cancel.clone();r.touched=Instant::now();Ok(cap)
         },Some(send),move|cap:Capability,_manager,_owner,_epoch,_client,_operation,_cancel|{
-            let result=shared::evidence(&cap.opened,&input.binding,&input.row,input.request,true).map_err(failure)
+            let result=cap.opened.evidence(&input.binding,&input.row,input.request).map_err(failure)
                 .and_then(|evidence|bounded(json!({"version":1,"kind":"comparison_reader","run_token":input.token,"evidence":evidence}),256*1024+4096));
             Ok(WorkResult::Read(cap,result))
         })?;
@@ -834,6 +891,6 @@ impl EvaluationManager {
 }
 
 #[cfg(test)]
-mod tests;
-#[cfg(test)]
 mod literal_read_review;
+#[cfg(test)]
+mod tests;

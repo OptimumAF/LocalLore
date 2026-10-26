@@ -57,6 +57,13 @@ belong in the verification report. No migration or save upgrade is introduced.
 
 ## Dependency inventory
 
+For the isolated Android saved-task process-restoration profile, controller
+instrumentation, artifact audits and actual execution limits, see the
+[verification report](native/ANDROID_PROCESS_RESTORATION_VERIFICATION_2026-10-26.md)
+and [closed protocol](native/ANDROID_PROCESS_RESTORATION_PROTOCOL.md). The
+controller targets its own process and operates the genuine product Activity;
+ordinary product builds do not enable its observers or test-tag export.
+
 The [SQLite foundation](storage/README.md) is a separate Rust storage owner.
 Workspace tests include its model-free schema/migration/backup regressions.
 Its [dependency inventory and official compatibility sources](storage/SOURCES_2026-10-22.md)

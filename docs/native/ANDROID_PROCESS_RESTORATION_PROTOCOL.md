@@ -89,6 +89,19 @@ Verification exports existing test tags as raw accessibility resource IDs:
 `play-kind-dialogue`, `play-kind-action`, `play-send`, `recover-save`.
 Traverse bounded fresh nodes under the exact product package; tags are not
 `package:id/tag` names. Do not reuse nodes across transitions or process death.
+On API34+, clear only this UiAutomation connection's accessibility cache before
+reacquiring nodes; the guarded call is unavailable on older versions. This does
+not clear app data or change settings. Header observations expose only
+MISSING/EMPTY/VALID/MALFORMED and length, never the observed text. Readiness is
+bounded at15s within the unchanged120s case deadline. A missing header permits
+one bounded backward reveal per polling attempt; empty text waits and nonempty
+malformed text refuses.
+
+Saved-story head reads traverse only the exact tagged menu item's visible,
+product-owned subtree (at most32 nodes, depth8). Require one unique nonempty
+label with the exact story/revision suffix; identical merged copies are allowed,
+conflicting labels refuse. This accommodates the separate popup's nested label
+without searching unrelated nodes or navigating away from the retained draft.
 
 ## Actual process oracle
 
@@ -97,12 +110,21 @@ ordered IDs/root branches/zero heads in a bounded private controller fixture,
 and deliberately select lexical non-first B. In reuse mode, require the same
 owned fixture/catalog and zero heads before a new uncommitted attempt; do not
 regenerate, clear, silently adopt or skip a failed cohort.
+Create counters are cumulative within each process. Initial admission permits0,
+or exactly2 only with an explicitly validated reusable fixture. New creation
+adds2; reuse adds0. Restored processes requirecreate0. A committed B1 fixture is
+never admitted as an uncommitted retry.
 
 Type the predefined original Unicode/newline dialogue (under2048 bytes) and
 prove B0 and no gameplay-operation calls. HOME must be followed by the exact
 task's STOPPED state AND a newer after-super save acknowledgement for the same
 PID/start/task and B hint digest. Then `am kill --user0 PRODUCT` may run. Require
 the old process to disappear; command exit zero alone is insufficient.
+After disappearance and before relaunch, independently read the old saved and
+commands records. Require matching old identity, ordered sequences and exact
+terminal gameplay vectors, so a new process's zeroed counters cannot hide work
+in the dying process. The first terminal vector is entirely zero; the second
+has exactly free_text1/prepare1/commit1 and submit0/cancel0/other0.
 
 Relaunch only the fixed ACTION_MAIN/CATEGORY_LAUNCHER component with NEW_TASK,
 no force-stop, task clear, reset or multiple-task fallback. Require SAME task,
@@ -120,3 +142,13 @@ version1, fixed scope `locallore_process_controller_v1`, case/run ID,
 private identity/fixture observations. Success requires Activity.RESULT_OK and
 the complete two-death oracle; no return-code-only or mock result is a pass.
 Private observations/fixture files stay outside public reports.
+
+The shell transport first checks an original Unicode/quotes/newline/backslash
+control. Framework `executeShellCommand(String)` reaches `Runtime.exec(String)`;
+the fixed three-token wrapper carries a bounded octal-encoded script without
+whitespace inside its third token. Script/token bounds and NUL refusal are
+explicit. Closing a timed-out output descriptor does not prove remote child
+termination; uncertain attempts cannot be blindly retried. Task parsing accepts
+the observed one- or two-space Hist delimiter, with adversarial parser controls.
+
+See [actual execution and limitations](ANDROID_PROCESS_RESTORATION_VERIFICATION_2026-10-26.md).

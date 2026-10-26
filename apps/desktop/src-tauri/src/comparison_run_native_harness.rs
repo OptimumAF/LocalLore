@@ -37,10 +37,17 @@ fn checked_parent(workspace: &Path) -> Result<&Path, String> {
         return Err("Forbidden".into());
     }
     let parent = workspace.parent().ok_or("Forbidden")?;
-    let name = parent.file_name().and_then(|v| v.to_str()).ok_or("Forbidden")?;
-    let id = name.strip_prefix("full-comparison-native-").ok_or("Forbidden")?;
+    let name = parent
+        .file_name()
+        .and_then(|v| v.to_str())
+        .ok_or("Forbidden")?;
+    let id = name
+        .strip_prefix("full-comparison-native-")
+        .ok_or("Forbidden")?;
     if !workspace.is_absolute()
-        || workspace.components().any(|p| matches!(p, Component::ParentDir | Component::CurDir))
+        || workspace
+            .components()
+            .any(|p| matches!(p, Component::ParentDir | Component::CurDir))
         || workspace.file_name().and_then(|v| v.to_str()) != Some("stories-v1.sqlite")
         || !crate::archive::valid_id(id)
         || id.bytes().any(|v| v.is_ascii_uppercase())
@@ -67,7 +74,9 @@ pub fn approved_model_source(workspace: &Path) -> Result<Option<PathBuf>, String
         .map(PathBuf::from)
         .ok_or("ModelInvalid")?;
     if !source.is_absolute()
-        || source.components().any(|p| matches!(p, Component::ParentDir | Component::CurDir))
+        || source
+            .components()
+            .any(|p| matches!(p, Component::ParentDir | Component::CurDir))
     {
         return Err("ModelInvalid".into());
     }
@@ -97,7 +106,10 @@ pub fn consent(
         || metadata["kind"] != "full_comparison_execution"
         || metadata["protocol_version"] != 3
         || metadata["input_lane"] != "approved_native"
-        || serde_json::to_vec(metadata).map_err(|_| "InvalidEvaluationInput")?.len() > 16 * 1024
+        || serde_json::to_vec(metadata)
+            .map_err(|_| "InvalidEvaluationInput")?
+            .len()
+            > 16 * 1024
     {
         return Err("InvalidEvaluationInput".into());
     }
@@ -162,7 +174,10 @@ pub async fn harness_native_comparison_case(
         return Err("Forbidden".into());
     }
     let scenario = self::scenario(&scenario)?;
-    let epoch = workspace.lease.capture(window.label()).map_err(str::to_owned)?;
+    let epoch = workspace
+        .lease
+        .capture(window.label())
+        .map_err(str::to_owned)?;
     let lease = workspace.lease.clone();
     let path = workspace.path.clone();
     let state = state.inner().clone();
@@ -179,9 +194,11 @@ pub async fn harness_native_comparison_case(
                 Scenario::Status => {}
             }
             // Only fixture flags: not evidence that execution or cleanup ran.
-            Ok(json!({"version":1,"kind":"native_full_comparison_fixture","synthetic":true,
+            Ok(
+                json!({"version":1,"kind":"native_full_comparison_fixture","synthetic":true,
                 "active":state.consent_active.load(Ordering::SeqCst),
-                "held":state.hold.load(Ordering::SeqCst)}))
+                "held":state.hold.load(Ordering::SeqCst)}),
+            )
         })
     })
     .await

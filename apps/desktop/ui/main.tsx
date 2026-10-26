@@ -736,7 +736,10 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
             dispose,
             config: window.__LOCALLORE_TEST__,
         });
-    } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.nativeFullComparing) {
+    } else if (
+        __DEV_HARNESS__ &&
+        window.__LOCALLORE_TEST__?.nativeFullComparing
+    ) {
         const { comparisonRunNativeJourneys } =
             await import("./comparison-run-native-journeys");
         await comparisonRunNativeJourneys({

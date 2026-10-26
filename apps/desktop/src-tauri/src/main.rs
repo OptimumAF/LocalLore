@@ -451,7 +451,9 @@ fn main() {
             #[cfg(feature = "dev-harness")]
             app.manage(Arc::new(selected_harness::SelectedHarness::default()));
             #[cfg(feature = "dev-harness")]
-            app.manage(Arc::new(comparison_run_native_harness::NativeComparisonHarness::default()));
+            app.manage(Arc::new(
+                comparison_run_native_harness::NativeComparisonHarness::default(),
+            ));
             let path = app.path().app_local_data_dir()?.join("stories-v1.sqlite");
             #[cfg(feature = "dev-harness")]
             let path = if harness::active() {

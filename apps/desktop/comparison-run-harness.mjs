@@ -94,19 +94,45 @@ async function approvedNativeAssets() {
     const model = process.env.LOCALLORE_D07_NATIVE_MODEL_SOURCE;
     const worker = process.env.LOCALLORE_D04_WORKER_SOURCE;
     const specs = [
-        ["model", model, 639446688, "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031"],
-        ["worker", worker, null, "b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434"],
+        [
+            "model",
+            model,
+            639446688,
+            "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+        ],
+        [
+            "worker",
+            worker,
+            null,
+            "b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434",
+        ],
     ];
     const verified = {};
     for (const [kind, source, size, expected] of specs) {
-        assert(source && path.isAbsolute(source), `${kind}:ExplicitInstalledAssetRequired`);
+        assert(
+            source && path.isAbsolute(source),
+            `${kind}:ExplicitInstalledAssetRequired`,
+        );
         const metadata = await lstat(source);
-        assert(metadata.isFile() && !metadata.isSymbolicLink(), `${kind}:OrdinaryAssetRequired`);
-        assert.equal(path.resolve(await realpath(source)).toLowerCase(), path.resolve(source).toLowerCase(), `${kind}:RedirectedAsset`);
-        if (size !== null) assert.equal(metadata.size, size, `${kind}:ApprovedSize`);
-        else assert(metadata.size > 0 && metadata.size <= 16 * 1024 * 1024, "WorkerSize");
+        assert(
+            metadata.isFile() && !metadata.isSymbolicLink(),
+            `${kind}:OrdinaryAssetRequired`,
+        );
+        assert.equal(
+            path.resolve(await realpath(source)).toLowerCase(),
+            path.resolve(source).toLowerCase(),
+            `${kind}:RedirectedAsset`,
+        );
+        if (size !== null)
+            assert.equal(metadata.size, size, `${kind}:ApprovedSize`);
+        else
+            assert(
+                metadata.size > 0 && metadata.size <= 16 * 1024 * 1024,
+                "WorkerSize",
+            );
         const hasher = createHash("sha256");
-        for await (const bytes of createReadStream(source)) hasher.update(bytes);
+        for await (const bytes of createReadStream(source))
+            hasher.update(bytes);
         assert.equal(hasher.digest("hex"), expected, `${kind}:ApprovedHash`);
         verified[kind] = { bytes: metadata.size, sha256: expected };
     }
@@ -306,7 +332,11 @@ function checkedReport(report, stage) {
         `Journeys:${stage}:${report.failedCheck ?? "unknown"}`,
     );
     assert.equal(report.nativeIpc, true, "ActualNativeIpcRequired");
-    assert.equal(report.modelExecution, nativeMode && stage === "initial", "ModelExecutionBoundary");
+    assert.equal(
+        report.modelExecution,
+        nativeMode && stage === "initial",
+        "ModelExecutionBoundary",
+    );
     assert.equal(report.rendering, "native-webview2", "ReportNativeRendering");
     assert.equal(report.stage, stage, "ReportStage");
     if (stage === "denied") {
@@ -337,7 +367,14 @@ function checkedReport(report, stage) {
     }
     assert(
         Array.isArray(report.checks) &&
-            report.checks.length >= (nativeMode ? (stage === "initial" ? 40 : 15) : (stage === "initial" ? 100 : 40)) &&
+            report.checks.length >=
+                (nativeMode
+                    ? stage === "initial"
+                        ? 40
+                        : 15
+                    : stage === "initial"
+                      ? 100
+                      : 40) &&
             report.checks.length <= 8192,
         "ReportChecks",
     );
@@ -350,31 +387,47 @@ function checkedReport(report, stage) {
         ),
         "CheckLabels",
     );
-    for (const required of (nativeMode ? [
-        "native-full-explicit-cleanup-observed",
-        ...(stage === "initial" ? ["native-full-actual-paired-partial", "native-full-actual-completed-proof"] : ["native-full-cold-completed-open"]),
-    ] : [
-        "native-port-empty_native-catalog-native-version-tags",
-        "native-port-empty_native-catalog-has-no-native-execution",
-        "native-port-empty_native-unknown-client-lookup",
-        "native-port-empty_native-unknown-run-open",
-        "native-port-empty_native-unknown-token-status",
-        "native-port-empty_native-unknown-token-close",
-        "native-port-empty_native-unknown-managed-before-read-consent",
-        "native-port-scripted_open-scripted-client-is-not-native",
-        "native-port-scripted_open-scripted-token-is-not-native",
-        "native-port-scripted_open-native-close-cannot-revoke-scripted-token",
-        "native-port-scripted-status-preserved-run_token",
-        "native-port-scripted-status-preserved-report_ready",
-        "native-port-scripted_open-catalog-has-no-native-execution",
-    ])) {
+    for (const required of nativeMode
+        ? [
+              "native-full-explicit-cleanup-observed",
+              ...(stage === "initial"
+                  ? [
+                        "native-full-actual-paired-partial",
+                        "native-full-actual-completed-proof",
+                    ]
+                  : ["native-full-cold-completed-open"]),
+          ]
+        : [
+              "native-port-empty_native-catalog-native-version-tags",
+              "native-port-empty_native-catalog-has-no-native-execution",
+              "native-port-empty_native-unknown-client-lookup",
+              "native-port-empty_native-unknown-run-open",
+              "native-port-empty_native-unknown-token-status",
+              "native-port-empty_native-unknown-token-close",
+              "native-port-empty_native-unknown-managed-before-read-consent",
+              "native-port-scripted_open-scripted-client-is-not-native",
+              "native-port-scripted_open-scripted-token-is-not-native",
+              "native-port-scripted_open-native-close-cannot-revoke-scripted-token",
+              "native-port-scripted-status-preserved-run_token",
+              "native-port-scripted-status-preserved-report_ready",
+              "native-port-scripted_open-catalog-has-no-native-execution",
+          ]) {
         assert(
             report.checks.includes(required),
             `RequiredNativePortCheck:${required}`,
         );
     }
     if (nativeMode) {
-        assert.deepEqual(report.doubles, ["execution-consent", "read-consent", "model-picker", "lost-start-ack"], "NativeDoublesExplicit");
+        assert.deepEqual(
+            report.doubles,
+            [
+                "execution-consent",
+                "read-consent",
+                "model-picker",
+                "lost-start-ack",
+            ],
+            "NativeDoublesExplicit",
+        );
     }
     assert(
         Array.isArray(report.captureLabels) &&
@@ -629,10 +682,15 @@ let failure = null;
 try {
     if (nativeMode) {
         nativeAssets = await approvedNativeAssets();
-        await run("stage-approved-worker", process.execPath, ["stage-runtime.mjs"], {
-            LOCALLORE_D04_WORKER_SOURCE: nativeAssets.worker,
-            LOCALLORE_D04_TARGET_DIR: target,
-        });
+        await run(
+            "stage-approved-worker",
+            process.execPath,
+            ["stage-runtime.mjs"],
+            {
+                LOCALLORE_D04_WORKER_SOURCE: nativeAssets.worker,
+                LOCALLORE_D04_TARGET_DIR: target,
+            },
+        );
     }
     await run("frontend-build", process.execPath, ["build.mjs", "--harness"]);
     await run(
@@ -655,7 +713,9 @@ try {
         900000,
     );
     executableSha256 = digest(await readFile(executable));
-    for (const stage of (nativeMode ? ["initial", "restart"] : ["denied", "initial", "restart"])) {
+    for (const stage of nativeMode
+        ? ["initial", "restart"]
+        : ["denied", "initial", "restart"]) {
         const directory = path.join(folder, stage);
         await run(
             `app-${stage}`,
@@ -665,7 +725,9 @@ try {
                 LOCALLORE_D02_HARNESS: "1",
                 LOCALLORE_D07_FULL_COMPARISON_HARNESS: "1",
                 LOCALLORE_D07_NATIVE_FULL_HARNESS: nativeMode ? "1" : "0",
-                ...(nativeMode ? { LOCALLORE_D07_NATIVE_MODEL_SOURCE: nativeAssets.model } : {}),
+                ...(nativeMode
+                    ? { LOCALLORE_D07_NATIVE_MODEL_SOURCE: nativeAssets.model }
+                    : {}),
                 LOCALLORE_D07_NATIVE_DENIED_GRANT:
                     stage === "denied" ? "1" : "0",
                 LOCALLORE_TEST_MEMORY: "1",
@@ -764,8 +826,12 @@ try {
         launcherSha256,
         requestedNativeIpc: true,
         nativeIpc: inventories.length > 0,
-        modelExecution: reports.some(({report}) => report.modelExecution === true),
-        requestedInputLane: nativeMode ? "approved_native" : "scripted_baseline",
+        modelExecution: reports.some(
+            ({ report }) => report.modelExecution === true,
+        ),
+        requestedInputLane: nativeMode
+            ? "approved_native"
+            : "scripted_baseline",
         approvedInstalledAssets: nativeAssets?.verified ?? null,
         rendering:
             inventories.length > 0 ? "actual-hidden-unfocused-webview2" : null,
@@ -777,7 +843,9 @@ try {
         limits,
         failure,
         limitations: [
-            nativeMode ? "Actual installed-model evidence is recorded only after verified generated report outputs; no human quality acceptance" : "Fixed scripted fake inference only; no approved-model execution",
+            nativeMode
+                ? "Actual installed-model evidence is recorded only after verified generated report outputs; no human quality acceptance"
+                : "Fixed scripted fake inference only; no approved-model execution",
             "Fixed native consent doubles; no OS dialog automation or desktop control",
             "Node checks junction/symlink redirects, not all Windows reparse attributes or universal link races",
             "Images require separate individual visual inspection",
@@ -795,7 +863,9 @@ try {
             artifactDirectory: folder,
             sourceRevision: revision,
             stages: reports.length,
-            modelExecution: reports.some(({report}) => report.modelExecution === true),
+            modelExecution: reports.some(
+                ({ report }) => report.modelExecution === true,
+            ),
         }),
     );
 }

@@ -255,10 +255,7 @@ pub async fn evaluation_comparison_native(
     .map_err(|_| "EvaluationInternal".to_owned())?
     .map_err(closed);
     #[cfg(feature = "dev-harness")]
-    if is_start
-        && result.is_ok()
-        && lose_ack.as_ref().is_some_and(|state| state.take_lost_ack())
-    {
+    if is_start && result.is_ok() && lose_ack.as_ref().is_some_and(|state| state.take_lost_ack()) {
         return Err("EvaluationIo".into());
     }
     result

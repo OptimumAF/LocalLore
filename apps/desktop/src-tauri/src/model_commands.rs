@@ -62,7 +62,9 @@ pub async fn model_import(
         manager.import(&lease, epoch, || {
             #[cfg(feature = "dev-harness")]
             if crate::comparison_run_native_harness::active() {
-                return crate::comparison_run_native_harness::approved_model_source(&native_workspace);
+                return crate::comparison_run_native_harness::approved_model_source(
+                    &native_workspace,
+                );
             }
             #[cfg(feature = "dev-harness")]
             if crate::harness::active()

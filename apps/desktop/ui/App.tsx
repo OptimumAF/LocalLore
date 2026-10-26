@@ -338,7 +338,10 @@ export function App({
             modeRef.current !== mode ||
             readerCurrent.context !== readerBefore.context ||
             !readerCurrent.allowed ||
-            !sameReaderObserver(readerCurrent.observer, readerBefore.observer) ||
+            !sameReaderObserver(
+                readerCurrent.observer,
+                readerBefore.observer,
+            ) ||
             current.context !== before.context ||
             !current.allowed ||
             comparisonBlocked(origin) ||

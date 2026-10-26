@@ -118,6 +118,11 @@ No desktop input, screen capture, browser automation/debug server or model is us
 Both stages preserve all626 source fixture files byte-for-byte. Each deliberately
 loses one acknowledgement, classified as Transport; Root reports zero unexpected
 transport errors. That is not a claim of zero deliberate errors or zero stderr.
+Each process also emitted one115-byte Chromium/WebView shutdown message:
+`Failed to unregister class Chrome_WidgetWin_0. Error = 1412`.
+This SDK diagnostic is separate from the bounded frontend/native-IPC error buffer.
+Exit0 and passing journeys do not establish clean SDK teardown or absence of
+transient windows/processes. D09 #31 retains the unresolved investigation.
 Root visually inspected all49 images and confirmed the626-file source hashes.
 The actual reduced UA is Chrome/Edg155.0.0.0; the exact installed runtime patch
 was not separately measured. Captures cover1280x900 and620x900 at
@@ -132,6 +137,21 @@ these findings or qualify the later corrections.
 `fda87fc7` adds focused literal/Relevant proof captures, an explicit fresh-source
 completed UI resume journey and the header CSS correction. Their corrected app
 cohort is **PENDING**. The first cohort must not be relabeled as that rerun.
+
+The first corrected attempt at `fb0ef042` did execute completed fresh-source
+resume and both focused proof captures, but failed later: the selected harness's
+internal600s watchdog fired, the window lease closed, and the denial journey
+reported `Closed` after222 checks/24 images. The app exited2 after625.215s,
+including shutdown; the launcher exited1 and never started its restart stage.
+Its bounded stderr contains the watchdog message and the same class-unregister
+diagnostic. This is a retained failed cohort, not a corrected UI pass.
+
+The launcher had already been extended to900s while the app watchdog remained
+600s. The next source uses the existing fixed900s app bound (also used by D04)
+and960s launcher bound to permit bounded shutdown. This applies only to the
+multi-journey development harness. Product turn, consent, cancellation, resource
+ownership and cleanup deadlines are unchanged; these times are not latency
+acceptance criteria. The complete corrected cohort must run again.
 
 ## Reproduce with existing dependencies
 

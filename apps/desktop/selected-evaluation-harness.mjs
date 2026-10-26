@@ -229,7 +229,8 @@ for (const stage of ["initial", "restart"]) {
             WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:
                 "--disable-background-timer-throttling",
         },
-        900000,
+        // The fixed app watchdog is900s; leave60s for its bounded shutdown.
+        960000,
     );
     const report = JSON.parse(
         await readFile(path.join(directory, "report.json"), "utf8"),

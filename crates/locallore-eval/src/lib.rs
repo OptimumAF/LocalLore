@@ -22,10 +22,10 @@ use std::{
 };
 
 mod capture_envelope;
-pub mod local_lane;
-mod local_recording;
 #[cfg(test)]
 mod literal_capture_contract_tests;
+pub mod local_lane;
+mod local_recording;
 pub mod memory_comparison;
 pub mod memory_comparison_v2;
 pub mod memory_comparison_v3;

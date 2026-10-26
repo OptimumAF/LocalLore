@@ -74,6 +74,8 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     private static final String RESULT_SCOPE = "locallore_process_controller_v1";
     private static final String DIALOGUE = "SYNTHETIC process-restoration dialogue: Mira, café and lanterns 🌊.\n"
             + "Still unsent until my explicit Send.";
+    private static final String TRANSPORT_CONTROL = "LocalLore transport: \"double\" and 'single', café 🌊.\n"
+            + "Second original line; literal $value and backslash \\.";
     private static final long CASE_MS = 120_000;
     private static final int PROBE_CAP = 4096;
     private static final int SHELL_CAP = 131_072;
@@ -90,7 +92,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     // close, capabilities, model_status. Every arbitrary unknown op is "other".
     private static final String[] GAME = {"free_text", "submit", "prepare", "commit", "cancel", "other"};
 
-    private enum Stage { ARGUMENTS, IDENTITY, FIXTURE, LAUNCH, CATALOG, EDIT, FIRST_SAVE,
+    private enum Stage { ARGUMENTS, IDENTITY, TRANSPORT, FIXTURE, LAUNCH, CATALOG, EDIT, FIRST_SAVE,
         FIRST_KILL, FIRST_RESTORE, NATIVE_REREAD, SEND, SECOND_SAVE, SECOND_KILL,
         SECOND_RESTORE, CANONICAL_REREAD, DONE }
     private enum Reason { NONE, ARGUMENTS, IDENTITY, SIGNATURE, APK, FIXTURE, CATALOG,
@@ -145,6 +147,9 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             info.flags |= AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
                     | AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
             automation.setServiceInfo(info);
+            stage = Stage.TRANSPORT;
+            checked(shell("printf '%s\\n' " + quote(TRANSPORT_CONTROL), 1024)
+                    .equals(TRANSPORT_CONTROL + "\n"), Reason.SHELL_IO);
             stage = Stage.FIXTURE;
             File stored = fixtureFile();
             if (reuse) fixture = readFixture(stored);
@@ -195,6 +200,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
                 Workspace w = maybeWorkspace();
                 return w != null && w.same(fixture.b, 1);
             }, 10_000, Reason.CANONICAL);
+            readyProduct(); // Do not HOME while the legitimate post-commit UI is busy.
             verifyDraft();
             Probe sent = latest(first);
             checked(sent.op("free_text") == 1 && sent.op("submit") == 0
@@ -674,6 +680,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     private String shell(String command, int cap) throws Exception {
         timeLeft(); need(cap > 0 && cap <= SHELL_CAP, Reason.SHELL_IO);
         String script = command + "; rc=$?; printf '\\n" + EXIT + "%d\\n' \"$rc\"";
+        final String transport = shellTransport(script);
         AtomicReference<ParcelFileDescriptor> owned = new AtomicReference<>();
         AtomicBoolean abandoned = new AtomicBoolean();
         ExecutorService executor = Executors.newSingleThreadExecutor(task -> {
@@ -681,7 +688,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         });
         Future<byte[]> future = executor.submit(new Callable<byte[]>() {
             @Override public byte[] call() throws Exception {
-                ParcelFileDescriptor fd = automation.executeShellCommand("sh -c " + quote(script));
+                ParcelFileDescriptor fd = automation.executeShellCommand(transport);
                 need(fd != null, Reason.SHELL_IO); owned.set(fd);
                 if (abandoned.get()) { fd.close(); owned.compareAndSet(fd, null); throw new Refused(Reason.SHELL_TIMEOUT); }
                 try (ParcelFileDescriptor.AutoCloseInputStream input = new ParcelFileDescriptor.AutoCloseInputStream(fd)) {
@@ -716,6 +723,28 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     }
 
     private static String quote(String value) { return "'" + value.replace("'", "'\\''") + "'"; }
+
+    /**
+     * UiAutomationConnection uses Runtime.exec(String), not a shell tokenizer.
+     * Its third token must therefore contain no literal ASCII whitespace. The
+     * fixed POSIX printf decodes UTF-8 octals, and eval receives that whole
+     * decoded script as one quoted argument. This is not a selectable transport.
+     */
+    private static String shellTransport(String script) {
+        need(script.length() <= 8192, Reason.SHELL_IO);
+        byte[] bytes = script.getBytes(StandardCharsets.UTF_8);
+        need(bytes.length > 0 && bytes.length <= 8192, Reason.SHELL_IO);
+        StringBuilder encoded = new StringBuilder(bytes.length * 4);
+        for (byte raw : bytes) {
+            int value = raw & 255; need(value != 0, Reason.SHELL_IO);
+            encoded.append('\\').append((char) ('0' + ((value >>> 6) & 7)))
+                    .append((char) ('0' + ((value >>> 3) & 7))).append((char) ('0' + (value & 7)));
+        }
+        String token = "eval${IFS}\"$(printf${IFS}'" + encoded + "')\"";
+        need(token.length() <= 33_024, Reason.SHELL_IO);
+        for (int i = 0; i < token.length(); i++) need(token.charAt(i) > 32 && token.charAt(i) < 127, Reason.SHELL_IO);
+        return "sh -c " + token;
+    }
 
     private void click(String id) throws Exception {
         AccessibilityNodeInfo node = tag(id);

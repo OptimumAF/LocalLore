@@ -441,6 +441,9 @@ class RegressionPhaseTests(unittest.TestCase):
             "retained-archive": (driver.RETAINED_ARCHIVE_CLASSES, driver.RETAINED_ARCHIVE_METHODS,
                                  driver.retained_archive_dispatch, driver.retained_archive_worker,
                                  "retained_archive-v1.json", 2),
+            "story-creation": (driver.STORY_CREATION_CLASSES, driver.STORY_CREATION_METHODS,
+                               driver.story_creation_dispatch, driver.story_creation_worker,
+                               "story_creation-v1.json", 19),
         }[phase]
         calls = []
         with tempfile.TemporaryDirectory() as root:
@@ -803,6 +806,169 @@ class RetainedArchivePhaseTests(unittest.TestCase):
                 self.assertFalse(result["passed"])
                 for key in ("components", "regression", "retained_ui"): self.assertNotIn(key, result)
                 if known: self.assertEqual(result["retained_archive"]["path"], str(out / "retained_archive-v1.json"))
+
+
+class StoryCreationPhaseTests(unittest.TestCase):
+    def fixture(self, out):
+        from benchmarks.android_instrumentation_evidence import validate_instrumentation
+        (out / "clients").mkdir()
+        results, captures = [], []
+        for index, (name, methods) in enumerate(zip(driver.STORY_CREATION_CLASSES, driver.STORY_CREATION_METHODS)):
+            raw = synthetic_regression_run(name, methods)
+            (out / (name + ".stdout.raw")).write_bytes(raw)
+            results.append(validate_instrumentation(raw, "org.locallore.app." + name, list(methods)))
+            captures.extend((("adb-server", b"original synthetic server\r\n"), ("instrument-user", b"0\r\n"),
+                             ("instrument-" + str(index), raw)))
+        for index, (label, raw) in enumerate(captures, 1):
+            stem = out / "clients" / ("command-%04d" % index)
+            stem.with_suffix(".stdout.bin").write_bytes(raw)
+            driver.env.create_json(stem.with_suffix(".json"), dict(version=1, index=index, label=label,
+                status="completed", returncode=0, cleanup_complete=True, stdout_bytes=len(raw),
+                stdout_sha256=hashlib.sha256(raw).hexdigest(), stderr_bytes=0))
+        return dict(version=1, phase="story-creation", results=results, clients=len(captures), clients_clean=True,
+                    method_count=19, external_controller_case_executed=False)
+
+    def test_exact_four_class_nineteen_method_roster_matches_current_sources_without_old_gate_changes(self):
+        from benchmarks.android_instrumentation_evidence import test_roster
+        self.assertEqual(driver.STORY_CREATION_VERSION, 1)
+        self.assertEqual(driver.STORY_CREATION_CLASSES, ("StoryCreationWireTest", "StoryCreationDialogTest",
+            "StoryCreationDraftFenceTest", "StoryCreationMainActivityTest"))
+        self.assertEqual(tuple(map(len, driver.STORY_CREATION_METHODS)), (8, 5, 4, 2))
+        self.assertEqual(sum(map(len, driver.STORY_CREATION_METHODS)), 19)
+        for name, methods in zip(driver.STORY_CREATION_CLASSES, driver.STORY_CREATION_METHODS):
+            source = driver.ROOT / "apps/android/app/src/androidTest/java/org/locallore/app" / (name + ".kt")
+            self.assertEqual(test_roster(source), list(methods))
+        self.assertTrue(set(driver.STORY_CREATION_CLASSES).isdisjoint(driver.CLASSES + driver.REGRESSION_CLASSES +
+            driver.RETAINED_UI_CLASSES + driver.RETAINED_ARCHIVE_CLASSES))
+        self.assertEqual(tuple(sum(map(len, methods)) for methods in (driver.EXPECTED_METHODS,
+            driver.REGRESSION_METHODS, driver.RETAINED_UI_METHODS, driver.RETAINED_ARCHIVE_METHODS)), (10, 89, 2, 2))
+
+    def test_fixed_dispatch_cli_and_bound_worker_admission_expose_no_selector_or_profile(self):
+        for index, name in enumerate(driver.STORY_CREATION_CLASSES):
+            command, label, seconds, cap = driver.story_creation_dispatch(index)
+            self.assertEqual(command, ["exec-out", "am", "instrument", "--user", "0", "-w", "-r", "-e", "class",
+                "org.locallore.app." + name, driver.APP + ".test/androidx.test.runner.AndroidJUnitRunner"])
+            self.assertEqual((label, seconds, cap), ("instrument-" + str(index), 180, 262144))
+        for bad in (-1, 4, True, 1.0, "0", None):
+            with self.subTest(bad=bad), self.assertRaises(driver.VerificationRefused): driver.story_creation_dispatch(bad)
+        args = ["story-creation", "--out", "unused", "--sdk", "sdk", "--build", "build", "--running", "running",
+                "--proposal", "proposal", "--server", "server", "--powershell", "powershell"]
+        with patch.object(driver, "supervise") as run, patch("sys.stdout", io.StringIO()):
+            self.assertEqual(driver.main(args), 0)
+        self.assertEqual(run.call_args.args[0]["phase"], "story-creation")
+        for extra in (["--class", "Other"], ["--test", "method"], ["--profile", "phone"]):
+            with patch.object(driver, "supervise") as run, patch("sys.stderr", io.StringIO()), self.assertRaises(SystemExit):
+                driver.main(args + extra)
+            run.assert_not_called()
+        request = dict(phase="story-creation", out="out", sdk="sdk", java=None, build="build", running="running",
+            proposal="proposal", server="server", powershell="powershell", inputs=["bound"], sources={"path":"sources"},
+            driver_sha256="hash")
+        with patch.object(driver.env, "digest", return_value="hash"), patch.object(driver.env, "check_binding"), \
+             patch.object(driver.env, "read_json", return_value={"source":"same"}), \
+             patch.object(driver, "source_map", return_value={"source":"same"}), \
+             patch.object(driver, "input_bindings", return_value=["bound"]):
+            driver.admit_worker(request)
+            for delta in ({"phase":"story_creation"}, {"class":"Other"}, {"inputs":[]}, {"driver_sha256":"changed"}):
+                with self.subTest(delta=delta), self.assertRaises(driver.VerificationRefused):
+                    driver.admit_worker(dict(request, **delta))
+
+    def test_complete_original_raw_sets_are_immutable_and_cannot_substitute_any_prior_gate(self):
+        from benchmarks import android_external_controller as external
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root); record = self.fixture(out); before = copy.deepcopy(record)
+            driver.validate_story_creation_record(record, out)
+            self.assertEqual(record, before)
+            for validate in (driver.validate_component_record, driver.validate_regression_record,
+                             driver.validate_retained_ui_record, driver.validate_retained_archive_record):
+                with self.assertRaises(driver.VerificationRefused): validate(record, out)
+            for delta in ({"phase":"components"}, {"version":True}, {"method_count":18}, {"method_count":True},
+                          {"clients_clean":False}, {"external_controller_case_executed":True}, {"extra":0}):
+                with self.subTest(delta=delta), self.assertRaises(driver.VerificationRefused):
+                    driver.validate_story_creation_record(dict(record, **delta), out)
+            for mutation in ("drop", "extra", "reorder", "method", "class"):
+                changed = copy.deepcopy(record)
+                if mutation == "drop": changed["results"].pop()
+                if mutation == "extra": changed["results"].append(changed["results"][0])
+                if mutation == "reorder": changed["results"].reverse()
+                if mutation == "method": changed["results"][0]["methods"].reverse()
+                if mutation == "class": changed["results"][0]["class"] = "org.locallore.app.RetainedArchiveChooserTest"
+                with self.subTest(mutation=mutation), self.assertRaises(driver.VerificationRefused):
+                    driver.validate_story_creation_record(changed, out)
+            gate = out / "not-component-result.json"
+            gate.write_text(json.dumps(dict(version=1, phase="story-creation", passed=True, owner={}, owner_record={},
+                request={}, sources_before={}, sources_after={}, story_creation={})))
+            with self.assertRaises(external.ExternalRefused): external.qualified_gate(gate, "build")
+
+    def test_partial_skip_extra_frames_and_rebound_or_unclean_client_copies_refuse(self):
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root); record = self.fixture(out)
+            for name, methods in zip(driver.STORY_CREATION_CLASSES, driver.STORY_CREATION_METHODS):
+                path = out / (name + ".stdout.raw"); original = path.read_bytes()
+                for raw in (synthetic_regression_run(name, methods[:-1]), original + b"INSTRUMENTATION_CODE: -1\n",
+                            original.replace(b"STATUS_CODE: 0", b"STATUS_CODE: -3", 1)):
+                    path.write_bytes(raw)
+                    with self.assertRaises(driver.VerificationRefused): driver.validate_story_creation_record(record, out)
+                path.write_bytes(original)
+            stem = out / "clients/command-0003"
+            path = stem.with_suffix(".json"); row = driver.env.read_json(path)
+            raw_path = stem.with_suffix(".stdout.bin"); original = raw_path.read_bytes()
+            # A separately valid class frame, rebound to its own hash, is still not this class's retained copy.
+            foreign = synthetic_regression_run(driver.STORY_CREATION_CLASSES[1], driver.STORY_CREATION_METHODS[1])
+            raw_path.write_bytes(foreign)
+            path.write_text(json.dumps(dict(row, stdout_bytes=len(foreign), stdout_sha256=hashlib.sha256(foreign).hexdigest())))
+            with self.assertRaises(driver.VerificationRefused): driver.validate_story_creation_record(record, out)
+            raw_path.write_bytes(original)
+            for delta in ({"label":"instrument-1"}, {"label":"instrument-user"}, {"returncode":False},
+                          {"cleanup_complete":False}, {"stderr_bytes":1}, {"stdout_sha256":"0" * 64}):
+                path.write_text(json.dumps(dict(row, **delta)))
+                with self.subTest(delta=delta), self.assertRaises(driver.VerificationRefused):
+                    driver.validate_story_creation_record(record, out)
+            path.write_text(json.dumps(row))
+            extra = out / "clients/private-extra.bin"; extra.write_bytes(b"original synthetic extra")
+            with self.assertRaises(driver.VerificationRefused): driver.validate_story_creation_record(record, out)
+            extra.unlink()
+            driver.validate_story_creation_record(record, out)
+
+    def test_worker_keeps_fresh_guest_three_absent_packages_and_exact_four_calls(self):
+        RegressionPhaseTests().run_mock_worker(phase="story-creation")
+        for package in driver.PACKAGES:
+            with self.subTest(package=package):
+                RegressionPhaseTests().run_mock_worker(existing=package, phase="story-creation")
+        for failure in ("owner", "source"):
+            with self.subTest(failure=failure):
+                RegressionPhaseTests().run_mock_worker(early_failure=failure, phase="story-creation")
+
+    @unittest.skipUnless(os.name == "nt", "Windows supervisor entry")
+    def test_parent_persists_owner_and_refuses_wrong_phase_body_or_unknown_cleanup(self):
+        for known in (True, False):
+            with self.subTest(known=known), tempfile.TemporaryDirectory() as root:
+                out = Path(root) / "fresh"
+                request = dict(phase="story-creation", out=str(out), sdk=root, java=None, build="build",
+                               running="running", proposal="proposal", server="server", powershell="powershell")
+                owner = dict(status="child_exited", worker_returncode=0, cleanup_complete=known,
+                    output_capture_complete=True, elapsed_ms=1, stdout_bytes=0, stderr_bytes=0)
+                def supervise(*_):
+                    body = self.fixture(out)
+                    body["phase"] = "retained-archive"
+                    driver.env.create_json(out / "story_creation-v1.json", body)
+                    return owner
+                original_validator = driver.validate_story_creation_record
+                def validate(body, folder):
+                    self.assertEqual(driver.env.read_json(out / "owner-result-v1.json"), owner)
+                    return original_validator(body, folder)
+                with patch.object(driver, "input_bindings", return_value=[]), \
+                     patch.object(driver, "source_map", return_value={"same":"source"}), \
+                     patch.object(driver.env, "supervise", side_effect=supervise) as owned, \
+                     patch.object(driver, "validate_story_creation_record", side_effect=validate) as deep:
+                    with self.assertRaises(driver.VerificationRefused): driver.supervise(request)
+                self.assertEqual(owned.call_args.args[3], 900)
+                self.assertEqual(deep.call_count, int(known))
+                result = driver.env.read_json(out / "result-v1.json")
+                self.assertFalse(result["passed"])
+                for key in ("components", "regression", "retained_ui", "retained_archive"): self.assertNotIn(key, result)
+                if known:
+                    self.assertTrue(result["validation_refused"])
+                    self.assertEqual(result["story_creation"]["path"], str(out / "story_creation-v1.json"))
 
 
 if __name__ == "__main__":

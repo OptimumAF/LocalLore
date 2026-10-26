@@ -109,9 +109,7 @@ fn protected(i: &Inventory) -> Inventory {
         .collect()
 }
 fn refuse<T>(result: Result<T, String>) {
-    if let Ok(_) = result {
-        panic!("expected closed refusal before new work");
-    }
+    assert!(result.is_err(), "expected closed refusal before new work");
 }
 struct Cohorts {
     reference: PathBuf,

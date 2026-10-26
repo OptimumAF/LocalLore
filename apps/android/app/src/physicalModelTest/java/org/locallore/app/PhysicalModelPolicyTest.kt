@@ -103,10 +103,22 @@ class PhysicalModelPolicyTest {
     }
 
     @Test fun memoryOrSpaceRefusalCannotBeRevivedByLaterHeadroom() {
-        for (bad in listOf(facts().copy(availableMemory = 4 * gib - 1), facts().copy(availableBytes = 2 * gib - 1))) {
+        for (bad in listOf(facts().copy(availableMemory = -1), facts().copy(lowMemory = true), facts().copy(availableBytes = 2 * gib - 1))) {
             val lease = PhysicalModelPolicy.pin(facts())
             try { lease.recheck(bad); fail("Expected admission refusal") } catch (_: PhysicalModelException) { }
             refuses(PhysicalModelFailure.CHANGED) { lease.recheck(facts().copy(availableBytes = Long.MAX_VALUE)) }
+        }
+    }
+
+    @Test fun modelAllocationDoesNotRechargeStartupMemoryOnTheExistingLease() {
+        val initial = facts()
+        for (available in listOf(0L, gib, 4 * gib - 1)) {
+            val loaded = initial.copy(availableMemory = available)
+            refuses(PhysicalModelFailure.MEMORY) { PhysicalModelPolicy.pin(loaded) }
+            refuses(PhysicalModelFailure.MEMORY) { PhysicalModelPolicy.fresh(loaded) }
+            val lease = PhysicalModelPolicy.pin(initial)
+            assertEquals(loaded, lease.recheck(loaded))
+            assertEquals(loaded, PhysicalModelPolicy.ongoing(loaded))
         }
     }
 

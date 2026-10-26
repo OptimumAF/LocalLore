@@ -28,7 +28,7 @@ internal enum class PhysicalModelPhase(val file: String, val budgetMs: Long, val
         return common + when (this) {
             CANCEL -> setOf("sample_trace_sha256")
             GIFT -> setOf("repairs", "fallback", "gift_receipt_sha256")
-            DIALOGUE -> setOf("repairs", "fallback", "gift_receipt_sha256", "dialogue_receipt_sha256")
+            DIALOGUE -> setOf("repairs", "fallback", "gift_receipt_sha256", "dialogue_receipt_sha256", "guards_trace_sha256")
             REOPEN -> setOf("gift_receipt_sha256", "dialogue_receipt_sha256")
             else -> emptySet()
         }

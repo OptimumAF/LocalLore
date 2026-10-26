@@ -52,10 +52,17 @@ Profile ID: `s918u1_api36_arm64_4k_v1`.
 
 The app observes exact `Build.MODEL=SM-S918U1`, API36,
 `Build.SOC_MODEL=SM8550`, primary ABI `arm64-v8a`, page size4096, kernel-visible
-memory10–12GiB inclusive, available memory at least4GiB and `lowMemory=false`.
+memory10–12GiB inclusive, startup available memory at least4GiB and `lowMemory=false`.
 These are explicit admission margins for this experiment, not an allocation,
-latency or quality guarantee. Observations are rechecked before receipt and SDK
-boundaries on IO; failed admission is sticky for that process owner.
+latency or quality guarantee. `admit`/`fresh`/`pin` enforce the4GiB startup floor
+before allocation. The **existing pinned lease** uses the separate `ongoing`
+validator after allocation: same identity/anchor/kernel tier, available memory
+in0..total, `lowMemory=false`, and shared-storage capacity. It does not demand
+another4GiB after the SDK maps the model. Post-SDK checks reuse that same storage
+lease; they never open/re-pin a new storage owner around the loaded model.
+Observations are rechecked before receipt/SDK boundaries on IO, with sticky
+refusal for invalid observations, low-memory signals, changed identity or lost
+storage. Every fresh process still needs its own startup admission.
 
 `ro.board.platform=kalama` is a **host-only** fresh-inventory field. It is not
 `Build.BOARD`, which maps to `ro.product.board`; that different field was not
@@ -102,7 +109,7 @@ bytes plus2GiB; runtime requires2GiB. The unchanged receipt transaction also
 independently enforces its own256MiB minimum. No free-space reading is a
 reservation. Root's fresh host and app prechecks must both precede weight copy.
 
-## Phase interface awaiting final proof freeze
+## Frozen phase interface
 
 Only exact separate class selection is eligible for a heavyweight method:
 
@@ -123,11 +130,50 @@ receipts with statement distinct from truth; REOPEN preserves both in a new
 process without source or inference calls. The engine validates/commits;
 narration cannot become an alternate canonical authority.
 
-The detailed common/check key sets are proposed to the coordinator before
-instrumentation implementation. Use shared-storage metrics, not fabricated
+The detailed common/check key sets were frozen centrally before instrumentation
+implementation. Common canonical keys are `version`, `scope`, `profile`,
+`phase`, `pid`, `start`, `uid`, `process`, `model_bytes`, `model_sha256`,
+`elapsed_ms`, `shared_free_before`, `shared_free_after`, `memory_total_bytes`,
+`memory_available_before`, `memory_available_after`, `low_memory_before`,
+`low_memory_after`, six `source_verify_*`/`source_import_*` opened/closed/byte
+counters, `sdk_invoked`, `publication_native_invoked` and `checks`. Later phases
+add exact prior process/hash fields. Canonical-state phases add revision/count,
+receipt/story/worker hashes; CANCEL adds the sampled worker hash, GIFT/DIALOGUE
+add repair/fallback and gift receipt metadata, and DIALOGUE/REOPEN bind the
+dialogue receipt. DIALOGUE also binds `guards_trace_sha256` to the independent
+zero-SDK guard sidecar. `PhysicalModelPhase` owns the exact case-sensitive key
+sets and4096-byte proof cap; no unknown/missing/false check can publish success.
+Use shared-storage metrics, not fabricated
 external/userdata independence; retain original positive and negative checks,
 known closure before credit, and all failed attempts. Existing emulator proofs
 and their7–8GiB/removable guards are not widened to accommodate this phone.
+
+The six guarded classes are defined across four physical-only instrumentation
+files: `PhysicalModelHarness.kt`, `PhysicalModelStorageTest.kt`,
+`PhysicalModelCancellationTest.kt` and `PhysicalModelPlayTest.kt` under
+`src/physicalModelAndroidTest/java/org/locallore/app`. No
+`PhysicalModelSetupFixtureActivity` is needed or declared: IMPORT drives the
+existing setup controller's fixed selected stream after independent verification.
+This exercises production setup/lifecycle/receipt copying without claiming
+DocumentsUI interaction. GIFT/DIALOGUE/REOPEN use the ordinary setup Start
+transition and actual play Activity/ShellViewModel; CANCEL uses the same
+production Candidate transport and DurableGateway with passive accounting.
+There is no deterministic model-output replacement in these methods.
+
+The source directory is whitelisted to `source.owner`, `probe.txt` before copy,
+plus `model.litertlm` after copy. Owner ASCII bytes are
+`locallore-physical-source-v1\n` (29B, SHA256
+`6e58105a6f97416ed0727594cfaadac7326bece25e03c4305ab70fc964790b5e`);
+probe ASCII bytes are `LocalLore physical candidate source probe v1. No model or story.\n`
+(65B, SHA256 `72e34de83e7311b37f7a17361f3d71555209ffbfe4eb9e861cc11c7903e13422`).
+Here `\n` denotes one LF byte. Model-source counters exclude those tiny marker
+reads; only IMPORT constructs the independently counted model-source streams.
+Each proof is `${phase}-v1.json` with an exclusive empty
+`${phase}-ready-v1.txt`; canonical-state phases add `${phase}-worker-v2.json`.
+CANCEL additionally writes `cancel-sample-worker-v2.json`; DIALOGUE additionally
+writes `guards-worker-v2.json`. Exact prior files, sidecar hashes, process changes,
+story scope and retained receipt hashes are checked across the whole chain.
+No failed phase is retried by deleting or replacing its partial proof files.
 
 ## Official source review and remaining limits
 

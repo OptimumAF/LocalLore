@@ -38,10 +38,17 @@ internal object PhysicalModelPolicy {
     }
 
     fun admit(facts: PhysicalModelFacts, missingBytes: Long = 0): PhysicalModelFacts {
+        ongoing(facts, missingBytes)
+        if (facts.availableMemory < 4 * GIB) fail(PhysicalModelFailure.MEMORY)
+        return facts
+    }
+
+    /** Reobserve the SAME admitted owner after allocation, without charging startup RAM twice. */
+    fun ongoing(facts: PhysicalModelFacts, missingBytes: Long = 0): PhysicalModelFacts {
         val required = requiredBytes(missingBytes)
         if (facts.model != "SM-S918U1" || facts.api != 36 || facts.soc != "SM8550" ||
             facts.primaryAbi != "arm64-v8a" || facts.pageBytes != 4096L) fail(PhysicalModelFailure.IDENTITY)
-        if (facts.totalMemory !in 10 * GIB..12 * GIB || facts.availableMemory !in 4 * GIB..facts.totalMemory ||
+        if (facts.totalMemory !in 10 * GIB..12 * GIB || facts.availableMemory !in 0..facts.totalMemory ||
             facts.lowMemory) fail(PhysicalModelFailure.MEMORY)
         if (facts.processUid <= 0 || facts.anchorUid != facts.processUid || facts.anchorDevice <= 0 ||
             facts.anchorInode <= 0) fail(PhysicalModelFailure.ANCHOR)
@@ -64,7 +71,7 @@ internal class PhysicalModelLease internal constructor(private val initial: Phys
     @Synchronized fun recheck(current: PhysicalModelFacts, missingBytes: Long = 0): PhysicalModelFacts {
         if (refused) PhysicalModelPolicy.fail(PhysicalModelFailure.CHANGED)
         try {
-            PhysicalModelPolicy.admit(current, missingBytes)
+            PhysicalModelPolicy.ongoing(current, missingBytes)
             if (current.processUid != initial.processUid || current.anchorUid != initial.anchorUid ||
                 current.anchorDevice != initial.anchorDevice || current.anchorInode != initial.anchorInode ||
                 current.totalMemory != initial.totalMemory) PhysicalModelPolicy.fail(PhysicalModelFailure.CHANGED)

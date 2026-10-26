@@ -9,6 +9,7 @@ import { SelectedEvaluationView } from "./selected-evaluation-view";
 import type { SelectedEvaluationController } from "./selected-evaluation-controller";
 import type { NativeCloseController } from "./native-close-controller";
 import type { ComparisonReaderController } from "./comparison-reader-controller";
+import { sameReaderObserver } from "./comparison-reader-model";
 import { ArchivePanel } from "./ArchivePanel";
 import type { ArchiveController } from "./archive-controller";
 import { TimelinePanel } from "./TimelinePanel";
@@ -312,9 +313,11 @@ export function App({
                 ? "approved_native"
                 : "scripted_baseline";
         const before = origin.get();
+        const readerBefore = comparison.get();
         const epoch = switchRef.current.epoch;
         if (
             modeRef.current !== mode ||
+            !readerBefore.allowed ||
             !before.allowed ||
             comparisonBlocked(origin) ||
             before.status?.run_id !== runId ||
@@ -324,10 +327,14 @@ export function App({
             return;
         await comparison.close();
         const current = origin.get();
+        const readerCurrent = comparison.get();
         if (
             switchRef.current.active ||
             switchRef.current.epoch !== epoch ||
             modeRef.current !== mode ||
+            readerCurrent.context !== readerBefore.context ||
+            !readerCurrent.allowed ||
+            !sameReaderObserver(readerCurrent.observer, readerBefore.observer) ||
             current.context !== before.context ||
             !current.allowed ||
             comparisonBlocked(origin) ||

@@ -158,6 +158,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             Workspace parserControl = decodeWorkspace("Rules · fantasy_v1 · synthetic_story / main · head 0");
             checked(parserControl.story.equals("synthetic_story") && parserControl.branch.equals("main")
                     && parserControl.head == 0, Reason.CANONICAL);
+            checked(stoppedTaskControls(), Reason.TASK_NOT_STOPPED);
             stage = Stage.FIXTURE;
             File stored = fixtureFile();
             if (reuse) fixture = readFixture(stored);
@@ -622,9 +623,12 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     }
 
     private boolean taskStopped(int task) throws Exception {
-        String value = shell("dumpsys activity activities", SHELL_CAP);
+        return stoppedTaskDump(shell("dumpsys activity activities", SHELL_CAP), task);
+    }
+
+    private static boolean stoppedTaskDump(String value, int task) {
         String[] lines = value.split("\n", -1);
-        Pattern header = Pattern.compile(".*\\* Hist #[0-9]+: ActivityRecord\\{[^}]*\\bu0 "
+        Pattern header = Pattern.compile(".*\\* Hist {1,2}#[0-9]+: ActivityRecord\\{[^}]*\\bu0 "
                 + Pattern.quote(PRODUCT) + "/(?:" + Pattern.quote(ACTIVITY) + "|\\.MainActivity) t" + task + "(?:[ }].*)?");
         for (int i = 0; i < lines.length; i++) {
             if (!header.matcher(lines[i]).matches()) continue;
@@ -635,6 +639,21 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             }
         }
         return false;
+    }
+
+    private static boolean stoppedTaskControls() {
+        String one = "    * Hist #0: ActivityRecord{control u0 " + PRODUCT + "/" + ACTIVITY + " t7}\n"
+                + "      state=STOPPED delayedResume=false finishing=false\n";
+        return stoppedTaskDump(one, 7)
+                && stoppedTaskDump(one.replace("Hist #", "Hist  #"), 7)
+                && !stoppedTaskDump(one, 8)
+                && !stoppedTaskDump(one.replace(PRODUCT, "org.locallore.synthetic.other"), 7)
+                && !stoppedTaskDump(one.replace(" u0 ", " u1 "), 7)
+                && !stoppedTaskDump(one.replace("      state=", "    state="), 7)
+                && !stoppedTaskDump(one.replace("STOPPED", "PAUSED"), 7)
+                && !stoppedTaskDump(one.replace("Hist #", "Hist#"), 7)
+                && !stoppedTaskDump(one.replace("Hist #", "Hist   #"), 7)
+                && !stoppedTaskDump(one.replace("Hist #", "Hist\t#"), 7);
     }
 
     private static int indentation(String line) {

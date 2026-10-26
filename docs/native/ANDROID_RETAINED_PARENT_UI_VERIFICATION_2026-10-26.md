@@ -51,8 +51,8 @@ the new test APK is2,769,443B, SHA-256
 `c7bc565f775f02136e818039dcf27b98fff5a0fd849f974915ef00a7cce3372f`.
 Old Android outcomes retain their old test-APK/source attribution.
 
-The native10 gate is now running against this new build. The two real UI cases
-remain pending in their separate fresh guest; host/build passes do not qualify
+The native10 gate has passed against this new build. The two real UI cases
+are running in their separate fresh guest; host/build passes do not qualify
 the dialog or native outcome. The completed build/host/server recovery copy
 contains85 files/28,106,972B, ZIP17,824,554B SHA-256
 `efc6909acad292e9a86ac9f2937ca946cb357cf77ed2dc8e380ad99f5c6c3885`.
@@ -61,6 +61,24 @@ without mismatch/extra/duplicate/unsafe paths. Both24,883B indexes match SHA-256
 `8d9d26cbb290cc35f6ce43a5b38d8f08291e85c50eb4b69b7f9ede97434e0489`.
 Independent original host/build/XML/audit checks also pass. No live
 native/UI cohort, guest images/databases/models/caches or unrelated data was selected.
+
+## Current native gate
+
+All10 fixed native component methods/three classes passed on this build,
+84 clean captured clients, owner355,805ms/worker0/known cleanup+capture/stderr0.
+Independent original roster/frame/client-copy/build/source/owner checks agree;
+all757 rows still matchbb821d1a... . This does not establish the new UI result.
+The component guest then closed through its bound stop after terminal clients:
+424,998ms/worker1, cleanup/capture/closure true, guest flush false. Emulator
+stderr1,075B is retained separately from the worker's stderr0.
+
+Independent recovery verification matches204 originals/ZIP entries,621,638B,
+without mismatch/extra/duplicate/unsafe entries. ZIP218,399B SHA-256
+`cf4df1578d231b78b1a5274c7eaec87fff55a87e4f4203b8e67b3253b5cca488`;
+both57,329B indexes match SHA-256
+`ac97b4efb2cd2a19a4caa7c4477eefcae41970745407224c47b188cd5ffc8593`.
+Only the terminal native case, closed-guest metadata/configs and exact plans/
+helpers/preflight were selected; no live UI cohort or images/databases/models/caches.
 
 ## Phone gate kept separate
 

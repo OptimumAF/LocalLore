@@ -191,7 +191,7 @@ export function ComparisonRunView({
                         <dt>Worker running</dt>
                         <dd>
                             {status.running
-                                ? native ? "Yes · Rust operation active" : "Yes · native owner still active"
+                                ? native ? "Yes · operation active" : "Yes · native owner still active"
                                 : "No running work reported"}
                         </dd>
                         <dt>Last admitted operation</dt>
@@ -354,7 +354,7 @@ export function ComparisonRunCleanupView({ controller: c }: { controller: Compar
             <button disabled={s.cleanupPending !== null} onClick={() => void c.cleanupStatus()}>Refresh cleanup state</button>
             <button disabled={s.cleanupPending !== null} onClick={() => void c.retryCleanup()}>Retry cleanup</button>
         </div>
-        <p>These controls read or retry Rust-owned evaluation cleanup. They do not
+        <p>These controls check or retry unfinished evaluation cleanup. They do not
             grant inspection, resume a comparison, or prove that a closed view
             stopped a worker. A cleanup result is a last reported observation.</p>
     </section>;

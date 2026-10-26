@@ -394,7 +394,7 @@ export class ComparisonReaderController {
         });
     }
 
-    async pick(): Promise<void> {
+    async pick(runId?: string): Promise<void> {
         if (
             this.disposed ||
             !this.state.allowed ||
@@ -402,6 +402,16 @@ export class ComparisonReaderController {
             this.state.clientId !== null
         )
             return;
+        if (
+            runId !== undefined &&
+            !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
+                runId,
+            )
+        ) {
+            this.patch({ error: "ComparisonReaderWire" });
+            this.emitError("ComparisonReaderWire");
+            return;
+        }
         const client = crypto.randomUUID(),
             ticket = this.ticket(client, true);
         this.closing = false;
@@ -419,7 +429,12 @@ export class ComparisonReaderController {
             await this.flushRetired();
             if (!this.live(ticket)) return;
             this.nativeClients.add(client);
-            const raw = await this.call("pick", { clientId: client });
+            const raw = await this.call(
+                runId === undefined ? "pick" : "managed",
+                runId === undefined
+                    ? { clientId: client }
+                    : { clientId: client, runId },
+            );
             const status = checkedReaderStatus(raw, client);
             if (!this.live(ticket)) {
                 if (!this.ownsClient(ticket))

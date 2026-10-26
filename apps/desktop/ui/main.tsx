@@ -1,5 +1,6 @@
 import { EvaluationController } from "./evaluation-controller";
 import { ComparisonReaderController } from "./comparison-reader-controller";
+import { ComparisonRunController } from "./comparison-run-controller";
 import { SelectedEvaluationController } from "./selected-evaluation-controller";
 import { NativeCloseController } from "./native-close-controller";
 import { ArchiveController } from "./archive-controller";
@@ -330,6 +331,9 @@ const evaluation = new EvaluationController(invoke, (code) =>
 const comparison = new ComparisonReaderController(invoke, (code) =>
     errors.add("native", code),
 );
+const comparisonRun = new ComparisonRunController(invoke, (code) =>
+    errors.add("native", code),
+);
 const selectedEvaluation = new SelectedEvaluationController(invoke, (code) =>
     errors.add("native", code),
 );
@@ -494,6 +498,18 @@ const syncEvaluationContext = () => {
     );
     // The observer is a read lens. It never changes an experiment's execution
     // identity, admission, cancellation or generation permissions.
+    comparisonRun.setContext(
+        JSON.stringify([
+            authorNativeContext?.root ?? null,
+            authorNativeContext?.granted ?? false,
+            s.selectedId,
+            play?.scope ?? null,
+            play?.revision ?? null,
+            s.view,
+            s.disposed,
+        ]),
+        !!authorNativeContext?.granted && s.view === "lab" && !s.disposed,
+    );
     selectedEvaluation.setContext(
         JSON.stringify([
             authorNativeContext?.root ?? null,
@@ -581,6 +597,7 @@ root.render(
         evaluation={evaluation}
         comparison={comparison}
         selectedEvaluation={selectedEvaluation}
+        comparisonRun={comparisonRun}
         nativeClose={nativeClose}
         archive={archive}
         capture={capture}
@@ -607,6 +624,7 @@ const dispose = async () => {
     evaluation.dispose();
     comparison.dispose();
     selectedEvaluation.dispose();
+    comparisonRun.dispose();
     releaseNativeClose?.();
     archive.dispose();
     timeline.dispose();

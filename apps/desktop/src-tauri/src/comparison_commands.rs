@@ -11,6 +11,7 @@ use std::sync::Arc;
 type Result<T> = std::result::Result<T, String>;
 enum Action {
     Pick(String),
+    Managed(String, String),
     Status(String),
     Source(String),
     Summary(String),
@@ -111,6 +112,13 @@ fn parse(action: &str, query: &Value) -> Result<Action> {
         return invalid();
     }
     match action {
+        "managed" => {
+            keys(query, &["clientId", "runId"])?;
+            Ok(Action::Managed(
+                guid(&query["clientId"])?,
+                guid(&query["runId"])?,
+            ))
+        }
         "pick" | "status" => {
             keys(query, &["clientId"])?;
             let client = guid(&query["clientId"])?;
@@ -218,6 +226,17 @@ pub async fn evaluation_comparison(
     #[cfg(feature = "dev-harness")]
     let is_pick = matches!(&action, Action::Pick(_));
     let result = tauri::async_runtime::spawn_blocking(move || match action {
+        Action::Managed(client, run) => {
+            manager.full_comparison_pick(&lease, epoch, granted, &client, &run, move || {
+                #[cfg(feature = "dev-harness")]
+                if crate::harness::active()
+                    && std::env::var("LOCALLORE_D07_FULL_COMPARISON_HARNESS").as_deref() == Ok("1")
+                {
+                    return Ok(true);
+                }
+                crate::exports::confirm_comparison_read(owner)
+            })
+        }
         Action::Pick(client) => {
             manager.comparison_pick(&lease, epoch, granted, &client, move || {
                 #[cfg(feature = "dev-harness")]
@@ -252,6 +271,19 @@ mod tests {
     use super::*;
     use serde_json::json;
     const ID: &str = "00000000-0000-0000-0000-000000000001";
+    #[test]
+    fn managed_read_accepts_only_native_run_identity_not_paths_or_grants() {
+        assert!(parse("managed", &json!({"clientId":ID,"runId":ID})).is_ok());
+        for value in [
+            json!({"clientId":ID,"runId":"../outside"}),
+            json!({"clientId":ID,"runId":ID,"grant":true}),
+            json!({"clientId":ID,"runId":ID,"path":"synthetic"}),
+            json!({"clientId":ID}),
+            json!({"clientId":ID,"runId":null}),
+        ] {
+            assert!(parse("managed", &value).is_err());
+        }
+    }
     #[test]
     fn closed_requests_refuse_execution_paths_grants_and_coercion() {
         for action in ["start", "resume", "rerun", "run", "shell", "open"] {

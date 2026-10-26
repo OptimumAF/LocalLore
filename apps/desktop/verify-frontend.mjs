@@ -28,6 +28,7 @@ for (const args of [
     ["check-selected-evaluation-controller.mjs"],
     ["check-literal-selected-evaluation.mjs"],
     ["check-selected-source-freshness-review.mjs"],
+    ["check-comparison-run.mjs"],
     ["check-native-close-controller-review.mjs"],
     ["check-comparison-reader.mjs"],
     ["check-literal-comparison-reader.mjs"],

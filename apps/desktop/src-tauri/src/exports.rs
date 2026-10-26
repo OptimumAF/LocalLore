@@ -826,6 +826,14 @@ pub fn confirm_selected(owner: isize, metadata: &Value) -> Result<bool, String> 
         }
         _ => return Err("InvalidEvaluationInput".into()),
     };
+    confirm_fixed(owner, purpose, "LocalLore selected experiment")
+}
+#[cfg(windows)]
+pub fn confirm_comparison_read(owner: isize) -> Result<bool, String> {
+    confirm_fixed(owner,"Inspect this comparison's private evidence?\n\nOmniscient inspection can reveal character secrets and recorded inputs/outputs. Reading does not authorize generation or change character knowledge.","LocalLore comparison inspection")
+}
+#[cfg(windows)]
+fn confirm_fixed(owner: isize, purpose: &str, caption: &str) -> Result<bool, String> {
     if owner == 0 {
         return Err("Closed".into());
     }
@@ -836,10 +844,7 @@ pub fn confirm_selected(owner: isize, metadata: &Value) -> Result<bool, String> 
         fn MessageBoxW(owner: isize, text: *const u16, caption: *const u16, flags: u32) -> i32;
     }
     let message: Vec<u16> = purpose.encode_utf16().chain(Some(0)).collect();
-    let title: Vec<u16> = "LocalLore selected experiment"
-        .encode_utf16()
-        .chain(Some(0))
-        .collect();
+    let title: Vec<u16> = caption.encode_utf16().chain(Some(0)).collect();
     match unsafe { MessageBoxW(owner, message.as_ptr(), title.as_ptr(), 0x4 | 0x30 | 0x100) } {
         6 => Ok(true),
         7 => Ok(false),
@@ -848,6 +853,10 @@ pub fn confirm_selected(owner: isize, metadata: &Value) -> Result<bool, String> 
 }
 #[cfg(not(windows))]
 pub fn confirm_selected(_: isize, _: &Value) -> Result<bool, String> {
+    Err("PickerUnavailable".into())
+}
+#[cfg(not(windows))]
+pub fn confirm_comparison_read(_: isize) -> Result<bool, String> {
     Err("PickerUnavailable".into())
 }
 

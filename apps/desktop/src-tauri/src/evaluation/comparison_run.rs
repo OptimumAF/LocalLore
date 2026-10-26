@@ -91,7 +91,7 @@ impl Record {
             "client_id":self.index.client_id,"run_id":self.index.run_id,"run_token":token,
             "operation_id":if visible{self.operation}else{None},"comparison_kind":kind_name(self.index.kind),"batch":self.batch,
             "phase":if visible{self.phase}else{"retained"},"running":running,"error":if visible{self.error.as_ref()}else{None},
-            "completed_scenes":report.map_or(0,|r|r.0),"completed":report.is_some_and(|r|r.1),"report_ready":report.is_some(),
+            "completed_scenes":report.map_or(0,|r|r.0),"completed":report.is_some_and(|r|r.1),"report_ready":report.is_some() && !running,
             "source_matches":report.map(|r|r.2)}),
             32 * 1024,
         )
@@ -254,6 +254,44 @@ impl EvaluationManager {
                 "runs":state.runs.values().map(|r|r.index.metadata()).collect::<Vec<_>>(),"max_new_scenes":4}),64*1024)
         })
     }
+    pub fn full_comparison_pick(
+        self: &Arc<Self>,
+        lease: &Arc<WindowLease>,
+        epoch: u64,
+        granted: bool,
+        client: &str,
+        run_id: &str,
+        consent: impl FnOnce() -> Result<bool> + Send + 'static,
+    ) -> Result<Value> {
+        authorize(lease, epoch, granted)?;
+        if !valid_id(client) || !valid_id(run_id) {
+            return Err("InvalidEvaluationInput".into());
+        }
+        self.full_comparison_catalog(lease, epoch, granted)?;
+        let expected = self
+            .full_lock()?
+            .runs
+            .get(run_id)
+            .ok_or("UnknownEvaluationRun")?
+            .index
+            .clone();
+        let directory = self.full_comparison_root().join(run_id);
+        // Renderer UUIDs never become paths, read grants or a substitute for
+        // independent native spoiler confirmation.
+        self.comparison_pick(lease, epoch, granted, client, move || {
+            let _pins = pin(&directory)?;
+            if read_index(&directory, true)? != expected {
+                return Err("EvaluationIntegrity".into());
+            }
+            if !consent()? {
+                return Ok(None);
+            }
+            if read_index(&directory, true)? != expected {
+                return Err("EvaluationIntegrity".into());
+            }
+            Ok(Some(directory.join("work")))
+        })
+    }
     fn full_open_metadata(&self, lease: &WindowLease, epoch: u64, id: &str) -> Result<Value> {
         lease.dispatch(epoch, || {
             let mut parent = self.state()?;
@@ -342,7 +380,32 @@ impl EvaluationManager {
         }
         // A failed catalog is not an unknown request and must not be bypassed.
         self.full_comparison_catalog(lease, epoch, granted)?;
-        self.full_launch(lease, epoch, None, Some(input), Work::Start)
+        let identity = (input.client_id.clone(), input.kind, input.max_new_scenes);
+        let admitted = self.full_launch(lease, epoch, None, Some(input), Work::Start);
+        if admitted
+            .as_ref()
+            .err()
+            .is_some_and(|error| error == "EvaluationBusy")
+        {
+            // The original client may have been admitted while this caller was
+            // loading the catalog or joining an older worker. Return that exact
+            // durable identity rather than treating the retry as a new request.
+            if let Ok(existing) = self.full_comparison_lookup(lease, epoch, granted, &identity.0) {
+                let same = self
+                    .full_lock()?
+                    .runs
+                    .get(existing["run_id"].as_str().ok_or("EvaluationInternal")?)
+                    .is_some_and(|r| {
+                        r.index.kind == identity.1 && r.index.initial_batch == identity.2
+                    });
+                return if same {
+                    Ok(existing)
+                } else {
+                    Err("InvalidEvaluationInput".into())
+                };
+            }
+        }
+        admitted
     }
     pub fn full_comparison_open(
         self: &Arc<Self>,
@@ -543,11 +606,13 @@ impl EvaluationManager {
                 let token = Self::mint(&mut parent, epoch, id.clone())?;
                 let cancel = Cancellation::default();
                 let r = full.runs.get_mut(&id).ok_or("UnknownEvaluationRun")?;
+                if r.epoch != epoch || !matches!(work, Work::Resume) {
+                    r.report = None;
+                }
                 r.epoch = epoch;
                 r.operation = Some(operation);
                 r.batch = chosen_batch;
                 r.error = None;
-                r.report = None;
                 r.phase = if matches!(work, Work::Open) {
                     "opening"
                 } else {
@@ -731,6 +796,10 @@ impl EvaluationManager {
                 return Ok(report);
             }
         }
+        // A boundary quota must refuse before invoking the shared runner or
+        // preparing a reference, not after a new canonical scene is committed.
+        // Completed resume above remains a read-only verification.
+        self.budget(Some(&directory))?;
         let reference = if index.kind == core::ComparisonKind::PairedSnapshots {
             let path = directory.join("reference-source");
             if !resume {

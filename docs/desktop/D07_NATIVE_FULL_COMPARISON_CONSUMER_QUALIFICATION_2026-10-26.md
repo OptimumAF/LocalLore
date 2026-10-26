@@ -50,6 +50,29 @@ a presentation-only admission callback and a separate reader context/allowed/
 observer fence. Neither changes Rust authority or puts observer identity into
 the generation execution key.
 
+The frozen independent lens checker (`de0123dc`, adopted `5557301d`) actually
+reproduced 2 passes/3 failures at clean unchanged `5557301dbf120ec924ab7845fa1e69d071fcc491`.
+Mira, Sable and an independent reader lens change each allowed one managed
+acquisition from the stale Inspect callback. Commit `2a06a569` captures/rechecks
+reader context, eligibility and observer; the unchanged five cases then passed
+at `2a06a569923996712c3f6235171b6563aa1e01bb` (0.38 seconds).
+
+The independent admission packet (`9c66fb1a`, adopted `88780867`) actually
+reproduced 4 passes/5 failures at clean unchanged `88780867106e1346f9c4e49f9808c21ee6aae35e`.
+Three inactive cleanup states left generation controls enabled; retained Start
+and Resume each dispatched despite the new block. The recovery and clear-state
+controls passed. Commit `f3e78ec0` supplies a fresh both-controller presentation
+guard at render and in retained handlers. The unchanged nine cases passed at
+`f3e78ec0fcdf002057c08d1c826fbf4163e338cc` (0.51 seconds). Neither fix withdraws
+Story Lab eligibility or changes Rust permissions. Both checkers are now wired
+into full frontend verification; later formatting is whitespace only.
+
+Full frontend `node verify-frontend.mjs` passed at clean unchanged
+`504e7da3f65ce9961a7d52b7898b6691d5cfaef6`, 23:21:06.067–23:21:24.601 UTC,
+including legacy56/native88/reader22/Main20, strict TypeScript and normal bundle
+hook exclusion. This precedes the two independent fence fixes and new native UI
+harness wiring, so it is not the final integrated cohort.
+
 ## Environment and remaining checks
 
 Windows NT 10.0.26300 x64, PowerShell 7.6.5, installed Node 24.22.1,
@@ -64,3 +87,12 @@ the initial results above. Their results must be added after execution. Existing
 OS dialogs are not automated or counted as tested. No desktop input, activation
 or desktop capture is used; any future render evidence must come from the owned
 hidden/unfocused WebView and every generated image must be inspected.
+
+At clean unchanged `4e4c861995095df571e4b9d8743108647350d204`, initial offline
+native Clippy stopped before compilation: cached `aho-corasick 1.1.5` archive
+unavailable. Android Rust host test similarly stopped before compilation on
+`block-buffer 0.10.4`. These exit101 attempts are unavailable checks, not test
+failures or passes. Installed extracted registry source exists, but this does
+not establish usable Cargo archive availability. No download was attempted.
+The native fixture/journey work remains source-only pending integrated checks;
+the missing journey import is an explicit intermediate integration dependency.

@@ -2,6 +2,8 @@
 
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
+from __future__ import annotations
+
 import copy
 import hashlib
 import json

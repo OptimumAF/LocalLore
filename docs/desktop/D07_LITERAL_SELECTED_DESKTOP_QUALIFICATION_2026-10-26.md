@@ -1,6 +1,6 @@
 # Selected2 desktop consumer: qualification draft
 
-Scope: D07.06 / D04.02 supporting work under #29. **Partial evidence draft at
+Scope: D07.03/.04/.06 supporting work under #29. **Partial evidence draft at
 `fb0ef042`; corrected app rerun and final regression gates remain pending.**
 All execution results below are coordinator-provided Root evidence. The document
 author inspected tracked source only and ran no test, build, application or model,
@@ -64,9 +64,11 @@ results can be explicitly reopened. Completed shared resume is read-only;
 missing committed workflow evidence stays unknown rather than becoming invented
 capture or role-call proof. Full failed/cancelled attempts are not silently retried.
 
-The controller's private attempted-source-token fence requires a fresh reader
-token after prepare/resume dispatch, including unknown acknowledgement. It is a
-conservative presentation fence, not evidence that native consumption happened.
+The controller's private attempted-source-token mark is set after local admission
+guards but before the pending-state notification and native dispatch. It requires
+a fresh reader token even if reentrant context retirement prevents dispatch, or
+the acknowledgement is unknown. This conservative presentation fence is not
+evidence that native consumption happened.
 Rust still checks actual capability, source, index and plan bindings. No automatic
 picker, inference retry or regeneration is implied.
 
@@ -81,7 +83,7 @@ results in this section were executed by Root, not the document author.
 | Typed Core adapter correction | `3966f8ff`: the same5 service tests passed in142.47s |
 | Frozen frontend baseline | `7295b595`: 85 passed/16 failed,101 synthetic checks |
 | Intermediate frontend | `cdd82c78`: 99 passed/2 failed |
-| Controller/oracle-order correction | `eab809b2`:101 passed; fixture input mutation moved before decoding the intentionally frozen DTO |
+| Controller/oracle-order correction | `eab809b2`:101 passed; diagnostics assertions/render moved before the subsequent receipt read, because `beginRead` intentionally clears diagnostics |
 | Full frontend | `0d6c4921`:PASS,12.99s command wall |
 | Full frontend after capture/CSS changes | `fda87fc7`:PASS,13.28s command wall |
 | Frozen source-token freshness review | `7c24399c`, adopted `fbab4821`:4 passed/6 failed across10 checks |
@@ -92,8 +94,9 @@ results in this section were executed by Root, not the document author.
 Service tests use the actual native manager/service and shared Core/Store APIs
 with synthetic inference fixtures; they are not app IPC, OS-dialog or model runs.
 The101 frontend checks use synthetic DTOs/mock gateways, the actual controller
-and React SSR. The corrected frozen-input fixture was a checker-order issue,
-not a product permission failure. Existing assertions and failure chronology
+and React SSR. The corrected oracle asserted/rendered diagnostics before reading
+a receipt: `beginRead` intentionally clears diagnostics. That ordering correction
+was not a product permission failure. Existing assertions and failure chronology
 must remain attributable to their original sources.
 
 ## First actual app cohort, retained with defects
@@ -115,8 +118,9 @@ No desktop input, screen capture, browser automation/debug server or model is us
 Both stages preserve all626 source fixture files byte-for-byte. Each deliberately
 loses one acknowledgement, classified as Transport; Root reports zero unexpected
 transport errors. That is not a claim of zero deliberate errors or zero stderr.
-Root visually inspected all49 images. Observed browser UA is Chrome/Edg155;
-full patch was not supplied for this draft. Captures cover1280x900 and620x900 at
+Root visually inspected all49 images and confirmed the626-file source hashes.
+The actual reduced UA is Chrome/Edg155.0.0.0; the exact installed runtime patch
+was not separately measured. Captures cover1280x900 and620x900 at
 DPR1; these are bounded app areas, not a universal layout/accessibility review.
 
 The first cohort is retained with three findings: the Checkpoint header breaks,
@@ -141,8 +145,9 @@ $env:CARGO_BUILD_JOBS='1'; $env:CARGO_INCREMENTAL='0'
 $env:CARGO_PROFILE_DEV_DEBUG='0'; $env:CARGO_PROFILE_TEST_DEBUG='0'
 $env:LIBSQLITE3_FLAGS=''
 $env:TEMP='<task-temp>'; $env:TMP=$env:TEMP
-cargo test --locked --offline --jobs 1 --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --target-dir <native-target> --bin locallore-desktop-spike evaluation::selected::literal_selected_review -- --nocapture --test-threads=1
-cargo clippy --locked --offline --jobs 1 --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --all-targets --target-dir <native-target> -- -D warnings
+$taskNativeTarget='<absolute-external-target>'
+cargo test --locked --offline --jobs 1 --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --target-dir $taskNativeTarget --bin locallore-desktop-spike evaluation::selected::tests::literal_selected_review:: -- --nocapture --test-threads=1
+cargo clippy --locked --offline --jobs 1 --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --all-targets --target-dir $taskNativeTarget -- -D warnings
 cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all -- --check
 ```
 
@@ -154,7 +159,7 @@ node check-literal-selected-evaluation.mjs
 node check-selected-source-freshness-review.mjs
 node verify-frontend.mjs
 $env:LOCALLORE_D07_SELECTED_ARTIFACT_ROOT='<artifact-root>'
-$env:LOCALLORE_D07_SELECTED_TARGET_DIR='<source-owned-native-target>'
+$env:LOCALLORE_D07_SELECTED_TARGET_DIR=$taskNativeTarget
 node selected-evaluation-harness.mjs --literal
 ```
 
@@ -168,7 +173,7 @@ The harness target contains a development build; restore a normal build afterwar
 ```powershell
 node build.mjs
 # From repository root, replace the harness build in the same explicit target:
-cargo build --locked --offline --jobs 1 --manifest-path apps/desktop/src-tauri/Cargo.toml --target-dir <source-owned-native-target>
+cargo build --locked --offline --jobs 1 --manifest-path apps/desktop/src-tauri/Cargo.toml --target-dir $taskNativeTarget
 ```
 
 Environment supplied by Root: Rust/Cargo1.93.1, PowerShell7.6.5, Node24.22.1,

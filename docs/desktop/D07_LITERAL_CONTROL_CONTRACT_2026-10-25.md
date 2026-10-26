@@ -10,6 +10,9 @@ See [source API and qualification](D07_LITERAL_TRANSCRIPT_SOURCE_QUALIFICATION_2
 See [literal renderer and packing qualification](D07_LITERAL_DIRECTOR_RENDER_QUALIFICATION_2026-10-25.md).
 See [guarded native execution and replay qualification](D07_LITERAL_GUARDED_PLAY_QUALIFICATION_2026-10-25.md).
 See [native Host and durability qualification](D07_LITERAL_HOST_QUALIFICATION_2026-10-25.md).
+See [comparison metadata and literal capture qualification](D07_LITERAL_CAPTURE_CONTRACT_QUALIFICATION_2026-10-25.md).
+The latter adds a data-only contract and private input validator; a protocol3
+producer, persisted report and UI exposure remain unimplemented.
 The candidate runtime signature remains a proposal. Root's narrower first
 allocation observes original validated diagnostic Values only in cfg(test).
 GitHub #29/#11 retain task status; no criterion is checked by this document.

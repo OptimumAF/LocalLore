@@ -1,0 +1,287 @@
+//! Literal/relevant comparison contract only. No protocol3 producer, persisted
+//! report, model runner or execution permission is supplied by this module.
+use crate::{capture_envelope, encode, Capture, Result};
+use locallore::{
+    context_compiler::{player_literal_transcript_v1_cancelled, ContextPolicy},
+    contracts::Request,
+    engine::Engine,
+    play::{self, DirectorPassV25, PlayProfile, PlayRecord},
+};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::Value;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ComparisonArmV3 {
+    LiteralPlayerV1,
+    RelevantMemoryV1,
+}
+
+// An Option field with this deserializer is REQUIRED on the wire, including
+// when its value is null. Ordinary Option derive would silently admit omission.
+fn required_nullable<'de, D, T>(deserializer: D) -> std::result::Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::deserialize(deserializer)
+}
+
+/// Closed metadata, never convertible to Host configuration or canonical input.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArmDescriptorV3 {
+    pub arm: ComparisonArmV3,
+    pub prompt_version: String,
+    pub narration_policy: String,
+    pub director_schema_id: String,
+    #[serde(deserialize_with = "required_nullable")]
+    pub context_policy: Option<ContextPolicy>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub compiler_version: Option<u16>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub context_version: Option<u16>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub literal_source_version: Option<u16>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub literal_render_version: Option<u16>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub literal_schema_version: Option<u16>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub literal_packing_version: Option<u16>,
+    pub forwarded_budget_version: u16,
+}
+
+pub fn arm_descriptors() -> [ArmDescriptorV3; 2] {
+    [
+        ArmDescriptorV3 {
+            arm: ComparisonArmV3::LiteralPlayerV1,
+            prompt_version: play::LITERAL_PLAY_PROMPT_VERSION_V1.into(),
+            narration_policy: play::NARRATION_POLICY.into(),
+            director_schema_id: "locallore-director-literal-v1".into(),
+            context_policy: None,
+            compiler_version: None,
+            context_version: None,
+            literal_source_version: Some(1),
+            literal_render_version: Some(1),
+            literal_schema_version: Some(1),
+            literal_packing_version: Some(1),
+            forwarded_budget_version: 1,
+        },
+        ArmDescriptorV3 {
+            arm: ComparisonArmV3::RelevantMemoryV1,
+            prompt_version: play::PROMPT_VERSION.into(),
+            narration_policy: play::NARRATION_POLICY.into(),
+            director_schema_id: "locallore-director-v2".into(),
+            context_policy: Some(ContextPolicy::StateRelevantMemoryV1),
+            compiler_version: Some(2),
+            context_version: Some(2),
+            literal_source_version: None,
+            literal_render_version: None,
+            literal_schema_version: None,
+            literal_packing_version: None,
+            forwarded_budget_version: 1,
+        },
+    ]
+}
+impl ArmDescriptorV3 {
+    pub fn validate(&self) -> Result<()> {
+        let expected = match self.arm {
+            ComparisonArmV3::LiteralPlayerV1 => &arm_descriptors()[0],
+            ComparisonArmV3::RelevantMemoryV1 => &arm_descriptors()[1],
+        };
+        if self != expected {
+            return Err("ArmDescriptorBinding".into());
+        }
+        Ok(())
+    }
+}
+
+/// Private owned evidence; no serde or conversion to execution authority.
+/// A future producer must additionally validate raw files, source/row hashes,
+/// canonical history and ledger. Narrator checks cover envelope/hash/order only.
+#[allow(dead_code)] // Contract is qualified before its separately scoped producer.
+pub(crate) struct CapturedLiteralContext {
+    pub director_prompts: Vec<String>,
+    pub narrator_prompts: Vec<String>,
+    pub director_estimates: Vec<Value>,
+    pub source_units: usize,
+    pub selected_start: usize,
+    pub selected_units: usize,
+}
+#[allow(dead_code)]
+impl CapturedLiteralContext {
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn from_host_capture(
+        before: &Engine,
+        request: &Request,
+        attempt: u32,
+        reply: &Value,
+        captures: &[Capture],
+        profile: &PlayProfile,
+        forwarded_budget_version: u16,
+    ) -> Result<Self> {
+        if forwarded_budget_version != 1 {
+            return Err("CaptureBudgetVersion".into());
+        }
+        let artifacts = capture_envelope::artifacts(before, request, attempt, reply)?;
+        if captures.is_empty() {
+            return Err("CaptureUnavailable".into());
+        }
+        if captures.len() > 3 {
+            return Err("CaptureBudget".into());
+        }
+        profile.validate().map_err(|_| "CaptureProfile")?;
+        if profile.context_tokens != 4096
+            || profile.director_tokens != 350
+            || profile.narrator_tokens != 350
+            || profile.deadline_ms != 120_000
+            || profile.repair_limit != 1
+        {
+            return Err("CaptureProfile".into());
+        }
+
+        let mut requests = Vec::new();
+        let mut candidate = None;
+        for (ordinal, a) in artifacts.iter().enumerate() {
+            capture_envelope::artifact(ordinal, a)?;
+            let value = &a["value"];
+            match a["kind"].as_str().ok_or("CaptureMalformed")? {
+                "selected_context" => return Err("CaptureVersion".into()),
+                "generation_request" => requests.push(value),
+                "accepted_candidate_not_durable_commit" => {
+                    if candidate.replace(value).is_some() {
+                        return Err("CaptureMalformed".into());
+                    }
+                }
+                "raw_director_output"
+                | "raw_narrator_output"
+                | "parsed_proposal"
+                | "validated_plan_not_durable_commit" => {}
+                _ => return Err("CaptureMalformed".into()),
+            }
+        }
+        if !requests.iter().any(|v| v["input"]["role"] == "director") {
+            return Err("CaptureUnavailable".into());
+        }
+        if requests.len() != captures.len() {
+            return Err("CaptureRecordingMismatch".into());
+        }
+        let roles: Vec<_> = requests
+            .iter()
+            .map(|v| v["input"]["role"].as_str().unwrap_or(""))
+            .collect();
+        if !matches!(
+            roles.as_slice(),
+            ["director"]
+                | ["director", "director"]
+                | ["director", "narrator"]
+                | ["director", "director", "narrator"]
+        ) {
+            return Err("CaptureRecordingMismatch".into());
+        }
+        let source = player_literal_transcript_v1_cancelled(
+            before,
+            before.scope(),
+            before.revision(),
+            &before.seed().player,
+            &|| false,
+        )
+        .map_err(|_| "CaptureSource")?;
+        let initial = play::render_player_literal_director_v1_cancelled(
+            before,
+            request,
+            &source,
+            profile,
+            DirectorPassV25::Initial,
+            &|| false,
+        )
+        .map_err(|_| "CaptureForwardingMismatch")?;
+        let mut result = Self {
+            director_prompts: Vec::new(),
+            narrator_prompts: Vec::new(),
+            director_estimates: Vec::new(),
+            source_units: initial.source_units(),
+            selected_start: initial.selected_start(),
+            selected_units: initial.selected_units(),
+        };
+        for (index, value) in requests.into_iter().enumerate() {
+            let checked = capture_envelope::generation(
+                before,
+                request,
+                value,
+                captures,
+                profile,
+                "locallore-director-literal-v1",
+            )?;
+            let recording = &captures[index];
+            // Check ordered multiplicity, not merely membership in the same set.
+            if !std::ptr::eq(checked.recording, recording)
+                || recording.compiler_version.is_some()
+                || recording.player_text_sha256.is_some()
+            {
+                return Err("CaptureRecordingMismatch".into());
+            }
+            if checked.role == "director" {
+                let pass = if result.director_prompts.is_empty() {
+                    DirectorPassV25::Initial
+                } else {
+                    DirectorPassV25::Repair
+                };
+                let rendered = play::render_player_literal_director_v1_cancelled(
+                    before,
+                    request,
+                    &source,
+                    profile,
+                    pass,
+                    &|| false,
+                )
+                .map_err(|_| "CaptureForwardingMismatch")?;
+                if checked.prompt != rendered.prompt()
+                    || value["input"]["schema"] != *rendered.schema()
+                {
+                    return Err("CaptureForwardingMismatch".into());
+                }
+                if pass == DirectorPassV25::Repair
+                    && !play::director_repair_matches_v25(
+                        &result.director_prompts[0],
+                        checked.prompt,
+                    )
+                {
+                    return Err("CaptureRepairMismatch".into());
+                }
+                let estimate = play::director_forwarded_budget_v25(
+                    profile,
+                    pass,
+                    checked.prompt,
+                    &value["input"]["schema"],
+                )
+                .map_err(|_| "CaptureForwardedBudget")?;
+                if encode(&estimate)? != encode(rendered.forwarded())? {
+                    return Err("CaptureForwardedBudget".into());
+                }
+                result
+                    .director_estimates
+                    .push(serde_json::to_value(estimate).map_err(|_| "Encoding")?);
+                result.director_prompts.push(checked.prompt.to_owned());
+            } else {
+                result.narrator_prompts.push(checked.prompt.to_owned());
+            }
+        }
+        if let Some(candidate) = candidate {
+            let record: PlayRecord =
+                serde_json::from_value(candidate["play"].clone()).map_err(|_| "CaptureVersion")?;
+            if record.version != play::PLAY_VERSION
+                || record.prompt_version != play::LITERAL_PLAY_PROMPT_VERSION_V1
+                || record.policy != play::NARRATION_POLICY
+                || record.profile != *profile
+                || record.context.is_some()
+                || record.context_policy.is_some()
+                || usize::from(record.repairs) != result.director_prompts.len() - 1
+            {
+                return Err("CaptureVersion".into());
+            }
+        }
+        Ok(result)
+    }
+}

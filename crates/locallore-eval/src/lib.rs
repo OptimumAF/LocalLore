@@ -21,10 +21,14 @@ use std::{
     task::Poll,
 };
 
+mod capture_envelope;
+#[cfg(test)]
+mod literal_capture_contract_tests;
 pub mod local_lane;
 mod local_recording;
 pub mod memory_comparison;
 pub mod memory_comparison_v2;
+pub mod memory_comparison_v3;
 
 pub const VERSION: u16 = 1;
 pub const MAX_REPORT: usize = 2 * 1024 * 1024;

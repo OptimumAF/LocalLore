@@ -101,6 +101,57 @@ await check("native unavailable remains honest and no inspected evidence autoope
 await check("cleanup View outside Lab exposes refresh/retry but no private run data", async () => { const f = fixture({ allowed: false }); f.hooks.set("cleanup_status", () => cleanup({ cleanup_required: true })); await f.c.cleanupStatus(); const markup = render(f, true); assert.match(markup, /cleanup/i); assert.doesNotMatch(button(markup, /(check|refresh).*cleanup|cleanup.*(check|refresh)/i)[1], /\bdisabled/); assert.doesNotMatch(button(markup, /retry.*cleanup|cleanup.*retry/i)[1], /\bdisabled/); assert.ok(!markup.includes(RUN) && !markup.includes(CLIENT)); assert.equal(generated(f).length, 0); });
 await check("last verified completed counts survive cleanup latch but inspection is disabled", async () => { const f = fixture(); await f.c.open(RUN); f.hooks.set("status", () => status({ phase: "completed", completed: true, completed_scenes: 4 })); await f.c.status(); f.hooks.set("status", () => status({ phase: "cleanup_required", cleanup_required: true, report_ready: true, error: "Cleanup", cause: "Cleanup" })); await f.c.status(); const markup = render(f); assert.match(markup, /last verified/i); assert.match(markup, /4\s*\/\s*4/); assert.match(button(markup, /Inspect/)[1], /\bdisabled/); });
 
+// Normative retirement observation clarification: these TWO additional cases
+// leave the original83 case bodies/assertions above unchanged. A revoked
+// presentation cannot promote its earlier preflight into current cleanup proof.
+await check("retired closed-running ACK observes actual generic work once before settling identity", async () => {
+    const f = fixture(), gate = deferred(); let reads = 0;
+    f.hooks.set("cleanup_status", () => ++reads === 1 ? cleanup() : gate.promise);
+    f.hooks.set("start", q => { const v = status({ client_id: q.clientId, phase: "running", running: true, report_ready: false }); f.setCurrent(v); return v; });
+    f.hooks.set("close", q => status({ client_id: f.calls.find(x => x.action === "start").query.clientId, run_token: q.runToken, phase: "closed", running: true, cleanup_required: false, cleanup_running: false, report_ready: false }));
+    const work = f.c.start("paired", 1);
+    await until(() => f.c.get().status?.running === true);
+    const captured = f.c.get().clientId;
+    f.c.setContext("retired-session-still-valid-window", false);
+    let during;
+    try {
+        await until(() => f.calls.filter(x => x.action === "cleanup_status").length === 2);
+        during = clone(f.c.get());
+    } finally {
+        // Always settle the synthetic gate and old operation, even on failure.
+        gate.resolve(cleanup({ cleanup_required: false, running: true }));
+        await work;
+    }
+    await until(() => f.c.get().cleanupPending === null && !f.c.get().uncertain);
+    assert.equal(during.status, null); assert.equal(during.clientId, null);
+    assert.equal(during.cleanupPending, "status"); assert.equal(during.uncertain, true);
+    assert.deepEqual(f.c.get().cleanup, cleanup({ cleanup_required: false, running: true }));
+    assert.equal(f.c.get().cleanupUncertain, false);
+    assert.equal(f.c.get().status, null); assert.equal(f.c.get().clientId, null);
+    assert.deepEqual(actions(f), ["cleanup_status", "start", "close", "cleanup_status"]);
+    assert.deepEqual(f.calls.at(-1), { command: NATIVE, action: "cleanup_status", query: {} });
+    assert.equal(generated(f).length, 1); assert.equal(f.calls.some(x => x.action === "retry_cleanup"), false);
+    const markup = render(f, true); assert.match(markup, /cleanup/i);
+    assert.ok(!markup.includes(RUN) && !markup.includes(captured));
+});
+await check("retired UnknownRun settles identity but failed one-shot observation retains global uncertainty", async () => {
+    const f = fixture(); let reads = 0;
+    f.hooks.set("cleanup_status", () => { if (++reads === 1) return cleanup(); throw Error("EvaluationIo"); });
+    f.hooks.set("start", q => { const v = status({ client_id: q.clientId, phase: "running", running: true, report_ready: false }); f.setCurrent(v); return v; });
+    f.hooks.set("close", () => { throw Error("UnknownEvaluationRun"); });
+    const work = f.c.start("paired", 1);
+    await until(() => f.c.get().status?.running === true);
+    f.c.setContext("retired-session-still-valid-window", false);
+    await work;
+    await until(() => f.calls.filter(x => x.action === "cleanup_status").length === 2 && f.c.get().cleanupPending === null);
+    assert.equal(f.c.get().uncertain, false, "known revoked identity is separate from global proof");
+    assert.equal(f.c.get().cleanupUncertain, true); assert.equal(f.c.get().cleanupError, "EvaluationIo");
+    assert.equal(f.c.get().status, null); assert.equal(f.c.get().clientId, null);
+    if (f.c.get().cleanup !== null) assert.equal(f.c.get().cleanup.running, false, "keep actual old observation; never derive generic running from the retired run");
+    assert.deepEqual(actions(f), ["cleanup_status", "start", "close", "cleanup_status"]);
+    assert.equal(generated(f).length, 1); assert.equal(f.calls.some(x => x.action === "retry_cleanup"), false);
+    const count = f.calls.length; await tick(); assert.equal(f.calls.length, count, "no automatic cleanup retry or generation");
+});
 for (const c of controllers) c.dispose(); await tick();
 const sourceHashes = Object.fromEntries(await Promise.all(["ui/comparison-run-model.ts", "ui/comparison-run-controller.ts", "ui/comparison-run-view.tsx"].map(async name => [name, createHash("sha256").update(await readFile(path.join(root, name))).digest("hex")])));
 for (const [index, markup] of html.entries()) await writeFile(path.join(output, `${prefix}-${index}.html`), markup, { flag: "wx" });

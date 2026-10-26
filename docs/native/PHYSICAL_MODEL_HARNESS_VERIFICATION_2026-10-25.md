@@ -1,5 +1,10 @@
 # Physical-model harness verification — 2026-10-25
 
+The historical phone-absence observation below is superseded by the
+[2026-10-26 Windows discovery follow-up](PHYSICAL_MODEL_WINDOWS_DISCOVERY_2026-10-26.md).
+The selected phone is now observed; initial model admission refuses its measured
+available-memory margin. No new phone installation or inference result follows.
+
 Refs #5 (M01.01/M01.02/M01.05 supporting) and #9 (M05.05 prerequisite).
 This bounded implementation is stacked on unmerged [PR #181](https://github.com/OptimumAF/LocalLore/pull/181).
 It prepares a separate ARM64 phone experiment. Build, host tests and APK audits

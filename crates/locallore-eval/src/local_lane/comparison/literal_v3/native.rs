@@ -68,39 +68,44 @@ pub(super) fn finish_prepared<R: SelectedNativeReservation>(
     let failure = SelectedNativeFailure::from_error;
     let mut initial_error = startup.error;
     let mut setup_saved = false;
-    #[cfg(all(test, feature = "protocol-owner-tests"))]
-    if PANIC_AFTER_OWNER.with(|fault| fault.replace(false)) {
-        panic!("fixed native3 owned-body interruption");
-    }
-    if initial_error.is_none() {
-        initial_error = native_startup::check_preparation(cancel, deadline).err();
-    }
-    if initial_error.is_none() {
-        match save_setup(
-            &mut session,
-            elapsed(preparation_began),
-            "loaded",
-            startup.load.clone(),
-        ) {
-            Ok(()) => setup_saved = true,
-            Err(error) => initial_error = Some(error),
+    let body = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        #[cfg(all(test, feature = "protocol-owner-tests"))]
+        if PANIC_AFTER_OWNER.with(|fault| fault.replace(false)) {
+            panic!("fixed native3 owned-body interruption");
         }
-    }
-    if initial_error.is_none() {
-        if let Some(runtime) = startup.runtime.as_ref() {
-            let factory = LaneFactory::Native {
-                runtime: runtime.clone(),
-                profile: session.manifest.profile.clone(),
-            };
-            initial_error = factory
-                .profile()
-                .and_then(|_| native_startup::check_preparation(cancel, deadline))
-                .and_then(|_| session.execute_body(cancel, max_new_scenes, &factory))
-                .err();
-            drop(factory); // All synchronous Host/provider/watchdog guards drained.
-        } else {
-            initial_error = Some("Provider".into());
+        if initial_error.is_none() {
+            initial_error = native_startup::check_preparation(cancel, deadline).err();
         }
+        if initial_error.is_none() {
+            match save_setup(
+                &mut session,
+                elapsed(preparation_began),
+                "loaded",
+                startup.load.clone(),
+            ) {
+                Ok(()) => setup_saved = true,
+                Err(error) => initial_error = Some(error),
+            }
+        }
+        if initial_error.is_none() {
+            if let Some(runtime) = startup.runtime.as_ref() {
+                let factory = LaneFactory::Native {
+                    runtime: runtime.clone(),
+                    profile: session.manifest.profile.clone(),
+                };
+                initial_error = factory
+                    .profile()
+                    .and_then(|_| native_startup::check_preparation(cancel, deadline))
+                    .and_then(|_| session.execute_body(cancel, max_new_scenes, &factory))
+                    .err();
+                drop(factory); // All synchronous Host/provider/watchdog guards drained.
+            } else {
+                initial_error = Some("Provider".into());
+            }
+        }
+    }));
+    if body.is_err() {
+        initial_error = Some("SelectedExecution".into());
     }
     let terminal = match startup.runtime {
         Some(runtime) => native_owner::finish_owner(reservation, runtime, initial_error),

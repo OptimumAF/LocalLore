@@ -74,7 +74,7 @@ pub(super) fn start_runtime<R: SelectedNativeReservation>(
     };
     let runtime = Arc::new(Mutex::new(runtime));
     let mut load = None;
-    let result = (|| {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         check_preparation(cancel, deadline)?;
         let mut owner = runtime.try_lock().map_err(|_| "RuntimeBusy")?;
         if owner.profile_manifest_sha256() != profile.profile_manifest_sha256 {
@@ -86,7 +86,8 @@ pub(super) fn start_runtime<R: SelectedNativeReservation>(
         load = Some(serde_json::to_value(observed).map_err(|_| "Encoding")?);
         check_preparation(cancel, deadline)?;
         Ok::<(), String>(())
-    })();
+    }))
+    .unwrap_or_else(|_| Err("RuntimeRuntime".into()));
     Startup {
         runtime: Some(runtime),
         load,

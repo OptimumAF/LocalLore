@@ -10,7 +10,7 @@ pub mod desktop_read;
 mod native;
 #[cfg(feature = "local-model")]
 pub(crate) mod native_owner;
-mod setup;
+pub(super) mod setup;
 #[cfg(feature = "local-model")]
 pub use native::{resume_native_selected, run_native_selected};
 #[cfg(feature = "local-model")]

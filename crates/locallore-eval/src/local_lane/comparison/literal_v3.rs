@@ -1034,7 +1034,8 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV3> {
         let Some(name) = name.to_str() else {
             return Err("SetupIntegrity".into());
         };
-        if let Some(suffix) = name.strip_prefix("setup-") {
+        if name.to_ascii_lowercase().starts_with("setup") {
+            let suffix = name.strip_prefix("setup-").ok_or("SetupIntegrity")?;
             let index = suffix
                 .strip_suffix(".json")
                 .and_then(|s| s.parse::<usize>().ok())
@@ -1054,7 +1055,21 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV3> {
         if !path.exists() {
             continue;
         }
-        let setup: Setup3 = decode(&path, 64 * 1024)?;
+        let setup = if manifest.binding.native {
+            selected::setup::decode_native(&read(&path, 64 * 1024)?, &key, index, 3)?
+        } else {
+            let value: Setup3 = decode(&path, 64 * 1024)?;
+            SetupRecord {
+                version: value.version,
+                binding: value.binding,
+                left_invocation: value.left_invocation,
+                right_invocation: value.right_invocation,
+                native: value.native,
+                physical_ms: value.physical_ms,
+                status: value.status,
+                load: value.load,
+            }
+        };
         if setup.version != 3
             || setup.binding != key
             || setup.left_invocation != index
@@ -1068,10 +1083,6 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV3> {
             if !matches!(setup.status.as_str(), "loaded" | "failed")
                 || (setup.status == "loaded"
                     && (setup.load.is_none() || setup.physical_ms > PREPARATION_MS))
-                || setup
-                    .load
-                    .as_ref()
-                    .is_some_and(|load| !valid_load_metrics(load))
             {
                 return Err("SetupIntegrity".into());
             }
@@ -1115,8 +1126,17 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV3> {
             {
                 return Err("SetupIntegrity".into());
             }
-            // Ledger::load above checks any settlement's binding/index/role cap.
-            // Its absence retains the full unknown reservation, never a refund.
+            if setup.native {
+                let shares = shared_setup_shares(setup.physical_ms);
+                selected::setup::invocation(
+                    &dir.join(ARM_NAMES[arm]),
+                    &key,
+                    invocation,
+                    if arm == 0 { shares.0 } else { shares.1 },
+                )?;
+            }
+            // Missing settlements retain the full unknown reservation; the
+            // shared validator checks each known settlement's setup share.
         }
     }
     append_ledger_notes(dir, &ledgers, &mut unavailable);
@@ -1136,33 +1156,6 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV3> {
             "Narrator remains Core-grounded; finite sentinel checks are not universal semantic privacy proof.".into(),
             "Missing recovered calls/captures remain unknown. Hashes detect consistency, not authenticated evidence origin.".into(),
             "Selected/UI and native CLI integration, human quality review and physical-phone qualification remain separate gates.".into()] })
-}
-// The shared worker's closed Metrics wire shape; this also permits historical
-// read-only inspection when the optional runtime dependency is not compiled.
-fn valid_load_metrics(value: &Value) -> bool {
-    let Some(object) = value.as_object() else {
-        return false;
-    };
-    let times = ["load_ms", "prefill_ms", "decode_ms", "total_ms"];
-    let counts = [
-        "input_tokens",
-        "output_tokens",
-        "model_loads",
-        "contexts_created",
-        "abort_callbacks",
-    ];
-    object.len() == 9
-        && times.iter().all(|key| {
-            value[*key]
-                .as_f64()
-                .is_some_and(|v| v.is_finite() && v >= 0.0)
-        })
-        && counts.iter().all(|key| {
-            value[*key]
-                .as_u64()
-                .is_some_and(|v| v <= u64::from(u32::MAX))
-        })
-        && value["model_loads"].as_u64().is_some_and(|v| v > 0)
 }
 /// Fixed scripted grammar; no native provider, arbitrary corpus or expected
 /// outcome input. The existing reference owner remains the only reference writer.

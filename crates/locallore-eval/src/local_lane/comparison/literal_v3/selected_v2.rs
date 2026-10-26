@@ -4,6 +4,11 @@ use crate::local_lane::comparison::{desktop_api as shared_read, selected as shar
 use shared::{SelectedIntent, SelectedLane, Selection, SourceInput, MANIFEST_CAP};
 
 const LANE: &str = "scripted_selected_case";
+const NATIVE_LANE: &str = "native_selected_case";
+#[cfg(feature = "local-model")]
+mod native;
+#[cfg(feature = "local-model")]
+pub use native::{resume_native_selected, run_native_selected};
 #[cfg(test)]
 mod review_tests;
 #[cfg(test)]
@@ -43,10 +48,21 @@ impl SelectedManifest2 {
             .remove("binding");
         Ok(digest(&encode(&value)?))
     }
+    fn lane(&self) -> Result<SelectedLane> {
+        match self.lane.as_str() {
+            LANE => Ok(SelectedLane::ScriptedBaseline),
+            NATIVE_LANE => Ok(SelectedLane::ApprovedNative),
+            _ => Err("SelectedBinding".into()),
+        }
+    }
+    fn native(&self) -> Result<bool> {
+        Ok(matches!(self.lane()?, SelectedLane::ApprovedNative))
+    }
     fn execution_manifest(&self) -> Result<Manifest> {
-        Manifest::new(
+        Manifest::new_with_lane(
             self.source_kind,
             self.profile.clone(),
+            self.native()?,
             self.source_reference_sha256.clone(),
         )
     }
@@ -70,14 +86,14 @@ impl SelectedManifest2 {
             || self.source_protocol_version != 3
             || self.run_type != "selected_case"
             || self.arms != v3::arm_descriptors()
-            || self.lane != LANE
+            || !matches!(self.lane.as_str(), LANE | NATIVE_LANE)
             || !shared::client_valid(&self.client_id)
             || !hex(&self.binding)
             || self.binding != self.digest()?
             || !hex(&self.source_binding)
             || !hex(&self.source_sha256)
             || self.suite_sha256 != v3::current_binding(false)?.suite_sha256
-            || self.profile != LaneFactory::ScriptedBaseline.profile()?
+            || (!self.native()? && self.profile != LaneFactory::ScriptedBaseline.profile()?)
             || self.selection.turn != step.id()
             || !ARM_NAMES.contains(&self.selection.clicked_arm.as_str())
         {
@@ -163,6 +179,7 @@ fn manifest_for(
     selection: Selection,
     client_id: String,
     before: &[Engine; 2],
+    lane: SelectedLane,
 ) -> Result<SelectedManifest2> {
     let (value, source, _) = snapshot;
     if !source.source_matches()? {
@@ -193,8 +210,12 @@ fn manifest_for(
         source_profile: source.profile.clone(),
         source_native: source.binding.native,
         selection: selection.clone(),
-        lane: LANE.into(),
-        profile: LaneFactory::ScriptedBaseline.profile()?,
+        lane: match lane {
+            SelectedLane::ScriptedBaseline => LANE,
+            SelectedLane::ApprovedNative => NATIVE_LANE,
+        }
+        .into(),
+        profile: lane.profile()?,
         suite_sha256: source.binding.suite_sha256.clone(),
         source_sha256: source.source_sha256.clone(),
         source_reference_sha256: source.reference_sha256.clone(),
@@ -217,8 +238,10 @@ pub fn prepare_selected(
         return Err("SelectedIdentity".into());
     }
     if matches!(intent.lane, SelectedLane::ApprovedNative) {
+        #[cfg(not(feature = "local-model"))]
         return Err("SelectedNativeUnavailable".into());
     }
+    intent.lane.profile()?;
     let corpus = suite()?;
     let selection = Selection {
         turn: row.turn.clone(),
@@ -236,7 +259,7 @@ pub fn prepare_selected(
         return Err("SnapshotMismatch".into());
     }
     let before = source_inputs(&directory, &snapshot, &selection)?;
-    let manifest = manifest_for(&snapshot, selection, intent.client_id, &before)?;
+    let manifest = manifest_for(&snapshot, selection, intent.client_id, &before, intent.lane)?;
     shared::cancelled(cancel)?;
     Ok(PreparedSelectedPlan {
         _source: source,
@@ -255,6 +278,7 @@ impl PreparedSelectedPlan {
             self.manifest.selection.clone(),
             self.manifest.client_id.clone(),
             &before,
+            self.manifest.lane()?,
         )?;
         if manifest != self.manifest {
             return Err("SnapshotMismatch".into());
@@ -367,7 +391,7 @@ fn validate_destination(
         }
     }
     shared::ledgers(dir, &manifest.binding)?;
-    shared::validate_setups(dir, &manifest.binding, false)?;
+    shared::validate_setups(dir, &manifest.binding, manifest.native()?)?;
     Ok(turns)
 }
 
@@ -379,6 +403,9 @@ pub struct SelectedComparisonReportV2 {
     rows: Vec<TurnReportV3>,
     completed: bool,
     per_arm_progress: [Value; 2],
+    physical_setups: usize,
+    physical_setup_ms: Option<u64>,
+    native_load: Option<Value>,
     left_charged_ms: u64,
     right_charged_ms: u64,
     left_reserved_roles: usize,
@@ -394,11 +421,26 @@ fn report(
     turns: &[Option<StoredTurn3>; 2],
     ledgers: &[Ledger; 2],
 ) -> Result<SelectedComparisonReportV2> {
+    let native = manifest.native()?;
+    let setups = shared::setup_records(dir, &manifest.binding, native)?;
     let mut unavailable = vec![
-        "selected_native_execution_unavailable".into(),
         "selected_protocol3_gui_unavailable".into(),
         "human_quality_not_reviewed".into(),
     ];
+    if !native {
+        unavailable.push("scripted_lane_no_native_setup_measurement".into());
+    }
+    if native && setups.is_empty() {
+        unavailable.push("native_setup_measurement_unavailable".into());
+    }
+    for setup in &setups {
+        if setup.status == "failed" {
+            unavailable.push(format!(
+                "native_setup_failed_invocation:{}",
+                setup.left_invocation
+            ));
+        }
+    }
     append_ledger_notes(dir, ledgers, &mut unavailable);
     let progress = |arm: usize| {
         json!({"arm":ARM_NAMES[arm],"state": if turns[arm].is_some() {"finished"}
@@ -406,11 +448,14 @@ fn report(
     };
     let result = SelectedComparisonReportV2 { identity: manifest.clone(), rows: turns.iter().flatten().map(|t| t.row.clone()).collect(),
         completed: turns.iter().all(Option::is_some), per_arm_progress: [progress(0),progress(1)],
+        physical_setups: setups.len(),
+        physical_setup_ms: if setups.is_empty() { None } else { Some(setups.iter().try_fold(0u64,|total,setup| total.checked_add(setup.physical_ms).ok_or("SetupIntegrity"))?) },
+        native_load: if setups.is_empty() { None } else { Some(json!(setups.iter().map(|setup| &setup.load).collect::<Vec<_>>())) },
         left_charged_ms: ledgers[0].charged_ms, right_charged_ms: ledgers[1].charged_ms,
         left_reserved_roles: ledgers[0].charged_roles, right_reserved_roles: ledgers[1].charged_roles,
         human_reviewed: 0, quality_accepted: false, unavailable,
         limitations: vec!["Only the selected original turn is attempted in each actual construction; this is not a full comparison.".into(),
-            "Synthetic scripted execution does not qualify native inference, prose quality, Android or phone performance.".into(),
+            if native { "A native label does not establish measured generation, prose quality, Android or phone performance.".into() } else { "Synthetic scripted execution does not qualify native inference, prose quality, Android or phone performance.".into() },
             "Hashes detect retained-data drift; they do not authenticate adversarial rewrites.".into(),
             "Missing workflow evidence does not prove zero historical provider work.".into()] };
     if encode(&result)?.len() > crate::MAX_REPORT {
@@ -479,21 +524,15 @@ fn preflight(work: &Work) -> Result<()> {
     }
     Ok(())
 }
-fn execute(
+fn execute_work(
     plan: &PreparedSelectedPlan,
     destination: &Destination,
-    mut work: Work,
+    work: &mut Work,
+    factory: Option<&LaneFactory>,
     cancel: &Cancellation,
-) -> Result<SelectedComparisonReportV2> {
+) -> Result<()> {
     let dir = &destination.dir;
     let m = &destination.manifest;
-    if work.turns.iter().all(Option::is_some) {
-        return report(dir, m, &work.turns, &work.ledgers);
-    }
-    shared::cancelled(cancel)?;
-    preflight(&work)?;
-    work.ledgers[0].begin_invocation()?;
-    work.ledgers[1].begin_invocation()?;
     let corpus = suite()?;
     let index = m.selection.index;
     let step = &corpus.steps()[index];
@@ -532,7 +571,7 @@ fn execute(
                     construction: CONSTRUCTIONS[arm],
                     binding: &m.binding,
                     step,
-                    factory: &LaneFactory::ScriptedBaseline,
+                    factory: factory.ok_or("Provider")?,
                     cancel,
                 },
                 &mut work.ledgers[arm],
@@ -549,6 +588,15 @@ fn execute(
         work.ledgers[1 - arm]
             .exclude_measured_interval(began.elapsed().as_millis().min(u64::MAX as u128) as u64)?;
     }
+    Ok(())
+}
+fn finish_workflow(
+    plan: &PreparedSelectedPlan,
+    destination: &Destination,
+    work: &mut Work,
+) -> Result<SelectedComparisonReportV2> {
+    let dir = &destination.dir;
+    let m = &destination.manifest;
     let turns = validate_destination(dir, m, Some(&plan.before))?;
     report(dir, m, &turns, &work.ledgers)?;
     turn_execution::finish_pair(&mut work.ledgers)?;
@@ -556,9 +604,38 @@ fn execute(
     shared::publish_report(
         dir,
         &result,
-        "Synthetic scripted evaluation. No human quality acceptance.",
+        if m.native()? {
+            "Synthetic selected evaluation. Native measurements exist only where recorded. No human quality acceptance."
+        } else {
+            "Synthetic scripted evaluation. No human quality acceptance."
+        },
     )?;
     Ok(result)
+}
+
+fn execute(
+    plan: &PreparedSelectedPlan,
+    destination: &Destination,
+    mut work: Work,
+    cancel: &Cancellation,
+) -> Result<SelectedComparisonReportV2> {
+    let dir = &destination.dir;
+    let m = &destination.manifest;
+    if work.turns.iter().all(Option::is_some) {
+        return report(dir, m, &work.turns, &work.ledgers);
+    }
+    shared::cancelled(cancel)?;
+    preflight(&work)?;
+    work.ledgers[0].begin_invocation()?;
+    work.ledgers[1].begin_invocation()?;
+    execute_work(
+        plan,
+        destination,
+        &mut work,
+        Some(&LaneFactory::ScriptedBaseline),
+        cancel,
+    )?;
+    finish_workflow(plan, destination, &mut work)
 }
 
 pub fn run_selected(
@@ -567,6 +644,9 @@ pub fn run_selected(
     cancel: &Cancellation,
 ) -> Result<SelectedComparisonReportV2> {
     let started = Instant::now();
+    if plan.manifest.native()? {
+        return Err("SelectedLaneMismatch".into());
+    }
     plan.refresh(cancel)?;
     let (_target, _pins) = shared::destination_target_for(&plan.source_dir, new_dir)?;
     let work = inspect_work(&plan, new_dir, started)?;
@@ -599,6 +679,9 @@ pub fn resume_selected(
     }
     let destination = open_destination(dir)?;
     let m = &destination.manifest;
+    if m.native()? {
+        return Err("SelectedLaneMismatch".into());
+    }
     if m.binding != expected_binding {
         return Err("CheckpointMismatch".into());
     }

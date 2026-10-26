@@ -809,8 +809,11 @@ pub struct SelectedComparisonReportV1 {
 }
 
 pub(super) fn validate_setups(dir: &Path, binding: &str, native: bool) -> Result<()> {
-    setup::read_setups(dir, binding, native)?;
+    setup_records(dir, binding, native)?;
     Ok(())
+}
+pub(super) fn setup_records(dir: &Path, binding: &str, native: bool) -> Result<Vec<SetupRecord>> {
+    setup::read_setups(dir, binding, native)
 }
 
 pub(super) fn ledgers(dir: &Path, binding: &str) -> Result<[Ledger; 2]> {

@@ -263,7 +263,19 @@ both78,464B indexes match SHA-256
 `e51e427b509f167c8996df13dce33e04daa348acb840deb43211de0355189c17`.
 No live regression cohort, images, databases, models or caches were selected.
 
-The separate89-method broad Android regression remains pending.
+The first separate89-method broad run completed all18 classes and its worker
+exit0 in714,974ms, known cleanup/capture/stderr0,174 clean clients and unchanged
+756-input map. Its aggregate is nevertheless **failed/validation_refused**.
+Direct original-record diagnosis identifies `regression_client_copy`: the host
+validator's `instrument-` prefix also classified the legitimate repeated
+`instrument-user` checks as class-result copies. Each actual `instrument-0`
+through `instrument-17` original copy matches its class raw output, but the
+aggregate refusal is retained and must not be promoted to passed.
+The used guest closed via bound stop:772,194ms/worker1, cleanup/capture/closure
+true, flush false, emulator stderr1,083B. A correction must preserve all client
+integrity checks, distinguish the exact ordinary user-check label, and add a
+realistic interleaved-client regression. Fresh host/build qualification and a
+fresh guest run are planned after that fix; no used fixture is adopted.
 Earlier50989ca2 results remain historical source-attributed records; the current
 source has separate fresh runtime qualification above. Phone/ARM64 and real-model qualification are
 separate gates; no result follows from fake-provider or emulator checks.

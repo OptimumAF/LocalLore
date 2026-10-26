@@ -97,7 +97,10 @@ function SelectedExperiment({
         () => comparison.get(),
     );
     const source =
-        snapshot.clientId && snapshot.status?.run_token && snapshot.source && snapshot.source.protocol_version === 2
+        snapshot.clientId &&
+        snapshot.status?.run_token &&
+        snapshot.source &&
+        snapshot.source.protocol_version === 2
             ? {
                   readerClientId: snapshot.clientId,
                   runToken: snapshot.status.run_token,

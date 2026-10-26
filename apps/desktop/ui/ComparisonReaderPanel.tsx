@@ -42,12 +42,19 @@ export function ComparisonReaderPanel({
     const constructionTurn = turn && "construction" in turn ? turn : null;
     const literal = constructionTurn?.construction.arm === "literal_player_v1";
     const evidenceStatus = constructionTurn?.construction_evidence_status;
-    const noGeneration = evidenceStatus === "not_applicable_guard" || evidenceStatus === "not_applicable_dependency";
-    const constructionEvidence = evidenceStatus === "validated_literal" ? "Validated literal input"
-        : evidenceStatus === "validated_relevant" ? "Validated relevant-memory input"
-            : evidenceStatus === "not_applicable_guard" ? "Not applicable — guard"
-                : evidenceStatus === "not_applicable_dependency" ? "Not applicable — dependency"
-                    : "Unavailable — no validated input";
+    const noGeneration =
+        evidenceStatus === "not_applicable_guard" ||
+        evidenceStatus === "not_applicable_dependency";
+    const constructionEvidence =
+        evidenceStatus === "validated_literal"
+            ? "Validated literal input"
+            : evidenceStatus === "validated_relevant"
+              ? "Validated relevant-memory input"
+              : evidenceStatus === "not_applicable_guard"
+                ? "Not applicable — guard"
+                : evidenceStatus === "not_applicable_dependency"
+                  ? "Not applicable — dependency"
+                  : "Unavailable — no validated input";
     const omni = s.observer.kind === "omniscient";
     const lens =
         s.observer.kind === "character" ? s.observer.id : s.observer.kind;
@@ -200,10 +207,22 @@ export function ComparisonReaderPanel({
                                 · {s.summary.report.completed_scenes} completed
                                 scenes
                             </p>
-                            {s.summary.report.version === 3 && <>
-                                <p>Left: Literal player conversation · Right: Relevant memory.</p>
-                                <details><summary>Construction contracts</summary><pre>{display(s.summary.report.arms)}</pre></details>
-                            </>}
+                            {s.summary.report.version === 3 && (
+                                <>
+                                    <p>
+                                        Left: Literal player conversation ·
+                                        Right: Relevant memory.
+                                    </p>
+                                    <details>
+                                        <summary>
+                                            Construction contracts
+                                        </summary>
+                                        <pre>
+                                            {display(s.summary.report.arms)}
+                                        </pre>
+                                    </details>
+                                </>
+                            )}
                             <p>
                                 {s.summary.report.source_matches
                                     ? "Source fingerprint matches this build."
@@ -215,7 +234,10 @@ export function ComparisonReaderPanel({
                                     ? "Synthetic scripted inference: plumbing and hard-invariant checks; no real model or prose-quality result."
                                     : "Recorded native-model experiment: inspect its actual profile and limitations; this reader runs no inference."}
                             </p>
-                            <p>Recorded checks and validated inputs do not establish narration quality or human acceptance.</p>
+                            <p>
+                                Recorded checks and validated inputs do not
+                                establish narration quality or human acceptance.
+                            </p>
                             <details>
                                 <summary>
                                     Experiment profile, measurements and
@@ -300,8 +322,15 @@ export function ComparisonReaderPanel({
                                             )}
                                         >
                                             <td>{row.row.turn}</td>
-                                            <td>{row.row.arm}{s.source?.protocol_version === 3
-                                                ? row.row.arm === "left" ? " · Literal player conversation" : " · Relevant memory" : ""}</td>
+                                            <td>
+                                                {row.row.arm}
+                                                {s.source?.protocol_version ===
+                                                3
+                                                    ? row.row.arm === "left"
+                                                        ? " · Literal player conversation"
+                                                        : " · Relevant memory"
+                                                    : ""}
+                                            </td>
                                             <td>
                                                 {row.source.before_head} →{" "}
                                                 {row.source.after_head}
@@ -366,20 +395,68 @@ export function ComparisonReaderPanel({
                                         <dd>{turn.phase}</dd>
                                         <dt>Error</dt>
                                         <dd>{turn.error ?? "None"}</dd>
-                                        <dt>{constructionTurn ? "Construction" : "Policy"}</dt>
-                                        <dd>{constructionTurn ? literal ? "Literal player conversation" : "Relevant memory"
-                                            : "policy" in turn ? turn.policy : "Unavailable"}</dd>
-                                        {constructionTurn && <>
-                                            <dt>Construction evidence</dt><dd>{constructionEvidence}</dd>
-                                            <dt>Construction agreement</dt><dd>{noGeneration ? "Not applicable; no generation"
-                                                : constructionTurn.construction_matches ? "Matches accepted construction" : "No matching accepted construction"}</dd>
-                                            <dt>Privacy check</dt><dd>{noGeneration ? "Not applicable; no generation"
-                                                : !turn.roles_known || evidenceStatus === "unavailable" ? "Unknown — evidence unavailable"
-                                                    : turn.privacy_passed ? "Passed finite recorded checks" : "Not established"}</dd>
-                                            {literal && <><dt>Source units</dt><dd>{display(constructionTurn.literal_source_units)}</dd>
-                                                <dt>Selected start</dt><dd>{display(constructionTurn.literal_selected_start)}</dd>
-                                                <dt>Selected units</dt><dd>{display(constructionTurn.literal_selected_units)}</dd></>}
-                                        </>}
+                                        <dt>
+                                            {constructionTurn
+                                                ? "Construction"
+                                                : "Policy"}
+                                        </dt>
+                                        <dd>
+                                            {constructionTurn
+                                                ? literal
+                                                    ? "Literal player conversation"
+                                                    : "Relevant memory"
+                                                : "policy" in turn
+                                                  ? turn.policy
+                                                  : "Unavailable"}
+                                        </dd>
+                                        {constructionTurn && (
+                                            <>
+                                                <dt>Construction evidence</dt>
+                                                <dd>{constructionEvidence}</dd>
+                                                <dt>Construction agreement</dt>
+                                                <dd>
+                                                    {noGeneration
+                                                        ? "Not applicable; no generation"
+                                                        : constructionTurn.construction_matches
+                                                          ? "Matches accepted construction"
+                                                          : "No matching accepted construction"}
+                                                </dd>
+                                                <dt>Privacy check</dt>
+                                                <dd>
+                                                    {noGeneration
+                                                        ? "Not applicable; no generation"
+                                                        : !turn.roles_known ||
+                                                            evidenceStatus ===
+                                                                "unavailable"
+                                                          ? "Unknown — evidence unavailable"
+                                                          : turn.privacy_passed
+                                                            ? "Passed finite recorded checks"
+                                                            : "Not established"}
+                                                </dd>
+                                                {literal && (
+                                                    <>
+                                                        <dt>Source units</dt>
+                                                        <dd>
+                                                            {display(
+                                                                constructionTurn.literal_source_units,
+                                                            )}
+                                                        </dd>
+                                                        <dt>Selected start</dt>
+                                                        <dd>
+                                                            {display(
+                                                                constructionTurn.literal_selected_start,
+                                                            )}
+                                                        </dd>
+                                                        <dt>Selected units</dt>
+                                                        <dd>
+                                                            {display(
+                                                                constructionTurn.literal_selected_units,
+                                                            )}
+                                                        </dd>
+                                                    </>
+                                                )}
+                                            </>
+                                        )}
                                         <dt>Role calls</dt>
                                         <dd>
                                             {turn.roles_known
@@ -387,7 +464,12 @@ export function ComparisonReaderPanel({
                                                 : "Unknown; recovered without a complete recording"}
                                         </dd>
                                         <dt>Elapsed</dt>
-                                        <dd>{constructionTurn && !turn.roles_known ? "Unknown; recovered without a complete recording" : `${turn.elapsed_ms} ms`}</dd>
+                                        <dd>
+                                            {constructionTurn &&
+                                            !turn.roles_known
+                                                ? "Unknown; recovered without a complete recording"
+                                                : `${turn.elapsed_ms} ms`}
+                                        </dd>
                                         <dt>First final response</dt>
                                         <dd>
                                             {display(
@@ -400,10 +482,13 @@ export function ComparisonReaderPanel({
                                         </dd>
                                         <dt>Estimated context tokens</dt>
                                         <dd>
-                                            {literal ? "Not applicable — no memory package" : display(
-                                                turn.estimated_context_tokens,
-                                            )}{" "}
-                                            {!literal && "· estimate, not a measured token count"}
+                                            {literal
+                                                ? "Not applicable — no memory package"
+                                                : display(
+                                                      turn.estimated_context_tokens,
+                                                  )}{" "}
+                                            {!literal &&
+                                                "· estimate, not a measured token count"}
                                         </dd>
                                     </dl>
                                     {turn.failures.length > 0 && (

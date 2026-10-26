@@ -95,7 +95,7 @@ fn genuine_native3_history_is_read_only_and_never_execution_permission() {
             arm: Arm::Left,
         },
         EvidenceRequest::Capture {
-            observer: Observer::Actor("mira".into()),
+            observer: Observer::Character { id: "mira".into() },
         },
         true,
     );
@@ -110,7 +110,7 @@ fn genuine_native3_history_is_read_only_and_never_execution_permission() {
         binding,
         &row,
         EvidenceRequest::Receipt {
-            observer: Observer::Spoiler,
+            observer: Observer::Omniscient,
         },
         true,
     )
@@ -122,7 +122,7 @@ fn genuine_native3_history_is_read_only_and_never_execution_permission() {
         binding,
         &row,
         EvidenceRequest::Capture {
-            observer: Observer::Spoiler,
+            observer: Observer::Omniscient,
         },
         true,
     )

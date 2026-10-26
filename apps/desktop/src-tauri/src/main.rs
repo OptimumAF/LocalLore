@@ -19,6 +19,8 @@ mod comparison_commands;
 #[cfg(feature = "dev-harness")]
 mod comparison_reader_harness;
 mod comparison_run_commands;
+#[cfg(test)]
+mod comparison_native_commands;
 mod evaluation;
 mod evaluation_commands;
 mod export_commands;

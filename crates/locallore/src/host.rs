@@ -2109,12 +2109,10 @@ impl Host {
             Ok(work) => work,
             Err(value) => return value,
         };
-        if matches!(work.request.intent, Intent::FreeText { .. }) && work.local_play.is_some() {
-            let construction = work
-                .local_play
-                .as_ref()
-                .expect("selected local play")
-                .construction;
+        if let (Intent::FreeText { .. }, Some(local)) =
+            (&work.request.intent, work.local_play.as_ref())
+        {
+            let construction = local.construction;
             let snapshot = match construction {
                 HostPlayConstructionV1::Memory(_) => self
                     .generation_snapshot(session, scope, work.request.expected_revision, &|| {

@@ -148,7 +148,8 @@ Keep acknowledgement/retired-owner uncertainty separate from global cleanup.
   separate actual cleanup observation. Retired close must not rewrite a newer
   owner's cleanup flags or present private counts from the retired run.
 - Before settling a sent native retired presentation whose close reports
-  `running:true`, or whose release returns exact `UnknownEvaluationRun`, obtain
+  `running:true`, `cleanup_required:true` or `cleanup_running:true`, or whose
+  release returns exact `UnknownEvaluationRun`, obtain
   one bounded read-only `cleanup_status` observation. Install the separate
   auxiliary guard before notifying that the presentation barrier settled.
   Skip unsent/disposed owners. This is neither a timer nor `retry_cleanup`,

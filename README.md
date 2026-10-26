@@ -78,6 +78,15 @@ and is refused. A connected Samsung ARM64/4 KiB phone also passes nine actual
 Rust JNI/SQLite tests with fake inference. These establish no new phone model
 performance or playable-scene qualification.
 
+The subsequent [Windows binary staging and scene run](docs/native/WINDOWS_BINARY_TRANSFER_VERIFICATION_2026-10-25.md)
+reproduces the text-mode truncation mechanism and refuses the unsafe Windows
+shell route. A fresh isolated receipt test build passes **122 app checks**:
+full local model import, actual SDK Gift and literal Dialogue validated/committed
+by Rust, inspector/invalid-action guards, and a new-process reopen of both
+receipts without inference. This qualifies the current codec for that original
+emulator fixture; phone model performance and production backend selection
+remain pending. Historical failures are preserved.
+
 Separate [Android model-storage receipt checks](docs/native/RECEIPT_FRESH_TARGET_VERIFICATION_2026-10-24.md)
 passed four methods on a fresh isolated emulator, including cancellation and
 owned process-death recovery, using a tiny synthetic file. Existing-target

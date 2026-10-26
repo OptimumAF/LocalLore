@@ -104,6 +104,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         Refused(Reason reason) { super(reason.name()); this.reason = reason; }
     }
     private interface Condition { boolean ready() throws Exception; }
+    private enum WorkspaceRead { MISSING, EMPTY, VALID, MALFORMED_NONEMPTY }
 
     private Bundle arguments;
     private UiAutomation automation;
@@ -118,6 +119,9 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     private final AtomicBoolean finished = new AtomicBoolean();
     private int checks;
     private int deaths;
+    // Text-free, independently sampled diagnostics; not an atomic UI snapshot.
+    private volatile WorkspaceRead lastWorkspaceRead = WorkspaceRead.MISSING;
+    private volatile int lastWorkspaceUtf16Length;
     private Fixture fixture;
     private final JSONArray observations = new JSONArray();
     private final JSONArray terminalObservations = new JSONArray();
@@ -150,6 +154,9 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             stage = Stage.TRANSPORT;
             checked(shell("printf '%s\\n' " + quote(TRANSPORT_CONTROL), 1024)
                     .equals(TRANSPORT_CONTROL + "\n"), Reason.SHELL_IO);
+            Workspace parserControl = decodeWorkspace("Rules · fantasy_v1 · synthetic_story / main · head 0");
+            checked(parserControl.story.equals("synthetic_story") && parserControl.branch.equals("main")
+                    && parserControl.head == 0, Reason.CANONICAL);
             stage = Stage.FIXTURE;
             File stored = fixtureFile();
             if (reuse) fixture = readFixture(stored);
@@ -460,13 +467,24 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
 
     private Workspace workspace() throws Exception {
         AccessibilityNodeInfo node = tag("workspace-detail");
-        try { return decodeWorkspace(nodeText(node)); } finally { node.recycle(); }
+        try { Workspace value = readWorkspace(node); need(value != null, Reason.CANONICAL); return value; }
+        finally { node.recycle(); }
     }
 
     private Workspace maybeWorkspace() throws Exception {
         AccessibilityNodeInfo node = find("workspace-detail");
-        if (node == null) return null;
-        try { return decodeWorkspace(nodeText(node)); } finally { node.recycle(); }
+        if (node == null) { lastWorkspaceUtf16Length = 0; lastWorkspaceRead = WorkspaceRead.MISSING; return null; }
+        try { return readWorkspace(node); } finally { node.recycle(); }
+    }
+
+    private Workspace readWorkspace(AccessibilityNodeInfo node) {
+        String text = nodeText(node);
+        lastWorkspaceUtf16Length = text.length();
+        if (text.isEmpty()) { lastWorkspaceRead = WorkspaceRead.EMPTY; return null; }
+        lastWorkspaceRead = WorkspaceRead.MALFORMED_NONEMPTY;
+        Workspace value = decodeWorkspace(text); // Nonempty malformed text still fails immediately.
+        lastWorkspaceRead = WorkspaceRead.VALID;
+        return value;
     }
 
     private Workspace decodeWorkspace(String value) {
@@ -928,6 +946,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         JSONObject result = new JSONObject().put("version", 1).put("scope", RESULT_SCOPE).put("case", CASE)
                 .put("run_id", runId == null ? JSONObject.NULL : runId).put("status", passed ? "passed" : "failed")
                 .put("stage", stage.name()).put("reason", reason.name()).put("checks", checks).put("process_deaths", deaths)
+                .put("last_workspace_read", lastWorkspaceRead.name()).put("last_workspace_utf16_length", lastWorkspaceUtf16Length)
                 .put("controller", new JSONObject().put("pid", Process.myPid()).put("uid", Process.myUid())
                         .put("start", Process.getStartUptimeMillis()))
                 .put("observations", observations).put("terminal_observations", terminalObservations);

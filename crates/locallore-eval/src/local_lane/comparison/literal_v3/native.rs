@@ -8,6 +8,10 @@ use super::*;
 type NativeResult<T, R> = std::result::Result<T, SelectedNativeFailure<R>>;
 #[cfg(all(test, feature = "protocol-owner-tests"))]
 mod owner_review_tests;
+#[cfg(all(test, feature = "protocol-owner-tests"))]
+thread_local! {
+    pub(super) static PANIC_AFTER_OWNER: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
 
 fn elapsed(started: Instant) -> u64 {
     started.elapsed().as_millis().min(u64::MAX as u128) as u64
@@ -64,6 +68,10 @@ pub(super) fn finish_prepared<R: SelectedNativeReservation>(
     let failure = SelectedNativeFailure::from_error;
     let mut initial_error = startup.error;
     let mut setup_saved = false;
+    #[cfg(all(test, feature = "protocol-owner-tests"))]
+    if PANIC_AFTER_OWNER.with(|fault| fault.replace(false)) {
+        panic!("fixed native3 owned-body interruption");
+    }
     if initial_error.is_none() {
         initial_error = native_startup::check_preparation(cancel, deadline).err();
     }

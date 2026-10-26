@@ -294,8 +294,13 @@ fn rejected_uncertain_handoff_returns_undropped_reservation_and_same_actual_owne
 }
 
 fn diagnostic_inventory(root: &Path) -> std::collections::BTreeMap<PathBuf, Option<Vec<u8>>> {
-    fn walk(root: &Path, dir: &Path, depth: usize, total: &mut usize,
-        out: &mut std::collections::BTreeMap<PathBuf, Option<Vec<u8>>>) {
+    fn walk(
+        root: &Path,
+        dir: &Path,
+        depth: usize,
+        total: &mut usize,
+        out: &mut std::collections::BTreeMap<PathBuf, Option<Vec<u8>>>,
+    ) {
         assert!(depth <= 8);
         for entry in fs::read_dir(dir).unwrap() {
             assert!(out.len() < 4096);
@@ -331,12 +336,24 @@ fn known_native_setup_shares_cannot_exceed_actual_invocation_settlements() {
     let mut known = Vec::new();
     for arm in ["left", "right"] {
         let settled: serde_json::Value = serde_json::from_slice(
-            &fs::read(spy.directory.join(arm).join("invocation-00-settled.json")).unwrap()).unwrap();
+            &fs::read(spy.directory.join(arm).join("invocation-00-settled.json")).unwrap(),
+        )
+        .unwrap();
         known.push(settled["ms"].as_u64().unwrap());
     }
-    let physical = known.iter().copied().max().unwrap().checked_add(1).unwrap()
-        .checked_mul(2).unwrap();
-    assert!(physical <= 120_000, "fixture must leave room inside the actual setup cap");
+    let physical = known
+        .iter()
+        .copied()
+        .max()
+        .unwrap()
+        .checked_add(1)
+        .unwrap()
+        .checked_mul(2)
+        .unwrap();
+    assert!(
+        physical <= 120_000,
+        "fixture must leave room inside the actual setup cap"
+    );
     assert!(physical / 2 > known[0] && physical / 2 > known[1]);
     let path = spy.directory.join("setup-00.json");
     let mut actual: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
@@ -349,8 +366,14 @@ fn known_native_setup_shares_cannot_exceed_actual_invocation_settlements() {
     let before = diagnostic_inventory(&spy.directory);
     let result = super::super::inspect_comparison(&spy.directory);
     let after = diagnostic_inventory(&spy.directory);
-    assert!(after == before, "read refusal must preserve diagnostic inventory");
-    assert!(result.is_err(), "reader accepted setup shares above both known settlements");
+    assert!(
+        after == before,
+        "read refusal must preserve diagnostic inventory"
+    );
+    assert!(
+        result.is_err(),
+        "reader accepted setup shares above both known settlements"
+    );
 }
 
 struct PanicReset;
@@ -377,7 +400,11 @@ fn unwind_after_actual_owner_is_contained_before_cleanup_and_finalization() {
     assert!(!observations[0].settled && !observations[0].report);
     drop(observations);
     for arm in ["left", "right"] {
-        assert!(spy.directory.join(arm).join("invocation-00-settled.json").is_file());
+        assert!(spy
+            .directory
+            .join(arm)
+            .join("invocation-00-settled.json")
+            .is_file());
     }
     assert!(spy.directory.join("report.json").is_file());
     assert!(spy.directory.join("report.html").is_file());

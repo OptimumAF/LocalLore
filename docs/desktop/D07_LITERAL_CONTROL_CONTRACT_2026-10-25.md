@@ -22,6 +22,10 @@ The [approved-model qualification](D07_LITERAL_NATIVE_MODEL_QUALIFICATION_2026-1
 records 96 outcomes, 153 real roles and 3 loads, retaining failed expectations,
 dependency and narration fallback. Native3 CLI, selected/UI consumption and
 human quality remain unqualified.
+The [protocol3 read capability qualification](D07_LITERAL_DESKTOP_READ_QUALIFICATION_2026-10-25.md)
+adds an opaque Rust reader over actual canonical edges, receipts and retained
+artifacts. It preserves observer restrictions and existing V2/selected readers;
+it does not expose protocol3 in the desktop UI or grant rerun permission.
 Design sections below
 preserve the original proposal; linked qualification records define the current
 implemented interfaces and their evidence classes.

@@ -269,6 +269,10 @@ fallbacks remain visible; no human quality acceptance. Native3 CLI, selected-cas
 desktop UI exposure remain unavailable.
 The existing app reader and selected-case controls retain their v2/selected1
 formats. The linked qualification gives exact commands, results and limitations.
+The [protocol3 Rust read capability](../../docs/desktop/D07_LITERAL_DESKTOP_READ_QUALIFICATION_2026-10-25.md)
+now validates cold report/receipt/capture/state reads with observer restrictions,
+including retained real-model data without the optional runtime. Desktop UI/IPC
+consumption remains pending; the capability grants no execution.
 
 Run these developer checks from the repository root; the qualification record
 identifies the executed source, target directories and results:

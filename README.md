@@ -26,6 +26,10 @@ exercises the real Compose screen and Rust storage across background process
 death, including a selected second story and an unsent draft. It uses scripted
 inference on an emulator; physical-phone and real-model qualification remain
 separate gates.
+An [active-child follow-up](docs/native/ANDROID_CHILD_PROCESS_RESTORATION_VERIFICATION_2026-10-26.md)
+also exercises the real fork confirmation/resume flow and two child process
+deaths, retaining the parent receipt and draft while a child turn leaves its
+parent unchanged. Its host-verifier correction and remaining limits are recorded.
 
 | Document | Purpose |
 |---|---|

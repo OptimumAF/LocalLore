@@ -152,3 +152,10 @@ termination; uncertain attempts cannot be blindly retried. Task parsing accepts
 the observed one- or two-space Hist delimiter, with adversarial parser controls.
 
 See [actual execution and limitations](ANDROID_PROCESS_RESTORATION_VERIFICATION_2026-10-26.md).
+
+The additive [active-child case](ANDROID_CHILD_PROCESS_RESTORATION_PROTOCOL.md)
+uses a separate create-only fixture, actual reviewed fork and unchanged probe
+v1. Optional NativeFork register/run mutation attempts map to `other` only in
+the debug observer; status/lookup/cancel/close resource calls are outside that
+mutation observation. Root expectations stay unchanged. See its separately
+attributed [execution report](ANDROID_CHILD_PROCESS_RESTORATION_VERIFICATION_2026-10-26.md).

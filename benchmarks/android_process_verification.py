@@ -266,6 +266,14 @@ def qualified_build(path):
     return validate_build_record(env.read_json(path), path.parent)
 
 
+def validate_test_manifest(raw):
+    text = raw.decode("utf-8")
+    namespace = r"(?:android|http://schemas\.android\.com/apk/res/android):"
+    targets = re.findall(r'^\s*A: ' + namespace + r'targetPackage(?:\([^)]+\))?="([^"]+)"', text, re.M)
+    names = re.findall(r'^\s*A: ' + namespace + r'name(?:\([^)]+\))?="([^"]+)"', text, re.M)
+    need(targets == [APP] and names.count("androidx.test.runner.AndroidJUnitRunner") == 1, "test_instrumentation")
+
+
 def validate_build_record(build, out):
     need(type(build) is dict and build.get("version") == 1 and build.get("phase") == "build" and
          build.get("passed") is True and owner_ok(build.get("owner")), "build_not_qualified")
@@ -291,10 +299,7 @@ def validate_build_record(build, out):
         need(len(certs) == 1 and "Number of signers: 1" in signatures, "apk_signer")
         certificates.append(certs[0].lower())
     need(len(set(certificates)) == 1, "apk_signer_mismatch")
-    test_manifest = outputs["manifest-1"].decode("utf-8")
-    targets = re.findall(r'^\s*A: android:targetPackage(?:\([^)]+\))?="([^"]+)"', test_manifest, re.M)
-    names = re.findall(r'^\s*A: android:name(?:\([^)]+\))?="([^"]+)"', test_manifest, re.M)
-    need(targets == [APP] and names.count("androidx.test.runner.AndroidJUnitRunner") == 1, "test_instrumentation")
+    validate_test_manifest(outputs["manifest-1"])
     gradle = command_stdout(artifact["gradle"], out, "gradle").decode("utf-8")
     need("BUILD SUCCESSFUL" in gradle and re.search(r"^> Task :app:testDebugUnitTest[ \t\r]*$", gradle, re.M), "unit_not_executed")
     names = set()

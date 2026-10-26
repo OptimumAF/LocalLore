@@ -67,6 +67,17 @@ class DriverTests(unittest.TestCase):
         self.assertFalse(driver.owner_ok(dict(status="child_exited", worker_returncode=False,
             cleanup_complete=True, output_capture_complete=True)))
 
+    def test_aapt_namespace_forms_preserve_exact_target_and_runner_guards(self):
+        for namespace in ("android", "http://schemas.android.com/apk/res/android"):
+            with self.subTest(namespace=namespace):
+                raw = (f'  A: {namespace}:name(0x01010003)="androidx.test.runner.AndroidJUnitRunner"\n'
+                       f'  A: {namespace}:targetPackage(0x01010021)="{driver.APP}"\n').encode()
+                driver.validate_test_manifest(raw)
+                for bad in (raw.replace(driver.APP.encode(), b"other.app"), raw + raw,
+                            raw.replace(b"AndroidJUnitRunner", b"OtherRunner")):
+                    with self.assertRaises(driver.VerificationRefused):
+                        driver.validate_test_manifest(bad)
+
     def test_worker_source_drift_refuses_before_build_dispatch(self):
         with tempfile.TemporaryDirectory() as root:
             out = Path(root)

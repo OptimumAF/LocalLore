@@ -21,8 +21,7 @@ The [trusted native3 API ownership qualification](D07_LITERAL_NATIVE_OWNER_QUALI
 adds model-free preflight and actual protocol-child cleanup evidence.
 The [approved-model qualification](D07_LITERAL_NATIVE_MODEL_QUALIFICATION_2026-10-25.md)
 records 96 outcomes, 153 real roles and 3 loads, retaining failed expectations,
-dependency and narration fallback. Native3 CLI, native selected-case protocol3 execution
-and human quality remain unqualified.
+dependency and narration fallback. Native3 CLI, protocol3 UI execution and human quality remain unqualified.
 The [protocol3 read capability qualification](D07_LITERAL_DESKTOP_READ_QUALIFICATION_2026-10-25.md)
 adds an opaque Rust reader over actual canonical edges, receipts and retained
 artifacts. It preserves observer restrictions and existing V2/selected readers;
@@ -35,8 +34,12 @@ qualification is synthetic; approved-model generation remains separate evidence.
 The [shared scripted selected rerun qualification](D07_LITERAL_SELECTED_SCRIPTED_QUALIFICATION_2026-10-26.md)
 adds a separate selected2 Rust API over actual protocol3 histories, requests and
 construction descriptors, with isolated save/resume and conservative recovery.
-It does not enable native selected2 or desktop rerun controls; the desktop reader
-still refuses those transfers before consuming its capability.
+That scripted slice alone does not enable native selected2 or desktop controls.
+The [native selected2 qualification](D07_LITERAL_SELECTED_NATIVE_QUALIFICATION_2026-10-26.md)
+adds the trusted shared-owner Rust API, actual fixed-child ownership oracles and
+one approved-model two-arm Move with zero-asset completed/checkpoint-loss resume.
+It still does not enable desktop rerun controls; the reader refuses those
+transfers before consuming its capability. Human quality remains unaccepted.
 Design sections below
 preserve the original proposal; linked qualification records define the current
 implemented interfaces and their evidence classes.

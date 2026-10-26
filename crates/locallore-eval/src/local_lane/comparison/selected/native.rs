@@ -1,8 +1,8 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Native selected workflow over the same turn, Store and resource authorities.
-use super::super::native_startup::{check_preparation, start_runtime};
-use super::{native_owner, *};
-use native_owner::{SelectedNativeFailure, SelectedNativeReservation};
+use super::super::native_selected_workflow::save_setup_at;
+use super::native_owner::{SelectedNativeFailure, SelectedNativeReservation};
+use super::*;
 
 type NativeResult<T, R> = std::result::Result<T, SelectedNativeFailure<R>>;
 
@@ -225,151 +225,62 @@ fn save_setup(
     )
 }
 
-fn save_setup_at(
-    dir: &Path,
-    binding: &str,
-    ledgers: &mut [Ledger; 2],
-    physical_ms: u64,
-    status: &str,
-    load: Option<Value>,
-) -> Result<()> {
-    // Only this native-private workflow reaches here: either actual load is
-    // observed, or startup has ended with confirmed cleanup/BeforeChild.
-    // Unknown cleanup never calls it as a failed/settled terminal measurement.
-    if !matches!(status, "loaded" | "failed") || (status == "loaded" && load.is_none()) {
-        return Err("SetupIntegrity".into());
-    }
-    if status == "loaded" && physical_ms > PREPARATION_MS {
-        return Err("PreparationDeadline".into());
-    }
-    if ledgers.iter().any(|ledger| ledger.shared_setup.is_some()) {
-        return Err("ClockIntegrity".into());
-    }
-    let record = SetupRecord {
-        version: 2,
-        binding: binding.into(),
-        left_invocation: ledgers[0].invocation,
-        right_invocation: ledgers[1].invocation,
-        native: true,
-        physical_ms,
-        status: status.into(),
-        load,
-    };
-    saved(
-        &dir.join(format!("setup-{:02}.json", record.left_invocation)),
-        &record,
-        64 * 1024,
-    )?;
-    let (left, right) = shared_setup_shares(physical_ms);
-    for (ledger, share) in ledgers.iter_mut().zip([left, right]) {
-        if physical_ms <= PREPARATION_MS {
-            ledger.record_shared_setup(physical_ms, share)?;
-        } else {
-            // A known terminal OS overrun is charged in full, never clamped to
-            // the cooperative deadline. Legacy full-run validation is unchanged.
-            if ledger.shared_setup.is_some() || share > physical_ms {
-                return Err("ClockIntegrity".into());
-            }
-            ledger.shared_setup = Some((physical_ms, share));
-        }
-    }
-    Ok(())
+struct Workflow {
+    plan: PreparedSelectedPlan,
+    destination: Destination,
+    work: Work,
 }
-
+impl super::super::native_selected_workflow::Workflow for Workflow {
+    type Report = SelectedComparisonReportV1;
+    fn profile(&self) -> &PlayProfile {
+        &self.plan.manifest.profile
+    }
+    fn started(&self) -> Instant {
+        self.work.ledgers[0].started
+    }
+    fn remaining(&self) -> u64 {
+        self.work.remaining()
+    }
+    fn preflight(&self) -> Result<()> {
+        self.work.preflight()
+    }
+    fn ledgers(&mut self) -> &mut [Ledger; 2] {
+        &mut self.work.ledgers
+    }
+    fn save_setup(&mut self, ms: u64, status: &str, load: Option<Value>) -> Result<()> {
+        save_setup(&self.destination, &mut self.work, ms, status, load)
+    }
+    fn execute(&mut self, factory: Option<&LaneFactory>, cancel: &Cancellation) -> Result<()> {
+        execute_work(
+            &self.plan,
+            &self.destination,
+            &mut self.work,
+            factory,
+            cancel,
+        )
+    }
+    fn finish(mut self) -> Result<Self::Report> {
+        finish_workflow(&self.plan, &self.destination, &mut self.work)
+    }
+}
 fn run_prepared<R: SelectedNativeReservation>(
     plan: PreparedSelectedPlan,
     destination: Destination,
-    mut work: Work,
+    work: Work,
     reservation: Option<R>,
     cancel: &Cancellation,
     deadline: Instant,
 ) -> NativeResult<SelectedComparisonReportV1, R> {
-    let failure = SelectedNativeFailure::from_error;
-    // Both preparations precede assets, hashing, worker creation and load.
-    work.ledgers[0].begin_invocation().map_err(failure)?;
-    work.ledgers[1].begin_invocation().map_err(failure)?;
-    let Some(reservation) = reservation else {
-        execute_work(&plan, &destination, &mut work, None, cancel).map_err(failure)?;
-        return finish_workflow(&plan, &destination, &mut work).map_err(failure);
-    };
-    let mut deadline = deadline;
-    deadline = deadline.min(
-        preparation_deadline(work.ledgers[0].started, work.remaining(), Instant::now())
-            .map_err(failure)?,
-    );
-    check_preparation(cancel, deadline).map_err(failure)?;
-    let began = Instant::now();
-    let startup = start_runtime(&reservation, &plan.manifest.profile, cancel, deadline);
-    let mut initial_error = startup.error;
-    let mut setup_saved = false;
-    if initial_error.is_none() {
-        initial_error = check_preparation(cancel, deadline).err();
-    }
-    if initial_error.is_none() {
-        if let Err(error) = save_setup(
-            &destination,
-            &mut work,
-            elapsed(began),
-            "loaded",
-            startup.load.clone(),
-        ) {
-            initial_error = Some(error);
-        } else {
-            setup_saved = true;
-        }
-    }
-    if initial_error.is_none() {
-        if let Some(runtime) = startup.runtime.as_ref() {
-            let factory = LaneFactory::Native {
-                runtime: runtime.clone(),
-                profile: plan.manifest.profile.clone(),
-            };
-            // Check the same approved identities as every production native factory.
-            initial_error = factory
-                .profile()
-                .and_then(|_| check_preparation(cancel, deadline))
-                .and_then(|_| execute_work(&plan, &destination, &mut work, Some(&factory), cancel))
-                .err();
-            drop(factory); // All synchronous execute_turn Host/provider guards drained.
-        } else {
-            initial_error = Some("Provider".into());
-        }
-    }
-    let terminal = match startup.runtime {
-        Some(runtime) => native_owner::finish_owner(reservation, runtime, initial_error),
-        None => {
-            drop(reservation); // BeforeChild positively has no process owner.
-            Err(failure(initial_error.unwrap_or_else(|| "Provider".into())))
-        }
-    };
-    if terminal
-        .as_ref()
-        .is_err_and(|failure| failure.cleanup_uncertain())
-    {
-        // Keep both preparation reserves outstanding; admission settlements and
-        // committed rows remain actual. The failure retains any rejected handoff.
-        return terminal.and_then(|_| Err(failure("Cleanup".into())));
-    }
-    // Confirmed cleanup cost is still inside both live invocation clocks.
-    // A late failed setup may exceed 120s: retain the actual physical duration.
-    if !setup_saved {
-        save_setup(
-            &destination,
-            &mut work,
-            elapsed(began),
-            "failed",
-            startup.load,
-        )
-        .map_err(failure)?;
-    }
-    let published = finish_workflow(&plan, &destination, &mut work).map_err(failure);
-    match terminal {
-        Ok(()) => published,
-        Err(error) => {
-            published?;
-            Err(error)
-        }
-    }
+    super::super::native_selected_workflow::run(
+        Workflow {
+            plan,
+            destination,
+            work,
+        },
+        reservation,
+        cancel,
+        deadline,
+    )
 }
 
 pub fn run_native_selected<R: SelectedNativeReservation>(

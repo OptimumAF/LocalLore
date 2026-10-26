@@ -1151,7 +1151,8 @@ summary {
     display: block;
     max-width: 100%;
 }
-.comparison-reader {
+.comparison-reader,
+.comparison-run {
     margin-block: 1.5rem;
     padding-block: 1rem;
     border-block: 1px solid var(--border, #526273);
@@ -1164,7 +1165,8 @@ summary {
     gap: 0.75rem;
     margin-block: 1rem;
 }
-.comparison-reader label {
+.comparison-reader label,
+.comparison-run label {
     display: inline-flex;
     flex-direction: column;
     gap: 0.35rem;
@@ -1210,12 +1212,14 @@ summary {
     padding: 0.75rem;
     border: 1px solid var(--border, #526273);
 }
-.comparison-reader dl {
+.comparison-reader dl,
+.comparison-run dl {
     display: grid;
     grid-template-columns: minmax(9rem, 1fr) minmax(0, 3fr);
     gap: 0.45rem 1rem;
 }
-.comparison-reader dd {
+.comparison-reader dd,
+.comparison-run dd {
     margin: 0;
     overflow-wrap: anywhere;
 }
@@ -1228,7 +1232,8 @@ summary {
     padding-left: 0.75rem;
 }
 @media (max-width: 700px) {
-    .comparison-reader dl {
+    .comparison-reader dl,
+    .comparison-run dl {
         grid-template-columns: 1fr;
     }
     .author-panel dl,

@@ -42,7 +42,7 @@ export function ComparisonRunView({
     return (
         <section
             id="comparison-run"
-            className="comparison-reader"
+            className="comparison-run"
             aria-labelledby="comparison-run-title"
             data-phase={status?.phase ?? "idle"}
             data-pending-action={s.pending?.action ?? ""}

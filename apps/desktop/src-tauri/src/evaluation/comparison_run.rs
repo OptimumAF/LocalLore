@@ -920,6 +920,24 @@ impl EvaluationManager {
         } = launch;
         loop {
             let registration = self.registration.lock().map_err(|_| "EvaluationInternal")?;
+            // Another start may win after this caller's outer catalog read.
+            // Keep a conflicting durable client distinct from global Busy,
+            // even while that winning worker remains active.
+            if let Some(input) = input.as_ref() {
+                let full = self.full_lock()?;
+                if let Some(record) = full
+                    .runs
+                    .values()
+                    .find(|record| record.index.client_id == input.client_id)
+                {
+                    if record.index.kind != input.kind
+                        || record.index.initial_batch != input.max_new_scenes
+                        || record.index.lane()? != lane
+                    {
+                        return Err("InvalidEvaluationInput".into());
+                    }
+                }
+            }
             if self.state()?.job.is_some() {
                 return Err("EvaluationBusy".into());
             }

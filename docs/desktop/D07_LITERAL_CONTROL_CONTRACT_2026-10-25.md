@@ -14,8 +14,11 @@ See [native Host and durability qualification](D07_LITERAL_HOST_QUALIFICATION_20
 See [comparison metadata and literal capture qualification](D07_LITERAL_CAPTURE_CONTRACT_QUALIFICATION_2026-10-25.md).
 The latter adds a data-only contract and private input validator.
 See [scripted protocol3 producer, CLI and cold-read qualification](D07_LITERAL_COMPARISON_PRODUCER_QUALIFICATION_2026-10-25.md).
-It runs the actual literal/Relevant pair through the established owners; native
-protocol3 and selected/UI consumption remain unavailable. Design sections below
+It runs the actual literal/Relevant pair through the established owners.
+The [trusted native3 API ownership qualification](D07_LITERAL_NATIVE_OWNER_QUALIFICATION_2026-10-25.md)
+adds model-free preflight and actual protocol-child cleanup evidence; approved
+model execution, native3 CLI and selected/UI consumption remain unqualified.
+Design sections below
 preserve the original proposal; linked qualification records define the current
 implemented interfaces and their evidence classes.
 GitHub #29/#11 retain task status; no criterion is checked by this document.

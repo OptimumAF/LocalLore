@@ -145,3 +145,13 @@ distinct `retained_archive-v1.json` cannot replace native10, broad89 or
 retained-ui2. Admission, source/tool/server pins, output validation and resource
 bounds stay unchanged. See the [archive protocol](ANDROID_RETAINED_ARCHIVE_PROTOCOL.md)
 for the command, original synthetic fixture, exact method names and limits.
+
+## Separate explicit starter creation phase
+
+The fixed `story-creation` phase runs four source-pinned classes and nineteen
+methods in a distinct fresh guest: strict Android wire8, Compose dialog5,
+retained-editor fences4 and actual MainActivity/native journeys2. Its separate
+`story_creation-v1.json` does not qualify native10, broad89, retained-ui2,
+retained-archive2 or external process death. Existing admission and output/time
+bounds remain. See the [fixed protocol](ANDROID_STORY_CREATION_PROTOCOL.md)
+and [dated verification](ANDROID_STORY_CREATION_VERIFICATION_2026-10-26.md).

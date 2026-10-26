@@ -1,9 +1,10 @@
 # Fixed Android story-creation phase — v1
 
-M09.02/M09.06 supporting work and M10.02 preparation. This document freezes a
-future execution contract, not a device result. Actual execution is **PENDING**
-and blocked on host commit capacity for the owned guest. Source/host/JVM build
-results do not substitute for this Android phase or full M09.02 acceptance.
+M09.02/M09.06 supporting work and M10.02 preparation. This document freezes the
+execution contract. The [dated execution report](ANDROID_STORY_CREATION_VERIFICATION_2026-10-26.md)
+records nineteen actual passes on a fresh API35/x86_64 guest; native10 runs in a
+separate fresh guest. Source/host/JVM results do not substitute for this Android
+phase, physical/model qualification or full M09.02 acceptance.
 
 ## Closed phase and admission
 
@@ -102,4 +103,5 @@ This phase does not exercise OS process death, real inference or model loading,
 physical-phone behavior, full premise/tone/character customization, unfamiliar
 users or accessibility qualification. Activity/adapter close requests are not
 joined native-resource drain proof. Host mocks and source review cannot claim
-these Android methods actually ran; current execution status remains pending.
+these Android methods actually ran; use the original runtime records linked by
+the dated execution report for the current result.

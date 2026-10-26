@@ -63,5 +63,7 @@ An uncertain error consumes the confirmation and requires close/refresh.
 Disposal prevents publication; existing transport ownership fences remain.
 
 No source-pinned host/JVM test substitutes for actual Compose/JNI/phone testing.
-Native10 and retained-archive2 remain separate blocked gates from PR #212;
-their original results/rosters and evidence are not relabelled for this packet.
+Native10, retained-archive2 and the new story-creation19 have distinct gates.
+See the [dated execution report](ANDROID_STORY_CREATION_VERIFICATION_2026-10-26.md).
+PR #212's original source/APK/preparation results keep their original attribution;
+they are not relabelled for this packet.

@@ -31,6 +31,8 @@ mod selected_commands;
 #[cfg(feature = "dev-harness")]
 mod selected_harness;
 mod shutdown;
+#[cfg(feature = "dev-harness")]
+mod shutdown_harness;
 use lease::WindowLease;
 #[cfg(feature = "dev-harness")]
 mod fork_harness;
@@ -222,6 +224,8 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny)
         .initialization_script(script)
         .build()?;
+    #[cfg(feature = "dev-harness")]
+    shutdown_harness::phase("window_created", epoch);
     Ok(())
 }
 #[cfg(feature = "dev-harness")]
@@ -527,12 +531,16 @@ fn main() {
                     close_gate::Intent::Window,
                 );
             } else if matches!(event, tauri::WindowEvent::Destroyed) {
+                #[cfg(feature = "dev-harness")]
+                if let Some(epoch) = window
+                    .label()
+                    .strip_prefix("main-")
+                    .and_then(|s| s.parse().ok())
+                {
+                    shutdown_harness::phase("native_destroyed", epoch);
+                }
                 // Also fence direct destruction in the app-owned dev harness.
-                let _ = shutdown::request(
-                    window.app_handle(),
-                    window.label(),
-                    close_gate::Intent::Window,
-                );
+                let _ = shutdown::destroyed(window.app_handle(), window.label());
             }
         })
         .build(tauri::generate_context!())
@@ -540,7 +548,7 @@ fn main() {
         .run(|app, event| {
             if let tauri::RunEvent::ExitRequested { api, code, .. } = event {
                 #[cfg(feature = "dev-harness")]
-                if harness::active() && code.is_none() {
+                if harness::active() && code.is_none() && !shutdown_harness::finishing() {
                     api.prevent_exit();
                     return;
                 }

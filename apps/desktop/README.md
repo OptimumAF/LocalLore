@@ -1,5 +1,13 @@
 # Desktop Play & Story Lab
 
+The [bounded native shutdown qualification](../../docs/desktop/D09_DESTROYED_EXIT_QUALIFICATION_2026-10-26.md)
+records destruction-before-exit and early-destruction/reopen checks through the
+existing app-owned harness. Reproduce with `node shutdown-harness.mjs zero`,
+`seven` or `window` using the documented external output/target environment.
+The native gate requires both confirmed cleanup and an actual current-window
+Destroyed event. SDK diagnostics and full D09 packaging/privacy gates remain
+separate; the source-bound record retains failures and remaining limitations.
+
 A native Windows shell over the shared Rust engine. The original Lantern Quay
 fixture supports giving the last potion to Mira, waiting, attempting an
 unlearned ability and explicit typed dialogue. Finalized Rust receipts populate

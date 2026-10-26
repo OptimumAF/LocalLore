@@ -8,6 +8,7 @@ The component phase does not qualify the external two-death controller case.
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -62,6 +63,29 @@ class VerificationRefused(RuntimeError):
 def need(value, reason):
     if not value:
         raise VerificationRefused(reason)
+
+
+def strict_json_bytes(raw, cap=4096):
+    """Bounded UTF-8 evidence syntax; callers still enforce closed domain schemas."""
+    need(type(raw) is bytes and type(cap) is int and 0 < cap <= 1048576 and 0 < len(raw) <= cap,
+         "json_bounds")
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            need(key not in value, "duplicate_key")
+            value[key] = item
+        return value
+    def finite(value):
+        parsed = float(value)
+        need(math.isfinite(parsed), "nonfinite")
+        return parsed
+    def constant(_value):
+        raise VerificationRefused("nonfinite")
+    try:
+        return json.loads(raw.decode("utf-8", errors="strict"), object_pairs_hook=unique,
+                          parse_float=finite, parse_constant=constant)
+    except (UnicodeError, ValueError):
+        raise VerificationRefused("json_refused") from None
 
 
 def output_path(path):

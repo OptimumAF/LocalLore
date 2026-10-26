@@ -434,6 +434,36 @@ class PhysicalProbeTests(unittest.TestCase):
         for raw in (f'PID UID NAME\n4 {UID} {p.APP}:unknown\n'.encode(),f'PID UID NAME\n4 {UID+2} {p.APP}\n'.encode(),b'permission denied\n'):
             with self.assertRaises((AssertionError,ValueError)):p.process_rows(raw,uids)
 
+    def test_unrelated_process_name_whitespace_is_not_an_extra_pid_or_uid_column(self):
+        uids={p.APP:UID,p.TEST:UID+1}
+        raw=('PID UID NAME\n1 0 init\n2 0 [synthetic kernel worker]\n'
+             '3 1000 unrelated  system helper\n4 2000 unrelated\tworker\tname\n'
+             f'5 {UID} {p.APP}\n6 {UID+1} {p.TEST}\n').encode()
+        self.assertEqual(p.process_rows(raw,uids),[dict(pid=5,uid=UID,name=p.APP),
+                                                  dict(pid=6,uid=UID+1,name=p.TEST)])
+
+    def test_related_uid_or_colon_process_cannot_hide_inside_a_whitespace_name(self):
+        uids={p.APP:UID,p.TEST:UID+1}
+        cases=((UID,p.APP+' helper'),(UID,'renamed synthetic process'),(UID,p.APP+'   '),
+               (UID+1,p.TEST+' helper'),(UID,p.TEST),
+               (2000,p.APP+':worker with spaces'),(2000,p.TEST+':worker\twith\ttabs'))
+        for uid,name in cases:
+            with self.subTest(uid=uid,name=name),self.assertRaises(AssertionError):
+                p.process_rows(f'PID UID NAME\n9 {uid} {name}\n'.encode(),uids)
+
+    def test_process_numeric_ranges_and_missing_name_columns_remain_strict(self):
+        uids={p.APP:UID,p.TEST:UID+1}
+        for line in ('1','1 0','1 0    ','1 0 \t ', '0 0 init','-1 0 init',
+                     '2147483648 0 init','1 -1 init','1 2147483648 init',
+                     'pid 0 init','1 uid init','1.0 0 init','1 True init'):
+            with self.subTest(line=line),self.assertRaises((AssertionError,ValueError)):
+                p.process_rows(('PID UID NAME\n'+line+'\n').encode(),uids)
+
+    def test_duplicate_target_rows_remain_visible_instead_of_becoming_absence(self):
+        raw=f'PID UID NAME\n9 {UID} {p.APP}\n9 {UID} {p.APP}\n'.encode()
+        expected=dict(pid=9,uid=UID,name=p.APP)
+        self.assertEqual(p.process_rows(raw,{p.APP:UID,p.TEST:UID+1}),[expected,expected])
+
     def test_model_stream_parent_240_clipped_aggregate_and_unknown_stops_postchecks(self):
         v=self.fixture('model');root=Path(v['evidence_root']);root.mkdir();owner=p.Owner(v,root);owner.uids={p.APP:UID,p.TEST:UID+1};owner.stage='boundary'
         owner.facts=Mock();owner.check_server=Mock()

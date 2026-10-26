@@ -359,9 +359,10 @@ def process_rows(raw, uid_map):
     lines = text(raw).splitlines(); assert lines and lines[0].split() == ['PID', 'UID', 'NAME']
     rows = []
     for line in lines[1:]:
-        fields = line.split(); assert len(fields) == 3
+        fields = line.split(maxsplit=2); assert len(fields) == 3
         pid, uid = integer(int(fields[0]), 1, 2**31-1), integer(int(fields[1]), 0, 2**31-1)
         name = fields[2]
+        assert name and not name.isspace()
         if name == APP or name.startswith(APP + ':') or name == TEST or name.startswith(TEST + ':') or uid in uid_map.values():
             assert name in (APP, TEST) and name in uid_map and uid == uid_map[name]
             rows.append({'pid': pid, 'uid': uid, 'name': name})

@@ -96,6 +96,16 @@ In particular `run-as PACKAGE --user 0 sh -c ...` keeps the package before the
 user option. A sampled foreground-user check is not a reservation; explicit
 user-zero arguments prevent later default-user ambiguity.
 
+The bounded `ps` observation has exactly two leading numeric columns (PID and
+UID), followed by the complete nonempty NAME remainder. Unrelated kernel or
+process names may contain whitespace; it is not interpreted as another column
+and is not normalized or copied to public reports. PID/UID ranges and exact
+APP/TEST names, their colon-prefixed processes and their UID ownership gates
+remain unchanged. A related UID with a renamed/space-bearing NAME, a colon
+process or a mismatched package/UID still refuses. Duplicate target rows are
+not collapsed into an absence claim. This metadata parser does not establish
+memory, capacity, package absence or physical execution qualification by itself.
+
 The pinned model remains2,588,147,712 bytes / SHA256
 `181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c`.
 The original precheck fixture is65 bytes / SHA256

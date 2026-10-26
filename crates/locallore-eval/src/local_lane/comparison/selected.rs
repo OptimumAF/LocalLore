@@ -808,6 +808,11 @@ pub struct SelectedComparisonReportV1 {
     limitations: Vec<String>,
 }
 
+pub(super) fn validate_setups(dir: &Path, binding: &str, native: bool) -> Result<()> {
+    setup::read_setups(dir, binding, native)?;
+    Ok(())
+}
+
 pub(super) fn ledgers(dir: &Path, binding: &str) -> Result<[Ledger; 2]> {
     Ok([
         Ledger::load(&dir.join("left"), binding)?,

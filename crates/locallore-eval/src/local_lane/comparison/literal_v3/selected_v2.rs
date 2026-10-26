@@ -360,7 +360,7 @@ fn validate_destination(
         }
     }
     shared::ledgers(dir, &manifest.binding)?;
-    shared::setup::read_setups(dir, &manifest.binding, false)?;
+    shared::validate_setups(dir, &manifest.binding, false)?;
     Ok(turns)
 }
 

@@ -66,8 +66,9 @@ original per-arm prefixes/requests, plan binding, actor privacy and retained
 worker ownership. The UI hides a locally attempted source token until a fresh
 reader token is supplied; an unknown acknowledgement does not restore that link.
 That conservative presentation fence does not certify native consumption.
-Final legacy/native/lint/format/Android-host-graph and normal-build restoration
-gates remain pending coordinator evidence in the linked record. The observed
+Legacy compatibility, native tests/lint/format, frontend checks, Android Rust
+host/graph checks and normal-build restoration passed at the same source; exact
+counts, commands and retained failures are in the linked record. The observed
 WebView2 SDK 1412 shutdown message remains a separate [D09 #31](https://github.com/OptimumAF/LocalLore/issues/31)
 limitation, not a clean-SDK-exit result. Paused/incomplete UI resume, native-model
 UI execution, real OS dialogs, whole-app RAM/performance, human quality and

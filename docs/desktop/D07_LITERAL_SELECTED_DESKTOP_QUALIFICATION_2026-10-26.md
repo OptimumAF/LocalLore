@@ -1,10 +1,11 @@
 # Selected2 desktop consumer: app cohort evidence
 
-Scope: D07.03/.04/.06 supporting work under #29. **Corrected literal and legacy
-app cohorts completed at `6a195f85`; final regression gates remain pending.**
-All execution results below are coordinator-provided Root evidence. The document
-author inspected tracked source only and ran no test, build, application or model,
-and read no generated artifacts, private prompts or images.
+Scope: D07.03/.04/.06 supporting work under #29; [PR207](https://github.com/OptimumAF/LocalLore/pull/207).
+**Corrected literal, legacy and final regression cohorts completed at clean
+`6a195f85c2b17cb2f8621935a2a5e3987a47a248`.** Subsequent integration changes
+only documentation. Root executed the checks, inspected the generated images and
+reconciled this final record. Independent document contributors inspected source
+only; their edits are not additional execution evidence.
 
 The implemented desktop service and frontend use the existing selected workflow
 for source protocol2/selected1 and source protocol3/selected2. This is not a new
@@ -196,8 +197,59 @@ order, clean SDK teardown, absence of transient windows or a universal no-leak
 property. Passing app journeys/exit codes do not resolve the1412 diagnostic.
 
 These corrected and legacy results do not replace the original49-image cohort
-or the failed watchdog attempt. Final source-bound regression/normal-restoration
-results and artifact hashes are still awaiting the coordinator's terminal packet.
+or the failed watchdog attempt.
+
+## Final source-bound regression and restoration
+
+All following commands completed at the same clean `6a195f85` source, locked and
+offline, serial jobs1, with terminal source-unchanged checks. The external local
+record prefix is `d07-selected2-desktop-final1`; raw records remain local.
+
+| Gate | Actual result |
+|---|---|
+| Native all-feature tests |180 passed/0 failed/5 ignored in560.18s, plus2 harness-contract tests passed in0.01s; compile51.66s |
+| Native strict all-feature/all-target Clippy |PASS,14.76s compiler time |
+| Native/root Cargo formatting |PASS |
+| Whole frontend Prettier |PASS |
+| Android Rust host |20 passed/0 failed/0 ignored in1.84s |
+| Android dependency graph |PASS; no locallore-local-runtime, locallore-eval, Tauri, Wry or llama dependency |
+| Full `verify-frontend.mjs` |PASS, including selected2's101 and freshness10 checks, strict TypeScript, existing controllers/decoders and normal-build development-hook exclusion |
+| Restored normal native build |PASS,16.53s compiler time; compiled, not launched |
+
+The five ignored native tests are four explicitly opt-in installed-model tests
+and the Windows symlink-privilege test. They were not executed by this cohort.
+No Android JVM, Gradle, JNI/ABI, emulator or phone execution occurred here.
+The full native test command was the reproduction command below without
+`--bin ... evaluation::selected::tests::literal_selected_review::`; it ran both
+the binary unit suite and `tests/harness_contract.rs`. Android compatibility used
+`cargo test --locked --offline --jobs 1 --manifest-path crates/locallore-android/Cargo.toml --target-dir $taskNativeTarget --lib -- --nocapture --test-threads=1`
+and `cargo tree --locked --offline --manifest-path crates/locallore-android/Cargo.toml --edges normal,build,dev --prefix none`.
+
+The normal frontend and native executable were restored after the dev harness.
+No model ran during these UI/regression cohorts. The independent final source
+review at `6a195f85` found no concrete new defect; it did not constitute human
+approval or additional runtime evidence. Owner authorization covers the review
+override, while a fresh final-head security check remains required before merge.
+
+### Retained local artifact pins
+
+These hashes identify synthetic local evidence; they are not public artifact
+downloads or a byte-reproducibility claim. Literal folder suffix
+`e2230471-fe31-438d-8ba7-5c00fdbe6cb3`, legacy suffix
+`fbe3af22-b028-47d4-9f96-7044e6c9ff9a`, each prefixed
+`comparison-reader-native-` under the local selected2-ui artifact directory.
+
+| Artifact | SHA256 |
+|---|---|
+| Literal harness executable |`1a3d21555eee8a3a6ff8ff85e97f04d6c0fd517ddf7b9ec166c35a4348eac94c`|
+| Literal qualification.json |`4fcf931c484afffa9a40a5c548a4aaa895333e9a58a174c5efa850705cde6245`|
+| Literal initial/report.json |`82ef0544b4d4747b113ce37a8cc91f540045243176e9bfdeec7835708ded091a`|
+| Literal restart/report.json |`6300e64eb892bcbae5103628ededdf42c63b833a513488e74b9cc5851b353626`|
+| Literal initial selected-summary.png |`f37cbfa8672a78c355c0c552bedd6fb6b38b754a07d5903c173751fb4083ad7d`|
+| Legacy harness executable |`c51b89c1cfb70b9b4b2c4dcfd830af0defb30a76d9fd59ec99048d6763c1ac86`|
+| Legacy qualification.json |`20bceb1dee038a106ba8fb9989602a209cc4a8c1b9f12651a718aa21ff8697fb`|
+| Legacy initial/report.json |`c948656baaa2aaa4e9cfcda3cd3a6b3c5376700bcb839264585ca44371f82ff7`|
+| Legacy restart/report.json |`b91bfbe8adf1fb9c2d013b04cfa9fc67130773fe04bdc3aef169c3bcf11beb81`|
 
 ## Reproduce with existing dependencies
 
@@ -249,14 +301,7 @@ Windows NT10.0.26300 x64. Source pins React/react-dom19.3.1, esbuild0.28.2,
 TypeScript7.0.2, Prettier3.9.10 and Tauri2.12.5; lockfiles remain the authority.
 These are existing dependencies, not downloads or an upgrade performed here.
 
-## Pending coordinator completion
-
-- Final source-bound Rust regressions and native formatting: **PENDING**.
-- Final Android Rust host tests/dependency-graph exclusion: **PENDING**; this is
-  not a pending Android device/JNI/ABI qualification claim.
-- Final normal build/frontend/format/artifact restoration: **PENDING**.
-- Exact terminal cohort/log/hash and final artifact inventory references:
-  **PENDING Root evidence append**, not inferred here.
+## Remaining qualification
 
 UI real-model execution, real OS dialogs, mid-provider process death, paused
 incomplete UI resume, human story quality, whole-app RAM/performance and phone

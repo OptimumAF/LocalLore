@@ -305,8 +305,9 @@ controllers/native IPC and fixed picker/consent doubles, with fake inference
 and no desktop input. These counts do not establish independent quality claims.
 From `apps/desktop`, use `node selected-evaluation-harness.mjs --literal` with
 the same task-owned output/target environment above to reproduce that path.
-Final legacy/native/lint/format/Android-host-graph and normal-build restoration
-gates are pending coordinator evidence in the linked record. SDK shutdown error
+Legacy compatibility, native tests/lint/format, frontend checks, Android Rust
+host/graph checks and normal-build restoration passed at the same source; exact
+counts, commands and retained failures are in the linked record. SDK shutdown error
 1412 remains observed and tracked separately in [D09 #31](https://github.com/OptimumAF/LocalLore/issues/31);
 this is not a clean-SDK-exit, RAM, performance, human-quality or phone claim.
 Native-model UI execution, real OS dialogs and paused/incomplete UI resume

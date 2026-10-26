@@ -354,6 +354,20 @@ fn mutable(v: &mut Value, mut counts: Option<&mut [Counts; 2]>) -> Result<bool, 
     let entries = v["entries"].as_array_mut().ok_or("Entries")?;
     let mut changed = false;
     for entry in entries {
+        // Value's mutable string indexing panics on nonobjects. Validate the
+        // complete entry shape before looking up a mutable assessment array.
+        exact_keys(
+            entry,
+            &[
+                "turn",
+                "arm",
+                "selected",
+                "source_row",
+                "capture",
+                "outputs",
+                "assessments",
+            ],
+        )?;
         for assessment in entry["assessments"].as_array_mut().ok_or("Assessments")? {
             exact_keys(
                 assessment,
@@ -399,7 +413,10 @@ fn mutable(v: &mut Value, mut counts: Option<&mut [Counts; 2]>) -> Result<bool, 
             let rationale = &assessment["rationale"];
             if !rationale.is_null() {
                 if !rationale.as_str().is_some_and(|s| {
-                    s.len() <= MAX_RATIONALE_BYTES && !s.chars().any(char::is_control)
+                    s.len() <= MAX_RATIONALE_BYTES
+                        && !s
+                            .chars()
+                            .any(|c| c.is_control() || matches!(c, '\u{2028}' | '\u{2029}'))
                 }) {
                     return error("Rationale");
                 }
@@ -805,6 +822,56 @@ mod tests {
         r["entries"][0]["assessments"][0]["rationale"] = json!("x".repeat(1024));
         let s = summarize_value(&p, &r).unwrap();
         assert_eq!(s["roles"]["director"]["reviewed_attempts"], 0);
+    }
+    #[test]
+    fn malformed_entry_assessment_and_judgment_shapes_return_errors_without_unwinding() {
+        let expected = packet();
+        for path in [
+            "/entries",
+            "/entries/0",
+            "/entries/0/assessments",
+            "/entries/0/assessments/0",
+            "/entries/0/assessments/0/judgments",
+        ] {
+            for bad in [
+                json!(true),
+                json!(1),
+                json!(1.5),
+                json!("bad"),
+                json!([]),
+                json!({}),
+                Value::Null,
+            ] {
+                let mut review = expected.clone();
+                *review.pointer_mut(path).unwrap() = bad;
+                let result = std::panic::catch_unwind(|| summarize_value(&expected, &review));
+                assert!(result.is_ok(), "unwound for {path}");
+                assert!(
+                    result.unwrap().is_err(),
+                    "accepted malformed shape at {path}"
+                );
+            }
+        }
+    }
+    #[test]
+    fn rationale_rejects_unicode_line_and_paragraph_separators_but_allows_single_line() {
+        let expected = packet();
+        for separator in ['\u{2028}', '\u{2029}'] {
+            let mut review = expected.clone();
+            review["reviewer"] = json!("reviewer-1");
+            review["entries"][0]["assessments"][0]["rationale"] =
+                json!(format!("first{separator}second"));
+            assert_eq!(
+                summarize_value(&expected, &review).unwrap_err(),
+                "Rationale"
+            );
+        }
+        let mut review = expected.clone();
+        review["reviewer"] = json!("reviewer-1");
+        review["entries"][0]["assessments"][0]["rationale"] = json!("Readable café prose.");
+        let summary = summarize_value(&expected, &review).unwrap();
+        assert_eq!(summary["roles"]["director"]["reviewed_attempts"], 0);
+        assert_eq!(summary["quality_accepted"], false);
     }
     #[test]
     fn count_is_only_an_integer_bounded_prefix_hint_not_review_validation() {

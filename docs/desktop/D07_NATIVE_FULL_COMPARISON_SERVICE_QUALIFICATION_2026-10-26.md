@@ -1,7 +1,8 @@
 # Native full-comparison service qualification
 
 Supporting D07.03/.06/.04 under #29, coordinator claim6425826959.
-**PARTIAL QUALIFICATION / FINAL COORDINATOR APPENDIX PENDING.** Updated through
+**SCOPED LOCAL CHECKS COMPLETE / PR ACCEPTANCE TRACKED IN PR214.** The final
+coordinator appendix below supersedes earlier pending check statuses. Updated through
 terminal UI evidence at `84eb739f372be2befe5ddfc1ce82aabcb300287d`, retaining the
 earlier `a2610a49`/`9920d48c` cutoffs and failures below. All executions belong to Root;
 the documentation author read terminal records/tracked source and ran no checks,
@@ -422,7 +423,81 @@ read or hashed for this update.
 | UI3 `restart/report.json` | `ddd693aa915a98e3a6d5f124d91a0452d341604b38d9f930c7ca4c0c97be45b2` |
 | `<artifact-root>/d07-native-full-port-native-ui3-visual-review.json` | `4d363abbeec492e1cab1fc354cfa93ecf8c97d060b13a9a4201fe833e0b15a84` |
 
-PR214 remains draft. Final unfiltered native regressions, strict lint/format,
-Android host compatibility, normal-build restoration, fresh security review and
-owner acceptance remain pending coordinator evidence. No whole-D07 or publication
-readiness is implied by this terminal UI supplement.
+At the UI supplement's cutoff PR214 was draft and the source-wide checks were
+pending. The coordinator's terminal results below supersede those local pending
+gates. PR214 records subsequent security/owner acceptance. No whole-D07 or
+publication readiness is implied by this supporting slice.
+
+## Final coordinator source and compatibility closure
+
+The unfiltered native cohort ran at clean, unchanged
+`84eb739f372be2befe5ddfc1ce82aabcb300287d`. It passed235 unit tests, failed0,
+ignored9, and passed both separate harness-contract tests. Unit execution took
+1302.56s; compilation53.90s; complete command1358.024s. It includes the new
+native service/parser/admission cases and preserved scripted/reader/selected
+regressions; complementary earlier passes are not added again to this count.
+The9 ignored cases are8 explicit installed-asset opt-ins and1 Windows symlink-
+privilege case. The four service asset checks above were separately allocated
+and actually executed; they were not silently included in the default count.
+The other asset/privilege cases were not rerun by this final command.
+
+All remaining checks ran at clean, unchanged
+`1805b0a7a6114ec4974f29cb16aaf62e36527781`, whose only difference from84eb is
+this qualification document. No implementation or assertion changed after the
+235/2 native pass or the18-image UI cohort.
+
+| Coordinator label after `d07-native-full-port-` | Actual terminal result |
+|---|---|
+| `native-final1` |235 passed /0 failed /9 ignored,1302.56s; separate harness2/0,0.01s |
+| `clippy-final1` | All targets/all features, `-D warnings`, passed13.92s |
+| `rust-format-final1` | Native/workspace `cargo fmt --all -- --check` passed |
+| `frontend-format-final1` | All matched frontend/launcher files passed Prettier |
+| `android-host-final1` |20 Rust host adapter tests passed,0 failed,1.84s |
+| `android-graph-final1` | Passed;0 occurrences of runtime/llama/LiteRT/Tauri/WebView/Wry packages in normal/build/dev graph |
+| `frontend-final1` | Full frontend, strict TypeScript, existing56 comparison cases and all other wired checkers passed16.813s; normal development-hook exclusion passed |
+| `normal-build-final1` | Default native build passed22.49s compile /22.681s command; executable was not launched |
+
+Android results are Windows Rust host/adapter compatibility, not JVM, JNI
+execution on Android, emulator, physical-phone or Android app-build evidence.
+No new such cohort was run. Source dependency pins are unchanged. Normal
+frontend SHA256 is
+`8c063930b9e9ac223168df51686fc8fe4270bfcd43c7869db5ebd223546a2c08`,
+identical to the previously qualified normal frontend. Restored normal native
+executable SHA256 is
+`bc8ff37fa7983293a92c7b8c86e4346780c64e36e8dc5e77d1e2837e150c7855`.
+It is an unlaunched developer build, not an installer or public release.
+
+Exact executed arguments/timestamps and original failure logs remain local.
+The local seal `d07-native-full-port-qualified-evidence-seal1.json`, SHA256
+`2dad1dce9cf514b08a29a53e6017e56c1b97c61be67697cc9e50cdb592a72d27`,
+binds12 required successful command records and154 retained files, including
+failure histories, three native cohorts,18 images and their visual-review
+manifest. Each required record is terminal, exit0, sourceclean and unchanged;
+failed historical records are preserved separately as evidence, not passes.
+Generated artifacts remain local/ignored rather than public attachments.
+
+Reproduce the final native checks from the repository root after provisioning
+the pinned tools and existing dependencies. The earlier environment block sets
+the owned target/temp directories and serial build flags:
+
+```powershell
+cargo test --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --jobs 1 -- --nocapture --test-threads=1
+cargo clippy --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --all-targets --jobs 1 -- -D warnings
+cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all -- --check
+cargo test --locked --offline --manifest-path crates/locallore-android/Cargo.toml --jobs 1 --lib -- --nocapture --test-threads=1
+cargo tree --locked --offline --manifest-path crates/locallore-android/Cargo.toml --edges normal,build,dev --prefix none
+# From apps/desktop, before restoring the default native build:
+node verify-frontend.mjs
+node node_modules/prettier/bin/prettier.cjs --check 'ui/*.{ts,tsx,html,css}' '*.{json,mjs}'
+# From the repository root; this builds but does not launch:
+cargo build --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --jobs 1
+```
+
+PR214 is a supporting service/closed-IPC slice. Its exact final-head security
+result and owner-authorized merge are recorded on GitHub after this local
+cutoff; no approval, merge or zero-vulnerability status is invented here.
+Existing moderate Dependabot issue2 remains open. Native-model GUI admission,
+real OS confirmation behavior, human narrative review, quality acceptance,
+whole-app performance, phone qualification and final D07/epic/package gates
+remain incomplete. The next runnable implementation is the separately frozen
+native consumer, reusing these service/reader/cleanup interfaces.

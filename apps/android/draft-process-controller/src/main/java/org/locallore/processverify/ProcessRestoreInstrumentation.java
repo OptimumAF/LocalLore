@@ -118,6 +118,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     private int deaths;
     private Fixture fixture;
     private final JSONArray observations = new JSONArray();
+    private final JSONArray terminalObservations = new JSONArray();
 
     @Override public void onCreate(Bundle args) {
         super.onCreate(args);
@@ -152,7 +153,8 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             launch();
             Probe initial = awaitCreated(null, false);
             observe(initial);
-            readyProduct();
+            if (reuse) readyProduct();
+            else readyEmptyProduct(initial);
             stage = Stage.CATALOG;
             if (reuse) verifyFixtureCatalog();
             else createFixture(stored);
@@ -315,6 +317,13 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     }
 
     private void readyProduct() throws Exception {
+        readyHeader();
+        AccessibilityNodeInfo provider = tag("inference-provider");
+        try { checked(nodeText(provider).equals("Local Rust engine · fake inference"), Reason.UI); }
+        finally { provider.recycle(); }
+    }
+
+    private void readyHeader() throws Exception {
         waitUntil(() -> findAndRecycle("story-list"), 8_000, Reason.UI);
         AccessibilityNodeInfo resetTag = tag("reset-demo"); resetTag.recycle();
         waitUntil(() -> {
@@ -322,15 +331,27 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             if (reset == null) return false;
             try { return reset.isEnabled(); } finally { reset.recycle(); }
         }, 10_000, Reason.UI);
+    }
+
+    private void readyEmptyProduct(Probe identity) throws Exception {
+        readyHeader();
         AccessibilityNodeInfo provider = tag("inference-provider");
-        try { checked(nodeText(provider).equals("Local Rust engine · fake inference"), Reason.UI); }
+        try { checked(nodeText(provider).equals("Local Rust engine · text inference unavailable"), Reason.UI); }
         finally { provider.recycle(); }
+        checked(maybeWorkspace() == null && !findAndRecycle("saved-library"), Reason.FIXTURE);
+        AccessibilityNodeInfo empty = tag("empty-library");
+        try { checked(nodeText(empty).equals("No saved stories. Choose New story to begin."), Reason.FIXTURE); }
+        finally { empty.recycle(); }
+        Probe initial = latest(identity);
+        checked(initial.op("create") == 0, Reason.AUTOMATIC_OPERATION);
+        noGameplay(initial);
     }
 
     private void createFixture(File file) throws Exception {
         need(findAndRecycle("saved-library") == false && maybeWorkspace() == null, Reason.FIXTURE);
         click("reset-demo");
         Workspace first = awaitWorkspace(null, 0);
+        readyProduct();
         checked(catalog().equals(Collections.singletonList(first.story)), Reason.CATALOG);
         checked(select(first.story).same(first, 0), Reason.CANONICAL);
         click("reset-demo");
@@ -518,6 +539,13 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
 
     private Probe backgroundAndSave(Probe identity, Workspace expected) throws Exception {
         Probe before = latest(identity);
+        if (deaths == 0) noGameplay(before);
+        else {
+            need(deaths == 1 && before.op("free_text") == 1 && before.op("submit") == 0
+                    && before.op("prepare") == 1 && before.op("commit") == 1
+                    && before.op("cancel") == 0 && before.op("other") == 0,
+                    Reason.AUTOMATIC_OPERATION);
+        }
         Probe previous = readProbe("saved.json");
         long sequence = Math.max(before.sequence, previous != null && previous.sameIdentity(identity) ? previous.sequence : 0);
         need(automation.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME), Reason.UI);
@@ -525,6 +553,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         waitUntil(() -> {
             Probe p = readProbe("saved.json");
             if (p == null || !p.sameIdentity(identity) || p.sequence <= sequence || !p.hintPresent || !p.hint.equals(hint(expected)) || p.factory != 1) return false;
+            need(sameGame(p, before), Reason.AUTOMATIC_OPERATION);
             if (!taskStopped(identity.task)) return false;
             saved[0] = p; return true;
         }, 10_000, Reason.SAVED_ACK);
@@ -536,6 +565,17 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         need(shell("am kill --user 0 " + PRODUCT, 1024).isEmpty(), Reason.SHELL_REFUSED);
         waitUntil(() -> !pidExists(saved.pid) && !anyProductProcess(), 8_000, Reason.PROCESS);
         deaths++;
+        // The old producer is now gone, so its final records cannot race a
+        // concurrent writer or be replaced by the new process's zero counters.
+        Probe finalSaved = readProbe("saved.json"), finalCommands = readProbe("commands.json");
+        checked(finalSaved != null && finalCommands != null && finalSaved.sameIdentity(saved)
+                && finalCommands.sameIdentity(saved) && finalSaved.sequence >= saved.sequence
+                && finalSaved.hintPresent && finalSaved.hint.equals(saved.hint)
+                && finalSaved.factory == 1 && finalCommands.factory == 1, Reason.PROBE);
+        terminalObservations.put(new JSONObject().put("pid", saved.pid).put("start", saved.start).put("task", saved.task)
+                .put("saved_sequence", finalSaved.sequence).put("commands_sequence", finalCommands.sequence)
+                .put("saved_game", gameJson(finalSaved)).put("commands_game", gameJson(finalCommands)));
+        checked(sameGame(finalSaved, saved) && sameGame(finalCommands, saved), Reason.AUTOMATIC_OPERATION);
         checked(true, Reason.PROCESS);
     }
 
@@ -557,6 +597,17 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
 
     private static int indentation(String line) {
         int i = 0; while (i < line.length() && line.charAt(i) == ' ') i++; return i;
+    }
+
+    private static boolean sameGame(Probe left, Probe right) {
+        for (String op : GAME) if (left.op(op) != right.op(op)) return false;
+        return true;
+    }
+
+    private static JSONObject gameJson(Probe probe) throws JSONException {
+        JSONObject result = new JSONObject();
+        for (String name : GAME) result.put(name, probe.op(name));
+        return result;
     }
 
     private List<String[]> ps() throws Exception {
@@ -850,7 +901,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
                 .put("stage", stage.name()).put("reason", reason.name()).put("checks", checks).put("process_deaths", deaths)
                 .put("controller", new JSONObject().put("pid", Process.myPid()).put("uid", Process.myUid())
                         .put("start", Process.getStartUptimeMillis()))
-                .put("observations", observations);
+                .put("observations", observations).put("terminal_observations", terminalObservations);
         result.put("fixture", fixture == null ? JSONObject.NULL : fixture.json());
         return result;
     }

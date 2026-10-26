@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { build } from "esbuild";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createHash, randomUUID, webcrypto } from "node:crypto";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 
 const desktop = fileURLToPath(new URL("./", import.meta.url));
@@ -662,8 +662,19 @@ function fullDouble(mode) {
 function readerDouble() {
     const calls = [];
     let hold = null;
+    let context = "synthetic-app-reader",
+        allowed = true;
+    let observer = { kind: "player" };
     return {
         calls,
+        get: () => ({ context, allowed, observer }),
+        contextChanged(key, permitted) {
+            context = key;
+            allowed = permitted;
+        },
+        setObserver(next) {
+            observer = clone(next);
+        },
         holdClose() {
             hold = deferred();
             return hold;
@@ -695,10 +706,10 @@ function readerDouble() {
         },
     };
 }
-function appFixture(main, legacyOnly = false) {
+function appFixture(main, legacyOnly = false, readerOverride) {
     const scripted = fullDouble("scripted_baseline"),
         native = fullDouble("approved_native"),
-        reader = readerDouble();
+        reader = readerOverride ?? readerDouble();
     const key = `app-${randomUUID()}`;
     const props = {
         controller: main.controller,
@@ -1143,49 +1154,59 @@ test("App cleanup view remains mounted and actionable outside Story Lab", () =>
         );
     }));
 
-const results = [];
-for (const { name, run } of tests) {
-    try {
-        await run();
-        results.push({ name, passed: true });
-    } catch (error) {
-        results.push({
-            name,
-            passed: false,
-            error: String(error?.message ?? error).slice(0, 512),
-        });
+export { using, appFixture, lab, identities, nodes, ids, deferred, tick };
+
+async function runMainReview() {
+    const results = [];
+    for (const { name, run } of tests) {
+        try {
+            await run();
+            results.push({ name, passed: true });
+        } catch (error) {
+            results.push({
+                name,
+                passed: false,
+                error: String(error?.message ?? error).slice(0, 512),
+            });
+        }
     }
+    const report = {
+        version: 1,
+        synthetic: true,
+        evidence:
+            "actual App/Main callbacks with synthetic native transport and React hook values",
+        sourceHashes: hashes,
+        checks: results,
+        passed: results.filter((row) => row.passed).length,
+        failed: results.filter((row) => !row.passed).length,
+        nativeIpc: false,
+        modelExecution: false,
+        rendering: "none",
+        desktopInput: false,
+        limitations: [
+            "no native permission, OS dialog or model authority proven",
+            "no DOM, SSR image, layout or accessibility qualification",
+            "closed service/reader decoders have separate frozen suites",
+            "actual native IPC/render/model journeys remain separately allocated",
+        ],
+    };
+    const output =
+        process.env.LOCALLORE_CHECK_OUTPUT_DIR ??
+        path.join(desktop, "artifacts/checks");
+    await mkdir(output, { recursive: true });
+    const json = JSON.stringify(report, null, 2);
+    assert(Buffer.byteLength(json) <= 128 * 1024);
+    await writeFile(
+        path.join(output, `main-comparison-native-${randomUUID()}.json`),
+        json,
+        { flag: "wx" },
+    );
+    console.log(JSON.stringify(report));
+    if (report.failed) process.exitCode = 1;
 }
-const report = {
-    version: 1,
-    synthetic: true,
-    evidence:
-        "actual App/Main callbacks with synthetic native transport and React hook values",
-    sourceHashes: hashes,
-    checks: results,
-    passed: results.filter((row) => row.passed).length,
-    failed: results.filter((row) => !row.passed).length,
-    nativeIpc: false,
-    modelExecution: false,
-    rendering: "none",
-    desktopInput: false,
-    limitations: [
-        "no native permission, OS dialog or model authority proven",
-        "no DOM, SSR image, layout or accessibility qualification",
-        "closed service/reader decoders have separate frozen suites",
-        "actual native IPC/render/model journeys remain separately allocated",
-    ],
-};
-const output =
-    process.env.LOCALLORE_CHECK_OUTPUT_DIR ??
-    path.join(desktop, "artifacts/checks");
-await mkdir(output, { recursive: true });
-const json = JSON.stringify(report, null, 2);
-assert(Buffer.byteLength(json) <= 128 * 1024);
-await writeFile(
-    path.join(output, `main-comparison-native-${randomUUID()}.json`),
-    json,
-    { flag: "wx" },
-);
-console.log(JSON.stringify(report));
-if (report.failed) process.exitCode = 1;
+if (
+    process.argv[1] &&
+    pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url
+) {
+    await runMainReview();
+}

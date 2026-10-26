@@ -3,6 +3,8 @@
 use super::native_startup::{self, check_preparation, start_runtime};
 use super::selected::{native_owner, SelectedNativeFailure, SelectedNativeReservation};
 use super::*;
+#[cfg(all(test, feature = "protocol-owner-tests"))]
+mod review_tests;
 
 pub(super) trait Workflow {
     type Report;

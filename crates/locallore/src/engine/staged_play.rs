@@ -87,6 +87,25 @@ pub(super) fn check(cancel: &dyn Fn() -> bool) -> Result<(), Error> {
 }
 
 impl Engine {
+    /// Literal-v1 target over the same opaque actual candidate/evidence. The
+    /// existing V25 commit entry keeps its original strict admission contract.
+    pub fn commit_staged_literal_play_v1(
+        &mut self,
+        staged: StagedPlayV25,
+        record: &crate::play::PlayRecord,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<Receipt, Error> {
+        self.commit_staged_literal_play_history_v1(staged, record, cancel, false)
+    }
+    pub(super) fn commit_staged_literal_play_history_v1(
+        &mut self,
+        staged: StagedPlayV25,
+        record: &crate::play::PlayRecord,
+        cancel: &dyn Fn() -> bool,
+        recorded_history: bool,
+    ) -> Result<Receipt, Error> {
+        self.commit_staged_play_history_inner(staged, record, cancel, recorded_history, true)
+    }
     /// Revalidate a consumed native stage against the complete current source.
     /// A recorded exact retry wins before cancellation or source-head checks.
     pub fn commit_staged_play_v25(
@@ -104,6 +123,16 @@ impl Engine {
         record: &crate::play::PlayRecord,
         cancel: &dyn Fn() -> bool,
         recorded_history: bool,
+    ) -> Result<Receipt, Error> {
+        self.commit_staged_play_history_inner(staged, record, cancel, recorded_history, false)
+    }
+    fn commit_staged_play_history_inner(
+        &mut self,
+        staged: StagedPlayV25,
+        record: &crate::play::PlayRecord,
+        cancel: &dyn Fn() -> bool,
+        recorded_history: bool,
+        literal: bool,
     ) -> Result<Receipt, Error> {
         if let Some(receipt) = self.recorded(staged.approved.request())? {
             return Ok(receipt);
@@ -123,13 +152,24 @@ impl Engine {
         {
             return Err(Error::Stale);
         }
-        crate::play::validate_record_v25(
-            self,
-            &regenerated.approved,
-            &regenerated.evidence,
-            record,
-            recorded_history,
-        )?;
+        if literal {
+            crate::play::validate_record_literal_v1(
+                self,
+                &regenerated.approved,
+                &regenerated.evidence,
+                record,
+                recorded_history,
+                cancel,
+            )?;
+        } else {
+            crate::play::validate_record_v25(
+                self,
+                &regenerated.approved,
+                &regenerated.evidence,
+                record,
+                recorded_history,
+            )?;
+        }
         let mut receipt = regenerated.approved;
         receipt.narration = record.narration.text.clone();
         receipt.play = Some(record.clone());

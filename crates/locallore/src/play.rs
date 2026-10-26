@@ -15,11 +15,13 @@ use std::{
     time::{Duration, Instant},
 };
 pub(crate) mod director_budget;
+mod director_construction;
 mod literal_director;
 pub use director_budget::{
     director_forwarded_budget_v25, director_repair_matches_v25, DirectorPassV25,
     ForwardedEstimateV1,
 };
+use director_construction::{DirectorInput, PreparedDirector};
 pub use literal_director::{
     render_player_literal_director_v1_cancelled, LiteralDirectorUnitProvenanceV1,
     RenderedLiteralDirectorV1,
@@ -158,6 +160,12 @@ fn remaining(clock: GameplayClock, overhead: Duration, deadline_ms: u64) -> Resu
 pub const PLAY_VERSION: u16 = 2;
 pub const NARRATION_POLICY: &str = "grounded-prose-v2.2";
 pub const PROMPT_VERSION: &str = "locallore-play-v2.5";
+/// Immutable construction mapping: Domain1/player, source/render/schema/packing
+/// v1, no compiler/coverage context, grounded-prose-v2.2 narration. A future
+/// construction change requires a new version, never repoint this identifier.
+pub const LITERAL_PLAY_PROMPT_VERSION_V1: &str = "locallore-play-v2.6-literal-director-v1";
+const LITERAL_NARRATION_POLICY_V1: &str = "grounded-prose-v2.2";
+const LITERAL_DIRECTOR_SCHEMA_ID_V1: &str = "locallore-director-literal-v1";
 pub const RECORDED_PROMPT_VERSION: &str = "locallore-play-v2.1";
 const RECORDED_PROMPT_V2_2: &str = "locallore-play-v2.2";
 const RECORDED_PROMPT_V2_3: &str = "locallore-play-v2.3";
@@ -540,6 +548,67 @@ pub(crate) fn validate_record_v25(
             return Err(Error::Narration);
         }
     }
+    validate_staged_record_contents(engine, approved, evidence, record)
+}
+
+pub(crate) fn validate_record_literal_v1(
+    engine: &Engine,
+    approved: &Receipt,
+    evidence: &NarratorEvidenceV22,
+    record: &PlayRecord,
+    _recorded_history: bool,
+    cancel: &dyn Fn() -> bool,
+) -> Result<(), Error> {
+    if engine.domain_version() != 1 {
+        return Err(Error::Version);
+    }
+    record.profile.validate()?;
+    if record.version != PLAY_VERSION
+        || record.prompt_version != LITERAL_PLAY_PROMPT_VERSION_V1
+        || record.policy != LITERAL_NARRATION_POLICY_V1
+        || record.context.is_some()
+        || record.context_policy.is_some()
+    {
+        return Err(Error::Narration);
+    }
+    // Persisted metadata is not proof that a provider ran. Recompute the actual
+    // source/render/fit from the immutable before-history rather than admitting
+    // caller-supplied context, coverage or packing counts.
+    let source = crate::context_compiler::player_literal_transcript_v1_cancelled(
+        engine,
+        engine.scope(),
+        engine.revision(),
+        &engine.seed().player,
+        cancel,
+    )
+    .map_err(director_construction::compile_error)?;
+    render_player_literal_director_v1_cancelled(
+        engine,
+        approved.request(),
+        &source,
+        &record.profile,
+        DirectorPassV25::Initial,
+        cancel,
+    )?;
+    if record.repairs > 0 {
+        render_player_literal_director_v1_cancelled(
+            engine,
+            approved.request(),
+            &source,
+            &record.profile,
+            DirectorPassV25::Repair,
+            cancel,
+        )?;
+    }
+    validate_staged_record_contents(engine, approved, evidence, record)
+}
+
+fn validate_staged_record_contents(
+    engine: &Engine,
+    approved: &Receipt,
+    evidence: &NarratorEvidenceV22,
+    record: &PlayRecord,
+) -> Result<(), Error> {
     // Evidence is opaque Core output. Even trusted internal callers must keep
     // its event catalogue/observation attribution bound to this approved turn.
     if evidence
@@ -1103,11 +1172,11 @@ pub fn execute_traced_with_memory(
         cancel,
         profile,
         sink,
-        MemoryInput {
+        DirectorInput::Memory(MemoryInput {
             proof: coverage,
             source_fallback_reason: None,
             policy: PlayContextPolicy::StateRelevantMemoryV1,
-        },
+        }),
     )
 }
 
@@ -1164,7 +1233,38 @@ pub fn execute_traced_with_policy(
             policy: input.policy,
         },
     };
-    execute_with_context_input(engine, request, provider, cancel, profile, sink, context)
+    execute_with_context_input(
+        engine,
+        request,
+        provider,
+        cancel,
+        profile,
+        sink,
+        DirectorInput::Memory(context),
+    )
+}
+
+/// Explicit native literal Director construction through the same guard,
+/// parser, staging, grounded narrator and atomic candidate commit. No Host or
+/// JSON selection route is added. Exact recorded retries retain original bytes
+/// and construction even when this entry or configuration differs.
+pub fn execute_traced_with_literal_director_v1(
+    engine: &mut Engine,
+    request: &Request,
+    provider: &mut (impl InferenceProvider + ?Sized),
+    cancel: &Cancellation,
+    profile: &PlayProfile,
+    sink: Option<&mut dyn TraceSink>,
+) -> Result<Receipt, Error> {
+    execute_with_context_input(
+        engine,
+        request,
+        provider,
+        cancel,
+        profile,
+        sink,
+        DirectorInput::LiteralV1,
+    )
 }
 struct MemoryInput<'a> {
     proof: Option<&'a crate::memory_coverage::VerifiedCoverage>,
@@ -1178,8 +1278,9 @@ fn execute_with_context_input(
     cancel: &Cancellation,
     profile: &PlayProfile,
     sink: Option<&mut dyn TraceSink>,
-    input: MemoryInput<'_>,
+    input: DirectorInput<'_>,
 ) -> Result<Receipt, Error> {
+    let literal = matches!(&input, DirectorInput::LiteralV1);
     let mut trace = Trace {
         sink,
         overhead: Duration::ZERO,
@@ -1203,6 +1304,9 @@ fn execute_with_context_input(
     let recorded = trace.run(Stage::Intent, Outcome::Rejected, || {
         if let Some(receipt) = engine.recorded(request)? {
             return Ok(Some(receipt));
+        }
+        if literal && engine.domain_version() != 1 {
+            return Err(Error::Version);
         }
         profile.validate()?;
         engine.preflight(request)?;
@@ -1240,88 +1344,41 @@ fn execute_with_context_input(
     };
     let started = trace.clock();
     let mut stages = Vec::new();
-    let director_frame = director_budget::DirectorEnvelopeV25::new(
-        engine,
-        request,
-        profile,
-        guarded_action.as_ref(),
-    )?;
-    let compilation = trace.counted(
+    let director_frame = if literal {
+        None
+    } else {
+        Some(director_budget::DirectorEnvelopeV25::new(
+            engine,
+            request,
+            profile,
+            guarded_action.as_ref(),
+        )?)
+    };
+    let director = trace.counted(
         Stage::Retrieval,
         Outcome::Rejected,
-        || {
-            let reserved_tokens = 512.min(profile.context_tokens.saturating_sub(1));
-            crate::context_compiler::compile_for_director_cancelled(
-                engine,
-                &crate::context_compiler::CompileRequest {
-                    version: crate::context_compiler::POLICY_COMPILER_VERSION,
-                    scope: request.scope.clone(),
-                    expected_head: request.expected_revision,
-                    at_revision: None,
-                    observer: engine.seed().player.clone(),
-                    role: crate::context_compiler::Role::Director,
-                    // Literal Dialogue does not turn its contents into a factual search query.
-                    // The original bounded speech still reaches the exact-utterance schema below.
-                    query: if matches!(kind, PlayInputKind::Action) {
-                        text.clone()
-                    } else {
-                        String::new()
-                    },
-                    referenced_ids: vec![],
-                    budget: crate::context_compiler::Budget {
-                        estimated_tokens: profile.context_tokens,
-                        reserved_tokens,
-                        ..crate::context_compiler::Budget::default()
-                    },
-                },
-                input.policy,
-                input.proof,
-                &director_frame,
-                &|| cancel.is_cancelled(),
-            )
-            .map_err(|error| match error {
-                crate::context_compiler::CompileError::Cancelled => Error::Cancelled,
-                crate::context_compiler::CompileError::Scope => Error::Scope,
-                crate::context_compiler::CompileError::Stale => Error::Stale,
-                crate::context_compiler::CompileError::Observer => Error::Knowledge,
-                crate::context_compiler::CompileError::MandatoryBudget
-                | crate::context_compiler::CompileError::TooLarge => Error::TooLarge,
-                crate::context_compiler::CompileError::UnknownReference
-                | crate::context_compiler::CompileError::AmbiguousAlias => {
-                    Error::ClarificationRequired
-                }
-                _ => Error::Rule,
-            })
-        },
-        |package| Counts {
-            eligible_records: package
-                .policy
-                .compilation
-                .package
-                .diagnostics
-                .eligible_candidates as u32,
+        || PreparedDirector::new(engine, request, profile, director_frame, input, cancel),
+        |director| Counts {
+            eligible_records: director.retrieval_count(),
             input_tokens: Some(TokenCount {
-                value: package.forwarded.actual_prompt_schema_estimated_tokens(),
+                value: director.input_tokens(),
                 basis: TokenBasis::Estimated,
             }),
             ..Counts::default()
         },
     )?;
-    let context_record = PlayContextRecord::from_policy_compilation(
-        &compilation.policy,
-        input.source_fallback_reason,
-    );
-    let compiled = compilation.policy.compilation.package;
-    trace.capture(crate::turn_capture::Artifact::Context(&compiled));
+    if let Some(compiled) = director.package() {
+        trace.capture(crate::turn_capture::Artifact::Context(compiled));
+    }
     trace.counted(
         Stage::Context,
         Outcome::Rejected,
         || {
-            director_frame.ensure_audience()?;
-            director_frame.render_checked(&compiled, DirectorPassV25::Initial)
+            director.ensure_audience()?;
+            director.render(engine, request, profile, DirectorPassV25::Initial, cancel)
         },
         |_| Counts {
-            eligible_records: director_frame.eligible_count(&compiled),
+            eligible_records: director.frame_count(),
             ..Counts::default()
         },
     )?;
@@ -1338,15 +1395,18 @@ fn execute_with_context_input(
             provider,
             cancel,
             || {
-                let rendered = director_frame.render_checked(
-                    &compiled,
+                let rendered = director.render(
+                    engine,
+                    request,
+                    profile,
                     if repairs == 0 {
                         DirectorPassV25::Initial
                     } else {
                         DirectorPassV25::Repair
                     },
+                    cancel,
                 )?;
-                let generation = role_request(
+                let mut generation = role_request(
                     request,
                     profile,
                     "director",
@@ -1354,6 +1414,9 @@ fn execute_with_context_input(
                     rendered.schema,
                     remaining(started, overhead, profile.deadline_ms)?,
                 );
+                if literal {
+                    generation.schema = LITERAL_DIRECTOR_SCHEMA_ID_V1.into();
+                }
                 Ok(generation)
             },
         )?;
@@ -1430,8 +1493,18 @@ fn execute_with_context_input(
     });
     let mut record = PlayRecord {
         version: PLAY_VERSION,
-        policy: NARRATION_POLICY.into(),
-        prompt_version: PROMPT_VERSION.into(),
+        policy: if literal {
+            LITERAL_NARRATION_POLICY_V1
+        } else {
+            NARRATION_POLICY
+        }
+        .into(),
+        prompt_version: if literal {
+            LITERAL_PLAY_PROMPT_VERSION_V1
+        } else {
+            PROMPT_VERSION
+        }
+        .into(),
         profile: profile.clone(),
         repairs,
         fallback: false,
@@ -1445,13 +1518,24 @@ fn execute_with_context_input(
                 speaker: String::new(),
             }),
         stages,
-        context: Some(context_record),
-        context_policy: Some(input.policy),
+        context: director.context_record(),
+        context_policy: director.policy(),
     };
     let before = trace.clock();
     if trace
         .run(Stage::NarrationValidation, Outcome::Rejected, || {
-            validate_record_v25(engine, approved, staged.narrator_evidence(), &record, false)
+            if literal {
+                validate_record_literal_v1(
+                    engine,
+                    approved,
+                    staged.narrator_evidence(),
+                    &record,
+                    false,
+                    &|| cancel.is_cancelled(),
+                )
+            } else {
+                validate_record_v25(engine, approved, staged.narrator_evidence(), &record, false)
+            }
         })
         .is_err()
     {
@@ -1476,7 +1560,11 @@ fn execute_with_context_input(
         if cancel.is_cancelled() {
             return Err(Error::Cancelled);
         }
-        engine.commit_staged_play_v25(staged, &record, &|| cancel.is_cancelled())
+        if literal {
+            engine.commit_staged_literal_play_v1(staged, &record, &|| cancel.is_cancelled())
+        } else {
+            engine.commit_staged_play_v25(staged, &record, &|| cancel.is_cancelled())
+        }
     })?;
     trace.capture(crate::turn_capture::Artifact::Candidate(&receipt));
     trace.not_run(Stage::MemoryMaintenance);

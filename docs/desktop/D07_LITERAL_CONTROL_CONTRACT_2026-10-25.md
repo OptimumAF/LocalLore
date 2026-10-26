@@ -2,11 +2,12 @@
 
 Source inspected: accepted PR180 merge `5608b72c34477ee110b771c675bc1d0afd06bd6e`.
 Scope: D07.04 / M07.01, with M06.04/.06 eligibility ownership.
-Status: **Literal execution remains PROPOSED. The test-only negative oracle is
-qualified below. The native source and data-only literal renderer are implemented
-and qualified separately; no executable literal policy exists.**
+Status: **Native literal execution is qualified with explicitly scripted providers.
+The source, renderer and execution/replay slices are linked below. Host/evaluator/UI
+exposure and real-model literal comparisons remain unqualified.**
 See [source API and qualification](D07_LITERAL_TRANSCRIPT_SOURCE_QUALIFICATION_2026-10-25.md).
 See [literal renderer and packing qualification](D07_LITERAL_DIRECTOR_RENDER_QUALIFICATION_2026-10-25.md).
+See [guarded native execution and replay qualification](D07_LITERAL_GUARDED_PLAY_QUALIFICATION_2026-10-25.md).
 The candidate runtime signature remains a proposal. Root's narrower first
 allocation observes original validated diagnostic Values only in cfg(test).
 GitHub #29/#11 retain task status; no criterion is checked by this document.
@@ -375,6 +376,7 @@ a model merely because the compile feature is named local-model.
 
 Names use the local `d07-literal-control-` prefix. Raw generated databases,
 captured text, paths and diagnostics stay local. Broader Unicode/escaped input,
-new execution/replay versions and consumer closure remain unimplemented or
-unqualified here. Source extraction and data-only rendering/packing are qualified
-in the linked later slices. No D07.04 completion or human quality gate is awarded.
+consumer closure and real-model literal comparisons remain unimplemented or
+unqualified here. Source extraction, rendering/packing and guarded native
+execution/replay are qualified in the linked later slices. No D07.04 completion
+or human quality gate is awarded.

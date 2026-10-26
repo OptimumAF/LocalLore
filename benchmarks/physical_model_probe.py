@@ -203,9 +203,13 @@ def parse_devices(raw, serial):
             key, sep, value = word.partition(':')
             assert sep and key not in values and key in ('usb', 'product', 'model', 'device', 'transport_id')
             values[key] = value
-        assert set(values) == {'usb', 'product', 'model', 'device', 'transport_id'}
+        assert set(values) in ({'product', 'model', 'device', 'transport_id'},
+                               {'usb', 'product', 'model', 'device', 'transport_id'})
         assert re.fullmatch('[1-9][0-9]{0,9}', values['transport_id'])
-        assert re.fullmatch('[A-Za-z0-9_.:-]{1,128}', values['usb'])
+        if 'usb' in values:
+            assert re.fullmatch('[A-Za-z0-9_.:-]{1,128}', values['usb'])
+        else:
+            values['usb'] = None  # A missing path is not evidence of the transport type.
         assert all(re.fullmatch('[A-Za-z0-9_.-]{1,128}', values[k]) for k in ('product', 'model', 'device'))
         selected.append(dict(values, serial=serial, transport_id=int(values['transport_id'])))
     assert len(selected) <= 1
@@ -281,6 +285,36 @@ class Capture:
         return self.adb(['shell', shlex.join(op)], label, seconds, cap)
 
 
+def usb_target(owner, serial, expected=None, *, label='devices'):
+    """Bind a known serial to the server's sole USB transport, never an adbd RPC.
+
+    Windows USB backends may omit the optional devices-l path. A standalone
+    -d selector (without -s/-t) independently asks the pinned host server for
+    its unique USB serial; USB power and a missing path prove neither identity.
+    """
+    assert owner.clean
+    try:
+        assert type(serial) is str and re.fullmatch('[A-Za-z0-9_-]{4,128}', serial) and not serial.startswith('emulator-')
+        command = [str(ADB), '-H', '127.0.0.1', '-P', '5037']
+        owner.check_server()
+        current = parse_devices(owner.capture([*command, 'devices', '-l'], label), serial)
+        owner.check_server()
+        if expected is not None:
+            assert current == expected
+        if current is None:
+            return None
+        raw = owner.capture([*command, '-d', 'get-serialno'], 'usb-filter-serial', cap=256)
+        owner.check_server()
+        assert text(raw, 256) == serial + '\n'
+        after = parse_devices(owner.capture([*command, 'devices', '-l'], label+'-after-usb'), serial)
+        owner.check_server()
+        assert after == current
+        return current
+    except BaseException:
+        owner.clean = False
+        raise
+
+
 def packages(raw):
     found = {}
     for line in text(raw).splitlines():
@@ -336,10 +370,7 @@ def process_rows(raw, uid_map):
 
 def observe(owner, baseline, installed):
     # No payload/model/saves are queried. Existing LocalLore APK/UIDs are immutable.
-    owner.check_server()
-    target = parse_devices(owner.capture([str(ADB), '-H', '127.0.0.1', '-P', '5037', 'devices', '-l'], 'devices'), owner.target['serial'])
-    owner.check_server()
-    assert target == owner.target
+    target = usb_target(owner, owner.target['serial'], owner.target)
     assert text(owner.adb(['get-state'], 'state', cap=128)) == 'device\n'
     require_user_zero(owner)
     props = {}
@@ -403,9 +434,7 @@ def discover(identity_path, evidence):
         assert ident['state'] == 'device'; serial = ident['serial']
         owner.adb_sha = file_hash(ADB, 64*1024**2)
         assert file_hash(POWERSHELL, 64*1024**2)
-        owner.check_server()
-        raw = owner.capture([str(ADB), '-H', '127.0.0.1', '-P', '5037', 'devices', '-l'], 'devices')
-        owner.check_server(); owner.target = parse_devices(raw, serial)
+        owner.target = usb_target(owner, serial)
         if owner.target is None:
             value = {'version': 1, 'scope': SCOPE, 'status': 'absent', 'target_calls': 0, 'clients_cleaned': owner.clean}
         else:
@@ -779,10 +808,7 @@ def stream_worker(proposal_path, authorization_path, evidence):
     write(Path(evidence)/'cohort/stream-claimed-v1.json', {'version': 1, 'parent_sha256': sha(parent_path.read_bytes()), 'worker': environment.process_identity(os.getpid())})
     assert owner.target == facts['target']; owner.check_server()
     def recheck():
-        owner.check_server()
-        current = parse_devices(owner.capture([str(ADB), '-H', '127.0.0.1', '-P', '5037', 'devices', '-l'], 'stream-devices'), owner.target['serial'])
-        owner.check_server()
-        assert current == owner.target
+        usb_target(owner, owner.target['serial'], owner.target, label='stream-devices')
         assert text(owner.adb(['get-state'], 'stream-state', cap=128)) == 'device\n'
         require_user_zero(owner)
         assert text(owner.shell(PROPERTIES, 'stream-properties', cap=8192)) == ''.join(k+'='+facts['properties'][k]+'\n' for k in IDENTITY)

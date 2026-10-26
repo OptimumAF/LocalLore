@@ -193,10 +193,134 @@ class PhysicalProbeTests(unittest.TestCase):
     def test_usb_transport_parser_never_adopts_absent_other_phone_or_network(self):
         good=b'List of devices attached\nORIGINAL_PHONE device usb:1-2 product:original model:SM_S918U1 device:original transport_id:7\n'
         self.assertEqual(p.parse_devices(good,'ORIGINAL_PHONE'),target())
+        self.assertEqual(p.parse_devices(good.replace(b'usb:1-2 ',b''),'ORIGINAL_PHONE'),dict(target(),usb=None))
         self.assertIsNone(p.parse_devices(good.replace(b'ORIGINAL_PHONE',b'OTHER_PHONE'),'ORIGINAL_PHONE'))
-        for raw in (good+good.split(b'\n',1)[1],good.replace(b' device usb:',b' unauthorized usb:'),good.replace(b'usb:1-2 ',b''),good.replace(b'transport_id:7',b'transport_id:7 transport_id:8')):
+        for raw in (good+good.split(b'\n',1)[1],good.replace(b' device usb:',b' unauthorized usb:'),
+                    good.replace(b'usb:1-2',b'usb:'),good.replace(b'usb:1-2',b'usb:1-2 usb:1-3'),
+                    good.replace(b'product:original ',b''),good.replace(b'model:SM_S918U1 ',b''),
+                    good.replace(b'device:original ',b''),good.replace(b'transport_id:7',b''),
+                    good.replace(b'transport_id:7',b'transport_id:7 transport_id:8')):
             with self.assertRaises(AssertionError):p.parse_devices(raw,'ORIGINAL_PHONE')
-        with self.assertRaises(AssertionError):p.parse_devices(good,'127.0.0.1:5555')
+        for serial in ('127.0.0.1:5555','emulator-5554','adb-phone._adb-tls-connect._tcp'):
+            with self.assertRaises(AssertionError):p.parse_devices(good,serial)
+
+    def test_missing_usb_path_requires_independent_standalone_host_filter_and_stable_listing(self):
+        raw_server=encoded({k:v for k,v in server().items() if k!='adb_sha256'})
+        devices=b'List of devices attached\nORIGINAL_PHONE device product:original model:SM_S918U1 device:original transport_id:7\n'
+        calls=[]
+        def run(args,**kw):
+            calls.append(args)
+            self.assertNotIn('-t',args);self.assertNotIn('-s',args)
+            if args[0]==str(self.ps):return response(raw_server)
+            if args[-2:]==['-d','get-serialno']:
+                self.assertEqual(args,[str(self.adb),'-H','127.0.0.1','-P','5037','-d','get-serialno'])
+                self.assertLessEqual(kw['deadline'],15);self.assertEqual(kw['max_output'],256)
+                return response(b'ORIGINAL_PHONE\r\n')
+            self.assertEqual(args[-2:],['devices','-l']);return response(devices)
+        self.host.side_effect=run
+        owner=p.Capture(self.root/'usb-present',30);owner.adb_sha=p.sha(b'adb')
+        self.assertEqual(p.usb_target(owner,'ORIGINAL_PHONE'),dict(target(),usb=None))
+        self.assertTrue(owner.clean);self.assertIsNone(owner.target)
+        self.assertEqual(len(calls),7)
+        records=[json.loads(path.read_bytes()) for path in sorted(owner.directory.glob('command-*.json'))]
+        self.assertEqual([r['label'] for r in records],['adb-server','devices','adb-server','usb-filter-serial',
+            'adb-server','devices-after-usb','adb-server'])
+        self.assertEqual((owner.directory/'command-0004.stdout.bin').read_bytes(),b'ORIGINAL_PHONE\r\n')
+
+    def test_unknown_wrong_or_multiline_usb_serial_poison_before_target_or_rebind(self):
+        raw_server=encoded({k:v for k,v in server().items() if k!='adb_sha256'})
+        devices=b'List of devices attached\nORIGINAL_PHONE device product:original model:SM_S918U1 device:original transport_id:7\n'
+        for index,raw in enumerate((b'unknown\n',b'OTHER_PHONE\n',b'ORIGINAL_PHONE\nORIGINAL_PHONE\n',
+                                    b'ORIGINAL_PHONE',b'ORIGINAL_PHONE\nextra\n')):
+            calls=[]
+            def run(args,**kw):
+                calls.append(args);self.assertNotIn('-t',args)
+                return response(raw_server if args[0]==str(self.ps) else raw if '-d' in args else devices)
+            self.host.side_effect=run
+            owner=p.Capture(self.root/('usb-refused-'+str(index)),30);owner.adb_sha=p.sha(b'adb')
+            with self.assertRaises(AssertionError):p.usb_target(owner,'ORIGINAL_PHONE')
+            self.assertFalse(owner.clean);self.assertIsNone(owner.target)
+            self.assertEqual((owner.directory/'command-0004.stdout.bin').read_bytes(),raw)
+            self.assertEqual(len(calls),5)
+            count=self.host.call_count
+            with self.assertRaises(AssertionError):p.usb_target(owner,'ORIGINAL_PHONE')
+            self.assertEqual(self.host.call_count,count)
+
+    def test_failed_usb_filter_client_never_dispatches_postreads_or_target_calls(self):
+        raw_server=encoded({k:v for k,v in server().items() if k!='adb_sha256'})
+        devices=b'List of devices attached\nORIGINAL_PHONE device product:original model:SM_S918U1 device:original transport_id:7\n'
+        failures=(response(b'partial',clean=False),response(code=1),response(status='expired'),response(stderr=1))
+        for index,failure in enumerate(failures):
+            calls=[]
+            def run(args,**kw):
+                calls.append(args);self.assertNotIn('-t',args)
+                return response(raw_server) if args[0]==str(self.ps) else failure if '-d' in args else response(devices)
+            self.host.side_effect=run
+            owner=p.Capture(self.root/('usb-client-'+str(index)),30);owner.adb_sha=p.sha(b'adb')
+            with self.assertRaises(AssertionError):p.usb_target(owner,'ORIGINAL_PHONE')
+            self.assertFalse(owner.clean);self.assertEqual(len(calls),4)
+            self.assertEqual((owner.directory/'command-0004.stdout.bin').read_bytes(),failure.stdout)
+
+    def test_usb_filter_server_drift_stops_before_second_listing_or_target(self):
+        original={k:v for k,v in server().items() if k!='adb_sha256'}
+        changed=copy.deepcopy(original);changed['creation_filetime']+=1
+        devices=b'List of devices attached\nORIGINAL_PHONE device product:original model:SM_S918U1 device:original transport_id:7\n'
+        server_calls=0;calls=[]
+        def run(args,**kw):
+            nonlocal server_calls
+            calls.append(args);self.assertNotIn('-t',args)
+            if args[0]==str(self.ps):
+                server_calls+=1;return response(encoded(changed if server_calls==3 else original))
+            return response(b'ORIGINAL_PHONE\n' if '-d' in args else devices)
+        self.host.side_effect=run
+        owner=p.Capture(self.root/'usb-server-drift',30);owner.adb_sha=p.sha(b'adb')
+        with self.assertRaises(AssertionError):p.usb_target(owner,'ORIGINAL_PHONE')
+        self.assertFalse(owner.clean);self.assertEqual(len(calls),5)
+
+    def test_transport_id_disappearance_or_path_change_cannot_be_adopted_during_usb_binding(self):
+        raw_server=encoded({k:v for k,v in server().items() if k!='adb_sha256'})
+        devices=b'List of devices attached\nORIGINAL_PHONE device product:original model:SM_S918U1 device:original transport_id:7\n'
+        for index,after in enumerate((devices.replace(b'transport_id:7',b'transport_id:8'),
+                                     devices.replace(b'device product:',b'device usb:1-2 product:'),
+                                     b'List of devices attached\n')):
+            list_calls=0;calls=[]
+            def run(args,**kw):
+                nonlocal list_calls
+                calls.append(args);self.assertNotIn('-t',args)
+                if args[0]==str(self.ps):return response(raw_server)
+                if '-d' in args:return response(b'ORIGINAL_PHONE\n')
+                list_calls+=1;return response(devices if list_calls==1 else after)
+            self.host.side_effect=run
+            owner=p.Capture(self.root/('usb-changed-'+str(index)),30);owner.adb_sha=p.sha(b'adb')
+            owner.target=dict(target(),usb=None)
+            with self.assertRaises(AssertionError):p.usb_target(owner,'ORIGINAL_PHONE',owner.target)
+            self.assertFalse(owner.clean);self.assertEqual(owner.target,dict(target(),usb=None))
+            self.assertEqual(len(calls),7)
+
+    def test_observe_rejects_preexisting_transport_drift_before_getstate_or_resource_reads(self):
+        raw_server=encoded({k:v for k,v in server().items() if k!='adb_sha256'})
+        devices=b'List of devices attached\nORIGINAL_PHONE device product:original model:SM_S918U1 device:original transport_id:8\n'
+        self.host.side_effect=lambda args,**kw:response(raw_server if args[0]==str(self.ps) else devices)
+        owner=p.Capture(self.root/'usb-observe-drift',30);owner.adb_sha=p.sha(b'adb');owner.target=dict(target(),usb=None)
+        with patch.object(owner,'adb') as adb,patch.object(owner,'shell') as shell,self.assertRaises(AssertionError):
+            p.observe(owner,{},False)
+        adb.assert_not_called();shell.assert_not_called();self.assertFalse(owner.clean)
+        self.assertEqual(self.host.call_count,3)
+
+    def test_discovery_with_usb_power_does_not_bypass_a_wrong_host_usb_selection(self):
+        identity=self.root/'usb-id.json';identity.write_bytes(encoded(dict(state='device',serial='ORIGINAL_PHONE')))
+        raw_server=encoded({k:v for k,v in server().items() if k!='adb_sha256'})
+        devices=b'List of devices attached\nORIGINAL_PHONE device product:original model:SM_S918U1 device:original transport_id:7\n'
+        def run(args,**kw):
+            self.assertNotIn('-t',args)
+            return response(raw_server if args[0]==str(self.ps) else b'OTHER_PHONE\n' if '-d' in args else devices)
+        self.host.side_effect=run
+        self.assertTrue(sample()['usb_powered'])
+        with patch.object(p,'require_user_zero') as user,patch.object(p,'package_snapshot') as packages, \
+                patch.object(p,'observe') as observe,patch.object(p,'resources') as resources,redirect_stdout(io.StringIO()):
+            value=p.discover(identity,self.root/'wrong-usb-discovery')
+        self.assertEqual(value['status'],'refused');user.assert_not_called();packages.assert_not_called()
+        observe.assert_not_called();resources.assert_not_called();self.supervisor.assert_not_called()
 
     def test_absent_discovery_makes_no_target_calls_or_claim_or_install(self):
         identity=self.root/'id.json';identity.write_bytes(encoded(dict(state='device',serial='ORIGINAL_PHONE')))
@@ -386,9 +510,9 @@ class PhysicalProbeTests(unittest.TestCase):
         parent=dict(version=1,parent=identity,proposal_sha256=p.sha(proposal.read_bytes()),authorization_sha256=p.sha(auth.read_bytes()),deadline_epoch=time.time()+60,uid=UID,facts_sha256=p.sha(factpath.read_bytes()))
         (cohort/'stream-parent-v1.json').write_bytes(encoded(parent))
         class FakeCapture:
-            def __init__(self,*a):self.target=None
+            def __init__(self,*a):self.target=None;self.clean=True
             def check_server(self):pass
-            def capture(self,*a):return b'List of devices attached\nORIGINAL_PHONE device usb:1-2 product:original model:SM_S918U1 device:original transport_id:7\n'
+            def capture(self,*a,**kw):return b'ORIGINAL_PHONE\n' if '-d' in a[0] else b'List of devices attached\nORIGINAL_PHONE device usb:1-2 product:original model:SM_S918U1 device:original transport_id:7\n'
             def adb(self,*a,**kw):return b'device\n'
             def shell(self,op,*a,**kw):
                 if op==p.CURRENT_USER:return b'0\n'
@@ -523,9 +647,9 @@ class PhysicalProbeTests(unittest.TestCase):
         basefacts['packages'].update({k:dict(uid=UID+i,sha256=self.pins[k]) for i,k in enumerate((p.APP,p.TEST))})
         self.os_identity.side_effect=None;self.os_identity.return_value=dict(pid=22,creation_filetime=33,executable=sys.executable)
         class FakeCapture:
-            def __init__(self,*a):self.target=None
+            def __init__(self,*a):self.target=None;self.clean=True
             def check_server(self):pass
-            def capture(self,*a):return b'List of devices attached\nORIGINAL_PHONE device usb:1-2 product:original model:SM_S918U1 device:original transport_id:7\n'
+            def capture(self,*a,**kw):return b'ORIGINAL_PHONE\n' if '-d' in a[0] else b'List of devices attached\nORIGINAL_PHONE device usb:1-2 product:original model:SM_S918U1 device:original transport_id:7\n'
             def adb(self,*a,**kw):return b'device\n'
             def shell(self,op,*a,**kw):
                 if op==p.CURRENT_USER:return b'0\n'

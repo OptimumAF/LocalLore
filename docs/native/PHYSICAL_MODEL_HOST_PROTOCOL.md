@@ -19,11 +19,49 @@ further guest calls, including cleanup or final queries. Host evidence output
 may still record the refusal.
 
 An existing private identity file supplies the previously selected USB serial.
-`discover` looks for that exact USB row in `devices -l`; it never chooses a
+`discover` looks for that exact authorized row in `devices -l`; it never chooses a
 different phone or TCP target. An absent selection makes zero target calls.
 It reports absence rather than substituting an emulator. The current row pins
-its transport ID, USB identity and product/model/device metadata. All target
-calls use that transport ID, not serial fallback.
+its transport ID and product/model/device metadata. The four fields `product`,
+`model`, `device` and `transport_id` are mandatory; `usb` is optional. An absent
+USB path is represented explicitly as `null`, never fabricated from a default.
+Present empty/malformed/duplicate paths and unknown fields are refused. All
+target calls use the bound transport ID, not serial fallback.
+
+Before the first discovery target call, every fresh observation and each stream
+recheck, the host independently verifies USB selection. Under the same pinned
+server, it captures a fresh unique selected row, runs exactly
+`adb -H 127.0.0.1 -P 5037 -d get-serialno`, and requires the one returned serial
+to equal the prior authorized serial. This selector is standalone: no `-s`,
+`-t`, `-e` or fallback selector is appended. Another fresh `devices -l` must
+match the original selected row, including transport ID and optional path.
+No reconnection, changed ID or changed path is silently adopted. None/multiple
+USB devices, a different/unknown/multiline serial response, server drift,
+client failure or uncertain cleanup stops before dependent target work. An
+absent selected row returns absence without running this USB-filter query.
+
+This is host-server metadata, not a phone serial-number RPC. AOSP documents
+[`host-usb` and `get-serialno`](https://android.googlesource.com/platform/packages/modules/adb/+/HEAD/docs/dev/services.md)
+as a single-USB host query, refusing none or multiple devices. Its
+[CLI formatter](https://android.googlesource.com/platform/packages/modules/adb/+/refs/heads/android15-qpr2-s8-release/client/adb_client.cpp)
+uses that prefix only without serial/transport-ID selectors; the
+[host handler](https://android.googlesource.com/platform/packages/modules/adb/+/HEAD/adb.cpp)
+returns its cached selected transport serial. The normal
+[long-list formatter](https://android.googlesource.com/platform/packages/modules/adb/+/HEAD/transport.cpp)
+omits an empty device path, and the
+[Windows USB implementation](https://android.googlesource.com/platform/packages/modules/adb/+/51ed3f3f38d8a48554587849dbac2c896d3f37db/client/usb_windows.cpp)
+can register a USB transport without one. Missing `usb:` therefore proves
+neither USB nor Wi-Fi. Battery `usb_powered` remains a separate power gate and
+does not establish ADB transport identity. Fresh physical-profile, user-zero,
+capacity, memory, package and ownership checks remain mandatory.
+
+The existing numbered raw-before-check client records retain both listings and
+the USB-filter response; no self-declared transport authority or new discovery
+schema field is added. Private serials/paths stay in those private captures.
+All added metadata clients retain the existing15-second per-client cap and
+consume the unchanged aggregate budget; they do not reserve a device or extend
+staging/SDK deadlines. Source/mock checks do not qualify the installed ADB,
+reconnected phone, import or SDK outcome.
 
 The existing loopback ADB server is observed through a fixed PowerShell query.
 PID, process creation time, executable, listener ownership and pinned ADB bytes

@@ -32,6 +32,8 @@ for (const args of [
     ["check-comparison-run-native.mjs"],
     ["check-comparison-reader-native.mjs"],
     ["check-main-comparison-run-native.mjs"],
+    ["check-native-comparison-admission-review.mjs"],
+    ["check-main-comparison-inspect-lens-review.mjs"],
     ["check-native-close-controller-review.mjs"],
     ["check-comparison-reader.mjs"],
     ["check-literal-comparison-reader.mjs"],

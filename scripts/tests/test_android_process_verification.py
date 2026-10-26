@@ -6,6 +6,7 @@ import hashlib
 import copy
 import io
 import json
+import math
 import os
 import re
 from pathlib import Path
@@ -459,33 +460,61 @@ class RegressionPhaseTests(unittest.TestCase):
                 def broken(): raise driver.VerificationRefused("owner_closed")
                 live.check = broken
             class FakeCapture:
-                count, clean = 0, True
-                def __init__(self, *args): calls.append(("construct", args[1]))
-                def check_server(self): pass
-                def capture(self, *args): return b"emulator-5592 device transport_id:7\n"
+                def __init__(self, *args):
+                    calls.append(("construct", args[1]))
+                    self.directory, self.count, self.clean = Path(args[0]), 0, True
+                    self.directory.mkdir()
+                def record(self, raw, label, seconds, cap):
+                    # Explicit synthetic diagnostics, not measured SDK timing.
+                    if len(raw) > cap: raise AssertionError("synthetic_capture_cap")
+                    self.count += 1
+                    stem = self.directory / ("command-%04d" % self.count)
+                    with stem.with_suffix(".stdout.bin").open("xb") as sink:
+                        sink.write(raw)
+                    driver.env.create_json(stem.with_suffix(".json"), dict(version=2, index=self.count,
+                        label=label, status="completed", returncode=0, cleanup_complete=True,
+                        stdout_bytes=len(raw), stdout_sha256=hashlib.sha256(raw).hexdigest(), stderr_bytes=0,
+                        elapsed_ms=7, effective_deadline_ms=math.ceil(seconds * 1000)))
+                    return raw
+                def check_server(self):
+                    self.record(b'{"pid":41,"listeners":[{"address":"127.0.0.1","port":5037,"pid":41}]}\r\n',
+                                "adb-server", 15, 16384)
+                def captured(self, raw, label, seconds, cap):
+                    self.check_server()
+                    result = self.record(raw, label, seconds, cap)
+                    self.check_server()
+                    return result
+                def capture(self, command, label, seconds=15, cap=131072):
+                    return self.captured(b"emulator-5592 device transport_id:7\n", label, seconds, cap)
                 def shell(self, args, label, seconds, cap):
                     calls.append(("shell", args))
-                    if args == ["getprop", "sys.boot_completed"]: return b"1\n"
-                    if args == ["getprop", "ro.build.version.sdk"]: return b"35\n"
-                    if args == ["getprop", "ro.product.cpu.abi"]: return b"x86_64\n"
-                    if args == ["am", "get-current-user"]: return b"0\n"
+                    def reply(raw): return self.captured(raw, label, seconds, cap)
+                    if args == ["getprop", "sys.boot_completed"]: return reply(b"1\n")
+                    if args == ["getprop", "ro.build.version.sdk"]: return reply(b"35\n")
+                    if args == ["getprop", "ro.product.cpu.abi"]: return reply(b"x86_64\n")
+                    if args == ["am", "get-current-user"]: return reply(b"0\n")
                     if args[:4] == ["cmd", "package", "list", "packages"]:
-                        return b"package:present\n" if args[-1] == existing else b""
-                    if args[:3] == ["cmd", "package", "path"]: return ("package:/data/app/" + str(driver.PACKAGES.index(args[-1])) + "/base.apk\n").encode()
-                    if args[0] == "sha256sum": return (apks[int(args[1].split("/")[-2])]["sha256"] + "  base.apk\n").encode()
+                        return reply(b"package:present\n" if args[-1] == existing else b"")
+                    if args[:3] == ["cmd", "package", "path"]: return reply(("package:/data/app/" + str(driver.PACKAGES.index(args[-1])) + "/base.apk\n").encode())
+                    if args[0] == "sha256sum": return reply((apks[int(args[1].split("/")[-2])]["sha256"] + "  base.apk\n").encode())
                     raise AssertionError(args)
                 def adb(self, args, label, seconds, cap=131072):
                     calls.append(("adb", args, label, seconds, cap))
-                    if args[0] == "install": return b"Success\n"
+                    if args[0] == "install": return self.captured(b"Success\n", label, seconds, cap)
                     index = int(label.split("-")[1])
-                    return synthetic_regression_run(classes[index], methods[index])
+                    return self.captured(synthetic_regression_run(classes[index], methods[index]), label, seconds, cap)
             request = dict(build="build", running=str(out / "running"), proposal="proposal", sdk=str(out),
                            powershell=str(out / "powershell.exe"), server="server", sources={"path": "sources"})
             digest = driver.env.digest
+            read_json = driver.env.read_json
+            def read_fixture(path):
+                # Only these two pre-existing admission inputs are mocked.
+                # Original client JSON is parsed by the real strict reader.
+                return {} if str(path) in (request["server"], request["sources"]["path"]) else read_json(path)
             with patch.object(driver, "qualified_build", return_value={"apks": apks}), \
                  patch.object(driver.env, "open_live_owner", return_value=live), \
                  patch.object(driver.env, "digest", side_effect=lambda path: "hash" if str(path) == request["running"] else digest(path)), \
-                 patch.object(driver.env, "read_json", return_value={}), \
+                 patch.object(driver.env, "read_json", side_effect=read_fixture), \
                  patch.object(driver, "source_map", return_value={"changed": True} if early_failure == "source" else {}), \
                  patch.object(client, "SdkCapture", FakeCapture):
                 if existing or early_failure:

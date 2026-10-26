@@ -401,7 +401,10 @@ fn actual_accepted_whole_units_cross_two_mib_and_fail_without_truncation() {
             "through_revision":receipt.events().last().unwrap().sequence(),
             "original_input":null,"narration":receipt.narration(),
         });
-        budget += serde_json::to_vec(&encoded).unwrap().len() + usize::from(n != 0);
+        budget += serde_json::to_vec(&encoded).unwrap().len()
+            + usize::from(n != 0)
+            + e.revision().to_string().len()
+            - previous_head.to_string().len();
         count += 1;
         if budget > 2 * 1024 * 1024 {
             break;

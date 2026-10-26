@@ -43,6 +43,9 @@ The [versioned host driver](docs/native/ANDROID_PROCESS_HOST_DRIVER.md) and its
 [component verification](docs/native/ANDROID_PROCESS_HOST_DRIVER_VERIFICATION_2026-10-26.md)
 retain fresh build, host and ten-method native component evidence. The external
 retained-parent process-death case remains a separate pending gate.
+The [external evidence validators](docs/native/ANDROID_EXTERNAL_CONTROLLER_HOST.md)
+check original controller, producer and retirement records with synthetic host
+regressions; their tests do not establish a new Android lifecycle result.
 
 | Document | Purpose |
 |---|---|

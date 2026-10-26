@@ -17,6 +17,10 @@ All words below are original synthetic Dialogue, never grants of world truth:
 
 1. Send ROOT on Broot: Broot head1.
 2. Review/consent/confirm a fork P at1, then explicitly resume P.
+   Reopen the exact confirmed root/P recovery hint, verify its identity and
+   lookup-only state, then separately consent to Forget that hint. Require P1,
+   its accepted ROOT and gameplay/create counters unchanged. Close the panel;
+   only a later explicit new request may prepare a different child identity.
 3. Send PREFIX on P: P head2.
 4. Review/consent/confirm a fork G at2, then explicitly resume G at2.
 5. Explicitly return to P2 and send TAIL: P head3. G must stay2, Broot1, A0.

@@ -115,6 +115,22 @@ class StoryCreationShellTest {
         assertEquals(listOf(original), gateway.stories)
     }
 
+    @Test fun liveDraftEligibilityClosesBeforeAComposeFrameAndReopensOnlyAfterCancelDrains() = runTest(dispatcher) {
+        val gateway = Gateway(); val model = model(gateway); advanceUntilIdle()
+        val scope = PlayDraftScope(original.story, original.branch)
+        assertTrue(model.canEditPlayDraft(scope))
+        assertFalse(model.canEditPlayDraft(null))
+        assertFalse(model.canEditPlayDraft(scope.copy(story = "another")))
+        model.startNewStory()
+        // No frame or coroutine advancement: the product callback reads the live owner state.
+        assertFalse(model.canEditPlayDraft(scope))
+        advanceUntilIdle(); assertFalse(model.canEditPlayDraft(scope))
+        model.creationController!!.dismiss(); assertFalse(model.canEditPlayDraft(scope))
+        advanceUntilIdle(); assertTrue(model.canEditPlayDraft(scope))
+        models.clear(); assertFalse(model.canEditPlayDraft(scope))
+        assertEquals(0, gateway.creates); assertEquals(0, gateway.refreshes)
+    }
+
     @Test fun uncertainCreationConsumesConsentAndRefreshesOnceWithoutAnotherCreate() = runTest(dispatcher) {
         val gateway = Gateway().also { it.failAfterCreate = true }; val model = model(gateway); advanceUntilIdle()
         model.startNewStory(); advanceUntilIdle()

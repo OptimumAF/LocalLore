@@ -93,6 +93,7 @@ fun LocalLoreScreen(
     forkRecoveryAvailable: Boolean = false,
     onFork: () -> Unit = {},
     exposeTestTags: Boolean = false,
+    draftInteractionAllowed: (PlayDraftScope?) -> Boolean = { true },
     overlay: @Composable () -> Unit = {},
 ) {
     // Save only the scoped editor payload, never a pending submission or gameplay state.
@@ -109,6 +110,11 @@ fun LocalLoreScreen(
     }
     val currentDraftScope by rememberUpdatedState(draftScope)
     val currentDraftPending by rememberUpdatedState(draftPending)
+    val editorBlocked = state.busy || state.archiveActive || state.deletionActive || state.forkActive ||
+        state.creationActive || state.recoveryRequired || state.textProvider == TextProvider.UNAVAILABLE ||
+        (state.persistent && state.selectedStory == null)
+    val currentEditorBlocked by rememberUpdatedState(editorBlocked)
+    val currentDraftInteractionAllowed by rememberUpdatedState(draftInteractionAllowed)
     val playInput = if (draftPending) PlayInput(PlayInputKind.ACTION, "") else resolvedDraft.input
     MaterialTheme(
         colorScheme = lightColorScheme(
@@ -336,25 +342,29 @@ fun LocalLoreScreen(
                                     (state.persistent && state.selectedStory == null),
                                 recoveryRequired = state.recoveryRequired,
                                 onKindChange = { kind ->
-                                    if (!currentDraftPending && currentDraftScope == draftScope) {
+                                    if (!currentEditorBlocked && currentDraftInteractionAllowed(draftScope) &&
+                                        !currentDraftPending && currentDraftScope == draftScope) {
                                         val latest = playDraft.resolve(currentDraftScope, pending = false)
                                         playDraft = latest.edit(draftScope, currentDraftScope, latest.input.copy(kind = kind))
                                     }
                                 },
                                 onTextChange = { text ->
-                                    if (!currentDraftPending && currentDraftScope == draftScope) {
+                                    if (!currentEditorBlocked && currentDraftInteractionAllowed(draftScope) &&
+                                        !currentDraftPending && currentDraftScope == draftScope) {
                                         val latest = playDraft.resolve(currentDraftScope, pending = false)
                                         playDraft = latest.edit(draftScope, currentDraftScope, latest.input.copy(text = text))
                                     }
                                 },
                                 onInput = { input ->
-                                    if (!currentDraftPending && currentDraftScope == draftScope) {
+                                    if (!currentEditorBlocked && currentDraftInteractionAllowed(draftScope) &&
+                                        !currentDraftPending && currentDraftScope == draftScope) {
                                         playDraft = playDraft.resolve(currentDraftScope, pending = false)
                                             .edit(draftScope, currentDraftScope, input)
                                     }
                                 },
                                 onSend = { _ ->
-                                    if (!currentDraftPending && currentDraftScope == draftScope) {
+                                    if (!currentEditorBlocked && currentDraftInteractionAllowed(draftScope) &&
+                                        !currentDraftPending && currentDraftScope == draftScope) {
                                         val latest = playDraft.resolve(currentDraftScope, pending = false).input
                                         if (validPlayInput(latest)) onText(latest, renderedStory)
                                     }

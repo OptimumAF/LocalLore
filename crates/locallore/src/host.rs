@@ -1737,6 +1737,9 @@ impl Host {
                     if engine.scope() != &scope {
                         return Err(reject("Integrity"));
                     }
+                    if engine.seed() != starter.seed() {
+                        return Err(reject("Stale"));
+                    }
                     let mut reply = if let Some(id) = existing {
                         // The exact Store identity was checked above; still retain the existing
                         // accepted-prefix fence instead of replacing a cached authority.

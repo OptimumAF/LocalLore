@@ -506,6 +506,15 @@ class ShellViewModel internal constructor(
     }
 
     /** The persistent UI always reviews the native starter before any write. */
+    internal fun canEditPlayDraft(rendered: PlayDraftScope?): Boolean {
+        val current = mutable.value
+        if (disposed || workflowBlocksActions() || current.busy || current.archiveActive || current.deletionActive ||
+            current.recoveryRequired || current.textProvider == TextProvider.UNAVAILABLE) return false
+        if (!current.persistent) return rendered == null
+        val selected = current.selectedStory ?: return false
+        return rendered != null && rendered.story == selected.story && rendered.branch == selected.branch
+    }
+
     fun startNewStory() {
         if (!gateway.durable) { reset(); return }
         val before = mutable.value

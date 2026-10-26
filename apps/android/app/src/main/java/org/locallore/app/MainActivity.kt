@@ -140,6 +140,7 @@ open class MainActivity : ComponentActivity() {
                 onDeleteTimeline = model::openBranchDeletion,
                 forkAvailable = model.forkAvailable, forkRecoveryAvailable = forkRecoveryPending || forkProblem != null,
                 exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION,
+                draftInteractionAllowed = model::canEditPlayDraft,
                 onFork = model::openFork) {
                 BranchForkPanel(forkVisible, fork, forkProblem, forkRecoveryPending,
                     onBoundary = model::prepareForkBoundary, onConfirm = model::confirmFork,
@@ -150,7 +151,8 @@ open class MainActivity : ComponentActivity() {
                     BranchDeletionDialog(branchDeletion, controller::dismiss, controller::cancel, controller::confirm)
                 }
                 model.creationController?.let { controller ->
-                    StoryCreationDialog(creation, controller::dismiss, controller::editTitle, controller::confirm)
+                    StoryCreationDialog(creation, controller::dismiss, controller::editTitle, controller::confirm,
+                        exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION)
                 }
                 model.deletionController?.let { controller ->
                     StoryDeletionDialog(deletion, controller::dismiss, controller::cancel, controller::confirm)

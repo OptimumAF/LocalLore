@@ -418,7 +418,14 @@ internal class DurableGateway(
             check((data.get("session") as String).toByteArray(Charsets.UTF_8).size in 1..128)
         } catch (_: Exception) { throw WorkspaceFailure("Malformed") }
         attach(data)
-        return snapshot()
+        val saved = snapshot()
+        val selected = saved.selected
+        if (selected == null || selected.story != "quay-${request.creationId}" || selected.branch != "main" ||
+            selected.title != request.title) {
+            coherentPlayerSnapshot = false
+            throw WorkspaceFailure("Stale")
+        }
+        return saved
     }
     override suspend fun createSaved(): SavedSnapshot {
         release()

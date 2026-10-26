@@ -27,6 +27,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -41,6 +42,7 @@ internal fun StoryCreationDialog(
     onDismiss: () -> Unit,
     onTitle: (StoryCreationRequest, String) -> Unit,
     onConfirm: (StoryCreationRequest) -> Unit,
+    exposeTestTags: Boolean = false,
 ) {
     if (!state.visible) return
     val window = LocalWindowInfo.current.containerSize
@@ -51,7 +53,8 @@ internal fun StoryCreationDialog(
     val editing = !state.busy && !state.creating && !state.closing
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.widthIn(max = minOf(560.dp, width * 0.94f)).fillMaxWidth()
-            .heightIn(max = height * 0.9f).fillMaxHeight().testTag("story-creation-dialog"),
+            .heightIn(max = height * 0.9f).fillMaxHeight().testTag("story-creation-dialog")
+            .semantics { testTagsAsResourceId = exposeTestTags },
             shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface, tonalElevation = 6.dp) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())

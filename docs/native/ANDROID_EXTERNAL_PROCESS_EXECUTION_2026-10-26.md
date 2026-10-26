@@ -5,6 +5,9 @@ Supporting M10.02 and M08.01/M08.05. Source starts at draft/unmerged
 The current packet uses the versioned [component driver](ANDROID_PROCESS_HOST_DRIVER.md)
 and [external runner](ANDROID_EXTERNAL_CONTROLLER_HOST.md). Full milestone
 tasks remain unchecked; no owner acceptance, merge or release is implied.
+Revised mapped source is `85ff9a69`: its current native10 gate, root82 control
+and corrected retained-parent two-death case have now passed. The earlier
+failed retained cohort remains separately attributed and preserved below.
 
 ## Fresh build and native gate
 
@@ -152,12 +155,69 @@ bundle through85ff9a69:9,840,403 bytes, SHA-256
 No images, databases, weights or caches were selected, and no original failure
 was overwritten by its correction.
 
+## Corrected-source runtime qualification
+
+The revised native component gate passed all10 methods,81 clean captured
+clients, owner299,578ms/worker0/known cleanup+capture/stderr0. The revised root
+control passed82 checks/two deaths,69 clean clients, owner342,229ms with the
+same terminal guarantees. Its closed owned guest records stop_requested,
+881,397ms/worker1, cleanup/capture/closure true, guest flush false, emulator
+stderr1,079 bytes. These current-source records replace no earlier raw run.
+
+The corrected `restore_retained_parent` case passed **two genuine saved-task
+deaths**, three product instances/one task/factory1,202 diagnostic checks and
+126 clean clients. The count202 is the observed diagnostic, not a frozen gold.
+Its host owner completed exit0 in645,228ms with known cleanup/capture/stderr0.
+The fixture was newly created on a separate fresh installation; no partial
+fixture or prior run was adopted. All756 source rows still match9cf2b017... .
+
+The first terminal gameplay vectors are exactly free_text3/submit0/prepare3/
+commit3/cancel0/other4: three explicit Sends and two register/run fork pairs.
+Both second-old vectors are zero. The real UI verifies fallback to A0 with the
+exact one-shot unavailable notice and blank Action editor, explicit reread
+consuming the notice, then a second death without notice/draft/hint resurrection
+or automatic gameplay. Root1/G2 remain selectable; retired P stays unavailable.
+
+All three original native helper bodies/transports validate: load619B,
+probe1,049B, retire1,056B, exact singleLF/closed native owners/0,0,1 commit
+attempts and both original zero exit footers. Probe leaves state unchanged.
+Retirement changes P from public3/physical3 to public-unavailable/physical2,
+keeping A0/root1/G2 active. The source-bound helper executed its exact nine-row
+preview assertions; its raw proof exposes states, not an independent raw
+nine-row preview transcript.
+
+The four original Java-compatible canonical sidecars are byte-identical:
+12,174 bytes each,48,696 total; SHA-256
+`1ceca2dfdc641ce7c5a6a0f362e82c0e05c5d488eedc3dfc6e3204f71343a73e`.
+Their complete six-key eligible player/receipt views retain A0/root1/G2,
+receipt counts0/1/2, original ROOT(root,expected revision0) and PREFIX(P,expected
+revision1) scopes/text, with no exact TAIL anywhere in the nested views.
+This is eligible player/receipt preservation, not hidden-world equality.
+Independent controller/producer/client audit and a separate native/helper/
+sidecar comparison found no mismatch. Controller raw SHA-256:
+`4a70bb6ddb53d46f14261d69e5ee12a08859e290378284a98f9b61767bfb0cad`.
+
+The successful retained guest then closed via its proposal-bound stop:
+1,061,245ms/worker1, cleanup/capture/closure true, guest flush false, emulator
+stderr1,081 bytes. Native helper closes are synchronous; these results do not
+turn the app's asynchronous adapter close requests into joined drains.
+
+A private corrected-runtime snapshot contains479 selected terminal files/
+1,405,956 original bytes, including both current cases and closed-lease metadata.
+Its verified498,838-byte ZIP SHA-256 is
+`d180aa1911abe881121139dda0c848cce657bdac47981a9d9be4377f42dc9430`.
+Current build/component/host/server prerequisites have a separate259-file/
+28,326,608-byte recovery copy; ZIP17,929,611 bytes, SHA-256
+`f0c90976c8040f7d724cf09c029d312b8f90f95ee43d578accf0ca3e7aac4178`.
+Independent review verified all259 originals and copies; both74,985-byte indexes
+match SHA-256
+`c4d397ed48c4672cb9f3efcc2e10743fa9f675e587849daacfeda3990a80b5db`.
+No active-cohort files, images, databases, models or caches were selected.
+
 ## Pending execution gates
 
-At this checkpoint the corrected-source native/component, root and retained-parent
-cases still require fresh execution. The unused prepared active-directory guest
-will be launched once for the revised native/root cohort; no used fixture is
-adopted. Active-child/retired-leaf controls and broad Android regression also
-remain pending. Earlier50989ca2 root/native results are historical evidence,
-not revised-source qualification. Phone/ARM64 and real-model qualification are
+At this checkpoint the fresh active-child control is running. Retired-leaf
+control and the separate89-method broad Android regression remain pending.
+Earlier50989ca2 results remain historical source-attributed records; the current
+source has separate fresh runtime qualification above. Phone/ARM64 and real-model qualification are
 separate gates; no result follows from fake-provider or emulator checks.

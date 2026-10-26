@@ -550,19 +550,20 @@ fn closed_versions_descriptors_cancel_and_unavailable_native_lane_never_authoriz
         &cancelled,
     ));
     assert!(!cancelled_target.exists());
-    assert_eq!(
-        refusal(selected_v2::prepare_selected(
-            &source,
-            &source_binding,
-            &row(INDEX),
-            selected::SelectedIntent {
-                client_id: "literal-native-denied".into(),
-                lane: selected::SelectedLane::ApprovedNative
-            },
-            &Cancellation::default()
-        )),
-        "SelectedNativeUnavailable"
+    let native_plan = selected_v2::prepare_selected(
+        &source,
+        &source_binding,
+        &row(INDEX),
+        selected::SelectedIntent {
+            client_id: "literal-native-denied".into(),
+            lane: selected::SelectedLane::ApprovedNative,
+        },
+        &Cancellation::default(),
     );
+    #[cfg(not(feature = "local-model"))]
+    assert_eq!(refusal(native_plan), "SelectedNativeUnavailable");
+    #[cfg(feature = "local-model")]
+    drop(native_plan.unwrap()); // Preparation only; no assets or execution.
     refusal(selected::prepare_selected(
         &source,
         &source_binding,

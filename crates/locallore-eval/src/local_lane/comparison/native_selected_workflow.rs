@@ -94,6 +94,18 @@ pub(super) fn run<W: Workflow, R: SelectedNativeReservation>(
     check_preparation(cancel, deadline).map_err(failure)?;
     let began = Instant::now();
     let startup = start_runtime(&reservation, workflow.profile(), cancel, deadline);
+    finish_prepared(workflow, reservation, startup, cancel, began, deadline)
+}
+
+pub(super) fn finish_prepared<W: Workflow, R: SelectedNativeReservation>(
+    mut workflow: W,
+    reservation: R,
+    startup: native_startup::Startup,
+    cancel: &Cancellation,
+    began: Instant,
+    deadline: Instant,
+) -> std::result::Result<W::Report, SelectedNativeFailure<R>> {
+    let failure = SelectedNativeFailure::from_error;
     let mut initial_error = startup.error;
     let mut setup_saved = false;
     // The actual reservation/runtime remain outside this unwind boundary. A

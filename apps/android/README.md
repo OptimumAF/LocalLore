@@ -515,6 +515,15 @@ for exact checks and the remaining milestone gates.
 
 ## Verification and limits
 
+The isolated saved-task profile also tests
+[retired-timeline recovery](../../docs/native/ANDROID_RETIRED_SELECTION_VERIFICATION_2026-10-26.md).
+A retired selection falls back through fresh native catalogs, clears its old
+draft and shows a one-shot notice. Rapid edits to text and Action/Dialogue now
+preserve both fields; Send reads the latest valid draft under the existing
+story/branch guard. The four retained-callback regressions use the same test APK
+before and after the fix. These scripted emulator checks do not qualify a phone
+or a real language model.
+
 The opt-in model picker profile also includes a non-exported pending-result
 fixture. Its [contract](../../docs/native/MODEL_PENDING_CONTRACT.md) requires
 actual saved-task restoration after process death, safe rejection of the old

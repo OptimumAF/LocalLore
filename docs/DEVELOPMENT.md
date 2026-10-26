@@ -64,6 +64,13 @@ and [closed protocol](native/ANDROID_PROCESS_RESTORATION_PROTOCOL.md). The
 controller targets its own process and operates the genuine product Activity;
 ordinary product builds do not enable its observers or test-tag export.
 
+The [retired-selection protocol](native/ANDROID_RETIRED_SELECTION_PROTOCOL.md)
+adds a test-APK-only native fixture, with a mandatory actual loading gate before
+typed retirement and byte-preserving host readback. Its
+[verification report](native/ANDROID_RETIRED_SELECTION_VERIFICATION_2026-10-26.md)
+records the callback RED/GREEN tests, all three saved-task controls, failed
+attempts, source/artifact bindings and remaining device/model gates.
+
 The [SQLite foundation](storage/README.md) is a separate Rust storage owner.
 Workspace tests include its model-free schema/migration/backup regressions.
 Its [dependency inventory and official compatibility sources](storage/SOURCES_2026-10-22.md)

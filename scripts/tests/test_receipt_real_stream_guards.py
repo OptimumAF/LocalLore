@@ -323,6 +323,10 @@ class ReceiptRealStreamGuardTests(unittest.TestCase):
                     return transport(argv, **kwargs)
                 stack.enter_context(patch.object(q, "APK_HASHES", value["apk_sha256"]))
                 stack.enter_context(patch.object(q.host, "run_process", side_effect=dispatch))
+                # The cohort test isolates phase ordering; the model-only Job
+                # adapter has its own adversarial tests and must never launch
+                # an actual worker from this mocked transport fixture.
+                stack.enter_context(patch.object(owner, "_model_stream", side_effect=lambda command, request, seconds: dispatch(command)))
                 stack.enter_context(patch.object(q.shutil, "disk_usage", return_value=SimpleNamespace(free=20 * r.GIB)))
                 stack.enter_context(patch.object(r.environment, "process_identity", return_value={"pid": 42, "creation_filetime": 3, "executable": sys.executable}))
                 if failed:

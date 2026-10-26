@@ -145,6 +145,14 @@ class StreamInputs(Inputs):
 
 
 class TransferProbeTests(unittest.TestCase):
+    def setUp(self):
+        # Existing shell protocol adversaries exercise the portable description.
+        # Windows now refuses this route; separate binary-transfer tests cover
+        # that refusal before any client, while these retain its deeper guards.
+        platform = patch.object(p.r.sys, "platform", "linux")
+        platform.start()
+        self.addCleanup(platform.stop)
+
     def test_original_twelve_check_preflight_and_exact_synthetic_grant(self):
         with tempfile.TemporaryDirectory() as directory:
             data = Inputs(Path(directory))

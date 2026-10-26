@@ -167,6 +167,7 @@ def stream_authorized(value, mode, uid, proposal_path, authorization_path, evide
 
 def _stream_authorized(value, mode, uid, proposal_path, authorization_path, evidence, trace):
     stream_mode_value(mode); r.integer(uid, 10000, 2 ** 31 - 1)
+    operation = r.binary_stdin_operation(mode)
     lease = q.open_lease(value); lease.check()
     cohort = Path(evidence) / "cohort"; stem = "stream-" + mode.lower()
     parent_path = cohort / (stem + "-parent-v1.json")
@@ -206,7 +207,6 @@ def _stream_authorized(value, mode, uid, proposal_path, authorization_path, evid
         metadata = {"bytes": len(c.BINARY_PAYLOAD), "sha256": c.BINARY_SHA256}
     else:
         source = source_path(metadata)
-    operation = ["shell", "-T", "-e", "none"] if mode in ("SHELL_CAT", "SHELL_BINARY") else ["exec-in"]
     command = c.binary_write_command(uid) if mode == "SHELL_BINARY" else c.write_command(uid, mode)
     argv = [value["adb_path"], "-H", "127.0.0.1", "-P", "5037", "-s", lease.descriptor["serial"], *operation, shlex.join(command)]
     with source.open("rb", buffering=0) as stream:
@@ -300,6 +300,7 @@ class Owner(q.Owner):
 
     def transfer(self, mode):
         stream_mode_value(mode)
+        r.binary_stdin_operation(mode)  # Refuse unsafe Windows input before dispatch.
         assert self.created and self.clean and self.methods == 0
         if mode == "SHELL_BINARY":
             assert self.stage == "shell-gate-binary" and self.shell_gate_attempted and not self.binary_stream_attempted
@@ -343,6 +344,7 @@ class Owner(q.Owner):
 
     def shell_gate(self):
         """Fixed protocol and binary controls before the candidate large transfer."""
+        r.binary_stdin_operation("SHELL_BINARY")
         assert self.stage == "shell-gate" and self.verified == ["CAT", "DD_1M"]
         assert self.attempted == self.verified and not self.binary_verified and "TERM" not in os.environ
         assert not self.shell_gate_attempted

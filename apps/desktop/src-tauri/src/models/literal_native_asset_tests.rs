@@ -338,4 +338,5 @@ fn approved_literal_first_scene_returns_drained_before_helper() {
     assert!(manager.cleanup_complete());
 }
 
+mod full_comparison_service_assets;
 mod selected_v2_assets;

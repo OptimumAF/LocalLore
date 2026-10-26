@@ -31,6 +31,57 @@ pub struct FullComparisonStart {
     pub kind: core::ComparisonKind,
     pub max_new_scenes: usize,
 }
+pub struct FullComparisonNativeResume {
+    pub run_token: String,
+    pub max_new_scenes: usize,
+}
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ComparisonLane {
+    Scripted,
+    Native,
+}
+impl ComparisonLane {
+    fn native(self) -> bool {
+        self == Self::Native
+    }
+    fn version(self) -> u16 {
+        if self.native() {
+            2
+        } else {
+            1
+        }
+    }
+    fn name(self) -> &'static str {
+        if self.native() {
+            "approved_native"
+        } else {
+            "scripted_baseline"
+        }
+    }
+}
+type ExecutionConsent = Box<dyn FnOnce(&Value) -> Result<bool> + Send + 'static>;
+struct NativeExecution {
+    models: Arc<crate::models::ModelManager>,
+    consent: ExecutionConsent,
+}
+enum Execution {
+    Scripted,
+    Native(NativeExecution),
+}
+impl Execution {
+    fn lane(&self) -> ComparisonLane {
+        match self {
+            Self::Scripted => ComparisonLane::Scripted,
+            Self::Native(_) => ComparisonLane::Native,
+        }
+    }
+    fn native(self) -> Option<NativeExecution> {
+        match self {
+            Self::Scripted => None,
+            Self::Native(native) => Some(native),
+        }
+    }
+}
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Index {
@@ -51,8 +102,15 @@ fn kind_name(kind: core::ComparisonKind) -> &'static str {
     }
 }
 impl Index {
+    fn lane(&self) -> Result<ComparisonLane> {
+        match (self.version, self.input_lane.as_str(), self.binding.native) {
+            (1, "scripted_baseline", false) => Ok(ComparisonLane::Scripted),
+            (2, "approved_native", true) => Ok(ComparisonLane::Native),
+            _ => Err("EvaluationIntegrity".into()),
+        }
+    }
     fn metadata(&self) -> Value {
-        json!({"run_id":self.run_id,"client_id":self.client_id,"comparison_kind":kind_name(self.kind),"initial_batch":self.initial_batch,"created_ms":self.created_ms,"protocol_version":3,"input_lane":"scripted_baseline"})
+        json!({"run_id":self.run_id,"client_id":self.client_id,"comparison_kind":kind_name(self.kind),"initial_batch":self.initial_batch,"created_ms":self.created_ms,"protocol_version":3,"input_lane":self.input_lane})
     }
 }
 struct Record {
@@ -62,6 +120,7 @@ struct Record {
     batch: usize,
     phase: &'static str,
     error: Option<String>,
+    cause: Option<String>,
     report: Option<(usize, bool, bool)>,
 }
 impl Record {
@@ -74,27 +133,34 @@ impl Record {
             batch,
             phase: "retained",
             error: None,
+            cause: None,
             report: None,
         }
     }
     fn status(&self, epoch: u64, token: &str, job: Option<&Job>) -> Result<Value> {
+        let lane = self.index.lane()?;
         let visible = self.epoch == epoch;
         let report = self.report.filter(|_| visible && self.phase != "closed");
-        let running = job.is_some_and(|j| {
-            j.kind == JobKind::ComparisonRun
-                && j.epoch == epoch
-                && j.run == self.index.run_id
-                && j.worker_active
-        });
-        bounded(
-            json!({"version":1,"kind":"comparison_run","protocol_version":3,"input_lane":"scripted_baseline",
+        let owned = job.filter(|j| j.kind == JobKind::ComparisonRun && j.run == self.index.run_id);
+        let running = owned.is_some_and(|j| j.worker_active && (lane.native() || j.epoch == epoch));
+        let cleanup_running = lane.native()
+            && owned
+                .and_then(|j| j.selected.as_ref())
+                .is_some_and(|o| o.cleanup_running);
+        let cleanup_required = lane.native()
+            && owned.is_some_and(|j| j.selected.is_some() && (!j.worker_active || cleanup_running));
+        let mut value = json!({"version":lane.version(),"kind":"comparison_run","protocol_version":3,"input_lane":lane.name(),
             "client_id":self.index.client_id,"run_id":self.index.run_id,"run_token":token,
             "operation_id":if visible{self.operation}else{None},"comparison_kind":kind_name(self.index.kind),"batch":self.batch,
             "phase":if visible{self.phase}else{"retained"},"running":running,"error":if visible{self.error.as_ref()}else{None},
-            "completed_scenes":report.map_or(0,|r|r.0),"completed":report.is_some_and(|r|r.1),"report_ready":report.is_some() && !running,
-            "source_matches":report.map(|r|r.2)}),
-            32 * 1024,
-        )
+            "completed_scenes":report.map_or(0,|r|r.0),"completed":report.is_some_and(|r|r.1),"report_ready":report.is_some() && !running && !cleanup_required && !cleanup_running,
+            "source_matches":report.map(|r|r.2)});
+        if lane.native() {
+            value["cleanup_required"] = json!(cleanup_required);
+            value["cleanup_running"] = json!(cleanup_running);
+            value["cause"] = json!(if visible { self.cause.as_ref() } else { None });
+        }
+        bounded(value, 32 * 1024)
     }
 }
 #[derive(Default)]
@@ -171,15 +237,13 @@ fn validate_manifest(directory: &Path, index: &Index) -> Result<()> {
 fn read_index(directory: &Path, manifest: bool) -> Result<Index> {
     let value = read_json(&directory.join("desktop.json"), 32 * 1024)?;
     let index: Index = serde_json::from_value(value).map_err(|_| "EvaluationIntegrity")?;
-    if index.version != 1
+    if index.lane().is_err()
         || index.protocol_version != 3
-        || index.input_lane != "scripted_baseline"
         || !valid_id(&index.run_id)
         || !valid_id(&index.client_id)
         || directory.file_name().and_then(|x| x.to_str()) != Some(index.run_id.as_str())
         || !(1..=4).contains(&index.initial_batch)
         || index.created_ms > SAFE
-        || index.binding.native
     {
         return Err("EvaluationIntegrity".into());
     }
@@ -188,10 +252,58 @@ fn read_index(directory: &Path, manifest: bool) -> Result<Index> {
     }
     Ok(index)
 }
+#[derive(Clone, Copy)]
 enum Work {
     Start,
     Resume,
     Open,
+}
+struct Launch {
+    lane: ComparisonLane,
+    existing: Option<(String, usize)>,
+    input: Option<FullComparisonStart>,
+    work: Work,
+    native: Option<NativeExecution>,
+}
+enum PreparedWork {
+    Inspected(ComparisonReportV3),
+    Execute {
+        output: PathBuf,
+        reference: Option<core::ValidatedReference>,
+    },
+}
+struct FullOutcome {
+    result: Result<ComparisonReportV3>,
+    retained: Option<(
+        crate::models::EvaluationReservation,
+        Arc<Mutex<locallore_local_runtime::LocalRuntime>>,
+    )>,
+    uncertain: bool,
+    cause: Option<String>,
+}
+impl FullOutcome {
+    fn plain(result: Result<ComparisonReportV3>) -> Self {
+        Self {
+            result,
+            retained: None,
+            uncertain: false,
+            cause: None,
+        }
+    }
+    fn native(
+        error: core::selected::SelectedNativeFailure<crate::models::EvaluationReservation>,
+    ) -> Self {
+        let code = super::selected::failure(error.code());
+        let cause = error.cause().map(super::selected::failure);
+        let uncertain = error.cleanup_uncertain();
+        let retained = error.into_retained().ok();
+        Self {
+            result: Err(code),
+            retained,
+            uncertain,
+            cause,
+        }
+    }
 }
 impl EvaluationManager {
     #[cfg(feature = "dev-harness")]
@@ -271,11 +383,43 @@ impl EvaluationManager {
             .lock()
             .map_err(|_| "EvaluationInternal".into())
     }
+    fn full_token_lane(
+        &self,
+        parent: &mut State,
+        epoch: u64,
+        token: &str,
+        lane: ComparisonLane,
+    ) -> Result<String> {
+        let id = parent
+            .tokens
+            .get(token)
+            .filter(|t| t.epoch == epoch)
+            .map(|t| t.run.clone())
+            .ok_or("UnknownEvaluationRun")?;
+        let matches = self
+            .full_lock()?
+            .runs
+            .get(&id)
+            .is_some_and(|r| r.index.lane().ok() == Some(lane));
+        if !matches {
+            return Err("UnknownEvaluationRun".into());
+        }
+        Self::token(parent, epoch, token)
+    }
     pub fn full_comparison_catalog(
         &self,
         lease: &WindowLease,
         epoch: u64,
         granted: bool,
+    ) -> Result<Value> {
+        self.full_catalog_lane(lease, epoch, granted, ComparisonLane::Scripted)
+    }
+    fn full_catalog_lane(
+        &self,
+        lease: &WindowLease,
+        epoch: u64,
+        granted: bool,
+        lane: ComparisonLane,
     ) -> Result<Value> {
         authorize(lease, epoch, granted)?;
         let _registration = self.registration.lock().map_err(|_| "EvaluationInternal")?;
@@ -319,8 +463,8 @@ impl EvaluationManager {
             let ids:BTreeSet<_>=found.iter().map(|x|x.run_id.clone()).collect();
             state.runs.retain(|id,_|ids.contains(id));
             for index in found { state.runs.entry(index.run_id.clone()).or_insert_with(||Record::retained(index)); }
-            bounded(json!({"version":1,"kind":"comparison_run_catalog","protocol_version":3,"input_lane":"scripted_baseline",
-                "runs":state.runs.values().map(|r|r.index.metadata()).collect::<Vec<_>>(),"max_new_scenes":4}),64*1024)
+            bounded(json!({"version":lane.version(),"kind":"comparison_run_catalog","protocol_version":3,"input_lane":lane.name(),
+                "runs":state.runs.values().filter(|r|r.index.lane().ok()==Some(lane)).map(|r|r.index.metadata()).collect::<Vec<_>>(),"max_new_scenes":4}),64*1024)
         })
     }
     pub fn full_comparison_pick(
@@ -332,11 +476,29 @@ impl EvaluationManager {
         run_id: &str,
         consent: impl FnOnce() -> Result<bool> + Send + 'static,
     ) -> Result<Value> {
+        self.full_pick_lane(
+            lease,
+            epoch,
+            granted,
+            (client, run_id),
+            consent,
+            ComparisonLane::Scripted,
+        )
+    }
+    fn full_pick_lane(
+        self: &Arc<Self>,
+        lease: &Arc<WindowLease>,
+        epoch: u64,
+        granted: bool,
+        (client, run_id): (&str, &str),
+        consent: impl FnOnce() -> Result<bool> + Send + 'static,
+        lane: ComparisonLane,
+    ) -> Result<Value> {
         authorize(lease, epoch, granted)?;
         if !valid_id(client) || !valid_id(run_id) {
             return Err("InvalidEvaluationInput".into());
         }
-        self.full_comparison_catalog(lease, epoch, granted)?;
+        self.full_catalog_lane(lease, epoch, granted, lane)?;
         let expected = self
             .full_lock()?
             .runs
@@ -345,6 +507,9 @@ impl EvaluationManager {
             .index
             .clone();
         let directory = self.full_comparison_root().join(run_id);
+        if expected.lane()? != lane {
+            return Err("UnknownEvaluationRun".into());
+        }
         // Renderer UUIDs never become paths, read grants or a substitute for
         // independent native spoiler confirmation.
         self.comparison_pick(lease, epoch, granted, client, move || {
@@ -361,11 +526,20 @@ impl EvaluationManager {
             Ok(Some(directory.join("work")))
         })
     }
-    fn full_open_metadata(&self, lease: &WindowLease, epoch: u64, id: &str) -> Result<Value> {
+    fn full_open_metadata(
+        &self,
+        lease: &WindowLease,
+        epoch: u64,
+        id: &str,
+        lane: ComparisonLane,
+    ) -> Result<Value> {
         lease.dispatch(epoch, || {
             let mut parent = self.state()?;
             let state = self.full_lock()?;
             let run = state.runs.get(id).ok_or("UnknownEvaluationRun")?;
+            if run.index.lane()? != lane {
+                return Err("UnknownEvaluationRun".into());
+            }
             let token = Self::mint(&mut parent, epoch, id.to_owned())?;
             run.status(epoch, &token, parent.job.as_ref())
         })
@@ -376,6 +550,16 @@ impl EvaluationManager {
         epoch: u64,
         granted: bool,
         client: &str,
+    ) -> Result<Value> {
+        self.full_lookup_lane(lease, epoch, granted, client, ComparisonLane::Scripted)
+    }
+    fn full_lookup_lane(
+        &self,
+        lease: &WindowLease,
+        epoch: u64,
+        granted: bool,
+        client: &str,
+        lane: ComparisonLane,
     ) -> Result<Value> {
         authorize(lease, epoch, granted)?;
         if !valid_id(client) {
@@ -392,7 +576,7 @@ impl EvaluationManager {
         let id = if let Some(id) = cached {
             id
         } else {
-            self.full_comparison_catalog(lease, epoch, granted)?;
+            self.full_catalog_lane(lease, epoch, granted, lane)?;
             self.full_lock()?
                 .runs
                 .values()
@@ -400,7 +584,7 @@ impl EvaluationManager {
                 .map(|r| r.index.run_id.clone())
                 .ok_or("UnknownEvaluationRun")?
         };
-        self.full_open_metadata(lease, epoch, &id)
+        self.full_open_metadata(lease, epoch, &id, lane)
     }
     pub fn full_comparison_status(
         &self,
@@ -409,10 +593,20 @@ impl EvaluationManager {
         granted: bool,
         token: &str,
     ) -> Result<Value> {
+        self.full_status_lane(lease, epoch, granted, token, ComparisonLane::Scripted)
+    }
+    fn full_status_lane(
+        &self,
+        lease: &WindowLease,
+        epoch: u64,
+        granted: bool,
+        token: &str,
+        lane: ComparisonLane,
+    ) -> Result<Value> {
         authorize(lease, epoch, granted)?;
         lease.dispatch(epoch, || {
             let mut parent = self.state()?;
-            let id = Self::token(&mut parent, epoch, token)?;
+            let id = self.full_token_lane(&mut parent, epoch, token, lane)?;
             self.full_lock()?
                 .runs
                 .get(&id)
@@ -427,12 +621,23 @@ impl EvaluationManager {
         granted: bool,
         input: FullComparisonStart,
     ) -> Result<Value> {
+        self.full_start_execution(lease, epoch, granted, input, Execution::Scripted)
+    }
+    fn full_start_execution(
+        self: &Arc<Self>,
+        lease: &Arc<WindowLease>,
+        epoch: u64,
+        granted: bool,
+        input: FullComparisonStart,
+        execution: Execution,
+    ) -> Result<Value> {
+        let lane = execution.lane();
         authorize(lease, epoch, granted)?;
         batch(input.max_new_scenes)?;
         if !valid_id(&input.client_id) {
             return Err("InvalidEvaluationInput".into());
         }
-        if let Ok(existing) = self.full_comparison_lookup(lease, epoch, granted, &input.client_id) {
+        if let Ok(existing) = self.full_lookup_lane(lease, epoch, granted, &input.client_id, lane) {
             if existing["comparison_kind"] != kind_name(input.kind)
                 || self
                     .full_lock()?
@@ -448,9 +653,27 @@ impl EvaluationManager {
             return Ok(existing);
         }
         // A failed catalog is not an unknown request and must not be bypassed.
-        self.full_comparison_catalog(lease, epoch, granted)?;
+        self.full_catalog_lane(lease, epoch, granted, lane)?;
+        if self
+            .full_lock()?
+            .runs
+            .values()
+            .any(|r| r.index.client_id == input.client_id && r.index.lane().ok() != Some(lane))
+        {
+            return Err("InvalidEvaluationInput".into());
+        }
         let identity = (input.client_id.clone(), input.kind, input.max_new_scenes);
-        let admitted = self.full_launch(lease, epoch, None, Some(input), Work::Start);
+        let admitted = self.full_launch(
+            lease,
+            epoch,
+            Launch {
+                lane,
+                existing: None,
+                input: Some(input),
+                work: Work::Start,
+                native: execution.native(),
+            },
+        );
         if admitted
             .as_ref()
             .err()
@@ -459,13 +682,15 @@ impl EvaluationManager {
             // The original client may have been admitted while this caller was
             // loading the catalog or joining an older worker. Return that exact
             // durable identity rather than treating the retry as a new request.
-            if let Ok(existing) = self.full_comparison_lookup(lease, epoch, granted, &identity.0) {
+            if let Ok(existing) = self.full_lookup_lane(lease, epoch, granted, &identity.0, lane) {
                 let same = self
                     .full_lock()?
                     .runs
                     .get(existing["run_id"].as_str().ok_or("EvaluationInternal")?)
                     .is_some_and(|r| {
-                        r.index.kind == identity.1 && r.index.initial_batch == identity.2
+                        r.index.kind == identity.1
+                            && r.index.initial_batch == identity.2
+                            && r.index.lane().ok() == Some(lane)
                     });
                 return if same {
                     Ok(existing)
@@ -483,15 +708,40 @@ impl EvaluationManager {
         granted: bool,
         id: &str,
     ) -> Result<Value> {
+        self.full_open_lane(lease, epoch, granted, id, ComparisonLane::Scripted)
+    }
+    fn full_open_lane(
+        self: &Arc<Self>,
+        lease: &Arc<WindowLease>,
+        epoch: u64,
+        granted: bool,
+        id: &str,
+        lane: ComparisonLane,
+    ) -> Result<Value> {
         authorize(lease, epoch, granted)?;
         if !valid_id(id) {
             return Err("InvalidEvaluationInput".into());
         }
-        self.full_comparison_catalog(lease, epoch, granted)?;
-        if !self.full_lock()?.runs.contains_key(id) {
+        self.full_catalog_lane(lease, epoch, granted, lane)?;
+        if !self
+            .full_lock()?
+            .runs
+            .get(id)
+            .is_some_and(|r| r.index.lane().ok() == Some(lane))
+        {
             return Err("UnknownEvaluationRun".into());
         }
-        self.full_launch(lease, epoch, Some((id.to_owned(), 1)), None, Work::Open)
+        self.full_launch(
+            lease,
+            epoch,
+            Launch {
+                lane,
+                existing: Some((id.to_owned(), 1)),
+                input: None,
+                work: Work::Open,
+                native: None,
+            },
+        )
     }
     pub fn full_comparison_resume(
         self: &Arc<Self>,
@@ -501,14 +751,41 @@ impl EvaluationManager {
         token: &str,
         max_new_scenes: usize,
     ) -> Result<Value> {
+        self.full_resume_execution(
+            lease,
+            epoch,
+            granted,
+            (token, max_new_scenes),
+            Execution::Scripted,
+        )
+    }
+    fn full_resume_execution(
+        self: &Arc<Self>,
+        lease: &Arc<WindowLease>,
+        epoch: u64,
+        granted: bool,
+        (token, max_new_scenes): (&str, usize),
+        execution: Execution,
+    ) -> Result<Value> {
+        let lane = execution.lane();
         authorize(lease, epoch, granted)?;
         batch(max_new_scenes)?;
         let id = lease.dispatch(epoch, || {
             let mut parent = self.state()?;
-            Self::token(&mut parent, epoch, token)
+            self.full_token_lane(&mut parent, epoch, token, lane)
         })?;
-        self.full_comparison_catalog(lease, epoch, granted)?;
-        self.full_launch(lease, epoch, Some((id, max_new_scenes)), None, Work::Resume)
+        self.full_catalog_lane(lease, epoch, granted, lane)?;
+        self.full_launch(
+            lease,
+            epoch,
+            Launch {
+                lane,
+                existing: Some((id, max_new_scenes)),
+                input: None,
+                work: Work::Resume,
+                native: execution.native(),
+            },
+        )
     }
     pub fn full_comparison_cancel(
         &self,
@@ -518,13 +795,31 @@ impl EvaluationManager {
         token: &str,
         operation: u64,
     ) -> Result<Value> {
+        self.full_cancel_lane(
+            lease,
+            epoch,
+            granted,
+            token,
+            operation,
+            ComparisonLane::Scripted,
+        )
+    }
+    fn full_cancel_lane(
+        &self,
+        lease: &WindowLease,
+        epoch: u64,
+        granted: bool,
+        token: &str,
+        operation: u64,
+        lane: ComparisonLane,
+    ) -> Result<Value> {
         authorize(lease, epoch, granted)?;
         if operation == 0 || operation > SAFE {
             return Err("InvalidEvaluationInput".into());
         }
         lease.dispatch(epoch, || {
             let mut parent = self.state()?;
-            let id = Self::token(&mut parent, epoch, token)?;
+            let id = self.full_token_lane(&mut parent, epoch, token, lane)?;
             let job = parent
                 .job
                 .as_ref()
@@ -549,9 +844,18 @@ impl EvaluationManager {
         _: bool,
         token: &str,
     ) -> Result<Value> {
+        self.full_close_lane(lease, epoch, token, ComparisonLane::Scripted)
+    }
+    fn full_close_lane(
+        &self,
+        lease: &WindowLease,
+        epoch: u64,
+        token: &str,
+        lane: ComparisonLane,
+    ) -> Result<Value> {
         lease.dispatch(epoch, || {
             let mut parent = self.state()?;
-            let id = Self::token(&mut parent, epoch, token)?;
+            let id = self.full_token_lane(&mut parent, epoch, token, lane)?;
             if let Some(job) = parent
                 .job
                 .as_ref()
@@ -564,6 +868,7 @@ impl EvaluationManager {
             r.epoch = epoch;
             r.phase = "closed";
             r.error = None;
+            r.cause = None;
             r.report = None;
             let status = r.status(epoch, token, parent.job.as_ref())?;
             parent.tokens.remove(token);
@@ -576,6 +881,7 @@ impl EvaluationManager {
                 r.epoch = 0;
                 r.report = None;
                 r.error = None;
+                r.cause = None;
                 r.operation = None;
                 r.phase = "retained";
             }
@@ -585,10 +891,15 @@ impl EvaluationManager {
         self: &Arc<Self>,
         lease: &Arc<WindowLease>,
         epoch: u64,
-        existing: Option<(String, usize)>,
-        mut input: Option<FullComparisonStart>,
-        work: Work,
+        launch: Launch,
     ) -> Result<Value> {
+        let Launch {
+            lane,
+            existing,
+            mut input,
+            work,
+            native,
+        } = launch;
         loop {
             let registration = self.registration.lock().map_err(|_| "EvaluationInternal")?;
             if self.state()?.job.is_some() {
@@ -620,6 +931,7 @@ impl EvaluationManager {
                         // joined a previous worker. Never allocate a duplicate.
                         if r.index.kind != input.kind
                             || r.index.initial_batch != input.max_new_scenes
+                            || r.index.lane()? != lane
                         {
                             return Err("InvalidEvaluationInput".into());
                         }
@@ -641,15 +953,15 @@ impl EvaluationManager {
                     )
                     .map_err(|_| "EvaluationBudget")?;
                     let index = Index {
-                        version: 1,
+                        version: lane.version(),
                         protocol_version: 3,
-                        input_lane: "scripted_baseline".into(),
+                        input_lane: lane.name().into(),
                         run_id: id.clone(),
                         client_id: input.client_id,
                         kind: input.kind,
                         initial_batch: input.max_new_scenes,
                         created_ms,
-                        binding: wire::current_binding(false).map_err(failure)?,
+                        binding: wire::current_binding(lane.native()).map_err(failure)?,
                     };
                     let data = serde_json::to_vec(&index).map_err(|_| "EvaluationInternal")?;
                     if data.len() > 32 * 1024 {
@@ -675,6 +987,9 @@ impl EvaluationManager {
                 let token = Self::mint(&mut parent, epoch, id.clone())?;
                 let cancel = Cancellation::default();
                 let r = full.runs.get_mut(&id).ok_or("UnknownEvaluationRun")?;
+                if r.index.lane()? != lane {
+                    return Err("UnknownEvaluationRun".into());
+                }
                 if r.epoch != epoch || !matches!(work, Work::Resume) {
                     r.report = None;
                 }
@@ -682,6 +997,7 @@ impl EvaluationManager {
                 r.operation = Some(operation);
                 r.batch = chosen_batch;
                 r.error = None;
+                r.cause = None;
                 r.phase = if matches!(work, Work::Open) {
                     "opening"
                 } else {
@@ -695,7 +1011,12 @@ impl EvaluationManager {
                     id: operation,
                     run: id.clone(),
                     cancel: cancel.clone(),
-                    selected: None,
+                    selected: native.as_ref().map(|n| super::selected::SelectedOwnership {
+                        models: n.models.clone(),
+                        witness: None,
+                        retained: None,
+                        cleanup_running: false,
+                    }),
                     worker_active: true,
                 });
                 let initial = r.status(epoch, &token, parent.job.as_ref())?;
@@ -712,14 +1033,22 @@ impl EvaluationManager {
                 if registered.recv().is_err() {
                     return;
                 }
-                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    #[cfg(test)]
+                // The fixed panic is before execution only. Actual native
+                // ownership is returned by the shared typed boundary, never
+                // erased by a blanket catch/unconditional Job clear.
+                #[cfg(test)]
+                let injected = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     if manager
                         .panic_worker
                         .swap(false, std::sync::atomic::Ordering::SeqCst)
                     {
-                        panic!("fixed scripted comparison worker fault");
+                        panic!("fixed pre-execution comparison worker fault");
                     }
+                }))
+                .is_err();
+                #[cfg(not(test))]
+                let injected = false;
+                let execute = || {
                     #[cfg(any(test, feature = "dev-harness"))]
                     while manager.hold.load(std::sync::atomic::Ordering::SeqCst)
                         && !worker_cancel.is_cancelled()
@@ -727,61 +1056,24 @@ impl EvaluationManager {
                     {
                         std::thread::sleep(Duration::from_millis(5));
                     }
-                    manager.full_work(&owner, epoch, &index, &worker_cancel, work, chosen_batch)
-                }))
-                .unwrap_or_else(|_| Err("EvaluationInternal".into()));
-                let _ = owner.dispatch(epoch, || {
-                    let parent = manager.state()?;
-                    if !parent.job.as_ref().is_some_and(|j| {
-                        j.kind == JobKind::ComparisonRun
-                            && j.epoch == epoch
-                            && j.id == operation
-                            && j.run == run
-                    }) {
-                        return Err("Closed".into());
-                    }
-                    let mut state = manager.full_lock()?;
-                    let r = state
-                        .runs
-                        .get_mut(&run)
-                        .filter(|r| {
-                            r.epoch == epoch
-                                && r.operation == Some(operation)
-                                && r.phase != "closed"
-                        })
-                        .ok_or("Closed")?;
-                    match result {
-                        Ok(report) => {
-                            r.report = Some((
-                                report.completed_scenes,
-                                report.completed,
-                                report.source_matches,
-                            ));
-                            r.phase = if report.completed {
-                                "completed"
-                            } else {
-                                "paused"
-                            };
-                            r.error = None;
-                        }
-                        Err(error) => {
-                            r.phase = "failed";
-                            r.error = Some(error);
-                            r.report = None;
-                        }
-                    }
-                    Ok(())
-                });
-                manager.clear_cancellation(epoch, operation);
-                let mut parent = manager.state.lock().unwrap_or_else(|p| p.into_inner());
-                if parent.job.as_ref().is_some_and(|j| {
-                    j.kind == JobKind::ComparisonRun
-                        && j.epoch == epoch
-                        && j.id == operation
-                        && j.run == run
-                }) {
-                    parent.job = None;
-                }
+                    manager.full_work(
+                        &owner,
+                        (epoch, operation),
+                        &index,
+                        &worker_cancel,
+                        (work, chosen_batch),
+                        native,
+                    )
+                };
+                let outcome = if injected {
+                    FullOutcome::plain(Err("EvaluationInternal".into()))
+                } else if lane.native() {
+                    execute()
+                } else {
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(execute))
+                        .unwrap_or_else(|_| FullOutcome::plain(Err("EvaluationInternal".into())))
+                };
+                let _ = manager.full_finish(&owner, epoch, &run, operation, outcome);
             };
             #[cfg(test)]
             let fail = self
@@ -827,15 +1119,14 @@ impl EvaluationManager {
             };
         }
     }
-    fn full_work(
+    fn full_prepare_work(
         &self,
         lease: &WindowLease,
         epoch: u64,
         expected: &Index,
         cancel: &Cancellation,
         work: Work,
-        chosen_batch: usize,
-    ) -> Result<ComparisonReportV3> {
+    ) -> Result<PreparedWork> {
         if !lease.valid(epoch) {
             return Err("Closed".into());
         }
@@ -850,9 +1141,11 @@ impl EvaluationManager {
         }
         let output = directory.join("work");
         if matches!(work, Work::Open) {
-            return literal_v3::inspect_comparison(&output).map_err(failure);
+            return literal_v3::inspect_comparison(&output)
+                .map(PreparedWork::Inspected)
+                .map_err(failure);
         }
-        if index.binding != wire::current_binding(false).map_err(failure)? {
+        if index.binding != wire::current_binding(index.lane()?.native()).map_err(failure)? {
             return Err("EvaluationSourceMismatch".into());
         }
         let resume = matches!(work, Work::Resume);
@@ -862,7 +1155,7 @@ impl EvaluationManager {
             }
             let report = literal_v3::inspect_comparison(&output).map_err(failure)?;
             if report.completed {
-                return Ok(report);
+                return Ok(PreparedWork::Inspected(report));
             }
         }
         // A boundary quota must refuse before invoking the shared runner or
@@ -884,21 +1177,11 @@ impl EvaluationManager {
         if cancel.is_cancelled() {
             return Err("Cancelled".into());
         }
-        let report = literal_v3::run_comparison(
-            &output,
-            resume,
-            index.kind,
-            cancel,
-            chosen_batch,
-            LaneFactory::ScriptedBaseline,
-            reference.as_ref(),
-        )
-        .map_err(failure)?;
-        self.budget(Some(&directory))?;
-        Ok(report)
+        Ok(PreparedWork::Execute { output, reference })
     }
 }
-#[cfg(test)]
-mod review_tests;
+mod native;
 #[cfg(test)]
 mod native_review_tests;
+#[cfg(test)]
+mod review_tests;

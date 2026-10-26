@@ -16,11 +16,10 @@ mod author_ipc_review;
 mod capture_exports;
 mod close_gate;
 mod comparison_commands;
+mod comparison_native_commands;
 #[cfg(feature = "dev-harness")]
 mod comparison_reader_harness;
 mod comparison_run_commands;
-#[cfg(test)]
-mod comparison_native_commands;
 mod evaluation;
 mod evaluation_commands;
 mod export_commands;
@@ -346,6 +345,7 @@ fn main() {
             evaluation_commands::evaluation_curated,
             comparison_commands::evaluation_comparison,
             comparison_run_commands::evaluation_comparison_run,
+            comparison_native_commands::evaluation_comparison_native,
             selected_commands::evaluation_selected,
             selected_harness::harness_selected_case,
             comparison_reader_harness::harness_comparison_reader_case,
@@ -405,6 +405,7 @@ fn main() {
         evaluation_commands::evaluation_curated,
         comparison_commands::evaluation_comparison,
         comparison_run_commands::evaluation_comparison_run,
+        comparison_native_commands::evaluation_comparison_native,
         selected_commands::evaluation_selected,
         evaluation_commands::evaluation_start,
         evaluation_commands::evaluation_open,

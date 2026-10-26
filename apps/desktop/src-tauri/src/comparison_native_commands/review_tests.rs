@@ -15,7 +15,10 @@ fn refused(action: &str, query: Value) {
 fn queries() -> Vec<(&'static str, Value)> {
     vec![
         ("catalog", json!({})),
-        ("start", json!({"clientId":ID,"comparisonKind":"paired","batch":1})),
+        (
+            "start",
+            json!({"clientId":ID,"comparisonKind":"paired","batch":1}),
+        ),
         ("lookup", json!({"clientId":ID})),
         ("open", json!({"runId":ID})),
         ("status", json!({"runToken":ID})),
@@ -32,10 +35,22 @@ fn queries() -> Vec<(&'static str, Value)> {
 fn eleven_actions_preserve_their_exact_typed_inputs() {
     assert_eq!(queries().len(), 11);
     assert!(matches!(parse("catalog", &json!({})), Ok(Action::Catalog)));
-    assert!(matches!(parse("cleanup_status", &json!({})), Ok(Action::CleanupStatus)));
-    assert!(matches!(parse("retry_cleanup", &json!({})), Ok(Action::RetryCleanup)));
-    for (kind, expected) in [("paired", ComparisonKind::PairedSnapshots), ("rollout", ComparisonKind::ContinuousRollout)] {
-        match parse("start", &json!({"clientId":OTHER,"comparisonKind":kind,"batch":4})) {
+    assert!(matches!(
+        parse("cleanup_status", &json!({})),
+        Ok(Action::CleanupStatus)
+    ));
+    assert!(matches!(
+        parse("retry_cleanup", &json!({})),
+        Ok(Action::RetryCleanup)
+    ));
+    for (kind, expected) in [
+        ("paired", ComparisonKind::PairedSnapshots),
+        ("rollout", ComparisonKind::ContinuousRollout),
+    ] {
+        match parse(
+            "start",
+            &json!({"clientId":OTHER,"comparisonKind":kind,"batch":4}),
+        ) {
             Ok(Action::Start(input)) => {
                 assert_eq!(input.client_id, OTHER);
                 assert_eq!(input.kind, expected);
@@ -54,9 +69,13 @@ fn eleven_actions_preserve_their_exact_typed_inputs() {
         }
         _ => panic!("closed native resume refused"),
     }
-    assert!(matches!(parse("cancel", &json!({"runToken":ID,"operationId":7})), Ok(Action::Cancel(id, 7)) if id == ID));
+    assert!(
+        matches!(parse("cancel", &json!({"runToken":ID,"operationId":7})), Ok(Action::Cancel(id, 7)) if id == ID)
+    );
     assert!(matches!(parse("close", &json!({"runToken":ID})), Ok(Action::Close(id)) if id == ID));
-    assert!(matches!(parse("managed", &json!({"clientId":ID,"runId":OTHER})), Ok(Action::Managed(client, run)) if client == ID && run == OTHER));
+    assert!(
+        matches!(parse("managed", &json!({"clientId":ID,"runId":OTHER})), Ok(Action::Managed(client, run)) if client == ID && run == OTHER)
+    );
 }
 
 #[test]
@@ -80,9 +99,20 @@ fn each_action_rejects_missing_extra_or_misspelled_keys() {
 
 #[test]
 fn every_identity_position_requires_a_lowercase_uuid_without_coercion() {
-    for bad in [json!(null), json!(true), json!(42), json!([]), json!({}), json!(""), json!("../run"),
-        json!("ABCDEF01-2345-6789-abcd-0123456789ef"), json!("abcdef0123456789abcd0123456789ef"),
-        json!("abcdef01_2345-6789-abcd-0123456789ef"), json!("gbcdef01-2345-6789-abcd-0123456789ef"), json!(format!("{ID}\n"))] {
+    for bad in [
+        json!(null),
+        json!(true),
+        json!(42),
+        json!([]),
+        json!({}),
+        json!(""),
+        json!("../run"),
+        json!("ABCDEF01-2345-6789-abcd-0123456789ef"),
+        json!("abcdef0123456789abcd0123456789ef"),
+        json!("abcdef01_2345-6789-abcd-0123456789ef"),
+        json!("gbcdef01-2345-6789-abcd-0123456789ef"),
+        json!(format!("{ID}\n")),
+    ] {
         for (action, query) in queries() {
             for key in ["clientId", "runId", "runToken"] {
                 if query.get(key).is_some() {
@@ -99,25 +129,65 @@ fn every_identity_position_requires_a_lowercase_uuid_without_coercion() {
 fn native_start_and_resume_allow_only_integer_batches_one_through_four() {
     for batch in 1..=4 {
         for kind in ["paired", "rollout"] {
-            assert!(parse("start", &json!({"clientId":ID,"comparisonKind":kind,"batch":batch})).is_ok());
+            assert!(parse(
+                "start",
+                &json!({"clientId":ID,"comparisonKind":kind,"batch":batch})
+            )
+            .is_ok());
         }
         assert!(parse("resume", &json!({"runToken":ID,"batch":batch})).is_ok());
     }
-    for batch in [json!(0), json!(5), json!(-1), json!(1.5), json!("1"), json!(true), json!(null), json!([]), json!(u64::MAX)] {
-        refused("start", json!({"clientId":ID,"comparisonKind":"paired","batch":batch}));
+    for batch in [
+        json!(0),
+        json!(5),
+        json!(-1),
+        json!(1.5),
+        json!("1"),
+        json!(true),
+        json!(null),
+        json!([]),
+        json!(u64::MAX),
+    ] {
+        refused(
+            "start",
+            json!({"clientId":ID,"comparisonKind":"paired","batch":batch}),
+        );
         refused("resume", json!({"runToken":ID,"batch":batch}));
     }
-    for kind in [json!("native"), json!("approved_native"), json!("scripted_baseline"), json!("PAIRED"), json!("PairedSnapshots"), json!(null), json!(false)] {
-        refused("start", json!({"clientId":ID,"comparisonKind":kind,"batch":1}));
+    for kind in [
+        json!("native"),
+        json!("approved_native"),
+        json!("scripted_baseline"),
+        json!("PAIRED"),
+        json!("PairedSnapshots"),
+        json!(null),
+        json!(false),
+    ] {
+        refused(
+            "start",
+            json!({"clientId":ID,"comparisonKind":kind,"batch":1}),
+        );
     }
 }
 
 #[test]
 fn cancellation_requires_positive_safe_js_integer_operation() {
     for operation in [1, 9_007_199_254_740_991u64] {
-        assert!(matches!(parse("cancel", &json!({"runToken":ID,"operationId":operation})), Ok(Action::Cancel(id, actual)) if id == ID && actual == operation));
+        assert!(
+            matches!(parse("cancel", &json!({"runToken":ID,"operationId":operation})), Ok(Action::Cancel(id, actual)) if id == ID && actual == operation)
+        );
     }
-    for operation in [json!(0), json!(-1), json!(1.5), json!(9_007_199_254_740_992u64), json!(u64::MAX), json!("1"), json!(null), json!(true), json!({})] {
+    for operation in [
+        json!(0),
+        json!(-1),
+        json!(1.5),
+        json!(9_007_199_254_740_992u64),
+        json!(u64::MAX),
+        json!("1"),
+        json!(null),
+        json!(true),
+        json!({}),
+    ] {
         refused("cancel", json!({"runToken":ID,"operationId":operation}));
     }
 }
@@ -125,14 +195,37 @@ fn cancellation_requires_positive_safe_js_integer_operation() {
 #[test]
 fn renderer_cannot_supply_assets_execution_consent_or_cleanup_authority() {
     for (action, query) in queries() {
-        for field in ["provider", "profile", "path", "model", "modelPath", "policy", "lane", "input_lane", "consent", "granted", "cleanupId", "cleanup_id", "confirmed", "epoch", "runtime", "source", "reference"] {
+        for field in [
+            "provider",
+            "profile",
+            "path",
+            "model",
+            "modelPath",
+            "policy",
+            "lane",
+            "input_lane",
+            "consent",
+            "granted",
+            "cleanupId",
+            "cleanup_id",
+            "confirmed",
+            "epoch",
+            "runtime",
+            "source",
+            "reference",
+        ] {
             let mut changed = query.clone();
             changed[field] = json!(true);
             refused(action, changed);
         }
     }
     for action in ["cleanup_status", "retry_cleanup"] {
-        for query in [json!({"runToken":ID}), json!({"clientId":ID}), json!({"operationId":1}), json!({"cleanup":true})] {
+        for query in [
+            json!({"runToken":ID}),
+            json!({"clientId":ID}),
+            json!({"operationId":1}),
+            json!({"cleanup":true}),
+        ] {
             refused(action, query);
         }
     }
@@ -140,11 +233,21 @@ fn renderer_cannot_supply_assets_execution_consent_or_cleanup_authority() {
 
 #[test]
 fn managed_read_and_close_accept_no_alias_identity_or_extra_read_grant() {
-    for query in [json!({"clientId":ID}), json!({"runId":ID}), json!({"clientId":ID,"runToken":OTHER}),
-        json!({"clientId":ID,"runId":OTHER,"consent":true}), json!({"clientId":ID,"runId":OTHER,"binding":"a".repeat(64)})] {
+    for query in [
+        json!({"clientId":ID}),
+        json!({"runId":ID}),
+        json!({"clientId":ID,"runToken":OTHER}),
+        json!({"clientId":ID,"runId":OTHER,"consent":true}),
+        json!({"clientId":ID,"runId":OTHER,"binding":"a".repeat(64)}),
+    ] {
         refused("managed", query);
     }
-    for query in [json!({"runToken":null}), json!({"clientId":ID}), json!({"runId":ID}), json!({"runToken":ID,"clientId":OTHER})] {
+    for query in [
+        json!({"runToken":null}),
+        json!({"clientId":ID}),
+        json!({"runId":ID}),
+        json!({"runToken":ID,"clientId":OTHER}),
+    ] {
         refused("close", query);
     }
 }
@@ -152,11 +255,30 @@ fn managed_read_and_close_accept_no_alias_identity_or_extra_read_grant() {
 #[test]
 fn query_is_an_object_not_json_text_and_oversized_utf8_or_unknown_actions_refuse() {
     for (action, query) in queries() {
-        for nonobject in [json!(null), json!([]), json!(true), json!(0), json!(serde_json::to_string(&query).unwrap())] {
+        for nonobject in [
+            json!(null),
+            json!([]),
+            json!(true),
+            json!(0),
+            json!(serde_json::to_string(&query).unwrap()),
+        ] {
             refused(action, nonobject);
         }
     }
-    for action in ["", "Catalog", "START", "pick", "prepare", "evidence", "diagnostics", "native", "run", "shell", "cleanup", "start "] {
+    for action in [
+        "",
+        "Catalog",
+        "START",
+        "pick",
+        "prepare",
+        "evidence",
+        "diagnostics",
+        "native",
+        "run",
+        "shell",
+        "cleanup",
+        "start ",
+    ] {
         refused(action, json!({}));
     }
     // All valid fields have tighter bounds than4096; this is a composite

@@ -299,7 +299,7 @@ fn prepared_valid(value: &Value) -> bool {
                 })
         })
 }
-fn failure(error: &str) -> String {
+pub(super) fn failure(error: &str) -> String {
     match error {
         "InvalidEvaluationInput"
         | "EvaluationBusy"
@@ -1312,6 +1312,15 @@ impl EvaluationManager {
         epoch: u64,
         operation: u64,
     ) -> Result<models::EvaluationReservation> {
+        self.reserve_owned(models, JobKind::Selected, epoch, operation)
+    }
+    pub(super) fn reserve_owned(
+        &self,
+        models: &Arc<ModelManager>,
+        expected_kind: JobKind,
+        epoch: u64,
+        operation: u64,
+    ) -> Result<models::EvaluationReservation> {
         // The shared owned-failure boundary accepts its own fixed runtime
         // categories, not desktop-only strings which would become unknown.
         let reservation = models.reserve_evaluation().map_err(|error| {
@@ -1329,7 +1338,7 @@ impl EvaluationManager {
                 .job
                 .as_mut()
                 .filter(|job| {
-                    job.kind == JobKind::Selected && job.epoch == epoch && job.id == operation
+                    job.kind == expected_kind && job.epoch == epoch && job.id == operation
                 })
                 .ok_or("Interrupted")?;
             let ownership = job.selected.as_mut().ok_or("RuntimeRuntime")?;
@@ -1859,6 +1868,12 @@ impl EvaluationManager {
         }
         let error = selected.cleanup_error.clone();
         drop(selected);
+        if let Some(job) = removed
+            .as_ref()
+            .filter(|j| j.kind == JobKind::ComparisonRun)
+        {
+            self.full_comparison_cleanup_confirmed(job.epoch, job.id, &job.run);
+        }
         Ok((cleanup_envelope(required, running, error), removed))
     }
     pub fn selected_cleanup_status(&self, lease: &WindowLease, epoch: u64) -> Result<Value> {
@@ -1951,6 +1966,12 @@ impl EvaluationManager {
             }
         }
         // Actual R Drop/model ownership drops happen only after metadata gates.
+        if let Some(job) = removed
+            .as_ref()
+            .filter(|j| j.kind == JobKind::ComparisonRun)
+        {
+            self.full_comparison_cleanup_confirmed(job.epoch, job.id, &job.run);
+        }
         drop(removed);
         drop(work);
         cleanup_envelope(!outcome.confirmed, false, diagnostic)

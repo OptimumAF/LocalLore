@@ -244,6 +244,6 @@ The record covers the fixed app-owned window lifecycle and existing cleanup
 coordination. Actual active-model shutdown, arbitrary OS failures, whole-app
 RAM/performance, physical-phone parity and universal Chromium/SDK cleanup remain
 unqualified here. The residual diagnostic remains visible. Raw logs, generated
-images and local workspace paths stay local/ignored; Root will append sanitized
-hashes and final terminal evidence. D09's offline/privacy/package acceptance and
+images and local workspace paths stay local/ignored; sanitized hashes and terminal
+evidence are recorded above. D09's offline/privacy/package acceptance and
 owner release authority are unchanged. No whole-milestone checkbox is awarded.

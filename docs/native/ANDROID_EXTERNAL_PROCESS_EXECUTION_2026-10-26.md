@@ -292,6 +292,22 @@ passed after correction. App/controller/native sources are unchanged. New
 mapped qualification is separate from the85ff9a69 Android executions above;
 an equal APK hash would establish artifact equality, not equal source maps.
 Fresh full-host/build checks are running before a new create-only89-method run.
+
+## Host correction qualification
+
+At mapped code31c0f700, all1,245 Python tests passed in126.401s, zero
+failures/errors/skips. Host owner128,018ms/completed0/cleanuptrue/stderr0;
+stdout226,427B SHA-256
+`c8614b3192c9b2de7c916404732852c9f10cc64d42920f22fa07255223e8f673`.
+The fresh build passed235 executed JVM tests/27 XML suites, both lints and
+eleven audits, owner57,461ms/worker0/known cleanup+capture/stderr0.
+All756 tracked inputs/five SQL files match before/after, new source-map SHA-256
+`be527ea35b56a5c8e16d273a5b1abeaa9e7bd93e4d6e2b55deb9a7cd94826340`.
+Independent original build/XML/audit validation also streamed all three APKs
+byte-for-byte against build-v2: product/test/controller are identical to the
+85ff9a69 artifacts. The native10 and four external cases above retain their
+85ff9a69 execution attribution; they are not relabeled as new-map runs.
+The new89-method suite is running in a separate fresh guest against build-v3.
 Earlier50989ca2 results remain historical source-attributed records; the current
 source has separate fresh runtime qualification above. Phone/ARM64 and real-model qualification are
 separate gates; no result follows from fake-provider or emulator checks.

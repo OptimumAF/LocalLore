@@ -49,9 +49,10 @@ branch/deleted-turn counts and sorted invalidated IDs. Public Store/Host access
 to retired targets fails even for exact old committed/Ready retries. Only private
 ancestry replay may read retained retired prefixes for active descendants.
 
-Whole-story preview is nowv2 with ten fixed tables, including tombstones. Its
-transaction removes the entire story and reserved IDs. Android still decodes
-historical previewv1 with nine tables; it never guesses unknown versions.
+Retention introduced whole-story previewv2 with ten fixed tables, including
+tombstones. Current previewv3 adds the two memory-job tables. Its transaction
+removes the entire story and reserved IDs. Android accepts the exact v1/v2/v3
+table sets (nine/ten/twelve tables); it never guesses unknown versions.
 
 ## Narrow native and Android boundary
 
@@ -83,7 +84,7 @@ Catalogv2 includes every physical row with a required Boolean `retired`, retaini
 original parent/fork metadata. Clients validate the entire graph first and only
 then filter retired choices. A child remains attached to its actual parent;
 retired ancestors are not silently reparented. Host/domain/workspace wire
-versions remain1; database schema is3.
+versions remain1. Retention introduced database schema3; the current schema is5.
 
 ## Portable state
 

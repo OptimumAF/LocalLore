@@ -264,12 +264,44 @@ struct State {
 }
 
 pub type ProviderFactory = Arc<dyn Fn() -> Box<dyn InferenceProvider + Send> + Send + Sync>;
+/// Trusted native selection only; neither JSON nor an inspection lens grants it.
+/// ```compile_fail,E0277
+/// use locallore::host::HostPlayConstructionV1;
+/// fn serialize<T: serde::Serialize>() {}
+/// serialize::<HostPlayConstructionV1>();
+/// ```
+/// ```compile_fail,E0277
+/// use locallore::host::HostPlayConstructionV1;
+/// fn deserialize<T: serde::de::DeserializeOwned>() {}
+/// deserialize::<HostPlayConstructionV1>();
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HostPlayConstructionV1 {
+    Memory(crate::play::PlayContextPolicy),
+    PlayerLiteralV1,
+}
+impl HostPlayConstructionV1 {
+    fn labels(self) -> (&'static str, &'static str) {
+        match self {
+            Self::Memory(_) => (crate::play::PROMPT_VERSION, "locallore-play-v2"),
+            Self::PlayerLiteralV1 => (
+                crate::play::LITERAL_PLAY_PROMPT_VERSION_V1,
+                "locallore-director-literal-v1",
+            ),
+        }
+    }
+}
+#[derive(Clone, Copy)]
+enum GenerationReadKind {
+    Memory,
+    Canonical,
+}
 #[derive(Clone)]
 struct LocalPlay {
     profile: crate::play::PlayProfile,
     provider: ProviderFactory,
     real_model: bool,
-    policy: crate::play::PlayContextPolicy,
+    construction: HostPlayConstructionV1,
 }
 
 /// Trusted native persistence boundary. Implemented by the one SQLite owner adapter,
@@ -519,7 +551,20 @@ impl Host {
         provider: ProviderFactory,
         policy: crate::play::PlayContextPolicy,
     ) -> Result<(), String> {
-        self.configure_provider(profile, provider, true, policy)
+        self.configure_local_provider_with_construction(
+            profile,
+            provider,
+            HostPlayConstructionV1::Memory(policy),
+        )
+    }
+    /// Configure only future native work. No wire operation selects this enum.
+    pub fn configure_local_provider_with_construction(
+        &self,
+        profile: crate::play::PlayProfile,
+        provider: ProviderFactory,
+        construction: HostPlayConstructionV1,
+    ) -> Result<(), String> {
+        self.configure_provider(profile, provider, true, construction)
     }
     /// Synthetic plumbing, configured by trusted native code only. Never claims a real model.
     pub fn configure_fixture_provider(
@@ -540,14 +585,28 @@ impl Host {
         provider: ProviderFactory,
         policy: crate::play::PlayContextPolicy,
     ) -> Result<(), String> {
-        self.configure_provider(profile, provider, false, policy)
+        self.configure_fixture_provider_with_construction(
+            profile,
+            provider,
+            HostPlayConstructionV1::Memory(policy),
+        )
+    }
+    /// Synthetic native plumbing, including literal construction. Always keeps
+    /// the fixture label; configuring a construction does not run a model.
+    pub fn configure_fixture_provider_with_construction(
+        &self,
+        profile: crate::play::PlayProfile,
+        provider: ProviderFactory,
+        construction: HostPlayConstructionV1,
+    ) -> Result<(), String> {
+        self.configure_provider(profile, provider, false, construction)
     }
     fn configure_provider(
         &self,
         profile: crate::play::PlayProfile,
         provider: ProviderFactory,
         real_model: bool,
-        policy: crate::play::PlayContextPolicy,
+        construction: HostPlayConstructionV1,
     ) -> Result<(), String> {
         profile.validate().map_err(|e| e.to_string())?;
         self.state
@@ -557,7 +616,7 @@ impl Host {
             profile,
             provider,
             real_model,
-            policy,
+            construction,
         });
         Ok(())
     }
@@ -656,6 +715,45 @@ impl Host {
         expected_head: u64,
         cancel: &dyn Fn() -> bool,
     ) -> Result<HostGenerationSnapshot, String> {
+        let (engine, coverage) = self.generation_read(
+            session,
+            scope,
+            expected_head,
+            cancel,
+            GenerationReadKind::Memory,
+        )?;
+        Ok(HostGenerationSnapshot {
+            engine,
+            coverage: coverage.ok_or("Internal")?,
+        })
+    }
+    fn literal_generation_engine(
+        &self,
+        session: &str,
+        scope: &Scope,
+        expected_head: u64,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<Engine, String> {
+        self.generation_read(
+            session,
+            scope,
+            expected_head,
+            cancel,
+            GenerationReadKind::Canonical,
+        )
+        .map(|(engine, _)| engine)
+    }
+    // Both source paths share the same selected-session/seed/prefix/cancel
+    // fence. Canonical mode uses the existing coherent resume transaction and
+    // never obtains, fabricates or drops a derived-memory proof.
+    fn generation_read(
+        &self,
+        session: &str,
+        scope: &Scope,
+        expected_head: u64,
+        cancel: &dyn Fn() -> bool,
+        kind: GenerationReadKind,
+    ) -> Result<(Engine, Option<crate::memory_coverage::CoverageRead>), String> {
         let mut state = self.state.lock().map_err(|_| "Internal")?;
         let selected = state.sessions.get(session).ok_or("Closed")?;
         if selected.engine.scope() != scope {
@@ -671,47 +769,46 @@ impl Host {
             observed_cancelled.get()
         };
         check_generation_cancel(&safe_cancel)?;
-        let snapshot = if let Some(port) = state.persistence.as_mut() {
+        let (engine, coverage) = if let Some(port) = state.persistence.as_mut() {
             // Overrides receive the same panic-safe cancellation boundary as
             // the default port. An observed true/panic remains cancelled even
             // if an override ignores it and returns an otherwise valid Engine.
             // Contain a native override failure inside the guard so it cannot
             // poison every later operation on this owner.
-            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                port.generation_snapshot(scope, expected_head, &selected_seed.player, &safe_cancel)
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match kind {
+                GenerationReadKind::Memory => port
+                    .generation_snapshot(scope, expected_head, &selected_seed.player, &safe_cancel)
+                    .map(|snapshot| (snapshot.engine, Some(snapshot.coverage))),
+                GenerationReadKind::Canonical => port.resume(scope).map(|engine| (engine, None)),
             }))
             .map_err(|_| "Internal")?
             .map_err(generation_read_error)?
         } else {
-            HostGenerationSnapshot {
-                engine: ephemeral.expect("selected ephemeral Engine"),
-                coverage: crate::memory_coverage::CoverageRead::RawFallback(
-                    crate::memory_coverage::FallbackReason::Missing,
-                ),
-            }
+            (
+                ephemeral.expect("selected ephemeral Engine"),
+                matches!(kind, GenerationReadKind::Memory).then(|| {
+                    crate::memory_coverage::CoverageRead::RawFallback(
+                        crate::memory_coverage::FallbackReason::Missing,
+                    )
+                }),
+            )
         };
-        validate_generation_engine(
-            &snapshot.engine,
-            scope,
-            expected_head,
-            &selected_seed.player,
-        )?;
-        if snapshot.engine.seed() != &selected_seed {
+        validate_generation_engine(&engine, scope, expected_head, &selected_seed.player)?;
+        if engine.seed() != &selected_seed {
             return Err("Stale".into());
         }
         // A matching seed/head does not identify immutable accepted history:
         // an archive can replace a deleted scope with different receipts or
         // ancestry. Permit another owner's append only to this exact prefix.
         let selected = &state.sessions.get(session).ok_or("Closed")?.engine;
-        if !snapshot
-            .engine
+        if !engine
             .extends_accepted_history(selected)
             .map_err(|_| "Stale")?
         {
             return Err("Stale".into());
         }
         check_generation_cancel(&safe_cancel)?;
-        Ok(snapshot)
+        Ok((engine, coverage))
     }
     /// Read-only derived views use one immutable durable snapshot. The inspection grant
     /// comes only from trusted Host construction, never from a query or generation context.
@@ -2013,14 +2110,35 @@ impl Host {
             Err(value) => return value,
         };
         if matches!(work.request.intent, Intent::FreeText { .. }) && work.local_play.is_some() {
-            // Read actual Engine and proof together after releasing begin_work's
-            // lock. The returned native proof stays with precisely that Engine.
-            match self.generation_snapshot(session, scope, work.request.expected_revision, &|| {
-                work.cancel.is_cancelled()
-            }) {
-                Ok(snapshot) => {
-                    work.engine = snapshot.engine;
-                    work.coverage = Some(snapshot.coverage);
+            let construction = work
+                .local_play
+                .as_ref()
+                .expect("selected local play")
+                .construction;
+            let snapshot = match construction {
+                HostPlayConstructionV1::Memory(_) => self
+                    .generation_snapshot(session, scope, work.request.expected_revision, &|| {
+                        work.cancel.is_cancelled()
+                    })
+                    .map(|s| (s.engine, Some(s.coverage))),
+                HostPlayConstructionV1::PlayerLiteralV1 => self
+                    .literal_generation_engine(
+                        session,
+                        scope,
+                        work.request.expected_revision,
+                        &|| work.cancel.is_cancelled(),
+                    )
+                    .map(|engine| (engine, None)),
+            };
+            match snapshot {
+                Ok((engine, coverage)) => {
+                    if construction == HostPlayConstructionV1::PlayerLiteralV1
+                        && engine.domain_version() != 1
+                    {
+                        return self.finish_work(work, Err(Error::Version));
+                    }
+                    work.engine = engine;
+                    work.coverage = coverage;
                 }
                 Err(error) => return self.generation_input_failure(work, error),
             }
@@ -2034,19 +2152,37 @@ impl Host {
                         .trace
                         .clone()
                         .map(|handle| RingSink::new(Arc::clone(&self.trace), handle));
-                    crate::play::execute_traced_with_policy(
-                        &mut engine,
-                        &work.request,
-                        &mut *(local.provider)(),
-                        &work.cancel,
-                        &local.profile,
-                        sink.as_mut()
-                            .map(|sink| sink as &mut dyn turn_trace::TraceSink),
-                        crate::play::PlayConstructionInput {
-                            coverage: work.coverage.as_ref().expect("coherent free-text input"),
-                            policy: local.policy,
-                        },
-                    )
+                    match local.construction {
+                        HostPlayConstructionV1::Memory(policy) => {
+                            crate::play::execute_traced_with_policy(
+                                &mut engine,
+                                &work.request,
+                                &mut *(local.provider)(),
+                                &work.cancel,
+                                &local.profile,
+                                sink.as_mut()
+                                    .map(|sink| sink as &mut dyn turn_trace::TraceSink),
+                                crate::play::PlayConstructionInput {
+                                    coverage: work
+                                        .coverage
+                                        .as_ref()
+                                        .expect("coherent free-text input"),
+                                    policy,
+                                },
+                            )
+                        }
+                        HostPlayConstructionV1::PlayerLiteralV1 => {
+                            crate::play::execute_traced_with_literal_director_v1(
+                                &mut engine,
+                                &work.request,
+                                &mut *(local.provider)(),
+                                &work.cancel,
+                                &local.profile,
+                                sink.as_mut()
+                                    .map(|sink| sink as &mut dyn turn_trace::TraceSink),
+                            )
+                        }
+                    }
                 } else {
                     Err(Error::Provider)
                 }
@@ -2516,11 +2652,12 @@ fn trace_saved_outcome(saved: &SavedTurn, prepared: Option<&Receipt>) -> Outcome
 fn trace_provenance(local: Option<&LocalPlay>, free_text: bool) -> Provenance {
     if free_text {
         if let Some(local) = local {
+            let (prompt_label, schema_label) = local.construction.labels();
             if !local.real_model {
                 return Provenance {
                     profile_label: Label::new(&local.profile.id),
-                    prompt_label: Label::new(crate::play::PROMPT_VERSION),
-                    schema_label: Label::new("locallore-play-v2"),
+                    prompt_label: Label::new(prompt_label),
+                    schema_label: Label::new(schema_label),
                     ..Provenance::default()
                 };
             }
@@ -2535,8 +2672,8 @@ fn trace_provenance(local: Option<&LocalPlay>, free_text: bool) -> Provenance {
                     IdentityHash::sha256(&format!("{:x}", Sha256::digest(bytes)))
                 }),
                 profile_label: Label::new(&profile.id),
-                prompt_label: Label::new(crate::play::PROMPT_VERSION),
-                schema_label: Label::new("locallore-play-v2"),
+                prompt_label: Label::new(prompt_label),
+                schema_label: Label::new(schema_label),
                 ..Provenance::default()
             };
         }

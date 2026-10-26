@@ -35,6 +35,10 @@ checks native retirement between save and restore, a visible fallback notice,
 and clearing the unavailable timeline's draft. It also fixes stale editor
 callbacks: rapid kind/text edits preserve both fields, and Send uses the latest
 valid scoped draft. Phone and real-model qualification remain separate.
+The [retained-parent implementation and preservation handoff](docs/native/ANDROID_RETAINED_PARENT_VERIFICATION_2026-10-26.md)
+records interrupted verification and missing private evidence, including the
+earlier retired-child index. Source is preserved; the new lifecycle case
+requires a fresh owned run.
 
 | Document | Purpose |
 |---|---|

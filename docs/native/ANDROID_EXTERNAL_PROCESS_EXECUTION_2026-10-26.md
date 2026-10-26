@@ -206,6 +206,11 @@ A private corrected-runtime snapshot contains479 selected terminal files/
 1,405,956 original bytes, including both current cases and closed-lease metadata.
 Its verified498,838-byte ZIP SHA-256 is
 `d180aa1911abe881121139dda0c848cce657bdac47981a9d9be4377f42dc9430`.
+Independent review verified all479 originals and ZIP entries without mismatch;
+both138,886-byte indexes match SHA-256
+`ec706a02f58cf0e011eb187c6a0b30877af3aae39ca7c8dd923b6e7e79947618`.
+The complete-history bundle through0f69fa0f is9,847,687 bytes, SHA-256
+`88e4a9d84fe241bd4d91250fe3e7621cc216d231f0b43af47225c9ce1fb15b15`.
 Current build/component/host/server prerequisites have a separate259-file/
 28,326,608-byte recovery copy; ZIP17,929,611 bytes, SHA-256
 `f0c90976c8040f7d724cf09c029d312b8f90f95ee43d578accf0ca3e7aac4178`.

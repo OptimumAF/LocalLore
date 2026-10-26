@@ -87,6 +87,11 @@ receipts without inference. This qualifies the current codec for that original
 emulator fixture; phone model performance and production backend selection
 remain pending. Historical failures are preserved.
 
+The separate [physical-model harness](docs/native/PHYSICAL_MODEL_HARNESS_VERIFICATION_2026-10-25.md)
+now builds the six guarded phone phases, with 488 JVM tests and a signed APK
+pair audit passing. The selected USB phone was absent at the initial refresh;
+these host/build checks establish no phone import or inference result.
+
 Separate [Android model-storage receipt checks](docs/native/RECEIPT_FRESH_TARGET_VERIFICATION_2026-10-24.md)
 passed four methods on a fresh isolated emulator, including cancellation and
 owned process-death recovery, using a tiny synthetic file. Existing-target

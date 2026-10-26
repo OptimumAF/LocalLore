@@ -147,6 +147,18 @@ Keep acknowledgement/retired-owner uncertainty separate from global cleanup.
   Native V2 exposes `cleanup_running`; the generic envelope's `running` is a
   separate actual cleanup observation. Retired close must not rewrite a newer
   owner's cleanup flags or present private counts from the retired run.
+- Before settling a sent native retired presentation whose close reports
+  `running:true`, or whose release returns exact `UnknownEvaluationRun`, obtain
+  one bounded read-only `cleanup_status` observation. Install the separate
+  auxiliary guard before notifying that the presentation barrier settled.
+  Skip unsent/disposed owners. This is neither a timer nor `retry_cleanup`,
+  generation, inferred cleanup or an old private-status publication. Fence
+  the global reply with its actual auxiliary/window lifetime; a failed read
+  retains truthful cleanup uncertainty/error. The real generic payload can
+  remain visible outside Lab after the old private run has been cleared.
+  A last-known-clear preflight must not be the sole visible observation after
+  that actual running/unknown release boundary. Closed/Unknown settles only
+  presentation identity; it never manufactures global owner release.
 - Extend the completed/cancel/status latch only for the same actual owner and
   operation. Root's frozen decision preserves the existing V1 completed latch
   for late non-cleanup cancel/status, including the old completed phase,

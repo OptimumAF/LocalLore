@@ -50,7 +50,8 @@ export async function nativeComparisonPortChecks({
     const emptyCatalog = async () => {
         const raw = await call("catalog", {});
         const text = JSON.stringify(raw);
-        check(typeof text === "string" && new TextEncoder().encode(text).length <= 64 * 1024,
+        if (typeof text !== "string") throw Error("NativeComparisonPortCatalogWire");
+        check(new TextEncoder().encode(text).length <= 64 * 1024,
             `native-port-${phase}-catalog-byte-bound`);
         const value: unknown = JSON.parse(text);
         check(value !== null && typeof value === "object" && !Array.isArray(value),

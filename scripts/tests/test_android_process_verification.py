@@ -18,6 +18,23 @@ from benchmarks import android_process_verification as driver
 
 
 class DriverTests(unittest.TestCase):
+    def test_all_tracked_input_extensions_include_sql_and_future_assets(self):
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root)
+            names = ["crates/store/migrations/001.sql", "fixtures/original.unknown", "apps/android/gradlew"]
+            for name in names:
+                p = out / name
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_bytes(b"original")
+            with patch.object(driver, "ROOT", out), \
+                 patch.object(driver.subprocess, "check_output", return_value=("\0".join(names) + "\0").encode()):
+                before = driver.source_map()
+                self.assertEqual(set(before), set(names))
+                (out / names[0]).write_bytes(b"modified")
+                after = driver.source_map()
+                self.assertNotEqual(before[names[0]], after[names[0]])
+                self.assertEqual(before[names[1]], after[names[1]])
+
     def test_existing_destination_is_never_reused(self):
         with tempfile.TemporaryDirectory() as root:
             path = Path(root)

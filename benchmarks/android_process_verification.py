@@ -76,11 +76,8 @@ def source_map():
     """Tracked build/test inputs, never ignored caches or private model outputs."""
     raw = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
     names = raw.decode("utf-8").split("\0")
-    suffixes = {".rs", ".toml", ".lock", ".kt", ".java", ".xml", ".json", ".py",
-                ".kts", ".properties", ".jar", ".bat", ".txt"}
     return {name: env.digest(ROOT / name) for name in sorted(names) if name and
-            ((Path(name).suffix in suffixes and name.startswith(("apps/android/", "crates/",
-                    "fixtures/", "scripts/", "benchmarks/"))) or
+            (name.startswith(("apps/android/", "crates/", "fixtures/", "scripts/", "benchmarks/")) or
              name in ("Cargo.toml", "Cargo.lock", "rust-toolchain.toml"))}
 
 

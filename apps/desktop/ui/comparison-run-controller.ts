@@ -1078,6 +1078,8 @@ export class ComparisonRunController {
             this.current = null;
             owner.retired = true;
             this.retired.add(owner);
+            if (owner.transport.mode === "approved_native")
+                this.currentUncertain = false;
             this.patch({ clientId: null, status: null, pending: null });
             await this.release(owner);
             return;

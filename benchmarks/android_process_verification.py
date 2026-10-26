@@ -596,7 +596,8 @@ def _validate_regression_record(record, out):
         need(path.stat().st_size == row["stdout_bytes"], "regression_client_raw")
         raw = path.read_bytes()
         need(hashlib.sha256(raw).hexdigest() == row["stdout_sha256"], "regression_client_raw")
-        if row["label"].startswith("instrument-"):
+        # The fixed user check shares this prefix but is not a numbered class copy.
+        if row["label"].startswith("instrument-") and row["label"] != "instrument-user":
             labels.append(row["label"])
             need(copies.get(row["label"]) == (len(raw), row["stdout_sha256"]), "regression_client_copy")
     need(labels == list(copies), "regression_client_order")

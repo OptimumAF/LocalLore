@@ -243,22 +243,77 @@ def synthetic_regression_run(name, methods):
 
 
 class RegressionPhaseTests(unittest.TestCase):
-    def fixture(self, out):
+    def fixture(self, out, interleaved=False):
         from benchmarks.android_instrumentation_evidence import validate_instrumentation
         (out / "clients").mkdir()
         results = []
+        clients = 0
+        def client(label, raw):
+            nonlocal clients
+            clients += 1
+            stem = out / "clients" / ("command-%04d" % clients)
+            stem.with_suffix(".stdout.bin").write_bytes(raw)
+            driver.env.create_json(stem.with_suffix(".json"), {"version": 1, "index": clients,
+                "label": label, "status": "completed", "returncode": 0,
+                "cleanup_complete": True, "stdout_bytes": len(raw), "stdout_sha256": hashlib.sha256(raw).hexdigest(),
+                "stderr_bytes": 0})
         for index, (name, methods) in enumerate(zip(driver.REGRESSION_CLASSES, driver.REGRESSION_METHODS), 1):
             raw = synthetic_regression_run(name, methods)
             (out / (name + ".stdout.raw")).write_bytes(raw)
             results.append(validate_instrumentation(raw, "org.locallore.app." + name, list(methods)))
-            stem = out / "clients" / ("command-%04d" % index)
-            stem.with_suffix(".stdout.bin").write_bytes(raw)
-            driver.env.create_json(stem.with_suffix(".json"), {"version": 1, "index": index,
-                "label": "instrument-" + str(index - 1), "status": "completed", "returncode": 0,
-                "cleanup_complete": True, "stdout_bytes": len(raw), "stdout_sha256": hashlib.sha256(raw).hexdigest(),
-                "stderr_bytes": 0})
-        return {"version": 1, "phase": "regression", "results": results, "clients": 18,
+            if interleaved:
+                # Source SdkCapture brackets each SDK call with its host server checks.
+                client("adb-server", b'{"synthetic_server":true}\r\n')
+                client("instrument-user", b"0\r\n")
+                client("adb-server", b'{"synthetic_server":true}\r\n')
+                client("adb-server", b'{"synthetic_server":true}\r\n')
+            client("instrument-" + str(index - 1), raw)
+            if interleaved:
+                client("adb-server", b'{"synthetic_server":true}\r\n')
+        return {"version": 1, "phase": "regression", "results": results, "clients": clients,
                 "clients_clean": True, "method_count": 89, "external_controller_case_executed": False}
+
+    def test_interleaved_user_server_and_class_captures_preserve_exact_numbered_roster(self):
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root)
+            record = self.fixture(out, interleaved=True)
+            self.assertEqual(record["clients"], 108)
+            self.assertEqual(driver.env.read_json(out / "clients/command-0002.json")["label"], "instrument-user")
+            driver.validate_regression_record(record, out)
+
+    def test_interleaved_user_still_requires_original_raw_hash_and_clean_exact_client(self):
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root)
+            record = self.fixture(out, interleaved=True)
+            driver.validate_regression_record(record, out)
+            path = out / "clients/command-0002.json"
+            original = driver.env.read_json(path)
+            raw_path = path.with_suffix(".stdout.bin")
+            raw_path.write_bytes(b"1\r\n")
+            with self.assertRaisesRegex(driver.VerificationRefused, "regression_client_raw"):
+                driver.validate_regression_record(record, out)
+            raw_path.write_bytes(b"0\r\n")
+            for delta in ({"stdout_sha256": "0" * 64}, {"stdout_bytes": 2}, {"returncode": False},
+                          {"cleanup_complete": False}, {"status": "timed_out"}, {"stderr_bytes": 1}, {"extra": 0}):
+                path.write_text(json.dumps(dict(original, **delta)))
+                with self.subTest(delta=delta), self.assertRaises(driver.VerificationRefused):
+                    driver.validate_regression_record(record, out)
+            path.write_text(json.dumps(original))
+            driver.validate_regression_record(record, out)
+
+    def test_interleaving_does_not_admit_unknown_extra_numeric_or_duplicate_class_labels(self):
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root)
+            record = self.fixture(out, interleaved=True)
+            driver.validate_regression_record(record, out)
+            path = out / "clients/command-0005.json"
+            original = driver.env.read_json(path)
+            for label in ("instrument-user-other", "instrument-18", "instrument-01", "instrument-0extra", "instrument-1"):
+                path.write_text(json.dumps(dict(original, label=label)))
+                with self.subTest(label=label), self.assertRaisesRegex(driver.VerificationRefused, "regression_client_copy|regression_client_order"):
+                    driver.validate_regression_record(record, out)
+            path.write_text(json.dumps(original))
+            driver.validate_regression_record(record, out)
 
     def test_frozen_broad_roster_matches_actual_sources_without_component_substitution(self):
         from benchmarks.android_instrumentation_evidence import test_roster

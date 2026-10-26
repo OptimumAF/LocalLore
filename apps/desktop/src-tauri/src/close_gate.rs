@@ -217,6 +217,8 @@ impl CloseGate {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[path = "../destroyed_exit_review_tests.rs"]
+    mod destroyed_exit_review_tests;
     #[path = "continuation_review_tests.rs"]
     mod continuation_review_tests;
 

@@ -56,10 +56,36 @@ documented `-B` invocation succeeded. This is a retained tool-output observation
 not reconstructed original pipe bytes or a device-case failure; no source,
 budget or admission rule was changed.
 
+## Root saved-task control
+
+The actual `restore_non_default` case passed **82 controller checks and two
+same-task process deaths**, with three distinct product process identities and
+factory1 in each restored process. It selected B, restored the original unsent
+draft/kind after the first death, and committed only on explicit Send. The
+first old terminal gameplay vector is all zero; the second is
+free_text1/submit0/prepare1/commit1/cancel0/other0. The second restoration kept
+the accepted outcome without automatic gameplay or story creation.
+
+The runner continued only the exact completed component installation; its
+controller fixture was newly created. All69 captured clients were clean.
+The host worker completed exit0 in 318,902ms, with known cleanup/capture and
+stderr0. Independent readback verified the original controller frame,
+fixture/claim, saved and command records, scope/hint/factory links, all client
+copies, and the final PID/UID/product with both old PIDs absent. All756 source
+rows remained identical. Original controller frame: 1,650 bytes, SHA-256
+`2c2846f78d787ecc8edeb5ed4253faef0dff1527c8fb1ef70fc1b2ac17602758`.
+
+The root guest then closed through its proposal-bound stop record only after
+the clients were terminal. Its outer invocation exited0; owner status
+stop_requested, elapsed843,537ms, cleanup/capture/closure all true, worker1 at
+the requested stop. The emulator had 1,077 stderr bytes; these private emulator
+logs are distinct from the test workers' stderr0. No guest flush, graceful app
+shutdown, power-loss or forensic-erasure claim follows from job closure.
+
 ## Pending execution gates
 
-At this checkpoint the root external case is running; no external result is
-credited yet. The retained-parent guest is prepared separately and remains
-unlaunched. Active-child/retired-leaf controls and broad Android regression also
+At this checkpoint the separate fresh retained-parent guest is starting; no
+retained-parent external result is credited yet. Active-child/retired-leaf
+controls and broad Android regression also
 remain pending for this source. Phone/ARM64 and real-model qualification are
 separate gates; no result follows from fake-provider or emulator checks.

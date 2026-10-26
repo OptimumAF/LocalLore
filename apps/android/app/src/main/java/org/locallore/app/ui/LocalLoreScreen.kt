@@ -71,7 +71,7 @@ private val PlayDraftSaver = Saver<PlayDraft, Any>(
 
 /** A state-only sample surface. The coordinator owns every response and state change. */
 @Composable
-fun LocalLoreScreen(
+internal fun LocalLoreScreen(
     state: ShellState,
     onAction: (DemoAction) -> Unit,
     onMode: (DemoMode) -> Unit,

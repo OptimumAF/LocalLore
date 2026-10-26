@@ -307,7 +307,7 @@ Independent original build/XML/audit validation also streamed all three APKs
 byte-for-byte against build-v2: product/test/controller are identical to the
 85ff9a69 artifacts. The native10 and four external cases above retain their
 85ff9a69 execution attribution; they are not relabeled as new-map runs.
-The new89-method suite is running in a separate fresh guest against build-v3.
+The new89-method suite passed in a separate fresh guest against build-v3.
 
 Independent host/build recovery verification covers85 original files/ZIP
 entries,28,088,511B, with no mismatch/extra/duplicate/unsafe entry. ZIP17,807,874B
@@ -318,6 +318,49 @@ Only terminal build-v3/full-host-v3/server-v1 files were selected; no live
 cohort, image, database, model or cache was selected. A verified complete-history
 Git bundle through05ebbe31 is9,851,812B, SHA-256
 `18a094b1910396047eb9c502608629bd32672d2428dc70224685a89ecd9bd151`.
+
+## Corrected broad Android result
+
+At31c0f700, the fresh fixed roster passed all89 original methods/18 classes.
+All171 captured clients are clean, including the ordinary user checks and
+exact ordered18 numbered class copies. Parent validation passed; owner672,002ms,
+worker0, known cleanup/capture, stderr0. All756 source rows remainbe527ea3... .
+Original regression record9,215B SHA-256
+`a5e917c7322fadf60e5fe9a7b6193f94b52f8167881843cb49b68d9de5d59209`;
+aggregate1,388B SHA-256
+`edd48881e37b72b9e95099754cc23308af3edbc3d20e9413037f1cefe270564a`.
+The earlier85ff9a69 aggregate remains failed; no raw file or result was replaced.
+
+The owned guest closed after terminal clients via its bound stop:751,794ms,
+worker1, cleanup/capture/closure true, guest flush false. Emulator stderr1,952B
+is retained separately from the test worker's stderr0. A final read-only native
+process/listener observation confirms both exact unrelated-emulator identities
+from preflight are still live and unchanged, and the original server identity,
+listener and ADB file hash match. No global ADB lifecycle or other-emulator stop
+was dispatched; no system setting was changed.
+
+Independent final review replayed all original class/client records and
+verified396/396 selected terminal files and ZIP entries,765,657 original bytes,
+without mismatch/extra/duplicate/unsafe entry. ZIP287,204B SHA-256
+`26a2d5246ab4fa4cc018fa375449f4bf3540d4d9f03f4239c65677a88edc25d5`;
+both114,684B indexes match SHA-256
+`9eb7751cd72181ba242096fc4022b3cc2a135b732b1727eb5d3d037d2dc50fb8`.
+The two-process/server postflight record is included, SHA-256
+`3e90cb9387c0db93cf9df8239a0c8f3a3d46045cd2d5125f35e5ea9bd7f53fbe`.
+The snapshot excludes all guest images/databases/models/caches and unrelated
+project data. Native/host original failures retain their separate recovery seals.
+
+These selected89 plus the separately executed component10 are99 distinct
+methods/21 classes on byte-identical APKs, with the two source maps explicitly
+attributed above. This is not all Android test sources, a new phone/ARM64 or
+real-model result, app-adapter joined-drain proof, or power-loss qualification.
+The next runnable device gate is a fresh authorized-phone preflight before
+using the existing physical-model harness; prior memory observations are dated.
+M10.02 and supporting M08.01/M08.05 packet work is locally verified/in_review;
+full milestone tasks remain unchecked pending broader criteria and owner
+acceptance. M01.01/M01.02/M01.05 phone-model supporting work remains gated on
+fresh admission, with no new phone/model execution in this packet. No merge,
+release, backend/dependency selection or access change is implied.
 Earlier50989ca2 results remain historical source-attributed records; the current
 source has separate fresh runtime qualification above. Phone/ARM64 and real-model qualification are
 separate gates; no result follows from fake-provider or emulator checks.

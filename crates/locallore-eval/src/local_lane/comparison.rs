@@ -6,6 +6,7 @@ pub mod desktop_api;
 mod literal_control_oracle_tests;
 #[cfg(test)]
 mod literal_producer_legacy_tests;
+pub mod literal_v3;
 #[cfg(test)]
 mod outcome_review_tests;
 pub mod selected;
@@ -387,26 +388,20 @@ fn make_row(observation: Observation<'_>) -> Result<TurnReportV2> {
         forwarded_budget_version,
     } = observation;
     let request = step.request(before);
-    let same = before.accepted_history_basis().map_err(|_| "Source")?
-        == after.accepted_history_basis().map_err(|_| "Source")?;
     let roles = recording.map_or(0, |r| r.roles);
-    let guard = matches!(step.expected(), protocol::Expected::GuardRejected(_));
-    let mut expected_ok = false;
+    let outcome = turn_execution::assess_outcome(
+        before,
+        after,
+        step,
+        phase,
+        error.as_deref(),
+        receipt,
+        roles,
+    )?;
+    let guard = outcome.guard;
+    let expected_ok = outcome.expected_ok;
     let mut policy_matches = guard && roles == 0;
     if let Some(receipt) = receipt {
-        if receipt.request() != &request {
-            return Err("ReceiptBinding".into());
-        }
-        let mut replay = before.clone();
-        replay
-            .commit_prepared(receipt)
-            .map_err(|_| "ReceiptReplay")?;
-        if replay.accepted_history_basis().map_err(|_| "Source")?
-            != after.accepted_history_basis().map_err(|_| "Source")?
-        {
-            return Err("ReceiptReplay".into());
-        }
-        expected_ok = matches!(step.expected(),protocol::Expected::Accepted(c) if receipt.proposal().commands.as_slice()==std::slice::from_ref(c));
         policy_matches = receipt.play().is_some_and(|p| {
             p.prompt_version == PROMPT_VERSION
                 && p.policy == NARRATION_POLICY
@@ -416,16 +411,6 @@ fn make_row(observation: Observation<'_>) -> Result<TurnReportV2> {
                     .as_ref()
                     .is_some_and(|c| c.compiler_version == 2 && c.version == 2)
         });
-    } else if let protocol::Expected::GuardRejected(g) = step.expected() {
-        expected_ok = error.as_deref() == Some(format!("{g:?}").as_str()) && same && roles == 0;
-    }
-    if phase == "not_run_dependency"
-        && (!same
-            || !matches!(step.expected(), protocol::Expected::Accepted(_))
-            || protocol::reference_proposal(before, step).is_ok()
-            || roles != 0)
-    {
-        return Err("DependencyOracle".into());
     }
     let applicable = roles > 0;
     let checked = match (recording, capture) {
@@ -650,27 +635,12 @@ fn recover_committed_turn(job: RecoveryJob<'_>) -> Result<Option<StoredTurn>> {
         step,
         profile,
     } = job;
-    if full.domain_version() != 1 {
-        return Err("UnsupportedDomain".into());
-    }
-    if full
-        .receipts()
-        .iter()
-        .any(|r| r.request().turn == step.id())
-    {
-        // Actual durable lookup, before admission/provider construction. Unknown
-        // historical roles/capture are never manufactured from the receipt.
-        let actual = Store::open_read_only(path)
-            .map_err(|_| "Workspace")?
-            .lookup_turn(full.scope(), step.id())
-            .map_err(|_| "Lookup")?;
-        let receipt = actual.receipt.ok_or("Lookup")?;
-        let before = full
-            .at_revision(receipt.request().expected_revision)
-            .map_err(|_| "Replay")?;
-        let after = full
-            .at_revision(receipt.events().last().ok_or("ReceiptBinding")?.sequence())
-            .map_err(|_| "Replay")?;
+    if let Some(actual) = turn_execution::recover_actual(path, full, step)? {
+        let turn_execution::RecoveredTurn {
+            before,
+            after,
+            receipt,
+        } = actual;
         let row = make_row(Observation {
             step,
             arm,
@@ -729,11 +699,8 @@ fn dependency_turn(job: DependencyJob<'_>) -> Result<Option<StoredTurn>> {
         step,
         profile,
     } = job;
-    profile.validate().map_err(|_| "Profile")?;
     let request = step.request(before);
-    if matches!(step.expected(), protocol::Expected::Accepted(_))
-        && protocol::reference_proposal(before, step).is_err()
-    {
+    if turn_execution::dependency_missing(before, step, profile)? {
         let row = make_row(Observation {
             step,
             arm,
@@ -1324,14 +1291,7 @@ impl ComparisonSession {
         Ok(report)
     }
     fn finish_ledgers(&mut self) -> Result<()> {
-        for arm in 0..2 {
-            let began = Instant::now();
-            self.ledgers[arm].finish()?;
-            self.ledgers[1 - arm].exclude_measured_interval(
-                began.elapsed().as_millis().min(u64::MAX as u128) as u64,
-            )?;
-        }
-        Ok(())
+        turn_execution::finish_pair(&mut self.ledgers)
     }
     fn open_at(
         dir: &Path,
@@ -1391,18 +1351,7 @@ impl ComparisonSession {
                 }
             }
         }
-        let mut ledgers = [
-            Ledger::load(&dir.join("left"), &key)?,
-            Ledger::load(&dir.join("right"), &key)?,
-        ];
-        // Include this invocation's preflight/reference/canonical replay. Only
-        // the other arm's measured work and the physical setup share are excluded.
-        for ledger in &mut ledgers {
-            ledger.started = started;
-        }
-        // Both reservations are durable before any asset/provider initialization.
-        ledgers[0].begin_invocation()?;
-        ledgers[1].begin_invocation()?;
+        let ledgers = turn_execution::begin_pair(dir, &key, started)?;
         Ok(Self {
             dir: dir.into(),
             manifest: expected,
@@ -1420,27 +1369,18 @@ impl ComparisonSession {
         status: &str,
         load: Option<Value>,
     ) -> Result<()> {
-        let record = SetupRecord {
-            version: 2,
-            binding: self.key.clone(),
-            left_invocation: self.ledgers[0].invocation,
-            right_invocation: self.ledgers[1].invocation,
-            native,
-            physical_ms,
-            status: status.into(),
-            load,
-        };
-        saved(
-            &self
-                .dir
-                .join(format!("setup-{:02}.json", record.left_invocation)),
-            &record,
-            64 * 1024,
-        )?;
-        let (left, right) = shared_setup_shares(physical_ms);
-        self.ledgers[0].record_shared_setup(physical_ms, left)?;
-        self.ledgers[1].record_shared_setup(physical_ms, right)?;
-        Ok(())
+        turn_execution::record_setup(
+            &mut self.ledgers,
+            turn_execution::Setup {
+                version: 2,
+                dir: &self.dir,
+                key: &self.key,
+                native,
+                physical_ms,
+                status,
+                load,
+            },
+        )
     }
     fn execute(
         mut self,

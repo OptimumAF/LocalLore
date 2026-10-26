@@ -4,6 +4,99 @@
 use super::*;
 use locallore::host::HostPlayConstructionV1;
 
+pub(super) struct OutcomeAssessment {
+    pub expected_ok: bool,
+    pub guard: bool,
+}
+
+pub(super) struct RecoveredTurn {
+    pub before: Engine,
+    pub after: Engine,
+    pub receipt: Receipt,
+}
+pub(super) fn recover_actual(
+    path: &Path,
+    full: &Engine,
+    step: &protocol::Step,
+) -> Result<Option<RecoveredTurn>> {
+    if full.domain_version() != 1 {
+        return Err("UnsupportedDomain".into());
+    }
+    if !full
+        .receipts()
+        .iter()
+        .any(|r| r.request().turn == step.id())
+    {
+        return Ok(None);
+    }
+    let actual = Store::open_read_only(path)
+        .map_err(|_| "Workspace")?
+        .lookup_turn(full.scope(), step.id())
+        .map_err(|_| "Lookup")?;
+    let receipt = actual.receipt.ok_or("Lookup")?;
+    let before = full
+        .at_revision(receipt.request().expected_revision)
+        .map_err(|_| "Replay")?;
+    let after = full
+        .at_revision(receipt.events().last().ok_or("ReceiptBinding")?.sequence())
+        .map_err(|_| "Replay")?;
+    Ok(Some(RecoveredTurn {
+        before,
+        after,
+        receipt,
+    }))
+}
+pub(super) fn dependency_missing(
+    before: &Engine,
+    step: &protocol::Step,
+    profile: &PlayProfile,
+) -> Result<bool> {
+    profile.validate().map_err(|_| "Profile")?;
+    Ok(matches!(step.expected(), protocol::Expected::Accepted(_))
+        && protocol::reference_proposal(before, step).is_err())
+}
+pub(super) fn assess_outcome(
+    before: &Engine,
+    after: &Engine,
+    step: &protocol::Step,
+    phase: &str,
+    error: Option<&str>,
+    receipt: Option<&Receipt>,
+    roles: usize,
+) -> Result<OutcomeAssessment> {
+    let request = step.request(before);
+    let same = before.accepted_history_basis().map_err(|_| "Source")?
+        == after.accepted_history_basis().map_err(|_| "Source")?;
+    let guard = matches!(step.expected(), protocol::Expected::GuardRejected(_));
+    let mut expected_ok = false;
+    if let Some(receipt) = receipt {
+        if receipt.request() != &request {
+            return Err("ReceiptBinding".into());
+        }
+        let mut replay = before.clone();
+        replay
+            .commit_prepared(receipt)
+            .map_err(|_| "ReceiptReplay")?;
+        if replay.accepted_history_basis().map_err(|_| "Source")?
+            != after.accepted_history_basis().map_err(|_| "Source")?
+        {
+            return Err("ReceiptReplay".into());
+        }
+        expected_ok = matches!(step.expected(), protocol::Expected::Accepted(c) if receipt.proposal().commands.as_slice()==std::slice::from_ref(c));
+    } else if let protocol::Expected::GuardRejected(g) = step.expected() {
+        expected_ok = error == Some(format!("{g:?}").as_str()) && same && roles == 0;
+    }
+    if phase == "not_run_dependency"
+        && (!same
+            || !matches!(step.expected(), protocol::Expected::Accepted(_))
+            || protocol::reference_proposal(before, step).is_ok()
+            || roles != 0)
+    {
+        return Err("DependencyOracle".into());
+    }
+    Ok(OutcomeAssessment { expected_ok, guard })
+}
+
 pub(super) struct LiveTurnJob<'a> {
     pub dir: &'a Path,
     pub path: &'a Path,
@@ -414,4 +507,67 @@ pub(super) fn load_evidence(
         recording,
         capture,
     })
+}
+pub(super) fn begin_pair(dir: &Path, key: &str, started: Instant) -> Result<[Ledger; 2]> {
+    let mut ledgers = [
+        Ledger::load(&dir.join("left"), key)?,
+        Ledger::load(&dir.join("right"), key)?,
+    ];
+    for ledger in &mut ledgers {
+        ledger.started = started;
+    }
+    ledgers[0].begin_invocation()?;
+    ledgers[1].begin_invocation()?;
+    Ok(ledgers)
+}
+pub(super) fn finish_pair(ledgers: &mut [Ledger; 2]) -> Result<()> {
+    for arm in 0..2 {
+        let began = Instant::now();
+        ledgers[arm].finish()?;
+        ledgers[1 - arm]
+            .exclude_measured_interval(began.elapsed().as_millis().min(u64::MAX as u128) as u64)?;
+    }
+    Ok(())
+}
+pub(super) struct Setup<'a> {
+    pub version: u16,
+    pub dir: &'a Path,
+    pub key: &'a str,
+    pub native: bool,
+    pub physical_ms: u64,
+    pub status: &'a str,
+    pub load: Option<Value>,
+}
+pub(super) fn record_setup(ledgers: &mut [Ledger; 2], setup: Setup<'_>) -> Result<()> {
+    let Setup {
+        version,
+        dir,
+        key,
+        native,
+        physical_ms,
+        status,
+        load,
+    } = setup;
+    if !matches!(version, 2 | 3) {
+        return Err("SetupIntegrity".into());
+    }
+    let record = SetupRecord {
+        version,
+        binding: key.into(),
+        left_invocation: ledgers[0].invocation,
+        right_invocation: ledgers[1].invocation,
+        native,
+        physical_ms,
+        status: status.into(),
+        load,
+    };
+    saved(
+        &dir.join(format!("setup-{:02}.json", record.left_invocation)),
+        &record,
+        64 * 1024,
+    )?;
+    let (left, right) = shared_setup_shares(physical_ms);
+    ledgers[0].record_shared_setup(physical_ms, left)?;
+    ledgers[1].record_shared_setup(physical_ms, right)?;
+    Ok(())
 }

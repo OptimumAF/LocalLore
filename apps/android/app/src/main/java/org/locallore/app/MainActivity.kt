@@ -93,7 +93,10 @@ open class MainActivity : ComponentActivity() {
                     archiveGateway = NativeArchiveGateway(applicationContext),
                     deletionGateway = NativeArchiveGateway(applicationContext),
                     branchDeletionGateway = NativeArchiveGateway(applicationContext),
-                    forkGateway = NativeForkGateway(transport::forkHandle),
+                    forkGateway = NativeForkGateway(transport::forkHandle,
+                        mutationObserver = if (BuildConfig.INPUT_PROCESS_VERIFICATION) {
+                            { ProcessVerificationProbe.operation("fork_mutation") }
+                        } else null),
                     forkContextProvider = durable::forkContext,
                     forkRecoveryStore = AtomicForkRecoveryStore(applicationContext)) as T
             }
@@ -139,7 +142,8 @@ open class MainActivity : ComponentActivity() {
                 BranchForkPanel(forkVisible, fork, forkProblem, forkRecoveryPending,
                     onBoundary = model::prepareForkBoundary, onConfirm = model::confirmFork,
                     onRetry = model::retryFork, onLookup = model::lookupFork, onForget = model::forgetFork,
-                    onCancel = model::cancelFork, onClose = model::closeFork, onResume = model::resumeFork)
+                    onCancel = model::cancelFork, onClose = model::closeFork, onResume = model::resumeFork,
+                    exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION)
                 model.branchDeletionController?.let { controller ->
                     BranchDeletionDialog(branchDeletion, controller::dismiss, controller::cancel, controller::confirm)
                 }

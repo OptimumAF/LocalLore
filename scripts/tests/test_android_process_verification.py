@@ -433,11 +433,15 @@ class RegressionPhaseTests(unittest.TestCase):
 
     def run_mock_worker(self, existing=None, early_failure=None, phase="regression"):
         from benchmarks import android_process_client as client
-        classes, methods, dispatch, worker, filename, count = (
-            (driver.REGRESSION_CLASSES, driver.REGRESSION_METHODS, driver.regression_dispatch,
-             driver.regression_worker, "regression-v1.json", 89) if phase == "regression" else
-            (driver.RETAINED_UI_CLASSES, driver.RETAINED_UI_METHODS, driver.retained_ui_dispatch,
-             driver.retained_ui_worker, "retained_ui-v1.json", 2))
+        classes, methods, dispatch, worker, filename, count = {
+            "regression": (driver.REGRESSION_CLASSES, driver.REGRESSION_METHODS, driver.regression_dispatch,
+                           driver.regression_worker, "regression-v1.json", 89),
+            "retained-ui": (driver.RETAINED_UI_CLASSES, driver.RETAINED_UI_METHODS, driver.retained_ui_dispatch,
+                            driver.retained_ui_worker, "retained_ui-v1.json", 2),
+            "retained-archive": (driver.RETAINED_ARCHIVE_CLASSES, driver.RETAINED_ARCHIVE_METHODS,
+                                 driver.retained_archive_dispatch, driver.retained_archive_worker,
+                                 "retained_archive-v1.json", 2),
+        }[phase]
         calls = []
         with tempfile.TemporaryDirectory() as root:
             out = Path(root)
@@ -563,10 +567,12 @@ class RegressionPhaseTests(unittest.TestCase):
 
 
 class RetainedUiPhaseTests(unittest.TestCase):
-    def fixture(self, out):
+    def fixture(self, out, phase="retained-ui"):
         from benchmarks.android_instrumentation_evidence import validate_instrumentation
         (out / "clients").mkdir()
-        name, methods = driver.RETAINED_UI_CLASSES[0], driver.RETAINED_UI_METHODS[0]
+        classes, rosters = {"retained-ui": (driver.RETAINED_UI_CLASSES, driver.RETAINED_UI_METHODS),
+                            "retained-archive": (driver.RETAINED_ARCHIVE_CLASSES, driver.RETAINED_ARCHIVE_METHODS)}[phase]
+        name, methods = classes[0], rosters[0]
         raw = synthetic_regression_run(name, methods)
         (out / (name + ".stdout.raw")).write_bytes(raw)
         captures = (("adb-server", b"synthetic server\r\n"), ("instrument-user", b"0\r\n"),
@@ -578,7 +584,7 @@ class RetainedUiPhaseTests(unittest.TestCase):
             driver.env.create_json(path.with_suffix(".json"), dict(version=1, index=index, label=label,
                 status="completed", returncode=0, cleanup_complete=True, stdout_bytes=len(data),
                 stdout_sha256=hashlib.sha256(data).hexdigest(), stderr_bytes=0))
-        return dict(version=1, phase="retained-ui", results=[validate_instrumentation(raw,
+        return dict(version=1, phase=phase, results=[validate_instrumentation(raw,
             "org.locallore.app." + name, list(methods))], clients=len(captures), clients_clean=True,
             method_count=2, external_controller_case_executed=False)
 
@@ -684,6 +690,119 @@ class RetainedUiPhaseTests(unittest.TestCase):
                 self.assertFalse(result["passed"])
                 self.assertNotIn("components", result); self.assertNotIn("regression", result)
                 if known: self.assertEqual(result["retained_ui"]["path"], str(out / "retained_ui-v1.json"))
+
+
+class RetainedArchivePhaseTests(unittest.TestCase):
+    def fixture(self, out):
+        return RetainedUiPhaseTests().fixture(out, phase="retained-archive")
+
+    def test_exact_archive_roster_is_independent_of_existing_three_gates(self):
+        from benchmarks.android_instrumentation_evidence import test_roster
+        self.assertEqual(driver.RETAINED_ARCHIVE_VERSION, 1)
+        self.assertEqual(driver.RETAINED_ARCHIVE_CLASSES, ("RetainedArchiveChooserTest",))
+        self.assertEqual(driver.RETAINED_ARCHIVE_METHODS, ((
+            "chooserRoundTripPreservesRetiredParentReceiptsAndReservedIds",
+            "hostileRetainedArchivesAndConflictsCannotMutateExistingStories"),))
+        source = driver.ROOT / "apps/android/app/src/androidTest/java/org/locallore/app/RetainedArchiveChooserTest.kt"
+        self.assertEqual(test_roster(source), list(driver.RETAINED_ARCHIVE_METHODS[0]))
+        self.assertTrue(set(driver.RETAINED_ARCHIVE_CLASSES).isdisjoint(
+            driver.CLASSES + driver.REGRESSION_CLASSES + driver.RETAINED_UI_CLASSES))
+        self.assertEqual(tuple(sum(map(len, methods)) for methods in
+            (driver.EXPECTED_METHODS, driver.REGRESSION_METHODS, driver.RETAINED_UI_METHODS)), (10, 89, 2))
+
+    def test_fixed_dispatch_and_cli_cannot_select_another_class_method_or_profile(self):
+        command, label, seconds, cap = driver.retained_archive_dispatch(0)
+        self.assertEqual(command, ["exec-out", "am", "instrument", "--user", "0", "-w", "-r", "-e", "class",
+            "org.locallore.app.RetainedArchiveChooserTest", driver.APP + ".test/androidx.test.runner.AndroidJUnitRunner"])
+        self.assertEqual((label, seconds, cap), ("instrument-0", 180, 262144))
+        for bad in (-1, 1, True, 0.0, "0", None):
+            with self.subTest(bad=bad), self.assertRaises(driver.VerificationRefused): driver.retained_archive_dispatch(bad)
+        args = ["retained-archive", "--out", "unused", "--sdk", "sdk", "--build", "build", "--running", "running",
+                "--proposal", "proposal", "--server", "server", "--powershell", "powershell"]
+        with patch.object(driver, "supervise") as run, patch("sys.stdout", io.StringIO()):
+            self.assertEqual(driver.main(args), 0)
+        self.assertEqual(run.call_args.args[0]["phase"], "retained-archive")
+        for extra in (["--class", "Other"], ["--test", "method"], ["--profile", "phone"]):
+            with patch.object(driver, "supervise") as run, patch("sys.stderr", io.StringIO()), self.assertRaises(SystemExit):
+                driver.main(args + extra)
+            run.assert_not_called()
+
+    def test_interleaved_original_records_are_not_a_native_broad_or_deletion_ui_pass(self):
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root); record = self.fixture(out)
+            driver.validate_retained_archive_record(record, out)
+            for validate in (driver.validate_component_record, driver.validate_regression_record, driver.validate_retained_ui_record):
+                with self.assertRaises(driver.VerificationRefused): validate(record, out)
+            for delta in ({"phase": "retained-ui"}, {"version": True}, {"method_count": True}, {"method_count": 1},
+                          {"clients_clean": False}, {"external_controller_case_executed": True}, {"extra": 0}):
+                with self.subTest(delta=delta), self.assertRaises(driver.VerificationRefused):
+                    driver.validate_retained_archive_record(dict(record, **delta), out)
+            for mutation in ("drop", "duplicate", "extra", "foreign"):
+                changed = copy.deepcopy(record)
+                if mutation == "drop": changed["results"][0]["methods"].pop()
+                if mutation == "duplicate": changed["results"][0]["methods"][1] = changed["results"][0]["methods"][0]
+                if mutation == "extra": changed["results"].append(changed["results"][0])
+                if mutation == "foreign": changed["results"][0]["class"] = "org.locallore.app.ArchiveChooserActivityTest"
+                with self.subTest(mutation=mutation), self.assertRaises(driver.VerificationRefused):
+                    driver.validate_retained_archive_record(changed, out)
+
+    def test_partial_runner_and_changed_class_user_or_client_record_cannot_be_hidden(self):
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root); record = self.fixture(out)
+            name, methods = driver.RETAINED_ARCHIVE_CLASSES[0], driver.RETAINED_ARCHIVE_METHODS[0]
+            path = out / (name + ".stdout.raw"); raw = path.read_bytes()
+            for data in (synthetic_regression_run(name, methods[:1]), raw + b"INSTRUMENTATION_CODE: -1\n",
+                         raw.replace(b"STATUS_CODE: 0", b"STATUS_CODE: -3", 1),
+                         raw.replace(name.encode(), b"OtherTest", 1)):
+                path.write_bytes(data)
+                with self.assertRaises(driver.VerificationRefused): driver.validate_retained_archive_record(record, out)
+            path.write_bytes(raw)
+            user = out / "clients/command-0002.stdout.bin"; user.write_bytes(b"1\r\n")
+            with self.assertRaisesRegex(driver.VerificationRefused, "client_raw"):
+                driver.validate_retained_archive_record(record, out)
+            user.write_bytes(b"0\r\n")
+            path = out / "clients/command-0004.json"; original = driver.env.read_json(path)
+            for delta in ({"label": "instrument-1"}, {"label": "instrument-user"}, {"returncode": False},
+                          {"cleanup_complete": False}, {"status": "timed_out"}, {"stderr_bytes": 1}, {"extra": 0}):
+                path.write_text(json.dumps(dict(original, **delta)))
+                with self.subTest(delta=delta), self.assertRaises(driver.VerificationRefused):
+                    driver.validate_retained_archive_record(record, out)
+            path.write_text(json.dumps(original))
+            driver.validate_retained_archive_record(record, out)
+
+    def test_worker_preserves_fresh_namespace_and_early_lease_source_refusals(self):
+        RegressionPhaseTests().run_mock_worker(phase="retained-archive")
+        for package in driver.PACKAGES:
+            with self.subTest(package=package):
+                RegressionPhaseTests().run_mock_worker(existing=package, phase="retained-archive")
+        for failure in ("owner", "source"):
+            with self.subTest(failure=failure):
+                RegressionPhaseTests().run_mock_worker(early_failure=failure, phase="retained-archive")
+
+    @unittest.skipUnless(os.name == "nt", "Windows supervisor entry")
+    def test_parent_saves_original_owner_before_rejecting_unqualified_archive_results(self):
+        for known in (True, False):
+            with self.subTest(known=known), tempfile.TemporaryDirectory() as root:
+                out = Path(root) / "fresh"
+                request = dict(phase="retained-archive", out=str(out), sdk=root, java=None, build="build",
+                               running="running", proposal="proposal", server="server", powershell="powershell")
+                owner = dict(status="child_exited", worker_returncode=0, cleanup_complete=known,
+                    output_capture_complete=True, elapsed_ms=1, stdout_bytes=0, stderr_bytes=0)
+                def supervise(*_):
+                    driver.env.create_json(out / "retained_archive-v1.json", {"not": "qualified"}); return owner
+                def validate(*_):
+                    self.assertEqual(driver.env.read_json(out / "owner-result-v1.json"), owner)
+                    raise driver.VerificationRefused("bad_archive_raw")
+                with patch.object(driver, "input_bindings", return_value=[]), \
+                     patch.object(driver, "source_map", return_value={"same": "source"}), \
+                     patch.object(driver.env, "supervise", side_effect=supervise), \
+                     patch.object(driver, "validate_retained_archive_record", side_effect=validate) as deep:
+                    with self.assertRaises(driver.VerificationRefused): driver.supervise(request)
+                self.assertEqual(deep.call_count, int(known))
+                result = driver.env.read_json(out / "result-v1.json")
+                self.assertFalse(result["passed"])
+                for key in ("components", "regression", "retained_ui"): self.assertNotIn(key, result)
+                if known: self.assertEqual(result["retained_archive"]["path"], str(out / "retained_archive-v1.json"))
 
 
 if __name__ == "__main__":

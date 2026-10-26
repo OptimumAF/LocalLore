@@ -39,10 +39,17 @@ class RetiredSelectionFixtureInstrumentedTest {
         check(instrumentation.targetContext.packageName == product) { "fixture_product_identity" }
         check(instrumentation.targetContext.applicationInfo.uid == Process.myUid()) { "fixture_uid_identity" }
         home = File("/data/user/0/$product")
-        check(home.canonicalFile == home && home.isDirectory) {
+        val fixedHome = try { RetiredSelectionFixtureMain.fixedHome() }
+        catch (_: Exception) {
+            throw AssertionError(homeDiagnostic(instrumentation.targetContext.applicationInfo.dataDir,
+                instrumentation.targetContext.applicationInfo.uid))
+        }
+        check(home.canonicalFile == fixedHome && home.isDirectory &&
+            File(instrumentation.targetContext.applicationInfo.dataDir).canonicalFile == fixedHome) {
             homeDiagnostic(instrumentation.targetContext.applicationInfo.dataDir,
                 instrumentation.targetContext.applicationInfo.uid)
         }
+        home = fixedHome
         productApk = File(instrumentation.targetContext.applicationInfo.sourceDir)
         testApk = File(instrumentation.context.applicationInfo.sourceDir)
         check(listOf(productApk, testApk).all { it == it.canonicalFile && it.isFile && it.canRead() && !it.canWrite() }) {

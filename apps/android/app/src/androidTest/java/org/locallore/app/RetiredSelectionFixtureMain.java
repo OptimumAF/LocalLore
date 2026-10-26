@@ -58,10 +58,8 @@ public final class RetiredSelectionFixtureMain {
             stage = "PLATFORM";
             require(Build.VERSION.SDK_INT == 35 && Build.SUPPORTED_ABIS.length > 0
                 && Build.SUPPORTED_ABIS[0].equals("x86_64"));
-            File home = new File("/data/user/0/" + PRODUCT);
-            require(home.equals(home.getCanonicalFile())
-                && new File(Os.readlink("/proc/self/cwd")).getCanonicalFile().equals(home));
-            owned(home, true);
+            File home = fixedHome();
+            require(new File(Os.readlink("/proc/self/cwd")).getCanonicalFile().equals(home));
             stage = "CLASSPATH";
             String value = System.getenv("CLASSPATH");
             require(value != null && value.length() <= 4096);
@@ -116,6 +114,39 @@ public final class RetiredSelectionFixtureMain {
     }
 
     static void require(boolean condition) { if (!condition) throw new IllegalStateException("fixture_refused"); }
+
+    /** The only accepted alias is Android user zero's fixed /data/user/0 -> /data/data mapping. */
+    static File fixedHome() throws Exception {
+        for (String path : new String[] {"/data", "/data/user", "/data/data"}) {
+            File parent = new File(path);
+            require(parent.equals(parent.getCanonicalFile()) && OsConstants.S_ISDIR(Os.lstat(path).st_mode));
+        }
+        File userZero = new File("/data/user/0");
+        File dataData = new File("/data/data");
+        StructStat userParent = Os.lstat(userZero.getPath());
+        File expectedParent;
+        if (OsConstants.S_ISLNK(userParent.st_mode)) {
+            require(Os.readlink(userZero.getPath()).equals(dataData.getPath())
+                && userZero.getCanonicalFile().equals(dataData));
+            expectedParent = dataData;
+        } else {
+            require(OsConstants.S_ISDIR(userParent.st_mode) && userZero.equals(userZero.getCanonicalFile()));
+            expectedParent = userZero;
+        }
+        File named = new File(userZero, PRODUCT);
+        File canonical = named.getCanonicalFile();
+        require(canonical.equals(new File(expectedParent, PRODUCT))
+            && (canonical.equals(new File(userZero, PRODUCT)) || canonical.equals(new File(dataData, PRODUCT))));
+        StructStat alias = Os.lstat(named.getPath());
+        // lstat follows the one admitted parent alias, but never a product-leaf symlink.
+        require(OsConstants.S_ISDIR(alias.st_mode) && alias.st_uid == Process.myUid());
+        owned(canonical, true);
+        StructStat target = Os.lstat(canonical.getPath());
+        StructStat followed = Os.stat(named.getPath());
+        require(alias.st_dev == target.st_dev && alias.st_ino == target.st_ino && alias.st_uid == target.st_uid
+            && followed.st_dev == target.st_dev && followed.st_ino == target.st_ino && followed.st_uid == target.st_uid);
+        return canonical;
+    }
 
     static File owned(File file, boolean directory) throws Exception {
         require(file.isAbsolute() && file.equals(file.getCanonicalFile()));

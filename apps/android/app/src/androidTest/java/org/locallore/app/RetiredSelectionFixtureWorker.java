@@ -42,7 +42,7 @@ public final class RetiredSelectionFixtureWorker {
                 passed = true;
             } else {
                 stage = "SAVED_OWNER";
-                File home = RetiredSelectionFixtureMain.owned(new File("/data/user/0/" + RetiredSelectionFixtureMain.PRODUCT), true);
+                File home = RetiredSelectionFixtureMain.fixedHome();
                 File backup = ownedChild(home, "no_backup", true);
                 File proofRoot = ownedChild(backup, "process-verify-v1", true);
                 File proofRun = ownedChild(proofRoot, args[1], true);

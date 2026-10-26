@@ -537,3 +537,58 @@ fn pre_cancel_and_scene_bounds_create_no_run_and_existing_v2_selected_reader_rem
     ));
     assert_eq!(inventory(&c.partial), before);
 }
+
+#[test]
+fn actual_cli_scripted_run_and_read_are_closed_bounded_and_do_not_control_a_desktop() {
+    let parent = root("actual-cli");
+    let path = parent.join("run");
+    let exe = env!("CARGO_BIN_EXE_locallore-eval");
+    let output = std::process::Command::new(exe)
+        .args(["literal-comparison", "run"])
+        .arg(&path)
+        .args([
+            "--kind",
+            "rollout",
+            "--lane",
+            "scripted",
+            "--max-scenes",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.stdout.len() <= 2 * 1024 * 1024 + 1 && output.stderr.len() <= 16384);
+    assert!(
+        output.status.success(),
+        "fixed scripted CLI failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(report["version"], 3);
+    assert_eq!(report["turns"].as_array().unwrap().len(), 12);
+    assert_eq!(report["quality_accepted"], false);
+    let before = inventory(&path);
+    let inspected = std::process::Command::new(exe)
+        .args(["literal-comparison", "inspect"])
+        .arg(&path)
+        .output()
+        .unwrap();
+    assert!(inspected.status.success());
+    assert!(inspected.stdout.len() <= 2 * 1024 * 1024 + 1 && inspected.stderr.len() <= 16384);
+    assert_eq!(
+        serde_json::from_slice::<Value>(&inspected.stdout).unwrap(),
+        report
+    );
+    assert_eq!(inventory(&path), before);
+    let unavailable = parent.join("native-unavailable");
+    let refused = std::process::Command::new(exe)
+        .args(["literal-comparison", "run"])
+        .arg(&unavailable)
+        .args(["--kind", "rollout", "--lane", "native"])
+        .output()
+        .unwrap();
+    assert_eq!(refused.status.code(), Some(2));
+    assert!(!unavailable.exists());
+    assert!(refused.stdout.is_empty() && refused.stderr.len() <= 16384);
+    assert!(String::from_utf8_lossy(&refused.stderr).contains("NativeComparisonV3Unavailable"));
+    assert_eq!(inventory(&path), before);
+}

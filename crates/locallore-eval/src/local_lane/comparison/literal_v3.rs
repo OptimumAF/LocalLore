@@ -975,6 +975,28 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV3> {
         Ledger::load(&dir.join("left"), &key)?,
         Ledger::load(&dir.join("right"), &key)?,
     ];
+    // Control filenames outside the finite namespace must not silently vanish
+    // from inspection. Bound enumeration before decoding any setup data.
+    for (count, entry) in fs::read_dir(dir).map_err(|_| "Io")?.enumerate() {
+        if count >= 256 {
+            return Err("EvidenceBudget".into());
+        }
+        let entry = entry.map_err(|_| "Io")?;
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else {
+            return Err("SetupIntegrity".into());
+        };
+        if let Some(suffix) = name.strip_prefix("setup-") {
+            let index = suffix
+                .strip_suffix(".json")
+                .and_then(|s| s.parse::<usize>().ok())
+                .ok_or("SetupIntegrity")?;
+            if index >= 32 || name != format!("setup-{index:02}.json") {
+                return Err("SetupIntegrity".into());
+            }
+            ordinary(&entry.path())?;
+        }
+    }
     for index in 0..32 {
         let path = dir.join(format!("setup-{index:02}.json"));
         ordinary(&path)?;
@@ -992,6 +1014,31 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV3> {
             || setup.load.is_some()
         {
             return Err("SetupIntegrity".into());
+        }
+        for (arm, invocation) in [setup.left_invocation, setup.right_invocation]
+            .into_iter()
+            .enumerate()
+        {
+            if invocation >= ledgers[arm].invocations {
+                return Err("SetupIntegrity".into());
+            }
+            let reservation: Reservation = decode(
+                &dir.join(ARM_NAMES[arm])
+                    .join(format!("invocation-{invocation:02}.json")),
+                4096,
+            )?;
+            if reservation.version != 1
+                || reservation.binding != key
+                || reservation.index != invocation
+                || reservation.story != "preparation"
+                || reservation.turn != "preparation"
+                || reservation.ms != PREPARATION_MS
+                || reservation.roles != 0
+            {
+                return Err("SetupIntegrity".into());
+            }
+            // Ledger::load above checks any settlement's binding/index/role cap.
+            // Its absence retains the full unknown reservation, never a refund.
         }
     }
     append_ledger_notes(dir, &ledgers, &mut unavailable);

@@ -516,6 +516,10 @@ pub(super) fn begin_pair(dir: &Path, key: &str, started: Instant) -> Result<[Led
     for ledger in &mut ledgers {
         ledger.started = started;
     }
+    // A known refusal in either arm must not create an unknown reservation in
+    // the other. A later IO failure/process death still retains existing work.
+    ledgers[0].preflight_invocation(false)?;
+    ledgers[1].preflight_invocation(false)?;
     ledgers[0].begin_invocation()?;
     ledgers[1].begin_invocation()?;
     Ok(ledgers)

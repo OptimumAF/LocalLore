@@ -19,7 +19,7 @@ class TimelineMainActivityTest {
         compose.waitUntil(15_000) { !model.state.value.busy && model.state.value.persistent }
         assertFalse(model.state.value.recoveryRequired)
         if (model.state.value.selectedStory == null) {
-            compose.onNodeWithTag("reset-demo").performScrollTo().performClick()
+            compose.createStoryThroughMainReview(15_000)
             compose.waitUntil(15_000) { !model.state.value.busy && model.state.value.selectedStory != null }
         }
         val before = model.state.value

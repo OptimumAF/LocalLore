@@ -20,7 +20,7 @@ class StoryDeletionMainActivityTest {
         assertFalse(model.state.value.recoveryRequired)
         val retained = model.state.value.stories
         if (retained.isEmpty()) compose.onNodeWithTag("empty-library").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("reset-demo").performScrollTo().performClick()
+        compose.createStoryThroughMainReview(15_000)
         compose.waitUntil(15_000) { !model.state.value.busy && model.state.value.selectedStory?.let { selected ->
             retained.none { it.story == selected.story } } == true }
         val story = requireNotNull(model.state.value.selectedStory)
@@ -40,7 +40,7 @@ class StoryDeletionMainActivityTest {
             compose.onNodeWithTag("give-potion").performScrollTo().assertIsNotEnabled()
         }
         // Leave a fresh synthetic story for read-only Activity/archive regression tests.
-        compose.onNodeWithTag("reset-demo").performScrollTo().performClick()
+        compose.createStoryThroughMainReview(15_000)
         compose.waitUntil(15_000) { !model.state.value.busy && model.state.value.selectedStory?.let { selected ->
             retained.none { it.story == selected.story } } == true }
         assertNotEquals(story.story, model.state.value.selectedStory!!.story)

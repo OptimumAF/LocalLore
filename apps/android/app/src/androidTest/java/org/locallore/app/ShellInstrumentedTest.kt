@@ -27,7 +27,7 @@ class ShellInstrumentedTest {
         compose.waitForIdle()
     }
     @Before fun freshSavedStory() {
-        idle(); tag("reset-demo").performClick(); idle()
+        idle(); compose.createStoryThroughMainReview(); idle()
     }
     private fun choose(mode: DemoMode) {
         tag("mode-menu").performClick()
@@ -96,7 +96,7 @@ class ShellInstrumentedTest {
         idle()
         tag("notice").assertTextContains("accepted saved history", substring = true)
         assertInitial()
-        tag("reset-demo").performClick(); idle()
+        compose.createStoryThroughMainReview(); idle()
         assertInitial()
         give(); idle()
         assertAccepted()
@@ -106,7 +106,7 @@ class ShellInstrumentedTest {
         give(); idle()
         compose.activityRule.scenario.recreate(); idle()
         assertAccepted()
-        tag("reset-demo").performClick(); idle()
+        compose.createStoryThroughMainReview(); idle()
         choose(DemoMode.DELAYED)
         compose.runOnIdle {
             val model = ViewModelProvider(compose.activity)[ShellViewModel::class.java]

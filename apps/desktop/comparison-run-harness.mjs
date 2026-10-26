@@ -298,6 +298,32 @@ function checkedReport(report, stage) {
         ),
         "CheckLabels",
     );
+    for (const required of [
+        "native-port-lab_denied-actual-lab-grant-required",
+        "native-port-lab-denied-cleanup_status-actual-empty-cleanup-without-lab",
+        "native-port-lab-denied-retry_cleanup-actual-empty-cleanup-without-lab",
+        "native-port-lab_denied-query-string-rejected-before-host",
+        "native-port-lab_denied-renderer-provider-key-rejected-before-host",
+        "native-port-lab_denied-renderer-consent-key-rejected-before-host",
+        "native-port-empty_native-catalog-native-version-tags",
+        "native-port-empty_native-catalog-has-no-native-execution",
+        "native-port-empty_native-unknown-client-lookup",
+        "native-port-empty_native-unknown-run-open",
+        "native-port-empty_native-unknown-token-status",
+        "native-port-empty_native-unknown-token-close",
+        "native-port-empty_native-unknown-managed-before-read-consent",
+        "native-port-scripted_open-scripted-client-is-not-native",
+        "native-port-scripted_open-scripted-token-is-not-native",
+        "native-port-scripted_open-native-close-cannot-revoke-scripted-token",
+        "native-port-scripted-status-preserved-run_token",
+        "native-port-scripted-status-preserved-report_ready",
+        "native-port-scripted_open-catalog-has-no-native-execution",
+    ]) {
+        assert(
+            report.checks.includes(required),
+            `RequiredNativePortCheck:${required}`,
+        );
+    }
     assert(
         Array.isArray(report.captureLabels) &&
             report.captureLabels.length <= limits.captures,

@@ -4,6 +4,7 @@ import type { Controller } from "./controller";
 import type { ComparisonReaderController } from "./comparison-reader-controller";
 import type { ComparisonRunController } from "./comparison-run-controller";
 import { checkedComparisonRunStatus } from "./comparison-run-model";
+import { nativeComparisonPortChecks } from "./comparison-native-port-journeys";
 import type { EvidenceRequest, ObserverV2 } from "./comparison-reader-model";
 import { sameReaderObserver } from "./comparison-reader-model";
 import { structural, type ErrorBuffer } from "./model";
@@ -495,6 +496,12 @@ export async function comparisonRunJourneys({
         );
     };
     const readerJourney = async (extended: boolean) => {
+        await nativeComparisonPortChecks({
+            invoke,
+            check,
+            phase: "scripted_open",
+            scripted: f.get().status ?? undefined,
+        });
         await managedRead();
         const row = r
             .get()
@@ -669,12 +676,22 @@ export async function comparisonRunJourneys({
         );
         await c.start();
         const liveBefore = structural(c.get().play ?? c.get().playV2);
+        await nativeComparisonPortChecks({
+            invoke,
+            check,
+            phase: "lab_denied",
+        });
         c.requestLab();
         c.acknowledgeLab(true);
         await until(
             () => f.get().allowed && r.get().allowed,
             "actual-main-lab-native-eligibility",
         );
+        await nativeComparisonPortChecks({
+            invoke,
+            check,
+            phase: "empty_native",
+        });
         await f.loadCatalog();
         check(
             f.get().catalog?.protocol_version === 3 &&

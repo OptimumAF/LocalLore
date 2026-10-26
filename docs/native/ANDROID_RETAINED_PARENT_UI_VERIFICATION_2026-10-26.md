@@ -32,6 +32,33 @@ These are host checks, not compilation or an executed Android result.
 The final rendering/refusal assertions were added afterward; fresh full-host,
 JVM/build/audit and actual owned-guest UI checks remain pending at this checkpoint.
 
+## Fresh frozen-source host/build qualification
+
+[Draft PR #210](https://github.com/OptimumAF/LocalLore/pull/210) preserves the
+implementation on draft/unmerged #208. At mapped code7a686ee2, all1,251 Python
+tests passed in131.659s, zero failures/errors/skips. Owner133,284ms/completed0,
+known cleanup/stderr0; original stdout227,599B SHA-256
+`f62d08e52ba755121f79688de69b05882f6357c3a5204f3dfe78ba14729cc5d4`.
+The fresh build actually ran235 JVM tests/27 XML suites and passed both lints
+and11 artifact audits. Owner214,478ms/worker0, known cleanup/capture/stderr0.
+The Gradle command's separate251-byte stderr retains an existing Java deprecated
+API note; this is distinct from the host worker's stderr0.
+
+All757 tracked inputs/five SQL files match before/after, source-map SHA-256
+`bb821d1a0dc08cc748a69a4d6b90bed3272657f3c2a1f329e9508194b27be924`.
+The unchanged product24,555,355B and controller54,201B keep their #208 hashes;
+the new test APK is2,769,443B, SHA-256
+`c7bc565f775f02136e818039dcf27b98fff5a0fd849f974915ef00a7cce3372f`.
+Old Android outcomes retain their old test-APK/source attribution.
+
+The native10 gate is now running against this new build. The two real UI cases
+remain pending in their separate fresh guest; host/build passes do not qualify
+the dialog or native outcome. The completed build/host/server recovery copy
+contains85 files/28,106,972B, ZIP17,824,554B SHA-256
+`efc6909acad292e9a86ac9f2937ca946cb357cf77ed2dc8e380ad99f5c6c3885`;
+independent original/ZIP/index readback is pending at this checkpoint. No live
+native/UI cohort, guest images/databases/models/caches or unrelated data was selected.
+
 ## Phone gate kept separate
 
 A single fresh read-only availability observation used the phone harness source

@@ -4,6 +4,7 @@
 //! are genuine fixed test processes, NOT approved model/profile/generation proof.
 //! Root: cargo test --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --bin locallore-desktop-spike evaluation::comparison_run::native_review_tests:: -- --nocapture --test-threads=1
 use super::*;
+mod binding_shape_review_tests;
 use crate::{
     evaluation::{selected::SelectedOwnership, FullComparisonNativeResume},
     models::ModelManager,

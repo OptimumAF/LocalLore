@@ -82,7 +82,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     private static final String RUN_EXTRA = "locallore.process.run_id";
     private static final String PROBE_SCOPE = "locallore_process_verify_v2";
     private static final String FIXTURE_SCOPE = "locallore_process_fixture_v1";
-    private static final String RESULT_SCOPE = "locallore_process_controller_v1";
+    private static final String RESULT_SCOPE = "locallore_process_controller_v2";
     private static final String DIALOGUE = "SYNTHETIC process-restoration dialogue: Mira, café and lanterns 🌊.\n"
             + "Still unsent until my explicit Send.";
     private static final String CHILD_DIALOGUE = "SYNTHETIC child-timeline draft: Mira, snow 雪 and café 🌊.\n"
@@ -316,7 +316,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             result.putString("proof", json);
         } catch (Throwable failure) {
             passed = false;
-            result.putString("proof", "{\"version\":1,\"scope\":\"" + RESULT_SCOPE
+            result.putString("proof", "{\"version\":2,\"scope\":\"" + RESULT_SCOPE
                     + "\",\"case\":\"" + caseName + "\",\"run_id\":null,\"status\":\"failed\","
                     + "\"stage\":\"" + stage.name() + "\",\"reason\":\"PROOF_SIZE\",\"checks\":0,\"process_deaths\":0}");
         }
@@ -1413,7 +1413,8 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
                 && finalSaved.factory == 1 && finalCommands.factory == 1, Reason.PROBE);
         terminalObservations.put(new JSONObject().put("pid", saved.pid).put("start", saved.start).put("task", saved.task)
                 .put("saved_sequence", finalSaved.sequence).put("commands_sequence", finalCommands.sequence)
-                .put("saved_game", gameJson(finalSaved)).put("commands_game", gameJson(finalCommands)));
+                .put("saved_game", gameJson(finalSaved)).put("commands_game", gameJson(finalCommands))
+                .put("saved_creation", creationJson(finalSaved)).put("commands_creation", creationJson(finalCommands)));
         checked(sameGame(finalSaved, saved) && sameGame(finalCommands, saved)
                 && sameCreations(finalSaved, saved) && sameCreations(finalCommands, saved), Reason.AUTOMATIC_OPERATION);
         checked(true, Reason.PROCESS);
@@ -1474,6 +1475,11 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         JSONObject result = new JSONObject();
         for (String name : GAME) result.put(name, probe.op(name));
         return result;
+    }
+
+    private static JSONObject creationJson(Probe probe) throws JSONException {
+        // Independent command-attempt observations, never canonical story counts.
+        return new JSONObject().put("create", probe.op("create")).put("create_named", probe.op("create_named"));
     }
 
     private List<String[]> ps() throws Exception {
@@ -1797,7 +1803,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     }
 
     private JSONObject proof(boolean passed, Reason reason) throws Exception {
-        JSONObject result = new JSONObject().put("version", 1).put("scope", RESULT_SCOPE).put("case", caseName)
+        JSONObject result = new JSONObject().put("version", 2).put("scope", RESULT_SCOPE).put("case", caseName)
                 .put("run_id", runId == null ? JSONObject.NULL : runId).put("status", passed ? "passed" : "failed")
                 .put("stage", stage.name()).put("reason", reason.name()).put("checks", checks).put("process_deaths", deaths)
                 .put("last_workspace_read", lastWorkspaceRead.name()).put("last_workspace_utf16_length", lastWorkspaceUtf16Length)

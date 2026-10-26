@@ -294,6 +294,20 @@ class ProductRecordTests(unittest.TestCase):
                              {k: json.loads(v) for k, v in records.items()})
             self.assertEqual(proof, before)
 
+    def test_later_same_process_operation_counters_cannot_decrease(self):
+        for case in CASES:
+            with self.subTest(case=case):
+                proof, expected = original(case)
+                records = product_records(proof)
+                created = json.loads(records["created"])
+                commands = json.loads(records["commands"])
+                self.assertGreater(commands["sequence"], created["sequence"])
+                for key in ("workspace", "branches", "resume", "open", "play_snapshot"):
+                    altered = copy.deepcopy(created)
+                    altered["operations"][key] = commands["operations"][key] + 1
+                    self.refused(proof, dict(records, created=encoded(altered)), expected)
+                evidence.validate_product_records(proof, records, expected)
+
     def test_fixed_labels_and_json_byte_types_bounds_duplicate_fields(self):
         proof, expected = original()
         records = product_records(proof)

@@ -286,6 +286,8 @@ def validate_product_records(proof: dict, records: dict[str, bytes], expected: d
                      proof["terminal_observations"][1]["saved_sequence"])
             parsed[name] = record
         _need(parsed["commands"]["sequence"] > parsed["created"]["sequence"])
+        _need(all(parsed["commands"]["operations"][key] >= parsed["created"]["operations"][key]
+                  for key in _OPS))
         return parsed
     except Exception:
         raise ControllerEvidenceRefused("controller_evidence_refused") from None

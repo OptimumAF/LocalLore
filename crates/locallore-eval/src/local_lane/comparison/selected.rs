@@ -4,7 +4,7 @@ use super::*;
 
 const LANE: &str = "scripted_selected_case";
 const NATIVE_LANE: &str = "native_selected_case";
-const MANIFEST_CAP: usize = 128 * 1024;
+pub(super) const MANIFEST_CAP: usize = 128 * 1024;
 pub mod desktop_read;
 #[cfg(feature = "local-model")]
 mod native;
@@ -54,7 +54,7 @@ impl SelectedLane {
             _ => Err("SelectedBinding".into()),
         }
     }
-    fn profile(self) -> Result<PlayProfile> {
+    pub(super) fn profile(self) -> Result<PlayProfile> {
         match self {
             Self::ScriptedBaseline => LaneFactory::ScriptedBaseline.profile(),
             Self::ApprovedNative => {
@@ -85,20 +85,20 @@ pub struct PreparedSelectedPlan {
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Selection {
-    turn: String,
-    clicked_arm: String,
-    index: usize,
+pub(super) struct Selection {
+    pub turn: String,
+    pub clicked_arm: String,
+    pub index: usize,
 }
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct SourceInput {
-    arm: String,
-    scope: Scope,
-    before_head: u64,
-    request: Request,
-    prefix_sha256: String,
-    input_semantic_sha256: String,
+pub(super) struct SourceInput {
+    pub arm: String,
+    pub scope: Scope,
+    pub before_head: u64,
+    pub request: Request,
+    pub prefix_sha256: String,
+    pub input_semantic_sha256: String,
 }
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -128,14 +128,14 @@ fn required_reference<'de, D: serde::Deserializer<'de>>(
     Option::<String>::deserialize(deserializer)
 }
 
-fn client_valid(client: &str) -> bool {
+pub(super) fn client_valid(client: &str) -> bool {
     !client.is_empty()
         && client.len() <= 128
         && client
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b == b'-')
 }
-fn cancelled(cancel: &Cancellation) -> Result<()> {
+pub(super) fn cancelled(cancel: &Cancellation) -> Result<()> {
     if cancel.is_cancelled() {
         Err("Interrupted".into())
     } else {
@@ -484,7 +484,7 @@ fn single_link_file(path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn pin_selected(dir: &Path) -> Result<Vec<File>> {
+pub(super) fn pin_selected(dir: &Path) -> Result<Vec<File>> {
     let mut pins = crate::local_lane::desktop_api::pin_directory(dir)?;
     let mut count = 0usize;
     for entry in fs::read_dir(dir).map_err(|_| "Io")? {
@@ -546,7 +546,7 @@ fn open_destination(dir: &Path) -> Result<Destination> {
     })
 }
 
-fn disjoint(source: &Path, destination: &Path) -> Result<()> {
+pub(super) fn disjoint(source: &Path, destination: &Path) -> Result<()> {
     if destination.starts_with(source) || source.starts_with(destination) {
         Err("SourceDestinationOverlap".into())
     } else {
@@ -555,6 +555,12 @@ fn disjoint(source: &Path, destination: &Path) -> Result<()> {
 }
 
 fn destination_target(plan: &PreparedSelectedPlan, dir: &Path) -> Result<(PathBuf, Vec<File>)> {
+    destination_target_for(&plan.source_dir, dir)
+}
+pub(super) fn destination_target_for(
+    source_dir: &Path,
+    dir: &Path,
+) -> Result<(PathBuf, Vec<File>)> {
     let absolute = std::path::absolute(dir).map_err(|_| "Io")?;
     if absolute
         .components()
@@ -567,7 +573,7 @@ fn destination_target(plan: &PreparedSelectedPlan, dir: &Path) -> Result<(PathBu
     let canonical = fs::canonicalize(parent)
         .map_err(|_| "Io")?
         .join(absolute.file_name().ok_or("SelectedDirectory")?);
-    disjoint(&plan.source_dir, &canonical)?;
+    disjoint(source_dir, &canonical)?;
     ordinary(&canonical)?;
     if canonical.exists() {
         return Err("OutputExists".into());
@@ -597,25 +603,23 @@ fn new_destination(plan: &PreparedSelectedPlan, dir: &Path) -> Result<Destinatio
     })
 }
 
-/// Reconstruct a before engine from actual canonical records, never a JSON
-/// engine. A source-owned prefix additionally proves interrupted bootstraps.
-fn validate_destination(
+pub(super) fn validate_prefixes(
     dir: &Path,
-    manifest: &SelectedManifest,
+    index: usize,
+    kind: ComparisonKind,
+    inputs: &[SourceInput; 2],
     source: Option<&[Engine; 2]>,
-) -> Result<[Option<StoredTurn>; 2]> {
+) -> Result<[bool; 2]> {
     let corpus = suite()?;
-    let index = manifest.selection.index;
     let step = &corpus.steps()[index];
-    let run = manifest.run_manifest()?;
-    let mut turns = [None, None];
+    let mut checkpoints = [false, false];
     for arm in 0..2 {
         let d = dir.join(ARM_NAMES[arm]);
         ordinary(&d)?;
         if !d.is_dir() {
             return Err("SelectedDirectory".into());
         }
-        let path = database(&d, index, manifest.source_kind);
+        let path = database(&d, index, kind);
         let checkpoint = checkpoint_path(&d, index);
         ordinary(&path)?;
         ordinary(&checkpoint)?;
@@ -645,7 +649,7 @@ fn validate_destination(
             }
             continue;
         }
-        let input = &manifest.source_inputs[arm];
+        let input = &inputs[arm];
         let mut store = Store::open_read_only(&path).map_err(|_| "Workspace")?;
         if store.stories().map_err(|_| "Workspace")?.is_empty() {
             if checkpoint.exists() || source.is_none() {
@@ -711,7 +715,33 @@ fn validate_destination(
             }
         }
         validate_pair_source(&path, corpus.seed(), before.receipts(), step)?;
-        if checkpoint.exists() {
+        checkpoints[arm] = checkpoint.exists();
+    }
+    Ok(checkpoints)
+}
+
+/// Reconstruct a before engine from actual canonical records, never a JSON
+/// engine. A source-owned prefix additionally proves interrupted bootstraps.
+fn validate_destination(
+    dir: &Path,
+    manifest: &SelectedManifest,
+    source: Option<&[Engine; 2]>,
+) -> Result<[Option<StoredTurn>; 2]> {
+    let index = manifest.selection.index;
+    let run = manifest.run_manifest()?;
+    let checkpoints = validate_prefixes(
+        dir,
+        index,
+        manifest.source_kind,
+        &manifest.source_inputs,
+        source,
+    )?;
+    let mut turns = [None, None];
+    for arm in 0..2 {
+        let d = dir.join(ARM_NAMES[arm]);
+        let path = database(&d, index, manifest.source_kind);
+        let input = &manifest.source_inputs[arm];
+        if checkpoints[arm] {
             let turn = load_turn(
                 &d,
                 &path,
@@ -778,7 +808,12 @@ pub struct SelectedComparisonReportV1 {
     limitations: Vec<String>,
 }
 
-fn ledgers(dir: &Path, binding: &str) -> Result<[Ledger; 2]> {
+pub(super) fn validate_setups(dir: &Path, binding: &str, native: bool) -> Result<()> {
+    setup::read_setups(dir, binding, native)?;
+    Ok(())
+}
+
+pub(super) fn ledgers(dir: &Path, binding: &str) -> Result<[Ledger; 2]> {
     Ok([
         Ledger::load(&dir.join("left"), binding)?,
         Ledger::load(&dir.join("right"), binding)?,
@@ -876,12 +911,15 @@ fn report(
 }
 
 fn publish_selected(dir: &Path, report: &SelectedComparisonReportV1) -> Result<()> {
-    let data = serde_json::to_vec_pretty(report).map_err(|_| "Encoding")?;
     let label = if report.lane == NATIVE_LANE {
         "Synthetic selected evaluation. Native measurements exist only where recorded. No human quality acceptance."
     } else {
         "Synthetic scripted evaluation. No human quality acceptance."
     };
+    publish_report(dir, report, label)
+}
+pub(super) fn publish_report<T: Serialize>(dir: &Path, report: &T, label: &str) -> Result<()> {
+    let data = serde_json::to_vec_pretty(report).map_err(|_| "Encoding")?;
     let html = format!("<!doctype html><meta charset=utf-8><meta http-equiv=Content-Security-Policy content=\"default-src 'none'; style-src 'none'\"><title>Isolated selected comparison</title><h1>Isolated selected comparison</h1><p>{label}</p><pre>{}</pre>",
         escape(std::str::from_utf8(&data).map_err(|_| "Encoding")?));
     if data.len() > crate::MAX_REPORT || html.len() > crate::MAX_REPORT {

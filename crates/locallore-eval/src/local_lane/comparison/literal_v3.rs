@@ -4,6 +4,7 @@
 pub mod desktop_api;
 #[cfg(test)]
 mod resource_review_tests;
+pub mod selected_v2;
 use super::*;
 #[cfg(feature = "local-model")]
 mod native;
@@ -468,6 +469,70 @@ fn make_row3(o: Observation3<'_>) -> Result<TurnReportV3> {
         forwarded_director_estimates: checked.as_ref().and_then(Checked::estimates),
     })
 }
+struct ReadyJob3<'a> {
+    path: &'a Path,
+    full: &'a Engine,
+    index: usize,
+    arm: &'a str,
+    construction: ComparisonArmV3,
+    binding: &'a str,
+    step: &'a protocol::Step,
+    profile: &'a PlayProfile,
+}
+fn ready_turn3(job: ReadyJob3<'_>) -> Result<Option<StoredTurn3>> {
+    let ReadyJob3 {
+        path,
+        full,
+        index,
+        arm,
+        construction,
+        binding,
+        step,
+        profile,
+    } = job;
+    let recovered = turn_execution::recover_actual(path, full, step)?;
+    if recovered.is_some() || turn_execution::dependency_missing(full, step, profile)? {
+        let is_recovered = recovered.is_some();
+        let before = recovered.as_ref().map_or(full, |r| &r.before);
+        let after = recovered.as_ref().map_or(full, |r| &r.after);
+        let row = make_row3(Observation3 {
+            step,
+            arm,
+            construction,
+            before,
+            after,
+            phase: if is_recovered {
+                "committed"
+            } else {
+                "not_run_dependency"
+            },
+            error: None,
+            receipt: recovered.as_ref().map(|r| &r.receipt),
+            recording: None,
+            capture: None,
+            trace: None,
+            admission: None,
+            elapsed_ms: 0,
+            first_final_response_ms: None,
+            commit_elapsed_ms: None,
+            profile,
+            recovered: is_recovered,
+        })?;
+        return Ok(Some(StoredTurn3 {
+            version: 3,
+            binding: binding.into(),
+            index,
+            arm: arm.into(),
+            request: step.request(before),
+            before_head: before.revision(),
+            after_head: after.revision(),
+            row,
+            capture_file: None,
+            recording_file: None,
+        }));
+    }
+    Ok(None)
+}
 struct Job3<'a> {
     dir: &'a Path,
     path: &'a Path,
@@ -496,46 +561,17 @@ fn execute_turn3(job: Job3<'_>, ledger: &mut Ledger) -> Result<StoredTurn3> {
         return Err("UnsupportedDomain".into());
     }
     let profile = factory.profile()?;
-    let recovered = turn_execution::recover_actual(path, &full, step)?;
-    if recovered.is_some() || turn_execution::dependency_missing(&full, step, &profile)? {
-        let is_recovered = recovered.is_some();
-        let before = recovered.as_ref().map_or(&full, |r| &r.before);
-        let after = recovered.as_ref().map_or(&full, |r| &r.after);
-        let row = make_row3(Observation3 {
-            step,
-            arm,
-            construction,
-            before,
-            after,
-            phase: if is_recovered {
-                "committed"
-            } else {
-                "not_run_dependency"
-            },
-            error: None,
-            receipt: recovered.as_ref().map(|r| &r.receipt),
-            recording: None,
-            capture: None,
-            trace: None,
-            admission: None,
-            elapsed_ms: 0,
-            first_final_response_ms: None,
-            commit_elapsed_ms: None,
-            profile: &profile,
-            recovered: is_recovered,
-        })?;
-        return Ok(StoredTurn3 {
-            version: 3,
-            binding: binding.into(),
-            index,
-            arm: arm.into(),
-            request: step.request(before),
-            before_head: before.revision(),
-            after_head: after.revision(),
-            row,
-            capture_file: None,
-            recording_file: None,
-        });
+    if let Some(turn) = ready_turn3(ReadyJob3 {
+        path,
+        full: &full,
+        index,
+        arm,
+        construction,
+        binding,
+        step,
+        profile: &profile,
+    })? {
+        return Ok(turn);
     }
     let actual = turn_execution::execute(
         turn_execution::LiveTurnJob {

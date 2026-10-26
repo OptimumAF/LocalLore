@@ -6,8 +6,12 @@ use crate::{
     inspection_query::{self, FieldValue, Row, Source, ValueOrigin, View},
 };
 
+mod literal_source;
 mod policy;
 mod verified;
+pub use literal_source::{
+    player_literal_transcript_v1_cancelled, LiteralTranscriptSourceV1, LiteralTranscriptUnitV1,
+};
 pub(crate) use policy::compile_for_director_cancelled;
 pub use policy::{
     compile_policy_cancelled, ConstructionDiagnostics, ContextPolicy, PolicyCompilation,

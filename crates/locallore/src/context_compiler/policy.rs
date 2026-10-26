@@ -118,9 +118,66 @@ pub(super) fn transcript_candidates(
     bytes: &mut usize,
     cancel: &dyn Fn() -> bool,
 ) -> Result<(Vec<Candidate>, ConstructionDiagnostics), CompileError> {
+    let mut candidates = vec![];
+    visit_eligible_transcript_units_cancelled(engine, &request.observer, cancel, |unit| {
+        if existing
+            .checked_add(candidates.len())
+            .is_none_or(|n| n >= MAX_CANDIDATES)
+        {
+            return Err(CompileError::TooLarge);
+        }
+        let revision = unit
+            .events
+            .last()
+            .ok_or(CompileError::Source)?
+            .event
+            .sequence();
+        let sources = unit
+            .events
+            .iter()
+            .map(|v| Source::ScopedEvent {
+                original_scope: v.event.scope().clone(),
+                sequence: v.event.sequence(),
+            })
+            .collect::<Vec<_>>();
+        let key = serde_json::to_string(&("transcript:v2", &unit.original_scope, &unit.turn))
+            .map_err(|_| CompileError::Source)?;
+        let encoded = serde_json::to_string(&unit).map_err(|_| CompileError::Source)?;
+        *bytes = bytes
+            .checked_add(encoded.len())
+            .ok_or(CompileError::TooLarge)?;
+        if *bytes > MAX_CANDIDATE_BYTES {
+            return Err(CompileError::TooLarge);
+        }
+        candidates.push(Candidate {
+            key,
+            payload: CandidatePayload::TranscriptUnit(unit),
+            encoded,
+            ids: BTreeSet::new(),
+            kind: Kind::Transcript,
+            sources,
+            revision,
+        });
+        Ok(())
+    })?;
+    let diagnostics = ConstructionDiagnostics {
+        eligible_transcript_units: candidates.len(),
+        ..ConstructionDiagnostics::default()
+    };
+    Ok((candidates, diagnostics))
+}
+
+/// One eligibility path for current policy candidates and the native literal
+/// source. A player receives prose only for a complete ordinary receipt; NPC
+/// units retain their filtered events and never receive that receipt's prose.
+pub(super) fn visit_eligible_transcript_units_cancelled(
+    engine: &Engine,
+    actor: &str,
+    cancel: &dyn Fn() -> bool,
+    mut visit: impl FnMut(TranscriptUnit) -> Result<(), CompileError>,
+) -> Result<(), CompileError> {
     check(cancel)?;
-    let actor = &request.observer;
-    let player = actor == &engine.seed().player;
+    let player = actor == engine.seed().player;
     // This is the actual same Core eligibility used by Query2, without a Lab
     // grant argument. NPC empty/hidden receipts are removed by the Core first.
     let views = engine
@@ -136,7 +193,6 @@ pub(super) fn transcript_candidates(
     } else {
         BTreeMap::new()
     };
-    let mut candidates = vec![];
     for view in views {
         check(cancel)?;
         if view.events.is_empty() {
@@ -165,56 +221,13 @@ pub(super) fn transcript_candidates(
         } else {
             (None, None)
         };
-        if existing
-            .checked_add(candidates.len())
-            .is_none_or(|n| n >= MAX_CANDIDATES)
-        {
-            return Err(CompileError::TooLarge);
-        }
-        let revision = view
-            .events
-            .last()
-            .ok_or(CompileError::Source)?
-            .event
-            .sequence();
-        let sources = view
-            .events
-            .iter()
-            .map(|v| Source::ScopedEvent {
-                original_scope: v.event.scope().clone(),
-                sequence: v.event.sequence(),
-            })
-            .collect::<Vec<_>>();
-        let unit = TranscriptUnit {
+        visit(TranscriptUnit {
             original_scope: view.original_scope,
             turn: view.turn,
             events: view.events,
             original_input,
             narration,
-        };
-        let key = serde_json::to_string(&("transcript:v2", &unit.original_scope, &unit.turn))
-            .map_err(|_| CompileError::Source)?;
-        let encoded = serde_json::to_string(&unit).map_err(|_| CompileError::Source)?;
-        *bytes = bytes
-            .checked_add(encoded.len())
-            .ok_or(CompileError::TooLarge)?;
-        if *bytes > MAX_CANDIDATE_BYTES {
-            return Err(CompileError::TooLarge);
-        }
-        candidates.push(Candidate {
-            key,
-            payload: CandidatePayload::TranscriptUnit(unit),
-            encoded,
-            ids: BTreeSet::new(),
-            kind: Kind::Transcript,
-            sources,
-            revision,
-        });
+        })?;
     }
-    check(cancel)?;
-    let diagnostics = ConstructionDiagnostics {
-        eligible_transcript_units: candidates.len(),
-        ..ConstructionDiagnostics::default()
-    };
-    Ok((candidates, diagnostics))
+    check(cancel)
 }

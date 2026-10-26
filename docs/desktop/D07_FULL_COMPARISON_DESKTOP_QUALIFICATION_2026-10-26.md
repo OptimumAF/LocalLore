@@ -1,9 +1,9 @@
 # Full comparison desktop scripted slice: qualification draft
 
 Supporting **D07.06/.02/.04**, under [Root claim6422925411](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6422925411).
-This draft records completed, source-bound checks, including the first actual
-hidden WebView cohort. **Corrected-layout rerender and final aggregate
-qualification remain pending.** It awards no full D07 acceptance,
+This draft records completed, source-bound checks, including both actual
+hidden WebView cohorts. **Final native/compatibility/build qualification remains
+pending.** It awards no full D07 acceptance,
 human quality approval, native-model desktop qualification or release readiness.
 
 The [frozen contract](D07_FULL_COMPARISON_DESKTOP_CONTRACT_2026-10-26.md)
@@ -115,6 +115,49 @@ stage counts100/40 and exact required inventory-proof names: two initial and
 one restart. Functional success of the original cohort does not certify this
 correction's pixels. The corrected cohort is active and **PENDING** here.
 
+## Corrected actual native cohort
+
+Clean, unchanged source `381abe50374708e38a169798045343799d01eb47` completed the
+same fixed launcher in local cohort
+`full-comparison-native-9df5381e-848d-4b2e-9ce5-4b0e5b2d1b13`:
+
+| Stage | Assertions | Captures | App wall time | Native stderr | Frontend buffer |
+|---|---:|---:|---:|---:|---|
+| Initial |198|14|537.829s|0 bytes|One deliberate lost-start-ACK Transport|
+| Fresh-process restart |69|4|66.963s|0 bytes|Empty|
+
+Both app processes exited0, with no watchdog timeout or output overflow. Builds
+also exited0. App wall times include the full synthetic journey and repeated
+cold SQLite validation; these are not whole-turn performance measurements.
+The native app used fixed native consent doubles and actual WebView2
+CapturePreview. No OS dialogs or desktop controls were automated; no model ran.
+
+All18 corrected PNGs were individually inspected: Root12 and independent
+frontend reviewer6 (reader, Mira, Sable, receipt, narrow and denied). No further
+visible layout defect was found in their captured areas. The empty and populated
+saved-run placeholder fits in the corrected captures. The620px reader wraps
+long output hashes, with no page or panel horizontal overflow. Captures scroll
+to particular application sections, so they do not show the entire app at once.
+Bounded JSON evidence is scrollable: Mira's private content below the visible
+viewport is established by the actual semantic/native assertion, not by those
+pixels alone. Live selected scope/head and inspected scope/head remain separate.
+
+Both independent Node and native inventories matched, and all1068 comparison
+files /15054826 bytes remained identical across restart. Their digest is
+`dd7ed11cee3ae08f8fd7a3031d4b1cf78d28590a2e1961b2558e72edd314b0bb`.
+The exact two initial and one restart read-only proofs were required by the
+launcher, along with stage minima100/40; observed counts are198/69. This covers
+completed resume, inspection and cold-open/read/close without regenerating data.
+
+Executable SHA256:
+`f7a7fd5c2793bbf847e99d82e9e7bd3607a24dac8b6cd0f34a35d3e00d871973`.
+Launcher SHA256:
+`480cf82be1c2e2363ded8edf591ce6c97e85fed32b8fa8fdd735d939cc964bba`.
+The captured user agent reports Chrome/Edge155.0.0.0, device pixel ratio1,
+1280px normal and620px narrow viewports; this is not an independently queried
+WebView runtime patch version. No clean-SDK universal guarantee, leak, model
+quality, human enjoyment, physical-device or release claim follows.
+
 ## Reproduction
 
 From repository root, using the coordinator's existing isolated native target:
@@ -160,18 +203,17 @@ durations above are not total command wall times or user-facing latency metrics.
 
 | Gate | Current disposition |
 |---|---|
-| Actual hidden/unfocused app-owned WebView journey, initial and fresh-process restart | First cohort completed as above; corrected-layout cohort **PENDING**, no result inferred from its active launcher. |
-| Actual UI paired/resume/rollout, unknown ACK/recovery, independent reader/privacy and cold reopen | First cohort passed as attributed above; corrected source confirmation **PENDING**. Rust/mock evidence remains separately classified. |
-| Application-owned PNG/semantic captures and all-image visual inspection | Root viewed all18 first-cohort PNGs and found the Saved placeholder defect. Corrected rerender/all-image review **PENDING**. |
-| Bounded frontend/native errors, process exits/timeouts/truncation | First cohort: intentional1/0 frontend errors, native stderr0/0, both exit0/no timeout/overflow. Corrected cohort **PENDING**. |
+| Actual hidden/unfocused app-owned WebView journey, initial and fresh-process restart | Corrected cohort passed198/69 at381abe50; exact source binding above. |
+| Actual UI paired/resume/rollout, unknown ACK/recovery, independent reader/privacy and cold reopen | Both cohorts passed as attributed above. Rust/mock evidence remains separately classified. |
+| Application-owned PNG/semantic captures and all-image visual inspection | All36 images across both cohorts inspected; first defect retained and corrected rerender verified within captured areas. |
+| Bounded frontend/native errors, process exits/timeouts/truncation | Each cohort: intentional1/0 frontend errors, native stderr0/0, both exit0/no timeout/overflow. |
 | Final native normal/development suites, strict lint and format | **PENDING** final candidate results; filtered11/8 results are not whole native suites. |
 | Final frontend/format and normal frontend/native production restoration | **PENDING** final source/artifact binding; earlier verifier success remains attributed above. |
 | Shared compatibility, Android Rust-host/dependency checks, any unavailable checks | **PENDING** final coordinator packet. No SDK/JVM/ABI/APK/device execution is claimed. |
 | Final source closure, artifact manifest/counts/hashes and PR status | **PENDING**. Observed environment is recorded above; no final aggregate evidence seal or PR-ready declaration is made. |
 
 The fixed launcher uses the existing development harness and native-only
-synthetic fixture surface. Its first completed run is attributed above; the
-corrected source rerun remains pending. The user forbids desktop control:
+synthetic fixture surface. Both completed runs are attributed above. The user forbids desktop control:
 evidence must remain application-owned
 CapturePreview/semantic output, with no desktop screenshots, input injection,
 window activation or unrelated application automation.
@@ -201,5 +243,5 @@ Scripted reports preserve real outcomes and do not establish prose quality,
 human enjoyment, fair model superiority, offline/whole-RAM/performance behavior
 or phone parity. No downloaded assets, provider selection escape, canonical
 rewrite, competing persistence or automatic inference on inspection is authorized.
-The next gate is the pending actual UI/final compatibility packet, followed by
+The next gate is the pending final native/compatibility/build packet, followed by
 coordinator review of this document's final source-bound additions.

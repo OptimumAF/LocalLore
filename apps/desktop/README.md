@@ -274,7 +274,7 @@ existing resource port. [Approved-model paired and rollout qualification](../../
 now records 96 outcomes, 153 actual role calls, cold reads and zero-reservation
 completed-native resume using the desktop manager. Failures and 28 narration
 fallbacks remain visible; no human quality acceptance. Native3 CLI and
-full-comparison desktop execution remain unqualified; the shared full native
+full-comparison native-model desktop execution remain unqualified; the shared full native
 comparison Rust producer is separately qualified.
 Accepted [PR202 scripted selected2](https://github.com/OptimumAF/LocalLore/pull/202),
 [PR204 native selected2](https://github.com/OptimumAF/LocalLore/pull/204) and
@@ -318,8 +318,26 @@ host/graph checks and normal-build restoration passed at the same source; exact
 counts, commands and retained failures are in the linked record. SDK shutdown error
 1412 remains observed and tracked separately in [D09 #31](https://github.com/OptimumAF/LocalLore/issues/31);
 this is not a clean-SDK-exit, RAM, performance, human-quality or phone claim.
-Native-model UI execution, real OS dialogs and paused/incomplete UI resume
-remain unqualified.
+Native-model UI execution, real OS dialogs and selected-case paused/incomplete
+UI resume remain unqualified.
+
+Story Lab also provides **Run full comparison** for the fixed scripted fake
+inference lane. Choose paired snapshots or separate-arm rollout, then1..4 new
+scenes per chunk. Resume is explicit; lookup, status and saved-run opening never
+start inference. Saved output is durable; window capabilities and progress
+presentation are in memory. **Inspect report** asks for separate native read
+consent and opens the existing observer-filtered reader. Close that reader before
+resuming its run. These comparisons use isolated shared Rust histories and do not
+modify live stories or establish model quality.
+
+The [full scripted desktop qualification](../../docs/desktop/D07_FULL_COMPARISON_DESKTOP_QUALIFICATION_2026-10-26.md)
+separates service tests, frontend doubles and actual hidden WebView/native IPC
+execution. From `apps/desktop`, run `node comparison-run-harness.mjs` with existing
+absolute `LOCALLORE_D07_FULL_COMPARISON_ARTIFACT_ROOT` and
+`LOCALLORE_D07_FULL_COMPARISON_TARGET_DIR` directories; the target must be outside
+the checkout. The closed synthetic initial/restart journey uses no CLI arguments,
+desktop control, model downloads or model execution. Exact commands, versions,
+retained failures and unavailable gates are in the qualification record.
 
 Run these developer checks from the repository root; the qualification record
 identifies the executed source, target directories and results:

@@ -88,6 +88,8 @@ for (const marker of [
     "actual-native-curated-catalog",
     "lose-curated-start-ack",
     "harness_evaluation_case",
+    "full-comparison-inventory",
+    "captured-retired-native-owner-positively-drained",
     "harness_comparison_reader_case",
     "harness_selected_case",
     "actual-comparison-reader-native-open",

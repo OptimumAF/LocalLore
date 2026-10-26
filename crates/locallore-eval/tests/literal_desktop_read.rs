@@ -176,7 +176,7 @@ fn actual_receipt_capture_outputs_and_observer_query_edges_are_bound_to_store() 
     let corpus = frozen_suite().unwrap();
     for (name, arm) in [("left", v2::Arm::Left), ("right", v2::Arm::Right)] {
         let cp = value(&dir.join(name).join("attempt-01.json"));
-        let store = Store::open_read_only(&dir.join(name).join("synthetic.sqlite")).unwrap();
+        let mut store = Store::open_read_only(&dir.join(name).join("synthetic.sqlite")).unwrap();
         let full = store.resume(&corpus.seed().scope).unwrap().engine;
         let receipt = serde_json::to_value(
             store

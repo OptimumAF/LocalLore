@@ -277,8 +277,8 @@ def _validate(proof, helper_raw, sidecars, expected):
     _need(expected["controller_uid"] != expected["product_uid"], "uid")
     _need(type(proof) is dict and proof.get("case") == case and proof.get("run_id") == expected["run_id"]
           and proof.get("status") == "passed", "controller")
-    _equal(proof["version"], 1)
-    _equal(proof["scope"], "locallore_process_controller_v1")
+    version = _integer(proof["version"], 1, 2)
+    _equal(proof["scope"], "locallore_process_controller_v" + str(version))
     _equal(proof["process_deaths"], 2)
     _equal(proof["last_helper_exit"], 0)
     a, root, target, child = _fixture(proof, expected, retained)
@@ -304,7 +304,10 @@ def _validate(proof, helper_raw, sidecars, expected):
     terminals = proof["terminal_observations"]
     _need(type(terminals) is list and len(terminals) == 2, "terminals")
     for index, row in enumerate(terminals):
-        _keys(row, ("pid", "start", "task", "saved_sequence", "commands_sequence", "saved_game", "commands_game"))
+        terminal_keys = {"pid", "start", "task", "saved_sequence", "commands_sequence", "saved_game", "commands_game"}
+        if version == 2:
+            terminal_keys.update(("saved_creation", "commands_creation"))
+        _keys(row, terminal_keys)
         for key, value in (("pid", product_pids[index]), ("start", starts[index]), ("task", tasks[index])):
             _equal(row[key], value)
         for key in ("saved_sequence", "commands_sequence"):
@@ -313,6 +316,13 @@ def _validate(proof, helper_raw, sidecars, expected):
         game = dict(zip(GAME, counts if index == 0 else (0,) * 6))
         _equal(row["saved_game"], game)
         _equal(row["commands_game"], game)
+        if version == 2:
+            creation = {"create": 0, "create_named": 2 if index == 0 else 0}
+            for key in ("saved_creation", "commands_creation"):
+                _keys(row[key], ("create", "create_named"))
+                for count in row[key].values():
+                    _integer(count, 0, 4096)
+                _equal(row[key], creation)
     _keys(helper_raw, MODES)
     helpers = {}
     helper_pids = []

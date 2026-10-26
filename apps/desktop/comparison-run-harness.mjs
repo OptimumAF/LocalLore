@@ -285,7 +285,7 @@ function checkedReport(report, stage) {
     assert.equal(report.stage, stage, "ReportStage");
     assert(
         Array.isArray(report.checks) &&
-            report.checks.length > 0 &&
+            report.checks.length >= (stage === "initial" ? 100 : 40) &&
             report.checks.length <= 8192,
         "ReportChecks",
     );
@@ -331,6 +331,17 @@ function checkedReport(report, stage) {
         Array.isArray(report.inventoryProofs) &&
             report.inventoryProofs.length <= 32,
         "InventoryProofs",
+    );
+    assert.deepEqual(
+        report.inventoryProofs.map((proof) => proof.name).sort(),
+        (stage === "initial"
+            ? [
+                  "completed-resume-entire-output-byte-read-only",
+                  "actual-inspection-does-not-change-durable-comparison",
+              ]
+            : ["cold-open-read-close-no-execution-or-file-mutation"]
+        ).sort(),
+        "RequiredStageInventoryProofs",
     );
     for (const proof of report.inventoryProofs) {
         assert(

@@ -1172,6 +1172,15 @@ summary {
     gap: 0.35rem;
     max-width: 100%;
 }
+.comparison-run .comparison-saved-run {
+    flex: 1 1 20rem;
+    min-width: 0;
+}
+.comparison-run .comparison-saved-run select {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+}
 .comparison-reader .comparison-table {
     max-height: 24rem;
     overflow: auto;

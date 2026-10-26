@@ -263,6 +263,26 @@ export async function comparisonRunJourneys({
         const pageOverflow =
             document.documentElement.scrollWidth > innerWidth + 2;
         const panelOverflow = panel!.scrollWidth > panel!.clientWidth + 2;
+        const savedSelect = panel!.querySelector<HTMLSelectElement>(
+            ".comparison-saved-run select",
+        );
+        if (savedSelect && savedSelect.value === "") {
+            const style = getComputedStyle(savedSelect);
+            const context = document.createElement("canvas").getContext("2d");
+            check(context, `${label}-placeholder-font-measurement`);
+            context!.font = style.font;
+            const textWidth = context!.measureText(
+                savedSelect.selectedOptions[0]?.text ?? "",
+            ).width;
+            check(
+                savedSelect.clientWidth >=
+                    textWidth +
+                        parseFloat(style.paddingLeft) +
+                        parseFloat(style.paddingRight) +
+                        24,
+                `${label}-saved-placeholder-fits-control`,
+            );
+        }
         const evidence = reader.evidence;
         const snapshot = {
             synthetic: true,
@@ -362,6 +382,11 @@ export async function comparisonRunJourneys({
                             node instanceof HTMLSelectElement
                                 ? node.value
                                 : null,
+                        selectedText:
+                            node instanceof HTMLSelectElement
+                                ? (node.selectedOptions[0]?.text ?? null)
+                                : null,
+                        width: node.getBoundingClientRect().width,
                     })),
                 width: innerWidth,
                 userAgent: navigator.userAgent,

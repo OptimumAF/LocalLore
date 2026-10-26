@@ -254,7 +254,7 @@ export function ComparisonRunView({
                 <button disabled={!idle} onClick={() => void c.loadCatalog()}>
                     Refresh saved metadata
                 </button>
-                <label>
+                <label className="comparison-saved-run">
                     Saved run{" "}
                     <select
                         aria-label="Saved full comparison"

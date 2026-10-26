@@ -60,6 +60,7 @@ declare global {
             comparisonReading?: boolean;
             selectedEvaluating?: boolean;
             fullComparing?: boolean;
+            nativeFullComparing?: boolean;
             nativeComparisonDenied?: boolean;
             archiving?: boolean;
             timelining?: boolean;
@@ -734,6 +735,18 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
             invoke,
             dispose,
             config: window.__LOCALLORE_TEST__,
+        });
+    } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.nativeFullComparing) {
+        const { comparisonRunNativeJourneys } =
+            await import("./comparison-run-native-journeys");
+        await comparisonRunNativeJourneys({
+            controller,
+            comparison,
+            full: nativeComparisonRun,
+            errors,
+            invoke,
+            dispose,
+            config: { stage: window.__LOCALLORE_TEST__.stage },
         });
     } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.fullComparing) {
         const { comparisonRunJourneys } =

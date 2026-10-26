@@ -72,6 +72,7 @@
                         "allow-evaluation-comparison-native",
                         "allow-evaluation-selected",
                         "allow-harness-selected-case",
+                        "allow-harness-native-comparison-case",
                         "allow-harness-comparison-reader-case",
                         "allow-evaluation-start",
                         "allow-evaluation-open",

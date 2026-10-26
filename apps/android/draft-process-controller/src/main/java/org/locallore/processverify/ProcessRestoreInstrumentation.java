@@ -1,0 +1,891 @@
+/* Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0 */
+package org.locallore.processverify;
+
+import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.AccessibilityServiceInfo;
+import android.app.Activity;
+import android.app.Instrumentation;
+import android.app.UiAutomation;
+import android.content.ComponentName;
+import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.InstrumentationInfo;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.Signature;
+import android.os.Bundle;
+import android.os.ParcelFileDescriptor;
+import android.os.Process;
+import android.os.SystemClock;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityWindowInfo;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.StandardOpenOption;
+import java.security.MessageDigest;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * A self-targeted, framework-only external oracle. It never instruments the
+ * product, substitutes a factory or writes its files. Result observations and
+ * the fixture are PRIVATE evidence: callers must not publish raw identities.
+ */
+public final class ProcessRestoreInstrumentation extends Instrumentation {
+    private static final String SELF = "org.locallore.app.draftprocesscontroller";
+    private static final String PRODUCT = "org.locallore.app.draftprocessverify";
+    private static final String ACTIVITY = "org.locallore.app.MainActivity";
+    private static final String CASE = "restore_non_default";
+    private static final String RUN_EXTRA = "locallore.process.run_id";
+    private static final String PROBE_SCOPE = "locallore_process_verify_v1";
+    private static final String FIXTURE_SCOPE = "locallore_process_fixture_v1";
+    private static final String RESULT_SCOPE = "locallore_process_controller_v1";
+    private static final String DIALOGUE = "SYNTHETIC process-restoration dialogue: Mira, café and lanterns 🌊.\n"
+            + "Still unsent until my explicit Send.";
+    private static final long CASE_MS = 120_000;
+    private static final int PROBE_CAP = 4096;
+    private static final int SHELL_CAP = 131_072;
+    private static final int NODE_CAP = 1024;
+    private static final int WINDOW_CAP = 32;
+    private static final String EXIT = "LL_PROCESS_EXIT_V1=";
+    private static final String PENDING = "LL_PROCESS_PROBE_PENDING_V1\n";
+    private static final Pattern ID = Pattern.compile("[A-Za-z0-9_-]{1,64}");
+    private static final Pattern HEX16 = Pattern.compile("[0-9a-f]{16}");
+    private static final Pattern HEX64 = Pattern.compile("[0-9a-f]{64}");
+    private static final String[] OPS = {"workspace", "branches", "resume", "create", "open", "play_snapshot",
+            "free_text", "submit", "prepare", "commit", "cancel", "other"};
+    // The producer explicitly ignores ONLY these known non-gameplay wire ops:
+    // close, capabilities, model_status. Every arbitrary unknown op is "other".
+    private static final String[] GAME = {"free_text", "submit", "prepare", "commit", "cancel", "other"};
+
+    private enum Stage { ARGUMENTS, IDENTITY, FIXTURE, LAUNCH, CATALOG, EDIT, FIRST_SAVE,
+        FIRST_KILL, FIRST_RESTORE, NATIVE_REREAD, SEND, SECOND_SAVE, SECOND_KILL,
+        SECOND_RESTORE, CANONICAL_REREAD, DONE }
+    private enum Reason { NONE, ARGUMENTS, IDENTITY, SIGNATURE, APK, FIXTURE, CATALOG,
+        UI, DEADLINE, SHELL_IO, SHELL_TIMEOUT, SHELL_REFUSED, PROBE, SAVED_ACK,
+        TASK_NOT_STOPPED, PROCESS, SCOPE, DRAFT, AUTOMATIC_OPERATION, CANONICAL,
+        PROOF_SIZE, INTERNAL }
+    private static final class Refused extends RuntimeException {
+        final Reason reason;
+        Refused(Reason reason) { super(reason.name()); this.reason = reason; }
+    }
+    private interface Condition { boolean ready() throws Exception; }
+
+    private Bundle arguments;
+    private UiAutomation automation;
+    private long deadline;
+    private String runId;
+    private String productSha;
+    private boolean reuse;
+    private int productUid;
+    private int controllerUid;
+    private String signatureSha;
+    private volatile Stage stage = Stage.ARGUMENTS;
+    private final AtomicBoolean finished = new AtomicBoolean();
+    private int checks;
+    private int deaths;
+    private Fixture fixture;
+    private final JSONArray observations = new JSONArray();
+
+    @Override public void onCreate(Bundle args) {
+        super.onCreate(args);
+        arguments = args == null ? new Bundle() : new Bundle(args);
+        start();
+    }
+
+    @Override public void onStart() {
+        deadline = SystemClock.uptimeMillis() + CASE_MS;
+        ScheduledExecutorService watchdog = Executors.newSingleThreadScheduledExecutor(task -> {
+            Thread thread = new Thread(task, "process-proof-deadline"); thread.setDaemon(true); return thread;
+        });
+        watchdog.schedule(() -> finishResult(false, Reason.DEADLINE), CASE_MS, TimeUnit.MILLISECONDS);
+        Reason reason = Reason.NONE;
+        boolean passed = false;
+        try {
+            parseArguments();
+            stage = Stage.IDENTITY;
+            guardInstallation();
+            automation = getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+            need(automation != null, Reason.IDENTITY);
+            AccessibilityServiceInfo info = automation.getServiceInfo();
+            need(info != null, Reason.IDENTITY);
+            info.flags |= AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+                    | AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
+            automation.setServiceInfo(info);
+            stage = Stage.FIXTURE;
+            File stored = fixtureFile();
+            if (reuse) fixture = readFixture(stored);
+            else need(!stored.exists() && !Files.isSymbolicLink(stored.toPath()), Reason.FIXTURE);
+            stage = Stage.LAUNCH;
+            launch();
+            Probe initial = awaitCreated(null, false);
+            observe(initial);
+            readyProduct();
+            stage = Stage.CATALOG;
+            if (reuse) verifyFixtureCatalog();
+            else createFixture(stored);
+            checked(fixture != null && fixture.a.story.compareTo(fixture.b.story) < 0, Reason.FIXTURE);
+            Workspace chosen = select(fixture.b.story);
+            checked(chosen.same(fixture.b, 0), Reason.CANONICAL);
+            stage = Stage.EDIT;
+            click("play-kind-dialogue");
+            setDraft();
+            verifyDraft();
+            Probe unsubmitted = latest(initial);
+            checked(unsubmitted.op("create") == (reuse ? 0 : 2), Reason.CATALOG);
+            noGameplay(unsubmitted);
+            stage = Stage.FIRST_SAVE;
+            Probe saved = backgroundAndSave(initial, fixture.b);
+            stage = Stage.FIRST_KILL;
+            killSaved(saved);
+            stage = Stage.FIRST_RESTORE;
+            launch();
+            Probe first = awaitCreated(saved, true);
+            observe(first);
+            readyProduct();
+            checked(workspace().same(fixture.b, 0), Reason.SCOPE);
+            verifyDraft();
+            Probe firstUnsubmitted = latest(first);
+            checked(firstUnsubmitted.op("create") == 0, Reason.AUTOMATIC_OPERATION);
+            noGameplay(firstUnsubmitted);
+            stage = Stage.NATIVE_REREAD;
+            Probe beforeReselect = latest(first);
+            checked(select(fixture.b.story).same(fixture.b, 0), Reason.CANONICAL);
+            Probe reread = awaitReadIncrease(first, beforeReselect);
+            noGameplay(reread);
+            verifyDraft();
+            stage = Stage.SEND;
+            click("play-send"); // The sole Send action in the entire two-death case.
+            AccessibilityNodeInfo acceptedDetail = tag("workspace-detail"); acceptedDetail.recycle();
+            waitUntil(() -> {
+                Workspace w = maybeWorkspace();
+                return w != null && w.same(fixture.b, 1);
+            }, 10_000, Reason.CANONICAL);
+            verifyDraft();
+            Probe sent = latest(first);
+            checked(sent.op("free_text") == 1 && sent.op("submit") == 0
+                    && sent.op("prepare") == 1 && sent.op("commit") == 1
+                    && sent.op("cancel") == 0 && sent.op("other") == 0,
+                    Reason.AUTOMATIC_OPERATION);
+            stage = Stage.SECOND_SAVE;
+            Probe savedAgain = backgroundAndSave(first, fixture.b);
+            stage = Stage.SECOND_KILL;
+            killSaved(savedAgain);
+            stage = Stage.SECOND_RESTORE;
+            launch();
+            Probe second = awaitCreated(savedAgain, true);
+            observe(second);
+            readyProduct();
+            checked(workspace().same(fixture.b, 1), Reason.SCOPE);
+            verifyDraft();
+            Probe secondUnsubmitted = latest(second);
+            checked(secondUnsubmitted.op("create") == 0, Reason.AUTOMATIC_OPERATION);
+            noGameplay(secondUnsubmitted);
+            stage = Stage.CANONICAL_REREAD;
+            List<String> ids = catalog();
+            checked(ids.equals(fixture.ids()), Reason.CATALOG);
+            verifyMenuHead(fixture.a.story, 0);
+            verifyMenuHead(fixture.b.story, 1);
+            // Reading A's fresh native catalog head does not navigate away and
+            // intentionally discard B's editor under the product's scope policy.
+            checked(select(fixture.b.story).same(fixture.b, 1), Reason.CANONICAL);
+            verifyDraft();
+            noGameplay(latest(second));
+            guardInstallation();
+            checked(deaths == 2, Reason.PROCESS);
+            stage = Stage.DONE;
+            passed = true;
+        } catch (Refused failure) {
+            reason = failure.reason;
+        } catch (Throwable failure) {
+            // Never expose Throwable text, classes, causes, stack traces or UI dumps.
+            reason = Reason.INTERNAL;
+        }
+        finishResult(passed, reason);
+        watchdog.shutdownNow();
+    }
+
+    private void finishResult(boolean passed, Reason reason) {
+        if (passed && SystemClock.uptimeMillis() >= deadline) { passed = false; reason = Reason.DEADLINE; }
+        if (!finished.compareAndSet(false, true)) return;
+        Bundle result = new Bundle();
+        try {
+            String json = proof(passed, reason).toString();
+            need(json.getBytes(StandardCharsets.UTF_8).length <= PROBE_CAP, Reason.PROOF_SIZE);
+            result.putString("proof", json);
+        } catch (Throwable failure) {
+            passed = false;
+            result.putString("proof", "{\"version\":1,\"scope\":\"" + RESULT_SCOPE
+                    + "\",\"case\":\"" + CASE + "\",\"run_id\":null,\"status\":\"failed\","
+                    + "\"stage\":\"" + stage.name() + "\",\"reason\":\"PROOF_SIZE\",\"checks\":0,\"process_deaths\":0}");
+        }
+        finish(passed ? Activity.RESULT_OK : Activity.RESULT_CANCELED, result);
+    }
+
+    private void parseArguments() throws Exception {
+        need(arguments.keySet().equals(new HashSet<>(Arrays.asList("case", "run_id", "product_sha256", "cohort"))), Reason.ARGUMENTS);
+        Object c = arguments.get("case"), r = arguments.get("run_id"), h = arguments.get("product_sha256"), group = arguments.get("cohort");
+        need(CASE.equals(c) && r instanceof String && HEX16.matcher((String) r).matches()
+                && h instanceof String && HEX64.matcher((String) h).matches()
+                && ("create".equals(group) || "reuse".equals(group)), Reason.ARGUMENTS);
+        runId = (String) r; productSha = (String) h; reuse = "reuse".equals(group);
+        checked(DIALOGUE.getBytes(StandardCharsets.UTF_8).length < 2048, Reason.ARGUMENTS);
+    }
+
+    @SuppressWarnings("deprecation")
+    private void guardInstallation() throws Exception {
+        need(SELF.equals(getContext().getPackageName()) && SELF.equals(getTargetContext().getPackageName()), Reason.IDENTITY);
+        controllerUid = Process.myUid();
+        need(controllerUid >= 10_000 && controllerUid < 100_000, Reason.IDENTITY);
+        PackageManager pm = getContext().getPackageManager();
+        InstrumentationInfo instrument = pm.getInstrumentationInfo(
+                new ComponentName(SELF, ProcessRestoreInstrumentation.class.getName()), 0);
+        need(SELF.equals(instrument.targetPackage) && SELF.equals(instrument.packageName), Reason.IDENTITY);
+        ApplicationInfo own = pm.getApplicationInfo(SELF, 0);
+        ApplicationInfo product = pm.getApplicationInfo(PRODUCT, 0);
+        need(own.uid == controllerUid && product.uid != controllerUid && product.uid >= 10_000
+                && product.uid < 100_000 && (own.flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0
+                && (product.flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0,
+                Reason.IDENTITY);
+        if (productUid != 0) need(productUid == product.uid, Reason.IDENTITY);
+        productUid = product.uid;
+        need(pm.checkSignatures(SELF, PRODUCT) == PackageManager.SIGNATURE_MATCH, Reason.SIGNATURE);
+        PackageInfo ownInfo = pm.getPackageInfo(SELF, PackageManager.GET_SIGNATURES);
+        PackageInfo productInfo = pm.getPackageInfo(PRODUCT, PackageManager.GET_SIGNATURES);
+        Signature[] ownSignatures = ownInfo.signatures, productSignatures = productInfo.signatures;
+        need(ownSignatures != null && ownSignatures.length == 1 && productSignatures != null
+                && productSignatures.length == 1 && ownSignatures[0].equals(productSignatures[0]), Reason.SIGNATURE);
+        String observedSignature = digest(ownSignatures[0].toByteArray());
+        if (signatureSha != null) need(signatureSha.equals(observedSignature), Reason.SIGNATURE);
+        signatureSha = observedSignature;
+        need(product.splitSourceDirs == null || product.splitSourceDirs.length == 0, Reason.APK);
+        File apk = new File(product.sourceDir).getCanonicalFile();
+        need(apk.isFile() && apk.length() > 0 && apk.length() <= 128L * 1024 * 1024, Reason.APK);
+        long size = apk.length(), modified = apk.lastModified();
+        MessageDigest sha = MessageDigest.getInstance("SHA-256");
+        try (FileInputStream input = new FileInputStream(apk)) {
+            byte[] block = new byte[1024 * 1024]; long left = size;
+            while (left > 0) {
+                timeLeft(); int n = input.read(block, 0, (int) Math.min(left, block.length));
+                need(n > 0, Reason.APK); sha.update(block, 0, n); left -= n;
+            }
+            need(input.read() == -1, Reason.APK);
+        }
+        checked(size == apk.length() && modified == apk.lastModified() && hex(sha.digest()).equals(productSha), Reason.APK);
+    }
+
+    private void launch() {
+        timeLeft();
+        Intent intent = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                .setComponent(new ComponentName(PRODUCT, ACTIVITY)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .putExtra(RUN_EXTRA, runId);
+        getContext().startActivity(intent);
+    }
+
+    private void readyProduct() throws Exception {
+        waitUntil(() -> findAndRecycle("story-list"), 8_000, Reason.UI);
+        AccessibilityNodeInfo resetTag = tag("reset-demo"); resetTag.recycle();
+        waitUntil(() -> {
+            AccessibilityNodeInfo reset = find("reset-demo");
+            if (reset == null) return false;
+            try { return reset.isEnabled(); } finally { reset.recycle(); }
+        }, 10_000, Reason.UI);
+        AccessibilityNodeInfo provider = tag("inference-provider");
+        try { checked(nodeText(provider).equals("Local Rust engine · fake inference"), Reason.UI); }
+        finally { provider.recycle(); }
+    }
+
+    private void createFixture(File file) throws Exception {
+        need(findAndRecycle("saved-library") == false && maybeWorkspace() == null, Reason.FIXTURE);
+        click("reset-demo");
+        Workspace first = awaitWorkspace(null, 0);
+        checked(catalog().equals(Collections.singletonList(first.story)), Reason.CATALOG);
+        checked(select(first.story).same(first, 0), Reason.CANONICAL);
+        click("reset-demo");
+        Workspace second = awaitWorkspace(first.story, 0);
+        List<String> ids = catalog();
+        checked(ids.size() == 2 && ids.contains(first.story) && ids.contains(second.story), Reason.CATALOG);
+        Workspace a = select(ids.get(0)), b = select(ids.get(1));
+        checked(a.head == 0 && b.head == 0 && !a.story.equals(b.story), Reason.CANONICAL);
+        fixture = new Fixture(a, b, runId, productSha, controllerUid, productUid, signatureSha);
+        byte[] bytes = fixture.json().toString().getBytes(StandardCharsets.UTF_8);
+        need(bytes.length <= PROBE_CAP, Reason.FIXTURE);
+        try (FileChannel channel = FileChannel.open(file.toPath(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+            ByteBuffer buffer = ByteBuffer.wrap(bytes);
+            while (buffer.hasRemaining()) channel.write(buffer);
+            channel.force(true);
+        }
+    }
+
+    private void verifyFixtureCatalog() throws Exception {
+        checked(catalog().equals(fixture.ids()), Reason.FIXTURE);
+        checked(select(fixture.a.story).same(fixture.a, 0), Reason.FIXTURE);
+        checked(select(fixture.b.story).same(fixture.b, 0), Reason.FIXTURE);
+    }
+
+    private File fixtureFile() throws Exception {
+        File anchor = getContext().getNoBackupFilesDir().getCanonicalFile();
+        File directory = new File(anchor, "process-controller-v1");
+        if (!directory.exists()) Files.createDirectory(directory.toPath());
+        need(!Files.isSymbolicLink(directory.toPath()) && Files.isDirectory(directory.toPath(), LinkOption.NOFOLLOW_LINKS)
+                && directory.getCanonicalFile().getParentFile().equals(anchor), Reason.FIXTURE);
+        return new File(directory, "fixture-v1.json");
+    }
+
+    private Fixture readFixture(File file) throws Exception {
+        need(!Files.isSymbolicLink(file.toPath()) && Files.isRegularFile(file.toPath(), LinkOption.NOFOLLOW_LINKS)
+                && file.length() > 0 && file.length() <= PROBE_CAP, Reason.FIXTURE);
+        JSONObject value = strictObject(readFile(file, PROBE_CAP));
+        exact(value, "version", "scope", "case", "controller_uid", "product_uid", "signature_sha256",
+                "origin_run_id", "origin_product_sha256", "stories");
+        need(number(value, "version", 1, 1) == 1 && FIXTURE_SCOPE.equals(value.get("scope"))
+                && CASE.equals(value.get("case")) && number(value, "controller_uid", 10_000, 99_999) == controllerUid
+                && number(value, "product_uid", 10_000, 99_999) == productUid
+                && signatureSha.equals(value.get("signature_sha256")), Reason.FIXTURE);
+        String originRun = string(value, "origin_run_id"), originApk = string(value, "origin_product_sha256");
+        need(HEX16.matcher(originRun).matches() && HEX64.matcher(originApk).matches(), Reason.FIXTURE);
+        JSONArray stories = value.getJSONArray("stories"); need(stories.length() == 2, Reason.FIXTURE);
+        Workspace a = storedWorkspace(stories.getJSONObject(0)), b = storedWorkspace(stories.getJSONObject(1));
+        need(a.story.compareTo(b.story) < 0 && a.head == 0 && b.head == 0, Reason.FIXTURE);
+        return new Fixture(a, b, originRun, originApk, controllerUid, productUid, signatureSha);
+    }
+
+    private Workspace storedWorkspace(JSONObject value) throws Exception {
+        exact(value, "story", "branch", "head");
+        String story = string(value, "story"), branch = string(value, "branch");
+        need(ID.matcher(story).matches() && ID.matcher(branch).matches(), Reason.FIXTURE);
+        return new Workspace(story, branch, number(value, "head", 0, 0));
+    }
+
+    private List<String> catalog() throws Exception {
+        List<String> ids = menuIds();
+        if (ids.isEmpty()) { click("saved-library"); waitUntil(() -> !menuIds().isEmpty(), 5_000, Reason.CATALOG); ids = menuIds(); }
+        need(ids.size() >= 1 && ids.size() <= 2 && new HashSet<>(ids).size() == ids.size(), Reason.CATALOG);
+        Collections.sort(ids); return ids;
+    }
+
+    private List<String> menuIds() throws Exception {
+        List<AccessibilityNodeInfo> nodes = productNodes();
+        List<String> ids = new ArrayList<>();
+        try {
+            for (AccessibilityNodeInfo node : nodes) {
+                String id = node.getViewIdResourceName();
+                if (id != null && id.startsWith("saved-story-") && node.isVisibleToUser()) {
+                    String story = id.substring("saved-story-".length()); need(ID.matcher(story).matches(), Reason.CATALOG);
+                    ids.add(story);
+                }
+            }
+        } finally { recycle(nodes); }
+        return ids;
+    }
+
+    private Workspace select(String story) throws Exception {
+        need(ID.matcher(story).matches(), Reason.CATALOG);
+        if (!findAndRecycle("saved-story-" + story)) catalog();
+        click("saved-story-" + story);
+        waitUntil(() -> { Workspace w = maybeWorkspace(); return w != null && w.story.equals(story); }, 8_000, Reason.CATALOG);
+        readyProduct();
+        return workspace();
+    }
+
+    private void verifyMenuHead(String story, long head) throws Exception {
+        AccessibilityNodeInfo node = tag("saved-story-" + story);
+        try { checked(nodeText(node).endsWith(" · " + story + " · revision " + head), Reason.CANONICAL); }
+        finally { node.recycle(); }
+    }
+
+    private Workspace awaitWorkspace(String different, long head) throws Exception {
+        waitUntil(() -> { Workspace w = maybeWorkspace(); return w != null && w.head == head && (different == null || !different.equals(w.story)); }, 8_000, Reason.CANONICAL);
+        return workspace();
+    }
+
+    private Workspace workspace() throws Exception {
+        AccessibilityNodeInfo node = tag("workspace-detail");
+        try { return decodeWorkspace(nodeText(node)); } finally { node.recycle(); }
+    }
+
+    private Workspace maybeWorkspace() throws Exception {
+        AccessibilityNodeInfo node = find("workspace-detail");
+        if (node == null) return null;
+        try { return decodeWorkspace(nodeText(node)); } finally { node.recycle(); }
+    }
+
+    private Workspace decodeWorkspace(String value) {
+        Matcher match = Pattern.compile("^Rules · [^\\r\\n]* · ([A-Za-z0-9_-]{1,64}) / ([A-Za-z0-9_-]{1,64}) · head ([0-9]{1,10})$").matcher(value);
+        need(match.matches(), Reason.CANONICAL);
+        long head;
+        try { head = Long.parseLong(match.group(3)); } catch (NumberFormatException failure) { throw new Refused(Reason.CANONICAL); }
+        need(head <= 1, Reason.CANONICAL);
+        return new Workspace(match.group(1), match.group(2), head);
+    }
+
+    private void setDraft() throws Exception {
+        AccessibilityNodeInfo node = tag("play-input");
+        try {
+            need(node.isEditable() && node.isEnabled(), Reason.DRAFT);
+            Bundle text = new Bundle(); text.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, DIALOGUE);
+            checked(node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, text), Reason.DRAFT);
+        } finally { node.recycle(); }
+        waitUntil(this::draftMatches, 5_000, Reason.DRAFT);
+    }
+
+    private boolean draftMatches() throws Exception {
+        AccessibilityNodeInfo input = find("play-input"), dialogue = find("play-kind-dialogue"), action = find("play-kind-action");
+        try { return input != null && dialogue != null && action != null && DIALOGUE.contentEquals(nodeText(input))
+                && selected(dialogue) && !selected(action); }
+        finally { if (input != null) input.recycle(); if (dialogue != null) dialogue.recycle(); if (action != null) action.recycle(); }
+    }
+
+    private void verifyDraft() throws Exception {
+        // Bring the fixed editor into view without retaining a node across scrolling.
+        AccessibilityNodeInfo input = tag("play-input"); input.recycle();
+        waitUntil(this::draftMatches, 5_000, Reason.DRAFT);
+        checked(true, Reason.DRAFT);
+    }
+
+    private static boolean selected(AccessibilityNodeInfo node) {
+        return node.isSelected() || (node.isCheckable() && node.isChecked());
+    }
+
+    private Probe awaitCreated(Probe old, boolean restored) throws Exception {
+        final Probe[] found = new Probe[1];
+        waitUntil(() -> {
+            Probe probe = readProbe("created.json");
+            if (probe == null || probe.factory != 1 || !productAlive(probe.pid)) return false;
+            if (old != null && (probe.sameProcess(old) || probe.task != old.task)) return false;
+            if (restored && (!probe.restored || !probe.hintPresent || !probe.hint.equals(hint(fixture.b)))) return false;
+            if (!restored && !reuse && probe.restored) return false;
+            found[0] = probe; return true;
+        }, 10_000, Reason.PROCESS);
+        checked(found[0] != null, Reason.PROCESS); return found[0];
+    }
+
+    private Probe latest(Probe identity) throws Exception {
+        final Probe[] found = new Probe[1];
+        waitUntil(() -> {
+            Probe current = readProbe("commands.json"), created = readProbe("created.json");
+            if (created == null || !created.sameIdentity(identity) || created.factory != 1
+                    || current == null || !current.sameIdentity(identity) || current.factory != 1) return false;
+            found[0] = current.sequence < created.sequence ? created : current;
+            return true;
+        }, 3_000, Reason.PROBE);
+        return found[0];
+    }
+
+    private void noGameplay(Probe probe) {
+        for (String op : GAME) need(probe.op(op) == 0, Reason.AUTOMATIC_OPERATION);
+        checked(true, Reason.AUTOMATIC_OPERATION);
+    }
+
+    private Probe awaitReadIncrease(Probe identity, Probe before) throws Exception {
+        final Probe[] current = new Probe[1];
+        waitUntil(() -> { Probe value = latest(identity); if (value.op("resume") > before.op("resume")
+                && value.op("play_snapshot") > before.op("play_snapshot")) { current[0] = value; return true; } return false; }, 5_000, Reason.PROBE);
+        checked(current[0] != null, Reason.PROBE); return current[0];
+    }
+
+    private Probe backgroundAndSave(Probe identity, Workspace expected) throws Exception {
+        Probe before = latest(identity);
+        Probe previous = readProbe("saved.json");
+        long sequence = Math.max(before.sequence, previous != null && previous.sameIdentity(identity) ? previous.sequence : 0);
+        need(automation.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME), Reason.UI);
+        final Probe[] saved = new Probe[1];
+        waitUntil(() -> {
+            Probe p = readProbe("saved.json");
+            if (p == null || !p.sameIdentity(identity) || p.sequence <= sequence || !p.hintPresent || !p.hint.equals(hint(expected)) || p.factory != 1) return false;
+            if (!taskStopped(identity.task)) return false;
+            saved[0] = p; return true;
+        }, 10_000, Reason.SAVED_ACK);
+        checked(saved[0] != null, Reason.SAVED_ACK); return saved[0];
+    }
+
+    private void killSaved(Probe saved) throws Exception {
+        need(saved.event.equals("saved_after_super") && taskStopped(saved.task) && productAlive(saved.pid), Reason.TASK_NOT_STOPPED);
+        need(shell("am kill --user 0 " + PRODUCT, 1024).isEmpty(), Reason.SHELL_REFUSED);
+        waitUntil(() -> !pidExists(saved.pid) && !anyProductProcess(), 8_000, Reason.PROCESS);
+        deaths++;
+        checked(true, Reason.PROCESS);
+    }
+
+    private boolean taskStopped(int task) throws Exception {
+        String value = shell("dumpsys activity activities", SHELL_CAP);
+        String[] lines = value.split("\n", -1);
+        Pattern header = Pattern.compile(".*\\* Hist #[0-9]+: ActivityRecord\\{[^}]*\\bu0 "
+                + Pattern.quote(PRODUCT) + "/(?:" + Pattern.quote(ACTIVITY) + "|\\.MainActivity) t" + task + "(?:[ }].*)?");
+        for (int i = 0; i < lines.length; i++) {
+            if (!header.matcher(lines[i]).matches()) continue;
+            int indent = indentation(lines[i]);
+            for (int j = i + 1; j < lines.length && j <= i + 512; j++) {
+                if (!lines[j].trim().isEmpty() && indentation(lines[j]) <= indent) break;
+                if (lines[j].trim().matches("(?:mState|state)=STOPPED(?:\\s.*)?")) return true;
+            }
+        }
+        return false;
+    }
+
+    private static int indentation(String line) {
+        int i = 0; while (i < line.length() && line.charAt(i) == ' ') i++; return i;
+    }
+
+    private List<String[]> ps() throws Exception {
+        String[] lines = shell("ps -A -o PID,UID,NAME", SHELL_CAP).split("\n");
+        need(lines.length > 0 && Arrays.equals(lines[0].trim().split("\\s+"), new String[]{"PID", "UID", "NAME"}), Reason.PROCESS);
+        List<String[]> rows = new ArrayList<>();
+        for (int i = 1; i < lines.length; i++) {
+            if (lines[i].trim().isEmpty()) continue;
+            String[] fields = lines[i].trim().split("\\s+");
+            need(fields.length == 3 && fields[0].matches("[1-9][0-9]{0,9}") && fields[1].matches("[0-9]{1,10}"), Reason.PROCESS);
+            rows.add(fields);
+        }
+        return rows;
+    }
+
+    private boolean pidExists(int pid) throws Exception {
+        for (String[] row : ps()) if (row[0].equals(Integer.toString(pid))) return true;
+        return false;
+    }
+
+    private boolean anyProductProcess() throws Exception {
+        for (String[] row : ps()) if (row[2].equals(PRODUCT) || row[2].startsWith(PRODUCT + ":")) return true;
+        return false;
+    }
+
+    private boolean productAlive(int pid) throws Exception {
+        for (String[] row : ps()) if (row[0].equals(Integer.toString(pid)))
+            return row[1].equals(Integer.toString(productUid)) && row[2].equals(PRODUCT);
+        return false;
+    }
+
+    private Probe readProbe(String leaf) throws Exception {
+        need(leaf.equals("created.json") || leaf.equals("saved.json") || leaf.equals("commands.json"), Reason.PROBE);
+        String root = "no_backup/process-verify-v1/" + runId;
+        String path = root + "/" + leaf;
+        String body = "test $(id -u) -eq " + productUid + " || exit 40; "
+                + "if test ! -e " + path + " && test ! -L " + path + "; then printf 'LL_PROCESS_PROBE_PENDING_V1\\n'; else "
+                + "test -d no_backup && test ! -L no_backup && test -d no_backup/process-verify-v1 && test ! -L no_backup/process-verify-v1 && "
+                + "test -d " + root + " && test ! -L " + root + " && test $(stat -c %u " + root + ") -eq " + productUid
+                + " && test -f " + path + " && test ! -L " + path + " && test $(stat -c %u " + path + ") -eq " + productUid
+                + " && test $(wc -c < " + path + ") -gt 0 && test $(wc -c < " + path + ") -le 4096 && cat " + path + "; fi";
+        String value = shell("run-as " + PRODUCT + " --user 0 sh -c " + quote(body), PROBE_CAP + 64);
+        if (value.equals(PENDING)) return null;
+        JSONObject json = strictObject(value.getBytes(StandardCharsets.UTF_8));
+        exact(json, "version", "scope", "run_id", "pid", "uid", "task_id", "sequence", "process_start_uptime_ms", "event",
+                "restored_state", "factory_creations", "hint_present", "hint_sha256", "operations");
+        need(number(json, "version", 1, 1) == 1 && PROBE_SCOPE.equals(json.get("scope")) && runId.equals(json.get("run_id")), Reason.PROBE);
+        String event = leaf.equals("created.json") ? "created" : leaf.equals("saved.json") ? "saved_after_super" : "command";
+        need(event.equals(json.get("event")), Reason.PROBE);
+        int pid = (int) number(json, "pid", 1, Integer.MAX_VALUE);
+        need(number(json, "uid", 10_000, 99_999) == productUid, Reason.PROBE);
+        int task = (int) number(json, "task_id", 0, Integer.MAX_VALUE);
+        long seq = number(json, "sequence", 1, Long.MAX_VALUE), start = number(json, "process_start_uptime_ms", 0, Long.MAX_VALUE);
+        int factory = (int) number(json, "factory_creations", 0, 16);
+        boolean restored = bool(json, "restored_state"), hasHint = bool(json, "hint_present");
+        Object hint = json.get("hint_sha256");
+        need(hasHint ? hint instanceof String && HEX64.matcher((String) hint).matches() : hint == JSONObject.NULL, Reason.PROBE);
+        JSONObject operations = json.getJSONObject("operations"); exact(operations, OPS);
+        long[] counts = new long[OPS.length];
+        for (int i = 0; i < OPS.length; i++) counts[i] = number(operations, OPS[i], 0, 4096);
+        return new Probe(pid, start, task, seq, restored, factory, hasHint, hasHint ? (String) hint : "", event, counts);
+    }
+
+    private String shell(String command, int cap) throws Exception {
+        timeLeft(); need(cap > 0 && cap <= SHELL_CAP, Reason.SHELL_IO);
+        String script = command + "; rc=$?; printf '\\n" + EXIT + "%d\\n' \"$rc\"";
+        AtomicReference<ParcelFileDescriptor> owned = new AtomicReference<>();
+        AtomicBoolean abandoned = new AtomicBoolean();
+        ExecutorService executor = Executors.newSingleThreadExecutor(task -> {
+            Thread thread = new Thread(task, "process-proof-shell"); thread.setDaemon(true); return thread;
+        });
+        Future<byte[]> future = executor.submit(new Callable<byte[]>() {
+            @Override public byte[] call() throws Exception {
+                ParcelFileDescriptor fd = automation.executeShellCommand("sh -c " + quote(script));
+                need(fd != null, Reason.SHELL_IO); owned.set(fd);
+                if (abandoned.get()) { fd.close(); owned.compareAndSet(fd, null); throw new Refused(Reason.SHELL_TIMEOUT); }
+                try (ParcelFileDescriptor.AutoCloseInputStream input = new ParcelFileDescriptor.AutoCloseInputStream(fd)) {
+                    ByteArrayOutputStream output = new ByteArrayOutputStream(); byte[] block = new byte[1024]; int n;
+                    while ((n = input.read(block)) != -1) {
+                        need(output.size() + n <= cap + 64, Reason.SHELL_IO); output.write(block, 0, n);
+                    }
+                    return output.toByteArray();
+                } finally { owned.compareAndSet(fd, null); }
+            }
+        });
+        try {
+            byte[] bytes = future.get(Math.min(10_000, timeLeft()), TimeUnit.MILLISECONDS);
+            String value = utf8(bytes).replace("\r\n", "\n");
+            need(value.indexOf('\r') < 0 && value.indexOf('\u000b') < 0 && value.indexOf('\u000c') < 0, Reason.SHELL_IO);
+            int index = value.lastIndexOf("\n" + EXIT);
+            need(index >= 0 && value.indexOf(EXIT) == index + 1 && value.endsWith("\n"), Reason.SHELL_IO);
+            need(value.substring(index + 1).equals(EXIT + "0\n"), Reason.SHELL_REFUSED);
+            String result = value.substring(0, index);
+            need(result.getBytes(StandardCharsets.UTF_8).length <= cap, Reason.SHELL_IO);
+            return result;
+        } catch (TimeoutException failure) {
+            throw new Refused(Reason.SHELL_TIMEOUT);
+        } catch (ExecutionException failure) {
+            throw new Refused(Reason.SHELL_IO);
+        } finally {
+            abandoned.set(true);
+            ParcelFileDescriptor fd = owned.getAndSet(null);
+            if (fd != null) try { fd.close(); } catch (IOException ignored) { }
+            future.cancel(true); executor.shutdownNow();
+        }
+    }
+
+    private static String quote(String value) { return "'" + value.replace("'", "'\\''") + "'"; }
+
+    private void click(String id) throws Exception {
+        AccessibilityNodeInfo node = tag(id);
+        try { need(node.isEnabled() && node.isVisibleToUser() && productNode(node), Reason.UI);
+            checked(node.performAction(AccessibilityNodeInfo.ACTION_CLICK), Reason.UI); }
+        finally { node.recycle(); }
+    }
+
+    private AccessibilityNodeInfo tag(String id) throws Exception {
+        AccessibilityNodeInfo node = find(id); if (node != null) return node;
+        for (int direction : new int[]{AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD, AccessibilityNodeInfo.ACTION_SCROLL_FORWARD}) {
+            for (int i = 0; i < 12; i++) {
+                timeLeft(); AccessibilityNodeInfo list = find("story-list");
+                if (list == null) break;
+                boolean moved;
+                try { moved = list.isScrollable() && list.performAction(direction); }
+                finally { list.recycle(); }
+                SystemClock.sleep(Math.min(100, timeLeft()));
+                node = find(id); if (node != null) return node;
+                if (!moved) break;
+            }
+        }
+        throw new Refused(Reason.UI);
+    }
+
+    private boolean findAndRecycle(String id) throws Exception {
+        AccessibilityNodeInfo node = find(id); if (node == null) return false; node.recycle(); return true;
+    }
+
+    private AccessibilityNodeInfo find(String id) throws Exception {
+        List<AccessibilityNodeInfo> nodes = productNodes(); AccessibilityNodeInfo found = null;
+        for (AccessibilityNodeInfo node : nodes) {
+            if (id.equals(node.getViewIdResourceName()) && node.isVisibleToUser()) {
+                if (found != null) { found.recycle(); recycle(nodes); throw new Refused(Reason.UI); }
+                found = AccessibilityNodeInfo.obtain(node);
+            }
+        }
+        recycle(nodes); return found;
+    }
+
+    private List<AccessibilityNodeInfo> productNodes() throws Exception {
+        timeLeft(); List<AccessibilityNodeInfo> nodes = new ArrayList<>();
+        List<AccessibilityWindowInfo> windows = automation.getWindows();
+        need(windows != null && windows.size() <= WINDOW_CAP, Reason.UI);
+        ArrayDeque<AccessibilityNodeInfo> pending = new ArrayDeque<>();
+        try {
+            for (AccessibilityWindowInfo window : windows) {
+                AccessibilityNodeInfo root = window.getRoot();
+                if (root != null) {
+                    if (productNode(root)) pending.add(root); else root.recycle();
+                }
+            }
+            while (!pending.isEmpty()) {
+                timeLeft(); need(nodes.size() + pending.size() <= NODE_CAP, Reason.UI);
+                AccessibilityNodeInfo node = pending.removeFirst();
+                if (!productNode(node)) { node.recycle(); continue; }
+                nodes.add(node);
+                need(node.getChildCount() <= NODE_CAP, Reason.UI);
+                for (int i = 0; i < node.getChildCount(); i++) {
+                    AccessibilityNodeInfo child = node.getChild(i); if (child != null) pending.add(child);
+                }
+            }
+            return nodes;
+        } catch (Throwable failure) {
+            recycle(nodes); throw failure;
+        } finally {
+            while (!pending.isEmpty()) pending.removeFirst().recycle();
+            for (AccessibilityWindowInfo window : windows) window.recycle();
+        }
+    }
+
+    private static void recycle(List<AccessibilityNodeInfo> nodes) { for (AccessibilityNodeInfo node : nodes) node.recycle(); }
+
+    private static boolean productNode(AccessibilityNodeInfo node) {
+        CharSequence name = node.getPackageName(); return name != null && PRODUCT.contentEquals(name);
+    }
+
+    private String nodeText(AccessibilityNodeInfo node) {
+        CharSequence value = node.getText();
+        return value == null ? "" : value.toString();
+    }
+
+    private void waitUntil(Condition condition, long budget, Reason reason) throws Exception {
+        long until = Math.min(deadline, SystemClock.uptimeMillis() + budget);
+        do {
+            timeLeft(); if (condition.ready()) return;
+            SystemClock.sleep(Math.min(100, Math.max(1, until - SystemClock.uptimeMillis())));
+        } while (SystemClock.uptimeMillis() < until);
+        throw new Refused(reason);
+    }
+
+    private long timeLeft() {
+        long left = deadline - SystemClock.uptimeMillis(); need(!finished.get() && left > 0, Reason.DEADLINE); return left;
+    }
+
+    private static void need(boolean value, Reason reason) { if (!value) throw new Refused(reason); }
+    private void checked(boolean value, Reason reason) { need(value, reason); checks++; }
+
+    private static void exact(JSONObject value, String... names) throws JSONException {
+        Set<String> keys = new HashSet<>(); Iterator<String> iterator = value.keys();
+        while (iterator.hasNext()) keys.add(iterator.next());
+        need(keys.equals(new HashSet<>(Arrays.asList(names))) && value.length() == names.length, Reason.PROBE);
+    }
+
+    private static long number(JSONObject value, String name, long low, long high) throws JSONException {
+        Object raw = value.get(name); need(raw instanceof Integer || raw instanceof Long, Reason.PROBE);
+        long n = ((Number) raw).longValue(); need(n >= low && n <= high, Reason.PROBE); return n;
+    }
+
+    private static boolean bool(JSONObject value, String name) throws JSONException {
+        Object raw = value.get(name); need(raw instanceof Boolean, Reason.PROBE); return (Boolean) raw;
+    }
+
+    private static String string(JSONObject value, String name) throws JSONException {
+        Object raw = value.get(name); need(raw instanceof String, Reason.PROBE); return (String) raw;
+    }
+
+    private static JSONObject strictObject(byte[] bytes) throws Exception {
+        need(bytes.length > 0 && bytes.length <= PROBE_CAP, Reason.PROBE);
+        String text = utf8(bytes); JsonShape scanner = new JsonShape(text); scanner.value(0); scanner.space();
+        need(scanner.pos == text.length(), Reason.PROBE);
+        return new JSONObject(text);
+    }
+
+    /** Bounded strict syntax/decoded-key duplicate guard ahead of platform JSON. */
+    private static final class JsonShape {
+        final String text; int pos; int nodes;
+        JsonShape(String text) { this.text = text; }
+        void space() { while (pos < text.length() && " \t\r\n".indexOf(text.charAt(pos)) >= 0) pos++; }
+        void value(int depth) throws Exception {
+            need(depth <= 8 && ++nodes <= 256, Reason.PROBE); space(); need(pos < text.length(), Reason.PROBE);
+            char c = text.charAt(pos);
+            if (c == '{') {
+                pos++; space(); Set<String> keys = new HashSet<>(); if (take('}')) return;
+                do { space(); String key = literal(); need(keys.add(key), Reason.PROBE); space(); need(take(':'), Reason.PROBE); value(depth + 1); space(); if (take('}')) return; need(take(','), Reason.PROBE); } while (true);
+            }
+            if (c == '[') { pos++; space(); if (take(']')) return; do { value(depth + 1); space(); if (take(']')) return; need(take(','), Reason.PROBE); } while (true); }
+            if (c == '"') { literal(); return; }
+            for (String token : new String[]{"true", "false", "null"}) if (text.startsWith(token, pos)) { pos += token.length(); return; }
+            int start = pos; if (take('-')) need(pos < text.length(), Reason.PROBE);
+            if (take('0')) { need(pos == text.length() || !Character.isDigit(text.charAt(pos)), Reason.PROBE); }
+            else { need(pos < text.length() && text.charAt(pos) >= '1' && text.charAt(pos) <= '9', Reason.PROBE); while (pos < text.length() && text.charAt(pos) >= '0' && text.charAt(pos) <= '9') pos++; }
+            need(pos > start, Reason.PROBE); // This finite wire permits integral numbers only.
+        }
+        boolean take(char c) { if (pos < text.length() && text.charAt(pos) == c) { pos++; return true; } return false; }
+        String literal() throws Exception {
+            int start = pos; need(take('"'), Reason.PROBE);
+            while (pos < text.length()) {
+                char c = text.charAt(pos++); if (c == '"') return new org.json.JSONTokener(text.substring(start, pos)).nextValue().toString();
+                need(c >= 32, Reason.PROBE);
+                if (c == '\\') { need(pos < text.length(), Reason.PROBE); char escape = text.charAt(pos++); if (escape == 'u') { need(pos + 4 <= text.length(), Reason.PROBE); for (int i = 0; i < 4; i++) need("0123456789abcdefABCDEF".indexOf(text.charAt(pos++)) >= 0, Reason.PROBE); } else need("\"\\/bfnrt".indexOf(escape) >= 0, Reason.PROBE); }
+            }
+            throw new Refused(Reason.PROBE);
+        }
+    }
+
+    private static byte[] readFile(File file, int cap) throws IOException {
+        try (FileInputStream input = new FileInputStream(file)) {
+            ByteArrayOutputStream output = new ByteArrayOutputStream(); byte[] block = new byte[1024]; int n;
+            while ((n = input.read(block)) != -1) { need(output.size() + n <= cap, Reason.FIXTURE); output.write(block, 0, n); }
+            return output.toByteArray();
+        }
+    }
+
+    private static String utf8(byte[] value) throws CharacterCodingException {
+        return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(value)).toString();
+    }
+
+    private static String digest(byte[] value) throws Exception { return hex(MessageDigest.getInstance("SHA-256").digest(value)); }
+    private static String hex(byte[] value) { StringBuilder out = new StringBuilder(value.length * 2); for (byte b : value) out.append(String.format(java.util.Locale.ROOT, "%02x", b & 255)); return out.toString(); }
+    private static String hint(Workspace w) throws Exception { return digest(("1\n" + w.story + "\n" + w.branch + "\n").getBytes(StandardCharsets.UTF_8)); }
+
+    private void observe(Probe probe) throws JSONException {
+        JSONObject value = new JSONObject().put("pid", probe.pid).put("uid", productUid).put("start", probe.start)
+                .put("task", probe.task).put("restored", probe.restored).put("factory", probe.factory);
+        observations.put(value);
+    }
+
+    private JSONObject proof(boolean passed, Reason reason) throws Exception {
+        JSONObject result = new JSONObject().put("version", 1).put("scope", RESULT_SCOPE).put("case", CASE)
+                .put("run_id", runId == null ? JSONObject.NULL : runId).put("status", passed ? "passed" : "failed")
+                .put("stage", stage.name()).put("reason", reason.name()).put("checks", checks).put("process_deaths", deaths)
+                .put("controller", new JSONObject().put("pid", Process.myPid()).put("uid", Process.myUid())
+                        .put("start", Process.getStartUptimeMillis()))
+                .put("observations", observations);
+        result.put("fixture", fixture == null ? JSONObject.NULL : fixture.json());
+        return result;
+    }
+
+    private static final class Workspace {
+        final String story, branch; final long head;
+        Workspace(String story, String branch, long head) { this.story = story; this.branch = branch; this.head = head; }
+        boolean same(Workspace other, long expected) { return story.equals(other.story) && branch.equals(other.branch) && head == expected; }
+        JSONObject json() throws JSONException { return new JSONObject().put("story", story).put("branch", branch).put("head", head); }
+    }
+
+    /** Exact fixture keys are frozen here; no revision/text/request/turn is restorable authority. */
+    private static final class Fixture {
+        final Workspace a, b; final String originRun, originApk, signature; final int controllerUid, productUid;
+        Fixture(Workspace a, Workspace b, String run, String apk, int controller, int product, String signature) {
+            this.a = a; this.b = b; originRun = run; originApk = apk; controllerUid = controller; productUid = product; this.signature = signature;
+        }
+        List<String> ids() { return Arrays.asList(a.story, b.story); }
+        JSONObject json() throws JSONException {
+            return new JSONObject().put("version", 1).put("scope", FIXTURE_SCOPE).put("case", CASE)
+                    .put("controller_uid", controllerUid).put("product_uid", productUid).put("signature_sha256", signature)
+                    .put("origin_run_id", originRun).put("origin_product_sha256", originApk)
+                    .put("stories", new JSONArray().put(a.json()).put(b.json()));
+        }
+    }
+
+    private static final class Probe {
+        final int pid, task, factory; final long start, sequence; final boolean restored, hintPresent;
+        final String hint, event; final long[] operations;
+        Probe(int pid, long start, int task, long seq, boolean restored, int factory, boolean hasHint, String hint, String event, long[] operations) {
+            this.pid = pid; this.start = start; this.task = task; sequence = seq; this.restored = restored;
+            this.factory = factory; hintPresent = hasHint; this.hint = hint; this.event = event; this.operations = operations.clone();
+        }
+        long op(String name) { for (int i = 0; i < OPS.length; i++) if (OPS[i].equals(name)) return operations[i]; throw new Refused(Reason.PROBE); }
+        boolean sameProcess(Probe other) { return pid == other.pid && start == other.start; }
+        boolean sameIdentity(Probe other) { return sameProcess(other) && task == other.task; }
+    }
+}

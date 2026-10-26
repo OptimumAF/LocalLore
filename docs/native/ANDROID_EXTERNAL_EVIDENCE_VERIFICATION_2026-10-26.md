@@ -66,6 +66,18 @@ private diagnostics were uploaded. Newer regression records are outside this
 initial snapshot. Older missing records were not reconstructed and the cleanup
 actor was not identified.
 
+A second private snapshot protects 58 current-controller files/1,603,660 bytes,
+including both failing regressions and the full host run. Independent review
+verified every original and ZIP entry, with zero missing/mismatch/extra/unsafe
+paths. Its 517,928-byte ZIP has SHA-256
+`63fe28ebf30fcf55202f2f97f13f42a5b37194ce929102baa0eed8fcf4d603b0`;
+both identical 18,273-byte index copies have SHA-256
+`32006c8ae521fcb6856cd1aace5591c5ae598b821b47dc2b1ca7f795bd561314`.
+The second Git bundle verifies complete history through `d24fa55d`; its
+9,813,784 bytes have SHA-256
+`ffcc15be797ea4a33ef1ddc9a39b48eca63509b2ea5c65277030f4bfe20eff0b`.
+The snapshots overlap and their counts must not be added as unique evidence.
+
 ## Remaining gates
 
 This packet's host checks make no new Android saved-task, broad Android,

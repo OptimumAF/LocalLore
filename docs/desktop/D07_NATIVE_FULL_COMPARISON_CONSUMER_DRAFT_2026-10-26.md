@@ -233,3 +233,78 @@ real OS-dialog behavior and quality need their own bounded admission/provenance;
 no extra invocation is authorized by this draft. Keep source matching,
 current/historical runs and retained failures explicit. No desktop control,
 OS screenshots, provider replacement, model download or phone gate is proposed.
+
+## Type and reentrancy viability addendum (still proposed)
+
+A source-only caller audit at `d9fd9443` found `ComparisonRunState` references
+only within its controller. App, View and the scripted journey accept the class
+and consume common fields. Main's callback is inferred as
+`code => errors.add("native", code)`. The existing56 checker verifies exact
+wire/query DTOs and individual controller fields, not the complete local-state
+key set. These observations are not a TypeScript or checker execution.
+
+Recommend the nongeneric class and overloads above. Add literal
+`mode:"scripted_baseline"` to the actual default instance's frozen state;
+the native state carries `mode:"approved_native"`. `get()` returns the union.
+Keep the old exported `ComparisonRunState` alias and all old model types/checker
+signatures V1-only. Native state uses the actual V2 status/catalog types and
+its own cleanup fields. A future explicit assignment of an un-narrowed `get()`
+result to `ComparisonRunState` would need a `state.mode` guard; no such caller
+was found in this source. It must not be repaired by pretending V2 is V1.
+
+View can continue using common fields; native-only accesses narrow
+`state.mode` or `status.version`. The separate class `mode` property does not
+by itself narrow a previously fetched state. Preserve the state discriminator
+through every patch and refuse cross-descriptor DTOs before publication. Do not
+make mode patchable or use a broad state cast to bypass that invariant. Existing
+scripted journey wiring continues to receive the default instance and retains
+its explicit V1 native command/decoder calls; it is not a native-model journey.
+
+The narrow callback overloads need deliberate implementation normalization.
+Do not store a union of callback types and invoke it with a native-wide error,
+or cast a legacy callback to a native one. A correlated constructor rest tuple
+allows the callback and required native option to narrow together:
+
+```ts
+type ComparisonRunConstructorArgs =
+    | [invoke: ComparisonRunInvoke,
+       onError?: (error: ComparisonRunError) => void]
+    | [invoke: ComparisonRunInvoke,
+       onError: ((error: NativeComparisonRunError) => void) | undefined,
+       options: NativeComparisonRunOptions];
+// Implementation signature behind the public overloads:
+constructor(...args: ComparisonRunConstructorArgs);
+```
+
+In the `args.length === 3` branch, choose the closed native descriptor once,
+capture that branch's native callback, and install a private wide reporter
+which categorizes through the native descriptor before invoking it. The other
+branch captures the legacy callback and categorizes through the unchanged V1
+set. This keeps both public callback contracts intact without callback casts,
+`any`, a public generic or a fake protocol conversion. The factory calls the
+required three-argument overload. Compiler verification remains a future gate.
+
+Before a mode-switch handler notifies React/subscribers or awaits anything,
+install its switch epoch/in-progress guard and capture old instance, requested
+mode and actual execution context. Reentrant handlers must not start a second
+switch. After close, recheck all of those identities immediately before changing
+presentation. Likewise, an Inspect handler must capture the originating instance
+and mode rather than consult active mode after awaiting reader closure.
+
+For the first consumer slice, disable explicit mode switching/new admission
+while either stable instance has pending/active work, acknowledgement uncertainty
+or known cleanup activity/uncertainty. Keep close, exact identity lookup and
+generic cleanup usable. A closed response with `running:true` leaves running
+work visible; exact same-client read-only recovery can observe its drain. It is
+not a reason to enable another start or silently hide the old operation. A
+context change may retire presentation independently, but native cleanup remains
+visible outside that presentation. Neither the UI guard nor a prior false
+cleanup observation proves that every other model/evaluation owner is absent.
+
+Do not translate blocked admission into `setContext(..., false)`: that would
+retire the operation which produced its own busy/cleanup state. Eligibility,
+execution identity and admission guards remain separate. A global auxiliary
+reply cannot clear a newer native status's cleanup requirement; actual owner
+status and generic cleanup observations remain separately labelled until fresh
+Rust status reconciles them. No callback, mode change or cleanup action grants
+inspection, automatically resumes inference or supplies a model-ready promise.

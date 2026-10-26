@@ -1525,6 +1525,88 @@ for (const flag of ["cleanup_required", "cleanup_running"])
             );
         },
     );
+// ONE additional native-only identity-transfer case; original87 unchanged.
+await check(
+    "native unknown start ACK no-token close settles exact retired UUID but never global cleanup",
+    async () => {
+        const f = fixture(),
+            lookup = deferred();
+        f.hooks.set("start", (q) => {
+            f.setCurrent(status({ client_id: q.clientId }));
+            throw Error("EvaluationIo");
+        });
+        await f.c.start("paired", 1);
+        const original = f.c.get().clientId;
+        assert.ok(original);
+        assert.equal(f.c.get().status, null);
+        assert.equal(f.c.get().uncertain, true);
+        // Independent actual observation of some global retained work. The later
+        // clean-looking close ACK cannot replace this envelope with guessed idle.
+        const required = cleanup({ cleanup_required: true, running: false });
+        f.hooks.set("cleanup_status", () => required);
+        await f.c.cleanupStatus();
+        assert.equal(f.c.get().uncertain, true);
+        f.hooks.set("lookup", () => lookup.promise);
+        let acknowledged = false,
+            falseBarrier = false;
+        const stop = f.c.subscribe(() => {
+            if (
+                !acknowledged &&
+                f.c.get().clientId === null &&
+                !f.c.get().uncertain
+            )
+                falseBarrier = true;
+        });
+        f.hooks.set("close", (q) => {
+            acknowledged = true;
+            return status({
+                client_id: original,
+                run_token: q.runToken,
+                phase: "closed",
+                running: false,
+                cleanup_required: false,
+                cleanup_running: false,
+                report_ready: false,
+            });
+        });
+        const closing = f.c.close();
+        let during;
+        try {
+            await until(() => actions(f).includes("lookup"));
+            during = clone(f.c.get());
+        } finally {
+            lookup.resolve(status({ client_id: original }));
+            await closing;
+            stop();
+        }
+        assert.equal(during.clientId, null);
+        assert.equal(during.status, null);
+        assert.equal(during.uncertain, true);
+        assert.equal(acknowledged, true);
+        assert.equal(falseBarrier, false);
+        await until(() => !f.c.get().uncertain);
+        assert.equal(f.c.get().clientId, null);
+        assert.equal(f.c.get().status, null);
+        assert.deepEqual(f.c.get().cleanup, required);
+        assert.equal(f.c.get().cleanupUncertain, false);
+        assert.deepEqual(
+            f.calls.filter((x) => x.action === "lookup").map((x) => x.query),
+            [{ clientId: original }],
+        );
+        assert.deepEqual(
+            f.calls.filter((x) => x.action === "close").map((x) => x.query),
+            [{ runToken: TOKEN }],
+        );
+        assert.ok(f.calls.every((x) => x.command === NATIVE));
+        assert.equal(generated(f).length, 1);
+        assert.equal(
+            f.calls.some(
+                (x) => x.action === "resume" || x.action === "retry_cleanup",
+            ),
+            false,
+        );
+    },
+);
 for (const c of controllers) c.dispose();
 await tick();
 const sourceHashes = Object.fromEntries(

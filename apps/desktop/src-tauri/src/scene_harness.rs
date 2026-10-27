@@ -262,6 +262,34 @@ fn proof(path: &Path, choice: Case) -> Result<Value, String> {
         return Err("SceneBudget".into());
     }
     let mut store = Store::open_read_only(path).map_err(|_| "SceneReadOnly")?;
+    let stories = store.stories().map_err(|_| "SceneCatalog")?;
+    if stories.len() != 2
+        || stories.iter().any(|story| {
+            story.scope.branch != "main"
+                || match story.scope.story.as_str() {
+                    STORY => story.title != "Synthetic scene controls",
+                    OTHER => story.title != "Other synthetic scene story",
+                    _ => true,
+                }
+        })
+    {
+        return Err("SceneCatalog".into());
+    }
+    for (story, branches) in [(STORY, vec!["main", CHILD]), (OTHER, vec!["main"])] {
+        let catalog = store
+            .branch_catalog(story, &|| false)
+            .map_err(|_| "SceneCatalog")?;
+        let actual: std::collections::BTreeSet<_> = catalog
+            .branches
+            .iter()
+            .map(|branch| branch.scope.branch.as_str())
+            .collect();
+        if actual != branches.into_iter().collect()
+            || catalog.branches.iter().any(|branch| branch.retired)
+        {
+            return Err("SceneCatalog".into());
+        }
+    }
     let (_, parent, _) = parent_fixture()?;
     let expected_child = parent
         .apply_author_correction(
@@ -473,6 +501,33 @@ mod tests {
             "deterministic-fake-v1"
         );
         host.close_all();
+        drop(host);
+        assert_eq!(std::fs::read(path).unwrap(), before);
+    }
+    #[test]
+    fn additional_catalog_story_refuses_even_when_named_fixture_histories_are_exact() {
+        let root = std::env::temp_dir().join(format!(
+            "scene-native-{}",
+            crate::exports::identifier().unwrap()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        let path = root.join("stories-v1.sqlite");
+        seed_at(&path).unwrap();
+        let mut store = Store::open(&path).unwrap();
+        store
+            .create_story(
+                "Additional synthetic story",
+                fixture_seed("scene-extra-synthetic").unwrap(),
+            )
+            .unwrap();
+        drop(store);
+        let before = std::fs::read(&path).unwrap();
+        let host = locallore_workspace::open(&path, true).unwrap();
+        assert!(configure_validated(&path, &host, Case::Memory).is_err());
+        assert_eq!(
+            host.call(br#"{"version":1,"command":{"op":"model_status"}}"#)["data"]["provider"],
+            "deterministic-fake-v1"
+        );
         drop(host);
         assert_eq!(std::fs::read(path).unwrap(), before);
     }

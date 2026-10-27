@@ -100,3 +100,82 @@ review, targeted execution, then the declared default-parallel native CI
 commands (normal and `dev-harness`). Preserve serial controls as separate
 evidence and rerun the complete parallel workspace cohort where appropriate.
 Do not replace a failed parallel result with a serial pass.
+
+
+## Root execution and qualification
+
+Executed source is clean, unchanged `f8a2bf6439b1cef7caf2e2c19ceea36e4bc2c729`
+(formatting only after33cb75e5). Base is accepted main `c6c21f28`;
+the four affected native test files are byte-identical between that base and the
+Core stack79a where the original parallel failure was observed. No shared
+engine/Host/storage/runtime or UI production source changes in this fix.
+
+The original failure stays attributed to79a: its parallel workspace run reports
+native236 passed/10 failed/9 ignored, all ten at inventory `fs::read` Windows33
+before intended assertions. The failed filename was not retained; source shows
+the conflicting shared-source/exclusive-Reader pattern, but this is not a
+measured run.lock pathname diagnosis. An unchanged79a isolated control passes
+one previously failing test. The separate serial79a workspace result is not
+substituted for parallel verification.
+
+Root independently reviews the copy/helper/caller changes before running them.
+The new two-Fixture test uses real native Readers concurrently on private byte
+copies, checks both actual retained locks and read-only Player evidence, closes
+one while the second remains valid/locked, then closes the second and checks
+all file/directory inventories against the unchanged closed template. No file
+or lock is skipped, no I/O error is swallowed and no deadline is enlarged.
+
+Actual local Windows x64 results, one heavy process at a time:
+
+| Check | Actual result / command duration |
+| --- | --- |
+| Normal frontend build prerequisite | PASS0.477s; local normal bundle, no server |
+| Exact concurrent two-Reader regression, dev-harness | 1 passed;62.142s command (includes compile); all other tests filtered |
+| Normal native tests, default parallel runner | 240 passed/0 failed/9 ignored;322.679s command,307.07s unit execution |
+| Dev-harness native tests, default parallel runner | 247 unit+2 compile-contract=249 passed/0 failed/9 ignored;318.656s command |
+| Normal all-target strict Clippy | PASS18.115s |
+| Dev-harness all-target strict Clippy | PASS11.601s |
+| Workspace Rust formatting check | PASS2.502s |
+
+All process records show exactf8a source clean and unchanged throughout, exit0.
+Normal/dev parallel commands use no test filter, `--test-threads` flag or test
+serialization change. The inherited `RUST_TEST_THREADS` observation is unset.
+The nine ignored cases remain eight explicitly opt-in installed-model/asset
+qualifiers and one Windows symlink-privilege test; none is counted as executed.
+
+Using the installed pinned toolchain/cache/dependencies from repository root:
+
+```powershell
+$env:CARGO_HOME = '<existing isolated exact-lock cache>'
+$env:CARGO_NET_OFFLINE = 'true'
+$env:CARGO_BUILD_JOBS = '1'
+$env:CARGO_INCREMENTAL = '0'
+$env:CARGO_PROFILE_DEV_DEBUG = '0'
+$env:CARGO_PROFILE_TEST_DEBUG = '0'
+$env:LIBSQLITE3_FLAGS = ''
+$env:TEMP = '<existing owned task temporary directory>'
+$env:TMP = $env:TEMP
+& $taskNode apps/desktop/build.mjs
+cargo +1.93.1 test --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness evaluation::selected::tests::concurrent_fixture_readers_own_distinct_sources_and_close_without_cross_fixture_lock_interference --locked --offline --jobs 1 --target-dir $ownedTarget -- --exact --test-threads=1
+cargo +1.93.1 test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --jobs 1 --target-dir $ownedTarget
+cargo +1.93.1 test --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness --locked --offline --jobs 1 --target-dir $ownedTarget
+cargo +1.93.1 clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --locked --offline --jobs 1 --target-dir $ownedTarget -- -D warnings
+cargo +1.93.1 clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --features dev-harness --locked --offline --jobs 1 --target-dir $ownedTarget -- -D warnings
+cargo +1.93.1 fmt --all -- --check
+```
+
+These reproduce the committed desktop workflow's normal/dev test and strict
+Clippy choices locally, with explicit existing cache/target/offline/jobs1
+controls. They are not hosted Actions results. Rust/Cargo1.93.1,
+Node24.22.1, Windows NT10.0.26300 x64; unchanged locked dependency versions.
+Private logs/process records retain the `d07-fixture-*` prefix and stay local,
+outside Git. This is synthetic producer/native Rust service evidence, not a
+model, Tauri IPC, WebView/desktop render, physical device, narrative quality,
+whole-app offline or release result. No desktop control or model ran. The
+owner's original needs-improvement quality assessment remains unchanged.
+
+The shared fixture ownership conflict is addressed at the tested scope; the
+original failures are not rewritten into passes. Full D07/D09 acceptance,
+resource/performance qualification beyond these measured fixtures and other
+independent epic gates remain open. CI settings and production Reader behavior
+are unchanged.

@@ -226,12 +226,19 @@ export class CaptureController {
             this.patch({ enabled: revoked ? false : null });
     }
     private sessionKey(session: Session): string {
-        return JSON.stringify([session.id, session.scope.story, session.scope.branch]);
+        return JSON.stringify([
+            session.id,
+            session.scope.story,
+            session.scope.branch,
+        ]);
     }
     async metadataControl(work: () => Promise<void>, closingSession?: Session) {
         if (closingSession) {
             const key = this.sessionKey(closingSession);
-            this.closingSessions.set(key, (this.closingSessions.get(key) ?? 0) + 1);
+            this.closingSessions.set(
+                key,
+                (this.closingSessions.get(key) ?? 0) + 1,
+            );
             if (this.session && this.sessionKey(this.session) === key) {
                 // Existing context retirement clears private data immediately
                 // and queues its revocation before the Host close below.

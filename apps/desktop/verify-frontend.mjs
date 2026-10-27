@@ -28,6 +28,7 @@ for (const args of [
     ["check-trace-controller.mjs"],
     ["check-capture-controller.mjs"],
     ["check-capture-review.mjs"],
+    ["check-capture-session-close-review.mjs"],
     ["check-evaluation-controller.mjs"],
     ["check-selected-evaluation-controller.mjs"],
     ["check-literal-selected-evaluation.mjs"],

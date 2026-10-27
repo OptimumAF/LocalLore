@@ -292,7 +292,42 @@ fn exact_presentation_preview_has_independent_hash_and_never_mutates_existing_hi
             assert_eq!(got["template_sha256"], sha256(fixture(template)));
             assert_eq!(got["setup_sha256"], presentation_hash(template, &seed));
             assert_eq!(got["presentation"], options);
-            assert_eq!(got["details"], old["details"]);
+            let details = got["details"].as_array().unwrap();
+            let legacy_details = old["details"].as_array().unwrap();
+            let (starting_state, review_rows) = details.split_at(legacy_details.len());
+            assert_eq!(starting_state, legacy_details.as_slice());
+            if options == plain() {
+                assert!(review_rows.is_empty());
+                assert_eq!(
+                    serde_json::to_vec(&got["details"]).unwrap(),
+                    serde_json::to_vec(&old["details"]).unwrap()
+                );
+            } else {
+                // Appended rows review player-owned delivery settings; they do not
+                // relabel those settings as starting truth, beliefs or abilities.
+                let tone = match options["tone"].as_str().unwrap() {
+                    "plain" => "Plain",
+                    "warm" => "Warm",
+                    "brisk" => "Brisk",
+                    _ => unreachable!(),
+                };
+                let mut expected_rows = vec![json!(format!("Narration tone: {tone}"))];
+                expected_rows.extend(options["excluded_phrases"].as_array().unwrap().iter().map(
+                    |phrase| {
+                        json!(format!(
+                            "Phrase excluded from generated narration: {}",
+                            phrase.as_str().unwrap()
+                        ))
+                    },
+                ));
+                assert_eq!(review_rows, expected_rows.as_slice());
+                assert!(review_rows.iter().all(|row| {
+                    let text = row.as_str().unwrap();
+                    !["Known fact ", "Belief:", "Ability ", "Inventory "]
+                        .iter()
+                        .any(|prefix| text.starts_with(prefix))
+                }));
+            }
             assert_eq!(got["player_name"], "Eira");
             assert_eq!(got, review(&host, template, Some("Eira"), Some(&options)));
             assert!(!serde_json::to_string(&got["details"])
@@ -307,6 +342,11 @@ fn exact_presentation_preview_has_independent_hash_and_never_mutates_existing_hi
         assert_eq!(absent, null);
         assert_eq!(absent["presentation"], plain());
         assert_eq!(absent, review(&host, template, None, Some(&plain())));
+        let legacy_default = data(call(&host, json!({"op":"story_setup","template":template})));
+        assert_eq!(
+            serde_json::to_vec(&absent["details"]).unwrap(),
+            serde_json::to_vec(&legacy_default["details"]).unwrap()
+        );
         assert_ne!(
             absent["setup_sha256"],
             data(call(&host, json!({"op":"story_setup","template":template})))["setup_sha256"]

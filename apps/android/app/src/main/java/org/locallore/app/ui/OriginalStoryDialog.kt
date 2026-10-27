@@ -18,13 +18,13 @@ import org.locallore.app.*
 /** Structured descriptive author forms. This editor never constructs a Seed or native IDs. */
 @Composable
 internal fun OriginalStoryDialog(state: OriginalStoryUiState, onDismiss: () -> Unit,
-    onEdit: (OriginalStoryUiState,OriginalInput,OriginalProposal?,String) -> Unit,
+    onEdit: (OriginalStoryUiState,OriginalStoryEdit) -> Unit,
     onGenerate: (OriginalStoryUiState) -> Unit, onReview: (OriginalStoryUiState) -> Unit,
     onCreate: (OriginalStoryUiState,OriginalReview) -> Unit, exposeTestTags: Boolean) {
     val editable=!state.busy && !state.closing && !state.creating
     val input=state.input; val world=state.proposal
-    fun editInput(next: OriginalInput)=onEdit(state,next,world,state.title)
-    fun editWorld(next: OriginalProposal)=onEdit(state,input,next,state.title)
+    fun text(field: OriginalTextField,value: String,row: Int=0)=onEdit(state,OriginalStoryEdit.Text(field,value,row))
+    fun select(field: OriginalSelection,value: Int,row: Int=0)=onEdit(state,OriginalStoryEdit.Select(field,value,row))
     Dialog(onDismissRequest=onDismiss,properties=DialogProperties(usePlatformDefaultWidth=false)) {
         Surface(Modifier.fillMaxWidth(0.94f).widthIn(max=560.dp).fillMaxHeight(0.9f)
             .testTag("original-story-dialog").semantics { testTagsAsResourceId=exposeTestTags },shape=MaterialTheme.shapes.large) {
@@ -36,25 +36,25 @@ internal fun OriginalStoryDialog(state: OriginalStoryUiState, onDismiss: () -> U
                     Text("Nothing is saved before Create. Author review includes private beliefs and world truth; these are not automatically player knowledge.")
                     if(state.busy) CircularProgressIndicator()
                     state.notice?.let { Text(it,Modifier.testTag("original-story-notice").semantics { liveRegion=LiveRegionMode.Polite }) }
-                    OriginalField("Premise",input.premise,"original-premise",editable) { editInput(input.copy(premise=it)) }
-                    OriginalField("Player name",input.playerName,"original-player-name",editable) { editInput(input.copy(playerName=it)) }
-                    OriginalField("Player description (optional)",input.playerDescription,"original-player-description",editable) { editInput(input.copy(playerDescription=it)) }
+                    OriginalField("Premise",input.premise,"original-premise",editable) { text(OriginalTextField.PREMISE,it) }
+                    OriginalField("Player name",input.playerName,"original-player-name",editable) { text(OriginalTextField.PLAYER_NAME,it) }
+                    OriginalField("Player description (optional)",input.playerDescription,"original-player-description",editable) { text(OriginalTextField.PLAYER_DESCRIPTION,it) }
                     Text("Use a short premise and concise descriptions, with one paragraph per field and no line breaks or outer spaces.")
                     OriginalChoice("Rules",listOf("Fantasy","Narrative"),if(input.profile=="fantasy_v1")0 else 1,editable) {
-                        editInput(input.copy(profile=if(it==0)"fantasy_v1" else "narrative_v1")) }
+                        select(OriginalSelection.PROFILE,it) }
                     OriginalChoice("Generated narration tone",listOf("Plain","Warm","Brisk"),listOf("plain","warm","brisk").indexOf(input.presentation.tone),editable) {
-                        editInput(input.copy(presentation=input.presentation.copy(tone=listOf("plain","warm","brisk")[it]))) }
+                        select(OriginalSelection.TONE,it) }
                     OriginalField("Phrases excluded from generated narration (one per line)",input.presentation.excludedPhrases.joinToString("\n"),"original-excluded-phrases",editable) {
-                        editInput(input.copy(presentation=input.presentation.copy(excludedPhrases=if(it.isEmpty())emptyList() else it.split('\n')))) }
+                        text(OriginalTextField.EXCLUDED_PHRASES,it) }
                     Text("Matches literal phrases, ignoring letter case, with up to eight phrases. This does not filter broad topics or player messages.")
                     if(world==null) {
                         Text("Starting cast hints (optional, up to three)",modifier=Modifier.semantics { heading() })
                         input.cast.forEachIndexed { index,c ->
-                            OriginalField("Character ${index+1} name",c.name,"original-cast-$index-name",editable) { editInput(input.copy(cast=input.cast.replace(index,c.copy(name=it)))) }
-                            OriginalField("Character ${index+1} description",c.description,"original-cast-$index-description",editable) { editInput(input.copy(cast=input.cast.replace(index,c.copy(description=it)))) }
-                            OriginalAction("Remove character ${index+1}",editable) { editInput(input.copy(cast=input.cast.filterIndexed { i,_ -> i!=index })) }
+                            OriginalField("Character ${index+1} name",c.name,"original-cast-$index-name",editable) { text(OriginalTextField.CAST_NAME,it,index) }
+                            OriginalField("Character ${index+1} description",c.description,"original-cast-$index-description",editable) { text(OriginalTextField.CAST_DESCRIPTION,it,index) }
+                            OriginalAction("Remove character ${index+1}",editable) { onEdit(state,OriginalStoryEdit.Remove(OriginalRows.CAST,index)) }
                         }
-                        if(input.cast.size<3) OriginalAction("Add cast hint",editable) { editInput(input.copy(cast=input.cast+OriginalCast("",""))) }
+                        if(input.cast.size<3) OriginalAction("Add cast hint",editable) { onEdit(state,OriginalStoryEdit.Add(OriginalRows.CAST)) }
                     }
                     OriginalAction(if(world==null)"Generate draft" else "Regenerate from these inputs",editable && OriginalStoryWire.valid(input),"original-generate") { onGenerate(state) }
                     if(world!=null) {
@@ -62,51 +62,51 @@ internal fun OriginalStoryDialog(state: OriginalStoryUiState, onDismiss: () -> U
                         val locations=world.locations.mapIndexed { i,l -> "${i+1}. ${l.name}" }
                         val actors=listOf(input.playerName)+world.characters.map { it.name }
                         world.locations.forEachIndexed { i,l ->
-                            OriginalField("Location ${i+1} name",l.name,"original-location-$i-name",editable) { editWorld(world.copy(locations=world.locations.replace(i,l.copy(name=it)))) }
-                            OriginalField("Location ${i+1} description",l.description,"original-location-$i-description",editable) { editWorld(world.copy(locations=world.locations.replace(i,l.copy(description=it)))) }
+                            OriginalField("Location ${i+1} name",l.name,"original-location-$i-name",editable) { text(OriginalTextField.LOCATION_NAME,it,i) }
+                            OriginalField("Location ${i+1} description",l.description,"original-location-$i-description",editable) { text(OriginalTextField.LOCATION_DESCRIPTION,it,i) }
                         }
-                        OriginalChoice("Player starts at",locations,world.playerLocation,editable) { editWorld(world.copy(playerLocation=it)) }
+                        OriginalChoice("Player starts at",locations,world.playerLocation,editable) { select(OriginalSelection.PLAYER_LOCATION,it) }
                         world.characters.forEachIndexed { i,c ->
-                            OriginalField("Character ${i+1} name",c.name,"original-character-$i-name",editable) { editWorld(world.copy(characters=world.characters.replace(i,c.copy(name=it)))) }
-                            OriginalField("Character ${i+1} description",c.description,"original-character-$i-description",editable) { editWorld(world.copy(characters=world.characters.replace(i,c.copy(description=it)))) }
-                            OriginalChoice("${c.name} starts at",locations,c.location,editable) { editWorld(world.copy(characters=world.characters.replace(i,c.copy(location=it)))) }
-                            OriginalKnown("Who knows ${c.name}'s description?",actors,c.knownBy,editable) { editWorld(world.copy(characters=world.characters.replace(i,c.copy(knownBy=it)))) }
+                            OriginalField("Character ${i+1} name",c.name,"original-character-$i-name",editable) { text(OriginalTextField.CHARACTER_NAME,it,i) }
+                            OriginalField("Character ${i+1} description",c.description,"original-character-$i-description",editable) { text(OriginalTextField.CHARACTER_DESCRIPTION,it,i) }
+                            OriginalChoice("${c.name} starts at",locations,c.location,editable) { select(OriginalSelection.CHARACTER_LOCATION,it,i) }
+                            OriginalKnownChoices("Who knows ${c.name}'s description?",actors,c.knownBy,editable) { onEdit(state,OriginalStoryEdit.ToggleKnown(OriginalKnown.CHARACTER,i,it)) }
                         }
                         Text("Travel routes (directed)",modifier=Modifier.semantics { heading() })
                         world.locations.indices.forEach { from -> world.locations.indices.filter { it!=from }.forEach { to ->
                             val route=OriginalRoute(from,to); val selected=route in world.routes
                             OriginalAction("${if(selected)"✓ " else ""}${world.locations[from].name} → ${world.locations[to].name}",editable && (selected || world.routes.size<8)) {
-                                editWorld(world.copy(routes=if(selected)world.routes-route else world.routes+route)) }
+                                onEdit(state,OriginalStoryEdit.ToggleRoute(from,to)) }
                         } }
                         Text("World truth",modifier=Modifier.semantics { heading() })
                         world.facts.forEachIndexed { i,f ->
-                            OriginalField("Fact ${i+1}",f.text,"original-fact-$i",editable) { editWorld(world.copy(facts=world.facts.replace(i,f.copy(text=it)))) }
-                            OriginalKnown("Who knows fact ${i+1}?",actors,f.knownBy,editable) { editWorld(world.copy(facts=world.facts.replace(i,f.copy(knownBy=it)))) }
+                            OriginalField("Fact ${i+1}",f.text,"original-fact-$i",editable) { text(OriginalTextField.FACT_TEXT,it,i) }
+                            OriginalKnownChoices("Who knows fact ${i+1}?",actors,f.knownBy,editable) { onEdit(state,OriginalStoryEdit.ToggleKnown(OriginalKnown.FACT,i,it)) }
                             OriginalChoice("Discoverable at",listOf("Not location-discoverable")+locations,(f.discoverableAt?.plus(1) ?: 0),editable) {
-                                editWorld(world.copy(facts=world.facts.replace(i,f.copy(discoverableAt=if(it==0)null else it-1)))) }
-                            OriginalAction("Remove fact ${i+1}",editable) { editWorld(world.copy(facts=world.facts.filterIndexed { n,_ -> n!=i })) }
+                                select(OriginalSelection.FACT_DISCOVERABLE,it,i) }
+                            OriginalAction("Remove fact ${i+1}",editable) { onEdit(state,OriginalStoryEdit.Remove(OriginalRows.FACT,i)) }
                         }
-                        if(world.facts.size<8) OriginalAction("Add world fact",editable) { editWorld(world.copy(facts=world.facts+OriginalFact("",emptyList(),null))) }
+                        if(world.facts.size<8) OriginalAction("Add world fact",editable) { onEdit(state,OriginalStoryEdit.Add(OriginalRows.FACT)) }
                         Text("Private beliefs — may differ from truth",modifier=Modifier.semantics { heading() })
                         world.beliefs.forEachIndexed { i,b ->
-                            OriginalChoice("Believer ${i+1}",actors,b.believer,editable) { editWorld(world.copy(beliefs=world.beliefs.replace(i,b.copy(believer=it)))) }
-                            OriginalField("Belief ${i+1}",b.text,"original-belief-$i",editable) { editWorld(world.copy(beliefs=world.beliefs.replace(i,b.copy(text=it)))) }
+                            OriginalChoice("Believer ${i+1}",actors,b.believer,editable) { select(OriginalSelection.BELIEF_BELIEVER,it,i) }
+                            OriginalField("Belief ${i+1}",b.text,"original-belief-$i",editable) { text(OriginalTextField.BELIEF_TEXT,it,i) }
                             OriginalChoice("Confidence",listOf("Uncertain","Suspected","Believed"),listOf("uncertain","suspected","believed").indexOf(b.confidence),editable) {
-                                editWorld(world.copy(beliefs=world.beliefs.replace(i,b.copy(confidence=listOf("uncertain","suspected","believed")[it])))) }
-                            OriginalAction("Remove belief ${i+1}",editable) { editWorld(world.copy(beliefs=world.beliefs.filterIndexed { n,_ -> n!=i })) }
+                                select(OriginalSelection.BELIEF_CONFIDENCE,it,i) }
+                            OriginalAction("Remove belief ${i+1}",editable) { onEdit(state,OriginalStoryEdit.Remove(OriginalRows.BELIEF,i)) }
                         }
-                        if(world.beliefs.size<6) OriginalAction("Add private belief",editable) { editWorld(world.copy(beliefs=world.beliefs+OriginalBelief(0,"","uncertain"))) }
+                        if(world.beliefs.size<6) OriginalAction("Add private belief",editable) { onEdit(state,OriginalStoryEdit.Add(OriginalRows.BELIEF)) }
                         Text("Starting possessions (one each)",modifier=Modifier.semantics { heading() })
                         world.possessions.forEachIndexed { i,p ->
-                            OriginalField("Possession ${i+1} name",p.name,"original-possession-$i-name",editable) { editWorld(world.copy(possessions=world.possessions.replace(i,p.copy(name=it)))) }
-                            OriginalField("Possession ${i+1} description",p.description,"original-possession-$i-description",editable) { editWorld(world.copy(possessions=world.possessions.replace(i,p.copy(description=it)))) }
-                            OriginalChoice("Owner",actors,p.owner,editable) { editWorld(world.copy(possessions=world.possessions.replace(i,p.copy(owner=it)))) }
-                            OriginalChoice("Return obligation",listOf("None")+actors,p.returnTo?.plus(1) ?: 0,editable) { editWorld(world.copy(possessions=world.possessions.replace(i,p.copy(returnTo=if(it==0)null else it-1)))) }
-                            OriginalAction("Remove possession ${i+1}",editable) { editWorld(world.copy(possessions=world.possessions.filterIndexed { n,_ -> n!=i })) }
+                            OriginalField("Possession ${i+1} name",p.name,"original-possession-$i-name",editable) { text(OriginalTextField.POSSESSION_NAME,it,i) }
+                            OriginalField("Possession ${i+1} description",p.description,"original-possession-$i-description",editable) { text(OriginalTextField.POSSESSION_DESCRIPTION,it,i) }
+                            OriginalChoice("Owner",actors,p.owner,editable) { select(OriginalSelection.POSSESSION_OWNER,it,i) }
+                            OriginalChoice("Return obligation",listOf("None")+actors,p.returnTo?.plus(1) ?: 0,editable) { select(OriginalSelection.POSSESSION_RETURN,it,i) }
+                            OriginalAction("Remove possession ${i+1}",editable) { onEdit(state,OriginalStoryEdit.Remove(OriginalRows.POSSESSION,i)) }
                         }
-                        if(world.possessions.size<4) OriginalAction("Add possession",editable) { editWorld(world.copy(possessions=world.possessions+OriginalPossession("","",0,null))) }
+                        if(world.possessions.size<4) OriginalAction("Add possession",editable) { onEdit(state,OriginalStoryEdit.Add(OriginalRows.POSSESSION)) }
                     }
-                    OriginalField("Save title",state.title,"original-title",editable) { onEdit(state,input,world,it) }
+                    OriginalField("Save title",state.title,"original-title",editable) { text(OriginalTextField.TITLE,it) }
                     if(world!=null) OriginalAction("Review changes",editable && validStoryTitle(state.title) && OriginalStoryWire.valid(input,world),"original-review") { onReview(state) }
                     if(!OriginalStoryWire.valid(input,world)) Text("Complete the fields before generating or reviewing. Keep names and descriptions short; check the locations and who knows each fact.",color=MaterialTheme.colorScheme.error)
                     state.review?.let { review ->
@@ -130,11 +130,10 @@ internal fun OriginalStoryDialog(state: OriginalStoryUiState, onDismiss: () -> U
     Text(label)
     values.forEachIndexed { i,value -> OriginalAction("${if(i==selected)"✓ " else ""}$value",enabled) { onValue(i) } }
 }
-@Composable private fun OriginalKnown(label: String,actors: List<String>,selected: List<Int>,enabled: Boolean,onValue: (List<Int>)->Unit) {
+@Composable private fun OriginalKnownChoices(label: String,actors: List<String>,selected: List<Int>,enabled: Boolean,onToggle: (Int)->Unit) {
     Text(label)
-    actors.forEachIndexed { i,name -> OriginalAction("${if(i in selected)"✓ " else ""}$name",enabled) { onValue(if(i in selected)selected-i else selected+i) } }
+    actors.forEachIndexed { i,name -> OriginalAction("${if(i in selected)"✓ " else ""}$name",enabled) { onToggle(i) } }
 }
-private fun <T> List<T>.replace(index: Int,value: T)=mapIndexed { i,old -> if(i==index)value else old }
 private class OriginalConsent(private val value: Any) {
     override fun equals(other: Any?)=other is OriginalConsent && other.value===value
     override fun hashCode()=System.identityHashCode(value)

@@ -46,9 +46,8 @@ import org.locallore.app.hasReviewedPlayerName
 import org.locallore.app.hasReviewedCreation
 import org.locallore.app.storyPresentationDraft
 import org.locallore.app.OriginalStoryUiState
-import org.locallore.app.OriginalInput
-import org.locallore.app.OriginalProposal
 import org.locallore.app.OriginalReview
+import org.locallore.app.OriginalStoryEdit
 
 /** Initial starter/name/title review. No existing-story or mechanical-state editor. */
 @Composable
@@ -64,7 +63,7 @@ internal fun StoryCreationDialog(
     onTone: (StoryCreationRequest, String) -> Unit = { _, _ -> },
     onExcludedPhrases: (StoryCreationRequest, String) -> Unit = { _, _ -> },
     onOriginal: (StoryCreationRequest) -> Unit = {},
-    onOriginalEdit: (OriginalStoryUiState,OriginalInput,OriginalProposal?,String) -> Unit = { _,_,_,_ -> },
+    onOriginalEdit: (OriginalStoryUiState,OriginalStoryEdit) -> Unit = { _,_ -> },
     onOriginalGenerate: (OriginalStoryUiState) -> Unit = {},
     onOriginalReview: (OriginalStoryUiState) -> Unit = {},
     onOriginalCreate: (OriginalStoryUiState,OriginalReview) -> Unit = { _,_ -> },

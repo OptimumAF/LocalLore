@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.text.AnnotatedString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -21,7 +22,7 @@ class OriginalStoryDialogTest {
     private class Port: OriginalStoryGateway {
         var generates=0; val creates=mutableListOf<OriginalReview>(); lateinit var input: OriginalInput
         val world=OriginalProposal(listOf(OriginalLocation("Orchard","A frozen orchard.")),0,
-            listOf(OriginalCharacter("Sel","An orchard keeper.",0,listOf(0,1))),emptyList(),emptyList(),emptyList(),emptyList())
+            listOf(OriginalCharacter("Sel","An orchard keeper.",0,listOf(0,1))),emptyList(),listOf(OriginalFact("The gate is open.",listOf(0),null)),emptyList(),emptyList())
         override suspend fun originalCapabilities()=OriginalCapabilities(true,"scripted")
         override suspend fun beginOriginal(input: OriginalInput): OriginalJob { this.input=input; return OriginalJob("job-1","a".repeat(64),"scripted") }
         override suspend fun generateOriginal(job: String): OriginalGenerated { generates++; return OriginalGenerated(job,input,world,"scripted") }
@@ -63,6 +64,18 @@ class OriginalStoryDialogTest {
             compose.waitUntil(5000) { state().review!=null && !state().busy }
             val first=state().review!!
             val oldCreate=checkNotNull(compose.onNodeWithTag("original-create").performScrollTo().fetchSemanticsNode().config[SemanticsActions.OnClick].action)
+            val oldTitle=checkNotNull(compose.onNodeWithTag("original-title").performScrollTo().fetchSemanticsNode().config[SemanticsActions.SetText].action)
+            val oldDescription=checkNotNull(compose.onNodeWithTag("original-player-description").performScrollTo().fetchSemanticsNode().config[SemanticsActions.SetText].action)
+            val oldCharacter=checkNotNull(compose.onNodeWithTag("original-character-0-name").performScrollTo().fetchSemanticsNode().config[SemanticsActions.SetText].action)
+            val oldFact=checkNotNull(compose.onNodeWithTag("original-fact-0").performScrollTo().fetchSemanticsNode().config[SemanticsActions.SetText].action)
+            compose.runOnIdle {
+                oldTitle(AnnotatedString(first.title+"!")); oldDescription(AnnotatedString("Keep this independent edit.")); oldTitle(AnnotatedString(first.title))
+                oldCharacter(AnnotatedString("Sel!")); oldFact(AnnotatedString("The gate is open.!"))
+                oldCharacter(AnnotatedString("Sel")); oldFact(AnnotatedString("The gate is open."))
+                assertEquals(first.title,state().title); assertEquals("Keep this independent edit.",state().input.playerDescription)
+                assertEquals("Sel",state().proposal!!.characters[0].name); assertEquals("The gate is open.",state().proposal!!.facts[0].text)
+                assertNull(state().review); oldCreate(); assertTrue(port.creates.isEmpty())
+            }
             compose.onNodeWithTag("original-title").performScrollTo().performTextReplacement("The reviewed orchard")
             compose.onNodeWithTag("original-create").assertDoesNotExist()
             compose.runOnIdle { oldCreate(); assertTrue(port.creates.isEmpty()); assertNull(state().review) }

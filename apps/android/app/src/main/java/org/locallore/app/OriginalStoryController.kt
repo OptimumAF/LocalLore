@@ -31,25 +31,26 @@ internal class OriginalStoryController(private val gateway: OriginalStoryGateway
     }
     private fun update(value: OriginalStoryUiState) { state=value; if(!disposed) publish(value) }
     private fun editable(expected: OriginalStoryUiState) = !disposed && state === expected && !expected.busy && !expected.closing && !createStarted
+    /** Coherent whole-draft replacement requires the exact current view and retires all editors. */
     fun edit(expected: OriginalStoryUiState, input: OriginalInput, proposal: OriginalProposal?, title: String) {
+        if(!editable(expected) || expected.creating || (expected.proposal==null)!=(proposal==null))return
+        generation++
+        publishEdit(expected.copy(input=input,proposal=proposal,title=title),Any())
+    }
+    /** Every actual form callback names its field or toggle; equal values remain explicit intents. */
+    fun edit(expected: OriginalStoryUiState, intent: OriginalStoryEdit) {
         val before=state ?: return
         if(disposed || before.editorEpoch !== expected.editorEpoch || expected.busy || expected.creating || expected.closing ||
             before.busy || before.creating || before.closing || createStarted) return
-        if((expected.proposal==null)!=(proposal==null) || (before.proposal==null)!=(proposal==null))return
-        // Every field intent revokes captured consent, even an equal-value edit.
+        val next=try { applyOriginalEdit(before,intent) } catch (_: OriginalEditRefused) { return }
         generation++
-        val merged: OriginalInput
-        val captured: OriginalProposal?
-        try {
-            merged=mergeOriginalInput(expected.input,input,before.input,mergeCast=proposal==null)
-            captured=if(proposal==null)null else mergeOriginalWorld(checkNotNull(expected.proposal),proposal,checkNotNull(before.proposal)).frozen()
-        } catch (_: OriginalEditConflict) {
-            update(before.copy(editorEpoch=Any(),review=null,notice="The draft changed. Check the latest rows and try again.")); return
-        }
-        val reviewedInput = if(captured == null) merged.frozen() else merged.copy(
+        publishEdit(next,if(intent.structural())Any() else before.editorEpoch)
+    }
+    private fun publishEdit(next: OriginalStoryUiState,epoch: Any) {
+        val captured=next.proposal?.frozen()
+        val reviewedInput = if(captured == null) next.input.frozen() else next.input.copy(
             cast=captured.characters.map { OriginalCast(it.name,it.description) }).frozen()
-        update(before.copy(input=reviewedInput,proposal=captured,title=mergeOriginalTitle(expected.title,title,before.title),review=null,
-            editorEpoch=if(originalStructureChanged(expected.input,input,expected.proposal,proposal))Any() else before.editorEpoch,
+        update(next.copy(input=reviewedInput,proposal=captured,review=null,editorEpoch=epoch,
             notice="Review all changes before creating. Nothing is saved yet."))
     }
     fun generate(expected: OriginalStoryUiState) {

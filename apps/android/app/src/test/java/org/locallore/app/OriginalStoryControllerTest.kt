@@ -40,7 +40,7 @@ class OriginalStoryControllerTest {
         c.open(OriginalCapabilities(true,"scripted")); c.edit(s,input,null,"The Frozen Orchard")
         c.generate(s); advanceUntilIdle(); assertNotNull(s.proposal); assertTrue(port.creates.isEmpty())
         c.review(s); advanceUntilIdle(); val old=s; val review=s.review!!
-        c.edit(s,s.input,s.proposal,"A Different Orchard"); assertNull(s.review)
+        c.edit(s,OriginalStoryEdit.Text(OriginalTextField.TITLE,"A Different Orchard")); assertNull(s.review)
         c.confirm(old,review); c.confirm(s,review); assertTrue(port.creates.isEmpty())
         c.review(s); advanceUntilIdle(); val fresh=s; val accepted=s.review!!
         c.confirm(fresh.copy(),accepted); c.confirm(fresh,accepted.copy()); assertTrue(port.creates.isEmpty())
@@ -73,10 +73,10 @@ class OriginalStoryControllerTest {
         val c=OriginalStoryController(port,this,values::add){}
         c.open(OriginalCapabilities(true,"scripted")); val old=values.last()
         c.edit(old,input.copy(cast=listOf(OriginalCast("Tovin","An orchard keeper."))),null,"Orchard") // Adding a row retires old indices.
-        val edited=values.last(); c.edit(old,input.copy(premise="Stale"),null,"Stale"); assertSame(edited,values.last())
+        val edited=values.last(); c.edit(old,OriginalStoryEdit.Text(OriginalTextField.PREMISE,"Stale")); assertSame(edited,values.last())
         c.generate(edited); runCurrent(); c.dispose(); val count=values.size
         gate.complete(OriginalGenerated("job-1",port.input,proposal,"scripted")); advanceUntilIdle()
-        c.generate(edited); c.edit(edited,input,null,"Late"); assertEquals(count,values.size); assertTrue(port.creates.isEmpty())
+        c.generate(edited); c.edit(edited,OriginalStoryEdit.Text(OriginalTextField.TITLE,"Late")); assertEquals(count,values.size); assertTrue(port.creates.isEmpty())
     }
     @Test fun nestedDraftsAreCopiedAndCastNamesTrackReviewedCharacters()=runTest {
         val port=Port(proposal); lateinit var s: OriginalStoryUiState
@@ -93,7 +93,7 @@ class OriginalStoryControllerTest {
         val c=OriginalStoryController(port,this,{s=it}){}
         c.open(OriginalCapabilities(true,"scripted"))
         for(bad in listOf("", " outer", "line\nbreak", "a".repeat(1025),"\uD800")) {
-            c.edit(s,input.copy(premise=bad),null,"Orchard"); c.generate(s); advanceUntilIdle()
+            c.edit(s,OriginalStoryEdit.Text(OriginalTextField.PREMISE,bad)); c.generate(s); advanceUntilIdle()
             assertEquals(bad,s.input.premise); assertNull(s.job); assertTrue(port.creates.isEmpty())
         }
         c.dismiss(); advanceUntilIdle()
@@ -104,7 +104,7 @@ class OriginalStoryControllerTest {
         c.open(OriginalCapabilities(true,"scripted")); c.edit(values.last(),input,null,"Orchard")
         c.generate(values.last()); advanceUntilIdle(); c.review(values.last()); advanceUntilIdle()
         val ready=values.last(); val review=ready.review!!; c.dispose(); val count=values.size
-        c.edit(ready,input,proposal,"Late"); c.confirm(ready,review); c.review(ready); c.generate(ready); c.dismiss(); advanceUntilIdle()
+        c.edit(ready,OriginalStoryEdit.Text(OriginalTextField.TITLE,"Late")); c.confirm(ready,review); c.review(ready); c.generate(ready); c.dismiss(); advanceUntilIdle()
         assertEquals(count,values.size); assertTrue(port.creates.isEmpty()); assertTrue(closed.isEmpty())
         // No SDK/resource-reclamation claim: ShellViewModel owns shared transport retirement.
     }
@@ -115,7 +115,7 @@ class OriginalStoryControllerTest {
         c.open(OriginalCapabilities(true,"scripted")); c.edit(values.last(),input,null,"Orchard")
         c.generate(values.last()); advanceUntilIdle(); c.review(values.last()); advanceUntilIdle()
         val ready=values.last(); c.confirm(ready,ready.review!!); runCurrent(); assertTrue(values.last().creating)
-        val creating=values.last(); c.edit(ready,ready.input.copy(playerName="Late"),ready.proposal,"Late")
+        val creating=values.last(); c.edit(ready,OriginalStoryEdit.Text(OriginalTextField.PLAYER_NAME,"Late"))
         assertSame(creating,values.last())
         c.dispose(); val count=values.size; gate.complete(Unit); advanceUntilIdle()
         assertEquals(1,port.creates.size); assertEquals(count,values.size); assertTrue(closed.isEmpty())
@@ -147,12 +147,12 @@ class OriginalStoryControllerTest {
         c.open(OriginalCapabilities(true,"scripted"))
         c.edit(s,input.copy(cast=listOf(OriginalCast("Tovin","A gardener."))),null,"Orchard")
         val rendered=s
-        c.edit(rendered,rendered.input.copy(premise="A"),null,rendered.title)
-        c.edit(rendered,rendered.input.copy(premise="AB"),null,rendered.title)
-        c.edit(rendered,rendered.input.copy(playerDescription="A clockmaker."),null,rendered.title)
-        c.edit(rendered,rendered.input.copy(cast=listOf(rendered.input.cast.single().copy(name="Sera"))),null,rendered.title)
-        c.edit(rendered,rendered.input.copy(cast=listOf(rendered.input.cast.single().copy(description="An orchard keeper."))),null,rendered.title)
-        c.edit(rendered,rendered.input,null,"The Frozen Orchard")
+        c.edit(rendered,OriginalStoryEdit.Text(OriginalTextField.PREMISE,"A"))
+        c.edit(rendered,OriginalStoryEdit.Text(OriginalTextField.PREMISE,"AB"))
+        c.edit(rendered,OriginalStoryEdit.Text(OriginalTextField.PLAYER_DESCRIPTION,"A clockmaker."))
+        c.edit(rendered,OriginalStoryEdit.Text(OriginalTextField.CAST_NAME,"Sera",0))
+        c.edit(rendered,OriginalStoryEdit.Text(OriginalTextField.CAST_DESCRIPTION,"An orchard keeper.",0))
+        c.edit(rendered,OriginalStoryEdit.Text(OriginalTextField.TITLE,"The Frozen Orchard"))
         assertEquals("AB",s.input.premise); assertEquals("A clockmaker.",s.input.playerDescription)
         assertEquals(OriginalCast("Sera","An orchard keeper."),s.input.cast.single()); assertEquals("The Frozen Orchard",s.title)
         assertNull(s.review); assertTrue(port.creates.isEmpty()); c.dismiss(); advanceUntilIdle()
@@ -162,14 +162,14 @@ class OriginalStoryControllerTest {
         val port=Port(world); lateinit var s: OriginalStoryUiState
         val c=OriginalStoryController(port,this,{s=it}){}
         c.open(OriginalCapabilities(true,"scripted")); c.edit(s,input,null,"Orchard"); c.generate(s); advanceUntilIdle()
-        val rendered=s; val p=rendered.proposal!!; val character=p.characters.single(); val fact=p.facts.single()
-        c.edit(rendered,rendered.input,p.copy(characters=listOf(character.copy(name="Sera"))),rendered.title)
-        c.edit(rendered,rendered.input,p.copy(characters=listOf(character.copy(description="An orchard keeper."))),rendered.title)
-        c.edit(rendered,rendered.input,p.copy(facts=listOf(fact.copy(text="The gate is open."))),rendered.title)
-        c.edit(rendered,rendered.input,p.copy(facts=listOf(fact.copy(knownBy=listOf(1,0)))),rendered.title)
-        c.edit(rendered,rendered.input,p.copy(facts=listOf(fact.copy(knownBy=emptyList()))),rendered.title)
-        c.edit(rendered,rendered.input,p.copy(routes=listOf(OriginalRoute(0,1))),rendered.title)
-        c.edit(rendered,rendered.input,p.copy(routes=listOf(OriginalRoute(1,0))),rendered.title)
+        val rendered=s
+        c.edit(rendered,OriginalStoryEdit.Text(OriginalTextField.CHARACTER_NAME,"Sera",0))
+        c.edit(rendered,OriginalStoryEdit.Text(OriginalTextField.CHARACTER_DESCRIPTION,"An orchard keeper.",0))
+        c.edit(rendered,OriginalStoryEdit.Text(OriginalTextField.FACT_TEXT,"The gate is open.",0))
+        c.edit(rendered,OriginalStoryEdit.ToggleKnown(OriginalKnown.FACT,0,0))
+        c.edit(rendered,OriginalStoryEdit.ToggleKnown(OriginalKnown.FACT,0,1))
+        c.edit(rendered,OriginalStoryEdit.ToggleRoute(0,1))
+        c.edit(rendered,OriginalStoryEdit.ToggleRoute(1,0))
         assertEquals("Sera",s.proposal!!.characters.single().name); assertEquals("An orchard keeper.",s.proposal!!.characters.single().description)
         assertEquals("Sera",s.input.cast.single().name); assertEquals("The gate is open.",s.proposal!!.facts.single().text)
         assertEquals(listOf(0),s.proposal!!.facts.single().knownBy)
@@ -181,11 +181,11 @@ class OriginalStoryControllerTest {
         val c=OriginalStoryController(port,this,{s=it}){}
         c.open(OriginalCapabilities(true,"scripted")); c.edit(s,input,null,"Orchard"); c.generate(s); advanceUntilIdle()
         val old=s; c.review(old); advanceUntilIdle(); val reviewed=s; val consent=s.review!!
-        c.edit(old,old.input.copy(premise="Stale pre-review callback"),old.proposal,old.title)
+        c.edit(old,OriginalStoryEdit.Text(OriginalTextField.PREMISE,"Stale pre-review callback"))
         assertSame(reviewed,s); assertSame(consent,s.review)
-        c.edit(reviewed,reviewed.input,reviewed.proposal!!.copy(facts=emptyList()),reviewed.title)
+        c.edit(reviewed,OriginalStoryEdit.Remove(OriginalRows.FACT,0))
         val structural=s
-        c.edit(reviewed,reviewed.input,reviewed.proposal.copy(facts=listOf(reviewed.proposal.facts.single().copy(text="Stale removed row"))),reviewed.title)
+        c.edit(reviewed,OriginalStoryEdit.Text(OriginalTextField.FACT_TEXT,"Stale removed row",0))
         c.confirm(reviewed,consent); c.confirm(s,consent); assertSame(structural,s); assertNull(s.review)
         assertTrue(s.proposal!!.facts.isEmpty()); assertTrue(port.creates.isEmpty()); c.dismiss(); advanceUntilIdle()
     }
@@ -195,29 +195,31 @@ class OriginalStoryControllerTest {
         c.open(OriginalCapabilities(true,"scripted"))
         c.edit(s,input.copy(cast=listOf(OriginalCast("One","First."),OriginalCast("Two","Second."))),null,"Orchard")
         val first=s
-        c.edit(first,first.input.copy(cast=first.input.cast.reversed()),null,first.title)
+        c.edit(first,OriginalStoryEdit.Move(OriginalRows.CAST,0,1))
         val reordered=s; assertNotSame(first.editorEpoch,s.editorEpoch); assertEquals("Two",s.input.cast.first().name)
-        c.edit(first,first.input.copy(cast=listOf(OriginalCast("Wrong","Late."))),null,first.title); assertSame(reordered,s)
-        c.edit(reordered,reordered.input.copy(cast=reordered.input.cast.take(1)),null,reordered.title)
+        c.edit(first,OriginalStoryEdit.Text(OriginalTextField.CAST_NAME,"Wrong",0)); assertSame(reordered,s)
+        c.edit(reordered,OriginalStoryEdit.Remove(OriginalRows.CAST,1))
         val removed=s; assertNotSame(reordered.editorEpoch,s.editorEpoch)
-        c.edit(reordered,reordered.input.copy(playerDescription="Late removed-row frame"),null,reordered.title); assertSame(removed,s)
-        c.edit(removed,removed.input.copy(cast=removed.input.cast+OriginalCast("Three","Third.")),null,removed.title)
+        c.edit(reordered,OriginalStoryEdit.Text(OriginalTextField.PLAYER_DESCRIPTION,"Late removed-row frame")); assertSame(removed,s)
+        c.edit(removed,OriginalStoryEdit.Add(OriginalRows.CAST))
+        val addedRow=s
+        c.edit(addedRow,OriginalStoryEdit.Text(OriginalTextField.CAST_NAME,"Three",1))
+        c.edit(addedRow,OriginalStoryEdit.Text(OriginalTextField.CAST_DESCRIPTION,"Third.",1))
         val added=s; assertNotSame(removed.editorEpoch,s.editorEpoch)
-        c.edit(removed,removed.input.copy(playerName="Late"),null,removed.title); assertSame(added,s)
+        c.edit(removed,OriginalStoryEdit.Text(OriginalTextField.PLAYER_NAME,"Late")); assertSame(added,s)
         assertEquals(listOf("Two","Three"),s.input.cast.map { it.name }); assertNull(s.review); c.dismiss(); advanceUntilIdle()
     }
-    @Test fun ambiguousDuplicateRowRemovalCannotDiscardAConcurrentTextEdit()=runTest {
+    @Test fun explicitDuplicateRowRemovalKeepsTheCorrectConcurrentTextEdit()=runTest {
         val world=proposal.copy(facts=listOf(proposal.facts.single(),proposal.facts.single()))
         val port=Port(world); lateinit var s: OriginalStoryUiState
         val c=OriginalStoryController(port,this,{s=it}){}
         c.open(OriginalCapabilities(true,"scripted")); c.edit(s,input,null,"Orchard"); c.generate(s); advanceUntilIdle()
-        val rendered=s; val p=s.proposal!!
-        c.edit(rendered,rendered.input,p.copy(facts=listOf(p.facts[0].copy(text="Keep this edit."),p.facts[1])),rendered.title)
-        c.edit(rendered,rendered.input,p.copy(facts=p.facts.take(1)),rendered.title)
-        assertEquals(2,s.proposal!!.facts.size); assertEquals("Keep this edit.",s.proposal!!.facts[0].text)
+        val rendered=s
+        c.edit(rendered,OriginalStoryEdit.Text(OriginalTextField.FACT_TEXT,"Keep this edit.",0))
+        c.edit(rendered,OriginalStoryEdit.Remove(OriginalRows.FACT,1))
+        assertEquals(1,s.proposal!!.facts.size); assertEquals("Keep this edit.",s.proposal!!.facts[0].text)
         assertNotSame(rendered.editorEpoch,s.editorEpoch); assertNull(s.review)
-        val fresh=s
-        c.edit(fresh,fresh.input,fresh.proposal!!.copy(facts=fresh.proposal.facts.take(1)),fresh.title)
+        val fresh=s; c.edit(rendered,OriginalStoryEdit.Text(OriginalTextField.FACT_TEXT,"Stale",0)); assertSame(fresh,s)
         assertEquals(listOf("Keep this edit."),s.proposal!!.facts.map { it.text }); c.dismiss(); advanceUntilIdle()
     }
     @Test fun generationAndCancelRetireOldAndBusyEditorCallbacks()=runTest {
@@ -226,11 +228,75 @@ class OriginalStoryControllerTest {
         c.open(OriginalCapabilities(true,"scripted")); c.edit(s,input,null,"Orchard")
         val before=s; c.generate(before); val generating=s; advanceUntilIdle(); val ready=s
         assertNotSame(before.editorEpoch,ready.editorEpoch); assertNotSame(generating.editorEpoch,ready.editorEpoch)
-        c.edit(before,before.input.copy(premise="Before generation"),null,before.title)
-        c.edit(generating,generating.input.copy(premise="During generation"),generating.proposal,generating.title)
+        c.edit(before,OriginalStoryEdit.Text(OriginalTextField.PREMISE,"Before generation"))
+        c.edit(generating,OriginalStoryEdit.Text(OriginalTextField.PREMISE,"During generation"))
         assertSame(ready,s)
         c.dismiss(); val closing=s; assertNotSame(ready.editorEpoch,closing.editorEpoch)
-        c.edit(ready,ready.input.copy(playerName="Late"),ready.proposal,ready.title); assertSame(closing,s)
+        c.edit(ready,OriginalStoryEdit.Text(OriginalTextField.PLAYER_NAME,"Late")); assertSame(closing,s)
         advanceUntilIdle(); assertEquals(listOf(StoryCreationClose()),closed); assertTrue(port.creates.isEmpty())
+    }
+    @Test fun sameRenderTextCanReturnToOriginalWithoutLosingOtherEdits()=runTest {
+        val port=Port(proposal); lateinit var s: OriginalStoryUiState
+        val c=OriginalStoryController(port,this,{s=it}){}
+        c.open(OriginalCapabilities(true,"scripted"))
+        c.edit(s,input.copy(cast=listOf(OriginalCast("Tovin","A gardener."))),null,"Orchard")
+        val rendered=s
+        for((field,original) in listOf(OriginalTextField.TITLE to rendered.title,OriginalTextField.PREMISE to rendered.input.premise,
+            OriginalTextField.PLAYER_NAME to rendered.input.playerName,OriginalTextField.CAST_NAME to rendered.input.cast.single().name)) {
+            c.edit(rendered,OriginalStoryEdit.Text(field,original+"!"))
+            c.edit(rendered,OriginalStoryEdit.Text(OriginalTextField.PLAYER_DESCRIPTION,"Keep this independent edit."))
+            c.edit(rendered,OriginalStoryEdit.Text(field,original)) // Explicit backspace to the rendered value is still an edit.
+        }
+        c.edit(rendered,OriginalStoryEdit.Text(OriginalTextField.CAST_DESCRIPTION,"Keep the nested description.",0))
+        assertEquals(rendered.title,s.title); assertEquals(rendered.input.premise,s.input.premise); assertEquals(rendered.input.playerName,s.input.playerName)
+        assertEquals("Tovin",s.input.cast.single().name); assertEquals("Keep the nested description.",s.input.cast.single().description)
+        assertEquals("Keep this independent edit.",s.input.playerDescription); assertSame(rendered.editorEpoch,s.editorEpoch)
+        assertNull(s.review); c.dismiss(); advanceUntilIdle()
+    }
+    @Test fun sameRenderNestedTextAndAbsoluteChoicesCanReturnToOriginal()=runTest {
+        val world=proposal.copy(locations=proposal.locations+OriginalLocation("Courtyard","An open courtyard."),
+            possessions=listOf(OriginalPossession("Token","A brass token.",0,null)))
+        val port=Port(world); lateinit var s: OriginalStoryUiState
+        val c=OriginalStoryController(port,this,{s=it}){}
+        c.open(OriginalCapabilities(true,"scripted")); c.edit(s,input,null,"Orchard"); c.generate(s); advanceUntilIdle()
+        val rendered=s; val p=s.proposal!!
+        c.edit(rendered,OriginalStoryEdit.Text(OriginalTextField.CHARACTER_NAME,p.characters[0].name+"!",0))
+        c.edit(rendered,OriginalStoryEdit.Text(OriginalTextField.CHARACTER_DESCRIPTION,"Keep this character edit.",0))
+        c.edit(rendered,OriginalStoryEdit.Text(OriginalTextField.CHARACTER_NAME,p.characters[0].name,0))
+        c.edit(rendered,OriginalStoryEdit.Text(OriginalTextField.FACT_TEXT,p.facts[0].text+"!",0))
+        c.edit(rendered,OriginalStoryEdit.Text(OriginalTextField.FACT_TEXT,p.facts[0].text,0))
+        for((field,away,back) in listOf(Triple(OriginalSelection.PROFILE,0,1),Triple(OriginalSelection.TONE,1,0),
+            Triple(OriginalSelection.PLAYER_LOCATION,1,0),Triple(OriginalSelection.CHARACTER_LOCATION,1,0),
+            Triple(OriginalSelection.FACT_DISCOVERABLE,0,1),Triple(OriginalSelection.BELIEF_BELIEVER,0,1),
+            Triple(OriginalSelection.BELIEF_CONFIDENCE,2,1),Triple(OriginalSelection.POSSESSION_OWNER,1,0),Triple(OriginalSelection.POSSESSION_RETURN,2,0))) {
+            c.edit(rendered,OriginalStoryEdit.Select(field,away)); c.edit(rendered,OriginalStoryEdit.Select(field,back))
+        }
+        assertEquals(rendered.input.profile,s.input.profile); assertEquals(rendered.input.presentation,s.input.presentation)
+        assertEquals(p,s.proposal!!.copy(characters=s.proposal!!.characters.map { it.copy(description=p.characters[0].description) }))
+        assertEquals("Keep this character edit.",s.proposal!!.characters[0].description); assertEquals(p.characters[0].name,s.input.cast.single().name)
+        assertNull(s.review); c.dismiss(); advanceUntilIdle()
+    }
+    @Test fun sameRenderReferenceTogglesUseLatestStateAndOldEpochsCannotAct()=runTest {
+        val world=proposal.copy(locations=proposal.locations+OriginalLocation("Courtyard","An open courtyard."))
+        val port=Port(world); lateinit var s: OriginalStoryUiState
+        val c=OriginalStoryController(port,this,{s=it}){}
+        c.open(OriginalCapabilities(true,"scripted")); c.edit(s,input,null,"Orchard"); c.generate(s); advanceUntilIdle()
+        val rendered=s
+        c.edit(rendered,OriginalStoryEdit.ToggleKnown(OriginalKnown.FACT,0,0)); c.edit(rendered,OriginalStoryEdit.ToggleKnown(OriginalKnown.FACT,0,1))
+        assertEquals(listOf(0),s.proposal!!.facts[0].knownBy)
+        c.edit(rendered,OriginalStoryEdit.ToggleKnown(OriginalKnown.FACT,0,0)); c.edit(rendered,OriginalStoryEdit.ToggleKnown(OriginalKnown.FACT,0,1))
+        assertEquals(rendered.proposal!!.facts[0].knownBy,s.proposal!!.facts[0].knownBy)
+        c.edit(rendered,OriginalStoryEdit.ToggleKnown(OriginalKnown.CHARACTER,0,0)); c.edit(rendered,OriginalStoryEdit.ToggleKnown(OriginalKnown.CHARACTER,0,0))
+        assertEquals(rendered.proposal.characters[0].knownBy.toSet(),s.proposal!!.characters[0].knownBy.toSet())
+        c.edit(rendered,OriginalStoryEdit.ToggleRoute(0,1)); c.edit(rendered,OriginalStoryEdit.ToggleRoute(1,0))
+        assertEquals(setOf(OriginalRoute(0,1),OriginalRoute(1,0)),s.proposal!!.routes.toSet())
+        c.edit(rendered,OriginalStoryEdit.ToggleRoute(0,1)); assertEquals(listOf(OriginalRoute(1,0)),s.proposal!!.routes)
+        c.edit(rendered,OriginalStoryEdit.ToggleRoute(1,0)); assertTrue(s.proposal!!.routes.isEmpty())
+        c.review(s); advanceUntilIdle(); val accepted=s; val review=s.review!!
+        c.edit(rendered,OriginalStoryEdit.ToggleKnown(OriginalKnown.FACT,0,0)); c.edit(rendered,OriginalStoryEdit.ToggleRoute(0,1))
+        assertSame(accepted,s); assertSame(review,s.review); assertTrue(port.creates.isEmpty())
+        c.edit(accepted,OriginalStoryEdit.Text(OriginalTextField.TITLE,accepted.title)); assertNull(s.review)
+        c.confirm(accepted,review); c.confirm(s,review); assertTrue(port.creates.isEmpty())
+        c.dismiss(); advanceUntilIdle()
     }
 }

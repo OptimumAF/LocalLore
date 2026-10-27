@@ -54,8 +54,7 @@ internal class StoryCreationController(
             { next -> if(!disposed && mutable.value.visible) mutable.value=mutable.value.copy(original=next) },::finish)
             .also { it.open(capabilities) }
     }
-    fun editOriginal(expected: OriginalStoryUiState,input: OriginalInput,proposal: OriginalProposal?,title: String) =
-        originalController?.edit(expected,input,proposal,title)
+    fun editOriginal(expected: OriginalStoryUiState,intent: OriginalStoryEdit) = originalController?.edit(expected,intent)
     fun generateOriginal(expected: OriginalStoryUiState) = originalController?.generate(expected)
     fun reviewOriginal(expected: OriginalStoryUiState) = originalController?.review(expected)
     fun confirmOriginal(expected: OriginalStoryUiState,review: OriginalReview) = originalController?.confirm(expected,review)

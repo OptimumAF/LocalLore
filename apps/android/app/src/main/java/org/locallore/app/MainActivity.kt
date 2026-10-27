@@ -155,7 +155,7 @@ open class MainActivity : ComponentActivity() {
                         exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION, onTemplate = controller::chooseTemplate,
                         onPlayerName = controller::editPlayerName, onPlayerReview = controller::reviewChanges,
                         onTone = controller::editTone, onExcludedPhrases = controller::editExcludedPhrases,
-                        onOriginal=controller::chooseOriginal,onOriginalEdit={s,i,p,t -> controller.editOriginal(s,i,p,t); Unit},
+                        onOriginal=controller::chooseOriginal,onOriginalEdit={s,e -> controller.editOriginal(s,e); Unit},
                         onOriginalGenerate={controller.generateOriginal(it); Unit},onOriginalReview={controller.reviewOriginal(it); Unit},
                         onOriginalCreate={s,r -> controller.confirmOriginal(s,r); Unit})
                 }

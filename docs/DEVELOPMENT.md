@@ -71,6 +71,12 @@ typed retirement and byte-preserving host readback. Its
 records the callback RED/GREEN tests, all three saved-task controls, failed
 attempts, source/artifact bindings and remaining device/model gates.
 
+The [versioned Windows host driver](native/ANDROID_PROCESS_HOST_DRIVER.md)
+builds/audits the isolated process profile and runs its fixed ten loader/native
+component methods with pinned SDK ownership and exact runner evidence. It keeps
+private records outside the checkout and does not replace saved-task controller
+or physical-model qualification.
+
 The [SQLite foundation](storage/README.md) is a separate Rust storage owner.
 Workspace tests include its model-free schema/migration/backup regressions.
 Its [dependency inventory and official compatibility sources](storage/SOURCES_2026-10-22.md)

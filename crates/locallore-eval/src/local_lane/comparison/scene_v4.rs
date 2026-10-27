@@ -213,7 +213,8 @@ fn finite_privacy(
         unavailable |= count == 0 || count != recording.captures.len();
         for artifact in requests {
             let input = &artifact["value"]["input"];
-            let (Some(prompt), Some(role)) = (input["prompt"].as_str(), input["role"].as_str()) else {
+            let (Some(prompt), Some(role)) = (input["prompt"].as_str(), input["role"].as_str())
+            else {
                 unavailable = true;
                 continue;
             };

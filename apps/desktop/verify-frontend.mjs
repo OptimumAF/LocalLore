@@ -131,6 +131,7 @@ for (const marker of [
     "actual-commit-start-ack-dropped",
     "author-native-pending",
     "mounted-evidence-navigation-preserves-native-player-history-receipt-and-canonical-oracle",
+    "cold-recorded-turn-actual-reopened-Player-head3-history-without-raw-receipt",
     "memory-native-durable-selected-fixture",
     "MEMORY_ORIGINAL_MIRA_ONLY",
     "legacy-v1-native-migrated-resume",

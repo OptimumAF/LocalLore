@@ -1,6 +1,6 @@
 # Original story authoring — implementation and verification
 
-M09.02/M09.06 with supporting M10.02/M10.03, in progress. This work is stacked
+M09.02/M09.06 with supporting M10.02/M10.03, bounded implementation in review. This work is stacked
 on open/unmerged PR #224 at `b6989a38`; no merge is authorized. Full task
 checkboxes remain unchanged. [Contract](ORIGINAL_STORY_AUTHORING_CONTRACT_V1.md)
 and [ADR](../adr/0013-original-story-authoring.md) describe the frozen boundary.
@@ -191,7 +191,34 @@ owned guest. Its original owner handle actually terminates0; its guest receipt
 records `stop_requested`, worker1, cleanup/capture/closure true and no flush
 claim. An independent file-only audit replays53 recovery bindings with0
 mismatches. A new runtime-only retry uses the unchanged qualified source/APKs;
-native10 and original-story8 remain pending for that retry.
+native10 and original-story8 subsequently pass in that retry.
+
+The fresh runtime-only retry preserves the exact877 compiled inputs and C5
+APKs. Its native phase passes10 methods across3 classes,271055ms, with90
+complete measured SDK2 pairs. The original-story phase passes all8 methods
+across3 classes,304445ms, with93 complete measured SDK2 pairs. Both phase
+owners exit0 with known cleanup/capture and0 stderr. Independent file-only
+replay verifies the complete start/pass/runner records, exact Kotlin rosters,
+raw-to-numbered-client matches, observer brackets, source and installed APK
+bindings. No method or deadline is weakened.
+
+Original-story coverage is wire3, dialog2 and MainActivity3: malformed input,
+cancel/no early canon, exact creation retry after reopen without generation,
+scripted-provider label, edits invalidating consent, an edited original world
+with retained player after ordinary reopen, cancelled creation preserving the
+current draft/scope, and an accepted generated turn with scoped receipts.
+Deferred transport cases inside the existing Wire method also exercise
+reattachment and conflicting observer publication. These are scripted
+inference/real JNI and SQLite tests, not model-quality measurements.
+
+Each exact owned guest is stopped only after its phase has known client
+closure. Native/original owner handles actually terminate0; guest receipts
+record301998/328748ms, `stop_requested`, worker1, known cleanup/capture/closure
+and no flush claim. Seven metadata files per guest are copied to C: with0
+mismatches. The final one-shot read-only postflight passes after both closures,
+with the existing server unchanged and0 device calls/server lifecycle actions.
+The fresh protected-process inventory contains0 identities; this is an
+observation, not a claim that another chat's emulator was stopped.
 
 Private recovery archives preserve earlier failures separately from success:
 
@@ -205,8 +232,11 @@ These explicit admitted metadata/helper/report/audited-artifact selections stay
 on C:. They exclude model weights, saves and live guest data. Byte preservation
 does not qualify a failed feature test; each archive records acceptance false.
 
-Android has8 fixed original-story device methods. Fresh current-source
-native10/original-story8 qualification remains required.
+Android's8 fixed original-story methods and the native10 prerequisite now
+qualify this bounded scripted API35/x86_64 slice. Full task checkboxes remain
+unchecked pending broader criteria and owner acceptance. Current-source legacy
+creation19/broad89 regression is the next runnable supporting verification;
+older-source results are not promoted to this build.
 No real-model compatibility/quality/performance is inferred from SDK value
 objects, injected resources or scripted plumbing. Physical/ARM64, semantic narrative quality, accessibility,
 external process death and joined callback drain remain separate gates.
@@ -241,6 +271,8 @@ python -B -m unittest discover -s benchmarks/spike/llama -p test_*.py
 python -B -m unittest discover -s benchmarks/spike/android/litert -p test_*.py
 python -B -m unittest discover -s benchmarks/spike/android/llama -p test_*.py
 python -B benchmarks/android_process_verification.py build --sdk <SDK> --java <JDK21> --out <new-build-evidence>
+python -B benchmarks/android_process_verification.py components --out <new-native-evidence> --sdk <SDK> --build <qualified-build-result> --running <owned-native-running> --proposal <owned-native-run-proposal> --server <fresh-existing-server-pin> --powershell <Windows-PowerShell>
+python -B benchmarks/android_process_verification.py original-story --out <new-original-evidence> --sdk <SDK> --build <qualified-build-result> --running <owned-original-running> --proposal <owned-original-run-proposal> --server <fresh-existing-server-pin> --powershell <Windows-PowerShell>
 ```
 
 Frontend checks from `apps/desktop` run `node verify-frontend.mjs` and

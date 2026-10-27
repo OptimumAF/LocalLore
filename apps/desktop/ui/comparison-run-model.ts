@@ -236,25 +236,25 @@ export const nativeComparisonRunErrors = [
 ] as const;
 export type NativeComparisonRunError =
     (typeof nativeComparisonRunErrors)[number] | "ComparisonRunWire";
+type NativeProtocolTuple = { version: 2; protocol_version: 3 } | { version: 3; protocol_version: 4 };
 export type NativeComparisonRunMetadata = Omit<
     ComparisonRunMetadata,
-    "input_lane"
+    "input_lane" | "protocol_version"
 > & {
+    protocol_version: 3 | 4;
     input_lane: "approved_native";
 };
 export type NativeComparisonRunCatalog = Omit<
     ComparisonRunCatalog,
-    "version" | "input_lane" | "runs"
-> & {
-    version: 2;
+    "version" | "protocol_version" | "input_lane" | "runs"
+> & NativeProtocolTuple & {
     input_lane: "approved_native";
     runs: NativeComparisonRunMetadata[];
 };
 export type NativeComparisonRunStatus = Omit<
     ComparisonRunStatus,
-    "version" | "input_lane" | "phase" | "error"
-> & {
-    version: 2;
+    "version" | "protocol_version" | "input_lane" | "phase" | "error"
+> & NativeProtocolTuple & {
     input_lane: "approved_native";
     phase:
         | ComparisonRunStatus["phase"]
@@ -291,9 +291,9 @@ export function checkedNativeComparisonRunStatus(
         "cause",
     ]);
     wire(
-        result.version === 2 &&
+        ((result.version === 2 && result.protocol_version === 3) ||
+            (result.version === 3 && result.protocol_version === 4)) &&
             result.kind === "comparison_run" &&
-            result.protocol_version === 3 &&
             result.input_lane === "approved_native",
     );
     [result.client_id, result.run_id, result.run_token].forEach(
@@ -341,9 +341,9 @@ export function checkedNativeComparisonRunCatalog(
         "max_new_scenes",
     ]);
     wire(
-        result.version === 2 &&
+        ((result.version === 2 && result.protocol_version === 3) ||
+            (result.version === 3 && result.protocol_version === 4)) &&
             result.kind === "comparison_run_catalog" &&
-            result.protocol_version === 3 &&
             result.input_lane === "approved_native" &&
             result.max_new_scenes === 4,
     );
@@ -368,7 +368,7 @@ export function checkedNativeComparisonRunCatalog(
         comparisonRunBatch(metadata.initial_batch);
         number(metadata.created_ms);
         wire(
-            metadata.protocol_version === 3 &&
+            metadata.protocol_version === result.protocol_version &&
                 metadata.input_lane === "approved_native",
         );
     }

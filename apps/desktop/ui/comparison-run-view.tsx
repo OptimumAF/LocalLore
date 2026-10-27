@@ -40,6 +40,7 @@ export function ComparisonRunView({
     const [batch, setBatch] = useState(1);
     const [savedId, setSavedId] = useState("");
     const status = s.allowed ? s.status : null;
+    const scene = status?.protocol_version === 4 || (s.allowed && s.catalog?.protocol_version === 4);
     const ready =
         !!status &&
         status.report_ready &&
@@ -71,7 +72,14 @@ export function ComparisonRunView({
             data-pending-action={s.pending?.action ?? ""}
         >
             <h2 id={`${section}-title`}>Run full comparison</h2>
-            {native ? (
+            {scene ? (
+                <p>
+                    Protocol 4 · scene construction. Requests the approved installed local model
+                    through the existing Rust owner. Human quality is not established.
+                    This development cohort reuses an approved publication; model availability
+                    is checked before execution.
+                </p>
+            ) : native ? (
                 <p>
                     Requests the approved installed local model. Availability is
                     checked when you start. No fake inference fallback. Human
@@ -221,7 +229,7 @@ export function ComparisonRunView({
                         </dd>
                         <dt>Last admitted operation</dt>
                         <dd>{status.operation_id ?? "Not admitted"}</dd>
-                        {status.version === 2 && (
+                        {status.input_lane === "approved_native" && (
                             <>
                                 <dt>Cleanup required · last reported</dt>
                                 <dd>

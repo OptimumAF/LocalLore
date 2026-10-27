@@ -69,6 +69,9 @@ export type ComparisonRunConsumerState =
     | NativeComparisonRunState;
 type Status = ComparisonRunStatus | NativeComparisonRunStatus;
 type Catalog = ComparisonRunCatalog | NativeComparisonRunCatalog;
+function isNativeStatus(status: Status): status is NativeComparisonRunStatus {
+    return status.input_lane === "approved_native";
+}
 type Update = Partial<
     Omit<ComparisonRunState, "status" | "catalog" | "error">
 > & {
@@ -115,6 +118,7 @@ type Owner = {
     kind: ComparisonRunKind | null;
     initialBatch: number | null;
     operation: number | null;
+    protocol: 3 | 4 | null;
     sent: boolean;
     inFlight: number;
     retired: boolean;
@@ -275,9 +279,9 @@ export class ComparisonRunController {
         const error =
             update.error === undefined ? this.state.error : update.error;
         if (this.state.mode === "approved_native") {
-            if (status !== null && status.version !== 2)
+            if (status !== null && !isNativeStatus(status))
                 throw Error("ComparisonRunWire");
-            if (catalog !== null && catalog.version !== 2)
+            if (catalog !== null && catalog.input_lane !== "approved_native")
                 throw Error("ComparisonRunWire");
             this.install({ ...this.state, ...update, status, catalog, error });
         } else {
@@ -380,6 +384,7 @@ export class ComparisonRunController {
             kind: null,
             initialBatch: null,
             operation: null,
+            protocol: this.state.catalog?.protocol_version ?? null,
             sent: false,
             inFlight: 0,
             retired: false,
@@ -400,6 +405,7 @@ export class ComparisonRunController {
     private bind(owner: Owner, next: Status, rebind = false): void {
         if (
             next.input_lane !== owner.transport.mode ||
+            (owner.protocol !== null && next.protocol_version !== owner.protocol) ||
             (owner.client !== null && next.client_id !== owner.client) ||
             (owner.runId !== null && next.run_id !== owner.runId) ||
             (owner.kind !== null && next.comparison_kind !== owner.kind) ||
@@ -411,6 +417,7 @@ export class ComparisonRunController {
         owner.kind = next.comparison_kind;
         owner.token = next.run_token;
         owner.operation = next.operation_id;
+        owner.protocol = next.protocol_version;
     }
     private async ownedCall(
         owner: Owner,
@@ -504,6 +511,7 @@ export class ComparisonRunController {
                 if (
                     next.client_id !== owner.client ||
                     next.run_id !== owner.runId ||
+                    next.protocol_version !== owner.protocol ||
                     next.comparison_kind !== owner.kind ||
                     next.run_token !== token
                 )
@@ -518,7 +526,7 @@ export class ComparisonRunController {
                     // Presentation closure does not establish global cleanup.
                     if (
                         next.running ||
-                        (next.version === 2 &&
+                        (isNativeStatus(next) &&
                             (next.cleanup_required || next.cleanup_running))
                     )
                         await this.observeRelease(owner);
@@ -679,7 +687,7 @@ export class ComparisonRunController {
             action !== "close" &&
             (action === "cancel" || action === "status")
         ) {
-            if (old.version === 2 && next.version === 2) {
+            if (isNativeStatus(old) && isNativeStatus(next)) {
                 if (next.phase !== "closed") {
                     const blocked =
                         next.phase === "cleanup_required" ||
@@ -713,7 +721,7 @@ export class ComparisonRunController {
             // closed metadata responses still require explicit token closure.
             void this.release(
                 ticket.owner,
-                next.version === 2 && action === "close" ? next : undefined,
+                isNativeStatus(next) && action === "close" ? next : undefined,
             );
         }
         this.patch({
@@ -807,7 +815,7 @@ export class ComparisonRunController {
             this.publish(next, ticket, action);
             if (
                 action === "close" &&
-                next.version === 2 &&
+                isNativeStatus(next) &&
                 next.phase === "closed"
             ) {
                 // One explicit close gesture waits for its known presentation
@@ -913,8 +921,12 @@ export class ComparisonRunController {
         try {
             if (live()) {
                 const value = await this.call("catalog", {});
-                if (live())
-                    this.patch({ catalog: this.transport.catalog(value) });
+                if (live()) {
+                    const catalog = this.transport.catalog(value);
+                    if (this.current?.protocol !== null && this.current?.protocol !== undefined &&
+                        this.current.protocol !== catalog.protocol_version) throw Error("ComparisonRunWire");
+                    this.patch({ catalog });
+                }
             }
         } catch (error) {
             if (live()) this.failed(error, false);

@@ -129,6 +129,7 @@ for (const marker of [
     "AuthorHeldDeadline",
     "actual-commit-start-ack-dropped",
     "author-native-pending",
+    "mounted-evidence-navigation-preserves-native-player-history-receipt-and-canonical-oracle",
     "memory-native-durable-selected-fixture",
     "MEMORY_ORIGINAL_MIRA_ONLY",
     "legacy-v1-native-migrated-resume",

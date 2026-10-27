@@ -64,6 +64,15 @@ and production code are unchanged. That failed cohort remains preserved.
 Its subsequent lint/packaging/audits are not claimed as completed. A fresh final
 source freeze and separate corrected LiteRT qualification are pending.
 
+The corrected `dc8c8a42` cohort passes all569 LiteRT JVM tests/55 suites, lint
+with10 warnings/0 errors, dependency/analyzer audits and the candidate APK
+audit. It also passes the fresh native10 phase, followed by its exact requested
+owned guest closure and7 metadata copies to C: with0 mismatch. A subsequently
+run repository formatting gate fails solely the new Rust adversary test file.
+Root had omitted that gate earlier. Rustfmt1.93.1 formats the file without
+changing assertions. The successful native/host/SDK cohort remains attributed
+to its actual pre-format source; a new fresh verification cohort is required.
+
 Review identifies a real recovery design race: looking up a completed authored
 seed and then calling insert-or-retry could resurrect it after another Store
 deleted it. Recovery is changed to read-only Engine load/presence/full-seed

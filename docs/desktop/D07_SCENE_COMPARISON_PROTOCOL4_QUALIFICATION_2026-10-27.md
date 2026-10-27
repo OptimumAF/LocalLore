@@ -131,7 +131,7 @@ also call the private row builder to retain the public cause tag and
 genuine attempt itself. This is not a full producer cancellation/settlement
 journey or a real SDK/model failure measurement.
 
-## Actual results and pending final checks
+## Actual results and final checks
 
 | Check | Clean unchanged source | Result / command seconds |
 | --- | --- | --- |
@@ -140,8 +140,21 @@ journey or a real SDK/model failure measurement.
 | Corrected unchanged17 | 00ddb65e | 17 passed/0 failed/0 ignored;372.1058107 |
 | Strict Eval Clippy first | 00ddb65e | FAILED one range-pattern style diagnostic;8.3215470 |
 | Four noncommitted controls | 903a2940 | 4 passed/0 failed/0 ignored;11.0970999 |
-| Unchanged17 after noncommitted integration | 903a2940 | RUNNING at documentation freeze; no terminal result claimed |
-| Corrected strict Clippy / formatting | 903a2940 | Pending coordinator terminal records |
+| Unchanged17 after noncommitted integration, explicit one test thread | 903a2940 | 17 passed/0 failed/0 ignored;543.6751233 (533.74 test seconds) |
+| Strict Clippy after that run | 903a2940 | FAILED one existing test's redundant `ok().expect()`;8.3072715 |
+| Strict Clippy after removing redundant `ok()` | d828b9f3 | PASS;6.4368025 |
+| Formatting at d828 | d828b9f3 | FAILED module declaration order;4.4687004 |
+| Final formatting / strict Clippy | 6d7fe511 | PASS;2.5473341 /13.2548317 |
+
+`d828b9f3` removes only the test assertion's redundant `ok()`; direct
+`Result::expect` retains the same success condition and preserves error detail
+on failure. `6d7fe511` only orders a module declaration. No assertion condition,
+private classifier or runtime behavior changes after the 903 test executions.
+The seventeen tests were not repeated after these style-only changes; final
+strict lint compiles all targets. The earlier17 commands had no explicit
+test-thread override; the final command explicitly uses one. Their durations
+are not a controlled performance comparison. All final process records report
+clean unchanged source.
 
 The focused commands use existing pinned offline packages and one owned target;
 no new package/model download or profile upgrade occurs. Root coordinates one
@@ -161,8 +174,10 @@ $env:CARGO_NET_OFFLINE = 'true'
 $ownedTarget = '<owned Rust target directory>'
 cargo test --manifest-path crates/locallore-eval/Cargo.toml --test scene_comparison_v4 --features local-model --locked --offline --jobs 1 --target-dir $ownedTarget --no-run
 cargo test --manifest-path crates/locallore-eval/Cargo.toml --test scene_comparison_v4 --features local-model --locked --offline --jobs 1 --target-dir $ownedTarget
+cargo test --manifest-path crates/locallore-eval/Cargo.toml --test scene_comparison_v4 --features local-model --locked --offline --jobs 1 --target-dir $ownedTarget -- --nocapture --test-threads=1
 cargo test --manifest-path crates/locallore-eval/Cargo.toml --locked --offline --features local-model --lib --jobs 1 --target-dir $ownedTarget noncommit_privacy_review_tests -- --nocapture --test-threads=1
 cargo clippy --manifest-path crates/locallore-eval/Cargo.toml --all-targets --features local-model --locked --offline --jobs 1 --target-dir $ownedTarget -- -D warnings
+cargo fmt --manifest-path crates/locallore-eval/Cargo.toml --all -- --check
 ```
 
 The test suite creates ordinary private synthetic fixtures under task TEMP,
@@ -202,6 +217,6 @@ from synthetic success. Finite sentinel checks do not establish universal
 semantic privacy. Complete model-load/cleanup/admission qualification, the
 separately frozen read-only consumer, selected execution, actual native UI,
 authorized model comparison and human assessment remain with their owning
-tickets. The next immediate check is the coordinator's unchanged17/strict-lint/
-format terminal evidence at903, followed by dependency-aware focused review.
+tickets. The next gate is dependency-aware focused producer review, followed by
+the separately frozen read-only consumer and bounded real-model qualification.
 No task checkbox, merge, release or settings change is authorized by this report.

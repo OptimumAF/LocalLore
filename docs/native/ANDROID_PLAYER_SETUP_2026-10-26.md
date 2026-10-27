@@ -71,6 +71,24 @@ to preserve the original package union's host feature. No test filter, timeout
 increase or emulator budget change is used. Those package results are pending
 until actually executed and read back.
 
+The first package-wrapper preparation refuses the Cargo launcher symbolic link
+through the existing safe-path guard, before creating a request/owner or running
+Cargo. Its partial source-map folder and original helper remain unchanged. A
+separate explicitly derived tool-observation note records that preparation gap;
+it is not reconstructed process output or a test result. The next wrapper pins
+the actual installed Cargo/Rustc/Rustdoc executables and checks their1.93.1
+versions before running a package suite.
+
+That workspace run actually reaches the ten new persistence tests:9 pass and1
+fails. The instruction-shaped-name test incorrectly expects an unlearned ability
+submission to queue before failing preparation. The existing engine instead
+rejects it immediately with `Ability`, matching the preflight contract. Its
+owner records35859ms/worker1, cleanup/capture true and unchanged1954-file maps;
+the original failed Cargo/result/streams remain failed. The test oracle must
+assert immediate refusal and unchanged canonical/catalog/receipt/turn state;
+the engine's stronger preflight is not weakened to satisfy the test. Full
+workspace qualification remains pending that correction and a fresh run.
+
 No dependency is introduced or repinned. Existing locked offline toolchains are
 reused. All requested verification will retain original bounded output and exact
 source/APK/owner bindings in create-only private C: evidence; no model weights,

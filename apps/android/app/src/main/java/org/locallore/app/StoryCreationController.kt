@@ -21,6 +21,8 @@ internal data class StoryCreationUiState(
     val templates: List<StoryTemplateOption> = emptyList(),
     val playerNameDraft: String? = null,
     val playerNameEdited: Boolean = false,
+    val toneDraft: String? = null,
+    val excludedPhrasesDraft: String? = null,
     val notice: String? = null,
 )
 
@@ -61,6 +63,8 @@ internal class StoryCreationController(
                 if (current(ticket)) mutable.value = mutable.value.copy(
                     templates = options, review = StoryCreationRequest(preview, preview.defaultTitle, creationId),
                     playerNameDraft = preview.playerSetup?.playerName,
+                    toneDraft = preview.presentation?.tone,
+                    excludedPhrasesDraft = preview.presentation?.excludedPhrases?.joinToString("\n"),
                     notice = "Review this starter and title. Nothing is created until you choose Create.",
                 )
             } catch (cancelled: CancellationException) {
@@ -83,18 +87,29 @@ internal class StoryCreationController(
             mutable.value = before.copy(notice = "Fix and review the player name before choosing another starter.")
             return
         }
+        if (expected.preview.presentation != null && !hasReviewedCreation(expected, before.playerNameDraft,
+                before.toneDraft, before.excludedPhrasesDraft)) {
+            mutable.value = before.copy(notice = "Review the name and narration changes before choosing another starter.")
+            return
+        }
         val ticket = ++generation
         // Revoke the old confirmation synchronously before asking native code for the new view.
         mutable.value = before.copy(review = null, busy = true, notice = "Loading the selected starter…")
         launch(ticket) {
             try {
-                val preview = if (expected.preview.playerSetup == null) capture(gateway.previewTemplate(option.template))
-                    else configuredPreview(option.template, if (before.playerNameEdited) before.playerNameDraft else null)
+                val name = if (before.playerNameEdited) before.playerNameDraft else null
+                val preview = when {
+                    expected.preview.presentation != null -> presentedPreview(option.template, name, expected.preview.presentation)
+                    expected.preview.playerSetup != null -> configuredPreview(option.template, name)
+                    else -> capture(gateway.previewTemplate(option.template))
+                }
                 check(preview.option() == option)
                 val title = if (expected.title == expected.preview.defaultTitle) preview.defaultTitle else expected.title
                 if (current(ticket)) mutable.value = mutable.value.copy(
                     review = StoryCreationRequest(preview, title, expected.creationId),
                     playerNameDraft = preview.playerSetup?.playerName,
+                    toneDraft = preview.presentation?.tone,
+                    excludedPhrasesDraft = preview.presentation?.excludedPhrases?.joinToString("\n"),
                     notice = "Review this starter and title. Nothing is created until you choose Create.",
                 )
             } catch (cancelled: CancellationException) {
@@ -108,6 +123,26 @@ internal class StoryCreationController(
         }
     }
 
+    fun editTone(expected: StoryCreationRequest, tone: String) {
+        val before = mutable.value
+        val review = before.review ?: return
+        if (!presentationEditor(before, expected, review) || tone !in setOf("plain", "warm", "brisk")) return
+        mutable.value = before.copy(review = review.copy(), toneDraft = tone,
+            notice = "Review changes to update generated narration settings before creating the story.")
+    }
+
+    fun editExcludedPhrases(expected: StoryCreationRequest, text: String) {
+        val before = mutable.value
+        val review = before.review ?: return
+        if (!presentationEditor(before, expected, review)) return
+        mutable.value = before.copy(review = review.copy(), excludedPhrasesDraft = text,
+            notice = "Review changes to update generated narration settings before creating the story.")
+    }
+
+    private fun presentationEditor(before: StoryCreationUiState, expected: StoryCreationRequest, review: StoryCreationRequest) =
+        !disposed && before.visible && !before.busy && !before.creating && !before.closing && !createStarted &&
+            review.preview.presentation != null && expected.preview === review.preview && expected.creationId == review.creationId
+
     fun editPlayerName(expected: StoryCreationRequest, text: String) {
         val before = mutable.value
         val review = before.review ?: return
@@ -119,38 +154,50 @@ internal class StoryCreationController(
             notice = "Review changes to update your starting view before creating the story.")
     }
 
-    fun reviewPlayerName(expected: StoryCreationRequest) {
+    fun reviewPlayerName(expected: StoryCreationRequest) = reviewChanges(expected)
+
+    fun reviewChanges(expected: StoryCreationRequest) {
         val before = mutable.value
         if (disposed || !before.visible || before.busy || before.creating || before.closing || createStarted ||
             before.review !== expected || expected.preview.playerSetup == null ||
-            hasReviewedPlayerName(expected, before.playerNameDraft)) return
+            hasReviewedCreation(expected, before.playerNameDraft, before.toneDraft, before.excludedPhrasesDraft)) return
         val name = before.playerNameDraft ?: return
         if (!validStoryPlayerName(name)) {
             mutable.value = before.copy(notice = "Use a player name of up to 64 characters without outer spaces, line breaks or control characters.")
             return
         }
+        val presentation = storyPresentationDraft(before.toneDraft, before.excludedPhrasesDraft)
+        if (expected.preview.presentation != null && presentation == null) {
+            mutable.value = before.copy(notice = "Use up to eight distinct literal phrases, one per line, with no outer spaces or control characters.")
+            return
+        }
         val ticket = ++generation
-        mutable.value = before.copy(review = null, busy = true, notice = "Reviewing the player name…")
+        mutable.value = before.copy(review = null, busy = true, notice = "Reviewing story setup…")
         launch(ticket) {
             try {
-                val preview = configuredPreview(expected.preview.template, name)
+                val preview = if (expected.preview.presentation == null) configuredPreview(expected.preview.template, name)
+                    else presentedPreview(expected.preview.template, name, presentation)
                 check(preview.option() == expected.preview.option())
                 if (current(ticket)) mutable.value = mutable.value.copy(
                     review = expected.copy(preview = preview), playerNameDraft = name,
+                    toneDraft = preview.presentation?.tone,
+                    excludedPhrasesDraft = preview.presentation?.excludedPhrases?.joinToString("\n"),
                     notice = "Review this starting view. Nothing is created until you choose Create.",
                 )
             } catch (cancelled: CancellationException) {
                 if (current(ticket)) mutable.value = mutable.value.copy(
-                    notice = "Player review stopped. No story was created.")
+                    notice = "Story setup review stopped. No story was created.")
                 throw cancelled
             } catch (_: Exception) {
                 if (current(ticket)) mutable.value = mutable.value.copy(
-                    notice = "The player name could not be reviewed. No story was created. Close and try again.")
+                    notice = "Story setup could not be reviewed. No story was created. Close and try again.")
             }
         }
     }
 
     private suspend fun initialPreview(template: String, legacyDefault: Boolean = false): StoryCreationPreview {
+        val presented = gateway.presentationPreview(template, null, null)
+        if (presented != null) return capturePresented(presented, null, null)
         val setup = gateway.setupPreview(template, null)
         return if (setup != null) captureConfigured(setup, null)
             else capture(if (legacyDefault) gateway.preview() else gateway.previewTemplate(template))
@@ -159,6 +206,7 @@ internal class StoryCreationController(
         captureConfigured(checkNotNull(gateway.setupPreview(template, name)), name)
 
     private fun captureConfigured(source: StoryCreationPreview, expectedName: String?): StoryCreationPreview {
+        check(source.presentation == null)
         val setup = checkNotNull(source.playerSetup)
         check(validStoryPlayerName(setup.playerName) && (expectedName == null || setup.playerName == expectedName))
         check(Regex("[0-9a-f]{64}").matches(setup.templateSha256) &&
@@ -166,7 +214,19 @@ internal class StoryCreationController(
         return capture(source)
     }
 
+    private suspend fun presentedPreview(template: String, name: String?, presentation: StoryPresentation?): StoryCreationPreview {
+        val settings = presentation?.let { it.copy(excludedPhrases = Collections.unmodifiableList(ArrayList(it.excludedPhrases))) }
+        return capturePresented(checkNotNull(gateway.presentationPreview(template, name, settings)), name, settings)
+    }
+    private fun capturePresented(source: StoryCreationPreview, name: String?, expected: StoryPresentation?): StoryCreationPreview {
+        val settings = checkNotNull(source.presentation)
+        check(validStoryPresentation(settings) && settings == (expected ?: StoryPresentation()))
+        return captureConfigured(source.copy(presentation = null), name).copy(
+            presentation = settings.copy(excludedPhrases = Collections.unmodifiableList(ArrayList(settings.excludedPhrases))))
+    }
+
     private fun capture(source: StoryCreationPreview): StoryCreationPreview {
+        check(source.presentation == null) // Only the explicit presented-preview capability can supply these settings.
         check(validStoryTemplateProfile(source.template, source.profile))
         return source.copy(details = Collections.unmodifiableList(ArrayList(source.details)))
     }
@@ -193,8 +253,8 @@ internal class StoryCreationController(
         val before = mutable.value
         if (disposed || !before.visible || before.busy || before.creating || before.closing || createStarted ||
             before.review !== expected) return
-        if (!hasReviewedPlayerName(expected, before.playerNameDraft)) {
-            mutable.value = before.copy(notice = "Review the player name changes before creating the story.")
+        if (!hasReviewedCreation(expected, before.playerNameDraft, before.toneDraft, before.excludedPhrasesDraft)) {
+            mutable.value = before.copy(notice = "Review the setup changes before creating the story.")
             return
         }
         if (!validStoryTitle(expected.title)) {

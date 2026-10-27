@@ -356,3 +356,39 @@ Author checks source/API/callsite/Git/whitespace only. This handoff does not cla
 that the new Rust compiles or that a native4 run, cleanup or completed no-load
 resume has executed. Frontend/harness integration and model/publication gates
 are explicitly separate work, not inferred from the source implementation.
+
+## Additive full-run lease identity freeze
+
+On source3c1f1146, a new child
+`comparison_run/scene_native_review/lease_identity_review.rs` freezes four
+additional oracles, source-only UNCOMPILED/UNRUN. Root owns child registration,
+baseline execution and the production identity correction. Existing eleven
+service assertions are unchanged. Metadata fixtures contain no canonical native
+receipt/report, work prefix, provider, model or completed-generation claim.
+
+Three independent per-mode tests cover scripted3/index1, native3/index2 and
+native4/index3. Existing authorized lookup of the same run from distinct live
+Arc<WindowLease> values with equal epochs must create distinct tokens. Browsing
+again in one lease reuses only its own token. Both rightful capabilities remain
+usable; reciprocal stolen-token status/cancel/resume/close must fail UnknownRun
+before job/consent/assets. Closing one token must leave the other valid; explicit
+fresh lookup remints a new proper handle. Files/synthetic assets and the existing
+ModelManager reservation sequence remain unchanged/zero.
+
+The fourth finite test admits four same-run/different-lease handles, ages only
+the first existing private token's touched timestamp by one second, then requires
+the unchanged four-token LRU cap on a fifth authorized owner. Only the oldest
+handle expires; the remaining rightful handles keep their identities and the
+fifth owner cannot use them. No sleep, TTL/budget increase, owner counter or
+production API injection is added. This tests handle identity/cap preservation,
+not arbitrary concurrent-window retirement or runtime cleanup correctness.
+
+Existing actual diagnostics separately locate the preexisting full-run identity
+gap at foreign WindowLease status with the same epoch; preceding protocol
+refusals passed. That observed failure is not reattributed to cross-protocol
+dispatch. The inventory/consumed-reader failures are separate fixture setup;
+their calibration cannot count as a product fix or erase the original log.
+These four new oracles themselves remain unexecuted at this freeze. Root's
+proposed stable private Arc/Weak lease identity and owner-scoped reuse must bind
+both full-run mint sites before lookup/status/cancel/resume/close can rely on it.
+Never overwrite an old token's owner because generic same-run mint reused it.

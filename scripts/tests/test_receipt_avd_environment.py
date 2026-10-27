@@ -1268,10 +1268,22 @@ class EnvironmentTests(unittest.TestCase):
         env.create_json(self.root / "prepare-start-v1.json", {"proposal_sha256": env.digest(p), "owner": identity})
         env.create_json(self.root / "prepare-worker-claimed-v1.json", {"already": "consumed"})
         request = env.encoded({"proposal": str(p), "proposal_sha256": env.digest(p), "authorization": str(a)})
-        with mock.patch.object(env.sys, "stdin", mock.Mock(buffer=io.BytesIO(request))), mock.patch.object(env, "process_identity", return_value=identity), mock.patch.object(env.subprocess, "run") as child:
+        order = mock.Mock()
+        with mock.patch.object(env.sys, "stdin", mock.Mock(buffer=io.BytesIO(request))), \
+             mock.patch.object(env, "process_identity", return_value=identity), \
+             mock.patch.object(env, "resource_facts", return_value={}) as resources, \
+             mock.patch.object(env, "create_json", wraps=env.create_json) as claim, \
+             mock.patch.object(env.subprocess, "run") as child, mock.patch.object(env.subprocess, "Popen") as launcher:
+            order.attach_mock(resources, "resources")
+            order.attach_mock(claim, "claim")
             with self.assertRaises(FileExistsError):
                 env.worker("_prepare-worker")
-        child.assert_not_called()
+        resources.assert_called_once_with(value)
+        self.assertEqual(order.mock_calls, [mock.call.resources(value), mock.call.claim(
+            self.root / "prepare-worker-claimed-v1.json",
+            {"proposal_sha256": env.digest(p), "worker": identity})])
+        self.assertEqual(env.read_json(self.root / "prepare-worker-claimed-v1.json"), {"already": "consumed"})
+        child.assert_not_called(); launcher.assert_not_called()
 
     def test_failed_sdk_child_has_failure_closure_and_retained_raw(self):
         p, a = self.files(self.proposal())

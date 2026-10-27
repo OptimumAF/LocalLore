@@ -3,6 +3,12 @@
 M09.02, supporting M09.03/M09.06 and M10.02. This focused packet is stacked on
 unmerged PR#222 at07ec1e2f. Full milestone checklists remain unchanged.
 
+Current result: draft PR#223 implements the initial presentation slice. Complete
+current-source host/build checks and fresh native10/presentation8 Android phases
+pass. Both requested owned guest closures and the final existing-server
+postflight pass. Earlier checkpoint failures and pending statements below retain
+their original dates/scopes; final runtime and recovery evidence follows them.
+
 ## Implemented behavior and authority
 
 The creation review adds plain/warm/brisk tone and exact phrases to exclude from
@@ -159,3 +165,94 @@ Runtime qualification remains pending until actual original results and exact
 requested closures are retained. Current executable source is2512f357; later
 README/report edits do not alter the850 mapped inputs. No merge/release/settings
 change, unrelated-emulator stop, private upload or model-performance claim.
+
+## Actual current-source Android qualification
+
+The two distinct fresh owned API35/x86_64 guests are prepared and planned before
+serial launch. Continuous tool orchestration waits for the original live owner
+readiness output and immediately dispatches the fixed phase in that same tool
+execution. Readiness itself is not boot proof. Neither guest is reused, and the
+existing SDK850-second/owner900-second/class180-second/262144-byte budgets remain
+unchanged. No reinstall, data-clear, arbitrary selector or favorable retry occurs.
+
+| Fixed phase | Actual methods/classes | Complete measured SDK2 pairs | Owner elapsed / worker |
+|---|---|---|---|
+| `components` |10 /3 |94 |254218ms /0 |
+| `story-presentation` |8 /3 |94 |268934ms /0 |
+
+Both phase owners have known cleanup/capture,18-byte stdout and0-byte stderr.
+Each94-pair capture contains30 SDK clients and64 server-observer records.
+Measured SDK/observer maxima are10083/1945ms/native and23207/1938ms/presentation;
+these are bounded diagnostics, not phone performance or timeout-cause evidence.
+The exact source rosters and original class frames, parent/raw copies, complete
+SDK2 pairs, request/start bindings and unchanged before/after850-input maps are
+checked, together with the corrected build/APKs above. These results qualify
+only the fixed phases, not the earlier841 or pre-refactor850 source.
+
+The eight presentation methods actually exercise native-reviewed creation,
+malformed/foreign wire refusal, invalid/busy states, retained stale consent and
+Cancel preserving the selected story/play draft. Real MainActivity free-text
+Gift reaches native A1: the potion is transferred once, the explicit2.7
+presentation policy/hash binds the accepted receipt, fresh Host/Activity reopen
+retains the same outcome/settings, and the independent second story remains A0.
+These are scripted inference assertions, not real-model prose evaluation.
+
+After each phase closes, Root requests only its exact proposal-bound guest STOP
+and waits for the original guest tool handle to terminate0. Guest owner records
+show requested closure at277506ms/native and291896ms/presentation, worker1,
+known cleanup/capture/closure and no guest-flush claim. A single subsequent
+read-only existing-server postflight passes with the same server,0 new device
+calls and no server lifecycle operation. The new raw-bound preflight contains
+zero protected emulator identities; this does not inherit earlier two-process
+pins or assert all-time emulator/phone absence. No unrelated stop is performed.
+
+The exact executed host procedures are retained in the private helper sources
+and their bound original requests: `check-rust-v2.py` with `rust-core-v2`,
+`rust-storage-v2`, `rust-workspace-v2`, `clippy-v2`; `check-owner-v2.py` with
+`host-v2`, `frontend-v2`; and the versioned driver's `build`, `components` and
+`story-presentation` phases. Rust commands use `test --locked --offline -p
+<package> --all-features`, adding `--features
+locallore-storage/development-fixtures` for Workspace; Clippy names all three
+packages with `--all-targets --all-features -- -D warnings`. Python uses actual
+unittest discovery of `scripts/tests/test_*.py`; frontend executes
+`node verify-frontend.mjs` and the existing Prettier check. Driver requests retain
+the exact bound build/proposal/running/server arguments, tool bytes and paths.
+
+M09.02 initial presentation and supporting M09.03/M09.06/M10.02 are in review,
+not owner-accepted completion. Full task checkboxes remain unchanged. Original
+premise generation, broader character/semantic content setup, accessibility,
+complete current-source journeys/chooser/archive/OS-death and joined drain,
+physical-phone/real-model/ARM64 qualification and the inherited desktop advisory
+remain open. No new physical-profile assessment is performed in this packet.
+Next runnable supporting verification is current850 creation19 and broad89 in
+fresh admitted owned guests; their earlier841 results cannot qualify this source.
+
+## Verified runtime preservation and source handoff
+
+The unchanged reviewed runtime audit executes once after both original phase
+owners, requested guest closures and final postflight are terminal. It performs
+only file readback/copy/archive work. Independent second replay and Root replay
+verify460 original files and461 copied/ZIP entries,1498551 bytes,0 missing files
+or mismatches. The host/build465-entry index and ZIP remain unchanged; only its
+index is referenced/copied, without duplicating its APK payloads.
+
+Runtime index163037-byte SHA256:
+`15ec3949c1f947b46cca89d515220903a1a824f47bf0df84a885bc34bcdcae54`.
+ZIP511783-byte SHA256:
+`d14e06f2b7afeaf42bf2561ace526c9a59a91f32fe68f343002dd07958199e57`.
+The exact19-key successful final postflight is2911 bytes, SHA256:
+`700360444ef3dc0028e18905b7d38c8aa5444d7a63f50fa3c6f795b5a3cc88e2`.
+Private recovery lives in the dedicated C: ProjectBackups/LocalLore folders;
+no raw diagnostics, saves, model weights or unknown generated subtrees enter
+the public commit. Earlier failed and unexecuted cohorts retain their status.
+
+Source/tests/contracts and this report are committed and pushed incrementally.
+The final clean report head is then frozen for a separate create-only complete
+all-ref Git bundle, exact32 changed public Git blobs, current850 source map and
+three existing recovery index references. Its actual terminal verification and
+final hashes are recorded in the ticket handoff after creation, avoiding a
+self-referential report hash. Both ignored D: physical generated directories
+must remain present and ignored; the source recovery reads their presence and
+checkout identity without traversing, moving, copying or deleting their payloads.
+No source is changed after that final bundle. Full milestone checkboxes remain
+unchecked pending their remaining criteria and owner acceptance.

@@ -47,7 +47,11 @@ Real MainActivity/JNI cases exercise explicit presentation review/Create,
 Cancel preserving the selected library/play draft, and native read-back across
 fresh Host/ordinary Activity reopen. Wire/dialog methods cover malformed or
 foreign metadata, literal settings, immutable retained consent and invalid/busy
-states. These scripted checks do not prove model quality, OS process death,
+states. The second MainActivity method also submits a real free-text Gift through
+the UI to native revision A1, checks potion conservation and the explicit 2.7
+presentation policy/hash binding, then verifies the same receipt and settings
+through fresh Host/Activity reopen while the second story remains A0.
+These scripted checks do not prove model quality, OS process death,
 joined native drain, semantic-topic filtering, physical/ARM64 or full journeys.
 Known terminal capture/cleanup precedes an exact proposal-bound owned stop;
 final existing-server observation occurs after requested closures. No server

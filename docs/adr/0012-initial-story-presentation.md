@@ -1,6 +1,7 @@
 # ADR-0012: Initial story presentation and narration phrase boundaries
 
-Status: implementation proposal, pending qualification and owner acceptance.
+Status: implemented and locally qualified in the bounded host/emulator packet;
+pending owner acceptance. Full physical/model/journey gates remain open.
 Refs #13 (M09.02; supporting M09.03/M09.06) and #14 (M10.02).
 
 The creation flow already reviews a native-derived template, title and player

@@ -78,10 +78,103 @@ After terminal clients, the bound owned stop returns0. Guest owner records
 `stop_requested`,729751ms,worker1, cleanup/capture/closure true and
 `guest_flush_claimed:false`. The guest is not adopted for another fixture.
 
-Component10 and the current result2 two-death cases are still pending; no host
-result or broad89 result above grants them a pass. Freshness/install continuation
-follows the existing create-only protocols. No system-setting change or other
-project's emulator stop is used.
+The current native10 prerequisite also actually passes in a separate fresh
+owned guest:3 classes/4+4+2 methods,84 clean client records,294436ms/worker0,
+known cleanup/capture and empty owner stderr. Independent readback matches
+all original raw/client/source/build/APK bindings. Component record SHA256:
+`9f11f1db8b6a2e24c2d42d3e1982fb6fcf16280c3b7145bc8b64578ddf0e5881`.
+It covers8 loader/refusal and2 native fallback/ready methods, not process death.
+
+The actual current `restore_non_default` result2 case passes82 original checks
+and two same-task process deaths, continuing only the exact native10 installation:
+69 clean clients,321967ms/worker0, known cleanup/capture, empty owner stderr.
+Original controller frame1844 bytes; retained parsed proof file1789 bytes, within the unchanged
+4096/4160 caps. Both first-old saved/commands creation pairs are legacy0/named2;
+both second-old pairs are zeros. Final probe2 leaves keep zero creation attempts.
+The original zero/SEND GAME6 vectors, distinct process/factory/hint identities,
+selected-B stored scope, unsent draft and explicit accepted Send checks remain.
+These canonical assertions execute in the source-pinned controller/native UI oracle;
+the root case does not export independent canonical world-view sidecars.
+
+After terminal clients, its bound owned stop returns0; guest owner records
+`stop_requested`,719770ms,worker1, cleanup/capture/closure true and no guest-flush
+claim. Other case fixtures need their own fresh guests. Retained-parent result2
+qualification remains pending after the failed collection below. No host/broad result substitutes for it.
+No system-setting change or other project's emulator stop is used.
+
+## Child controller success and host-collection failure
+
+The separate fresh child case reports result2/DONE/NONE,123 checks and two deaths
+in its original2239-byte controller frame, SHA256
+`57d820ca235eb1f2edbada768f10ac33037613c2d5108e972ed8e7acd225a134`.
+However, the overall host case is **failed and unqualified**:463506ms/worker2,
+known cleanup/capture. After collecting original created/saved/commands leaves,
+client90 (`adb-server`) times out at the unchanged15-second observation deadline,
+with empty output and known cleanup. Fixture/postflight/external/sources-after
+records were not produced, and none are reconstructed. The burned guest is not retried.
+
+Independent readback verifies all90 raw/client hashes:60 earlier server observations
+are byte-identical, then observation61 returns no snapshot. No server identity
+change or Android-controller failure is established. The current record omits
+elapsed time; PowerShell startup, CIM/cmdlet execution and pipe completion cannot
+be distinguished from those bytes. Fail-stop correctly prevents further SDK calls.
+A separate diagnostic source proposal retains elapsed/effective deadline; it is
+not integrated into these frozen777 inputs and is not a claimed timeout-cause fix.
+
+After terminal clients, the bound owned stop returns0. Guest owner records
+`stop_requested`,624251ms,worker1, cleanup/capture/closure true and no guest flush.
+One final read-only OS observation after all three then-owned guests close matches
+both prior unrelated native emulator identities and the original ADB server.
+This does not retroactively qualify the failed child cohort or prove its cause fixed.
+Distinct retirement cases may use fresh admitted guests; they are not child retries.
+
+## Retired-child restoration
+
+The distinct fresh `restore_retired_child` case actually passes139 original
+checks and two same-task deaths:114 clean clients,525000ms/worker0, known
+cleanup/capture, empty owner stderr. Result2 creation maps are independently
+decoded along with the unchanged setup/zero GAME6 vectors and native unavailable-
+selection fallback. Original controller frame4010 bytes, inline proof3954 bytes
+and retained parsed proof file3955 bytes including LF:
+the proof remains below4096 and the complete frame below4160 without raising caps.
+
+Original load/probe/retire bodies and both quiet helper transport footers are
+mandatory. Native before/after state, one retirement commit attempt and closed
+resource flags still bind the helper/root scope. The parent validates fixture,
+three final probe2 leaves, process/task/hint identities, postflight and all client
+copies. This retired-leaf case does not have the retained-parent four canonical
+sidecars and is not a substitute for them.
+
+After terminal clients its bound owned stop returns0; guest owner records
+`stop_requested`,678100ms,worker1, cleanup/capture/closure true and no guest flush.
+The original failed child cohort remains failed despite this separate pass.
+
+## Retained-parent controller success and expired collection
+
+The distinct retained-parent controller emits result2/DONE/NONE,202 checks and
+two deaths in its original3146-byte frame, SHA256
+`c07cf928c95810673c8ea337dd3b7f846fa1ebaf041c3bf3258cc8dbb11d8b1d`.
+The overall host case is nevertheless **failed and unqualified**:
+690756ms/worker2, known cleanup/capture and empty owner stderr. All104 retained
+client records completed cleanly. Created/saved/commands/fixture and native
+load/probe bodies/transports were collected; native retire body/transport, all
+four canonical sidecars, parsed proof, external record, final source map and
+product postflight were never published. No missing bytes are reconstructed.
+
+The coordinator dispatched the case too late in the existing20-minute guest
+lease. That exact owner expires at1200032ms/worker1 with cleanup/capture/closure
+true and no guest-flush claim; the host refuses further collection. This is a
+scheduling failure, not a qualified preservation result or evidence of a product
+failure. The limit is not extended, and the burned fixture is not retried.
+Any later qualification needs a new admission with sufficient remaining lifetime
+before dispatch, plus all original native and canonical sidecars.
+
+After all five owned guests are actually closed, one final selected-process and
+server observation (`postflight-v3`) matches both original unrelated emulator
+kernel identities and the original ADB server. No new device calls are made.
+The unexecuted v2 postflight helper only accepted requested stops; v3 adds the
+exact already-recorded retained expiry condition before observation. Both helpers
+are preserved. This final observation does not qualify either failed cohort.
 
 ## Preservation
 
@@ -96,7 +189,29 @@ The prior #213227/309/213-file seals were rechecked unchanged. Live guest
 cohorts and all images/data/model weights/private saves/caches are excluded.
 Raw diagnostics stay private; no source reconstruction replaces missing evidence.
 
+Additional create-only recovery sets are independently copied and rehashed:
+
+| Cohort | Files/original bytes | ZIP bytes | ZIP SHA256 |
+|---|---:|---:|---|
+| Broad regression |395/774662|289209|`bd2a3992e6d4b45ce5d79f887e33c2b59631546548485e501b63a5879c73f52f`|
+| Native/root result2 |357/888545|346957|`21f8a7860128be327c6a3e52299afae326c65a5f156b46a73ad47dcd9ca78b84`|
+| Failed child originals |214/522218|187599|`5278fca7653777ef2582a7b3a992161a5efbe32b146620654ccaa3d7653adb94`|
+| Phone/postflight supplement |13/207613|72743|`c2cd199926d4ba391b44ee1a0f410e117d1968dae40dc14e668a39398b660525`|
+| Retired-leaf result2 |274/687047|258708|`4b3f5685108381c2dc5da611a7f2a6b80b6df94851626e86cad06e7ce03dd3e9`|
+
+Each has its own immutable index and original/copy/member verification. Prior
+seals are rechecked; counts across overlapping sets are not unique coverage.
+The child failure's missing outputs stay missing. Its append-only supplement
+does not change its failed flag, and guest payloads/private saves/weights remain
+excluded. The retired-leaf index is81326 bytes SHA256
+`c7e9e41bab6285e4efe51f3b9d0f27caf88187bdd1771d0b405e715452d0cfbc`.
+
 ## Limits and handoff
+
+Draft #216 independently adds measured SDK-client timing diagnostics and exact
+current-record coverage guards. Its mocked host tests do not change this
+packet's frozen777-source/record1 attribution or establish a timeout-cause fix.
+The original child collection and retained-parent lease failures stay failed.
 
 All present lifecycle fixtures use scripted text inference; no phone/model
 import, real inference, ARM64 execution, thermal/performance, unfamiliar-user,

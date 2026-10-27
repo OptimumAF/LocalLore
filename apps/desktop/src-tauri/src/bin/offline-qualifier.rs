@@ -32,8 +32,8 @@ mod win {
         Foundation::{CloseHandle, HANDLE, HLOCAL, LocalFree, SetHandleInformation, HANDLE_FLAGS, WAIT_OBJECT_0},
         NetworkManagement::{IpHelper::{GetAdaptersAddresses, GAA_FLAG_SKIP_ANYCAST, GAA_FLAG_SKIP_MULTICAST, GAA_FLAG_SKIP_DNS_SERVER, IP_ADAPTER_ADDRESSES_LH}, Ndis::IfOperStatusUp},
         Networking::WinSock::{AF_INET, SOCKADDR_IN},
-        Security::{self, Authorization::{ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW, SE_FILE_OBJECT, SDDL_REVISION_1}, Isolation::{CreateAppContainerProfile, DeleteAppContainerProfile, DeriveAppContainerSidFromAppContainerName, GetAppContainerFolderPath}, GetTokenInformation, TOKEN_INFORMATION_CLASS, TOKEN_QUERY, TOKEN_USER, TOKEN_APPCONTAINER_INFORMATION, TokenIsAppContainer, TokenCapabilities, TokenAppContainerSid, TokenUser, PSID, PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES, SECURITY_CAPABILITIES, DACL_SECURITY_INFORMATION, LABEL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION},
-        System::{Com::{CoCreateGuid, CoTaskMemFree}, JobObjects::{CreateJobObjectW, AssignProcessToJobObject, SetInformationJobObject, QueryInformationJobObject, JobObjectExtendedLimitInformation, JobObjectBasicAccountingInformation, JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOBOBJECT_BASIC_ACCOUNTING_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE}, Pipes::CreatePipe, Threading::{GetCurrentProcess, OpenProcessToken, CreateProcessW, InitializeProcThreadAttributeList, DeleteProcThreadAttributeList, UpdateProcThreadAttribute, LPPROC_THREAD_ATTRIBUTE_LIST, STARTUPINFOEXW, PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, EXTENDED_STARTUPINFO_PRESENT, CREATE_SUSPENDED, CREATE_NO_WINDOW, STARTF_USESTDHANDLES, ResumeThread, WaitForSingleObject, GetExitCodeProcess, TerminateProcess}},
+        Security::{self, Authorization::{ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW, SE_FILE_OBJECT, SDDL_REVISION_1}, Isolation::{CreateAppContainerProfile, DeleteAppContainerProfile, DeriveAppContainerSidFromAppContainerName}, GetTokenInformation, TOKEN_INFORMATION_CLASS, TOKEN_QUERY, TOKEN_USER, TOKEN_APPCONTAINER_INFORMATION, TokenIsAppContainer, TokenCapabilities, TokenAppContainerSid, TokenUser, PSID, PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES, SECURITY_CAPABILITIES, DACL_SECURITY_INFORMATION, LABEL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION},
+        System::{Com::CoCreateGuid, JobObjects::{CreateJobObjectW, AssignProcessToJobObject, SetInformationJobObject, QueryInformationJobObject, JobObjectExtendedLimitInformation, JobObjectBasicAccountingInformation, JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOBOBJECT_BASIC_ACCOUNTING_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE}, Pipes::CreatePipe, Threading::{GetCurrentProcess, OpenProcessToken, CreateProcessW, InitializeProcThreadAttributeList, DeleteProcThreadAttributeList, UpdateProcThreadAttribute, LPPROC_THREAD_ATTRIBUTE_LIST, STARTUPINFOEXW, PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, EXTENDED_STARTUPINFO_PRESENT, CREATE_SUSPENDED, CREATE_NO_WINDOW, STARTF_USESTDHANDLES, ResumeThread, WaitForSingleObject, GetExitCodeProcess, TerminateProcess}},
     }};
     use windows::{Wdk::{Foundation::OBJECT_ATTRIBUTES, Storage::FileSystem::{
         NtCreateFile, FILE_CREATE, FILE_DIRECTORY_FILE, FILE_OPEN_REPARSE_POINT,
@@ -69,12 +69,21 @@ mod win {
         unsafe { LocalFree(Some(HLOCAL(text.0.cast()))); }
         value
     }
-    fn profile_folder(sid: PSID) -> Result<PathBuf> {
-        let text = wide(sid_text(sid)?);
-        let folder = api(unsafe { GetAppContainerFolderPath(PCWSTR(text.as_ptr())) })?;
-        let value = unsafe { folder.to_string() }.map(PathBuf::from).map_err(|_| "ProfilePathEncoding".to_owned());
-        unsafe { CoTaskMemFree(Some(folder.0.cast())); }
-        value
+    fn fixture_from_self(executable: &Path, id: &str) -> Result<PathBuf> {
+        if !valid_id(id) || !executable.is_absolute()
+            || executable.components().any(|p| matches!(p, Component::ParentDir | Component::CurDir))
+            || !matches!(executable.components().next(), Some(Component::Prefix(p)) if matches!(p.kind(), Prefix::Disk(_) | Prefix::VerbatimDisk(_)))
+            || executable.file_name() != Some(std::ffi::OsStr::new("offline-qualifier.exe")) {
+            return fail("CanaryFixtureBinding");
+        }
+        let fixture = executable.parent().ok_or("CanaryFixtureBinding")?;
+        if fixture.file_name() != Some(std::ffi::OsStr::new(&format!("fixture-{id}"))) {
+            return fail("CanaryFixtureBinding");
+        }
+        Ok(fixture.to_path_buf())
+    }
+    fn challenge_marker(id: &str, sid: &str, challenge: &str) -> Result<Vec<u8>> {
+        encode(&json!({"version":1,"run_id":id,"package_sid":sid,"challenge":challenge}))
     }
     fn pin_directory(path: &Path) -> Result<Vec<File>> {
         if !path.is_absolute() || path.components().any(|p| matches!(p, Component::ParentDir | Component::CurDir))
@@ -475,11 +484,12 @@ mod win {
         let label = request["case"].as_str().filter(|s| ["baseline","boxed"].contains(s)).ok_or("CanaryCase")?;
         let profile = wide(format!("locallore.offline.{id}"));
         let sid = Sid(api(unsafe { DeriveAppContainerSidFromAppContainerName(PCWSTR(profile.as_ptr())) })?);
-        let fixture = profile_folder(sid.0)?.join(format!("fixture-{id}"));
+        let fixture = fixture_from_self(&io(std::env::current_exe())?, id)?;
         // Parent checked every ancestor before creation/launch. The restricted
         // child only needs access to its own new fixture, not ancestor listing.
-        if io(fs::symlink_metadata(&fixture))?.file_attributes() & 0x400 != 0 { return fail("ReparseFixturePath"); }
-        if io(std::env::current_exe())? != fixture.join("offline-qualifier.exe") || read_small(&fixture.join("challenge.txt"))? != challenge.as_bytes() { return fail("CanaryFixtureBinding"); }
+        let metadata = io(fs::symlink_metadata(&fixture))?;
+        if !metadata.is_dir() || metadata.file_attributes() & 0x400 != 0 { return fail("ReparseFixturePath"); }
+        if read_small(&fixture.join("challenge.txt"))? != challenge_marker(id, &sid_text(sid.0)?, challenge)? { return fail("CanaryFixtureBinding"); }
         let token = token_observation(unsafe { GetCurrentProcess() })?;
         if token["is_appcontainer"] != (label == "boxed") || token["capability_count"] != 0 || (label == "boxed" && token["package_sid"] != sid_text(sid.0)?) { return fail("CanaryActualToken"); }
         let marker = format!("{challenge}{}", if label == "baseline" { "B" } else { "X" });
@@ -523,9 +533,10 @@ mod win {
         if args.len() == 1 && args[0] == "--self-canary" { return canary(); }
         if !args.is_empty() { return fail("ClosedArgumentsRequired"); }
         let id = guid()?; let challenge = guid()?;
-        let evidence = create_owned_directory(&std::env::temp_dir(), &format!("locallore-offline-proof-{id}"))?;
+        let temporary = std::env::temp_dir();
+        let evidence = create_owned_directory(&temporary, &format!("locallore-offline-proof-{id}"))?;
         eprintln!("LOCALLORE_OFFLINE_FEASIBILITY_ARTIFACT={}", evidence.path.display());
-        let mut proof = json!({"version":1,"kind":"appcontainer_feasibility","phase":"profile_create","passed":false,"run_id":id,"profile_created":false,"profile_deleted":false,"child_cleanup_known":true,"listener_threads_drained":true,"webview_executed":false,"native_ipc_executed":false,"approved_worker_executed":false,"model_executed":false,"ipv6_tested":false,"dns_tested":false});
+        let mut proof = json!({"version":1,"kind":"appcontainer_feasibility","phase":"profile_create","passed":false,"run_id":id,"profile_created":false,"profile_delete_api_succeeded":false,"profile_storage_absence_checked":false,"child_cleanup_known":true,"listener_threads_drained":true,"webview_executed":false,"native_ipc_executed":false,"approved_worker_executed":false,"model_executed":false,"ipv6_tested":false,"dns_tested":false});
         let name = wide(format!("locallore.offline.{id}"));
         let mut sid = None; let mut listeners = None; let mut fixture = None; let mut executable_pins = vec![];
         let result: Result<()> = (|| {
@@ -535,13 +546,15 @@ mod win {
             let package = sid.as_ref().ok_or("ProfileMissing")?.0;
             proof["package_sid"] = json!(sid_text(package)?);
             proof["phase"] = json!("fixture_prepare");
-            fixture = Some(create_owned_directory(&profile_folder(package)?, &format!("fixture-{id}"))?);
+            // This sibling of evidence is unrelated to managed profile storage.
+            // Retain its identity pins through deletion; never open the latter.
+            fixture = Some(create_owned_directory(&temporary, &format!("fixture-{id}"))?);
             let root = fixture.as_ref().ok_or("FixtureMissing")?;
             grant_new_fixture(root, package)?;
             executable_pins.push(copy_self_to_new(root)?);
             let executable = executable_pins.last().ok_or("SelfImageMissing")?;
             proof["copied_self_sha256"] = json!(executable.sha256);
-            write_new(&root.path.join("challenge.txt"), challenge.as_bytes())?;
+            write_new(&root.path.join("challenge.txt"), &challenge_marker(&id, &sid_text(package)?, &challenge)?)?;
             proof["phase"] = json!("listener_prepare");
             listeners = Some(Listeners::start(&challenge)?);
             let server = listeners.as_ref().ok_or("ListenersMissing")?;
@@ -580,14 +593,14 @@ mod win {
         if let Some(package) = sid {
             if profile_delete_allowed(&proof) {
                 match unsafe { DeleteAppContainerProfile(PCWSTR(name.as_ptr())) } {
-                    Ok(()) => proof["profile_deleted"]=json!(true),
+                    Ok(()) => proof["profile_delete_api_succeeded"]=json!(true),
                     Err(e) => proof["profile_delete_hresult"]=json!(e.code().0),
                 }
             }
             drop(package);
         }
         if let Err(error) = result { proof["error"]=json!(error); }
-        proof["passed"]=json!(proof.get("error").is_none() && proof["baseline"]["passed"]==true && proof["boxed"]["passed"]==true && proof["baseline_parent_file_readback"]==true && proof["boxed_parent_file_readback"]==true && proof["listener_expected_only"]==true && proof["child_cleanup_known"]==true && proof["listener_threads_drained"]==true && proof["profile_deleted"]==true);
+        proof["passed"]=json!(proof.get("error").is_none() && proof["baseline"]["passed"]==true && proof["boxed"]["passed"]==true && proof["baseline_parent_file_readback"]==true && proof["boxed_parent_file_readback"]==true && proof["listener_expected_only"]==true && proof["child_cleanup_known"]==true && proof["listener_threads_drained"]==true && proof["profile_delete_api_succeeded"]==true);
         // Evidence and all fixture/image identity pins are still live here,
         // including across the profile deletion attempt. Never follow a root
         // after releasing its ownership guard merely to write a final outcome.
@@ -622,6 +635,31 @@ mod win {
             unsafe { LocalFree(Some(HLOCAL(security.0))); }
             if !text.is_null() { unsafe { LocalFree(Some(HLOCAL(text.0.cast()))); } }
             result.unwrap()
+        }
+        #[test]
+        fn canary_self_location_and_marker_bind_exact_run_sid_and_challenge() {
+            let id = "11111111-2222-3333-4444-555555555555";
+            let other = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+            let fixture = PathBuf::from(format!("C:\\synthetic-task-temp\\fixture-{id}"));
+            assert_eq!(fixture_from_self(&fixture.join("offline-qualifier.exe"), id).unwrap(), fixture);
+            for path in [
+                fixture.join("other.exe"),
+                fixture.join("nested").join("offline-qualifier.exe"),
+                PathBuf::from(format!("C:\\synthetic-task-temp\\fixture-{other}\\offline-qualifier.exe")),
+                PathBuf::from(format!("fixture-{id}\\offline-qualifier.exe")),
+                PathBuf::from(format!("C:\\synthetic-task-temp\\..\\fixture-{id}\\offline-qualifier.exe")),
+                PathBuf::from(format!("\\\\server\\share\\fixture-{id}\\offline-qualifier.exe")),
+            ] {
+                assert!(fixture_from_self(&path, id).is_err());
+            }
+            assert!(fixture_from_self(&fixture.join("offline-qualifier.exe"), "invalid").is_err());
+            let marker = challenge_marker(id, "S-1-15-2-123", other).unwrap();
+            assert_ne!(marker, challenge_marker(other, "S-1-15-2-123", other).unwrap());
+            assert_ne!(marker, challenge_marker(id, "S-1-15-2-456", other).unwrap());
+            assert_ne!(marker, challenge_marker(id, "S-1-15-2-123", id).unwrap());
+            assert_eq!(serde_json::from_slice::<Value>(&marker).unwrap(), json!({
+                "version":1,"run_id":id,"package_sid":"S-1-15-2-123","challenge":other
+            }));
         }
         #[test]
         fn held_new_root_cannot_redirect_acl_and_outside_sentinel_stays_exact() {

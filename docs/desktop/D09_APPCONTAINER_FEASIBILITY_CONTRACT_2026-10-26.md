@@ -16,18 +16,23 @@ inside dev-harness only; no new package/version/checksum or production handler.
 The parent derives a fresh UUID and a create-only evidence directory under its
 temporary directory. It creates a unique `locallore.offline.<uuid>` profile with
 zero capability SIDs. AlreadyExists is a failure, never adoption or cleanup of an
-existing profile. Its profile folder is obtained through the Windows API. A new
-fixture child directory holds only the qualifier image, one-time challenge and
-tiny files. ACL changes apply only to that newly created directory and its new
+existing profile. Managed profile storage is never opened or pinned. A separate
+atomic new `fixture-<uuid>` directory is created in the same pinned task temporary
+parent as the evidence directory; it holds only the qualifier image, one-time
+challenge and tiny files. ACL changes apply only to that newly created directory and its new
 contents, granting the current user, SYSTEM and exact package SID; a low integrity
 label permits its intended writes. No ACL changes to ancestors, existing files,
 system runtime or original model/worker files. No model files are involved.
 
 The same copied executable runs once normally for positive control and once in
 the zero-capability AppContainer. Native-only bounded stdin contains the fixed
-case identity, profile moniker, challenge and parent-owned listener addresses.
-The canary derives the fixture path from that profile; no path is a request field.
-It validates the profile/UUID/challenge marker and its own copied image location.
+case identity, run UUID, challenge and parent-owned listener addresses.
+The canary derives the fixture from its own fixed copied executable's parent;
+no path is a request field. Its exact directory component must be `fixture-<uuid>`
+and its image name `offline-qualifier.exe`, on an absolute ordinary local-disk
+path without parent/current components. It derives the package SID from the
+fixed profile moniker and validates the bounded marker's exact run UUID, SID
+and challenge. Its actual token must independently match the expected case/SID.
 
 ## Frozen checks
 
@@ -60,6 +65,9 @@ It validates the profile/UUID/challenge marker and its own copied image location
    DeleteAppContainerProfile is called only for this freshly created profile,
    outside the AppContainer and after known quiescence. Deletion failure remains
    failure; there is no recursive deletion of a computed filesystem target.
+   `profile_delete_api_succeeded` records only a successful API return.
+   `profile_storage_absence_checked:false` explicitly records that forensic
+   absence of Windows-managed profile storage was not independently measured.
 
 Evidence is create-only, bounded JSON and exact protocol stdout/stderr, retained
 outside the profile before its deletion. Failed evidence is never overwritten or
@@ -150,3 +158,35 @@ link privilege, never a silent pass); self-copy collision preservation; and
 pipe/listener/child deletion decision negatives. They are UNCOMPILED/UNRUN.
 Root must independently re-review, compile and qualify these before the fixed
 self-canary runs. A source test is not an actual race/ACL/network measurement.
+
+## Pre-execution correction: fixture outside managed profile storage
+
+Independent source review of `00d2630f` identified that keeping ordinary-directory
+and image guards under `GetAppContainerFolderPath` conflicts with the Windows
+deletion API's instruction to close profile-storage handles before deletion.
+The previous section preserves that intermediate design's safety constraints;
+this layout replaces its use of managed storage. The source now calls neither
+`GetAppContainerFolderPath` nor any filesystem helper on a derived profile path.
+
+The fixture is an atomic new SID-ACL directory in the same captured task temporary
+parent as private evidence, with distinct generated sibling names. Neither one
+is inside Windows-managed profile storage. The canary uses only its own fixed
+image parent and exact fixture/run UUID, derives the expected package SID from
+the fixed profile name, checks the run/SID/challenge marker, and independently
+checks its actual token. No caller-supplied path or new executable choice exists.
+All ancestor/source/image/fixture/evidence pins remain held through final writes;
+there is no guard drop, relaxed sharing, overwrite or deletion retry fallback.
+
+The strict child/pipe/listener deletion eligibility predicate is unchanged.
+Deletion success is renamed `profile_delete_api_succeeded` and explicitly paired
+with `profile_storage_absence_checked:false`. A successful API return is a finite
+observed result, not an independent claim that every profile-storage byte is gone.
+Private synthetic fixture/evidence directories remain retained; this adds no
+profile enumeration, recursive filesystem deletion or unrelated cleanup.
+
+An additional Windows source-test group checks exact fixed self-image/fixture
+location, run mismatch, invalid/relative/UNC/traversal paths and distinct
+run/SID/challenge marker bindings. Existing frozen safety assertions remain.
+Author verification is only `git diff --check`; all formatting, compilation,
+Windows tests, token/profile/ACL/network/child APIs and actual qualification
+remain UNRUN. Root must independently review this final layout before execution.

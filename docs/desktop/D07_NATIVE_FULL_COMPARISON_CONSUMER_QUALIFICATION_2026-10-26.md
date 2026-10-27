@@ -385,3 +385,38 @@ storage/memory/stress tests. Full frontend verification at the same source
 passed in16.898s before the two additional abort cases. Later changes affect
 only the development journey, its checker and documentation, with no Rust,
 native IPC, runtime, provider, lock or production consumer changes from960.
+
+## Final review-head checks and human assessment
+
+At clean unchanged `23fc2efaae45981e731390c7d06a9529ea9c26b6`:
+
+| Command / coverage                                                                                                                                                | Actual result                                                                                                                                                                          |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `node verify-frontend.mjs`                                                                                                                                        | Pass,16.567s; strict TypeScript, wired synthetic/headless/controller suites including all12 abort cases and normal-bundle hook exclusion.                                              |
+| `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness --locked --offline --jobs 1 --target-dir <owned target> -- --test-threads=1` | 235 passed/0 failed/9 ignored,998.32s test time; separate harness-contract2 passed.1041.396s total command.                                                                            |
+| Native all-target/all-feature Clippy with `-D warnings`, locked/offline/jobs1                                                                                     | Pass,14.59s compiler/14.922s command.                                                                                                                                                  |
+| Default native build, locked/offline/jobs1, no dev feature                                                                                                        | Pass,27.84s compiler/28.025s command. Unlaunched.                                                                                                                                      |
+| Repository `format:check` Prettier globs and `cargo fmt --all -- --check`                                                                                         | Pass. An earlier broader glob failed on unchanged generated `ui/smoke-requests.json`, outside the declared formatting inputs; that failed attempt is retained.                         |
+| Android Rust host normal/build/dev dependency tree, locked/offline                                                                                                | Pass;0 local-runtime/eval/llama/LiteRT/Tauri/WebView/Wry hits. The unchanged Rust source retains the separately attributed960 host20/0 result; no new device/JVM/Gradle/ABI execution. |
+
+The nine native ignores are eight explicit installed-asset opt-ins and a
+Windows symlink-privilege check; none is a pass. These unit tests are distinct
+from the actual960 WebView2/model execution above. The abort-failure injection
+is still controller/mock-IPC evidence, not actual worker-failure execution.
+Normal frontend SHA256:
+`41a8fdefece439d165cecff5bf91b96b4073a78feb652d72d558aa0a1d40f6f8`.
+Normal native SHA256:
+`6a15928e9d84d23dcbc20a0ffca1d8b65552535567891707e922ae39ada874c0`.
+These identify restored products; they do not establish byte reproducibility.
+
+The owner subsequently assessed the original eight synthetic samples as
+**“Reviewed: needs improvement.”** This is an overall human assessment, not
+case-specific scores or merge approval. The original packet SHA256 is
+`ab184d38f2347e6851d6825ae2c49a40c36fdfdba5f2a7eb2505b96efb426931`;
+the separate create-only human declaration SHA256 is
+`c1e65b800ac37a5bc96ef8f3df8052518da517ab6c68a839619c249db5fc8f90`.
+[The issue records the assessment](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6432205266).
+Immutable historical reports remain human-reviewed0/quality-accepted false;
+no per-dimension ratings are invented. Narrative improvement and a fresh
+versioned evaluation remain required. Full D07, whole-app offline/resource,
+accessibility, packaging and phone gates remain open.

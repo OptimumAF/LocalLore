@@ -121,10 +121,16 @@ task's STOPPED state AND a newer after-super save acknowledgement for the same
 PID/start/task and B hint digest. Then `am kill --user0 PRODUCT` may run. Require
 the old process to disappear; command exit zero alone is insufficient.
 After disappearance and before relaunch, independently read the old saved and
-commands records. Require matching old identity, ordered sequences and exact
+commands records. Require matching old identity, distinct bounded producer
+sequences and exact
 terminal gameplay vectors, so a new process's zeroed counters cannot hide work
 in the dying process. The first terminal vector is entirely zero; the second
 has exactly free_text1/prepare1/commit1 and submit0/cancel0/other0.
+The synchronized producer uses one counter across its files; a read-only
+command may write after the after-super save. Either relative order is valid,
+but equal sequences are impossible. The saved acknowledgement must still be
+newer than the pre-HOME observation, and both terminal gameplay vectors must
+still match the acknowledged producer exactly.
 
 Relaunch only the fixed ACTION_MAIN/CATEGORY_LAUNCHER component with NEW_TASK,
 no force-stop, task clear, reset or multiple-task fallback. Require SAME task,

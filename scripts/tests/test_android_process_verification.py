@@ -18,6 +18,15 @@ from benchmarks import android_process_verification as driver
 
 
 class DriverTests(unittest.TestCase):
+    def test_evidence_json_refuses_duplicates_nonfinite_and_invalid_utf8(self):
+        self.assertEqual(driver.strict_json_bytes(b'{"original":[1,true,null]}'), {"original": [1, True, None]})
+        for raw in (b'{"key":1,"key":2}', b'{"nested":{"x":1,"x":2}}', b'{"x":NaN}',
+                    b'{"x":1e9999}', b'\xff', b'{} trailing', b'{}\n{}'):
+            with self.subTest(raw=raw), self.assertRaises(driver.VerificationRefused):
+                driver.strict_json_bytes(raw)
+        with self.assertRaises(driver.VerificationRefused):
+            driver.strict_json_bytes(b'{}', cap=1)
+
     def test_all_tracked_input_extensions_include_sql_and_future_assets(self):
         with tempfile.TemporaryDirectory() as root:
             out = Path(root)

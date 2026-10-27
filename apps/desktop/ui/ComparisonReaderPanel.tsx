@@ -1,5 +1,9 @@
 import { useCallback, useSyncExternalStore } from "react";
 import type { ComparisonReaderController } from "./comparison-reader-controller";
+import type {
+    ComparisonTurnV3,
+    ComparisonTurnV4,
+} from "./comparison-reader-model";
 import type { ObserverV2, ViewV2 } from "./v2-view-model";
 
 const display = (value: unknown) =>
@@ -39,22 +43,35 @@ export function ComparisonReaderPanel({
     if (!s.allowed) return null;
     const selected = s.source?.rows.find((row) => same(row.row, s.selected));
     const turn = s.summary?.report.turns.find((row) => same(row, s.selected));
-    const constructionTurn = turn && "construction" in turn ? turn : null;
-    const literal = constructionTurn?.construction.arm === "literal_player_v1";
-    const evidenceStatus = constructionTurn?.construction_evidence_status;
+    const constructionTurn =
+        s.summary?.report.version === 3 && turn
+            ? (turn as ComparisonTurnV3)
+            : null;
+    const sceneTurn =
+        s.summary?.report.version === 4 && turn
+            ? (turn as ComparisonTurnV4)
+            : null;
+    const literal = sceneTurn
+        ? sceneTurn.construction.arm === "literal_scene_v1"
+        : constructionTurn?.construction.arm === "literal_player_v1";
+    const evidenceStatus =
+        sceneTurn?.construction_evidence_status ??
+        constructionTurn?.construction_evidence_status;
     const noGeneration =
         evidenceStatus === "not_applicable_guard" ||
         evidenceStatus === "not_applicable_dependency";
     const constructionEvidence =
-        evidenceStatus === "validated_literal"
-            ? "Validated literal input"
-            : evidenceStatus === "validated_relevant"
-              ? "Validated relevant-memory input"
-              : evidenceStatus === "not_applicable_guard"
-                ? "Not applicable — guard"
-                : evidenceStatus === "not_applicable_dependency"
-                  ? "Not applicable — dependency"
-                  : "Unavailable — no validated input";
+        evidenceStatus === "validated_committed_scene_narrator_v1"
+            ? "Committed narrator input checked"
+            : evidenceStatus === "validated_literal"
+              ? "Validated literal input"
+              : evidenceStatus === "validated_relevant"
+                ? "Validated relevant-memory input"
+                : evidenceStatus === "not_applicable_guard"
+                  ? "Not applicable — guard"
+                  : evidenceStatus === "not_applicable_dependency"
+                    ? "Not applicable — dependency"
+                    : "Unavailable — no validated input";
     const omni = s.observer.kind === "omniscient";
     const lens =
         s.observer.kind === "character" ? s.observer.id : s.observer.kind;
@@ -93,9 +110,11 @@ export function ComparisonReaderPanel({
                 app, choose the report again.
             </p>
             <p className="comparison-unavailable">
-                {s.source?.protocol_version === 3
-                    ? "Protocol 3 selected-case rerun unavailable. This reader only inspects recorded literal/relevant experiments."
-                    : "Comparison execution unavailable in this reader. Selected experiments use their separate controls."}
+                {s.source?.protocol_version === 4
+                    ? "Protocol 4 selected-case rerun unavailable. This reader only inspects recorded scene experiments."
+                    : s.source?.protocol_version === 3
+                      ? "Read-only Protocol 3 report. Selected experiments use their separate controls."
+                      : "Comparison execution unavailable in this reader. Selected experiments use their separate controls."}
             </p>
             <div className="comparison-controls">
                 <button
@@ -207,11 +226,12 @@ export function ComparisonReaderPanel({
                                 · {s.summary.report.completed_scenes} completed
                                 scenes
                             </p>
-                            {s.summary.report.version === 3 && (
+                            {s.summary.report.version !== 2 && (
                                 <>
                                     <p>
-                                        Left: Literal player conversation ·
-                                        Right: Relevant memory.
+                                        {s.summary.report.version === 4
+                                            ? "Left: Literal scene · Right: Relevant memory scene."
+                                            : "Left: Literal player conversation · Right: Relevant memory."}
                                     </p>
                                     <details>
                                         <summary>
@@ -222,6 +242,21 @@ export function ComparisonReaderPanel({
                                         </pre>
                                     </details>
                                 </>
+                            )}
+                            {s.summary.report.version === 4 && (
+                                <p>
+                                    {
+                                        s.summary.report
+                                            .source_bound_committed_rows
+                                    }{" "}
+                                    committed narrator inputs checked. This
+                                    checks fresh Domain1 input consistency; it
+                                    does not authenticate Director, compiler,
+                                    raw output or model execution. Finite
+                                    sentinels are diagnostics, not universal
+                                    privacy. The original human assessment
+                                    remains needs improvement.
+                                </p>
                             )}
                             <p>
                                 {s.summary.report.source_matches
@@ -325,11 +360,17 @@ export function ComparisonReaderPanel({
                                             <td>
                                                 {row.row.arm}
                                                 {s.source?.protocol_version ===
-                                                3
+                                                4
                                                     ? row.row.arm === "left"
-                                                        ? " · Literal player conversation"
-                                                        : " · Relevant memory"
-                                                    : ""}
+                                                        ? " · Literal scene"
+                                                        : " · Relevant memory scene"
+                                                    : s.source
+                                                            ?.protocol_version ===
+                                                        3
+                                                      ? row.row.arm === "left"
+                                                          ? " · Literal player conversation"
+                                                          : " · Relevant memory"
+                                                      : ""}
                                             </td>
                                             <td>
                                                 {row.source.before_head} →{" "}
@@ -396,19 +437,70 @@ export function ComparisonReaderPanel({
                                         <dt>Error</dt>
                                         <dd>{turn.error ?? "None"}</dd>
                                         <dt>
-                                            {constructionTurn
+                                            {constructionTurn || sceneTurn
                                                 ? "Construction"
                                                 : "Policy"}
                                         </dt>
                                         <dd>
-                                            {constructionTurn
+                                            {sceneTurn
                                                 ? literal
-                                                    ? "Literal player conversation"
-                                                    : "Relevant memory"
-                                                : "policy" in turn
-                                                  ? turn.policy
-                                                  : "Unavailable"}
+                                                    ? "Literal scene"
+                                                    : "Relevant memory scene"
+                                                : constructionTurn
+                                                  ? literal
+                                                      ? "Literal player conversation"
+                                                      : "Relevant memory"
+                                                  : "policy" in turn
+                                                    ? turn.policy
+                                                    : "Unavailable"}
                                         </dd>
+                                        {sceneTurn && (
+                                            <>
+                                                <dt>Construction evidence</dt>
+                                                <dd>{constructionEvidence}</dd>
+                                                <dt>Construction reason</dt>
+                                                <dd>
+                                                    {sceneTurn.construction_evidence_reason ??
+                                                        "None recorded"}
+                                                </dd>
+                                                <dt>
+                                                    Recipe metadata agreement
+                                                </dt>
+                                                <dd>
+                                                    {sceneTurn.construction_matches
+                                                        ? "Matches recorded recipe"
+                                                        : "Not established"}
+                                                </dd>
+                                                <dt>Privacy evidence</dt>
+                                                <dd>
+                                                    {sceneTurn.privacy_evidence_status ===
+                                                    "checked_finite_sentinels"
+                                                        ? "Checked finite sentinels; diagnostic only"
+                                                        : sceneTurn.privacy_evidence_status ===
+                                                            "not_applicable_guard"
+                                                          ? "Not applicable — guard"
+                                                          : "Unavailable; inspect failure causes"}
+                                                </dd>
+                                                <dt>Narrator prompt hash</dt>
+                                                <dd className="hash-value">
+                                                    {display(
+                                                        sceneTurn.narrator_prompt_sha256,
+                                                    )}
+                                                </dd>
+                                                <dt>Narrator schema hash</dt>
+                                                <dd className="hash-value">
+                                                    {display(
+                                                        sceneTurn.narrator_schema_sha256,
+                                                    )}
+                                                </dd>
+                                                <dt>Scene frame hash</dt>
+                                                <dd className="hash-value">
+                                                    {display(
+                                                        sceneTurn.scene_frame_sha256,
+                                                    )}
+                                                </dd>
+                                            </>
+                                        )}
                                         {constructionTurn && (
                                             <>
                                                 <dt>Construction evidence</dt>
@@ -429,7 +521,9 @@ export function ComparisonReaderPanel({
                                                             evidenceStatus ===
                                                                 "unavailable"
                                                           ? "Unknown — evidence unavailable"
-                                                          : turn.privacy_passed
+                                                          : "privacy_passed" in
+                                                                  turn &&
+                                                              turn.privacy_passed
                                                             ? "Passed finite recorded checks"
                                                             : "Not established"}
                                                 </dd>
@@ -465,7 +559,7 @@ export function ComparisonReaderPanel({
                                         </dd>
                                         <dt>Elapsed</dt>
                                         <dd>
-                                            {constructionTurn &&
+                                            {(constructionTurn || sceneTurn) &&
                                             !turn.roles_known
                                                 ? "Unknown; recovered without a complete recording"
                                                 : `${turn.elapsed_ms} ms`}
@@ -484,10 +578,15 @@ export function ComparisonReaderPanel({
                                         <dd>
                                             {literal
                                                 ? "Not applicable — no memory package"
-                                                : display(
-                                                      turn.estimated_context_tokens,
-                                                  )}{" "}
+                                                : "estimated_context_tokens" in
+                                                    turn
+                                                  ? display(
+                                                        turn.estimated_context_tokens,
+                                                    )
+                                                  : "Unavailable in this report version"}{" "}
                                             {!literal &&
+                                                "estimated_context_tokens" in
+                                                    turn &&
                                                 "· estimate, not a measured token count"}
                                         </dd>
                                     </dl>

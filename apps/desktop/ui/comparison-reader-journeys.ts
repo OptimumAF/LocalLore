@@ -111,6 +111,17 @@ export async function comparisonReaderJourneys({
                           profile: state.summary.report.profile,
                           unavailable: state.summary.report.unavailable,
                           limitations: state.summary.report.limitations,
+                          human_reviewed: state.summary.report.human_reviewed,
+                          human_rubric: state.summary.report.human_rubric,
+                          quality_accepted:
+                              state.summary.report.quality_accepted,
+                          ...(state.summary.report.version === 4
+                              ? {
+                                    source_bound_committed_rows:
+                                        state.summary.report
+                                            .source_bound_committed_rows,
+                                }
+                              : {}),
                           turns: state.summary.report.turns.map((row) => ({
                               turn: row.turn,
                               arm: row.arm,
@@ -129,12 +140,29 @@ export async function comparisonReaderJourneys({
                                         construction: row.construction,
                                         construction_evidence_status:
                                             row.construction_evidence_status,
-                                        literal_source_units:
-                                            row.literal_source_units,
-                                        literal_selected_start:
-                                            row.literal_selected_start,
-                                        literal_selected_units:
-                                            row.literal_selected_units,
+                                        ...("literal_source_units" in row
+                                            ? {
+                                                  literal_source_units:
+                                                      row.literal_source_units,
+                                                  literal_selected_start:
+                                                      row.literal_selected_start,
+                                                  literal_selected_units:
+                                                      row.literal_selected_units,
+                                              }
+                                            : {
+                                                  construction_evidence_reason:
+                                                      row.construction_evidence_reason,
+                                                  narrator_prompt_sha256:
+                                                      row.narrator_prompt_sha256,
+                                                  narrator_schema_sha256:
+                                                      row.narrator_schema_sha256,
+                                                  scene_frame_sha256:
+                                                      row.scene_frame_sha256,
+                                                  privacy_evidence_status:
+                                                      row.privacy_evidence_status,
+                                                  actual_receipt_sha256:
+                                                      row.actual_receipt_sha256,
+                                              }),
                                     }
                                   : { policy: row.policy }),
                           })),
@@ -288,44 +316,20 @@ export async function comparisonReaderJourneys({
                 "actual-native-construction-labels",
             );
             check(
-                text.includes("Protocol 3 selected-case rerun unavailable"),
-                "actual-native-protocol3-rerun-unavailable",
-            );
-            check(
-                document
-                    .querySelector("#selected-evaluation")
-                    ?.textContent?.includes(
-                        "Selected-case reruns are unavailable for this literal/relevant report",
+                text.includes("Read-only Protocol 3 report") &&
+                    text.includes(
+                        "Selected experiments use their separate controls",
                     ),
-                "actual-native-selected-pane-explains-unavailable-source",
+                "actual-native-protocol3-explains-separate-selected-controls",
             );
             const before = r.get().status!;
-            let refusal = "";
-            try {
-                await invoke("evaluation_selected", {
-                    action: "prepare",
-                    request: JSON.stringify({
-                        clientId: "33333333-3333-4333-8333-333333333333",
-                        readerClientId: r.get().clientId,
-                        runToken: before.run_token,
-                        binding: before.binding,
-                        turnId: first.row.turn,
-                        arm: first.row.arm,
-                        lane: "scripted_baseline",
-                    }),
-                });
-            } catch (error) {
-                refusal = String(error);
-            }
-            check(
-                refusal === "NativeUnavailable",
-                "actual-native-protocol3-selected-refusal",
-            );
+            // Source3 now maps to selected2. Its separate selected journeys own
+            // preparation/execution; this read-only journey must not consume it.
             await r.loadSummary();
             check(
                 r.get().status?.run_token === before.run_token &&
                     r.get().summary?.report.version === 3,
-                "rejected-rerun-preserves-native-reader",
+                "read-only-refresh-preserves-native-protocol3-reader",
             );
         }
         r.select(first.row);

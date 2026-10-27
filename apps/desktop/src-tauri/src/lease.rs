@@ -1,15 +1,24 @@
 //! Native-only window lifetime fence. No renderer token can create authority.
 use std::sync::{
     atomic::{AtomicU64, Ordering},
-    Mutex,
+    Arc, Mutex, Weak,
 };
 #[derive(Default)]
 pub struct WindowLease {
+    identity: Arc<()>,
     epoch: AtomicU64,
     closed: AtomicU64,
     gate: Mutex<()>,
 }
 impl WindowLease {
+    // Native capability identity survives weak references without address reuse.
+    // An epoch belongs to this lease, not every WindowLease with that number.
+    pub(crate) fn identity(&self) -> Weak<()> {
+        Arc::downgrade(&self.identity)
+    }
+    pub(crate) fn owns_identity(&self, identity: &Weak<()>) -> bool {
+        identity.upgrade().is_some_and(|owner| Arc::ptr_eq(&self.identity, &owner))
+    }
     pub fn begin(&self) -> Result<u64, &'static str> {
         let epoch = self.epoch.load(Ordering::SeqCst);
         if !epoch.is_multiple_of(2) || self.closed.load(Ordering::SeqCst) != epoch {

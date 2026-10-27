@@ -148,6 +148,7 @@ impl Record {
 #[derive(Default)]
 pub(super) struct FullComparisonState {
     runs: BTreeMap<String, Record>,
+    token_leases: BTreeMap<String, (u64, std::sync::Weak<()>)>,
 }
 fn batch(value: usize) -> Result<()> {
     if (1..=4).contains(&value) {
@@ -367,6 +368,7 @@ impl EvaluationManager {
     fn full_token_lane(
         &self,
         parent: &mut State,
+        lease: &WindowLease,
         epoch: u64,
         token: &str,
         lane: ComparisonLane,
@@ -377,15 +379,23 @@ impl EvaluationManager {
             .filter(|t| t.epoch == epoch)
             .map(|t| t.run.clone())
             .ok_or("UnknownEvaluationRun")?;
-        let matches = self
-            .full_lock()?
-            .runs
-            .get(&id)
-            .is_some_and(|r| r.index.lane().ok() == Some(lane));
+        let mut full = self.full_lock()?;
+        full.token_leases.retain(|key, _| parent.tokens.contains_key(key));
+        let matches = full.token_leases.get(token)
+            .is_some_and(|(owner_epoch, owner)| *owner_epoch == epoch && lease.owns_identity(owner))
+            && full.runs.get(&id).is_some_and(|r| r.index.lane().ok() == Some(lane));
+        drop(full);
         if !matches {
             return Err("UnknownEvaluationRun".into());
         }
         Self::token(parent, epoch, token)
+    }
+    fn full_mint(parent: &mut State, full: &mut FullComparisonState, lease: &WindowLease, epoch: u64, run: String) -> Result<String> {
+        let token = Self::mint_reusing(parent, epoch, run, |id| full.token_leases.get(id)
+            .is_some_and(|(owner_epoch, owner)| *owner_epoch == epoch && lease.owns_identity(owner)))?;
+        full.token_leases.retain(|id, _| parent.tokens.contains_key(id));
+        full.token_leases.insert(token.clone(), (epoch, lease.identity()));
+        Ok(token)
     }
     pub fn full_comparison_catalog(
         &self,
@@ -516,12 +526,13 @@ impl EvaluationManager {
     ) -> Result<Value> {
         lease.dispatch(epoch, || {
             let mut parent = self.state()?;
-            let state = self.full_lock()?;
+            let mut state = self.full_lock()?;
             let run = state.runs.get(id).ok_or("UnknownEvaluationRun")?;
             if run.index.lane()? != lane {
                 return Err("UnknownEvaluationRun".into());
             }
-            let token = Self::mint(&mut parent, epoch, id.to_owned())?;
+            let token = Self::full_mint(&mut parent, &mut state, lease, epoch, id.to_owned())?;
+            let run = state.runs.get(id).ok_or("UnknownEvaluationRun")?;
             run.status(epoch, &token, parent.job.as_ref())
         })
     }
@@ -587,7 +598,7 @@ impl EvaluationManager {
         authorize(lease, epoch, granted)?;
         lease.dispatch(epoch, || {
             let mut parent = self.state()?;
-            let id = self.full_token_lane(&mut parent, epoch, token, lane)?;
+            let id = self.full_token_lane(&mut parent, lease, epoch, token, lane)?;
             self.full_lock()?
                 .runs
                 .get(&id)
@@ -752,7 +763,7 @@ impl EvaluationManager {
         batch(max_new_scenes)?;
         let id = lease.dispatch(epoch, || {
             let mut parent = self.state()?;
-            self.full_token_lane(&mut parent, epoch, token, lane)
+            self.full_token_lane(&mut parent, lease, epoch, token, lane)
         })?;
         self.full_catalog_lane(lease, epoch, granted, lane)?;
         self.full_launch(
@@ -799,7 +810,7 @@ impl EvaluationManager {
         }
         lease.dispatch(epoch, || {
             let mut parent = self.state()?;
-            let id = self.full_token_lane(&mut parent, epoch, token, lane)?;
+            let id = self.full_token_lane(&mut parent, lease, epoch, token, lane)?;
             let job = parent
                 .job
                 .as_ref()
@@ -835,7 +846,7 @@ impl EvaluationManager {
     ) -> Result<Value> {
         lease.dispatch(epoch, || {
             let mut parent = self.state()?;
-            let id = self.full_token_lane(&mut parent, epoch, token, lane)?;
+            let id = self.full_token_lane(&mut parent, lease, epoch, token, lane)?;
             if let Some(job) = parent
                 .job
                 .as_ref()
@@ -852,11 +863,13 @@ impl EvaluationManager {
             r.report = None;
             let status = r.status(epoch, token, parent.job.as_ref())?;
             parent.tokens.remove(token);
+            state.token_leases.remove(token);
             Ok(status)
         })
     }
     pub(super) fn full_comparison_retire(&self, epoch: u64) {
         if let Ok(mut state) = self.full_comparison.try_lock() {
+            state.token_leases.retain(|_, (owner_epoch, _)| *owner_epoch != epoch);
             for r in state.runs.values_mut().filter(|r| r.epoch == epoch) {
                 r.epoch = 0;
                 r.report = None;
@@ -972,7 +985,7 @@ impl EvaluationManager {
                     .checked_add(1)
                     .filter(|n| *n <= SAFE)
                     .ok_or("EvaluationBudget")?;
-                let token = Self::mint(&mut parent, epoch, id.clone())?;
+                let token = Self::full_mint(&mut parent, &mut full, lease, epoch, id.clone())?;
                 let cancel = Cancellation::default();
                 let r = full.runs.get_mut(&id).ok_or("UnknownEvaluationRun")?;
                 if r.index.lane()? != lane {

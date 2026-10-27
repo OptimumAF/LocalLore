@@ -21,3 +21,6 @@ dependencyResolutionManagement {
 }
 rootProject.name = "LocalLore"
 include(":app")
+val processVerification = providers.gradleProperty("localLoreInputProcessVerification").orNull
+require(processVerification == null || processVerification == "true")
+if (processVerification == "true") include(":draft-process-controller")

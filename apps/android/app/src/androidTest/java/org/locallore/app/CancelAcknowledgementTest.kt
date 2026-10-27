@@ -69,7 +69,7 @@ class CancelAcknowledgementTest {
             calls += copy(command)
             val op = command.getString("op")
             if (op == "workspace") return ok(JSONObject().put("persistent", true).put("schema_version", 1)
-                .put("database_schema_version", 4).put("location", "/synthetic/cancel-ack.sqlite3")
+                .put("database_schema_version", 5).put("location", "/synthetic/cancel-ack.sqlite3")
                 .put("stories", JSONArray().also { rows -> stories.values.forEach { story ->
                     rows.put(JSONObject().put("scope", scope(story.story)).put("title", story.title)
                         .put("revision", story.revision).put("drafts", if (draft && story.story == source.story) 1 else 0))

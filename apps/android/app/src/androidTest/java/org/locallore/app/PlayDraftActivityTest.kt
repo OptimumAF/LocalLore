@@ -21,8 +21,8 @@ class PlayDraftActivityTest {
             override fun evaluate() {
                 // Refuse before the Activity can open a different installed app's workspace.
                 assumeTrue("Requires isolated input-draft verification APK",
-                    InstrumentationRegistry.getInstrumentation().targetContext.packageName ==
-                        "org.locallore.app.draftverify")
+                    InstrumentationRegistry.getInstrumentation().targetContext.packageName in
+                        setOf("org.locallore.app.draftverify", "org.locallore.app.draftprocessverify"))
                 base.evaluate()
             }
         }

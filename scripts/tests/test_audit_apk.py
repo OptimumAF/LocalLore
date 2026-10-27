@@ -170,6 +170,23 @@ class ApkAuditTests(unittest.TestCase):
                     self.assertEqual(audit.main(["unread.apk", "--input-draft-verification", flag]), 1)
             read.assert_not_called()
 
+    def test_process_profile_keeps_own_permission_and_separate_explicit_selection(self):
+        package = "org.locallore.app.draftprocessverify"
+        badging, tree = BADGING.replace("org.locallore.app", package), TREE.replace("org.locallore.app", package)
+        self.assertEqual(audit.audit_manifest(badging, tree, package),
+                         [package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"])
+        for selected in ("org.locallore.app", "org.locallore.app.draftverify", package + ".other"):
+            with self.subTest(selected=selected), self.assertRaises(audit.AuditError):
+                audit.audit_manifest(badging, tree, selected)
+        flags = ("--input-draft-verification", "--litert-verification", "--model-provisioning",
+                 "--model-picker-fixture", "--model-volume-verification", "--model-receipt-verification")
+        with patch.object(audit, "audit_zip", side_effect=AssertionError("artifact read")) as read, \
+                patch("builtins.print"):
+            for flag in flags:
+                with self.subTest(flag=flag):
+                    self.assertEqual(audit.main(["unread.apk", "--input-process-verification", flag]), 1)
+            read.assert_not_called()
+
     def test_model_setup_is_separate_from_existing_candidate_and_has_no_network(self):
         package = "org.locallore.app.modelverify"
         badging, tree = BADGING.replace("org.locallore.app", package), TREE.replace("org.locallore.app", package)

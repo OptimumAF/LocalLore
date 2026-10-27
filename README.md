@@ -21,6 +21,12 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [Android saved-task restoration check](docs/native/ANDROID_PROCESS_RESTORATION_VERIFICATION_2026-10-26.md)
+exercises the real Compose screen and Rust storage across background process
+death, including a selected second story and an unsent draft. It uses scripted
+inference on an emulator; physical-phone and real-model qualification remain
+separate gates.
+
 | Document | Purpose |
 |---|---|
 | [Roadmap and project status](https://github.com/OptimumAF/LocalLore/issues/3) | Authoritative milestone tickets, task IDs, dependencies, acceptance criteria, status, and evidence |

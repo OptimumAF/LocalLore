@@ -107,6 +107,18 @@ pub enum HostCommand {
         #[serde(default)]
         player_name: Option<String>,
     },
+    StoryPresentation {
+        template: String,
+        #[serde(default)]
+        player_name: Option<String>,
+        #[serde(default)]
+        presentation: Option<crate::story_presentation::StoryPresentationV1>,
+    },
+    StoryPresentationView {
+        session: String,
+        scope: Scope,
+        expected_revision: u64,
+    },
     CreateNamed {
         template: String,
         seed_sha256: String,
@@ -118,6 +130,15 @@ pub enum HostCommand {
         template_sha256: String,
         setup_sha256: String,
         player_name: String,
+        title: String,
+        creation_id: String,
+    },
+    CreatePresented {
+        template: String,
+        template_sha256: String,
+        setup_sha256: String,
+        player_name: String,
+        presentation: crate::story_presentation::StoryPresentationV1,
         title: String,
         creation_id: String,
     },
@@ -1358,9 +1379,45 @@ impl Host {
                 Ok(preview) => ok(json!(preview)),
                 Err(error) => reject(error),
             },
-            HostCommand::CreateNamed { .. } | HostCommand::CreateConfigured { .. } => {
-                reject("Unsupported")
+            HostCommand::StoryPresentation {
+                template,
+                player_name,
+                presentation,
+            } => {
+                match crate::story_setup::presentation_preview(
+                    &template,
+                    player_name.as_deref(),
+                    presentation.as_ref(),
+                ) {
+                    Ok(preview) => ok(json!(preview)),
+                    Err(error) => reject(error),
+                }
             }
+            HostCommand::StoryPresentationView {
+                session,
+                scope,
+                expected_revision,
+            } => {
+                if state.persistence.is_some() {
+                    if let Err(error) = refresh_session(state, &session, &scope) {
+                        return error;
+                    }
+                }
+                let selected = match get_session(state, &session, &scope) {
+                    Ok(selected) => selected,
+                    Err(error) => return error,
+                };
+                if selected.engine.revision() != expected_revision {
+                    return reject("Stale");
+                }
+                ok(
+                    json!({"version":1,"scope":scope,"revision":expected_revision,
+                    "presentation":selected.engine.seed().presentation.clone().unwrap_or_default()}),
+                )
+            }
+            HostCommand::CreateNamed { .. }
+            | HostCommand::CreateConfigured { .. }
+            | HostCommand::CreatePresented { .. } => reject("Unsupported"),
             HostCommand::Create { seed } => {
                 if seed != "lantern-quay-v1" {
                     return reject("UnsupportedSeed");
@@ -1771,6 +1828,27 @@ impl Host {
                         template_sha256,
                         setup_sha256,
                         player_name,
+                        title,
+                        creation_id,
+                    )
+                    .map_err(reject)?;
+                    attach_named_starter(state, &starter)
+                }
+                HostCommand::CreatePresented {
+                    template,
+                    template_sha256,
+                    setup_sha256,
+                    player_name,
+                    presentation,
+                    title,
+                    creation_id,
+                } => {
+                    let starter = crate::story_setup::prepare_presented(
+                        template,
+                        template_sha256,
+                        setup_sha256,
+                        player_name,
+                        presentation,
                         title,
                         creation_id,
                     )

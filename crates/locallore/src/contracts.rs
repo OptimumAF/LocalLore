@@ -1,3 +1,4 @@
+pub use crate::story_presentation::{StoryPresentationV1, StoryTone};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -94,6 +95,9 @@ pub struct Seed {
     pub story_time: u64,
     pub beliefs: Vec<Belief>,
     pub commitments: BTreeMap<String, Commitment>,
+    /// Absent from exact legacy Seed bytes. Initial configuration, not world truth.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub presentation: Option<StoryPresentationV1>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

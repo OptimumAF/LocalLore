@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "id": "bracken-harbor-v1",
+  "scope": {"story": "bracken-harbor", "branch": "main"},
+  "profile": "narrative_v1",
+  "player": "player",
+  "locations": ["boathouse", "jetty", "reedway", "store-room"],
+  "routes": [["boathouse", "jetty"], ["jetty", "boathouse"], ["jetty", "reedway"], ["reedway", "jetty"], ["boathouse", "store-room"], ["store-room", "boathouse"]],
+  "actors": {
+    "player": {"name": "Aster", "location": "boathouse", "alive": true, "energy": 0, "abilities": {}, "attributes": {}, "injuries": [], "affiliations": ["harbor-neighbors"], "goals": ["find-ferry-ledger"]},
+    "nessa": {"name": "Nessa", "location": "boathouse", "alive": true, "energy": 0, "abilities": {}, "attributes": {}, "injuries": [], "affiliations": ["harbor-neighbors"], "goals": ["light-evening-ferry"]},
+    "cal": {"name": "Cal", "location": "jetty", "alive": true, "energy": 0, "abilities": {}, "attributes": {}, "injuries": [], "affiliations": [], "goals": ["mend-ferry-sail"]},
+    "venn": {"name": "Venn", "location": "reedway", "alive": true, "energy": 0, "abilities": {}, "attributes": {}, "injuries": [], "affiliations": [], "goals": ["gather-reed-fiber"]}
+  },
+  "items": {
+    "borrowed-lantern": {"owner": "player", "quantity": 1, "return_to": "nessa", "healing": false},
+    "sail-thread": {"owner": "player", "quantity": 1, "return_to": null, "healing": false}
+  },
+  "abilities": {},
+  "facts": {
+    "ferry-schedule": {"proposition": "The evening ferry leaves when the harbor clock reaches tick 60.", "discoverable_at": null, "known_by": ["player", "nessa", "cal", "venn"]},
+    "ledger-location": {"proposition": "Nessa placed the ferry ledger inside the store-room flour chest: BRACKEN-CHEST-482.", "discoverable_at": "store-room", "known_by": ["nessa"]}
+  },
+  "relationships": [
+    {"from": "player", "to": "nessa", "respect": 2, "trust": 1, "obligation": 1},
+    {"from": "nessa", "to": "player", "respect": 1, "trust": 2, "obligation": 0},
+    {"from": "cal", "to": "player", "respect": 0, "trust": 0, "obligation": 0}
+  ],
+  "story_time": 30,
+  "beliefs": [
+    {"believer": "cal", "proposition": "The ferry ledger may have washed into the reedway: BRACKEN-RUMOR-619.", "source_claim": null, "source": {"kind": "seed", "value": "bracken-harbor-v1"}, "confidence": "suspected"}
+  ],
+  "commitments": {
+    "return-lantern": {"from": "player", "to": "nessa", "terms": "Return Nessa's borrowed lantern before the evening ferry leaves.", "deadline": 60, "source": {"kind": "seed", "value": "bracken-harbor-v1"}, "return_item": "borrowed-lantern", "completed_by": null}
+  }
+}

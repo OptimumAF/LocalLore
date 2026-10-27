@@ -77,6 +77,19 @@ must be retained before claiming this packet complete.
 
 ## Limits
 
+The terminal host/build/server cohorts are independently preserved as99 original
+files plus one explicitly derived audit summary,36388860 indexed bytes. All83
+original binding references and every original/copy/ZIP member are rechecked.
+The immutable100-file index is29587 bytes SHA256
+`a2b2ecf94cb65687df65cf56a9aadb885cf2a1aba327a6590b720fa2196565e8`;
+the ZIP is36435957 bytes SHA256
+`459e2d002a85e35202c39fa86f0d004cf101ac668ef9e349d352d002b145011d`.
+Its101 ZIP members include the exact index. The four named private helper
+sources carry source-only attribution; no live guest records or payloads are
+copied, and no SDK result is inferred. Source map100200 bytes SHA256
+`4bf5f4f5e87ec3a3b38b4b9cc0cac2d548d712dc060424b954ebee388ea268b0`
+binds all779 execution inputs.
+
 These lifecycle fixtures use scripted inference. No physical phone, real model,
 ARM64 execution, thermal/performance, accessibility, unfamiliar-user or joined
 adapter-drain result follows. Physical gates retain their prior captured-device

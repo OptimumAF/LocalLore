@@ -1266,13 +1266,11 @@ export async function comparisonRunNativeJourneys({
                 : "FullComparisonJourneyFailed";
         try {
             if (held) {
+                disposalStarted = true;
                 const aborted = await abortHeldNativeComparisonConsent({
                     full: f,
                     invoke,
-                    dispose: async () => {
-                        disposalStarted = true;
-                        await dispose();
-                    },
+                    dispose,
                 });
                 held = !aborted.released;
                 if (aborted.cleanupUnconfirmed)

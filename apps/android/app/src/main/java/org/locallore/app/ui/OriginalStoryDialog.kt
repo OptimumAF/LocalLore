@@ -39,14 +39,14 @@ internal fun OriginalStoryDialog(state: OriginalStoryUiState, onDismiss: () -> U
                     OriginalField("Premise",input.premise,"original-premise",editable) { editInput(input.copy(premise=it)) }
                     OriginalField("Player name",input.playerName,"original-player-name",editable) { editInput(input.copy(playerName=it)) }
                     OriginalField("Player description (optional)",input.playerDescription,"original-player-description",editable) { editInput(input.copy(playerDescription=it)) }
-                    Text("Use one paragraph per field, without line breaks or outer spaces. Premise: up to 1,024 characters / 2,048 UTF-8 bytes; descriptions: 512 bytes.")
+                    Text("Use a short premise and concise descriptions, with one paragraph per field and no line breaks or outer spaces.")
                     OriginalChoice("Rules",listOf("Fantasy","Narrative"),if(input.profile=="fantasy_v1")0 else 1,editable) {
                         editInput(input.copy(profile=if(it==0)"fantasy_v1" else "narrative_v1")) }
                     OriginalChoice("Generated narration tone",listOf("Plain","Warm","Brisk"),listOf("plain","warm","brisk").indexOf(input.presentation.tone),editable) {
                         editInput(input.copy(presentation=input.presentation.copy(tone=listOf("plain","warm","brisk")[it]))) }
                     OriginalField("Phrases excluded from generated narration (one per line)",input.presentation.excludedPhrases.joinToString("\n"),"original-excluded-phrases",editable) {
                         editInput(input.copy(presentation=input.presentation.copy(excludedPhrases=if(it.isEmpty())emptyList() else it.split('\n')))) }
-                    Text("Literal lowercase substring matching, up to eight phrases. This does not filter broad topics or player messages.")
+                    Text("Matches literal phrases, ignoring letter case, with up to eight phrases. This does not filter broad topics or player messages.")
                     if(world==null) {
                         Text("Starting cast hints (optional, up to three)",modifier=Modifier.semantics { heading() })
                         input.cast.forEachIndexed { index,c ->
@@ -108,9 +108,9 @@ internal fun OriginalStoryDialog(state: OriginalStoryUiState, onDismiss: () -> U
                     }
                     OriginalField("Save title",state.title,"original-title",editable) { onEdit(state,input,world,it) }
                     if(world!=null) OriginalAction("Review changes",editable && validStoryTitle(state.title) && OriginalStoryWire.valid(input,world),"original-review") { onReview(state) }
-                    if(!OriginalStoryWire.valid(input,world)) Text("Complete the fields within the limits before generating or reviewing. Native validation also checks names, routes and knowledge references.",color=MaterialTheme.colorScheme.error)
+                    if(!OriginalStoryWire.valid(input,world)) Text("Complete the fields before generating or reviewing. Keep names and descriptions short; check the locations and who knows each fact.",color=MaterialTheme.colorScheme.error)
                     state.review?.let { review ->
-                        Text("Native accepted starting view",modifier=Modifier.semantics { heading() })
+                        Text("Reviewed starting world",modifier=Modifier.semantics { heading() })
                         review.details.forEach { Text(it) }
                         key(OriginalConsent(review)) { OriginalAction("Create",editable,"original-create") { onCreate(state,review) } }
                     }

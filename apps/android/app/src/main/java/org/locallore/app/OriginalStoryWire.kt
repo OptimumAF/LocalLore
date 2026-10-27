@@ -14,7 +14,7 @@ internal object OriginalStoryWire {
     }
     private fun version(o: JSONObject) { check(number(o, "version") == 1) }
     private fun cap(o: JSONObject, max: Int) { check(localUtf8(o.toString()).size <= max) }
-    private fun id(value: String): String = value.also { check(Regex("[A-Za-z0-9_-]{1,128}").matches(it)) }
+    private fun id(value: String): String = value.also { check(Regex("[A-Za-z0-9_-]{1,32}").matches(it)) }
     private fun hash(value: String): String = value.also { check(Regex("[0-9a-f]{64}").matches(it)) }
     private fun provider(value: String): String = value.also { check(it in setOf("scripted", "local")) }
     private fun label(value: String, bytes: Int = 512, scalars: Int = 512, empty: Boolean = false): String = value.also {

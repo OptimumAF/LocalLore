@@ -65,7 +65,7 @@ internal class OriginalStoryController(private val gateway: OriginalStoryGateway
         val proposal=expected.proposal ?: return; val job=expected.job ?: return
         if(!editable(expected) || !validStoryTitle(expected.title) || !validOriginalDraft(expected.input,proposal)) return
         val ticket=++generation; val input=expected.input.frozen(); val captured=proposal.frozen(); val title=expected.title
-        update(expected.copy(busy=true,review=null,notice="Native validation is reviewing this starting world…"))
+        update(expected.copy(busy=true,review=null,notice="Reviewing the starting world…"))
         run(ticket) {
             val result=gateway.reviewOriginal(job,input,captured,title).frozen()
             check(result.job==job && result.input==input && result.proposal==captured && result.title==title)
@@ -91,11 +91,12 @@ internal class OriginalStoryController(private val gateway: OriginalStoryGateway
                 val cancelled=before.job?.let { gateway.cancelOriginal(it) } ?: true
                 if(!disposed && generation==ticket) { state=null; closed(StoryCreationClose(refreshRequired=createStarted || !cancelled)) }
             } catch (_: Exception) {
-                if(!disposed && generation==ticket) update(checkNotNull(state).copy(notice="Local cleanup could not be confirmed. Close the app to retire its owner; no automatic retry was made."))
+                if(!disposed && generation==ticket) update(checkNotNull(state).copy(notice="Local work could not be confirmed as finished. Close the app before continuing. No automatic retry was made."))
             }
         }
         previous?.cancel(); active?.start()
     }
+    // This fences publication only. The parent retires the shared transport; cancellation is not SDK cleanup proof.
     fun dispose() { if(disposed)return; disposed=true; generation++; active?.cancel(); state=null }
     private fun current(ticket: Long)=!disposed && generation==ticket && state?.closing==false
     private fun run(ticket: Long, block: suspend () -> Unit) {

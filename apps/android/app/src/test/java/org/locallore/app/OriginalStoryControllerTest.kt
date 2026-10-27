@@ -22,6 +22,7 @@ class OriginalStoryControllerTest {
         lateinit var input: OriginalInput
         var generate: suspend ()->OriginalGenerated={ OriginalGenerated("job-1",input,world,"scripted") }
         var review: suspend (OriginalInput,OriginalProposal,String)->OriginalReview={ i,p,t -> OriginalReview("job-1","b".repeat(64),i,p,t,listOf("World truth: gate shut. Private belief: clock late.")) }
+        var committing: suspend ()->Unit={}
         override suspend fun originalCapabilities()=OriginalCapabilities(true,"scripted")
         override suspend fun beginOriginal(input: OriginalInput): OriginalJob { this.input=input; return OriginalJob("job-1","a".repeat(64),"scripted") }
         override suspend fun generateOriginal(job: String)=generate()
@@ -29,6 +30,7 @@ class OriginalStoryControllerTest {
         override suspend fun cancelOriginal(job: String): Boolean { cancelled+=job; return true }
         override suspend fun createOriginal(review: OriginalReview,creationId: String): SavedSnapshot {
             creates+=review; assertTrue(Regex("[0-9a-f]{32}").matches(creationId))
+            committing()
             return SavedSnapshot(0,"Iris",emptyList(),"synthetic",1,emptyList(),SavedStory("original-$creationId","main",review.title,0))
         }
     }
@@ -94,5 +96,26 @@ class OriginalStoryControllerTest {
             assertEquals(bad,s.input.premise); assertNull(s.job); assertTrue(port.creates.isEmpty())
         }
         c.dismiss(); advanceUntilIdle()
+    }
+    @Test fun disposalFromReadyFencesRetainedReviewAndEveryEditor()=runTest {
+        val port=Port(proposal); val values=mutableListOf<OriginalStoryUiState>(); val closed=mutableListOf<StoryCreationClose>()
+        val c=OriginalStoryController(port,this,values::add,closed::add)
+        c.open(OriginalCapabilities(true,"scripted")); c.edit(values.last(),input,null,"Orchard")
+        c.generate(values.last()); advanceUntilIdle(); c.review(values.last()); advanceUntilIdle()
+        val ready=values.last(); val review=ready.review!!; c.dispose(); val count=values.size
+        c.edit(ready,input,proposal,"Late"); c.confirm(ready,review); c.review(ready); c.generate(ready); c.dismiss(); advanceUntilIdle()
+        assertEquals(count,values.size); assertTrue(port.creates.isEmpty()); assertTrue(closed.isEmpty())
+        // No SDK/resource-reclamation claim: ShellViewModel owns shared transport retirement.
+    }
+    @Test fun disposalDuringCreateCannotPublishACommitThatReturnsLate()=runTest {
+        val port=Port(proposal); val values=mutableListOf<OriginalStoryUiState>(); val closed=mutableListOf<StoryCreationClose>()
+        val gate=CompletableDeferred<Unit>(); port.committing={withContext(NonCancellable){gate.await()}}
+        val c=OriginalStoryController(port,this,values::add,closed::add)
+        c.open(OriginalCapabilities(true,"scripted")); c.edit(values.last(),input,null,"Orchard")
+        c.generate(values.last()); advanceUntilIdle(); c.review(values.last()); advanceUntilIdle()
+        val ready=values.last(); c.confirm(ready,ready.review!!); runCurrent(); assertTrue(values.last().creating)
+        c.dispose(); val count=values.size; gate.complete(Unit); advanceUntilIdle()
+        assertEquals(1,port.creates.size); assertEquals(count,values.size); assertTrue(closed.isEmpty())
+        // A late commit may exist. Cancelling the UI never asserts rollback or authorizes another Create.
     }
 }

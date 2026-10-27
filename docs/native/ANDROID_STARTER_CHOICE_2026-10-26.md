@@ -35,6 +35,8 @@ Gradle8.11.1/AGP8.10.1 and NDK29.0.14206865 on Windows.
 | `cargo +1.93.1 fmt --all -- --check` |Tool-observed exit0 |
 | Final offline Android build/JVM/lints/artifact audits |Pass; owner330616ms/worker0, cleanup/capture true;266 executed JVM tests/31 XML suites,0 failures/errors/skips; both lints0 errors/3 warnings;11 artifact audits |
 | New seven Android chooser methods |Compiled in the original packet; the fresh follow-up below now passes all7 on API35/x86_64 |
+| Fixed legacy Android creation phase |19 methods/4 classes pass; owner307811ms/worker0, cleanup/capture true |
+| Fixed broad Android regression phase |89 methods/18 classes pass; owner571882ms/worker0, cleanup/capture true |
 
 The Rust run freezes829 mapped inputs at `634b1403`. Subsequent Android and
 Python integration changes no Rust/fixture/Cargo input. Clippy and frontend
@@ -249,7 +251,56 @@ separate from the clean verification stderr. This qualification is scripted
 local creation/ordinary Activity coverage; it does not establish OS-death,
 physical-device, real-model, ARM64 or joined-drain results.
 
-The separate fixed `regression` phase is running. No result or terminal recovery
-seal is claimed for it yet. Its final postflight will run only after both exact
-requested guest closures. No source changes, repeated build, timeout relaxation,
-server lifecycle action or unrelated emulator stop are used by this packet.
+The separate fixed `regression` phase actually passes all89 methods across18
+classes with183 complete measured-SDK2 pairs. Its owner records571882ms/worker0,
+cleanup/capture true and stderr0; maximum client44147ms/server observer2069ms.
+The existing probe test now actually executes its added catalog-read assertion:
+the created, command and saved receipt files remain byte-identical after that
+read-only operation. No method is added to or removed from this fixed roster.
+
+Its bound stop helper returns0 and the actual guest handle then returns0. The
+guest owner records `stop_requested`,601491ms/worker1, cleanup/capture/closure
+true and no guest-flush claim. Only after both exact requested closures does
+the reviewed final postflight execute once: pass, one observation of the same
+existing server, zero protected-process observations from the new empty
+inventory and zero device calls. It performs no server lifecycle operation;
+the debug service remains available. No comparison with vanished older process
+identities is inferred. The2787-byte final record has SHA256
+`88ce37a2aea0b11ca323f545de0c71780b7750e24a3ba4fbddd10291fe23356d`.
+
+The actual fixed driver commands have the following form; `$Packet`, `$Build`,
+`$Sdk` and `$PowerShell` denote the exact private bound prefixes retained in each
+request, not new selectors. Each proposal requires its separately authorized,
+fresh live guest owner; copying these commands alone does not create admission.
+
+```powershell
+python -I -B benchmarks/android_process_verification.py story-creation --out "$Packet/creation-v1" --sdk "$Sdk" --powershell "$PowerShell" --build "$Build/build-v1/result-v1.json" --proposal "$Packet/run-creation-v1.json" --running "$Packet/guest-creation-v1/running-v1.json" --server "$Packet/server-v1/server-v1.json"
+python -I -B benchmarks/android_process_verification.py regression --out "$Packet/broad-v1" --sdk "$Sdk" --powershell "$PowerShell" --build "$Build/build-v1/result-v1.json" --proposal "$Packet/run-broad-v1.json" --running "$Packet/guest-broad-v1/running-v1.json" --server "$Packet/server-v1/server-v1.json"
+```
+
+No executable source change, repeated build, timeout relaxation, server lifecycle
+action or unrelated emulator stop is used by this packet. These108 methods
+overlap prior host/chooser coverage and are not added to a unique-test total.
+They do not run the separate external-controller OS-death cases, qualify a
+physical model or establish a broad reliability/performance guarantee.
+
+Independent canonical terminal readback verifies both phases, all282 current
+measured-SDK2 pairs, the source/build/native prerequisite, exact requested
+closures and final postflight. A new private create-only recovery set contains
+666 entries/1693534 bytes:653 original runtime/input records, eight helper
+sources, two derived coordination records, two prior dependency-index references
+and one derived audit. Every original, recovery copy and ZIP member matches;
+both the independent second replay and Root's separate full replay pass. Prior
+host/APK and native/chooser seals remain unchanged; APK payloads are referenced
+without duplication. Images, model weights, databases, private saves, live
+service logs and unknown subtrees are excluded.
+
+The224751-byte index has SHA256
+`36a15ab34ce917b27fb4e7cedce7395cb2cfe3bb0d0d11cf638f94bcb1e7a8b0`;
+the584312-byte ZIP has SHA256
+`0dfa8fe6dca91bed560262b3d14ec079783f87164654037653cc78d676d32fd9`.
+The current starter source now has native10, chooser7, legacy creation19 and
+broad89 runtime qualification on separate fresh scripted guests. Full authoring,
+physical/model/ARM64, accessibility, joined drain and complete milestone
+acceptance remain open. Existing external-controller results keep their
+separate827-input attribution; no full current-source OS-death result is claimed.

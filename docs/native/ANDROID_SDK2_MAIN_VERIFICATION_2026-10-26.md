@@ -179,3 +179,53 @@ system setting change, unrelated emulator stop,
 merge, release or private-data/model upload is performed by this chat. Full
 customization, real phone/model/accessibility/joined-drain and the inherited
 desktop dependency advisory remain separate open gates.
+
+The current CHILD-ready maximum recorded client elapsed is39614ms; its maximum
+server observer is14788ms against an effective15000ms budget. This passing
+observation is close to the bound. Neither this cohort nor retained-parent's
+3818ms maximum observer identifies the cause of older timeouts or establishes
+general reliability/latency distributions. No budget is increased.
+
+## Terminal recovery and handoff
+
+Independent readback validates source827/build/native-gate/owner/tool/current
+clients/copies/rosters/controller/producer/fixture and case-specific canonical
+requirements. All originals, copies and ZIP members are rehashed. Separate
+derived audit summaries never replace original execution evidence.
+
+| Recovery set | Selected files / bytes | ZIP bytes | ZIP SHA256 |
+|---|---:|---:|---|
+| Host/build |192 originals +1 derived /72317733|72408622|`5b3303204ea1857a2b69aa511c2a0686105a9843b3a3b1df59e25f2ba05607d0`|
+| Native |196 originals /633749|224023|`f582a0a686794afc842a64d277d3c751abb7ac18b1552c946782e254c16479c9`|
+| Refused CHILD |30 originals /486523|135489|`bc4c11f7d406eaeb3ccc82a36a140f256bdfb995d7610a4f1f78a316e2855cfd`|
+| Retained parent |302 originals +1 derived coordination /803666|286258|`61478e7a33b3f9bdedf6191bd909173ace10d750ed3b3a7d948eafaf34c2a63b`|
+| CHILD-ready/final postflight |239 originals +1 derived coordination /692573|256127|`603e2a4d0b786e89f0b19881806eb6348f668679aa340f3c86986695b7a5b85c`|
+
+Current APKs are in the current193-file host/build seal, not the older779 set.
+One inherited native index exclusion description is corrected by a separate
+immutable scope clarification; its original archive/index stays unchanged.
+Counts across overlapping recovery sets do not represent unique coverage.
+Private audit helper cap/field-name refusals remain separate helper failures;
+corrected audits do not relabel a runtime result. No guest images, models,
+databases, private saves or unknown subtrees are copied into these sets.
+
+Final postflight is3034 bytes SHA256
+`5c09a1f3fd4a70c0cae685cc906af5fa18044b740ce2d922d080546dbe7a78d0`.
+Native/retained/CHILD-ready resource and functional results retain their separate
+scope; all four owned guests, including failed CHILD, have verified closure.
+
+Latest M01.01/M01.02 availability follow-up reads the existing CHILD-ready
+device-list record only:604 bytes SHA256
+`f307faf521fb2e59cfa2d431781e883489f87eda06e52d70a4133d78cd41c357`.
+All five authorized rows explicitly advertise SDK emulator profiles, including
+two non-emulator-style serial aliases. No physical-profile candidate is
+established from this capture; no absolute phone-absence claim is made. Ten
+selected provenance/assessment files are privately copied and rehashed with
+zero new SDK, OS, device, census or hardware calls. Exact authorized hardware
+identity/admission remains blocked for that capture (#5 claim/release
+6432025516/6432029616).
+
+Broad89/root82/retired-leaf139 have not been newly run on this827 map; their
+older-source results are not promoted. Next runnable validation is the fixed
+current-source broad regression and remaining lifecycle controls. Full task
+acceptance and physical/real-model/ARM64/accessibility/drain gates remain open.

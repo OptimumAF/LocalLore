@@ -5,6 +5,10 @@ This is an experiment protocol, not a supported-device or release decision.
 It extends the already qualified native author interface in ADR-0013 without
 changing production authority, generation budgets, dependencies or model pins.
 
+The [2026-10-27 execution report](REAL_ORIGINAL_AUTHOR_MODEL_VERIFICATION_2026-10-27.md)
+records the first host-parser refusal, focused checks and preservation. Model
+transfer, import and real author inference remain unqualified in that attempt.
+
 ## Scope and admission
 
 Two individually selected methods in `OriginalAuthorModelInstrumentedTest` run

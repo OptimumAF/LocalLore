@@ -10,7 +10,7 @@ A corrected continuation helper was prepared and reviewed, but remained unexecut
 
 The exact owned guest subsequently closed through its proposal-bound stop helper. The stop helper and original guest tool both completed with exit0. The guest owner recorded stop_requested after 981,416 ms, worker exit1, known cleanup, complete output capture and verified closure; no guest-flush proof is claimed. Its 11,229-byte stdout and 1,096-byte stderr were preserved. Seven fixed metadata files were copied to host evidence with zero mismatches.
 
-The final postflight completed with exit0 and confirmed the unchanged existing server through one listener observation, with zero device calls. It made no fresh unrelated-process census: protected inventory was null and unrelated observations were zero. This does not establish that unrelated emulators or a physical phone were absent. **Final recovery sealing remains pending.**
+The final postflight completed with exit0 and confirmed the unchanged existing server through one listener observation, with zero device calls. It made no fresh unrelated-process census: protected inventory was null and unrelated observations were zero. This does not establish that unrelated emulators or a physical phone were absent. Private recovery is sealed and independently replayed below.
 
 ## Implemented experiment and focused checks
 
@@ -40,6 +40,8 @@ Run the Android command from apps/android with the admitted local JDK, SDK and o
 
 This packet does not claim a fresh full repository matrix. Neither command runs a target instrumentation method or model inference.
 
+The product APK is 78,241,840 bytes, SHA256 `e9f7e4c2d8ffe0ea978e2ea8fa75f62520218bc9b5cb2358994dc49e7eaa2c87`; the test APK is 2,247,119 bytes, SHA256 `f58fcdd3adc06da4b1e91fdf549cfd6b21f7b0d22c98c1ad160307ee60e235bd`. Product-policy auditing applies to the product APK. The test APK was separately byte-bound and its two method names checked, without substituting that check for a product-policy audit. Both product native ABIs retain the exact 8,117-byte corrected schema; packaging does not prove ARM64 execution.
+
 ## Retained failed attempt
 
 The reviewed second private runner was executed once. Its outer owner finished after 164,896 ms with worker exit1, known cleanup and complete output capture. Its 1,390-byte stderr was retained; it was not treated as a passing run.
@@ -60,6 +62,21 @@ The engine still owns accepted initial-world validation and creation. The model 
 
 M09.02 real-model authoring and the related device/runtime gates remain unqualified. This packet establishes focused harness checks and a diagnosed host parser failure. It establishes neither physical ARM64 execution nor sustained performance, narrative quality, cancellation latency, joined hidden callback drain, supported hardware or release readiness.
 
+## Preservation
+
+The owner requested immediate preservation after reporting possible concurrent cleanup. All newly collected evidence and helpers are retained on the host system drive; only seven fixed, bounded, already closed guest metadata files were copied from the guest drive. No model, save, emulator image, cache, tool binary or private diagnostic was uploaded. The cleanup process and any earlier missing file's cause remain unestablished.
+
+The create-only recovery contains 245 admitted originals, 249 indexed copies, 250 ZIP members and 252 files totaling 153,991,677 bytes. An independent verifier actually exits0 in 2,301 ms (1,989 ms internal replay), streams every original/copy/ZIP binding and checks exact rosters, with zero missing or mismatched entries. Failed V2 remains failed; V1/V3 remain unexecuted source. An unfilled postflight-pins template is explicitly labeled as a template and retained alongside the actual filled pins. Three unchanged first-version preservation helpers are retained as pinned source controls; the second version adds only that template path and those controls. Preservation is separate from feature acceptance.
+
+| Recovery control | Bytes | SHA256 |
+| --- | ---: | --- |
+| Index | 167,949 | `27814399fe3012d55a5fd93f070eaa178008884d170cfb7826fdd7f7d2be872c` |
+| ZIP | 56,601,521 | `59c352515ec99e8b29a65322b1d5ebd29f57f3c627bd70a9d6f2796c09b928e5` |
+| Result | 1,104 | `3878982bd988ee8606e6bb8198840ddab3847fc11c7e1a7db0cf451b6e3fac02` |
+| Independent verification | 901 | `6ac81db54bcb5989b5cc5db87b8041fd6559d1022aa8e3e3289745d8487d106d` |
+
+The included source bundle preserves checkpoint `42e231782769678ae695590efca44e2ed25fef71`, all 1,251 named refs and 1,566 bundle heads, including all 312 distinct current worktree commit values. It is 12,881,234 bytes, SHA256 `24f854aeb6756497b97b83f8415c8c8eb1e89a857c4230696d27e3aea43b5a6a`. Git verification and named-ref/worktree-commit checks pass. Two initial source-bundle invocations refused unsupported helper arguments before spawning Git or creating files; the derived closed-attempt summary retains that attribution. This report's later recovery-note edits are committed and pushed separately from that source checkpoint. Earlier sealed recovery sets remain untouched.
+
 ## Next runnable task
 
-After the coordinator records final recovery verification, admit a fresh owned guest with the unchanged full resource and lease margins. Execute the binary transfer control and independently verify it before any model copy, then run the two individually selected methods under the existing protocol. Preserve any refusal without editing its generated outcome or weakening admission.
+Admit a fresh owned guest with the unchanged full resource and lease margins. Execute the binary transfer control and independently verify it before any model copy, then run the two individually selected methods under the existing protocol. A phone run instead requires fresh authorized identity/resource admission; the earlier empty host-only census established no phone profile. Preserve any refusal without editing its generated outcome or weakening admission. M09.02/M09.06 and M10.02/M10.03 supporting implementation is in review; actual real-model verification and full task acceptance remain pending.

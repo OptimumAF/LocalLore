@@ -37,6 +37,10 @@ remaining lifetime would not satisfy this new admission rule.
 
 Original mocked host tests exercise the real session constructor and prove
 late refusal before capture construction, sufficient-lifetime dispatch with
-the same budget, boundary/type handling and unchanged claim ordering. Their
-execution and actual SDK2 lifecycle results belong in the dated verification
+the same budget, exact time boundaries and continued ownership refusal.
+The new eight tests do not enumerate malformed/nonfinite clock values or the
+combined worker-claim-to-lifetime-refusal path. Older worker tests separately
+cover durable claim burning and replay refusal; that is composition evidence.
+Source enforces finite typed timestamps and unchanged claim ordering. Actual
+test execution and SDK2 lifecycle results belong in the dated verification
 report; authored tests or a source review alone establish no Android result.

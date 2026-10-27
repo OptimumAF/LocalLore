@@ -63,6 +63,35 @@ def replace_frame(out, i, raw):
 
 
 class OriginalStoryVerificationTests(unittest.TestCase):
+    def test_embedded_author_prompt_and_schema_are_both_content_bound_build_inputs(self):
+        prompt = "prompts/initial-world-v1.txt"
+        schema = "prompts/initial-world-v1.schema.json"
+        control = "crates/locallore/src/story_authoring.rs"
+        excluded = "docs/author-planning-notes.md"
+        content = {prompt: b"Trusted author instructions.\n",
+            schema: b'{"type":"object","additionalProperties":false}\n',
+            control: b"// Synthetic include_str consumer.\n", excluded: b"Not a compiled input.\n"}
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root)
+            for name, data in content.items():
+                path = out / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(data)
+            inventory = ("\0".join(content) + "\0").encode("utf-8")
+            with patch.object(d, "ROOT", out), patch.object(d.subprocess, "check_output", return_value=inventory):
+                before = d.source_map()
+                self.assertEqual(set(before), {prompt, schema, control})
+                for name in (prompt, schema, control):
+                    self.assertEqual(before[name], hashlib.sha256(content[name]).hexdigest())
+                (out / prompt).write_bytes(b"Changed native author instructions.\n")
+                after_prompt = d.source_map()
+                self.assertNotEqual(before[prompt], after_prompt[prompt])
+                self.assertEqual(before[schema], after_prompt[schema])
+                self.assertEqual(before[control], after_prompt[control])
+                (out / schema).write_bytes(b'{"type":"object","required":["version"]}\n')
+                after_schema = d.source_map()
+                self.assertNotEqual(after_prompt[schema], after_schema[schema])
+                self.assertEqual(after_prompt[prompt], after_schema[prompt])
+                self.assertEqual(after_prompt[control], after_schema[control])
+
     def test_roster_and_dispatch_are_independent_exact_eight_with_unchanged_caps(self):
         self.assertEqual(d.ORIGINAL_STORY_VERSION, 1)
         self.assertEqual(d.ORIGINAL_STORY_CLASSES, CLASSES)

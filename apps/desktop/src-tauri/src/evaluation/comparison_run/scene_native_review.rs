@@ -19,6 +19,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     mpsc, OnceLock,
 };
+mod lease_identity_review;
 
 type Inventory = BTreeMap<PathBuf, Option<Vec<u8>>>;
 fn inventory(root: &Path) -> Inventory {

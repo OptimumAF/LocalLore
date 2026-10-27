@@ -76,9 +76,12 @@ function containsSource(row: RowV2, wanted: SourceV2, nested = false): boolean {
     const matches = (source: SourceV2) => {
         if (wanted.kind === "seed")
             return source.kind === "seed" && source.value === wanted.value;
-        return wanted.kind === "scoped_event" && source.kind === "scoped_event" &&
+        return (
+            wanted.kind === "scoped_event" &&
+            source.kind === "scoped_event" &&
             source.value.sequence === wanted.value.sequence &&
-            sameScope(source.value.original_scope, wanted.value.original_scope);
+            sameScope(source.value.original_scope, wanted.value.original_scope)
+        );
     };
     switch (row.kind) {
         case "clock":
@@ -90,14 +93,28 @@ function containsSource(row: RowV2, wanted: SourceV2, nested = false): boolean {
         case "provenance":
             return row.sources.some(matches);
         case "event":
-            return matches({ kind: "scoped_event", value: { original_scope: row.event.scope, sequence: row.event.sequence } });
+            return matches({
+                kind: "scoped_event",
+                value: {
+                    original_scope: row.event.scope,
+                    sequence: row.event.sequence,
+                },
+            });
         case "scoped_message":
-            return wanted.kind === "scoped_event" &&
+            return (
+                wanted.kind === "scoped_event" &&
                 sameScope(row.original_scope, wanted.value.original_scope) &&
-                row.event_ids.includes(wanted.value.sequence);
+                row.event_ids.includes(wanted.value.sequence)
+            );
         case "change":
             // checkedPageV2 rejects nested changes; keep that bound here too.
-            return !nested && [row.before, row.after].some((side) => side !== null && containsSource(side, wanted, true));
+            return (
+                !nested &&
+                [row.before, row.after].some(
+                    (side) =>
+                        side !== null && containsSource(side, wanted, true),
+                )
+            );
         case "author_correction":
             return false;
     }
@@ -594,8 +611,13 @@ export class V2PlayController {
             channel === "history"
                 ? ++this.historySequence
                 : ++this.querySequence;
-        const owns = () => this.current(key) && this.state.context === c &&
-            sequence === (channel === "history" ? this.historySequence : this.querySequence);
+        const owns = () =>
+            this.current(key) &&
+            this.state.context === c &&
+            sequence ===
+                (channel === "history"
+                    ? this.historySequence
+                    : this.querySequence);
         const query: InspectionQueryV2 = {
             version: 2,
             scope: { ...c.scope },
@@ -644,9 +666,13 @@ export class V2PlayController {
         }
         // The final busy notification is synchronous too. Never return a page
         // retired there even when its earlier result notification was current.
-        return result && owns() &&
-            (channel === "history" ? this.state.history : this.state.inspection) === result
-            ? result : null;
+        return result &&
+            owns() &&
+            (channel === "history"
+                ? this.state.history
+                : this.state.inspection) === result
+            ? result
+            : null;
     }
     readQuery(options: {
         view: ViewV2;
@@ -656,9 +682,19 @@ export class V2PlayController {
         return this.query(options, "inspection");
     }
     async traceReceipt(candidate: V2Receipt): Promise<V2BoundPage | null> {
-        const c = this.state.context, snapshot = this.state.snapshot, key = this.key;
-        if (!c || !snapshot || this.disposed || !candidate || candidate !== this.state.receipt ||
-            c.view !== "play" || c.observer.kind !== "player") return null;
+        const c = this.state.context,
+            snapshot = this.state.snapshot,
+            key = this.key;
+        if (
+            !c ||
+            !snapshot ||
+            this.disposed ||
+            !candidate ||
+            candidate !== this.state.receipt ||
+            c.view !== "play" ||
+            c.observer.kind !== "player"
+        )
+            return null;
         let end: number;
         try {
             // Validate the existing current snapshot and receipt transports;
@@ -667,7 +703,11 @@ export class V2PlayController {
             const native = checkedPlaySnapshotV2(snapshot, c.scope, c.revision);
             if (native.player.observer !== c.player) return null;
             const request = candidate.request;
-            if (request.version !== 1 || !sameScope(scoped(request.scope), c.scope)) return null;
+            if (
+                request.version !== 1 ||
+                !sameScope(scoped(request.scope), c.scope)
+            )
+                return null;
             id(request.turn);
             const base = integer(request.expected_revision);
             const checked = receipt(candidate, request);
@@ -676,12 +716,20 @@ export class V2PlayController {
         } catch {
             return null;
         }
-        const pending = this.query({ view: "turn_diff", atRevision: end, search: "" }, "inspection");
+        const pending = this.query(
+            { view: "turn_diff", atRevision: end, search: "" },
+            "inspection",
+        );
         const sequence = this.querySequence;
         const result = await pending;
-        return result && this.current(key) && this.state.context === c &&
-            this.state.receipt === candidate && sequence === this.querySequence &&
-            this.state.inspection === result ? result : null;
+        return result &&
+            this.current(key) &&
+            this.state.context === c &&
+            this.state.receipt === candidate &&
+            sequence === this.querySequence &&
+            this.state.inspection === result
+            ? result
+            : null;
     }
     page(cursor: string, channel: "history" | "inspection" = "inspection") {
         const bound =
@@ -704,8 +752,11 @@ export class V2PlayController {
         const c = this.state.context,
             key = this.key;
         if (!c || source.kind === "withheld") return;
-        if (from && ((from !== this.state.history && from !== this.state.inspection) ||
-            !from.page.rows.some((row) => containsSource(row, source)))) {
+        if (
+            from &&
+            ((from !== this.state.history && from !== this.state.inspection) ||
+                !from.page.rows.some((row) => containsSource(row, source)))
+        ) {
             this.patch({ error: "Scope" });
             return;
         }

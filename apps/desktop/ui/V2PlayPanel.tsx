@@ -47,7 +47,11 @@ function sources(row: RowV2): SourceV2[] {
         ];
     return [];
 }
-function SourceLinks({ row, controller, bound }: {
+function SourceLinks({
+    row,
+    controller,
+    bound,
+}: {
     row: RowV2;
     controller: V2PlayController;
     bound: V2BoundPage;
@@ -55,11 +59,16 @@ function SourceLinks({ row, controller, bound }: {
     return (
         <div className="source-links">
             {sources(row).map((source, index) => (
-                <button key={index} disabled={source.kind === "withheld"}
-                    onClick={() => void controller.source(source, bound)}>
+                <button
+                    key={index}
+                    disabled={source.kind === "withheld"}
+                    onClick={() => void controller.source(source, bound)}
+                >
                     {source.kind === "scoped_event"
                         ? `${scopeLabel(source.value.original_scope)} · event ${source.value.sequence}`
-                        : source.kind === "seed" ? `Seed ${source.value}` : "Evidence withheld by lens"}
+                        : source.kind === "seed"
+                          ? `Seed ${source.value}`
+                          : "Evidence withheld by lens"}
                 </button>
             ))}
         </div>
@@ -67,16 +76,26 @@ function SourceLinks({ row, controller, bound }: {
 }
 function valueLabel(row: RowV2): string {
     switch (row.kind) {
-        case "field": return `${row.actor} · ${words(row.field)}`;
-        case "relationship": return `${row.from} → ${row.to} · ${row.dimension}`;
-        case "knowledge": return `${row.subject ?? row.id} · ${words(row.origin)}`;
-        case "promise": return `${row.from} → ${row.to} · ${row.id}`;
-        case "clock": return "Story time";
-        case "event": return `Event ${row.event.sequence}`;
-        case "scoped_message": return `Recorded ${words(row.message_kind)}`;
-        case "provenance": return "Permitted provenance";
-        case "change": return "Derived comparison";
-        case "author_correction": return "Timeline correction";
+        case "field":
+            return `${row.actor} · ${words(row.field)}`;
+        case "relationship":
+            return `${row.from} → ${row.to} · ${row.dimension}`;
+        case "knowledge":
+            return `${row.subject ?? row.id} · ${words(row.origin)}`;
+        case "promise":
+            return `${row.from} → ${row.to} · ${row.id}`;
+        case "clock":
+            return "Story time";
+        case "event":
+            return `Event ${row.event.sequence}`;
+        case "scoped_message":
+            return `Recorded ${words(row.message_kind)}`;
+        case "provenance":
+            return "Permitted provenance";
+        case "change":
+            return "Derived comparison";
+        case "author_correction":
+            return "Timeline correction";
     }
 }
 function valueText(row: RowV2 | null): string {
@@ -85,56 +104,124 @@ function valueText(row: RowV2 | null): string {
         case "field": {
             const value = row.value;
             if (value.type === "texts") return value.value.join(", ") || "None";
-            if (value.type === "item") return `Quantity ${value.value.quantity} · owner ${value.value.owner}` +
-                (value.value.return_to ? ` · return to ${value.value.return_to}` : "") +
-                (value.value.healing ? " · healing item" : "");
+            if (value.type === "item")
+                return (
+                    `Quantity ${value.value.quantity} · owner ${value.value.owner}` +
+                    (value.value.return_to
+                        ? ` · return to ${value.value.return_to}`
+                        : "") +
+                    (value.value.healing ? " · healing item" : "")
+                );
             return String(value.value);
         }
-        case "relationship": return String(row.value);
-        case "knowledge": return row.text + (row.confidence ? ` · confidence ${row.confidence}` : "");
-        case "promise": return `${row.terms} · ${row.status} · deadline ${row.deadline}`;
-        case "clock": return String(row.story_time);
-        case "event": return `${row.event.turn} · ${words(row.event.consequence.effect)}`;
-        case "scoped_message": return row.text;
-        case "provenance": return `${row.sources.length} permitted source(s)`;
-        case "author_correction": return `Timeline correction · r${row.revision}`;
-        case "change": return "Derived comparison";
+        case "relationship":
+            return String(row.value);
+        case "knowledge":
+            return (
+                row.text +
+                (row.confidence ? ` · confidence ${row.confidence}` : "")
+            );
+        case "promise":
+            return `${row.terms} · ${row.status} · deadline ${row.deadline}`;
+        case "clock":
+            return String(row.story_time);
+        case "event":
+            return `${row.event.turn} · ${words(row.event.consequence.effect)}`;
+        case "scoped_message":
+            return row.text;
+        case "provenance":
+            return `${row.sources.length} permitted source(s)`;
+        case "author_correction":
+            return `Timeline correction · r${row.revision}`;
+        case "change":
+            return "Derived comparison";
     }
 }
-function ChangeEvidence({ row, controller, bound }: {
+function ChangeEvidence({
+    row,
+    controller,
+    bound,
+}: {
     row: Extract<RowV2, { kind: "change" }>;
     controller: V2PlayController;
     bound: V2BoundPage;
 }) {
     return (
         <div style={{ minWidth: 0, overflowWrap: "anywhere" }}>
-            <table className="query-table" style={{ width: "100%", tableLayout: "fixed" }}>
-                <caption>Recorded change · {valueLabel((row.after ?? row.before)!)}</caption>
-                <thead><tr>
-                    <th scope="col">Before · r{row.before_revision}</th>
-                    <th scope="col">After · r{row.after_revision}</th>
-                </tr></thead>
-                <tbody><tr>
-                    <td>
-                        <p className="record-value">{valueText(row.before)}</p>
-                        {row.before && <>
-                            <p className="muted">Prior {row.before.kind === "field" ? "field" : "value"} provenance · r{row.before_revision}</p>
-                            <SourceLinks row={row.before} controller={controller} bound={bound} />
-                        </>}
-                    </td>
-                    <td>
-                        <p className="record-value">{valueText(row.after)}</p>
-                        {row.after && <>
-                            <p className="muted">Value evidence · r{row.after_revision}</p>
-                            <SourceLinks row={row.after} controller={controller} bound={bound} />
-                        </>}
-                    </td>
-                </tr></tbody>
+            <table
+                className="query-table"
+                style={{ width: "100%", tableLayout: "fixed" }}
+            >
+                <caption>
+                    Recorded change · {valueLabel((row.after ?? row.before)!)}
+                </caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Before · r{row.before_revision}</th>
+                        <th scope="col">After · r{row.after_revision}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <p className="record-value">
+                                {valueText(row.before)}
+                            </p>
+                            {row.before && (
+                                <>
+                                    <p className="muted">
+                                        Prior{" "}
+                                        {row.before.kind === "field"
+                                            ? "field"
+                                            : "value"}{" "}
+                                        provenance · r{row.before_revision}
+                                    </p>
+                                    <SourceLinks
+                                        row={row.before}
+                                        controller={controller}
+                                        bound={bound}
+                                    />
+                                </>
+                            )}
+                        </td>
+                        <td>
+                            <p className="record-value">
+                                {valueText(row.after)}
+                            </p>
+                            {row.after && (
+                                <>
+                                    <p className="muted">
+                                        Value evidence · r{row.after_revision}
+                                    </p>
+                                    <SourceLinks
+                                        row={row.after}
+                                        controller={controller}
+                                        bound={bound}
+                                    />
+                                </>
+                            )}
+                        </td>
+                    </tr>
+                </tbody>
             </table>
-            <p className="muted">This is a derived comparison of recorded historical states. Prior value provenance does not identify the cause of a later change.</p>
+            <p className="muted">
+                This is a derived comparison of recorded historical states.
+                Prior value provenance does not identify the cause of a later
+                change.
+            </p>
             <details>
                 <summary>Exact shared change record</summary>
-                <pre tabIndex={0} style={{ maxHeight: "20rem", overflow: "auto", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{JSON.stringify(row, null, 2)}</pre>
+                <pre
+                    tabIndex={0}
+                    style={{
+                        maxHeight: "20rem",
+                        overflow: "auto",
+                        whiteSpace: "pre-wrap",
+                        overflowWrap: "anywhere",
+                    }}
+                >
+                    {JSON.stringify(row, null, 2)}
+                </pre>
             </details>
         </div>
     );
@@ -214,13 +301,19 @@ function NativeRow({
                     <small>Deadline {row.deadline}</small>
                 </>
             ) : row.kind === "change" ? (
-                <ChangeEvidence row={row} controller={controller} bound={bound} />
+                <ChangeEvidence
+                    row={row}
+                    controller={controller}
+                    bound={bound}
+                />
             ) : row.kind === "clock" ? (
                 <p>Story time: {row.story_time}</p>
             ) : (
                 <p>Permitted provenance</p>
             )}
-            {row.kind !== "change" && <SourceLinks row={row} controller={controller} bound={bound} />}
+            {row.kind !== "change" && (
+                <SourceLinks row={row} controller={controller} bound={bound} />
+            )}
         </li>
     );
 }
@@ -629,17 +722,35 @@ export function V2PlayPanel({
                         {displayedReceipt.events.at(-1)?.sequence}
                     </p>
                     <p className="record-value">{displayedReceipt.narration}</p>
-                    <button disabled={c.observer.kind !== "player" || !state.snapshot || state.queryBusy || state.readBusy}
+                    <button
+                        disabled={
+                            c.observer.kind !== "player" ||
+                            !state.snapshot ||
+                            state.queryBusy ||
+                            state.readBusy
+                        }
                         onClick={async () => {
-                            if (controller.get().context !== c || controller.get().receipt !== displayedReceipt) return;
-                            const result = await controller.traceReceipt(displayedReceipt);
+                            if (
+                                controller.get().context !== c ||
+                                controller.get().receipt !== displayedReceipt
+                            )
+                                return;
+                            const result =
+                                await controller.traceReceipt(displayedReceipt);
                             const current = controller.get();
-                            if (!result || current.context !== c || current.receipt !== displayedReceipt ||
-                                current.inspection !== result || current.queryBusy) return;
+                            if (
+                                !result ||
+                                current.context !== c ||
+                                current.receipt !== displayedReceipt ||
+                                current.inspection !== result ||
+                                current.queryBusy
+                            )
+                                return;
                             setView("turn_diff");
                             setAt(String(result.page.revision));
                             setSearch("");
-                        }}>
+                        }}
+                    >
                         Inspect accepted turn changes
                     </button>
                     <details>

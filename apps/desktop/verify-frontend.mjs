@@ -10,6 +10,7 @@ for (const args of [
     ["check-v2-view-model.mjs"],
     ["check-v2-routing.mjs"],
     ["check-v2-play-controller.mjs"],
+    ["check-v2-receipt-evidence-review.mjs"],
     ["check-author-controller.mjs"],
     ["check-author-callback-review.mjs"],
     ["check-author-panel-recovery-review.mjs"],

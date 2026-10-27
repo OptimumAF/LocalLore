@@ -98,7 +98,8 @@ source,matched,page`. The source must be an exact member of the actual packet's
 source_events, including original scope. On the SAME snapshot Engine, run actual
 Query2 History, Player, expected_head=head, at_revision=packet.through_revision,
 limit64, cursor null and fixed literal search `"sequence":N,`. Matched means
-Page2 contains the exact Event row's scope and sequence; no coincident sibling
+Page2 contains the exact Event row's scope and sequence; otherwise return closed
+Unavailable (never a successful source proof). No coincident sibling
 event or reconstructed row is substituted. Page is the actual Query2 Page,
 with its existing privacy/version/cursor/budget behavior. No inspection grant is
 added to NPC context and no independently loaded second Engine is queried.

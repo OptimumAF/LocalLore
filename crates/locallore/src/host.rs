@@ -23,6 +23,7 @@ pub const HOST_VERSION: u16 = 1;
 mod author_port;
 pub use author_port::{HostAuthorPreparation, NativeAuthorPreparation, WorkspaceAuthorOutcomeV1};
 pub mod memory_maintenance;
+pub mod memory_inspection;
 pub const MAX_INPUT: usize = 24_576;
 pub const MAX_OUTPUT: usize = 262_144;
 pub const MAX_SESSIONS: usize = 4;

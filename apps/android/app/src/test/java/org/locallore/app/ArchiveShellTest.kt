@@ -81,7 +81,7 @@ class ArchiveShellTest {
     @Test fun cancelledOutstandingPickerKeepsGuardUntilCallbackDrainsAndCannotWrite() = runTest(dispatcher) {
         val story = StoryGateway(); val model = model(story, Archives(story))
         advanceUntilIdle(); model.openArchive(); model.archiveController!!.prepareExport(); advanceUntilIdle()
-        assertTrue(model.beginArchiveExportPicker())
+        assertTrue(model.beginArchiveExportPicker(model.archive.value.prepared!!))
         model.archiveController!!.dismiss(); advanceUntilIdle()
         assertTrue(model.state.value.archiveActive)
         var writes = 0
@@ -118,15 +118,38 @@ class ArchiveShellTest {
         assertTrue(model.beginArchiveImportPicker())
         model.completeArchiveImport { byteArrayOf(1) }; advanceUntilIdle()
         assertFalse(story.importedExists)
-        model.archiveController!!.confirmImport(); advanceUntilIdle()
+        model.archiveController!!.confirmImport(model.archive.value.prepared!!); advanceUntilIdle()
         assertTrue(story.importedExists)
         assertEquals(0, story.resumes)
         assertEquals(original, model.state.value.selectedStory)
-        model.archiveController!!.openImported(); advanceUntilIdle()
+        model.archiveController!!.openImported(model.archive.value.imported!!); advanceUntilIdle()
         assertEquals(1, story.resumes)
         assertEquals(imported, model.state.value.selectedStory)
         assertFalse(model.state.value.archiveActive)
         assertEquals(2, model.state.value.stories.size)
+    }
+
+    @Test fun shellExportPickerRequiresTheRenderedPreviewAndCannotBypassDisposal() = runTest(dispatcher) {
+        val story = StoryGateway(); val model = model(story, Archives(story))
+        advanceUntilIdle(); model.openArchive(); model.archiveController!!.prepareExport(); advanceUntilIdle()
+        val first = model.archive.value.prepared!!
+        val retained = { model.beginArchiveExportPicker(first) }
+        model.archiveController!!.prepareExport(); advanceUntilIdle()
+        val current = model.archive.value.prepared!!
+        assertEquals(first, current)
+        assertNotSame(first, current)
+        assertFalse(retained())
+        assertFalse(model.beginArchiveExportPicker(current.copy()))
+        assertFalse(model.archive.value.awaitingPicker)
+        assertSame(current, model.archive.value.prepared)
+        assertTrue(model.beginArchiveExportPicker(current))
+        assertFalse(model.beginArchiveExportPicker(current))
+        model.completeArchiveExport(null); advanceUntilIdle()
+        assertFalse(model.archive.value.awaitingPicker)
+        assertEquals(0, story.resumes)
+        assertEquals(0, story.mutations)
+        models.clear()
+        assertFalse(model.beginArchiveExportPicker(current))
     }
 
     @Test fun clearedShellCannotRunRetainedPickerOrReopenArchive() = runTest(dispatcher) {

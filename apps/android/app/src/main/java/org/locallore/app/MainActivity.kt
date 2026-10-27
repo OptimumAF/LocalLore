@@ -169,8 +169,8 @@ open class MainActivity : ComponentActivity() {
                                 catch (_: Exception) { model.archiveImportPickerFailed() }
                             }
                         },
-                        onExportPicker = {
-                            if (model.beginArchiveExportPicker()) {
+                        onExportPicker = { expected ->
+                            if (model.beginArchiveExportPicker(expected)) {
                                 try { archiveExportPicker.launch("locallore-private-story.json") }
                                 catch (_: Exception) { model.archiveExportPickerFailed() }
                             }

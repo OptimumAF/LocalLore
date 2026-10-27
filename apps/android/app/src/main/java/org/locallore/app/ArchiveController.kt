@@ -96,9 +96,10 @@ internal class ArchiveController(
             awaitingPicker = true, notice = null)
         return ticket
     }
-    fun beginExportPicker(): Long? {
+    fun beginExportPicker(expected: ArchivePrepared): Long? {
         if (!available() || mutable.value.kind != ArchiveKind.EXPORT) return null
         val prepared = mutable.value.prepared ?: return null
+        if (prepared !== expected) return null
         val ticket = newPicker(ArchiveKind.EXPORT, prepared) ?: return null
         mutable.value = mutable.value.copy(awaitingPicker = true, notice = null)
         return ticket
@@ -162,9 +163,10 @@ internal class ArchiveController(
             } finally { bytes.fill(0) }
         }
     }
-    fun confirmImport() {
+    fun confirmImport(expected: ArchivePrepared) {
         if (!available() || mutable.value.kind != ArchiveKind.IMPORT) return
         val prepared = mutable.value.prepared ?: return
+        if (prepared !== expected) return
         mutable.value = mutable.value.copy(prepared = null)
         work({ importCommitNotice(it) }) { ticket ->
             val imported = gateway.commitImport(prepared.token)
@@ -190,8 +192,9 @@ internal class ArchiveController(
         if (disposed || !mutable.value.visible || mutable.value.closing) return
         stop(true, null)
     }
-    fun openImported() {
+    fun openImported(expected: ArchiveImported) {
         val imported = mutable.value.imported ?: return
+        if (imported !== expected) return
         if (disposed || mutable.value.busy || mutable.value.closing || picker != null) return
         stop(true, imported)
     }

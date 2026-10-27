@@ -338,7 +338,10 @@ function receipt(value: unknown, request: Request): V2Receipt {
         ]) {
             if (!Object.hasOwn(play, field)) continue;
             const binding = exact(play[field], ["version", hash]);
-            if (binding.version !== 1 || !/^[a-f0-9]{64}$/.test(text(binding[hash])))
+            if (
+                binding.version !== 1 ||
+                !/^[a-f0-9]{64}$/.test(text(binding[hash]))
+            )
                 wire();
         }
     }

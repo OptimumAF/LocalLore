@@ -15,6 +15,9 @@ import type { ArchiveController } from "./archive-controller";
 import { TimelinePanel } from "./TimelinePanel";
 import { ForkPanel } from "./ForkPanel";
 import { MemoryMaintenancePanel } from "./MemoryMaintenancePanel";
+import { MemoryInspectionPanel } from "./MemoryInspectionPanel";
+import type { MemoryInspectionController } from "./memory-inspection-controller";
+import type { MemoryInspectionContext } from "./memory-inspection-model";
 import { BrokerRetentionPanel } from "./BrokerRetentionPanel";
 import { AuthorPanel } from "./AuthorPanel";
 import type { AuthorController } from "./author-controller";
@@ -210,6 +213,8 @@ export function App({
     fork,
     maintenance,
     maintenanceContext,
+    memoryInspection,
+    memoryInspectionContext,
     brokerRetention,
     author,
     authorContext,
@@ -228,6 +233,8 @@ export function App({
     fork?: ForkController;
     maintenance?: MemoryMaintenanceController;
     maintenanceContext?: () => MemoryContext | null;
+    memoryInspection?: MemoryInspectionController;
+    memoryInspectionContext?: () => MemoryInspectionContext | null;
     brokerRetention?: BrokerRetention;
     author?: AuthorController;
     authorContext?: () => AuthorContext | null;
@@ -245,6 +252,13 @@ export function App({
     const play = s.play ?? s.playV2;
     useComparisonSnapshot(comparisonRun);
     useComparisonSnapshot(nativeComparisonRun);
+    // Native metadata may arrive without a gameplay notification. Subscribe
+    // here as well as in the panel so its freshly computed context follows it.
+    useSyncExternalStore<ReturnType<MemoryInspectionController["get"]> | null>(
+        memoryInspection?.subscribe ?? noScopedSubscription,
+        memoryInspection?.get ?? noScopedSnapshot,
+        memoryInspection?.get ?? noScopedSnapshot,
+    );
     type RunMode = "scripted_baseline" | "approved_native";
     const [runMode, setRunMode] = useState<RunMode>("scripted_baseline");
     const modeRef = useRef<RunMode>("scripted_baseline");
@@ -667,6 +681,15 @@ export function App({
                             context={authorContext()}
                         />
                     )}
+                    {s.view === "lab" &&
+                        selected &&
+                        memoryInspection &&
+                        memoryInspectionContext && (
+                            <MemoryInspectionPanel
+                                inspection={memoryInspection}
+                                context={memoryInspectionContext()}
+                            />
+                        )}
                     {!s.playV2 &&
                         maintenance &&
                         maintenanceContext &&

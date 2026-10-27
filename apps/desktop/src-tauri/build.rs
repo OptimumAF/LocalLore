@@ -26,6 +26,7 @@ fn main() {
                 "fork_start",
                 "fork_lookup",
                 "memory_maintenance_start",
+                "memory_inspection",
                 "harness_memory_case",
                 "harness_fork_case",
                 "archive_export_preview",

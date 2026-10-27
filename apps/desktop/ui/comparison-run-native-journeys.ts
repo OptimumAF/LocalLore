@@ -7,6 +7,7 @@ import { checkedNativeComparisonRunStatus } from "./comparison-run-model";
 import type { EvidenceRequest, ObserverV2 } from "./comparison-reader-model";
 import { sameReaderObserver } from "./comparison-reader-model";
 import { structural, type ErrorBuffer } from "./model";
+import { abortHeldNativeComparisonConsent } from "./comparison-run-native-abort";
 
 export async function comparisonRunNativeJourneys({
     controller: c,
@@ -46,6 +47,43 @@ export async function comparisonRunNativeJourneys({
         unchanged: boolean;
     }[] = [];
     const outcomeSummaries: unknown[] = [];
+    const stateHistory: Record<string, unknown>[] = [];
+    let stateHistoryDropped = 0;
+    let failureState: ReturnType<ComparisonRunController["get"]> | null = null;
+    let failureReaderError: string | null = null;
+    const began = performance.now();
+    let lastState = "";
+    const observeState = () => {
+        const state = f.get();
+        const observed = {
+            context: state.context,
+            allowed: state.allowed,
+            client: state.clientId,
+            phase: state.status?.phase ?? null,
+            operation: state.status?.operation_id ?? null,
+            running: state.status?.running ?? null,
+            error: state.error,
+            cause: state.status?.version === 2 ? state.status.cause : null,
+            pending: state.pending?.action ?? null,
+            uncertain: state.uncertain,
+            cleanup: state.mode === "approved_native" ? state.cleanup : null,
+            cleanupPending:
+                state.mode === "approved_native" ? state.cleanupPending : null,
+        };
+        const encoded = JSON.stringify(observed);
+        if (encoded === lastState) return;
+        lastState = encoded;
+        if (stateHistory.length === 96) {
+            stateHistory.shift();
+            stateHistoryDropped++;
+        }
+        stateHistory.push({
+            observedMs: Math.round(performance.now() - began),
+            ...observed,
+        });
+    };
+    const unsubscribeState = f.subscribe(observeState);
+    observeState();
     const check = (condition: unknown, name: string) => {
         failedCheck = name;
         if (!condition) throw Error(name);
@@ -64,6 +102,37 @@ export async function comparisonRunNativeJourneys({
         }
         throw Error("FullComparisonJourneyTimeout");
     };
+    // Synthetic reference construction precedes the existing 120s native
+    // preparation clock. This is an observation allowance, not a changed
+    // service/model deadline or an acceptance of a terminal preparation error.
+    const confirmationPhase = (name: string) =>
+        until(
+            () => {
+                const state = f.get();
+                if (state.error && !state.uncertain)
+                    throw Error("NativeConfirmationTerminalBeforeEntry");
+                // A fresh start admits asynchronously. A preceding closed
+                // status is not an acknowledgement of its new client.
+                if (
+                    !state.clientId ||
+                    state.status?.client_id !== state.clientId
+                )
+                    return false;
+                if (
+                    state.status?.error ||
+                    (state.status &&
+                        !state.status.running &&
+                        state.status.phase !== "awaiting_confirmation")
+                )
+                    throw Error("NativeConfirmationTerminalBeforeEntry");
+                return (
+                    !state.uncertain &&
+                    state.status?.phase === "awaiting_confirmation"
+                );
+            },
+            name,
+            240_000,
+        );
     type Scenario =
         | "hold-execution-consent"
         | "release-execution-consent"
@@ -804,6 +873,8 @@ export async function comparisonRunNativeJourneys({
         finalInventoryDigest,
         finalInventoryCount,
         outcomeSummaries,
+        stateHistory,
+        stateHistoryDropped,
         modelExecution: actualGenerationObserved,
         nativeIpc: true,
         rendering: "native-webview2",
@@ -827,9 +898,10 @@ export async function comparisonRunNativeJourneys({
             ? {
                   failedCheck,
                   failureCategory,
-                  fullError: f.get().error,
-                  fullPhase: f.get().status?.phase,
-                  readerError: r.get().error,
+                  failureState,
+                  fullError: failureState ? failureState.error : f.get().error,
+                  fullPhase: failureState?.status?.phase ?? null,
+                  readerError: failureReaderError,
               }
             : {}),
     });
@@ -931,12 +1003,7 @@ export async function comparisonRunNativeJourneys({
             );
             await hold();
             const cancelled = f.start("paired", 1);
-            await until(
-                () =>
-                    f.get().status?.version === 2 &&
-                    f.get().status?.phase === "awaiting_confirmation",
-                "native-full-held-execution-consent",
-            );
+            await confirmationPhase("native-full-held-execution-consent");
             await heldConsentEntered();
             check(
                 (await fixtureStatus()).held === true &&
@@ -995,12 +1062,10 @@ export async function comparisonRunNativeJourneys({
             accountTransport("native-full-deliberate-lost-start-ACK");
             await capture("full-unknown");
             const lookup = f.lookup();
-            await until(
-                () =>
-                    !f.get().uncertain &&
-                    f.get().status?.phase === "awaiting_confirmation",
+            await confirmationPhase(
                 "native-full-same-client-lookup-recovers-actual-owner",
             );
+            check(!f.get().uncertain, "native-full-recovered-ACK-is-known");
             await heldConsentEntered();
             check(
                 f.get().clientId === lostClient,
@@ -1027,12 +1092,7 @@ export async function comparisonRunNativeJourneys({
 
             await hold();
             const retiring = f.start("paired", 1);
-            await until(
-                () =>
-                    f.get().status?.version === 2 &&
-                    f.get().status?.phase === "awaiting_confirmation",
-                "native-full-retiring-held-owner",
-            );
+            await confirmationPhase("native-full-retiring-held-owner");
             await heldConsentEntered();
             const old = f.get().status!,
                 client = f.get().clientId!;
@@ -1196,13 +1256,26 @@ export async function comparisonRunNativeJourneys({
         );
         await invoke("harness_finish", { report: report(true) });
     } catch (error) {
+        const primaryCheck = failedCheck;
+        failureState = f.get();
+        failureReaderError = r.get().error;
         let failureCategory =
             error instanceof Error &&
             error.message === "FullComparisonJourneyTimeout"
                 ? error.message
                 : "FullComparisonJourneyFailed";
         try {
-            if (held) await release();
+            if (held) {
+                disposalStarted = true;
+                const aborted = await abortHeldNativeComparisonConsent({
+                    full: f,
+                    invoke,
+                    dispose,
+                });
+                held = !aborted.released;
+                if (aborted.cleanupUnconfirmed)
+                    failureCategory = "HarnessCleanupUnconfirmed";
+            }
             if (!disposalStarted) {
                 disposalStarted = true;
                 await dispose();
@@ -1210,8 +1283,11 @@ export async function comparisonRunNativeJourneys({
         } catch {
             failureCategory = "HarnessCleanupUnconfirmed";
         }
+        failedCheck = primaryCheck;
         await invoke("harness_finish", {
             report: report(false, failureCategory),
         });
+    } finally {
+        unsubscribeState();
     }
 }

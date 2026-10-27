@@ -23,6 +23,19 @@ Source review found and fixed an undefined transfer UID argument before runtime 
 
 The exact guest closes through its proposal-bound stop: 696,269 ms, worker1, known cleanup/capture/closure and no flush claim. Seven fixed metadata files copy to C: with zero mismatches. The final existing-server observation passes with zero device calls and no unrelated-process census. No other emulator is stopped, no system setting changes, and no model or private diagnostic is uploaded. The initial bounded availability capture has zero rows; no physical-phone profile is established by it.
 
+Independent closed-record audit verifies all **198 SDK2/raw pairs** (180 parent, nine per transfer child), complete observer brackets and unchanged source maps. Its 121,785-byte result has SHA256 `b8ef25e3acbc069835ac563ae4e2cd55b63c05b3e1201669fe6019d7fbc4b5ef`; audit consistency passes while runtime/feature acceptance stay false. The public suite can be reproduced with `python -B -m unittest scripts.tests.test_original_author_stream_admission`; the retained bounded promotion helper uses the same unittest loader and preserves its exact command/raw output.
+
+The new C: recovery preserves 556 cohort files and three small fixed prior controls: **559 originals/copies, 560 ZIP members, 562 output files / 32,494,474 bytes**, independently replayed with zero missing/mismatches. Models, userdata and image payloads are excluded. Earlier failed/unexecuted sources and raw results remain intact.
+
+| Recovery control | Bytes | SHA256 |
+| --- | ---: | --- |
+| Index | 361,980 | `e70e1f25a8b0875147928a58f9833a5a71dc0d4f69d6e1b87891dc455c6794cc` |
+| ZIP | 14,343,236 | `fe4d961cdd491b09ccf3aff280ab1ce35386c617df9c6bf5c2bc49ed24610ac0` |
+| Result | 1,632 | `ba098141c548c800a5e55ca9f4b34b075474dfd82ad7ca194c1c20cbcda91d75` |
+| Independent verification | 1,252 | `9619d0cd34f18da2ca2538d8096cdf50420481fc08a0e874c4656b35ebf5ff0c` |
+
+The included source bundle preserves pushed checkpoint `4ebd4c3fcb3526b840b451c1ed565642f09f3562`, all 1,275 named refs, 1,590 bundle heads and all 312 distinct current worktree HEAD values. Git verification and ref/head coverage checks pass in a bounded owner (5,733 ms, worker0, known cleanup/capture). The bundle is 12,997,265 bytes, SHA256 `c5779d600df3ffe981214c2bc081ddc2b55ee9d9058464e581422b6ecae55244`. Independent recovery checks original/copy/ZIP bytes; it does not repeat Git enumeration. These later recovery-note edits are committed/pushed separately from that bundled checkpoint.
+
 The next runnable task is bounded native refusal diagnostics and original-response preservation for the synthetic AUTHOR experiment, followed by a fresh admitted run without weakening semantic validation. Keep the failed proposal as historical evidence; a new diagnostic run cannot retroactively qualify it. Full M09.02/M09.06, phone/ARM64, cancellation, narrative quality, performance and milestone acceptance remain open.
 
 ## Earlier import failure and publication fix

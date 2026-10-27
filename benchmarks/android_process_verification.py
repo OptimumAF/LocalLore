@@ -339,7 +339,7 @@ def source_map():
     raw = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
     names = raw.decode("utf-8").split("\0")
     return {name: env.digest(ROOT / name) for name in sorted(names) if name and
-            (name.startswith(("apps/android/", "crates/", "fixtures/", "scripts/", "benchmarks/")) or
+            (name.startswith(("apps/android/", "crates/", "fixtures/", "prompts/", "scripts/", "benchmarks/")) or
              name in ("Cargo.toml", "Cargo.lock", "rust-toolchain.toml"))}
 
 

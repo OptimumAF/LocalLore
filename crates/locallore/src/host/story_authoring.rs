@@ -419,7 +419,7 @@ impl Host {
                         json!({"job":job,"phase":current.phase,"error":current.error}),
                     ))
                 }
-                _ => return Err("NotAuthoringCommand".into()),
+                _ => Err("NotAuthoringCommand".into()),
             }
         })();
         match result {

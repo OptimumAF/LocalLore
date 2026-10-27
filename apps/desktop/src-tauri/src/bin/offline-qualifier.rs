@@ -1318,7 +1318,7 @@ mod win {
                     None,
                 )
             };
-            let result = converted.and_then(|()| unsafe { text.to_string() });
+            let result = converted.map(|()| unsafe { text.to_string() });
             unsafe {
                 LocalFree(Some(HLOCAL(security.0)));
             }
@@ -1327,7 +1327,7 @@ mod win {
                     LocalFree(Some(HLOCAL(text.0.cast())));
                 }
             }
-            result.unwrap()
+            result.unwrap().unwrap()
         }
         #[test]
         fn canary_self_location_and_marker_bind_exact_run_sid_and_challenge() {

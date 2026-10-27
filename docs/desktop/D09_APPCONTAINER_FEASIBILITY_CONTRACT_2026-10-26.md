@@ -8,6 +8,8 @@ This is a developer qualifier, not an app sandbox feature or an offline verdict.
 
 The only new executable is `offline-qualifier`, required feature `dev-harness`.
 It accepts no arguments in parent mode, or exactly `--self-canary` internally.
+The package's default run target remains the desktop application; this second
+feature-gated executable does not make existing app run commands ambiguous.
 It launches only a newly copied image of itself. No arbitrary executable, shell,
 path, port, script or remote execution interface is provided. Non-Windows exits
 Unsupported. Existing `windows=0.62.2` APIs are enabled by feature forwarding

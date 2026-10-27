@@ -20,6 +20,9 @@ export type HostCommand =
           seed: string;
       }
     | {
+          op: "story_templates";
+      }
+    | {
           op: "story_template";
           template: string;
       }

@@ -1,5 +1,11 @@
 # Retired selected-child recovery and draft callbacks — 2026-10-26
 
+**Evidence availability update, 2026-10-26:** the selected private index and
+earlier raw evidence directories are no longer present at their recorded paths.
+The [preservation handoff](ANDROID_RETAINED_PARENT_VERIFICATION_2026-10-26.md)
+records the interruption and recovered files. Results below describe executions
+observed before this loss; claims of continued private retention are historical.
+
 The final product preserves same-frame kind/text edits and sends only the latest
 valid draft within the current story/branch. The external retired-child case
 passes **139 checks across two actual saved-task process deaths**: one typed

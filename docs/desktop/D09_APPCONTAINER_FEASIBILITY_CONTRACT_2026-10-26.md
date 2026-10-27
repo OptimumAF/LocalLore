@@ -190,3 +190,22 @@ run/SID/challenge marker bindings. Existing frozen safety assertions remain.
 Author verification is only `git diff --check`; all formatting, compilation,
 Windows tests, token/profile/ACL/network/child APIs and actual qualification
 remain UNRUN. Root must independently review this final layout before execution.
+
+## Required outer image identity pin
+
+Final independent source review of `68e2262d` found no additional concrete
+source blocker, with this execution-boundary condition: before process creation,
+the Root-owned fixed launcher must open the exact qualifier executable read-only
+with read sharing only (no write/delete sharing), hash that held handle, and keep
+it open through the qualifier's complete terminal observation. Require the
+result's `copied_self_sha256` to equal that pinned source hash. The launcher must
+also enforce its fixed executable/empty argument list, bounded local output and
+deadline, and preserve failures rather than interpreting absence as success.
+
+`current_exe()` followed by an open inside an already running process cannot by
+itself prove its pathname was not replaced before that open. Internal pins and
+copy comparison cover their actual opened objects; the outer pre-launch pin
+closes the earlier boundary. This is a qualifier execution protocol, not a new
+renderer command, generic app launcher, arbitrary execution hook or claim about
+hostile OS compromise. Compilation, Windows safety tests and actual canary
+execution remain prerequisites; source review is not runtime evidence.

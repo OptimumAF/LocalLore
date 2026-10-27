@@ -79,8 +79,9 @@ fn fixture(lab:bool, engine:Engine, foreign_proof:Option<Engine>) -> Fixture {
     }));
     let created=host.call(&serde_json::to_vec(&json!({"version":1,"command":{"op":"create","seed":"lantern-quay-v1"}})).unwrap());
     assert_eq!(created["status"],"ok","{created}");
-    let request=Read { version:1, scope:actual.lock().unwrap().scope().clone(),
-        expected_head:actual.lock().unwrap().revision(), observer:Observer::Player,
+    let (scope,head)={let engine=actual.lock().unwrap();(engine.scope().clone(),engine.revision())};
+    let request=Read { version:1, scope,
+        expected_head:head, observer:Observer::Player,
         binding:None, view:View::Packets { cursor:None,limit:64 } };
     Fixture { host, session:created["data"]["session"].as_str().unwrap().into(),request,actual,reads,panic_next }
 }

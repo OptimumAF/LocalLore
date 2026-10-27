@@ -75,15 +75,22 @@ node apps/desktop/verify-frontend.mjs
 ```
 
 The second command registers the new checker alongside existing frontend
-checks. Its new full run remains pending at this source checkpoint. No native
-or Android build is implied by the focused controller results.
+checks. The full run passed on clean unchanged `47b012cd` in **20.6259765s**:
+strict TypeScript, normal local bundle, current request/schema checks, all
+existing controller checks plus the new 46 cases, and normal-bundle exclusion of
+development journeys/control hooks. The targeted Prettier check of all five
+changed/new executable source files also passed on `47b012cd` in **0.5880394s**.
+No native or Android build is implied by these frontend results.
 
 Environment: Windows NT 10.0.26300 x64; Node 24.22.1, esbuild 0.28.2,
 TypeScript 7.0.2, React 19.3.1 and Prettier 3.9.10. No dependency/lock upgrade.
 Local gitignored logs/process records retain exact commands, source commits,
 UTC start/end, exit code and source-clean/unchanged status under the stems
 `d04-scene-receipt-transport-{baseline1,green1,formatted1}` and
-`d04-scene-receipt-main-focused1`.
+`d04-scene-receipt-main-{focused1,frontend1,format1}`. A separate small
+esbuild transform check produced identical whitespace-normalized JavaScript
+from the original frozen `cf87e7df` checker and its formatted copy; no oracle
+logic was changed by formatting.
 
 SHA256 at `bc6a5235`:
 
@@ -96,8 +103,11 @@ SHA256 at `bc6a5235`:
 
 ## Remaining gates
 
-Full frontend integration/format checks and final source/documentation review
-remain pending here. Actual native scene receipt, cancel/retry/switch, cold
+Independent source/documentation review verified all four focused-run records,
+failure categories and file hashes, and found no concrete current DTO blocker.
+Full frontend integration and targeted format checks subsequently passed as
+recorded above. This final documentation update changes no executable source.
+Actual native scene receipt, cancel/retry/switch, cold
 reopen and rendered layout require their separately scoped synthetic native
 journey using the existing app-owned hidden WebView/IPC/Store harness. This
 slice does not activate a new production scene recipe or claim prose quality,

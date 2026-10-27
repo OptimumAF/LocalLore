@@ -67,6 +67,26 @@ fn hash_shape(value: &str) -> bool {
             .bytes()
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
+fn attach_recovered(state: &mut State, captured: Engine, creation_id: &str, hash: &str) -> Result<Value, String> {
+    let scope = Scope { story: format!("original-{creation_id}"), branch: "main".into() };
+    if captured.scope() != &scope { return Err("Integrity".into()); }
+    // Recheck presence immediately before attachment; this path has NO insert capability.
+    let latest = state.persistence.as_mut().ok_or("Unsupported")?.resume(&scope)?;
+    if latest.seed() != captured.seed()
+        || latest.seed().initial_world.as_ref().map(core::origin_hash).transpose()?.as_deref() != Some(hash)
+    { return Err("Stale".into()); }
+    let existing = state.sessions.iter().find(|(_, s)| s.engine.scope() == &scope).map(|(id, _)| id.clone());
+    let mut reply = if let Some(id) = existing {
+        refresh_session(state, &id, &scope).map_err(|r| r["error"].as_str().unwrap_or("Internal").to_owned())?;
+        ok(json!({"session":id,"scope":scope,"revision":state.sessions[&id].engine.revision()}))
+    } else {
+        if state.sessions.len() >= MAX_SESSIONS { return Err("SessionLimit".into()); }
+        attach_engine(state, latest)
+    };
+    if reply["status"] != "ok" { return Err(reply["error"].as_str().unwrap_or("Internal").to_owned()); }
+    reply["data"]["created"] = json!(false);
+    Ok(reply)
+}
 fn preview(job: &str, origin: &InitialWorldOriginV1, hash: &str) -> Result<Value, String> {
     let seed = core::materialize(
         origin,
@@ -283,10 +303,8 @@ impl Host {
                     }
                     let port = state.persistence.as_mut().ok_or("Unsupported")?;
                     // A completed creation can be recovered without a generation job or model.
-                    if let Some(starter) = port.lookup_original(creation_id, review_sha256)? {
-                        return attach_named_starter(state, &starter).map_err(|reply| {
-                            reply["error"].as_str().unwrap_or("Internal").to_owned()
-                        });
+                    if let Some(engine) = port.lookup_original(creation_id, review_sha256)? {
+                        return attach_recovered(state, engine, creation_id, review_sha256);
                     }
                     if state.authoring.running.is_some() {
                         return Err("Busy".into());

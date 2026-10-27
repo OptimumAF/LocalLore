@@ -278,7 +278,7 @@ impl Persistence for Repository {
         &mut self,
         creation_id: &str,
         review_sha256: &str,
-    ) -> Result<Option<locallore::story_setup::NamedStarter>, String> {
+    ) -> Result<Option<Engine>, String> {
         if !locallore::story_setup::valid_creation_id(creation_id) {
             return Err("InvalidInput".into());
         }
@@ -296,7 +296,13 @@ impl Persistence for Repository {
         if starter.seed() != &seed {
             return Err("Integrity".into());
         }
-        Ok(Some(starter))
+        // Recovery is read-only. Never route a captured creation through insert:
+        // another Store/process may delete it after this lookup.
+        let engine = self.resume(&scope)?;
+        if engine.seed() != starter.seed() {
+            return Err("Stale".into());
+        }
+        Ok(Some(engine))
     }
     fn resume(&mut self, scope: &Scope) -> Result<Engine, String> {
         Ok(self.store.resume(scope).map_err(turn)?.engine)

@@ -568,7 +568,7 @@ pub trait Persistence: Send {
         &mut self,
         _creation_id: &str,
         _review_sha256: &str,
-    ) -> Result<Option<crate::story_setup::NamedStarter>, String> {
+    ) -> Result<Option<Engine>, String> {
         Err("Unsupported".into())
     }
     fn resume(&mut self, scope: &Scope) -> Result<Engine, String>;

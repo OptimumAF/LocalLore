@@ -82,7 +82,12 @@ impl InferenceProvider for Script {
         request: &GenerationRequest,
         cancel: &Cancellation,
     ) -> Poll<Result<Vec<u8>, Error>> {
-        let Input::Structured { role, prompt, schema } = &request.input else {
+        let Input::Structured {
+            role,
+            prompt,
+            schema,
+        } = &request.input
+        else {
             panic!("actual structured production request required")
         };
         self.seen.push(request.clone());
@@ -100,8 +105,12 @@ impl InferenceProvider for Script {
             role: role.clone(),
             prompt_sha256: digest(prompt.as_bytes()),
             schema_sha256: digest(&serde_json::to_vec(schema).unwrap()),
-            compiler_version: input.as_ref().and_then(|v| v["context"]["compiler_version"].as_u64()),
-            player_text_sha256: input.as_ref().and_then(|v| v["player_text"].as_str())
+            compiler_version: input
+                .as_ref()
+                .and_then(|v| v["context"]["compiler_version"].as_u64()),
+            player_text_sha256: input
+                .as_ref()
+                .and_then(|v| v["player_text"].as_str())
                 .map(|text| digest(text.as_bytes())),
             prompt_targets: vec![],
             prompt_targets_present: vec![],
@@ -161,18 +170,28 @@ impl Observed {
         actual
     }
     fn artifacts(&self) -> &[Value] {
-        self.reply["data"]["details"]["artifacts"].as_array().unwrap()
+        self.reply["data"]["details"]["artifacts"]
+            .as_array()
+            .unwrap()
     }
     fn artifacts_mut(&mut self) -> &mut Vec<Value> {
-        self.reply["data"]["details"]["artifacts"].as_array_mut().unwrap()
+        self.reply["data"]["details"]["artifacts"]
+            .as_array_mut()
+            .unwrap()
     }
     fn artifact_mut(&mut self, kind: &str) -> &mut Value {
-        &mut self.artifacts_mut().iter_mut().find(|a| a["kind"] == kind).unwrap()["value"]
+        &mut self
+            .artifacts_mut()
+            .iter_mut()
+            .find(|a| a["kind"] == kind)
+            .unwrap()["value"]
     }
     fn generation_mut(&mut self, role: &str) -> &mut Value {
-        &mut self.artifacts_mut().iter_mut().find(|a| {
-            a["kind"] == "generation_request" && a["value"]["input"]["role"] == role
-        }).unwrap()["value"]
+        &mut self
+            .artifacts_mut()
+            .iter_mut()
+            .find(|a| a["kind"] == "generation_request" && a["value"]["input"]["role"] == role)
+            .unwrap()["value"]
     }
     fn rehash_generation(&mut self, role: &str) {
         let v = self.generation_mut(role);
@@ -190,47 +209,85 @@ impl Observed {
 }
 
 fn collect(before: Engine, recipe: SceneRecipeV1, mut script: Script, scene: bool) -> Observed {
-    let request = before.request("scene-capture-turn", Intent::FreeText {
-        kind: PlayInputKind::Action, text: TEXT.into(),
-    });
+    let request = before.request(
+        "scene-capture-turn",
+        Intent::FreeText {
+            kind: PlayInputKind::Action,
+            text: TEXT.into(),
+        },
+    );
     let profile = profile();
     let key = AttemptIdentity {
-        scope: request.scope.clone(), base_revision: request.expected_revision,
-        observer: before.seed().player.clone(), turn: request.turn.clone(), attempt: 1,
+        scope: request.scope.clone(),
+        base_revision: request.expected_revision,
+        observer: before.seed().player.clone(),
+        turn: request.turn.clone(),
+        attempt: 1,
     };
     let owner = TraceOwner::default();
     let mut trace = TraceRing::default();
     trace.set_enabled(true);
     trace.configure_details(&owner, &key.scope, true);
-    let handle = trace.begin_for_owner(&owner, key.clone(), Provenance::default()).handle.unwrap();
+    let handle = trace
+        .begin_for_owner(&owner, key.clone(), Provenance::default())
+        .handle
+        .unwrap();
     let ring = Arc::new(Mutex::new(trace));
     let mut sink = RingSink::new(ring.clone(), handle);
     let mut after = before.clone();
     let outcome = if scene {
         play::execute_traced_with_scene_recipe_v1(
-            &mut after, &request, &mut script, &Cancellation::default(), &profile,
-            Some(&mut sink), ScenePlayConstructionInput { recipe, coverage: None },
+            &mut after,
+            &request,
+            &mut script,
+            &Cancellation::default(),
+            &profile,
+            Some(&mut sink),
+            ScenePlayConstructionInput {
+                recipe,
+                coverage: None,
+            },
         )
     } else {
-        play::execute_traced(&mut after, &request, &mut script,
-            &Cancellation::default(), &profile, Some(&mut sink))
+        play::execute_traced(
+            &mut after,
+            &request,
+            &mut script,
+            &Cancellation::default(),
+            &profile,
+            Some(&mut sink),
+        )
     };
-    let details = ring.lock().unwrap().read_details_for_owner(
-        &owner,
-        &Selection {
-            scope: key.scope.clone(), base_revision: key.base_revision,
-            observer: key.observer.clone(), turn: Some(key.turn.clone()), attempt: Some(key.attempt),
-        },
-        &Reader::story_lab(key.scope.clone()),
-    ).unwrap();
+    let details = ring
+        .lock()
+        .unwrap()
+        .read_details_for_owner(
+            &owner,
+            &Selection {
+                scope: key.scope.clone(),
+                base_revision: key.base_revision,
+                observer: key.observer.clone(),
+                turn: Some(key.turn.clone()),
+                attempt: Some(key.attempt),
+            },
+            &Reader::story_lab(key.scope.clone()),
+        )
+        .unwrap();
     assert_eq!(details.status, DetailStatus::Recorded);
     assert!(!details.exact_reconstruction);
     // ONLY this transport wrapper is test-authored. Every artifact above is the
     // real opt-in collector's copy of the actual production Core operation.
     let reply = json!({"status":"ok","data":{"details":details}});
     Observed {
-        before, after, request, recipe, profile, reply,
-        recordings: script.recordings, actual_requests: script.seen, outcome,
+        before,
+        after,
+        request,
+        recipe,
+        profile,
+        reply,
+        recordings: script.recordings,
+        actual_requests: script.seen,
+        outcome,
     }
 }
 fn sample(recipe: SceneRecipeV1) -> Observed {
@@ -244,7 +301,10 @@ fn refused(observed: &Observed, expected: GateError) {
     }
 }
 fn same_source(a: &Engine, b: &Engine) {
-    assert_eq!(a.accepted_history_basis().unwrap(), b.accepted_history_basis().unwrap());
+    assert_eq!(
+        a.accepted_history_basis().unwrap(),
+        b.accepted_history_basis().unwrap()
+    );
     assert_eq!(a.canonical_records(), b.canonical_records());
     assert_eq!(a.seed(), b.seed());
     assert_eq!(a.canonical_bytes(), b.canonical_bytes());
@@ -262,30 +322,58 @@ fn actual_core_capture_covers_both_recipes_presentation_repair_and_fallback() {
         for presented in [false, true] {
             for repair in [false, true] {
                 for fallback in [false, true] {
-                    let s = collect(engine(presented), recipe,
-                        Script { repair, fallback, ..Script::default() }, true);
+                    let s = collect(
+                        engine(presented),
+                        recipe,
+                        Script {
+                            repair,
+                            fallback,
+                            ..Script::default()
+                        },
+                        true,
+                    );
                     let receipt = s.receipt();
                     assert_eq!(receipt.play().unwrap().fallback, fallback);
                     assert_eq!(receipt.play().unwrap().repairs, u8::from(repair));
-                    assert_eq!(receipt.play().unwrap().story_presentation.is_some(), presented);
-                    assert_eq!(s.after.canonical_record_count(), s.before.canonical_record_count() + 1);
+                    assert_eq!(
+                        receipt.play().unwrap().story_presentation.is_some(),
+                        presented
+                    );
+                    assert_eq!(
+                        s.after.canonical_record_count(),
+                        s.before.canonical_record_count() + 1
+                    );
                     assert!(s.after.extends_accepted_history(&s.before).unwrap());
                     let before = s.before.clone();
                     let after = s.after.clone();
                     let reply = s.reply.clone();
                     let recordings = serde_json::to_value(&s.recordings).unwrap();
-                    let checked = s.gate().ok().expect("actual complete Core capture must pass");
+                    let checked = s
+                        .gate()
+                        .ok()
+                        .expect("actual complete Core capture must pass");
                     assert_eq!(checked.version(), 1);
                     assert_eq!(checked.director_calls(), 1 + u8::from(repair));
                     assert_eq!(checked.fallback(), fallback);
                     let actual_narrator = s.actual_requests.last().unwrap();
-                    let Input::Structured { role, prompt, schema } = &actual_narrator.input else {
+                    let Input::Structured {
+                        role,
+                        prompt,
+                        schema,
+                    } = &actual_narrator.input
+                    else {
                         panic!("structured narrator")
                     };
                     assert_eq!(role, "narrator");
                     assert_eq!(checked.narrator_prompt_sha256(), digest(prompt.as_bytes()));
-                    assert_eq!(checked.narrator_schema_sha256(), digest(&serde_json::to_vec(schema).unwrap()));
-                    assert_eq!(checked.receipt_sha256(), digest(&serde_json::to_vec(&receipt).unwrap()));
+                    assert_eq!(
+                        checked.narrator_schema_sha256(),
+                        digest(&serde_json::to_vec(schema).unwrap())
+                    );
+                    assert_eq!(
+                        checked.receipt_sha256(),
+                        digest(&serde_json::to_vec(&receipt).unwrap())
+                    );
                     assert_eq!(s.actual_requests[0].budget.max_output_tokens, 350);
                     assert_eq!(actual_narrator.budget.max_output_tokens, 100);
                     assert_eq!(s.reply["data"]["details"]["exact_reconstruction"], false);
@@ -303,18 +391,32 @@ fn actual_core_capture_covers_both_recipes_presentation_repair_and_fallback() {
 fn identical_new_narrator_bytes_are_legitimate_across_recipe_arms() {
     let memory = sample(memory());
     let literal = sample(SceneRecipeV1::LiteralV1);
-    let Input::Structured { role: ar, prompt: ap, schema: aschema } =
-        &memory.actual_requests.last().unwrap().input else { panic!("structured narrator") };
-    let Input::Structured { role: br, prompt: bp, schema: bschema } =
-        &literal.actual_requests.last().unwrap().input else { panic!("structured narrator") };
+    let Input::Structured {
+        role: ar,
+        prompt: ap,
+        schema: aschema,
+    } = &memory.actual_requests.last().unwrap().input
+    else {
+        panic!("structured narrator")
+    };
+    let Input::Structured {
+        role: br,
+        prompt: bp,
+        schema: bschema,
+    } = &literal.actual_requests.last().unwrap().input
+    else {
+        panic!("structured narrator")
+    };
     assert_eq!((ar, ap, aschema), (br, bp, bschema));
     let ma = memory.gate().ok().unwrap();
     let lb = literal.gate().ok().unwrap();
     assert_eq!(ma.narrator_prompt_sha256(), lb.narrator_prompt_sha256());
     assert_eq!(ma.narrator_schema_sha256(), lb.narrator_schema_sha256());
     // Arm binding is in actual native provenance, not an invented narrator tag.
-    assert_ne!(memory.receipt().play().unwrap().prompt_version,
-        literal.receipt().play().unwrap().prompt_version);
+    assert_ne!(
+        memory.receipt().play().unwrap().prompt_version,
+        literal.receipt().play().unwrap().prompt_version
+    );
     let mut wrong = memory.clone();
     wrong.recipe = SceneRecipeV1::LiteralV1;
     refused(&wrong, GateError::RecipeBinding);
@@ -360,7 +462,11 @@ fn expected_profile_and_native_recipe_must_match_actual_record() {
 #[test]
 fn captured_candidate_proposal_and_approved_plan_must_equal_native_values() {
     let original = sample(memory());
-    for kind in ["accepted_candidate_not_durable_commit", "parsed_proposal", "validated_plan_not_durable_commit"] {
+    for kind in [
+        "accepted_candidate_not_durable_commit",
+        "parsed_proposal",
+        "validated_plan_not_durable_commit",
+    ] {
         let mut forged = original.clone();
         let value = forged.artifact_mut(kind);
         if kind == "parsed_proposal" {
@@ -373,16 +479,20 @@ fn captured_candidate_proposal_and_approved_plan_must_equal_native_values() {
     for field in ["scene", "story_presentation", "context_policy", "profile"] {
         let mut forged = original.clone();
         forged.artifact_mut("accepted_candidate_not_durable_commit")["play"]
-            .as_object_mut().unwrap().remove(field);
+            .as_object_mut()
+            .unwrap()
+            .remove(field);
         // Even a plausible tuple edit must first match the actual entire receipt.
         // story_presentation is absent on this fixture, so add a false value.
         if field == "story_presentation" {
-            forged.artifact_mut("accepted_candidate_not_durable_commit")["play"][field] = json!({"version":99});
+            forged.artifact_mut("accepted_candidate_not_durable_commit")["play"][field] =
+                json!({"version":99});
         }
         refused(&forged, GateError::ReceiptBinding);
     }
     let mut forged = original.clone();
-    forged.artifact_mut("accepted_candidate_not_durable_commit")["play"]["scene"]["frame_sha256"] = json!("f".repeat(64));
+    forged.artifact_mut("accepted_candidate_not_durable_commit")["play"]["scene"]["frame_sha256"] =
+        json!("f".repeat(64));
     refused(&forged, GateError::ReceiptBinding);
 }
 
@@ -390,11 +500,15 @@ fn captured_candidate_proposal_and_approved_plan_must_equal_native_values() {
 fn same_scope_and_revision_with_changed_seed_is_not_the_same_source() {
     let mut s = sample(memory());
     let mut changed = s.before.seed().clone();
-    changed.facts.get_mut("relic-location").unwrap().proposition = "SYNTHETIC_OTHER_PRIVATE_TRUTH".into();
+    changed.facts.get_mut("relic-location").unwrap().proposition =
+        "SYNTHETIC_OTHER_PRIVATE_TRUTH".into();
     let other = Engine::new(changed).unwrap();
     assert_eq!(other.scope(), s.before.scope());
     assert_eq!(other.revision(), s.before.revision());
-    assert_ne!(other.accepted_history_basis().unwrap(), s.before.accepted_history_basis().unwrap());
+    assert_ne!(
+        other.accepted_history_basis().unwrap(),
+        s.before.accepted_history_basis().unwrap()
+    );
     s.before = other;
     refused(&s, GateError::SourceBinding);
 }
@@ -408,8 +522,14 @@ fn full_prefix_is_required_even_when_seed_scope_head_and_projection_match() {
     assert_eq!(actual_before.seed(), other_before.seed());
     assert_eq!(actual_before.scope(), other_before.scope());
     assert_eq!(actual_before.revision(), other_before.revision());
-    assert_eq!(actual_before.canonical_bytes(), other_before.canonical_bytes());
-    assert_ne!(actual_before.accepted_history_basis().unwrap(), other_before.accepted_history_basis().unwrap());
+    assert_eq!(
+        actual_before.canonical_bytes(),
+        other_before.canonical_bytes()
+    );
+    assert_ne!(
+        actual_before.accepted_history_basis().unwrap(),
+        other_before.accepted_history_basis().unwrap()
+    );
     let mut s = collect(actual_before, memory(), Script::default(), true);
     assert_eq!(s.request.expected_revision, 1);
     assert!(s.gate().is_ok(), "genuine nonempty prefix positive control");
@@ -434,8 +554,15 @@ fn missing_commit_retry_basis_or_second_append_cannot_pass_the_immediate_gate() 
 
 #[test]
 fn failed_actual_core_generation_and_unavailable_capture_statuses_are_not_success() {
-    let failed = collect(engine(false), memory(),
-        Script { fail_narrator: true, ..Script::default() }, true);
+    let failed = collect(
+        engine(false),
+        memory(),
+        Script {
+            fail_narrator: true,
+            ..Script::default()
+        },
+        true,
+    );
     assert_eq!(failed.outcome.as_ref().err(), Some(&Error::Provider));
     same_source(&failed.before, &failed.after);
     refused(&failed, GateError::Unavailable);
@@ -445,7 +572,12 @@ fn failed_actual_core_generation_and_unavailable_capture_statuses_are_not_succes
         s.reply["data"]["details"]["status"] = json!(status);
         refused(&s, GateError::Unavailable);
     }
-    for kind in ["generation_request", "parsed_proposal", "validated_plan_not_durable_commit", "accepted_candidate_not_durable_commit"] {
+    for kind in [
+        "generation_request",
+        "parsed_proposal",
+        "validated_plan_not_durable_commit",
+        "accepted_candidate_not_durable_commit",
+    ] {
         let mut s = original.clone();
         s.artifacts_mut().retain(|a| a["kind"] != kind);
         s.renumber();
@@ -456,8 +588,15 @@ fn failed_actual_core_generation_and_unavailable_capture_statuses_are_not_succes
 #[test]
 fn actual_cancelled_core_attempt_is_unavailable_without_canonical_append() {
     for recipe in [memory(), SceneRecipeV1::LiteralV1] {
-        let cancelled = collect(engine(false), recipe,
-            Script { cancel_narrator: true, ..Script::default() }, true);
+        let cancelled = collect(
+            engine(false),
+            recipe,
+            Script {
+                cancel_narrator: true,
+                ..Script::default()
+            },
+            true,
+        );
         assert_eq!(cancelled.outcome.as_ref().err(), Some(&Error::Cancelled));
         same_source(&cancelled.before, &cancelled.after);
         refused(&cancelled, GateError::Unavailable);
@@ -469,16 +608,27 @@ fn actual_domain2_author_correction_has_no_scene_capture_success() {
     let s = sample(memory());
     let proposition = s.before.seed().facts["relic-location"].proposition.clone();
     let input = AuthorCorrectionInputV1 {
-        version: 1, parent: s.before.scope().clone(), expected_parent_revision: 0,
-        fork_revision: 0, child_branch: "scene-capture-corrected".into(),
+        version: 1,
+        parent: s.before.scope().clone(),
+        expected_parent_revision: 0,
+        fork_revision: 0,
+        child_branch: "scene-capture-corrected".into(),
         operation: AuthorCorrectionOperationV1::ReplaceFactProposition {
-            fact: "relic-location".into(), expected_proposition: proposition,
+            fact: "relic-location".into(),
+            expected_proposition: proposition,
             replacement: "SYNTHETIC_CORRECTED_TRUTH".into(),
         },
         reason: "Synthetic diagnostic Domain2 qualification".into(),
     };
-    let plan = s.before.prepare_author_correction(&input, &|| false).unwrap();
-    let d2 = s.before.apply_author_correction(&plan, &|| false).unwrap().engine;
+    let plan = s
+        .before
+        .prepare_author_correction(&input, &|| false)
+        .unwrap();
+    let d2 = s
+        .before
+        .apply_author_correction(&plan, &|| false)
+        .unwrap()
+        .engine;
     assert_eq!(d2.domain_version(), 2);
     let mut unsupported = s;
     unsupported.before = d2.clone();
@@ -499,12 +649,24 @@ fn capture_identity_and_each_role_budget_are_bound() {
         refused(&s, GateError::CaptureBinding);
     }
     for role in ["director", "narrator"] {
-        for field in ["max_output_bytes", "max_output_tokens", "max_pending_polls", "deadline_ms"] {
+        for field in [
+            "max_output_bytes",
+            "max_output_tokens",
+            "max_pending_polls",
+            "deadline_ms",
+        ] {
             let mut s = original.clone();
             s.generation_mut(role)["budget"][field] = json!(0);
             refused(&s, GateError::CaptureBinding);
         }
-        for field in ["version", "scope", "turn", "revision", "model_profile", "schema_id"] {
+        for field in [
+            "version",
+            "scope",
+            "turn",
+            "revision",
+            "model_profile",
+            "schema_id",
+        ] {
             let mut s = original.clone();
             s.generation_mut(role)[field] = match field {
                 "version" | "revision" => json!(99),
@@ -529,8 +691,11 @@ fn recording_order_multiplicity_and_hashes_are_not_set_membership() {
         for schema in [false, true] {
             let mut s = original.clone();
             let c = s.recordings.iter_mut().find(|c| c.role == role).unwrap();
-            if schema { c.schema_sha256 = "0".repeat(64); }
-            else { c.prompt_sha256 = "0".repeat(64); }
+            if schema {
+                c.schema_sha256 = "0".repeat(64);
+            } else {
+                c.prompt_sha256 = "0".repeat(64);
+            }
             refused(&s, GateError::RecordingMismatch);
         }
     }
@@ -546,12 +711,24 @@ fn malformed_ordinals_unknown_and_duplicate_structural_artifacts_are_refused() {
     ordinal.artifacts_mut()[0]["ordinal"] = json!(77);
     refused(&ordinal, GateError::Malformed);
     let mut unknown = original.clone();
-    unknown.artifacts_mut().push(json!({"kind":"unrecognised_authority","value":{},"ordinal":0}));
+    unknown
+        .artifacts_mut()
+        .push(json!({"kind":"unrecognised_authority","value":{},"ordinal":0}));
     unknown.renumber();
     refused(&unknown, GateError::Malformed);
-    for kind in ["parsed_proposal", "validated_plan_not_durable_commit", "accepted_candidate_not_durable_commit", "selected_context"] {
+    for kind in [
+        "parsed_proposal",
+        "validated_plan_not_durable_commit",
+        "accepted_candidate_not_durable_commit",
+        "selected_context",
+    ] {
         let mut duplicate = original.clone();
-        let value = duplicate.artifacts().iter().find(|a| a["kind"] == kind).unwrap().clone();
+        let value = duplicate
+            .artifacts()
+            .iter()
+            .find(|a| a["kind"] == kind)
+            .unwrap()
+            .clone();
         duplicate.artifacts_mut().push(value);
         duplicate.renumber();
         refused(&duplicate, GateError::Malformed);
@@ -569,14 +746,25 @@ fn oversized_capture_is_bounded_before_source_validation() {
 fn director_envelope_only_and_raw_output_authentication_limits_are_explicit() {
     let original = sample(memory());
     let mut changed = original.clone();
-    let prompt = changed.generation_mut("director")["input"]["prompt"].as_str().unwrap().to_owned();
-    changed.generation_mut("director")["input"]["prompt"] = json!(format!("{prompt} SYNTHETIC_UNAUTHENTICATED_DIRECTOR_SUFFIX"));
+    let prompt = changed.generation_mut("director")["input"]["prompt"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    changed.generation_mut("director")["input"]["prompt"] = json!(format!(
+        "{prompt} SYNTHETIC_UNAUTHENTICATED_DIRECTOR_SUFFIX"
+    ));
     changed.rehash_generation("director");
     // Deliberately NOT a claim that this altered prompt was forwarded. The
     // smallest gate binds Narrator source only; Director is envelope-only.
-    let checked = changed.gate().ok().expect("Director source authentication is outside V1");
+    let checked = changed
+        .gate()
+        .ok()
+        .expect("Director source authentication is outside V1");
     let actual = original.gate().ok().unwrap();
-    assert_eq!(checked.narrator_prompt_sha256(), actual.narrator_prompt_sha256());
+    assert_eq!(
+        checked.narrator_prompt_sha256(),
+        actual.narrator_prompt_sha256()
+    );
     assert_eq!(checked.receipt_sha256(), actual.receipt_sha256());
     let mut output_copy = original.clone();
     // Make a self-consistent raw-output diagnostic, without changing the native

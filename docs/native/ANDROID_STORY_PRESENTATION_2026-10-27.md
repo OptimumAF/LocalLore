@@ -254,5 +254,16 @@ final hashes are recorded in the ticket handoff after creation, avoiding a
 self-referential report hash. Both ignored D: physical generated directories
 must remain present and ignored; the source recovery reads their presence and
 checkout identity without traversing, moving, copying or deleting their payloads.
+The first source-recovery attempt actually fails before bundle creation:
+its added `git check-ignore -z <paths>` combination is invalid because Git
+requires stdin with `-z`. Owner940ms/worker1 has known cleanup/capture,
+0-byte stdout/1424-byte stderr. Root/D identities and clean status were captured,
+but there is no successful bundle or public-blob claim from that attempt.
+The6739-byte failed index SHA256 is
+`b3db88d30dbf5133050b1ec95eb29d8ca7b0aee80e44a8efb7a73adc5e14989e`.
+It and the original helper/output remain unchanged. A new create-only v2 helper
+uses ordinary path arguments with an exact line comparison in a separate
+destination, retains the original failure with explicit attribution, and must
+pass actual terminal/replay checks before the ticket handoff claims success.
 No source is changed after that final bundle. Full milestone checkboxes remain
 unchecked pending their remaining criteria and owner acceptance.

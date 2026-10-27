@@ -100,6 +100,38 @@ and unchanged canonical engine/accepted receipts. It does not mistake normal
 failure bookkeeping for accepted history or weaken production validation.
 Full package qualification requires a fresh complete run after this correction.
 
+## Complete host-package follow-up
+
+At behavior checkpoint `4d268b92`, all three complete package runs pass on the
+same1954 tracked inputs, unchanged within every owner:
+
+| Package | Passed / failed / ignored | Harness summaries | Owner elapsed / worker |
+|---|---|---|---|
+| `locallore` |426 /0 /4 |56 |99610ms /0 |
+| `locallore-storage` |239 /0 /6 |30 |271859ms /0 |
+| `locallore-workspace` |149 /0 /1 |27 |43322ms /0 |
+
+The total is814 passes,0 failures and11 ignored cases across113 summaries.
+All ten new workspace tests pass, including canonical alias compilation at the
+64-emoji/256-byte boundary, duplicate-name ambiguity and durable fork/archive
+round trips. Core's eight new unit adversaries are included in its complete
+426-test result. These are overlapping coverage with the focused author runs,
+not additive unique-test totals. Every owner reports complete cleanup/capture
+and stderr0; ordinary Cargo compiler/test stderr is retained in the separate
+command captures. The original combined expiry and failed package/diagnostic
+runs keep their failed or incomplete status.
+
+Clippy over all three packages/all targets/all features, with warnings denied,
+also passes22485ms/worker0, cleanup/capture true and1954 tracked inputs unchanged.
+The healthy-store failure assertion distinguishes terminal bookkeeping from
+accepted effects; it does not promise a failed ledger write can never be lost
+under storage faults. `live_counts()` proves session/worker conservation, while
+the Store query separately proves no draft. Current archives exclude
+noncommitted workflow keys/status; those records do not become canonical events.
+
+Android build/JVM/lint/artifact and actual emulator qualification remain pending
+at this follow-up. No older834-input runtime result is reused for this source.
+
 No dependency is introduced or repinned. Existing locked offline toolchains are
 reused. All requested verification will retain original bounded output and exact
 source/APK/owner bindings in create-only private C: evidence; no model weights,

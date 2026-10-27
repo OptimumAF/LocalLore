@@ -154,7 +154,10 @@ open class MainActivity : ComponentActivity() {
                     StoryCreationDialog(creation, controller::dismiss, controller::editTitle, controller::confirm,
                         exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION, onTemplate = controller::chooseTemplate,
                         onPlayerName = controller::editPlayerName, onPlayerReview = controller::reviewChanges,
-                        onTone = controller::editTone, onExcludedPhrases = controller::editExcludedPhrases)
+                        onTone = controller::editTone, onExcludedPhrases = controller::editExcludedPhrases,
+                        onOriginal=controller::chooseOriginal,onOriginalEdit={s,i,p,t -> controller.editOriginal(s,i,p,t); Unit},
+                        onOriginalGenerate={controller.generateOriginal(it); Unit},onOriginalReview={controller.reviewOriginal(it); Unit},
+                        onOriginalCreate={s,r -> controller.confirmOriginal(s,r); Unit})
                 }
                 model.deletionController?.let { controller ->
                     StoryDeletionDialog(deletion, controller::dismiss, controller::cancel, controller::confirm)

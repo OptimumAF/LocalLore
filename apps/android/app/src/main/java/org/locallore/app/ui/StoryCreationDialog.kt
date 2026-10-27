@@ -45,6 +45,10 @@ import org.locallore.app.validStoryPlayerName
 import org.locallore.app.hasReviewedPlayerName
 import org.locallore.app.hasReviewedCreation
 import org.locallore.app.storyPresentationDraft
+import org.locallore.app.OriginalStoryUiState
+import org.locallore.app.OriginalInput
+import org.locallore.app.OriginalProposal
+import org.locallore.app.OriginalReview
 
 /** Initial starter/name/title review. No existing-story or mechanical-state editor. */
 @Composable
@@ -59,8 +63,17 @@ internal fun StoryCreationDialog(
     onPlayerReview: (StoryCreationRequest) -> Unit = {},
     onTone: (StoryCreationRequest, String) -> Unit = { _, _ -> },
     onExcludedPhrases: (StoryCreationRequest, String) -> Unit = { _, _ -> },
+    onOriginal: (StoryCreationRequest) -> Unit = {},
+    onOriginalEdit: (OriginalStoryUiState,OriginalInput,OriginalProposal?,String) -> Unit = { _,_,_,_ -> },
+    onOriginalGenerate: (OriginalStoryUiState) -> Unit = {},
+    onOriginalReview: (OriginalStoryUiState) -> Unit = {},
+    onOriginalCreate: (OriginalStoryUiState,OriginalReview) -> Unit = { _,_ -> },
 ) {
     if (!state.visible) return
+    state.original?.let { original ->
+        OriginalStoryDialog(original,onDismiss,onOriginalEdit,onOriginalGenerate,onOriginalReview,onOriginalCreate,exposeTestTags)
+        return
+    }
     val window = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
     val width = with(density) { window.width.toDp() }
@@ -92,6 +105,10 @@ internal fun StoryCreationDialog(
                     state.notice?.let { notice -> Text(notice, modifier = Modifier.testTag("story-creation-notice")
                         .semantics { liveRegion = LiveRegionMode.Polite }) }
                     if (request != null) {
+                        if(state.originalCapabilities?.available==true) {
+                            OutlinedButton(onClick={onOriginal(request)},enabled=editing,
+                                modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("story-creation-original")) { Text("Write an original story") }
+                        }
                         if (state.templates.size > 1) {
                             Text("Choose a starter", style = MaterialTheme.typography.titleSmall,
                                 modifier = Modifier.semantics { heading() })

@@ -22,6 +22,7 @@ internal data class StoryCreationPreview(val template: String, val seedSha256: S
 internal data class StoryCreationRequest(val preview: StoryCreationPreview, val title: String, val creationId: String)
 internal data class StoryCreationClose(val saved: SavedSnapshot? = null, val refreshRequired: Boolean = false)
 internal interface StoryCreationGateway {
+    fun originalStories(): OriginalStoryGateway? = null
     // A null catalog is the legacy test-port capability only. The native gateway always overrides it.
     suspend fun templates(): List<StoryTemplateOption>? = null
     suspend fun previewTemplate(template: String): StoryCreationPreview {

@@ -24,6 +24,8 @@ internal data class StoryCreationUiState(
     val toneDraft: String? = null,
     val excludedPhrasesDraft: String? = null,
     val notice: String? = null,
+    val originalCapabilities: OriginalCapabilities? = null,
+    val original: OriginalStoryUiState? = null,
 )
 
 /** Consent belongs to one displayed immutable review, never a replacement or automatic retry. */
@@ -38,6 +40,24 @@ internal class StoryCreationController(
     private var active: Job? = null
     private var disposed = false
     private var createStarted = false
+    private var originalController: OriginalStoryController? = null
+    fun chooseOriginal(expected: StoryCreationRequest) {
+        val before=mutable.value
+        if(disposed || !before.visible || before.busy || before.closing || before.review !== expected || before.original!=null) return
+        val capabilities=before.originalCapabilities ?: return
+        val port=gateway.originalStories() ?: return
+        if(!capabilities.available)return
+        generation++
+        mutable.value=before.copy(review=null)
+        originalController=OriginalStoryController(port,scope,
+            { next -> if(!disposed && mutable.value.visible) mutable.value=mutable.value.copy(original=next) },::finish)
+            .also { it.open(capabilities) }
+    }
+    fun editOriginal(expected: OriginalStoryUiState,input: OriginalInput,proposal: OriginalProposal?,title: String) =
+        originalController?.edit(expected,input,proposal,title)
+    fun generateOriginal(expected: OriginalStoryUiState) = originalController?.generate(expected)
+    fun reviewOriginal(expected: OriginalStoryUiState) = originalController?.review(expected)
+    fun confirmOriginal(expected: OriginalStoryUiState,review: OriginalReview) = originalController?.confirm(expected,review)
 
     fun open() {
         if (disposed || mutable.value.visible || active != null) return
@@ -48,6 +68,7 @@ internal class StoryCreationController(
         launch(ticket) {
             try {
                 val catalog = gateway.templates()
+                val originalCapabilities = gateway.originalStories()?.originalCapabilities()
                 val options: List<StoryTemplateOption>
                 val preview: StoryCreationPreview
                 if (catalog == null) {
@@ -62,6 +83,7 @@ internal class StoryCreationController(
                 }
                 if (current(ticket)) mutable.value = mutable.value.copy(
                     templates = options, review = StoryCreationRequest(preview, preview.defaultTitle, creationId),
+                    originalCapabilities = originalCapabilities,
                     playerNameDraft = preview.playerSetup?.playerName,
                     toneDraft = preview.presentation?.tone,
                     excludedPhrasesDraft = preview.presentation?.excludedPhrases?.joinToString("\n"),
@@ -282,6 +304,7 @@ internal class StoryCreationController(
     }
 
     fun dismiss() {
+        if(mutable.value.original!=null) { originalController?.dismiss(); return }
         val before = mutable.value
         if (disposed || !before.visible || before.closing) return
         val ticket = ++generation
@@ -303,6 +326,7 @@ internal class StoryCreationController(
     fun dispose() {
         if (disposed) return
         disposed = true
+        originalController?.dispose()
         generation++
         active?.cancel()
         active = null
@@ -323,6 +347,7 @@ internal class StoryCreationController(
         job.start()
     }
     private fun finish(result: StoryCreationClose) {
+        originalController=null
         generation++
         active = null
         createStarted = false

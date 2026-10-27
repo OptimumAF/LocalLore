@@ -22,7 +22,7 @@ internal class DurableGateway(
     private val transport: WorkspaceTransport,
     autoCreateIfEmpty: Boolean = true,
     initialScopeHint: PlayDraftScope? = null,
-) : DemoGateway, StoryCreationGateway {
+) : DemoGateway, StoryCreationGateway, OriginalStoryGateway {
     private var mayAutoCreate = autoCreateIfEmpty
     // Navigation IDs are an unresolved UI hint, never a saved engine/session.
     // Keep them through initialization failures, including failures after attach.
@@ -394,6 +394,55 @@ internal class DurableGateway(
             }
         }
         closeSession()
+    }
+    override fun originalStories(): OriginalStoryGateway = this
+    private fun authoringReady() {
+        if (closed.get()) throw WorkspaceFailure("Closed")
+        if (operation != null) throw WorkspaceFailure("Busy")
+    }
+    override suspend fun originalCapabilities(): OriginalCapabilities {
+        authoringReady(); return OriginalStoryWire.capabilities(call(command("authoring_capabilities")))
+    }
+    override suspend fun beginOriginal(input: OriginalInput): OriginalJob {
+        authoringReady()
+        val value=OriginalStoryWire.input(input.frozen()); OriginalStoryWire.input(value)
+        return OriginalStoryWire.job(call(command("authoring_begin").put("input",value)))
+    }
+    override suspend fun generateOriginal(job: String): OriginalGenerated {
+        authoringReady()
+        return OriginalStoryWire.generated(call(command("authoring_generate").put("job",job))).also { check(it.job==job) }
+    }
+    override suspend fun reviewOriginal(job: String, input: OriginalInput, proposal: OriginalProposal, title: String): OriginalReview {
+        authoringReady()
+        val i=input.frozen(); val p=proposal.frozen()
+        return OriginalStoryWire.review(call(command("authoring_review").put("job",job).put("input",OriginalStoryWire.input(i))
+            .put("proposal",OriginalStoryWire.proposal(p)).put("title",title))).also {
+            check(it.job==job && it.input==i && it.proposal==p && it.title==title)
+        }
+    }
+    override suspend fun cancelOriginal(job: String): Boolean {
+        if(closed.get()) throw WorkspaceFailure("Closed")
+        return OriginalStoryWire.cancelled(call(command("authoring_cancel").put("job",job)))
+    }
+    override suspend fun createOriginal(review: OriginalReview, creationId: String): SavedSnapshot {
+        authoringReady()
+        check(Regex("[0-9a-f]{32}").matches(creationId) && Regex("[0-9a-f]{64}").matches(review.reviewSha256))
+        release()
+        val data=call(command("authoring_create").put("job",review.job).put("review_sha256",review.reviewSha256).put("creation_id",creationId))
+        try {
+            check(data.keys().asSequence().toSet()==setOf("session","scope","revision","created"))
+            check(data.get("created") is Boolean)
+            val selected=data.getJSONObject("scope")
+            check(selected.keys().asSequence().toSet()==setOf("story","branch"))
+            check(selected.get("story")=="original-$creationId" && selected.get("branch")=="main")
+            val head=data.get("revision"); check((head is Int || head is Long) && (head as Number).toLong()>=0)
+            check(localUtf8(data.get("session") as String).size in 1..128)
+        } catch (_: Exception) { throw WorkspaceFailure("Malformed") }
+        attach(data)
+        return snapshot().also {
+            val selected=it.selected
+            check(selected!=null && selected.story=="original-$creationId" && selected.branch=="main" && selected.title==review.title)
+        }
     }
     override suspend fun templates(): List<StoryTemplateOption> {
         if (closed.get()) throw WorkspaceFailure("Closed")

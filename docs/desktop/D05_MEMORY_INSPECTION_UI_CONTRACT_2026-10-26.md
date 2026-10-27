@@ -63,7 +63,7 @@ across packet-page navigation only for the same context and binding.
 
 Identifiers are Core ASCII1..64; head/epoch and all serialized integers must be
 safe integers. Eligibility is `persistent && domainVersion===1 && lab &&
-observer===player`; play/lab view is additionally bound in the identity. This
+view==='lab' && observer===player`; view is additionally bound in the identity. This
 frontend eligibility is presentation only: the native Host still owns grant,
 session, actual player and source validation. Character/Omni lens never inherits
 player inspection merely from having Lab access. D2 stays unavailable.

@@ -98,7 +98,34 @@ Its bound owned stop returns0 and the emulator is actually terminal0. Guest
 owner reports `stop_requested`,388877ms/worker1, cleanup/capture/closure true and
 `guest_flush_claimed:false`. No same-installation continuation is used.
 
-CHILD and retained-parent qualification for this827 map remain pending.
+The first current827 CHILD attempt is **failed and unqualified**,48837ms/worker2,
+known cleanup/capture, stderr0, generic `external_refused`. The case claim is
+burned but no client directory, controller, proof, external record or final
+source map is created. Its worker starts61.278798 seconds after the owner;
+the complete host interval ends approximately110.115798 seconds after owner
+start. This is consistent with late1100-second admission within the1200-second
+lease, but the coarse error does not establish the exact refusal stage or cause.
+No SDK, process-death or product-failure result is inferred from the missing files.
+
+The failed guest is closed by its bound stop: actual outer0,
+`stop_requested`,163925ms/worker1, cleanup/capture/closure true and no guest-flush
+claim. Thirty original files486523 bytes are privately sealed; index10731 bytes
+SHA256 `edb5be0893b067d0d8fb955621bcff0768145c62b925eb42f0bb9021bbaa4680`,
+ZIP135489 bytes SHA256
+`bc4c11f7d406eaeb3ccc82a36a140f256bdfb995d7610a4f1f78a316e2855cfd`.
+Missing outputs remain absent; originals/copies/all ZIP members and earlier
+seals are independently checked. This guest is never adopted or retried.
+
+For the distinct retained-parent case, a single continuous tool orchestration
+waits on the same actual live owner session, recognizes exact readiness, then
+immediately invokes the existing external CLI without a model turn. The source,
+all gate checks and all bounds remain unchanged. It creates its coordination
+observation exclusively and labels it derived, not runtime proof. Kernel records
+show this worker starts8.563755 seconds after the owner; actual SDK clients are
+created. This improves dispatch latency, not proof of earlier timeout causation
+or a reserved completion window. Runtime qualification is still pending.
+
+CHILD requalification and retained-parent qualification for this827 map remain pending.
 Each needs its own new standard2GiB/two-CPU API35/x86_64 guest. Existing current
 profile capacity checks apply before preparation and launch; no floor is bypassed.
 Finish all build/integration/preparation work before timed launch, dispatch

@@ -3,12 +3,15 @@ package org.locallore.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -16,14 +19,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -32,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import org.locallore.app.StoryCreationRequest
+import org.locallore.app.StoryTemplateOption
 import org.locallore.app.StoryCreationUiState
 import org.locallore.app.validStoryTitle
 
@@ -43,6 +50,7 @@ internal fun StoryCreationDialog(
     onTitle: (StoryCreationRequest, String) -> Unit,
     onConfirm: (StoryCreationRequest) -> Unit,
     exposeTestTags: Boolean = false,
+    onTemplate: (StoryCreationRequest, StoryTemplateOption) -> Unit = { _, _ -> },
 ) {
     if (!state.visible) return
     val window = LocalWindowInfo.current.containerSize
@@ -61,7 +69,7 @@ internal fun StoryCreationDialog(
                     .testTag("story-creation-content"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Start a story", style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.semantics { heading() })
-                    Text("Choose a title for this built-in starter. The title labels a new save; it does not change its rules or world.")
+                    Text("Choose a built-in starter, review its starting facts, then name the new save. The title does not change its rules or world.")
                     if (state.busy) {
                         CircularProgressIndicator()
                         Text(when { state.closing -> "Finishing local work…"; state.creating -> "Creating story…"; else -> "Loading starter…" })
@@ -69,10 +77,29 @@ internal fun StoryCreationDialog(
                     state.notice?.let { notice -> Text(notice, modifier = Modifier.testTag("story-creation-notice")
                         .semantics { liveRegion = LiveRegionMode.Polite }) }
                     if (request != null) {
+                        if (state.templates.size > 1) {
+                            Text("Choose a starter", style = MaterialTheme.typography.titleSmall,
+                                modifier = Modifier.semantics { heading() })
+                            Column(Modifier.selectableGroup()) {
+                                state.templates.forEach { option ->
+                                    key(CreationIdentity(request), CreationIdentity(option)) {
+                                        val selected = option.template == request.preview.template
+                                        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                            .testTag("story-template-${option.template}")
+                                            .selectable(selected = selected, enabled = editing, role = Role.RadioButton,
+                                                onClick = { onTemplate(request, option) }),
+                                            verticalAlignment = Alignment.CenterVertically) {
+                                            RadioButton(selected = selected, enabled = editing, onClick = null)
+                                            Text("${option.defaultTitle} · ${ruleLabel(option.profile)}")
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("story-creation-preview")) {
                             Text("Starter · ${request.preview.defaultTitle}", style = MaterialTheme.typography.titleMedium)
                             Text(request.preview.description)
-                            Text("Rules · " + when (request.preview.profile) { "fantasy_v1" -> "Fantasy"; else -> "Starter-defined" })
+                            Text("Rules · ${ruleLabel(request.preview.profile)}")
                             Text("Your starting view", style = MaterialTheme.typography.titleSmall)
                             request.preview.details.forEach { Text(it) }
                         }
@@ -105,4 +132,10 @@ internal fun StoryCreationDialog(
 private class CreationIdentity(private val value: Any) {
     override fun equals(other: Any?) = other is CreationIdentity && other.value === value
     override fun hashCode() = System.identityHashCode(value)
+}
+
+private fun ruleLabel(profile: String) = when (profile) {
+    "fantasy_v1" -> "Fantasy"
+    "narrative_v1" -> "Narrative"
+    else -> "Starter-defined"
 }

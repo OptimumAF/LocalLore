@@ -24,6 +24,8 @@ class ProcessVerificationProbeTest {
         ProcessVerificationProbe.saved(PlayDraftScope("synthetic_story", "root"))
         val files = listOf("created.json", "commands.json", "saved.json").map { File(directory, it) }
         val original = files.map { it.readBytes() }
+        ProcessVerificationProbe.operation("story_templates")
+        files.zip(original).forEach { (file, bytes) -> assertArrayEquals(bytes, file.readBytes()) }
         val commands = JSONObject(original[1].toString(Charsets.UTF_8))
         assertEquals(2, commands.getInt("version"))
         assertEquals("locallore_process_verify_v2", commands.getString("scope"))

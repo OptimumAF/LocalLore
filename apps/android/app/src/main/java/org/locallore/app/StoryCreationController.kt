@@ -18,6 +18,7 @@ internal data class StoryCreationUiState(
     val creating: Boolean = false,
     val closing: Boolean = false,
     val review: StoryCreationRequest? = null,
+    val templates: List<StoryTemplateOption> = emptyList(),
     val notice: String? = null,
 )
 
@@ -41,10 +42,24 @@ internal class StoryCreationController(
         createStarted = false
         mutable.value = StoryCreationUiState(visible = true, busy = true)
         launch(ticket) {
-            val preview = try {
-                val source = gateway.preview()
-                // New identity even if a port reuses a DTO. Strings are immutable; the list is not.
-                source.copy(details = Collections.unmodifiableList(ArrayList(source.details)))
+            try {
+                val catalog = gateway.templates()
+                val options: List<StoryTemplateOption>
+                val preview: StoryCreationPreview
+                if (catalog == null) {
+                    // Compatibility for original fake ports only; native errors never select this path.
+                    preview = capture(gateway.preview())
+                    check(preview.template == DEFAULT_STORY_TEMPLATE)
+                    options = captureOptions(listOf(preview.option()))
+                } else {
+                    options = captureOptions(catalog)
+                    preview = capture(gateway.previewTemplate(options.first().template))
+                    check(preview.option() == options.first())
+                }
+                if (current(ticket)) mutable.value = mutable.value.copy(
+                    templates = options, review = StoryCreationRequest(preview, preview.defaultTitle, creationId),
+                    notice = "Review this starter and title. Nothing is created until you choose Create.",
+                )
             } catch (cancelled: CancellationException) {
                 if (current(ticket)) mutable.value = mutable.value.copy(
                     notice = "Starter review stopped. No story was created.")
@@ -52,13 +67,50 @@ internal class StoryCreationController(
             } catch (_: Exception) {
                 if (current(ticket)) mutable.value = mutable.value.copy(
                     notice = "Starter review is unavailable. No story was created. Close and try again.")
-                return@launch
             }
-            if (current(ticket)) mutable.value = mutable.value.copy(
-                review = StoryCreationRequest(preview, preview.defaultTitle, creationId),
-                notice = "Review this starter and title. Nothing is created until you choose Create.",
-            )
         }
+    }
+
+    fun chooseTemplate(expected: StoryCreationRequest, option: StoryTemplateOption) {
+        val before = mutable.value
+        if (disposed || !before.visible || before.busy || before.creating || before.closing || createStarted ||
+            before.review !== expected || before.templates.none { it === option } ||
+            option.template == expected.preview.template) return
+        val ticket = ++generation
+        // Revoke the old confirmation synchronously before asking native code for the new view.
+        mutable.value = before.copy(review = null, busy = true, notice = "Loading the selected starter…")
+        launch(ticket) {
+            try {
+                val preview = capture(gateway.previewTemplate(option.template))
+                check(preview.option() == option)
+                val title = if (expected.title == expected.preview.defaultTitle) preview.defaultTitle else expected.title
+                if (current(ticket)) mutable.value = mutable.value.copy(
+                    review = StoryCreationRequest(preview, title, expected.creationId),
+                    notice = "Review this starter and title. Nothing is created until you choose Create.",
+                )
+            } catch (cancelled: CancellationException) {
+                if (current(ticket)) mutable.value = mutable.value.copy(
+                    notice = "Starter review stopped. No story was created.")
+                throw cancelled
+            } catch (_: Exception) {
+                if (current(ticket)) mutable.value = mutable.value.copy(
+                    notice = "The selected starter could not be reviewed. No story was created. Close and try again.")
+            }
+        }
+    }
+
+    private fun capture(source: StoryCreationPreview): StoryCreationPreview {
+        check(validStoryTemplateProfile(source.template, source.profile))
+        return source.copy(details = Collections.unmodifiableList(ArrayList(source.details)))
+    }
+    private fun captureOptions(source: List<StoryTemplateOption>): List<StoryTemplateOption> {
+        check(source.size in 1..8)
+        val options = source.map { it.copy() }
+        check(options.first().template == DEFAULT_STORY_TEMPLATE)
+        check(options.map { it.template }.toSet().size == options.size)
+        check(options.all { validStoryTemplateProfile(it.template, it.profile) && validStoryTitle(it.defaultTitle) &&
+            it.description.isNotEmpty() && it.description.toByteArray(Charsets.UTF_8).size <= 2048 })
+        return Collections.unmodifiableList(options)
     }
 
     fun editTitle(expected: StoryCreationRequest, text: String) {

@@ -17,7 +17,7 @@ internal object ProcessVerificationProbe {
     private val keys = listOf("workspace", "branches", "resume", "create", "open", "play_snapshot",
         "free_text", "submit", "prepare", "commit", "cancel", "other", "story_template", "create_named")
     // Known metadata/resource operations do not propose or apply gameplay.
-    private val metadata = setOf("close", "capabilities", "model_status")
+    private val metadata = setOf("close", "capabilities", "model_status", "story_templates")
     private var proofRoot: File? = null
     private var run: String? = null
     private var processRun: String? = null

@@ -512,7 +512,7 @@ for (const status of [
     rejects(`${status} cannot invent literal counts`, (v) => {
         v.report.turns[0].construction_evidence_status = status;
     });
-test("headless literal/relevant panel labels and explicit protocol3 rerun unavailability", () => {
+test("headless literal/relevant panel labels and separate protocol3 selected controls", () => {
     const html = panel(decode(snapshot()));
     htmlFiles.push(["literal", html]);
     for (const expected of [
@@ -521,7 +521,8 @@ test("headless literal/relevant panel labels and explicit protocol3 rerun unavai
         "Construction evidence",
         "Source units",
         "Selected units",
-        "Protocol 3 selected-case rerun unavailable",
+        "Read-only Protocol 3 report",
+        "Selected experiments use their separate controls",
     ])
         assert.ok(html.includes(expected), expected);
     assert.ok(!html.includes("state_recent_transcript_v1"));

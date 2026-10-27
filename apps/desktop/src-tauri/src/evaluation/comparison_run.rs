@@ -1174,6 +1174,8 @@ impl EvaluationManager {
 mod native;
 mod native_for;
 #[cfg(test)]
+mod scene_native_review;
+#[cfg(test)]
 mod native_review_tests;
 #[cfg(test)]
 mod review_tests;

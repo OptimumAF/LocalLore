@@ -227,3 +227,150 @@ export function checkedComparisonRunCatalog(
     }
     return result as ComparisonRunCatalog;
 }
+
+// Additive native transport. The legacy allowlist and decoders above remain V1.
+export const nativeComparisonRunErrors = [
+    ...comparisonRunErrors,
+    "EvaluationModelBusy",
+    "Cleanup",
+] as const;
+export type NativeComparisonRunError =
+    (typeof nativeComparisonRunErrors)[number] | "ComparisonRunWire";
+export type NativeComparisonRunMetadata = Omit<
+    ComparisonRunMetadata,
+    "input_lane"
+> & {
+    input_lane: "approved_native";
+};
+export type NativeComparisonRunCatalog = Omit<
+    ComparisonRunCatalog,
+    "version" | "input_lane" | "runs"
+> & {
+    version: 2;
+    input_lane: "approved_native";
+    runs: NativeComparisonRunMetadata[];
+};
+export type NativeComparisonRunStatus = Omit<
+    ComparisonRunStatus,
+    "version" | "input_lane" | "phase" | "error"
+> & {
+    version: 2;
+    input_lane: "approved_native";
+    phase:
+        | ComparisonRunStatus["phase"]
+        | "awaiting_confirmation"
+        | "cleanup_required";
+    error: (typeof nativeComparisonRunErrors)[number] | null;
+    cleanup_required: boolean;
+    cleanup_running: boolean;
+    cause: (typeof nativeComparisonRunErrors)[number] | null;
+};
+export function checkedNativeComparisonRunStatus(
+    value: unknown,
+): NativeComparisonRunStatus {
+    const result = exact(detached(value, 32 * 1024), [
+        "version",
+        "kind",
+        "protocol_version",
+        "input_lane",
+        "client_id",
+        "run_id",
+        "run_token",
+        "operation_id",
+        "comparison_kind",
+        "batch",
+        "phase",
+        "running",
+        "error",
+        "completed_scenes",
+        "completed",
+        "report_ready",
+        "source_matches",
+        "cleanup_required",
+        "cleanup_running",
+        "cause",
+    ]);
+    wire(
+        result.version === 2 &&
+            result.kind === "comparison_run" &&
+            result.protocol_version === 3 &&
+            result.input_lane === "approved_native",
+    );
+    [result.client_id, result.run_id, result.run_token].forEach(
+        comparisonRunUuid,
+    );
+    if (result.operation_id !== null) number(result.operation_id, 1);
+    comparisonRunKind(result.comparison_kind);
+    comparisonRunBatch(result.batch);
+    choice(result.phase, [
+        "retained",
+        "starting",
+        "running",
+        "opening",
+        "stopping_at_boundary",
+        "paused",
+        "completed",
+        "failed",
+        "closed",
+        "awaiting_confirmation",
+        "cleanup_required",
+    ]);
+    if (result.error !== null) choice(result.error, nativeComparisonRunErrors);
+    if (result.cause !== null) choice(result.cause, nativeComparisonRunErrors);
+    number(result.completed_scenes, 0, 4);
+    [
+        result.running,
+        result.completed,
+        result.report_ready,
+        result.cleanup_required,
+        result.cleanup_running,
+    ].forEach(boolean);
+    if (result.source_matches !== null) boolean(result.source_matches);
+    // No relationship among phases, readiness, running and cleanup is invented.
+    return result as NativeComparisonRunStatus;
+}
+export function checkedNativeComparisonRunCatalog(
+    value: unknown,
+): NativeComparisonRunCatalog {
+    const result = exact(detached(value, 64 * 1024), [
+        "version",
+        "kind",
+        "protocol_version",
+        "input_lane",
+        "runs",
+        "max_new_scenes",
+    ]);
+    wire(
+        result.version === 2 &&
+            result.kind === "comparison_run_catalog" &&
+            result.protocol_version === 3 &&
+            result.input_lane === "approved_native" &&
+            result.max_new_scenes === 4,
+    );
+    const rows = result.runs;
+    wire(Array.isArray(rows) && rows.length <= 32);
+    const seen = new Set<string>();
+    for (const row of rows) {
+        const metadata = exact(row, [
+            "run_id",
+            "client_id",
+            "comparison_kind",
+            "initial_batch",
+            "created_ms",
+            "protocol_version",
+            "input_lane",
+        ]);
+        const id = comparisonRunUuid(metadata.run_id);
+        wire(!seen.has(id));
+        seen.add(id);
+        comparisonRunUuid(metadata.client_id);
+        comparisonRunKind(metadata.comparison_kind);
+        comparisonRunBatch(metadata.initial_batch);
+        number(metadata.created_ms);
+        wire(
+            metadata.protocol_version === 3 &&
+                metadata.input_lane === "approved_native",
+        );
+    }
+    return result as NativeComparisonRunCatalog;
+}

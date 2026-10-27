@@ -1,17 +1,25 @@
 import {
     checkedComparisonRunCatalog,
     checkedComparisonRunStatus,
+    checkedNativeComparisonRunCatalog,
+    checkedNativeComparisonRunStatus,
     comparisonRunBatch,
     comparisonRunErrors,
     comparisonRunKind,
     comparisonRunUuid,
+    nativeComparisonRunErrors,
 } from "./comparison-run-model";
 import type {
     ComparisonRunCatalog,
     ComparisonRunError,
     ComparisonRunKind,
     ComparisonRunStatus,
+    NativeComparisonRunCatalog,
+    NativeComparisonRunStatus,
+    NativeComparisonRunError,
 } from "./comparison-run-model";
+import { checkedSelectedCleanup } from "./selected-evaluation-model";
+import type { SelectedCleanup } from "./selected-evaluation-model";
 export type ComparisonRunInvoke = (
     name: string,
     args: Record<string, unknown>,
@@ -41,7 +49,66 @@ export type ComparisonRunState = {
     uncertain: boolean;
     error: ComparisonRunError | null;
 };
+export type ComparisonRunMode = "scripted_baseline" | "approved_native";
+export type NativeComparisonRunOptions = Readonly<{ mode: "approved_native" }>;
+export type NativeComparisonRunState = Omit<
+    ComparisonRunState,
+    "status" | "catalog" | "error"
+> & {
+    mode: "approved_native";
+    status: NativeComparisonRunStatus | null;
+    catalog: NativeComparisonRunCatalog | null;
+    error: NativeComparisonRunError | null;
+    cleanup: SelectedCleanup | null;
+    cleanupPending: "status" | "retry" | null;
+    cleanupUncertain: boolean;
+    cleanupError: NativeComparisonRunError | null;
+};
+export type ComparisonRunConsumerState =
+    | (ComparisonRunState & { mode: "scripted_baseline" })
+    | NativeComparisonRunState;
+type Status = ComparisonRunStatus | NativeComparisonRunStatus;
+type Catalog = ComparisonRunCatalog | NativeComparisonRunCatalog;
+type Update = Partial<
+    Omit<ComparisonRunState, "status" | "catalog" | "error">
+> & {
+    status?: Status | null;
+    catalog?: Catalog | null;
+    error?: NativeComparisonRunError | null;
+};
+type CleanupUpdate = Partial<
+    Pick<
+        NativeComparisonRunState,
+        "cleanup" | "cleanupPending" | "cleanupUncertain" | "cleanupError"
+    >
+>;
+type Transport =
+    | Readonly<{
+          mode: "scripted_baseline";
+          command: "evaluation_comparison_run";
+          status: typeof checkedComparisonRunStatus;
+          catalog: typeof checkedComparisonRunCatalog;
+      }>
+    | Readonly<{
+          mode: "approved_native";
+          command: "evaluation_comparison_native";
+          status: typeof checkedNativeComparisonRunStatus;
+          catalog: typeof checkedNativeComparisonRunCatalog;
+      }>;
+const SCRIPTED: Transport = Object.freeze({
+    mode: "scripted_baseline",
+    command: "evaluation_comparison_run",
+    status: checkedComparisonRunStatus,
+    catalog: checkedComparisonRunCatalog,
+});
+const NATIVE: Transport = Object.freeze({
+    mode: "approved_native",
+    command: "evaluation_comparison_native",
+    status: checkedNativeComparisonRunStatus,
+    catalog: checkedNativeComparisonRunCatalog,
+});
 type Owner = {
+    readonly transport: Transport;
     client: string | null;
     runId: string | null;
     token: string | null;
@@ -52,6 +119,7 @@ type Owner = {
     inFlight: number;
     retired: boolean;
     releasing: Promise<void> | null;
+    cleanupObserved: boolean;
 };
 type Ticket = { epoch: number; serial: number; owner: Owner };
 const POLL_MS = 300,
@@ -79,18 +147,33 @@ function category(error: unknown): ComparisonRunError {
         : (comparisonRunErrors.find((code) => code === value) ??
               "EvaluationIo");
 }
+function nativeCategory(error: unknown): NativeComparisonRunError {
+    const value =
+        error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "";
+    return value === "ComparisonRunWire" || value === "SelectedEvaluationWire"
+        ? "ComparisonRunWire"
+        : (nativeComparisonRunErrors.find((code) => code === value) ??
+              "EvaluationIo");
+}
+type ConstructorArgs =
+    | [
+          invoke: ComparisonRunInvoke,
+          onError?: (error: ComparisonRunError) => void,
+      ]
+    | [
+          invoke: ComparisonRunInvoke,
+          onError: ((error: NativeComparisonRunError) => void) | undefined,
+          options: NativeComparisonRunOptions,
+      ];
 export class ComparisonRunController {
-    private state: ComparisonRunState = frozen({
-        context: "",
-        allowed: false,
-        clientId: null,
-        status: null,
-        catalog: null,
-        pending: null,
-        busy: false,
-        uncertain: false,
-        error: null,
-    });
+    private state: ComparisonRunConsumerState;
+    private readonly invoke: ComparisonRunInvoke;
+    private readonly transport: Transport;
+    private readonly reportError: (error: NativeComparisonRunError) => void;
     private listeners = new Set<() => void>();
     private epoch = 0;
     private serial = 0;
@@ -99,29 +182,79 @@ export class ComparisonRunController {
     private currentUncertain = false;
     private reporting = false;
     private current: Owner | null = null;
+    private globalAuxEpoch = 0;
     // Admission waits for every retired captured capability. This is a
     // presentation barrier, never a second worker/cleanup authority.
     private retired = new Set<Owner>();
     constructor(
-        private invoke: ComparisonRunInvoke,
-        private onError?: (error: ComparisonRunError) => void,
-    ) {}
-    get(): Readonly<ComparisonRunState> {
+        invoke: ComparisonRunInvoke,
+        onError?: (error: ComparisonRunError) => void,
+    );
+    constructor(
+        invoke: ComparisonRunInvoke,
+        onError: ((error: NativeComparisonRunError) => void) | undefined,
+        options: NativeComparisonRunOptions,
+    );
+    constructor(...args: ConstructorArgs) {
+        if (typeof args[0] !== "function" || args.length > 3)
+            throw Error("ComparisonRunWire");
+        this.invoke = args[0];
+        const initial: ComparisonRunState = {
+            context: "",
+            allowed: false,
+            clientId: null,
+            status: null,
+            catalog: null,
+            pending: null,
+            busy: false,
+            uncertain: false,
+            error: null,
+        };
+        if (args.length === 3) {
+            if (!args[2] || args[2].mode !== "approved_native")
+                throw Error("ComparisonRunWire");
+            this.transport = NATIVE;
+            const callback = args[1];
+            this.reportError = (code) => callback?.(nativeCategory(code));
+            const state: NativeComparisonRunState = {
+                ...initial,
+                mode: "approved_native",
+                status: null,
+                catalog: null,
+                error: null,
+                cleanup: null,
+                cleanupPending: null,
+                cleanupUncertain: false,
+                cleanupError: null,
+            };
+            this.state = frozen(state);
+        } else {
+            this.transport = SCRIPTED;
+            const callback = args[1];
+            this.reportError = (code) => callback?.(category(code));
+            const state: ComparisonRunState & { mode: "scripted_baseline" } = {
+                ...initial,
+                mode: "scripted_baseline",
+            };
+            this.state = frozen(state);
+        }
+    }
+    get mode(): ComparisonRunMode {
+        return this.transport.mode;
+    }
+    get(): Readonly<ComparisonRunConsumerState> {
         return this.state;
     }
     subscribe(listener: () => void): () => void {
         if (!this.disposed) this.listeners.add(listener);
         return () => this.listeners.delete(listener);
     }
-    private patch(update: Partial<ComparisonRunState>): void {
-        const next = { ...this.state, ...update };
+    private install(next: ComparisonRunConsumerState): void {
         next.busy = this.active || next.status?.running === true;
         next.uncertain = this.currentUncertain || this.retired.size > 0;
+        const old = new Map(Object.entries(this.state));
         if (
-            Object.entries(next).every(
-                ([key, value]) =>
-                    value === this.state[key as keyof ComparisonRunState],
-            )
+            Object.entries(next).every(([key, value]) => value === old.get(key))
         )
             return;
         this.state = frozen(next);
@@ -134,8 +267,71 @@ export class ComparisonRunController {
             }
         }
     }
+    private patch(update: Update): void {
+        const status =
+            update.status === undefined ? this.state.status : update.status;
+        const catalog =
+            update.catalog === undefined ? this.state.catalog : update.catalog;
+        const error =
+            update.error === undefined ? this.state.error : update.error;
+        if (this.state.mode === "approved_native") {
+            if (status !== null && status.version !== 2)
+                throw Error("ComparisonRunWire");
+            if (catalog !== null && catalog.version !== 2)
+                throw Error("ComparisonRunWire");
+            this.install({ ...this.state, ...update, status, catalog, error });
+        } else {
+            if (status !== null && status.version !== 1)
+                throw Error("ComparisonRunWire");
+            if (catalog !== null && catalog.version !== 1)
+                throw Error("ComparisonRunWire");
+            this.install({
+                ...this.state,
+                ...update,
+                status,
+                catalog,
+                error: error === null ? null : category(error),
+            });
+        }
+    }
+    private patchCleanup(update: CleanupUpdate): void {
+        if (this.disposed || this.state.mode !== "approved_native") return;
+        this.install({
+            ...this.state,
+            cleanup:
+                update.cleanup === undefined
+                    ? this.state.cleanup
+                    : update.cleanup,
+            cleanupPending:
+                update.cleanupPending === undefined
+                    ? this.state.cleanupPending
+                    : update.cleanupPending,
+            cleanupUncertain:
+                update.cleanupUncertain === undefined
+                    ? this.state.cleanupUncertain
+                    : update.cleanupUncertain,
+            cleanupError:
+                update.cleanupError === undefined
+                    ? this.state.cleanupError
+                    : update.cleanupError,
+        });
+    }
+    private report(code: NativeComparisonRunError): void {
+        if (this.reporting) return;
+        this.reporting = true;
+        try {
+            this.reportError(code);
+        } catch {
+            /* no authority */
+        } finally {
+            this.reporting = false;
+        }
+    }
     private failed(error: unknown, uncertain = true): void {
-        const code = category(error);
+        const code =
+            this.mode === "approved_native"
+                ? nativeCategory(error)
+                : category(error);
         if (
             uncertain &&
             [
@@ -153,6 +349,8 @@ export class ComparisonRunController {
             this.current = null;
             owner.retired = true;
             this.retired.add(owner);
+            if (owner.transport.mode === "approved_native")
+                this.currentUncertain = false; // the captured retired barrier now owns this uncertainty
             void this.release(owner);
         }
         this.patch({
@@ -161,28 +359,21 @@ export class ComparisonRunController {
                 ? { status: null, catalog: null, clientId: null, pending: null }
                 : {}),
         });
-        if (!this.reporting) {
-            this.reporting = true;
-            try {
-                this.onError?.(code);
-            } catch {
-                /* no authority */
-            } finally {
-                this.reporting = false;
-            }
-        }
+        this.report(code);
     }
     private call(
-        action: Action,
+        action: Action | "cleanup_status" | "retry_cleanup",
         query: Record<string, unknown>,
+        transport: Transport = this.transport,
     ): Promise<unknown> {
         const encoded = JSON.stringify(query);
         if (new TextEncoder().encode(encoded).length > 4096)
             return Promise.reject(Error("ComparisonRunWire"));
-        return this.invoke("evaluation_comparison_run", { action, query });
+        return this.invoke(transport.command, { action, query });
     }
     private owner(client: string | null, runId: string | null = null): Owner {
         return {
+            transport: this.transport,
             client,
             runId,
             token: null,
@@ -193,6 +384,7 @@ export class ComparisonRunController {
             inFlight: 0,
             retired: false,
             releasing: null,
+            cleanupObserved: false,
         };
     }
     private owns(ticket: Ticket): boolean {
@@ -205,12 +397,9 @@ export class ComparisonRunController {
             !ticket.owner.retired
         );
     }
-    private bind(
-        owner: Owner,
-        next: ComparisonRunStatus,
-        rebind = false,
-    ): void {
+    private bind(owner: Owner, next: Status, rebind = false): void {
         if (
+            next.input_lane !== owner.transport.mode ||
             (owner.client !== null && next.client_id !== owner.client) ||
             (owner.runId !== null && next.run_id !== owner.runId) ||
             (owner.kind !== null && next.comparison_kind !== owner.kind) ||
@@ -227,12 +416,12 @@ export class ComparisonRunController {
         owner: Owner,
         action: Action,
         query: Record<string, unknown>,
-    ): Promise<ComparisonRunStatus> {
+    ): Promise<Status> {
         owner.sent = true;
         owner.inFlight++;
         try {
-            const next = checkedComparisonRunStatus(
-                await this.call(action, query),
+            const next = owner.transport.status(
+                await this.call(action, query, owner.transport),
             );
             if (
                 (action === "status" || action === "cancel") &&
@@ -247,10 +436,26 @@ export class ComparisonRunController {
             if (owner.retired) void this.release(owner);
         }
     }
-    private async release(owner: Owner): Promise<void> {
+    private async observeRelease(owner: Owner): Promise<void> {
+        if (
+            this.disposed ||
+            !owner.sent ||
+            owner.transport.mode !== "approved_native" ||
+            owner.cleanupObserved
+        )
+            return;
+        owner.cleanupObserved = true;
+        await this.cleanup("status");
+    }
+    private async release(
+        owner: Owner,
+        acknowledgedClose?: Status,
+    ): Promise<void> {
         if (!owner.retired || owner.inFlight) return;
         if (owner.releasing) return owner.releasing;
-        const work = (async () => {
+        // Install the release guard before any cleanup-state notification can
+        // synchronously reenter close(), including an already-ACKed close.
+        const work = Promise.resolve().then(async () => {
             try {
                 if (!owner.sent) {
                     this.retired.delete(owner);
@@ -260,8 +465,8 @@ export class ComparisonRunController {
                     // A lost cold-open ACK has a known run ID, not an invented
                     // client. Resolve only its actual bounded native metadata.
                     if (!owner.client && owner.runId) {
-                        const catalog = checkedComparisonRunCatalog(
-                            await this.call("catalog", {}),
+                        const catalog = owner.transport.catalog(
+                            await this.call("catalog", {}, owner.transport),
                         );
                         const metadata = catalog.runs.find(
                             (run) => run.run_id === owner.runId,
@@ -273,19 +478,29 @@ export class ComparisonRunController {
                     if (!owner.client) return;
                     this.bind(
                         owner,
-                        checkedComparisonRunStatus(
-                            await this.call("lookup", {
-                                clientId: owner.client,
-                            }),
+                        owner.transport.status(
+                            await this.call(
+                                "lookup",
+                                {
+                                    clientId: owner.client,
+                                },
+                                owner.transport,
+                            ),
                         ),
                         true,
                     );
                 }
                 const token = owner.token;
                 if (!token || owner.inFlight) return;
-                const next = checkedComparisonRunStatus(
-                    await this.call("close", { runToken: token }),
-                );
+                const next =
+                    acknowledgedClose ??
+                    owner.transport.status(
+                        await this.call(
+                            "close",
+                            { runToken: token },
+                            owner.transport,
+                        ),
+                    );
                 if (
                     next.client_id !== owner.client ||
                     next.run_id !== owner.runId ||
@@ -299,19 +514,33 @@ export class ComparisonRunController {
                     next.phase === "closed" &&
                     owner.token === token &&
                     !owner.inFlight
-                )
-                    this.retired.delete(owner);
+                ) {
+                    // Presentation closure does not establish global cleanup.
+                    if (
+                        next.running ||
+                        (next.version === 2 &&
+                            (next.cleanup_required || next.cleanup_running))
+                    )
+                        await this.observeRelease(owner);
+                    if (!owner.inFlight) this.retired.delete(owner);
+                }
             } catch (error) {
-                const code = category(error);
+                const code =
+                    owner.transport.mode === "approved_native"
+                        ? nativeCategory(error)
+                        : category(error);
                 if (
                     !owner.inFlight &&
                     ["UnknownEvaluationRun", "Closed"].includes(code)
-                )
-                    this.retired.delete(owner);
+                ) {
+                    if (code === "UnknownEvaluationRun")
+                        await this.observeRelease(owner);
+                    if (!owner.inFlight) this.retired.delete(owner);
+                }
             } finally {
                 if (!this.disposed) this.patch({});
             }
-        })();
+        });
         owner.releasing = work;
         try {
             await work;
@@ -347,6 +576,81 @@ export class ComparisonRunController {
         });
         if (old) void this.release(old);
     }
+    private generationBlocked(): boolean {
+        if (this.state.mode !== "approved_native") return false;
+        return (
+            this.state.cleanupPending !== null ||
+            this.state.cleanupUncertain ||
+            this.state.cleanupError !== null ||
+            this.state.cleanup?.cleanup_required === true ||
+            this.state.cleanup?.running === true ||
+            this.state.status?.cleanup_required === true ||
+            this.state.status?.cleanup_running === true
+        );
+    }
+    private invalidateAuxiliary(): void {
+        ++this.globalAuxEpoch;
+        if (
+            this.state.mode === "approved_native" &&
+            this.state.cleanupPending !== null
+        )
+            this.patchCleanup({ cleanupPending: null, cleanupUncertain: true });
+    }
+    private async cleanup(
+        action: "status" | "retry",
+        origin?: () => boolean,
+    ): Promise<boolean> {
+        if (this.disposed || this.state.mode !== "approved_native")
+            return false;
+        const serial = ++this.globalAuxEpoch;
+        const live = () =>
+            !this.disposed &&
+            serial === this.globalAuxEpoch &&
+            (!origin || origin());
+        this.patchCleanup({ cleanupPending: action, cleanupError: null });
+        try {
+            if (!live()) return false;
+            const raw = await this.call(
+                action === "status" ? "cleanup_status" : "retry_cleanup",
+                {},
+                NATIVE,
+            );
+            if (!live()) return false;
+            const next = checkedSelectedCleanup(raw);
+            this.patchCleanup({
+                cleanup: next,
+                cleanupUncertain: false,
+                cleanupError: next.error,
+            });
+            return (
+                live() &&
+                !next.cleanup_required &&
+                !next.running &&
+                next.error === null
+            );
+        } catch (error) {
+            if (live()) {
+                const code = nativeCategory(error);
+                this.patchCleanup({
+                    cleanupUncertain: true,
+                    cleanupError: code,
+                });
+                if (live()) this.report(code);
+            }
+            return false;
+        } finally {
+            // A retired admission must clear its own pending indicator without
+            // publishing its stale clean result. Newer auxiliary requests win.
+            if (!this.disposed && serial === this.globalAuxEpoch)
+                this.patchCleanup({ cleanupPending: null });
+        }
+    }
+    async cleanupStatus(): Promise<void> {
+        await this.cleanup("status");
+    }
+    async retryCleanup(): Promise<void> {
+        await this.cleanup("retry");
+    }
     private async admission(): Promise<boolean> {
         if (
             this.disposed ||
@@ -366,11 +670,7 @@ export class ComparisonRunController {
             !this.currentUncertain
         );
     }
-    private publish(
-        next: ComparisonRunStatus,
-        ticket: Ticket,
-        action: Action,
-    ): void {
+    private publish(next: Status, ticket: Ticket, action: Action): void {
         if (!this.owns(ticket)) return;
         const old = this.state.status;
         if (
@@ -379,18 +679,42 @@ export class ComparisonRunController {
             action !== "close" &&
             (action === "cancel" || action === "status")
         ) {
-            next = {
-                ...old,
-                running: next.running,
-                error: next.error ?? old.error,
-            };
+            if (old.version === 2 && next.version === 2) {
+                if (next.phase !== "closed") {
+                    const blocked =
+                        next.phase === "cleanup_required" ||
+                        next.cleanup_required ||
+                        next.cleanup_running;
+                    next = {
+                        ...old,
+                        running: next.running,
+                        error: next.error ?? old.error,
+                        cleanup_required: next.cleanup_required,
+                        cleanup_running: next.cleanup_running,
+                        cause: next.cause,
+                        phase: blocked ? next.phase : old.phase,
+                        report_ready: blocked ? false : old.report_ready,
+                    };
+                }
+            } else if (old.version === 1 && next.version === 1) {
+                next = {
+                    ...old,
+                    running: next.running,
+                    error: next.error ?? old.error,
+                };
+            } else throw Error("ComparisonRunWire");
         }
         this.currentUncertain = false;
         if (next.phase === "closed") {
             this.current = null;
             ticket.owner.retired = true;
             this.retired.add(ticket.owner);
-            void this.release(ticket.owner);
+            // An actual native close already revoked this exact token. Other
+            // closed metadata responses still require explicit token closure.
+            void this.release(
+                ticket.owner,
+                next.version === 2 && action === "close" ? next : undefined,
+            );
         }
         this.patch({
             status: next,
@@ -423,6 +747,21 @@ export class ComparisonRunController {
             owner.retired
         )
             return;
+        const generation =
+            owner.transport.mode === "approved_native" &&
+            (action === "start" || action === "resume");
+        if (generation && this.generationBlocked()) return;
+        const entered = this.epoch;
+        if (owner.transport.mode === "approved_native" && (generation || fresh))
+            this.invalidateAuxiliary();
+        if (
+            this.disposed ||
+            !this.state.allowed ||
+            this.epoch !== entered ||
+            this.current !== owner ||
+            owner.retired
+        )
+            return;
         this.active = true;
         const ticket = { epoch: this.epoch, serial: ++this.serial, owner };
         this.patch({
@@ -441,12 +780,41 @@ export class ComparisonRunController {
         });
         try {
             if (!this.owns(ticket)) return;
+            if (generation) {
+                const clear = await this.cleanup("status", () =>
+                    this.owns(ticket),
+                );
+                if (!this.owns(ticket)) return;
+                if (!clear || this.generationBlocked()) {
+                    if (!owner.sent) {
+                        this.current = null;
+                        owner.retired = true;
+                        this.patch({
+                            clientId: null,
+                            status: null,
+                            pending: null,
+                        });
+                    }
+                    return;
+                }
+                if (!this.owns(ticket)) return;
+            }
             let next = await this.ownedCall(owner, action, query);
             if (!this.owns(ticket)) {
                 await this.late(owner, next);
                 return;
             }
             this.publish(next, ticket, action);
+            if (
+                action === "close" &&
+                next.version === 2 &&
+                next.phase === "closed"
+            ) {
+                // One explicit close gesture waits for its known presentation
+                // acknowledgement/observation; no unknown-ACK retry is implied.
+                await this.release(owner, next);
+                return;
+            }
             for (
                 let count = 0;
                 count < MAX_POLLS &&
@@ -494,7 +862,7 @@ export class ComparisonRunController {
             }
         }
     }
-    private async late(owner: Owner, next: ComparisonRunStatus): Promise<void> {
+    private async late(owner: Owner, next: Status): Promise<void> {
         if (
             this.current === owner &&
             !owner.retired &&
@@ -546,7 +914,7 @@ export class ComparisonRunController {
             if (live()) {
                 const value = await this.call("catalog", {});
                 if (live())
-                    this.patch({ catalog: checkedComparisonRunCatalog(value) });
+                    this.patch({ catalog: this.transport.catalog(value) });
             }
         } catch (error) {
             if (live()) this.failed(error, false);
@@ -561,6 +929,7 @@ export class ComparisonRunController {
         try {
             const requested = comparisonRunKind(kind),
                 amount = comparisonRunBatch(batch);
+            if (this.generationBlocked()) return;
             if (this.current) {
                 if (
                     this.active ||
@@ -589,7 +958,8 @@ export class ComparisonRunController {
                 this.epoch !== epoch ||
                 this.current ||
                 this.active ||
-                !this.state.allowed
+                !this.state.allowed ||
+                this.generationBlocked()
             )
                 return;
             const owner = this.owner(crypto.randomUUID());
@@ -667,6 +1037,7 @@ export class ComparisonRunController {
                 this.active ||
                 this.state.uncertain ||
                 this.state.status?.running ||
+                this.generationBlocked() ||
                 !this.current?.token
             )
                 return;
@@ -707,6 +1078,8 @@ export class ComparisonRunController {
             this.current = null;
             owner.retired = true;
             this.retired.add(owner);
+            if (owner.transport.mode === "approved_native")
+                this.currentUncertain = false;
             this.patch({ clientId: null, status: null, pending: null });
             await this.release(owner);
             return;
@@ -726,6 +1099,7 @@ export class ComparisonRunController {
         if (this.disposed) return;
         const owner = this.current;
         this.disposed = true;
+        ++this.globalAuxEpoch;
         this.epoch++;
         this.serial++;
         this.active = false;
@@ -746,4 +1120,13 @@ export class ComparisonRunController {
         this.listeners.clear();
         for (const old of this.retired) void this.release(old);
     }
+}
+
+export function createNativeComparisonRunController(
+    invoke: ComparisonRunInvoke,
+    onError?: (error: NativeComparisonRunError) => void,
+): ComparisonRunController {
+    return new ComparisonRunController(invoke, onError, {
+        mode: "approved_native",
+    });
 }

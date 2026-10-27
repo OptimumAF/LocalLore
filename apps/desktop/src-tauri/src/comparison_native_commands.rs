@@ -193,10 +193,36 @@ pub async fn evaluation_comparison_native(
     let owner = window.hwnd().map_err(|_| "Closed")?.0 as isize;
     #[cfg(not(windows))]
     let owner = 0;
+    #[cfg(feature = "dev-harness")]
+    let test = {
+        use tauri::Manager;
+        if crate::comparison_run_native_harness::active() {
+            Some((
+                workspace.path.clone(),
+                window
+                    .try_state::<Arc<crate::comparison_run_native_harness::NativeComparisonHarness>>()
+                    .ok_or("Forbidden")?
+                    .inner()
+                    .clone(),
+            ))
+        } else {
+            None
+        }
+    };
+    #[cfg(feature = "dev-harness")]
+    let read_test = test.clone();
+    #[cfg(feature = "dev-harness")]
+    let lose_ack = test.as_ref().map(|(_, state)| state.clone());
+    #[cfg(feature = "dev-harness")]
+    let is_start = matches!(&action, Action::Start(_));
     let consent = move |metadata: &Value| {
+        #[cfg(feature = "dev-harness")]
+        if let Some((path, state)) = &test {
+            return crate::comparison_run_native_harness::consent(path, state, metadata);
+        }
         crate::exports::confirm_native_comparison_execution(owner, metadata)
     };
-    tauri::async_runtime::spawn_blocking(move || match action {
+    let result = tauri::async_runtime::spawn_blocking(move || match action {
         Action::Catalog => manager.full_comparison_catalog_native(&lease, epoch, granted),
         Action::Start(input) => {
             manager.full_comparison_start_native(&lease, &models, epoch, granted, input, consent)
@@ -216,6 +242,10 @@ pub async fn evaluation_comparison_native(
         }
         Action::Managed(client, run) => {
             manager.full_comparison_pick_native(&lease, epoch, granted, &client, &run, move || {
+                #[cfg(feature = "dev-harness")]
+                if let Some((path, state)) = &read_test {
+                    return crate::comparison_run_native_harness::read_consent(path, state);
+                }
                 crate::exports::confirm_comparison_read(owner)
             })
         }
@@ -223,7 +253,12 @@ pub async fn evaluation_comparison_native(
     })
     .await
     .map_err(|_| "EvaluationInternal".to_owned())?
-    .map_err(closed)
+    .map_err(closed);
+    #[cfg(feature = "dev-harness")]
+    if is_start && result.is_ok() && lose_ack.as_ref().is_some_and(|state| state.take_lost_ack()) {
+        return Err("EvaluationIo".into());
+    }
+    result
 }
 #[cfg(test)]
 mod review_tests;

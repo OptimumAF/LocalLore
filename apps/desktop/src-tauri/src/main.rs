@@ -20,6 +20,8 @@ mod comparison_native_commands;
 #[cfg(feature = "dev-harness")]
 mod comparison_reader_harness;
 mod comparison_run_commands;
+#[cfg(feature = "dev-harness")]
+mod comparison_run_native_harness;
 mod evaluation;
 mod evaluation_commands;
 mod export_commands;
@@ -164,7 +166,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},comparisonReading:{},selectedEvaluating:{},fullComparing:{},nativeComparisonDenied:{},archiving:{},timelining:{},forking:{},maintaining:{},authoring:{},archiveStage:'{}',stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},comparisonReading:{},selectedEvaluating:{},fullComparing:{},nativeFullComparing:{},nativeComparisonDenied:{},archiving:{},timelining:{},forking:{},maintaining:{},authoring:{},archiveStage:'{}',stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
@@ -178,6 +180,12 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
             std::env::var("LOCALLORE_D07_COMPARISON_READER_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D07_FULL_COMPARISON_HARNESS").as_deref() == Ok("1"),
+            {
+                #[cfg(feature = "dev-harness")]
+                { comparison_run_native_harness::active() }
+                #[cfg(not(feature = "dev-harness"))]
+                { false }
+            },
             {
                 #[cfg(feature = "dev-harness")]
                 { harness::native_comparison_denied() }
@@ -354,6 +362,7 @@ fn main() {
             comparison_native_commands::evaluation_comparison_native,
             selected_commands::evaluation_selected,
             selected_harness::harness_selected_case,
+            comparison_run_native_harness::harness_native_comparison_case,
             comparison_reader_harness::harness_comparison_reader_case,
             evaluation_commands::evaluation_start,
             evaluation_commands::evaluation_open,
@@ -441,6 +450,10 @@ fn main() {
             ));
             #[cfg(feature = "dev-harness")]
             app.manage(Arc::new(selected_harness::SelectedHarness::default()));
+            #[cfg(feature = "dev-harness")]
+            app.manage(Arc::new(
+                comparison_run_native_harness::NativeComparisonHarness::default(),
+            ));
             let path = app.path().app_local_data_dir()?.join("stories-v1.sqlite");
             #[cfg(feature = "dev-harness")]
             let path = if harness::active() {
@@ -491,6 +504,12 @@ fn main() {
             } else {
                 model_root
             };
+            #[cfg(feature = "dev-harness")]
+            let model_root = if comparison_run_native_harness::active() {
+                comparison_run_native_harness::model_root(&path).map_err(std::io::Error::other)?
+            } else {
+                model_root
+            };
             app.manage(Arc::new(models::ModelManager::new(
                 model_root,
                 app.path().resource_dir()?.join("runtime"),
@@ -515,7 +534,9 @@ fn main() {
                 let handle = app.handle().clone();
                 std::thread::spawn(move || {
                     std::thread::sleep(std::time::Duration::from_secs(
-                        if std::env::var("LOCALLORE_D04_HARNESS").as_deref() == Ok("1") {
+                        if comparison_run_native_harness::active() {
+                            2100
+                        } else if std::env::var("LOCALLORE_D04_HARNESS").as_deref() == Ok("1") {
                             900
                         } else if std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref()
                             == Ok("1")

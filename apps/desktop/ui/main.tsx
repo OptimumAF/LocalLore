@@ -1,6 +1,9 @@
 import { EvaluationController } from "./evaluation-controller";
 import { ComparisonReaderController } from "./comparison-reader-controller";
-import { ComparisonRunController } from "./comparison-run-controller";
+import {
+    ComparisonRunController,
+    createNativeComparisonRunController,
+} from "./comparison-run-controller";
 import { SelectedEvaluationController } from "./selected-evaluation-controller";
 import { NativeCloseController } from "./native-close-controller";
 import { ArchiveController } from "./archive-controller";
@@ -57,6 +60,7 @@ declare global {
             comparisonReading?: boolean;
             selectedEvaluating?: boolean;
             fullComparing?: boolean;
+            nativeFullComparing?: boolean;
             nativeComparisonDenied?: boolean;
             archiving?: boolean;
             timelining?: boolean;
@@ -336,6 +340,10 @@ const comparison = new ComparisonReaderController(invoke, (code) =>
 const comparisonRun = new ComparisonRunController(invoke, (code) =>
     errors.add("native", code),
 );
+const nativeComparisonRun = createNativeComparisonRunController(
+    invoke,
+    (code) => errors.add("native", code),
+);
 const selectedEvaluation = new SelectedEvaluationController(invoke, (code) =>
     errors.add("native", code),
 );
@@ -500,18 +508,19 @@ const syncEvaluationContext = () => {
     );
     // The observer is a read lens. It never changes an experiment's execution
     // identity, admission, cancellation or generation permissions.
-    comparisonRun.setContext(
-        JSON.stringify([
-            authorNativeContext?.root ?? null,
-            authorNativeContext?.granted ?? false,
-            s.selectedId,
-            play?.scope ?? null,
-            play?.revision ?? null,
-            s.view,
-            s.disposed,
-        ]),
-        !!authorNativeContext?.granted && s.view === "lab" && !s.disposed,
-    );
+    const comparisonExecutionKey = JSON.stringify([
+        authorNativeContext?.root ?? null,
+        authorNativeContext?.granted ?? false,
+        s.selectedId,
+        play?.scope ?? null,
+        play?.revision ?? null,
+        s.view,
+        s.disposed,
+    ]);
+    const comparisonAllowed =
+        !!authorNativeContext?.granted && s.view === "lab" && !s.disposed;
+    comparisonRun.setContext(comparisonExecutionKey, comparisonAllowed);
+    nativeComparisonRun.setContext(comparisonExecutionKey, comparisonAllowed);
     selectedEvaluation.setContext(
         JSON.stringify([
             authorNativeContext?.root ?? null,
@@ -600,6 +609,7 @@ root.render(
         comparison={comparison}
         selectedEvaluation={selectedEvaluation}
         comparisonRun={comparisonRun}
+        nativeComparisonRun={nativeComparisonRun}
         nativeClose={nativeClose}
         archive={archive}
         capture={capture}
@@ -627,6 +637,7 @@ const dispose = async () => {
     comparison.dispose();
     selectedEvaluation.dispose();
     comparisonRun.dispose();
+    nativeComparisonRun.dispose();
     releaseNativeClose?.();
     archive.dispose();
     timeline.dispose();
@@ -724,6 +735,21 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
             invoke,
             dispose,
             config: window.__LOCALLORE_TEST__,
+        });
+    } else if (
+        __DEV_HARNESS__ &&
+        window.__LOCALLORE_TEST__?.nativeFullComparing
+    ) {
+        const { comparisonRunNativeJourneys } =
+            await import("./comparison-run-native-journeys");
+        await comparisonRunNativeJourneys({
+            controller,
+            comparison,
+            full: nativeComparisonRun,
+            errors,
+            invoke,
+            dispose,
+            config: { stage: window.__LOCALLORE_TEST__.stage },
         });
     } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.fullComparing) {
         const { comparisonRunJourneys } =

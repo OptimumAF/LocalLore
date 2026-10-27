@@ -51,7 +51,15 @@ kernel, controller, canonical or cleanup evidence. No uncertain dispatch is retr
 
 Fresh prepare and planning pass for broad regression; its worker starts about
 7.281 seconds after the owner and actual SDK records begin. This is startup
-evidence only. Broad89/root82/retired139 terminal qualification is pending.
+evidence only. The completed broad phase actually passes all89 methods across
+18 classes,180 clean measured-v2 clients,722248ms/worker0, known cleanup/capture
+and stderr0. Maximum recorded client45008ms/server observer5243ms retain their
+original budgets. Client count is observed rather than forced to an old171.
+
+The bound stop returns0 and the emulator is actually terminal0. Guest owner
+records `stop_requested`,785171ms/worker1, cleanup/capture/closure true and no
+guest-flush claim. Root82/retired139 qualification remains pending; each uses
+a separate fresh guest. Broad success does not substitute for their controls.
 
 The actual broad entry point uses the same immutable build:
 

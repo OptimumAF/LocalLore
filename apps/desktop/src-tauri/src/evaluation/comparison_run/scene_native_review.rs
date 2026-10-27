@@ -39,7 +39,16 @@ fn inventory(root: &Path) -> Inventory {
             }
         } else {
             assert!(metadata.is_file() && metadata.len() <= 16 * 1024 * 1024);
-            let bytes = fs::read(path).unwrap();
+            // A live retained reader owns Windows' mandatory advisory lock.
+            // Its zero-length lock file has no evidence payload to read; still
+            // require its exact name, ordinary-file metadata and empty length.
+            // Every other fixture file remains byte-for-byte inventoried.
+            let bytes = if path.file_name() == Some(std::ffi::OsStr::new("run.lock")) {
+                assert_eq!(metadata.len(), 0);
+                Vec::new()
+            } else {
+                fs::read(path).unwrap()
+            };
             *total = total.checked_add(bytes.len()).unwrap();
             assert!(*total <= 128 * 1024 * 1024);
             out.insert(relative, Some(bytes));
@@ -49,6 +58,7 @@ fn inventory(root: &Path) -> Inventory {
     walk(root, root, 0, &mut 0, &mut result);
     result
 }
+#[track_caller]
 fn rejected<T>(result: Result<T>, expected: &str) {
     match result {
         Err(error) => assert_eq!(error, expected),

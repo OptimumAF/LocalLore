@@ -277,9 +277,12 @@ export async function sceneNativeJourneys({
                 `${label}-actual-receipt-content-capture-target`,
             );
         } else if (label === "scene-native-observer") {
-            contentTarget = panel!.querySelector<HTMLElement>(
-                '[aria-label="Read-only V2 inspector"] ol',
-            );
+            contentTarget =
+                [
+                    ...panel!.querySelectorAll<HTMLElement>(
+                        '[aria-label="Read-only V2 inspector"] ol .record-value',
+                    ),
+                ].find((node) => node.textContent === A) ?? null;
             check(
                 contentTarget?.textContent?.includes(A) &&
                     ![B, REASON].some((s) =>

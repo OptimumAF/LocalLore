@@ -1,0 +1,27 @@
+import groovy.json.JsonOutput
+
+// Inspect the configured task model only. This task does not run the native build.
+gradle.projectsEvaluated {
+    def app = gradle.rootProject.findProject(':app')
+    if (app == null) {
+        throw new GradleException('LocalLore Android app project missing')
+    }
+    app.tasks.register('inspectLocalLoreNativePromptInputs') {
+        group = 'verification'
+        description = 'Check that the Rust Android task tracks the original-world prompt files.'
+        doLast {
+            def repository = app.rootProject.projectDir.toPath().resolve('../..').normalize().toRealPath()
+            def required = ['prompts/initial-world-v1.txt', 'prompts/initial-world-v1.schema.json']
+            def nativeTask = app.tasks.named('buildRustAndroid').get()
+            def inputs = nativeTask.inputs.files.files.collect { it.canonicalFile.toPath() }.toSet()
+            def missing = required.findAll { !inputs.contains(repository.resolve(it)) }
+            def record = [version: 1, scope: 'android_native_prompt_input_model',
+                          task: ':app:buildRustAndroid', required_files: required,
+                          input_file_count: inputs.size(), missing_files: missing]
+            println('LOCALLORE_NATIVE_INPUT_PROBE_V1=' + JsonOutput.toJson(record))
+            if (!missing.isEmpty()) {
+                throw new GradleException('LocalLore native prompt inputs missing')
+            }
+        }
+    }
+}

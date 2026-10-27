@@ -12,7 +12,7 @@ desktop main `c6c21f28`. The unchanged reconciled baseline passes468 Core tests,
 
 At final refresh PR225 is still draft/open at `953b06fa`. Its entire delta from
 4de is one Android qualification document; no code, tests or locks change.
-The refreshed owned stack base is `f9af4910da96fbb1bdbc7759870ba88ddf696452`;
+The first refreshed owned stack base is `f9af4910da96fbb1bdbc7759870ba88ddf696452`;
 integration `dd07d69f` differs from executed79a only by that upstream document.
 The focused PR targets this owned integration base, preserving the dependency
 author's branch/resources. Dependency acceptance remains required before main
@@ -143,10 +143,19 @@ case passes isolated on unchanged79a:1 passed/254 filtered,8.57s test time,
 33.294s command. No process was stopped.
 
 The serial result above matches historical qualification commands, but committed
-desktop CI runs parallel. A focused private-fixture ownership fix is separately
-in progress. This Core report does not claim the parallel risk is resolved or
-substitute serial success for CI. Original byte inventories, locks, race checks
-and budgets must be retained in that fix.
+desktop CI runs parallel. Serial success alone does not resolve that risk.
+Original byte inventories, locks, race checks and budgets must be retained.
+
+The separate fix is now accepted through [PR233](https://github.com/OptimumAF/LocalLore/pull/233),
+main `cebaf4f9`. Its actual normal/default-parallel240 and dev249 tests pass,
+both0 failed/9 ignored, with a genuine concurrent two-Reader regression and
+unchanged production locks/CI settings. Its report retains exact source and
+failure attribution. The refreshed owned stack base is now
+`c6752305acf1601236ef13306baf39a0fcc12288`; integration2aae2589 includes that
+accepted test-only fix without changing any79a Core/Store/workspace production
+code or Cargo.lock. These separate fix results are not relabeled as a new
+combined Core-stack parallel run. That integration is being checked with the
+subsequent Host/capture slice. PR225 remains an unmerged dependency.
 
 ## Versions, hashes and unavailable claims
 

@@ -70,6 +70,7 @@ declare global {
             maintaining?: boolean;
             inspectingMemory?: boolean;
             authoring?: boolean;
+            sceneCase?: "literal" | "memory" | "";
             archiveStage?:
                 | "source"
                 | "import"
@@ -86,6 +87,11 @@ declare global {
     }
 }
 const errors = new ErrorBuffer();
+const sceneHarnessModule =
+    __DEV_HARNESS__ &&
+    ["literal", "memory"].includes(window.__LOCALLORE_TEST__?.sceneCase ?? "")
+        ? await import("./scene-native-journeys")
+        : null;
 const authorHarnessModule =
     __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.authoring
         ? await import("./author-native-journeys")
@@ -363,8 +369,12 @@ const releaseNativeClose = await window.__TAURI__.event
     });
 const base = new IpcGateway(invoke, errors),
     gateway = driver ? new driver.FaultGateway(base) : base;
-const controller = new Controller(gateway, errors, undefined, (work) =>
-    capture.metadataControl(work),
+const controller = new Controller(
+    gateway,
+    errors,
+    undefined,
+    (work) => capture.metadataControl(work),
+    !!sceneHarnessModule,
 );
 const archive = new ArchiveController(invoke, () => controller.library());
 const maintenance = new MemoryMaintenanceController(invoke);
@@ -452,6 +462,7 @@ function syncV2Context() {
                   pending: !!s.pending,
                   blocked: author.get().busy || sharedBrokerBlocked(),
                   playMode: s.playMode,
+                  freeTextProvider: s.freeTextProvider,
                   inputKind: s.inputKind,
                   action: s.action,
                   fakeMode: s.fakeMode,
@@ -707,7 +718,21 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
                 : durableDriver
                   ? durableDriver.durableJourneys
                   : driver.journeys;
-    if (authorHarnessModule && authorTransport) {
+    const sceneCase = window.__LOCALLORE_TEST__?.sceneCase;
+    if (
+        sceneHarnessModule &&
+        (sceneCase === "literal" || sceneCase === "memory")
+    ) {
+        await sceneHarnessModule.sceneNativeJourneys({
+            controller,
+            v2,
+            gateway: gateway as InstanceType<typeof driver.FaultGateway>,
+            errors,
+            invoke,
+            dispose,
+            config: { stage: window.__LOCALLORE_TEST__!.stage, sceneCase },
+        });
+    } else if (authorHarnessModule && authorTransport) {
         await authorHarnessModule.authorNativeJourneys({
             controller,
             author,

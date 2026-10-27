@@ -6,6 +6,7 @@ import copy
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -35,6 +36,8 @@ class PlayerSetupPhaseTests(unittest.TestCase):
 
     def test_actual_roster_is_exactly_eight_new_methods_without_expanding_existing_phases(self):
         self.assertEqual(d.PLAYER_SETUP_VERSION, 1)
+        self.assertEqual(d.PLAYER_SETUP_CLASSES, ("StoryPlayerSetupWireTest", "StoryPlayerSetupDialogTest",
+                                                 "StoryPlayerSetupMainActivityTest"))
         self.assertEqual(tuple(map(len, d.PLAYER_SETUP_METHODS)), (3, 3, 2))
         for name, methods in zip(d.PLAYER_SETUP_CLASSES, d.PLAYER_SETUP_METHODS):
             self.assertEqual(test_roster(d.ROOT / "apps/android/app/src/androidTest/java/org/locallore/app" /
@@ -152,6 +155,49 @@ class PlayerSetupPhaseTests(unittest.TestCase):
             with self.assertRaises(d.VerificationRefused):
                 d.player_setup_worker(request, Path(root))
             capture.assert_not_called()
+
+    @unittest.skipUnless(os.name == "nt", "Windows supervisor entry")
+    def test_parent_cannot_publish_success_for_rebound_raw_timingless_pairs_or_unknown_ownership(self):
+        for failure in (None, "historical", "raw", "cleanup", "capture"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as root:
+                out = Path(root) / "fresh"
+                request = dict(phase="player-setup", out=str(out), sdk=root, java=None, build="build",
+                    running="running", proposal="proposal", server="server", powershell="powershell")
+                owner = dict(status="child_exited", worker_returncode=0, cleanup_complete=failure != "cleanup",
+                    output_capture_complete=failure != "capture", elapsed_ms=1, stdout_bytes=0, stderr_bytes=0)
+                def supervised(*_):
+                    body = self.fixture(out)
+                    if failure == "historical":
+                        path = out / "clients/command-0002.json"
+                        row = d.env.read_json(path)
+                        row.pop("elapsed_ms")
+                        row.pop("effective_deadline_ms")
+                        row["version"] = 1
+                        path.write_text(json.dumps(row))
+                    if failure == "raw":
+                        (out / (d.PLAYER_SETUP_CLASSES[2] + ".stdout.raw")).write_bytes(b"partial")
+                    d.env.create_json(out / "player_setup-v1.json", body)
+                    return owner
+                original = d.validate_player_setup_record
+                def validate(body, folder):
+                    self.assertEqual(d.env.read_json(out / "owner-result-v1.json"), owner)
+                    return original(body, folder)
+                with patch.object(d, "input_bindings", return_value=[]), \
+                     patch.object(d, "source_map", return_value={"same": "source"}), \
+                     patch.object(d.env, "supervise", side_effect=supervised) as run, \
+                     patch.object(d, "validate_player_setup_record", side_effect=validate) as deep, \
+                     patch.object(d, "require_current_clients", wraps=d.require_current_clients) as current:
+                    if failure:
+                        with self.assertRaises(d.VerificationRefused): d.supervise(request)
+                    else:
+                        d.supervise(request)
+                self.assertEqual(run.call_args.args[3], 900)
+                self.assertEqual(deep.call_count, int(failure not in ("cleanup", "capture")))
+                self.assertEqual(current.call_count, int(failure in (None, "historical")))
+                result = d.env.read_json(out / "result-v1.json")
+                self.assertEqual(result["passed"], failure is None)
+                for key in ("components", "regression", "retained_ui", "retained_archive", "story_creation", "starter_choice"):
+                    self.assertNotIn(key, result)
 
 
 if __name__ == "__main__":

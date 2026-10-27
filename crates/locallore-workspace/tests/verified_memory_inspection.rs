@@ -312,3 +312,27 @@ fn actual_author_domain2_is_unsupported_and_player_id_is_native_not_literal() {
     let session = select(&host, &scope);
     assert_eq!(inspect(&host, &session, &packets(&engine, None, 64))["observer"], "mira");
 }
+
+#[test]
+fn actual_accepted_unsafe_story_time_is_never_rounded_into_an_entry_or_source_reply() {
+    let temp = Temp::new();
+    let mut high = seed();
+    high.story_time = 9_007_199_254_740_991;
+    let scope = high.scope.clone();
+    temp.store().create_story("Safe-integer boundary fixture", high).unwrap();
+    let engine = apply(&temp, &scope, "unsafe-time", vec![Command::Wait { ticks:1 }]);
+    assert_eq!(engine.state().story_time, 9_007_199_254_740_992);
+    drain(&temp, &engine);
+    let host = temp.host(true);
+    let session = select(&host, &scope);
+    let page = inspect(&host, &session, &packets(&engine, None, 64));
+    assert_eq!(page["coverage"]["status"], "verified");
+    let bytes = std::fs::read(temp.path()).unwrap();
+    let mut request = packets(&engine, Some(binding(&page)), 64);
+    request.view = View::Entries { packet_index:0, cursor:None, limit:64 };
+    assert_eq!(host.memory_inspection(&session, &request, &||false).unwrap_err(), Error::TooLarge);
+    request.view = View::Source { packet_index:0, source:SourceRef { scope, sequence:1 } };
+    assert_eq!(host.memory_inspection(&session, &request, &||false).unwrap_err(), Error::TooLarge);
+    assert_eq!(std::fs::read(temp.path()).unwrap(), bytes);
+    assert_canon(&temp, &engine);
+}

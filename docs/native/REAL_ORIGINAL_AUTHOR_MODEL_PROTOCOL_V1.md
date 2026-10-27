@@ -38,6 +38,16 @@ borrowed from another app or an existing story.
 
 Select only `importsTheVerifiedOriginalAuthorModelOnce`.
 
+Before streaming weights, the host checks its binary transfer path using the
+existing 65-byte `benchmarks/fixtures/physical_model_probe_v1.txt` fixture,
+SHA256 `72e34de83e7311b37f7a17361f3d71555209ffbfe4eb9e861cc11c7903e13422`.
+Its new private destination is
+`no_backup/original-author-transfer-probe-v1.bin`, outside the model-source
+directory. Preserve it. Binary file handles bypass shell text pipelines;
+neither a host process exit0 nor raw exec-in implies remote exit status or
+successful delivery. Independently verify the destination's exact count/hash
+before weights, then verify the complete model destination after streaming.
+
 The staged source is
 `no_backup/original-author-source-v1/model.litertlm`; that directory contains
 only that leaf. `no_backup/local-model-v1` and the new proof directory must be
@@ -172,3 +182,22 @@ One successful run would establish this bounded factory/JNI/model roundtrip in
 its stated environment. It would not establish a supported phone, narrative
 quality, sustained performance, physical ARM64 execution from an emulator,
 joined native callback drain, cancellation latency or full milestone acceptance.
+
+## Existing dependency identities checked for this experiment
+
+Read-only checks on 2026-10-27 confirm the existing pins; no dependency, backend
+or model upgrade is proposed. The [LiteRT-LM 0.18.1 release](https://github.com/google-ai-edge/LiteRT-LM/releases/tag/v0.18.1)
+identifies runtime commit `bda624851d74be34d4e1f7fac1fc4155939539c7`.
+Its [Google Maven POM](https://dl.google.com/dl/android/maven2/com/google/ai/edge/litertlm/litertlm-android/0.18.1/litertlm-android-0.18.1.pom)
+declares the Android AAR and Apache 2.0 license. The pinned
+[ResponseFormat API](https://github.com/google-ai-edge/LiteRT-LM/blob/bda624851d74be34d4e1f7fac1fc4155939539c7/kotlin/java/com/google/ai/edge/litertlm/ResponseFormat.kt)
+supports the public JSON_OBJECT/schema route used by production.
+
+The [exact model revision metadata](https://huggingface.co/api/models/litert-community/gemma-4-E2B-it-litert-lm/revision/a790a852d433991c0c0a41c1154cf9b3850300fa?blobs=true)
+matches the existing container path, byte count and LFS SHA256 above. Its
+[immutable publisher card](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/raw/a790a852d433991c0c0a41c1154cf9b3850300fa/README.md)
+documents LiteRT-LM Android/CPU use; Google's
+[Gemma 4 model card](https://ai.google.dev/gemma/docs/core/model_card_4) identifies
+Apache 2.0 licensing. This is the existing CPU artifact, not a Qualcomm/NPU
+artifact. Source support and verified local weight bytes do not establish a
+successful author run, device performance or supported-hardware decision.

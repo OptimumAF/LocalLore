@@ -21,6 +21,11 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [original AUTHOR refusal diagnosis](docs/native/ORIGINAL_AUTHOR_DIAGNOSTIC_VERIFICATION_2026-10-27.md)
+adds opt-in private response capture and one native diagnostic validator. Fresh
+real-model import passes; native AUTHOR validation rejects the proposal's names.
+The report preserves that failure and separates diagnostic evidence from creation.
+
 The [original story authoring implementation](docs/native/ANDROID_ORIGINAL_STORY_AUTHORING_2026-10-27.md)
 adds a bounded premise/cast generation path, editable world review and explicit
 native creation. Its report distinguishes scripted plumbing, actual host/build

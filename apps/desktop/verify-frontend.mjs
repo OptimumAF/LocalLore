@@ -45,6 +45,7 @@ for (const args of [
     ["check-archive-v3-ack.mjs"],
     ["check-archive-v3-selection.mjs"],
     ["check-timeline-controller.mjs"],
+    ["check-domain2-timeline-resume-review.mjs"],
     ["check-fork-controller.mjs"],
     ["check-fork-callback-review.mjs"],
     ["check-fork-independent-review.mjs"],

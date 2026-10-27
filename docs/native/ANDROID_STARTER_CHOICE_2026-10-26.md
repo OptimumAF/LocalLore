@@ -194,6 +194,33 @@ guest images, databases, models, private saves and unknown subtrees are excluded
 The current chooser gate is now qualified on this one API35/x86_64 environment.
 Full custom premise/tone/content/player editing, complete journeys, physical
 model/ARM64 execution, accessibility and joined-drain qualification remain open.
-The earlier root82/retired139 controls retain their separate source and pending
-status. The fresh debug server now permits their next environment admission;
-existing source-identical prerequisite records must be revalidated first.
+The root82/retired139 controls subsequently pass on their separate827-input
+source in [the SDK2 controls report](ANDROID_SDK2_MAIN_CONTROLS_2026-10-26.md)
+and draft PR #219. They do not qualify the834-input starter source. Its fixed
+legacy creation19 and broad89 regressions remain the next runtime checks.
+
+## Preservation follow-up
+
+After the owner reported possible concurrent cleanup of generated files, an
+independent read-only audit rechecks the six existing starter-choice,
+starter-runtime and SDK2 root/leaf evidence/source recovery sets. All1729 indexed
+payload occurrences match their recorded hashes; none is missing. All1119
+members across the three ZIPs and all three complete-history source bundles
+match. All62 copied public Git blobs also match their Git object identities.
+All1116 unique indexed original paths survive byte-identical. These selected
+originals are already on the separate recovery drive; none points to D:.
+
+The audit additionally checks only the827 exact D: executable-source paths
+from the sealed SDK2 source map: all survive unchanged. It does not establish
+coverage of unknown or untracked D: folders, identify a cleanup tool, or turn
+missing records into evidence. No existing recovery file is overwritten and no
+new payload archive is needed. Both implementation branches are already clean
+and pushed; public reports and synthetic source stay in Git, while private raw
+diagnostics, saves, model weights and guest images remain excluded.
+
+The next packet uses a new create-only recovery namespace on C:. A file-only
+deep replay validates the current834-input build, native10 prerequisite and
+all87 measured-SDK2 pairs. Its new bounded host inventory records zero protected
+emulator processes; the existing server pin matches without a lifecycle action
+or device call. These prerequisite replays are not new test executions. The
+fixed creation19 and broad89 results will be reported only after actual runs.

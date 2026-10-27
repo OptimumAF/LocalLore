@@ -75,6 +75,18 @@ are not new ABI execution evidence. JVM/controller outputs are rerun by the driv
 
 ## SDK execution and limits
 
+The six terminal host/build/server directories and six fixed private helper
+sources have an independently verified recovery seal:192 originals plus one
+labeled derived audit,72317733 indexed bytes. All160 binding references and
+every original/copy/ZIP member agree. Immutable index56853 bytes SHA256
+`14d5e6608022356d5269076d52db3f64351922e2b08bce17a5d8b8ae84e5629a`;
+ZIP72408622 bytes SHA256
+`5b3303204ea1857a2b69aa511c2a0686105a9843b3a3b1df59e25f2ba05607d0`.
+Its194 members include the exact index. The failed cap-limited run and original
+RED are retained separately; concise full-host evidence uses its loader count,
+actual result summary and final runner frame, not a per-method transcript.
+Live preparation/guest data, models, images and databases are excluded.
+
 Native10, CHILD and retained-parent qualification for this827 map are pending.
 Each needs its own new standard2GiB/two-CPU API35/x86_64 guest. Existing current
 profile capacity checks apply before preparation and launch; no floor is bypassed.

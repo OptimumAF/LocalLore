@@ -30,6 +30,9 @@ pub(crate) const AUTHOR_LABELS: &[&str] = &[
     "author-native-recovered",
     "author-native-narrow",
     "author-native-restarted",
+    "author-native-recorded-turn-diff",
+    "author-native-recorded-prior-source",
+    "author-native-recorded-inherited-source",
     "author-native-reopened",
 ];
 

@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { sameScope } from "./model";
 import type { Action, FakeMode } from "./model";
 import type { V2BoundPage, V2PlayController } from "./v2-play-controller";
 import type { RowV2, SourceV2, ViewV2 } from "./v2-view-model";
@@ -235,6 +236,37 @@ function NativeRow({
     controller: V2PlayController;
     bound: V2BoundPage;
 }) {
+    const rendered = controller.get(),
+        context = rendered.context,
+        snapshot = rendered.snapshot;
+    const recordedTurnEligible =
+        row.kind === "scoped_message" &&
+        row.message_kind === "narration" &&
+        row.origin === "recorded_message" &&
+        !!context &&
+        context.view === "play" &&
+        context.observer.kind === "player" &&
+        !!snapshot &&
+        sameScope(snapshot.scope, context.scope) &&
+        snapshot.revision === context.revision &&
+        snapshot.player.observer === context.player &&
+        (rendered.history === bound || rendered.inspection === bound) &&
+        bound.query.view === "history" &&
+        bound.page.view === "history" &&
+        bound.query.observer.kind === "player" &&
+        bound.page.privacy === "player_visible" &&
+        sameScope(bound.query.scope, context.scope) &&
+        bound.query.expected_head === context.revision &&
+        row.original_scope.story === context.scope.story &&
+        row.event_ids.length > 0 &&
+        row.event_ids.every(
+            (sequence, index, ids) =>
+                Number.isSafeInteger(sequence) &&
+                sequence > 0 &&
+                sequence <= bound.page.revision &&
+                sequence <= context.revision &&
+                (index === 0 || sequence === ids[index - 1] + 1),
+        );
     if (row.kind === "author_correction")
         return (
             <li className="scope" aria-label="Timeline correction">
@@ -257,6 +289,38 @@ function NativeRow({
                         {row.event_ids.join(", ")}
                     </small>
                     <p className="record-value">{row.text}</p>
+                    {recordedTurnEligible && (
+                        <button
+                            disabled={rendered.queryBusy || rendered.readBusy}
+                            onClick={async () => {
+                                const current = controller.get();
+                                if (
+                                    current.context !== context ||
+                                    (current.history !== bound &&
+                                        current.inspection !== bound) ||
+                                    !bound.page.rows.includes(row)
+                                )
+                                    return;
+                                const result =
+                                    await controller.traceRecordedTurn(
+                                        row,
+                                        bound,
+                                    );
+                                const after = controller.get();
+                                if (
+                                    !result ||
+                                    after.context !== context ||
+                                    after.inspection !== result ||
+                                    after.queryBusy
+                                )
+                                    return;
+                                // The panel's existing checked-inspection
+                                // effect owns local view/revision controls.
+                            }}
+                        >
+                            Inspect recorded turn changes
+                        </button>
+                    )}
                 </>
             ) : row.kind === "event" ? (
                 <>

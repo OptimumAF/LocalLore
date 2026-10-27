@@ -284,7 +284,13 @@ try {
             "recovered",
             "narrow",
         ].map((s) => `author-native-${s}`),
-        restart: ["author-native-restarted", "author-native-reopened"],
+        restart: [
+            "author-native-restarted",
+            "author-native-recorded-turn-diff",
+            "author-native-recorded-prior-source",
+            "author-native-recorded-inherited-source",
+            "author-native-reopened",
+        ],
     };
     const reports = [],
         checks = new Set(),

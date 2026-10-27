@@ -72,7 +72,12 @@ pub(super) fn validate_generated(bound: &BoundScenePlayV1, text: &str) -> Result
     let lower = text.to_lowercase();
     if lower
         .split(|character: char| !character.is_alphanumeric())
-        .any(|word| matches!(word, "i" | "me" | "my" | "mine" | "we" | "us" | "our" | "ours"))
+        .any(|word| {
+            matches!(
+                word,
+                "i" | "me" | "my" | "mine" | "we" | "us" | "our" | "ours"
+            )
+        })
     {
         return Err(Error::Narration);
     }

@@ -17,6 +17,7 @@ use std::{
 pub(crate) mod director_budget;
 mod director_construction;
 mod literal_director;
+pub mod scene_narration;
 mod story_presentation;
 pub use director_budget::{
     director_forwarded_budget_v25, director_repair_matches_v25, DirectorPassV25,
@@ -264,6 +265,9 @@ pub struct PlayRecord {
     /// Exact seed presentation binding for the explicit presentation versions only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub story_presentation: Option<PlayStoryPresentationRecordV1>,
+    /// Recomputed frame provenance for the explicit scene recipes only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scene: Option<scene_narration::SceneNarrationRecordV1>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -490,6 +494,9 @@ pub(crate) fn validate_record(
     record: &PlayRecord,
     recorded_history: bool,
 ) -> Result<(), Error> {
+    if record.scene.is_some() {
+        return Err(Error::Narration);
+    }
     story_presentation::validate_legacy(engine, record)?;
     record.profile.validate()?;
     if record.version != PLAY_VERSION
@@ -546,6 +553,9 @@ fn validate_record_v25_inner(
     record: &PlayRecord,
     presentation: bool,
 ) -> Result<(), Error> {
+    if record.scene.is_some() {
+        return Err(Error::Narration);
+    }
     story_presentation::validate_binding(engine, record, presentation)?;
     record.profile.validate()?;
     if record.version != PLAY_VERSION
@@ -561,7 +571,19 @@ fn validate_record_v25_inner(
             } else {
                 PROMPT_VERSION
             }
-        || record.context_policy.is_none()
+    {
+        return Err(Error::Narration);
+    }
+    validate_memory_context_record(engine, approved, record)?;
+    validate_staged_record_contents(engine, approved, evidence, record)
+}
+
+fn validate_memory_context_record(
+    engine: &Engine,
+    approved: &Receipt,
+    record: &PlayRecord,
+) -> Result<(), Error> {
+    if record.context_policy.is_none()
         || !record
             .context
             .as_ref()
@@ -588,7 +610,7 @@ fn validate_record_v25_inner(
             return Err(Error::Narration);
         }
     }
-    validate_staged_record_contents(engine, approved, evidence, record)
+    Ok(())
 }
 
 pub(crate) fn validate_record_literal_v1(
@@ -621,6 +643,9 @@ fn validate_record_literal_inner(
     cancel: &dyn Fn() -> bool,
     presentation: bool,
 ) -> Result<(), Error> {
+    if record.scene.is_some() {
+        return Err(Error::Narration);
+    }
     if engine.domain_version() != 1 {
         return Err(Error::Version);
     }
@@ -639,9 +664,23 @@ fn validate_record_literal_inner(
             } else {
                 LITERAL_NARRATION_POLICY_V1
             }
-        || record.context.is_some()
-        || record.context_policy.is_some()
     {
+        return Err(Error::Narration);
+    }
+    validate_literal_context_record(engine, approved, record, cancel)?;
+    validate_staged_record_contents(engine, approved, evidence, record)
+}
+
+fn validate_literal_context_record(
+    engine: &Engine,
+    approved: &Receipt,
+    record: &PlayRecord,
+    cancel: &dyn Fn() -> bool,
+) -> Result<(), Error> {
+    if engine.domain_version() != 1 {
+        return Err(Error::Version);
+    }
+    if record.context.is_some() || record.context_policy.is_some() {
         return Err(Error::Narration);
     }
     // Persisted metadata is not proof that a provider ran. Recompute the actual
@@ -673,7 +712,7 @@ fn validate_record_literal_inner(
             cancel,
         )?;
     }
-    validate_staged_record_contents(engine, approved, evidence, record)
+    Ok(())
 }
 
 fn validate_staged_record_contents(
@@ -1359,6 +1398,7 @@ pub fn execute_traced_with_literal_director_presentation_v1(
         PresentationExecutionInput {
             director: DirectorInput::LiteralV1,
             literal_presentation: true,
+            scene_recipe: None,
         },
     )
 }
@@ -1366,6 +1406,155 @@ struct MemoryInput<'a> {
     proof: Option<&'a crate::memory_coverage::VerifiedCoverage>,
     source_fallback_reason: Option<PlayMemoryFallback>,
     policy: PlayContextPolicy,
+}
+
+/// Explicit trusted-native scene selection. Existing entry points retain their
+/// old construction; exact recorded identity wins before interpreting new input.
+pub fn execute_traced_with_scene_recipe_v1(
+    engine: &mut Engine,
+    request: &Request,
+    provider: &mut (impl InferenceProvider + ?Sized),
+    cancel: &Cancellation,
+    profile: &PlayProfile,
+    sink: Option<&mut dyn TraceSink>,
+    input: scene_narration::ScenePlayConstructionInput<'_>,
+) -> Result<Receipt, Error> {
+    if let Some(receipt) = engine.recorded(request)? {
+        return Ok(receipt);
+    }
+    let director = match input.recipe {
+        scene_narration::SceneRecipeV1::LiteralV1 => {
+            if input.coverage.is_some() {
+                return Err(Error::Rule);
+            }
+            DirectorInput::LiteralV1
+        }
+        scene_narration::SceneRecipeV1::Memory(policy) => {
+            let (proof, source_fallback_reason) = match input.coverage {
+                Some(crate::memory_coverage::CoverageRead::Verified(proof)) => (Some(proof), None),
+                Some(crate::memory_coverage::CoverageRead::RawFallback(reason)) => {
+                    (None, Some((*reason).into()))
+                }
+                None => (None, None),
+            };
+            DirectorInput::Memory(MemoryInput {
+                proof,
+                source_fallback_reason,
+                policy,
+            })
+        }
+    };
+    execute_with_presentation_input(
+        engine,
+        request,
+        provider,
+        cancel,
+        profile,
+        sink,
+        PresentationExecutionInput {
+            director,
+            literal_presentation: false,
+            scene_recipe: Some(input.recipe),
+        },
+    )
+}
+
+enum NarrationPreparation {
+    Legacy(crate::engine::staged_play::StagedPlayV25),
+    Scene(crate::engine::staged_scene_play::BoundScenePlayV1),
+}
+impl NarrationPreparation {
+    fn approved(&self) -> &Receipt {
+        match self {
+            Self::Legacy(s) => s.approved(),
+            Self::Scene(s) => s.approved(),
+        }
+    }
+    fn narrator_evidence(&self) -> &NarratorEvidenceV22 {
+        match self {
+            Self::Legacy(s) => s.narrator_evidence(),
+            Self::Scene(s) => s.narrator_evidence(),
+        }
+    }
+    fn scene(&self) -> Option<scene_narration::SceneNarrationRecordV1> {
+        match self {
+            Self::Legacy(_) => None,
+            Self::Scene(s) => Some(s.provenance().clone()),
+        }
+    }
+    fn validate(
+        &self,
+        engine: &Engine,
+        record: &PlayRecord,
+        presentation: bool,
+        literal: bool,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<(), Error> {
+        let staged = match self {
+            Self::Legacy(staged) => staged,
+            Self::Scene(bound) => {
+                return scene_narration::validate_record(engine, bound, record, cancel)
+            }
+        };
+        if presentation && literal {
+            validate_record_literal_presentation_v1(
+                engine,
+                staged.approved(),
+                staged.narrator_evidence(),
+                record,
+                false,
+                cancel,
+            )
+        } else if presentation {
+            validate_record_presentation_v1(
+                engine,
+                staged.approved(),
+                staged.narrator_evidence(),
+                record,
+                false,
+            )
+        } else if literal {
+            validate_record_literal_v1(
+                engine,
+                staged.approved(),
+                staged.narrator_evidence(),
+                record,
+                false,
+                cancel,
+            )
+        } else {
+            validate_record_v25(
+                engine,
+                staged.approved(),
+                staged.narrator_evidence(),
+                record,
+                false,
+            )
+        }
+    }
+    fn commit(
+        self,
+        engine: &mut Engine,
+        record: &PlayRecord,
+        presentation: bool,
+        literal: bool,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<Receipt, Error> {
+        match self {
+            Self::Scene(bound) => engine.commit_scene_play_v1(bound, record, cancel),
+            Self::Legacy(staged) => {
+                if presentation && literal {
+                    engine.commit_staged_literal_presentation_play_v1(staged, record, cancel)
+                } else if presentation {
+                    engine.commit_staged_presentation_play_v1(staged, record, cancel)
+                } else if literal {
+                    engine.commit_staged_literal_play_v1(staged, record, cancel)
+                } else {
+                    engine.commit_staged_play_v25(staged, record, cancel)
+                }
+            }
+        }
+    }
 }
 fn execute_with_context_input(
     engine: &mut Engine,
@@ -1386,6 +1575,7 @@ fn execute_with_context_input(
         PresentationExecutionInput {
             director: input,
             literal_presentation: false,
+            scene_recipe: None,
         },
     )
 }
@@ -1393,6 +1583,7 @@ fn execute_with_context_input(
 struct PresentationExecutionInput<'a> {
     director: DirectorInput<'a>,
     literal_presentation: bool,
+    scene_recipe: Option<scene_narration::SceneRecipeV1>,
 }
 
 fn execute_with_presentation_input(
@@ -1407,6 +1598,7 @@ fn execute_with_presentation_input(
     let PresentationExecutionInput {
         director: input,
         literal_presentation,
+        scene_recipe,
     } = construction;
     let literal = matches!(&input, DirectorInput::LiteralV1);
     let presentation = engine.seed().presentation.is_some();
@@ -1439,8 +1631,12 @@ fn execute_with_presentation_input(
         }
         // Exact retries above retain their construction. New literal work must
         // opt into the new version; the old mapping is never repointed.
-        if literal && presentation != literal_presentation {
+        if literal && scene_recipe.is_none() && presentation != literal_presentation {
             return Err(Error::Narration);
+        }
+        if let Some(recipe) = scene_recipe {
+            scene_narration::check(&|| cancel.is_cancelled())?;
+            scene_narration::check_seed(engine, recipe)?;
         }
         story_presentation::binding(engine)?;
         profile.validate()?;
@@ -1589,7 +1785,20 @@ fn execute_with_presentation_input(
     let staged = trace.counted(
         Stage::Validation,
         Outcome::Rejected,
-        || engine.stage_play_v25(request, &proposal, &|| cancel.is_cancelled()),
+        || {
+            let poll = &|| cancel.is_cancelled();
+            match scene_recipe {
+                Some(recipe) => {
+                    let preparation = engine.stage_scene_play_v1(request, &proposal, poll)?;
+                    engine
+                        .bind_scene_play_v1(preparation, recipe, poll)
+                        .map(NarrationPreparation::Scene)
+                }
+                None => engine
+                    .stage_play_v25(request, &proposal, poll)
+                    .map(NarrationPreparation::Legacy),
+            }
+        },
         |staged| Counts {
             operations: staged.approved().events().len().min(u16::MAX as usize) as u16,
             repairs,
@@ -1604,6 +1813,11 @@ fn execute_with_presentation_input(
     });
     let overhead = trace.overhead;
     let (bytes, narrator_elapsed_ms) = trace.generate(Stage::Narration, provider, cancel, || {
+    if let NarrationPreparation::Scene(bound) = &staged {
+        let rendered = scene_narration::render_scene_narrator_v1(bound, profile, &|| cancel.is_cancelled())?;
+        return Ok(role_request(request, profile, "narrator", rendered.prompt().into(), rendered.schema().clone(),
+            remaining(started, overhead, profile.deadline_ms)?));
+    }
     // The opaque candidate made these event-specific observations in Core.
     // Never attach the compiled Director context, seed truth or raw Receipt.
     let evidence = staged.narrator_evidence();
@@ -1629,7 +1843,9 @@ fn execute_with_presentation_input(
     });
     let mut record = PlayRecord {
         version: PLAY_VERSION,
-        policy: if presentation {
+        policy: if scene_recipe.is_some() {
+            scene_narration::SCENE_NARRATION_POLICY_V1
+        } else if presentation {
             PRESENTATION_NARRATION_POLICY
         } else if literal {
             LITERAL_NARRATION_POLICY_V1
@@ -1637,7 +1853,9 @@ fn execute_with_presentation_input(
             NARRATION_POLICY
         }
         .into(),
-        prompt_version: if presentation && literal {
+        prompt_version: if let Some(recipe) = scene_recipe {
+            recipe.prompt_version()
+        } else if presentation && literal {
             LITERAL_PRESENTATION_PROMPT_VERSION_V1
         } else if presentation {
             PRESENTATION_PROMPT_VERSION
@@ -1663,42 +1881,20 @@ fn execute_with_presentation_input(
         context: director.context_record(),
         context_policy: director.policy(),
         story_presentation: story_presentation::binding(engine)?,
+        scene: staged.scene(),
     };
     let before = trace.clock();
-    if trace
-        .run(Stage::NarrationValidation, Outcome::Rejected, || {
-            if presentation && literal {
-                validate_record_literal_presentation_v1(
-                    engine,
-                    approved,
-                    staged.narrator_evidence(),
-                    &record,
-                    false,
-                    &|| cancel.is_cancelled(),
-                )
-            } else if presentation {
-                validate_record_presentation_v1(
-                    engine,
-                    approved,
-                    staged.narrator_evidence(),
-                    &record,
-                    false,
-                )
-            } else if literal {
-                validate_record_literal_v1(
-                    engine,
-                    approved,
-                    staged.narrator_evidence(),
-                    &record,
-                    false,
-                    &|| cancel.is_cancelled(),
-                )
-            } else {
-                validate_record_v25(engine, approved, staged.narrator_evidence(), &record, false)
-            }
+    let validation = trace.run(Stage::NarrationValidation, Outcome::Rejected, || {
+        staged.validate(engine, &record, presentation, literal, &|| {
+            cancel.is_cancelled()
         })
-        .is_err()
-    {
+    });
+    // This additive construction does not turn cancellation into fallback. In
+    // particular, an excluded fallback must not mask cancellation as Narration.
+    if scene_recipe.is_some() && validation == Err(Error::Cancelled) {
+        return Err(Error::Cancelled);
+    }
+    if validation.is_err() {
         record.fallback = true;
         record.narration = NarrationDocument {
             text: approved.narration().into(),
@@ -1723,17 +1919,9 @@ fn execute_with_presentation_input(
         if cancel.is_cancelled() {
             return Err(Error::Cancelled);
         }
-        if presentation && literal {
-            engine.commit_staged_literal_presentation_play_v1(staged, &record, &|| {
-                cancel.is_cancelled()
-            })
-        } else if presentation {
-            engine.commit_staged_presentation_play_v1(staged, &record, &|| cancel.is_cancelled())
-        } else if literal {
-            engine.commit_staged_literal_play_v1(staged, &record, &|| cancel.is_cancelled())
-        } else {
-            engine.commit_staged_play_v25(staged, &record, &|| cancel.is_cancelled())
-        }
+        staged.commit(engine, &record, presentation, literal, &|| {
+            cancel.is_cancelled()
+        })
     })?;
     trace.capture(crate::turn_capture::Artifact::Candidate(&receipt));
     trace.not_run(Stage::MemoryMaintenance);

@@ -73,6 +73,14 @@ Root had omitted that gate earlier. Rustfmt1.93.1 formats the file without
 changing assertions. The successful native/host/SDK cohort remains attributed
 to its actual pre-format source; a new fresh verification cohort is required.
 
+Broader CI benchmark checks then expose an existing Windows test error:
+`test_output_refuses_existing_directory_and_missing_ancestor` expects an
+existing C:-TEMP output to reach mkdir, but the unchanged cache-build policy
+correctly refuses every non-D: output first. Root retains that failed34-case
+attempt and fixes only the test: the C: refusal is exact, and a mocked existing
+D: candidate must raise FileExistsError before any owner bytes are written.
+No D: filesystem operation or production guard change is introduced.
+
 Review identifies a real recovery design race: looking up a completed authored
 seed and then calling insert-or-retry could resurrect it after another Store
 deleted it. Recovery is changed to read-only Engine load/presence/full-seed

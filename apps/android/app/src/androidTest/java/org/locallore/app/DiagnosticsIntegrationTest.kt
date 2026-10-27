@@ -21,7 +21,7 @@ class DiagnosticsIntegrationTest {
         return compose.onNodeWithTag(name)
     }
     private fun idle() { compose.waitUntil(8_000) { !model().state.value.busy }; compose.waitForIdle() }
-    @Before fun freshSavedStory() { idle(); tag("reset-demo").performClick(); idle() }
+    @Before fun freshSavedStory() { idle(); compose.createStoryThroughMainReview(); idle() }
     private fun gift() { tag("give-potion").performClick(); idle() }
     private fun preview() { tag("open-diagnostics").performClick(); compose.onNodeWithTag("diagnostics-dialog").assertIsDisplayed() }
 

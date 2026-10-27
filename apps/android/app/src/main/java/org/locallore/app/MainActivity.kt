@@ -25,6 +25,7 @@ import org.locallore.app.ui.StoryDeletionDialog
 import org.locallore.app.ui.BranchDeletionDialog
 import org.locallore.app.ui.BranchForkPanel
 import org.locallore.app.ui.StoryRecordDialog
+import org.locallore.app.ui.StoryCreationDialog
 
 internal class WorkspaceConstructionUnavailable : IllegalStateException("Workspace unavailable")
 
@@ -121,13 +122,14 @@ open class MainActivity : ComponentActivity() {
             val archive by model.archive.collectAsStateWithLifecycle()
             val deletion by model.deletion.collectAsStateWithLifecycle()
             val branchDeletion by model.branchDeletion.collectAsStateWithLifecycle()
+            val creation by model.creation.collectAsStateWithLifecycle()
             val record by model.storyRecord.collectAsStateWithLifecycle()
             val fork by model.fork.collectAsStateWithLifecycle()
             val forkVisible by model.forkVisible.collectAsStateWithLifecycle()
             val forkProblem by model.forkProblem.collectAsStateWithLifecycle()
             val forkRecoveryPending by model.forkRecoveryPending.collectAsStateWithLifecycle()
             val renderedRecordContext = record.context
-            LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::reset,
+            LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::startNewStory,
                 onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover,
                 onStoryRecord = if (model.hasStoryRecords) model::openStoryRecord else null,
                 onText = model::submitText,
@@ -138,6 +140,7 @@ open class MainActivity : ComponentActivity() {
                 onDeleteTimeline = model::openBranchDeletion,
                 forkAvailable = model.forkAvailable, forkRecoveryAvailable = forkRecoveryPending || forkProblem != null,
                 exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION,
+                draftInteractionAllowed = model::canEditPlayDraft,
                 onFork = model::openFork) {
                 BranchForkPanel(forkVisible, fork, forkProblem, forkRecoveryPending,
                     onBoundary = model::prepareForkBoundary, onConfirm = model::confirmFork,
@@ -146,6 +149,10 @@ open class MainActivity : ComponentActivity() {
                     exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION)
                 model.branchDeletionController?.let { controller ->
                     BranchDeletionDialog(branchDeletion, controller::dismiss, controller::cancel, controller::confirm)
+                }
+                model.creationController?.let { controller ->
+                    StoryCreationDialog(creation, controller::dismiss, controller::editTitle, controller::confirm,
+                        exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION)
                 }
                 model.deletionController?.let { controller ->
                     StoryDeletionDialog(deletion, controller::dismiss, controller::cancel, controller::confirm)

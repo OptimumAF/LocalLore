@@ -21,6 +21,11 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [explicit starter review and named creation](docs/native/ANDROID_STORY_CREATION_VERIFICATION_2026-10-26.md)
+adds a Rust-owned preview, an editable title and explicit Create/Cancel to the
+persistent Android shell. The report records exact host/build/device evidence
+and limits. Full premise, tone and character customization remain pending.
+
 The [retained archive chooser packet](docs/native/ANDROID_RETAINED_ARCHIVE_VERIFICATION_2026-10-26.md)
 fixes stale Import/Export/Open consent and adds original retained-parent archive
 round-trip/refusal tests. Integrated host/JVM/lint/build checks pass; actual

@@ -15,7 +15,7 @@ internal object ProcessVerificationProbe {
     private const val PRODUCT = "org.locallore.app.draftprocessverify"
     private val runPattern = Regex("[0-9a-f]{16}")
     private val keys = listOf("workspace", "branches", "resume", "create", "open", "play_snapshot",
-        "free_text", "submit", "prepare", "commit", "cancel", "other")
+        "free_text", "submit", "prepare", "commit", "cancel", "other", "story_template", "create_named")
     // Known metadata/resource operations do not propose or apply gameplay.
     private val metadata = setOf("close", "capabilities", "model_status")
     private var proofRoot: File? = null
@@ -80,7 +80,7 @@ internal object ProcessVerificationProbe {
             MessageDigest.getInstance("SHA-256").digest("1\n${it.story}\n${it.branch}\n".toByteArray(Charsets.UTF_8))
                 .joinToString("") { byte -> "%02x".format(byte) }
         }
-        val record = JSONObject().put("version", 1).put("scope", "locallore_process_verify_v1")
+        val record = JSONObject().put("version", 2).put("scope", "locallore_process_verify_v2")
             .put("run_id", runId).put("pid", Process.myPid()).put("uid", Process.myUid())
             .put("task_id", task).put("sequence", sequence)
             .put("process_start_uptime_ms", Process.getStartUptimeMillis()).put("event", event)

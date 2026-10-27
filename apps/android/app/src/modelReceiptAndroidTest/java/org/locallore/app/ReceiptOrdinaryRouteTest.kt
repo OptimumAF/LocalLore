@@ -338,6 +338,13 @@ class ReceiptOrdinaryStartTest : ReceiptOrdinaryHarness() {
             node("empty-library").assertIsDisplayed()
             var creates = 0
             node("reset-demo").assertIsEnabled().performClick(); creates++
+            compose.waitUntil(deadline.remaining(5_000)) {
+                compose.onAllNodes(hasTestTag("story-creation-confirm") and isEnabled()).fetchSemanticsNodes().size == 1
+            }
+            compose.onNodeWithTag("story-creation-confirm").performScrollTo().assertIsDisplayed().assertIsEnabled().performClick()
+            compose.waitUntil(deadline.remaining(5_000)) {
+                compose.onAllNodesWithTag("story-creation-dialog").fetchSemanticsNodes().isEmpty()
+            }
             settled(deadline); resumed()
             checked(checks, "new_story_clicked_once", creates == 1)
             checked(checks, "production_transport_local", model.state.value.textProvider == TextProvider.LOCAL)

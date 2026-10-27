@@ -21,7 +21,7 @@ internal class DurableGateway(
     private val transport: WorkspaceTransport,
     autoCreateIfEmpty: Boolean = true,
     initialScopeHint: PlayDraftScope? = null,
-) : DemoGateway {
+) : DemoGateway, StoryCreationGateway {
     private var mayAutoCreate = autoCreateIfEmpty
     // Navigation IDs are an unresolved UI hint, never a saved engine/session.
     // Keep them through initialization failures, including failures after attach.
@@ -393,6 +393,39 @@ internal class DurableGateway(
             }
         }
         closeSession()
+    }
+    override suspend fun preview(): StoryCreationPreview {
+        if (closed.get()) throw WorkspaceFailure("Closed")
+        if (operation != null) throw WorkspaceFailure("Busy")
+        val data = call(command("story_template").put("template", "lantern-quay-v1"))
+        if (closed.get()) throw WorkspaceFailure("Closed")
+        return StoryCreationWire.preview(data)
+    }
+    override suspend fun create(request: StoryCreationRequest): SavedSnapshot {
+        if (closed.get()) throw WorkspaceFailure("Closed")
+        if (operation != null) throw WorkspaceFailure("Busy")
+        val input = StoryCreationWire.command(request)
+        release()
+        val data = call(input)
+        try {
+            check(data.keys().asSequence().toSet() == setOf("session", "scope", "revision", "created"))
+            check(data.get("created") is Boolean)
+            val resultScope = data.getJSONObject("scope")
+            check(resultScope.keys().asSequence().toSet() == setOf("story", "branch"))
+            check(resultScope.get("story") == "quay-${request.creationId}" && resultScope.get("branch") == "main")
+            val head = data.get("revision")
+            check((head is Int || head is Long) && (head as Number).toLong() >= 0)
+            check((data.get("session") as String).toByteArray(Charsets.UTF_8).size in 1..128)
+        } catch (_: Exception) { throw WorkspaceFailure("Malformed") }
+        attach(data)
+        val saved = snapshot()
+        val selected = saved.selected
+        if (selected == null || selected.story != "quay-${request.creationId}" || selected.branch != "main" ||
+            selected.title != request.title) {
+            coherentPlayerSnapshot = false
+            throw WorkspaceFailure("Stale")
+        }
+        return saved
     }
     override suspend fun createSaved(): SavedSnapshot {
         release()

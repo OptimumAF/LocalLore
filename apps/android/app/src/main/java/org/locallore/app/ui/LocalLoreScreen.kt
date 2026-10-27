@@ -71,7 +71,7 @@ private val PlayDraftSaver = Saver<PlayDraft, Any>(
 
 /** A state-only sample surface. The coordinator owns every response and state change. */
 @Composable
-fun LocalLoreScreen(
+internal fun LocalLoreScreen(
     state: ShellState,
     onAction: (DemoAction) -> Unit,
     onMode: (DemoMode) -> Unit,
@@ -93,6 +93,7 @@ fun LocalLoreScreen(
     forkRecoveryAvailable: Boolean = false,
     onFork: () -> Unit = {},
     exposeTestTags: Boolean = false,
+    draftInteractionAllowed: (PlayDraftScope?) -> Boolean = { true },
     overlay: @Composable () -> Unit = {},
 ) {
     // Save only the scoped editor payload, never a pending submission or gameplay state.
@@ -109,6 +110,11 @@ fun LocalLoreScreen(
     }
     val currentDraftScope by rememberUpdatedState(draftScope)
     val currentDraftPending by rememberUpdatedState(draftPending)
+    val editorBlocked = state.busy || state.archiveActive || state.deletionActive || state.forkActive ||
+        state.creationActive || state.recoveryRequired || state.textProvider == TextProvider.UNAVAILABLE ||
+        (state.persistent && state.selectedStory == null)
+    val currentEditorBlocked by rememberUpdatedState(editorBlocked)
+    val currentDraftInteractionAllowed by rememberUpdatedState(draftInteractionAllowed)
     val playInput = if (draftPending) PlayInput(PlayInputKind.ACTION, "") else resolvedDraft.input
     MaterialTheme(
         colorScheme = lightColorScheme(
@@ -149,7 +155,7 @@ fun LocalLoreScreen(
                                 )
                                 TextButton(
                                     onClick = onReset,
-                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && (!state.persistent || !state.recoveryRequired),
+                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && (!state.persistent || !state.recoveryRequired),
                                     modifier = Modifier.heightIn(min = 48.dp)
                                         .testTag("reset-demo"),
                                 ) { Text(if (state.persistent) "New story" else "Reset demo") }
@@ -185,11 +191,11 @@ fun LocalLoreScreen(
                             if (state.persistent && state.stories.isNotEmpty()) {
                                 var libraryExpanded by remember { mutableStateOf(false) }
                                 Box {
-                                    TextButton(onClick = { libraryExpanded = true }, enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.recoveryRequired,
+                                    TextButton(onClick = { libraryExpanded = true }, enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired,
                                         modifier = Modifier.testTag("saved-library")) {
                                         Text("Saved stories · ${state.stories.size} · ${state.selectedStory?.story.orEmpty()}")
                                     }
-                                    DropdownMenu(expanded = libraryExpanded && !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.recoveryRequired,
+                                    DropdownMenu(expanded = libraryExpanded && !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired,
                                         onDismissRequest = { libraryExpanded = false },
                                         modifier = Modifier.semantics { testTagsAsResourceId = exposeTestTags }) {
                                         state.stories.forEach { story ->
@@ -202,7 +208,7 @@ fun LocalLoreScreen(
                             }
                             if (onTimeline != null && state.persistent && state.selectedStory != null && state.timelines.isNotEmpty()) {
                                 var timelinesExpanded by remember(state.selectedStory.story) { mutableStateOf(false) }
-                                val canSelect = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.recoveryRequired
+                                val canSelect = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired
                                 val selected = state.timelines.firstOrNull { it.branch == state.selectedStory.branch }
                                 selected?.let { timeline ->
                                     Text("Timeline · ${timeline.branch} · " +
@@ -230,7 +236,7 @@ fun LocalLoreScreen(
                             }
                             if (forkAvailable && state.persistent && (state.selectedStory != null || forkRecoveryAvailable)) {
                                 OutlinedButton(onClick = onFork,
-                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.recoveryRequired,
+                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired,
                                     modifier = Modifier.heightIn(min = 48.dp).testTag("fork-timeline")) {
                                     Text(if (forkRecoveryAvailable) "Recover timeline request…" else "New timeline…")
                                 }
@@ -239,18 +245,18 @@ fun LocalLoreScreen(
                                 style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("fork-active"))
                             if (archiveAvailable && state.persistent) {
                                 OutlinedButton(onClick = onArchive,
-                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.recoveryRequired && state.selectedStory != null,
+                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired && state.selectedStory != null,
                                     modifier = Modifier.testTag("story-archive")) { Text("Story archive") }
                             }
                             if (deletionAvailable && state.persistent && state.selectedStory != null) {
                                 OutlinedButton(onClick = onDelete,
-                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.recoveryRequired,
+                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired,
                                     modifier = Modifier.heightIn(min = 48.dp).testTag("delete-story")) { Text("Delete story...") }
                             }
                             if (branchDeletionAvailable && state.persistent && state.selectedStory != null) {
                                 val root = state.stories.firstOrNull { it.story == state.selectedStory.story }
                                 OutlinedButton(onClick = onDeleteTimeline,
-                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.recoveryRequired &&
+                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired &&
                                         root != null && state.selectedStory.branch != root.branch,
                                     modifier = Modifier.heightIn(min = 48.dp).testTag("delete-timeline")) { Text("Delete timeline...") }
                             }
@@ -332,29 +338,33 @@ fun LocalLoreScreen(
                             PlayInputComposer(
                                 input = playInput,
                                 provider = state.textProvider,
-                                busy = state.busy || state.archiveActive || state.deletionActive || state.forkActive ||
+                                busy = state.busy || state.archiveActive || state.deletionActive || state.forkActive || state.creationActive ||
                                     (state.persistent && state.selectedStory == null),
                                 recoveryRequired = state.recoveryRequired,
                                 onKindChange = { kind ->
-                                    if (!currentDraftPending && currentDraftScope == draftScope) {
+                                    if (!currentEditorBlocked && currentDraftInteractionAllowed(draftScope) &&
+                                        !currentDraftPending && currentDraftScope == draftScope) {
                                         val latest = playDraft.resolve(currentDraftScope, pending = false)
                                         playDraft = latest.edit(draftScope, currentDraftScope, latest.input.copy(kind = kind))
                                     }
                                 },
                                 onTextChange = { text ->
-                                    if (!currentDraftPending && currentDraftScope == draftScope) {
+                                    if (!currentEditorBlocked && currentDraftInteractionAllowed(draftScope) &&
+                                        !currentDraftPending && currentDraftScope == draftScope) {
                                         val latest = playDraft.resolve(currentDraftScope, pending = false)
                                         playDraft = latest.edit(draftScope, currentDraftScope, latest.input.copy(text = text))
                                     }
                                 },
                                 onInput = { input ->
-                                    if (!currentDraftPending && currentDraftScope == draftScope) {
+                                    if (!currentEditorBlocked && currentDraftInteractionAllowed(draftScope) &&
+                                        !currentDraftPending && currentDraftScope == draftScope) {
                                         playDraft = playDraft.resolve(currentDraftScope, pending = false)
                                             .edit(draftScope, currentDraftScope, input)
                                     }
                                 },
                                 onSend = { _ ->
-                                    if (!currentDraftPending && currentDraftScope == draftScope) {
+                                    if (!currentEditorBlocked && currentDraftInteractionAllowed(draftScope) &&
+                                        !currentDraftPending && currentDraftScope == draftScope) {
                                         val latest = playDraft.resolve(currentDraftScope, pending = false).input
                                         if (validPlayInput(latest)) onText(latest, renderedStory)
                                     }
@@ -366,7 +376,7 @@ fun LocalLoreScreen(
                     item(key = "actions") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (state.persistent && state.recoveryRequired) OutlinedButton(
-                                onClick = onRecover, enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive,
+                                onClick = onRecover, enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive,
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("recover-save"),
                             ) { Text("Recover saved progress") }
                             AnimatedVisibility(visible = state.busy) {
@@ -401,13 +411,13 @@ fun LocalLoreScreen(
                             }
                             Button(
                                 onClick = { onAction(DemoAction.GIVE_POTION) },
-                                enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.recoveryRequired && (!state.persistent || state.selectedStory != null),
+                                enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired && (!state.persistent || state.selectedStory != null),
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                     .testTag("give-potion"),
                             ) { Text("Give potion to Mira") }
                             OutlinedButton(
                                 onClick = { onAction(DemoAction.TRY_ABILITY) },
-                                enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.recoveryRequired && (!state.persistent || state.selectedStory != null),
+                                enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired && (!state.persistent || state.selectedStory != null),
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                     .testTag("try-ability"),
                             ) { Text("Try unlearned ability") }
@@ -417,19 +427,19 @@ fun LocalLoreScreen(
                         OutlinedButton(
                             onClick = onStoryRecord,
                             enabled = state.persistent && state.selectedStory != null &&
-                                !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.recoveryRequired,
+                                !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                 .testTag("story-record-open"),
                         ) { Text("Story record") }
                     }
                     item(key = "diagnostics") {
-                        TextButton(onClick = onDiagnostics, enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive,
+                        TextButton(onClick = onDiagnostics, enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive,
                             modifier = Modifier.heightIn(min = 48.dp).testTag("open-diagnostics")) {
                             Text("Local diagnostics")
                         }
                     }
                     item(key = "demo-controls") {
-                        DemoResponses(state.mode, state.busy || state.archiveActive || state.deletionActive || state.forkActive || state.recoveryRequired || (state.persistent && state.selectedStory == null), onMode)
+                        DemoResponses(state.mode, state.busy || state.archiveActive || state.deletionActive || state.forkActive || state.creationActive || state.recoveryRequired || (state.persistent && state.selectedStory == null), onMode)
                     }
                 }
             }

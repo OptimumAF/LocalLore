@@ -18,6 +18,7 @@ _COMMON = {"version", "scope", "case", "run_id", "status", "stage", "reason", "c
 _ORIGIN = {"version", "scope", "case", "controller_uid", "product_uid", "signature_sha256",
            "origin_run_id", "origin_product_sha256"}
 _OPS = {"workspace", "branches", "resume", "create", "open", "play_snapshot", "free_text", "submit", "prepare", "commit", "cancel", "other"}
+_OPS_V2 = _OPS | {"story_template", "create_named"}
 _GAME = ("free_text", "submit", "prepare", "commit", "cancel", "other")
 _ZERO = (0, 0, 0, 0, 0, 0)
 _SEND = (1, 0, 1, 1, 0, 0)
@@ -262,11 +263,13 @@ def validate_product_records(proof: dict, records: dict[str, bytes], expected: d
         _keys(records, ("created", "saved", "commands"))
         hint = hashlib.sha256(("1\n" + target["story"] + "\n" + target["branch"] + "\n").encode("utf-8")).hexdigest()
         parsed = {}
+        versions = set()
         for name, event, index in (("created", "created", 2), ("saved", "saved_after_super", 1), ("commands", "command", 2)):
             record = strict_json_bytes(records[name], 4096)
             _keys(record, _RECORD)
-            _int(record["version"], 1, 1)
-            _need(record["scope"] == "locallore_process_verify_v1" and record["run_id"] == expected["run_id"]
+            version = _int(record["version"], 1, 2)
+            versions.add(version)
+            _need(record["scope"] == "locallore_process_verify_v" + str(version) and record["run_id"] == expected["run_id"]
                   and record["event"] == event and record["restored_state"] is True
                   and record["hint_present"] is True and record["hint_sha256"] == hint)
             observation = proof["observations"][index]
@@ -274,10 +277,12 @@ def validate_product_records(proof: dict, records: dict[str, bytes], expected: d
                 _int(record[key], observation[source], observation[source])
             _int(record["factory_creations"], 1, 1)
             _int(record["sequence"], 1, 65536)
-            _keys(record["operations"], _OPS)
+            _keys(record["operations"], _OPS if version == 1 else _OPS_V2)
             for value in record["operations"].values():
                 _int(value, 0, 4096)
             _int(record["operations"]["create"], 0, 0)
+            if version == 2:
+                _int(record["operations"]["create_named"], 0, 0)
             wanted = _vectors(expected["case"])[1] if name == "saved" else _ZERO
             for key, value in zip(_GAME, wanted):
                 _int(record["operations"][key], value, value)
@@ -285,9 +290,10 @@ def validate_product_records(proof: dict, records: dict[str, bytes], expected: d
                 _int(record["sequence"], proof["terminal_observations"][1]["saved_sequence"],
                      proof["terminal_observations"][1]["saved_sequence"])
             parsed[name] = record
+        _need(len(versions) == 1)
         _need(parsed["commands"]["sequence"] > parsed["created"]["sequence"])
         _need(all(parsed["commands"]["operations"][key] >= parsed["created"]["operations"][key]
-                  for key in _OPS))
+                  for key in (_OPS if versions == {1} else _OPS_V2)))
         return parsed
     except Exception:
         raise ControllerEvidenceRefused("controller_evidence_refused") from None

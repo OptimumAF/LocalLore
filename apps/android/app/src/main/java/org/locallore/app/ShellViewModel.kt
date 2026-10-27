@@ -21,6 +21,7 @@ class ShellViewModel internal constructor(
     forkGateway: BranchForkGateway? = null,
     private val forkContextProvider: ((SavedStory, Long, Long) -> BranchForkContext?)? = null,
     private val forkRecoveryStore: ForkRecoveryPersistence? = null,
+    creationGateway: StoryCreationGateway? = gateway as? StoryCreationGateway,
 ) : ViewModel() {
     private val mutable = MutableStateFlow(ShellState())
     val state: StateFlow<ShellState> = mutable.asStateFlow()
@@ -33,6 +34,8 @@ class ShellViewModel internal constructor(
     val storyRecord = recordController.state
     val hasStoryRecords: Boolean get() = gateway.storyRecords
     private var disposed = false
+    internal val creationController = creationGateway?.let { StoryCreationController(it, viewModelScope, ::creationClosed) }
+    internal val creation = creationController?.state ?: MutableStateFlow(StoryCreationUiState()).asStateFlow()
     internal val archiveController = archiveGateway?.let { ArchiveController(it, viewModelScope, ::archiveClosed) }
     val archive = archiveController?.state ?: MutableStateFlow(ArchiveUiState()).asStateFlow()
     private var archiveImportPicker: Long? = null
@@ -58,7 +61,7 @@ class ShellViewModel internal constructor(
     }
     internal val fork = forkController?.state ?: MutableStateFlow(BranchForkUiState()).asStateFlow()
     internal val forkAvailable: Boolean get() = forkController != null
-    private fun forkBlocksActions() = mutableForkVisible.value || fork.value.busy
+    private fun workflowBlocksActions() = mutableForkVisible.value || fork.value.busy || mutable.value.creationActive
     private fun saveForkRecovery(value: BranchForkRecovery?) {
         checkNotNull(forkRecoveryStore).save(value)
         forkRecoveryIdentity = value
@@ -73,7 +76,7 @@ class ShellViewModel internal constructor(
     }
     private fun synchronizeForkContext(next: ShellState = mutable.value): BranchForkContext? {
         val selected = next.selectedStory
-        val context = if (!disposed && next.persistent && !next.busy && !next.archiveActive && !next.deletionActive &&
+        val context = if (!disposed && next.persistent && !next.busy && !next.archiveActive && !next.deletionActive && !next.creationActive &&
             !next.recoveryRequired && !storyRecord.value.visible && !diagnostics.value.visible && selected != null)
             try { forkContextProvider?.invoke(selected, next.revision, forkEpoch) } catch (_: Exception) { null }
         else null
@@ -83,7 +86,7 @@ class ShellViewModel internal constructor(
     internal fun openFork() {
         val before = mutable.value
         val controller = forkController ?: return
-        if (disposed || forkBlocksActions() || before.busy || before.archiveActive || before.deletionActive ||
+        if (disposed || workflowBlocksActions() || before.busy || before.archiveActive || before.deletionActive ||
             before.recoveryRequired || !before.persistent) return
         diagnosticController.dismiss(); recordController.dismiss()
         val context = synchronizeForkContext()
@@ -163,7 +166,7 @@ class ShellViewModel internal constructor(
     fun openBranchDeletion() {
         val controller = branchDeletionController ?: return
         val before = mutable.value
-        if (disposed || forkBlocksActions() || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired || !before.persistent) return
+        if (disposed || workflowBlocksActions() || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired || !before.persistent) return
         val selected = before.selectedStory ?: return
         val root = before.stories.firstOrNull { it.story == selected.story } ?: return
         if (selected.branch == root.branch) return
@@ -187,7 +190,7 @@ class ShellViewModel internal constructor(
     fun openDeletion() {
         val controller = deletionController ?: return
         val before = mutable.value
-        if (disposed || forkBlocksActions() || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired || !before.persistent) return
+        if (disposed || workflowBlocksActions() || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired || !before.persistent) return
         val selected = before.selectedStory ?: return
         val root = before.stories.firstOrNull { it.story == selected.story } ?: return
         diagnosticController.dismiss()
@@ -207,7 +210,7 @@ class ShellViewModel internal constructor(
     fun openArchive() {
         val controller = archiveController ?: return
         val before = mutable.value
-        if (disposed || forkBlocksActions() || before.archiveActive || before.deletionActive || before.busy || before.recoveryRequired || !before.persistent) return
+        if (disposed || workflowBlocksActions() || before.archiveActive || before.deletionActive || before.busy || before.recoveryRequired || !before.persistent) return
         val story = before.selectedStory ?: return
         diagnosticController.dismiss()
         recordController.dismiss()
@@ -328,16 +331,16 @@ class ShellViewModel internal constructor(
     }
 
     fun recover() {
-        if (!disposed && !forkBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && gateway.durable) savedOperation("Saved progress recovered.") {
+        if (!disposed && !workflowBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && gateway.durable) savedOperation("Saved progress recovered.") {
             if (mutable.value.storageLocation == null) gateway.initialize() else gateway.recoverSaved()
         }
     }
     fun resume(story: SavedStory) {
-        if (!disposed && !forkBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && !mutable.value.recoveryRequired && gateway.durable) savedOperation("Saved story resumed.") { gateway.resumeSaved(story) }
+        if (!disposed && !workflowBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && !mutable.value.recoveryRequired && gateway.durable) savedOperation("Saved story resumed.") { gateway.resumeSaved(story) }
     }
     fun resumeTimeline(timeline: SavedTimeline) {
         val before = mutable.value
-        if (disposed || forkBlocksActions() || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired ||
+        if (disposed || workflowBlocksActions() || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired ||
             !before.persistent || !gateway.durable || before.selectedStory?.story != timeline.story ||
             before.timelines.none { it === timeline }) return
         val root = before.stories.firstOrNull { it.story == timeline.story } ?: return
@@ -348,13 +351,13 @@ class ShellViewModel internal constructor(
         }
     }
 
-    fun openDiagnostics() { if (!disposed && !forkBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive) {
+    fun openDiagnostics() { if (!disposed && !workflowBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive) {
         invalidateForkContext(); recordController.dismiss(); diagnosticController.open()
     } }
     fun openStoryRecord() {
         val current = mutable.value
         val story = current.selectedStory ?: return
-        if (!disposed && !forkBlocksActions() && gateway.storyRecords && current.persistent && !current.busy && !current.archiveActive && !current.deletionActive && !current.recoveryRequired) {
+        if (!disposed && !workflowBlocksActions() && gateway.storyRecords && current.persistent && !current.busy && !current.archiveActive && !current.deletionActive && !current.recoveryRequired) {
             invalidateForkContext()
             diagnosticController.dismiss()
             recordController.open(StoryRecordContext(story, current.revision))
@@ -380,7 +383,7 @@ class ShellViewModel internal constructor(
     fun completeDiagnosticExport(writer: (suspend (ByteArray) -> Unit)?) = diagnosticController.completeExport(writer)
 
     fun setMode(mode: DemoMode) {
-        if (!disposed && !forkBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && !mutable.value.recoveryRequired) mutable.value = mutable.value.copy(mode = mode, notice = null)
+        if (!disposed && !workflowBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && !mutable.value.recoveryRequired) mutable.value = mutable.value.copy(mode = mode, notice = null)
     }
 
     fun submit(action: DemoAction) = submitResponse(action.description()) { before ->
@@ -395,7 +398,7 @@ class ShellViewModel internal constructor(
     }
 
     fun submitText(input: PlayInput) {
-        if (disposed || forkBlocksActions() || mutable.value.busy || mutable.value.archiveActive || mutable.value.deletionActive || mutable.value.recoveryRequired ||
+        if (disposed || workflowBlocksActions() || mutable.value.busy || mutable.value.archiveActive || mutable.value.deletionActive || mutable.value.recoveryRequired ||
             (gateway.durable && mutable.value.selectedStory == null)) return
         if (mutable.value.textProvider == TextProvider.UNAVAILABLE || !validPlayInput(input)) {
             mutable.value = mutable.value.copy(notice = "Text input is unavailable or invalid. Nothing changed.")
@@ -405,7 +408,7 @@ class ShellViewModel internal constructor(
     }
 
     private fun submitResponse(playerText: String, prepare: suspend (ShellState) -> DemoResult) {
-        if (disposed || forkBlocksActions() || mutable.value.busy || mutable.value.archiveActive || mutable.value.deletionActive || mutable.value.recoveryRequired ||
+        if (disposed || workflowBlocksActions() || mutable.value.busy || mutable.value.archiveActive || mutable.value.deletionActive || mutable.value.recoveryRequired ||
             (gateway.durable && mutable.value.selectedStory == null)) return
         invalidateForkContext()
         recordController.dismiss()
@@ -469,7 +472,8 @@ class ShellViewModel internal constructor(
     }
 
     fun cancel() {
-        if (forkBlocksActions()) { cancelFork(); return }
+        if (disposed || mutable.value.creationActive) return
+        if (workflowBlocksActions()) { cancelFork(); return }
         recordController.dismiss()
         if (!mutable.value.busy) return
         // Opening storage has no cancellable turn. Closing the ViewModel still releases its handle.
@@ -501,9 +505,42 @@ class ShellViewModel internal constructor(
         diagnosticLog.record(DiagnosticPhase.CANCEL, DiagnosticOutcome.COMPLETED, elapsedMillis(start))
     }
 
+    /** The persistent UI always reviews the native starter before any write. */
+    internal fun canEditPlayDraft(rendered: PlayDraftScope?): Boolean {
+        val current = mutable.value
+        if (disposed || workflowBlocksActions() || current.busy || current.archiveActive || current.deletionActive ||
+            current.recoveryRequired || current.textProvider == TextProvider.UNAVAILABLE) return false
+        if (!current.persistent) return rendered == null
+        val selected = current.selectedStory ?: return false
+        return rendered != null && rendered.story == selected.story && rendered.branch == selected.branch
+    }
+
+    fun startNewStory() {
+        if (!gateway.durable) { reset(); return }
+        val before = mutable.value
+        if (disposed || workflowBlocksActions() || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired) return
+        val controller = creationController
+        if (controller == null) {
+            mutable.value = before.copy(notice = "Story setup review is unavailable. Existing stories are unchanged.")
+            return
+        }
+        diagnosticController.dismiss(); recordController.dismiss(); invalidateForkContext()
+        mutable.value = mutable.value.copy(creationActive = true)
+        controller.open()
+    }
+    private fun creationClosed(result: StoryCreationClose) {
+        if (disposed || !mutable.value.creationActive) return
+        mutable.value = mutable.value.copy(creationActive = false)
+        if (result.saved != null) {
+            mutable.value = publishSaved(result.saved, "Saved story opened. Previous stories remain in the library.")
+        } else if (result.refreshRequired) {
+            savedOperation("Creation may have completed. Review the refreshed library before creating another story.") { gateway.reconcileSaved() }
+        } else { synchronizeForkContext() }
+    }
+
     fun reset() {
         // A retained UI callback must not reopen a native session after onCleared.
-        if (disposed || forkBlocksActions() || mutable.value.archiveActive || mutable.value.deletionActive) return
+        if (disposed || workflowBlocksActions() || mutable.value.archiveActive || mutable.value.deletionActive) return
         if (gateway.durable && (mutable.value.busy || mutable.value.recoveryRequired)) return
         val start = System.nanoTime()
         diagnosticController.dismiss()
@@ -519,6 +556,7 @@ class ShellViewModel internal constructor(
 
     override fun onCleared() {
         disposed = true
+        creationController?.dispose()
         forkController?.dispose() // Cancel/retire before the single workspace transport closes.
         mutableForkVisible.value = false
         archiveController?.dispose()
@@ -532,7 +570,7 @@ class ShellViewModel internal constructor(
         gateway.close()
         pending?.cancel()
         pending = null
-        mutable.value = mutable.value.copy(busy = false, preparingResponse = false, forkActive = false, checkingCancellation = false)
+        mutable.value = mutable.value.copy(busy = false, preparingResponse = false, forkActive = false, checkingCancellation = false, creationActive = false)
         super.onCleared()
     }
 }

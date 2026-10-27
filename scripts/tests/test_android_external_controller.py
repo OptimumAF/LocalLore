@@ -16,7 +16,7 @@ from scripts.tests import test_android_process_controller_evidence as controller
 from scripts.tests import test_android_retirement_evidence as retirement_fixture
 
 
-def deep_fixture(root, case):
+def deep_fixture(root, case, record_version=2):
     """Original synthetic domain fixture, with real validators and retained bytes."""
     out, guest = root / "out", root / "guest"
     out.mkdir(); guest.mkdir()
@@ -33,7 +33,7 @@ def deep_fixture(root, case):
     else:
         proof, expected = controller_fixture.original(case)
         helpers, sidecars = {}, {}
-    records = controller_fixture.product_records(proof)
+    records = controller_fixture.product_records(proof, version=record_version)
     saved = json.loads(records["saved"])
     saved["sequence"] = proof["terminal_observations"][1]["saved_sequence"]
     records["saved"] = controller_fixture.encoded(saved)
@@ -92,10 +92,11 @@ class DeepExecutionTests(unittest.TestCase):
             return external.validate_execution(fixture.request, fixture.out)
 
     def test_all_four_complete_original_evidence_sets_pass_real_deep_validators(self):
-        for case in external.CASES:
-            with self.subTest(case=case), tempfile.TemporaryDirectory() as temporary:
-                f = deep_fixture(Path(temporary), case)
-                self.assertEqual(self.validate(f), f.record)
+        for version in (1, 2):
+            for case in external.CASES:
+                with self.subTest(case=case, version=version), tempfile.TemporaryDirectory() as temporary:
+                    f = deep_fixture(Path(temporary), case, record_version=version)
+                    self.assertEqual(self.validate(f), f.record)
 
     def test_changed_raw_or_client_copy_cannot_retain_passed_summary(self):
         for kind in ("raw", "copy", "proof", "fixture"):

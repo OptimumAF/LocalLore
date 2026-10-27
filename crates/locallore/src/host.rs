@@ -4,6 +4,8 @@ use crate::turn_trace::{
     self, AttemptHandle, AttemptIdentity, Counts, ErrorCategory, IdentityHash, Label, Outcome,
     Provenance, Reader, Revision, RingSink, Selection, Stage, StageTimer, TraceOwner, TraceRing,
 };
+#[cfg(test)]
+mod story_creation_tests;
 use crate::{
     contracts::*,
     engine::{AcceptedHistoryBasis, Engine},
@@ -91,6 +93,15 @@ pub enum HostCommand {
     },
     Create {
         seed: String,
+    },
+    StoryTemplate {
+        template: String,
+    },
+    CreateNamed {
+        template: String,
+        seed_sha256: String,
+        title: String,
+        creation_id: String,
     },
     Open {
         session: String,
@@ -482,6 +493,12 @@ pub trait Persistence: Send {
         Err("Unsupported".into())
     }
     fn create(&mut self) -> Result<Engine, String>;
+    fn create_named(
+        &mut self,
+        _starter: &crate::story_setup::NamedStarter,
+    ) -> Result<(Engine, bool), String> {
+        Err("Unsupported".into())
+    }
     fn resume(&mut self, scope: &Scope) -> Result<Engine, String>;
     fn generation_snapshot(
         &mut self,
@@ -1306,6 +1323,13 @@ impl Host {
                     )
                 }
             }
+            HostCommand::StoryTemplate { template } => {
+                match crate::story_setup::template_preview(&template) {
+                    Ok(preview) => ok(json!(preview)),
+                    Err(error) => reject(error),
+                }
+            }
+            HostCommand::CreateNamed { .. } => reject("Unsupported"),
             HostCommand::Create { seed } => {
                 if seed != "lantern-quay-v1" {
                     return reject("UnsupportedSeed");
@@ -1672,6 +1696,64 @@ impl Host {
                     if serde_json::to_vec(&reply).map_or(true, |bytes| bytes.len() > 64 * 1024) {
                         return Err(reject("TooLarge"));
                     }
+                    Ok(reply)
+                }
+                HostCommand::StoryTemplate { template } => Ok(ok(json!(
+                    crate::story_setup::template_preview(template).map_err(reject)?
+                ))),
+                HostCommand::CreateNamed {
+                    template,
+                    seed_sha256,
+                    title,
+                    creation_id,
+                } => {
+                    let starter = crate::story_setup::prepare_named(
+                        template,
+                        seed_sha256,
+                        title,
+                        creation_id,
+                    )
+                    .map_err(reject)?;
+                    let scope = starter.seed().scope.clone();
+                    let existing = state
+                        .sessions
+                        .iter()
+                        .find(|(_, s)| s.engine.scope() == &scope)
+                        .map(|(id, _)| id.clone());
+                    if existing.is_none() {
+                        if state.sessions.len() >= MAX_SESSIONS {
+                            return Err(reject("SessionLimit"));
+                        }
+                        if state.next.checked_add(1).is_none() {
+                            return Err(reject("IdExhausted"));
+                        }
+                    }
+                    let (engine, created) = state
+                        .persistence
+                        .as_mut()
+                        .unwrap()
+                        .create_named(&starter)
+                        .map_err(reject)?;
+                    if engine.scope() != &scope {
+                        return Err(reject("Integrity"));
+                    }
+                    if engine.seed() != starter.seed() {
+                        return Err(reject("Stale"));
+                    }
+                    let mut reply = if let Some(id) = existing {
+                        // The exact Store identity was checked above; still retain the existing
+                        // accepted-prefix fence instead of replacing a cached authority.
+                        refresh_session(state, &id, &scope)?;
+                        ok(
+                            json!({"session":id,"scope":scope,"revision":state.sessions[&id].engine.revision()}),
+                        )
+                    } else {
+                        attach_engine(state, engine)
+                    };
+                    if reply["status"] != "ok" {
+                        return Err(reply);
+                    }
+                    reply["data"]["created"] = json!(created);
                     Ok(reply)
                 }
                 HostCommand::Create { seed } => {

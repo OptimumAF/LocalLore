@@ -70,6 +70,18 @@ Bound stdout/stderr, reports, files and captures; retain process records and
 original failure evidence locally/gitignored.
 
 Reuse the source-reviewed scene launcher policy:900s Cargo/240s other commands,
+except the fixed scene4 app cohort uses a900s app watchdog and960s launcher
+limit. The first actual attempt at9868de4f wrote its paired/rollout fixture
+reports116/125s after process start, then failed its first mounted open and
+hit the ordinary180s app watchdog before shutdown completed. No render was
+produced; the original failure and successful normal restoration are retained.
+These development cohort budgets include fixture production, fresh source
+validation and15 render journeys; they are not production operation deadlines
+or latency claims. Existing literal2/3 budgets stay unchanged. The frontend
+failure record preserves bounded state before cleanup and per-check elapsed
+times, so cleanup cannot replace the original failure diagnosis.
+
+Retain
 one direct-child kill attempt and5s grace. A timeout/live-PID error makes owned
 drain unknown even if the direct child subsequently closes. Detach only owned
 pipes/handle, block every later spawn and skip/unqualify restoration. Do not

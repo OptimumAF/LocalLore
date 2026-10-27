@@ -404,30 +404,41 @@ try {
     );
     for (const stage of ["initial", "restart"]) {
         const directory = path.join(folder, stage);
-        await run(`app-${stage}`, executable, [], {
-            LOCALLORE_D02_HARNESS: "1",
-            LOCALLORE_D03_HARNESS: "0",
-            LOCALLORE_D04_HARNESS: "0",
-            LOCALLORE_D05_HARNESS: "0",
-            LOCALLORE_D06_HARNESS: "0",
-            LOCALLORE_D06_CAPTURE_HARNESS: "0",
-            LOCALLORE_D07_HARNESS: "0",
-            LOCALLORE_D07_CURATED_HARNESS: "0",
-            LOCALLORE_D08_HARNESS: "0",
-            LOCALLORE_D08_TIMELINE_HARNESS: "0",
-            LOCALLORE_D08_FORK_HARNESS: "0",
-            LOCALLORE_M07_LEGACY_HARNESS: "0",
-            LOCALLORE_M07_MEMORY_HARNESS: "0",
-            LOCALLORE_M08_AUTHOR_HARNESS: "0",
-            LOCALLORE_TEST_STORAGE_FAILURE: "0",
-            LOCALLORE_D07_COMPARISON_READER_HARNESS: "1",
-            LOCALLORE_D07_LITERAL_COMPARISON_READER: literalMode ? "1" : "0",
-            LOCALLORE_D07_SCENE_COMPARISON_READER: sceneMode ? "1" : "0",
-            LOCALLORE_D02_ARTIFACT_DIR: directory,
-            LOCALLORE_TEST_MEMORY: "0",
-            LOCALLORE_TEST_WORKSPACE: path.join(folder, "stories-v1.sqlite"),
-            LOCALLORE_TEST_RESTART: stage === "restart" ? "1" : "0",
-        });
+        await run(
+            `app-${stage}`,
+            executable,
+            [],
+            {
+                LOCALLORE_D02_HARNESS: "1",
+                LOCALLORE_D03_HARNESS: "0",
+                LOCALLORE_D04_HARNESS: "0",
+                LOCALLORE_D05_HARNESS: "0",
+                LOCALLORE_D06_HARNESS: "0",
+                LOCALLORE_D06_CAPTURE_HARNESS: "0",
+                LOCALLORE_D07_HARNESS: "0",
+                LOCALLORE_D07_CURATED_HARNESS: "0",
+                LOCALLORE_D08_HARNESS: "0",
+                LOCALLORE_D08_TIMELINE_HARNESS: "0",
+                LOCALLORE_D08_FORK_HARNESS: "0",
+                LOCALLORE_M07_LEGACY_HARNESS: "0",
+                LOCALLORE_M07_MEMORY_HARNESS: "0",
+                LOCALLORE_M08_AUTHOR_HARNESS: "0",
+                LOCALLORE_TEST_STORAGE_FAILURE: "0",
+                LOCALLORE_D07_COMPARISON_READER_HARNESS: "1",
+                LOCALLORE_D07_LITERAL_COMPARISON_READER: literalMode
+                    ? "1"
+                    : "0",
+                LOCALLORE_D07_SCENE_COMPARISON_READER: sceneMode ? "1" : "0",
+                LOCALLORE_D02_ARTIFACT_DIR: directory,
+                LOCALLORE_TEST_MEMORY: "0",
+                LOCALLORE_TEST_WORKSPACE: path.join(
+                    folder,
+                    "stories-v1.sqlite",
+                ),
+                LOCALLORE_TEST_RESTART: stage === "restart" ? "1" : "0",
+            },
+            sceneMode ? 960000 : 240000,
+        );
         const report = await artifactJson(path.join(directory, "report.json"));
         reports.push({ stage, report });
         assert.equal(

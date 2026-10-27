@@ -570,6 +570,10 @@ fn main() {
                             == Ok("1")
                             || std::env::var("LOCALLORE_D07_FULL_COMPARISON_HARNESS").as_deref()
                                 == Ok("1")
+                            || (comparison_reader_harness::active()
+                                && std::env::var("LOCALLORE_D07_SCENE_COMPARISON_READER")
+                                    .as_deref()
+                                    == Ok("1"))
                         {
                             // Serial real SQLite fixtures, read revalidation and
                             // 27+ app-owned render checkpoints and an explicit

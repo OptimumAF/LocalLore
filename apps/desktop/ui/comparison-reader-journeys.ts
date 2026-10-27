@@ -34,6 +34,8 @@ export async function comparisonReaderJourneys({
     config: { stage: string };
 }) {
     const checks: string[] = [];
+    const startedAt = performance.now();
+    const timing: { check: string; elapsedMs: number }[] = [];
     let failedCheck = "comparison-start";
     let failureCategory: string | null = null;
     let fixtureInventory: Record<string, string> | null = null;
@@ -43,6 +45,10 @@ export async function comparisonReaderJourneys({
         failedCheck = label;
         if (!value) throw Error(label);
         checks.push(label);
+        timing.push({
+            check: label,
+            elapsedMs: Math.round(performance.now() - startedAt),
+        });
     };
     const until = async (fn: () => boolean) => {
         for (let n = 0; n < 3000; n++) {
@@ -964,10 +970,27 @@ export async function comparisonReaderJourneys({
                 desktopInput: false,
                 rendering: "native-webview2",
                 nativeDialogsAutomated: false,
+                timing,
             },
         });
-    } catch {
+    } catch (error) {
         const originalFailedCheck = failedCheck;
+        // Cleanup can retire the capability and replace the visible error.
+        // Preserve the bounded original state before doing any cleanup work.
+        const original = r.get();
+        const originalFailure = {
+            elapsedMs: Math.round(performance.now() - startedAt),
+            error:
+                error instanceof Error
+                    ? error.message.slice(0, 256)
+                    : String(error).slice(0, 256),
+            comparisonError: original.error,
+            phase: original.status?.phase ?? null,
+            running: original.status?.running ?? null,
+            busy: original.busy,
+            uncertain: original.uncertain,
+            sourceVersion: original.source?.protocol_version ?? null,
+        };
         try {
             await invoke("harness_comparison_reader_case", {
                 scenario: "release-picker",
@@ -985,6 +1008,8 @@ export async function comparisonReaderJourneys({
                 failedCheck: originalFailedCheck,
                 failureCategory,
                 checks,
+                timing,
+                originalFailure,
                 errors: errors.snapshot(),
                 comparisonError: r.get().error,
                 phase: r.get().status?.phase,

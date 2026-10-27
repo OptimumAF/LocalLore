@@ -364,3 +364,24 @@ not native/model execution. An earlier attempt ran after a wrong-directory
 staging failure with a dirty source; it is retained but is not the clean RED.
 The abort path has not been injected into an actual native worker. Fresh final
 frontend/native-unit/static/normal restoration results follow when executed.
+
+The second independent review added two actual-controller cases in which closed
+presentation still reports native running/drain flags while a separate generic
+cleanup observation is clean. At clean `1312c1140975ece52495940d589ccb1e690c57eb`
+the original ten passed and these two failed (0.224s). Including current pending,
+running and native run cleanup flags in the conservative warning made the same
+twelve pass at clean `3aa9c83b06f57c99cd0b89e879c6636c8c95bd61` (0.183s).
+Acknowledged denial was already safe; this correction prevents a false cleanup
+observation. No actual native-worker failure injection is claimed.
+
+The integrated shared Rust check at clean unchanged `ccd5f05d` passed
+`cargo test -p locallore -p locallore-storage -p locallore-workspace --all-features
+--locked --offline --jobs 1 --target-dir <owned target>`:785 passed/0 failed/
+11 ignored across111 result summaries including doctests,443.671s command.
+The eleven ignores retain their original historical-capture/explicit-budget/
+process-helper/symlink-privilege/superseded reasons; none is counted as a pass.
+This exercises the accepted-main Host/workspace/creation changes and shared
+storage/memory/stress tests. Full frontend verification at the same source
+passed in16.898s before the two additional abort cases. Later changes affect
+only the development journey, its checker and documentation, with no Rust,
+native IPC, runtime, provider, lock or production consumer changes from960.

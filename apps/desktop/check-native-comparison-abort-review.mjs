@@ -341,27 +341,49 @@ for (const [name, closeStatus] of [
             assert.equal(beforeDispose.status?.version, 2);
             assert.equal(beforeDispose.status?.phase, "closed");
             for (const [field, value] of Object.entries(closeStatus))
-                assert.equal(beforeDispose.status[field], value, `actual controller retained ${field}`);
-            assert.deepEqual(beforeDispose.cleanup, {
-                version: 1,
-                kind: "selected_cleanup",
-                cleanup_required: false,
-                running: false,
-                error: null,
-            }, "one actual generic status reply remains separate from run flags");
+                assert.equal(
+                    beforeDispose.status[field],
+                    value,
+                    `actual controller retained ${field}`,
+                );
+            assert.deepEqual(
+                beforeDispose.cleanup,
+                {
+                    version: 1,
+                    kind: "selected_cleanup",
+                    cleanup_required: false,
+                    running: false,
+                    error: null,
+                },
+                "one actual generic status reply remains separate from run flags",
+            );
             assert.equal(
-                f.nativeCalls.filter((call) => call.action === "cleanup_status").length,
+                f.nativeCalls.filter((call) => call.action === "cleanup_status")
+                    .length,
                 1,
                 "actual close performs its bounded independent cleanup observation",
             );
-            assert.equal(beforeDispose.uncertain, false, "closed identity acknowledgement is not service quiescence");
+            assert.equal(
+                beforeDispose.uncertain,
+                false,
+                "closed identity acknowledgement is not service quiescence",
+            );
             assert.equal(beforeDispose.error, null);
             assert.equal(result.released, true);
             assert.equal(f.observation().disposed, 1);
             assert.equal(f.observation().released, 1);
-            assert.deepEqual(f.events, ["deny", "close-rpc", "release", "dispose"]);
+            assert.deepEqual(f.events, [
+                "deny",
+                "close-rpc",
+                "release",
+                "dispose",
+            ]);
             noGeneration(f);
-            assert.equal(result.cleanupUnconfirmed, true, "positive run drain/cleanup flags cannot be hidden by a clean generic DTO");
+            assert.equal(
+                result.cleanupUnconfirmed,
+                true,
+                "positive run drain/cleanup flags cannot be hidden by a clean generic DTO",
+            );
         } finally {
             await f.finish();
         }

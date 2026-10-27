@@ -27,10 +27,24 @@ export type HostCommand =
           template: string;
       }
     | {
+          op: "story_setup";
+          player_name?: string | null;
+          template: string;
+      }
+    | {
           creation_id: string;
           op: "create_named";
           seed_sha256: string;
           template: string;
+          title: string;
+      }
+    | {
+          creation_id: string;
+          op: "create_configured";
+          player_name: string;
+          setup_sha256: string;
+          template: string;
+          template_sha256: string;
           title: string;
       }
     | {
